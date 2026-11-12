@@ -388,6 +388,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
+   * Held where its confinement covers the folder (ADR 0041, BOX-2): the server a start there runs
+   * on is the folder's own, inside Halcyonic's sandbox, as `#slotFor` chooses it.
+   */
+  holdsFolder(directory: string): boolean {
+    return this.#confinement?.forDirectory(directory)?.project === directory;
+  }
+
+  /**
    * The models Codex can run a thread on, from `config/read` and `model/list` (see
    * `modelsFromCodex`). Launches the server when none runs.
    */

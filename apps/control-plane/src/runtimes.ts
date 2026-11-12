@@ -133,30 +133,19 @@ export function createRuntimeAdapters(
 
 /**
  * Whether a runtime is held to a folder it is given, so that in a task's own copy it writes only
- * that copy (ADR 0045), on this computer:
- * - Codex, where its confinement covers the folder: every execution's folder on macOS (BOX-2).
- *   Built from the same confinement the Codex adapter is given, so it follows what that covers.
- * - OpenCode on macOS, where every execution's folder has a sandboxed server of its own that writes
- *   that folder alone (BOX-3), the sandbox `createRuntimeAdapters` gives it there and nowhere else.
- * - Never Claude Code, which runs with no sandbox, nor the mock runtime, which works in no folder.
+ * that copy (ADR 0045), on this computer: each adapter answers for itself from the confinement it
+ * applies at a start (`RuntimeAdapter.holdsFolder`), so no runtime is named here. Today Codex where
+ * its confinement covers the folder (BOX-2), OpenCode where it runs sandboxed (BOX-3) and Claude
+ * Code where it runs inside the closed profile (BOX-4, unit 4c); never the mock runtime, which
+ * works in no folder, nor a runtime that is not registered.
  */
 export function heldToFolder(
   adapters: readonly RuntimeAdapter[],
-  dependencies: Pick<
-    RuntimeDependencies,
-    'starterOf' | 'originalOf' | 'dataDir' | 'projectFolders'
-  >,
 ): (runtimeId: string, directory: string) => boolean {
-  const codex = adapters.find((adapter) => adapter instanceof CodexRuntimeAdapter);
-  const opencode = adapters.find((adapter) => adapter instanceof OpenCodeRuntimeAdapter);
-  const confinement = codexConfinement(dependencies).confinement;
-  const openCodeSandboxed = process.platform === 'darwin';
   return (runtimeId, directory) =>
-    (codex !== undefined &&
-      confinement !== undefined &&
-      runtimeId === codex.descriptor.runtime_id &&
-      confinement.forDirectory(directory) !== null) ||
-    (opencode !== undefined && openCodeSandboxed && runtimeId === opencode.descriptor.runtime_id);
+    adapters
+      .find((adapter) => adapter.descriptor.runtime_id === runtimeId)
+      ?.holdsFolder?.(directory) === true;
 }
 
 /**

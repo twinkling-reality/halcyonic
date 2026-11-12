@@ -647,6 +647,14 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
+   * Held wherever it runs sandboxed (ADR 0028, BOX-3): every folder's server writes that folder
+   * alone, and its own folders.
+   */
+  holdsFolder(_directory: string): boolean {
+    return this.sandboxed;
+  }
+
+  /**
    * The models OpenCode offers, from `GET /api/model` at the server's own location, field by
    * field: never `/api/provider`, and never a provider's settings, keys or headers. Launches the
    * server when none runs; the first listing on a server waits for OpenCode to load the location

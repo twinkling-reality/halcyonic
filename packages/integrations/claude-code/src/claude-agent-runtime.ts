@@ -262,6 +262,16 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
+   * Held where a start runs inside Halcyonic's closed profile (ADR 0048, BOX-4), as `#scopeFor`
+   * decides it: a folder its confinement covers, on macOS, with no cloud provider switched on. Its
+   * record still says not confined there, for what its commands can read (AUDIT BOX-4 F1); what it
+   * can write is that folder and its own place alone.
+   */
+  holdsFolder(directory: string): boolean {
+    return this.#scopeFor(directory).folder !== null;
+  }
+
+  /**
    * The models Claude Code offers, from the Agent SDK's `supportedModels()`, which answers once a
    * Claude Code process has started. The process gets no prompt and is closed at once; it runs
    * guarded like any other. Each model is named by the concrete model it resolves to where the SDK

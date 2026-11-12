@@ -273,6 +273,13 @@ export interface RuntimeAdapter {
    * runtime cannot list them. The result is never journaled.
    */
   listModels?(): Promise<readonly RuntimeModel[]>;
+  /**
+   * Whether a start in `directory` on this computer runs held to that folder: its commands write
+   * no folder but it and the runtime's own home and temporary folders, so a task may work in a copy
+   * of its own there (ADR 0045). The adapter answers from the confinement it applies at the start
+   * itself. Absent, or false, the runtime is not held, and its tasks get no copy.
+   */
+  holdsFolder?(directory: string): boolean;
   startExecution?(request: StartExecutionRequest): Promise<StartExecutionResult>;
   /**
    * `leave_plan` (PLAN), on the request: leave the runtime's plan mode in the same session first,
