@@ -406,6 +406,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void LayCardPress(RoomCard card, float width, float tall)
         {
+            if (card.Press is KitControl next && (cardControl is not KitControl was || RoomButton.Doing(was) != RoomButton.Doing(next))) cardPress?.Unsettle();
             cardControl = card.Press;
             PanelRing = null;
             if (card.Press == null)
@@ -1187,6 +1188,8 @@ namespace Halcyonic.XR.UI
                 rowControls.Add(null);
             }
             var (target, host) = rowPresses[rowPressesUsed];
+            // A row, slot or card press that now does something else arrives anew and settles again (AUDIT, 2026-11-12).
+            if (rowControls[rowPressesUsed] is not KitControl was || RoomButton.Doing(was) != RoomButton.Doing(control)) target.Unsettle();
             rowControls[rowPressesUsed] = control;
             rowPressesUsed++;
             host.SetActive(true);

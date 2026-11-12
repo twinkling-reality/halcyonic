@@ -122,6 +122,9 @@ namespace Halcyonic.XR.UI
         private bool chosen;
         private string? shownWords;
         private string? shownAside;
+
+        /// <summary>What the shown action does (its control's action and key): a new command in the same place arrives anew.</summary>
+        private string? shownDoing;
         private RoomShape asidePlate = null!;
         private TextMeshPro asideWords = null!;
         private RoomShape asideMark = null!;
@@ -356,8 +359,13 @@ namespace Halcyonic.XR.UI
         /// Shows the button centred at <paramref name="centre"/>, content-sized (<paramref name="width"/> its least core width).
         /// Its target is the core grown to Meta's hand target.
         /// </summary>
+        /// <param name="doing">
+        /// What the action does, as its control's identity (<see cref="Doing"/>): where it changes, the button arrives anew and
+        /// settles again before a press counts, even with the same words in the same place (AUDIT, 2026-11-12: approval B drawn
+        /// where approval A was answered must never take the pinch that answered A).
+        /// </param>
         public void Show(string text, GlazeIcon? icon, bool isMain, bool available, Vector2 centre, float width, AnswerMark mark = AnswerMark.None,
-            bool chosen = false, float wrap = 0f, string? aside = null)
+            bool chosen = false, float wrap = 0f, string? aside = null, string? doing = null)
         {
             // An action that cannot act yet is not drawn (BUILD-SPEC-v4 1.4, 2026-11-05): no disabled look; it arrives when it can act.
             if (!available)
@@ -367,7 +375,9 @@ namespace Halcyonic.XR.UI
             }
             var arrives = !gameObject.activeSelf;
             aside = string.IsNullOrWhiteSpace(aside) ? null : aside;
-            var changed = arrives || shownWords != text || shownAside != aside || main != isMain || this.mark != mark || this.chosen != chosen;
+            var changed = arrives || shownWords != text || shownAside != aside || main != isMain || this.mark != mark || this.chosen != chosen
+                || !string.Equals(shownDoing, doing, StringComparison.Ordinal);
+            shownDoing = doing;
             shownWords = text;
             shownAside = aside;
             main = isMain;
@@ -434,6 +444,9 @@ namespace Halcyonic.XR.UI
             lookSince = float.NegativeInfinity;
             if (gameObject.activeSelf) Paint(immediately: true);
         }
+
+        /// <summary>A control's identity for <c>doing</c>: its action and its key (an approval's own id), never its words.</summary>
+        public static string Doing(KitControl control) => control.Action + "\n" + (control.Key ?? "");
 
         /// <summary>
         /// The glyph an action carries: DESIGN's own for its words (<see cref="RoomGlyphs.Named"/>), else the one its icon
