@@ -7,6 +7,7 @@ import {
 } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import type { AddressInfo, Socket } from 'node:net';
+import { upstreamProblem } from '@halcyonic/runtime-core';
 
 /**
  * The one way out of Halcyonic's closed sandbox for a confined agent app (ADR 0048, BOX-4), and the
@@ -204,15 +205,21 @@ export function upstreamPath(
   return `${prefix}${path}`;
 }
 
-/** The request's headers as they go upstream: no credential of the app's, the upstream's host, and the declared one. */
+/**
+ * The request's headers as they go upstream: no credential of the app's (the header it presents its run credential
+ * in among them, whatever that is), the upstream's host, and the declared one.
+ */
 export function upstreamHeaders(
   headers: IncomingHttpHeaders,
   upstream: URL,
   credential: GateCredential,
+  presentedHeader?: string,
 ): Record<string, string | string[]> {
   const out: Record<string, string | string[]> = {};
+  const presented = presentedHeader?.toLowerCase();
   for (const [name, value] of Object.entries(headers)) {
-    if (value === undefined || DROPPED.has(name.toLowerCase())) continue;
+    const lower = name.toLowerCase();
+    if (value === undefined || DROPPED.has(lower) || lower === presented) continue;
     out[name] = value;
   }
   out.host = upstream.host;
@@ -248,9 +255,10 @@ export async function startApiGate(
   credential: GateCredential,
   presented: PresentedCredential,
 ): Promise<ApiGate> {
-  if (upstream.protocol !== 'https:' && upstream.protocol !== 'http:') {
-    throw new Error(`the API's address must be http or https, not ${upstream.protocol}`);
-  }
+  // The one rule a provider's declaration is read by (ADR 0061, AUDIT2 N2): a key leaves only over https, or to
+  // this Mac for proofs, and never to an address carrying more than a place.
+  const problem = upstreamProblem(upstream.href);
+  if (problem !== null) throw new Error(problem);
   if (!/^[a-z0-9-]{1,64}$/i.test(credential.header) || credential.value === '') {
     throw new Error('the gate needs a credential header and its value');
   }
@@ -277,7 +285,7 @@ export async function startApiGate(
         port: upstream.port === '' ? undefined : Number(upstream.port),
         method: req.method,
         path,
-        headers: upstreamHeaders(req.headers, upstream, credential),
+        headers: upstreamHeaders(req.headers, upstream, credential, presented.header),
       },
       (answer) => {
         res.writeHead(answer.statusCode ?? 502, answer.headers);
