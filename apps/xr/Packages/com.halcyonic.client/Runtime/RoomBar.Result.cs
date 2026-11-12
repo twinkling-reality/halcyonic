@@ -38,6 +38,13 @@ namespace Halcyonic.Client
             // The view draws each action's glyph by its words (RoomGlyphs); the icon is the nearest of the product's own.
             RoomAction Own(string action, string words, bool main, GlazeIcon icon) =>
                 new RoomAction(new KitControl(KitPlace.Step, frame, action, null, words, icon, true, null, false), main, icon: icon);
+            // A result's Checks, one rule wherever it is offered: the computer's own check where it ran one, else the file's Checks section
+            // where the file reads what the run's checks found (the recorded run and the demonstration alike); none where neither is.
+            RoomAction? ChecksOf() => result.Steps.Count > 0 ? Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next)
+                : frame.Sections.Any(section => section.Key == ChecksSectionKey)
+                    ? new RoomAction(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, ChecksSectionKey, RoomResult.ChecksWords,
+                        GlazeIcon.Next, true, null, false), main: false, icon: GlazeIcon.Next)
+                    : null;
             var instruct = binding[KitPlace.Field] is { Available: true } field ? field : null;
             var column = new List<RoomAction>();
             LineWords body = LineWords.None;
@@ -57,7 +64,7 @@ namespace Halcyonic.Client
                     // DEVICE's History, Changes' second action (lead, 2026-11-11): the versions the computer kept, and Restore.
                     column.Add(Own(RoomResult.ShowHistory, HistoryText.Title, main: false, GlazeIcon.Next));
                     // The result's other page one press away, as tabs are at a desk: every page of a result is reached by a drawn control.
-                    if (result.Steps.Count > 0) column.Add(Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next));
+                    if (ChecksOf() is RoomAction toChecks) column.Add(toChecks);
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
                 case RoomResultPage.Add:
@@ -193,12 +200,7 @@ namespace Halcyonic.Client
                     // The one Changes (the lead, 11:15Z): always offered at rest, its page saying Nothing Changed where none did and the plain
                     // not-seen words where the computer could not say, as a desk always has its Changes (JUDGE's live-17: unreached otherwise).
                     column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
-                    if (result.Steps.Count > 0) column.Add(Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next));
-                    // Where the computer ran no check of its own but the file reads what the run's checks found (its Checks section),
-                    // Checks opens that section: every page of a result a drawn press away (AUDIT's census, 2026-11-12).
-                    else if (frame.Sections.Any(section => section.Key == ChecksSectionKey))
-                        column.Add(new RoomAction(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, ChecksSectionKey, RoomResult.ChecksWords,
-                            GlazeIcon.Next, true, null, false), main: false, icon: GlazeIcon.Next));
+                    if (ChecksOf() is RoomAction atRestChecks) column.Add(atRestChecks);
                     // The agent's words stand on the band beside its result, never beside how a run stands (B): nothing extra.
                     // Beside how a run stands, only that turn's own words, on the band, read by parts and never cut (the card stays whole).
                     band = card != null && ReferenceEquals(card, binding.Model.Standing)

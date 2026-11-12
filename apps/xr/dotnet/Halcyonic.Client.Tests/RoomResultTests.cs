@@ -155,7 +155,9 @@ public class RoomResultTests
         var first = Bar(new RoomResult(false, true, false, null, Turn(many), null, RoomResultPage.Changes));
         Assert.That((first.Card!.List.Count, first.Column[0].Control.Action, first.Column[0].Main, first.Column[0].Words), Is.EqualTo((RoomCard.ListAPage, RoomResult.NextPage, true, "Next Page")), "the product's own pager words, from the first page");
         var last = Bar(new RoomResult(false, true, false, null, Turn(many), null, RoomResultPage.Changes, part: 2));
-        Assert.That((last.Card!.List.Count, last.Card.List[0].Name.Text, last.Column.Count(NotClose)), Is.EqualTo((1, "src/f11.ts", 2)));
+        // History, the file's Checks (one rule for a result's Checks: the computer's own check, else the file's section) and Back.
+        Assert.That((last.Card!.List.Count, last.Card.List[0].Name.Text, last.Column.Count(NotClose)), Is.EqualTo((1, "src/f11.ts", 3)));
+        Assert.That(last.Column.Any(action => action.Control.Action == MenuFrame.ChooseSection && action.Control.Key == FileScreens.Key(FileSection.Checks)), Is.True);
 
         // Checks: each step with its mark; failed, the way to an instruction leads; passed with a build to try, Try Build.
         var failed = Bar(new RoomResult(true, false, false, false, null, Steps(buildFails: true), RoomResultPage.Checks));
