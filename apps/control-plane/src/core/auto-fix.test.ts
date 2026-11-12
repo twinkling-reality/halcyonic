@@ -96,7 +96,7 @@ async function quiet(): Promise<void> {
 function plane(
   t: TestContext,
   results: CheckResult[],
-  options: { atRest?: boolean; dataDir?: string } = {},
+  options: { atRest?: boolean; dataDir?: string; trackedDir?: string } = {},
 ) {
   const dataDir =
     options.dataDir ?? realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-auto-fix-')));
@@ -127,7 +127,10 @@ function plane(
       browser: { folder: '/fake/chrome-headless-shell', sha256: 'a'.repeat(64) },
       browserProblem: () => null,
       launcher: () => '/fake/bin/halcyonic-disclaim',
-      starters: { trackedDir: '/repo/starters', installedDir: join(dataDir, 'starters') },
+      starters: {
+        trackedDir: options.trackedDir ?? '/repo/starters',
+        installedDir: join(dataDir, 'starters'),
+      },
       confinesCodex: true,
       runCheck: async (check) => {
         mkdirSync(check.cache, { recursive: true });
@@ -506,6 +509,83 @@ describe('a failed check goes back to its agent on its own, within a cap (ADR 00
     p.changedFiles(executionId, 0);
     await until(() => p.ended().length === 1, 'the end');
     assert.equal(p.ended()[0]?.payload.reason, 'no_change');
+  });
+});
+
+describe("what the starter's check refuses goes back to the agent in the starter's words (VRIFY, 2026-11-12)", () => {
+  test("a VR version showing its original's share picture fails its check with the starter's words, gets its try, and passes once it is gone", async (t) => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-refused-')));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const words = "This shows the original app's share picture. Bring the original's own view.";
+    mkdirSync(join(root, 'starters', 'iwsdk-vr'), { recursive: true });
+    writeFileSync(
+      join(root, 'starters', 'iwsdk-vr', 'starter.json'),
+      JSON.stringify({
+        format: 1,
+        title: 'A VR app',
+        check_refuses: [
+          { kind: 'original_share_image', words },
+          { kind: 'unknown_kind', words: 'never' },
+        ],
+      }),
+    );
+    const p = plane(t, [PASSED, PASSED], { trackedDir: join(root, 'starters') });
+    // The original web app, with its share picture, and the VR version made from it.
+    const originalFolder = join(p.dataDir, 'projects', 'wind-chimes');
+    mkdirSync(join(originalFolder, 'public'), { recursive: true });
+    writeFileSync(
+      join(originalFolder, 'index.html'),
+      '<meta property="og:image" content="/og.png">\n',
+    );
+    const picture = Buffer.from('the original app share picture');
+    writeFileSync(join(originalFolder, 'public', 'og.png'), picture);
+    const originalId = '01a19000-0000-7000-8000-000000000009' as ProjectId;
+    const originalScope = { project_id: originalId, workstream_id: null, execution_id: null };
+    p.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.created',
+        originalScope,
+        {
+          name: 'Wind Chimes',
+          location: { path: originalFolder, name: 'wind-chimes', created: false },
+        },
+        p.now,
+        NO_CAUSE,
+      ),
+    );
+    p.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.made_from',
+        { project_id: p.projectId, workstream_id: null, execution_id: null },
+        { original_project_id: originalId, instruction: 'Make a VR version.' },
+        p.now,
+        NO_CAUSE,
+      ),
+    );
+    mkdirSync(join(p.folder, 'public', 'textures'), { recursive: true });
+    writeFileSync(join(p.folder, 'public', 'textures', 'hero.png'), picture);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the try');
+    const refused = p.ofType('project.check.recorded')[0]?.payload.findings;
+    assert.equal(refused?.passed, false);
+    assert.equal(refused?.ready, false);
+    assert.deepEqual(refused?.refusals, [
+      { kind: 'original_share_image', words, file: 'public/textures/hero.png' },
+    ]);
+    assert.equal(
+      p.runtime.given[1],
+      `${AUTO_FIX_WORDS}\n\nThe check refused it:\n- ${words} (public/textures/hero.png)`,
+    );
+    // The agent takes the picture out; the next check refuses nothing and the chain ends passed.
+    await p.time.runUntilIdle();
+    rmSync(join(p.folder, 'public', 'textures', 'hero.png'));
+    p.changedFiles(executionId);
+    await until(() => p.ended().length === 1, 'the end of the chain');
+    assert.equal(p.ended()[0]?.payload.reason, 'passed');
+    const second = p.ofType('project.check.recorded')[1]?.payload.findings;
+    assert.equal(second?.passed, true);
+    assert.equal(second?.refusals, undefined);
   });
 });
 

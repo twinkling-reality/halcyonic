@@ -520,6 +520,40 @@ describe('making a VR version of a project (M1.8c-1)', () => {
   });
 });
 
+describe("what a starter's check refuses, as its starter.json declares it (VRIFY, 2026-11-12)", () => {
+  test("the VR starter refuses its original's share picture, in its own words", () => {
+    const real = new HostStarters({
+      trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
+      installedDir: join(base, 'no-installed'),
+    });
+    const [refusal, ...more] = real.checkRefusals(VR_STARTER);
+    assert.equal(more.length, 0);
+    assert.equal(refusal?.kind, 'original_share_image');
+    assert.match(refusal?.words ?? '', /share picture/);
+    assert.deepEqual(real.checkRefusals('world'), []);
+  });
+
+  test('an entry of a kind the host cannot find, or without words, refuses nothing', () => {
+    const fixture = setup('refuses');
+    writeFileSync(
+      join(fixture.tracked, 'vr', 'starter.json'),
+      JSON.stringify({
+        format: 1,
+        title: 'A VR app',
+        check_refuses: [
+          { kind: 'judged_generic', words: 'never a judgement' },
+          { kind: 'original_share_image', words: '   ' },
+          { kind: 'original_share_image', words: 'Bring the view.' },
+        ],
+      }),
+    );
+    assert.deepEqual(fixture.starters.checkRefusals('vr'), [
+      { kind: 'original_share_image', words: 'Bring the view.' },
+    ]);
+    assert.deepEqual(fixture.starters.checkRefusals('no-such-starter'), []);
+  });
+});
+
 describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)", () => {
   const host = {
     roots: ['/Users/someone/dev', '/Users/someone/work'],

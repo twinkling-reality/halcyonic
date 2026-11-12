@@ -16,11 +16,12 @@ import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import type { StarterView } from '@halcyonic/contracts';
 import { STARTER_DEFAULTS, type StarterDeclarations } from '@halcyonic/domain';
+import { type DeclaredRefusal, REFUSAL_KINDS } from './preview/refusals.ts';
 
 /**
  * Starters a new project can begin from (ADR 0037). Each is tracked in the repository under
  * `starters/<id>/`: `starter.json` (its title and what it declares: `check`, `versions`, `copies`,
- * `describes`, `packages`, `vr_version`), the pinned `package-lock.json`, and `template/`, the
+ * `describes`, `packages`, `vr_version`, `check_refuses`), the pinned `package-lock.json`, and `template/`, the
  * files a project begins with. Its dependencies are installed on each Mac into
  * `<data dir>/starters/<id>/node_modules`, beside `installed.json`, which names the SHA-256 of the
  * lockfile they were installed from; a starter counts as installed only while that matches the
@@ -247,6 +248,34 @@ export class HostStarters {
     if (!this.#installsNothing(id, readFileSync(join(this.#tracked, id, 'package-lock.json'))))
       symlinkSync(join(this.#installed, id, 'node_modules'), join(folder, 'node_modules'), 'dir');
     return { ok: true, lockfile, files: files.length, template: digest };
+  }
+
+  /**
+   * What the starter `id` declares its check refuses beyond building and drawing (`check_refuses` in
+   * its `starter.json`): each entry a kind this host knows how to find and the starter's own words for
+   * the agent, 1 to 400 characters. An entry of another kind, or without words, is not a refusal; a
+   * starter that declares none, or cannot be read, refuses nothing.
+   */
+  checkRefusals(id: string): DeclaredRefusal[] {
+    try {
+      if (!ID.test(id)) return [];
+      const parsed = JSON.parse(readFileSync(join(this.#tracked, id, 'starter.json'), 'utf8')) as {
+        check_refuses?: unknown;
+      };
+      if (!Array.isArray(parsed.check_refuses)) return [];
+      return parsed.check_refuses.flatMap((entry: unknown) => {
+        const { kind, words } = (entry ?? {}) as { kind?: unknown; words?: unknown };
+        return typeof kind === 'string' &&
+          (REFUSAL_KINDS as readonly string[]).includes(kind) &&
+          typeof words === 'string' &&
+          /\S/.test(words) &&
+          words.length <= 400
+          ? [{ kind: kind as DeclaredRefusal['kind'], words: words.trim() }]
+          : [];
+      });
+    } catch {
+      return [];
+    }
   }
 
   /**
