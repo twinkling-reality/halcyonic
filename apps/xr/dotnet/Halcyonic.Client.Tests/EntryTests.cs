@@ -422,6 +422,28 @@ public class BuildSequenceTests
         return state;
     }
 
+    /// <summary>The lead's first journey (2026-11-12): once started, the task's file is one coloured press from where the person is.</summary>
+    [Test]
+    public void UnderTheRedesignAStartedBuildOffersItsTaskAsTheMainAction()
+    {
+        var sequence = new BuildSequence(Draft(), Commands, "Recipes");
+        var project = sequence.Begin(Samples.Reviewed(sequence));
+        var workstream = sequence.Advance(With(Completed(project, new ProjectCreatedResult { ProjectId = "p1" })))!;
+        var start = sequence.Advance(With(Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
+        sequence.Advance(With(Completed(start, new ExecutionCreatedResult { ExecutionId = "e1" })));
+        Assume.That(sequence.Started, Is.True);
+        var was = RoomDesign.Enabled;
+        try
+        {
+            RoomDesign.Enabled = true;
+            var main = NewProjectScreens.Starting(new ProjectIdea(null, null), sequence, null).Footer[PromptSlot.FarRight];
+            Assert.That((main?.Id, main?.Words, main?.Main), Is.EqualTo((NewProjectScreens.OpenStartedTask, EntryText.OpenTask, true)));
+            RoomDesign.Enabled = false;
+            Assert.That(NewProjectScreens.Starting(new ProjectIdea(null, null), sequence, null).Footer[PromptSlot.FarRight], Is.Null, "the older view is unchanged");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     [Test]
     public void SendsEachCommandOnlyAfterTheOneBeforeCompleted()
     {

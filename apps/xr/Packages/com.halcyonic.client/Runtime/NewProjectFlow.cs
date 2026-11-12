@@ -789,6 +789,9 @@ namespace Halcyonic.Client
                 case NewProjectScreens.TryAgainStart:
                     if (sequence?.CanRetry == true) StartBuilding();
                     break;
+                case NewProjectScreens.OpenStartedTask when sequence is { Started: true, WorkstreamId: string started }:
+                    host.OpenFile(started);
+                    return;
                 case NewProjectScreens.ChangeRequest:
                     review = null;
                     Show(NewProjectStep.Recap);
