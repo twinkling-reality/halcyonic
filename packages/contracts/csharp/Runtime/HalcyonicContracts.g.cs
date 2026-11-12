@@ -4150,6 +4150,9 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("from_format", Required = global::Newtonsoft.Json.Required.Always)]
         public long FromFormat { get; set; } = 1;
 
+        [global::Newtonsoft.Json.JsonProperty("kept", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Kept { get; set; } = default!;
+
         [global::Newtonsoft.Json.JsonProperty("scene", Required = global::Newtonsoft.Json.Required.Always)]
         public string Scene { get; set; } = default!;
 
