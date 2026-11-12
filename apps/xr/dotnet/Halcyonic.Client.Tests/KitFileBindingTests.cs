@@ -45,9 +45,10 @@ public class KitFileBindingTests
     }
 
     /// <summary>Every footer prompt, every line that acts and every section has exactly one control, raising what the frame raises.</summary>
-    private static void EveryPressIsBound(MenuFrame frame, KitFileBinding binding)
+    /// <param name="answers">The approval an answer's control answers: Approve's and Deny's key (AUDIT, 2026-11-12).</param>
+    private static void EveryPressIsBound(MenuFrame frame, KitFileBinding binding, string? answers = null)
     {
-        var presses = frame.Footer.All.Select(each => (each.Prompt.Id, (string?)null, each.Prompt.Words, each.Prompt.Available, each.Prompt.Reason))
+        var presses = frame.Footer.All.Select(each => (each.Prompt.Id, each.Prompt.Id is FileScreens.Approve or FileScreens.Deny ? answers : null, each.Prompt.Words, each.Prompt.Available, each.Prompt.Reason))
             .Concat(frame.Lines.Where(line => line.Action != null).Select(line => (line.Action!, line.Key, line.Words, line.Available, (string?)null)))
             .Concat(frame.Sections.Select(section => (MenuFrame.ChooseSection, (string?)section.Key, section.Words, true, (string?)null)))
             .ToList();
@@ -72,7 +73,7 @@ public class KitFileBindingTests
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Waiting });
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         IsPrompt(binding[KitPlace.Deny], frame.Footer[PromptSlot.Secondary]);
         IsPrompt(binding[KitPlace.Approve], frame.Footer[PromptSlot.FarRight]);
         IsPrompt(binding[KitPlace.Close], frame.Footer[PromptSlot.Close]);
@@ -105,7 +106,7 @@ public class KitFileBindingTests
         var steering = Steering();
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Waiting });
         var binding = Bind(frame, steering, workspace)!;
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         Assert.That(binding[KitPlace.Approve], Is.Null, "nothing the frame doesn't offer");
         Assert.That((binding.Model.Need!.DenyOffered, binding.Model.Need.ApproveOffered), Is.EqualTo((true, false)));
     }
@@ -120,7 +121,7 @@ public class KitFileBindingTests
         steering.Press(WorkspaceAction.Approve, workspace);
         var unread = Screen(workspace, steering, screen);
         var first = Bind(unread, steering, workspace)!;
-        EveryPressIsBound(unread, first);
+        EveryPressIsBound(unread, first, WaitingWork.ApprovalId);
         IsPrompt(first[KitPlace.Cancel], unread.Footer[PromptSlot.FarRight]);
         Assert.That(first[KitPlace.Yes], Is.Null);
         var confirming = first.Model.Need!.Confirming!;
@@ -130,7 +131,7 @@ public class KitFileBindingTests
         screen.RequestDrawn(0, steering, Now);
         var read = Screen(workspace, steering, screen);
         var second = Bind(read, steering, workspace)!;
-        EveryPressIsBound(read, second);
+        EveryPressIsBound(read, second, WaitingWork.ApprovalId);
         IsPrompt(second[KitPlace.Yes], read.Footer[PromptSlot.Free]);
         var yes = second.Model.Need!.Confirming!;
         Assert.That((yes.Read, yes.Confirm, yes.Ask), Is.EqualTo((true, WorkspaceText.ConfirmLabel(WorkspaceAction.Approve), read.Lines[read.Lines.Count - 1].Words)));
@@ -145,7 +146,7 @@ public class KitFileBindingTests
         steering.Press(WorkspaceAction.Deny, workspace);
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Waiting });
         var binding = Bind(frame, steering, workspace)!;
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         IsPrompt(binding[KitPlace.Cancel], frame.Footer[PromptSlot.Secondary]);
         Assert.That(binding.Model.Need!.Confirming!.Approving, Is.False);
         Assert.That(binding.Model.Need.Confirming.Ask, Is.EqualTo(frame.Lines[frame.Lines.Count - 1].Words));
@@ -158,7 +159,7 @@ public class KitFileBindingTests
         var steering = Steering();
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true });
         var binding = Bind(frame, steering, workspace)!;
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         IsPrompt(binding[KitPlace.Stop], frame.Footer[PromptSlot.Rare]);
         IsPrompt(binding[KitPlace.Talk], frame.Footer[PromptSlot.Secondary]);
         IsPrompt(binding[KitPlace.Field], frame.Footer[PromptSlot.FarRight]);
@@ -178,7 +179,7 @@ public class KitFileBindingTests
         screen.Instruction.Restore(workspace.Execution!.ExecutionId, "Run the tests again.", false, 0);
         var frame = Screen(workspace, steering, screen);
         var binding = Bind(frame, steering, workspace, screen.Instruction.Words)!;
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         var field = frame.Lines.Single(line => line.Action == FileScreens.EditInstruction);
         Assert.That((binding[KitPlace.Field]!.Action, binding[KitPlace.Field]!.Available), Is.EqualTo((FileScreens.EditInstruction, field.Available)));
         Assert.That(binding.Model.Draft, Is.EqualTo(field.Words), "the draft is the instruction the frame shows");
@@ -311,7 +312,7 @@ public class KitFileBindingTests
         screen.Instruction.Restore(workspace.Execution!.ExecutionId, "Run the tests again.", false, 0);
         var frame = Screen(workspace, steering, screen);
         var binding = Bind(frame, steering, workspace, screen.Instruction.Words)!;
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         Assert.That(FileScreens.WhyNoInstruction(workspace), Is.Not.Null);
         Assert.That((binding.Model.Sendable, binding.Model.WhyNotSend), Is.EqualTo((false, FileScreens.WhyNoInstruction(workspace))));
         Assert.That(binding[KitPlace.Field]!.Available, Is.False, "the instruction's own line is unavailable for the same reason");
@@ -326,7 +327,7 @@ public class KitFileBindingTests
         Assert.That(frame.Lines.Select(line => line.Words), Does.Contain(FileScreens.NoActivityYet));
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         Assert.That((binding.Model.Trail.Count, binding.Model.Report, binding.Model.Said.Count), Is.EqualTo((0, (ActivityEntry?)null, 0)));
     }
 
@@ -338,7 +339,7 @@ public class KitFileBindingTests
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         var doing = frame.Lines.First();
         Assert.That(binding.Model.Said, Is.EqualTo(new[] { doing }), "the frame's own line, its words and tone");
         Assert.That((doing.Tone, binding.Model.Need), Is.EqualTo((LineTone.Waiting, (KitNeed?)null)), "answered on Waiting, not here");
@@ -363,7 +364,7 @@ public class KitFileBindingTests
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         Assert.That(binding.Model.Said.Select(line => (line.Words, line.Tone)), Is.EqualTo(new[] { ("Checks failed: 1 failed, 23 passed.", LineTone.Problem) }));
     }
 
@@ -379,7 +380,7 @@ public class KitFileBindingTests
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         Assert.That(binding.Model.Said.Select(line => line.Words), Is.EqualTo(new[] { WorkspaceText.WhyNoActions(workspace) }));
     }
 
@@ -395,7 +396,7 @@ public class KitFileBindingTests
         Assert.That(screen.Pages, Is.GreaterThan(1));
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         var pager = binding[KitPlace.Pager]!;
         Assert.That((pager.Action, pager.Available), Is.EqualTo((Footer.NextPage, true)));
         Assert.That(pager.Words, Is.EqualTo(frame.Lines.Concat(new PageLine[0]).Where(line => line.Action == Footer.NextPage).Select(line => line.Words)
@@ -428,7 +429,7 @@ public class KitFileBindingTests
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         var line = frame.Lines.Single(each => each.Words == sent.Text);
         Assert.That(binding.Model.Said, Is.EqualTo(new[] { line }), "the file's own line, its words and its wait");
     }
@@ -442,7 +443,7 @@ public class KitFileBindingTests
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Notice = FileScreens.InstructionChanged }, rows: 8);
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         Assert.That(binding.Model.Said.Select(line => line.Words),
             Is.EqualTo(new[] { FileScreens.InstructionChanged, "Checks failed: 1 failed, 23 passed.", refused.Text }));
     }
@@ -456,7 +457,7 @@ public class KitFileBindingTests
         var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         Assert.That(binding.Model.Notice!.Words.Text, Is.EqualTo(unknown.Text));
         Assert.That(binding.Model.Said, Is.Empty, "said once, as the notice over the activity it points to");
     }
@@ -510,7 +511,7 @@ public class KitFileBindingTests
         Assert.That(frame.Lines.Where(line => line.Action != null).Select(line => line.Action), Is.EqualTo(Routes), "the frame offers every route, on one page");
         var binding = Bind(frame, steering, workspace)!;
         Assert.That(binding, Is.Not.Null);
-        EveryPressIsBound(frame, binding);
+        EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
         RoutesAreTheFramesLines(frame, binding);
         Assert.That(binding[KitPlace.Route]!.Action, Is.EqualTo(FileScreens.ShowTaskHere), "the first route, as the frame lays it");
     }
@@ -552,7 +553,7 @@ public class KitFileBindingTests
             var frame = Screen(workspace, steering, screen, rows: 3);
             var binding = Bind(frame, steering, workspace)!;
             Assert.That(binding, Is.Not.Null, "page " + (screen.Page + 1));
-            EveryPressIsBound(frame, binding);
+            EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
             Assert.That(binding[KitPlace.Pager], Is.Not.Null);
             if (binding.Routes.Any()) RoutesAreTheFramesLines(frame, binding);
             seen.AddRange(binding.Routes.Select(route => route.Action));
@@ -711,7 +712,7 @@ public class KitFileBindingTests
             var frame = Screen(workspace, steering, screen);
             var binding = Bind(frame, steering, workspace)!;
             Assert.That(binding, Is.Not.Null, "part " + (part + 1));
-            EveryPressIsBound(frame, binding);
+            EveryPressIsBound(frame, binding, WaitingWork.ApprovalId);
             var next = binding.Controls.Single(control => control.Place == KitPlace.Step);
             Assert.That((next.Action, next.Key, next.Words), Is.EqualTo((FileScreens.NextPart, (string?)FileScreens.RequestKey, FileScreens.NextPartWords(part, 3))));
             Assert.That(binding[KitPlace.Yes] != null, Is.EqualTo(frame.Footer.All.Any(each => each.Prompt.Kind == PromptKind.Yes)), "Yes as the frame offers it");

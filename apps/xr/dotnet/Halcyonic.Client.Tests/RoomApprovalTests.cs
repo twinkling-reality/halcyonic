@@ -122,6 +122,44 @@ public class RoomApprovalTests
         finally { RoomDesign.Enabled = was; }
     }
 
+    /// <summary>
+    /// AUDIT (2026-11-12): with Approve in one press, an answer's button is what it answers. Approval A answered, approval B drawn in its
+    /// place: B's Approve is a new control (its key B's id, so the kit settles it again), and a press still keyed to A sends nothing and arms
+    /// nothing; B's own press approves B.
+    /// </summary>
+    [Test]
+    public void ANewApprovalInTheSamePlaceIsANewButtonAndAPressMeantForTheLastAnswersNothing()
+    {
+        var was = RoomDesign.Enabled; RoomDesign.Enabled = true;
+        try
+        {
+            var (host, work, column) = Asked();
+            Draw(host, column);
+            var approveA = Find(Bar(column), "Approve")!;
+            Assert.That(approveA.Control.Key, Is.EqualTo(WaitingWork.ApprovalId), "the button names the approval it answers");
+            Press(column, approveA);
+            ReadWhole(host, column);
+            Assume.That(host.Sent.Count, Is.EqualTo(1));
+            work.Change(execution => { execution.PendingApprovals.Clear(); execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", B, "2026-10-02T12:05:00Z")); });
+            column.Reflow();
+            Draw(host, column);
+            var approveB = Find(Bar(column), "Approve")!;
+            Assert.That(approveB.Control.Key, Is.EqualTo("approval-2"), "a new approval in the same place is a new control");
+            Assert.That(approveB.Control.Key, Is.Not.EqualTo(approveA.Control.Key));
+            // The quick second pinch, meant for A, lands on B's place.
+            Press(column, approveA);
+            ReadWhole(host, column);
+            Assert.That(host.Sent.Count, Is.EqualTo(1), "a press meant for the last approval answers nothing");
+            Assert.That(column.Steering.Armed, Is.Null, "and arms nothing");
+            Press(column, approveB);
+            ReadWhole(host, column);
+            Assert.That(host.Sent.Count, Is.EqualTo(2));
+            var sent = (ExecutionRespondToApprovalCommand)host.Sent[1];
+            Assert.That((sent.Payload.Decision, sent.Payload.ApprovalId), Is.EqualTo((ApprovalDecision.Approve, "approval-2")));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     /// <summary>Only a person's press decides: a check or preset that turns DecideOnPress off arms, and nothing it arms is sent unconfirmed.</summary>
     [Test]
     public void APresetsApproveOnlyArmsAndSendsNothing()
