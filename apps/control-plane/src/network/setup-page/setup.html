@@ -108,19 +108,28 @@
   <section class="block" id="optional-block">
     <h2>Optional</h2>
     <ol id="optional-steps" class="steps"></ol>
+    <!-- Each project's secrets by name (ADR 0057), an Optional row that opens, as the steps do: a value is typed
+         here and never shown again. -->
+    <ol class="steps secrets-steps">
+      <li class="step" id="secrets" hidden>
+        <button class="step-row" id="secrets-row" type="button" aria-expanded="false" aria-controls="secrets-body">
+          <span class="step-tile"><svg class="glyph" aria-hidden="true"><use href="#g-minus"/></svg></span>
+          <span class="step-name">Project Secrets</span>
+          <span class="step-note"></span>
+          <svg class="glyph chevron" aria-hidden="true"><use href="#g-next"/></svg>
+        </button>
+        <div class="step-body secrets-body" id="secrets-body" hidden>
+          <p class="step-line">A task gets its project's secrets when it starts, and its agent can use, print or send them. Give it test keys.</p>
+          <!-- Who starts without them, by name, and what to do (LINK's critic). -->
+          <p id="secrets-some" class="step-line" hidden></p>
+          <!-- An agent outside the sandbox changes the advice above: a row with the alert mark, never the accent. -->
+          <div id="secrets-open" class="secret-alert" hidden><svg class="glyph" aria-hidden="true"><use href="#g-alert"/></svg><p id="secrets-open-line"></p></div>
+          <ul id="secrets-list" class="secret-projects"></ul>
+        </div>
+      </li>
+    </ol>
   </section>
 
-  <!-- Each project's secrets by name (ADR 0057): a value is typed here and never shown again. -->
-  <section class="block" id="secrets" hidden>
-    <h2>Project Secrets</h2>
-    <p class="secrets-note">A task gets its project's secrets as variables when it starts. A task already running keeps what it started with.</p>
-    <p class="secrets-note">An agent given a key can use it, print it, and send it wherever its commands reach. Give it test keys.</p>
-    <!-- Who starts without them, by name, and what to do (LINK's critic). -->
-    <p id="secrets-some" class="secrets-note" hidden></p>
-    <!-- An agent outside the sandbox changes the advice above: a row with the alert mark, never the accent. -->
-    <div id="secrets-open" class="secret-alert" hidden><svg class="glyph" aria-hidden="true"><use href="#g-alert"/></svg><p id="secrets-open-line"></p></div>
-    <ul id="secrets-list" class="items"></ul>
-  </section>
 </main>
 </body>
 </html>

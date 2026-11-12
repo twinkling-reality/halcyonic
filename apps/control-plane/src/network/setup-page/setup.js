@@ -345,10 +345,25 @@ function listed(names) {
 /** Each project card's status line and each secret's question, by project and name, updated in place. */
 const secretParts = new Map();
 
+/** Whether the person opened Project Secrets; a refusal or a Remove that asks keeps it open, where they pressed. */
+let secretsOpen = false;
+/**
+ * The one project whose form stands open, so the page has one place to type at a time: the only project when there is
+ * one (no press needed), else the one whose Add Secret was pressed last, or where a refusal was just said.
+ */
+let formOpenFor = null;
+$('secrets-row').addEventListener('click', () => {
+  secretsOpen = !secretsOpen;
+  drawSecrets();
+});
+
 function drawSecrets() {
   const secrets = state.secrets ?? null;
   $('secrets').hidden = secrets === null || secrets.projects.length === 0;
   if (secrets === null) return;
+  const open = secretsOpen || secrets.problem != null || secrets.confirm != null;
+  $('secrets-row').setAttribute('aria-expanded', String(open));
+  $('secrets-body').hidden = !open;
   const without = secrets.without ?? [];
   $('secrets-some').hidden = without.length === 0;
   $('secrets-some').textContent =
@@ -366,7 +381,12 @@ function drawSecrets() {
     secretParts.clear();
     $('secrets-list').replaceChildren(...secrets.projects.map(secretProject));
   }
-  // What a press said, and a Remove that asks first: in place, never by drawing the card again.
+  // What a press said, and a Remove that asks first: in place, never by drawing the card again. While a Remove
+  // asks, it is the one decision on the page: every card's other Removes and forms wait.
+  const asking = secrets.confirm != null;
+  const only = secrets.projects.length === 1 ? secrets.projects[0].project_id : null;
+  if (secrets.problem?.project_id) formOpenFor = secrets.problem.project_id;
+  const formFor = only ?? formOpenFor;
   for (const [projectId, parts] of secretParts) {
     const problem = secrets.problem?.project_id === projectId ? secrets.problem.text : null;
     parts.status.hidden = problem === null;
@@ -377,72 +397,132 @@ function drawSecrets() {
           ? secrets.confirm
           : null;
       asked.panel.hidden = confirm === null;
-      asked.line.textContent = confirm?.text ?? '';
+      // The name as the rows show it, in mono, inside the host's own sentence.
+      asked.line.replaceChildren(...namedIn(confirm?.text ?? '', name));
+      asked.remove.hidden = asking;
     }
+    const formHere = !asking && formFor === projectId;
+    parts.form.hidden = !formHere;
+    // An open form says what "No Secrets Yet" would: one or the other.
+    parts.none.hidden = !parts.empty || formHere;
+    parts.add.hidden = asking || formHere || only !== null;
   }
+}
+
+/** A sentence with each mention of a secret's name set as the rows set it. */
+function namedIn(text, name) {
+  const parts = [];
+  text.split(name).forEach((piece, at) => {
+    if (at > 0) parts.push(secretName(name));
+    if (piece.length > 0) parts.push(piece);
+  });
+  return parts;
+}
+
+/** A secret's name, which may break after each underscore and nowhere else. */
+function secretName(name) {
+  const made = element('code', 'secret-name');
+  name.split(/(?<=_)/).forEach((part, at) => {
+    if (at > 0) made.append(document.createElement('wbr'));
+    made.append(part);
+  });
+  return made;
 }
 
 function secretProject(project) {
   const item = element('li', 'secret-project');
   item.append(element('p', 'secret-project-name', project.name));
   const rows = new Map();
+  const none = element('p', 'secret-none', 'No Secrets Yet');
+  none.hidden = project.secrets.length > 0;
+  item.append(none);
   for (const name of project.secrets) {
+    // A list row: the key mark, the name, and a quiet Remove at the right.
     const row = element('div', 'secret-row');
-    row.append(
-      element('code', 'secret-name', name),
-      button(
-        'Remove',
-        () =>
-          void call('/setup/secrets/remove', {
-            project_id: project.project_id,
-            name,
-            confirmed: false,
-          }),
-        false,
-        'close',
-      ),
+    const tile = element('span', 'secret-tile');
+    tile.append(glyph('key'));
+    const remove = button(
+      'Remove',
+      () =>
+        void call('/setup/secrets/remove', {
+          project_id: project.project_id,
+          name,
+          confirmed: false,
+        }),
+      false,
+      'close',
     );
+    remove.classList.add('secret-remove');
+    row.append(tile, secretName(name), remove);
     item.append(row);
     // The question stands right under the press, as the steps' do.
     const panel = element('div', 'question');
     panel.hidden = true;
     const words = element('div', 'question-words');
     const line = element('p', 'question-line', '');
-    words.append(element('p', 'question-title', `Remove ${name}?`), line);
+    words.append(element('p', 'question-title', 'Remove This Secret?'), line);
     const actions = element('div', 'question-actions');
+    // The second press reads as the consequence it is, armed in the failing tone, as Forget's and Turn Off's do.
+    const really = button(
+      'Yes, Remove',
+      () =>
+        void call('/setup/secrets/remove', {
+          project_id: project.project_id,
+          name,
+          confirmed: true,
+        }),
+      false,
+      'close',
+    );
+    really.dataset.armed = '';
     actions.append(
-      button(
-        'Remove',
-        () =>
-          void call('/setup/secrets/remove', {
-            project_id: project.project_id,
-            name,
-            confirmed: true,
-          }),
-        false,
-        'close',
-      ),
-      button('Cancel', () => void call('/setup/secrets/cancel', {}), false, 'back'),
+      really,
+      button('Cancel', () => void call('/setup/secrets/cancel', {}), false),
     );
     panel.append(words, actions);
     item.append(panel);
-    rows.set(name, { panel, line });
+    rows.set(name, { panel, line, remove });
   }
+  // Each field under its own caption; the name's example is only an example, the value shows nothing.
   const form = element('form', 'secret-form');
+  const field = (caption, input) => {
+    const label = element('label', 'secret-field');
+    label.append(element('span', 'secret-caption', caption), input);
+    return label;
+  };
   const named = element('input');
   named.type = 'text';
   named.placeholder = 'API_KEY';
   named.autocomplete = 'off';
   named.spellcheck = false;
-  named.setAttribute('aria-label', 'Name');
+  named.className = 'secret-typed-name';
   const value = element('input');
   value.type = 'password';
-  value.placeholder = 'Secret';
   value.autocomplete = 'new-password';
-  value.setAttribute('aria-label', 'Secret');
-  const set = button('Set', () => undefined, false, 'key');
+  // The open form's Set is the page's one accent there: the one place to start.
+  const set = button('Set', () => undefined, true, 'key');
   set.type = 'submit';
-  form.append(named, value, set);
+  form.append(field('Name', named), field('Value', value), set);
+  form.hidden = true;
+  // Escape closes a form opened by its Add Secret, where several projects share the page; nothing is sent.
+  form.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || formOpenFor !== project.project_id) return;
+    formOpenFor = null;
+    drawSecrets();
+  });
+  // With several projects, a card's form opens by its own press, and only one stands open at a time.
+  const add = button(
+    'Add Secret',
+    () => {
+      formOpenFor = project.project_id;
+      drawSecrets();
+      named.focus();
+    },
+    false,
+    'key',
+  );
+  add.classList.add('secret-add');
+  item.append(add);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     const typed = value.value;
@@ -452,6 +532,15 @@ function secretProject(project) {
       project_id: project.project_id,
       name: named.value.trim(),
       value: typed,
+    }).then(() => {
+      // Kept: the form closes to its quiet Add Secret where several projects share the page. Refused: it stays.
+      if (
+        state?.secrets?.problem?.project_id !== project.project_id &&
+        formOpenFor === project.project_id
+      ) {
+        formOpenFor = null;
+        drawSecrets();
+      }
     });
   });
   item.append(form);
@@ -460,7 +549,14 @@ function secretProject(project) {
   status.hidden = true;
   status.setAttribute('role', 'status');
   item.append(status);
-  secretParts.set(project.project_id, { status, rows });
+  secretParts.set(project.project_id, {
+    status,
+    rows,
+    form,
+    add,
+    none,
+    empty: project.secrets.length === 0,
+  });
   return item;
 }
 
@@ -574,6 +670,9 @@ function draw() {
   $('said-lines').replaceChildren(...said(state.said));
   drawShared();
   drawSecrets();
+  // Optional holds the optional steps and Project Secrets: it stands while either does.
+  $('optional-block').hidden =
+    !state.steps.some((each) => each.status === 'optional') && $('secrets').hidden;
 
   // Drawn again only when the steps change, so a poll never swaps a button under a press.
   const drawn = JSON.stringify([state.steps, running, state.confirm, main, [...opened]]);
@@ -589,7 +688,6 @@ function draw() {
     ...optional.map((each) => stepItem(each, running, main, isOpen(each))),
   );
   $('steps-block').hidden = needed.length === 0;
-  $('optional-block').hidden = optional.length === 0;
 }
 
 $('job-stop').addEventListener('click', () => void call('/setup/stop', {}));
