@@ -25,8 +25,10 @@ namespace Halcyonic.XR.Workspace.Editor
         /// correction, Build Passed, the restart). At each moment the redesign must draw it and nothing of the older views may
         /// show; what it draws is held to the frame checks (every word whole, inside a Quest 3S field, contrast at least 4.5:1,
         /// no brand names) at both reading sizes. A press goes through a drawn control where the redesign draws one; where none
-        /// is drawn the walk says so and moves the recording on itself, so every later moment is still seen. Renders and the
-        /// moment list (moments.tsv) land in Builds/JudgeRoomRenders.
+        /// is drawn the walk says so and moves the recording on itself, so every later moment is still seen. A task's pages
+        /// are reached the same way, through a drawn row or section control, and the moment list's "reached by" says how
+        /// each was, or that the walk opened it. A result is shot once the task's file has read it. Renders and the moment
+        /// list (moments.tsv) land in Builds/JudgeRoomRenders.
         /// </summary>
         public static void JudgeRoomWalkCheck()
         {
@@ -43,7 +45,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var old in Directory.GetFiles(folder)) File.Delete(old);
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                     var found = new List<string>();
-                    var moments = new List<string> { "moment\tdrawn by\tdots | older cut | overlaps\tcoverage\tredesign drew\tolder parts drew\tactions drawn\tfailures" };
+                    var moments = new List<string> { "moment\tdrawn by\tdots | older cut | overlaps\tcoverage\tredesign drew\tolder parts drew\tactions drawn\treached by\tfailures" };
                     ViewField.Current = FieldChecks.Quest3S;
                     var context = SynchronizationContext.Current;
                     // As the judge kit walk: the session's acknowledgements continue on the thread pool while the walk holds the Editor's thread.
@@ -251,6 +253,75 @@ namespace Halcyonic.XR.Workspace.Editor
                     submissions.Submit(each => session.SubmitAsync(each), command, ExecutionOf(command));
                 }
 
+                // How the walk reached the next moment's page, for the census: a drawn control it pressed, or the walk itself
+                // where the redesign drew none (a judge would have no way there but the shelf, which this walk does not draw).
+                var reachedBy = "";
+                // A row of the redesign's card (a list row with its own control), pressed as a person pinches it: what it pressed,
+                // or null where no row matched.
+                string? PressRow(Func<KitControl, bool> which)
+                {
+                    Draw();
+                    Thread.Sleep(TimeSpan.FromSeconds(0.45));
+                    Draw();
+                    if (!plane.KitShows || plane.Kit.Bar.Card is not RoomCardView card) return null;
+                    foreach (var (press, control) in card.RowTargets)
+                    {
+                        if (!which(control)) continue;
+                        press.SettleForRender();
+                        press.PressForRender(989);
+                        Draw();
+                        return "pressed row " + control.Action + (control.Key == null ? "" : "/" + control.Key);
+                    }
+                    return null;
+                }
+                // A task's file opened on a section the way a person opens it: a card row naming the task or its project, then the
+                // redesign's drawn section control (the result card's Checks for Checks) or row; each press given the file's
+                // refresh to land. Where none reaches it the walk opens it, and the census says so either way.
+                void OpenSection(string workstreamId, FileSection? section)
+                {
+                    bool Open() => Opened()?.Now?.Character.WorkstreamId == workstreamId;
+                    bool There() => Open() && (section == null || Opened()!.Screen.Section == section);
+                    var project = State()?.Workstreams.TryGetValue(workstreamId, out var work) == true ? work.ProjectId : null;
+                    var ways = new List<string>();
+                    bool PressedButton(string action, string? key)
+                    {
+                        if (Drawn(action, key) is not RoomButton button) return false;
+                        button.Press.SettleForRender();
+                        button.Press.PressForRender(988);
+                        Fresh();
+                        ways.Add("pressed " + action + (key == null ? "" : "/" + key));
+                        return true;
+                    }
+                    // Projects' row opens the project's tasks, whose row opens the task: as many rows as it takes, three at most.
+                    for (var step = 0; step < 3 && !Open(); step++)
+                    {
+                        if (PressRow(control => control.Key != null && (control.Key.Contains(workstreamId) || project != null && control.Key.Contains(project))) is not string row) break;
+                        Fresh();
+                        ways.Add(row);
+                    }
+                    var key = section?.ToString().ToLowerInvariant();
+                    if (Open() && !There() && key != null && !PressedButton("section", key) && !(section == FileSection.Checks && PressedButton("room-checks", null))
+                        && PressRow(control => control.Key == key || control.Key == KitFileBinding.SectionRowKey + key) is string sectionRow)
+                    {
+                        Fresh();
+                        ways.Add(sectionRow);
+                    }
+                    if (!There())
+                    {
+                        director.OpenFile(workstreamId, section);
+                        ways.Add("no drawn control reached it: the walk opened it");
+                    }
+                    reachedBy = ways.Count == 0 ? "already open" : string.Join(", then ", ways);
+                    Draw();
+                }
+                // A result moment waits for the task's file to read the new state (it rebuilds every FileColumn.RefreshSeconds),
+                // so the shot shows what a person meets, not the state of a moment before (XR, 2026-11-11T19:14Z).
+                void Fresh()
+                {
+                    Thread.Sleep(TimeSpan.FromSeconds(FileColumn.RefreshSeconds + 0.15));
+                    Draw();
+                }
+
                 // Which parts drew: the redesign's own (its types are Room*), the characters (kept as built), and anything else,
                 // the older views and kit, which no judge moment may show in the redesign.
                 (List<string> Redesign, List<string> Older) Parts()
@@ -302,14 +373,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     // The redesign's actions drawn now, as action/key, so a moment's way on can be read off the list.
                     var actions = plane.KitShows
                         ? string.Join(", ", plane.Kit.Bar.Column.Where(each => each.gameObject.activeInHierarchy)
-                            .Select(each => plane.Kit.Bar.ControlOf(each) is KitControl control ? control.Action + (control.Key == null ? "" : "/" + control.Key) : "?"))
+                            .Select(each => plane.Kit.Bar.ControlOf(each) is KitControl control ? control.Action + (control.Key == null ? "" : "/" + control.Key) : "?")
+                            .Concat(plane.Kit.Bar.Card is RoomCardView card
+                                ? card.RowTargets.Select(row => "row " + row.Control.Action + (row.Control.Key == null ? "" : "/" + row.Control.Key))
+                                : Enumerable.Empty<string>()))
                         : "";
                     var census = Census(root, camera);
                     var drawnBy = "place " + navigator.Place + (navigator.Beside is IMenuColumn beside ? ", beside " + beside.GetType().Name : "")
                         + (Opened() is FileColumn open ? ", section " + open.Screen.Section : "") + (plane.KitShows ? ", room host" : "");
                     moments.Add(name + "\t" + drawnBy + "\t" + census + "\t" + (covered ? "covered" : "not yet") + "\t" + string.Join(", ", redesign) + "\t" + string.Join(", ", older) + "\t" + actions
-                        + "\t" + string.Join("; ", found) + (covered || gaps.Count == 0 ? "" : "\t(not yet: " + string.Join("; ", gaps) + ")"));
+                        + "\t" + reachedBy + "\t" + string.Join("; ", found) + (covered || gaps.Count == 0 ? "" : "\t(not yet: " + string.Join("; ", gaps) + ")"));
                     failures.AddRange(found.Select(each => name + ": " + each));
+                    reachedBy = "";
                     Debug.Log("Halcyonic: judge room: " + name + ": redesign [" + string.Join(", ", redesign) + "], older [" + string.Join(", ", older) + "]");
                 }
 
@@ -321,12 +396,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     Moment("recorded launch");
                     var task = State()!.Workstreams.Values.First();
                     // Picking its character on the shelf opens its file; the shelf is not part of this walk yet.
-                    director.OpenFile(task.WorkstreamId);
+                    OpenSection(task.WorkstreamId, null);
                     if (Until(() => Run(task)?.ActiveTools.Count > 0, "the recorded run at work", 60)) Moment("recorded at work");
-                    if (Until(() => Run(task)?.Status == ExecutionStatus.Completed, "the recorded run's result", 120)) Moment("recorded result");
-                    director.OpenFile(task.WorkstreamId, FileSection.Changes);
+                    if (Until(() => Run(task)?.Status == ExecutionStatus.Completed, "the recorded run's result", 120)) { Fresh(); Moment("recorded result"); }
+                    OpenSection(task.WorkstreamId, FileSection.Changes);
                     Moment("recorded changes");
-                    director.OpenFile(task.WorkstreamId, FileSection.Checks);
+                    OpenSection(task.WorkstreamId, FileSection.Checks);
                     Moment("recorded checks");
                     Until(() => fallback.Player?.Finished == true || fallback.Player?.Ended == true, "the recorded run's end", 120);
                     Moment("recorded end");
@@ -340,7 +415,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (Until(() => DirectedRun()?.PendingQuestions.Count > 0, "the directed task's question"))
                 {
                     var directed = Directed()!;
-                    director.OpenFile(directed.WorkstreamId, FileSection.Waiting);
+                    OpenSection(directed.WorkstreamId, FileSection.Waiting);
                     Moment("question");
                     // The prompt on the band, read to its last part where it pages.
                     for (var part = 2; part < 8 && plane.KitShows && plane.Kit.Bar.BandNextButton is RoomButton turning; part++)
@@ -368,7 +443,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // It asks, and Confirm: the request read to its last part, then Approve and its confirmation.
                 if (Until(() => DirectedRun()?.PendingApprovals.Count > 0, "the directed task's approval"))
                 {
-                    director.OpenFile(Directed()!.WorkstreamId, FileSection.Waiting);
+                    OpenSection(Directed()!.WorkstreamId, FileSection.Waiting);
                     Moment("it asks");
                     if (Drawn(FileScreens.Deny, null) == null && Drawn(FileScreens.Approve, null) != null) momentFailures.Add("Approve stands without Deny");
                     // Approve, then Cancel: the request asks again and nothing was sent.
@@ -413,14 +488,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     && DirectedRun()?.ActiveTools.Count > 0) Moment("at work");
                 if (Until(() => DirectedRun()?.Status == ExecutionStatus.Completed, "the approved turn's end"))
                 {
+                    Fresh();
                     Moment("result build failed");
-                    director.OpenFile(Directed()!.WorkstreamId, FileSection.Checks);
+                    OpenSection(Directed()!.WorkstreamId, FileSection.Checks);
                     Moment("checks build failed");
                 }
 
                 // Write Instruction: an offered instruction chosen, read and sent; the correction at work; Build Passed.
                 if (Directed() is not WorkstreamView directedTask) { failures.Add("judge room: the demonstration's directed task never came"); return failures; }
-                director.OpenFile(directedTask.WorkstreamId, FileSection.Activity);
+                OpenSection(directedTask.WorkstreamId, FileSection.Activity);
                 var told = Press(FileScreens.TellIt);
                 if (told) Moment("write instruction");
                 told = told && Press(FileScreens.Preset, "0");
@@ -437,8 +513,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     && DirectedRun()?.ActiveTools.Count > 0) Moment("correction at work");
                 if (Until(() => DirectedRun()?.LastTestRun?.Outcome == TestOutcome.Passed, "the passing checks", 60))
                 {
+                    Fresh();
                     Moment("result build passed");
-                    director.OpenFile(Directed()!.WorkstreamId, FileSection.Checks);
+                    OpenSection(Directed()!.WorkstreamId, FileSection.Checks);
                     Moment("checks build passed");
                 }
 
