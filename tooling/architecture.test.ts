@@ -29,7 +29,17 @@ const RULES: Readonly<Record<string, Rule>> = {
   // secret-shaped files' rules it shares with the project reads come from runtime-core.
   'packages/seatbelt': {
     dependencies: ['@halcyonic/runtime-core'],
-    imports: ['@halcyonic/runtime-core', 'node:crypto', 'node:fs', 'node:path'],
+    // node:http, node:https and node:net for the key gate alone: the sandbox's one way out, holding the
+    // person's key for every confined agent app (ADR 0048, amended 2026-11-12).
+    imports: [
+      '@halcyonic/runtime-core',
+      'node:crypto',
+      'node:fs',
+      'node:http',
+      'node:https',
+      'node:net',
+      'node:path',
+    ],
   },
 };
 

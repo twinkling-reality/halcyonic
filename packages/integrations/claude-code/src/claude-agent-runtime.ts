@@ -48,7 +48,7 @@ import {
   type StartExecutionResult,
   systemClock,
 } from '@halcyonic/runtime-core';
-import { type ApiGate, startApiGate } from './api-gate.ts';
+import { type ApiGate, type KeyGateDeclaration, startKeyGate } from '@halcyonic/seatbelt';
 import {
   type ClaudeConfinementOptions,
   type ConfinedFolder,
@@ -148,12 +148,18 @@ const START_OPTIONS = ['model', 'permission_mode'];
 const LEAVE_PLAN_WAIT_MS = 10_000;
 
 /**
- * Why a run inside the sandbox is not counted confined (AUDIT BOX-4 F1): its sign-in key is in its
- * environment. Keeping the key out, in a gate of Halcyonic's that adds it to each request, is the
- * owner's decision.
+ * How Claude Code takes a key, for its gate (VRIFY, 2026-11-12; docs/internal/validation/claude-code-key-gate.md):
+ * its API's address from `ANTHROPIC_BASE_URL` and its key from `ANTHROPIC_API_KEY`, sent as `x-api-key`, which is
+ * how the Anthropic API takes a key; `ANTHROPIC_AUTH_TOKEN` is the other credential it would take.
  */
-const KEY_INSIDE =
-  "Claude Code ran inside Halcyonic's sandbox, but its sign-in key is inside with it, where the agent's own commands can read it, so this run is not counted confined.";
+export const CLAUDE_CODE_KEY_GATE: KeyGateDeclaration = {
+  baseVariable: 'ANTHROPIC_BASE_URL',
+  keyVariable: 'ANTHROPIC_API_KEY',
+  otherCredentials: ['ANTHROPIC_AUTH_TOKEN'],
+  header: 'x-api-key',
+  bearer: false,
+  upstream: 'https://api.anthropic.com',
+};
 
 const NEVER_ASK_REFUSED =
   "Claude Code does not work without asking yet: Halcyonic's sandbox for it has not been tried on a real run.";
@@ -263,9 +269,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
 
   /**
    * Held where a start runs inside Halcyonic's closed profile (ADR 0048, BOX-4), as `#scopeFor`
-   * decides it: a folder its confinement covers, on macOS, with no cloud provider switched on. Its
-   * record still says not confined there, for what its commands can read (AUDIT BOX-4 F1); what it
-   * can write is that folder and its own place alone.
+   * decides it: a folder its confinement covers, on macOS, with no cloud provider switched on. There
+   * it writes that folder and its own place alone, and holds no key: its gate does.
    */
   holdsFolder(directory: string): boolean {
     return this.#scopeFor(directory).folder !== null;
@@ -580,10 +585,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
-   * What a start in `scope` records (S2, BOX-4). Inside the sandbox the sign-in key is in the
-   * process's environment, where the agent's own commands can read it (AUDIT BOX-4 F1), so such a
-   * run is recorded not confined, with why, and its previews, shares and never asking stay refused
-   * as for any unconfined run. It still runs inside the sandbox.
+   * What a start in `scope` records (S2, BOX-4). Inside the sandbox the agent holds no key: its gate
+   * adds the person's key to each request on its way out, and the agent's environment carries only a
+   * placeholder (VRIFY, 2026-11-12; AUDIT BOX-4 F1 closed), so such a run is recorded confined.
    */
   #recordFor(scope: StartScope): {
     readonly confined: boolean;
@@ -592,17 +596,17 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (scope.folder === null) {
       return { confined: false, ...(scope.reason !== null && { unconfined_reason: scope.reason }) };
     }
-    if ((this.#environment.ANTHROPIC_API_KEY ?? '') !== '') {
-      return { confined: false, unconfined_reason: KEY_INSIDE };
-    }
     return { confined: true };
   }
 
-  /** The API gate, started once: to `ANTHROPIC_BASE_URL` where set, else Anthropic's API. */
+  /**
+   * The API gate, started once: to `ANTHROPIC_BASE_URL` where set, else Anthropic's API, adding the
+   * person's key as the header this adapter declares. Without a key there is no gate, and no
+   * confined start.
+   */
   #apiGate(): Promise<ApiGate> {
     if (this.#gate === null) {
-      const base = (this.#environment.ANTHROPIC_BASE_URL ?? '').trim();
-      const gate = startApiGate(new URL(base === '' ? 'https://api.anthropic.com' : base));
+      const gate = startKeyGate(CLAUDE_CODE_KEY_GATE, this.#environment);
       this.#gate = gate;
       gate.catch(() => {
         if (this.#gate === gate) this.#gate = null;
@@ -631,13 +635,29 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       canUseTool: session.canUseTool,
       // Inside the sandbox where the start is confined (BOX-4): the person's settings and hooks stay
       // outside it, since its home and configuration are the folder's own.
-      spawnClaudeCodeProcess: (options) =>
-        this.#guard.spawn(
-          confined === null || settings === null
-            ? options
-            : confinedLaunch(options, confined.folder, settings, confined.gate),
-          session.id,
-        ),
+      spawnClaudeCodeProcess: (options) => {
+        if (confined === null || settings === null) return this.#guard.spawn(options, session.id);
+        // This process's own credential for the gate: dead the moment the process ends (AUDIT3).
+        const credential = confined.gate.issue();
+        try {
+          const spawned = this.#guard.spawn(
+            confinedLaunch(
+              options,
+              confined.folder,
+              settings,
+              confined.gate,
+              CLAUDE_CODE_KEY_GATE,
+              credential,
+            ),
+            session.id,
+          );
+          spawned.once('exit', () => confined.gate.revoke(credential));
+          return spawned;
+        } catch (error) {
+          confined.gate.revoke(credential);
+          throw error;
+        }
+      },
       // Claude Code's own system prompt. Without this option the SDK sends an empty one.
       systemPrompt: { type: 'preset', preset: 'claude_code' },
       // The person's own settings only: their hooks run, so Salidium and Seorak observe the

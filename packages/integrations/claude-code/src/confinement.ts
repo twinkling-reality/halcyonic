@@ -16,6 +16,8 @@ import {
   confinedHomeEnvironment,
   confinedProfile,
   confinementKey,
+  gatedEnvironment,
+  type KeyGateDeclaration,
   SANDBOX_EXEC,
 } from '@halcyonic/seatbelt';
 
@@ -72,13 +74,15 @@ export function prepareConfinedFolder(folder: ConfinedFolder): void {
  * which becomes the program in place, keeping its pid and arguments for the process guard. The
  * profile is written whole under a new name, then moved into place beside the folder's own place.
  * Its only way out is the API gate's port; its environment points Claude Code's home, configuration
- * and temporary folders inside its own place and its traffic at the gate.
+ * and temporary folders inside its own place, its API and its traffic at the gate, and holds no key.
  */
 export function confinedLaunch(
   options: SpawnOptions,
   folder: ConfinedFolder,
   settings: Pick<ClaudeConfinementOptions, 'toolFolders' | 'hidden'>,
   gate: { readonly url: string; readonly port: number },
+  declaration: KeyGateDeclaration,
+  runCredential: string,
 ): SpawnOptions {
   const text = confinedProfile({
     project: folder.project,
@@ -110,6 +114,11 @@ export function confinedLaunch(
     http_proxy: gate.url,
     https_proxy: gate.url,
   };
+  // The gate is its API (VRIFY, 2026-11-12): it adds the person's key on the way out, so the agent holds
+  // only this run's credential from the gate, worthless anywhere else and dead when the run ends, and
+  // no other credential.
+  Object.assign(env, gatedEnvironment(declaration, gate.url, runCredential, env));
+  for (const name of declaration.otherCredentials) delete env[name];
   // Nothing bypasses the gate: every request, loopback included, goes through it.
   delete env.NO_PROXY;
   delete env.no_proxy;

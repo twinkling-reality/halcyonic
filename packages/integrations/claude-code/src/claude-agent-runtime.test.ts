@@ -1750,7 +1750,7 @@ describe("a start that asks for Halcyonic's sandbox (ADR 0048, BOX-4)", () => {
       emit: (observation) => observed.push(observation),
     });
 
-  test('runs inside the sandbox on macOS but is recorded not confined while its sign-in key is inside with it (AUDIT BOX-4 F1); elsewhere not, with why', async (t) => {
+  test('runs inside the sandbox on macOS and is recorded confined, its gate holding the key (VRIFY, 2026-11-12); elsewhere not, with why', async (t) => {
     const { adapter, start, runs, observed } = setup({ confinement: confinement(data(t)) });
     t.after(() => adapter.close());
     // The gate opens before the query starts, so the start is confirmed once its query is there.
@@ -1761,11 +1761,10 @@ describe("a start that asks for Halcyonic's sandbox (ADR 0048, BOX-4)", () => {
     scripted.emit(init(scripted.sessionId));
     await starting;
     const payload = observed[0]?.payload as { confined?: boolean; unconfined_reason?: string };
-    assert.equal(payload.confined, false);
-    assert.match(
-      payload.unconfined_reason ?? '',
-      onMac ? /sign-in key is inside with it/ : /macOS only/,
-    ); // Inside, no settings source at all: the agent can write the folder's own configuration, so a
+    assert.equal(payload.confined, onMac);
+    if (onMac) assert.equal(payload.unconfined_reason, undefined);
+    else assert.match(payload.unconfined_reason ?? '', /macOS only/);
+    // Inside, no settings source at all: the agent can write the folder's own configuration, so a
     // hook or an allow rule it wrote would load at the next start (AUDIT2 S1).
     assert.deepEqual(scripted.options.settingSources, onMac ? [] : ['user']);
   });
@@ -1804,15 +1803,15 @@ describe("a start that asks for Halcyonic's sandbox (ADR 0048, BOX-4)", () => {
     const outside = setup({ sessionInfo: async () => ({ cwd: WORKDIR }) });
     t.after(() => outside.adapter.close());
     if (onMac) {
-      // Recorded not confined, as every run with its key inside is: looked for in its folder's own
-      // store, where nothing is yet.
-      await assert.rejects(
-        reattach(inside.adapter, inside.observed, false),
-        actionError('session_not_found'),
-      );
-      // Recorded confined, which no run here would be: not re-attached.
+      // Recorded confined, as every run inside is now that its gate holds the key: looked for in its
+      // folder's own store, where nothing is yet.
       await assert.rejects(
         reattach(inside.adapter, inside.observed, true),
+        actionError('session_not_found'),
+      );
+      // Recorded not confined (a run outside, or one from before the gate held the key): never moved in.
+      await assert.rejects(
+        reattach(inside.adapter, inside.observed, false),
         actionError('reattach_refused'),
       );
     }

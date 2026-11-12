@@ -40,13 +40,13 @@
 - So a confined start cannot sign in only where the person has no API key and no cloud provider, which the adapter
   already refuses at its construction, for every start.
 
-## The sign-in key inside (AUDIT BOX-4 F1)
+## The sign-in key, held by the gate (AUDIT BOX-4 F1, closed 2026-11-12)
 
-The key the adapter signs Claude Code in with is in the confined process's environment, and its Bash tool inherits
-it: AUDIT's line `echo "key=${ANTHROPIC_API_KEY:-none}"` inside the e2e's command prints the test's dummy key, and the
-test now asserts that it does. So a run inside the sandbox is recorded `confined: false`, with `unconfined_reason`
-saying the key is inside with it, until the key is kept out of the process (a gate of Halcyonic's that holds it and
-adds it to each request: the owner's decision, not built).
+Until 2026-11-12 the key was in the confined process's environment and its Bash tool inherited it, so a run inside
+was recorded `confined: false`. Since then the gate holds it and the agent holds its run's credential from the gate; AUDIT's line
+`echo "key=${ANTHROPIC_API_KEY:-none}"` inside the e2e's command prints that credential, and the test asserts that,
+and that the fake API received the test's fake key in `x-api-key` on every request
+([claude-code-key-gate.md](claude-code-key-gate.md)).
 
 ## A command inside
 
