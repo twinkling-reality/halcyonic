@@ -198,6 +198,15 @@ after a result, because nothing drawn reached them (Checks from Changes was pres
 Checks after it). Inside a task's file every decision a judge makes is pressed through the redesign's own controls.
 The walk draws no shelf, so a character picked there, the other way to a task, is not checked here.
 
+Since 2026-11-12 the walk follows the recording's own decision points instead of one story's: whatever waits on the
+person (a question, an approval, a failed check the recording offers instructions for) is reached and answered through
+what is drawn, each turn's end is shot as its result and its Checks, and it goes on until the recording starts again.
+It names no task, title or count; it fails where a decision sends nothing or more than one command, and where the
+demonstration offers no decision. A decision's first shot waits for the file to read it. On b8de8ae6f (JUDGE,
+2026-11-12, run 20; every check passed, 24 moments at both sizes) it met the same moments as before, now named by
+kind (the results are "result failed" and "result passed"), and the request's first shot, which run 19 took while the
+answer was still sending, shows Approve and Deny.
+
 ## Gaps against today's product
 
 | Area | Today in the judge build | Evidence | Who closes it |
