@@ -635,6 +635,18 @@ namespace Halcyonic.XR.UI
             return down + count * tall + (count - 1) * S(GaugeGapDp);
         }
 
+        /// <summary>A name to type with a zero-width break before each separator, so it wraps at its parts and reads the same.</summary>
+        private static LineWords BreakBefore(LineWords value)
+        {
+            var text = new System.Text.StringBuilder();
+            foreach (var character in value.Text)
+            {
+                if (text.Length > 0 && "/-.?&=".IndexOf(character) >= 0) text.Append('\u200B');
+                text.Append(character);
+            }
+            return value.AllTheirs ? LineWords.TheirName(text.ToString()) : LineWords.Ours(text.ToString());
+        }
+
         /// <summary>The most lines a slot's value wraps to where it is wider than the card: a long web address, whole.</summary>
         public const int SlotValueLines = 6;
 
@@ -659,6 +671,9 @@ namespace Halcyonic.XR.UI
                     // A value wider than the card (a long web address) is shown whole, wrapped on the card's width in a well of
                     // its own, never cut (the critic, 2026-11-12; every value that goes out is shown whole, ADR 0060).
                     laid.Label.textWrappingMode = TextWrappingModes.Normal;
+                    // Breaks fall before an address's separators, never inside a word or after a hyphen: a zero-width break before
+                    // each "/", "-", ".", "?", "&" and "=" (the critic, 2026-11-12: "weat|her", a line ending "speeds-").
+                    if (slots[index].Mono) GlazeRuns.Of(laid.Label).Set(BreakBefore(slots[index].Value));
                     var wrapped = KitType.Lay(laid.Label, width - 2f * S(SlotPadDp), SlotValueLines);
                     extra[index] = Mathf.Max(wrapped.Lines, 1) - 1;
                     least[index] = width;

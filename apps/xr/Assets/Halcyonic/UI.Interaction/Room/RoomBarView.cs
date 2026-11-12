@@ -28,7 +28,7 @@ namespace Halcyonic.XR.UI
         public const float CaretSeconds = 0.53f;
 
         /// <summary>The gap more between the column's answers and its actions, so the two groups read apart.</summary>
-        public const float GroupGapDp = 10f;
+        public const float GroupGapDp = 24f;
 
         /// <summary>The plate under words that stand alone: its padding beside and over them, in dp (the agent's cursor label's own).</summary>
         public const float AlonePadXDp = 16f;

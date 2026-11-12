@@ -500,7 +500,11 @@ namespace Halcyonic.XR.UI
             return main ? (pointed ? RoomButtonLook.MainPointed : RoomButtonLook.Main) : (pointed ? RoomButtonLook.Pointed : RoomButtonLook.Rest);
         }
 
-        /// <summary>The backing's colours: the neutral halo (#343A3F), and the one main action's, the accent's own dark (#22586A, #296A7F while pointed or held).</summary>
+        /// <summary>
+        /// The backing's colours: the neutral halo (#343A3F), and the one main action's, the accent's own dark (#22586A, #296A7F
+        /// while pointed or held). A brighter fill (#2A7590) took white words to 4.1 to 4.4:1 in the judges' walk (2026-11-12),
+        /// under the floor: the accent stands out by its chip, not a lighter fill under white words.
+        /// </summary>
         public const int HaloColour = 0x343A3F;
         public const int MainHaloColour = 0x22586A;
         public const int MainPointedHaloColour = 0x296A7F;
