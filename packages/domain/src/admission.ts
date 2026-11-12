@@ -802,7 +802,7 @@ function admit(
           `Runtime ${runtime.runtime_id} works in the project's folder, and the project has none. Choose a folder for the project first.`,
         );
       }
-      if (command.payload.attachments !== undefined && location === null) {
+      if (fromTheFolder(command.payload.attachments) && location === null) {
         return reject(scope, 'location_required', PICTURES_NEED_A_FOLDER);
       }
       // A task with a copy of its own works there; one without works in the project's folder
@@ -828,7 +828,7 @@ function admit(
       const pictures = picturesRefusal(runtime, command.payload.attachments, scope);
       if (pictures !== undefined) return pictures;
       if (
-        command.payload.attachments !== undefined &&
+        fromTheFolder(command.payload.attachments) &&
         (projection.project(facts.projectId)?.location ?? null) === null
       ) {
         return reject(scope, 'location_required', PICTURES_NEED_A_FOLDER);
@@ -1231,6 +1231,11 @@ function resolveExecution(
     };
   }
   return { found: true, facts, runtime, scope };
+}
+
+/** Whether any of an instruction's pictures comes from the project's folder; a given one needs none. */
+function fromTheFolder(attachments: readonly { readonly kind: string }[] | undefined): boolean {
+  return attachments?.some((attachment) => attachment.kind === 'image') === true;
 }
 
 const PICTURES_NEED_A_FOLDER =

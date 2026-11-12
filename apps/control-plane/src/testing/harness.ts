@@ -100,6 +100,8 @@ export interface TestControlPlaneOptions {
   readonly autoFix?: boolean;
   /** The person's project secrets (ADR 0057), in a scratch folder; off by default. */
   readonly projectSecrets?: ControlPlaneOptions['projectSecrets'];
+  /** Pictures the person gives (ADR 0058, amended); none by default. */
+  readonly givenPictures?: ControlPlaneOptions['givenPictures'];
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -128,6 +130,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.starters !== undefined && { starters: options.starters }),
     ...(options.github !== undefined && { github: options.github }),
     ...(options.projectSecrets !== undefined && { projectSecrets: options.projectSecrets }),
+    ...(options.givenPictures !== undefined && { givenPictures: options.givenPictures }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
     ...(options.previews !== undefined && { previews: options.previews }),
     ...(options.ownChecks !== undefined && { ownChecks: options.ownChecks }),

@@ -174,6 +174,10 @@ client                                   server
   - While one waits, the project has a pending command, so the automatic check and the fix loop wait for the
     turn that takes the last one. A runtime that steers (Codex, OpenCode) takes the instruction in its running
     turn, as before.
+- **A picture the person gives** (ADR 0058, amended). `POST /api/pictures` with `content-type` image/png, image/jpeg
+  or image/webp and the bytes (at most 5 MiB) answers 201 `PictureGivenResponse` `{picture: {id, media_type,
+  size_bytes}}`, 422 for what is not a whole picture, 413 past the size, 503 where none are kept. An attachment
+  `{kind: 'given', picture: id}` then goes with an instruction as a folder's picture does, with no folder needed.
 - **Pictures with an instruction** (ADR 0058). `execution.start` and `execution.send_instruction` take
   `attachments`: at most 4, each `{path, kind: "image"}`, a path of the project's folder.
   - Admission refuses them with `capability_unsupported` for a runtime whose descriptor lacks

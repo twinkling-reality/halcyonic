@@ -178,14 +178,29 @@ export const PictureMediaType = Type.Union([
 export type PictureMediaType = Static<typeof PictureMediaType>;
 
 /**
- * A picture of the project's folder that goes with an instruction (A4). The host reads it once, as
- * the project's own read does, and hands the runtime those bytes; never a path, never a file outside.
+ * A picture that goes with an instruction (A4): `image`, one of the project's folder, read once as the
+ * project's own read does; or `given`, one the person gave the host (what they see, a frame of the
+ * running game) by its id from `POST /api/pictures`. Either way the host hands the runtime the bytes
+ * it read and checked, never a path, never a file outside (ADR 0058, amended).
  */
-export const InstructionAttachment = Type.Object(
-  { path: ProjectPath, kind: Type.Literal('image') },
+export const InstructionAttachment = Type.Union([
+  Type.Object({ path: ProjectPath, kind: Type.Literal('image') }, strict),
+  Type.Object({ picture: Sha256Hex, kind: Type.Literal('given') }, strict),
+]);
+export type InstructionAttachment = Static<typeof InstructionAttachment>;
+
+/**
+ * A picture the person gave the host, kept by its SHA-256 (its `id`) in the host's data folder for a
+ * while, to go with an instruction: what `POST /api/pictures` answers.
+ */
+export const GivenPicture = Type.Object(
+  { id: Sha256Hex, media_type: PictureMediaType, size_bytes: Count },
   strict,
 );
-export type InstructionAttachment = Static<typeof InstructionAttachment>;
+export type GivenPicture = Static<typeof GivenPicture>;
+
+export const PictureGivenResponse = Type.Object({ picture: GivenPicture }, strict);
+export type PictureGivenResponse = Static<typeof PictureGivenResponse>;
 
 export const InstructionAttachments = Type.Array(InstructionAttachment, {
   minItems: 1,
@@ -193,9 +208,17 @@ export const InstructionAttachments = Type.Array(InstructionAttachment, {
 });
 export type InstructionAttachments = Static<typeof InstructionAttachments>;
 
-/** One picture as the host read it for an instruction: what the journal keeps, never the bytes. */
+/**
+ * One picture as the host read it for an instruction: what the journal keeps, never the bytes. `path`
+ * is the folder's picture's, or null for one the person gave, which its `sha256` names.
+ */
 export const PictureRead = Type.Object(
-  { path: ProjectPath, media_type: PictureMediaType, size_bytes: Count, sha256: Sha256Hex },
+  {
+    path: Nullable(ProjectPath),
+    media_type: PictureMediaType,
+    size_bytes: Count,
+    sha256: Sha256Hex,
+  },
   strict,
 );
 export type PictureRead = Static<typeof PictureRead>;

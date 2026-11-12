@@ -298,6 +298,8 @@ async function main(): Promise<void> {
       : {}),
     // The person's project secrets (ADR 0057), set on this Mac's setup page only.
     projectSecrets: { dataDir: config.dataDir },
+    // Pictures the person gives to go with an instruction (ADR 0058, amended).
+    givenPictures: { dataDir: config.dataDir },
     secrets: heldSecrets(
       config,
       { environment: process.env, dataDir: config.dataDir },

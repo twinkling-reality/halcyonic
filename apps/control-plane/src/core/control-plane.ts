@@ -1,4 +1,5 @@
 import { lstat } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   COMMAND_SCHEMA_VERSION,
   type CommandId,
@@ -34,6 +35,7 @@ import type { HostStarters } from '../starters.ts';
 import { AutoFix } from './auto-fix.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
+import { GivenPictures } from './given-pictures.ts';
 import { InstructionQueue } from './instruction-queue.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
@@ -136,6 +138,11 @@ export interface ControlPlaneOptions {
    */
   readonly projectSecrets?: { readonly dataDir: string };
   /**
+   * Where pictures the person gives to go with an instruction are kept (ADR 0058, amended):
+   * `<dataDir>/pictures`. Absent, `POST /api/pictures` is refused and only the folder's pictures go.
+   */
+  readonly givenPictures?: { readonly dataDir: string };
+  /**
    * Unloads a local Ollama model that Halcyonic loaded once no active execution in Halcyonic uses
    * it (UL1); none by default, so tests do not touch loopback Ollama unless they pass one.
    */
@@ -182,6 +189,7 @@ export class ControlPlane {
   readonly github: GitHubSender | null;
   /** The person's project secrets (ADR 0057), or null where none are kept. */
   readonly projectSecrets: SecretStore | null;
+  readonly givenPictures: GivenPictures | null;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1), or null. */
   readonly ollamaUnload: OllamaUnloader | null;
   /** Re-attaches what an earlier control plane started (ADR 0046); null for a fixture journal. */
@@ -224,6 +232,10 @@ export class ControlPlane {
         : new SecretStore(options.projectSecrets.dataDir, (name) =>
             this.registry.ownsEnvironmentName(name),
           );
+    this.givenPictures =
+      options.givenPictures === undefined
+        ? null
+        : new GivenPictures(join(options.givenPictures.dataDir, 'pictures'));
     // A project secret is known to redaction from the moment the page stages it (ADR 0057).
     this.redaction = redaction(() => [
       ...(options.secrets?.() ?? []),
@@ -367,6 +379,7 @@ export class ControlPlane {
       queuesInstructions: this.journal.info.origin === 'live',
       locations: this.locations,
       protectedFolders: this.protectedFolders,
+      givenPictures: this.givenPictures,
       ids: options.ids,
       clock: options.clock,
       scheduler: options.scheduler,

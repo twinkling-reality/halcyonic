@@ -55,6 +55,7 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   CheckpointsResult: { discriminator: 'availability', suffix: 'Checkpoints' },
   RestorePreviewResult: { discriminator: 'availability', suffix: 'RestorePreview' },
   HereAction: { discriminator: 'kind', prefix: 'Here', suffix: 'Action' },
+  InstructionAttachment: { discriminator: 'kind', suffix: 'Attachment' },
 };
 
 /** The documents a C# client reads or writes. Everything they reference is generated too. */
@@ -69,6 +70,7 @@ const ROOTS: readonly string[] = [
   'ProjectFileChangeResponse',
   'ProjectFileResponse',
   'ProjectPicturesResponse',
+  'PictureGivenResponse',
   'ProjectRulesResponse',
   'CheckStepOutputResponse',
   'SharingWaysResponse',

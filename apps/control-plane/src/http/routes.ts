@@ -26,6 +26,8 @@ import {
   type LocationReviewResponse,
   type LocationsResponse,
   type OwnCheckFoundResponse,
+  PICTURE_BYTES,
+  type PictureGivenResponse,
   ProjectChangesQuery,
   ProjectFileChangeQuery,
   ProjectFileQuery,
@@ -856,6 +858,30 @@ export function registerRoutes(
         return answer.body;
       },
     );
+  });
+
+  // A picture the person gives to go with an instruction (ADR 0058, amended): the second route that
+  // takes anything but JSON, in a scope of its own like the clip's, so no other route gains a parser.
+  // One PNG, JPEG or WebP, refused with 413 past PICTURE_BYTES before more is read; never logged.
+  void app.register(async (scope) => {
+    scope.removeAllContentTypeParsers();
+    scope.addContentTypeParser(
+      ['image/png', 'image/jpeg', 'image/webp'],
+      { parseAs: 'buffer', bodyLimit: PICTURE_BYTES },
+      (_request, body, done) => done(null, body),
+    );
+    scope.post('/api/pictures', { bodyLimit: PICTURE_BYTES }, async (request, reply) => {
+      const given = controlPlane.givenPictures;
+      if (given === null)
+        return reply
+          .code(503)
+          .send(errorBody('pictures_unavailable', 'This computer keeps no given pictures.'));
+      const kept = await given.give(new Uint8Array(request.body as Buffer));
+      if (!kept.ok) return reply.code(422).send(errorBody(kept.code, kept.message));
+      request.log.info({ size_bytes: kept.picture.size_bytes }, 'a picture was given');
+      const body: PictureGivenResponse = { picture: kept.picture };
+      return reply.code(201).send(body);
+    });
   });
 
   // Create's companion (ADR 0025): whether it can be asked, and one reply to the exchange so far.

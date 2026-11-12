@@ -190,8 +190,14 @@ public class ContractTests
         Assert.That(none.ContainsKey("attachments"), Is.False);
         var start = Json.Parse(HalcyonicJson.Serialize(
             factory.StartExecution(workstreamId, "codex", "Paint.", pictures: new[] { "art/tree.png" })));
-        Assert.That(start["payload"]!["attachments"]!.ToString(Newtonsoft.Json.Formatting.None),
-            Is.EqualTo("[{\"path\":\"art/tree.png\",\"kind\":\"image\"}]"));
+        // The same picture as the wire carries it, whichever order its keys are written in (a folder's picture).
+        Assert.That(JToken.DeepEquals(start["payload"]!["attachments"]!,
+            JToken.Parse("[{\"kind\":\"image\",\"path\":\"art/tree.png\"}]")), Is.True,
+            start["payload"]!["attachments"]!.ToString(Newtonsoft.Json.Formatting.None));
+        // A picture the person gave goes by its id, and reads back as the same kind (ADR 0058, amended).
+        var given = HalcyonicJson.Serialize(new GivenAttachment { Picture = new string('a', 64) });
+        Assert.That(JToken.DeepEquals(JToken.Parse(given), JToken.Parse("{\"kind\":\"given\",\"picture\":\"" + new string('a', 64) + "\"}")), Is.True, given);
+        Assert.That(HalcyonicJson.Deserialize<InstructionAttachment>(given), Is.InstanceOf<GivenAttachment>());
         var send = Json.Parse(HalcyonicJson.Serialize(factory.SendInstruction("e1", "Now the sky.", new[] { "sky.jpg", "a/b.webp" })));
         Assert.That(send["payload"]!["attachments"]!.Select(a => (string?)a["path"]), Is.EqualTo(new[] { "sky.jpg", "a/b.webp" }));
     }

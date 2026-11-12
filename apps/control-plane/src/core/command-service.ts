@@ -79,6 +79,7 @@ import {
   createObservationSink,
   NO_CAUSE,
 } from './drafts.ts';
+import type { GivenPictures } from './given-pictures.ts';
 import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
 import { listPictures, readPictures } from './pictures.ts';
 import { type Preparation, type Prepared, prepareCommand } from './prepare.ts';
@@ -121,6 +122,8 @@ export interface CommandServiceDeps {
   readonly locations: HostLocations;
   /** The host's own folders, never read for an instruction's pictures (A4). */
   readonly protectedFolders?: readonly string[];
+  /** Pictures the person gave the host to go with an instruction (ADR 0058, amended), or none. */
+  readonly givenPictures?: GivenPictures | null;
   readonly ids: IdGenerator;
   readonly clock: Clock;
   readonly scheduler: Scheduler;
@@ -2316,14 +2319,10 @@ export class CommandService {
       scope.project_id === null
         ? null
         : (this.#deps.projection.project(scope.project_id)?.location?.path ?? null);
-    if (folder === null) {
-      refuse(
-        'picture_not_found',
-        "Pictures come from the project's folder, and the project has none, so the instruction was not sent.",
-      );
-      return;
-    }
-    void readPictures(folder, attachments, this.#deps.protectedFolders ?? []).then(
+    const given = this.#deps.givenPictures;
+    void readPictures(folder, attachments, this.#deps.protectedFolders ?? [], (id) =>
+      given ? given.read(id) : Promise.resolve(null),
+    ).then(
       (read) => {
         if (read.ok) go(read.pictures);
         else refuse(read.code, read.message);
@@ -2344,14 +2343,19 @@ export class CommandService {
     cause: Cause,
   ): void {
     if (pictures.length === 0) return;
+    // In the attachments' order: a given picture has no path, its digest names it (ADR 0058, amended).
+    const attached =
+      'attachments' in command.payload
+        ? ((command.payload.attachments as readonly InstructionAttachment[] | undefined) ?? [])
+        : [];
     this.#deps.recorder.record(
       controlPlaneDraft(
         'execution.instruction.pictures_read',
         scope,
         {
           command_id: command.command_id,
-          pictures: pictures.map((picture) => ({
-            path: picture.path,
+          pictures: pictures.map((picture, index) => ({
+            path: attached[index]?.kind === 'given' ? null : picture.path,
             media_type: picture.media_type,
             size_bytes: picture.bytes.length,
             sha256: picture.sha256,
