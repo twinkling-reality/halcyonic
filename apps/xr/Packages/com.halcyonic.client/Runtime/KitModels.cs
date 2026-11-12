@@ -401,8 +401,9 @@ namespace Halcyonic.Client
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
             KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false,
             RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null, RoomResult? result = null,
-            Halcyonic.Contracts.AutoFixView? autoFix = null)
+            Halcyonic.Contracts.AutoFixView? autoFix = null, RoomCard? standing = null)
         {
+            Standing = standing;
             Result = result;
             AutoFix = autoFix;
             OffersNeverAsk = offersNeverAsk;
@@ -456,6 +457,9 @@ namespace Halcyonic.Client
 
         /// <summary>The task's failed check sent back to its agent on its own (ADR 0044), the latest chain, under way or ended; null where none was recorded.</summary>
         public Halcyonic.Contracts.AutoFixView? AutoFix { get; }
+
+        /// <summary>How the task at rest stands, as a card (B, <see cref="RoomStanding"/>), for where its result says nothing; null while it runs.</summary>
+        public RoomCard? Standing { get; }
 
         /// <summary>What Stop's confirmation asks, the file's own words, while Stop is armed (the redesign); else null.</summary>
         public string? Stops { get; }

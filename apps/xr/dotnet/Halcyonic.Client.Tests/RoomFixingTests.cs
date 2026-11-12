@@ -78,7 +78,8 @@ public sealed class RoomFixingTests
         Assert.That(AtWork(null).Card, Is.Null);
         Assert.That(AtWork(Fix(AutoFixViewState.Ended, 1, reason: AutoFixEndReason.Passed)).Card, Is.Null, "an ended chain is the result's to say");
         Assert.That(AtWork(Fix(AutoFixViewState.Fixing, 0)).Card, Is.Null, "no try sent yet");
-        Assert.That(AtWork(Fix(AutoFixViewState.Fixing, 1), ExecutionStatus.Completed).Card, Is.Null, "not at work");
+        // At rest the card says how the run stands (B, 2026-11-12), never a try under way.
+        Assert.That(AtWork(Fix(AutoFixViewState.Fixing, 1), ExecutionStatus.Completed).Card?.Status?.Title, Is.Not.EqualTo(RoomBar.FixingTitle).And.EqualTo(RoomStanding.Finished), "not at work");
     }
 
     [Test]

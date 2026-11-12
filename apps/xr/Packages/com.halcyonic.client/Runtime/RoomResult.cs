@@ -84,6 +84,9 @@ namespace Halcyonic.Client
             ShowShare, ShareWayAction, ShareStart, ShareCancel, ShareStop, ShareAgain, ShareCheckGame, ShareStartPreview, ShareBack, ShareClose,
         };
 
+        /// <summary>A result with nothing known of it: no check, no files, no actions, as after a restart before its history is read.</summary>
+        public static RoomResult Nothing { get; } = new RoomResult(false, false, false, null, null, null);
+
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false)
