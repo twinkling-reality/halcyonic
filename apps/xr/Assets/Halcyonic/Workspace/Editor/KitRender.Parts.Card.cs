@@ -231,6 +231,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var tall = view.Show(card, inner);
             var size = new Vector2(width, tall + 2f * pad);
             panel.InnerBar = null;
+            panel.Ring = view.PanelRing;
             panel.Draw(size);
             view.transform.localPosition = new Vector3(-width / 2f + pad, size.y / 2f - pad, -RoomType.Units(0.5f));
             Place(plane, eyes, 0f, shot.Elevation);

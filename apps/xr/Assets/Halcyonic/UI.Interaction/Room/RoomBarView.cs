@@ -693,6 +693,8 @@ namespace Halcyonic.XR.UI
 
             panel.InnerBar = barHeight > 0f ? ((panelHeight - inset - barHeight) / unit, barHeight / unit, inset / unit) : ((float, float, float)?)null;
             panel.transform.localPosition = new Vector3(left + panelWidth / 2f, foot + panelHeight / 2f, 0f);
+            // A card that is the way in rings its panel in its hue, on the panel's own corner.
+            panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
             if (!bar.Wide) panel.Draw(new Vector2(panelWidth, panelHeight));
             panel.gameObject.SetActive(!bar.Wide);
             var top = panelHeight / 2f;
