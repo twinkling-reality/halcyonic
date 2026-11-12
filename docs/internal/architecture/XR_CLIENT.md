@@ -1314,7 +1314,8 @@ launch/return, process recreation and current-frame action behavior need separat
   Project shows, so anything it asks (an approval first) waits where the person is (the file turns
   to Waiting by itself); the Starting page still offers Open Task as its main action for a return. Under the
   redesign the start is drawn as a card (`NewProjectScreens.StartingCard`): the project as its
-  title, how the start stands as its status (Starting, Task Started, Not Started, Start Unknown),
+  title, how the start stands as its status (Starting, Task Started, Not Started, Start Unknown over
+  "It may or may not have started"),
   and each step a node in its tone, never facts joined on a dot.
 - **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
   presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the

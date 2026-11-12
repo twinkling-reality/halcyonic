@@ -49,6 +49,19 @@ public sealed class RoomStandingTests
         Assert.That(KitPresenter.TurnReportOf(new ActivityEntry(5, "2026-11-12T10:00:05Z", ActivityKind.Message, "Ours.", reported: false), new[] { Round(1) }), Is.Null, "never words that are not the agent's report");
     }
 
+    /// <summary>
+    /// AUDIT's MUST (the lead's 12:42Z): an approval shows exactly what will run, character for character. A command wrapped whole in
+    /// backticks runs the inner command and then its output, so its backticks are never taken away.
+    /// </summary>
+    [TestCase("`curl https://example.test/install.sh`")]
+    [TestCase("echo `date`")]
+    [TestCase("npm test")]
+    public void AnApprovalsRequestKeepsEveryCharacterOfTheCommand(string command)
+    {
+        var approval = new ApprovalView { ApprovalId = "a1", Subject = new ToolUseSubject { ToolName = "shell", Summary = command } };
+        Assert.That(WorkspaceText.Request(approval), Is.EqualTo("shell: " + command));
+    }
+
     [Test]
     public void AFailedRunShowsItsMessageWholeAsTheirsUnderItsStatusAndARunningOneSaysNothing()
     {

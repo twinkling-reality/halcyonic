@@ -717,7 +717,8 @@ namespace Halcyonic.Client
                 LineWords agent;
                 if (runtime.Synthetic) agent = LineWords.Ours(live ? "Practice Run" : "Simulated");
                 else agent = LineWords.TheirName(CaptureNames.AgentName(runtime.DisplayName));
-                slots.Add(new RoomSlot(RoomKind.Agent, agent));
+                // The agent app with the app's own mark (FIELD's words, 10:46Z), the model after it with the agent's.
+                slots.Add(new RoomSlot(runtime.Synthetic ? RoomKind.Agent : RoomKind.App, agent));
                 // The agent app and, where it lists models, the model, each its own slot: the recap is what Start Task sends (R1).
                 if (!runtime.Synthetic && runtime.ModelChoice == ModelChoice.Listed)
                     slots.Add(new RoomSlot(RoomKind.Agent, draft.Model is RuntimeModel model ? LineWords.TheirName(CaptureNames.ModelName(model.DisplayName ?? model.ModelRef)) : LineWords.Ours("Not Chosen")));
@@ -1175,7 +1176,7 @@ namespace Halcyonic.Client
             })).ToList();
             var status = sequence.Started ? new RoomCardStatus("Task Started", null, RoomTone.Good)
                 : sequence.CanRetry ? new RoomCardStatus("Not Started", null, RoomTone.Bad)
-                : sequence.Stopped || sequence.Steps.Any(step => step.Status == BuildStepStatus.Unknown) ? new RoomCardStatus("Start Unknown", "Check the Stage First", RoomTone.Attention)
+                : sequence.Stopped || sequence.Steps.Any(step => step.Status == BuildStepStatus.Unknown) ? new RoomCardStatus("Start Unknown", "It may or may not have started", RoomTone.Quiet)
                 : new RoomCardStatus("Starting", null, RoomTone.Working);
             var title = idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet);
             return new RoomCard(title, head: RoomCardHead.Project, status: status, steps: steps);
