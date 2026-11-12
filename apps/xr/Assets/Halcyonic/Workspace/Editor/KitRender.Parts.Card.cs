@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -183,6 +183,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 // A value wider than the card, as a long web address to check: whole, wrapped in its own well, never cut.
                 "47-card-slot-long" => new RoomCard(Theirs("Kite Run"), status: new RoomCardStatus(RoomReview.CheckTitle, RoomReview.CheckAddressLine, RoomTone.Attention, RoomKind.Failed),
                     slots: new[] { new RoomSlot(RoomKind.Link, Theirs("https://assets.example.com/weather/v2/regions/coastal/wind-speeds-hourly.json"), mono: true) }),
+                // All work's tasks: each row its project under its name, a long instruction of the person's own cut at a word.
+                "47-card-tasks-all" => new RoomCard(Ours("Tasks"), list: new[]
+                {
+                    new RoomListRow(RoomKind.Task, Theirs("Tail"), "Needs You", RoomTone.Attention, press: CardRowControl("t1"), under: Theirs("Kite Run")),
+                    new RoomListRow(RoomKind.Task, Theirs("Score"), "Working", RoomTone.Working, press: CardRowControl("t2"), under: Theirs("Kite Run")),
+                    new RoomListRow(RoomKind.Waiting, Theirs("Make the kite's tail longer, and let it ripple in the wind as it climbs and dips with my hand."), "Next",
+                        press: CardRowControl("t3"), under: Theirs("Storefront"), excerpt: true),
+                }),
                 // A file's state with no line: its own mark, its title centred on it.
                 "47-card-file-state" => new RoomCard(Theirs("sky.png"), status: new RoomCardStatus("Not Text", null, RoomTone.Quiet), titleMono: true),
                 "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]

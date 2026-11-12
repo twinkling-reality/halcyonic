@@ -237,8 +237,14 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class RoomListRow
     {
+        /// <param name="under">A quieter second line under the name: what the row belongs to, as a task's project (theirs, leaning).</param>
+        /// <param name="excerpt">
+        /// The name is the person's own words of any length and the row presses to a page that shows them whole: it shows their
+        /// lead cut at a word (<see cref="LineWords.CutToFit"/>), its quiet ellipsis theirs. Only a name wholly theirs on a row
+        /// that presses is ever cut; Halcyonic's own words never are.
+        /// </param>
         public RoomListRow(RoomKind kind, LineWords name, string? note = null, RoomTone tone = RoomTone.Quiet, bool mono = false, KitControl? press = null,
-            bool chosen = false)
+            bool chosen = false, LineWords? under = null, bool excerpt = false)
         {
             Kind = kind;
             Name = name;
@@ -247,7 +253,15 @@ namespace Halcyonic.Client
             Mono = mono;
             Press = press;
             Chosen = chosen;
+            Under = under == null || under.IsEmpty ? null : under;
+            Excerpt = excerpt && press != null && name.AllTheirs;
         }
+
+        /// <summary>The quieter second line under the name; null for none.</summary>
+        public LineWords? Under { get; }
+
+        /// <summary>The name may show its lead cut at a word (see the constructor); true only for a wholly theirs name on a row that presses.</summary>
+        public bool Excerpt { get; }
 
         public RoomKind Kind { get; }
 

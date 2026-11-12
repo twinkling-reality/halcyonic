@@ -832,9 +832,21 @@ namespace Halcyonic.XR.UI
                 var (nameLabel, nameTall) = row.Mono
                     ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 2)
                     : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, 2);
-                var rowTall = Mathf.Max(S(RowTileDp), nameTall);
+                // The person's own words of any length, on a row that opens them whole: their lead, cut at a word.
+                if (row.Excerpt) nameTall = Excerpt(nameLabel, row.Name, nameWidth, 2, RowNameLineDp);
+                // What the row belongs to, a quieter line under its name.
+                TextMeshPro? underLabel = null;
+                var underTall = 0f;
+                if (row.Under != null)
+                {
+                    (underLabel, underTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Under, nameLeft, 0f, nameWidth, 1);
+                    if (row.Under.AllTheirs) underTall = Excerpt(underLabel, row.Under, nameWidth, 1, RowNoteLineDp);
+                }
+                var block = nameTall + (underLabel != null ? S(2f) + underTall : 0f);
+                var rowTall = Mathf.Max(S(RowTileDp), block);
                 var middle = top + rowTall / 2f;
-                nameLabel.transform.localPosition = new Vector3(nameLeft, -(middle - nameTall / 2f), -RoomType.Units(0.5f));
+                nameLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f), -RoomType.Units(0.5f));
+                if (underLabel != null) underLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f + nameTall + S(2f)), -RoomType.Units(0.5f));
                 if (noteLabel != null) noteLabel.transform.localPosition = new Vector3(width - chevronRoom - noteWidth, -(middle - S(RowNoteLineDp) / 2f), -RoomType.Units(0.5f));
                 if (picked)
                 {
@@ -848,6 +860,26 @@ namespace Halcyonic.XR.UI
                 down = top + rowTall + S(RowPadDp);
             }
             return down;
+        }
+
+        /// <summary>
+        /// Lays outside words that may run long as their lead cut at a word (<see cref="LineWords.CutToFit"/>) where they do not
+        /// fit <paramref name="lines"/>, and returns the height they take. Halcyonic's own runs are never cut.
+        /// </summary>
+        private float Excerpt(TextMeshPro label, LineWords words, float width, int lines, float lineDp)
+        {
+            label.ForceMeshUpdate(true);
+            if (!label.isTextOverflowing) return Mathf.Max(label.textInfo.lineCount, 1) * S(lineDp);
+            var runs = GlazeRuns.Of(label);
+            var cut = words.CutToFit(tried =>
+            {
+                runs.Set(tried);
+                label.ForceMeshUpdate(true);
+                return !label.isTextOverflowing;
+            });
+            runs.Set(cut);
+            var laid = KitType.Lay(label, width, lines);
+            return Mathf.Max(laid.Lines, 1) * S(lineDp);
         }
 
         /// <summary>
