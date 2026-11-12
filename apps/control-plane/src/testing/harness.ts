@@ -92,6 +92,7 @@ export interface TestControlPlaneOptions {
   readonly github?: ControlPlaneOptions['github'];
   /** The person's catalog as last read, for links; none by default. */
   readonly catalogLinks?: ControlPlaneOptions['catalogLinks'];
+  readonly providers?: ControlPlaneOptions['providers'];
   /** Checks and previews of starter projects (ADR 0037); off by default. */
   readonly previews?: ControlPlaneOptions['previews'];
   /** A project's own check (ADR 0055); off by default. */
@@ -132,6 +133,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.projectSecrets !== undefined && { projectSecrets: options.projectSecrets }),
     ...(options.givenPictures !== undefined && { givenPictures: options.givenPictures }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
+    ...(options.providers !== undefined && { providers: options.providers }),
     ...(options.previews !== undefined && { previews: options.previews }),
     ...(options.ownChecks !== undefined && { ownChecks: options.ownChecks }),
     ...(options.autoFix !== undefined && { autoFix: options.autoFix }),

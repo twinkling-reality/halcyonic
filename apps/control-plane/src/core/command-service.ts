@@ -114,6 +114,7 @@ const ROWS_ADMITTED: ReadonlySet<ChoiceList> = new Set([
  */
 const ANOTHER_NEED: ReadonlySet<RejectionCode> = new Set(['model_required']);
 
+import type { HostProviders } from '../providers.ts';
 import { type Preparation, type Prepared, prepareCommand, REQUIRED } from './prepare.ts';
 import { readRules, rulesReview, withRules } from './project-rules.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
@@ -188,6 +189,8 @@ export interface CommandServiceDeps {
   readonly files?: FileObserver | null;
   /** The person's catalog, as last read, for checking links; none when no catalog is set up. */
   readonly catalogLinks?: CatalogLinks | null;
+  /** The host's one list of declared hosted providers (ADR 0061), for the names the model rows say. */
+  readonly providers?: HostProviders;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1); none by default. */
   readonly ollamaUnload?: OllamaUnloader | null;
   /** Re-attaches what an earlier control plane started (ADR 0046); none for a fixture journal. */
@@ -790,6 +793,7 @@ export class CommandService {
             ),
         ),
       credential: (runtimeId) => this.#credential(runtimeId),
+      providerName: (id) => this.#deps.providers?.byId(id)?.name ?? null,
       catalog: async () => {
         const read = this.#deps.catalogLinks?.read;
         if (read === undefined) return null;

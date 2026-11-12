@@ -178,3 +178,81 @@ test("a refusal counts for the models of the same declared provider only: anothe
   );
   await controlPlane.close();
 });
+
+test('the row names the declared provider whose key was refused, by its own declaration', async (t) => {
+  const { mkdirSync: mkdir, writeFileSync: write } = await import('node:fs');
+  const { HostProviders } = await import('../providers.ts');
+  const dir = mkdtempSync(join(tmpdir(), 'halcyonic-credential-providers-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  mkdir(join(dir, 'alpha'));
+  write(
+    join(dir, 'alpha', 'provider.json'),
+    JSON.stringify({
+      format: 1,
+      id: 'alpha',
+      name: 'Alpha',
+      upstream: 'http://127.0.0.1:1/v1',
+      speaks: ['chat_completions'],
+      key: {
+        file: 'alpha-api-key',
+        variable: 'ALPHA_API_KEY',
+        field: 'Alpha API Key',
+        header: { name: 'Authorization', scheme: 'Bearer' },
+      },
+      models: ['one'],
+    }),
+  );
+  const models: RuntimeModel[] = [
+    {
+      model_ref: 'alpha/one',
+      display_name: 'Simulated alpha/one (development fixture)',
+      served: 'remote',
+      tool_calling: 'declared',
+      context_tokens: null,
+      provider: 'alpha',
+    },
+  ];
+  const time = createVirtualTime(new Date('2026-11-12T15:00:00.000Z'));
+  const { controlPlane, commands } = createTestControlPlane({
+    time,
+    providers: new HostProviders({ dir, dataDir: dir }),
+    adapters: (clock) => [
+      new MockRuntimeAdapter({
+        scenarios: new Map([...SCENARIOS, ['key_refused', REFUSED]]),
+        models,
+        clock,
+        scheduler: clock,
+      }),
+    ],
+  });
+  t.after(() => controlPlane.close());
+  const made = controlPlane.commands.submit(commands.createProject('Named'), 'internal');
+  const projectId =
+    made.command?.result?.kind === 'project_created' ? made.command.result.project_id : '';
+  const workstream = { title: 'Try', objective: null, instruction: 'Hi.', scenario: 'key_refused' };
+  const task = controlPlane.commands.submit(
+    commands.createWorkstream(projectId as never, workstream as never),
+    'internal',
+  );
+  const workstreamId = (
+    task.command?.result?.kind === 'workstream_created' ? task.command.result.workstream_id : ''
+  ) as WorkstreamId;
+  const start = commands.startExecution(workstreamId, workstream as never);
+  controlPlane.commands.submit(
+    { ...start, payload: { ...start.payload, model_ref: 'alpha/one' as never } },
+    'internal',
+  );
+  await time.advance(1000);
+  const list = await controlPlane.commands.choices(
+    {
+      project_id: projectId,
+      workstream_id: workstreamId,
+      execution_id: controlPlane.projection.workstream(workstreamId)?.current_execution_id ?? null,
+    } as HereScope,
+    'models',
+  );
+  assert.equal(
+    list?.rows[0]?.detail,
+    'Mock runtime (development fixture): the Alpha key was refused. Give it a new key on this Mac.',
+  );
+});

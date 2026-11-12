@@ -49,6 +49,8 @@ export interface ChoiceSources {
    * have been replaced since: unknown), or null when it was not refused.
    */
   readonly credential: (runtimeId: string) => readonly ModelRun[];
+  /** A declared provider's name, as its declaration says it, or null where none is declared by that id. */
+  readonly providerName: (id: string) => string | null;
   /** The person's catalog, read now; null where none is set up or it cannot be read by index. */
   readonly catalog: () => Promise<CatalogResponse | null>;
 }
@@ -231,13 +233,16 @@ export async function choiceRows(
         for (const model of models) {
           const key = keyOf(model);
           const keyed = key === null ? null : (latest.get(key)?.refused ?? null);
+          // Whose key it is: the declared provider's, by its own name, else the runtime's own.
+          const whose = model.provider === undefined ? null : sources.providerName(model.provider);
+          const its = whose === null ? 'its key' : `the ${whose} key`;
           rows.push(
             row(rows.length, 'model', model.display_name, model.model_ref, {
               detail:
                 keyed === 'refused'
-                  ? `${runtime.display_name}: its key was refused. Give it a new key on this Mac.`
+                  ? `${runtime.display_name}: ${its} was refused. Give it a new key on this Mac.`
                   : keyed === 'refused_before'
-                    ? `${runtime.display_name}: its key was refused before, and is not tried since.`
+                    ? `${runtime.display_name}: ${its} was refused before, and is not tried since.`
                     : runtime.display_name,
               theirs: true,
               actions: keyed === 'refused' ? [] : ['execution.start'],
