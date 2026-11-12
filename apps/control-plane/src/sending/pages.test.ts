@@ -210,7 +210,7 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
     assert.equal(after.ok ? null : after.code, 'pages_refused');
     assert.match(
       after.ok ? '' : after.message,
-      /owner\/garden is public now: Make Private puts it back\./,
+      /owner\/garden is public now: Publish again, or Make Private puts it back\./,
     );
     assert.doesNotMatch(
       after.ok ? '' : after.message,
@@ -249,7 +249,7 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
     assert.equal(refused.ok ? null : refused.effect, 'unknown');
     assert.match(
       refused.ok ? '' : refused.message,
-      /no page changed.*owner\/garden is public now: Make Private puts it back\./,
+      /no page changed.*owner\/garden is public now: Publish again, or Make Private puts it back\./,
     );
     assert.deepEqual(opened, ['owner/garden'], 'recorded the moment it was made public');
     // Git's own words say why, with no path of this Mac in them; no branch was in the way, so no
@@ -272,6 +272,45 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
     assert.equal(unchanged.ok ? null : unchanged.code, 'push_refused');
     assert.equal(unchanged.ok ? null : (unchanged.effect ?? 'none'), 'none');
     assert.doesNotMatch(unchanged.ok ? '' : unchanged.message, /public now/);
+  });
+
+  test('after Make Public, GitHub documents no wait and no retry: a refusal that clears is published by the next Publish, one that never clears is refused each time, honestly (run 2)', async () => {
+    const made = { repository: 'owner/garden', visibility: 'private' as const };
+    const lock = join(stand.origin, 'refs', 'heads', 'halcyonic-pages.lock');
+    const press = async (visibility: 'private' | 'public', makePublic: boolean) => {
+      const shown = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, {
+        made: { ...made, visibility },
+        makePublic,
+      });
+      assert.ok(shown.ok, shown.ok ? '' : shown.message);
+      assert.equal(shown.publish.make_public, makePublic);
+      return sender().publish(PROJECT, stand.folder, CHECK, built, null, shown.publish.review, {
+        made: { ...made, visibility },
+        makePublic,
+      });
+    };
+    // Refused right after Make Public: no wait and no retry of its own; it says so and offers the next step.
+    writeFileSync(lock, '');
+    const first = await press('private', true);
+    assert.equal(first.ok ? null : first.code, 'push_refused');
+    assert.match(first.ok ? '' : first.message, /Publish again, or Make Private puts it back/);
+    assert.equal(
+      readFileSync(stand.ghLog, 'utf8').match(/repo edit/g)?.length,
+      1,
+      'made public once, never again by itself',
+    );
+    // One that never clears: each next press is refused in git's words, with nothing more changed.
+    const again = await press('public', false);
+    assert.equal(again.ok ? null : again.code, 'push_refused');
+    assert.equal(again.ok ? null : (again.effect ?? 'none'), 'none');
+    assert.match(again.ok ? '' : again.message, /Git said: /);
+    assert.doesNotMatch(again.ok ? '' : again.message, /public now/);
+    // One that clears later: the person's next Publish publishes, with no Make Public, since it is public.
+    rmSync(lock);
+    const later = await press('public', false);
+    assert.ok(later.ok, later.ok ? '' : later.message);
+    assert.equal(stand.git(stand.origin, 'rev-parse', BRANCH), later.commit);
+    assert.equal(readFileSync(stand.ghLog, 'utf8').match(/repo edit/g)?.length, 1);
   });
 
   test("Make Private makes the repository private with the person's own gh, and says so when GitHub does not (run 2)", async () => {
