@@ -1406,7 +1406,8 @@ launch/return, process recreation and current-frame action behavior need separat
   the address and that pairing is open); and otherwise reads as one that doesn't pair the way the
   computer does (`protocol_error`, `ProtocolError`).
 - **`PairingCards`** says where pairing is as cards in the card language (A17): Looking while the
-  headset asks the Wi-Fi; one computer found (Your Computer) or several (Pick Your Computer), each a
+  headset asks the Wi-Fi; one computer found (Your Computer, whose code the panel asks at once when no
+  other answer used its name: `PairingColumn.PickedForThePerson`) or several (Pick Your Computer), each a
   neutral list row with the computer's mark and its announced name leaning as outside text, noted
   only with Same Name Twice in red where another answer used the name (with a line under the list);
   None Found, whose line says to press Pair Headset on the computer or type its address; the code,

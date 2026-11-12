@@ -220,7 +220,14 @@ namespace Halcyonic.XR.Pairing
                 var answered = finding.Status == TaskStatus.RanToCompletion ? finding.Result : Array.Empty<FoundComputer>();
                 finding = null;
                 found = answered.Select(computer => new PairingChoice(computer.Name, computer.Address, computer.SharesItsName)).ToList();
-                if (step == Step.Finding) column?.Found(found);
+                if (step == Step.Finding && column != null)
+                {
+                    column.Found(found);
+                    // One computer found, its name its own: there is nothing to pick, so its code is asked at once (the owner's
+                    // bar, 2026-11-11: no step the desk does not take). The code still decides, and the number pad names it.
+                    // A pad closed unanswered goes back to the list (PollKeyboard), never round to here.
+                    if (PairingColumn.PickedForThePerson(found) is PairingChoice only) Chosen(only);
+                }
             }
             if (pairing != null && pairing.IsCompleted)
             {
