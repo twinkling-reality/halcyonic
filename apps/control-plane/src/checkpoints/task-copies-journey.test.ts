@@ -248,6 +248,68 @@ describe('several agents on one project (ADR 0045)', {
     assert.equal(of('execution.created', first)[1]?.payload.directory, copyOf(first));
   });
 
+  test('a start removes no copy, and each task whose copy is gone says so, once (ADR 0045, amended)', async () => {
+    const { tasks, controlPlane, task, start, of, finish } = setup('unheld');
+    const first = task('Lanterns');
+    assert.equal(start(first, 'lanterns').disposition, 'accepted');
+    await until(() => of('runtime.turn.started').length === 1, 'the agent at work');
+    finish();
+    await until(() => of('runtime.turn.completed').length === 1, 'the turn to end');
+    const copy = controlPlane.projection.workstream(first)?.copy;
+    assert.ok(copy?.state === 'own');
+    // What another control plane on this Mac keeps here, or a restored older journal no longer names.
+    const foreign = join(
+      tasks,
+      '01920000-0000-7000-8000-00000000f0f0',
+      '01920000-0000-7000-8000-00000000f0f1',
+      'app',
+    );
+    mkdirSync(foreign, { recursive: true });
+    writeFileSync(join(foreign, 'work.txt'), 'not added yet\n');
+    assert.deepEqual(await controlPlane.noteCopies(), {
+      missing: 0,
+      found: 0,
+      unheld: 1,
+      other: 0,
+    });
+    assert.equal(
+      readFileSync(join(foreign, 'work.txt'), 'utf8'),
+      'not added yet\n',
+      'never removed',
+    );
+    assert.equal(readFileSync(join(copy.directory, 'app.txt'), 'utf8'), 'lanterns\n');
+    // The task's own copy gone: recorded once, and the task's view says when.
+    rmSync(copy.directory, { recursive: true, force: true });
+    assert.deepEqual(await controlPlane.noteCopies(), {
+      missing: 1,
+      found: 0,
+      unheld: 1,
+      other: 0,
+    });
+    assert.deepEqual(await controlPlane.noteCopies(), {
+      missing: 0,
+      found: 0,
+      unheld: 1,
+      other: 0,
+    });
+    assert.equal(of('workstream.copy_missing', first).length, 1);
+    assert.equal(of('workstream.copy_missing', first)[0]?.payload.directory, copy.directory);
+    const gone = controlPlane.projection.workstream(first)?.copy;
+    assert.ok(gone?.state === 'own' && typeof gone.missing_at === 'string');
+    // Back again (a restored backup): said too, and the view no longer says it is gone.
+    mkdirSync(copy.directory, { recursive: true });
+    assert.deepEqual(await controlPlane.noteCopies(), {
+      missing: 0,
+      found: 1,
+      unheld: 1,
+      other: 0,
+    });
+    assert.equal(of('workstream.copy_found', first).length, 1);
+    const back = controlPlane.projection.workstream(first)?.copy;
+    assert.ok(back?.state === 'own' && back.missing_at === undefined);
+    assert.equal(readFileSync(join(foreign, 'work.txt'), 'utf8'), 'not added yet\n');
+  });
+
   test('a folder that cannot be copied keeps one task at a time, and says why', async () => {
     const { folder, controlPlane, task, start, of } = setup('linked', { linkedRepository: true });
     const first = task('Lanterns');

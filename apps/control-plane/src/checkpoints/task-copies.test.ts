@@ -354,7 +354,7 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     );
   });
 
-  test('a sweep removes only the copies no task holds, never what it cannot tell is one', async () => {
+  test('a count of what the folder holds that the journal does not removes none of it (ADR 0045, amended)', async () => {
     write('a.txt', 'one\n');
     const OTHER = '01920000-0000-7000-8000-00000000ab02';
     const GONE_PROJECT = '01920000-0000-7000-8000-00000000dead';
@@ -371,11 +371,12 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     writeFileSync(join(outside, 'keep.txt'), 'keep\n');
     symlinkSync(outside, join(tasks, PROJECT, '01920000-0000-7000-8000-00000000ab03'));
 
-    const swept = await copies.sweep(new Set([kept.directory]));
-    assert.deepEqual(swept, { removed: 2, left: 3 });
+    const found = await copies.unheld(new Set([kept.directory]));
+    assert.deepEqual(found, { unheld: 2, other: 3 });
     assert.equal(existsSync(kept.directory), true);
-    assert.equal(existsSync(join(tasks, PROJECT, OTHER)), false);
-    assert.equal(existsSync(join(tasks, GONE_PROJECT)), false, 'an emptied project folder goes');
+    // Another plane's copy, or a task's unadded work an older journal does not name: never removed.
+    assert.equal(existsSync(gone.directory), true);
+    assert.equal(existsSync(elsewhere.directory), true);
     assert.equal(
       readFileSync(join(outside, 'keep.txt'), 'utf8'),
       'keep\n',

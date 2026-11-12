@@ -1,3 +1,4 @@
+import { lstat } from 'node:fs/promises';
 import {
   COMMAND_SCHEMA_VERSION,
   type CommandId,
@@ -33,6 +34,7 @@ import { GitHubSender, type GitHubSenderDeps } from '../sending/github.ts';
 import type { HostStarters } from '../starters.ts';
 import { AutoFix } from './auto-fix.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
+import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 import { InstructionQueue } from './instruction-queue.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
@@ -659,6 +661,47 @@ export class ControlPlane {
     void this.previews
       ?.reconcile()
       .catch((error: unknown) => this.#logger.warn({ err: error }, 'previews not reconciled'));
+  }
+
+  /**
+   * At a start, before any task can start (ADR 0045, amended): records each copy this journal holds
+   * whose folder is gone (`workstream.copy_missing`, once) or back again (`workstream.copy_found`),
+   * so the task says it, and counts what the copies' folder holds that the journal does not,
+   * removing none of it. Null where copies are off or the journal is not this Mac's own.
+   */
+  async noteCopies(): Promise<{
+    readonly missing: number;
+    readonly found: number;
+    readonly unheld: number;
+    readonly other: number;
+  } | null> {
+    if (this.copies === null || this.journal.info.origin !== 'live') return null;
+    let missing = 0;
+    let found = 0;
+    const held = new Set<string>();
+    for (const workstream of this.projection.workstreams()) {
+      const copy = workstream.copy;
+      if (copy?.state !== 'own') continue;
+      held.add(copy.directory);
+      const there = (await lstat(copy.directory).catch(() => null))?.isDirectory() === true;
+      if (there === (copy.missing_at === undefined)) continue;
+      this.recorder.record(
+        controlPlaneDraft(
+          there ? 'workstream.copy_found' : 'workstream.copy_missing',
+          {
+            project_id: workstream.project_id,
+            workstream_id: workstream.workstream_id,
+            execution_id: null,
+          },
+          { directory: copy.directory },
+          this.clock.now().toISOString() as Timestamp,
+          NO_CAUSE,
+        ),
+      );
+      if (there) found += 1;
+      else missing += 1;
+    }
+    return { missing, found, ...(await this.copies.unheld(held)) };
   }
 
   snapshot(): Snapshot {

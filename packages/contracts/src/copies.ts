@@ -84,6 +84,8 @@ export type ChangedFiles = Static<typeof ChangedFiles>;
  * before readings carried it; `to_add_review` the digest of that reading (ADR 0051), which an add
  * from a paired device carries back, null where there is none.
  * `conflict` is the latest add's overlap, until the agent fitted the work or an add went through.
+ * `missing_at`: when a start of the host found the copy's folder gone (its work, unadded, is not on
+ * this Mac any more), absent while the last start found it there.
  * `refused`: the task works in the project's own folder, one task at a time, for `code`.
  */
 export const WorkstreamCopy = Type.Union([
@@ -99,6 +101,7 @@ export const WorkstreamCopy = Type.Union([
       to_add_read_at: Nullable(Timestamp),
       last_added_at: Nullable(Timestamp),
       conflict: Nullable(ConflictedFiles),
+      missing_at: Type.Optional(Timestamp),
     },
     strict,
   ),
