@@ -579,7 +579,7 @@ export class GitHubSender {
       opened
         ? {
             ...failure,
-            message: `${failure.message} ${publish.repository} is public now: Make Private puts it back.`,
+            message: `${failure.message} ${publish.repository} is public now: Publish again, or Make Private puts it back.`,
             effect: 'unknown',
           }
         : failure;

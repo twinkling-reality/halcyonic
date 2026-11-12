@@ -197,6 +197,62 @@ email reached nothing. The repository is `<owner>/halcyonic-proof-20261112-0717`
   "Unpublishing a GitHub Pages site" says whether a site stops being served when its source branch is deleted:
   Take Down deletes the branch, and whether the address then stops answering is for the real run to show.
 
+## The second real run against github.com (2026-11-12, 14:01Z to 14:04Z)
+
+One run, inside the owner's yes ("Yes, run it once"), on main 08dbce62a, read by AUDIT3 before and after.
+- Proven:
+  - the first Send made a private repository and pushed `main`, signed by the scratch identity;
+  - the second Send pushed a branch and opened pull request 1;
+  - Publish as it was was refused (`pages_refused`, GitHub Free and a private repository), and its branch came
+    down again;
+  - Make Public was offered for the repository the first Send made, spelled two ways (the case fix), and GitHub
+    made it public (`project.repository_made_public`).
+- Then the push of `halcyonic-pages` to the now-public repository was refused, about three seconds after the
+  visibility change. The same files had been pushed to the same branch name while it was private, seconds before.
+  - The product kept no git words, so why is not known. Since then every `push_refused` carries git's own line,
+    masked.
+  - The refusal also said effect none while the repository was public. It now says effect `unknown`, says the
+    repository is public, and offers Make Private.
+- The repository was deleted at the end; `gh repo view` answers not found. It was public for about four seconds.
+- Not proven, still: a live page, its real `html_url`, Take Down of a live page, and whether a page stops when its
+  branch is deleted.
+
+## What GitHub documents after a visibility change (read 2026-11-12, working rule 2)
+
+Read by a fetch of the official pages only, with nothing inferred:
+- "Setting repository visibility"
+  (https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility):
+  - It lists what making a repository public does: push rulesets are disabled; anyone can fork it; stars and
+    watchers are erased; it gains GitHub Advanced Security features; Actions history becomes visible; the change
+    is published as activity.
+  - It says nothing of the change taking time, or of pushes being refused or delayed around it.
+- REST "Update a repository" (https://docs.github.com/en/rest/repos/repos#update-a-repository), which
+  `gh repo edit --visibility` calls:
+  - It documents 200, 307, 403, 404 and 422, with no 202 and no status to poll.
+  - It says nothing about what a client should do after the change.
+- REST "Create a GitHub Pages site" (https://docs.github.com/en/rest/pages/pages#create-a-github-pages-site):
+  - It documents 201, 409 and 422 and gives no timing.
+  - `html_url` is typed only as a URI.
+- "About push protection" (https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection):
+  - Push protection for users is on by default and stops pushes of secrets to public repositories.
+  - At the repository level it is off by default.
+  - A blocked push gets "a detailed message"; the page shows no example.
+  - This is the one documented refusal tied to a repository being public. Whether it was run 2's cause is not known.
+    The built copy held nothing of the well-known key shapes, but GitHub's detectors are more than those.
+- "Rate limits for the REST API" (https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api):
+  retry guidance for REST requests (`retry-after`, `x-ratelimit-reset`), nothing for a git push.
+- gh's manual for `gh repo edit` (https://cli.github.com/manual/gh_repo_edit): `--accept-visibility-change-consequences`
+  is required with `--visibility`; nothing on timing.
+
+So the documentation supports neither waiting after a visibility change nor retrying a refused push, and the
+product does neither:
+- the refusal stays as git said it;
+- the repository's new visibility is said, and recorded;
+- the next step is offered: Publish again (offered once the check is current, and now with no Make Public, since
+  the repository is public), or Make Private.
+Proven on the stand-ins (`pages.test.ts`): a refusal that clears (the person's next Publish publishes) and one
+that never clears (each press is refused in git's words, effect none, since nothing more changed).
+
 ## Not proven
 
 - A real push to github.com over https with the macOS keychain's credential helper, or over ssh with an
