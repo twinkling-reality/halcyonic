@@ -422,7 +422,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var handled = new HashSet<string>();
                 var decisions = 0;
                 var results = 0;
-                var cancelTried = false;
+                // The recorded walk tries Cancel once on a confirmation; the live walk counts only a person's own presses, so it does not.
+                var cancelTried = live != null;
                 List<(WorkstreamView Task, ExecutionView Run)> Runs()
                 {
                     var runs = new List<(WorkstreamView Task, ExecutionView Run)>();
@@ -549,7 +550,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (journey == null || live == null) return;
                     var count = presses - journeyFrom;
                     var words = typed - journeyTyped;
-                    live.Presses.Add(journey + "\t" + count + (words == 0 ? "" : " presses and " + words + " typed") + "\t" + journeyDesk + "\t" + string.Join("; ", journeyWays));
+                    // A journey nothing drawn finished is not a count of zero: it is said as not reached.
+                    var reached = !journeyWays.Any(way => way.Contains("the walk opened it") || way.StartsWith("nothing drawn", StringComparison.Ordinal));
+                    var headset = reached ? count + (words == 0 ? "" : " presses and " + words + " typed") : "not reached by what is drawn (" + count + " presses before it)";
+                    live.Presses.Add(journey + "\t" + headset + "\t" + journeyDesk + "\t" + string.Join("; ", journeyWays));
                     journey = null;
                 }
                 // The redesign's main action drawn now, or a control that opens the keyboard where the person is asked for words.
@@ -561,6 +565,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 string ActionOf(RoomButton button) => plane.Kit.Bar.ControlOf(button) is KitControl control ? control.Action + (control.Key == null ? "" : "/" + control.Key) : "?";
                 void PressDrawn(RoomButton button, string why)
                 {
+                    // A Confirm behind its lock takes its press once the ring has filled, as a person's hold fills it: one press.
+                    if (plane.KitShows && plane.Kit.Bar.Locking == button)
+                    {
+                        plane.Kit.Bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
+                        Draw();
+                    }
                     button.Press.SettleForRender();
                     button.Press.PressForRender(987);
                     presses++;
@@ -630,6 +640,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             journeyWays.Add("tried " + row.Replace("pressed ", ""));
                             continue;
                         }
+                        if (goal()) return true;
                         journeyWays.Add("nothing drawn to press at step " + step + (navigator.Beside?.Frame is MenuFrame stuck
                             ? " (its frame of record offers: " + string.Join(", ", stuck.Footer.All.Select(slot => slot.Prompt.Id + (slot.Prompt.Main ? " main" : "") + (slot.Prompt.Available ? "" : " unavailable: " + slot.Prompt.Reason))
                                 .Concat(stuck.Lines.Where(line => line.Action != null).Select(line => "line " + line.Action + (line.Available ? "" : " unavailable")))) + ")"
