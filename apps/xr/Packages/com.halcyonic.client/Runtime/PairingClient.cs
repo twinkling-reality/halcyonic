@@ -104,7 +104,8 @@ namespace Halcyonic.Client
             }
             catch (UpgradeRefusedException refused)
             {
-                throw new PairingException(refused.Code ?? "refused", WhyRefused(refused.Code), null, refused);
+                // A refusal with no code of its own is "refused", and says so in that code's words.
+                throw new PairingException(refused.Code ?? "refused", WhyRefused(refused.Code ?? "refused"), null, refused);
             }
             using (socket)
             {
