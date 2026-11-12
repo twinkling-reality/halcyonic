@@ -403,6 +403,7 @@ namespace Halcyonic.XR.UI
         private void LayCardPress(RoomCard card, float width, float tall)
         {
             cardControl = card.Press;
+            PanelRing = null;
             if (card.Press == null)
             {
                 if (cardPress != null) cardPress.gameObject.SetActive(false);
@@ -435,7 +436,8 @@ namespace Halcyonic.XR.UI
                 : card.Status is RoomCardStatus good && good.Tone == RoomTone.Good ? GoodFill : Accent;
             cardFaceLit = null;
             PaintCardFace();
-            Glyph(RoomGlyph.Chevron, CardChevronDp, White(0.90f), new Vector2(width + pad / 2f, -tall / 2f), "card chevron");
+            // The way on, centred in the panel's right margin, weighing as a capital's stem.
+            Glyph(RoomGlyph.Chevron, CardChevronDp, White(0.90f), new Vector2(width + pad / 2f, -tall / 2f), "card chevron", CardChevronStroke);
         }
 
         private void PaintCardFace()
@@ -446,13 +448,25 @@ namespace Halcyonic.XR.UI
             cardFaceLit = lit;
             // Its edge the hue itself, firm enough to read over the bright room (at 0.55 it stood at 1.9:1 there), on the panel's
             // own corner so no plain glass shows outside it; its face a quiet wash of the hue.
-            cardFace.Draw(cardFaceSize, RoomType.Units(RoomGeometry.PanelCornerDp), AsShown(Rgb(cardFaceHue, lit ? 0.22f : 0.14f)), AsShown(Rgb(cardFaceHue, 1f)), S(lit ? 3f : 2.5f));
+            // The wash alone: the ring is the panel's own edge (PanelRing), drawn on the panel's own corner, so no glass shows
+            // outside it (the critic, 2026-11-12: a round edge over the squircle left grey crescents at each corner).
+            cardFace.Draw(cardFaceSize, RoomType.Units(RoomGeometry.PanelCornerDp), AsShown(Rgb(cardFaceHue, lit ? 0.22f : 0.14f)), Color.clear, 0f);
+            PanelRing = (Rgb(cardFaceHue), 3f);
         }
 
         /// <summary>The chevron of a card that is the way in: as tall as a title's capitals, so the way on reads at a glance.</summary>
-        public const float CardChevronDp = 24f;
+        public const float CardChevronDp = 28f;
+
+        /// <summary>The chevron's stroke: a capital's stem, so it weighs as the words beside it.</summary>
+        public const float CardChevronStroke = 2.6f;
 
         private void Update() => PaintCardFace();
+
+        /// <summary>
+        /// The ring the panel holding the card draws as its edge where the card is the way in (RoomSurface.Ring): the card's
+        /// hue, firmer while it will take the press; null for a card that only says. Read after Show and each frame.
+        /// </summary>
+        public (Color Colour, float WidthDp)? PanelRing { get; private set; }
 
         /// <summary>Whether the shown card is itself a press target, and the control it raises.</summary>
         public KitControl? CardTarget => cardPress != null && cardPress.gameObject.activeSelf ? cardControl : null;
