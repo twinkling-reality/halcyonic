@@ -2253,9 +2253,13 @@ public class NewProjectFlowTests
     }
 
     /// <summary>Under the redesign: an idea typed, an agent app chosen through the page of what can be changed, and the recap showing.</summary>
-    private static NewProjectFlow RoomRecapped(Host host, string idea = "A page of race times for my running club")
+    private static NewProjectFlow RoomRecapped(Host host, string idea = "A page of race times for my running club", Func<LineWords, int>? roomLines = null)
     {
         var flow = Flow(host);
+        // Given where the redesign's view draws New Project, as the headset's plane gives it before anything is drawn.
+        flow.RoomLines = roomLines;
+        // The card stands whole, as the host's card view says where nothing it laid is cut.
+        flow.RecapShownWhole = roomLines == null ? null : () => true;
         flow.Open(null, null);
         host.Typed.Enqueue(idea);
         Press(flow, NewProjectScreens.TypeIdea, null);
@@ -2432,6 +2436,127 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.Cancel, null);
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
         Assert.That(Actions(flow), Is.Empty, "Cancel returns to the facts");
+    });
+
+    /// <summary>JUDGE's live-11 (2026-11-12): a recap built with no agent app chosen draws, and Start Task sends nothing.</summary>
+    [Test]
+    public void A_recap_with_no_agent_app_chosen_draws_and_sends_nothing() => InTheRedesign(() =>
+    {
+        var none = new ClientProjection();
+        var snapshot = Samples.Snapshot(1);
+        snapshot.Runtimes = new List<RuntimeDescriptor>();
+        none.ApplySnapshot(snapshot, new StateChanges());
+        var host = new Host { State = none };
+        var flow = Flow(host);
+        flow.RoomLines = _ => 1;
+        flow.RecapShownWhole = () => true;
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        Assert.That(() => Draw(flow, flow.Frame!), Throws.Nothing);
+        flow.Act(NewProjectScreens.StartBuilding, null);
+        Assert.That(host.Sent, Is.Empty);
+    });
+
+    /// <summary>R1 (the lead's decision, 2026-11-12): where the redesign's view draws New Project, the idea turns into its recap on the same card.</summary>
+    [Test]
+    public void Where_the_redesigns_view_draws_it_a_typed_idea_lands_on_its_recap() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = Flow(host);
+        flow.RoomLines = _ => 1;
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap), "no step between the idea and its recap");
+        Assert.That(host.Sent, Is.Empty);
+    });
+
+    /// <summary>R1: starting what the person just asked for is no review; Start Task on the recap drawn is the one press that sends it.</summary>
+    [Test]
+    public void Where_the_redesigns_view_draws_it_Start_Task_sends_the_recap_drawn_in_one_press() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host, roomLines: _ => 1);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(host.Sent, Has.Count.EqualTo(1), "sent at once, with no review between");
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build));
+        Assert.That(Ids(flow.Frame!), Has.None.EqualTo(NewProjectScreens.ConfirmStart).And.None.EqualTo(NewProjectScreens.NextPart));
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(host.Sent, Has.Count.EqualTo(1), "one start, however often it is pressed");
+    });
+
+    /// <summary>The one press sends only what the card shows whole: a first task past the description's lines opens the review, which shows the rest.</summary>
+    [Test]
+    public void A_first_task_longer_than_the_card_shows_opens_the_review_and_sends_nothing() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host, roomLines: words => Math.Max(1, (words.Text.Length + 23) / 24));
+        flow.Idea!.Rewrite(string.Join(" ", Enumerable.Repeat("A page of race times for my running club, newest first.", 3)));
+        // The recap drawn showed the shorter words: the first press draws the recap again; on it the task is cut.
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(host.Sent, Is.Empty, "cut on the card, so not sent by its one press");
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build));
+        Assert.That(flow.Review, Is.Not.Null, "the review shows the whole request");
+    });
+
+    /// <summary>The one press never skips what the review warns of: a first task naming something to run on the Mac opens the review.</summary>
+    [Test]
+    public void A_first_task_the_review_warns_of_opens_the_review_and_sends_nothing() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host, "Run sudo rm -rf build before the page", roomLines: _ => 1);
+        Assume.That(TaskWarnings.Of(flow.Idea!.FirstTask), Is.Not.Empty);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(host.Sent, Is.Empty, "a warned task is read on the review, never sent by the recap's one press");
+        Assert.That(flow.Review, Is.Not.Null);
+    });
+
+    /// <summary>A recap the card cuts anywhere (title, slots) opens the review, by the card view's own measure of what it laid.</summary>
+    [Test]
+    public void A_recap_the_card_cuts_opens_the_review_and_sends_nothing() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host, roomLines: _ => 1);
+        Assume.That(flow.Idea!.Rename(string.Join(" ", Enumerable.Repeat("Race Times", 18))), Is.True);
+        // The card's own view says what it cut (RoomCardView.LaidWhole): here the long title.
+        flow.RecapShownWhole = () => flow.Idea!.Name.Length < 60;
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(host.Sent, Is.Empty, "a name cut on the card is read on the review");
+        Assert.That(flow.Review, Is.Not.Null);
+    });
+
+    /// <summary>R1: a heard idea stands on its recap with the note to check it, and Start Task is the one Send that shows it.</summary>
+    [Test]
+    public void Where_the_redesigns_view_draws_it_a_heard_idea_lands_on_its_recap_with_its_note() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = Flow(host);
+        flow.RoomLines = _ => 1;
+        flow.Open(null, null);
+        flow.Heard("A page of race times for my running club");
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        Assert.That(flow.Frame!.Card?.More?.Text ?? "", Is.EqualTo(VoiceText.HeardNote), "the heard words' note on the recap");
+        Assert.That(host.Sent, Is.Empty);
+    });
+
+    /// <summary>What is sent is what the recap showed: a change made after it was drawn sends nothing until the recap is drawn again.</summary>
+    [Test]
+    public void A_change_since_the_recap_was_drawn_sends_nothing_until_it_is_drawn_again() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host, roomLines: _ => 1);
+        Draw(flow, flow.Frame!);
+        flow.Idea!.Rewrite("A page of lap times for my swimming club");
+        flow.Act(NewProjectScreens.StartBuilding, null);
+        Assert.That(host.Sent, Is.Empty, "the recap drawn showed other words");
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(host.Sent, Has.Count.EqualTo(1), "drawn again, the same press sends it");
     });
 
     [Test]
@@ -2615,8 +2740,12 @@ public class NewProjectFlowTests
         var flow = RoomRecapped(host, string.Join(" ", Enumerable.Repeat("A page of race times for my running club, newest first.", 6)));
         // The rows' own count, as the host that draws them gives it: here a line every 24 letters.
         static int Lines(LineWords words) => Math.Max(1, (words.Text.Length + 23) / 24);
-        flow.RoomLines = Lines;
+        // Opened where the older page draws New Project, the only place a start still has a review before it sends (R1), and
+        // as a start tried again reaches it; then the redesign's rows draw it.
         Press(flow, NewProjectScreens.StartBuilding, null);
+        flow.RoomLines = Lines;
+        // The first draw by the rows counts for nothing and cuts the review again for them; the next is its first part read.
+        Draw(flow, flow.Frame!);
         Draw(flow, flow.Frame!);
         var whole = flow.Review!.Items.Select(item => Lines(item.Runs)).ToList();
         Assume.That(whole.Sum(), Is.GreaterThan(RoomBar.RequestLines), "the review needs more than one part");
@@ -2826,8 +2955,10 @@ public class NewProjectFlowTests
         var host = new Host { VoiceOffered = false };
         var flow = RoomRecapped(host, string.Join(" ", Enumerable.Repeat("A page of race times for my running club, newest first.", 6)));
         static int Lines(LineWords words) => Math.Max(1, (words.Text.Length + 23) / 24);
-        flow.RoomLines = Lines;
+        // Opened where the older page draws New Project, the only place a start still has a review before it sends (R1), and
+        // as a start tried again reaches it; then the redesign's rows draw it.
         Press(flow, NewProjectScreens.StartBuilding, null);
+        flow.RoomLines = Lines;
         Draw(flow, flow.Frame!);
         Assert.That(flow.Frame!.Lines.First().Words, Is.Not.EqualTo(EntryText.ReviewLine), "cut for the redesign's rows");
         // The older view draws it now: the draw counts for nothing, and the review is cut for the older page.

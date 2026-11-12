@@ -124,7 +124,12 @@ namespace Halcyonic.XR.Workspace
             var room = KitWorkspaceHost.Enabled && RoomDesign.Enabled && SeparateWorkspace && !navigator.IsCompact;
             // New Project's review is cut by the redesign's own lines where the redesign draws it, eight a part, so a part
             // shows exactly its lines; for the older page it is cut as ever (FIELD's flow, NewProjectFlow.RoomLines).
-            if (navigator.Beside is NewProjectFlow flow) flow.RoomLines = room ? (roomLines ??= words => plane.Kit.Bar.Lines(words, false)) : null;
+            if (navigator.Beside is NewProjectFlow flow)
+            {
+                flow.RoomLines = room ? (roomLines ??= words => plane.Kit.Bar.Lines(words, false)) : null;
+                // The recap counts as shown for Start Task's one press only while its card stands whole (R1; RoomCardView.LaidWhole).
+                flow.RecapShownWhole = room ? (recapShownWhole ??= () => plane.Kit.Bar.Card?.LaidWhole == true) : null;
+            }
             // With nothing beside the menu (the Projects place, the launch screen), the menu's own frame is the one a reader takes.
             var frame = navigator.Beside != null ? navigator.Beside.Frame : menuFrame;
             if (!room || frame == null) return null;
@@ -164,6 +169,9 @@ namespace Halcyonic.XR.Workspace
         }
 
         private Func<LineWords, int>? roomLines;
+
+        /// <summary>Whether the redesign's card drew New Project's recap whole (<see cref="NewProjectFlow.RecapShownWhole"/>).</summary>
+        private Func<bool>? recapShownWhole;
 
         private KitFileBinding? KitBindingOf(FileColumn? file, IReadOnlyList<ProjectView> choices, string? selected)
         {

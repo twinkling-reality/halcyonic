@@ -91,6 +91,15 @@ namespace Halcyonic.Client
         private string? unresolvedWordsDrawn;
 
         private NewWorkReview? review;
+
+        /// <summary>
+        /// The request as the recap last drawn showed it, under the redesign: what Start Building sends (R1), only while the
+        /// request still is that one.
+        /// </summary>
+        private NewWorkReview? recapDrawn;
+
+        /// <summary>The request as the recap being built shows it, where the card shows it whole; taken as drawn once that frame is drawn.</summary>
+        private NewWorkReview? recapBuilt;
         private int measuredPartRows;
 
         /// <summary>The frame given to the director, built once for each change, so a drawn report names the very frame it drew.</summary>
@@ -348,6 +357,7 @@ namespace Halcyonic.Client
         {
             drawnPage = null;
             drawnSide = null;
+            recapDrawn = null;
             pagedFor = null;
             Redraw();
         }
@@ -358,6 +368,7 @@ namespace Halcyonic.Client
             if (!IsOpen) return;
             IsOpen = false;
             review = null;
+            recapDrawn = null;
             shown = null;
             drawnPage = null;
             drawnSide = null;
@@ -450,8 +461,8 @@ namespace Halcyonic.Client
                         RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot, host.KeyboardOffered),
                         RecapPage.Change when RoomDesign.Enabled => NewProjectScreens.RecapChange(current, reached, confirmingStartOver,
                             Building() || OutcomeUnknown ? problem : null, WordsOffered, LevelOfDraft()),
-                        _ => NewProjectScreens.Recap(current, LevelOfDraft(), CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
-                            Building() || OutcomeUnknown ? problem : null, WordsOffered).Focus(),
+                        _ => RecapBuilt(current, NewProjectScreens.Recap(current, LevelOfDraft(), CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
+                            Building() || OutcomeUnknown ? problem : null, WordsOffered).Focus()),
                     };
                 default:
                     switch (buildPage)
@@ -557,6 +568,8 @@ namespace Halcyonic.Client
                         current.UseIdea(text);
                         ideaRow = IdeaRow.Typed;
                         said = null;
+                        // R1: the recap is what the idea turns into, on the same card, with Start Building beside it; no step between.
+                        if (ReviewForRoom && current.HasRecap && step == NewProjectStep.YourIdea) Show(NewProjectStep.Recap);
                         Done();
                     });
                     return;
@@ -833,6 +846,8 @@ namespace Halcyonic.Client
             }
             drawnPage = (drawn, linePage);
             if (drawnSide?.Frame != drawn) drawnSide = null;
+            // What the frame drawn showed, as it was built, never the state now (a fresh critic, 2026-11-12).
+            recapDrawn = ReviewForRoom && step == NewProjectStep.Recap && recapPage == RecapPage.Facts && RecapShownWhole?.Invoke() == true ? recapBuilt : null;
             unresolvedWordsDrawn = step == NewProjectStep.Build && buildPage == BuildPage.Unresolved ? unresolvedWordsBuilt : null;
             // The unknown start's lines on this part count as read once drawn; with the last of them, Clear can be pressed.
             if (step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && unresolvedShown is { } part)
@@ -875,6 +890,8 @@ namespace Halcyonic.Client
                 case NewProjectStep.YourIdea:
                     current.UseIdea(text);
                     ideaRow = IdeaRow.Typed;
+                    // R1: said, the heard words stand on the recap, and its Start Building is the one Send.
+                    if (ReviewForRoom && current.HasRecap) Show(NewProjectStep.Recap);
                     said = (step, VoiceText.HeardNote);
                     break;
                 case NewProjectStep.Questions when current.Companion != null && recording == null && !current.Companion.Left:
@@ -1595,6 +1612,21 @@ namespace Halcyonic.Client
             // The level the review names is the level the start is confirmed at (BuildSequence); it is set here, before the review.
             review = EntryScreens.ReviewOf(current, LevelOfDraft(), CurrentFolder(), Live);
             measuredPartRows = 0;
+            // R1: starting what the person just asked for is no review. Where the redesign's view draws New Project the recap drawn is the request, and
+            // Start Building sends it at once, only while the request is still the one drawn; a change since draws the recap again.
+            // Where the card did not show it whole, or a start is tried again, the review opens as ever.
+            if (ReviewForRoom && step == NewProjectStep.Recap && sequence?.CanRetry != true && recapDrawn is { } drawn)
+            {
+                if (!drawn.SameRequest(review))
+                {
+                    review = null;
+                    Redraw();
+                    return;
+                }
+                review.ShownWhole(host.Now);
+                ConfirmReviewed(current);
+                return;
+            }
             Show(NewProjectStep.Build, BuildPage.Review);
         }
 
@@ -1629,6 +1661,36 @@ namespace Halcyonic.Client
         public Func<LineWords, int>? RoomLines { get; set; }
 
         private bool ReviewForRoom => RoomDesign.Enabled && RoomLines != null;
+
+        /// <summary>
+        /// Whether the redesign's card drew the recap whole just now, every label it laid showing all its words (its view's own
+        /// measure, RoomCardView.LaidWhole), given by the host that draws it. A recap counts as shown for Start Task's one press
+        /// only while this holds; without it, Start Task opens the review.
+        /// </summary>
+        public Func<bool>? RecapShownWhole { get; set; }
+
+        /// <summary>
+        /// Keeps the request as <paramref name="recap"/> shows it, for Start Task's one press (R1), only where the redesign's card shows
+        /// all the review would: the name and the first task within the card's lines, how it runs named (the agent app and its model
+        /// each), and nothing the review warns of (the task's warnings, a project moving folder, a model served off this computer).
+        /// Elsewhere Start Task opens the review, which shows the rest.
+        /// </summary>
+        private MenuFrame RecapBuilt(ProjectIdea current, MenuFrame recap)
+        {
+            // Nothing is sendable with no agent app chosen: the review is not made then (JUDGE's live-11, 2026-11-12: it threw).
+            var whole = ReviewForRoom && current.HasRecap && draft.Runtime != null
+                && RoomLines!(LineWords.TheirName(current.FirstTask)) <= RoomCard.DescriptionPageLines
+                // Only a folder whose kind the card leaves no doubt of: a new project's new folder, or a project's own folder.
+                && EntryText.FolderFactPartsOf(CurrentFolder(), current.Folder, draft.Runtime?.UsesProjectLocation == true).Kind
+                    is FolderFactKind.NewFolder or FolderFactKind.ProjectFolder or FolderFactKind.NotNeeded
+                && TaskWarnings.Of(current.FirstTask).Count == 0
+                && !EntryScreens.Moves(current, CurrentFolder())
+                && (draft.Model is not RuntimeModel model || model.Served == ModelServed.ThisMac
+                    // The card names the model by its name alone: only where no other model listed shares that name.
+                    && draft.Models.Count(other => (other.DisplayName ?? other.ModelRef) == (model.DisplayName ?? model.ModelRef)) == 1);
+            recapBuilt = whole ? EntryScreens.ReviewOf(current, LevelOfDraft(), CurrentFolder(), Live) : null;
+            return recap;
+        }
 
         /// <summary>
         /// The draft with the level its start will ask for (ADR 0043's amendment): where the level is shown before the start,
