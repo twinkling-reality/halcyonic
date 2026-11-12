@@ -34,6 +34,8 @@ export type Prepared =
     };
 
 export interface PrepareSources {
+  /** The commit the project's published page holds, as the host recorded it, or null. */
+  readonly publishedCommit: (projectId: string) => string | null;
   /** The rows of a list for the scope, and its digest, as the host reads them now. */
   readonly rows: (list: ChoiceList) => Promise<{ rows: readonly HeldRow[]; digest: string } | null>;
 }
@@ -109,6 +111,13 @@ export async function prepareCommand(
   const bound = boundCommand(type as keyof typeof COMMAND_FIELDS, given.scope);
   if (bound === null) return refuse('invalid_state', 'That command does not belong here.');
   const payload: Record<string, unknown> = { ...(bound.payload as Record<string, unknown>) };
+  for (const [name, field] of Object.entries(fields)) {
+    if (field.from !== 'host' || field.fill !== 'published_commit') continue;
+    const commit =
+      given.scope.project_id === null ? null : sources.publishedCommit(given.scope.project_id);
+    if (commit === null) return refuse('invalid_state', 'This game is not published.');
+    payload[name] = commit;
+  }
   const required = REQUIRED.get(type) ?? new Set<string>();
   for (const name of Object.keys(given.values))
     if (fields[name]?.from !== 'person')

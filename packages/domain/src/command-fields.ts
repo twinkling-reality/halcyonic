@@ -8,7 +8,11 @@ import type { ChoiceList, CommandType, NeedKind } from '@halcyonic/contracts';
  */
 export type FieldSource =
   | { readonly from: 'project' | 'workstream' | 'execution' }
-  | { readonly from: 'host' }
+  | {
+      readonly from: 'host';
+      /** What the host fills from what it holds: an empty set of options, or the published commit. */
+      readonly fill: 'empty' | 'published_commit';
+    }
   | { readonly from: 'review' }
   | {
       readonly from: 'person';
@@ -24,7 +28,7 @@ export type FieldSource =
 const project = { from: 'project' } as const;
 const workstream = { from: 'workstream' } as const;
 const execution = { from: 'execution' } as const;
-const host = { from: 'host' } as const;
+const host = { from: 'host', fill: 'empty' } as const;
 const review = { from: 'review' } as const;
 const need = (
   kind: NeedKind,
@@ -90,8 +94,9 @@ export const COMMAND_FIELDS: Readonly<
   },
   'project.send_to_github': { project_id: project, title: need('text', 'Title'), review },
   'project.publish': { project_id: project, review },
-  // What comes down is what the person was shown: the published commit, carried as its review.
-  'project.unpublish': { project_id: project, commit: review },
+  // One press (R1): the host fills the commit it holds as published, so what comes down is what it
+  // published, and the command's own admission refuses one published again since (AUDIT2 S2).
+  'project.unpublish': { project_id: project, commit: { from: 'host', fill: 'published_commit' } },
   'project.link_catalog': {
     project_id: project,
     catalog: need('choice', 'Repository', { list: 'catalog' }),

@@ -3,7 +3,13 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { after, describe, test } from 'node:test';
-import { ConfigError, loadConfig, portFamily, readOpenCodeSettings } from './config.ts';
+import {
+  ConfigError,
+  downloadsDir,
+  loadConfig,
+  portFamily,
+  readOpenCodeSettings,
+} from './config.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'halcyonic-config-'));
 after(() => rmSync(base, { recursive: true, force: true }));
@@ -508,4 +514,15 @@ describe('configuration', () => {
       assert.throws(() => loadConfig({ HALCYONIC_PROJECT_ROOTS: root }), ConfigError, root);
     }
   });
+});
+
+test('a saved copy goes in the account’s Downloads from its own plane, and beside the data folder from any other (AUDIT2 S4)', () => {
+  assert.equal(
+    downloadsDir('/Users/someone/.halcyonic', '/Users/someone'),
+    '/Users/someone/Downloads',
+  );
+  assert.equal(
+    downloadsDir('/Users/someone/scratch/data', '/Users/someone'),
+    '/Users/someone/scratch/data-downloads',
+  );
 });

@@ -205,6 +205,17 @@ export function portFamily(port: number): PortFamily {
   };
 }
 
+/**
+ * Where Save a Copy writes: the account's Downloads for the plane on the account's own data folder,
+ * and a folder beside the data folder for any other (AUDIT2 S4), so a test's or a scratch plane's
+ * press never writes where the person keeps their files. The same rule as the task copies' folder.
+ */
+export function downloadsDir(dataDir: string, home: string = homedir()): string {
+  return resolve(dataDir) === resolve(join(home, '.halcyonic'))
+    ? join(home, 'Downloads')
+    : `${resolve(dataDir)}-downloads`;
+}
+
 export function defaultDataDir(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(env.HALCYONIC_DATA_DIR ?? join(homedir(), '.halcyonic'));
 }

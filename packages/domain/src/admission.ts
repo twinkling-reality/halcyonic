@@ -54,7 +54,7 @@ export interface RuntimeCatalog {
    * journal. Elsewhere, as in a recording, such an instruction is refused as the runtime declares.
    */
   readonly queuesInstructions?: boolean;
-  /** What each starter declares (R2), so no rule compares a starter's id; absent, every starter has a build. */
+  /** What each starter declares (R2), so no rule compares a starter's id. */
   readonly starters?: StarterCatalog;
 }
 
@@ -348,6 +348,9 @@ function admit(
           );
         }
         // A world is a description, read and validated when it changes (ADR 0049): it has no build.
+        // A starter that says it has no build is not checked (R2). The host's catalog says a starter it
+        // cannot read has none (AUDIT2 S1). Without a catalog the domain cannot say, and no host checks
+        // without one: a check needs the previews, which a host has only beside its starters (main.ts).
         if (
           project.starter !== null &&
           runtimes.starters?.declares(project.starter).check === 'none'

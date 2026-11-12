@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
 import { chmod, mkdir } from 'node:fs/promises';
-import { homedir, userInfo } from 'node:os';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
@@ -12,6 +13,7 @@ import { Companion } from './companion/companion.ts';
 import {
   type ControlPlaneConfig,
   defaultDataDir,
+  downloadsDir,
   loadConfig,
   parseNetwork,
   portFamily,
@@ -79,6 +81,11 @@ async function main(): Promise<void> {
   const config = loadConfig(withSettings(process.env, settings));
   // Its side ports follow its own (ADR 0047, amended): a second plane never takes 47800's.
   const family = portFamily(config.port);
+  // A saved copy goes in the account's own Downloads from its own plane, beside the data folder from any
+  // other (AUDIT2 S4), made here for the latter so a press finds it.
+  const downloads = downloadsDir(config.dataDir);
+  if (downloads !== join(homedir(), 'Downloads'))
+    mkdirSync(downloads, { recursive: true, mode: 0o700 });
   await mkdir(config.dataDir, { recursive: true, mode: 0o700 });
   await chmod(config.dataDir, 0o700);
   const access = await loadOrCreateAccessToken(config.dataDir);
@@ -203,7 +210,7 @@ async function main(): Promise<void> {
               protect: [config.dataDir],
             }),
             // A saved copy goes in the account's own Downloads folder (F3).
-            keeping: { downloads: join(userInfo().homedir, 'Downloads') },
+            keeping: { downloads: downloads },
             ...(config.taskCopies
               ? {
                   copies: {

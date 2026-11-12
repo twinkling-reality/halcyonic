@@ -312,6 +312,25 @@ export async function buildReview(
         warnings: link ? [{ code: 'public', line: 'Anyone with the link can play it' }] : [],
       });
     }
+    case 'project.secret.remove': {
+      // Gone for good, and the person may not have the value anywhere else (the lead, 05:49Z).
+      const held = projection.project(command.payload.project_id)?.secrets ?? [];
+      if (!held.includes(command.payload.name))
+        return no('invalid_state', `This project has no secret named ${command.payload.name}.`);
+      return review({
+        digest: reviewDigest(
+          'project.secret.remove',
+          { project_id: command.payload.project_id, name: command.payload.name },
+          { held: true },
+        ),
+        confirm_words: 'Remove Secret',
+        what_happens: "The secret's value is deleted, and later tasks no longer get it",
+        facts: [{ kind: 'words', value: command.payload.name, theirs: true }],
+        items: [],
+        items_total: 0,
+        warnings: [{ code: 'cannot_undo', line: 'Its value cannot be brought back' }],
+      });
+    }
     case 'project.own_check.choose':
       return review({
         digest: reviewDigest(

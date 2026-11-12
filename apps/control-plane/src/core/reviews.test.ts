@@ -111,3 +111,82 @@ test('a review says whole the words given that go out with the command, by their
   const { saidIn } = await import('./reviews.ts');
   assert.deepEqual(saidIn(command), [{ label: 'Title', words: 'Make the sky night' }]);
 });
+
+test('Remove Secret is reviewed, since its value cannot be brought back; Take Down’s commit is the host’s own (AUDIT2 S2, the lead 05:49Z)', async () => {
+  const { controlPlaneDraft: controlDraft, NO_CAUSE } = await import('./drafts.ts');
+  const { controlPlane, commands } = createTestControlPlane({});
+  const created = controlPlane.commands.submit(commands.createProject('Kept', null), 'internal');
+  const projectId = (
+    created.command?.result?.kind === 'project_created' ? created.command.result.project_id : ''
+  ) as ProjectId;
+  const scope = { project_id: projectId, workstream_id: null, execution_id: null };
+  const at = '2026-11-12T05:55:00.000Z' as never;
+  controlPlane.recorder.record(
+    controlDraft(
+      'project.secret.stored',
+      scope,
+      { name: 'API_KEY', replaced: false },
+      at,
+      NO_CAUSE,
+    ),
+  );
+  controlPlane.recorder.record(
+    controlDraft(
+      'project.published',
+      scope,
+      {
+        repository: 'someone/kept',
+        check_id: '01920000-0000-7000-8000-00000000f001',
+        branch: 'halcyonic-pages',
+        commit: 'c'.repeat(40),
+        address: null,
+      } as never,
+      at,
+      NO_CAUSE,
+    ),
+  );
+  const remove = {
+    ...commands.createProject('x', null),
+    command_type: 'project.secret.remove',
+    payload: { project_id: projectId, name: 'API_KEY' },
+  } as never;
+  const built = await buildReview(controlPlane, remove);
+  assert.ok(built.ok, built.ok ? '' : built.message);
+  assert.equal(built.review.confirm_words, 'Remove Secret');
+  assert.deepEqual(
+    built.review.warnings.map((w) => w.code),
+    ['cannot_undo'],
+  );
+  // Take Down by its one press: the commit is the one the host recorded, never a proposer's.
+  const { prepareCommand } = await import('./prepare.ts');
+  const down = await prepareCommand(
+    {
+      scope,
+      command_type: 'project.unpublish',
+      values: {},
+      read: {},
+      command_id: randomUUID() as CommandId,
+      issued_at: '2026-11-12T05:55:00.000Z',
+      client: TEST_CLIENT,
+    },
+    {
+      publishedCommit: (id) => controlPlane.projection.project(id)?.published?.commit ?? null,
+      rows: async () => null,
+    },
+  );
+  assert.ok(down.ok, down.ok ? '' : down.message);
+  assert.equal((down.command.payload as { commit?: string }).commit, 'c'.repeat(40));
+  const smuggled = await prepareCommand(
+    {
+      scope,
+      command_type: 'project.unpublish',
+      values: { commit: 'd'.repeat(40) },
+      read: {},
+      command_id: randomUUID() as CommandId,
+      issued_at: '2026-11-12T05:55:00.000Z',
+      client: TEST_CLIENT,
+    },
+    { publishedCommit: () => 'c'.repeat(40), rows: async () => null },
+  );
+  assert.ok(!smuggled.ok, 'the commit is never a proposer’s to give');
+});

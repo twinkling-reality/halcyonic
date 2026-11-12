@@ -166,6 +166,11 @@ test('a starter says what it is in its own starter.json, and a rule asks that, n
     STARTER_DEFAULTS,
     'one that declares nothing has a build',
   );
-  assert.deepEqual(starters.declares('no-such-starter'), STARTER_DEFAULTS);
-  assert.deepEqual(starters.declares('../world'), STARTER_DEFAULTS, 'never a path');
+  // One this host does not have, or a path, has no build to check here (AUDIT2 S1).
+  assert.deepEqual(starters.declares('no-such-starter'), { ...STARTER_DEFAULTS, check: 'none' });
+  assert.deepEqual(
+    starters.declares('../world'),
+    { ...STARTER_DEFAULTS, check: 'none' },
+    'never a path',
+  );
 });

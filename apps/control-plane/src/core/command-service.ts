@@ -626,6 +626,8 @@ export class CommandService {
     if (!offered)
       return { ok: false, code: 'invalid_state', message: 'That cannot be done here now.' };
     return prepareCommand(given, {
+      publishedCommit: (projectId) =>
+        this.#deps.projection.project(projectId)?.published?.commit ?? null,
       rows: async (list) => {
         const rows = await this.#choiceRows(given.scope, list);
         return rows === null ? null : { rows, digest: choicesDigest(list, rows) };

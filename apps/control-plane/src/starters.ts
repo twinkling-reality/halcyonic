@@ -240,17 +240,20 @@ export class HostStarters {
   /**
    * What the starter `id` declares in its `starter.json` (R2): its check, its versions, its copies and
    * the file it is described by. A value it does not declare, or a starter the host does not have, is
-   * the default; one it declares that the host does not know is the default too, never a guess.
+   * the default; one it declares that the host does not know is the default too, never a guess. One
+   * the host does not have is never assumed to have a build.
    */
   declares(id: string): StarterDeclarations {
-    let parsed: Record<string, unknown> = {};
+    let parsed: Record<string, unknown>;
     try {
-      if (/^[a-z][a-z0-9-]{0,63}$/.test(id))
-        parsed = JSON.parse(
-          readFileSync(join(this.#tracked, id, 'starter.json'), 'utf8'),
-        ) as Record<string, unknown>;
+      if (!/^[a-z][a-z0-9-]{0,63}$/.test(id)) throw new Error('not an id');
+      parsed = JSON.parse(readFileSync(join(this.#tracked, id, 'starter.json'), 'utf8')) as Record<
+        string,
+        unknown
+      >;
     } catch {
-      parsed = {};
+      // A starter this host does not have, or cannot read, has no build to check here (AUDIT2 S1).
+      return { ...STARTER_DEFAULTS, check: 'none' };
     }
     return {
       check: parsed.check === 'none' ? 'none' : STARTER_DEFAULTS.check,

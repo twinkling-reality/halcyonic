@@ -31,7 +31,8 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.open_on_mac': 'low_consequence',
   // Opening a Finder window on the Mac changes nothing; a saved copy writes a file there.
   'project.show_in_finder': 'low_consequence',
-  'project.save_copy': 'review_required',
+  // A copy of the project's files written beside the person's own, never over one: done on the press (R1).
+  'project.save_copy': 'low_consequence',
   // A shared link lets anyone with it open the game: a deliberate press; stopping it is not.
   'project.share.start': 'review_required',
   'project.share.stop': 'low_consequence',
@@ -41,7 +42,8 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   // Gives the project's later tasks a key their agents can use and repeat (ADR 0057): a deliberate
   // press on this Mac's own page, which holds the value; removing one gives them nothing.
   'project.secret.set': 'review_required',
-  'project.secret.remove': 'low_consequence',
+  // The value is gone for good and the person may not have it elsewhere: reviewed, then one press (R1).
+  'project.secret.remove': 'review_required',
   // The person's own link between a project and a catalog repository; changes no file.
   'project.link_catalog': 'low_consequence',
   'project.unlink_catalog': 'low_consequence',
@@ -178,7 +180,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
     title: 'Remove Secret',
     description: "Remove one of the project's secrets, so later tasks no longer get it.",
     sayable: true,
-    confirm: 'none',
+    confirm: 'review',
   },
   'project.send_to_github': {
     title: 'Send for Review',
