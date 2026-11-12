@@ -199,6 +199,7 @@ namespace Halcyonic.XR.UI
         private RoomShape? cardFace;
         private Vector2 cardFaceSize;
         private bool? cardFaceLit;
+        private int cardFaceHue = Accent;
 
         /// <summary>The control a press on the card raises, while the shown card takes one.</summary>
         private KitControl? cardControl;
@@ -428,9 +429,13 @@ namespace Halcyonic.XR.UI
             cardFace!.gameObject.SetActive(true);
             cardFace.transform.localPosition = new Vector3(width / 2f, -tall / 2f, -RoomType.Units(0.1f));
             cardFaceSize = size;
+            // One hue on the card: the way in takes its status's own tone where it has one (a request that needs the person is
+            // the attention amber its mark already wears), the accent where it has none (the critic, 2026-11-12: amber and cyan).
+            cardFaceHue = card.Status is RoomCardStatus said && said.Tone == RoomTone.Attention ? Attention
+                : card.Status is RoomCardStatus good && good.Tone == RoomTone.Good ? GoodFill : Accent;
             cardFaceLit = null;
             PaintCardFace();
-            Glyph(RoomGlyph.Chevron, ChevronDp, White(0.85f), new Vector2(width + pad / 2f, -tall / 2f), "card chevron");
+            Glyph(RoomGlyph.Chevron, CardChevronDp, White(0.90f), new Vector2(width + pad / 2f, -tall / 2f), "card chevron");
         }
 
         private void PaintCardFace()
@@ -439,10 +444,13 @@ namespace Halcyonic.XR.UI
             var lit = cardPress.Hovered || cardPress.Pressing;
             if (cardFaceLit == lit) return;
             cardFaceLit = lit;
-            // The accent's ground at rest, a step brighter while it will take the press; its edge the accent itself.
-            // Firm enough to read over the bright room (at 0.12 and 0.55 the face stood at 1.1:1 and its edge at 1.9:1 there).
-            cardFace.Draw(cardFaceSize, S(RoomGeometry.PanelCornerDp), AsShown(Rgb(Accent, lit ? 0.28f : 0.20f)), AsShown(Rgb(Accent, 1f)), S(lit ? 3f : 2f));
+            // Its edge the hue itself, firm enough to read over the bright room (at 0.55 it stood at 1.9:1 there), on the panel's
+            // own corner so no plain glass shows outside it; its face a quiet wash of the hue.
+            cardFace.Draw(cardFaceSize, RoomType.Units(RoomGeometry.PanelCornerDp), AsShown(Rgb(cardFaceHue, lit ? 0.22f : 0.14f)), AsShown(Rgb(cardFaceHue, 1f)), S(lit ? 3f : 2.5f));
         }
+
+        /// <summary>The chevron of a card that is the way in: as tall as a title's capitals, so the way on reads at a glance.</summary>
+        public const float CardChevronDp = 24f;
 
         private void Update() => PaintCardFace();
 
@@ -854,7 +862,8 @@ namespace Halcyonic.XR.UI
                 RoomTone.Bad => (Rgb(BadFill), Color.white, RoomGlyph.Alert, Color.clear),
                 RoomTone.Working => (Rgb(WorkingFill), Color.white, RoomGlyph.Wrench, Color.clear),
                 // Not run: an outline that holds over the bright room, nothing in it.
-                RoomTone.Skipped => (Color.clear, Color.clear, (RoomGlyph?)null, White(0.46f)),
+                // At 0.46 the outline stood at 2.56:1 over the bright room (the critic, 2026-11-12); a mark needs 3:1.
+                RoomTone.Skipped => (Color.clear, Color.clear, (RoomGlyph?)null, White(0.64f)),
                 _ => (Rgb(QuietFill), Color.white, RoomGlyph.Wait, Color.clear),
             };
             Plate(new Vector2(S(StepDp), S(StepDp)), S(StepCornerDp), ground, centre, "step " + step.Name, edge, edge.a > 0f ? S(2f) : 0f);
@@ -1093,7 +1102,8 @@ namespace Halcyonic.XR.UI
                 // Filled where used, hollow where left: like a game's lives, in the node's own colour; a squircle, as the node.
                 // A try left is a ring firm enough to read over the bright room, a try spent the fill.
                 Plate(new Vector2(S(PipDp), S(PipDp)), S(PipCornerDp), spent ? lit : Color.clear, at, spent ? "pip used" : "pip",
-                    spent ? White(0.92f) : new Color(lit.r, lit.g, lit.b, 0.9f), S(PipLineDp), front: true);
+                    // A try left is a light ring too: in its tone it stood at 2.0:1 over the bright room.
+                    spent ? White(0.92f) : White(0.64f), S(PipLineDp), front: true);
             }
         }
 
