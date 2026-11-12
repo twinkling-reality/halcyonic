@@ -90,7 +90,8 @@ export function folderNameOf(name: string): string {
 }
 
 /** The payload fields each command's schema requires, from its own definition. */
-const REQUIRED = new Map<string, ReadonlySet<string>>(
+/** The payload fields each command's schema names as required, from its own definition. */
+export const REQUIRED = new Map<string, ReadonlySet<string>>(
   COMMAND_VARIANTS.map((variant) => [
     variant.properties.command_type.const as string,
     new Set((variant.properties.payload as { required?: string[] }).required ?? []),

@@ -203,7 +203,10 @@ client                                   server
     it again once the journal passes `position`.
   - `GET /api/actions/choices?list=&<the scope's ids>` answers `ChoicesResponse` `{scope, list, position, digest,
     rows, total}`: one of the host's lists, at most 32 rows, each `{index, kind, label, detail, theirs, actions}`,
-    and never the id a row stands for. Today: `tasks`, `versions`, `runtimes`, `approval_levels`, `share_ways`,
+    and never the id a row stands for. A row of `versions`, `secrets`, `queued_instructions`, `approvals` or
+    `runtimes` names only the commands the whole admission takes it for, the host's checks included (an agent not
+    kept to one folder starts no task that works in its own copy); a refusal about another need, such as a model
+    still to choose, is not the row's. A row left with none says why in `detail`, the admission's words. Today: `tasks`, `versions`, `runtimes`, `approval_levels`, `share_ways`,
     `secrets`, `queued_instructions`, `approvals`, `decisions`, `questions`, and `pictures` (the folder's pictures
     as the pictures read finds them, each given to an instruction as `{path, kind: 'image'}`), and `models` (every
     model of every runtime that lists its own, each row's `detail` naming its runtime; the start's admission and

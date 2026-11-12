@@ -26,6 +26,7 @@ import type {
   ReceivedVia,
   RejectionCode,
   RuntimeDescriptor,
+  RuntimeId,
   RuntimeRef,
   Timestamp,
   WorkstreamId,
@@ -95,9 +96,16 @@ const ROWS_ADMITTED: ReadonlySet<ChoiceList> = new Set([
   'secrets',
   'queued_instructions',
   'approvals',
+  'runtimes',
 ]);
 
-import { type Preparation, type Prepared, prepareCommand } from './prepare.ts';
+/**
+ * Refusals about a need the person still gives beside the row's own choice: an agent that lists its
+ * models needs one chosen, which is the models list's to offer, never the agent row's to refuse.
+ */
+const ANOTHER_NEED: ReadonlySet<RejectionCode> = new Set(['model_required']);
+
+import { type Preparation, type Prepared, prepareCommand, REQUIRED } from './prepare.ts';
 import { readRules, rulesReview, withRules } from './project-rules.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
 import type { Recorder } from './recorder.ts';
@@ -657,34 +665,62 @@ export class CommandService {
     const rows = await this.#allChoiceRows(scope, list);
     if (rows === null || !ROWS_ADMITTED.has(list)) return rows;
     // A row offers only the commands the whole admission takes it for (LOOP's run, 06:36Z): a version
-    // holding a task's work never added is no version a task can start from, yet it can be restored.
-    return rows.map((held) => ({
-      ...held,
-      row: {
-        ...held.row,
-        actions: held.row.actions.filter((type) =>
-          this.#rowAdmitted(scope, list, type, held.value),
-        ),
-      },
-    }));
+    // holding a task's work never added is no version a task can start from, yet it can be restored;
+    // an agent not kept to one folder starts no task that works in its own copy. A row left with no
+    // command says why, in the admission's own words.
+    return rows.map((held) => {
+      const refusals: string[] = [];
+      const actions = held.row.actions.filter((type) => {
+        const refusal = this.#rowRefusal(scope, list, type, held.value);
+        if (refusal !== null) refusals.push(refusal);
+        return refusal === null;
+      });
+      const detail =
+        actions.length === 0 && refusals[0] !== undefined ? refusals[0] : held.row.detail;
+      return { ...held, row: { ...held.row, actions, detail } };
+    });
   }
 
-  /** Whether the whole admission takes `value` from `list` as `type`'s choice, here and now. */
-  #rowAdmitted(scope: HereScope, list: ChoiceList, type: CommandType, value: unknown): boolean {
-    if (!(type in COMMAND_FIELDS)) return false;
+  /**
+   * Why the whole admission refuses `value` from `list` as `type`'s choice here and now, or null when
+   * it takes it. The other needs are given as nothing, and a refusal about one of them is not the row's.
+   */
+  #rowRefusal(
+    scope: HereScope,
+    list: ChoiceList,
+    type: CommandType,
+    value: unknown,
+  ): string | null {
+    if (!(type in COMMAND_FIELDS)) return 'Not offered here.';
+    // A scope too wide for the command (agents read before a task is chosen) leaves the row whole.
     const bound = boundCommand(type as keyof typeof COMMAND_FIELDS, scope);
-    if (bound === null) return false;
+    if (bound === null) return null;
     const fields = COMMAND_FIELDS[type as keyof typeof COMMAND_FIELDS];
+    const required = REQUIRED.get(type) ?? new Set<string>();
     const payload: Record<string, unknown> = { ...(bound.payload as Record<string, unknown>) };
-    for (const [name, field] of Object.entries(fields))
-      if (field.from === 'person' && field.list === list)
-        payload[name] = field.need === 'choices' ? [value] : value;
+    for (const [name, field] of Object.entries(fields)) {
+      if (field.from !== 'person') continue;
+      if (field.list === list) payload[name] = field.need === 'choices' ? [value] : value;
+      else if (!field.required && required.has(name)) payload[name] = null;
+    }
     const command = { ...bound, payload } as CommandEnvelope;
-    return admitCommand(command, this.#deps.projection, {
+    const admission = admitCommand(command, this.#deps.projection, {
       get: (runtimeId) => this.#deps.registry.get(runtimeId),
       queuesInstructions: this.#deps.queuesInstructions === true,
       ...(this.#deps.starters ? { starters: this.#deps.starters } : {}),
-    }).admitted;
+    });
+    if (!admission.admitted && !ANOTHER_NEED.has(admission.rejection.code))
+      return admission.rejection.message;
+    if (command.command_type === 'execution.start') {
+      const runtime = this.#deps.registry.get(command.payload.runtime_id);
+      const place = this.#startPlaceRefusal(
+        admission.scope,
+        runtime?.uses_project_location === true,
+        command.payload.runtime_id,
+      );
+      if (place !== null) return place.message;
+    }
+    return null;
   }
 
   #allChoiceRows(scope: HereScope, list: ChoiceList): Promise<HeldRow[] | null> {
@@ -851,6 +887,43 @@ export class CommandService {
     return null;
   }
 
+  /**
+   * Why a start on this agent may not work where the task works, or null: the project's folder, and a
+   * task's own copy only where copies are on and the agent is held to that folder (ADR 0045). The
+   * admission and the agents list ask this one check.
+   */
+  #startPlaceRefusal(
+    scope: CommandScope,
+    usesProjectLocation: boolean,
+    runtimeId: RuntimeId,
+  ): { code: RejectionCode; message: string } | null {
+    if (!usesProjectLocation) return null;
+    const directory = this.#projectDirectory(scope);
+    const decision =
+      directory === null ? null : checkProjectLocation(this.#deps.locations.policy, directory);
+    if (decision === null)
+      return { code: 'location_required', message: 'The project has no folder to work in.' };
+    if (!decision.ok) return { code: decision.code, message: decision.message };
+    const copy =
+      scope.workstream_id === null
+        ? undefined
+        : this.#deps.projection.workstream(scope.workstream_id)?.copy;
+    if (copy?.state !== 'own') return null;
+    if (!this.#deps.copies)
+      return {
+        code: 'invalid_state',
+        message:
+          "This task's copy is off on this computer. Turn task copies on to go on with it, or start another task.",
+      };
+    if (!this.#deps.copies.holds(runtimeId, copy.directory))
+      return {
+        code: 'capability_unsupported',
+        message:
+          'This task works in its own copy, and this agent is not kept to one folder on this computer. Start it with an agent that is, or start another task.',
+      };
+    return null;
+  }
+
   #admit(command: CommandEnvelope): Admission {
     const projectId =
       'project_id' in command.payload ? (command.payload.project_id as ProjectId | null) : null;
@@ -933,35 +1006,12 @@ export class CommandService {
         return checked.ok ? admission : refuse(checked.code, checked.message);
       }
       case 'execution.start': {
-        if (admission.runtime?.uses_project_location === true) {
-          const directory = this.#projectDirectory(admission.scope);
-          const decision =
-            directory === null
-              ? null
-              : checkProjectLocation(this.#deps.locations.policy, directory);
-          if (decision === null) {
-            return refuse('location_required', 'The project has no folder to work in.');
-          }
-          if (!decision.ok) return refuse(decision.code, decision.message);
-          // A task with a copy of its own works only there (ADR 0045), and only where copies are
-          // on and its agent is held to that folder.
-          const copy =
-            admission.scope.workstream_id === null
-              ? undefined
-              : this.#deps.projection.workstream(admission.scope.workstream_id)?.copy;
-          if (copy?.state === 'own') {
-            if (!this.#deps.copies)
-              return refuse(
-                'invalid_state',
-                "This task's copy is off on this computer. Turn task copies on to go on with it, or start another task.",
-              );
-            if (!this.#deps.copies.holds(command.payload.runtime_id, copy.directory))
-              return refuse(
-                'capability_unsupported',
-                'This task works in its own copy, and this agent is not kept to one folder on this computer. Start it with an agent that is, or start another task.',
-              );
-          }
-        }
+        const place = this.#startPlaceRefusal(
+          admission.scope,
+          admission.runtime?.uses_project_location === true,
+          command.payload.runtime_id,
+        );
+        if (place !== null) return refuse(place.code, place.message);
         const adapter = this.#deps.registry.adapter(command.payload.runtime_id);
         const options = adapter?.validateStartOptions(
           command.payload.options,

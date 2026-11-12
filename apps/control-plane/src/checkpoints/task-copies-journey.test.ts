@@ -18,6 +18,7 @@ import type {
   CommandId,
   DeviceId,
   EventEnvelope,
+  HereScope,
   Principal,
   ProjectId,
   RuntimeDescriptor,
@@ -533,6 +534,20 @@ describe('several agents on one project (ADR 0045)', {
     const loose = (
       made.command?.result?.kind === 'workstream_created' ? made.command.result.workstream_id : ''
     ) as WorkstreamId;
+    // The first task works in its own copy: the agents list offers its next start only on the held
+    // agent, and the loose agent's row says why, in the admission's own words (VRIFY's ask, 08:52Z).
+    const agents = await controlPlane.commands.choices(
+      {
+        project_id: projectId,
+        workstream_id: first,
+        execution_id: controlPlane.projection.workstream(first)?.current_execution_id ?? null,
+      } as HereScope,
+      'runtimes',
+    );
+    const refused = agents?.rows.filter((row) => row.actions.length === 0) ?? [];
+    assert.equal(refused.length, 1, 'only the loose agent is refused');
+    assert.match(refused[0]?.detail ?? '', /not kept to one folder/);
+    assert.ok(agents?.rows.some((row) => row.actions.includes('execution.start')));
     const started = start(loose, 'loose work', 'loose');
     const id = started.command?.command_id ?? '';
     await until(() => controlPlane.projection.command(id)?.status === 'failed', 'the refusal');
