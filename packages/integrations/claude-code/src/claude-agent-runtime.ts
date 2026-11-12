@@ -33,6 +33,7 @@ import type {
 } from '@halcyonic/contracts';
 import {
   type Clock,
+  CREDENTIAL_REFUSED,
   confirmProjectLocation,
   type DirectoryPolicy,
   type ExecutionContext,
@@ -778,6 +779,8 @@ interface Turn {
   readonly id: string | null;
   confirmed: boolean;
   interruptRequested: boolean;
+  /** Set when an assistant message of the turn says the API refused the key or the cloud credential. */
+  credentialRefused: boolean;
   /** Settles when the runtime shows it has taken up the turn, or rejects when it never will. */
   readonly confirmation: PromiseWithResolvers<void>;
 }
@@ -786,7 +789,14 @@ function newTurn(key: string, id: string | null): Turn {
   const confirmation = Promise.withResolvers<void>();
   // Awaited by whoever delivered the turn; a turn nobody awaits must not become an unhandled rejection.
   confirmation.promise.catch(() => {});
-  return { key, id, confirmed: false, interruptRequested: false, confirmation };
+  return {
+    key,
+    id,
+    confirmed: false,
+    interruptRequested: false,
+    credentialRefused: false,
+    confirmation,
+  };
 }
 
 interface PendingApproval {
@@ -1305,6 +1315,13 @@ class ClaudeSession {
   #assistant(message: SDKAssistantMessage): void {
     // Subagent text is not the agent speaking to the person; synthetic error messages are not prose.
     const speaks = message.parent_tool_use_id === null && message.error === undefined;
+    // The SDK marks the synthetic message an API error leaves (SDKAssistantMessageError, 0.3.283): a
+    // key the API does not know, or a cloud provider's credential it refused.
+    if (
+      this.#turn !== null &&
+      (message.error === 'authentication_failed' || message.error === 'cloud_credential_error')
+    )
+      this.#turn.credentialRefused = true;
     for (const [index, block] of message.message.content.entries()) {
       const eventId = `${message.uuid}:${index}`;
       if (block.type === 'text' && speaks) {
@@ -1384,9 +1401,15 @@ class ClaudeSession {
     } else if (succeeded) {
       this.#emit('runtime.turn.completed', { turn_id: turn.id }, provenance, result.uuid);
     } else {
+      const error = resultError(result);
       this.#emit(
         'runtime.turn.failed',
-        { turn_id: turn.id, error: resultError(result) },
+        {
+          turn_id: turn.id,
+          error: turn.credentialRefused
+            ? { code: CREDENTIAL_REFUSED, message: error.message }
+            : error,
+        },
         provenance,
         result.uuid,
       );

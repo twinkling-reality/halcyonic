@@ -378,3 +378,10 @@ export function capabilityProblems(adapter: RuntimeAdapter): string[] {
   }
   return problems;
 }
+
+/**
+ * The code a turn or start fails with when the model's provider refused the credential the runtime
+ * was given (a key it does not know, or one revoked): a host reads it as "the key was refused", so
+ * the runtime's hosted models are not offered as ready until another key is given.
+ */
+export const CREDENTIAL_REFUSED = 'credential_refused';

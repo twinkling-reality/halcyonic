@@ -432,3 +432,21 @@ Not verified:
   could show Salidium and Seorak an empty session for each listing.
 - The list is read in a temporary directory, so an `availableModels` setting of the execution's
   project does not narrow it; the start would then fail in Claude Code rather than at admission.
+
+## A key the API refuses (2026-11-12)
+
+Verified on `@anthropic-ai/claude-agent-sdk` 0.3.283 and the CLI it bundles, against a fake Messages API on
+loopback that answers every request 401 with `{"type": "error", "error": {"type": "authentication_error"}}`
+(`packages/integrations/claude-code/src/credential.e2e.test.ts`, a dummy key):
+- The SDK's own types name the case: `SDKAssistantMessage.error` is an `SDKAssistantMessageError`, one of
+  `authentication_failed`, `cloud_credential_error` and others (`sdk.d.ts`).
+- The CLI retries before giving up: the turn ended about 180 seconds after the start, with a result that is an error
+  and the words "Invalid API key" and "Fix external API key". Before this change the adapter reported it as
+  `runtime.turn.failed` with code `api_error`.
+- The adapter now reports a turn in which an assistant message carried `authentication_failed` or
+  `cloud_credential_error` as failed with `credential_refused` (`CREDENTIAL_REFUSED` in runtime-core), keeping the
+  CLI's message. The synthetic error message is not the agent speaking, and the key appears in nothing reported.
+
+Not verified: what api.anthropic.com itself answers a revoked key, and how long the CLI retries against it; and
+whether a refused key could be told before a start without spending (a models listing).
+
