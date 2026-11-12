@@ -2652,7 +2652,7 @@ test('a model proposes a new task from the list: the host builds it from the bin
       title: 'Night Sky',
       objective: null,
     });
-    assert.equal(step?.command_id, null, 'named once the projection keeps proposed commands');
+    assert.equal(recorded.payload.proposed_command?.command_id, step?.command_id);
     // Cancelling drops the waiting proposal.
     f.controlPlane.commands.submit(f.command('cancel', id), 'http', { kind: 'local' });
     await settle();
@@ -2953,6 +2953,172 @@ test('a press on a reviewed entry waits for the one card; a list that changed, a
       'That is not one of the things that can be done here now.',
     );
     assert.equal(f.turns, 0);
+  } finally {
+    await f.close();
+  }
+});
+
+test("the host's own list holds only what its admission passes now: New Task in a project, Send on a task that takes words (ADR 0060)", async () => {
+  const f = await fixture({ mode: 'immediate' });
+  try {
+    const { hostActions } = await import('./host-actions.ts');
+    const list = hostActions(f.controlPlane);
+    const project = { project_id: f.projectId, workstream_id: null, execution_id: null };
+    assert.deepEqual(
+      list.actions(project).map((entry) => entry.command_type),
+      ['workstream.create'],
+    );
+    const task = {
+      project_id: f.projectId,
+      workstream_id: f.workstreamId,
+      execution_id: f.execution,
+    };
+    assert.deepEqual(
+      list.actions(task).map((entry) => [entry.command_type, entry.sayable]),
+      [
+        ['workstream.create', true],
+        ['execution.send_instruction', false],
+      ],
+    );
+    const gone = { project_id: VERSION as never, workstream_id: null, execution_id: null };
+    assert.deepEqual(list.actions(gone), []);
+    // What the press is shown is the digest of exactly what it sends.
+    const { reviewDigest } = await import('../core/review.ts');
+    const command = {
+      schema_version: 1 as const,
+      command_id: f.ids.next() as CommandId,
+      issued_at: f.time.now().toISOString(),
+      client: { name: 'workspace-agent', version: null, device_label: null },
+      command_type: 'workstream.create' as const,
+      payload: { project_id: f.projectId, title: 'Night', objective: null },
+    };
+    assert.equal(
+      list.review(command)?.digest,
+      reviewDigest('workstream.create', command.payload, {}),
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test("the person's one press confirms a waiting proposal through resume: only its owner, only with the digest it was shown (ADR 0060)", async () => {
+  let digest = 'a'.repeat(64);
+  let turn = 0;
+  const list: ActionsHere = {
+    ...standIn([NEW_TASK]),
+    review: (command) => ({ what_happens: `The computer does ${command.command_type}.`, digest }),
+  };
+  const f = await fixture({
+    requestText: 'Start a task called Night Sky.',
+    actions: list,
+    turn: async () => {
+      turn++;
+      return turn === 1
+        ? answer([
+            {
+              name: 'propose_command',
+              arguments: { command_type: 'workstream.create', values: { title: 'Night Sky' } },
+            },
+          ])
+        : answer([], 'Night Sky has started.');
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 6; i++) await settle();
+    const step = f.coordinator.read(id, { kind: 'local' })?.steps.find((s) => s.proposal);
+    assert.equal(step?.status, 'waiting');
+    const confirm = (review: string, principal: Principal = { kind: 'local' }) =>
+      f.controlPlane.commands.submit(
+        {
+          ...f.command('resume', id, null),
+          payload: {
+            request_id: id as never,
+            text: null,
+            confirm: { step_id: step?.step_id as never, review },
+          },
+        } as never,
+        'http',
+        principal,
+      );
+    const before = f.controlPlane.projection.workstreams(f.projectId).length;
+    // Another principal cannot confirm what this person was shown.
+    const other = confirm(digest, { kind: 'device', device_id: VERSION as never });
+    assert.equal(other.disposition, 'rejected');
+    // A digest that is not what was shown, or what the host holds no longer gives it: nothing is done.
+    assert.notEqual(confirm('c'.repeat(64)).command?.status, 'completed');
+    digest = 'd'.repeat(64);
+    assert.notEqual(confirm('a'.repeat(64)).command?.status, 'completed');
+    assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before);
+    // The owner's press with the digest as shown, still true: the task starts, and the model says so.
+    digest = 'a'.repeat(64);
+    const pressed = confirm(digest);
+    assert.equal(pressed.disposition, 'accepted', JSON.stringify(pressed.command?.rejection));
+    for (let i = 0; i < 6; i++) await settle();
+    assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before + 1);
+    const after = f.coordinator.read(id, { kind: 'local' });
+    assert.equal(after?.steps.find((s) => s.step_id === step?.step_id)?.status, 'confirmed');
+    assert.equal(after?.status, 'responded');
+    assert.equal(after?.reply?.text, 'Night Sky has started.');
+    // Confirmed once: a second press finds nothing waiting.
+    assert.notEqual(confirm(digest).command?.status, 'completed');
+    assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before + 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test('new words from the person before the press replace the waiting proposal, and the model is asked again (AUDIT2, 1111-b77)', async () => {
+  let turn = 0;
+  const f = await fixture({
+    requestText: 'Start a task called Night Sky.',
+    actions: standIn([NEW_TASK]),
+    turn: async () => {
+      turn++;
+      const title = turn === 1 ? 'Night Sky' : 'Day Sky';
+      return answer([
+        {
+          name: 'propose_command',
+          arguments: { command_type: 'workstream.create', values: { title } },
+        },
+      ]);
+    },
+  });
+  try {
+    const id = f.submit();
+    for (let i = 0; i < 6; i++) await settle();
+    const first = f.coordinator.read(id, { kind: 'local' })?.steps.find((s) => s.proposal);
+    assert.equal(first?.status, 'waiting');
+    await f.time.advance(8_000);
+    const words = f.controlPlane.commands.submit(
+      f.command('resume', id, 'No, call it Day Sky instead.'),
+      'http',
+      { kind: 'local' },
+    );
+    assert.equal(words.disposition, 'accepted');
+    for (let i = 0; i < 6; i++) await settle();
+    const request = f.coordinator.read(id, { kind: 'local' });
+    // The old proposal is not done and can no longer be confirmed; the model heard the new words.
+    assert.equal(request?.steps.find((s) => s.step_id === first?.step_id)?.status, 'rejected');
+    assert.equal(turn, 2);
+    const waiting = request?.steps.filter((s) => s.proposal && s.status === 'waiting') ?? [];
+    assert.equal(waiting.length, 1);
+    assert.notEqual(waiting[0]?.step_id, first?.step_id);
+    const old = f.controlPlane.commands.submit(
+      {
+        ...f.command('resume', id, null),
+        payload: {
+          request_id: id as never,
+          text: null,
+          confirm: { step_id: first?.step_id as never, review: 'a'.repeat(64) },
+        },
+      } as never,
+      'http',
+      { kind: 'local' },
+    );
+    assert.notEqual(old.command?.status, 'completed');
+    const titles = f.controlPlane.projection.workstreams(f.projectId).map((task) => task.title);
+    assert.ok(!titles.includes('Night Sky'));
   } finally {
     await f.close();
   }

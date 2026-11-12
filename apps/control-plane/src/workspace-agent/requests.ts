@@ -1,4 +1,5 @@
 import {
+  COMMAND_VARIANTS,
   type CommandEnvelope,
   type CommandId,
   type CommandOf,
@@ -511,6 +512,27 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         'request_stopped',
         'Start a new request after cancelling this direction.',
       );
+    if (command.payload.confirm) {
+      this.#confirm(request, command.payload.confirm, principal);
+      return null;
+    }
+    // New words from the person replace what was proposed before them (AUDIT2, 1111-b77): a waiting proposal is never
+    // done once the person said something else, and the model is asked again with their words.
+    if (command.payload.text !== null)
+      for (const step of request.steps)
+        if (step.proposal && step.status === 'waiting')
+          this.#recordStep(
+            request,
+            {
+              ...step,
+              status: 'rejected',
+              summary: 'The person said something new before confirming it, so it was not done.',
+            },
+            null,
+            null,
+            this.#o.controlPlane.projection.workspaceProposal(request.request_id, step.step_id)
+              ?.command,
+          );
     this.#conversations.delete(request.request_id);
     if (command.payload.text !== null) {
       this.#step(
@@ -2123,6 +2145,79 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     );
     this.#changed(request, submitted.disposition === 'rejected' ? 'failed' : 'responded', null);
   }
+  /**
+   * The person's one press on a waiting proposal (ADR 0060): `workspace.request.resume` with `confirm`, admitted only
+   * from the request's own owner (the command service checks it, AUDIT2's N1). The step must still wait, the digest
+   * must be the one the person was shown, and what the host holds must still give that digest now (`review_stale`
+   * otherwise); then the host submits the command it holds, under the confirming person's principal. A model's request
+   * then goes on to say what happened; a press ends.
+   */
+  #confirm(
+    request: WorkspaceRequestView,
+    confirm: { readonly step_id: string; readonly review: string },
+    principal: Principal,
+  ): void {
+    const held = this.#o.controlPlane.projection.workspaceProposal(
+      request.request_id,
+      confirm.step_id,
+    );
+    const step = request.steps.find((candidate) => candidate.step_id === confirm.step_id);
+    if (!held || !step?.proposal || step.status !== 'waiting')
+      throw new RuntimeActionError('invalid_state', 'Nothing waits for a press on that step.');
+    const fresh = this.#o.actions?.review(held.command)?.digest;
+    if (step.proposal.review !== confirm.review || fresh !== confirm.review)
+      throw new RuntimeActionError(
+        'review_stale',
+        'What would be done has changed since it was shown. Look again before confirming.',
+      );
+    // A command that carries its review back (ADR 0051) carries the digest the person confirmed.
+    const command = (
+      'review' in
+      (COMMAND_VARIANTS.find(
+        (variant) =>
+          (variant.properties.command_type as { const?: string }).const ===
+          held.command.command_type,
+      )?.properties.payload.properties ?? {})
+        ? { ...held.command, payload: { ...held.command.payload, review: confirm.review } }
+        : held.command
+    ) as CommandEnvelope;
+    const submitted = this.#o.controlPlane.commands.submit(command, 'internal', principal);
+    const status = this.#o.controlPlane.projection.command(command.command_id)?.status ?? null;
+    this.#recordStep(
+      request,
+      {
+        ...step,
+        status:
+          submitted.disposition === 'rejected'
+            ? 'rejected'
+            : status === 'completed'
+              ? 'confirmed'
+              : 'running',
+        command_status: status,
+        summary:
+          submitted.disposition === 'rejected'
+            ? 'Confirmed, then refused when it was submitted; nothing was done.'
+            : "Confirmed by the person and submitted under their own principal; its outcome is the command's own.",
+      },
+      null,
+      null,
+      // The step keeps the command as it was prepared; the digest it carried back is the command's own record.
+      held.command,
+    );
+    if (step.tool_name === 'act') {
+      this.#changed(
+        request,
+        submitted.disposition === 'rejected' ? 'failed' : 'responded',
+        request.reply,
+      );
+      return;
+    }
+    // The model's request goes on, with fresh evidence, to tell the person what happened.
+    this.#conversations.delete(request.request_id);
+    this.#changed(request, 'running', request.reply);
+    this.#budgets.set(request.request_id, { turns: 0, calls: 0, activeMs: 0 });
+    this.#schedule(request.request_id);
+  }
   /** Where a request stands, as the host's list of what can be done there reads it. */
   #actionScope(request: WorkspaceRequestView): ActionScope {
     return {
@@ -2427,8 +2522,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       step_id: this.#o.ids.next() as WorkspaceRequestId,
       tool_name: tool,
       status,
-      // A proposal's command id is in its proposed command; the step names it once the projection keeps those.
-      command_id: command?.command_id ?? null,
+      command_id: command?.command_id ?? extra.proposed?.command_id ?? null,
       command_status: null,
       observation_position: this.#o.controlPlane.projection.position,
       active_turn_id: facts?.activeTurnId ?? null,

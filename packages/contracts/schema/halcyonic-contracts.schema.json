@@ -13956,6 +13956,23 @@
                       "type": "null"
                     }
                   ]
+                },
+                "confirm": {
+                  "type": "object",
+                  "required": [
+                    "step_id",
+                    "review"
+                  ],
+                  "properties": {
+                    "step_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "review": {
+                      "$ref": "#/$defs/ReviewDigest"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "additionalProperties": false

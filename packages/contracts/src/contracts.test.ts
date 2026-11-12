@@ -715,6 +715,7 @@ describe('the C# bindings', () => {
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
     'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came
+    'WorkspaceRequestResumePayload.confirm', // the person's one press on a waiting proposal (ADR 0060)
     'WorkspaceRequestStep.place', // the client's place the assistant picked (ADR 0060)
     'WorkspaceRequestStep.proposal', // what the assistant proposed (ADR 0060)
     'WorkspaceRequestStepRecordedPayload.proposed_command', // the command a proposal prepared (ADR 0060)
