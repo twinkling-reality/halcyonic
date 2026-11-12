@@ -63,6 +63,9 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'workspace.request.submit': 'low_consequence',
   'workspace.request.resume': 'low_consequence',
   'workspace.request.cancel': 'low_consequence',
+  // Where the assistant runs: a hosted model is paid with the person's key and reads what a request reads, so the
+  // person reads where it will run before the one press (the lead's D1, 2026-11-12).
+  'assistant.model.choose': 'review_required',
 };
 
 /**
@@ -296,5 +299,12 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
     description: 'Stop a request to the assistant.',
     sayable: false,
     confirm: 'none',
+  },
+  'assistant.model.choose': {
+    title: 'Use Model',
+    description:
+      "Choose the model the assistant runs on: this computer's, or a hosted one you gave a key.",
+    sayable: true,
+    confirm: 'review',
   },
 };

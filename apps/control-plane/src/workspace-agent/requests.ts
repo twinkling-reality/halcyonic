@@ -23,7 +23,7 @@ import {
   type WorkspaceRequestView,
   type WorkstreamId,
 } from '@halcyonic/contracts';
-import { admitCommand } from '@halcyonic/domain';
+import { admitCommand, commandEntry } from '@halcyonic/domain';
 import {
   checkProjectLocation,
   RuntimeActionError,
@@ -98,6 +98,16 @@ export const ANSWERING = `You answer the person's software-work request from wha
 
 /** The first line of the quoted block of what was read, on an answering turn. */
 export const READ_FOR_IT = 'What was read for this request, oldest first:';
+
+/** The transport failures of a chosen hosted model's key or model, after which the host offers this computer's (D2). */
+const KEY_FAILURES = new Set([
+  'key_refused',
+  'key_not_stored',
+  'key_file_open',
+  'key_unreadable',
+  'key_malformed',
+  'model_not_offered',
+]);
 
 /**
  * A task request's first turn, where it may send the person's words on, offers only these (the lead's yes, 2026-11-11):
@@ -1027,6 +1037,16 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
           // may be the local one or a hosted provider's.
           `The model did not answer this turn: ${fitted(result.message, 200)} (${result.code.replace(/[^a-z0-9_]/gi, '').slice(0, 64)}).`,
         );
+        // A chosen hosted model whose key is gone, unusable or refused: never a silent fall back, and nothing more
+        // spent; the host offers this computer's model as one press, and the request goes on there once pressed (D2).
+        if (
+          KEY_FAILURES.has(result.code) &&
+          this.#o.controlPlane.projection.assistantModel() !== null &&
+          (await this.#offerThisComputer(request))
+        ) {
+          this.#changed(request, 'waiting_for_human', request.reply);
+          return;
+        }
         this.#changed(request, 'failed', request.reply);
         return;
       }
@@ -2381,6 +2401,54 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       }
       this.#resumeModel(current);
     });
+  }
+  /**
+   * The host's own proposal of this computer's model (`assistant.model.choose` with its first row), for a request whose
+   * chosen hosted model could not be used (D2): prepared and shown as any proposal, waiting for the person's press.
+   * False where it cannot be offered, and the request then fails as before.
+   */
+  async #offerThisComputer(request: WorkspaceRequestView): Promise<boolean> {
+    const plane = this.#o.controlPlane;
+    const scope: HereScope = { project_id: null, workstream_id: null, execution_id: null };
+    const list = await plane.commands.choices(scope, 'assistant_models').catch(() => null);
+    const local = list?.rows.find(
+      (row) => row.index === 0 && row.actions.includes('assistant.model.choose'),
+    );
+    if (!list || !local) return false;
+    const prepared = await plane.commands.prepare({
+      scope,
+      command_type: 'assistant.model.choose',
+      values: { model: local.index },
+      read: { assistant_models: list.digest },
+      command_id: this.#o.ids.next() as CommandId,
+      issued_at: this.#now(),
+      client: { name: 'workspace-agent', version: null, device_label: null },
+    });
+    if (!prepared.ok) return false;
+    const entry = commandEntry('assistant.model.choose');
+    const shown = await this.#shown(entry.confirm, prepared.command, entry.description);
+    if (!shown.ok) return false;
+    const current = plane.projection.workspaceRequest(request.request_id);
+    if (!current) return false;
+    this.#step(
+      current,
+      'use_this_computer',
+      'waiting',
+      "The host offers this computer's model, one press; nothing more is sent with the key that failed.",
+      null,
+      null,
+      {
+        proposal: {
+          command_type: 'assistant.model.choose',
+          confirm: entry.confirm,
+          what_happens: fitted(shown.what_happens, 2000),
+          review: shown.digest,
+          said: shown.said,
+        },
+        proposed: prepared.command,
+      },
+    );
+    return true;
   }
   /** A model's request goes on, with fresh evidence, to tell the person what happened. */
   #resumeModel(request: WorkspaceRequestView): void {

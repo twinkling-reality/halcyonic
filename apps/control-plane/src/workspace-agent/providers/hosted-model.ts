@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { WorkspaceAgentStatus } from '@halcyonic/contracts';
 import {
   TOOL_MODEL_BOUNDS,
@@ -9,11 +10,15 @@ import {
 } from '../ollama.ts';
 import {
   type HostedProvider,
+  KEY_REFUSED,
   type KeyReader,
   type Protocol,
   type ProtocolCall,
   upstreamProblem,
 } from './provider.ts';
+
+/** A key's digest, kept in memory only, so a refused key is known again without holding it. */
+const digest = (key: string) => createHash('sha256').update(key).digest('hex');
 
 /**
  * A hosted model's bounds: the same input the host packs for the local model and the same reply and
@@ -49,16 +54,18 @@ export class HostedWorkspaceModel {
   readonly provider: HostedProvider;
   readonly #protocol: Protocol;
   readonly #keys: KeyReader;
-  readonly #model: string;
   readonly #upstream: string;
   readonly #bounds: ToolModelBounds;
+  /**
+   * The digest of the stored key the provider refused, since this process read it: that key is never sent again,
+   * so a refused key spends nothing more (the lead's D2). A new key stored in its place is tried.
+   */
+  #refused: string | null = null;
 
   constructor(options: {
     provider: HostedProvider;
     protocol: Protocol;
     keys: KeyReader;
-    /** One of the provider's declared models; its first when null. */
-    model?: string | null;
     /** For proofs on this Mac only: `upstreamProblem` still refuses anything but https or loopback. */
     upstream?: string | null;
     bounds?: Partial<ToolModelBounds>;
@@ -66,34 +73,46 @@ export class HostedWorkspaceModel {
     this.provider = options.provider;
     this.#protocol = options.protocol;
     this.#keys = options.keys;
-    this.#model = options.model ?? options.provider.models[0] ?? '';
     this.#upstream = options.upstream ?? options.provider.upstream;
     this.#bounds = { ...HOSTED_MODEL_BOUNDS, ...options.bounds };
   }
 
-  /** Whether a key is stored for this provider, read now; the value never leaves this check. */
-  keyStored(): boolean {
-    return this.#keys(this.provider.key).kind !== 'none';
+  /** What the host can say of this provider's key now, in words, never its value. */
+  key():
+    | { readonly kind: 'none' | 'stored' }
+    | { readonly kind: 'unusable' | 'refused'; readonly message: string } {
+    const key = this.#keys(this.provider.key);
+    if (key.kind === 'none') return { kind: 'none' };
+    if (key.kind === 'unusable') return { kind: 'unusable', message: key.message };
+    if (this.#refused === digest(key.value))
+      return {
+        kind: 'refused',
+        message: `${this.provider.name} refused its key. Give it a new key on this computer.`,
+      };
+    return { kind: 'stored' };
   }
 
-  async status(): Promise<WorkspaceAgentStatus> {
-    const call = this.#call(AbortSignal.timeout(this.#bounds.metadataMs), this.#bounds.metadataMs);
+  async status(model: string): Promise<WorkspaceAgentStatus> {
+    const call = this.#call(
+      model,
+      AbortSignal.timeout(this.#bounds.metadataMs),
+      this.#bounds.metadataMs,
+    );
     if (!('upstream' in call)) return unavailable(call.code, call.message);
     try {
       const checked = await this.#protocol.check(call);
-      if (!checked.ok) return unavailable(checked.code, checked.message);
+      if (!checked.ok) {
+        this.#heard(checked.code, call.key);
+        return unavailable(checked.code, checked.message);
+      }
     } catch {
       return unavailable('provider_unreachable', `${this.provider.name} could not be reached.`);
     }
-    return {
-      availability: 'available',
-      model: this.#model,
-      served: 'remote',
-      provider: this.provider.name,
-    };
+    return { availability: 'available', model, served: 'remote', provider: this.provider.name };
   }
 
   async turn(
+    model: string,
     messages: readonly ToolMessage[],
     tools: readonly ToolDefinition[],
     signal?: AbortSignal,
@@ -117,11 +136,14 @@ export class HostedWorkspaceModel {
       // Snapshot before the first await, as the local transport does.
       const captured = JSON.parse(body) as { messages: ToolMessage[]; tools: ToolDefinition[] };
       // The key is read again at every turn, so a key removed since the last turn is not used.
-      const call = this.#call(controller.signal, this.#bounds.totalMs);
+      const call = this.#call(model, controller.signal, this.#bounds.totalMs);
       if (!('upstream' in call)) return failure(call.code, call.message);
       const reply = await this.#protocol.turn(call, captured.messages, captured.tools);
       if (controller.signal.aborted) return ended();
-      if (reply.kind === 'failed') return failure(reply.code, reply.message);
+      if (reply.kind === 'failed') {
+        this.#heard(reply.code, call.key);
+        return failure(reply.code, reply.message);
+      }
       return this.#checked(reply.content, reply.calls, reply.model, captured.tools);
     } catch {
       if (controller.signal.aborted) return ended();
@@ -137,11 +159,17 @@ export class HostedWorkspaceModel {
     }
   }
 
+  /** A refusal of the key is remembered for that key alone. */
+  #heard(code: string, key: string): void {
+    if (code === KEY_REFUSED.code) this.#refused = digest(key);
+  }
+
   #call(
+    model: string,
     signal: AbortSignal,
     timeoutMs: number,
   ): ProtocolCall | { readonly code: string; readonly message: string } {
-    if (!this.provider.models.includes(this.#model))
+    if (!this.provider.models.includes(model))
       return {
         code: 'model_not_offered',
         message: `${this.provider.name} does not offer that model.`,
@@ -152,11 +180,16 @@ export class HostedWorkspaceModel {
     if (key.kind === 'none')
       return { code: 'key_not_stored', message: `No key is stored for ${this.provider.name}.` };
     if (key.kind === 'unusable') return { code: key.code, message: key.message };
+    if (this.#refused === digest(key.value))
+      return {
+        code: KEY_REFUSED.code,
+        message: `${this.provider.name} refused its key. Give it a new key on this computer.`,
+      };
     return {
       provider: this.provider,
       upstream: new URL(this.#upstream),
       key: key.value,
-      model: this.#model,
+      model,
       outputTokens: this.#bounds.outputTokens,
       timeoutMs,
       signal,

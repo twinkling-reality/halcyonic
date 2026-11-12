@@ -54,6 +54,8 @@ export const ChoiceList = Type.Union([
   Type.Literal('approvals'),
   Type.Literal('decisions'),
   Type.Literal('questions'),
+  /** Where the assistant may run: this computer's model, then each declared hosted model with its key stored. */
+  Type.Literal('assistant_models'),
 ]);
 export type ChoiceList = Static<typeof ChoiceList>;
 

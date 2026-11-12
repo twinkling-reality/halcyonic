@@ -1093,6 +1093,11 @@ function admit(
       return { admitted: true, policy, scope, runtime: null };
     }
 
+    case 'assistant.model.choose':
+      // Which hosted models exist and whose key is stored is the host's to say (CommandService's host check): the
+      // domain knows no provider. The choice belongs to no project.
+      return { admitted: true, policy, scope: NO_SCOPE, runtime: null };
+
     default: {
       const unhandled: never = command;
       throw new Error(

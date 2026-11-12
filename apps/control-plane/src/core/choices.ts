@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type {
+  AssistantHostedModel,
   CatalogResponse,
   ChoiceList,
   ChoiceRow,
@@ -31,6 +32,20 @@ export interface HeldRow {
   readonly value: unknown;
 }
 
+/**
+ * A place the assistant may run, as the host's assistant offers it (ADR 0030, 2026-11-12): this computer's model
+ * (`model` null), or one declared hosted model. `usable` is false where its provider's key is missing, unusable or
+ * refused, and `detail` then says so; such a row is shown and offers nothing.
+ */
+export interface AssistantModelOption {
+  readonly model: AssistantHostedModel | null;
+  readonly label: string;
+  readonly detail: string | null;
+  /** Whether `label` is someone else's name (a model id), said as theirs. */
+  readonly theirs: boolean;
+  readonly usable: boolean;
+}
+
 export interface ChoiceSources {
   readonly projection: Projection;
   /** The runtimes this host has, in its order. */
@@ -53,6 +68,8 @@ export interface ChoiceSources {
   readonly providerName: (id: string) => string | null;
   /** The person's catalog, read now; null where none is set up or it cannot be read by index. */
   readonly catalog: () => Promise<CatalogResponse | null>;
+  /** Where the assistant may run, read now; null where this host has no assistant. */
+  readonly assistantModels: () => Promise<readonly AssistantModelOption[] | null>;
 }
 
 /** One line of the host's words or someone else's, clipped to fit, never with an ellipsis. */
@@ -338,6 +355,17 @@ export async function choiceRows(
           );
         }
       return rows;
+    }
+    case 'assistant_models': {
+      const options = await sources.assistantModels();
+      if (options === null) return null;
+      return options.map((option, index) =>
+        row(index, 'model', option.label, option.model, {
+          detail: option.detail,
+          theirs: option.theirs,
+          actions: option.usable ? ['assistant.model.choose'] : [],
+        }),
+      );
     }
     default: {
       const unhandled: never = list;

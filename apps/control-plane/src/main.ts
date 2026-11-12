@@ -389,14 +389,18 @@ async function main(): Promise<void> {
   const companion = new Companion({ config: config.companion, clock: systemClock });
   const understanding = salidiumUnderstandingFor(config.dataDir),
     evaluation = seorakEvaluationFor(config.dataDir);
+  // Where the assistant runs is the person's own choice, remembered in the journal (ADR 0030, 2026-11-12).
+  const assistant = assistantModel({
+    local: new OllamaWorkspaceModel({ config: config.assistant }),
+    dataDir: config.dataDir,
+    environment: process.env,
+    chosen: () => controlPlane.projection.assistantModel(),
+  });
+  controlPlane.commands.attachAssistantModels(() => assistant.options());
   const workspaceRequests = new WorkspaceRequests({
     controlPlane,
     ids,
-    model: assistantModel({
-      local: new OllamaWorkspaceModel({ config: config.assistant }),
-      dataDir: config.dataDir,
-      environment: process.env,
-    }),
+    model: assistant,
     understanding,
     evaluation,
   });

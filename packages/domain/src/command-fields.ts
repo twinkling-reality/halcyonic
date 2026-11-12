@@ -175,6 +175,7 @@ export const COMMAND_FIELDS: Readonly<
     execution_id: execution,
     command_id: need('choice', 'Instruction', { list: 'queued_instructions' }),
   },
+  'assistant.model.choose': { model: need('choice', 'Model', { list: 'assistant_models' }) },
 };
 
 /**

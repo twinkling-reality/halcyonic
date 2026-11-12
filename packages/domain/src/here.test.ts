@@ -60,10 +60,13 @@ const types = (actions: readonly HereAction[]) =>
   );
 
 describe('what can be done here (ADR 0060)', () => {
-  test('all work offers a new project, and nothing of any project', () => {
+  test('all work offers a new project and where the assistant runs, and nothing of any project', () => {
     const { projection } = world();
     const all = { project_id: null, workstream_id: null, execution_id: null };
-    assert.deepEqual(types(hereActions(all, projection, RUNTIMES).actions), ['project.create']);
+    assert.deepEqual(types(hereActions(all, projection, RUNTIMES).actions), [
+      'project.create',
+      'assistant.model.choose',
+    ]);
   });
 
   test('a task offers what its state allows, its own first, from the same admission', () => {

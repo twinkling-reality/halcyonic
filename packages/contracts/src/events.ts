@@ -9,6 +9,7 @@ import {
   ReviewDigest,
 } from './checkpoints.ts';
 import {
+  AssistantHostedModel,
   CommandEnvelope,
   CommandFailure,
   CommandId,
@@ -993,6 +994,12 @@ export const DeviceRevoked = controlPlaneEvent(
   Type.Object({ device_id: DeviceId, revoked_by: Principal }, strict),
 );
 
+/** Where the person chose the assistant to run (`assistant.model.choose`): null for this computer's model. */
+export const AssistantModelChosen = controlPlaneEvent(
+  'assistant.model.chosen',
+  Type.Object({ model: Nullable(AssistantHostedModel) }, strict),
+);
+
 /** The action was carried out, confirmed by the runtime where a runtime was involved. */
 export const CommandCompleted = commandEvent(
   'command.completed',
@@ -1297,6 +1304,7 @@ export const EVENT_VARIANTS = [
   CommandFailed,
   DevicePaired,
   DeviceRevoked,
+  AssistantModelChosen,
   WorkspaceRequestCreated,
   WorkspaceRequestChanged,
   WorkspaceRequestStepRecorded,
