@@ -97,7 +97,7 @@ namespace Halcyonic.Client
         /// <summary>The glance's title, and the rail's chip that opens it.</summary>
         public const string Title = "Usage Left";
 
-        public const string NotSetUp = "Usage Left Not Set Up · Set Up on Computer";
+        public const string NotSetUp = "Usage Left Not Set Up, set it up on your computer";
         public const string Reading = "Reading Usage";
 
         /// <summary>Said while the recorded demonstration plays, when its recording holds no usage limits.</summary>
@@ -116,7 +116,7 @@ namespace Halcyonic.Client
         public static string FromSeorak => IntelligenceText.FromSeorak + " · Provider Reported";
         public static string Simulated => "Simulated · Not " + IntelligenceText.FromSeorak;
 
-        private const string NoReadingSinceReset = "No Reading Since Reset · Refresh Later";
+        private const string NoReadingSinceReset = "No Reading Since Reset";
 
         /// <param name="recorded">The limits are the recorded demonstration's (<see cref="DemonstrationRecording.UsageLimitsAt"/>), so they say so instead of naming a source or an account.</param>
         public static UsageLeftPresentation Present(UsageLimitsResponse response, DateTimeOffset now, TimeZoneInfo zone, bool recorded = false)
@@ -133,10 +133,10 @@ namespace Halcyonic.Client
                         "not_configured" or "limits_not_served" => Quiet(NotSetUp),
                         "not_captured" => Quiet("No Reading Yet"),
                         "no_current_reading" => Quiet(NoReadingSinceReset),
-                        _ => Failure("Usage Unreadable · Retry Later"),
+                        _ => Failure(Unreadable),
                     };
                 default:
-                    return Failure("Usage Unreadable · Retry Later");
+                    return Failure(Unreadable);
             }
         }
 
@@ -145,7 +145,10 @@ namespace Halcyonic.Client
         public const string Weekly = "Weekly";
 
         /// <summary>The glance when this device could not reach the control plane at all.</summary>
-        public static UsageLeftPresentation Unreachable() => Failure("Computer Unreachable · Refresh");
+        public static UsageLeftPresentation Unreachable() => Failure("Computer Unreachable");
+
+        // The usage card's line names the state only: Refresh is its own button (FIELD's rule, 2026-11-12), never in the words.
+        private const string Unreadable = "Usage Unreadable";
 
         public static UsageLeftPresentation Message(string text) => Quiet(text);
 
