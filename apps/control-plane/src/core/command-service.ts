@@ -985,7 +985,7 @@ export class CommandService {
           cause,
         ),
       );
-      return { ok: true, directory: fromVersion.directory };
+      return this.#heldInCopy(copies, runtimeId, fromVersion.directory);
     }
     // A world changes when the person speaks to it (ADR 0049): its tasks change the project in place,
     // so the world the headset shows follows each turn. They get no copy, and work in the project's
@@ -1022,7 +1022,7 @@ export class CommandService {
           cause,
         ),
       );
-      return { ok: true, directory: made.directory };
+      return this.#heldInCopy(copies, runtimeId, made.directory);
     }
     this.#deps.recorder.record(
       controlPlaneDraft(
@@ -1040,6 +1040,31 @@ export class CommandService {
         failure: { code: 'folder_in_use', message: busy.message, effect: 'none' },
       };
     return { ok: true, directory: projectFolder };
+  }
+
+  /**
+   * The new copy as the start's folder, only while the agent is held to the copy itself (AUDIT3
+   * VRIFY-4c S1): the agent decides its confinement afresh for the copy, so a copy it would not be
+   * held to is refused in words, never started in. The copy stays the task's.
+   */
+  #heldInCopy(
+    copies: TaskCopies,
+    runtimeId: string,
+    directory: string,
+  ):
+    | { readonly ok: true; readonly directory: string }
+    | { readonly ok: false; readonly failure: CommandFailure } {
+    return copies.holds(runtimeId, directory)
+      ? { ok: true, directory }
+      : {
+          ok: false,
+          failure: {
+            code: 'capability_unsupported',
+            message:
+              "This task's copy was made, but its agent would not be kept to it on this computer, so nothing was started.",
+            effect: 'none',
+          },
+        };
   }
 
   /** The folder the admitted command's project is bound to, or null for none. */
