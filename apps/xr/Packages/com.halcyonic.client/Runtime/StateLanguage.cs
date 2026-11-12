@@ -200,17 +200,31 @@ namespace Halcyonic.Client
     }
 
     /// <summary>A mark beside the badge saying where the work comes from: practice, a demo or a recording.</summary>
+    /// <summary>What a work mark says the work is, by kind, never by its word (R3).</summary>
+    public enum WorkMarkKind
+    {
+        /// <summary>A practice run: live, on a simulated agent app.</summary>
+        Practice,
+        /// <summary>The demonstration: recorded work played on the headset; nothing is live.</summary>
+        Demo,
+        /// <summary>A recorded run: real agent work played back; nothing is live.</summary>
+        Recorded,
+    }
+
     public sealed class WorkMark
     {
-        public WorkMark(string word, GlazeIcon icon)
+        public WorkMark(string word, GlazeIcon icon, WorkMarkKind kind)
         {
             Word = word;
             Icon = icon;
+            Kind = kind;
         }
 
         public string Word { get; }
 
         public GlazeIcon Icon { get; }
+
+        public WorkMarkKind Kind { get; }
     }
 
     /// <summary>
@@ -360,9 +374,9 @@ namespace Halcyonic.Client
         public static IReadOnlyList<WorkMark> MarksOf(CharacterPresentation presentation)
         {
             if (presentation == null) throw new ArgumentNullException(nameof(presentation));
-            if (presentation.Synthetic && presentation.Recorded) return new[] { new WorkMark(Demo, GlazeIcon.Recording) };
-            if (presentation.Synthetic) return new[] { new WorkMark(Practice, GlazeIcon.Practice) };
-            if (presentation.Recorded) return new[] { new WorkMark(Recorded, GlazeIcon.Recording) };
+            if (presentation.Synthetic && presentation.Recorded) return new[] { new WorkMark(Demo, GlazeIcon.Recording, WorkMarkKind.Demo) };
+            if (presentation.Synthetic) return new[] { new WorkMark(Practice, GlazeIcon.Practice, WorkMarkKind.Practice) };
+            if (presentation.Recorded) return new[] { new WorkMark(Recorded, GlazeIcon.Recording, WorkMarkKind.Recorded) };
             return Array.Empty<WorkMark>();
         }
 

@@ -69,6 +69,12 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Whether the bound task's run was asked for and has not started.</summary>
         public Func<bool> AwaitingStart { get; set; } = () => false;
+
+        /// <summary>
+        /// What the work shown is while a recording plays (Recorded or Demo), from the connection itself; null while live. Every frame the
+        /// bar shows, a plain one included, carries the product's notice by it (RoomBar.Of; the lead's honesty rule, 2026-11-12).
+        /// </summary>
+        public Func<WorkMarkKind?> RecordedWork { get; set; } = () => null;
         private TextMeshPro measure = null!;
         private KitFileBinding? binding;
         private MenuColumn column;
@@ -298,7 +304,7 @@ namespace Halcyonic.XR.UI
             var zoom = GlazeText.Scale;
             bar.transform.localScale = Vector3.one / zoom;
             bar.transform.localPosition = Vector3.zero;
-            var room = RoomBar.Of(binding, Voice(), AwaitingStart());
+            var room = RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork());
             // The agent's own words stand on the band, never in the panel; the same words again keep the part it shows.
             if (room.Band != null) band.Show(room.Band);
             else band.Hide();

@@ -170,6 +170,14 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// What a person must know of recorded or demonstration work wherever it is shown, word for word: the first sentence of
+        /// <see cref="Describe"/>. The redesign stands it over everything the bar shows (RoomBar.Notice).
+        /// </summary>
+        public static string Notice(bool recordedRun) => recordedRun
+            ? "Recorded: real agent work, played back here. Nothing here is live."
+            : "Demo: recorded work played on this headset. Nothing here is live.";
+
+        /// <summary>
         /// The line above the stage while the demonstration is shown. Its first sentence names what plays
         /// and says nothing is live; its second, that the demonstration follows the person's answers, or
         /// that a recorded run waits only where the agent waited, and that nothing reaches an agent. Once a
@@ -178,9 +186,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string Describe(DemonstrationReason reason, ConnectionStatus? controlPlane, bool ended = false, bool recordedRun = false, bool next = false)
         {
-            var first = recordedRun
-                ? "Recorded: real agent work, played back here. Nothing here is live."
-                : "Demo: recorded work played on this headset. Nothing here is live.";
+            var first = Notice(recordedRun);
             var second = !ended
                 ? recordedRun ? "It waits only where the agent waited." : "It follows your answers."
                 : !next ? (recordedRun ? "Run ended." : "Demo ended.") + " It starts again soon."

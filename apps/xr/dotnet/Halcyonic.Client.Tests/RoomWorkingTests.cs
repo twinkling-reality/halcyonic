@@ -80,6 +80,46 @@ public class RoomWorkingTests
         Assert.That((Bar(unstoppable).Working, Bar(unstoppable).Column.Count), Is.EqualTo((true, 0)), "a runtime that cannot be stopped shows no Stop");
     }
 
+    /// <summary>
+    /// The lead's honesty rule (2026-11-12): a recorded or demonstration task's bar carries the product's own line, word for word, in every
+    /// state it stands in (at work, at rest, asking); a live task's carries none.
+    /// </summary>
+    [TestCase(ExecutionStatus.Running)]
+    [TestCase(ExecutionStatus.Completed)]
+    [TestCase(ExecutionStatus.WaitingForHuman)]
+    public void ARecordedTasksBarCarriesTheNoticeInEveryStateAndALiveOneNone(ExecutionStatus status)
+    {
+        var live = status == ExecutionStatus.WaitingForHuman ? new WaitingWork() : Work(status);
+        var (_, liveColumn) = Open(() => Present(live, WorkspaceAction.Instruct, WorkspaceAction.Approve, WorkspaceAction.Deny));
+        Assert.That(Bar(liveColumn).Notice, Is.Null, "live work carries no notice");
+
+        var recorded = status == ExecutionStatus.WaitingForHuman ? new WaitingWork() : Work(status);
+        recorded.State.ApplySnapshot(Samples.Snapshot(2, new[] { recorded.Workstream }, new[] { recorded.Execution },
+            new JournalInfo { JournalId = "recorded-journal", Origin = JournalOrigin.Fixture }), new StateChanges());
+        var shown = Present(recorded, WorkspaceAction.Instruct, WorkspaceAction.Approve, WorkspaceAction.Deny);
+        var (_, column) = Open(() => shown);
+        var bar = Bar(column);
+        var expected = DemonstrationFallback.Notice(recordedRun: !shown.Character.Synthetic);
+        Assert.That(bar.Notice?.Text, Is.EqualTo(expected), "the product's own line, in state " + bar.State);
+        Assert.That(expected, Does.Contain("Nothing here is live"));
+    }
+
+    /// <summary>
+    /// AUDIT's MUST 2 (2026-11-12): a plain frame (Projects, the menu, New Project...) carries no task's marks, so its notice comes from what the
+    /// connection says it shows, by the same one rule: recorded or the demonstration, the product's line whole; live, none.
+    /// </summary>
+    [TestCase(WorkMarkKind.Recorded, true)]
+    [TestCase(WorkMarkKind.Demo, false)]
+    public void APlainFrameCarriesTheNoticeWhileARecordingPlaysAndNoneWhileLive(WorkMarkKind shown, bool recordedRun)
+    {
+        var frame = new MenuFrame("Projects", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)),
+            lines: new[] { new PageLine("Storefront", action: "projects-choose-project", key: "p1") });
+        var plain = KitFileBinding.PlainOf(frame);
+        Assert.That(RoomBar.Of(plain, VoiceStage.Idle, false, shown).Notice?.Text, Is.EqualTo(DemonstrationFallback.Notice(recordedRun)));
+        Assert.That(RoomBar.Of(plain, VoiceStage.Idle, false, null).Notice, Is.Null, "live, none");
+        Assert.That(RoomBar.Of(plain, VoiceStage.Idle, false, WorkMarkKind.Practice).Notice, Is.Null, "a practice run is live");
+    }
+
     [Test]
     public void AtRestNothingIsAtWork()
     {
