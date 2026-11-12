@@ -813,7 +813,7 @@ public class DemonstrationReadsTests
         var read = new IntelligenceRead<UnderstandingResponse>(Intelligence.Understanding(json.ToString()), Intelligence.At("2026-09-29T09:00:00.000Z"), recorded: true);
         var card = CheckedPresenter.SimulatedCard(read, TimeZoneInfo.Utc);
         Assert.That(card?.Status?.Title, Is.EqualTo(title));
-        if (card != null) Assert.That((card.Status?.Line?.StartsWith("Simulated in the recording, at ", StringComparison.Ordinal), card.AnyDot), Is.EqualTo(((bool?)true, false)));
+        if (card != null) Assert.That((card.Status?.Line?.StartsWith("Simulated at ", StringComparison.Ordinal), card.AnyDot), Is.EqualTo(((bool?)true, false)));
         if (later is "partial" or "unknown") Assert.That(card?.Status?.Tone, Is.EqualTo(RoomTone.Quiet), "neither a failure nor the person's turn");
     }
 

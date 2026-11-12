@@ -719,7 +719,7 @@ namespace Halcyonic.Client
         /// <summary>
         /// The recording's checks as a card (FIELD's parts note and words, the census). A simulated source's: the latest
         /// run's outcome as the status's title ("All Passing", "Checks Failed", "Partly Passing", "Outcome Unknown"), its line
-        /// saying they were simulated and when, as a sentence ("Simulated in the recording, at 05:00:12"), and the latest run's
+        /// saying they were simulated and when, as a sentence ("Simulated at 05:00:12"), and the latest run's
         /// own summary on the foot line, theirs and whole. A recorded run, which keeps no checks: "No Checks Recorded", quiet,
         /// with its line. A real source's checks stay its page.
         /// </summary>
@@ -744,7 +744,7 @@ namespace Halcyonic.Client
                 UnderstandingVerificationRunOutcome.Partial => (PartlyPassing, RoomTone.Quiet),
                 _ => (OutcomeUnknown, RoomTone.Quiet),
             };
-            var line = read.Recorded ? "Simulated in the recording, at " + IntelligenceText.Clock(read.ReadAt, zone, seconds: true) : "Simulated";
+            var line = read.Recorded ? "Simulated at " + IntelligenceText.Clock(read.ReadAt, zone, seconds: true) : "Simulated";
             var latest = UnderstandingPresenter.Run(runs[runs.Count - 1], observed.Understanding.Changes.Files, zone).First();
             return new RoomCard(status: new RoomCardStatus(title, line, tone), more: latest.Runs);
         }

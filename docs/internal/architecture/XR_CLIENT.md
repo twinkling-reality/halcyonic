@@ -2861,7 +2861,7 @@ in order, as before.
 - **The recorded run's simulated Checks as a card** (FIELD's parts note; the census): a simulated source's checks carry
   a card on the file's answer (`CheckedPresenter.SimulatedCard`, `FileAnswer.Card`), set on the Checks frame with
   `WithCard`: the latest run's outcome its title ("All Passing" good, "Checks Failed" bad, "Partly Passing" and
-  "Outcome Unknown" quiet), "Simulated in the recording, at {time}" its line, the latest run's own summary on the foot
+  "Outcome Unknown" quiet), "Simulated at {time}" its line, the latest run's own summary on the foot
   line, theirs and whole. A recorded run, which keeps no checks (the read refused as "Not Recorded"), carries "No Checks
   Recorded", quiet, with the line "This run kept no record of its checks" and no foot line: never that nothing failed,
   which nobody knows (FIELD, 2026-11-11). `RoomBar.Carded` draws a task's frame that carries a
