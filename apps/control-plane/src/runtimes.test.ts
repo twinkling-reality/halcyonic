@@ -143,6 +143,23 @@ describe('runtime composition', () => {
     }
   });
 
+  test('a key of spaces alone in the environment is no key: the stored one is used, and without one the start stops', () => {
+    const dataDir = mkdtempSync(join(base, 'spaces-'));
+    assert.throws(
+      () =>
+        adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, { ...HOST, ANTHROPIC_API_KEY: '   ' }, dataDir),
+      EnvironmentError,
+    );
+    writeFileSync(join(dataDir, ANTHROPIC_KEY_FILE), 'not-a-real-key\n', { mode: 0o600 });
+    assert.ok(
+      adapters(
+        { HALCYONIC_CLAUDE_AGENT: '1' },
+        { ...HOST, ANTHROPIC_API_KEY: '   ' },
+        dataDir,
+      ).some((adapter) => adapter.descriptor.kind === 'claude-agent'),
+    );
+  });
+
   test('a key file other users can read, or an empty one, stops startup', () => {
     const exposed = mkdtempSync(join(base, 'exposed-'));
     writeFileSync(join(exposed, ANTHROPIC_KEY_FILE), 'not-a-real-key\n', { mode: 0o644 });

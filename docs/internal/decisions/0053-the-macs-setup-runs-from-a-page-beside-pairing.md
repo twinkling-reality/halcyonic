@@ -157,7 +157,8 @@ key, and for it to serve any agent app, not one vendor's.
   again", or in Terminal "is on from Halcyonic's next start"), and Remove Key takes it away. A file the app would
   refuse (other users can read it, or it is empty) counts as no key: it turns nothing on, so on its own it never stops
   a start. With `HALCYONIC_CLAUDE_AGENT=1` and no `ANTHROPIC_API_KEY` in the environment, the start still stops on
-  such a file, as before. Its card and step say so in each case, and Add Key replaces it. The owner had given no key when this was decided.
+  such a file, as before, and on no key and no cloud provider at all; the steps say so before that start. The app's
+  card says its file isn't used, and Add Key replaces it. The owner had given no key when this was decided.
 - A second provider gets a field by declaring its `AgentKey` and being listed in `AGENT_KEYS`. Its runtime
   registers when its key is stored, in its own branch of `createRuntimeAdapters`. The tests prove the page and the
   keeping with a test adapter's declaration beside Claude Agent's. No second hosted runtime exists yet.
