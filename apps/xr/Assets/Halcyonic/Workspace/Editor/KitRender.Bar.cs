@@ -68,6 +68,19 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>A page of the file with no moment of its own, drawn by the general rule (RoomBar.OfFrame): Checks while its answer is read.</summary>
         private static readonly string[] PageStates = { "37-page" };
 
+        /// <summary>
+        /// The workspace as the demonstration plays it, its work recorded on the synthetic agent: the bar carries the product's
+        /// line over all it shows, here at work with no panel (the lead, 2026-11-12: the notice where no panel stands).
+        /// </summary>
+        private static WorkspacePresentation Recorded(WorkspacePresentation workspace)
+        {
+            var c = workspace.Character;
+            var character = new CharacterPresentation(c.WorkstreamId, c.Title, c.Activity, c.StatusLabel, c.Attention, c.AttentionNotes, c.PendingApprovals,
+                c.Synthetic, recorded: true, c.Stale, c.AttentionDetails, c.AttentionNoteRuns, c.AttentionDetailRuns);
+            return new WorkspacePresentation(character, workspace.Objective, workspace.Execution, workspace.Runtime, workspace.Actions.ToList(),
+                workspace.Actions.Where(workspace.RequiresConfirmation).ToList(), workspace.Commands, workspace.Activity);
+        }
+
         /// <summary>The workspace with only <paramref name="actions"/> offered, as a recorded run offers none.</summary>
         private static WorkspacePresentation WithActions(WorkspacePresentation workspace, IReadOnlyList<WorkspaceAction> actions) =>
             new WorkspacePresentation(workspace.Character, workspace.Objective, workspace.Execution, workspace.Runtime, actions,
@@ -296,7 +309,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // At work, on an agent that takes no instruction while it works, and on one that does.
                 "36-work" or "36-stop-confirm" or "36-work-fixing" => WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()),
                 // Nothing to press: no Stop and no instruction while it works, as a recorded run offers.
-                "36-work-recorded" => WithActions(WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()), new WorkspaceAction[0]),
+                "36-work-recorded" => Recorded(WithActions(WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()), new WorkspaceAction[0])),
                 "36-work-row" => Running(ShortReport()),
                 // The result: at rest, the agent's newest message its one line of activity.
                 _ when ResultStates.Contains(state) => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed),
