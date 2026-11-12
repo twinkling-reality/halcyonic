@@ -80,6 +80,25 @@ public class AskColumnTests
     }
 
     [Test]
+    public void AReplyFromAHostedProviderSaysWhereItRan()
+    {
+        var scope = AskScope.Task(ProjectId, TaskId, ExecutionId, "Tail");
+        var ask = new AskColumn(commands, scope);
+        ask.Offer(new AvailableWorkspaceAgent { Model = "test-model-1", Served = AssistantServed.Remote, Provider = "Test Hosted" });
+        ask.Write("Is it blue?");
+        var command = ask.Submit()!;
+        ask.Acknowledge(Created(command.CommandId));
+        var view = View(scope, "responded", "It is blue.");
+        view.Reply!.Model = "test-model-1";
+        view.Reply.Served = AssistantServed.Remote;
+        view.Reply.Provider = "Test Hosted";
+        ask.Read(view);
+        Assert.That(ask.Card.More!.Text, Is.EqualTo("Answered by test-model-1 on Test Hosted"));
+        Assert.That(ask.Card.More.Runs.Select(run => (run.Text, run.Theirs)),
+            Is.EqualTo(new[] { ("Answered by ", false), ("test-model-1", true), (" on ", false), ("Test Hosted", true) }));
+    }
+
+    [Test]
     public void ItWalksSentThinkingWaitingNeedsYouAndAnswered()
     {
         var scope = AskScope.Task(ProjectId, TaskId, ExecutionId, "Tail");

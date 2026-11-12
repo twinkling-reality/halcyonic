@@ -29,7 +29,9 @@ export type ToolTurnResult =
       readonly content: string;
       readonly toolCalls: ToolCall[];
       readonly model: string;
-      readonly served: 'this_mac';
+      readonly served: 'this_mac' | 'remote';
+      /** The declared provider's name when `remote`. */
+      readonly provider?: string;
     }
   | { readonly kind: 'failed'; readonly code: string; readonly message: string };
 export interface ToolModelBounds {

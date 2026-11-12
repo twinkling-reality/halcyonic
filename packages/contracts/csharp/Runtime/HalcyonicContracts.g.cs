@@ -5537,6 +5537,13 @@ namespace Halcyonic.Contracts
         public Principal RevokedBy { get; set; } = default!;
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum AssistantServed
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "this_mac")] ThisMac,
+        [global::System.Runtime.Serialization.EnumMember(Value = "remote")] Remote,
+    }
+
     public sealed class WorkspaceRequestReply
     {
         [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
@@ -5549,7 +5556,10 @@ namespace Halcyonic.Contracts
         public string Model { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("served", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Served { get; set; } = "this_mac";
+        public AssistantServed Served { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("provider", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? Provider { get; set; }
     }
 
     public sealed class WorkspaceRequestObservedTaskFiles
@@ -9504,7 +9514,10 @@ namespace Halcyonic.Contracts
         public string Model { get; set; } = default!;
 
         [global::Newtonsoft.Json.JsonProperty("served", Required = global::Newtonsoft.Json.Required.Always)]
-        public string Served { get; set; } = "this_mac";
+        public AssistantServed Served { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("provider", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? Provider { get; set; }
     }
 
     public sealed class UnavailableWorkspaceAgent : WorkspaceAgentStatus

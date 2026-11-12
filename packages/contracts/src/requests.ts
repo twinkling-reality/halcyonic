@@ -39,12 +39,21 @@ export const WorkspaceRequestStepStatus = Type.Enum([
   'failed',
   'unknown',
 ]);
+/**
+ * Where the assistant's model ran: `this_mac` for the local model, `remote` for a hosted provider the
+ * product declares, used only when the person stored that provider's key (ADR 0030, 2026-11-12).
+ */
+export const AssistantServed = Type.Union([Type.Literal('this_mac'), Type.Literal('remote')]);
+export type AssistantServed = Static<typeof AssistantServed>;
 export const WorkspaceRequestReply = Type.Object(
   {
     text: Text(4000),
     epistemic: Type.Literal('reported'),
     model: Text(200),
-    served: Type.Literal('this_mac'),
+    /** `this_mac` for the local model; `remote` for a hosted provider the product declares (ADR 0030, amendment of 2026-11-12). */
+    served: AssistantServed,
+    /** Where a `remote` reply ran, by the name its provider declares; absent on this Mac. */
+    provider: Type.Optional(Text(80)),
   },
   strict,
 );
@@ -195,7 +204,13 @@ export type WorkspaceRequestResponse = Static<typeof WorkspaceRequestResponse>;
 /** Capability read, never inference or permission to silently choose another model. */
 export const WorkspaceAgentStatus = Type.Union([
   Type.Object(
-    { availability: Type.Literal('available'), model: Text(200), served: Type.Literal('this_mac') },
+    {
+      availability: Type.Literal('available'),
+      model: Text(200),
+      served: AssistantServed,
+      /** The declared provider's name when `remote`; absent on this Mac. */
+      provider: Type.Optional(Text(80)),
+    },
     strict,
   ),
   Type.Object({ availability: Type.Literal('unavailable'), reason: ErrorInfo }, strict),

@@ -234,6 +234,7 @@ import {
   ServerMessage,
 } from './realtime.ts';
 import {
+  AssistantServed,
   WorkspaceAgentStatus,
   WorkspaceRequestObserved,
   WorkspaceRequestReply,
@@ -355,6 +356,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ReviewKind,
   ActionReviewWarning,
   WorkspaceCommandResponse,
+  AssistantServed,
   WorkspaceAgentStatus,
   WorkspaceRequestResponse,
   WorkspaceRequestView,

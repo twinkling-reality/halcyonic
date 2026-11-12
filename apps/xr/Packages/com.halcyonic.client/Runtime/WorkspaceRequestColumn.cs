@@ -123,7 +123,10 @@ namespace Halcyonic.Client
             var close = new Prompt(Footer.Close, "Back to Task", GlazeIcon.Back, PromptKind.Close);
             var sections = new[] { new FrameSection("draft", "Request", section == "draft"),
                 new FrameSection("response", "Reply", section == "response"), new FrameSection("receipts", "Actions", section == "receipts") };
-            var source = agent == null ? LineWords.Ours("Workspace Assistant") : LineWords.Ours("On This Computer · ").Then(LineWords.TheirName(agent.Model));
+            // Where the assistant runs is said, never assumed: this computer, or the hosted provider the person stored a key for.
+            var source = agent == null ? LineWords.Ours("Workspace Assistant")
+                : agent.Served == AssistantServed.Remote ? LineWords.Ours("On ").Then(LineWords.TheirName(agent.Provider)).Then(LineWords.Ours(" · ")).Then(LineWords.TheirName(agent.Model))
+                : LineWords.Ours("On This Computer · ").Then(LineWords.TheirName(agent.Model));
             var room = new HeightBudget(host.PageHeight(host.TitleRows(subject.Text, Glaze.Menu.FileColumnDegrees), false, focused: true));
             if (section != "draft")
             {
@@ -312,7 +315,7 @@ namespace Halcyonic.Client
             if (!live || !active) return;
             if (offerPending?.IsCompleted == true)
             {
-                try { agent = offerPending.GetAwaiter().GetResult() as AvailableWorkspaceAgent; if (agent?.Served != "this_mac") agent = null; }
+                try { agent = offerPending.GetAwaiter().GetResult() as AvailableWorkspaceAgent; if (agent != null && agent.Served == AssistantServed.Remote && string.IsNullOrWhiteSpace(agent.Provider)) agent = null; }
                 catch (Exception) { agent = null; }
                 offerPending = null; if (agent == null) notice = "Assistant Unavailable · Refresh"; Invalidate();
             }

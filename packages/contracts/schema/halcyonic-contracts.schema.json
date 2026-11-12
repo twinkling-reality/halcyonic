@@ -772,6 +772,18 @@
       },
       "additionalProperties": false
     },
+    "AssistantServed": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "this_mac"
+        },
+        {
+          "type": "string",
+          "const": "remote"
+        }
+      ]
+    },
     "WorkspaceAgentStatus": {
       "anyOf": [
         {
@@ -793,8 +805,13 @@
               "pattern": "\\S"
             },
             "served": {
+              "$ref": "#/$defs/AssistantServed"
+            },
+            "provider": {
               "type": "string",
-              "const": "this_mac"
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "\\S"
             }
           },
           "additionalProperties": false
@@ -1112,8 +1129,13 @@
           "pattern": "\\S"
         },
         "served": {
+          "$ref": "#/$defs/AssistantServed"
+        },
+        "provider": {
           "type": "string",
-          "const": "this_mac"
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "\\S"
         }
       },
       "additionalProperties": false
