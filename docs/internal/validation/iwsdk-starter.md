@@ -534,7 +534,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   the host's own instruction for a VR version of the 2D Balloon Pop.
 - **Found:** the game passed its check and read ready, and from the laptop camera it read as a balloon-popping game
   at a glance; its welcome card still said "Untitled Game", with no line on how to play. The host's instruction for a
-  VR version (`vrVersionInstruction` in `starters.ts`) asked nothing of the card.
+  VR version (then `vrVersionInstruction` in `starters.ts`, since 2026-11-12 the starter's own `vr-version.txt`) asked nothing of the card.
 - **Now:** it also says "Put the game's name and one line on how to play on its welcome card."
 - **Not tried:** a run on these words (the finals' F3 is one).
 
@@ -627,7 +627,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   - `src/kit.ts` gives every starter name in one import.
   - The starter's AGENTS.md ends with a whole small game, type checked and passing the check as it is: three critters
     to bonk, a score, a class from `createSystem` registered by its class.
-  - The host's VR-version instruction (`vrVersionInstruction`) asks for:
+  - The host's VR-version instruction (then `vrVersionInstruction`, now the starter's `vr-version.txt`) asks for:
     - the main play and its score only, with no title, end or pause screens, menus or best scores;
     - starting from that game;
     - the world that fits;

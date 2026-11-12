@@ -1,0 +1,13 @@
+Make a VR version of the web app in {original}.
+Read that folder to understand the app: what you see, what you do, and whether it is a game.
+Do not change anything there.
+Build it in this project with the Immersive Web SDK, so it works in VR with controllers or hands and on a laptop with a mouse and keyboard.
+If it is a game, build its main play:
+start from the whole small game at the end of this project's AGENTS.md and change it into this one, importing from src/kit.ts.
+Keep to the main play and its score: leave out title, end and pause screens, menus and best scores.
+Set it in the world from src/worlds.ts that fits the original, and keep its feel.
+If it is not a game, bring its one most striking view, the scene people open it for, as 'A view from another app' in this project's AGENTS.md says, and leave out its other pages, forms and settings.
+Read every input through src/play-input.ts.
+Copy pictures and sounds you need from the original into public/ and name them in src/assets.ts.
+Put the app's name and one line on what to do on its welcome card.
+Run npx tsc --noEmit and fix every error it reports before you finish.

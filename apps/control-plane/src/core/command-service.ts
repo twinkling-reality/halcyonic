@@ -70,7 +70,7 @@ import type { HostPreviews } from '../preview/preview.ts';
 import { type ProjectShares, ShareRefused } from '../preview/share.ts';
 import { givenSecrets, type SecretStore } from '../secrets/store.ts';
 import type { GitHubSender } from '../sending/github.ts';
-import { type HostStarters, VR_STARTER, vrVersionInstruction } from '../starters.ts';
+import type { HostStarters } from '../starters.ts';
 import { CHOICE_ROWS_SHOWN, choiceRows, choicesDigest, type HeldRow } from './choices.ts';
 import {
   type Cause,
@@ -701,10 +701,14 @@ export class CommandService {
         return this.#deps.catalogLinks
           ? null
           : 'No catalog of your projects is set up on this computer.';
-      case 'project.make_vr_version':
-        return this.#deps.starters?.check(VR_STARTER).ok === true
+      case 'project.make_vr_version': {
+        // Offered only where a starter says it makes VR versions and is set up here.
+        const version = this.#deps.starters?.vrVersion() ?? null;
+        if (version === null) return 'No starter on this computer makes VR versions.';
+        return this.#deps.starters?.check(version.starter_id).ok === true
           ? null
           : 'This computer has no starters.';
+      }
       case 'project.secret.set':
       case 'project.secret.remove':
         return this.#deps.projectSecrets ? null : 'Secrets are not kept on this computer.';
@@ -813,13 +817,17 @@ export class CommandService {
         return known.ok ? admission : refuse('invalid_state', known.message);
       }
       case 'project.make_vr_version': {
+        // The starter that says it makes VR versions (its starter.json), never a name written here.
+        const version = this.#deps.starters?.vrVersion() ?? null;
+        if (version === null)
+          return refuse('capability_unsupported', 'No starter on this computer makes VR versions.');
         const choice = {
           kind: 'new_from_starter' as const,
           root: command.payload.root,
           folder_name: command.payload.folder_name,
-          starter_id: VR_STARTER,
+          starter_id: version.starter_id,
         };
-        const starter = this.#deps.starters?.check(VR_STARTER) ?? {
+        const starter = this.#deps.starters?.check(version.starter_id) ?? {
           ok: false,
           message: 'This computer has no starters.',
         };
@@ -1306,6 +1314,15 @@ export class CommandService {
           });
           return;
         }
+        const version = this.#deps.starters?.vrVersion() ?? null;
+        if (version === null) {
+          this.#fail(command, admission.scope, {
+            code: 'capability_unsupported',
+            message: 'No starter on this computer makes VR versions.',
+            effect: 'none',
+          });
+          return;
+        }
         const made = this.#createProject(
           command,
           admission.scope,
@@ -1315,7 +1332,7 @@ export class CommandService {
             kind: 'new_from_starter',
             root: command.payload.root,
             folder_name: command.payload.folder_name,
-            starter_id: VR_STARTER,
+            starter_id: version.starter_id,
           },
         );
         if (made === null) return;
@@ -1325,7 +1342,7 @@ export class CommandService {
             made,
             {
               original_project_id: original.project_id,
-              instruction: vrVersionInstruction(folder),
+              instruction: version.instruction(folder),
             },
             this.#now(),
             cause,

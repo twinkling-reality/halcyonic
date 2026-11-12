@@ -60,7 +60,7 @@ import { type ChromeRun, DevToolsPipe } from './preview/chrome.ts';
 import type { ServeArgs } from './preview/preview.ts';
 import { writeWav } from './speech/wav.ts';
 import type { EngineResult, SpeechEngine } from './speech/whisper.ts';
-import { HostStarters, vrVersionInstruction } from './starters.ts';
+import { HostStarters } from './starters.ts';
 import { capturingLogger, createTestControlPlane, startTestServer } from './testing/harness.ts';
 
 /** Synthetic scenarios with short step delays for fast realtime WebSocket tests. */
@@ -1610,8 +1610,19 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         m.event.project_id === vrProjectId &&
         m.event.event_type === 'project.made_from',
     );
-    const expectedVrInstruction = vrVersionInstruction(
-      join(realpathSync.native(root), 'wind-chimes-web'),
+    // The instruction is the VR starter's own file, its lines joined, the original's folder in it.
+    const expectedVrInstruction = readFileSync(
+      join(realStartersDir, 'iwsdk-vr', 'vr-version.txt'),
+      'utf8',
+    )
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .join(' ')
+      .replace('{original}', join(realpathSync.native(root), 'wind-chimes-web'));
+    assert.ok(
+      expectedVrInstruction.startsWith(
+        `Make a VR version of the web app in ${join(realpathSync.native(root), 'wind-chimes-web')}.`,
+      ),
     );
     assert.deepEqual(
       madeFromEvent?.type === 'event' &&

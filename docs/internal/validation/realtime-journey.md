@@ -82,7 +82,7 @@ server:
      from the repository's real `starters/iwsdk-vr` template (including `src/palette.ts`,
      `src/look.ts`, `src/decor.ts`, `src/motion.ts`, `src/play-input.ts`, and
      `public/scenes/main.iwsdk.scene.json`), records `project.made_from` with
-     `vrVersionInstruction`, and leaves the original non-VR project folder byte-for-byte untouched.
+     the VR starter's own instruction (`starters/iwsdk-vr/vr-version.txt`), and leaves the original non-VR project folder byte-for-byte untouched.
    - While two workstreams run concurrently across the original web project (`claude-agent`) and the
      VR project (confined `codex`), `GET /api/executions/:id/understanding` and
      `GET /api/executions/:id/evaluation` return `available` Salidium and Seorak reports for the
