@@ -23,6 +23,11 @@ export type FieldSource =
       readonly list: ChoiceList | null;
       /** For several choices: how many at most. */
       readonly max: number | null;
+      /**
+       * A part of the chosen row's value the host completes from another need, as a folder-safe name:
+       * a new folder in a root takes its name from the project's (`{ folder_name: 'name' }`).
+       */
+      readonly completes?: Readonly<Record<string, string>>;
     };
 
 const project = { from: 'project' } as const;
@@ -33,7 +38,12 @@ const review = { from: 'review' } as const;
 const need = (
   kind: NeedKind,
   label: string,
-  options: { required?: boolean; list?: ChoiceList; max?: number } = {},
+  options: {
+    required?: boolean;
+    list?: ChoiceList;
+    max?: number;
+    completes?: Readonly<Record<string, string>>;
+  } = {},
 ): FieldSource => ({
   from: 'person',
   need: kind,
@@ -41,6 +51,7 @@ const need = (
   required: options.required ?? true,
   list: options.list ?? null,
   max: options.max ?? null,
+  ...(options.completes === undefined ? {} : { completes: options.completes }),
 });
 const optional = { required: false } as const;
 
@@ -53,7 +64,11 @@ export const COMMAND_FIELDS: Readonly<
 > = {
   'project.create': {
     name: need('text', 'Name'),
-    location: need('choice', 'Folder', { ...optional, list: 'folders' }),
+    location: need('choice', 'Folder', {
+      ...optional,
+      list: 'folders',
+      completes: { folder_name: 'name' },
+    }),
   },
   'project.make_vr_version': {
     original_project_id: project,

@@ -699,6 +699,16 @@ export class CommandService {
         const read = await readRuntimeModels(adapter, MODEL_LIST_TIMEOUT_MS, this.#deps.redaction);
         return read.availability === 'available' ? read.models : [];
       },
+      locations: () =>
+        this.#deps.locations.list(
+          this.#deps.projection
+            .projects()
+            .flatMap((project) =>
+              project.location === null
+                ? []
+                : [{ project_id: project.project_id, path: project.location.path }],
+            ),
+        ),
       scripts: async (projectId) => {
         const found = await this.#deps.ownChecks
           ?.found(projectId as ProjectId)
