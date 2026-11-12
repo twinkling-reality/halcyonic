@@ -11,9 +11,10 @@ namespace Halcyonic.Client
     /// </summary>
     public readonly struct RunStart
     {
-        public RunStart(bool plan, string? notConfinedReason, bool planLeft = false, bool atRest = false, bool canCarryOut = false)
+        public RunStart(bool plan, string? notConfinedReason, bool planLeft = false, bool atRest = false, bool canCarryOut = false, bool running = false)
         {
             Plan = plan;
+            Running = running && !atRest;
             PlanLeft = planLeft;
             AtRest = atRest;
             CanCarryOut = plan && !planLeft && atRest && canCarryOut;
@@ -25,7 +26,8 @@ namespace Halcyonic.Client
         public static RunStart? Of(ExecutionView? execution, RuntimeDescriptor? runtime = null) => execution == null
             ? (RunStart?)null
             : new RunStart(execution.Plan == true, execution.UnconfinedReason, execution.PlanLeft == true,
-                atRest: execution.Status is ExecutionStatus.Completed, canCarryOut: runtime?.OffersPlan == true);
+                atRest: execution.Status is ExecutionStatus.Completed, canCarryOut: runtime?.OffersPlan == true,
+                running: execution.Status is ExecutionStatus.Starting or ExecutionStatus.Running or ExecutionStatus.Verifying or ExecutionStatus.WaitingForHuman);
 
         /// <summary>The run started as a plan (it stays so after the plan is carried out).</summary>
         public bool Plan { get; }
@@ -38,6 +40,13 @@ namespace Halcyonic.Client
 
         /// <summary>The run's turn ended and nothing runs: a plan then waits for the person.</summary>
         public bool AtRest { get; }
+
+        /// <summary>
+        /// The run is at work now (starting, running, verifying or waiting for the person): only then is a plan "Planning". A
+        /// run that failed, was stopped or is unknown is neither at work nor at rest, and is never said to be planning (AUDIT's
+        /// MUST 2, 2026-11-12).
+        /// </summary>
+        public bool Running { get; }
 
         /// <summary>Carry Out Plan stands: a plan now, at rest, on a runtime that offers plans.</summary>
         public bool CanCarryOut { get; }
