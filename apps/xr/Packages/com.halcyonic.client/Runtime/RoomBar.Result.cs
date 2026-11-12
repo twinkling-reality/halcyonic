@@ -150,7 +150,7 @@ namespace Halcyonic.Client
                     card = RoomPanelCards.Checks(result, binding.Model.AutoFix);
                     if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: true, GlazeIcon.OpenNow));
                     else if (result.Passed == false && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
-                    if (result.Observed != null) column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
+                    column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;
                 default:
@@ -175,7 +175,9 @@ namespace Halcyonic.Client
                         column.Add(Own(RoomResult.PlayInHeadset, HeadsetPlay.ActionWords, main: column.Count == 0, GlazeIcon.OpenNow));
                     // DEVICE's Share, where the host would admit it or a share stands (FIELD: an action of a passed result at rest).
                     if (result.CanShare) column.Add(Own(RoomResult.ShowShare, ShareText.Share, main: column.Count == 0, GlazeIcon.Next));
-                    if (result.Observed != null) column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
+                    // The one Changes (the lead, 11:15Z): always offered at rest, its page saying Nothing Changed where none did and the plain
+                    // not-seen words where the computer could not say, as a desk always has its Changes (JUDGE's live-17: unreached otherwise).
+                    column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
                     if (result.Steps.Count > 0) column.Add(Own(RoomResult.ShowChecks, RoomResult.ChecksWords, main: false, GlazeIcon.Next));
                     // The agent's words stand on the band beside its result, never beside how a run stands (B): nothing extra.
                     // Beside how a run stands, only that turn's own words, on the band, read by parts and never cut (the card stays whole).

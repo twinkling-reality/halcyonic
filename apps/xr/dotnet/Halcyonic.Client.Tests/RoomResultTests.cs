@@ -111,10 +111,13 @@ public class RoomResultTests
         Assert.That(nothing.Band, Is.EqualTo("I added the golden balloon."), "the turn's own report, on the band");
         Assert.That(Bar(null, status: ExecutionStatus.Running).Result, Is.False, "a run under way says nothing of a result");
 
-        // A check and no observation: the check is the panel's one line; no count is guessed, and no Changes.
+        // A check and no observation: the check is the panel's one line; no count is guessed. Changes is offered all the same (the one
+        // Changes, the lead's 11:15Z), and its page says the computer did not see, never an empty list read as no changes.
         var checkedOnly = Bar(new RoomResult(false, false, false, false, null, Steps(buildFails: true)));
         Assert.That((Slots(checkedOnly), checkedOnly.Sentence), Is.EqualTo((new[] { "Failed" }, (string?)null)));
-        Assert.That(checkedOnly.Column.Where(NotClose).Select(action => action.Words), Is.EqualTo(new[] { "Checks" }));
+        Assert.That(checkedOnly.Column.Where(NotClose).Select(action => action.Words), Is.EqualTo(new[] { RoomResult.ChangesWords, "Checks" }));
+        var unseen = Bar(new RoomResult(false, false, false, false, null, Steps(buildFails: true), RoomResultPage.Changes));
+        Assert.That((unseen.Card?.Status?.Title, unseen.Card?.List.Count), Is.EqualTo(((string?)RoomPanelCards.NotSeen, (int?)0)), "no observation is said as not seen");
 
         // A turn the computer could not read: no count, and Changes says so honestly.
         var skipped = new RoomResult(false, false, false, null, Turn(Skipped), null);
@@ -162,7 +165,8 @@ public class RoomResultTests
         {
             ("Type Check", RoomTone.Good), ("Build", RoomTone.Bad), ("Page Drawn", RoomTone.Good), ("VR Offered", RoomTone.Good),
         }));
-        Assert.That(failed.Column.Where(NotClose).Select(action => (action.Words, action.Main, action.Place)), Is.EqualTo(new[] { ("Write Instruction", true, KitPlace.Field), ("Back", false, KitPlace.Step) }),
+        Assert.That(failed.Column.Where(NotClose).Select(action => (action.Words, action.Main, action.Place)),
+            Is.EqualTo(new[] { ("Write Instruction", true, KitPlace.Field), (RoomResult.ChangesWords, false, KitPlace.Step), ("Back", false, KitPlace.Step) }),
             "the file's own way to an instruction, in the product's words");
         // A step the check never reached has no row.
         var stopped = new RoomResult(true, false, false, false, null, new[]
@@ -172,7 +176,7 @@ public class RoomResultTests
         }, RoomResultPage.Checks);
         Assert.That(stopped.Rows.Select(row => row.Words.Text), Is.EqualTo(new[] { "Type Check", "Build" }));
         var passed = Bar(new RoomResult(true, false, true, true, null, Steps(), RoomResultPage.Checks));
-        Assert.That(passed.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.TryBuild, true), (RoomResult.Back, false) }));
+        Assert.That(passed.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.TryBuild, true), (RoomResult.ShowChanges, false), (RoomResult.Back, false) }));
     }
 
     [Test]

@@ -193,8 +193,11 @@ namespace Halcyonic.Client
                 file.Change == ObservedChange.Changed ? file.LinesAfter : null)).ToList()
             : (IReadOnlyList<RoomChange>)Array.Empty<RoomChange>();
 
-        /// <summary>Whether the computer observed a turn but could not say what changed: its honest line, never an empty list read as no changes.</summary>
-        public bool NotObserved => Observed is { Skipped: not null };
+        /// <summary>
+        /// Whether the computer cannot say what changed: it observed no turn, or observed one but could not read the folder. Its honest
+        /// line, never an empty list read as no changes, now that Changes is always offered at rest (the lead's one Changes, 11:15Z).
+        /// </summary>
+        public bool NotObserved => Observed is null or { Skipped: not null };
 
         /// <summary>
         /// Every step of the computer's last check, named and toned apart (A17), in the check's order, those it never reached
