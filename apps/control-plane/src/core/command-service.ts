@@ -87,6 +87,7 @@ import { type Reattacher, SESSION_LOST } from './reattach.ts';
 import type { Recorder } from './recorder.ts';
 import { fitted, type Redaction, withinLimit } from './redaction.ts';
 import { addReview, locationReview } from './review.ts';
+import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from './runtime-models.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
 
 export type SubmitOutcome =
@@ -638,6 +639,12 @@ export class CommandService {
       runtimes: () => this.#deps.registry.descriptors(),
       pictures: async (folder) =>
         (await listPictures(folder, this.#deps.protectedFolders ?? [])).pictures,
+      models: async (runtime) => {
+        const adapter = this.#deps.registry.adapter(runtime.runtime_id);
+        if (adapter === undefined) return [];
+        const read = await readRuntimeModels(adapter, MODEL_LIST_TIMEOUT_MS, this.#deps.redaction);
+        return read.availability === 'available' ? read.models : [];
+      },
     });
   }
 
