@@ -199,6 +199,39 @@ about 25,000 tokens at 187 tokens a second, held 17.8 GiB loaded and peaked at 1
 `qwen3.6:35b-a3b-nvfp4` became the default for about twice the output speed and five times the prompt
 processing.
 
+## Read again for the assistant, 2026-11-12
+
+Meta's pages were read again on 2026-11-12 (dev.meta.ai/docs: the overview, Chat Completions, Messages, Responses,
+models, Muse Wonder, Muse Spark, pricing and rate limits, authentication, tool calling, error handling and reasoning;
+no page shows a last-updated date), for the assistant's hosted provider ([hosted-assistant.md](hosted-assistant.md)).
+Nothing was sent to Meta. Meta states:
+
+- **Models.** `muse-wonder-1.0` is still "in preview". `muse-spark-1.3` is recommended. Both have a 1,048,576-token
+  context; their largest output is not stated. The `-contributor` ids are Spark only. A third model, `muse-ember-1.0`,
+  is listed too, at $0.10 and $0.50 per million input and output tokens.
+- **Auth.** `Authorization: Bearer` on `https://api.meta.ai/v1`, with keys of the form `LLM_{id}_{secret}`.
+- **Chat Completions** "is OpenAI-compatible".
+  - Tools are `{type: "function", function: {name, description, parameters}}`.
+  - The assistant's `tool_calls` carry `id` and `function.arguments` as a JSON string, and results are `role: "tool"`
+    with `tool_call_id`.
+  - `finish_reason` is one of `stop`, `length`, `tool_calls` or `content_filter`, and the message has a `refusal`
+    field. When either is set is not documented.
+  - `tool_choice` must be `auto`. `stop`, `logprobs` and `n` greater than 1 are not supported.
+  - `max_completion_tokens` bounds the output, reasoning included; the deprecated `max_tokens` is still accepted.
+  - `reasoning_effort` runs from `minimal` to `max`, and `none` is a 400. It defaults to `max` on Muse Wonder and
+    `high` on Spark.
+  - "Chat Completions does not carry reasoning across turns", and `reasoning_content` is "redacted to empty" for
+    external keys.
+  - `store` defaults to false here, unlike the Responses API, where it defaults to true.
+- **The Messages API** at `https://api.meta.ai` takes a Bearer token, not `x-api-key`.
+- **The models list.** `GET /v1/models`, newest first, and `GET /v1/models/{model}` are documented. The pages read do
+  not show the shape of the list.
+- **Errors.** A bad key is 401 `authentication_error` with code `invalid_api_key`. A rate limit is 429
+  `rate_limit_error`, with `Retry-After`.
+- **Prices and limits** are unchanged from 2026-10-29 for Muse Wonder and Spark.
+
+What the assistant does with it is in [hosted-assistant.md](hosted-assistant.md).
+
 ## What this does not show
 
 Nothing here was run against Meta. Whether the API, its tool calls and streaming behave as written,

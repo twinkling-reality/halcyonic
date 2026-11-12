@@ -17,24 +17,25 @@ const MAX_RESPONSE_BYTES = 256 * 1024;
  * shape keeps no reasoning that must come back unchanged.
  */
 export const openAiChat: Protocol = {
+  // The one model's own record (`GET <upstream>/models/{model}`, a 404 when not served), not the list, whose shape and
+  // paging Meta's pages do not show (review of a1e824c84).
   async check(call) {
-    const response = await request(call, 'models', null);
+    const response = await request(call, `models/${encodeURIComponent(call.model)}`, null);
     if (!response.ok) return response;
-    const data = (response.body as { data?: unknown }).data;
-    if (!Array.isArray(data)) return invalid(call);
-    const listed = data.some((entry) => (entry as { id?: unknown })?.id === call.model);
-    return listed
-      ? { ok: true }
-      : { ok: false, code: 'model_not_found', message: 'The provider does not serve that model.' };
+    return (response.body as { id?: unknown }).id === call.model ? { ok: true } : invalid(call);
   },
 
   async turn(call, messages, tools): Promise<ProtocolReply> {
+    const declared = declarationProblem(call);
+    if (declared !== null)
+      return { kind: 'failed', code: 'provider_declaration', message: declared };
     const wire = asChat(messages);
     if (wire === null) return { kind: 'failed', ...invalidInput };
     const response = await request(call, 'chat/completions', {
       model: call.model,
       messages: wire,
-      max_tokens: call.outputTokens,
+      [call.provider.outputField ?? 'max_tokens']: call.outputTokens,
+      ...(call.provider.effort === null ? {} : { reasoning_effort: call.provider.effort }),
       ...(tools.length === 0 ? {} : { tools: tools as readonly ToolDefinition[] }),
     });
     if (!response.ok) return { kind: 'failed', code: response.code, message: response.message };
@@ -47,7 +48,9 @@ export const openAiChat: Protocol = {
     const message = choice?.message;
     if (!choice || !message || message.role !== 'assistant' || typeof body.model !== 'string')
       return { kind: 'failed', ...invalid(call) };
-    if (choice.finish_reason === 'content_filter')
+    // A refusal may come as its own finish reason or as the message's `refusal` text, never relayed.
+    const refused = typeof message.refusal === 'string' && message.refusal !== '';
+    if (choice.finish_reason === 'content_filter' || refused)
       return {
         kind: 'failed',
         code: 'model_refused',
@@ -88,6 +91,17 @@ export const openAiChat: Protocol = {
     return { kind: 'reply', content: content.trim(), calls, model: body.model };
   },
 };
+
+/** The effort words and output fields this shape documents (OpenAI's and Meta's pages, 2026-11-12); `none` is a 400. */
+const EFFORTS = new Set(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+const OUTPUT_FIELDS = new Set(['max_tokens', 'max_completion_tokens']);
+function declarationProblem(call: ProtocolCall): string | null {
+  if (call.provider.effort !== null && !EFFORTS.has(call.provider.effort))
+    return 'This protocol does not know that effort.';
+  if (call.provider.outputField !== undefined && !OUTPUT_FIELDS.has(call.provider.outputField))
+    return 'This protocol does not know that output field.';
+  return null;
+}
 
 const invalidInput = {
   code: 'model_input',
@@ -173,10 +187,18 @@ type ChatMessage =
 
 /** The host's conversation in this shape, each tool result paired by order with the call it answers. */
 export function asChat(messages: readonly ToolMessage[]): ChatMessage[] | null {
-  const wire: ChatMessage[] = [];
+  // The host's own lines go first, as one system message: whether a provider takes a system message after the
+  // person's words is not documented for every endpoint of this shape (Meta's, 2026-11-12).
+  const system = messages.flatMap((message) =>
+    message.role === 'system' ? [message.content] : [],
+  );
+  const wire: ChatMessage[] = system.length
+    ? [{ role: 'system', content: system.join('\n\n') }]
+    : [];
   let waiting: { id: string; name: string }[] = [];
   let made = 0;
   for (const message of messages) {
+    if (message.role === 'system') continue;
     if (message.role === 'tool') {
       const answered = waiting.shift();
       if (!answered || answered.name !== message.tool_name) return null;
@@ -196,7 +218,7 @@ export function asChat(messages: readonly ToolMessage[]): ChatMessage[] | null {
         content: message.content,
         ...(calls.length ? { tool_calls: calls } : {}),
       });
-    } else wire.push({ role: message.role, content: message.content });
+    } else if (message.role === 'user') wire.push({ role: 'user', content: message.content });
   }
   return waiting.length > 0 ? null : wire;
 }

@@ -42,6 +42,14 @@ export const anthropicMessages: Protocol = {
         code: 'provider_declaration',
         message: 'This protocol sends its key as x-api-key.',
       };
+    const effort =
+      call.provider.effort === null ? null : EFFORTS.find((each) => each === call.provider.effort);
+    if (effort === undefined)
+      return {
+        kind: 'failed',
+        code: 'provider_declaration',
+        message: 'This protocol does not know that effort.',
+      };
     const { system, record } = asRecord(messages);
     let response: Anthropic.Message;
     try {
@@ -49,7 +57,7 @@ export const anthropicMessages: Protocol = {
         {
           model: call.model,
           max_tokens: call.outputTokens,
-          output_config: { effort: 'low' },
+          ...(effort === null ? {} : { output_config: { effort } }),
           system,
           messages: [{ role: 'user', content: record }],
           ...(tools.length === 0
@@ -105,6 +113,9 @@ export const anthropicMessages: Protocol = {
     return { kind: 'reply', content: text.join('\n').trim(), calls, model: response.model };
   },
 };
+
+/** The effort levels the Messages API documents (2026-11-12). */
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 
 function client(call: ProtocolCall): Anthropic {
   // Every source of credentials but the one given is closed: no environment token, profile or file.

@@ -93,7 +93,9 @@ plane's own environment, which only the Mac's owner sets. Text inside the record
 close the record's marks, so agent or project text cannot pose as the model's own earlier calls. A key never reaches an event, the journal, a log or a reply: a
 provider's error text is never relayed, only the host's own words and a code. On a hosted provider, what a request
 reads leaves the Mac for that provider: the host's instructions and lists, project and task names, the Mac's evidence
-in words, the agent's quoted text and the person's words within the request's bound.
+in words, the agent's quoted text and the person's words within the request's bound. The declared providers are
+Meta's (key in `meta-api-key`, sent as a Bearer token; Standard-mode models only) and Anthropic's (key in
+`anthropic-api-key`, sent as `x-api-key`).
 
 Claude Code loads the person's own settings only (`settingSources: ['user']`, since 2026-11-11; inside the closed profile none at all, since the agent can write the folder's own configuration), for
 each task and for listing models: their `CLAUDE.md` and hooks load, so Salidium and Seorak observe
