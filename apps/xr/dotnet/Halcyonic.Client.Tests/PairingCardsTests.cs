@@ -172,6 +172,6 @@ public sealed class PairingCardsTests
     {
         var card = PairingCards.Refused("wrong_code", 2);
         Assert.That(card.Words(), Has.None.Contains("·"));
-        Assert.That(PairingCards.Why("wrong_code"), Is.EqualTo(("Code Refused", "Check the code on your computer and type it again.")));
+        Assert.That(PairingCards.Why("wrong_code"), Is.EqualTo(("Code Refused", "Check the code on your computer and type it again")));
     }
 }

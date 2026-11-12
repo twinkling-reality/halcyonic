@@ -174,7 +174,7 @@ public class PinnedTransportTests
         });
         Assert.That((dropped.Code, dropped.Message), Is.EqualTo(("connection_lost", PairingClient.ConnectionLost)));
         Assert.That(PairingClient.ConnectionLost, Is.EqualTo(
-            "Connection Lost · Check Address and Pairing · Try Again"));
+            "Connection Lost. Check the address, and that pairing is open."));
 
         foreach (var thrown in new Exception[] { new IOException("x"), new EndOfStreamException("x"), new WebSocketException("x"), new FormatException("x") })
         {
@@ -494,7 +494,9 @@ public class PinnedTransportTests
             "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nContent-Length: " + Encoding.UTF8.GetByteCount(body) + "\r\nConnection: close\r\n\r\n" + body))
         {
             var refused = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", server.Port, "12345678", "Quest 3"));
-            Assert.That(refused!.Message, Is.EqualTo(PairingClient.Refused));
+            // A code the headset has no words for: unknown, said plainly, and never the lure it came with.
+            Assert.That(refused!.Message, Is.EqualTo("Reason Unknown."));
+            Assert.That(refused.Message, Does.Not.Contain("203.0.113.9").And.Not.Contain("password"));
         }
         await using (var server = TlsTestServer.Answering("HTTP/1.1 200 OK\r\nContent-Length: " + Lure.Length + "\r\nConnection: close\r\n\r\n" + Lure))
         {
