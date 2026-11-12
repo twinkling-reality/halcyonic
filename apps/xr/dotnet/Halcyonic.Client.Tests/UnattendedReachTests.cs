@@ -65,4 +65,16 @@ public sealed class UnattendedReachTests
         var refusal = Assert.Throws<UnattendedReachRefusedException>(() => UnattendedReach.Target(endpoint, file))!;
         Assert.That(refusal.Message, Is.EqualTo(UnattendedReach.NotAnEndpoint));
     }
+
+    [Test]
+    public void ACheckKeepsNewProjectsDraftsInItsOwnStoreForItsLife()
+    {
+        var store = new MemoryCreationDraftStore();
+        Assert.That(store.Load(), Is.Empty);
+        var draft = new CreationDraft();
+        store.Save(new[] { draft });
+        Assert.That(store.Load(), Is.EqualTo(new[] { draft }));
+        store.Save(Array.Empty<CreationDraft>());
+        Assert.That(store.Load(), Is.Empty);
+    }
 }

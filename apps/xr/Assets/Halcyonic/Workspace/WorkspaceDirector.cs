@@ -109,6 +109,9 @@ namespace Halcyonic.XR.Workspace
         /// <inheritdoc cref="TargetOf"/>
         public Func<ControlPlaneApi?> ApiOf { get; set; } = () => ControlPlaneSettings.Api();
 
+        /// <summary>Where New Project keeps its drafts: the device's file, unless a check hands in a store of its own before Start.</summary>
+        public Func<ICreationDraftStore> DraftsOf { get; set; } = NewProjectColumn.DeviceDrafts;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         public static void EnsureWorkspace()
         {
@@ -207,7 +210,7 @@ namespace Halcyonic.XR.Workspace
                 Overview = Overview,
                 ShowProject = ShowProject,
                 RecordedUsage = now => connection.DemonstrationUsageLimits(now),
-                MakeNewProject = host => NewProjectColumn.Create(host, commands),
+                MakeNewProject = host => NewProjectColumn.Create(host, commands, () => DraftsOf()),
                 File = FileFor,
             });
             menu.Open(); // Full workspace is the normal entry in live, recorded and disconnected sessions.

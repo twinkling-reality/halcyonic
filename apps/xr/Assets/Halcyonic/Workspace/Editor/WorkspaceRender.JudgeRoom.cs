@@ -173,7 +173,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     RecordedUsage = now => fallback.Line != null ? fallback.UsageLimitsAt(now) : null,
                     MakeNewProject = host => live != null
                         ? new NewProjectFlow(host, commands, new KeptUnknownStart(new WalkPreferences(), () => host.State))
-                        : NewProjectColumn.Create(host, commands),
+                        : NewProjectColumn.Create(host, commands, () => new MemoryCreationDraftStore()),
                     File = (host, task) => Present(task) == null ? null : new FileColumn(host, () => Present(task), commands,
                         () => fallback.Player?.Reads, execution => fallback.InstructionsFor(execution), () => ""),
                 });
