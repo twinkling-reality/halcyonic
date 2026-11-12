@@ -700,6 +700,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     Journey("see what changed", "1: git diff");
                     OpenSection(task.WorkstreamId, FileSection.Changes);
                     journeyWays.Add(reachedBy);
+                    // The page is read from the plane, as the app's Update reads it: the shot waits for its answer, 15 s at most.
+                    bool Answered() => Opened()?.Screen is FileScreen read && (read.WhatChanged ?? read.WhyChanged ?? read.HowBuilt) != null;
+                    var asked = DateTime.UtcNow;
+                    while (!Answered() && DateTime.UtcNow - asked < TimeSpan.FromSeconds(15)) { Draw(); Thread.Sleep(250); }
+                    journeyWays.Add(Answered() ? "its answer came in " + (int)(DateTime.UtcNow - asked).TotalSeconds + " s" : "no answer in 15 s");
                     Moment("live changes");
                     EndJourney();
 
