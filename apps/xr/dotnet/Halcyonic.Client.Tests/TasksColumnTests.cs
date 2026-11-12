@@ -170,6 +170,23 @@ public class TasksColumnTests
         Assert.That(RoomBar.OfFrame(new TasksColumn(all).Frame!, VoiceStage.Idle), Is.Null, "rows of several projects: the older view, until FIELD gives the row its project");
     }
 
+    /// <summary>Under the redesign a project's list offers Ask at every text size: its actions are the card's column, not page rows.</summary>
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void UnderTheRedesignAskStandsOnAProjectsTasksAtEveryTextSize(TextSize size)
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var host = new FakeMenuHost { State = StateWith(new[] { Task("a", WorkstreamStatus.Running, 1) }), TextSize = size, Height = MenuPage.Rows(2) };
+            var column = new TasksColumn(host, () => 0, () => { }, () => Samples.ProjectId, () => { }, () => { }, _ => { });
+            Assert.That(column.Frame!.Lines.Any(line => line.Action == TasksColumn.Ask), Is.True, size + ": Ask stands");
+            Assert.That(RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)!.Column.Any(action => action.Control.Action == TasksColumn.Ask), Is.True);
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     [Test]
     public void WhatWaitsComesFirstThenWhatRunsThenWhatEnded()
     {
