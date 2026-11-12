@@ -525,6 +525,12 @@ export const ProjectRepositoryMadePublic = projectEvent(
   Type.Object({ repository: RepositoryFullName }, strict),
 );
 
+/** `repository`, which Halcyonic made and then made public, was made private again by the person's press. */
+export const ProjectRepositoryMadePrivate = projectEvent(
+  'project.repository_made_private',
+  Type.Object({ repository: RepositoryFullName }, strict),
+);
+
 /** The published game was taken down: `branch` of `repository` was deleted. */
 export const ProjectUnpublished = projectEvent(
   'project.unpublished',
@@ -1259,6 +1265,7 @@ export const EVENT_VARIANTS = [
   ProjectSentToGitHub,
   ProjectRepositoryMade,
   ProjectRepositoryMadePublic,
+  ProjectRepositoryMadePrivate,
   ProjectPublished,
   ProjectUnpublished,
   ProjectSecretStored,

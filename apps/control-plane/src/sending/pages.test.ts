@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -207,9 +208,84 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
       },
     );
     assert.equal(after.ok ? null : after.code, 'pages_refused');
-    assert.match(after.ok ? '' : after.message, /owner\/garden is public now/);
+    assert.match(
+      after.ok ? '' : after.message,
+      /owner\/garden is public now: Make Private puts it back\./,
+    );
+    assert.doesNotMatch(
+      after.ok ? '' : after.message,
+      /paid plan/,
+      'it is public: a plan is not why',
+    );
+    assert.equal(
+      after.ok ? null : after.effect,
+      'unknown',
+      'the repository changed: never effect none (run 2, AUDIT3)',
+    );
     assert.deepEqual(opened, ['owner/garden']);
     assert.throws(() => stand.git(stand.origin, 'rev-parse', '--verify', BRANCH));
+  });
+
+  test('a push GitHub refuses after Make Public says truly that the repository is public now, with the way back (run 2)', async () => {
+    const made = { repository: 'owner/garden', visibility: 'private' as const };
+    // The branch's lock taken in the origin: git refuses the push with its own words.
+    writeFileSync(join(stand.origin, 'refs', 'heads', 'halcyonic-pages.lock'), '');
+    const opening = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null, {
+      made,
+      makePublic: true,
+    });
+    assert.ok(opening.ok);
+    const opened: string[] = [];
+    const refused = await sender().publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      opening.publish.review,
+      { made, makePublic: true, onMadePublic: (repository) => opened.push(repository) },
+    );
+    assert.equal(refused.ok ? null : refused.code, 'push_refused');
+    assert.equal(refused.ok ? null : refused.effect, 'unknown');
+    assert.match(
+      refused.ok ? '' : refused.message,
+      /no page changed.*owner\/garden is public now: Make Private puts it back\./,
+    );
+    assert.deepEqual(opened, ['owner/garden'], 'recorded the moment it was made public');
+    // Without Make Public, the same refusal changed nothing: effect none, and nothing said of public.
+    const plain = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.ok(plain.ok);
+    const unchanged = await sender().publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      plain.publish.review,
+    );
+    assert.equal(unchanged.ok ? null : unchanged.code, 'push_refused');
+    assert.equal(unchanged.ok ? null : (unchanged.effect ?? 'none'), 'none');
+    assert.doesNotMatch(unchanged.ok ? '' : unchanged.message, /public now/);
+  });
+
+  test("Make Private makes the repository private with the person's own gh, and says so when GitHub does not (run 2)", async () => {
+    const done = await sender().makePrivate('owner/garden');
+    assert.ok(done.ok, done.ok ? '' : done.message);
+    assert.match(
+      readFileSync(stand.ghLog, 'utf8'),
+      /repo edit owner\/garden --visibility private --accept-visibility-change-consequences/,
+    );
+    const odd = await sender().makePrivate('owner/../garden');
+    assert.equal(odd.ok ? null : odd.code, 'make_private_failed');
+    const none = await sender(null).makePrivate('owner/garden');
+    assert.equal(none.ok ? null : none.code, 'no_gh');
+    // A gh that refuses: GitHub may or may not have changed it, so the effect is unknown.
+    const failing = join(root, 'bin', 'gh-failing');
+    writeFileSync(failing, '#!/bin/sh\n[ "$1" = auth ] && exit 0\nexit 1\n');
+    chmodSync(failing, 0o755);
+    const refused = await sender(failing).makePrivate('owner/garden');
+    assert.equal(refused.ok ? null : refused.code, 'not_made_private');
+    assert.equal(refused.ok ? null : refused.effect, 'unknown');
   });
 
   test('a publish pushes the built copy alone to the Pages branch, turns Pages on, and a second builds on the first, never forced', async () => {

@@ -572,8 +572,17 @@ export class GitHubSender {
         };
       options.onMadePublic?.(publish.repository);
     }
-    // Said after a refusal once the repository was made public: that stays, and is recorded.
-    const madeNote = publish.make_public ? ` ${publish.repository} is public now.` : '';
+    // Once GitHub made it public, that happened, whatever fails after: every refusal from here says so,
+    // with the way back, and its effect is never "none" (run 2, 2026-11-12; AUDIT3).
+    const opened = publish.make_public;
+    const after = (failure: SendFailure): SendFailure =>
+      opened
+        ? {
+            ...failure,
+            message: `${failure.message} ${publish.repository} is public now: Make Private puts it back.`,
+            effect: 'unknown',
+          }
+        : failure;
     const committed = await this.#run(this.#deps.git, [
       '--git-dir',
       repository,
@@ -585,7 +594,7 @@ export class GitHubSender {
     ]);
     const commit = committed.stdout.trim();
     if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
-      return refuse('publish_failed', 'The game could not be made ready to publish.');
+      return after(refuse('publish_failed', 'The game could not be made ready to publish.'));
     const pushed = await this.#run(
       this.#deps.git,
       [
@@ -601,9 +610,11 @@ export class GitHubSender {
       120_000,
     );
     if (pushed.code !== 0)
-      return refuse(
-        'push_refused',
-        `GitHub didn't take the publish, so no page changed.${madeNote} If the repository has a ${PAGES_BRANCH} branch Halcyonic did not write, remove it first.`,
+      return after(
+        refuse(
+          'push_refused',
+          `GitHub didn't take the publish, so no page changed. If the repository has a ${PAGES_BRANCH} branch Halcyonic did not write, remove it first.`,
+        ),
       );
     // Pages turned on for the branch (GitHub answers that it is on already, after the first time),
     // then its own address, as GitHub says it. A site GitHub does not keep is no publish: the branch
@@ -644,17 +655,66 @@ export class GitHubSender {
         ],
         120_000,
       );
-      const failure = refuse(
-        'pages_refused',
-        publish.visibility === 'private' && !publish.make_public
-          ? "GitHub doesn't serve pages from a private repository on a free plan, so nothing was published. Publish it again with Make Public."
-          : `GitHub didn't turn on pages for ${publish.repository}, so nothing was published.${madeNote} A private repository needs a paid plan for them.`,
+      const failure = after(
+        refuse(
+          'pages_refused',
+          publish.visibility === 'private' && !publish.make_public
+            ? "GitHub doesn't serve pages from a private repository on a free plan, so nothing was published. Publish it again with Make Public."
+            : opened
+              ? `GitHub didn't turn on pages for ${publish.repository}, so nothing was published.`
+              : `GitHub didn't turn on pages for ${publish.repository}, so nothing was published. A private repository needs a paid plan for them.`,
+        ),
       );
       // The branch just pushed came down again, so nothing beyond what was recorded is left.
       return removed.code === 0 ? failure : { ...failure, effect: 'unknown' };
     }
     const address = PAGES_ADDRESS.test(said) ? (said.endsWith('/') ? said : `${said}/`) : null;
     return { ok: true, publish, commit, address };
+  }
+
+  /**
+   * Makes `repository`, the one this project's first Send made and a publish made public, private again
+   * with the person's own gh (ADR 0039, amended): the way back after a publish that failed once the
+   * repository was public. Asked of gh only at the press.
+   */
+  async makePrivate(repository: string): Promise<{ readonly ok: true } | SendFailure> {
+    const gh = this.#deps.gh;
+    if (gh === null)
+      return refuse(
+        'no_gh',
+        "Making a repository private needs GitHub's own command line tool on this computer, signed in.",
+      );
+    if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9._-]{1,100}$/.test(repository))
+      return refuse(
+        'make_private_failed',
+        'Halcyonic could not name the repository to make private.',
+      );
+    if ((await this.#run(gh, ['auth', 'status'], 15_000)).code !== 0)
+      return refuse(
+        'gh_signed_out',
+        "GitHub's command line tool on this computer isn't signed in, so nothing changed.",
+      );
+    const closed = await this.#run(
+      gh,
+      [
+        'repo',
+        'edit',
+        repository,
+        '--visibility',
+        'private',
+        '--accept-visibility-change-consequences',
+      ],
+      60_000,
+    );
+    if (closed.code !== 0)
+      return {
+        ...refuse(
+          'not_made_private',
+          `GitHub didn't make ${repository} private, or didn't say so. Look at it on GitHub.`,
+        ),
+        effect: 'unknown',
+      };
+    return { ok: true };
   }
 
   /**

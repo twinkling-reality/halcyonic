@@ -187,7 +187,14 @@ case) and the lead's decision of 2026-11-12 (one list, one review card, a confir
   becomes public. Only a repository this project's own first Send made private is ever made public so; one
   the person had before keeps who can see it, whatever a client asks (AUDIT3 S1). It is recorded the moment GitHub made it public, `project.repository_made_public
   {repository}`, whatever the publish after it does, and a refusal after it says the repository is public
-  now.
+  now, with the way back, and has effect `unknown`, never `none` (run 2, 2026-11-12: a push refused after
+  Make Public was reported with effect none while the repository was public).
+- **The way back is Make Private.** `project.make_private {project_id}`, one press, offered where the person
+  stands only while this Mac's journal says Halcyonic made the project's repository and made it public, and
+  no game is published from it. It runs the person's own `gh repo edit <repository> --visibility private
+  --accept-visibility-change-consequences` on that repository alone, as the journal names it, and records
+  `project.repository_made_private {repository}` once gh said so; a later publish offers Make Public again. A
+  gh that fails leaves effect `unknown` (`not_made_private`).
 - **A site GitHub does not keep is no publish.** After turning pages on, the address is read back; where
   GitHub answers none, the Pages branch just pushed is deleted again (only while it holds that commit) and
   the publish is refused (`pages_refused`, naming Make Public where the repository is private), so nothing

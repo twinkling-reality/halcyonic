@@ -84,6 +84,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "project.send")] ProjectSend,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.publish")] ProjectPublish,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.unpublish")] ProjectUnpublish,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.make_private")] ProjectMakePrivate,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.secret.set")] ProjectSecretSet,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.secret.remove")] ProjectSecretRemove,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
@@ -3976,6 +3977,12 @@ namespace Halcyonic.Contracts
         public string Repository { get; set; } = default!;
     }
 
+    public sealed class ProjectRepositoryMadePrivatePayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Repository { get; set; } = default!;
+    }
+
     public sealed class ProjectPublishedPayload
     {
         [global::Newtonsoft.Json.JsonProperty("repository", Required = global::Newtonsoft.Json.Required.Always)]
@@ -4732,6 +4739,12 @@ namespace Halcyonic.Contracts
         public string Commit { get; set; } = default!;
     }
 
+    public sealed class ProjectMakePrivatePayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
     public sealed class ProjectSecretSetPayload
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -5071,6 +5084,7 @@ namespace Halcyonic.Contracts
                 "project.send" => new ProjectSendCommand(),
                 "project.publish" => new ProjectPublishCommand(),
                 "project.unpublish" => new ProjectUnpublishCommand(),
+                "project.make_private" => new ProjectMakePrivateCommand(),
                 "project.secret.set" => new ProjectSecretSetCommand(),
                 "project.secret.remove" => new ProjectSecretRemoveCommand(),
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
@@ -5241,6 +5255,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectUnpublishPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectMakePrivateCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.make_private";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectMakePrivatePayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectSecretSetCommand : CommandEnvelope
@@ -6030,6 +6052,7 @@ namespace Halcyonic.Contracts
                 "project.sent_to_github" => new ProjectSentToGithubEvent(),
                 "project.repository_made" => new ProjectRepositoryMadeEvent(),
                 "project.repository_made_public" => new ProjectRepositoryMadePublicEvent(),
+                "project.repository_made_private" => new ProjectRepositoryMadePrivateEvent(),
                 "project.published" => new ProjectPublishedEvent(),
                 "project.unpublished" => new ProjectUnpublishedEvent(),
                 "project.secret.stored" => new ProjectSecretStoredEvent(),
@@ -6317,6 +6340,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectRepositoryMadePublicPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectRepositoryMadePrivateEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.repository_made_private";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectRepositoryMadePrivatePayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectPublishedEvent : EventEnvelope

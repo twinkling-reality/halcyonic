@@ -39,6 +39,7 @@ const PROJECT_ORDER: readonly Listed[] = [
   'project.send',
   'project.publish',
   'project.unpublish',
+  'project.make_private',
   'project.share.start',
   'project.share.stop',
   'project.save_copy',

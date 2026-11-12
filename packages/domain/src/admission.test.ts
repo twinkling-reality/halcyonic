@@ -1153,7 +1153,8 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
         | 'project.share.start'
         | 'project.share.stop'
         | 'project.publish'
-        | 'project.unpublish',
+        | 'project.unpublish'
+        | 'project.make_private',
       shownCommit = 'a'.repeat(40),
     ): CommandEnvelope => {
       n += 1;
@@ -1333,6 +1334,55 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     const restored = new Projection();
     restored.restoreState(projection.exportState());
     assert.equal(restored.madeRepository(scope.project_id)?.visibility, 'public');
+  });
+
+  test('Make Private is offered only for the repository Halcyonic made and made public, with nothing published from it, and puts it back (run 2)', () => {
+    const { b, projection, scope, command, checkId } = setupStarter(true);
+    const result = () => {
+      const admission = admitCommand(command('project.make_private'), projection, catalog());
+      return admission.admitted ? admission.policy : admission.rejection.message;
+    };
+    const nothing =
+      'Halcyonic made no repository of this project public, so there is nothing to make private.';
+    assert.equal(result(), nothing, 'no repository made');
+    projection.apply(
+      b.controlPlane('project.repository_made', scope, {
+        repository: 'Owner/garden',
+        visibility: 'private',
+      }),
+    );
+    assert.equal(result(), nothing, 'made, still private');
+    projection.apply(
+      b.controlPlane('project.repository_made_public', scope, { repository: 'owner/garden' }),
+    );
+    assert.equal(result(), 'low_consequence', 'the way back after Make Public: one press');
+    projection.apply(
+      b.controlPlane('project.published', scope, {
+        repository: 'owner/garden',
+        check_id: checkId,
+        branch: 'halcyonic-pages',
+        commit: 'a'.repeat(40),
+        address: null,
+      }),
+    );
+    assert.equal(result(), 'The game is published from it. Take it down first.');
+    projection.apply(
+      b.controlPlane('project.unpublished', scope, {
+        repository: 'owner/garden',
+        branch: 'halcyonic-pages',
+      }),
+    );
+    assert.equal(result(), 'low_consequence');
+    // Made private again, as either side spells it: nothing left to make private, and Make Public is
+    // what a later publish offers again.
+    projection.apply(
+      b.controlPlane('project.repository_made_private', scope, { repository: 'OWNER/Garden' }),
+    );
+    assert.deepEqual(projection.madeRepository(scope.project_id), {
+      repository: 'Owner/garden',
+      visibility: 'private',
+    });
+    assert.equal(result(), nothing);
   });
 
   test('a game is published only from a passed, current, confined check, by the person, and unpublished only once published (ADR 0039)', () => {
