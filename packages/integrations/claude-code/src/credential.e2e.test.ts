@@ -92,6 +92,7 @@ test('a key the API refuses fails the turn as credential_refused, never as a tur
   });
   t.after(() => adapter.close());
   const observed: RuntimeObservation[] = [];
+  const started = Date.now();
   await adapter.startExecution({
     execution: {
       execution_id: '01920000-0000-7000-8000-000000000710' as ExecutionId,
@@ -116,6 +117,8 @@ test('a key the API refuses fails the turn as credential_refused, never as a tur
       `the turn to end; ${api.requests()} requests; observed ${observed.map((o) => o.type).join(', ')}`,
   );
   assert.ok(api.requests() > 0, 'the CLI asked the API');
+  // The CLI would retry a refused key for about three minutes; the turn ends at its first retry.
+  assert.ok(Date.now() - started < 60_000, `the turn ended in ${Date.now() - started} ms`);
   const end = observed.find((o) => ended.has(o.type));
   assert.equal(end?.type, 'runtime.turn.failed');
   assert.equal(
