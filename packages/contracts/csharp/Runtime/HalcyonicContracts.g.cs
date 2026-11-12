@@ -52,6 +52,350 @@ namespace Halcyonic.Contracts
             instant.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
     }
 
+    public sealed class HereScope
+    {
+        [JsonProperty("project_id", Required = Required.AllowNull)]
+        public string? ProjectId { get; set; }
+
+        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        public string? WorkstreamId { get; set; }
+
+        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        public string? ExecutionId { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CommandType
+    {
+        [EnumMember(Value = "project.create")] ProjectCreate,
+        [EnumMember(Value = "project.make_vr_version")] ProjectMakeVrVersion,
+        [EnumMember(Value = "project.set_location")] ProjectSetLocation,
+        [EnumMember(Value = "project.rules.set")] ProjectRulesSet,
+        [EnumMember(Value = "project.restore")] ProjectRestore,
+        [EnumMember(Value = "project.check")] ProjectCheck,
+        [EnumMember(Value = "project.own_check.choose")] ProjectOwnCheckChoose,
+        [EnumMember(Value = "project.preview.start")] ProjectPreviewStart,
+        [EnumMember(Value = "project.preview.stop")] ProjectPreviewStop,
+        [EnumMember(Value = "project.open_on_mac")] ProjectOpenOnMac,
+        [EnumMember(Value = "project.show_in_finder")] ProjectShowInFinder,
+        [EnumMember(Value = "project.save_copy")] ProjectSaveCopy,
+        [EnumMember(Value = "project.share.start")] ProjectShareStart,
+        [EnumMember(Value = "project.share.stop")] ProjectShareStop,
+        [EnumMember(Value = "project.send_to_github")] ProjectSendToGithub,
+        [EnumMember(Value = "project.publish")] ProjectPublish,
+        [EnumMember(Value = "project.unpublish")] ProjectUnpublish,
+        [EnumMember(Value = "project.secret.set")] ProjectSecretSet,
+        [EnumMember(Value = "project.secret.remove")] ProjectSecretRemove,
+        [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
+        [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
+        [EnumMember(Value = "workstream.create")] WorkstreamCreate,
+        [EnumMember(Value = "workstream.add_to_project")] WorkstreamAddToProject,
+        [EnumMember(Value = "workstream.fit_to_project")] WorkstreamFitToProject,
+        [EnumMember(Value = "execution.start")] ExecutionStart,
+        [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
+        [EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
+        [EnumMember(Value = "execution.answer_question")] ExecutionAnswerQuestion,
+        [EnumMember(Value = "execution.interrupt")] ExecutionInterrupt,
+        [EnumMember(Value = "execution.drop_queued_instruction")] ExecutionDropQueuedInstruction,
+        [EnumMember(Value = "workspace.request.submit")] WorkspaceRequestSubmit,
+        [EnumMember(Value = "workspace.request.resume")] WorkspaceRequestResume,
+        [EnumMember(Value = "workspace.request.cancel")] WorkspaceRequestCancel,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ConfirmKind
+    {
+        [EnumMember(Value = "none")] None,
+        [EnumMember(Value = "undo")] Undo,
+        [EnumMember(Value = "review")] Review,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum NeedKind
+    {
+        [EnumMember(Value = "text")] Text,
+        [EnumMember(Value = "choice")] Choice,
+        [EnumMember(Value = "choices")] Choices,
+        [EnumMember(Value = "yes_no")] YesNo,
+        [EnumMember(Value = "count")] Count,
+        [EnumMember(Value = "answers")] Answers,
+        [EnumMember(Value = "secret")] Secret,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ChoiceList
+    {
+        [EnumMember(Value = "tasks")] Tasks,
+        [EnumMember(Value = "versions")] Versions,
+        [EnumMember(Value = "runtimes")] Runtimes,
+        [EnumMember(Value = "models")] Models,
+        [EnumMember(Value = "approval_levels")] ApprovalLevels,
+        [EnumMember(Value = "folders")] Folders,
+        [EnumMember(Value = "pictures")] Pictures,
+        [EnumMember(Value = "catalog")] Catalog,
+        [EnumMember(Value = "share_ways")] ShareWays,
+        [EnumMember(Value = "own_check_scripts")] OwnCheckScripts,
+        [EnumMember(Value = "secrets")] Secrets,
+        [EnumMember(Value = "queued_instructions")] QueuedInstructions,
+        [EnumMember(Value = "approvals")] Approvals,
+        [EnumMember(Value = "decisions")] Decisions,
+        [EnumMember(Value = "questions")] Questions,
+    }
+
+    public sealed class HereNeed
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("kind", Required = Required.Always)]
+        public NeedKind Kind { get; set; }
+
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [JsonProperty("required", Required = Required.Always)]
+        public bool Required { get; set; }
+
+        [JsonProperty("list", Required = Required.AllowNull)]
+        public ChoiceList? List { get; set; }
+
+        [JsonProperty("max", Required = Required.AllowNull)]
+        public long? Max { get; set; }
+    }
+
+    [JsonConverter(typeof(HereActionConverter))]
+    public abstract class HereAction
+    {
+        [JsonProperty("kind", Order = -2)]
+        public string Kind => Discriminator;
+
+        protected abstract string Discriminator { get; }
+
+        [JsonProperty("title", Required = Required.Always)]
+        public string Title { get; set; } = default!;
+
+        [JsonProperty("description", Required = Required.Always)]
+        public string Description { get; set; } = default!;
+    }
+
+    public sealed class HereActionConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(HereAction).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["kind"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            HereAction value = tag switch
+            {
+                "command" => new HereCommandAction(),
+                "list" => new HereListAction(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "HereAction has no string kind."
+                    : "Unknown kind \"" + tag + "\" for HereAction."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but kind is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class HereCommandAction : HereAction
+    {
+        protected override string Discriminator => "command";
+
+        [JsonProperty("command_type", Required = Required.Always)]
+        public CommandType CommandType { get; set; }
+
+        [JsonProperty("confirm", Required = Required.Always)]
+        public ConfirmKind Confirm { get; set; }
+
+        [JsonProperty("undo", Required = Required.AllowNull)]
+        public CommandType? Undo { get; set; }
+
+        [JsonProperty("sayable", Required = Required.Always)]
+        public bool Sayable { get; set; }
+
+        [JsonProperty("needs", Required = Required.Always)]
+        public List<HereNeed> Needs { get; set; } = new List<HereNeed>();
+    }
+
+    public sealed class HereListAction : HereAction
+    {
+        protected override string Discriminator => "list";
+
+        [JsonProperty("list", Required = Required.Always)]
+        public ChoiceList List { get; set; }
+    }
+
+    public sealed class HereResponse
+    {
+        [JsonProperty("scope", Required = Required.Always)]
+        public HereScope Scope { get; set; } = default!;
+
+        [JsonProperty("position", Required = Required.Always)]
+        public long Position { get; set; }
+
+        [JsonProperty("actions", Required = Required.Always)]
+        public List<HereAction> Actions { get; set; } = new List<HereAction>();
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ChoiceRowKind
+    {
+        [EnumMember(Value = "task")] Task,
+        [EnumMember(Value = "version")] Version,
+        [EnumMember(Value = "runtime")] Runtime,
+        [EnumMember(Value = "model")] Model,
+        [EnumMember(Value = "approval_level")] ApprovalLevel,
+        [EnumMember(Value = "folder")] Folder,
+        [EnumMember(Value = "picture")] Picture,
+        [EnumMember(Value = "repository")] Repository,
+        [EnumMember(Value = "share_way")] ShareWay,
+        [EnumMember(Value = "script")] Script,
+        [EnumMember(Value = "secret")] Secret,
+        [EnumMember(Value = "instruction")] Instruction,
+        [EnumMember(Value = "approval")] Approval,
+        [EnumMember(Value = "decision")] Decision,
+        [EnumMember(Value = "question")] Question,
+    }
+
+    public sealed class ChoiceRow
+    {
+        [JsonProperty("index", Required = Required.Always)]
+        public long Index { get; set; }
+
+        [JsonProperty("kind", Required = Required.Always)]
+        public ChoiceRowKind Kind { get; set; }
+
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [JsonProperty("detail", Required = Required.AllowNull)]
+        public string? Detail { get; set; }
+
+        [JsonProperty("theirs", Required = Required.Always)]
+        public bool Theirs { get; set; }
+
+        [JsonProperty("actions", Required = Required.Always)]
+        public List<CommandType> Actions { get; set; } = new List<CommandType>();
+    }
+
+    public sealed class ChoicesResponse
+    {
+        [JsonProperty("scope", Required = Required.Always)]
+        public HereScope Scope { get; set; } = default!;
+
+        [JsonProperty("list", Required = Required.Always)]
+        public ChoiceList List { get; set; }
+
+        [JsonProperty("position", Required = Required.Always)]
+        public long Position { get; set; }
+
+        [JsonProperty("digest", Required = Required.Always)]
+        public string Digest { get; set; } = default!;
+
+        [JsonProperty("rows", Required = Required.Always)]
+        public List<ChoiceRow> Rows { get; set; } = new List<ChoiceRow>();
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ReviewKind
+    {
+        [EnumMember(Value = "file_added")] FileAdded,
+        [EnumMember(Value = "file_changed")] FileChanged,
+        [EnumMember(Value = "file_removed")] FileRemoved,
+        [EnumMember(Value = "folder")] Folder,
+        [EnumMember(Value = "repository")] Repository,
+        [EnumMember(Value = "branch")] Branch,
+        [EnumMember(Value = "address")] Address,
+        [EnumMember(Value = "task")] Task,
+        [EnumMember(Value = "version")] Version,
+        [EnumMember(Value = "script")] Script,
+        [EnumMember(Value = "words")] Words,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class ActionReviewFact
+    {
+        [JsonProperty("kind", Required = Required.Always)]
+        public ReviewKind Kind { get; set; }
+
+        [JsonProperty("value", Required = Required.Always)]
+        public string Value { get; set; } = default!;
+
+        [JsonProperty("theirs", Required = Required.Always)]
+        public bool Theirs { get; set; }
+    }
+
+    public sealed class ActionReviewItem
+    {
+        [JsonProperty("kind", Required = Required.Always)]
+        public ReviewKind Kind { get; set; }
+
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("note", Required = Required.AllowNull)]
+        public string? Note { get; set; }
+
+        [JsonProperty("theirs", Required = Required.Always)]
+        public bool Theirs { get; set; }
+    }
+
+    public sealed class ActionReviewWarning
+    {
+        [JsonProperty("code", Required = Required.Always)]
+        public string Code { get; set; } = default!;
+
+        [JsonProperty("line", Required = Required.Always)]
+        public string Line { get; set; } = default!;
+    }
+
+    public sealed class ActionReview
+    {
+        [JsonProperty("command_type", Required = Required.Always)]
+        public CommandType CommandType { get; set; }
+
+        [JsonProperty("digest", Required = Required.Always)]
+        public string Digest { get; set; } = default!;
+
+        [JsonProperty("confirm_words", Required = Required.Always)]
+        public string ConfirmWords { get; set; } = default!;
+
+        [JsonProperty("what_happens", Required = Required.Always)]
+        public string WhatHappens { get; set; } = default!;
+
+        [JsonProperty("facts", Required = Required.Always)]
+        public List<ActionReviewFact> Facts { get; set; } = new List<ActionReviewFact>();
+
+        [JsonProperty("items", Required = Required.Always)]
+        public List<ActionReviewItem> Items { get; set; } = new List<ActionReviewItem>();
+
+        [JsonProperty("items_total", Required = Required.Always)]
+        public long ItemsTotal { get; set; }
+
+        [JsonProperty("warnings", Required = Required.Always)]
+        public List<ActionReviewWarning> Warnings { get; set; } = new List<ActionReviewWarning>();
+    }
+
     [JsonConverter(typeof(StringEnumConverter))]
     public enum CheckpointReason
     {
@@ -1431,44 +1775,6 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("origin", Required = Required.Always)]
         public JournalOrigin Origin { get; set; }
-    }
-
-    [JsonConverter(typeof(StringEnumConverter))]
-    public enum CommandType
-    {
-        [EnumMember(Value = "project.create")] ProjectCreate,
-        [EnumMember(Value = "project.make_vr_version")] ProjectMakeVrVersion,
-        [EnumMember(Value = "project.set_location")] ProjectSetLocation,
-        [EnumMember(Value = "project.rules.set")] ProjectRulesSet,
-        [EnumMember(Value = "project.restore")] ProjectRestore,
-        [EnumMember(Value = "project.check")] ProjectCheck,
-        [EnumMember(Value = "project.own_check.choose")] ProjectOwnCheckChoose,
-        [EnumMember(Value = "project.preview.start")] ProjectPreviewStart,
-        [EnumMember(Value = "project.preview.stop")] ProjectPreviewStop,
-        [EnumMember(Value = "project.open_on_mac")] ProjectOpenOnMac,
-        [EnumMember(Value = "project.show_in_finder")] ProjectShowInFinder,
-        [EnumMember(Value = "project.save_copy")] ProjectSaveCopy,
-        [EnumMember(Value = "project.share.start")] ProjectShareStart,
-        [EnumMember(Value = "project.share.stop")] ProjectShareStop,
-        [EnumMember(Value = "project.send_to_github")] ProjectSendToGithub,
-        [EnumMember(Value = "project.publish")] ProjectPublish,
-        [EnumMember(Value = "project.unpublish")] ProjectUnpublish,
-        [EnumMember(Value = "project.secret.set")] ProjectSecretSet,
-        [EnumMember(Value = "project.secret.remove")] ProjectSecretRemove,
-        [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
-        [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
-        [EnumMember(Value = "workstream.create")] WorkstreamCreate,
-        [EnumMember(Value = "workstream.add_to_project")] WorkstreamAddToProject,
-        [EnumMember(Value = "workstream.fit_to_project")] WorkstreamFitToProject,
-        [EnumMember(Value = "execution.start")] ExecutionStart,
-        [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
-        [EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
-        [EnumMember(Value = "execution.answer_question")] ExecutionAnswerQuestion,
-        [EnumMember(Value = "execution.interrupt")] ExecutionInterrupt,
-        [EnumMember(Value = "execution.drop_queued_instruction")] ExecutionDropQueuedInstruction,
-        [EnumMember(Value = "workspace.request.submit")] WorkspaceRequestSubmit,
-        [EnumMember(Value = "workspace.request.resume")] WorkspaceRequestResume,
-        [EnumMember(Value = "workspace.request.cancel")] WorkspaceRequestCancel,
     }
 
     [JsonConverter(typeof(StringEnumConverter))]

@@ -20,6 +20,8 @@ import {
   type GitHubPublishReviewResponse,
   type GitHubSendReviewResponse,
   type HealthResponse,
+  HereQuery,
+  type HereResponse,
   LocationReviewRequest,
   type LocationReviewResponse,
   type LocationsResponse,
@@ -70,6 +72,7 @@ import { errorBody } from './server.ts';
 const validateEventsQuery = compileValidator(EventsQuery);
 const validateCatalogResponse = compileValidator(CatalogResponse);
 const validateProjectId = compileValidator(ProjectId);
+const validateHereQuery = compileValidator(HereQuery);
 const validateExecutionId = compileValidator(ExecutionId);
 const validateRuntimeId = compileValidator(RuntimeId);
 const validateCheckpointId = compileValidator(CheckpointId);
@@ -235,6 +238,28 @@ export function registerRoutes(
       projects: controlPlane.projection.projects(),
     }),
   );
+
+  // What can be done where the person stands (ADR 0060): one list, read by every screen and the assistant.
+  app.get('/api/actions', async (request, reply) => {
+    const query = validateHereQuery(request.query);
+    if (!query.ok)
+      return reply
+        .code(400)
+        .send(
+          errorBody('invalid_request', 'project_id, workstream_id and execution_id must be ids.'),
+        );
+    const scope = {
+      project_id: query.value.project_id ?? null,
+      workstream_id: query.value.workstream_id ?? null,
+      execution_id: query.value.execution_id ?? null,
+    };
+    const body: HereResponse = {
+      scope,
+      position: controlPlane.projection.position,
+      actions: controlPlane.commands.here(scope),
+    };
+    return body;
+  });
 
   app.get('/api/workstreams', async (request, reply) => {
     const projectId = (request.query as Record<string, unknown>).project_id;

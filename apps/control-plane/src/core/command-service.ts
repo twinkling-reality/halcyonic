@@ -8,10 +8,13 @@ import type {
   CommandId,
   CommandOf,
   CommandResult,
+  CommandType,
   CommandView,
   ExecutionId,
   ExecutionStatus,
   ExecutionView,
+  HereAction,
+  HereScope,
   InstructionAttachment,
   Principal,
   ProjectId,
@@ -31,6 +34,7 @@ import {
   admitCommand,
   type CommandScope,
   folderInUse,
+  hereActions,
   journaledRejection,
   type Projection,
 } from '@halcyonic/domain';
@@ -555,8 +559,81 @@ export class CommandService {
    * The domain's admission, then what only the host can check: the folder a project is to be bound
    * to, the folder a start would run in, and the runtime's own options.
    */
-  #admit(command: CommandEnvelope): Admission {
-    if (command.command_type.startsWith('workspace.request.') && this.#workspaceRequests === null)
+  /**
+   * What can be done here now (ADR 0060): the one admission's probe for the scope, less what this
+   * host cannot do at all. A scope whose ids do not hold together lists nothing.
+   */
+  here(scope: HereScope): HereAction[] {
+    const { projection } = this.#deps;
+    if (scope.project_id === null && (scope.workstream_id !== null || scope.execution_id !== null))
+      return [];
+    if (scope.project_id !== null && projection.project(scope.project_id) === undefined) return [];
+    if (scope.workstream_id !== null) {
+      const task = projection.workstream(scope.workstream_id);
+      if (task === undefined || task.project_id !== scope.project_id) return [];
+      if (task.current_execution_id !== scope.execution_id) return [];
+    } else if (scope.execution_id !== null) return [];
+    const listed = hereActions(scope, projection, {
+      get: (runtimeId) => this.#deps.registry.get(runtimeId),
+      queuesInstructions: this.#deps.queuesInstructions === true,
+    });
+    return listed.actions.filter(
+      (action) =>
+        action.kind !== 'command' ||
+        (this.#hostRefusal(action.command_type, scope.project_id) === null &&
+          this.#hostLacks(action.command_type, scope.project_id) === null),
+    );
+  }
+
+  /**
+   * A part of this host a command needs once accepted, missing here, so the list does not offer it:
+   * each is the same part its dispatch fails without (sharing, sending, keeping, a catalog, starters,
+   * a project's secrets), and the project's rules file the command service itself reads.
+   */
+  #hostLacks(commandType: CommandType, projectId: ProjectId | null): string | null {
+    switch (commandType) {
+      case 'project.rules.set': {
+        // Turned off while on; turned on only with a rules file that reads whole, as admission asks.
+        const project = projectId === null ? undefined : this.#deps.projection.project(projectId);
+        if (project?.rules !== undefined) return null;
+        const folder = project?.location?.path ?? null;
+        return folder !== null && readRules(folder).state === 'ok'
+          ? null
+          : 'The project has no rules file to use.';
+      }
+      case 'project.share.start':
+      case 'project.share.stop':
+        return this.#deps.shares ? null : 'This computer cannot share a game.';
+      case 'project.send_to_github':
+      case 'project.publish':
+      case 'project.unpublish':
+        return this.#deps.github ? null : "Sending isn't set up on this computer.";
+      case 'project.show_in_finder':
+      case 'project.save_copy':
+        return this.#deps.keeping ? null : 'This computer cannot show or save the project.';
+      case 'project.link_catalog':
+        return this.#deps.catalogLinks
+          ? null
+          : 'No catalog of your projects is set up on this computer.';
+      case 'project.make_vr_version':
+        return this.#deps.starters?.check(VR_STARTER).ok === true
+          ? null
+          : 'This computer has no starters.';
+      case 'project.secret.set':
+      case 'project.secret.remove':
+        return this.#deps.projectSecrets ? null : 'Secrets are not kept on this computer.';
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * What this host cannot do at all, whatever the command says: a part that is not set up here (a
+   * check, undo, playing on this Mac). The one place it is decided, for a command and for the list of
+   * what can be done here (ADR 0060). Null when the host can.
+   */
+  #hostRefusal(commandType: CommandType, projectId: ProjectId | null): Admission | null {
+    if (commandType.startsWith('workspace.request.') && this.#workspaceRequests === null)
       return {
         admitted: false,
         scope: { project_id: null, workstream_id: null, execution_id: null },
@@ -565,19 +642,19 @@ export class CommandService {
           message: 'The workspace coordinator is unavailable on this computer.',
         },
       };
-    if (command.command_type === 'project.restore' && !this.#deps.checkpoints)
+    if (commandType === 'project.restore' && !this.#deps.checkpoints)
       return {
         admitted: false,
-        scope: { project_id: command.payload.project_id, workstream_id: null, execution_id: null },
+        scope: { project_id: projectId, workstream_id: null, execution_id: null },
         rejection: {
           code: 'capability_unsupported',
           message: 'Undo is not set up on this computer (HALCYONIC_GIT_BIN).',
         },
       };
-    if (command.command_type === 'project.own_check.choose' && !this.#deps.ownChecks)
+    if (commandType === 'project.own_check.choose' && !this.#deps.ownChecks)
       return {
         admitted: false,
-        scope: { project_id: command.payload.project_id, workstream_id: null, execution_id: null },
+        scope: { project_id: projectId, workstream_id: null, execution_id: null },
         rejection: {
           code: 'capability_unsupported',
           message: "A project's own check is not set up on this computer.",
@@ -585,20 +662,21 @@ export class CommandService {
       };
     // A project not made from a starter runs its own check, which needs no starter (ADR 0055).
     const ownCheck =
-      command.command_type === 'project.check' &&
-      this.#deps.projection.project(command.payload.project_id)?.starter === null;
+      commandType === 'project.check' &&
+      projectId !== null &&
+      this.#deps.projection.project(projectId)?.starter === null;
     if (ownCheck && !this.#deps.ownChecks)
       return {
         admitted: false,
-        scope: { project_id: command.payload.project_id, workstream_id: null, execution_id: null },
+        scope: { project_id: projectId, workstream_id: null, execution_id: null },
         rejection: {
           code: 'capability_unsupported',
           message: "A project's own check is not set up on this computer.",
         },
       };
     if (
-      ((command.command_type === 'project.check' && !ownCheck) ||
-        command.command_type.startsWith('project.preview.')) &&
+      ((commandType === 'project.check' && !ownCheck) ||
+        commandType.startsWith('project.preview.')) &&
       !this.#deps.previews
     )
       return {
@@ -609,7 +687,7 @@ export class CommandService {
           message: 'Checks are not set up on this computer: no starter is installed.',
         },
       };
-    if (command.command_type === 'project.open_on_mac' && !this.#deps.previews?.canPlay)
+    if (commandType === 'project.open_on_mac' && !this.#deps.previews?.canPlay)
       return {
         admitted: false,
         scope: { project_id: null, workstream_id: null, execution_id: null },
@@ -618,6 +696,14 @@ export class CommandService {
           message: 'Playing on this Mac is not set up: no browser for it.',
         },
       };
+    return null;
+  }
+
+  #admit(command: CommandEnvelope): Admission {
+    const projectId =
+      'project_id' in command.payload ? (command.payload.project_id as ProjectId | null) : null;
+    const host = this.#hostRefusal(command.command_type, projectId);
+    if (host !== null) return host;
     const admission = admitCommand(command, this.#deps.projection, {
       get: (runtimeId) => this.#deps.registry.get(runtimeId),
       queuesInstructions: this.#deps.queuesInstructions === true,

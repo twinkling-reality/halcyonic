@@ -67,6 +67,35 @@ export function admitCommand(
   projection: Projection,
   runtimes: RuntimeCatalog,
 ): Admission {
+  return admit(command, projection, runtimes, false);
+}
+
+/**
+ * Whether `command` could be carried out here now, for the list of what can be done here (ADR 0060):
+ * its payload holds only what the scope binds and the host fills, so every check of a value the person
+ * still gives is left to the whole admission the command meets once it is filled.
+ */
+export function admitHere(
+  command: CommandEnvelope,
+  projection: Projection,
+  runtimes: RuntimeCatalog,
+): Admission {
+  return admit(command, projection, runtimes, true);
+}
+
+/**
+ * The one admission, run whole for a command, or as a probe for what can be done here (ADR 0060):
+ * a probe's payload holds only what the scope binds, so a check of a value the person still gives
+ * (a runtime, a version, an answer) is left to the whole run, and one of a pending thing (an approval,
+ * a question, a waiting instruction) asks whether there is any. Every check of the state is the same
+ * line of code in both, so the list never offers what admission would refuse for the state.
+ */
+function admit(
+  command: CommandEnvelope,
+  projection: Projection,
+  runtimes: RuntimeCatalog,
+  probe: boolean,
+): Admission {
   const policy = COMMAND_POLICY[command.command_type];
   switch (command.command_type) {
     case 'workspace.request.submit': {
@@ -228,6 +257,18 @@ export function admitCommand(
       const scope = { ...NO_SCOPE, project_id: projectId };
       const name = command.payload.name;
       const held = project.secrets ?? [];
+      // A probe has no name yet: one is there to remove, or there is room for one more.
+      if (probe) {
+        if (command.command_type === 'project.secret.remove' && held.length === 0)
+          return reject(scope, 'invalid_state', 'This project has no secrets.');
+        if (command.command_type === 'project.secret.set' && held.length >= MAX_PROJECT_SECRETS)
+          return reject(
+            scope,
+            'invalid_state',
+            `A project keeps at most ${MAX_PROJECT_SECRETS} secrets. Remove one first.`,
+          );
+        return { admitted: true, policy, scope, runtime: null };
+      }
       if (command.command_type === 'project.secret.remove')
         return held.includes(name)
           ? { admitted: true, policy, scope, runtime: null }
@@ -262,11 +303,17 @@ export function admitCommand(
         return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
       }
       const scope = { ...NO_SCOPE, project_id: projectId };
-      if (projection.checkpoint(projectId, command.payload.checkpoint_id) === undefined) {
+      if (
+        probe
+          ? projection.checkpoints(projectId).length === 0
+          : projection.checkpoint(projectId, command.payload.checkpoint_id) === undefined
+      ) {
         return reject(
           scope,
           'checkpoint_not_found',
-          `Checkpoint ${command.payload.checkpoint_id} is not one of this project's.`,
+          probe
+            ? 'The project has no saved version to put back.'
+            : `Checkpoint ${command.payload.checkpoint_id} is not one of this project's.`,
         );
       }
       // Files the runtime is still writing cannot be put back, and a restore must not race a start.
@@ -462,7 +509,7 @@ export function admitCommand(
         if (project.published === undefined)
           return reject(scope, 'invalid_state', 'This game is not published.');
         // What the person was shown is what comes down, from any client (AUDIT3 S1).
-        if (project.published.commit !== command.payload.commit)
+        if (!probe && project.published.commit !== command.payload.commit)
           return reject(
             scope,
             'review_stale',
@@ -693,58 +740,17 @@ export function admitCommand(
         workstream_id: workstream.workstream_id,
         execution_id: null,
       };
-      const runtime = runtimes.get(command.payload.runtime_id);
-      if (runtime === undefined) {
+      // The runtime is the person's to choose: a probe leaves every check of it to the whole run.
+      const chosen = probe ? undefined : runtimes.get(command.payload.runtime_id);
+      if (!probe && chosen === undefined) {
         return reject(
           scope,
           'runtime_not_found',
           `Runtime ${command.payload.runtime_id} is not registered.`,
         );
       }
-      const missing = requireCapability(runtime, 'start_execution', scope);
-      if (missing !== undefined) return missing;
-      if (command.payload.model_ref !== null && runtime.model_choice !== 'listed') {
-        return reject(
-          scope,
-          'capability_unsupported',
-          `Runtime ${runtime.runtime_id} does not offer a choice of model.`,
-        );
-      }
-      // Never asking is a level a runtime offers once verified, never one admission assumes (ADR 0043).
-      if (command.payload.approval_level === 'never_ask' && runtime.offers_never_ask !== true) {
-        return reject(
-          scope,
-          'capability_unsupported',
-          `Runtime ${runtime.runtime_id} does not offer working without asking.`,
-        );
-      }
-      // A plan is the runtime's own mode, offered once verified, never one admission assumes (PLAN).
-      if (command.payload.plan === true && runtime.offers_plan !== true) {
-        return reject(
-          scope,
-          'capability_unsupported',
-          `Runtime ${runtime.runtime_id} does not offer planning without changing a file.`,
-        );
-      }
-      const pictures = picturesRefusal(runtime, command.payload.attachments, scope);
-      if (pictures !== undefined) return pictures;
-      // Planning asks before every command that could change a file, so it never goes unasked.
-      if (command.payload.plan === true && command.payload.approval_level === 'never_ask') {
-        return reject(
-          scope,
-          'invalid_runtime_options',
-          'A plan asks before every command, so it is not started with working without asking.',
-        );
-      }
-      // A runtime that lists its models never chooses one by itself, where it could pick a
-      // hosted model nobody chose.
-      if (command.payload.model_ref === null && runtime.model_choice === 'listed') {
-        return reject(
-          scope,
-          'model_required',
-          'Choose a model: this runtime lists the models it can use.',
-        );
-      }
+      const refused = chosen === undefined ? undefined : startRefusal(chosen, command, scope);
+      if (refused !== undefined) return refused;
       // One execution at a time in a task: a start beside an active one, or before a command to one
       // has its outcome, would put two agents to work in the task's folder (ADMIT).
       const busy = taskInUse(projection, workstream.workstream_id, null);
@@ -769,6 +775,8 @@ export function admitCommand(
           "The project's files are being put back. Start the task once that has finished.",
         );
       }
+      if (chosen === undefined) return { admitted: true, policy, scope, runtime: null };
+      const runtime = chosen;
       const location = projection.project(workstream.project_id)?.location ?? null;
       if (runtime.uses_project_location && location === null) {
         return reject(
@@ -789,7 +797,6 @@ export function admitCommand(
       }
       return { admitted: true, policy, scope, runtime };
     }
-
     case 'execution.send_instruction': {
       const target = resolveExecution(command.payload.execution_id, projection, runtimes);
       if (!target.found) return target.rejection;
@@ -908,14 +915,18 @@ export function admitCommand(
       const { facts, runtime, scope } = target;
       const missing = requireCapability(runtime, 'respond_to_approval', scope);
       if (missing !== undefined) return missing;
-      const approval = facts.pendingApprovals.find(
-        (pending) => pending.approval_id === command.payload.approval_id,
-      );
+      const approval = probe
+        ? facts.pendingApprovals[0]
+        : facts.pendingApprovals.find(
+            (pending) => pending.approval_id === command.payload.approval_id,
+          );
       if (approval === undefined) {
         return reject(
           scope,
           'approval_not_found',
-          `Approval ${command.payload.approval_id} is not pending on this execution.`,
+          probe
+            ? 'Nothing is waiting for an approval on this execution.'
+            : `Approval ${command.payload.approval_id} is not pending on this execution.`,
         );
       }
       if (facts.status !== 'waiting_for_human') {
@@ -943,14 +954,18 @@ export function admitCommand(
       const { facts, runtime, scope } = target;
       const missing = requireCapability(runtime, 'answer_question', scope);
       if (missing !== undefined) return missing;
-      const question = facts.pendingQuestions.find(
-        (pending) => pending.question_id === command.payload.question_id,
-      );
+      const question = probe
+        ? facts.pendingQuestions[0]
+        : facts.pendingQuestions.find(
+            (pending) => pending.question_id === command.payload.question_id,
+          );
       if (question === undefined) {
         return reject(
           scope,
           'question_not_found',
-          `Question ${command.payload.question_id} is not shown for an answer on this execution: it was resolved, or waits behind the questions shown.`,
+          probe
+            ? 'No question is waiting for an answer on this execution.'
+            : `Question ${command.payload.question_id} is not shown for an answer on this execution: it was resolved, or waits behind the questions shown.`,
         );
       }
       // A secret is never carried, whatever the adapter said (ADR 0022).
@@ -975,7 +990,7 @@ export function admitCommand(
           `The execution is ${facts.status}; the question cannot be answered now.`,
         );
       }
-      const problem = answerProblem(question.prompts, command.payload.answers);
+      const problem = probe ? null : answerProblem(question.prompts, command.payload.answers);
       if (problem !== null) return reject(scope, 'invalid_answer', problem);
       return { admitted: true, policy, scope, runtime };
     }
@@ -985,7 +1000,11 @@ export function admitCommand(
       if (!target.found) return target.rejection;
       const { scope, runtime } = target;
       const waiting = projection.execution(command.payload.execution_id)?.queued_instructions ?? [];
-      if (!waiting.some((queued) => queued.command_id === command.payload.command_id)) {
+      if (
+        probe
+          ? waiting.length === 0
+          : !waiting.some((queued) => queued.command_id === command.payload.command_id)
+      ) {
         return reject(
           scope,
           'invalid_state',
@@ -1043,6 +1062,59 @@ export function admitCommand(
       );
     }
   }
+}
+
+/** What refuses a start on the chosen runtime: its capabilities and the options the person chose. */
+function startRefusal(
+  runtime: RuntimeDescriptor,
+  command: Extract<CommandEnvelope, { command_type: 'execution.start' }>,
+  scope: CommandScope,
+): Admission | undefined {
+  const missing = requireCapability(runtime, 'start_execution', scope);
+  if (missing !== undefined) return missing;
+  if (command.payload.model_ref !== null && runtime.model_choice !== 'listed') {
+    return reject(
+      scope,
+      'capability_unsupported',
+      `Runtime ${runtime.runtime_id} does not offer a choice of model.`,
+    );
+  }
+  // Never asking is a level a runtime offers once verified, never one admission assumes (ADR 0043).
+  if (command.payload.approval_level === 'never_ask' && runtime.offers_never_ask !== true) {
+    return reject(
+      scope,
+      'capability_unsupported',
+      `Runtime ${runtime.runtime_id} does not offer working without asking.`,
+    );
+  }
+  // A plan is the runtime's own mode, offered once verified, never one admission assumes (PLAN).
+  if (command.payload.plan === true && runtime.offers_plan !== true) {
+    return reject(
+      scope,
+      'capability_unsupported',
+      `Runtime ${runtime.runtime_id} does not offer planning without changing a file.`,
+    );
+  }
+  const pictures = picturesRefusal(runtime, command.payload.attachments, scope);
+  if (pictures !== undefined) return pictures;
+  // Planning asks before every command that could change a file, so it never goes unasked.
+  if (command.payload.plan === true && command.payload.approval_level === 'never_ask') {
+    return reject(
+      scope,
+      'invalid_runtime_options',
+      'A plan asks before every command, so it is not started with working without asking.',
+    );
+  }
+  // A runtime that lists its models never chooses one by itself, where it could pick a
+  // hosted model nobody chose.
+  if (command.payload.model_ref === null && runtime.model_choice === 'listed') {
+    return reject(
+      scope,
+      'model_required',
+      'Choose a model: this runtime lists the models it can use.',
+    );
+  }
+  return undefined;
 }
 
 /**
