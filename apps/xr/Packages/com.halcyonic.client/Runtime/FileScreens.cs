@@ -137,12 +137,8 @@ namespace Halcyonic.Client
                 && !instructionEditor && !presetEditor && !steering.Typing;
             if (screen.Notice != null && !activityOwnsNotice && (!instructionEditor || screen.Instruction.InlineNotice && !screen.Instruction.ExplainingNotice)
                 && (!presetEditor || !screen.ShowingPresetNotice))
-            {
-                var noticeRows = instructionEditor ? Math.Max(1, screen.Instruction.NoticeRows) : presetEditor ? Math.Max(1, screen.PresetNoticeRows) : 2;
-                lines.Add(WorkspaceText.Apart(screen.Notice) is var (label, words, under)
-                    ? new PageLine(words, tone: LineTone.Secondary, rows: noticeRows).WithRowLabel(label).WithUnder(LineWords.Ours(under))
-                    : new PageLine(screen.Notice, tone: LineTone.Secondary, rows: noticeRows));
-            }
+                lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary,
+                    rows: instructionEditor ? Math.Max(1, screen.Instruction.NoticeRows) : presetEditor ? Math.Max(1, screen.PresetNoticeRows) : 2));
             // The task's title leans in its plate, which is its ground; the pill on its edge stays upright.
             var focused = screen.Instruction.Open || presetEditor || FocusesAnswer(workspace, page.OfQuestion, steering);
             var frame = new MenuFrame(

@@ -446,19 +446,6 @@ namespace Halcyonic.Client
         public const string ConfirmAfresh = "Not Sent · Window Changed · Press Again";
 
         /// <summary>
-        /// A notice that names what did not happen, why and what to do, handed apart (the owner's 2026-11-11: never facts joined on a
-        /// dot): its row's label, its words and the quieter line under them; null for a notice that is one sentence.
-        /// </summary>
-        public static (string Label, string Words, string Under)? Apart(string notice) =>
-            NoticesApart.TryGetValue(notice, out var apart) ? apart : null;
-
-        /// <summary>The notices handed apart, by the words that key them.</summary>
-        private static readonly System.Collections.Generic.Dictionary<string, (string Label, string Words, string Under)> NoticesApart = new()
-        {
-            [ConfirmAfresh] = ("Not Sent", "Window Changed", "Press Again"),
-        };
-
-        /// <summary>
         /// Why your computer refused a command, from its code alone, with the way on; null where the code
         /// says nothing more a person can act on. Never the refusal's message: the control plane writes it
         /// for developers, in its own terms ("An answer chooses the same option twice"). A refusal over a

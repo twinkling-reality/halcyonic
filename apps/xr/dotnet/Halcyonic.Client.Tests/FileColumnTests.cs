@@ -909,8 +909,7 @@ public class FileColumnTests
         Draw(host, column);
         column.FocusLeft();
         Assert.That(column.Steering.Armed, Is.Null);
-        var afresh = column.Frame!.Lines.Last();
-        Assert.That((afresh.RowLabel, afresh.Words, afresh.Under?.Text), Is.EqualTo(("Not Sent", "Window Changed", "Press Again")), "handed apart, never on a dot");
+        Assert.That(column.Frame!.Lines.Last().Words, Is.EqualTo(WorkspaceText.ConfirmAfresh));
         column.Act(FileScreens.Yes, null);
         Assert.That(host.Sent, Is.Empty);
     }
