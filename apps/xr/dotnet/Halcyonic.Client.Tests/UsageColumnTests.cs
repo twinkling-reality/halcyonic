@@ -356,9 +356,9 @@ public class UsageColumnTests
                "observation_position":0,"active_turn_id":null,"had_active_turn":false,"command_id":COMMAND,"observation_after":0,"observed_turn_id":null,
                "runtime_status":null,"summary":"Use test-model-1",
                "proposal":{"command_type":"assistant.model.choose","confirm":{},"review":"review-1","said":[],
-                 "confirm_words":"Use This Model","facts":[{"kind":"words","value":"test-model-1","theirs":true},{"kind":"words","value":"Test Hosted","theirs":true}],
-                 "warnings":[{"code":"costs_money","line":"You pay for it on your own Test Hosted account, through the access key from that account you added on this computer"},{"code":"price_unknown","line":"Halcyonic does not know the price, so it cannot say how much a request costs or show a total yet"}],
-                 "what_happens":"From now on the assistant answers on this model, and Test Hosted charges you money for each request."}}]}}
+                 "confirm_words":"Use This Model","facts":[],
+                 "warnings":[{"code":"costs_money","line":"Each request is charged to your own Test Hosted account, through the access key you added"},{"code":"price_unknown","line":"Halcyonic does not know the price, and cannot show a total yet"}],
+                 "what_happens":"From now on the assistant answers on test-model-1, and Test Hosted charges you money for each request."}}]}}
             """;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -481,11 +481,10 @@ public class UsageColumnTests
             // Its one review card: the host's line, Confirm the main action.
             await Until(usage, host, () => usage.Frame!.Footer.All.Any(each => each.Prompt.Id == ReviewCard.Confirm));
             var reviewed = Bar();
-            Assert.That(reviewed.Card!.Description!.Text, Is.EqualTo("From now on the assistant answers on this model, and Test Hosted charges you money for each request."));
-            // The host's own words, as the step carries them: its facts (theirs), its warning as Check First, its button.
-            Assert.That(reviewed.Card.Slots.Select(slot => slot.Value.Text), Is.EqualTo(new[] { "test-model-1", "Test Hosted" }));
-            Assert.That(reviewed.Card.Slots.All(slot => slot.Value.AllTheirs), Is.True);
-            Assert.That(reviewed.Card.Status?.Line, Does.Contain("You pay for it on your own Test Hosted account"));
+            Assert.That(reviewed.Card!.Description!.Text, Is.EqualTo("From now on the assistant answers on test-model-1, and Test Hosted charges you money for each request."));
+            // The host's own words, as the step carries them: the model named in its line, its warnings as Check First, its button.
+            Assert.That(reviewed.Card.Slots, Is.Empty, "the line names the model; no fact box stands for it");
+            Assert.That(reviewed.Card.Status?.Line, Does.Contain("Each request is charged to your own Test Hosted account"));
             Assert.That(reviewed.Column.First().Control.Words, Is.EqualTo("Use This Model"));
             Assert.That(reviewed.Column.First().Control.Action, Is.EqualTo(ReviewCard.Confirm));
             Assert.That(reviewed.Column.First().Main, Is.True);

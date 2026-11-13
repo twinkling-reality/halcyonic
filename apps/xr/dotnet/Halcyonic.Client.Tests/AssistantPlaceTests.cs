@@ -98,7 +98,7 @@ public class AssistantPlaceTests
             var list = await api.GetAssistantModelsAsync();
             var options = AssistantPlace.Options(list);
             Assert.That(options.Select(option => (option.Label, option.Detail)).Skip(1), Is.EqualTo(new[]
-            { ("muse-wonder-1.0", "On Meta, Costs Money"), ("muse-spark-1.3", "On Meta, Costs Money") }));
+            { ("muse-wonder-1.0", "On Meta, Paid by You"), ("muse-spark-1.3", "On Meta, Paid by You") }));
             Assert.That(options[0].Label, Is.EqualTo("This Computer's Model"));
 
             // The press, then the review card's one press.
