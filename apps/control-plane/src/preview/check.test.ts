@@ -721,11 +721,11 @@ describe('the laptop step that could not tell (run (a4), 2026-11-13)', () => {
   test('says when whether it reads on a laptop is not known, plainly, apart from whether it plays (VRIFY, the lead 22:40Z)', () => {
     assert.equal(
       laptopUnknown({ ...pressed, reading: readingOf('starter', { texts: [] }, null) }),
-      'Not known whether it reads on a laptop: no kit text could be measured.',
+      "Not known whether it reads on a laptop: no text from the app's built-in pages could be measured.",
     );
     assert.equal(
       laptopUnknown({ ...pressed, reading: readingOf('changed', { texts: [12] }, null) }),
-      "Not known whether it reads on a laptop: the app's own kit files changed.",
+      'Not known whether it reads on a laptop: the app changed the files the check reads its words through.',
     );
     const held = laptopUnknown({
       ...pressed,
@@ -734,7 +734,7 @@ describe('the laptop step that could not tell (run (a4), 2026-11-13)', () => {
     });
     assert.equal(
       held,
-      "The words were too small to read on a laptop when last measured (6 px high; at least 10 needed), and can no longer be measured: the app's own kit files changed.",
+      'The words were too small to read on a laptop when last measured (6 px high; at least 10 needed), and can no longer be measured: the app changed the files the check reads its words through.',
     );
     assert.ok((held ?? '').length <= 300, 'fits the findings');
     // A measured reading, too small or not, is a finding, not something the check could not tell.

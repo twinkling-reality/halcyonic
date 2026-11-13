@@ -385,7 +385,7 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     assert.equal(none.reading?.smallest_px, null);
     assert.equal(
       none.reading?.words,
-      'Not known whether it reads on a laptop: no kit text could be measured',
+      "Not known whether it reads on a laptop: no text from the app's built-in pages could be measured",
     );
     assert.equal(none.ready, true, 'it plays; whether it reads is said apart');
     const silent = await step(null);
@@ -413,7 +413,7 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     );
     assert.equal(
       changed.reading?.words,
-      "Not known whether it reads on a laptop: the app's own kit files changed",
+      'Not known whether it reads on a laptop: the app changed the files the check reads its words through',
     );
     assert.equal(changed.ready, true);
     assert.equal((await step(at(40), view(0.6), 'missing')).reading?.state, 'changed');
@@ -426,7 +426,7 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     assert.equal(held.reading?.last_measured_px, 6);
     assert.equal(
       held.reading?.words,
-      "The words were too small to read on a laptop when last measured (6 px high; at least 10 needed), and can no longer be measured: the app's own kit files changed",
+      'The words were too small to read on a laptop when last measured (6 px high; at least 10 needed), and can no longer be measured: the app changed the files the check reads its words through',
     );
     assert.equal(held.ready, false);
     const silent = await step(at(), view(0.5), 'starter', measuredAt(6));
