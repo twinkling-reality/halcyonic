@@ -125,6 +125,11 @@ interface ProjectState {
   madeFrom: ProjectId | null;
   /** The project's own rules while on (E5): the file and the digest the person chose. */
   rules?: { readonly file: 'AGENTS.md' | 'CLAUDE.md'; readonly sha256: string };
+  /**
+   * When the person took it off the list (ADR 0063). Every read of the host's own keeps the project whole;
+   * only what a person or a client reads leaves it out, by `listed`.
+   */
+  removedAt?: Timestamp;
   readonly createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -264,9 +269,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * `project.world.read` gives it (ADR 0049). 19: a request's prepared commands hold proposals and presses beside
  * instructions (ADR 0060); each raised past the base's again at the rebase. 20: where the person chose the assistant
  * to run (`assistantModel`, ADR 0030, 2026-11-12). 21: what each execution's reported turns used (`usage`).
- * 22: the spending limit each execution runs under (`spendingCapUsd`).
+ * 22: the spending limit each execution runs under (`spendingCapUsd`). 23: when a project was taken off the list
+ * (`removedAt`, ADR 0063).
  */
-export const PROJECTION_STATE_FORMAT = 22;
+export const PROJECTION_STATE_FORMAT = 23;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -749,6 +755,17 @@ export class Projection {
     return state === undefined ? undefined : this.#projectView(state);
   }
 
+  /**
+   * Whether the project is on the list (ADR 0063): it exists and was not taken off. The one question every
+   * place a person or a client reads from asks, so a project taken off, its tasks and their executions are
+   * left out there. The host's own reads (secrets kept, folders denied to agents, a VR version's original)
+   * never ask it: they keep the project whole.
+   */
+  listed(projectId: string): boolean {
+    const state = this.#projects.get(projectId as ProjectId);
+    return state !== undefined && state.removedAt === undefined;
+  }
+
   /** The project this one was made as a VR version of (M1.8c-1), or null. */
   madeFrom(projectId: string): ProjectId | null {
     return this.#projects.get(projectId as ProjectId)?.madeFrom ?? null;
@@ -928,6 +945,34 @@ export class Projection {
 
   projects(): ProjectView[] {
     return Array.from(this.#projects.values(), this.#projectView);
+  }
+
+  /** The projects on the list (ADR 0063), for what a person or a client reads. */
+  listedProjects(): ProjectView[] {
+    return this.projects().filter((project) => project.removed_at === undefined);
+  }
+
+  /** The tasks of projects on the list (ADR 0063), all or one project's, for what a person or a client reads. */
+  listedWorkstreams(projectId?: string): WorkstreamView[] {
+    return this.workstreams(projectId).filter((workstream) => this.listed(workstream.project_id));
+  }
+
+  /** The executions of projects on the list (ADR 0063), for what a person or a client reads. */
+  listedExecutions(): ExecutionView[] {
+    return this.executions().filter((execution) => this.listed(execution.project_id));
+  }
+
+  /**
+   * The commands `commands` gives, less those of a project taken off the list but its own removal, whose
+   * outcome a client reconnecting after it still reads (ADR 0063).
+   */
+  listedCommands(finishedLimit: number): CommandView[] {
+    return this.commands(finishedLimit).filter(
+      (command) =>
+        command.project_id === null ||
+        command.command_type === 'project.remove_from_list' ||
+        this.listed(command.project_id),
+    );
   }
 
   workstreams(projectId?: string): WorkstreamView[] {
@@ -1275,9 +1320,11 @@ export class Projection {
    * Why the project's files may be changing now, or null when nothing of Halcyonic's can be writing
    * them: an execution that is starting, running, verifying or waiting; one whose state became
    * unknown other than by a restart, after which no runtime session survives; or a command in the
-   * project still waiting for its outcome, such as a start or a restore.
+   * project still waiting for its outcome, such as a start or a restore. `except` is a command of the
+   * project's that does not count, as a removal does not when it reads again before it records, and
+   * `requests` false leaves out the assistant's own request commands, which write nothing (ADR 0063).
    */
-  projectBusy(projectId: string): string | null {
+  projectBusy(projectId: string, except?: string, requests = true): string | null {
     for (const state of this.#executionsByProject.get(projectId as ProjectId) ?? []) {
       const status = deriveExecutionStatus(state);
       if (ACTIVE_STATUSES.has(status)) return `A task in this project is ${BUSY_WORDS[status]}.`;
@@ -1285,7 +1332,11 @@ export class Projection {
         return 'A task in this project may still be running: its state is unknown.';
     }
     for (const command of this.#pendingCommands) {
-      if (command.projectId === projectId)
+      if (
+        command.projectId === projectId &&
+        command.envelope.command_id !== except &&
+        (requests || !command.envelope.command_type.startsWith('workspace.request.'))
+      )
         return `A ${command.envelope.command_type} command in this project is still in progress.`;
     }
     return null;
@@ -1483,6 +1534,49 @@ export class Projection {
           check.changed = true;
         });
         changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.removed_from_list': {
+        const project = this.#projects.get(event.project_id);
+        if (project === undefined) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        if (project.removedAt !== undefined) {
+          notes.push(
+            note('out_of_order', event, `project ${event.project_id} is already off the list`),
+          );
+          return;
+        }
+        project.removedAt = event.occurred_at;
+        project.updatedAt = event.ingested_at;
+        changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.returned': {
+        const project = this.#projects.get(event.project_id);
+        if (project === undefined) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        if (project.removedAt === undefined) {
+          notes.push(note('out_of_order', event, `project ${event.project_id} is on the list`));
+          return;
+        }
+        delete project.removedAt;
+        project.location = event.payload.location;
+        project.updatedAt = event.ingested_at;
+        // The folder was bound again, as `project.location_set` binds one: its checks may no longer hold.
+        this.#updateProjectChecks(event.project_id, changes, (check) => {
+          check.changed = true;
+        });
+        // A client dropped the project's tasks when it went; the change that brings it back carries them all.
+        changes.projects.add(event.project_id);
+        for (const workstream of this.#workstreams.values())
+          if (workstream.projectId === event.project_id)
+            changes.workstreams.add(workstream.workstreamId);
+        for (const execution of this.#executionsByProject.get(event.project_id) ?? [])
+          changes.executions.add(execution.executionId);
         return;
       }
       case 'project.catalog_linked':
@@ -2630,6 +2724,7 @@ export class Projection {
       view.own_check = shown;
     }
     if (state.rules !== undefined) view.rules = { ...state.rules };
+    if (state.removedAt !== undefined) view.removed_at = state.removedAt;
     return view;
   };
 
@@ -2684,10 +2779,13 @@ export class Projection {
   }
 
   #materialize(changes: ChangeSet): EntityChanges {
+    // A project taken off the list is carried only as its own view, with `removed_at`, so a client drops
+    // it; nothing of its tasks reaches a client while it is off (ADR 0063).
+    const listed = (state: { readonly projectId: ProjectId }) => this.listed(state.projectId);
     return {
       projects: pickViews(changes.projects, this.#projects, this.#projectView),
-      workstreams: pickViews(changes.workstreams, this.#workstreams, this.#workstreamView),
-      executions: pickViews(changes.executions, this.#executions, this.#view),
+      workstreams: pickViews(changes.workstreams, this.#workstreams, this.#workstreamView, listed),
+      executions: pickViews(changes.executions, this.#executions, this.#view, listed),
       commands: pickViews(changes.commands, this.#commands, toCommandView),
     };
   }
@@ -2699,12 +2797,17 @@ function boundTitle(title: string | null | undefined): string | null {
   return chars.length <= 180 ? title : `${chars.slice(0, 179).join('')}…`;
 }
 
-function pickViews<K, S, V>(ids: Set<K>, map: Map<K, S>, view: (state: S) => V): V[] {
+function pickViews<K, S, V>(
+  ids: Set<K>,
+  map: Map<K, S>,
+  view: (state: S) => V,
+  shown: (state: S) => boolean = () => true,
+): V[] {
   if (ids.size === 0) return [];
   const out: V[] = [];
   for (const id of ids) {
     const state = map.get(id);
-    if (state !== undefined) out.push(view(state));
+    if (state !== undefined && shown(state)) out.push(view(state));
   }
   return out;
 }

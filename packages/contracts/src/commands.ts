@@ -316,6 +316,16 @@ export const ProjectUnlinkCatalogCommand = defineCommand(
 );
 
 /**
+ * Takes the project off the list on this computer (ADR 0063): its folder and everything in it stay as
+ * they are, nothing of it is deleted, and every record of it stays in the journal. `review` is the
+ * digest of the review the person read (ADR 0051).
+ */
+export const ProjectRemoveFromListCommand = defineCommand(
+  'project.remove_from_list',
+  Type.Object({ project_id: ProjectId, review: Type.Optional(ReviewDigest) }, strict),
+);
+
+/**
  * Makes a task in a project. `from_checkpoint` starts it from one of the project's own versions (ADR
  * 0045): its copy is the project's folder turned into that version at its first start, and the
  * project's folder is not touched; its work reaches the project only when the person adds it.
@@ -589,6 +599,7 @@ export const COMMAND_VARIANTS = [
   ProjectSecretRemoveCommand,
   ProjectLinkCatalogCommand,
   ProjectUnlinkCatalogCommand,
+  ProjectRemoveFromListCommand,
   WorkstreamCreateCommand,
   WorkstreamAddToProjectCommand,
   WorkstreamFitToProjectCommand,
@@ -632,6 +643,7 @@ export const CommandType = Type.Union([
   Type.Literal('project.secret.remove'),
   Type.Literal('project.link_catalog'),
   Type.Literal('project.unlink_catalog'),
+  Type.Literal('project.remove_from_list'),
   Type.Literal('workstream.create'),
   Type.Literal('workstream.add_to_project'),
   Type.Literal('workstream.fit_to_project'),
@@ -732,7 +744,18 @@ export const CommandResult = Type.Union([
     { kind: Type.Literal('workspace_request_created'), request_id: WorkspaceRequestId },
     strict,
   ),
-  Type.Object({ kind: Type.Literal('project_created'), project_id: ProjectId }, strict),
+  Type.Object(
+    {
+      kind: Type.Literal('project_created'),
+      project_id: ProjectId,
+      /**
+       * True when adding a folder brought back the project taken off the list that held it (ADR 0063): the
+       * same project, with its own name, tasks and history, not a new one. Absent for a new project.
+       */
+      returned: Type.Optional(Type.Boolean()),
+    },
+    strict,
+  ),
   Type.Object({ kind: Type.Literal('workstream_created'), workstream_id: WorkstreamId }, strict),
   Type.Object({ kind: Type.Literal('execution_created'), execution_id: ExecutionId }, strict),
   Type.Object({ kind: Type.Literal('project_restored'), checkpoint_id: CheckpointId }, strict),

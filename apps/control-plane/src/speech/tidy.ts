@@ -1,3 +1,4 @@
+import type { Projection } from '@halcyonic/domain';
 import { PROMPT_WORDS } from './whisper.ts';
 
 /** Hesitation sounds a draft drops: whole words only, in any case; not "mm", a unit ("5 mm"). */
@@ -121,6 +122,11 @@ function namePattern(name: string): string {
  * project's name, trimmed, once regardless of case, with letters, at most 60 characters, 200 in
  * all.
  */
+/** The names a draft is tidied with, from the projects on the list only (ADR 0063). */
+export function listedSpokenNames(projection: Pick<Projection, 'listedProjects'>): string[] {
+  return spokenNames(projection.listedProjects().map((project) => project.name));
+}
+
 export function spokenNames(projectNames: readonly string[]): string[] {
   const names: string[] = [];
   const seen = new Set<string>();

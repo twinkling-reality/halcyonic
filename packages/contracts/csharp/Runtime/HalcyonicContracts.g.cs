@@ -89,6 +89,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "project.secret.remove")] ProjectSecretRemove,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.remove_from_list")] ProjectRemoveFromList,
         [global::System.Runtime.Serialization.EnumMember(Value = "workstream.create")] WorkstreamCreate,
         [global::System.Runtime.Serialization.EnumMember(Value = "workstream.add_to_project")] WorkstreamAddToProject,
         [global::System.Runtime.Serialization.EnumMember(Value = "workstream.fit_to_project")] WorkstreamFitToProject,
@@ -1477,6 +1478,67 @@ namespace Halcyonic.Contracts
         public ErrorInfo Reason { get; set; } = default!;
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(RemovalReviewResponseConverter))]
+    public abstract class RemovalReviewResponse
+    {
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class RemovalReviewResponseConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(RemovalReviewResponse).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            RemovalReviewResponse value = tag switch
+            {
+                "available" => new AvailableRemoval(),
+                "unavailable" => new UnavailableRemoval(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "RemovalReviewResponse has no string availability."
+                    : "Unknown availability \"" + tag + "\" for RemovalReviewResponse."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableRemoval : RemovalReviewResponse
+    {
+        protected override string Discriminator => "available";
+
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
+        public ActionReview Review { get; set; } = default!;
+    }
+
+    public sealed class UnavailableRemoval : RemovalReviewResponse
+    {
+        protected override string Discriminator => "unavailable";
+
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
     public sealed class ShareCode
     {
         [global::Newtonsoft.Json.JsonProperty("size", Required = global::Newtonsoft.Json.Required.Always)]
@@ -2485,6 +2547,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("rules", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectRulesOn? Rules { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("removed_at", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? RemovedAt { get; set; }
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -3296,6 +3361,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("returned", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? Returned { get; set; }
     }
 
     public sealed class WorkstreamCreatedResult : CommandResult
@@ -3753,6 +3821,16 @@ namespace Halcyonic.Contracts
     {
         [global::Newtonsoft.Json.JsonProperty("previous", Required = global::Newtonsoft.Json.Required.Always)]
         public CatalogRepositoryRef Previous { get; set; } = default!;
+    }
+
+    public sealed class ProjectRemovedFromListPayload
+    {
+    }
+
+    public sealed class ProjectReturnedPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("location", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectLocation Location { get; set; } = default!;
     }
 
     public sealed class ProjectCheckpointRecordedPayload
@@ -4866,6 +4944,15 @@ namespace Halcyonic.Contracts
         public string ProjectId { get; set; } = default!;
     }
 
+    public sealed class ProjectRemoveFromListPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? Review { get; set; }
+    }
+
     public sealed class WorkstreamCreatePayload
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -5198,6 +5285,7 @@ namespace Halcyonic.Contracts
                 "project.secret.remove" => new ProjectSecretRemoveCommand(),
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
                 "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
+                "project.remove_from_list" => new ProjectRemoveFromListCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
                 "workstream.add_to_project" => new WorkstreamAddToProjectCommand(),
                 "workstream.fit_to_project" => new WorkstreamFitToProjectCommand(),
@@ -5405,6 +5493,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectUnlinkCatalogPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectRemoveFromListCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.remove_from_list";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectRemoveFromListPayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreateCommand : CommandEnvelope
@@ -6206,6 +6302,8 @@ namespace Halcyonic.Contracts
                 "project.made_from" => new ProjectMadeFromEvent(),
                 "project.catalog_linked" => new ProjectCatalogLinkedEvent(),
                 "project.catalog_unlinked" => new ProjectCatalogUnlinkedEvent(),
+                "project.removed_from_list" => new ProjectRemovedFromListEvent(),
+                "project.returned" => new ProjectReturnedEvent(),
                 "project.checkpoint.recorded" => new ProjectCheckpointRecordedEvent(),
                 "project.checkpoint.failed" => new ProjectCheckpointFailedEvent(),
                 "project.checkpoints.pruned" => new ProjectCheckpointsPrunedEvent(),
@@ -6349,6 +6447,22 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectCatalogUnlinkedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectRemovedFromListEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.removed_from_list";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectRemovedFromListPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectReturnedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.returned";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectReturnedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectCheckpointRecordedEvent : EventEnvelope

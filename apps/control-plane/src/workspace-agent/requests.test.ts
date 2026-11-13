@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import type {
   CommandId,
   CommandOf,
+  EventEnvelope,
   ExecutionId,
   Principal,
   RuntimeId,
@@ -14,8 +15,10 @@ import type {
 } from '@halcyonic/contracts';
 import type { ObservationSink, RuntimeAdapter, RuntimeObservation } from '@halcyonic/runtime-core';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
+import { removalReview } from '../core/removal.ts';
 import { reviewDigest } from '../core/review.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
+import { shownEvent } from '../http/realtime.ts';
 import { registerRoutes } from '../http/routes.ts';
 import { createHttpServer } from '../http/server.ts';
 import { createUuidV7Generator } from '../ids.ts';
@@ -1966,6 +1969,51 @@ test('a request about all work lists the projects, reads a task of the second, a
   }
 });
 
+test('a project taken off the list is in no read of all work, nor in the names given to the model (ADR 0063)', async () => {
+  const seen: ToolMessage[][] = [];
+  const f = await fixture({
+    projectName: 'Garden 0',
+    turn: async (messages) => {
+      seen.push([...messages]);
+      return seen.length === 1
+        ? answer([{ name: 'read_projects', arguments: {} }])
+        : answer([], 'One project.');
+    },
+  });
+  try {
+    const made = f.controlPlane.commands.submit(
+      f.commands.createProject('Lantern Off'),
+      'internal',
+    );
+    const offId =
+      made.command?.result?.kind === 'project_created' ? made.command.result.project_id : null;
+    assert.ok(offId !== null);
+    const card = removalReview(f.controlPlane.projection, offId);
+    assert.ok(card.ok);
+    const removed = f.controlPlane.commands.submit(
+      {
+        ...f.commands.createProject('unused'),
+        command_type: 'project.remove_from_list',
+        payload: { project_id: offId, review: card.review.digest },
+      },
+      'internal',
+    );
+    assert.equal(removed.command?.status, 'completed');
+    const outcome = submitAllWork(f);
+    assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+    for (let i = 0; i < 8; i++) await settle();
+    const read = (seen[1] ?? []).find(
+      (message) => message.role === 'tool' && message.tool_name === 'read_projects',
+    );
+    assert.ok(read, 'the second turn holds the projects list');
+    const list = JSON.parse(read.content) as { projects_total: number };
+    assert.equal(list.projects_total, 1);
+    assert.equal(JSON.stringify(seen).includes('Lantern Off'), false);
+  } finally {
+    await f.close();
+  }
+});
+
 test('a request about thirteen projects reads every row whole, not a shortened excerpt', async () => {
   const seen: ToolMessage[][] = [];
   const f = await fixture({
@@ -2872,6 +2920,83 @@ test("the person's one press confirms a waiting proposal through resume: only it
     assert.notEqual(confirm(digest).command?.status, 'completed');
     for (let i = 0; i < 4; i++) await settle();
     assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before + 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test('the assistant offers Remove From List in a request about the project, and the press takes it off; the request then ends (ADR 0063)', async () => {
+  let turn = 0;
+  const f = await fixture({
+    turn: async () => {
+      turn++;
+      return turn === 1
+        ? answer([
+            {
+              name: 'propose_command',
+              arguments: { command_type: 'project.remove_from_list', values: {} },
+            },
+          ])
+        : answer([], 'It is off the list.');
+    },
+  });
+  try {
+    // A project with nothing at work, as the fixture's own has a task running.
+    const made = f.controlPlane.commands.submit(f.commands.createProject('Old Garden'), 'internal');
+    const projectId =
+      made.command?.result?.kind === 'project_created' ? made.command.result.project_id : null;
+    assert.ok(projectId !== null);
+    const id = submitIn(f, 'Take this project off my list.', { project_id: projectId });
+    for (let i = 0; i < 8; i++) await settle();
+    const step = f.controlPlane.projection.workspaceRequest(id)?.steps.find((s) => s.proposal);
+    assert.equal(
+      step?.status,
+      'waiting',
+      JSON.stringify(f.controlPlane.projection.workspaceRequest(id)?.steps),
+    );
+    assert.equal(step?.proposal?.command_type, 'project.remove_from_list');
+    // What a live client receives, judged at each event's publish as realtime does (AUDIT2, 2026-11-13).
+    const shown: EventEnvelope[] = [];
+    const unsubscribe = f.controlPlane.publisher.subscribe((published) => {
+      if (shownEvent(f.controlPlane.projection, published.event)) shown.push(published.event);
+    });
+    const pressed = f.controlPlane.commands.submit(
+      {
+        ...f.command('resume', id, null),
+        payload: {
+          request_id: id as never,
+          text: null,
+          confirm: { step_id: step?.step_id as never, review: step?.proposal?.review ?? '' },
+        },
+      } as never,
+      'http',
+      { kind: 'local' },
+    );
+    assert.equal(pressed.disposition, 'accepted', JSON.stringify(pressed.command?.rejection));
+    for (let i = 0; i < 8; i++) await settle();
+    assert.equal(f.controlPlane.projection.listed(projectId), false);
+    const after = f.controlPlane.projection.workspaceRequest(id);
+    assert.equal(after?.steps.find((s) => s.step_id === step?.step_id)?.status, 'confirmed');
+    assert.notEqual(after?.status, 'running');
+    unsubscribe();
+    // A client sees the project leave, the step confirmed and the request end, not a card left waiting.
+    assert.ok(shown.some((event) => event.event_type === 'project.removed_from_list'));
+    assert.ok(
+      shown.some(
+        (event) =>
+          event.event_type === 'workspace.request.step_recorded' &&
+          event.payload.step.step_id === step?.step_id &&
+          event.payload.step.status === 'confirmed',
+      ),
+      'the step confirmed is shown',
+    );
+    const ended = shown.filter(
+      (event) =>
+        event.event_type === 'workspace.request.changed' &&
+        event.payload.request_id === id &&
+        event.payload.status === after?.status,
+    );
+    assert.equal(ended.length > 0, true, 'the request ending is shown');
   } finally {
     await f.close();
   }

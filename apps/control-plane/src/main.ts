@@ -75,7 +75,7 @@ import {
   settingsInUse,
   withSettings,
 } from './settings.ts';
-import { spokenNames } from './speech/tidy.ts';
+import { listedSpokenNames } from './speech/tidy.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
 import { HostStarters, originalFolderOf, originalRefusal } from './starters.ts';
@@ -406,7 +406,7 @@ async function main(): Promise<void> {
   const transcriptions = new Transcriptions({
     engine: speech,
     clock: systemClock,
-    names: () => spokenNames(controlPlane.projection.projects().map((project) => project.name)),
+    names: () => listedSpokenNames(controlPlane.projection),
   });
   const companion = new Companion({ config: config.companion, clock: systemClock });
   const understanding = salidiumUnderstandingFor(config.dataDir),
@@ -536,7 +536,7 @@ async function main(): Promise<void> {
               reopensPage: process.argv.includes('--open-pairing-page'),
               // What is shared now, for Copy and Stop beside the steps (ADR 0054).
               shared: () =>
-                controlPlane.projection.projects().flatMap((project) => {
+                controlPlane.projection.listedProjects().flatMap((project) => {
                   const share = controlPlane.projection.share(project.project_id);
                   return share === undefined
                     ? []
@@ -551,7 +551,7 @@ async function main(): Promise<void> {
                         controlPlane.commands.submit(command, via, principal),
                       store: controlPlane.projectSecrets,
                       projects: () =>
-                        controlPlane.projection.projects().map((project) => ({
+                        controlPlane.projection.listedProjects().map((project) => ({
                           project_id: project.project_id,
                           name: project.name,
                           secrets: project.secrets ?? [],

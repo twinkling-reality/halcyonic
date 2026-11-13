@@ -2,6 +2,7 @@ import {
   type CommandEnvelope,
   type CommandPolicy,
   type CommandType,
+  type EventEnvelope,
   isDeviceEvent,
   type Principal,
   parseClientMessage,
@@ -9,7 +10,7 @@ import {
   type ServerMessage,
   type ValidationIssue,
 } from '@halcyonic/contracts';
-import { COMMAND_POLICY } from '@halcyonic/domain';
+import { COMMAND_POLICY, type Projection } from '@halcyonic/domain';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
 import type { ControlPlane } from '../core/control-plane.ts';
@@ -233,6 +234,7 @@ class RealtimeConnection {
       // Who may reach the control plane is not work: clients never receive device events, and the
       // gap they leave in positions is harmless (docs/internal/architecture/REALTIME.md).
       if (isDeviceEvent(published.event)) return;
+      if (!shownEvent(this.#controlPlane.projection, published.event)) return;
       this.#sendText(eventMessage(published));
     });
     this.#phase = 'live';
@@ -304,6 +306,30 @@ class RealtimeConnection {
     if (this.#heartbeat !== null) clearInterval(this.#heartbeat);
     this.#heartbeat = null;
   }
+}
+
+/**
+ * Whether a client may receive the event (ADR 0063): none of a project taken off the list reaches one,
+ * but the removal itself and its command's own events, which tell a client to drop the project, and the
+ * person's own requests to the assistant and their commands' events, so a request about the project is
+ * seen to end, the one that pressed Remove included (AUDIT2, 2026-11-13). The gap left in positions is
+ * harmless, as device events leave one. The projection has applied the event.
+ */
+export function shownEvent(projection: Projection, event: EventEnvelope): boolean {
+  const projectId = (event as { readonly project_id?: string | null }).project_id ?? null;
+  if (projectId === null || projection.listed(projectId)) return true;
+  if (event.event_type === 'project.removed_from_list') return true;
+  if (event.event_type.startsWith('workspace.request.')) return true;
+  if (event.event_type === 'command.completed' || event.event_type === 'command.failed')
+    return shownCommand(event.payload.command_type);
+  if (event.event_type === 'command.accepted')
+    return shownCommand(event.payload.command.command_type);
+  return false;
+}
+
+/** The commands whose events a client still receives for a project taken off the list (ADR 0063). */
+function shownCommand(commandType: string): boolean {
+  return commandType === 'project.remove_from_list' || commandType.startsWith('workspace.request.');
 }
 
 /** Every client gets the same policies until per-device authorization exists (SECURITY.md). */

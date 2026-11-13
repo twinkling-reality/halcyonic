@@ -386,10 +386,13 @@ export function attachWorldReader(attachment: WorldReaderAttachment): WorldReade
   const detach = attachment.publisher.subscribe(({ event }) => {
     if (
       event.event_type !== 'project.starter_applied' &&
-      event.event_type !== 'execution.files.observed'
+      event.event_type !== 'execution.files.observed' &&
+      event.event_type !== 'project.returned'
     )
       return;
     const projectId = event.project_id;
+    // A project taken off the list has its folder read by nothing; its return reads it again (ADR 0063).
+    if (!attachment.projection.listed(projectId)) return;
     const project = attachment.projection.project(projectId);
     const file = described(project?.starter ?? null);
     if (project === undefined || file === null || project.location === null) return;
@@ -404,7 +407,7 @@ export function attachWorldReader(attachment: WorldReaderAttachment): WorldReade
   });
   const readUnread = async (): Promise<void> => {
     const waiting: Promise<void>[] = [];
-    for (const project of attachment.projection.projects()) {
+    for (const project of attachment.projection.listedProjects()) {
       const file = described(project.starter);
       if (file === null || project.location === null) continue;
       if (attachment.projection.world(project.project_id) !== undefined) continue;

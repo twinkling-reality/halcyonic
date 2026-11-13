@@ -113,7 +113,8 @@ Every entry may be proposed in any of the three scopes. This amends ADR 0030: a 
 request may propose. They are never sayable:
 - pairing and a device's rights;
 - turning pairing or a share on;
-- deleting a project;
+- deleting a project (taking one off the list is not deleting: it deletes nothing, adding its folder again undoes it,
+  and it is sayable, ADR 0063, the lead's decision of 2026-11-13);
 - `execution.respond_to_approval` and `execution.answer_question` (AUDIT2's change 2);
 - every `workspace.request.*` command;
 - any entry with a `secret` need, whose value is typed in a field, never spoken or passed through a model.

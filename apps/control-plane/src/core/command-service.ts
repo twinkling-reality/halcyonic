@@ -43,6 +43,7 @@ import {
   hereActions,
   journaledRejection,
   type Projection,
+  removalRefusal,
 } from '@halcyonic/domain';
 import {
   type Clock,
@@ -121,6 +122,7 @@ import { readRules, rulesReview, withRules } from './project-rules.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
 import type { Recorder } from './recorder.ts';
 import { fitted, type Redaction, withinLimit } from './redaction.ts';
+import { removalDigest, removalFacts } from './removal.ts';
 import { addReview, locationReview } from './review.ts';
 import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from './runtime-models.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
@@ -548,6 +550,19 @@ export class CommandService {
             "The task's files changed since they were shown. Look at them again, then add.",
           );
     }
+    if (command.command_type === 'project.remove_from_list') {
+      // Always the card first, from anyone (the lead, 2026-11-13): it names the project and its folder.
+      const projectId = command.payload.project_id;
+      const facts = removalFacts(this.#deps.projection, projectId);
+      if (command.payload.review === undefined)
+        return refuse(
+          'review_required',
+          'Taking a project off the list needs the review the person read first.',
+        );
+      return facts !== null && command.payload.review === removalDigest(projectId, facts)
+        ? admission
+        : refuse('review_stale', 'The project changed since the review was read. Read it again.');
+    }
     if (command.command_type === 'project.rules.set') {
       if (!command.payload.on) return admission;
       // On only with the review of the file as it reads now (ADR 0051): the person read these words.
@@ -795,8 +810,9 @@ export class CommandService {
       },
       locations: () =>
         this.#deps.locations.list(
+          // A folder whose project was taken off the list reads as one to add, the way it comes back (ADR 0063).
           this.#deps.projection
-            .projects()
+            .listedProjects()
             .flatMap((project) =>
               project.location === null
                 ? []
@@ -826,7 +842,8 @@ export class CommandService {
     const { projection } = this.#deps;
     if (scope.project_id === null)
       return scope.workstream_id === null && scope.execution_id === null;
-    if (projection.project(scope.project_id) === undefined) return false;
+    // A project taken off the list holds no place: nothing is offered or listed there, its folder not read (ADR 0063).
+    if (!projection.listed(scope.project_id)) return false;
     if (scope.workstream_id === null) return scope.execution_id === null;
     const task = projection.workstream(scope.workstream_id);
     return (
@@ -1014,6 +1031,22 @@ export class CommandService {
       rejection: { code, message },
     });
     switch (command.command_type) {
+      case 'project.remove_from_list': {
+        // A restart's tasks are re-attached in their own time; one still being re-attached may come back at work.
+        const attaching = this.#deps.projection
+          .executions()
+          .some(
+            (execution) =>
+              execution.project_id === command.payload.project_id &&
+              this.#deps.reattacher?.attaching(execution.execution_id) === true,
+          );
+        return attaching
+          ? refuse(
+              'invalid_state',
+              "This project's tasks are still being checked after the restart. Try again in a moment.",
+            )
+          : admission;
+      }
       case 'project.link_catalog': {
         const links = this.#deps.catalogLinks;
         if (!links)
@@ -1484,8 +1517,47 @@ export class CommandService {
           command.payload.name,
           command.payload.location,
         );
-        if (made !== null)
-          this.#complete(command, made, { kind: 'project_created', project_id: made.project_id });
+        if (made !== null) {
+          const { returned, ...scope } = made;
+          this.#complete(command, scope, {
+            kind: 'project_created',
+            project_id: made.project_id,
+            ...(returned === true ? { returned } : {}),
+          });
+        }
+        return;
+      }
+      case 'project.remove_from_list': {
+        // Read again just before it records, leaving out its own command (ADR 0063): what started or
+        // changed since the review leaves the project on the list, and nothing was done.
+        const projectId = command.payload.project_id;
+        const project = this.#deps.projection.project(projectId);
+        const facts = removalFacts(this.#deps.projection, projectId);
+        const refusal =
+          project === undefined || facts === null
+            ? 'This project is not on the list.'
+            : (removalRefusal(this.#deps.projection, project, command.command_id) ??
+              (command.payload.review === removalDigest(projectId, facts)
+                ? null
+                : 'Something changed in this project meanwhile. It is still on the list. Read the card again.'));
+        if (refusal !== null) {
+          this.#fail(command, admission.scope, {
+            code: 'invalid_state',
+            message: refusal,
+            effect: 'none',
+          });
+          return;
+        }
+        recorder.record(
+          controlPlaneDraft(
+            'project.removed_from_list',
+            { project_id: projectId, workstream_id: null, execution_id: null },
+            {},
+            this.#now(),
+            cause,
+          ),
+        );
+        this.#complete(command, admission.scope, null);
         return;
       }
       case 'project.make_vr_version': {
@@ -2796,7 +2868,7 @@ export class CommandService {
     cause: Cause,
     name: string,
     choice: ProjectLocationChoice | null,
-  ): { project_id: ProjectId; workstream_id: null; execution_id: null } | null {
+  ): { project_id: ProjectId; workstream_id: null; execution_id: null; returned?: true } | null {
     const { recorder } = this.#deps;
     let location: ProjectLocation | null = null;
     if (choice !== null) {
@@ -2810,6 +2882,22 @@ export class CommandService {
         return null;
       }
       location = bound.location;
+    }
+    // Adding again the folder of a project taken off the list brings that project back, the same one
+    // with all it had (ADR 0063): the one most recently taken off, when more than one held the folder.
+    if (choice?.kind === 'existing_folder' && location !== null) {
+      const path = location.path;
+      const off = this.#deps.projection
+        .projects()
+        .filter((project) => project.removed_at !== undefined && project.location?.path === path)
+        .sort((a, b) => (b.removed_at ?? '').localeCompare(a.removed_at ?? ''))[0];
+      if (off !== undefined) {
+        const scope = { project_id: off.project_id, workstream_id: null, execution_id: null };
+        recorder.record(
+          controlPlaneDraft('project.returned', scope, { location }, this.#now(), cause),
+        );
+        return { ...scope, returned: true };
+      }
     }
     let applied: {
       starter_id: string;

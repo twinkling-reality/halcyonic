@@ -1,7 +1,7 @@
 import Type, { type Static } from 'typebox';
 import { ReviewDigest } from './checkpoints.ts';
 import { CommandType } from './commands.ts';
-import { ExecutionId, Nullable, ProjectId, Text, WorkstreamId } from './primitives.ts';
+import { ErrorInfo, ExecutionId, Nullable, ProjectId, Text, WorkstreamId } from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -279,3 +279,13 @@ export const ActionReview = Type.Object(
   strict,
 );
 export type ActionReview = Static<typeof ActionReview>;
+
+/**
+ * Taking a project off the list's review (ADR 0063), read before its one press: the card, or why it cannot
+ * be taken off now, in words, such as a task still at work.
+ */
+export const RemovalReviewResponse = Type.Union([
+  Type.Object({ availability: Type.Literal('available'), review: ActionReview }, strict),
+  Type.Object({ availability: Type.Literal('unavailable'), reason: ErrorInfo }, strict),
+]);
+export type RemovalReviewResponse = Static<typeof RemovalReviewResponse>;

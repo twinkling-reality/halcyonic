@@ -778,8 +778,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       if (
         !this.#owns(id, owner ?? null) ||
         request.journal_id !== this.#o.controlPlane.journal.info.journal_id ||
-        (request.project_id !== null &&
-          !this.#o.controlPlane.projection.project(request.project_id))
+        // A project taken off the list ends every request about it at its next step (ADR 0063).
+        (request.project_id !== null && !this.#o.controlPlane.projection.listed(request.project_id))
       ) {
         this.#changed(request, 'interrupted', request.reply);
         return null;
@@ -791,6 +791,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     if (
       !this.#owns(id, owner ?? null) ||
       request.journal_id !== this.#o.controlPlane.journal.info.journal_id ||
+      !this.#o.controlPlane.projection.listed(request.project_id) ||
       !work ||
       work.project_id !== request.project_id ||
       work.current_execution_id !== request.execution_id ||
@@ -1831,7 +1832,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       return { data: { availability: 'unavailable', reason: 'not_offered_here' } };
     }
     if (name === 'read_projects') {
-      const projects = plane.projection.projects().slice(0, 64);
+      const projects = plane.projection.listedProjects().slice(0, 64);
       this.#projectLists.set(
         request.request_id,
         projects.map((project) => project.project_id),
@@ -1840,7 +1841,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       return {
         data: {
           // The whole count, so the model never says a number it did not read (the 30B said three of ten).
-          projects_total: plane.projection.projects().length,
+          projects_total: plane.projection.listedProjects().length,
           projects: projects.map((project, index) => {
             const runs = plane.projection
               .workstreams(project.project_id)
@@ -1870,7 +1871,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
               sent_back_on_its_own_now: runs.some((run) => run?.auto_fix?.state === 'fixing'),
             };
           }),
-          more_projects: Math.max(0, plane.projection.projects().length - projects.length),
+          more_projects: Math.max(0, plane.projection.listedProjects().length - projects.length),
         },
       };
     }
@@ -1897,7 +1898,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       }
       this.#chosen.set(request.request_id, projectId);
     }
-    const project = projectId === undefined ? undefined : plane.projection.project(projectId);
+    // A project taken off the list since the projects were read is read as none (ADR 0063).
+    const project =
+      projectId === undefined || !plane.projection.listed(projectId)
+        ? undefined
+        : plane.projection.project(projectId);
     if (project === undefined || projectId === undefined) {
       this.#step(request, name, 'rejected', 'No project is bound or chosen for this read.');
       return {
@@ -2001,7 +2006,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       ...plane.projection.workspaceRequestDirections(request.request_id),
       ...(project ? [project.name] : []),
       ...(task ? [task.title] : []),
-      ...(request.project_id === null ? plane.projection.projects().map((p) => p.name) : []),
+      ...(request.project_id === null ? plane.projection.listedProjects().map((p) => p.name) : []),
     ];
   }
   /**
@@ -2972,7 +2977,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     }
     if (request.project_id !== null)
       return { task: null, tasks: counts([request.project_id]), projects: null };
-    const projects = plane.projection.projects();
+    const projects = plane.projection.listedProjects();
     return {
       task: null,
       tasks: counts(projects.map((project) => project.project_id)),

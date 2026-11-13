@@ -134,6 +134,7 @@ export const COMMAND_FIELDS: Readonly<
     catalog: need('choice', 'Repository', { list: 'catalog' }),
   },
   'project.unlink_catalog': { project_id: project },
+  'project.remove_from_list': { project_id: project, review },
   'workstream.create': {
     project_id: project,
     title: need('text', 'Title'),

@@ -297,6 +297,25 @@ export const ProjectCatalogUnlinked = projectEvent(
 );
 
 /**
+ * The person took the project off the list on this computer (ADR 0063). Nothing of it was deleted: its
+ * folder was not touched, and every record of it stays in the journal and in the projection, which
+ * only leaves it out of what a person or a client reads until it returns.
+ */
+export const ProjectRemovedFromList = projectEvent(
+  'project.removed_from_list',
+  Type.Object({}, strict),
+);
+
+/**
+ * A project taken off the list came back on it, when the person added its folder again (ADR 0063):
+ * the folder as the host resolved it again, with every task and version the project had.
+ */
+export const ProjectReturned = projectEvent(
+  'project.returned',
+  Type.Object({ location: ProjectLocation }, strict),
+);
+
+/**
  * The project's new folder began with a starter's files (ADR 0037): which starter, the SHA-256 of
  * the lockfile its shared dependencies were installed from, how many files were copied, and the
  * SHA-256 over their paths and contents.
@@ -1273,6 +1292,8 @@ export const EVENT_VARIANTS = [
   ProjectMadeFrom,
   ProjectCatalogLinked,
   ProjectCatalogUnlinked,
+  ProjectRemovedFromList,
+  ProjectReturned,
   ProjectCheckpointRecorded,
   ProjectCheckpointFailed,
   ProjectCheckpointsPruned,

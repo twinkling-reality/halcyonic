@@ -748,10 +748,11 @@ export class ControlPlane {
     return {
       journal: this.journal.info,
       position: this.projection.position,
-      projects: this.projection.projects(),
-      workstreams: this.projection.workstreams(),
-      executions: this.projection.executions(),
-      commands: this.projection.commands(this.#snapshotFinishedCommands),
+      // A project taken off the list, its tasks and their executions are in no snapshot (ADR 0063).
+      projects: this.projection.listedProjects(),
+      workstreams: this.projection.listedWorkstreams(),
+      executions: this.projection.listedExecutions(),
+      commands: this.projection.listedCommands(this.#snapshotFinishedCommands),
       runtimes: this.registry.descriptors(),
     };
   }

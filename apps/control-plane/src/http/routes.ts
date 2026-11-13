@@ -40,6 +40,7 @@ import {
   PublishReviewRequest,
   type PublishReviewResponse,
   parseCommandEnvelope,
+  type RemovalReviewResponse,
   type RestorePreviewResponse,
   RuntimeId,
   type RuntimeModelsResponse,
@@ -50,6 +51,7 @@ import {
   type SharingWaysResponse,
   type Snapshot,
   type StartersResponse,
+  type StoredEvent,
   ToolResultsQuery,
   TRANSCRIPTION_MAX_BYTES,
   UnderstandingResponse,
@@ -58,12 +60,14 @@ import {
   WorkspaceRequestId,
   type WorkstreamsResponse,
 } from '@halcyonic/contracts';
+import { OFF_LIST_WORDS } from '@halcyonic/domain';
 import type { FastifyInstance } from 'fastify';
 import type { FolderOrigin } from '../catalog-match.ts';
 import type { Companion } from '../companion/companion.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
 import { ProjectReads } from '../core/project-reads.ts';
 import { type Redaction, withinLimit } from '../core/redaction.ts';
+import { removalReview } from '../core/removal.ts';
 import { locationReview } from '../core/review.ts';
 import { publishReviewOf, sendReviewOf } from '../core/reviews.ts';
 import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models.ts';
@@ -74,6 +78,7 @@ import { shareCode } from '../preview/share-code.ts';
 import { submitSecretSet } from '../secrets/set.ts';
 import type { Transcriptions } from '../speech/transcriptions.ts';
 import type { WorkspaceRequests } from '../workspace-agent/requests.ts';
+import { shownEvent } from './realtime.ts';
 import { errorBody } from './server.ts';
 
 const validateEventsQuery = compileValidator(EventsQuery);
@@ -146,6 +151,23 @@ export function registerRoutes(
   controlPlane: ControlPlane,
   sources: RouteSources,
 ): void {
+  // Every route by a project's, a task's or an execution's id answers not found for a project taken off the
+  // list (ADR 0063): one guard here, before any route's own reading, rather than one in each.
+  app.addHook('preHandler', async (request, reply) => {
+    const params = (request.params ?? {}) as Record<string, unknown>;
+    const text = (value: unknown) => (typeof value === 'string' ? value : null);
+    const { projection } = controlPlane;
+    const workstreamId = text(params.workstream_id);
+    const executionId = text(params.execution_id);
+    const projectId =
+      text(params.project_id) ??
+      (workstreamId === null ? undefined : projection.workstream(workstreamId)?.project_id) ??
+      (executionId === null ? undefined : projection.execution(executionId)?.project_id) ??
+      null;
+    if (projectId === null || projection.project(projectId) === undefined) return;
+    if (!projection.listed(projectId))
+      return reply.code(404).send(errorBody('project_not_found', OFF_LIST_WORDS));
+  });
   const results = new ToolResults(controlPlane);
   for (const detail of [false, true]) {
     const path = `/api/executions/:execution_id/results${detail ? '/:event_id' : ''}`;
@@ -245,7 +267,7 @@ export function registerRoutes(
     async (): Promise<ProjectsResponse> => ({
       journal: controlPlane.journal.info,
       position: controlPlane.projection.position,
-      projects: controlPlane.projection.projects(),
+      projects: controlPlane.projection.listedProjects(),
     }),
   );
 
@@ -306,7 +328,7 @@ export function registerRoutes(
     const body: WorkstreamsResponse = {
       journal: controlPlane.journal.info,
       position: controlPlane.projection.position,
-      workstreams: controlPlane.projection.workstreams(projectId as string | undefined),
+      workstreams: controlPlane.projection.listedWorkstreams(projectId as string | undefined),
     };
     return body;
   });
@@ -324,7 +346,7 @@ export function registerRoutes(
     async (): Promise<LocationsResponse> =>
       controlPlane.locations.list(
         controlPlane.projection
-          .projects()
+          .listedProjects()
           .flatMap((project) =>
             project.location === null
               ? []
@@ -543,17 +565,36 @@ export function registerRoutes(
         .code(400)
         .send(errorBody('invalid_request', 'The query parameters are invalid.', parsed.issues));
     }
-    const body: EventsResponse = {
-      journal: controlPlane.journal.info,
-      head: controlPlane.journal.head(),
-      events: controlPlane.journal.read({
-        after: parsed.value.after,
+    // A task of a project taken off the list is not found, and no event of such a project is given (ADR 0063).
+    const named = parsed.value.workstream_id;
+    const task = named === null ? undefined : controlPlane.projection.workstream(named);
+    if (task !== undefined && !controlPlane.projection.listed(task.project_id))
+      return reply.code(404).send(errorBody('project_not_found', OFF_LIST_WORDS));
+    // The limit counts events given, read on page by page past those withheld, so a page comes back
+    // short only at the head and a reader that stops at a short page reads to the end (AUDIT2 S1).
+    const events: StoredEvent[] = [];
+    let after = parsed.value.after;
+    for (;;) {
+      const page = controlPlane.journal.read({
+        after,
         limit: parsed.value.limit,
         workstreamId: parsed.value.workstream_id,
         // Which devices are paired is the owner's to know: a paired device reads no device events,
         // as no realtime client receives them, and the positions they leave out are harmless gaps.
         excludeEventTypes: request.principal?.kind === 'device' ? DEVICE_EVENT_TYPES : [],
-      }),
+      });
+      for (const stored of page) {
+        if (events.length === parsed.value.limit) break;
+        if (shownEvent(controlPlane.projection, stored.event)) events.push(stored);
+      }
+      const last = page.at(-1);
+      if (events.length === parsed.value.limit || page.length < parsed.value.limit || !last) break;
+      after = last.position;
+    }
+    const body: EventsResponse = {
+      journal: controlPlane.journal.info,
+      head: controlPlane.journal.head(),
+      events,
     };
     return body;
   });
@@ -657,7 +698,7 @@ export function registerRoutes(
       return { ...answer, reason: reasonWithoutCredentials(answer.reason, controlPlane.redaction) };
     }
     const linked = new Map<number, string[]>();
-    for (const project of controlPlane.projection.projects()) {
+    for (const project of controlPlane.projection.listedProjects()) {
       const link = controlPlane.projection.catalogLink(project.project_id);
       if (link == null) continue;
       linked.set(link.repository_id, [
@@ -669,7 +710,7 @@ export function registerRoutes(
     // origin is the repository, or else one named like it whose origin is no repository found here.
     const listing = controlPlane.locations.list(
       controlPlane.projection
-        .projects()
+        .listedProjects()
         .flatMap((project) =>
           project.location === null
             ? []
@@ -1051,6 +1092,26 @@ export function registerRoutes(
     };
     return answer;
   });
+
+  // Taking a project off the list's review (ADR 0063): the one card, read before the one press.
+  app.get(
+    '/api/projects/:project_id/remove-review',
+    async (request): Promise<RemovalReviewResponse> => {
+      const projectId = (request.params as { project_id: string }).project_id;
+      if (!validateProjectId(projectId).ok)
+        return {
+          availability: 'unavailable',
+          reason: { code: 'invalid_request', message: 'That is not a project.' },
+        };
+      const built = removalReview(controlPlane.projection, projectId);
+      return built.ok
+        ? {
+            availability: 'available',
+            review: { command_type: 'project.remove_from_list', ...built.review, said: [] },
+          }
+        : { availability: 'unavailable', reason: { code: built.code, message: built.message } };
+    },
+  );
 
   // Send to GitHub's review (ADR 0039, amended): what a send would do, read before the press.
   app.post(

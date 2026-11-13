@@ -50,6 +50,9 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   // The person's own link between a project and a catalog repository; changes no file.
   'project.link_catalog': 'low_consequence',
   'project.unlink_catalog': 'low_consequence',
+  // Nothing is deleted and adding the folder again undoes it, but the project leaves every list: reviewed,
+  // then one press (ADR 0063).
+  'project.remove_from_list': 'review_required',
   'workstream.create': 'low_consequence',
   'workstream.add_to_project': 'review_required',
   'workstream.fit_to_project': 'low_consequence',
@@ -226,6 +229,15 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
     description: "Remove the project's link to its catalog repository.",
     sayable: true,
     confirm: 'none',
+  },
+  // Sayable, as deleting a project is not: it deletes nothing and adding the folder undoes it (the lead,
+  // 2026-11-13); the review card names the project and its folder before the person's press.
+  'project.remove_from_list': {
+    title: 'Remove From List',
+    description:
+      'Take the project off the list on this computer, leaving its folder and everything in it as it is.',
+    sayable: true,
+    confirm: 'review',
   },
   'workstream.create': {
     title: 'New Task',
