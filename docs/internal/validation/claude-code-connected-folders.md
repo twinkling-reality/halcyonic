@@ -12,7 +12,8 @@ folders, the key's file and the journal among them. The lead's 18:21Z step 3, bo
   holds the gate's address as `ANTHROPIC_BASE_URL` and a run credential of its own as `ANTHROPIC_API_KEY`
   (`halcyonic-gate-run-` and 64 hex digits, issued per process, revoked when it exits or fails to spawn), never the
   key; `ANTHROPIC_AUTH_TOKEN` is dropped (`openLaunch` in `confinement.ts`). The gate adds the key on the way out. A
-  cloud provider switch (Bedrock, Vertex, Foundry) has no gate, as before (its hosts are not known ahead). The gate
+  cloud provider switch (Bedrock, Vertex, Foundry) has no gate, as before (its hosts are not known ahead), and then
+  the process is given no Anthropic key or token at all, since a cloud provider never takes it (AUDIT3 M1). The gate
   is used where the adapter spawns Claude Code itself (the SDK's own query); a test handing its own query opens none.
 - (b) Each such process runs under a light seatbelt profile (`hostFoldersDeniedProfile` in
   `packages/seatbelt/src/profile.ts`): `(allow default)` and `(deny file-read* file-write*)` of the host's own folders,
@@ -31,11 +32,21 @@ unconfined run's own command, approved, could not read, list or write the scratc
 read a `.halcyonic-proving` home's file; it read the person's home and wrote its own folder; it held
 `key=halcyonic-gate-run-<64 hex> token=none`; the gate asked without that credential answered 403; every request
 reached the fake API through the gate with the fake key in `x-api-key` and no `Authorization`; no file of its folder
-held the key. The other Claude end to end tests (confined, plan, resume, credential, pictures, project-settings) pass
+held the key. A hard link from the data folder into its project was refused, and reading through it too (AUDIT3
+M2). A Salidium-shaped observation hook, passed as b114 passes them, wrote the key its environment held at each
+prompt: a run credential each time. A second adapter resumed the session, and its process held a run credential too.
+No file under the scratch HOME or Claude Code's configuration holds the key or any 16-character slice of it, after
+the turn and after the resume (AUDIT3 M2); the same check on main e6cbebaa7 passed too, so the bundled Claude Code in
+this non-interactive use wrote no fragment of the key into `~/.claude.json` before this change either (the test
+failed there first on the data folder). The other Claude end to end tests (confined, plan, resume, credential, pictures, project-settings) pass
 on it, their unconfined runs now through the gate. `profile.test.ts` shows the profile under `sandbox-exec` (the host
 folders refused, a look-alike `.halcyonicnot` and the project not).
 
 ## Not verified, and what it does not close
+
+- A cloud provider run is shown by the unit test of `openLaunch` (no key, no token in its environment), not by an end
+  to end run: that would reach AWS, Google or Azure.
+- The model listing's own process is covered by code (`#openSpawn` on every path), not by an end to end assertion.
 
 - An unconfined agent still runs with the person's own user rights: it can spend through the gate while its process
   lives (its run credential), and read other processes' arguments (`process-info` is not in the profile). The plane
