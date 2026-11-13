@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   type HostedProvider,
@@ -51,12 +51,26 @@ export class HostProviders {
     readonly dataDir: string;
     readonly readers?: readonly KeyReader[];
     readonly standIn?: string | null;
+    /**
+     * The data folders that keep a person's own keys (the default one, the proving plane's): a plane on one refuses
+     * the stand-in, so one variable left in a shell never sends a person's keys to a lane's listener (AUDIT3).
+     */
+    readonly ownDataFolders?: readonly string[];
   }) {
     const declared = readDeclarations(options.dir ?? PROVIDERS_DIR);
     const standIn = options.standIn ?? null;
     if (standIn !== null && !onThisMac(standIn))
       throw new ConfigError(
         `HALCYONIC_ASSISTANT_UPSTREAM must be an address on this Mac (http or https on 127.0.0.1, [::1] or localhost), not ${standIn}.`,
+      );
+    if (
+      standIn !== null &&
+      (options.ownDataFolders ?? []).some(
+        (own) => realOrResolved(own) === realOrResolved(options.dataDir),
+      )
+    )
+      throw new ConfigError(
+        "HALCYONIC_ASSISTANT_UPSTREAM is for test planes; this plane keeps a person's keys. Start it without it.",
       );
     this.#providers =
       standIn === null
@@ -94,6 +108,15 @@ export class HostProviders {
   keyState(id: string): KeyState {
     const provider = this.byId(id);
     return provider === undefined ? { kind: 'none' } : this.#keys(provider.key);
+  }
+}
+
+/** A folder's real path, links resolved, or its resolved path where it does not exist yet. */
+function realOrResolved(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
   }
 }
 

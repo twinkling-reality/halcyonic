@@ -283,7 +283,10 @@ A plane that is not your own, such as a test's or a scratch plane with a fake ke
 closed port `http://127.0.0.1:9`. Every provider is then reached there instead of at its own address, by the
 assistant, the model list's key check and the key gate alike, so no fake key reaches a real provider. An address
 that is not on this Mac stops the start. The test suites set it for every plane they start. Only a plane holding a
-real key, such as your own or the proving plane, goes without it.
+real key, such as your own or the proving plane, goes without it. A plane on your own data folder (`~/.halcyonic`)
+or the proving plane's (`~/.halcyonic-proving`) refuses it and does not start, so a variable left in a shell
+never sends your keys to a test's listener. A plane that takes it says so once in its log: "every provider points
+at a stand-in on this Mac".
 
 `ANTHROPIC_API_KEY` in the environment, or a cloud provider's variables, work too and take
 precedence over the file; with those, turn the runtime on yourself:

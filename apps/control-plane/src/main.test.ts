@@ -341,6 +341,30 @@ describe('the control plane process', () => {
     assert.ok(!output.lines.some((entry) => entry.msg === 'control plane ready'));
   });
 
+  test("refuses the stand-in on the person's own data folder, and says it when a test plane runs on one (AUDIT3)", async (t) => {
+    const { root, env } = environment({});
+    const own = { ...env, HALCYONIC_DATA_DIR: join(root, '.halcyonic') };
+    const child = spawn(process.execPath, [MAIN], { env: own, stdio: 'pipe' });
+    const output = collect(child.stdout, child.stderr);
+    t.after(async () => {
+      child.kill('SIGKILL');
+      await until(() => exited(child), 'the control plane to be killed');
+      rmSync(root, { recursive: true, force: true });
+    });
+    await until(() => exited(child) && output.ended(), 'the control plane to stop');
+    assert.equal(child.exitCode, 1);
+    assert.match(output.stderr(), /this plane keeps a person's keys/);
+    const scratch = await start(t, {});
+    assert.ok(
+      scratch.output.lines.some(
+        (line) =>
+          line.msg === 'every provider points at a stand-in on this Mac' &&
+          line.stand_in === 'http://127.0.0.1:9',
+      ),
+      'a test plane says once that its providers point at a stand-in',
+    );
+  });
+
   test("refuses to start with a providers' stand-in that is not on this Mac, so no fake key leaves it (rule 29)", async (t) => {
     const { root, env } = environment({ HALCYONIC_ASSISTANT_UPSTREAM: 'https://example.com/v1' });
     const child = spawn(process.execPath, [MAIN], { env, stdio: 'pipe' });
