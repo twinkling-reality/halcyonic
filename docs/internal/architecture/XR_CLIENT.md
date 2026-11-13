@@ -3202,7 +3202,7 @@ in order, as before.
   of the head up to thirty degrees past its side, then out to the person's side, never behind them, each turn logged once
   (`RoomPlacement.BeginPreview`, `AgentShelfSearch` with `widestTurn`); a placed shelf the plane later meets stands aside
   along its own arc while the plane is open, thirty degrees first and as far as clears out to the person's side, seen to travel
-  there and back (`ShelfAside`, `MenuPlane.ShelfAsideDegrees`, `CharacterStage.AsideDegrees`), view placement only: its own
+  there and back (`ShelfAside`, `MenuPlane.ShelfAsideDegrees`, `CharacterStage.ShelfTurnDegrees`), view placement only: its own
   place is never rewritten, the plane decides from that place (`CharacterStage.OwnShelf`), and nothing is journaled. The width is decided again only on an event (the text size, the shelf placed or moved, a
   character coming or going, the plane placed or moved, a placing overlay opening or closing), never because a character
   moves, since the envelope (`CharacterStage.WriteShelfCorners`) already holds the room it moves in; each change logs one line

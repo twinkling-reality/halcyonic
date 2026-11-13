@@ -309,7 +309,7 @@ namespace Halcyonic.XR
             else if (!Mathf.Approximately(asideNow, asideTarget))
             {
                 // Seen to travel, never to vanish and reappear (the lead's 19:34Z): a steady turn about the eyes to the aside place and back.
-                asideNow = Mathf.MoveTowards(asideNow, asideTarget, AsideDegreesPerSecond * Time.unscaledDeltaTime);
+                asideNow = Mathf.MoveTowards(asideNow, asideTarget, ShelfTurnDegreesPerSecond * Time.unscaledDeltaTime);
                 StandOnSurface(Turned(preferred.Value, asideNow));
             }
             Glide();
@@ -474,16 +474,17 @@ namespace Halcyonic.XR
         /// <summary>
         /// The turn about the eyes the shelf stands aside by while the plane is open (ShelfAside, the lead's 19:34Z GO), in degrees; 0
         /// back in its own place. View placement only: the place the person chose (the placement's Preferred) is never rewritten,
-        /// and nothing is journaled. The shelf travels to it at <see cref="AsideDegreesPerSecond"/>.
+        /// and nothing is journaled. The shelf travels to it at <see cref="ShelfTurnDegreesPerSecond"/>. (Not the lineup's own
+        /// <see cref="AsideDegrees"/>, which turns the characters right of a window.)
         /// </summary>
-        public float AsideDegrees
+        public float ShelfTurnDegrees
         {
             get => asideTarget;
             set => asideTarget = float.IsFinite(value) ? value : 0f;
         }
 
         /// <summary>How fast the shelf turns aside and back, in degrees a second: a move the eye follows.</summary>
-        public const float AsideDegreesPerSecond = 60f;
+        public const float ShelfTurnDegreesPerSecond = 60f;
 
         private float asideTarget, asideNow;
 
