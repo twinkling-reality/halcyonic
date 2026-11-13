@@ -67,7 +67,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var button = buttons[index];
                 var action = bar.Column[index];
-                Require(button.Words.text == expected[index], "action " + index + " reads \"" + button.Words.text + "\"");
+                Require(button.Words.text == expected[index].Replace(" · ", "\n"), "action " + index + " reads \"" + button.Words.text + "\"");
                 Require(view.ControlOf(button) == action.Control, expected[index] + " does not raise the page's own action");
                 Require(button.Mark == action.Mark && button.Chosen == action.Chosen, expected[index] + " shows mark " + button.Mark + (button.Chosen ? ", chosen" : ""));
                 Require(button.LookNow() == RoomButtonLook.Rest, expected[index] + " shows " + button.LookNow() + ", and nothing here is the main action");
@@ -99,14 +99,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (button.Chosen && middle < 150) failures.Add(button.Words.text + " is chosen and its mark's middle reads " + middle + " of 255");
                     if (!button.Chosen && middle > 90) failures.Add(button.Words.text + " is not chosen and its mark's middle reads " + middle + " of 255");
                 }
-                // Every action's words are drawn: light ink somewhere along the line through their middle.
+                // Every action's words are drawn: light ink somewhere along each of its lines, through the line's middle (an
+                // action's parts stand on lines of their own, never joined on the dot).
                 foreach (var button in buttons)
                 {
-                    var bounds = button.Words.textBounds;
-                    var most = 0;
-                    for (var step = 0; step <= 60; step++)
-                        most = Mathf.Max(most, Light(At(dark, button.Words.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 60f), bounds.center.y, 0f)))));
-                    if (most < 170) failures.Add(button.Words.text + ": no words in the pixels, the lightest reads " + most + " of 255");
+                    button.Words.ForceMeshUpdate(true);
+                    var info = button.Words.textInfo;
+                    for (var line = 0; line < Mathf.Max(1, info.lineCount); line++)
+                    {
+                        var drawn = info.lineCount > 0 ? info.lineInfo[line] : default;
+                        var from = info.lineCount > 0 ? drawn.lineExtents.min.x : button.Words.textBounds.min.x;
+                        var to = info.lineCount > 0 ? drawn.lineExtents.max.x : button.Words.textBounds.max.x;
+                        var y = info.lineCount > 0 ? (drawn.baseline + drawn.ascender) / 2f : button.Words.textBounds.center.y;
+                        var most = 0;
+                        for (var step = 0; step <= 60; step++)
+                            most = Mathf.Max(most, Light(At(dark, button.Words.transform.TransformPoint(new Vector3(Mathf.Lerp(from, to, step / 60f), y, 0f)))));
+                        if (most < 170) failures.Add(button.Words.text + ": no words in the pixels on line " + (line + 1) + ", the lightest reads " + most + " of 255");
+                    }
                 }
                 if (view.Card is RoomCardView shownCard && shownCard.Shown.Count > 0)
                 {
