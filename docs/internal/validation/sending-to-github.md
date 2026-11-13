@@ -253,11 +253,45 @@ product does neither:
 Proven on the stand-ins (`pages.test.ts`): a refusal that clears (the person's next Publish publishes) and one
 that never clears (each press is refused in git's words, effect none, since nothing more changed).
 
+## A repository's own git settings, and the history a push carries (2026-11-13, `sending/github.test.ts`)
+
+Same stand-ins, same git (`2.50.1 (Apple Git-155)`). Prompted by AUDIT3's 12:44Z ALERT (an agent can write a
+project's `.git/config`) and the lead's 12:52Z and 13:04Z answers.
+
+1. **A repository's own settings run nothing in a send.** The origin is `git@standin.test:owner/garden.git`, reached
+   over "ssh" through the person's own global `core.sshCommand`, a script that serves the stand-in repository. The
+   project repository sets `core.sshCommand` and a `pushInsteadOf` to a decoy repository, eight more
+   program-running settings (`core.fsmonitor`, `core.pager`, `core.askPass`, `core.alternateRefsCommand`,
+   `uploadpack.packObjectsHook`, `credential.helper`, `gpg.program` with `commit.gpgSign`, `diff.external`) and
+   `core.hooksPath` with five hooks, each writing its own mark. A review and a press with a secret held leave no mark;
+   the new branch reaches the stand-in, the decoy is empty. Controls: the folder's own `git push` goes to the decoy
+   and runs `pre-push`; its own `git ls-remote` runs the repository's ssh command. Send's authentication is
+   unchanged. Not exercised: `credential.helper` and `core.askPass`, which only an https remote would use.
+2. **A held secret in a commit the remote lacks refuses the press.** A commit adding `key.txt` with a held (made-up)
+   value, then one removing it, neither pushed: on main the send went and the stand-in's `git log --all -p` held the
+   value. Now the press is refused naming `key.txt` as an earlier version, with nothing pushed, even with the folder's
+   `refs/remotes/origin/main` moved onto the commit. Also refused: a value in a commit message, in a file's name now or
+   in an earlier version (the name never shown), in the title (at the review, before a first send makes a
+   repository), more history than the bound (`history_too_large`) and a remote that cannot be asked
+   (`not_reached`). A name with a line break before the value is found in the folder that holds it, and a remote on protocol v0 is read
+   by its listed tips and still refuses an unsent value. A value already on the remote is not read again, also when the
+   remote is ahead of the branch (protocol v2 only: through the v0 fallback, a remote ahead is read from the first commit);
+   one the push's own address lacks (a global `pushInsteadOf` to a second repository) is refused though the address
+   it is read from holds it. The first two failed on main; the remote ahead and the push address failed on the first
+   version of the fix (`ls-remote` tips), which the critic found.
+
 ## Not proven
 
 - A real push to github.com over https with the macOS keychain's credential helper, or over ssh with an
   agent's key.
 - A real `gh pr create` or its output on success.
+- The history check against a real remote: GitHub's answer to `fetch --negotiate-only` and a push with
+  `push.negotiate`, a host that cannot negotiate (read by its listed tips), and the time to read a long unsent history
+  (512 MB at most) are not measured. An ssh key that asks for a touch is asked three times per send (the check, the
+  push and the push's own negotiation; four on a host that cannot negotiate), and `push.negotiate` adds a connection
+  to every push, held secret or not, inside the push's 120 s. Not tested: the push's own negotiation failing where the
+  check's did not, and the history check refusing after a first send made its repository. Publish's refusal is tested
+  (`pages.test.ts`: an earlier publish the remote no longer has, holding a value held since, refuses before Make Public).
 - A real Pages site: turning Pages on through GitHub's API, its `html_url`, the build GitHub runs, a
   private repository's plan, or a game opened from `github.io` in a headset.
 - A repository whose objects are SHA-256 (read from its config): the bare repository is made to match,

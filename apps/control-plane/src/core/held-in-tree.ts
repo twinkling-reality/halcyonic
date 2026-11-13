@@ -29,6 +29,20 @@ export interface HeldForm {
 export interface HeldHit {
   readonly path: string;
   readonly what: string;
+  /** True when a file's or a folder's own name holds it: its path, which would show the value, is never said. */
+  readonly named?: true;
+}
+
+/** Whether a path's own text holds a held form, so it is never shown and is refused as a name. */
+function heldInName(path: string, forms: readonly HeldForm[]): string | null {
+  return heldIn(Buffer.from(path, 'utf8'), forms);
+}
+
+/** A path as a person may read it: each held form in it, longest first, as the secret's name in brackets. */
+function shownName(path: string, forms: readonly HeldForm[]): string {
+  let shown = path;
+  for (const form of forms) shown = shown.split(form.bytes.toString('utf8')).join(`[${form.what}]`);
+  return shown;
 }
 
 /** Git, run on the repository that holds the tree: arguments, input, and its output as bytes. */
@@ -103,46 +117,151 @@ export async function heldInTree(
     const tab = entry.indexOf('\t');
     if (tab < 0) continue;
     const [, type, object, size] = entry.slice(0, tab).split(/\s+/);
+    // Every entry's name, a submodule's included, before what only a blob holds.
+    const path = entry.slice(tab + 1);
+    const named = heldInName(path, forms);
+    if (named !== null) return { path: shownName(path, forms), what: named, named: true };
     if (type !== 'blob' || object === undefined) continue;
-    blobs.push({ object, size: Number(size), path: entry.slice(tab + 1) });
+    blobs.push({ object, size: Number(size), path });
   }
-  let batch: typeof blobs = [];
+  const hit = await heldInObjects(git, blobs, forms, 'the tree could not be read');
+  return hit === null ? null : { path: hit.found.path, what: hit.what };
+}
+
+/**
+ * The first of `objects` whose bytes hold a held form, read by `cat-file --batch` in batches of at most
+ * BATCH_BYTES, in the order given, or null. Whatever git could not read is an error, never a pass.
+ */
+async function heldInObjects<T extends { readonly object: string; readonly size: number }>(
+  git: TreeGit,
+  objects: readonly T[],
+  forms: readonly HeldForm[],
+  unread: string,
+): Promise<{ readonly found: T; readonly what: string } | null> {
+  let batch: T[] = [];
   let bytes = 0;
-  const read = async (): Promise<HeldHit | null> => {
+  const read = async (): Promise<{ readonly found: T; readonly what: string } | null> => {
     if (batch.length === 0) return null;
     const asked = batch;
     batch = [];
     bytes = 0;
     const out = await git(
       ['cat-file', '--batch'],
-      Buffer.from(`${asked.map((blob) => blob.object).join('\n')}\n`),
+      Buffer.from(`${asked.map((each) => each.object).join('\n')}\n`),
     );
-    if (out.code !== 0) throw new Error('the tree could not be read');
-    // Each answer is `<object> blob <size>\n<content>\n`, in the order asked.
+    if (out.code !== 0) throw new Error(unread);
+    // Each answer is `<object> <type> <size>\n<content>\n`, in the order asked.
     let at = 0;
-    for (const blob of asked) {
+    for (const each of asked) {
       const newline = out.stdout.indexOf(0x0a, at);
-      if (newline < 0) throw new Error('the tree could not be read');
+      if (newline < 0) throw new Error(unread);
       const header = out.stdout.subarray(at, newline).toString('utf8').split(' ');
       const size = Number(header[2]);
-      if (header[0] !== blob.object || !Number.isInteger(size))
-        throw new Error('the tree could not be read');
+      if (header[0] !== each.object || !Number.isInteger(size)) throw new Error(unread);
       const content = out.stdout.subarray(newline + 1, newline + 1 + size);
       at = newline + 1 + size + 1;
       const what = heldIn(content, forms);
-      if (what !== null) return { path: blob.path, what };
+      if (what !== null) return { found: each, what };
     }
     return null;
   };
-  for (const blob of blobs) {
-    if (batch.length > 0 && bytes + blob.size > BATCH_BYTES) {
+  for (const each of objects) {
+    if (batch.length > 0 && bytes + each.size > BATCH_BYTES) {
       const hit = await read();
       if (hit !== null) return hit;
     }
-    batch.push(blob);
-    bytes += blob.size;
+    batch.push(each);
+    bytes += each.size;
   }
   return read();
+}
+
+/** A held secret in history a push would carry: the file it was in, or null for a commit's own text. */
+export interface HeldInHistory {
+  readonly path: string | null;
+  readonly what: string;
+  /** True when a file's or a folder's own name in an earlier version holds it, shown with it in brackets. */
+  readonly named?: true;
+  /** True when the name is one inside the folder `path` (empty for the top), not `path` itself. */
+  readonly within?: true;
+  /** The object it was found in: a blob's, or for a commit's own text, the commit's. */
+  readonly object: string;
+}
+
+/**
+ * The first commit or file a push of `tip` would carry that holds a held secret (AUDIT3, TASKS's ALERT of
+ * 2026-11-13T1257Z): every commit reachable from `tip` and not from `have`, the tips the remote holds that
+ * this repository has too, each commit's own text (its message and its people) and every blob it brings.
+ * A tip of the remote's this repository lacks leaves out nothing, so more is read, never less. 'too_large'
+ * when more than `most` bytes would be read, which is refused rather than sent unread.
+ */
+export async function heldInHistory(
+  git: TreeGit,
+  tip: string,
+  have: readonly string[],
+  secrets: Iterable<HeldSecret>,
+  most: number,
+): Promise<HeldInHistory | 'too_large' | null> {
+  const forms = heldForms(secrets);
+  if (forms.length === 0) return null;
+  const listed = await git(
+    ['rev-list', '--objects', '--stdin'],
+    Buffer.from(`${tip}\n${have.map((each) => `^${each}\n`).join('')}`),
+  );
+  if (listed.code !== 0) throw new Error('the history could not be listed');
+  // Each line is `<object>` for a commit, or `<object> <path>` for a tree or a blob.
+  const paths = new Map<string, string | null>();
+  for (const line of listed.stdout.toString('utf8').split('\n')) {
+    if (line === '') continue;
+    const space = line.indexOf(' ');
+    const object = space < 0 ? line : line.slice(0, space);
+    const path = space < 0 ? null : line.slice(space + 1);
+    if (path !== null) {
+      const named = heldInName(path, forms);
+      if (named !== null) return { path: shownName(path, forms), what: named, object, named: true };
+    }
+    if (!paths.has(object)) paths.set(object, path);
+  }
+  if (paths.size === 0) return null;
+  const checked = await git(
+    ['cat-file', '--batch-check=%(objectname) %(objecttype) %(objectsize)'],
+    Buffer.from(`${[...paths.keys()].join('\n')}\n`),
+  );
+  if (checked.code !== 0) throw new Error('the history could not be read');
+  const read: {
+    readonly object: string;
+    readonly size: number;
+    readonly path: string | null;
+    readonly folder: boolean;
+  }[] = [];
+  let total = 0;
+  for (const line of checked.stdout.toString('utf8').split('\n')) {
+    const [object, type, size] = line.split(' ');
+    // A folder's own bytes hold every name in it, one with a line break or a submodule's included, which the
+    // listing's paths do not show whole.
+    if (object === undefined || (type !== 'commit' && type !== 'blob' && type !== 'tree')) continue;
+    const bytes = Number(size);
+    if (!Number.isInteger(bytes)) throw new Error('the history could not be read');
+    total += bytes;
+    if (total > most) return 'too_large';
+    read.push({
+      object,
+      size: bytes,
+      path: type === 'commit' ? null : (paths.get(object) ?? ''),
+      folder: type === 'tree',
+    });
+  }
+  const hit = await heldInObjects(git, read, forms, 'the history could not be read');
+  if (hit === null) return null;
+  if (hit.found.folder)
+    return {
+      path: shownName(hit.found.path ?? '', forms),
+      what: hit.what,
+      object: hit.found.object,
+      named: true,
+      within: true,
+    };
+  return { path: hit.found.path, what: hit.what, object: hit.found.object };
 }
 
 /** What a person reads when a tree holds a held secret: the file and which secret, never the value. */
@@ -153,7 +272,49 @@ export function heldMessage(hit: HeldHit, what: 'sent' | 'published' | 'saved' |
     saved: 'no copy was saved',
     shared: 'nothing was shared',
   }[what];
+  if (hit.named === true)
+    return `A file's or folder's name holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} here, with the secret's name in place of its value. Rename it in the project's folder, then try again.`;
   return `${hit.path} holds a secret this Mac keeps (${hit.what}), so ${done}. Take it out of the file, then try again.`;
+}
+
+/**
+ * What a person reads when a push would carry a held secret in its history (the lead, 13:04Z; fresh readers,
+ * 13:16Z and AUDIT2's at 16:49Z). Send: where it is (an earlier version of a file, a name in one, or the note
+ * saved with a change) that `repository` does not have, as far as this check knows, that going now would send it
+ * too, and the two true ways forward: a new value for the secret, after which the old one still goes but no
+ * longer works, or a developer taking the old version out. Publish: the earlier version is Halcyonic's own
+ * earlier publish, which left this Mac with that publish, so the new value comes first, as the thing to do now.
+ * Never the value: a name that holds it is shown with it as the secret's name in brackets.
+ */
+export function heldHistoryMessage(
+  hit: HeldInHistory,
+  what: 'sent' | 'published',
+  repository: string,
+): string {
+  if (what === 'published') {
+    const where =
+      hit.within === true
+        ? `A name in ${hit.path === '' ? 'the top folder' : `the folder ${hit.path}`} of an earlier publish`
+        : hit.named === true
+          ? `A file's or folder's name in an earlier publish (${hit.path}, with the secret's name in place of its value)`
+          : hit.path === null
+            ? 'The description of an earlier publish'
+            : `An earlier publish of ${hit.path}`;
+    return `${where} held a secret this Mac keeps (${hit.what}), and it left this Mac with that publish, so nothing was published. Make a new ${hit.what} with the service that gave it to you and store it on this Mac; then Publish works, and the old one no longer works for anyone.`;
+  }
+  const where =
+    hit.within === true
+      ? `A name in ${hit.path === '' ? 'the top folder' : `the folder ${hit.path}`} of an earlier version, which ${repository} does not have,`
+      : hit.named === true
+        ? `A file's or folder's name in an earlier version that ${repository} does not have (${hit.path}, with the secret's name in place of its value)`
+        : hit.path === null
+          ? `The description saved with an earlier change, which ${repository} does not have,`
+          : `An earlier version of ${hit.path}, which ${repository} does not have,`;
+  const developer =
+    hit.path === null
+      ? 'ask a developer to change that description'
+      : 'ask a developer to take that old version out';
+  return `${where} holds a secret this Mac keeps (${hit.what}), and sending now would send it too, so nothing was sent. To send, make a new ${hit.what} with the service that gave it to you, store it on this Mac, then send again: the old one goes with that version, but no longer works for anyone. Or ${developer}.`;
 }
 
 /** Why a share's built copy is not read: a link out of it (by its path in the copy), or more than a share reads. */
@@ -196,6 +357,8 @@ export async function heldInFolder(
     for (const entry of (await readdir(dir)).sort()) {
       const path = join(dir, entry);
       const shown = relative(root, path).split('\\').join('/');
+      const named = heldInName(shown, forms);
+      if (named !== null) return { path: shownName(shown, forms), what: named, named: true };
       let found = await lstat(path);
       if (found.isSymbolicLink()) {
         const target = await realpath(path).catch(() => null);

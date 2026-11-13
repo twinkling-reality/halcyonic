@@ -581,6 +581,39 @@ value. A tree git cannot read is refused too, so nothing leaves unread. Not sear
 characters, one split across files or lines, compressed, encrypted, or encoded in any other way (hex, a different
 character set), and a value the host does not hold; nor what an agent's own network access sends while it runs.
 
+A push also carries every commit of the branch the remote does not hold, not only the tree read for the review.
+Just before each push of Send, a first send and Publish (`heldInHistory`), the remote itself is asked what it holds,
+never the folder's own record of it, which its agent can write: at the address the push goes to (`pushInsteadOf`
+applied, `remote get-url --push`), the commits it has in common with the one to push (`fetch --negotiate-only`),
+and the push negotiates the same way (`push.negotiate`). The address is read as it is, never rewritten again. A
+remote that cannot negotiate is read by the tips it lists that this Mac has, so a remote ahead of the branch is read
+from the branch's first commit. Not guaranteed: when the push's own negotiation fails where the check's did not, git
+sends by the tips the remote lists, which can resend commits the remote said it holds, though no branch of its holds
+them (one scrubbed from its history, say). And "holds" means the remote has the object in its store: a commit a host keeps after it was scrubbed from every branch counts as held, so it is not read, and a new branch can make it reachable again (nothing that never left this Mac leaves by it). Publish is read before Make Public; a first send after GitHub made its
+repository, so a refusal there says its effect is unknown. Every commit reachable from the one to push and from none of those is read:
+its own text (message, people, signature), every file it brings and every folder's own bytes, in the same forms, so
+every name, one with a line break or a submodule's included. Less known about the remote means more is read, never less. A hit refuses the press (`holds_secret`): an
+earlier version of a file, a change's saved description, or a name (shown with the value as the secret's name in brackets), said
+to be one the repository does not have (what the check knows, never "not yet sent": it may have gone elsewhere), with
+the two ways forward that are true (a new value made where it was issued and stored on this Mac, after which the old
+one still goes but no longer works, or a developer taking the old version out). On Publish the earlier version is
+Halcyonic's own earlier publish, which left this Mac with it, so its words put the new value first and offer no other
+way (AUDIT2, 16:49Z). A title that holds one is refused at
+the review, before a first send makes a repository. More than 512 MB to read is refused (`history_too_large`), and so
+is a remote that cannot be asked (`not_reached`). The tree check reads names too.
+
+No git command of Send's or Publish's reads the project repository's own configuration but one: the push and the
+question to the remote run in Halcyonic's own bare repository in the data folder, which no agent writes, with the
+person's own global and system settings, which hold how their git authenticates (a credential helper such as the
+Command Line Tools' `osxkeychain` in the system settings, an ssh command, an address rewrite); staging runs with none
+at all; the folder's origin, branch and object format are read as files. The one is `upload-pack`, which the fetch
+of the person's branch runs in their repository: it reads that repository's settings, runs no hook, and refuses a
+repository's `uploadpack.packObjectsHook`. Proved on the stand-in (2026-11-13), over ssh through the person's own
+ssh command: a repository's `core.sshCommand` and `pushInsteadOf`, eight other program-running settings and its hooks
+ran nothing at a review or a press, while the folder's own git used that push address, ran its hooks and ran its ssh
+command. The settings only an https remote would use (`credential.helper`, `core.askPass`) were not exercised; they are
+not read for the same reason.
+
 ### What redaction misses
 
 Known, and accepted when the redaction work closed (2026-10-03). Leaks, where a credential stays:

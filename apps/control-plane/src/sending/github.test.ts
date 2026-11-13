@@ -48,6 +48,7 @@ function sender(
     gh?: string | null;
     env?: NodeJS.ProcessEnv;
     held?: readonly { what: string; value: string }[];
+    historyMost?: number;
   } = {},
 ) {
   return new GitHubSender({
@@ -56,6 +57,7 @@ function sender(
     dataDir: join(root, 'data'),
     env: options.env ?? { HOME: home },
     ...(options.held === undefined ? {} : { held: () => options.held ?? [] }),
+    ...(options.historyMost === undefined ? {} : { historyMost: options.historyMost }),
   });
 }
 
@@ -826,6 +828,182 @@ describe("the project repository's own git settings never run in a send (AUDIT3,
       // The repository's ssh command only touched its mark, so there was no remote to list.
     }
     assert.ok(readdirSync(marks).includes('sshCommand'));
+  });
+});
+
+describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11-13)', {
+  skip: process.platform !== 'darwin',
+}, () => {
+  const VALUE = HELD[0]?.value ?? '';
+  const commitWithKey = (message = 'with key') => {
+    writeFileSync(join(folder, 'key.txt'), `KEY=${VALUE}\n`);
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', message);
+    rmSync(join(folder, 'key.txt'));
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', 'without key');
+  };
+  const press = async () => {
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const reviewed = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    return sender({ held: HELD }).send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
+  };
+  const onRemote = () => git(origin, 'log', '--all', '-p').includes(VALUE);
+
+  test('one the remote lacks, in a file a later commit removed, refuses the press, naming the file; nothing is pushed', async () => {
+    commitWithKey();
+    // The folder's own record of the remote, which its agent can write, is not believed.
+    git(folder, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+    const before = git(origin, 'for-each-ref', '--format=%(refname)');
+    const pressed = await press();
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(
+      pressed.ok ? '' : pressed.message,
+      'An earlier version of key.txt, which owner/garden does not have, holds a secret this Mac keeps (MY_SERVICE_KEY), and sending now would send it too, so nothing was sent. To send, make a new MY_SERVICE_KEY with the service that gave it to you, store it on this Mac, then send again: the old one goes with that version, but no longer works for anyone. Or ask a developer to take that old version out.',
+    );
+    assert.equal(git(origin, 'for-each-ref', '--format=%(refname)'), before);
+    assert.equal(onRemote(), false);
+  });
+
+  test("one in a commit's own message is found too", async () => {
+    git(folder, 'commit', '-q', '--allow-empty', '-m', `token ${VALUE}`);
+    const pressed = await press();
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.match(
+      pressed.ok ? '' : pressed.message,
+      /^The description saved with an earlier change, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\), and sending now would send it too, so nothing was sent\..* Or ask a developer to change that description\.$/,
+    );
+    assert.equal(onRemote(), false);
+  });
+
+  test('a title holding one is refused at the review, on a first send before any repository is made', async () => {
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const titled = `Lanterns ${VALUE}`;
+    const words =
+      'The title you gave this send holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was sent. Change the title, then try again.';
+    const reviewed = await sender({ held: HELD }).review(PROJECT, folder, [], titled);
+    assert.deepEqual(reviewed.ok ? null : [reviewed.code, reviewed.message], [
+      'holds_secret',
+      words,
+    ]);
+    const plain = join(root, 'projects', 'titled');
+    mkdirSync(plain, { recursive: true });
+    writeFileSync(join(plain, 'a.txt'), 'a\n');
+    const first = await sender({ held: HELD }).review(PROJECT, plain, [], titled);
+    assert.deepEqual(first.ok ? null : [first.code, first.message], ['holds_secret', words]);
+    const pressed = await sender({ held: HELD }).send(PROJECT, plain, [], titled, 'a'.repeat(64));
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(existsSync(ghLog) && readFileSync(ghLog, 'utf8').includes('repo create'), false);
+    assert.equal(onRemote(), false);
+  });
+
+  test('one already on the remote is not read again when the remote is ahead of the branch, so the send goes', async () => {
+    commitWithKey();
+    git(folder, 'push', '-q', 'origin', 'main');
+    // Someone else's work lands on main after the folder last fetched.
+    const other = join(root, 'teammate');
+    git(root, 'clone', '-q', origin, other);
+    writeFileSync(join(other, 'theirs.txt'), 'theirs\n');
+    git(other, 'add', '-A');
+    git(other, 'commit', '-q', '-m', 'theirs');
+    git(other, 'push', '-q', 'origin', 'main');
+    const pressed = await press();
+    assert.ok(pressed.ok, pressed.ok ? '' : pressed.message);
+  });
+
+  test("one the push's own address lacks is refused, though the address it is read from holds it", async () => {
+    commitWithKey();
+    git(folder, 'push', '-q', 'origin', 'main');
+    // The person pushes to a second repository of their own that lacks it (their global push address).
+    const pushes = join(root, 'pushes.git');
+    git(root, 'init', '--bare', '-q', pushes);
+    git(home, 'config', '--global', `url.file://${pushes}.pushInsteadOf`, REMOTE);
+    const pressed = await press();
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(git(pushes, 'for-each-ref'), '', 'nothing reached it');
+  });
+
+  test('a remote that cannot be asked what it holds, and more history than is read, are refused in words', async () => {
+    commitWithKey();
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const reviewed = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    const most = await sender({ held: HELD, historyMost: 10 }).send(
+      PROJECT,
+      folder,
+      [],
+      'Lanterns',
+      reviewed.send.review,
+    );
+    assert.deepEqual(most.ok ? null : [most.code, most.message], [
+      'history_too_large',
+      'This would send over 512 MB of earlier work, more than can be checked for secrets, so nothing was sent. Ask a developer to send it.',
+    ]);
+    rmSync(origin, { recursive: true, force: true });
+    const unreached = await sender({ held: HELD }).send(
+      PROJECT,
+      folder,
+      [],
+      'Lanterns',
+      reviewed.send.review,
+    );
+    assert.deepEqual(unreached.ok ? null : [unreached.code, unreached.message], [
+      'not_reached',
+      "The repository couldn't be reached, so nothing was sent. Check this computer's connection, then try again.",
+    ]);
+  });
+
+  test('a name holding one, in an earlier version or in what is here now, is refused without the name, so the value is never said', async () => {
+    writeFileSync(join(folder, `note-${VALUE}.txt`), 'x\n');
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', 'named');
+    git(folder, 'rm', '-q', `note-${VALUE}.txt`);
+    git(folder, 'commit', '-q', '-m', 'unnamed');
+    const pressed = await press();
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.match(
+      pressed.ok ? '' : pressed.message,
+      /^A file's or folder's name in an earlier version that owner\/garden does not have \(note-\[MY_SERVICE_KEY\]\.txt, with the secret's name in place of its value\) holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
+    );
+    assert.equal((pressed.ok ? '' : pressed.message).includes(VALUE), false);
+    writeFileSync(join(folder, `now-${VALUE}.txt`), 'x\n');
+    const shown = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.deepEqual(shown.ok ? null : [shown.code, shown.message], [
+      'holds_secret',
+      "A file's or folder's name holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was sent. It is now-[MY_SERVICE_KEY].txt here, with the secret's name in place of its value. Rename it in the project's folder, then try again.",
+    ]);
+  });
+
+  test('a name with a line break before the value, which no listing shows whole, is found in the folder that holds it', async () => {
+    writeFileSync(join(folder, `odd\n${VALUE}.txt`), 'x\n');
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', 'odd name');
+    git(folder, 'rm', '-q', `odd\n${VALUE}.txt`);
+    git(folder, 'commit', '-q', '-m', 'gone');
+    const pressed = await press();
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.match(
+      pressed.ok ? '' : pressed.message,
+      /^A name in the top folder of an earlier version, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
+    );
+    assert.equal((pressed.ok ? '' : pressed.message).includes(VALUE), false);
+    assert.equal(onRemote(), false);
+  });
+
+  test('a remote that cannot negotiate is read by the tips it lists, and one the remote lacks is still refused', async () => {
+    git(home, 'config', '--global', 'protocol.version', '0');
+    commitWithKey();
+    const pressed = await press();
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(onRemote(), false);
+  });
+
+  test('one the remote already holds leaves nothing new, so the send goes', async () => {
+    commitWithKey();
+    git(folder, 'push', '-q', 'origin', 'main');
+    const pressed = await press();
+    assert.ok(pressed.ok, pressed.ok ? '' : pressed.message);
   });
 });
 
