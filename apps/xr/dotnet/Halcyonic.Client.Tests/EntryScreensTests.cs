@@ -91,7 +91,7 @@ public class EntryScreensTests
         {
             "Project · Storefront\\u{202E} API",
             "Folder Now · shop",
-            "Folder Next · New Folder · storefront-v2 in Projects",
+            "Folder Next · New storefront-v2 in Projects",
             "Task Name · Add a search page.",
             "Agent App · Local\\u{200B} agent",
             // The level the start will use, after the model (a real runtime; this draft asks).

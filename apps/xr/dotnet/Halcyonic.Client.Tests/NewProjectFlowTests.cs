@@ -1987,7 +1987,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
         Press(flow, NewProjectScreens.ChooseWhere, null);
         await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
-        var starterLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter · Projects");
+        var starterLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter in Projects");
         Press(flow, NewProjectScreens.ChooseFolder, starterLine.Key);
         Assert.That(flow.Idea!.Folder, Is.Not.Null);
         Assert.That(flow.Idea.Folder!.StarterId, Is.EqualTo("iwsdk-vr"));
@@ -2024,7 +2024,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
         Press(flow, NewProjectScreens.ChooseWhere, null);
         await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
-        var starterLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter · Projects");
+        var starterLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter in Projects");
         Press(flow, NewProjectScreens.ChooseFolder, starterLine.Key);
         Press(flow, NewProjectScreens.Done, null);
         Assert.That(flow.Idea!.Folder!.StarterId, Is.EqualTo("iwsdk-vr"));
@@ -2033,7 +2033,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
         Press(flow, NewProjectScreens.ChooseWhere, null);
         await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
-        var plainLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New Folder · Projects");
+        var plainLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New Folder in Projects");
         Press(flow, NewProjectScreens.ChooseFolder, plainLine.Key);
         Press(flow, NewProjectScreens.Done, null);
         Assert.That(flow.Idea.Folder!.StarterId, Is.Null, "switching to New Folder without typing clears StarterId");
@@ -2042,7 +2042,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
         Press(flow, NewProjectScreens.ChooseWhere, null);
         await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
-        starterLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter · Projects");
+        starterLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter in Projects");
         Press(flow, NewProjectScreens.ChooseFolder, starterLine.Key);
         Press(flow, NewProjectScreens.Done, null);
         Assert.That(flow.Idea.Folder!.StarterId, Is.EqualTo("iwsdk-vr"));
@@ -2050,7 +2050,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
         Press(flow, NewProjectScreens.ChooseWhere, null);
         await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
-        plainLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New Folder · Projects");
+        plainLine = flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New Folder in Projects");
         Press(flow, NewProjectScreens.ChooseFolder, plainLine.Key);
         host.Typed.Enqueue("plain-folder");
         Press(flow, NewProjectScreens.TypeWords, null);
@@ -3084,7 +3084,7 @@ public class NewProjectFlowTests
             // A new starter folder: Start From after the first task.
             PressOn(flow, NewProjectScreens.ChooseWhere);
             await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
-            Press(flow, NewProjectScreens.ChooseFolder, flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter · Projects").Key);
+            Press(flow, NewProjectScreens.ChooseFolder, flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.ChooseFolder && line.Words == "New VR Starter in Projects").Key);
             Press(flow, NewProjectScreens.Done, null);
             Assert.That(flow.Idea!.Folder!.StarterId, Is.EqualTo(ProjectFolder.DefaultStarterId), "the default stands where the person chooses nothing");
             var defaultCard = flow.Frame!.Card!;

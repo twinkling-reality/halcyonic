@@ -184,9 +184,9 @@ namespace Halcyonic.Client
             if (FolderName == null) return Ours("Directly in ") + root;
             var folder = name(FolderName);
             // " in " between a folder and its place, never a bare separator, which would join two names into one of theirs.
-            // A new folder from a starter, one phrase, ours around theirs (FIELD's words 13:42Z): the starter is named by the review's own row, by its own name (AUDIT's MUST 3), never here.
-            if (IsNew && !string.IsNullOrEmpty(StarterId)) return Ours("New ") + folder + Ours(" in ") + root;
-            if (IsNew) return Ours("New Folder · ") + folder + Ours(" in ") + root;
+            // A new folder, one phrase, ours around theirs (FIELD's words 2026-11-12T1342Z), never facts on a dot; from a starter
+            // too, whose starter is named by the review's own row, by its own name (AUDIT's MUST 3), never here.
+            if (IsNew) return Ours("New ") + folder + Ours(" in ") + root;
             return folder + Ours(PlaceGone ? " · " : " in ") + root;
         }
 
@@ -196,8 +196,7 @@ namespace Halcyonic.Client
             var root = PlaceGone ? PlaceUnlisted : name(RootName);
             if (FolderName == null) return "Directly in " + root;
             var folder = name(FolderName);
-            if (IsNew && !string.IsNullOrEmpty(StarterId)) return "New " + folder + " in " + root;
-            if (IsNew) return "New Folder · " + folder + " in " + root;
+            if (IsNew) return "New " + folder + " in " + root;
             // A gone place reads as its own segment: "shop · Place Unlisted".
             return folder + (PlaceGone ? " · " : " in ") + root;
         }
@@ -210,10 +209,10 @@ namespace Halcyonic.Client
         /// folder in it. A root the host lists as missing is shown, and offers nothing.
         /// </summary>
         /// <summary>A new folder's words in a place: in the folder list, and over its name as it is given.</summary>
-        public static string NewFolderLabel(LocationRoot root) => "New Folder · " + LabelText.Name(LabelOf(root));
+        public static string NewFolderLabel(LocationRoot root) => "New Folder in " + LabelText.Name(LabelOf(root));
 
         /// <summary>A new VR starter folder's words in a place.</summary>
-        public static string NewStarterFolderLabel(LocationRoot root) => "New VR Starter · " + LabelText.Name(LabelOf(root));
+        public static string NewStarterFolderLabel(LocationRoot root) => "New VR Starter in " + LabelText.Name(LabelOf(root));
 
         /// <remarks>
         /// Each option's words are runs (lane V's treatment): Halcyonic's upright, a place's or a folder's
@@ -260,10 +259,10 @@ namespace Halcyonic.Client
         }
 
         /// <summary>A new folder's words in a place as runs: "New folder in " upright, the place's name leaning, last.</summary>
-        public static LineWords NewFolderRuns(LocationRoot root) => LineWords.Ours("New Folder · ") + LineWords.TheirName(LabelOf(root));
+        public static LineWords NewFolderRuns(LocationRoot root) => LineWords.Ours("New Folder in ") + LineWords.TheirName(LabelOf(root));
 
         /// <summary>A new VR starter folder's words in a place as runs.</summary>
-        public static LineWords NewStarterFolderRuns(LocationRoot root) => LineWords.Ours("New VR Starter · ") + LineWords.TheirName(LabelOf(root));
+        public static LineWords NewStarterFolderRuns(LocationRoot root) => LineWords.Ours("New VR Starter in ") + LineWords.TheirName(LabelOf(root));
     }
 
     public enum FolderOptionKind

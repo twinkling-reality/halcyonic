@@ -140,7 +140,7 @@ public class OutsideWordsTests
                 new()
                 {
                     Path = "/p", Name = "Projects", Status = LocationRootStatus.Available,
-                    Folders = new List<LocationFolder> { new() { Name = spoof, Path = "/p/a" }, new() { Name = "New Folder · Projects", Path = "/p/b" } },
+                    Folders = new List<LocationFolder> { new() { Name = spoof, Path = "/p/a" }, new() { Name = "New Folder in Projects", Path = "/p/b" } },
                 },
             },
         };
@@ -148,8 +148,8 @@ public class OutsideWordsTests
         var folder = options.First(option => option.Kind == FolderOptionKind.Folder);
 
         Assert.That(folder.LabelRuns.AllTheirs, Is.True);
-        Assert.That(options.Single(option => option.Kind == FolderOptionKind.NewFolder).LabelRuns.ToString(), Is.EqualTo("New Folder · [Projects]"));
-        var named = options.Single(option => option.Kind == FolderOptionKind.Folder && option.Label == "New Folder · Projects");
+        Assert.That(options.Single(option => option.Kind == FolderOptionKind.NewFolder).LabelRuns.ToString(), Is.EqualTo("New Folder in [Projects]"));
+        var named = options.Single(option => option.Kind == FolderOptionKind.Folder && option.Label == "New Folder in Projects");
         Assert.That(named.DetailRuns.Text, Does.StartWith(ConnectText.LooksLikeAnother), "a folder named as Halcyonic's own option is marked");
     }
 
