@@ -191,4 +191,15 @@ public sealed class RoomCardTests
         var card = new RoomCard(LineWords.Ours("Usage"), list: new[] { row });
         Assert.That(card.Words(), Does.Contain("5-Hour Window").And.Contain("Up to 60% Left"), "every part is among the card's words, for its checks");
     }
+
+    [Test]
+    public void A_list_row_that_chooses_carries_its_answer_mark_whatever_its_kind_and_a_row_that_opens_carries_none()
+    {
+        // The lead's 21:11Z: a frame's choices stand in the panel as pressed rows, each with its own mark and chosen state.
+        var chosen = new RoomListRow(RoomKind.None, LineWords.Ours("Sea Glass"), chosen: true, mark: AnswerMark.Single);
+        var several = new RoomListRow(RoomKind.Task, LineWords.Ours("Tests"), mark: AnswerMark.Multiple);
+        Assert.That((chosen.Mark, chosen.Chosen), Is.EqualTo((AnswerMark.Single, true)));
+        Assert.That((several.Mark, several.Kind, several.Chosen), Is.EqualTo((AnswerMark.Multiple, RoomKind.Task, false)), "the mark stands whatever the kind");
+        Assert.That(new RoomListRow(RoomKind.Task, LineWords.Ours("Open")).Mark, Is.EqualTo(AnswerMark.None), "a row that only opens or states has none");
+    }
 }

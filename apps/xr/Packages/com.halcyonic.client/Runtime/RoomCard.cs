@@ -277,9 +277,10 @@ namespace Halcyonic.Client
         /// that presses is ever cut; Halcyonic's own words never are.
         /// </param>
         public RoomListRow(RoomKind kind, LineWords name, string? note = null, RoomTone tone = RoomTone.Quiet, bool mono = false, KitControl? press = null,
-            bool chosen = false, LineWords? under = null, bool excerpt = false, string? label = null)
+            bool chosen = false, LineWords? under = null, bool excerpt = false, string? label = null, AnswerMark mark = AnswerMark.None)
         {
             Kind = kind;
+            Mark = mark;
             Label = string.IsNullOrWhiteSpace(label) ? null : label!.Trim();
             Name = name;
             Note = note;
@@ -318,6 +319,13 @@ namespace Halcyonic.Client
         public KitControl? Press { get; }
 
         public bool Chosen { get; }
+
+        /// <summary>
+        /// The row is an answer pressed to choose it (the lead's 2026-11-13T21:11Z: a frame's choices stand in the panel as pressed
+        /// rows): its disc for one answer, its squircle for several, in the tile's place whatever its kind, <see cref="Chosen"/> filled.
+        /// None for a row that only opens or states.
+        /// </summary>
+        public AnswerMark Mark { get; }
     }
 
     /// <summary>One gauge of a card: its window's kind, how much is left, the window's word, and when it resets.</summary>

@@ -1087,7 +1087,7 @@ namespace Halcyonic.XR.UI
             // A list where no row has a kind keeps no room for a mark: its words start at the card's edge with the title's
             // (SCREENS's critic, 2026-11-13: the empty room read as an icon that failed to draw). Where any row has a mark, all keep it.
             var marked = false;
-            for (var index = 0; index < rows.Count && index < RoomCard.ListAPage; index++) marked |= rows[index].Kind != RoomKind.None;
+            for (var index = 0; index < rows.Count && index < RoomCard.ListAPage; index++) marked |= rows[index].Kind != RoomKind.None || rows[index].Mark != AnswerMark.None;
             for (var index = 0; index < rows.Count && index < RoomCard.ListAPage; index++)
             {
                 var row = rows[index];
@@ -1095,10 +1095,11 @@ namespace Halcyonic.XR.UI
                 // description (SCREENS's critic, 2026-11-13: our "And 2 more reasons it gave" outranked the agent's words).
                 // Someone's own words on a plain row (a reason the agent gave) are the card's matter, not our note: they keep the row
                 // name's size and white, and only our plain rows go quiet (SCREENS's critic 8, 2026-11-13: "all one size and grey").
-                var plain = row.Kind == RoomKind.None && row.Press == null && !row.Name.AllTheirs;
+                var answer = row.Mark != AnswerMark.None;
+                var plain = row.Kind == RoomKind.None && !answer && row.Press == null && !row.Name.AllTheirs;
                 // A rule divides rows a person picks from or reads as marked items; plain lines of words stand as a passage, with no
                 // rule (critic 8: a hairline under every quote read as "a tappable settings list").
-                var ruled = rows.Any(each => each.Press != null || each.Kind != RoomKind.None);
+                var ruled = rows.Any(each => each.Press != null || each.Kind != RoomKind.None || each.Mark != AnswerMark.None);
                 if (index > 0 && ruled) Plate(new Vector2(width, S(1f)), 0f, White(0.10f), new Vector2(width / 2f, -(down + S(0.5f))), "hairline");
                 var top = down + S(RowPadDp);
                 var (tone, glyph) = ToneOf(row);
@@ -1115,8 +1116,9 @@ namespace Halcyonic.XR.UI
                 };
                 if (row.Chosen) (ground, ink) = (Rgb(Accent, 0.24f), Rgb(AccentNote));
                 // A row picked from carries a chevron at its right, the note before it, and takes a press across its whole width.
+                // An answer is pressed to choose it, in place: no chevron, as nothing opens.
                 var picked = row.Press != null;
-                var chevronRoom = picked ? S(ChevronDp + ChevronGapDp) : 0f;
+                var chevronRoom = picked && !answer ? S(ChevronDp + ChevronGapDp) : 0f;
                 var nameLeft = marked ? S(RowTileDp + RowGapDp) : 0f;
                 // Where the card is laid narrower than the panel's own words (the plane's narrower widths, the lead's 2026-11-13T1807Z
                 // ruling), the note stands on a line of its own under the name, the row's whole width, so neither is ever cut: at fifteen
@@ -1185,11 +1187,25 @@ namespace Halcyonic.XR.UI
                         : new Vector3(width - chevronRoom - noteWidth, -(middle - S(RowNoteLineDp) / 2f), -RoomType.Units(0.5f));
                 if (picked)
                 {
-                    Glyph(RoomGlyph.Chevron, ChevronDp, White(0.55f), new Vector2(width - S(ChevronDp) / 2f, -middle), "row chevron");
+                    if (!answer) Glyph(RoomGlyph.Chevron, ChevronDp, White(0.55f), new Vector2(width - S(ChevronDp) / 2f, -middle), "row chevron");
                     RowTarget(row.Press!, new Vector2(width / 2f, -middle), new Vector2(width, rowTall + 2f * S(RowPadDp)));
                 }
+                if (answer)
+                {
+                    // The answer's own mark in the tile's place, as the column draws one: a disc for one answer, a squircle for several;
+                    // at rest a hollow light ring, chosen the neutral light fill under the dark check (the accent stays the main action's).
+                    var markCentre = new Vector2(S(RowTileDp) / 2f, -middle);
+                    var markSize = S(RoomButton.MarkDp);
+                    var corner = row.Mark == AnswerMark.Multiple ? S(RoomButton.MarkBoxCornerDp) : markSize / 2f;
+                    if (row.Chosen)
+                    {
+                        Plate(new Vector2(markSize, markSize), corner, Rgb(ChosenAtRest), markCentre, "answer mark chosen");
+                        Glyph(RoomGlyph.Check, RoomButton.MarkCheckDp, Rgb(Dark), markCentre, "answer chosen");
+                    }
+                    else Plate(new Vector2(markSize, markSize), corner, Color.clear, markCentre, "answer mark", White(RoomButton.MarkLineAlpha), S(1.5f));
+                }
                 // A row with no kind draws no mark: a minus in a tile read as a control to collapse (the critic, 2026-11-12).
-                if (row.Kind != RoomKind.None)
+                else if (row.Kind != RoomKind.None)
                 {
                     var tileCentre = new Vector2(S(RowTileDp) / 2f, -middle);
                     Plate(new Vector2(S(RowTileDp), S(RowTileDp)), S(RowTileCornerDp), ground, tileCentre, "row tile " + row.Kind,

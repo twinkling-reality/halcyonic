@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] NarrowStates = { "56-narrow-colour", "56-narrow-shelf", "56-narrow-colour-wide", "57-destructive-confirm", "58-row-label", "58-narrow-status" };
+        private static readonly string[] NarrowStates = { "56-narrow-colour", "56-narrow-shelf", "56-narrow-colour-wide", "57-destructive-confirm", "58-row-label", "58-narrow-status", "58-answer-rows" };
 
         private static MenuFrame NarrowFrame(string state)
         {
@@ -54,6 +54,7 @@ namespace Halcyonic.XR.Workspace.Editor
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
             if (state == "58-row-label") return RowLabelShot(shot, root, eyes, name);
             if (state == "58-narrow-status") return NarrowStatusShot(shot, root, eyes, name);
+            if (state == "58-answer-rows") return AnswerRowsShot(shot, root, eyes, name);
             var was = RoomDesign.Enabled;
             RoomBar? bar;
             var frame = NarrowFrame(state);
@@ -180,6 +181,62 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             Place(plane, eyes, 0f, shot.Elevation);
             Debug.Log("Halcyonic: parts: " + name + ": " + (width / RoomType.Units(1f)).ToString("0", CultureInfo.InvariantCulture) + " dp cards drawn: " + string.Join(" | ", drawn) + ".");
+            return shot;
+        }
+
+        /// <summary>
+        /// A frame's choices as a card's pressed rows (the lead's 2026-11-13T21:11Z, pickers in the panel): three colours, one
+        /// chosen, each with its disc; two answers of several, one chosen, each with its squircle. Measured at the floor's width
+        /// and the full panel's: every name whole, one mark a row in the tile's place, the chosen ones filled with their check,
+        /// no chevron on an answer, nothing on a dot. Synthetic words only.
+        /// </summary>
+        private static PartShot AnswerRowsShot(PartShot shot, Transform root, Vector3 eyes, string name)
+        {
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            KitControl Choose(string key) => new KitControl(KitPlace.Step, new MenuFrame("Character Colour", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close))),
+                "answer-rows-choose", key, key, null, true, null, false);
+            var colours = new[] { "Original Colour", "Sea Glass", "Ember" }
+                .Select((each, at) => new RoomListRow(RoomKind.None, LineWords.Ours(each), press: Choose(each), chosen: at == 1, mark: AnswerMark.Single)).ToList();
+            var several = new[] { "Run Tests", "Check Types" }
+                .Select((each, at) => new RoomListRow(RoomKind.Task, LineWords.Ours(each), press: Choose(each), chosen: at == 0, mark: AnswerMark.Multiple)).ToList();
+            var cards = new[] { new RoomCard(LineWords.Ours("Character Colour"), list: colours), new RoomCard(LineWords.Ours("Before Finishing"), list: several) };
+            var plane = new GameObject("Plane").transform;
+            plane.SetParent(root, false);
+            var widths = new[] { PlaneWidth.FloorDp(GlazeText.Scale), RoomGeometry.PanelDp };
+            var drawn = new List<string>();
+            var placed = 0;
+            foreach (var panelDp in widths)
+                foreach (var card in cards)
+                {
+                    var width = RoomType.Units(panelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp);
+                    var view = RoomCardView.Create(plane);
+                    view.Show(card, width);
+                    view.transform.localPosition = new Vector3((placed - 1.5f) * (width + RoomType.Units(40f)), 0f, 0f);
+                    placed++;
+                    var where = " (" + panelDp.ToString("0", CultureInfo.InvariantCulture) + " dp panel)";
+                    Require(view.LaidWhole, "the card " + card.Title!.Text + " does not stand whole" + where);
+                    var rows = card.List!;
+                    Require(view.Plates.Count(each => each.What.StartsWith("answer mark", StringComparison.Ordinal)) == rows.Count,
+                        "the card " + card.Title!.Text + " does not draw one answer mark a row" + where);
+                    Require(view.Plates.Count(each => each.What == "answer mark chosen") == rows.Count(row => row.Chosen)
+                        && view.Glyphs.Count(each => each.What == "answer chosen") == rows.Count(row => row.Chosen),
+                        "the chosen answers are not filled with their check" + where);
+                    Require(!view.Glyphs.Any(each => each.What == "row chevron"), "an answer carries a chevron" + where);
+                    Require(!view.Plates.Any(each => each.What.StartsWith("row tile", StringComparison.Ordinal)), "an answer draws its kind's tile under its mark" + where);
+                    foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
+                    {
+                        label.ForceMeshUpdate(true);
+                        var said = label.GetParsedText();
+                        if (said.Trim().Length == 0) continue;
+                        drawn.Add(string.Join(" ", said.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)));
+                        Require(!label.isTextOverflowing && !said.Contains("…"), "\"" + said + "\" is cut" + where);
+                        Require(!said.Contains(KitMomentWords.Dot.Trim()), "\"" + said + "\" joins facts on a dot" + where);
+                    }
+                    foreach (var row in rows)
+                        Require(drawn.Contains(row.Name.Text), "\"" + row.Name.Text + "\" is not drawn whole" + where);
+                }
+            Place(plane, eyes, 0f, shot.Elevation);
+            Debug.Log("Halcyonic: parts: " + name + ": drawn: " + string.Join(" | ", drawn.Distinct()) + ".");
             return shot;
         }
 
