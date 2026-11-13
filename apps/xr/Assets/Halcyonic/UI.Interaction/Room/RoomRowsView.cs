@@ -118,8 +118,11 @@ namespace Halcyonic.XR.UI
                     note.fontSize = GlazeTokens.FontSize(RoomType.Scaled(TagDp));
                     note.lineSpacing = KitType.LineSpacingFor(note, TagLineDp / TagDp);
                     GlazeRuns.Of(note).Set(LineWords.Ours(state));
-                    KitType.Lay(note, width / 2f, 1);
-                    noteRoom = note.GetPreferredValues(note.text).x + RoomType.Scaled(NoteGapDp);
+                    // Every note ends on the row's right edge, so a page's states stand in one column (the reader, 2026-11-13).
+                    note.alignment = TextAlignmentOptions.TopRight;
+                    var noteWidth = Mathf.Min(width / 2f, note.GetPreferredValues(note.text).x + RoomType.Units(0.5f));
+                    KitType.Lay(note, noteWidth, 1);
+                    noteRoom = noteWidth + RoomType.Scaled(NoteGapDp);
                 }
                 else note.gameObject.SetActive(false);
                 var label = labels[index];
@@ -139,7 +142,8 @@ namespace Halcyonic.XR.UI
                 }
                 var tall = Mathf.Max(line, laid.Height);
                 label.transform.localPosition = new Vector3(indent, -down, 0f);
-                if (row.Note != null) note.transform.localPosition = new Vector3(width - noteRoom + RoomType.Scaled(NoteGapDp), -down - (line - RoomType.Scaled(TagLineDp)) / 2f, 0f);
+                // Its right edge a dp inside the row, so a glyph's ink at the end never passes it.
+                if (row.Note != null) note.transform.localPosition = new Vector3(width - RoomType.Units(1f) - (noteRoom - RoomType.Scaled(NoteGapDp)), -down - (line - RoomType.Scaled(TagLineDp)) / 2f, 0f);
                 var mark = marks[index];
                 if (rows[index].Mark == RoomRowMark.None) mark.Hide();
                 else
