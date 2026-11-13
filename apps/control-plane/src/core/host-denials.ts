@@ -24,6 +24,22 @@ export function tooLongWords(length: number): string {
   return `This request is ${length} characters long, and a person can be shown at most ${APPROVABLE_LIMIT} whole, so it was not done.`;
 }
 
+/** What happens to a request: the host answers it, the host denies it for length, or a person decides. */
+export type RequestOutcome = 'answer' | 'deny' | 'person';
+
+/**
+ * The ONE decision for each request (AUDIT3 M1, 2026-11-13), which the host's answers and its denials both act on, so
+ * neither ordering of their listeners lets both act or neither: a confined app's own work the no-ask rule takes is
+ * answered by the host whatever its length, since no person reads it and the closed profile holds it (`answer`); a
+ * request that would reach a person and is too long to show whole is denied with its reason (`deny`); anything else
+ * reaches the person.
+ */
+export function requestOutcome(event: EventEnvelope, hostAnswers: boolean): RequestOutcome {
+  if (event.event_type !== 'runtime.approval.requested') return 'person';
+  if (hostAnswers) return 'answer';
+  return event.payload.too_long === undefined ? 'person' : 'deny';
+}
+
 export interface HostDenialsDeps {
   readonly projection: Projection;
   readonly recorder: Recorder;
@@ -31,6 +47,8 @@ export interface HostDenialsDeps {
   readonly commands: Pick<CommandService, 'submit'>;
   /** Whether the runtime declares that a denial's words reach its agent (`delivers_denial_message`). */
   readonly delivers: (runtimeId: string) => boolean;
+  /** The one decision for a request (`requestOutcome`); this acts only on `deny`. */
+  readonly outcome: (event: EventEnvelope) => RequestOutcome;
   readonly ids: IdGenerator;
   readonly clock: Clock;
   readonly logger: Logger;
@@ -68,6 +86,7 @@ export class HostDenials {
     if (this.#closed || event.event_type !== 'runtime.approval.requested') return;
     const tooLong = event.payload.too_long;
     if (tooLong === undefined || event.execution_id === null) return;
+    if (this.#deps.outcome(event) !== 'deny') return;
     const approvalId = event.payload.approval_id;
     // After the request is projected, so the denial finds it pending.
     queueMicrotask(() => {

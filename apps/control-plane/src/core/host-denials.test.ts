@@ -10,7 +10,7 @@ import type {
 import type { RuntimeAdapter } from '@halcyonic/runtime-core';
 import { createTestControlPlane } from '../testing/harness.ts';
 import { APPROVABLE_LIMIT, controlPlaneDraft, NO_CAUSE } from './drafts.ts';
-import { tooLongWords } from './host-denials.ts';
+import { requestOutcome, tooLongWords } from './host-denials.ts';
 
 /** An agent app that can be sent decisions, declaring whether a denial's words reach its agent. */
 function runtime(delivers: boolean): RuntimeAdapter {
@@ -93,7 +93,9 @@ async function run(delivers: boolean, confined: boolean) {
         approval_id: each.approval_id,
         subject: { kind: 'tool_use', tool_name: 'Bash', summary: each.summary },
         complete: each.complete,
-        ...(each.length !== undefined && { too_long: { length: each.length } }),
+        ...(each.length !== undefined && {
+          too_long: { length: each.length, reported_complete: true },
+        }),
       },
     ]),
   ] as [string, unknown][]) {
@@ -157,5 +159,25 @@ describe('a request too long to show a person whole is denied by the host, in ev
     // No road round the guard while a write's approval shows only its path.
     assert.doesNotMatch(words, /file|script|several|Send it/);
     assert.doesNotMatch(words, /Halcyonic/, 'no product name in what the agent reads');
+  });
+});
+
+describe('one decision for each request (AUDIT3 M1)', () => {
+  const request = (tooLong: boolean) =>
+    ({
+      event_type: 'runtime.approval.requested',
+      payload: {
+        approval_id: 'a',
+        subject: { kind: 'tool_use', tool_name: 'Bash', summary: 'x' },
+        complete: !tooLong,
+        ...(tooLong && { too_long: { length: 2001, reported_complete: true } }),
+      },
+    }) as never;
+  test('the host answers what it answers, denies what is too long for a person, and leaves the rest to the person', () => {
+    assert.equal(requestOutcome(request(true), true), 'answer');
+    assert.equal(requestOutcome(request(false), true), 'answer');
+    assert.equal(requestOutcome(request(true), false), 'deny');
+    assert.equal(requestOutcome(request(false), false), 'person');
+    assert.equal(requestOutcome({ event_type: 'runtime.turn.started' } as never, false), 'person');
   });
 });

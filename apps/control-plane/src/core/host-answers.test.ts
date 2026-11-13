@@ -184,7 +184,8 @@ describe("the host's answers in the pipeline", () => {
     return adapter;
   }
 
-  async function confinedRun(confined: boolean, respondToApproval = true) {
+  type Extra = { approval_id: string; length: number };
+  async function confinedRun(confined: boolean, respondToApproval = true, extra: Extra[] = []) {
     const harness = createTestControlPlane({
       adapters: () => [answeringRuntime(respondToApproval)],
       confinedReads: (directory) => (directory === copy ? reads : null),
@@ -240,6 +241,13 @@ describe("the host's answers in the pipeline", () => {
         paths: [{ path: join(outside, 'id_rsa'), access: 'read' }],
       },
       { approval_id: 'a4', tool: 'Bash', paths: undefined },
+      // Commands too long for a person to approve, as the control plane marks them (AUDIT3 M1).
+      ...extra.map((each) => ({
+        approval_id: each.approval_id,
+        tool: 'Bash',
+        paths: undefined,
+        tooLong: each.length,
+      })),
     ];
     const observations: [string, unknown][] = [
       ['runtime.execution.started', { native_id: 'n', confined }],
@@ -259,7 +267,10 @@ describe("the host's answers in the pipeline", () => {
                     : each.tool,
                 ...(each.paths !== undefined && { paths: each.paths }),
               },
-              complete: true,
+              complete: !('tooLong' in each),
+              ...('tooLong' in each && {
+                too_long: { length: each.tooLong, reported_complete: true },
+              }),
             },
           ] as [string, unknown],
       ),
@@ -347,6 +358,33 @@ describe("the host's answers in the pipeline", () => {
       ['a1', 'a2', 'a3', 'a4'],
     );
     assert.deepEqual(view?.approvals, { went_ahead: 0, asked: 4 });
+  });
+
+  test('a confined command too long for a person is answered by the host, whole, the cut said beyond the record (AUDIT3 M1)', async () => {
+    const { events, answered, sent } = await confinedRun(true, true, [
+      { approval_id: 'a5', length: 5000 },
+      { approval_id: 'a6', length: 40_000 },
+    ]);
+    const byId = (id: string) =>
+      answered.find(
+        (event) =>
+          event.event_type === 'execution.approval.answered_by_host' &&
+          event.payload.approval_id === id,
+      );
+    const five = byId('a5');
+    const forty = byId('a6');
+    assert.ok(five?.event_type === 'execution.approval.answered_by_host');
+    assert.equal(five.payload.because, 'confined_command');
+    assert.equal(five.payload.cut, undefined, 'kept whole in the record');
+    assert.ok(forty?.event_type === 'execution.approval.answered_by_host');
+    assert.deepEqual(forty.payload.cut, { length: 40_000 });
+    // Approved by the same command a press sends, and never denied for length.
+    assert.ok(sent.some(([id, decision]) => id === 'a5' && decision === 'approve'));
+    assert.ok(sent.some(([id, decision]) => id === 'a6' && decision === 'approve'));
+    assert.equal(
+      events.filter((event) => event.event_type === 'execution.approval.denied_by_host').length,
+      0,
+    );
   });
 
   test('the same run not recorded confined asks for all four', async () => {

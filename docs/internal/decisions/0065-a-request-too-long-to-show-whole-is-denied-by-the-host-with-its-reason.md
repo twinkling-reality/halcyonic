@@ -19,13 +19,19 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    The headset already pages a request and holds Yes to its last part (XR, 19:36Z), but that is not yet tried at
    length, so raising the approvable bound is one constant once a client test pages a long request whole and the
    lead says how long a request a person should be asked to read.
-2. **Beyond the approvable bound the host denies the step at once, in every run**, confined or not
+2. **Beyond the approvable bound the host denies the step at once where it would reach a person**, confined or not
    (`HostDenials`, `apps/control-plane/src/core/host-denials.ts`): the request carries `too_long: { length }`, the
    host records `execution.approval.denied_by_host` with the reason and length, then sends the same denial a press
    sends, with words that say why and name the bound, and suggest nothing more: while a file write's approval shows
    only its path, "write it as a file" would be a way round the rule (AUDIT2, AUDIT3; the lead, 2026-11-13 19:46Z).
    The advice comes back with the second half of this decision, ordered the same evening: an approval shows whole
    what it approves, a write's content and an edit's old and new text too.
+   **A confined app's own work is not denied for length** (AUDIT3 M1, the lead 19:53Z): the bound is a person's
+   reading bound, and in a confined copy no person approves (ADR 0064). One decision (`requestOutcome`) says, for
+   each request, whether the host answers it (the no-ask rule holds and the agent app reported it complete:
+   `too_long.reported_complete`), denies it for length, or leaves it to the person; the host's answer approves it
+   whatever its length, keeps it whole in the record up to 32000 and, beyond that, records the cut and the whole
+   length (`cut`), the whole being the project's own copy.
 3. **Whether the agent was told is declared, never assumed.** `RuntimeDescriptor.delivers_denial_message`: Claude
    Agent declares it (the SDK's deny carries `message` as the tool result the model reads). OpenCode 2.0.18 delivers a
    denial's message nowhere (its e2e) and Codex 0.157.0's approval reply has no field for one (its own schema,

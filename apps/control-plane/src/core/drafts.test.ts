@@ -190,7 +190,7 @@ describe("a runtime's observations", () => {
       approval_id: 'a',
       subject: { kind: 'tool_use', tool_name: 'Bash', summary: cutSummary },
       complete: false,
-      too_long: { length: 31_990 + [...MARK].length + ' and more'.length },
+      too_long: { length: 31_990 + [...MARK].length + ' and more'.length, reported_complete: true },
     });
     assert.deepEqual(tool, { tool_call_id: 't', tool_name: 'Bash', title: cutTitle });
     assert.deepEqual(started, { test_run_id: 'x', label: cutTitle });
@@ -364,6 +364,21 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
     };
   };
 
+  test("too_long is the host's own fact: one an agent app's observation carries is dropped (CORE, 2026-11-13)", () => {
+    const { sink, recorded } = recordingSink();
+    sink(
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: { kind: 'tool_use', tool_name: 'Bash', summary: 'ls' },
+        complete: true,
+        too_long: { length: 99_999, reported_complete: true },
+      }),
+    );
+    const asked = recorded[0]?.payload as { complete: boolean; too_long?: unknown };
+    assert.equal(asked.too_long, undefined);
+    assert.equal(asked.complete, true);
+  });
+
   test('what a card does not draw is shown as its escape, so what is shown is what runs (L1)', () => {
     // A right-to-left override makes "rm -rf ~ #txt.gnp" read as something else on a card that draws it.
     const asked = ask('Bash', 'echo safe \u202E; rm -rf ~ #gnp.txt');
@@ -381,11 +396,11 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
     assert.equal(fits.too_long, undefined);
     const long = ask('Bash', 'x'.repeat(APPROVABLE_LIMIT + 1));
     assert.equal(long.complete, false);
-    assert.deepEqual(long.too_long, { length: APPROVABLE_LIMIT + 1 });
+    assert.deepEqual(long.too_long, { length: APPROVABLE_LIMIT + 1, reported_complete: true });
     assert.equal(long.subject.summary.length, APPROVABLE_LIMIT + 1, 'kept whole');
     const huge = ask('Bash', 'y'.repeat(SUMMARY_LIMIT + 10));
     assert.equal([...huge.subject.summary].length, SUMMARY_LIMIT);
-    assert.deepEqual(huge.too_long, { length: SUMMARY_LIMIT + 10 });
+    assert.deepEqual(huge.too_long, { length: SUMMARY_LIMIT + 10, reported_complete: true });
     // The same rule for a file a run would write, so a long script cannot be approved as a Write instead (L3).
     const write = ask('Write', `Write ${'z'.repeat(APPROVABLE_LIMIT)}`);
     assert.equal(write.complete, false);

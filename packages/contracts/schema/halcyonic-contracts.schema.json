@@ -8412,6 +8412,19 @@
                     "additionalProperties": false
                   },
                   "maxItems": 8
+                },
+                "cut": {
+                  "type": "object",
+                  "required": [
+                    "length"
+                  ],
+                  "properties": {
+                    "length": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "additionalProperties": false
@@ -11276,12 +11289,16 @@
                 "too_long": {
                   "type": "object",
                   "required": [
-                    "length"
+                    "length",
+                    "reported_complete"
                   ],
                   "properties": {
                     "length": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "reported_complete": {
+                      "type": "boolean"
                     }
                   },
                   "additionalProperties": false

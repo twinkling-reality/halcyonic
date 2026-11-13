@@ -38,7 +38,7 @@ import { type CatalogLinks, CommandService } from './command-service.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 import { GivenPictures } from './given-pictures.ts';
 import { type ConfinedReads, HostAnswers } from './host-answers.ts';
-import { HostDenials } from './host-denials.ts';
+import { HostDenials, requestOutcome } from './host-denials.ts';
 import { InstructionQueue } from './instruction-queue.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
@@ -482,6 +482,7 @@ export class ControlPlane {
       publisher: this.publisher,
       commands: this.commands,
       delivers: (runtimeId) => this.registry.get(runtimeId)?.delivers_denial_message === true,
+      outcome: (event) => requestOutcome(event, this.#hostAnswers?.wouldAnswer(event) === true),
       ids: options.ids,
       clock: options.clock,
       logger: options.logger,
