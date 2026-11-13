@@ -315,12 +315,15 @@ namespace Halcyonic.XR.UI
             RoomType.Size(words);
             var hasDetail = !string.IsNullOrWhiteSpace(detail);
             if (hasDetail) JoinedFacts.Given(detail!);
-            GlazeText.SetLiteral(words, hasDetail ? text + "\n" + detail!.Trim() : text);
+            GlazeText.SetLiteral(words, text);
             // A button never draws the joining dot (the owner, 2026-11-11; the lead, 2026-11-13): each part its own line, an
             // answer's label over its description, wrapped or not.
             JoinedFacts.Given(words.text);
             var parts = words.text.Split(new[] { " · " }, StringSplitOptions.None);
             if (parts.Length > 1) words.text = string.Join("\n", parts);
+            // The detail on its own line under the words: each part made literal on its own and joined after, since making
+            // them literal together folds the line break into a space (XR, 2026-11-13: "Next Part 2 of 7" on one line).
+            if (hasDetail) words.text += "\n" + LabelText.ForTextMeshPro(detail!.Trim());
             var inner = RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp);
             words.textWrappingMode = TextWrappingModes.NoWrap;
             var wordsWidth = words.GetPreferredValues(words.text).x;
