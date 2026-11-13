@@ -278,7 +278,7 @@ namespace Halcyonic.Client
             if (lines.Count == 0)
             {
                 if (room.Rows < 1 || budget.Words(1) > budget.Room + 1e-6f)
-                    lines.Add(new PageLine("No Room · Move Workspace", tone: LineTone.Secondary, rows: 2));
+                    lines.Add(new PageLine(ProjectsText.MoreRoom, tone: LineTone.Secondary, rows: 2));
                 else if (workspace.Activity.Count == 0)
                 {
                     var note = screen.ActivityNote.TrimStart(' ', '·');
@@ -410,7 +410,7 @@ namespace Halcyonic.Client
                     // Like the project chooser, refuse an impossible allocation explicitly.
                     // The offered routes and draft state remain intact for a later reflow.
                     screen.Page = 0; screen.Pages = 1;
-                    return new Page(new[] { new PageLine("No Room · Move Workspace", tone: LineTone.Secondary, rows: 2) },
+                    return new Page(new[] { new PageLine(ProjectsText.MoreRoom, tone: LineTone.Secondary, rows: 2) },
                         source, normal);
                 }
                 page.Add(line);

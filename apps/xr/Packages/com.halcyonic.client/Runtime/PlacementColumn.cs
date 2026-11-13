@@ -63,7 +63,7 @@ namespace Halcyonic.Client
                 var budget = host.PageHeight(1, false, focused: true);
                 if (actions.Any(action => MenuPage.Target(action.Rows) > budget + 0.00001f))
                     return given = new MenuFrame(Subject, new Footer(new Prompt(Footer.Close, "Close Details", GlazeIcon.Close, PromptKind.Close)),
-                        lines: new[] { new PageLine("No Room · Move Workspace", tone: LineTone.Secondary, rows: 2) }).Focus();
+                        lines: new[] { new PageLine(ProjectsText.MoreRoom, tone: LineTone.Secondary, rows: 2) }).Focus();
                 var pages = new List<List<PageLine>> { new List<PageLine>() };
                 var used = 0f;
                 foreach (var action in actions)

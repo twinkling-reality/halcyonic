@@ -54,7 +54,12 @@ namespace Halcyonic.Client
         public const string CantTell = "Contents Unreadable";
 
         /// <summary>Local recovery when supplied physical measurements cannot hold the complete project rows.</summary>
-        public const string MoreRoom = "No Room · Move Workspace";
+        /// <summary>
+        /// A page with room for no row: the notice alone, "No Room" (WORDS.md), never joined to its way on. Moving the workspace is the
+        /// chrome's own Move where the older view draws this; under the redesign a standing character no longer shrinks a page, so it
+        /// is left for a room truly too small.
+        /// </summary>
+        public const string MoreRoom = "No Room";
 
         /// <summary>Under a project whose shown name looks like another project's or a free folder's.</summary>
         public const string ProjectLooksAlike = "Similar Name Exists · Check Its Work";

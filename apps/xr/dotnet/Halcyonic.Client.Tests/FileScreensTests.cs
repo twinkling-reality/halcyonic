@@ -443,7 +443,7 @@ public class FileScreensTests
         var workspace = Offering(Running().Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
         var steering = new WorkspaceSteering(factory);
         var refused = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(3), new RowBudget(3));
-        Assert.That(refused.Lines.Single().Words, Is.EqualTo("No Room · Move Workspace"));
+        Assert.That(refused.Lines.Single().Words, Is.EqualTo("No Room"), "the notice alone, never joined to its way on");
         Assert.That(refused.Footer.All.Select(entry => entry.Prompt.Id), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, FileScreens.HoldToTalk, FileScreens.TellIt }));
         Assert.That(screen.ResultsOffered && screen.WorkspaceRequestOffered, Is.True);
         var actions = new List<string>();
