@@ -95,74 +95,148 @@ namespace Halcyonic.XR.Workspace.Editor
             finally { RoomDesign.Enabled = was; }
             Require(frame != null && bar != null, "the general reader gives the redesign no bar");
             if (frame == null || bar == null) return shot;
+            MenuFrame given = frame;
             var plane = new GameObject("Plane").transform;
             plane.SetParent(root, false);
             var view = RoomBarView.Create(plane);
             // The kit's own line measure at the width the bar is laid (the lead's 20:15Z: eight lines means eight lines), as the plane
             // hands it; narrow: the plane's measure loop too, one row and one line fewer a page while the laid bar passes its footprint.
             var form = new RoomForm(narrow, RoomRows.APage).Measured((row, marked) => view.RowLines(row, marked, narrow ? RoomGeometry.ColumnDp : RoomGeometry.PanelDp));
-            while (true)
+            RoomBar Read()
             {
                 RoomDesign.Enabled = true;
                 try
                 {
-                    bar = RoomBar.OfFrame(frame, VoiceStage.Idle, form)!;
-                    // The last page of the long list, every earlier one shown on the way (eight lines a page may make more than two).
-                    if (state == "52-general-rows-2") while (bar.GeneralPart.Page < bar.GeneralPart.Pages - 1) bar.Turn();
+                    var read = RoomBar.OfFrame(given, VoiceStage.Idle, form)!;
+                    read.Narrow = narrow;
+                    return read;
                 }
                 finally { RoomDesign.Enabled = was; }
-                bar.Narrow = narrow;
-                view.Show(bar);
-                view.SettleForRender();
-                // Fewer lines only mend a bar too TALL: a bar too wide (its widest action past the column) is the kit's finding, kept.
+            }
+            int PagesOf(RoomBar each) => Math.Max(1, each.GeneralPart.Pages);
+            // Fewer lines only mend a bar too TALL, judged on its tallest page (FIELD's 20:53Z: page 1 alone hid the rest); a bar too wide
+            // (its widest action past the column) is the kit's finding, kept.
+            bool TooTall(RoomBar each)
+            {
                 var largest = narrow ? RoomBarView.LargestNarrow : RoomBarView.Largest;
-                if (!narrow || !view.PassedLargest || view.Size.y <= largest.y || form.LinesAPage == 1) break;
+                var tall = false;
+                for (var page = 0; page < PagesOf(each); page++)
+                {
+                    view.Show(each);
+                    view.SettleForRender();
+                    tall |= view.PassedLargest && view.Size.y > largest.y;
+                    if (PagesOf(each) > 1) each.Turn();
+                }
+                return tall;
+            }
+            while (true)
+            {
+                bar = Read();
+                if (!narrow || form.LinesAPage == 1 || !TooTall(bar)) break;
                 form = form.Fewer();
             }
+            bar = Read();
+            // The last page of the long list, every earlier one shown on the way (eight lines a page may make more than two).
+            if (state == "52-general-rows-2") while (bar.GeneralPart.Page < bar.GeneralPart.Pages - 1) bar.Turn();
             Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : "full") + " at " + form.LinesAPage + " lines a page, " + bar.GeneralPart.Pages + " page"
                 + (bar.GeneralPart.Pages == 1 ? "" : "s") + (bar.Card != null ? " (" + bar.Card.List.Count + " pressed rows on the first)" : "") + ".");
-            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || (state is "52-general-usage" or "52-general-caps" || narrow) && bar.GeneralPart.Pages > 1;
+            var confirm = state == "52-general-confirm";
+            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || (state is "52-general-usage" or "52-general-caps" || narrow || confirm) && bar.GeneralPart.Pages > 1;
             // The general reader's card holds pressed rows, never the usage card's gauges (which would mean a specific reader took it).
             if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
+            // The way out: a side panel's own Close, a confirmation's Cancel, else the frame's Close.
+            var wayOut = frame.Side != null ? SidePanel.Close : confirm ? "forget-cancel" : Footer.Close;
             if (paged)
             {
-                var wayOut = frame.Side != null ? SidePanel.Close : Footer.Close;
                 Require(bar.Column.Last().Control.Action == wayOut && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its way out");
                 // Read once every page with something to read was shown: the second page of rows, and at once where only bare actions page.
-                if (!narrow) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column"), "Whole before every page to read was shown, or not after");
+                if (!narrow && !confirm) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column"), "Whole before every page to read was shown, or not after");
             }
-            if (state == "52-general-confirm")
-                Require(bar.Column[0].Control.Action == "forget-yes" && bar.Column[0].Locks && bar.Column.Last().Control.Action == "forget-cancel", "the confirmation's Yes is not first behind its lock, or Cancel not last");
-            Require(bar.Column.Count is > 0 and <= RoomBar.ColumnMost, "the column holds " + bar.Column.Count + " actions");
             Require(!bar.LostPart, "the general reader lost a part of the frame (not on screen)");
-            var expected = new List<string>();
             if (frame.Side is SidePanel panel)
             {
                 Require(bar.Words.Text == panel.Subject, "the side panel's title is not the bar's words");
                 Require(bar.Column.Last().Control.Action == SidePanel.Close, "the side panel's own Close is not the last way out");
                 Require(bar.Column.All(action => action.Control.Action != "run-checks" && action.Control.Action != Footer.Close), "the hidden page's actions stand beside its side panel");
             }
-            if (frame.Side is SidePanel side && !paged)
+
+            // EVERY page laid and read (FIELD's 20:53Z): a fresh read turned through all its pages, each measured, every word of the
+            // frame drawn whole on one page or across a long row's parts, each page's own actions drawn, and back at the first page.
+            string Words(string text) => string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            var drawn = new List<string>();
+            var sweep = Read();
+            var sweepPages = PagesOf(sweep);
+            for (var page = 0; page < sweepPages; page++)
+            {
+                var at = "page " + (page + 1) + " of " + sweepPages + ": ";
+                view.Show(sweep);
+                view.SettleForRender();
+                Require(!view.PassedLargest, at + "the bar laid past its largest footprint");
+                Require(sweep.Column.Count is > 0 and <= RoomBar.ColumnMost, at + "the column holds " + sweep.Column.Count + " actions");
+                Require(sweep.Column.Last().Control.Action == wayOut, at + "the way out is not last");
+                var shownButtons = view.Column.Where(button => button.gameObject.activeSelf).ToList();
+                Require(shownButtons.Count == sweep.Column.Count, at + "the column draws " + shownButtons.Count + " of " + sweep.Column.Count + " actions");
+                // A confirmation's Yes stands first behind its lock only on the page that ends what it does.
+                if (confirm)
+                    Require(page < sweepPages - 1
+                            ? sweep.Column.All(action => action.Control.Action != "forget-yes")
+                            : sweep.Column[0].Control.Action == "forget-yes" && sweep.Column[0].Locks,
+                        at + "the confirmation's Yes stands before what it does was shown, or not first behind its lock once it was");
+                var onPage = new List<string>();
+                foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
+                {
+                    label.ForceMeshUpdate(true);
+                    var said = label.GetParsedText();
+                    if (said.Trim().Length == 0) continue;
+                    onPage.Add(said);
+                    Require(!label.isTextOverflowing && !said.Contains("…"), at + "\"" + said + "\" is cut");
+                    Require(!said.Contains(KitMomentWords.Dot.Trim()), at + "\"" + said + "\" joins facts on a dot");
+                }
+                foreach (var action in sweep.Column)
+                    Require(onPage.Any(said => Words(said).Contains(Words(action.Words))) && (action.Detail == null || onPage.Any(said => Words(said).Contains(Words(action.Detail)))),
+                        at + "the action \"" + action.Words + "\" is not drawn whole with its detail");
+                drawn.AddRange(onPage);
+                Debug.Log("Halcyonic: parts: " + name + ": " + at + "drew " + string.Join(" | ", onPage.Select(Words)) + ".");
+                if (sweepPages > 1) sweep.Turn();
+            }
+            Require(sweep.Whole, "every page was shown and the frame is still not read");
+            Require(sweep.GeneralPart.Page == 0, "the pager does not come back to the first page");
+            var expected = new List<string>();
+            if (frame.Side is SidePanel side)
             {
                 expected.Add(side.Subject);
                 expected.AddRange(side.Facts.Select(fact => fact.Name));
                 expected.AddRange(side.Facts.Select(fact => fact.ValueRuns.Text));
             }
-            else if (paged)
-            {
-                expected.AddRange((bar.Facts ?? new List<RoomRow>()).Select(row => row.Words.Text));
-                expected.AddRange(bar.Card?.List.Select(row => row.Name.Text) ?? Enumerable.Empty<string>());
-                expected.AddRange(bar.Column.Select(action => action.Words));
-            }
             else
             {
+                expected.Add(frame.Subject);
                 expected.AddRange(frame.Lines.Where(line => line.Action == null).Select(line => line.Words));
                 expected.AddRange(frame.Lines.Where(line => line.Action != null && line.Available).Select(line => line.Words));
                 expected.AddRange(frame.Lines.Where(line => line.Action != null && line.Fact != null).Select(line => line.Fact!));
+                expected.AddRange(frame.Lines.Where(line => line.Action != null && line.Under != null).Select(line => line.Under!.Text));
             }
+            // Whole on one page, or a long row's parts in order across pages (each part is a run of the row's own lines).
+            bool DrawnWhole(string words)
+            {
+                var whole = Words(words);
+                if (drawn.Any(said => Words(said).Contains(whole))) return true;
+                var cursor = 0;
+                foreach (var piece in drawn.Select(Words).Where(piece => piece.Length > 0))
+                {
+                    if (cursor + piece.Length > whole.Length || string.CompareOrdinal(whole, cursor, piece, 0, piece.Length) != 0) continue;
+                    cursor += piece.Length;
+                    while (cursor < whole.Length && whole[cursor] == ' ') cursor++;
+                }
+                return cursor >= whole.Length;
+            }
+            foreach (var words in expected.Where(words => words.Trim().Length > 0))
+                Require(DrawnWhole(words), "\"" + words + "\" is not drawn whole on any page: " + string.Join(" | ", drawn.Select(Words)));
 
-            Require(!view.PassedLargest, "the bar laid past its largest footprint");
+            // The image: the bar as the state names it (the first page, or the long list's last), laid and placed.
+            view.Show(bar);
+            view.SettleForRender();
             var buttons = view.Column.Where(button => button.gameObject.activeSelf).ToList();
             foreach (var button in buttons)
             {
@@ -170,21 +244,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 button.Settle();
             }
             Place(plane, eyes, 0f, shot.Elevation);
-            Require(buttons.Count == bar.Column.Count, "the column draws " + buttons.Count + " of " + bar.Column.Count + " actions");
-            var drawn = new List<string>();
-            foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
-            {
-                label.ForceMeshUpdate(true);
-                var said = label.GetParsedText();
-                if (said.Trim().Length == 0) continue;
-                drawn.Add(said);
-                Require(!label.isTextOverflowing && !said.Contains("…"), "\"" + said + "\" is cut");
-                Require(!said.Contains(KitMomentWords.Dot.Trim()), "\"" + said + "\" joins facts on a dot");
-            }
-            string Words(string text) => string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-            foreach (var words in expected.Where(words => words.Trim().Length > 0))
-                Require(drawn.Any(said => Words(said).Contains(Words(words))), "\"" + words + "\" is not drawn whole: " + string.Join(" | ", drawn.Select(Words)));
-            Debug.Log("Halcyonic: parts: " + name + ": the general reader drew " + string.Join(" | ", drawn.Select(Words)) + "; actions: "
+            Debug.Log("Halcyonic: parts: " + name + ": the general reader drew " + string.Join(" | ", view.GetComponentsInChildren<TMPro.TMP_Text>(false)
+                    .Select(label => Words(label.GetParsedText())).Where(said => said.Length > 0)) + "; actions: "
                 + string.Join(", ", buttons.Select(button => button.Words.text)) + ".");
             return shot;
         }
