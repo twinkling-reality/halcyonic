@@ -43,7 +43,7 @@ namespace Halcyonic.XR.UI
         /// <summary>Chevron down: Next Part, Next Page, Next Choices, Compact (the room clears below).</summary>
         Next,
 
-        /// <summary>Chevron up: Previous Part, Previous Page, Open Workspace (the room comes back up).</summary>
+        /// <summary>Chevron up: Previous Part, Previous Page, First Page, First Part (back to the start), Open Workspace (the room comes back up).</summary>
         Previous,
 
         /// <summary>Play: Try Build.</summary>
@@ -365,7 +365,7 @@ namespace Halcyonic.XR.UI
             ["New Project"] = RoomGlyph.Plus, ["Request Change"] = RoomGlyph.Pencil, ["Write Instruction"] = RoomGlyph.Bubble, ["Continue"] = RoomGlyph.Continue,
             ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings,
             ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock,
-            ["Previous Page"] = RoomGlyph.Previous, ["Compact"] = RoomGlyph.Next, ["Open Workspace"] = RoomGlyph.Previous, ["Projects"] = RoomGlyph.Back,
+            ["Previous Page"] = RoomGlyph.Previous, ["First Page"] = RoomGlyph.Previous, ["First Part"] = RoomGlyph.Previous, ["Compact"] = RoomGlyph.Next, ["Open Workspace"] = RoomGlyph.Previous, ["Projects"] = RoomGlyph.Back,
             ["Carry Out Plan"] = RoomGlyph.Continue,
             // SCREENS's Start From takes the cube, as Make VR Version (the addendum's A16).
             ["Start From"] = RoomGlyph.Cube,
