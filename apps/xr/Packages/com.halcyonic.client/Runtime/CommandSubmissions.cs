@@ -283,6 +283,7 @@ namespace Halcyonic.Client
             ProjectSecretRemoveCommand _ => CommandType.ProjectSecretRemove,
             ProjectLinkCatalogCommand _ => CommandType.ProjectLinkCatalog,
             ProjectUnlinkCatalogCommand _ => CommandType.ProjectUnlinkCatalog,
+            ProjectRemoveFromListCommand _ => CommandType.ProjectRemoveFromList,
             WorkstreamCreateCommand _ => CommandType.WorkstreamCreate,
             WorkstreamAddToProjectCommand _ => CommandType.WorkstreamAddToProject,
             WorkstreamFitToProjectCommand _ => CommandType.WorkstreamFitToProject,

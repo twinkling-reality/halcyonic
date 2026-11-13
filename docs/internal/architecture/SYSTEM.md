@@ -113,6 +113,11 @@ client ── command ──> CommandService ── admit (domain) ──> Recor
    then the host puts it before each task's first instruction, marked as the project's words, the same for
    every runtime, while the file still reads as chosen
    ([ADR 0059](../decisions/0059-a-projects-own-rules-reach-a-task-only-as-the-person-read-and-chose-them.md)).
+   A project can be taken off the list (`project.remove_from_list`, reviewed, refused while anything of it is at
+   work or live), leaving its folder and every record of it as they are: the projection keeps it whole for every read
+   of the host's own, and only what a person or a client reads asks `listed` and leaves it out. Adding its folder
+   again brings back the same project (`project.returned`)
+   ([ADR 0063](../decisions/0063-a-project-leaves-the-list-and-comes-back-by-its-folder.md)).
 7. Before starting a turn on a local `ollama/<model>` execution, if no active execution in
    Halcyonic is already using that model, the control plane reads `GET /api/ps` on loopback Ollama
    (`127.0.0.1:11434`); when the execution's turn ends (or fails, is interrupted, becomes unknown

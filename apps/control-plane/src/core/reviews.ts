@@ -22,6 +22,7 @@ import { sendTitle } from '../sending/github.ts';
 import { HOSTED_COST } from '../workspace-agent/assistant-model.ts';
 import type { ControlPlane } from './control-plane.ts';
 import { readRules, rulesReview } from './project-rules.ts';
+import { removalReview } from './removal.ts';
 import { locationReview, reviewDigest } from './review.ts';
 
 /**
@@ -461,6 +462,11 @@ export async function buildReview(
         items_total: 0,
         warnings: link ? [{ code: 'public', line: 'Anyone with the link can play it' }] : [],
       });
+    }
+    case 'project.remove_from_list': {
+      // Read from the projection alone; the card names the project and its folder (ADR 0063).
+      const built = removalReview(projection, command.payload.project_id);
+      return built.ok ? review(built.review) : no(built.code, built.message);
     }
     case 'project.secret.remove': {
       // Gone for good, and the person may not have the value anywhere else (the lead, 05:49Z).

@@ -6,6 +6,7 @@ import type {
   ExecutionStatus,
   PolicyCategory,
   ProjectId,
+  ProjectView,
   QuestionAnswer,
   QuestionPrompt,
   RejectionCode,
@@ -108,6 +109,8 @@ function admit(
   probe: boolean,
 ): Admission {
   const policy = COMMAND_POLICY[command.command_type];
+  const off = offList(command, projection);
+  if (off !== undefined) return off;
   switch (command.command_type) {
     case 'workspace.request.submit': {
       const { project_id, workstream_id, execution_id } = command.payload;
@@ -1122,6 +1125,20 @@ function admit(
       return { admitted: true, policy, scope, runtime: null };
     }
 
+    case 'project.remove_from_list': {
+      // Taking a project off the list deletes nothing and touches no file (ADR 0063); it waits for every
+      // thing of the project's that is at work or live, so nothing goes on unseen.
+      const projectId = command.payload.project_id;
+      const project = projection.project(projectId);
+      if (project === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      const refusal = removalRefusal(projection, project);
+      return refusal === null
+        ? { admitted: true, policy, scope, runtime: null }
+        : reject(scope, 'invalid_state', refusal);
+    }
+
     case 'assistant.model.choose':
       // Which hosted models exist and whose key is stored is the host's to say (CommandService's host check): the
       // domain knows no provider. The choice belongs to no project.
@@ -1134,6 +1151,78 @@ function admit(
       );
     }
   }
+}
+
+/** The words a command naming a project taken off the list is refused with (ADR 0063). */
+export const OFF_LIST_WORDS =
+  'This project was taken off the list. Add its folder again to bring it back.';
+
+/** The project a command names, through its project, a task or an execution of it, or a request about it. */
+function namedProject(command: CommandEnvelope, projection: Projection): ProjectId | null {
+  const payload = command.payload as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === 'string' ? value : null);
+  const project = text(payload.project_id) ?? text(payload.original_project_id);
+  if (project !== null) return project as ProjectId;
+  const workstream = text(payload.workstream_id);
+  if (workstream !== null) return projection.workstream(workstream)?.project_id ?? null;
+  const execution = text(payload.execution_id);
+  if (execution !== null) return projection.execution(execution)?.project_id ?? null;
+  const request = text(payload.request_id);
+  if (request !== null) return projection.workspaceRequest(request)?.project_id ?? null;
+  return null;
+}
+
+/**
+ * The one refusal of every command naming a project taken off the list, or one being taken off (ADR 0063),
+ * before any command's own checks. Ending a request stays open, so nothing about the project is left running.
+ */
+function offList(
+  command: CommandEnvelope,
+  projection: Projection,
+): (Admission & { admitted: false }) | undefined {
+  if (command.command_type === 'workspace.request.cancel') return undefined;
+  const projectId = namedProject(command, projection);
+  if (projectId === null || projection.project(projectId) === undefined) return undefined;
+  if (!projection.listed(projectId)) return reject(NO_SCOPE, 'project_not_found', OFF_LIST_WORDS);
+  const removing = projection
+    .pendingCommands()
+    .some(
+      (pending) =>
+        pending.command_type === 'project.remove_from_list' &&
+        pending.project_id === projectId &&
+        pending.command_id !== command.command_id,
+    );
+  if (removing)
+    return reject(
+      { ...NO_SCOPE, project_id: projectId },
+      'invalid_state',
+      'This project is being taken off the list. Try again in a moment.',
+    );
+  return undefined;
+}
+
+/**
+ * Why the project cannot be taken off the list now, in words, or null (ADR 0063). `except` is the removal's
+ * own command, which the host's reading again before it records leaves out.
+ */
+export function removalRefusal(
+  projection: Projection,
+  project: ProjectView,
+  except?: string,
+): string | null {
+  // A request of the assistant's about it ends itself once the project is off the list, its press included.
+  const busy = projection.projectBusy(project.project_id, except, false);
+  if (busy !== null)
+    // A task has a Stop; a command still under way has none, and its name is not a person's word.
+    return busy.startsWith('A task')
+      ? `${busy} Stop it, then remove the project.`
+      : 'Something in this project is still under way. Wait for it to finish, then remove the project.';
+  if (project.share !== undefined) return 'This game is shared now. Stop sharing it first.';
+  if (project.mac_play !== undefined) return 'This game is playing on the Mac now. Stop it first.';
+  if (project.preview !== undefined) return 'This game is previewing now. Stop the preview first.';
+  if (project.location === null && (project.secrets?.length ?? 0) > 0)
+    return 'Remove its secrets first. It has no folder, so it could not be brought back to remove them later.';
+  return null;
 }
 
 /** What refuses a start on the chosen runtime: its capabilities and the options the person chose. */

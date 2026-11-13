@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { spokenNames, tidySpeech } from './tidy.ts';
+import { Projection } from '@halcyonic/domain';
+import { EventBuilder } from '../../../../packages/domain/src/testing/events.ts';
+import { listedSpokenNames, spokenNames, tidySpeech } from './tidy.ts';
 import { PROMPT_WORDS } from './whisper.ts';
 
 const NAMES = spokenNames(['Space Garden']);
@@ -152,5 +154,22 @@ describe('the names a draft is tidied with', () => {
       'Padded',
       'Project 0',
     ]);
+  });
+
+  test('a project taken off the list is no name a draft is tidied with (ADR 0063)', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const kept = b.project('Pond');
+    const off = b.project('Lantern Garden');
+    projection.apply(kept.event);
+    projection.apply(off.event);
+    projection.apply(
+      b.controlPlane(
+        'project.removed_from_list',
+        { project_id: off.projectId, workstream_id: null, execution_id: null },
+        {},
+      ),
+    );
+    assert.deepEqual(listedSpokenNames(projection), [...PROMPT_WORDS, 'Pond']);
   });
 });

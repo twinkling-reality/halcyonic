@@ -35,7 +35,7 @@ import {
 } from '../network/server.ts';
 import { NetworkSwitch } from '../network/switch.ts';
 import { rememberNetworkListener } from '../settings.ts';
-import { spokenNames } from '../speech/tidy.ts';
+import { listedSpokenNames } from '../speech/tidy.ts';
 import { Transcriptions } from '../speech/transcriptions.ts';
 import type { SpeechEngine } from '../speech/whisper.ts';
 import type { TlsTarget } from './tls-client.ts';
@@ -229,8 +229,7 @@ export async function startTestServer(options: TestServerOptions = {}) {
     transcriptions: new Transcriptions({
       engine: options.speech ?? null,
       clock: harness.time,
-      names: () =>
-        spokenNames(harness.controlPlane.projection.projects().map((project) => project.name)),
+      names: () => listedSpokenNames(harness.controlPlane.projection),
     }),
     companion: new Companion({
       config: options.companion?.config ?? null,

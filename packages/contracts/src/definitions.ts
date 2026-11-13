@@ -17,6 +17,7 @@ import {
   HereResponse,
   HereScope,
   NeedKind,
+  RemovalReviewResponse,
   ReviewKind,
 } from './actions.ts';
 import {
@@ -357,6 +358,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   HereResponse,
   HereScope,
   NeedKind,
+  RemovalReviewResponse,
   ActionReviewFact,
   ActionReviewItem,
   ActionReviewSaid,

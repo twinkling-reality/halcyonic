@@ -52,6 +52,8 @@ const PROJECT_ORDER: readonly Listed[] = [
   'project.unlink_catalog',
   'project.secret.set',
   'project.secret.remove',
+  // Last of the project's own: it takes the project off the list, its folder left as it is (ADR 0063).
+  'project.remove_from_list',
   // Where the assistant runs is the person's to choose from any place (ADR 0030, 2026-11-12).
   'assistant.model.choose',
 ];
@@ -197,6 +199,13 @@ export function hereActions(
         : ALL_ORDER;
   const actions: HereAction[] = [];
   const refused: NotOffered[] = [];
+  // Nothing is done in the place of a project taken off the list (ADR 0063): no entry and no list.
+  if (
+    scope.project_id !== null &&
+    projection.project(scope.project_id) !== undefined &&
+    !projection.listed(scope.project_id)
+  )
+    return { actions, refused };
   const seen = new Set<CommandType>();
   for (const commandType of order) {
     if (seen.has(commandType)) continue;
@@ -214,7 +223,7 @@ export function hereActions(
     }
     actions.push(withoutUnofferedNeeds(commandEntry(commandType), scope, projection));
   }
-  if (scope.project_id !== null && projection.project(scope.project_id) !== undefined)
+  if (scope.project_id !== null && projection.listed(scope.project_id))
     actions.push(...PROJECT_LISTS);
   return { actions, refused };
 }

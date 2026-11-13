@@ -65,6 +65,11 @@ export class Reattacher {
     );
   }
 
+  /** Whether a re-attach of the execution is under way: its runtime has not answered yet. */
+  attaching(id: string): boolean {
+    return this.#pending.has(id as ExecutionId);
+  }
+
   /** Re-attaches each execution the restart cut, recorded unknown until its runtime answers. */
   reattachCut(executions: readonly ExecutionView[]): Promise<void> {
     return Promise.all(executions.map((view) => this.#attach(view.execution_id))).then(

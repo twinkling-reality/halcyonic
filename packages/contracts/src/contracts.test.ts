@@ -729,9 +729,11 @@ describe('the C# bindings', () => {
     'ProjectCheckRecordedPayload.workstream_id', // ADR 0045
     'ProjectCheckedResult.ready', // project_checked's ready
     'ProjectCheckpointRecordedPayload.turn_id', // History
+    'ProjectCreatedResult.returned', // a project taken off the list, brought back (ADR 0063)
     'ProjectOwnCheckRecordedPayload.workstream_id', // ADR 0055, as ADR 0045
     'ProjectOwnCheckRunView.workstream_id', // ADR 0055
     'ProjectPublishPayload.make_public', // ADR 0039, amended: the first Send, its title, Make Public
+    'ProjectRemoveFromListPayload.review', // the review a removal carries (ADR 0063)
     'ProjectRestorePayload.review', // the review a restore carries (ADR 0051)
     'ProjectRulesSetPayload.review', // the review turning a project's rules on carries (E5)
     'ProjectSendPayload.repository_name', // ADR 0039, amended: the first Send, its title, Make Public
@@ -743,6 +745,7 @@ describe('the C# bindings', () => {
     'ProjectView.own_check', // a project's own check (ADR 0055)
     'ProjectView.preview', // M1.8e
     'ProjectView.published', // a project's published game (ADR 0039)
+    'ProjectView.removed_at', // when a project was taken off the list (ADR 0063)
     'ProjectView.rules', // a project's own rules while on (E5)
     'ProjectView.secrets', // a project's secrets by name (ADR 0057)
     'ProjectView.share', // a project's shared link (ADR 0054)

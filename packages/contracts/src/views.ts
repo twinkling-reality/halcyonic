@@ -252,6 +252,11 @@ export const ProjectView = Type.Object(
      * Absent while off.
      */
     rules: Type.Optional(ProjectRulesOn),
+    /**
+     * When the person took the project off the list (ADR 0063). Only the change that takes it off carries
+     * it, so a client drops the project and its tasks; no list or snapshot holds a project taken off.
+     */
+    removed_at: Type.Optional(Timestamp),
   },
   strict,
 );

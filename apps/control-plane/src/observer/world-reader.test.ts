@@ -616,6 +616,46 @@ describe('a world project through the control plane', () => {
     await plane.controlPlane.close();
   });
 
+  test('a project taken off the list has its folder read by nothing, and its return reads it again (ADR 0063)', async () => {
+    const plane = worldPlane('off-list', [], WORLD_STARTER_ID, false);
+    const scope = { project_id: plane.projectId, workstream_id: null, execution_id: null };
+    const location = plane.controlPlane.projection.project(plane.projectId)?.location;
+    assert.ok(location !== null && location !== undefined);
+    plane.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.removed_from_list',
+        scope,
+        {},
+        '2026-11-13T13:00:00.000Z' as never,
+        NO_CAUSE,
+      ),
+    );
+    const reader = attachWorldReader({
+      publisher: plane.controlPlane.publisher,
+      recorder: plane.controlPlane.recorder,
+      projection: plane.controlPlane.projection,
+      clock: { now: () => new Date('2026-11-13T13:00:01.000Z') } as never,
+      logger: capturingLogger().logger,
+      starter: STARTER,
+      starters: plane.starters,
+    });
+    await reader.readUnread();
+    assert.equal(plane.worlds().length, 0, 'nothing read while it is off the list');
+    plane.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.returned',
+        scope,
+        { location },
+        '2026-11-13T13:00:02.000Z' as never,
+        NO_CAUSE,
+      ),
+    );
+    await until(() => plane.worlds().length === 1, 'the world read on its return');
+    assert.deepEqual(plane.controlPlane.projection.world(plane.projectId)?.description, starting);
+    reader.detach();
+    await plane.controlPlane.close();
+  });
+
   test('a file swapped for a link by a turn is not read through, and the world stays', async () => {
     const secret = folder('secret', JSON.stringify(night));
     const plane = worldPlane('swapped', [
