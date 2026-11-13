@@ -701,6 +701,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         }
                         else Debug.Log("Halcyonic: judge room: no line of the task's Changes or Checks opens an answer beside it: the side panel is not reached here");
                         CrossTheStage(workstreamId);
+                        if (live == null) UnderstandingSource();
                         if (live != null) ChooseColour(workstreamId);
                     }
                     // Close what stands beside the menu as a person does, a press at a time (an answer beside its page closes first,
@@ -750,6 +751,33 @@ namespace Halcyonic.XR.Workspace.Editor
                     Fresh();
                     Moment("room ask");
                     Clear();
+                }
+                // A recording's understanding where it names its source: each task's Changes, then its Checks, until a page stands with
+                // its source line (ten seconds each for the reads), shot once, so the drawn side of an understanding's source is reached
+                // on the judges' path and held to the brand and dot checks (AUDIT, 2026-11-13T18:09Z).
+                void UnderstandingSource()
+                {
+                    foreach (var task in State()?.Workstreams.Keys.ToList() ?? new List<string>())
+                        foreach (var section in new[] { FileSection.Changes, FileSection.Checks })
+                        {
+                            OpenSection(task, section);
+                            if (Opened()?.Screen.Section != section)
+                            {
+                                director.OpenFile(task, section);
+                                reachedBy = "no drawn control reached the file's " + section + ": the walk opened it";
+                            }
+                            var reading = DateTime.UtcNow.AddSeconds(10);
+                            while (DateTime.UtcNow < reading && Opened()?.Frame is not { Source: not null } && Opened()?.Frame?.SourceRuns == null)
+                            {
+                                Draw();
+                                Thread.Sleep(250);
+                            }
+                            if (Opened()?.Frame is not MenuFrame read || read.Source == null && read.SourceRuns == null) continue;
+                            Fresh();
+                            Moment("room understanding source");
+                            return;
+                        }
+                    Debug.Log("Halcyonic: judge room: no task's Changes or Checks stood with an understanding's source line: not reached here");
                 }
                 // What the redesign draws, as the eyes see it, to the half degree: the plane's form. The stage is not part of it.
                 string Form()
