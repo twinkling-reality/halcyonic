@@ -129,4 +129,24 @@ public class ReviewCardTests
         Assert.That((card.List.Count, card.Slots.Count, card.More), Is.EqualTo((0, 0, (LineWords?)null)));
         Assert.That(ReviewCard.Actions(review).Select(action => action.Words), Is.EqualTo(new[] { "Publish", "Cancel" }));
     }
+
+    /// <summary>
+    /// A review's main fact first and its warnings after (AUDIT2's 22:37Z: the Use Model card read its warning first and its main fact
+    /// last), EXCEPT where a warning is a consent the person gives by pressing (AUDIT2's 22:38Z: START's never asks, a take-off's
+    /// cannot undo, a publish's public): those keep the warning first, under the name, so it lands before the press.
+    /// </summary>
+    [Test]
+    public void AReviewsWarningsFollowItsMainFactUnlessOneIsAConsent()
+    {
+        ActionReviewWarning Warn(string code, string line) => new() { Code = code, Line = line };
+        var cost = Review(CommandType.AssistantModelChoose, "Use Model", "From now on the assistant answers on a paid model",
+            warnings: new[] { Warn("price_unknown", "The provider sets each request's price; it is not shown here"), Warn("free_here", "To stop paying, choose This Computer's Model, which is free") });
+        Assert.That(ReviewCard.Card(cost, "Use Model").StatusAfter, Is.True, "a cost fact after what happens");
+        foreach (var consent in new[] { "never_asks", "unconfined", "cannot_undo", "history_left", "public", "replaces" })
+        {
+            var asked = Review(CommandType.ProjectSend, "Go Ahead", "Something happens", warnings: new[] { Warn("may_leave", "Words may leave this computer"), Warn(consent, "A consent given by pressing") });
+            Assert.That(ReviewCard.Card(asked, "Review").StatusAfter, Is.False, consent + " keeps the warning first");
+        }
+        Assert.That(ReviewCard.Card(Review(CommandType.ProjectSend, "Send", "Something happens"), "Review").StatusAfter, Is.False, "no warning, no status to move");
+    }
 }
