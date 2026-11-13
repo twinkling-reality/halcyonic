@@ -404,7 +404,13 @@ the headset beside what the same takes in a terminal agent session at a desk.
 Both walks stand one character on the stage once a task is in the room, on a shelf the production search keeps clear of
 the workspace, with agents on, as a person who placed the agent shelf has it. Every moment then fails if an older part
 draws (the redesign is on in every player), if the character's body or label comes within a degree of a part the
-redesign draws, or if its body leaves the measured field while the person faces the workspace.
+redesign draws, if its body or label leaves its shelf's envelope (`CharacterStage.WriteShelfCorners`), if its body
+leaves the measured field while the person faces the workspace, if the redesign draws the no-room notice, or if the
+plane logs that the older view drew a whole screen, that the bar laid past its largest footprint or that it did not lay
+whole. The walks hand the plane the shelf's envelope as `WorkspaceDirector` does. After their journeys they open a
+task's answer beside its page where one opens, let the character make its own moves and turn the person's head 30
+degrees each way with the page open (the plane must keep its form and log no form change), open Settings and Usage,
+and on the live walk Character Colour (Preview, then Cancel) and Ask beside the menu as talking opens it.
 
 It reads the plane from `HALCYONIC_LIVE_ENDPOINT` (for example `ws://127.0.0.1:47861/realtime`) and its token from
 `HALCYONIC_LIVE_TOKEN_FILE`, and refuses port 47800 and any token in `~/.halcyonic`: run it against a scratch control

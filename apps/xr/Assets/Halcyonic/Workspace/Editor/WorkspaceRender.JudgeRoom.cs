@@ -91,9 +91,14 @@ namespace Halcyonic.XR.Workspace.Editor
             // The plane's own line where the older view draws a whole screen under the redesign (MenuPlane.OlderViewDrawn, XR,
             // 2026-11-13): heard while the walk runs, a failure of the moment it came before.
             var olderHeard = new List<string>();
+            var formHeard = new List<string>();
             Application.LogCallback heard = (message, _, _) =>
             {
-                if (message.StartsWith("Halcyonic: older view drew a whole screen", StringComparison.Ordinal)) lock (olderHeard) olderHeard.Add(message);
+                // And the bar's own warning where it lays past the footprint the shelf search keeps clear of (FIELD, AUDIT 17:25Z).
+                if (message.StartsWith("Halcyonic: older view drew a whole screen", StringComparison.Ordinal)
+                    || message.StartsWith("Halcyonic: the bar laid past its largest footprint", StringComparison.Ordinal)
+                    || message.StartsWith("Halcyonic: the bar did not lay whole at one row a page", StringComparison.Ordinal)) lock (olderHeard) olderHeard.Add(message);
+                if (message.StartsWith("Halcyonic: the plane lays its ", StringComparison.Ordinal)) lock (formHeard) formHeard.Add(message);
             };
             Application.logMessageReceived += heard;
             try
@@ -154,6 +159,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 var stood = new List<CharacterTarget>();
                 var stageParts = new List<Transform>();
                 var standRefused = false;
+                // The placed shelf's envelope, as WorkspaceDirector.StageNow hands it to the plane where the plane decides its form by it
+                // (XR 6d8dffc33): written once when the character stands. Where MenuDirector.Stage takes no envelope yet, none is given.
+                Vector3[]? shelfEnvelope = null;
+                // Where the person looks: forward, turned by the walk only to check that a turn of the head lays nothing again.
+                var looking = Vector3.forward;
+                var stageMade = typeof(MenuDirector.Stage).GetConstructors().OrderByDescending(each => each.GetParameters().Length).First();
+                MenuDirector.Stage StageOf(IReadOnlyList<CharacterTarget> characters) => (MenuDirector.Stage)stageMade.Invoke(
+                    new object?[] { eyes, looking, characters, null, false, characters.Count > 0 ? shelfEnvelope : null }.Take(stageMade.GetParameters().Length).ToArray());
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
                     // WorkspaceDirector.Start's setup, as a release build gives it.
@@ -172,6 +185,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         return submissions.Submit(each => madeIn.SubmitAsync(each), command, ExecutionOf(command));
                     },
                     Api = () => api,
+                    // The computer the headset is paired with, as WorkspaceDirector gives it: a character's colour is bound to it, so
+                    // Character Colour is offered on a live walk and never on a recording's (no computer). Kept in this walk's memory.
+                    ConnectionTarget = () => target,
+                    CharacterSourceConnectionKey = () => target == null ? null : WorkspaceContinuity.ConnectionKey(target),
+                    SaveCharacterColours = _ => true,
                     Demonstration = () => fallback.Line != null,
                     RecordedRun = () => fallback.ShowingRecordedRun,
                     KeyboardOffered = () => live != null,
@@ -179,7 +197,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Keyboard = (text, prompt, done, dismissed) => keyboard = (prompt, done),
                     // Hold to talk as the release player carries it (ADR 0021, amended): with no computer it must never be offered.
                     Voice = root.AddComponent<HoldToTalk>(),
-                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, presentation.AgentsVisible ? stood.ToList() : new List<CharacterTarget>(), null, false),
+                    StageNow = () => StageOf(presentation.AgentsVisible ? stood.ToList() : new List<CharacterTarget>()),
                     CharacterOf = task => presentation.AgentsVisible ? stood.FirstOrDefault(each => each.WorkstreamId == task) : null,
                     Bar = place => TasksColumn.Bar(place, State()),
                     SomethingWaits = () => State()?.Workstreams.Values.Any(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou) == true,
@@ -221,6 +239,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         var agent = ConfirmedPlaneAgent(root.transform, plane, eyes, CharacterPresenter.Present(work, state, live != null), failures, "judge room");
                         stood.Add(agent.Target);
                         stageParts.Add(agent.View.transform.parent);
+                        shelfEnvelope = new Vector3[8];
+                        CharacterStage.WriteShelfCorners(new Pose(agent.View.transform.parent.position, agent.View.transform.parent.rotation), AgentShelfDraft.Width(1), eyes, shelfEnvelope);
                         presentation.SetAgentsEnabled(true);
                         Debug.Log("Halcyonic: judge room: one character stands on the stage, for the task " + work.WorkstreamId);
                     }
@@ -448,6 +468,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     // 2026-11-13), not a moment the redesign has yet to cover.
                     if (older.Count > 0) found.Add("older parts draw: " + string.Join(", ", older));
                     found.AddRange(StageClear(root, eyes, plane, stood));
+                    found.AddRange(OutsideItsShelf(eyes, stood, stageParts));
                     // No computer: a recording plays, so voice is never offered and Hold to Talk never drawn (ADR 0021, amended).
                     // A recording says what it is wherever it plays (lead, 14:33Z): its own line, in its own words, drawn whole.
                     // The notice is the recording's own line whole, both sentences, word for word (lead, 17:45Z): the product's
@@ -464,6 +485,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         found.AddRange(olderHeard.Distinct().Select(line => "the plane said: " + line));
                         olderHeard.Clear();
                     }
+                    // The page's "no room" notice never stands under the redesign (XR 17:38Z, AUDIT 17:39Z): the kit pages and the plane takes
+                    // the widest form that clears the shelf, so where it is drawn a person meets a dead end.
+                    if (root.GetComponentsInChildren<TMP_Text>(false).Any(text => text.enabled && OwnerOf(text.transform)?.StartsWith("Room", StringComparison.Ordinal) == true
+                        && text.GetParsedText().Replace("\n", " ").Contains(ProjectsText.MoreRoom)))
+                        found.Add("the redesign draws the no-room notice \"" + ProjectsText.MoreRoom + "\": a person has no way on");
                     // No text joined on a dot anywhere a person reads (the owner, 2026-11-11; lead, 04:22Z): each one named.
                     foreach (var text in root.GetComponentsInChildren<TMP_Text>(false))
                     {
@@ -633,16 +659,37 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     if (workstreamId != null)
                     {
-                        OpenSection(workstreamId, FileSection.Changes);
-                        Fresh();
-                        var opening = (Opened()?.Frame?.Lines ?? Array.Empty<PageLine>()).FirstOrDefault(line => line.Action == FileScreens.Open && line.Key != null);
+                        // A line of the file's Changes or Checks that opens its whole answer beside the page, once the answers are
+                        // read (ten seconds at most each): where the result's own page stands in the section's place, the file's
+                        // section is opened by the walk and said so.
+                        PageLine? opening = null;
+                        foreach (var section in new[] { FileSection.Changes, FileSection.Checks })
+                        {
+                            OpenSection(workstreamId, section);
+                            if (Opened()?.Screen.Section != section)
+                            {
+                                director.OpenFile(workstreamId, section);
+                                reachedBy = "no drawn control reached the file's " + section + ": the walk opened it";
+                            }
+                            var reading = DateTime.UtcNow.AddSeconds(10);
+                            while (DateTime.UtcNow < reading && (opening = (Opened()?.Frame?.Lines ?? Array.Empty<PageLine>())
+                                .FirstOrDefault(line => line.Action == FileScreens.Open && line.Key != null)) == null)
+                            {
+                                Draw();
+                                Thread.Sleep(250);
+                            }
+                            if (opening != null) break;
+                        }
                         if (opening != null && Press(FileScreens.Open, opening.Key))
                         {
-                            reachedBy = "pressed " + FileScreens.Open + "/" + opening.Key;
+                            reachedBy += (reachedBy.Length > 0 ? ", then " : "") + "pressed " + FileScreens.Open + "/" + opening.Key;
                             Fresh();
+                            if (Opened()?.Frame?.Side == null) failures.Add("judge room: " + FileScreens.Open + "/" + opening.Key + " opened no side panel");
                             Moment("room side panel");
                         }
-                        else Debug.Log("Halcyonic: judge room: no line of the task's Changes opens an answer beside it: the side panel is not reached here");
+                        else Debug.Log("Halcyonic: judge room: no line of the task's Changes or Checks opens an answer beside it: the side panel is not reached here");
+                        CrossTheStage(workstreamId);
+                        if (live != null) ChooseColour(workstreamId);
                     }
                     void Clear()
                     {
@@ -682,6 +729,115 @@ namespace Halcyonic.XR.Workspace.Editor
                     Fresh();
                     Moment("room ask");
                     Clear();
+                }
+                // What the redesign draws, as the eyes see it, to the half degree: the plane's form. The stage is not part of it.
+                string Form()
+                {
+                    Draw();
+                    foreach (var button in root.GetComponentsInChildren<RoomButton>(false)) button.Settle();
+                    foreach (var band in root.GetComponentsInChildren<RoomBand>(false)) band.Settle();
+                    var drawn = GlazeChecks.Of("the plane", eyes, root.GetComponentsInChildren<Renderer>(false)
+                        .Where(renderer => renderer.enabled && !stageParts.Any(part => renderer.transform.IsChildOf(part))
+                            && OwnerOf(renderer.transform)?.StartsWith("Room", StringComparison.Ordinal) == true));
+                    static float Half(float degrees) => Mathf.Round(degrees * 2f) / 2f;
+                    return drawn.IsEmpty ? "nothing drawn" : Half(drawn.Left) + " to " + Half(drawn.Right) + " across, " + Half(drawn.Bottom) + " to " + Half(drawn.Top) + " up";
+                }
+                // A character wanders by itself (lead, 2026-11-13T17:16Z; AUDIT 17:18Z): the plane never changes form while a person
+                // reads. With the task's page open and the shelf held still, the character makes its own moves: the plane must stand as
+                // it stood, and the body and label stay inside the shelf's envelope. Then it goes home and the moment is shot. (A shelf carried is an event the plane may
+                // lay again for: that half waits for the plane's own line naming the event.)
+                void CrossTheStage(string workstreamId)
+                {
+                    if (stood.Count == 0 || stageParts.Count == 0 || Opened() == null) return;
+                    var view = stood[0].View;
+                    var home = view.transform.localPosition;
+                    var before = Form();
+                    lock (formHeard) formHeard.Clear();
+                    var flipped = false;
+                    // A one-agent shelf holds its character at its centre (CharacterStage.WriteShelfCorners), so it moves there: nine
+                    // seconds of its own idle, look and talk moves.
+                    foreach (var place in new[] { Vector3.zero })
+                    {
+                        view.transform.localPosition = home + place;
+                        for (var moment = 0; moment < 36 && !flipped; moment++)
+                        {
+                            view.AdvanceForRender(0.25f);
+                            var now = Form();
+                            if (now != before)
+                            {
+                                failures.Add("judge room: the plane changed form while a character moved on its shelf (" + place.x.ToString("0.00") + " m across, "
+                                    + place.z.ToString("0.00") + " m deep, " + ((moment + 1) * 0.25f).ToString("0.00") + " s of its moves): " + before + ", then " + now);
+                                flipped = true;
+                            }
+                            foreach (var outside in OutsideItsShelf(eyes, stood, stageParts))
+                            {
+                                failures.Add("judge room: " + outside + " (" + place.x.ToString("0.00") + " m across, " + ((moment + 1) * 0.25f).ToString("0.00") + " s of its moves)");
+                                flipped = true;
+                            }
+                        }
+                    }
+                    view.transform.localPosition = home;
+                    // The person turns their head 30 degrees either way and back while the page is open (AUDIT 17:33Z): no event, so the
+                    // plane keeps its form and says no form line.
+                    foreach (var degrees in new[] { 30f, 0f, -30f, 0f })
+                    {
+                        looking = Quaternion.Euler(0f, degrees, 0f) * Vector3.forward;
+                        var turned = Form();
+                        if (turned == before) continue;
+                        failures.Add("judge room: the plane changed form when the person looked " + degrees.ToString("0") + " degrees aside: " + before + ", then " + turned);
+                        break;
+                    }
+                    looking = Vector3.forward;
+                    lock (formHeard)
+                    {
+                        // The plane's own line for a form change: a character's own moves are no event, so none may come (XR 17:32Z).
+                        foreach (var line in formHeard.Distinct()) failures.Add("judge room: the plane changed its form while a character moved on its shelf or the person looked aside: " + line);
+                        formHeard.Clear();
+                    }
+                    reachedBy = "the character moved across its shelf under the plane and home";
+                    Fresh();
+                    Moment("room crossed");
+                }
+                // Character Colour from the task's own page, where a computer is connected: chosen, previewed and cancelled, then a
+                // moment after the overlay closes with the character on the stage (XR, 2026-11-13T17:16Z).
+                void ChooseColour(string workstreamId)
+                {
+                    if (Opened()?.Now?.Character.WorkstreamId != workstreamId) OpenSection(workstreamId, null);
+                    if (!PressShown(FileScreens.OpenCharacterColour, null))
+                    {
+                        Debug.Log("Halcyonic: judge room: the task's page offers no Character Colour here: the colour overlay is not reached");
+                        return;
+                    }
+                    Fresh();
+                    Moment("room colour");
+                    var choice = plane.Shown.SelectMany(each => each.View.Frame?.Lines ?? Array.Empty<PageLine>())
+                        .FirstOrDefault(line => line.Action == CharacterColourColumn.Choose && line.Available);
+                    if (choice != null && PressShown(CharacterColourColumn.Choose, choice.Key) && PressShown(CharacterColourColumn.Preview, null))
+                    {
+                        Fresh();
+                        Moment("room colour preview");
+                    }
+                    if (!PressShown(CharacterColourColumn.Cancel, null)) failures.Add("judge room: nothing drawn cancels Character Colour");
+                    reachedBy = "pressed " + CharacterColourColumn.Cancel;
+                    Fresh();
+                    Moment("room colour closed");
+                }
+                // A press through the redesign's drawn control, else through whatever frame the plane shows that offers it, said so.
+                bool PressShown(string action, string? key)
+                {
+                    if (Press(action, key)) return true;
+                    Draw();
+                    foreach (var (kind, view) in plane.Shown)
+                    {
+                        if (view.Frame is not MenuFrame frame || !(frame.Lines.Any(line => line.Action == action && line.Key == key && line.Available)
+                            || frame.Footer.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available))) continue;
+                        if (!director.PressForRender(kind, action, key, frame, null)) continue;
+                        momentFailures.Add("no drawn control for " + action + (key == null ? "" : " " + key) + ": the frame of record took it");
+                        presses++;
+                        Draw();
+                        return true;
+                    }
+                    return false;
                 }
                 void EndJourney()
                 {
@@ -1272,6 +1428,37 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (body.Count > 0)
                         foreach (var outside in GlazeChecks.InsideField("the character on the stage", body, eyes, plane.WorkspaceCentre, 0f, field))
                             yield return "the stage: " + outside;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Each standing character's body and label inside its shelf's envelope, as the eyes see them: the envelope the plane decides
+        /// its form against (CharacterStage.WriteShelfCorners for a one-agent shelf at the shelf's pose; XR, 2026-11-13T17:18Z).
+        /// </summary>
+        private static IEnumerable<string> OutsideItsShelf(Vector3 eyes, IReadOnlyList<CharacterTarget> stood, IReadOnlyList<Transform> shelves)
+        {
+            var corners = new Vector3[8];
+            for (var index = 0; index < stood.Count && index < shelves.Count; index++)
+            {
+                var standing = stood[index];
+                if (standing == null || standing.View == null || !standing.View.gameObject.activeInHierarchy) continue;
+                CharacterStage.WriteShelfCorners(new Pose(shelves[index].position, shelves[index].rotation), AgentShelfDraft.Width(1), eyes, corners);
+                float left = float.MaxValue, right = float.MinValue, bottom = float.MaxValue, top = float.MinValue;
+                foreach (var corner in corners)
+                {
+                    var toward = corner - eyes;
+                    var yaw = Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg;
+                    var elevation = Mathf.Atan2(toward.y, Mathf.Max(new Vector2(toward.x, toward.z).magnitude, 1e-4f)) * Mathf.Rad2Deg;
+                    left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
+                }
+                foreach (var part in new[] { BodyExtent(standing.View, eyes), GlazeChecks.Of(standing.WorkstreamId + "'s label", eyes, standing.View.Label.gameObject) })
+                {
+                    if (part.IsEmpty) continue;
+                    var outside = Mathf.Max(Mathf.Max(left - part.Left, part.Right - right), Mathf.Max(bottom - part.Bottom, part.Top - top));
+                    if (outside > 0.05f)
+                        yield return "the stage: " + part.Name + " stands " + GlazeChecks.Degrees(outside) + " degrees outside its shelf's envelope ("
+                            + GlazeChecks.Degrees(left) + " to " + GlazeChecks.Degrees(right) + " across, " + GlazeChecks.Degrees(bottom) + " to " + GlazeChecks.Degrees(top) + " up)";
                 }
             }
         }
