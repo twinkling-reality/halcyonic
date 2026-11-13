@@ -311,7 +311,9 @@ namespace Halcyonic.Client
         /// </summary>
         public static string PreviousRequest(BuildStepKind? kind) => kind == null ? PreviousRequestLine : NotSureItHappened(kind) + " " + StartBuildingWaits;
 
-        private const string StartBuildingWaits = "Start Building waits so nothing is made twice.";
+        // Short enough that the sentence stands whole in the bar's three lines at the larger size (F99, 2026-11-13: "so nothing is made
+        // twice" cut it there); why it waits is the sentence before it, what the start may have made.
+        private const string StartBuildingWaits = "Start Building waits.";
 
         /// <summary>On a start whose outcome is unknown, where it only opens the page that says what is known and how to clear it.</summary>
         public const string CheckFirst = "See What Happened";
