@@ -1771,7 +1771,7 @@ opens there. The understanding's account of the change follows the files as late
 SCREENS, 2026-11-12): what changed, why and how it was built, a part an answer, each the brief answer XR computes
 (`UnderstandingPresenter`, brief depth): its lead line whole as the card's description (the agent's or a model's words
 alone, said to be theirs first by a byline under the title: a status of `RoomKind.Says`, which `RoomCardView` draws as
-the bare speech bubble and Agent Says or Model Says at a note's size, never a filled tile that reads as a button; the
+the bare speech bubble and who said them at a note's size (Agent Says, Subagent Says or Author Unknown by the presenter's chip, never the agent by default, or Model Says), never a filled tile that reads as a button; the
 room's faces carry no slant, so whose words they are is said, not leaned), the rest as rows each with its kind (a file's mark, the bubble for what the
 agent said, else none, which draws no mark; a list where no row has a mark keeps no room for one and starts at the card's
 left with the title, and a plain row, no kind and no press, is a quiet line at a note's size with a wider gap before its
@@ -1791,8 +1791,10 @@ with its title alone and, under it, whether a model wrote it up to date as a sen
 (`UnderstandingPresenter.ExplainedUpToDate`, `ExplainedBefore`), in the account and the file's side panel alike. `RoomResult.FileParts` are the files' parts, `RoomResult.Account` the rest. Tests:
 `RoomResultTests.TheUnderstandingsAccountFollowsTheFilesOnChangesAPartAnAnswer`,
 `RoomResultTests.TheAccountsWhyAndHowHoldEveryReasonAndStepWithWhatIsUnderEach`,
+`RoomResultTests.AReasonIsNeverSaidToBeTheAgentsWhereTheSourceSaysASubagentOrNoOneKnownSaidIt`,
 `RoomWorkingTests.TheAccountForTheResultsChangesIsNothingBeforeTheUnderstandingAnswers`; render states
-`66-account-what`, `66-account-why`, `66-account-unsourced` in `KitRender.FileChangeCheck`.
+`66-account-what`, `66-account-why`, `66-account-how`, `66-account-how-next`, `66-account-unsourced` in `KitRender.FileChangeCheck`
+(why and how it is built from full answers of the presenter's shape).
 
 What Cursor, Bolt and Lovable give as the diff and the code view, from the result's Changes. Every row of Changes is
 pressed (`RoomBar.FileRow`: the result action `room-file`, its key the path as the folder names it) where a computer

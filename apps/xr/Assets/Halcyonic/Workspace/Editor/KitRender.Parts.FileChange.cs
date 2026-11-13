@@ -37,26 +37,49 @@ namespace Halcyonic.XR.Workspace.Editor
             // SCREENS's one review card (ReviewCard), any command's review from a stand-in of the host's shape.
             "65-review-add", "65-review-send", "65-review-send-next", "65-review-publish", "65-review-said",
             // SCREENS's understanding's account on the one Changes page (ChangesAccount): what changed, then why, after the files.
-            "66-account-what", "66-account-why", "66-account-unsourced",
+            "66-account-what", "66-account-why", "66-account-how", "66-account-how-next", "66-account-unsourced",
         };
 
-        /// <summary>The understanding's account's part for a state, from brief answers of the presenter's shape (<see cref="ChangesAccount"/>).</summary>
+        /// <summary>
+        /// The understanding's account's part for a state, from answers of the presenter's shape (<see cref="ChangesAccount"/>): the
+        /// three briefs, and why and how it is built in full as FileColumn.Account passes them: every reason (the agent's, then a
+        /// subagent's) with the files changed after it, and every step under its heading with the model's note beneath.
+        /// </summary>
         private static RoomCard AccountCard(string state)
         {
-            SectionLine Line(string tag, LineWords said) => new SectionLine(tag, said.Text, SectionTone.Normal, said: said);
+            SectionLine Line(string tag, LineWords said, bool detail = false) => new SectionLine(tag, said.Text, SectionTone.Normal, detail: detail, said: said);
+            SectionLine Reason(string words, string chip) =>
+                new SectionLine("reported", "\u201c" + words + "\u201d", SectionTone.Claim, rows: 2, chip: chip, said: LineWords.Theirs(words));
+            SectionLine Model(string lead, string words) =>
+                new SectionLine("explained", lead + "\u201c" + words + "\u201d", SectionTone.Claim, rows: 2, said: LineWords.Ours(lead) + LineWords.Theirs(words));
+            LineWords Ours(string words) => LineWords.Ours(words);
+            LineWords Name(string name) => LineWords.TheirName(name);
             // The unsourced state is a stand-in's answers: they come from no agent app's records, so the foot names none.
             var standIn = state == "66-account-unsourced";
-            SectionPresentation Brief(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1", SectionTone.Secondary, lines, simulated: standIn);
-            // As UnderstandingPresenter's brief answers stand: the count and whether a check followed; the latest reason quoted and how many more.
-            var what = Brief(
-                Line("observed", LineWords.Ours("3 files changed: 1 new, 2 edited")),
-                Line("inferred", LineWords.Ours("All checked after the last change")));
-            var why = Brief(
-                new SectionLine("reported", "\u201cI split the tail into six segments so it moves like cloth, not a stick.\u201d", SectionTone.Claim, rows: 2,
-                    said: LineWords.Theirs("I split the tail into six segments so it moves like cloth, not a stick.")),
-                Line("", LineWords.Ours("And 2 more reasons it gave")));
-            var account = new ChangesAccount(what, why, null);
-            return account.Card(state == "66-account-why" ? 1 : 0);
+            SectionPresentation Answer(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1", SectionTone.Secondary, lines, simulated: standIn);
+            var what = Answer(
+                Line("observed", Ours("3 files changed: 1 new, 2 edited")),
+                Line("inferred", Ours("All checked after the last change")));
+            var agents = Reason("I split the tail into six segments so it moves like cloth, not a stick.", SectionLine.AgentChip);
+            var subagents = Reason("I matched the tail's colour to the sail so the kite reads as one thing from below.", SectionLine.SubagentChip);
+            var why = Answer(subagents, Line("", Ours("And 1 more reason it gave")));
+            var whyFull = Answer(
+                agents,
+                Line("", Ours("Said before it changed ") + Name("TailSegments.cs") + Ours(" and ") + Name("Kite.prefab"), detail: true),
+                subagents,
+                Line("", Ours("Said before it changed ") + Name("Palette.cs"), detail: true),
+                Line("", Ours("No reason given before it changed ") + Name("KiteTests.cs")));
+            var how = Model("", "Six linked segments follow the one ahead with a short delay.");
+            SectionLine Heading(string title) => new SectionLine("", title, SectionTone.Secondary, startsPage: true, repeats: true);
+            SectionLine Note() => new SectionLine("", UnderstandingPresenter.ExplainedUpToDate, SectionTone.Secondary, detail: true, rows: 1, repeats: true);
+            var howBuilt = Answer(how, Line("", Ours(UnderstandingPresenter.ExplainedUpToDate)));
+            var howFull = Answer(
+                Heading("What it is about"), Note(), Model("", "A kite whose tail moves like cloth in the wind."),
+                Heading("Why"), Note(), Model("", "A stiff tail read as a stick in the first test."), Model("1. ", "Split the tail."), Model("2. ", "Match its colour to the sail."),
+                Heading("How"), Note(), how, Model("Starts at ", "TailSegments.cs"), Model("1. ", "Each segment follows the one ahead."), Model("2. ", "The delay grows toward the end."),
+                Heading("The evidence"), Line("observed", Ours("3 files changed: 1 new, 2 edited")), Line("inferred", Ours("All checked after the last change")));
+            var account = new ChangesAccount(what, why, howBuilt, whyFull, howFull);
+            return account.Card(state switch { "66-account-why" => 1, "66-account-how" => 2, "66-account-how-next" => 3, _ => 0 });
         }
 
         /// <summary>The one review card for a review state, from a synthetic host review (<see cref="ActionReview"/>).</summary>
