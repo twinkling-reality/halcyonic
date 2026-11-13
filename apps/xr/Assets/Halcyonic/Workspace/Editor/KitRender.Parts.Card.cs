@@ -379,7 +379,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(tiles[0].transform.localPosition.x - tiles[2].transform.localPosition.x) < slack && Mathf.Abs(tiles[1].transform.localPosition.x - tiles[3].transform.localPosition.x) < slack
                         && tiles[0].transform.localPosition.y > tiles[2].transform.localPosition.y + slack, "four slots do not stand as two rows of two on one grid");
             }
-            if (card.Status is RoomCardStatus shownStatus && shownStatus.Line == null)
+            if (card.Status is RoomCardStatus byline && byline.Mark == RoomKind.Says)
+            {
+                // Whose words follow: a bare bubble beside the speaker's words, never a filled tile (SCREENS, 2026-11-13).
+                Require(view.Glyphs.Any(each => each.What == "byline " + RoomKind.Says), "whose words draws no bubble");
+                Require(view.Plates.All(each => each.What != "status mark"), "whose words stands in a filled tile, which reads as a button");
+                Require(view.Shown.Any(label => label.GetParsedText() == byline.Title), byline.Title + " is not shown");
+            }
+            else if (card.Status is RoomCardStatus shownStatus && shownStatus.Line == null)
             {
                 // A title alone stands centred on its mark.
                 var mark = view.Plates.First(each => each.What == "status mark").Plate;
@@ -435,9 +442,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     var nameLabel = view.Shown.FirstOrDefault(label => Words(label.GetParsedText()) == Words(row.Name.Text)
                         || (row.Excerpt && view.Excerpts.Contains(label) && Words(row.Name.Text).StartsWith(Words(label.GetParsedText()).TrimEnd('…'), StringComparison.Ordinal)));
                     Require(nameLabel != null, row.Name.Text + " is not shown");
-                    if (nameLabel != null)
+                    // Where any row has a mark every name stands after the tiles' room; where none has, at the card's left with the title's.
+                    if (nameLabel != null && tiles.Count > 0)
                         Require(nameLabel.transform.localPosition.x + nameLabel.textBounds.min.x >= RoomType.Scaled(RoomCardView.RowTileDp + RoomCardView.RowGapDp) - unit * 1.5f,
                             row.Name.Text + " touches its tile");
+                    if (nameLabel != null && tiles.Count == 0)
+                        Require(Mathf.Abs(nameLabel.transform.localPosition.x + nameLabel.textBounds.min.x) < unit * 1.5f,
+                            row.Name.Text + " stands in from the card's left with no mark beside it");
                     if (row.Note == null) continue;
                     var noteLabel = view.Shown.FirstOrDefault(label => label.GetParsedText() == row.Note);
                     if (noteLabel != null)

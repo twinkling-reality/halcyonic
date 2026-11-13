@@ -478,6 +478,9 @@ namespace Halcyonic.XR.UI
 
         private float LayStatus(RoomCardStatus status, RoomCard card, float width, float down)
         {
+            // Whose words the card holds (RoomKind.Says) is a byline, not a state: the bubble small and bare beside the words,
+            // no filled tile, which read as a button (SCREENS's critic, 2026-11-13).
+            if (status.Mark == RoomKind.Says) return LayByline(status, width, down);
             var (ground, ink, glyph) = status.Tone switch
             {
                 // Deep grounds of the tone's hue, near solid, the light ink over them: a faint tint vanished over the bright room
@@ -526,6 +529,19 @@ namespace Halcyonic.XR.UI
                 block = Mathf.Max(block, S(StatusMarkDp) + S(PipDropDp));
             }
             return top + block;
+        }
+
+        /// <summary>Whose words follow: the speech bubble at a row mark's size, bare, and the speaker's name beside it at a note's size, quiet.</summary>
+        private float LayByline(RoomCardStatus status, float width, float down)
+        {
+            var left = S(RowGlyphDp + RowGapDp);
+            // At a note's size, so the speaker's name never outranks the words it introduces (SCREENS's critic, 2026-11-13).
+            var (label, tall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), LineWords.Ours(status.Title), left, -down, width - left, 1);
+            var block = Mathf.Max(S(RowGlyphDp), tall);
+            var drop = (block - tall) / 2f;
+            if (drop > 0f) label.transform.localPosition += new Vector3(0f, -drop, 0f);
+            Glyph(RoomGlyph.Bubble, RowGlyphDp, White(0.85f), new Vector2(S(RowGlyphDp) / 2f, -(down + block / 2f)), "byline " + status.Mark);
+            return down + block;
         }
 
         /// <summary>
@@ -979,9 +995,16 @@ namespace Halcyonic.XR.UI
 
         private float LayList(IReadOnlyList<RoomListRow> rows, float width, float down)
         {
+            // A list where no row has a kind keeps no room for a mark: its words start at the card's edge with the title's
+            // (SCREENS's critic, 2026-11-13: the empty room read as an icon that failed to draw). Where any row has a mark, all keep it.
+            var marked = false;
+            for (var index = 0; index < rows.Count && index < RoomCard.ListAPage; index++) marked |= rows[index].Kind != RoomKind.None;
             for (var index = 0; index < rows.Count && index < RoomCard.ListAPage; index++)
             {
                 var row = rows[index];
+                // A plain row (no kind, no press) is a quiet line under what the card says, never louder than the card's own
+                // description (SCREENS's critic, 2026-11-13: our "And 2 more reasons it gave" outranked the agent's words).
+                var plain = row.Kind == RoomKind.None && row.Press == null;
                 if (index > 0) Plate(new Vector2(width, S(1f)), 0f, White(0.10f), new Vector2(width / 2f, -(down + S(0.5f))), "hairline");
                 var top = down + S(RowPadDp);
                 var (tone, glyph) = ToneOf(row);
@@ -1008,13 +1031,17 @@ namespace Halcyonic.XR.UI
                 // A row picked from carries a chevron at its right, the note before it, and takes a press across its whole width.
                 var picked = row.Press != null;
                 var chevronRoom = picked ? S(ChevronDp + ChevronGapDp) : 0f;
-                var nameLeft = S(RowTileDp + RowGapDp);
-                var nameWidth = width - nameLeft - chevronRoom - (noteWidth > 0f ? noteWidth + S(RowGapDp) : 0f);
+                var nameLeft = marked ? S(RowTileDp + RowGapDp) : 0f;
+                // A plain row's note keeps a wider gap: its words wrap to the note's side, where one gap read as a single run
+                // ("All checked after the last change Inferred", SCREENS's critic, 2026-11-13).
+                var noteGap = plain ? 3f * S(RowGapDp) : S(RowGapDp);
+                var nameWidth = width - nameLeft - chevronRoom - (noteWidth > 0f ? noteWidth + noteGap : 0f);
                 // A name is never cut: a path or a moment's name takes a second line where one is not enough (a long path at larger text).
                 // A name of the person's own words (a task's title) takes a third line before anything is cut (XR's critic, 06:33Z).
                 var nameLines = row.Name.AllTheirs && !row.Mono ? 3 : 2;
                 var (nameLabel, nameTall) = row.Mono
                     ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines)
+                    : plain ? Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Name, nameLeft, 0f, nameWidth, nameLines)
                     : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines);
                 // The person's own words of any length, on a row that opens them whole: their lead, cut at a word.
                 if (row.Excerpt) nameTall = Excerpt(nameLabel, row.Name, nameWidth, nameLines, RowNameLineDp);
@@ -1028,7 +1055,7 @@ namespace Halcyonic.XR.UI
                     if (row.Under.AllTheirs) underTall = Excerpt(underLabel, row.Under, nameWidth, 1, RowNoteLineDp);
                 }
                 var block = nameTall + (underLabel != null ? S(2f) + underTall : 0f);
-                var rowTall = Mathf.Max(S(RowTileDp), block);
+                var rowTall = marked ? Mathf.Max(S(RowTileDp), block) : block;
                 var middle = top + rowTall / 2f;
                 nameLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f), -RoomType.Units(0.5f));
                 if (underLabel != null) underLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f + nameTall + S(2f)), -RoomType.Units(0.5f));
