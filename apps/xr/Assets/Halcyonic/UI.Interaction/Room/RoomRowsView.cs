@@ -104,6 +104,8 @@ namespace Halcyonic.XR.UI
                     tag.gameObject.SetActive(true);
                     tag.fontSize = GlazeTokens.FontSize(RoomType.Scaled(TagDp));
                     tag.lineSpacing = KitType.LineSpacingFor(tag, TagLineDp / TagDp);
+                    // Heard as given, as a row's words are: a label joined on a dot fails the walks (AUDIT, 2026-11-13).
+                    JoinedFacts.Given(said);
                     GlazeRuns.Of(tag).Set(LineWords.Ours(said));
                     tagTall = Mathf.Max(1, KitType.Lay(tag, width - indent, 2).Lines) * RoomType.Scaled(TagLineDp);
                     tag.transform.localPosition = new Vector3(indent, -down, 0f);
@@ -117,6 +119,7 @@ namespace Halcyonic.XR.UI
                     note.gameObject.SetActive(true);
                     note.fontSize = GlazeTokens.FontSize(RoomType.Scaled(TagDp));
                     note.lineSpacing = KitType.LineSpacingFor(note, TagLineDp / TagDp);
+                    JoinedFacts.Given(state);
                     GlazeRuns.Of(note).Set(LineWords.Ours(state));
                     // Every note ends on the row's right edge, so a page's states stand in one column (the reader, 2026-11-13).
                     note.alignment = TextAlignmentOptions.TopRight;
