@@ -1778,7 +1778,7 @@ left with the title, and a plain row, no kind and no press, is a quiet line at a
 note, so the card's own words stay the loudest) and how it is known as its quiet note in our words (Agent Says, Model Says,
 Inferred, Planned), never the product's dotted chips; five rows a part, Next Page the main action to the last part,
 History, Checks and Back where they were. An answer with no lines is no part. The source's own provenance names the
-provider's product, so it is never drawn: the foot says From the Agent's Records (FIELD's words) where every answer
+provider's product, so it is never drawn: the foot says From the Task's Records (FIELD's words; the records are the task's, whoever spoke in them) where every answer
 shown was read from the agent app's own records, and nothing for a stand-in's answers. XR reads the understanding while
 the redesign shows the result's Changes page and passes the three briefs at the one `RoomResult.Of` call
 (`FileColumn.Account`), with Why and How It's Built in full from the same read (SCREENS's proposal of 2026-11-13, so the

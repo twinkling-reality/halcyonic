@@ -13,7 +13,7 @@ namespace Halcyonic.Client
     /// critic, 2026-11-13: a slot beneath the words read as a button and came after them); the rest as rows,
     /// each with its kind and how it is known as its quiet note in our words (the product's chips join facts on a dot, so
     /// they are never drawn here). The files stay first and nothing the page offers moves behind it. An answer with no lines
-    /// is no part. The foot says where the answers come from in FIELD's words, From the Agent's Records, only where every answer
+    /// is no part. The foot says where the answers come from in FIELD's words, From the Task's Records, only where every answer
     /// shown was read from the agent app's own records, never a stand-in's (a simulated brief says no source); the brief's own
     /// provenance names the provider's product, which never stands on a person's screen, so it is not drawn.
     /// Where the answer's full lines are given beside its brief (SCREENS's 2026-11-13T0533Z proposal, FIELD's and XR's yes), its
@@ -39,8 +39,11 @@ namespace Halcyonic.Client
         public const string Inferred = "Inferred";
         public const string Planned = "Planned";
 
-        /// <summary>The foot's source words (FIELD's, 2026-11-12T1734Z): the understanding is read from the agent app's own records.</summary>
-        public const string FromAgentsRecords = "From the Agent's Records";
+        /// <summary>
+        /// The foot's source words (FIELD's, 2026-11-13T0903Z): the understanding is read from the task's own records, whoever
+        /// spoke in them (the agent, a subagent, a model), so a subagent's or a model's part never reads as the agent's.
+        /// </summary>
+        public const string FromTasksRecords = "From the Task's Records";
 
         private readonly List<(UnderstandPrompt Prompt, SectionLine? Lead, RoomCardStatus? Who, List<(SectionLine Line, LineWords? Under)> Rows)> parts = new();
 
@@ -109,7 +112,7 @@ namespace Halcyonic.Client
                 }
             }
             // A stand-in's answers come from no agent app's records, so they name none (the recorded notice says what they are).
-            Source = parts.Count > 0 && !simulated ? LineWords.Ours(FromAgentsRecords) : null;
+            Source = parts.Count > 0 && !simulated ? LineWords.Ours(FromTasksRecords) : null;
         }
 
         /// <summary>FIELD's source line, drawn quiet at each part's foot; null for a stand-in's answers or none.</summary>

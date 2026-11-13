@@ -751,7 +751,7 @@ public class RoomResultTests
         var whatPart = Part(1);
         Assert.That((whatPart.Title!.Text, whatPart.Description!.Text), Is.EqualTo((ChangesAccount.WhatChangedTitle, "3 files changed: 1 new, 2 edited")), "the lead whole, as observed");
         Assert.That(whatPart.List.Select(row => (row.Kind, row.Name.Text, row.Note)), Is.EqualTo(new[] { (RoomKind.None, "All checked after the last change", (string?)ChangesAccount.Inferred) }));
-        Assert.That(whatPart.More!.Text, Is.EqualTo(ChangesAccount.FromAgentsRecords), "FIELD's source words at the foot");
+        Assert.That(whatPart.More!.Text, Is.EqualTo(ChangesAccount.FromTasksRecords), "FIELD's source words at the foot");
 
         var whyPart = Part(2);
         Assert.That(whyPart.Description!.Text, Is.EqualTo("I split the tail."), "the agent's words alone, whole, never run into ours");
