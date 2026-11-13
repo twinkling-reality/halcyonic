@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -33,6 +34,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The most lines a status's line takes before anything is cut; the product's own words are laid whole within it.</summary>
         public const int StatusLineMost = 20;
+
+        /// <summary>The gap between someone's words on a row and our line under them, in dp.</summary>
+        public const float UnderTheirsGapDp = 6f;
 
         /// <summary>The gap between a byline's bubble and the speaker's name, in dp.</summary>
         public const float BylineGapDp = 6f;
@@ -566,7 +570,9 @@ namespace Halcyonic.XR.UI
             // byline and not a chip (SCREENS's critic 6, 2026-11-13).
             var left = S(RowGlyphDp + BylineGapDp);
             // At a note's size, so the speaker's name never outranks the words it introduces (SCREENS's critic, 2026-11-13).
-            var (label, tall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), LineWords.Ours(status.Title), left, -down, width - left, 1);
+            // Whose words follow stands clearly over them, so a change of speaker between parts registers (critic 8): the note's
+            // size, the name's light.
+            var (label, tall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, Color.white, LineWords.Ours(status.Title), left, -down, width - left, 1);
             var block = Mathf.Max(S(RowGlyphDp), tall);
             var drop = (block - tall) / 2f;
             if (drop > 0f) label.transform.localPosition += new Vector3(0f, -drop, 0f);
@@ -1034,8 +1040,13 @@ namespace Halcyonic.XR.UI
                 var row = rows[index];
                 // A plain row (no kind, no press) is a quiet line under what the card says, never louder than the card's own
                 // description (SCREENS's critic, 2026-11-13: our "And 2 more reasons it gave" outranked the agent's words).
-                var plain = row.Kind == RoomKind.None && row.Press == null;
-                if (index > 0) Plate(new Vector2(width, S(1f)), 0f, White(0.10f), new Vector2(width / 2f, -(down + S(0.5f))), "hairline");
+                // Someone's own words on a plain row (a reason the agent gave) are the card's matter, not our note: they keep the row
+                // name's size and white, and only our plain rows go quiet (SCREENS's critic 8, 2026-11-13: "all one size and grey").
+                var plain = row.Kind == RoomKind.None && row.Press == null && !row.Name.AllTheirs;
+                // A rule divides rows a person picks from or reads as marked items; plain lines of words stand as a passage, with no
+                // rule (critic 8: a hairline under every quote read as "a tappable settings list").
+                var ruled = rows.Any(each => each.Press != null || each.Kind != RoomKind.None);
+                if (index > 0 && ruled) Plate(new Vector2(width, S(1f)), 0f, White(0.10f), new Vector2(width / 2f, -(down + S(0.5f))), "hairline");
                 var top = down + S(RowPadDp);
                 var (tone, glyph) = ToneOf(row);
                 // The note reads over any room: a quiet near-white whatever the kind, the kind's colour on its mark alone
@@ -1088,11 +1099,13 @@ namespace Halcyonic.XR.UI
                     (underLabel, underTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Under, nameLeft, 0f, nameWidth, row.Under.AllTheirs ? 1 : 3);
                     if (row.Under.AllTheirs) underTall = Excerpt(underLabel, row.Under, nameWidth, 1, RowNoteLineDp);
                 }
-                var block = nameTall + (underLabel != null ? S(2f) + underTall : 0f);
+                // Under someone's words, our line stands a small gap apart, so it never reads as them still talking (critic 8).
+                var underGap = row.Name.AllTheirs && row.Under != null && !row.Under.AllTheirs ? S(UnderTheirsGapDp) : S(2f);
+                var block = nameTall + (underLabel != null ? underGap + underTall : 0f);
                 var rowTall = marked ? Mathf.Max(S(RowTileDp), block) : block;
                 var middle = top + rowTall / 2f;
                 nameLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f), -RoomType.Units(0.5f));
-                if (underLabel != null) underLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f + nameTall + S(2f)), -RoomType.Units(0.5f));
+                if (underLabel != null) underLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f + nameTall + underGap), -RoomType.Units(0.5f));
                 if (noteLabel != null) noteLabel.transform.localPosition = new Vector3(width - chevronRoom - noteWidth, -(middle - S(RowNoteLineDp) / 2f), -RoomType.Units(0.5f));
                 if (picked)
                 {
