@@ -206,7 +206,7 @@ Files in the data directory besides the journal and the access token, all option
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and
 `omnorium-credential`, the consumer credential the owner created in Omnorium for Halcyonic, and
 `seorak-credential`, the integration credential the owner issued for Halcyonic, and
-`anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, written by the setup page's Add Key and turning that runtime on when it holds a key only its owner can read, and
+`anthropic-api-key` (the file Anthropic's provider declaration names; the runtime reads no file by a name of its own), used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, written by the setup page's Add Key and turning that runtime on when it holds a key only its owner can read, and
 `checkpoints/`, the store of Halcyonic's undo when it is set up, and `secrets/<project>/<name>`, each
 project secret's value the person typed on the setup page, mode 0600 in folders of 0700, never read by a
 check, a copy or a share (ADR 0057), and `starters/<id>/`, each

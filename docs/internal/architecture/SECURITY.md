@@ -76,7 +76,7 @@ does (Claude Agent) at the next start; the settings file still cannot ([ADR 0053
 amendment of 2026-11-12).
 
 When the Claude Agent runtime is enabled, by `HALCYONIC_CLAUDE_AGENT=1` or a stored key, the Anthropic API key
-(from the environment, or else from `<data dir>/anthropic-api-key`, refused when other users can read it) or cloud provider
+(from the environment, or else from the key file its provider's declaration names, today `<data dir>/anthropic-api-key`, refused when other users can read it or when it is a link; with no provider declared for it, from the environment only) or cloud provider
 credentials reach each launched Claude Code process through an explicitly built environment: an allowlist of variables, plus the names listed in
 `HALCYONIC_AGENT_ENV`. Nothing else in the control plane's environment reaches an agent, and a
 claude.ai login is never used. Launched Claude Code sessions carry `SEORAK_LAUNCHER=halcyonic`, so

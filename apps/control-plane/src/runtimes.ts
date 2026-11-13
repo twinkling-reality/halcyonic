@@ -42,12 +42,6 @@ import { HostProviders } from './providers.ts';
 import { readKeyFile } from './workspace-agent/providers/keys.ts';
 
 /**
- * The file the held secrets read Anthropic's key from, as providers/anthropic/provider.json declares it (a test keeps
- * the two the same). Only the held secrets read it here, until they read every declared key file.
- */
-export const ANTHROPIC_KEY_FILE = 'anthropic-api-key';
-
-/**
  * Every agent app here that reads a declared provider's key, by its runtime id, each as its own package declares
  * itself as a reader (ADR 0061). The setup page offers a key for each provider they read, and a stored key turns on
  * a reader that says it does, at the next start.
@@ -185,11 +179,12 @@ export function createRuntimeAdapters(
       new ClaudeAgentRuntimeAdapter({
         directoryPolicy: dependencies.directoryPolicy,
         processRecordFile: join(dependencies.dataDir, CLAUDE_AGENT_PROCESS_RECORD),
-        inheritedEnvironment: withAnthropicKey(
-          dependencies.environment,
-          dependencies.dataDir,
-          claudeKey?.file ?? ANTHROPIC_KEY_FILE,
-        ),
+        // The key as the provider its reader reaches declares it, file and variable; with none declared, only
+        // what the person's environment sets. No file is named here.
+        inheritedEnvironment:
+          claudeKey === undefined
+            ? dependencies.environment
+            : withDeclaredKey(dependencies.environment, dependencies.dataDir, claudeKey),
         environment: claudeAgentEnvironment(additions),
         ...(config.claudeExecutable !== null && {
           pathToClaudeCodeExecutable: config.claudeExecutable,
@@ -481,20 +476,21 @@ export async function stopStaleRuntimeServers(
 }
 
 /**
- * The environment with ANTHROPIC_API_KEY taken from `<data dir>/<file>` (Anthropic's declared key file) when the
- * environment does not set it. A key file other users can read is refused, like the access token's.
+ * The environment with a declared key's variable taken from its declared file where the environment does not set
+ * it, read the one way every key file is read (readKeyFile): a file others can read, an empty one or a link stops it.
  */
-function withAnthropicKey(
+export function withDeclaredKey(
   environment: NodeJS.ProcessEnv,
   dataDir: string,
-  file: string,
+  key: { readonly file: string; readonly variable: string },
 ): NodeJS.ProcessEnv {
+  const { file, variable } = key;
   // A value of spaces alone is no key: the file's key is used instead, as the runtime's own check reads it.
-  if ((environment.ANTHROPIC_API_KEY ?? '').trim() !== '') return environment;
+  if ((environment[variable] ?? '').trim() !== '') return environment;
   const path = join(dataDir, file);
   // Read the one way every key file is read (readKeyFile): a link is refused, as a file others can read is.
   const state = readKeyFile(dataDir, file);
-  if (state.kind === 'stored') return { ...environment, ANTHROPIC_API_KEY: state.value };
+  if (state.kind === 'stored') return { ...environment, [variable]: state.value };
   if (state.kind === 'none') {
     if (lstatSync(path, { throwIfNoEntry: false }) === undefined) return environment;
     throw new ConfigError(`${path} is empty.`);
