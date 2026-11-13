@@ -559,4 +559,71 @@ describe('a built copy holding a secret the host keeps is never published (the l
       'nothing was pushed',
     );
   });
+
+  test('an earlier publish the remote no longer has, holding a value held since, refuses before Make Public (AUDIT3 S1, 2026-11-13)', async () => {
+    const held: { what: string; value: string }[] = [];
+    const holding = new GitHubSender({
+      git: '/usr/bin/git',
+      gh: stand.ghPath,
+      dataDir: join(root, 'data'),
+      env: { HOME: stand.home },
+      held: () => held,
+    });
+    const value = 'svc-held-value-0123456789abcdef';
+    // A first publish whose build carried the value, before this Mac kept it as a secret.
+    writeFileSync(
+      join(built, 'assets', 'app.js'),
+      `fetch("/x", { headers: { k: "${value}" } });\n`,
+    );
+    const first = await holding.publishReview(PROJECT, stand.folder, CHECK, built, null);
+    assert.ok(first.ok);
+    const went = await holding.publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      null,
+      first.publish.review,
+    );
+    assert.ok(went.ok, went.ok ? '' : went.message);
+    // The branch is gone from the remote and its objects with it, as on a host that dropped it.
+    stand.git(stand.origin, 'update-ref', '-d', BRANCH);
+    stand.git(stand.origin, 'reflog', 'expire', '--expire=now', '--all');
+    stand.git(stand.origin, 'gc', '--quiet', '--prune=now');
+    // The value is held now and the build no longer holds it; the next publish builds on the first.
+    held.push({ what: 'MY_SERVICE_KEY', value });
+    writeFileSync(join(built, 'assets', 'app.js'), 'console.log(2);\n');
+    const made = { repository: 'owner/garden', visibility: 'private' as const };
+    const next = await holding.publishReview(PROJECT, stand.folder, CHECK, built, went.commit, {
+      made,
+      makePublic: true,
+    });
+    assert.ok(next.ok, next.ok ? '' : next.message);
+    const opened: string[] = [];
+    const pressed = await holding.publish(
+      PROJECT,
+      stand.folder,
+      CHECK,
+      built,
+      went.commit,
+      next.publish.review,
+      { made, makePublic: true, onMadePublic: (repository) => opened.push(repository) },
+    );
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(
+      pressed.ok ? '' : pressed.message,
+      'An earlier publish of assets/app.js held a secret this Mac keeps (MY_SERVICE_KEY), and it left this Mac with that publish, so nothing was published. Make a new MY_SERVICE_KEY with the service that gave it to you and store it on this Mac; then Publish works, and the old one no longer works for anyone.',
+    );
+    assert.ok(!(pressed.ok ? '' : pressed.message).includes(value), 'never the value');
+    assert.deepEqual(opened, [], 'never made public');
+    assert.doesNotMatch(
+      readFileSync(stand.ghLog, 'utf8'),
+      /repo edit/,
+      'gh was never asked to make it public',
+    );
+    assert.throws(
+      () => stand.git(stand.origin, 'rev-parse', '--verify', BRANCH),
+      'nothing was pushed',
+    );
+  });
 });

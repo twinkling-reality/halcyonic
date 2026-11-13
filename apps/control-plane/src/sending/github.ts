@@ -15,7 +15,15 @@ import { secretShapedPath } from '@halcyonic/runtime-core';
 import { readOriginUrl } from '../catalog-match.ts';
 import { changedFileList, pathList } from '../checkpoints/checkpointer.ts';
 import { linkLeavesFolder } from '../checkpoints/links.ts';
-import { type HeldHit, heldInTree, heldMessage } from '../core/held-in-tree.ts';
+import {
+  type HeldHit,
+  heldForms,
+  heldHistoryMessage,
+  heldIn,
+  heldInHistory,
+  heldInTree,
+  heldMessage,
+} from '../core/held-in-tree.ts';
 import type { HeldSecret } from '../core/redaction.ts';
 import { reviewDigest } from '../core/review.ts';
 
@@ -49,6 +57,8 @@ export interface GitHubSenderDeps {
    * `heldForms` states, is never sent or published (the lead, 2026-11-12). Absent, none is held.
    */
   readonly held?: () => Iterable<HeldSecret>;
+  /** The most bytes of history a push's check reads; 512 MB unless a test says less. */
+  readonly historyMost?: number;
 }
 
 /** A refusal in the product's words; `effect` says when something on GitHub may have changed anyway. */
@@ -190,6 +200,17 @@ export class GitHubSender {
       return refuse('send_failed', 'The commit could not be made, so nothing was sent.');
     const remote = remoteOf(send.remote, ssh);
     const sentTo = { ...send, remote: send.remote };
+    // The push carries every commit of the branch the remote lacks, not only the tree read for the review:
+    // each, and every file it brings, is read for a held secret first (TASKS's ALERT, 2026-11-13T1257Z).
+    const history = await this.#heldInPush(
+      repository,
+      remote,
+      commit,
+      'sent',
+      this.#deps.historyMost,
+      send.remote.path,
+    );
+    if (history !== null) return history;
     const pushed = await this.#run(
       this.#deps.git,
       [
@@ -197,6 +218,8 @@ export class GitHubSender {
         repository,
         '-c',
         'core.hooksPath=/dev/null',
+        '-c',
+        'push.negotiate=true',
         'push',
         '--quiet',
         remote,
@@ -368,6 +391,10 @@ export class GitHubSender {
       commit = committed.stdout.trim();
       if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
         return refuse('send_failed', 'The commit could not be made, so nothing was pushed.');
+      // Its history is Halcyonic's own, every tree read whole when sent; read again all the same.
+      // GitHub has made the repository by now, so a refusal here is not one with nothing done.
+      const history = await this.#heldInPush(repository, remote, commit, 'sent', null, target.path);
+      if (history !== null) return { ...history, effect: 'unknown' };
       // On top of Halcyonic's own earlier commit, or into an empty `main`: never a force.
       const pushed = await this.#run(
         this.#deps.git,
@@ -376,6 +403,8 @@ export class GitHubSender {
           repository,
           '-c',
           'core.hooksPath=/dev/null',
+          '-c',
+          'push.negotiate=true',
           'push',
           '--quiet',
           remote,
@@ -469,6 +498,122 @@ export class GitHubSender {
     }
   }
 
+  /**
+   * Why a push of `commit` to `remote` must not go, or null (TASKS's ALERT, 2026-11-13T1257Z): a commit or a
+   * file, a folder's name included, the push would carry beyond what the remote holds has a held secret in
+   * it, or there is more to read than a send reads, or the remote could not be asked. What the remote holds is
+   * asked of the remote itself, at the address the push itself goes to (`pushInsteadOf` applied), never of
+   * the folder's own record of it, which its agent can write: the commits it has in common with `commit`, as
+   * the push's own negotiation finds them (`push.negotiate`). Where that cannot be asked, the tips it holds
+   * that this repository has; where the address would be read from elsewhere than it is pushed to, none. Less
+   * known means more read, never less.
+   */
+  async #heldInPush(
+    repository: string,
+    remote: string,
+    commit: string,
+    what: 'sent' | 'published',
+    /** The most bytes read, or null for a push carrying only Halcyonic's own commits, whose trees were read whole. */
+    most: number | undefined | null,
+    /** The repository as the person reads it (owner/name), for the refusal's words. */
+    named: string,
+  ): Promise<SendFailure | null> {
+    const done = what === 'sent' ? 'nothing was sent' : 'nothing was published';
+    const held = [...(this.#deps.held?.() ?? [])];
+    if (held.length === 0) return null;
+    const ours = (args: readonly string[], timeout = 30_000) =>
+      this.#run(this.#deps.git, ['--git-dir', repository, ...args], timeout);
+    const unreached = refuse(
+      'not_reached',
+      `The repository couldn't be reached, so ${done}. Check this computer's connection, then try again.`,
+    );
+    // The address the push goes to, as git rewrites it for a push; read there as it is, never rewritten again.
+    const pushedTo = await this.#pushAddress(repository, remote);
+    if (pushedTo === null) return unreached;
+    const asIs = ['-c', `url.${pushedTo}.insteadOf=${pushedTo}`];
+    const readFrom = (await ours([...asIs, 'ls-remote', '--get-url', pushedTo])).stdout.trim();
+    let have: string[] = [];
+    if (readFrom === pushedTo) {
+      const common = await ours(
+        [...asIs, 'fetch', '--quiet', '--negotiate-only', `--negotiation-tip=${commit}`, pushedTo],
+        60_000,
+      );
+      if (common.code === 0) have = objectIds(common.stdout);
+      else {
+        // A remote that cannot negotiate: its tips this repository has, as a push without negotiation uses.
+        const listed = await ours([...asIs, 'ls-remote', '--heads', '--tags', pushedTo], 60_000);
+        if (listed.code !== 0) return unreached;
+        have = objectIds(listed.stdout);
+      }
+    }
+    const git = (args: readonly string[], input?: Buffer) =>
+      this.#bytes(['--git-dir', repository, ...args], input);
+    if (have.length > 0) {
+      const known = await git(
+        ['cat-file', '--batch-check=%(objectname) %(objecttype)'],
+        Buffer.from(`${have.join('\n')}\n`),
+      );
+      if (known.code !== 0)
+        return refuse('send_failed', `The project's history could not be read, so ${done}.`);
+      have = known.stdout
+        .toString('utf8')
+        .split('\n')
+        .map((line) => line.split(' '))
+        .filter(([, type]) => type === 'commit')
+        .map(([object]) => object ?? '');
+    }
+    let hit: Awaited<ReturnType<typeof heldInHistory>>;
+    try {
+      hit = await heldInHistory(
+        git,
+        commit,
+        have,
+        held,
+        most === null ? Number.POSITIVE_INFINITY : (most ?? TREE_READ_MAX),
+      );
+    } catch {
+      return refuse('send_failed', `The project's history could not be read, so ${done}.`);
+    }
+    if (hit === 'too_large')
+      return refuse(
+        'history_too_large',
+        `This would send over 512 MB of earlier work, more than can be checked for secrets, so ${done}. Ask a developer to ${what === 'sent' ? 'send' : 'publish'} it.`,
+      );
+    if (hit === null) return null;
+    // The commit Halcyonic itself just made carries the person's title as its message.
+    if (hit.path === null && hit.named !== true && hit.object === commit)
+      return refuse(
+        'holds_secret',
+        `The title you gave this send holds a secret this Mac keeps (${hit.what}), so ${done}. Change the title, then try again.`,
+      );
+    return refuse('holds_secret', heldHistoryMessage(hit, what, named));
+  }
+
+  /** One address lookup at a time per repository: each writes the same remote of Halcyonic's own. */
+  readonly #addressing = new Map<string, Promise<unknown>>();
+
+  /**
+   * The address a push to `remote` goes to, as git rewrites it for a push (`pushInsteadOf`, else `insteadOf`),
+   * or null. Git resolves a remote's push address only for a remote written in a repository's own settings, so
+   * it is written in Halcyonic's own bare repository, one lookup at a time.
+   */
+  #pushAddress(repository: string, remote: string): Promise<string | null> {
+    const before = this.#addressing.get(repository) ?? Promise.resolve();
+    const lookup = before.then(async () => {
+      const ours = (args: readonly string[]) =>
+        this.#run(this.#deps.git, ['--git-dir', repository, ...args]);
+      if ((await ours(['config', 'remote.halcyonic-send.url', remote])).code !== 0) return null;
+      const got = await ours(['remote', 'get-url', '--push', 'halcyonic-send']);
+      const address = got.stdout.trim();
+      return got.code === 0 && address !== '' ? address : null;
+    });
+    this.#addressing.set(
+      repository,
+      lookup.catch(() => null),
+    );
+    return lookup.catch(() => null);
+  }
+
   /** Halcyonic's own bare repository for the project, made on first use in the person's object format. */
   async #repository(projectId: ProjectId, format: 'sha1' | 'sha256'): Promise<string | null> {
     const repository = join(this.#deps.dataDir, 'sending', `${projectId}.git`);
@@ -548,6 +693,29 @@ export class GitHubSender {
         "GitHub's command line tool on this computer isn't signed in, so nothing was published.",
       );
     const gh = this.#deps.gh as string;
+    const committed = await this.#run(this.#deps.git, [
+      '--git-dir',
+      repository,
+      'commit-tree',
+      tree,
+      ...(replaces === null ? [] : ['-p', replaces]),
+      '-m',
+      `Publish the checked game (${checkId})`,
+    ]);
+    const commit = committed.stdout.trim();
+    if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
+      return refuse('publish_failed', 'The game could not be made ready to publish.');
+    // Read before anything changes on GitHub, Make Public included: the last publishes' commits are Halcyonic's
+    // own, each read whole when it went, and what the push carries is read again against today's secrets.
+    const history = await this.#heldInPush(
+      repository,
+      remoteOf({ host, path: publish.repository }, ssh),
+      commit,
+      'published',
+      null,
+      publish.repository,
+    );
+    if (history !== null) return history;
     // Made public first, as the review said: GitHub Free serves pages only from a public repository.
     if (publish.make_public) {
       const opened = await this.#run(
@@ -583,18 +751,6 @@ export class GitHubSender {
             effect: 'unknown',
           }
         : failure;
-    const committed = await this.#run(this.#deps.git, [
-      '--git-dir',
-      repository,
-      'commit-tree',
-      tree,
-      ...(replaces === null ? [] : ['-p', replaces]),
-      '-m',
-      `Publish the checked game (${checkId})`,
-    ]);
-    const commit = committed.stdout.trim();
-    if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
-      return after(refuse('publish_failed', 'The game could not be made ready to publish.'));
     const pushed = await this.#run(
       this.#deps.git,
       [
@@ -602,6 +758,8 @@ export class GitHubSender {
         repository,
         '-c',
         'core.hooksPath=/dev/null',
+        '-c',
+        'push.negotiate=true',
         'push',
         '--quiet',
         remoteOf({ host, path: publish.repository }, ssh),
@@ -877,6 +1035,13 @@ export class GitHubSender {
     title: string,
     options: SendOptions,
   ): Promise<{ readonly ok: true; readonly prepared: Prepared } | SendFailure> {
+    // The title is the commit's message, which leaves with it: read first, before anything is made.
+    const titled = heldIn(Buffer.from(title, 'utf8'), heldForms(this.#deps.held?.() ?? []));
+    if (titled !== null)
+      return refuse(
+        'holds_secret',
+        `The title you gave this send holds a secret this Mac keeps (${titled}), so nothing was sent. Change the title, then try again.`,
+      );
     const git = await lstat(join(folder, '.git')).catch(() => null);
     if (git === null) return this.#prepareNew(projectId, folder, otherFolders, title, options);
     if (!git.isDirectory())
@@ -1424,6 +1589,18 @@ const HOST_NAME =
   /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)+$/;
 const REMOTE_PATH =
   /^(?=.{1,240}$)(?!.*(?:^|\/)\.\.?(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+
+/** Every object id at the start of a line of git's output, once each. */
+function objectIds(text: string): string[] {
+  return [
+    ...new Set(
+      text
+        .split('\n')
+        .map((line) => line.split(/\s/)[0] ?? '')
+        .filter((object) => /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(object)),
+    ),
+  ];
+}
 
 /** The remote's address as the person's git reaches it, built from its host and path, never read out. */
 function remoteOf(remote: SendRemote, ssh: boolean): string {
