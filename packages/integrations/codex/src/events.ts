@@ -6,6 +6,7 @@ import type {
   QuestionPrompt,
   RuntimeEventType,
   Timestamp,
+  UsageTokens,
 } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 import { APPROVAL_METHODS, QUESTION_METHOD, type RequestId } from './protocol.ts';
@@ -62,10 +63,41 @@ export interface ThreadState {
   model: string | null;
   /** The sequence of the last observation. */
   sequence: number;
+  /**
+   * The thread's running token total, as the latest `thread/tokenUsage/updated` gave it: nothing for
+   * a thread this server started, unknown (null) for a resumed one until it first reports, since a
+   * resumed thread's total carries its earlier runs.
+   */
+  usageTotal: TokenTotal | null;
+  /** The total when the running turn started, and whether Codex reported a total during it. */
+  turnUsage: { readonly before: TokenTotal | null; reported: boolean } | null;
 }
 
-export function createThreadState(answerable = true, directory: string | null = null): ThreadState {
+/** Codex 0.157.0's `TokenUsageBreakdown`, as its own generated bindings name the fields. */
+export interface TokenTotal {
+  readonly inputTokens: number;
+  readonly cachedInputTokens: number;
+  readonly cacheWriteInputTokens: number;
+  readonly outputTokens: number;
+  readonly reasoningOutputTokens: number;
+}
+
+const NO_TOKENS: TokenTotal = {
+  inputTokens: 0,
+  cachedInputTokens: 0,
+  cacheWriteInputTokens: 0,
+  outputTokens: 0,
+  reasoningOutputTokens: 0,
+};
+
+export function createThreadState(
+  answerable = true,
+  directory: string | null = null,
+  resumed = false,
+): ThreadState {
   return {
+    usageTotal: resumed ? null : NO_TOKENS,
+    turnUsage: null,
     directory,
     toolTurns: new Map(),
     questions: new Map(),
@@ -177,17 +209,49 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
       if (id === null || state.reportedTurns.has(id) || state.endedTurns.includes(id)) return none;
       state.reportedTurns.add(id);
       state.activeTurnId = id;
+      state.turnUsage = { before: state.usageTotal, reported: false };
       return {
         observations: [make('runtime.turn.started', { turn_id: id }, `${id}:turn/started`)],
         settled: [],
       };
+    }
+    case 'thread/tokenUsage/updated': {
+      // The thread's running total; a turn's usage is how far it moved during the turn.
+      const usage = isRecord(params.tokenUsage) ? params.tokenUsage : {};
+      const total = tokenTotal(usage.total);
+      const before = state.usageTotal;
+      // A total below the last one leaves the start unknown, so earlier turns are never counted again.
+      const fell =
+        total !== null &&
+        before !== null &&
+        (Object.keys(total) as (keyof TokenTotal)[]).some((key) => total[key] < before[key]);
+      state.usageTotal = fell ? null : total;
+      if (state.turnUsage !== null && nonBlank(params.turnId) === state.activeTurnId) {
+        state.turnUsage.reported = true;
+      }
+      return none;
     }
     case 'turn/completed': {
       const turn = isRecord(params.turn) ? params.turn : {};
       const id = nonBlank(turn.id);
       const known = id !== null && (state.reportedTurns.has(id) || state.activeTurnId === id);
       if (id === null || !known || !isFinal(turn.status)) return none;
+      const usage = state.turnUsage;
+      state.turnUsage = null;
       const settled = endTurn(state, id);
+      const used = turnTokens(usage, state.usageTotal);
+      const reported =
+        used === null
+          ? []
+          : [
+              make(
+                'runtime.usage.reported',
+                // Codex gives no money: its estimate is per thread and only on request.
+                { turn_id: id, tokens: used, cost: null, counted: 'differenced' },
+                `${id}:turn/usage`,
+                'reported',
+              ),
+            ];
       state.sequence += 1;
       const ended = turnEnded(id, turn, {
         native_event_id: `${id}:turn/completed`,
@@ -195,7 +259,7 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
         occurred_at: at,
         provenance: { epistemic: 'observed', native_type: nativeType(message.method) },
       });
-      return { observations: [ended], settled };
+      return { observations: [...reported, ended], settled };
     }
     case 'item/started': {
       const item = isRecord(params.item) ? params.item : {};
@@ -567,6 +631,44 @@ function turnEnded(
     );
   }
   return observation('runtime.turn.interrupted', { turn_id: turnId }, meta);
+}
+
+/** Codex's running total as it gave it, or null where any part is not a count. */
+function tokenTotal(value: unknown): TokenTotal | null {
+  if (!isRecord(value)) return null;
+  const read = (key: keyof TokenTotal) =>
+    Number.isSafeInteger(value[key]) && (value[key] as number) >= 0 ? (value[key] as number) : null;
+  const total = {
+    inputTokens: read('inputTokens'),
+    cachedInputTokens: read('cachedInputTokens'),
+    cacheWriteInputTokens: read('cacheWriteInputTokens'),
+    outputTokens: read('outputTokens'),
+    reasoningOutputTokens: read('reasoningOutputTokens'),
+  };
+  return Object.values(total).every((part) => part !== null) ? (total as TokenTotal) : null;
+}
+
+/**
+ * A turn's tokens: how far the thread's total moved from its start to its end, in the contract's
+ * parts. Codex's input holds the cache's reads and writes and its output holds the reasoning, as
+ * the end to end test shows on the pinned binary. Null where the turn's start total is unknown, no
+ * total came during the turn, or the total fell: nothing of it is reported then.
+ */
+function turnTokens(
+  usage: { readonly before: TokenTotal | null; readonly reported: boolean } | null,
+  after: TokenTotal | null,
+): UsageTokens | null {
+  if (usage === null || !usage.reported || usage.before === null || after === null) return null;
+  const before = usage.before;
+  const moved = (key: keyof TokenTotal) => after[key] - before[key];
+  const parts = {
+    input: moved('inputTokens') - moved('cachedInputTokens') - moved('cacheWriteInputTokens'),
+    cache_read: moved('cachedInputTokens'),
+    cache_write: moved('cacheWriteInputTokens'),
+    output: moved('outputTokens'),
+    reasoning: moved('reasoningOutputTokens'),
+  };
+  return Object.values(parts).every((part) => part >= 0) ? parts : null;
 }
 
 /** Ends a turn: nothing runs in it any more, and its unresolved approvals are dropped. */

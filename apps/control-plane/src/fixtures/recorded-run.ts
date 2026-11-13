@@ -129,6 +129,8 @@ const LISTED_EVENT_TYPES: ReadonlySet<string> = new Set<EventEnvelope['event_typ
   'runtime.connection.restored',
   'runtime.model.used',
   'runtime.plan.left',
+  // Counts and a price kind from a closed list: no words of anyone's.
+  'runtime.usage.reported',
 ]);
 
 /** What a path at or under the project's folder reads as once the folder itself is left out. */

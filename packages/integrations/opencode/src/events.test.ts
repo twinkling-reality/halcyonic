@@ -80,6 +80,17 @@ describe('OpenCode 2.0.18 event mapping', () => {
       // The model the step asked, as OpenCode names it: the adapter's model_ref.
       { type: 'runtime.model.used', payload: { model_ref: 'fake/fake-model' } },
       { type: 'runtime.agent_message', payload: { text: 'Fake reply #25: acknowledged.' } },
+      // What its one step used, as OpenCode counted the fake provider's reply; the fake model has no
+      // price, so OpenCode's 0 is no estimate.
+      {
+        type: 'runtime.usage.reported',
+        payload: {
+          turn_id: started,
+          tokens: { input: 12, cache_read: 0, cache_write: 0, output: 6, reasoning: 0 },
+          cost: null,
+          counted: 'summed',
+        },
+      },
       { type: 'runtime.turn.completed', payload: { turn_id: started } },
     ]);
     assert.deepEqual(
@@ -88,6 +99,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
         [started, 2, '2026-09-26T22:11:13.267Z'],
         ['evt_0dfc5bd10001d5QVMkOxbBRU17', 5, '2026-09-26T22:11:13.296Z'],
         ['evt_0dfc5bd12001dohKUE1zvaQuDO', 7, '2026-09-26T22:11:13.298Z'],
+        ['evt_0dfc5bd21002GO1kOSRbKhLsg5:usage', null, '2026-09-26T22:11:13.313Z'],
         ['evt_0dfc5bd21002GO1kOSRbKhLsg5', 10, '2026-09-26T22:11:13.313Z'],
       ],
     );
@@ -97,6 +109,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
         { epistemic: 'observed', native_type: 'opencode/session.execution.started' },
         { epistemic: 'observed', native_type: 'opencode/session.step.started' },
         { epistemic: 'reported', native_type: 'opencode/session.text.ended' },
+        { epistemic: 'reported', native_type: 'opencode/session.step.ended' },
         { epistemic: 'observed', native_type: 'opencode/session.execution.succeeded' },
       ],
     );
@@ -154,6 +167,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
       'runtime.approval.resolved',
       'runtime.tool.completed',
       'runtime.agent_message',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
     const denied = rejectedWithMessage?.observations[4];
@@ -172,6 +186,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
       'runtime.approval.requested',
       'runtime.approval.resolved',
       'runtime.tool.completed',
+      'runtime.usage.reported',
       'runtime.turn.interrupted',
     ]);
   });
@@ -190,6 +205,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
         'runtime.tool.started',
         'runtime.approval.requested',
         'runtime.tool.completed',
+        'runtime.usage.reported',
         'runtime.turn.interrupted',
       ],
     );
@@ -205,6 +221,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
         'runtime.turn.started',
         'runtime.model.used',
         'runtime.agent_message',
+        'runtime.usage.reported',
         'runtime.turn.completed',
       ],
     );
@@ -218,16 +235,19 @@ describe('OpenCode 2.0.18 event mapping', () => {
         'runtime.turn.started',
         'runtime.model.used',
         'runtime.agent_message',
+        'runtime.usage.reported',
         'runtime.turn.completed',
         // The second turn's step asks the same model, so nothing new is reported.
         'runtime.turn.started',
         'runtime.agent_message',
+        'runtime.usage.reported',
         'runtime.turn.completed',
       ],
     );
+    // A turn's usage is the adapter's sum of its steps, so it carries no sequence of OpenCode's.
     const sequences = observations.map((item) => item.sequence ?? -1);
-    assert.deepEqual(sequences, [2, 5, 7, 10, 12, 16, 19]);
-    const second = observations[4];
+    assert.deepEqual(sequences, [2, 5, 7, -1, 10, 12, 16, -1, 19]);
+    const second = observations[5];
     assert.equal(
       second?.type === 'runtime.turn.started' && second.payload.turn_id,
       'evt_0dfce92ad002YucWiHdjqco5vp',
@@ -305,8 +325,58 @@ describe('OpenCode 2.0.18 event mapping', () => {
         // The settled turn's step was not seen, so the next one reports the model.
         ['runtime.model.used', 14],
         ['runtime.agent_message', 16],
+        // Its start was seen, so its one step is its whole usage.
+        ['runtime.usage.reported', null],
         ['runtime.turn.completed', 19],
       ],
+    );
+  });
+
+  test("a turn's usage is the sum of its steps, and none is reported where a step or a stretch was missed", () => {
+    let count = 0;
+    const event = (type: string, data: Record<string, unknown> = {}) => {
+      count += 1;
+      return { id: `evt_${count}`, type, created: count, sessionId: 'ses_x', seq: null, data };
+    };
+    const step = (tokens: unknown, cost: unknown) => event('session.step.ended', { tokens, cost });
+    const run = (...steps: ReturnType<typeof event>[]) => {
+      const state = createSessionState();
+      return [event('session.execution.started'), ...steps, event('session.execution.succeeded')]
+        .flatMap((each) => observeEvent(state, each, NOW))
+        .filter((item) => item.type === 'runtime.usage.reported')
+        .map((item) => item.payload);
+    };
+    const tokens = (input: number, output: number, reasoning: number, read = 0, write = 0) => ({
+      input,
+      output,
+      reasoning,
+      cache: { read, write },
+    });
+    const [summed] = run(step(tokens(10, 4, 2, 100, 20), 0.25), step(tokens(5, 3, 0, 50), 0.5));
+    assert.deepEqual(summed?.tokens, {
+      input: 15,
+      cache_read: 150,
+      cache_write: 20,
+      // OpenCode's output leaves its reasoning out; ours holds it.
+      output: 9,
+      reasoning: 2,
+    });
+    assert.deepEqual(summed?.cost, { estimated_usd: 0.75, prices: 'catalog' });
+    const [unpriced] = run(step(tokens(1, 1, 0), 0.25), step(tokens(1, 1, 0), 0));
+    assert.equal(unpriced?.cost, null, "a step's 0 is free or unpriced, so no estimate");
+    const [unread] = run(step({ input: 3, output: 'many', reasoning: 0, cache: {} }, 0.1));
+    assert.deepEqual(unread?.tokens, {
+      input: 3,
+      cache_read: null,
+      cache_write: null,
+      output: null,
+      reasoning: 0,
+    });
+    assert.deepEqual(run(), [], 'a turn with no step seen reports nothing');
+    assert.deepEqual(
+      run(event('session.step.failed', { error: {} })),
+      [],
+      'nor one whose step gave none',
     );
   });
 

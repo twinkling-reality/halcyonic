@@ -383,6 +383,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       // A thread outlives its server in the Codex home, and thread/resume continues it
       // (codex-capabilities.md, restart-reattach.md; ADR 0046).
       resumes_after_restart: true,
+      // Each turn's tokens from the thread's running total; no money (agent-usage.md, the end to end
+      // test on the pinned binary).
+      reports_usage: true,
       // A thread's shell_environment_policy.set, given at its start and every resume, reaches its
       // commands (project-secrets.md; ADR 0057).
       secret_environment: true,
@@ -621,7 +624,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       execution: request.execution,
       emit: request.emit,
       options: local,
-      state: createThreadState(this.#answerQuestions, local.cwd),
+      state: createThreadState(this.#answerQuestions, local.cwd, true),
       connection,
       confirmations: new Map(),
       queue: Promise.resolve(),

@@ -268,6 +268,82 @@ describe('mock runtime actions', () => {
     );
   });
 
+  test("a scenario's usage is reported for its turn, as a claim, and declared only when asked", async () => {
+    const time = createVirtualTime(new Date('2026-09-26T10:00:00.000Z'));
+    const tokens = { input: 12, cache_read: 300, cache_write: null, output: 40, reasoning: 8 };
+    const used = parseScenario(
+      {
+        format: 1,
+        id: 'used',
+        description: 'Reports what its one turn used.',
+        steps: [
+          {
+            after_ms: 10,
+            emit: {
+              type: 'runtime.usage.reported',
+              payload: {
+                tokens,
+                cost: { estimated_usd: 0.02, prices: 'catalog' },
+                counted: 'given',
+              },
+            },
+          },
+          { after_ms: 10, emit: { type: 'runtime.turn.completed', payload: {} } },
+        ],
+      },
+      'used.json',
+    );
+    const scenarios = new Map([...SCENARIOS, ['used', used]]);
+    const undeclared = new MockRuntimeAdapter({ scenarios, clock: time, scheduler: time });
+    assert.equal(undeclared.descriptor.reports_usage, undefined, 'not declared unless given');
+    const silent: RuntimeObservation[] = [];
+    await undeclared.startExecution({
+      execution,
+      instruction: 'Do the work.',
+      options: { scenario: 'used' },
+      model_ref: null,
+      directory: null,
+      emit: (observation) => silent.push(observation),
+    });
+    await time.runUntilIdle();
+    assert.equal(
+      silent.some((observation) => observation.type === 'runtime.usage.reported'),
+      false,
+      'nor played where it is not declared',
+    );
+    await undeclared.close();
+    const runtime = new MockRuntimeAdapter({
+      scenarios,
+      reportsUsage: true,
+      clock: time,
+      scheduler: time,
+    });
+    assert.equal(runtime.descriptor.reports_usage, true);
+    const observed: RuntimeObservation[] = [];
+    await runtime.startExecution({
+      execution,
+      instruction: 'Do the work.',
+      options: { scenario: 'used' },
+      model_ref: null,
+      directory: null,
+      emit: (observation) => observed.push(observation),
+    });
+    await time.runUntilIdle();
+    const usage = observed.find((observation) => observation.type === 'runtime.usage.reported');
+    assert.deepEqual(usage?.payload, {
+      turn_id: `mock-session-${execution.execution_id}-turn-1`,
+      tokens,
+      cost: { estimated_usd: 0.02, prices: 'catalog' },
+      counted: 'given',
+    });
+    assert.equal(usage?.provenance.epistemic, 'reported');
+    assert.deepEqual(
+      observed.slice(-2).map((observation) => observation.type),
+      ['runtime.usage.reported', 'runtime.turn.completed'],
+    );
+    await runtime.close();
+  });
+
   test("a scenario's question past the size limit is reported whole, as a real runtime's is", async () => {
     const time = createVirtualTime(new Date('2026-09-26T10:00:00.000Z'));
     const big = parseScenario(

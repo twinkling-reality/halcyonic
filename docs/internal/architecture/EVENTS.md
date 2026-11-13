@@ -124,6 +124,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.connection.lost` | execution | runtime | The adapter lost contact with the runtime |
 | `runtime.connection.restored` | execution | runtime | The adapter can observe the runtime again after a loss; what changed meanwhile follows as its own events |
 | `runtime.model.used` | execution | runtime | The model the runtime says the execution runs on (`observed`), by the `model_ref` of the runtime's list; reported when it starts and whenever it changes |
+| `runtime.usage.reported` | execution | runtime | What one turn used, as the runtime counts it (`reported`): tokens in five parts that never overlap (input outside the cache, the cache's reads, its writes, output with its reasoning, the reasoning), each null where not given, the runtime's own cost estimate in US dollars (0 to 1,000,000) by its kind of prices (`list`, `managed` or `catalog`), or null, and `counted`, whose arithmetic made the runtime's figures one turn's (`given` by the runtime, `summed` over the turn's steps, `differenced` from a running total); at most one per turn, from an adapter that declares `reports_usage`, and none where the adapter did not see the turn whole ([agent-usage.md](../validation/agent-usage.md)) |
 | `runtime.plan.left` | execution | runtime | The runtime left its plan mode in the execution's session (`observed`), confirmed before the instruction that carries the plan out was sent (PLAN, [agent-plan-modes.md](../validation/agent-plan-modes.md)); the level does not change |
 | `device.paired` | none | control plane | A device proved it saw the pairing code; carries its id, its self-declared label, the SHA-256 of its credential and of the certificate it pinned ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)) |
 | `device.revoked` | none | control plane | The device's credential is no longer accepted; carries who revoked it |
@@ -149,6 +150,18 @@ own words. Adapters report all of them whole, and the control plane takes every 
 named, then cuts each to the contract before it is journaled. A credential it doesn't hold stays,
 so the person reads the command as it would run ([SECURITY.md](SECURITY.md), "Logs and error
 text").
+
+An execution view's `usage` sums its reported turns: `turns` counts them, each token part is the
+sum, and stays null once any turn left it null, and `cost` is the sum of the runtime's estimates
+while every turn gave one by the same prices, null from the first that did not; a turn that used
+nothing at all, every part a counted 0, costs nothing and never voids it. It is absent until
+a turn reports, which never reads as nothing used, and a turn that reported nothing is in none of
+it, so `turns` below `turn_count` means part of the use is not counted, and a client says so
+("reported for 2 of 3 turns"), never showing the sum as the whole. A client showing the cost says
+whose estimate it is and that it is no bill, beside the host's own words that Halcyonic knows no
+price. Adapters report a turn at
+most once; the projection takes each report as one turn. The host never prices
+anything itself: money appears only where the runtime estimated it, and only as an estimate.
 
 An execution view's `tool_activity` says whether a tool call runs, from these events alone:
 `running` when a turn is active, its status is not `unknown`, and a tool call is open (started,

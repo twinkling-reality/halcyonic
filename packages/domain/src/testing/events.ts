@@ -106,7 +106,7 @@ export class EventBuilder {
       source_native_id: null,
       sequence,
       provenance:
-        eventType === 'runtime.agent_message'
+        eventType === 'runtime.agent_message' || eventType === 'runtime.usage.reported'
           ? { epistemic: 'reported', native_type: null }
           : { epistemic: 'observed', native_type: null },
       payload,

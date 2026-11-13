@@ -313,6 +313,7 @@ describe('the adapter through the real Agent SDK', () => {
           'runtime.turn.started',
           // The model the stand-in CLI names in its init message.
           'runtime.model.used',
+          'runtime.usage.reported',
           'runtime.turn.completed',
         ],
       );

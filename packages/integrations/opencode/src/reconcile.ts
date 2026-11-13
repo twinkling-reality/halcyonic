@@ -102,6 +102,9 @@ export function reconcileSession(
   snapshot: SessionSnapshot,
   now: Date,
 ): Reconciliation {
+  // A reconciliation follows a gap in the stream, whose steps were not seen: the running turn's usage
+  // is no longer whole, so none is reported for it.
+  state.usage = null;
   let starts = false;
   if (state.awaitingStart) {
     if (state.pendingInboxId === null) {

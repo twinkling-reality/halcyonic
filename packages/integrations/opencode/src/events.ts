@@ -100,6 +100,24 @@ export interface SessionState {
   readonly questions: Map<string, FormFields>;
   /** Forms OpenCode confirmed answering with a 204, kept until `form.replied` arrives. */
   readonly answered: Set<string>;
+  /**
+   * What the running turn's steps used so far, from each `session.step.ended`; null where the turn's
+   * start was not seen on the stream, or the stream had a gap since, so no part of it is a guess.
+   */
+  usage: StepSums | null;
+}
+
+/** Sums of a turn's steps, a part null once any step left it unreadable. */
+export interface StepSums {
+  input: number | null;
+  cache_read: number | null;
+  cache_write: number | null;
+  output: number | null;
+  reasoning: number | null;
+  /** OpenCode's own estimate in US dollars, null once a step gave none or 0. */
+  cost: number | null;
+  /** How many steps were added; a turn with none reports nothing, never a turn that used nothing. */
+  steps: number;
 }
 
 /** How to put an answer to each question of a form into the form's own fields. */
@@ -125,6 +143,7 @@ export function createSessionState(): SessionState {
     shellCalls: new Map(),
     questions: new Map(),
     answered: new Set(),
+    usage: null,
   };
 }
 
@@ -140,6 +159,35 @@ export function endTurn(state: SessionState): void {
   state.shellCalls.clear();
   state.questions.clear();
   state.answered.clear();
+  state.usage = null;
+}
+
+/**
+ * Adds one step's usage, as `session.step.ended` gives it (OpenCode 2.0.18's `TokenUsage.Info`,
+ * parts that never overlap, output without its reasoning, and `Money.USD`), to the turn's sums.
+ * A step's cost of 0 is OpenCode's both for a free model and for one with no price, so it ends the
+ * estimate: unknown, never free (agent-usage.md).
+ */
+export function addStep(sums: StepSums, tokens: unknown, cost: unknown): void {
+  const given = isRecord(tokens) ? tokens : {};
+  const cache = isRecord(given.cache) ? given.cache : {};
+  const add = (was: number | null, value: unknown): number | null =>
+    was === null || !Number.isSafeInteger(value) || (value as number) < 0
+      ? null
+      : was + (value as number);
+  sums.steps += 1;
+  const reasoning = add(0, given.reasoning);
+  sums.input = add(sums.input, given.input);
+  sums.cache_read = add(sums.cache_read, cache.read);
+  sums.cache_write = add(sums.cache_write, cache.write);
+  // Ours counts the reasoning inside the output, as the contract's parts do.
+  sums.output = reasoning === null ? null : add(sums.output, add(reasoning, given.output));
+  sums.reasoning =
+    sums.reasoning === null || reasoning === null ? null : sums.reasoning + reasoning;
+  sums.cost =
+    sums.cost !== null && typeof cost === 'number' && Number.isFinite(cost) && cost > 0
+      ? sums.cost + cost
+      : null;
 }
 
 /**
@@ -209,21 +257,73 @@ export function observeEvent(
       if (event.created !== null) state.since = event.created;
       if (state.turn !== null) return [];
       state.turn = { id: event.id };
+      state.usage = {
+        input: 0,
+        cache_read: 0,
+        cache_write: 0,
+        output: 0,
+        reasoning: 0,
+        cost: 0,
+        steps: 0,
+      };
       return make('runtime.turn.started', { turn_id: event.id });
+    }
+    case 'session.step.ended':
+    case 'session.step.failed': {
+      // A failed step may carry no usage; then nothing of the turn's is known for sure.
+      if (state.usage === null) return [];
+      if (data.tokens === undefined) state.usage = null;
+      else addStep(state.usage, data.tokens, data.cost);
+      return [];
     }
     case 'session.execution.succeeded':
     case 'session.execution.failed':
     case 'session.execution.interrupted': {
       const turn = state.turn;
       if (turn === null) return [];
+      const usage = state.usage;
       endTurn(state);
-      if (event.type === 'session.execution.succeeded') {
-        return make('runtime.turn.completed', { turn_id: turn.id });
-      }
-      if (event.type === 'session.execution.failed') {
-        return make('runtime.turn.failed', { turn_id: turn.id, error: executionError(data) });
-      }
-      return make('runtime.turn.interrupted', { turn_id: turn.id });
+      const used =
+        usage === null || usage.steps === 0
+          ? []
+          : [
+              observation(
+                'runtime.usage.reported',
+                {
+                  turn_id: turn.id,
+                  tokens: {
+                    input: usage.input,
+                    cache_read: usage.cache_read,
+                    cache_write: usage.cache_write,
+                    output: usage.output,
+                    reasoning: usage.reasoning,
+                  },
+                  cost:
+                    usage.cost === null ? null : { estimated_usd: usage.cost, prices: 'catalog' },
+                  counted: 'summed',
+                },
+                {
+                  native_event_id: `${event.id}:usage`,
+                  sequence: null,
+                  occurred_at: toTimestamp(event.created, now),
+                  // OpenCode's own counts and estimate: a claim.
+                  provenance: {
+                    epistemic: 'reported',
+                    native_type: nativeType('session.step.ended'),
+                  },
+                },
+              ),
+            ];
+      const ended = (() => {
+        if (event.type === 'session.execution.succeeded') {
+          return make('runtime.turn.completed', { turn_id: turn.id });
+        }
+        if (event.type === 'session.execution.failed') {
+          return make('runtime.turn.failed', { turn_id: turn.id, error: executionError(data) });
+        }
+        return make('runtime.turn.interrupted', { turn_id: turn.id });
+      })();
+      return [...used, ...ended];
     }
     case 'permission.asked': {
       const id = nonBlank(data.id);

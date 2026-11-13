@@ -95,6 +95,49 @@ describe('event envelopes', () => {
     assert.deepEqual(parsed.ok ? null : parsed.issues[0]?.path, '/provenance/epistemic');
   });
 
+  test("a runtime's usage is its own count and must be reported, never observed", () => {
+    const usage: Record<string, unknown> = {
+      ...sampleEvent('runtime.agent_message'),
+      event_type: 'runtime.usage.reported',
+      payload: {
+        turn_id: 't1',
+        tokens: { input: 10, cache_read: null, cache_write: null, output: 4, reasoning: null },
+        cost: null,
+        counted: 'given',
+      },
+    };
+    assert.equal(parseEventEnvelope(usage).ok, true);
+    usage.provenance = { epistemic: 'observed', native_type: null };
+    const parsed = parseEventEnvelope(usage);
+    assert.deepEqual(parsed.ok ? null : parsed.issues[0]?.path, '/provenance/epistemic');
+    const priced: Record<string, unknown> = {
+      ...usage,
+      provenance: { epistemic: 'reported', native_type: null },
+    };
+    priced.payload = {
+      ...(usage.payload as object),
+      cost: { estimated_usd: 0.01, prices: 'guess' },
+    };
+    assert.equal(parseEventEnvelope(priced).ok, false, 'no price kind outside the list');
+    const bounded = (payload: object) =>
+      parseEventEnvelope({ ...priced, payload: { ...(usage.payload as object), ...payload } }).ok;
+    assert.equal(bounded({ cost: { estimated_usd: 2, prices: 'list' } }), true);
+    assert.equal(
+      bounded({ cost: { estimated_usd: -1, prices: 'list' } }),
+      false,
+      'no negative money',
+    );
+    assert.equal(
+      bounded({ cost: { estimated_usd: 2e6, prices: 'list' } }),
+      false,
+      'nor past its bound',
+    );
+    const tokens = { input: -3, cache_read: null, cache_write: null, output: 4, reasoning: null };
+    assert.equal(bounded({ tokens }), false, 'no negative count');
+    assert.equal(bounded({ tokens: { ...tokens, input: 1.5 } }), false, 'nor a part of a token');
+    assert.equal(bounded({ counted: 'guessed' }), false, 'no way of counting outside the list');
+  });
+
   test('inferred facts must name the rule that produced them', () => {
     const event = sampleEvent('runtime.test_run.started');
     event.provenance = { epistemic: 'inferred', native_type: null };
@@ -676,6 +719,7 @@ describe('the C# bindings', () => {
     'ExecutionView.plan_left', // whether the plan was left to carry it out (PLAN 4a)
     'ExecutionView.queued_instructions', // instructions waiting for the turn to end (ADR 0056)
     'ExecutionView.unconfined_reason', // why its start was not counted confined (BOX-4, PLAN 4a)
+    'ExecutionView.usage', // what its reported turns used, absent until one is reported
     'LocationRoot.label', // a location's label
     'OwnCopy.missing_at', // ADR 0045, amended: a start found the task's copy gone
     'ProjectCheckPayload.workstream_id', // the task whose copy a check checks (ADR 0045)
@@ -706,6 +750,7 @@ describe('the C# bindings', () => {
     'RuntimeDescriptor.offers_never_ask', // ADR 0043
     'RuntimeDescriptor.offers_plan', // a declaration (PLAN)
     'RuntimeDescriptor.reports_tool_results', // a declaration
+    'RuntimeDescriptor.reports_usage', // a declaration
     'RuntimeDescriptor.resumes_after_restart', // ADR 0046
     'RuntimeDescriptor.secret_environment', // ADR 0057
     'RuntimeDescriptor.takes_pictures', // a declaration (A4)

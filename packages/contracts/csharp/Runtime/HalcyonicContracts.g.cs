@@ -2933,6 +2933,53 @@ namespace Halcyonic.Contracts
         public string CompletedAt { get; set; } = default!;
     }
 
+    public sealed class UsageTokens
+    {
+        [global::Newtonsoft.Json.JsonProperty("input", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Input { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("cache_read", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? CacheRead { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("cache_write", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? CacheWrite { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("output", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Output { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("reasoning", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Reasoning { get; set; }
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UsagePrices
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "list")] List,
+        [global::System.Runtime.Serialization.EnumMember(Value = "managed")] Managed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "catalog")] Catalog,
+    }
+
+    public sealed class UsageEstimate
+    {
+        [global::Newtonsoft.Json.JsonProperty("estimated_usd", Required = global::Newtonsoft.Json.Required.Always)]
+        public double EstimatedUsd { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("prices", Required = global::Newtonsoft.Json.Required.Always)]
+        public UsagePrices Prices { get; set; }
+    }
+
+    public sealed class ExecutionUsage
+    {
+        [global::Newtonsoft.Json.JsonProperty("turns", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Turns { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("tokens", Required = global::Newtonsoft.Json.Required.Always)]
+        public UsageTokens Tokens { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("cost", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public UsageEstimate? Cost { get; set; }
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum AutoFixViewState
     {
@@ -3065,6 +3112,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("turn_count", Required = global::Newtonsoft.Json.Required.Always)]
         public long TurnCount { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("usage", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public ExecutionUsage? Usage { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("auto_fix", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public AutoFixView? AutoFix { get; set; }
@@ -3452,6 +3502,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("holds_instructions", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? HoldsInstructions { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("reports_usage", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? ReportsUsage { get; set; }
     }
 
     public sealed class Snapshot
@@ -6023,6 +6076,29 @@ namespace Halcyonic.Contracts
     {
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UsageCounted
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "given")] Given,
+        [global::System.Runtime.Serialization.EnumMember(Value = "summed")] Summed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "differenced")] Differenced,
+    }
+
+    public sealed class RuntimeUsageReportedPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? TurnId { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("tokens", Required = global::Newtonsoft.Json.Required.Always)]
+        public UsageTokens Tokens { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("cost", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public UsageEstimate? Cost { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("counted", Required = global::Newtonsoft.Json.Required.Always)]
+        public UsageCounted Counted { get; set; }
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(EventEnvelopeConverter))]
     public abstract class EventEnvelope
     {
@@ -6167,6 +6243,7 @@ namespace Halcyonic.Contracts
                 "runtime.connection.restored" => new RuntimeConnectionRestoredEvent(),
                 "runtime.model.used" => new RuntimeModelUsedEvent(),
                 "runtime.plan.left" => new RuntimePlanLeftEvent(),
+                "runtime.usage.reported" => new RuntimeUsageReportedEvent(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "EventEnvelope has no string event_type."
                     : "Unknown event_type \"" + tag + "\" for EventEnvelope."),
@@ -6841,6 +6918,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public RuntimePlanLeftPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class RuntimeUsageReportedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "runtime.usage.reported";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public RuntimeUsageReportedPayload Payload { get; set; } = default!;
     }
 
     public sealed class EntityChanges

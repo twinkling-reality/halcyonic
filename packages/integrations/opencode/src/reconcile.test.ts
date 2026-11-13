@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
-import { createSessionState, type SessionState } from './events.ts';
+import { createSessionState, observeEvent, type SessionState } from './events.ts';
 import { reconcileSession, type SessionSnapshot } from './reconcile.ts';
 import { assertValidObservations } from './testing/observations.ts';
 
@@ -75,6 +75,31 @@ describe('reconciling a session after the event stream reconnected', () => {
       [],
     );
     assert.deepEqual(settled(createSessionState(), snapshot({ running: false })), []);
+  });
+
+  test("a gap in the stream leaves the running turn's usage unknown, so none is reported for it", () => {
+    const state = createSessionState();
+    const event = (id: string, type: string, data: Record<string, unknown> = {}) => ({
+      id,
+      type,
+      created: ENQUEUED + 1,
+      sessionId: 'ses_1',
+      seq: null,
+      data,
+    });
+    const step = {
+      tokens: { input: 5, output: 2, reasoning: 0, cache: { read: 0, write: 0 } },
+      cost: 0.25,
+    };
+    observeEvent(state, event('evt_start', 'session.execution.started'), NOW);
+    observeEvent(state, event('evt_step_1', 'session.step.ended', step), NOW);
+    assert.equal(state.usage?.steps, 1);
+    // Still running when read back: the turn goes on, but steps in the gap were not seen.
+    assert.deepEqual(settled(state, snapshot()), []);
+    assert.equal(state.usage, null);
+    observeEvent(state, event('evt_step_2', 'session.step.ended', step), NOW);
+    const ended = observeEvent(state, event('evt_end', 'session.execution.succeeded'), NOW);
+    assert.deepEqual(types(ended), ['runtime.turn.completed']);
   });
 
   test('a turn that ended while disconnected ends with the outcome OpenCode recorded', () => {
