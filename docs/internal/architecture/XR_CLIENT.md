@@ -1442,8 +1442,9 @@ launch/return, process recreation and current-frame action behavior need separat
   of then. Where there is no answer, the provenance line says what is missing and why, by the
   reason's code and never the host's message: "Conclusions Unavailable, Agent App Not Followed".
   The model hands the parts apart (`SourceWords`: the source, what is missing, why, when, and this
-  headset's own read), and a slot of one string takes them as one phrase on commas, as `Notice`
-  does, never joined on a dot. Every
+  headset's own read). A file's page gives them as lines apart: what is missing as the page's line,
+  opening the full answer where it holds anything, then why and this headset's read, each a line of
+  its own (`FileScreens.Apart`); only a slot of one string takes them as one phrase. Every
   claim keeps the source's own epistemic class as its tag (observed, reported, inferred, planned,
   explained), never upgraded, and someone's words, every statement (the agent's, a subagent's or an
   unknown author's) and every remaining item said to be the agent's, are always reported, leaning and
