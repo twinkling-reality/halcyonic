@@ -340,6 +340,12 @@ export interface RuntimeAdapter {
    * execution is then lost.
    */
   reattach?(request: ReattachRequest): Promise<void>;
+  /**
+   * Whether this process's runtime still holds the execution's session. An adapter that lets a session at rest go
+   * (its server stopped after a quiet time) says false for it, and the control plane re-attaches it, as after a
+   * restart, before its next action. Absent: every session this process started stays held.
+   */
+  hosts?(executionId: string): boolean;
   /** Releases native resources. Observations stop after this resolves. */
   close(): Promise<void>;
 }

@@ -75,3 +75,20 @@ is the session. Verified on 2026-11-10 on the pinned binaries with fake provider
 - A runtime upgrade re-runs the probes: the stale OpenCode outcome and the Claude Code placeholder
   answer are quirks of the pinned versions.
 - Revisit if a runtime offers to carry on a turn across its own restart.
+
+## Amendment, 2026-11-13: a session at rest is let go and picked up again the same way
+
+A confined folder's OpenCode server outlived its tasks until the control plane stopped (seen on the proving plane:
+three servers alive hours after their tasks ended). Now, once every task in a confined folder has been at rest for a
+quiet time (10 minutes by default; `restingServerMs`), the OpenCode adapter stops that folder's server and lets its
+sessions go without a word: nothing was lost, the sessions stay in the folder's own store. At rest means no turn,
+no start awaited, nothing in flight, no approval being sent and no instruction steered; a card waiting for the
+person is mid-turn, so never at rest. The listing server and an unsandboxed adapter's single server are never
+stopped this way.
+
+An adapter that lets sessions go says so through the optional `RuntimeAdapter.hosts(executionId)`. The host's
+`Reattacher.ensure`, which already re-attaches a task at rest on its next action after a restart, now also
+re-attaches one this process started when its runtime no longer hosts it, with the same request as after a restart
+(the recorded level, plan and confinement, the spending allowance left, the project's secrets). A session that
+cannot be found again is lost as after a restart: the action fails having done nothing, said plainly.
+Nothing on screen changes; the next instruction after the quiet time takes a few seconds longer.
