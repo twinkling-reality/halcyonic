@@ -1689,16 +1689,20 @@ namespace Halcyonic.Client
         /// </summary>
         private void PreselectModel()
         {
-            if (draft.Model != null || draft.Runtime is not RuntimeDescriptor runtime || draft.Models.Count == 0) return;
+            // Never over the person's own choice; over the draft's own pick of the best local model (ModelPreselected), the one last
+            // used wins, since the person chose it before.
+            if ((draft.Model != null && !draft.ModelPreselected) || draft.Runtime is not RuntimeDescriptor runtime || draft.Models.Count == 0) return;
             var used = (host.State?.Workstreams.Values.Select(task => host.State.CurrentExecution(task)) ?? Enumerable.Empty<ExecutionView?>())
                 .OfType<ExecutionView>()
-                .Where(run => run.Runtime.RuntimeId == runtime.RuntimeId && run.ModelRef != null)
+                // A simulated run never seeds the model default (AUDIT's 13:29Z item 3); a recorded one never reaches here, as the
+                // demonstration reads no models.
+                .Where(run => run.Runtime.RuntimeId == runtime.RuntimeId && run.ModelRef != null && !run.Runtime.Synthetic)
                 .OrderByDescending(run => run.StartedAt ?? run.CreatedAt, StringComparer.Ordinal)
                 .Select(run => draft.Models.FirstOrDefault(model => model.ModelRef == run.ModelRef))
                 .OfType<RuntimeModel>();
             var here = draft.Models.Where(NewWorkDraft.RunsHere).ToList();
-            var model = used.FirstOrDefault() ?? Preselection.Pick(here, Enumerable.Empty<RuntimeModel>(), Enumerable.Empty<RuntimeModel>());
-            if (model != null) draft.ChooseModel(model);
+            var model = used.FirstOrDefault() ?? (draft.Model == null ? Preselection.Pick(here, Enumerable.Empty<RuntimeModel>(), Enumerable.Empty<RuntimeModel>()) : null);
+            if (model != null && model != draft.Model) draft.ChooseModel(model);
         }
 
         /// <summary>
@@ -2031,13 +2035,16 @@ namespace Halcyonic.Client
         {
             if (draft.Runtime != null || host.State is not ClientProjection state) return;
             var ready = EntryText.RuntimeChoices(state.Runtimes);
-            var runs = state.Workstreams.Values.Select(task => (task, run: state.CurrentExecution(task))).Where(each => each.run != null)
+            var runs = state.Workstreams.Values.Select(task => (task, run: state.CurrentExecution(task))).Where(each => each.run != null && !each.run.Runtime.Synthetic)
                 .OrderByDescending(each => each.run!.StartedAt ?? each.run.CreatedAt, StringComparer.Ordinal).ToList();
             RuntimeDescriptor? Of(ExecutionView run) => ready.FirstOrDefault(runtime => runtime.RuntimeId == run.Runtime.RuntimeId);
             var here = runs.Where(each => draft.ProjectId != null && each.task.ProjectId == draft.ProjectId).Select(each => Of(each.run!)).OfType<RuntimeDescriptor>();
             var anywhere = runs.Select(each => Of(each.run!)).OfType<RuntimeDescriptor>();
+            // The practice run, told apart by its declared kind (the descriptor's synthetic, R3), is never the default while a real
+            // agent app is ready, even where it was the last used (the lead's 13:33Z, AUDIT's 13:34Z); a remembered choice is the
+            // host's record of a real run, never a practice or simulated one.
             var real = ready.Where(each => !each.Synthetic).ToList();
-            if ((Preselection.Pick(ready, here, anywhere) ?? (real.Count == 1 ? real[0] : null)) is not RuntimeDescriptor runtime) return;
+            if (Preselection.Pick(real.Count > 0 ? real : ready, here, anywhere) is not RuntimeDescriptor runtime) return;
             draft.ChooseRuntime(runtime);
             if (runtime.ModelChoice == ModelChoice.Listed) ReadModels(runtime);
         }
