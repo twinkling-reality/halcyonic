@@ -98,7 +98,7 @@ public class AssistantPlaceTests
             var list = await api.GetAssistantModelsAsync();
             var options = AssistantPlace.Options(list);
             Assert.That(options.Select(option => (option.Label, option.Detail)).Skip(1), Is.EqualTo(new[]
-            { ("muse-wonder-1.0", "On Meta"), ("muse-spark-1.3", "On Meta") }));
+            { ("muse-wonder-1.0", "On Meta, Costs Money"), ("muse-spark-1.3", "On Meta, Costs Money") }));
             Assert.That(options[0].Label, Is.EqualTo("This Computer's Model"));
 
             // The press, then the review card's one press.
@@ -110,7 +110,7 @@ public class AssistantPlaceTests
                 if (review == null) await Task.Delay(100);
             }
             Assert.That(review, Is.Not.Null, "the press waits for its review card");
-            Assert.That(review!.Proposal!.WhatHappens, Does.Contain("paid with your key"));
+            Assert.That(review!.Proposal!.WhatHappens, Does.Contain("charges you money for each request"));
             Assert.That(AssistantPlace.OnePress(review), Is.False, "a hosted choice is reviewed first");
             Assert.That(AssistantPlace.Ended((await api.ReadWorkspaceRequestAsync(requestId)).Request), Is.False);
             await Post(http, Commands.ConfirmRequest(requestId, review.StepId, review.Proposal.Review!));
