@@ -1352,11 +1352,32 @@ export class Projection {
    * `requests` false leaves out the assistant's own request commands, which write nothing (ADR 0063).
    */
   projectBusy(projectId: string, except?: string, requests = true): string | null {
+    return this.projectBusyReason(projectId, except, requests)?.sentence ?? null;
+  }
+
+  /**
+   * `projectBusy` with what is busy: a task, which has a Stop, named by its title (AUDIT2 S2, 2026-11-13), or a
+   * command still waiting for its outcome, which has none. The sentence says the press did nothing; each caller
+   * adds its own next step, a Stop only for a task (AUDIT2 S1).
+   */
+  projectBusyReason(
+    projectId: string,
+    except?: string,
+    requests = true,
+  ): { readonly kind: 'task' | 'command'; readonly sentence: string } | null {
     for (const state of this.#executionsByProject.get(projectId as ProjectId) ?? []) {
       const status = deriveExecutionStatus(state);
-      if (ACTIVE_STATUSES.has(status)) return `A task in this project is ${BUSY_WORDS[status]}.`;
+      const title = this.#workstreams.get(state.workstreamId)?.title ?? 'A task';
+      if (ACTIVE_STATUSES.has(status))
+        return {
+          kind: 'task',
+          sentence: `${title} is ${BUSY_WORDS[status]} in this project, so this was not done.`,
+        };
       if (status === 'unknown' && !stoppedByRestart(state.unknownReason?.code))
-        return 'A task in this project may still be running: its state is unknown.';
+        return {
+          kind: 'task',
+          sentence: `${title} may still be running in this project (its state is unknown), so this was not done.`,
+        };
     }
     for (const command of this.#pendingCommands) {
       if (
@@ -1366,7 +1387,10 @@ export class Projection {
       )
         // By the button's own words, never the command's internal name (the lead, 20:46Z).
         // The press did nothing, and every caller adds its own next step (AUDIT2, 22:14Z).
-        return `${COMMAND_SAYING[command.envelope.command_type].title} in this project is still under way, so this was not done.`;
+        return {
+          kind: 'command',
+          sentence: `${COMMAND_SAYING[command.envelope.command_type].title} in this project is still under way, so this was not done.`,
+        };
     }
     return null;
   }

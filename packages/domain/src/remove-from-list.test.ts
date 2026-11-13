@@ -318,6 +318,17 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
       message:
         'Send for Review in this project is still under way, so this was not done. Try again once it has finished.',
     });
+    // A command under way has no Stop: choosing a check is told to try again, never to stop it (AUDIT2 S1).
+    const checking = admitCommand(
+      command('project.own_check.choose', { project_id: project.projectId, scripts: [] }),
+      projection,
+      RUNTIMES,
+    );
+    assert.deepEqual(checking.admitted ? null : checking.rejection, {
+      code: 'invalid_state',
+      message:
+        'Send for Review in this project is still under way, so this was not done. Try again once it has finished.',
+    });
     for (const sent of [
       command('project.unpublish', { project_id: project.projectId, commit: 'c'.repeat(40) }),
       command('project.make_private', { project_id: project.projectId }),

@@ -1379,7 +1379,7 @@ describe('closing (core audit 2026-11-03)', () => {
     const project = harness.controlPlane.projection.workstream(workstreamId)?.project_id ?? '';
     assert.equal(
       harness.controlPlane.projection.projectBusy(project),
-      'A task in this project is waiting for you.',
+      'Move sessions to their own table is waiting for you in this project, so this was not done.',
     );
     await harness.controlPlane.close();
   });
