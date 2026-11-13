@@ -31,7 +31,9 @@ namespace Halcyonic.Client
             lines: preview ? new[] { new PageLine("Look at Task's Character", rows: 2), new PageLine("This Headset Only", tone: LineTone.Secondary),
                 new PageLine(error ?? (chosen == "original" ? "Original Colour" : CharacterColourSettings.Name(chosen))) }
                 : CharacterColourSettings.Choices.Skip(page * 3).Take(3).Select(choice => new PageLine(CharacterColourSettings.Name(choice), fact: choice == settings.Applied(scope) ? "Current" : null,
-                    action: Choose, key: choice, choice: true, chosen: chosen == choice, answerMark: AnswerMark.Single)).ToArray());
+                    action: Choose, key: choice, choice: true, chosen: chosen == choice, answerMark: AnswerMark.Single)
+                    // The colours a person compares stand together (the lead's 21:11Z): one group, which the reader never breaks.
+                    .WithGroup("colours")).ToArray());
         private void Invalidate() { frame = drawn = null; Changed?.Invoke(); }
         public void Act(string id, string? key)
         {

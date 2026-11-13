@@ -56,6 +56,26 @@ public class AgentShelfTests
     /// The turn rows hand RoomPlacement.MovePreview the very direction it turns by (AgentShelfColumn.TurnLeft and TurnRight), so a change
     /// of their words can never leave the preview unturnable again (the 17c-2 rename did, 2026-10-31).
     /// </summary>
+    /// <summary>The shelf's moves come in the pairs a person uses together, Find Room Surface alone (the lead's 21:11Z): the reader never splits a group.</summary>
+    [Test]
+    public void TheMovesComeAsFourPairsAndFindStandsAlone()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var host = new FakeMenuHost { MeasureTitle = (_, _) => 2 };
+            var draft = Draft();
+            var column = new AgentShelfColumn(host, draft, _ => { }, () => { }, draft.Cancel, () => { });
+            var moves = column.Frame!.Lines.Where(line => line.Action == AgentShelfColumn.Move || line.Action == AgentShelfColumn.ReadRoom).ToList();
+            Assert.That(moves.GroupBy(line => line.Group).Select(group => string.Join("/", group.Select(line => line.Words))), Is.EqualTo(new[]
+            {
+                "Left/Right", "Closer/Farther", "Up/Down", AgentShelfColumn.TurnLeft + "/" + AgentShelfColumn.TurnRight, "Find Room Surface",
+            }), "under the redesign the frame hands every move at once, in its pairs");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     [Test]
     public void TheTurnRowsHandMovePreviewTheDirectionItTurnsBy()
     {

@@ -61,8 +61,10 @@ namespace Halcyonic.Client
                 var lines = new List<PageLine> { note, noteThen };
                 for (var index = page * count; index < Math.Min(Directions.Length + 1, (page + 1) * count); index++)
                     lines.Add(index == Directions.Length
-                        ? new PageLine("Find Room Surface", action: ReadRoom, control: LineControl.Action)
-                        : new PageLine(Directions[index], action: Move, key: Directions[index], control: LineControl.Action));
+                        ? new PageLine("Find Room Surface", action: ReadRoom, control: LineControl.Action).WithGroup("find")
+                        // Moves a person uses together stay on one page (the lead's 21:11Z): each pair, Left and Right, Closer and
+                        // Farther, Up and Down, the two turns, is one group, which the reader never breaks.
+                        : new PageLine(Directions[index], action: Move, key: Directions[index], control: LineControl.Action).WithGroup("pair-" + index / 2));
                 return frame = new MenuFrame(subject, new Footer(new Prompt(Footer.Close, "Cancel", GlazeIcon.Close, PromptKind.Close),
                     secondary: pages > 1 ? new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage) : null,
                     farRight: new Prompt(Apply, "Apply", GlazeIcon.Change, main: true)), lines: lines, subjectIsData: taskTitle != null).Focus();
