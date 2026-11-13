@@ -111,6 +111,10 @@ public class UsageColumnTests
             ("Claude Code", "Weekly", "Up to 85% Left"),
             ("Codex", "5-Hour Window", "Up to 3% Left"),
         }), "a source line counts as one of the page's rows: 3 a page");
+        // When it was seen and when it resets: the quiet note under the amount, each in its own sentence, never strung with it.
+        Assert.That(frame.Lines.All(line => line.Under?.Text is string note && note.StartsWith("Seen ", StringComparison.Ordinal)
+            && note.Contains(". Resets ", StringComparison.Ordinal) && note.EndsWith(".", StringComparison.Ordinal) && !note.Contains('·')), Is.True,
+            string.Join(" | ", frame.Lines.Select(line => line.Under?.Text)));
         Assert.That(frame.Lines.All(line => line.Opens && line.WordsAreData && line.Icon == null), Is.True, "no icons, so the words start on the content line");
         Assert.That(frame.Source, Is.EqualTo(UsageLeftPresenter.Recorded));
         Assert.That(frame.Footer[PromptSlot.Rare], Is.Null, "no Refresh in the demonstration");

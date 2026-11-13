@@ -159,7 +159,8 @@ namespace Halcyonic.Client
                     // Given whole as data, the agent's own words with no mark before them, so they start on the content line.
                     .Select(each => WithWindow(new PageLine(each.row.Label.IsEmpty ? each.row.Title : each.row.Label.Text, wordsAreData: true,
                         fact: UsageText.Left(each.row.Left), action: OpenLimit,
-                        key: each.at.ToString(CultureInfo.InvariantCulture), opens: true, chosen: each.at == chosen), each.row.Window))
+                        key: each.at.ToString(CultureInfo.InvariantCulture), opens: true, chosen: each.at == chosen), each.row.Window)
+                        .WithUnder(LineWords.Ours(SeenAndResets(each.row))))
                     .ToList();
                 var footer = new Footer(close, rare: refresh, secondary: compact);
                 // Paging waits while a row is chosen.
@@ -664,6 +665,13 @@ namespace Halcyonic.Client
 
         private static PageLine WithWindow(PageLine line, string? window) => window == null ? line : line.WithRowLabel(window);
 
+        /// <summary>
+        /// When a limit was seen and when it resets, as its quiet note under the amount left (the lead, 2026-11-13T17:51Z): each in its
+        /// own place, never strung with the amount; one not known is said as not known.
+        /// </summary>
+        public static string SeenAndResets(UsageLeftRow row) =>
+            "Seen " + (row.Seen.Length == 0 ? UsageText.NotKnown : row.Seen) + ". Resets " + (row.Resets.Length == 0 ? UsageText.NotKnown : row.Resets) + ".";
+
         /// <summary>What a chosen limit's side panel says: when it was seen, when it resets, and whose account it is.</summary>
         private SidePanel Side(UsageLeftPresentation presentation, UsageLeftRow row)
         {
@@ -723,6 +731,9 @@ namespace Halcyonic.Client
 
         /// <summary>A limit's fact naming its window ("5-Hour Window" or "Weekly"), apart from the agent's label in the title.</summary>
         public const string Window = "Window";
+
+        /// <summary>A time the reading did not give, in its own place.</summary>
+        public const string NotKnown = "not known";
 
         /// <summary>A limit's Account fact in the demonstration, in place of who it belongs to.</summary>
         public const string PartOfTheRecording = "Part of Recording";
