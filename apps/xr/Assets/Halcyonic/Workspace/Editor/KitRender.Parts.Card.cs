@@ -300,6 +300,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(info.firstCharacterIndex <= 0 || char.IsWhiteSpace(paged.textInfo.characterInfo[info.firstCharacterIndex - 1].character), "a page starts inside a word");
                 }
             }
+            // How tall each card's panel stands at the eyes, beside the slate's tallest at this text size (SpatialKit.SlateMostAt), for
+            // the readers' note on the review of a paid model (about 720 dp at Larger). Measured, not asserted: the room's bar has its
+            // own composition rule (MenuPlane), and a check of the card in the real bar beside its column is XR's state to give.
+            var panelDegrees = (view.Size.y / RoomType.Units(1f) + 2f * RoomGeometry.PanelPadDp * GlazeText.Scale) / RoomGeometry.DpPerDegree;
+            Debug.Log("Halcyonic: parts: " + state + (GlazeText.Scale > 1.001f ? " (Larger)" : " (Standard)") + ": its panel " + panelDegrees.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                + " of the slate's most " + SpatialKit.SlateMostAt(GlazeText.Scale).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " degrees.");
             if (state == "47-card-recap")
             {
                 // A card that cannot stand whole says so: a description far past its four lines is cut, and LaidWhole is false.
