@@ -752,14 +752,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     Moment("room ask");
                     Clear();
                 }
-                // A recording's understanding where it names its source: each task's Changes, then its Checks, until a page stands with
-                // its source line (ten seconds each for the reads), shot once, so the drawn side of an understanding's source is reached
-                // on the judges' path and held to the brand and dot checks (AUDIT, 2026-11-13T18:09Z).
+                // A recording's understanding where it names its source, on each task's Changes, then its Checks (ten seconds each for
+                // the reads), so the drawn side of an understanding's source is reached on the judges' path and held to the brand and dot
+                // checks (AUDIT, 2026-11-13T18:09Z): an answer's source stands as the page's source line, an understanding that could
+                // not be had says its source as the page's first line (DEVICE 18:14Z). One moment of each kind, where the recording has it.
                 void UnderstandingSource()
                 {
+                    var answered = false;
+                    var failed = false;
+                    static bool Failed(MenuFrame? frame) => frame != null && frame.Lines.FirstOrDefault() is PageLine first && first.Action == null
+                        && (first.WordsAreData || first.Runs.AnyTheirs) && frame.Source == null && frame.SourceRuns == null;
                     foreach (var task in State()?.Workstreams.Keys.ToList() ?? new List<string>())
                         foreach (var section in new[] { FileSection.Changes, FileSection.Checks })
                         {
+                            if (answered && failed) return;
                             OpenSection(task, section);
                             if (Opened()?.Screen.Section != section)
                             {
@@ -767,17 +773,27 @@ namespace Halcyonic.XR.Workspace.Editor
                                 reachedBy = "no drawn control reached the file's " + section + ": the walk opened it";
                             }
                             var reading = DateTime.UtcNow.AddSeconds(10);
-                            while (DateTime.UtcNow < reading && Opened()?.Frame is not { Source: not null } && Opened()?.Frame?.SourceRuns == null)
+                            bool Sourced() => Opened()?.Frame is MenuFrame shown && (shown.Source != null || shown.SourceRuns != null);
+                            while (DateTime.UtcNow < reading && !Sourced() && !Failed(Opened()?.Frame))
                             {
                                 Draw();
                                 Thread.Sleep(250);
                             }
-                            if (Opened()?.Frame is not MenuFrame read || read.Source == null && read.SourceRuns == null) continue;
-                            Fresh();
-                            Moment("room understanding source");
-                            return;
+                            if (!answered && Sourced())
+                            {
+                                answered = true;
+                                Fresh();
+                                Moment("room understanding source");
+                            }
+                            else if (!failed && Failed(Opened()?.Frame))
+                            {
+                                failed = true;
+                                Fresh();
+                                Moment("room understanding unavailable");
+                            }
                         }
-                    Debug.Log("Halcyonic: judge room: no task's Changes or Checks stood with an understanding's source line: not reached here");
+                    if (!answered) Debug.Log("Halcyonic: judge room: no task's Changes or Checks stood with an understanding's source line: not reached here");
+                    if (!failed) Debug.Log("Halcyonic: judge room: no task's Changes or Checks said an understanding could not be had: not reached here");
                 }
                 // What the redesign draws, as the eyes see it, to the half degree: the plane's form. The stage is not part of it.
                 string Form()
