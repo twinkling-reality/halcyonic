@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 
 namespace Halcyonic.Client.Tests;
@@ -26,5 +27,29 @@ public class PlaneFormTests
         // A character wandering is no event: nothing asks the rule again, so the form read a moment ago is the form now.
         Assert.That(rule.Form, Is.EqualTo(PlaneForm.Narrow));
         Assert.That(System.Enum.GetNames(typeof(PlaneFormEvent)), Does.Not.Contain("CharacterMoved"));
+    }
+}
+
+public class AngularExtentTests
+{
+    /// <summary>The largest bar stands from its foot line up, and moves with the person's own raising or lowering of the plane.</summary>
+    [Test]
+    public void TheLargestBarStandsFromItsFootLineMovedByThePersonsDrag()
+    {
+        var level = AngularExtent.OfBar(0.8f, 0.2f, footPitch: -17.6f, placedPitch: -25f, standingPitch: -25f);
+        Assert.That(level.Bottom, Is.EqualTo(-17.6f).Within(1e-4f));
+        Assert.That(level.Top - level.Bottom, Is.EqualTo(MathF.Atan(0.2f) * 180f / MathF.PI).Within(1e-4f));
+        Assert.That(level.Right, Is.EqualTo(-level.Left).Within(1e-4f));
+        var raised = AngularExtent.OfBar(0.8f, 0.2f, footPitch: -17.6f, placedPitch: -25f, standingPitch: -20f);
+        Assert.That(raised.Bottom, Is.EqualTo(-12.6f).Within(1e-4f), "raised five degrees by the person: its foot with it");
+    }
+
+    [Test]
+    public void TwoExtentsAreApartByTheirGapOrPastACornerAndOverlapIsNoGap()
+    {
+        var plane = new AngularExtent(-10f, 10f, -20f, 0f);
+        Assert.That(plane.Apart(new AngularExtent(13f, 20f, -20f, 0f)), Is.EqualTo(3f).Within(1e-4f), "beside it");
+        Assert.That(plane.Apart(new AngularExtent(13f, 20f, 4f, 10f)), Is.EqualTo(5f).Within(1e-4f), "past its corner: three across, four up");
+        Assert.That(plane.Apart(new AngularExtent(-5f, 5f, -5f, 5f)), Is.LessThanOrEqualTo(0f), "overlapping");
     }
 }

@@ -323,14 +323,13 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// Where the largest bar of <paramref name="form"/> would stand, in degrees from the eyes toward where the plane faces: the
-        /// width about the plane's heading, from its foot line up (RoomBarView.Largest and LargestNarrow, at the person's text size).
+        /// width about the plane's heading, from its foot line up (RoomBarView.Largest and LargestNarrow, in DESIGN units, never scaled by the
+        /// text size), the foot where the person's drag left it.
         /// </summary>
-        private (float Left, float Right, float Bottom, float Top) LargestExtent(PlaneForm form)
+        private AngularExtent LargestExtent(PlaneForm form)
         {
             var largest = form == PlaneForm.Narrow ? RoomBarView.LargestNarrow : RoomBarView.Largest;
-            var half = SpatialKit.DegreesTo(largest.x / 2f);
-            var foot = RoomGeometry.FeetPitch;
-            return (-half, half, foot, foot + SpatialKit.DegreesTo(largest.y));
+            return AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
         }
 
         /// <summary>Whether <paramref name="form"/>'s largest bar stands inside the field and clear of the shelf by the clearance kept between things.</summary>
@@ -350,10 +349,7 @@ namespace Halcyonic.XR.Workspace
                 var elevation = Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg;
                 left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
             }
-            var across = Mathf.Max(plane.Left - right, left - plane.Right);
-            var down = Mathf.Max(plane.Bottom - top, bottom - plane.Top);
-            var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
-            return apart >= WorkspacePlacement.ClearanceDegrees;
+            return plane.Apart(new AngularExtent(left, right, bottom, top)) >= WorkspacePlacement.ClearanceDegrees;
         }
 
         private object? olderViewSaid;

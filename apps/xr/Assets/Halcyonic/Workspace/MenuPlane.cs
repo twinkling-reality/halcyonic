@@ -861,11 +861,7 @@ namespace Halcyonic.XR.Workspace
             // Under the redesign, also the largest bar the kit can lay in the plane's form: the shelf never stands where the plane may grow.
             if (RoomDesign.Enabled && KitWorkspaceHost.Enabled && KitShows)
             {
-                var largest = LargestExtent(Form);
-                var across = Mathf.Max(largest.Left - shelf.Right, shelf.Left - largest.Right);
-                var down = Mathf.Max(largest.Bottom - shelf.Top, shelf.Bottom - largest.Top);
-                var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
-                if (apart < WorkspacePlacement.ClearanceDegrees) return false;
+                if (LargestExtent(Form).Apart(new AngularExtent(shelf.Left, shelf.Right, shelf.Bottom, shelf.Top)) < WorkspacePlacement.ClearanceDegrees) return false;
                 // Where the plane returns after a local overlay is the held form's own largest bar, just kept clear of; the footprint
                 // retained from before the overlay (the full plane) no longer binds, or a shelf would never find room at Larger.
                 return Clear(VisibleCorners()) && Clear(RoomCorners());

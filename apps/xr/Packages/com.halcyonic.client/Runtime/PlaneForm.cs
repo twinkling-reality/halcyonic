@@ -26,6 +26,43 @@ namespace Halcyonic.Client
         TextSizeChanged,
     }
 
+    /// <summary>An extent in degrees from the eyes, about the plane's heading: left and right of it, bottom and top.</summary>
+    public readonly struct AngularExtent
+    {
+        public AngularExtent(float left, float right, float bottom, float top)
+        {
+            Left = left; Right = right; Bottom = bottom; Top = top;
+        }
+
+        public float Left { get; }
+
+        public float Right { get; }
+
+        public float Bottom { get; }
+
+        public float Top { get; }
+
+        /// <summary>
+        /// Where a bar of <paramref name="widthUnits"/> by <paramref name="heightUnits"/> (metres at 1 m, DESIGN units) stands: centred on
+        /// the heading, from its foot line up; the foot at <paramref name="footPitch"/>, moved by as much as the person raised or lowered
+        /// the plane (<paramref name="standingPitch"/> against <paramref name="placedPitch"/>).
+        /// </summary>
+        public static AngularExtent OfBar(float widthUnits, float heightUnits, float footPitch, float placedPitch, float standingPitch)
+        {
+            var half = MathF.Atan(widthUnits / 2f) * 180f / MathF.PI;
+            var foot = footPitch + (standingPitch - placedPitch);
+            return new AngularExtent(-half, half, foot, foot + MathF.Atan(heightUnits) * 180f / MathF.PI);
+        }
+
+        /// <summary>How far apart two extents stand, in degrees: across, down, or diagonally past a corner; at most 0 where they overlap.</summary>
+        public float Apart(AngularExtent other)
+        {
+            var across = Math.Max(Left - other.Right, other.Left - Right);
+            var down = Math.Max(Bottom - other.Top, other.Bottom - Top);
+            return across > 0f && down > 0f ? MathF.Sqrt(across * across + down * down) : Math.Max(across, down);
+        }
+    }
+
     /// <summary>
     /// The plane's form, held (the lead's ruling of 2026-11-13T17:16Z): the widest form that clears every shelf's envelope inside the
     /// field, decided again only on a <see cref="PlaneFormEvent"/>, never because a character moved, so the plane never changes form

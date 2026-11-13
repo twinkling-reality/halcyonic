@@ -520,7 +520,10 @@ namespace Halcyonic.XR.Workspace
         private float IndependentPageHeight(int subjectRows, bool split, bool composer, FileColumn? owner = null)
         {
             var stage = setup.StageNow(); var at = anchor?.Eyes ?? stage.Eyes; var looking = anchor?.Looking ?? stage.Looking;
-            var occupied = stage.Characters.Where(character => character != null).Select(character => WorkspaceLayout.InView(character, at)).ToList();
+            // Under the redesign, where the kit draws, the plane keeps clear of the shelf by its own form (MenuPlane.ConsiderForm), so a
+            // character standing never shrinks the page a column is given: it only did for the older plane, which stood under the labels.
+            var occupied = RoomDesign.Enabled && KitWorkspaceHost.Enabled ? new List<BodyInView>()
+                : stage.Characters.Where(character => character != null).Select(character => WorkspaceLayout.InView(character, at)).ToList();
             var direction = new PanelDirection(UnityEngine.Mathf.Atan2(looking.x, looking.z) * UnityEngine.Mathf.Rad2Deg + moved.Yaw, moved.Elevation, true, false);
             var zoom = TextSize == TextSize.Larger ? Comfort.LargerTextScale : 1f;
             var width = PlaneComposition.Units(Glaze.Menu.FileColumnDegrees);
