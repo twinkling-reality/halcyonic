@@ -74,12 +74,14 @@ namespace Halcyonic.XR.Workspace.Editor
             using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:9/"), "render", handler);
             // The plane's own lines: a row not laid whole, a bar past its footprint, a part lost, the older view, and each form change.
             var heard = new List<string>();
+            var widths = new List<string>();
             Application.LogCallback listen = (message, _, _) =>
             {
                 if (message.StartsWith("Halcyonic: the bar did not lay whole", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the bar laid past its largest footprint", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the general reader lost a part", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: older view drew a whole screen", StringComparison.Ordinal)) lock (heard) heard.Add(message);
+                if (message.StartsWith("Halcyonic: the plane lays its panel", StringComparison.Ordinal)) lock (widths) widths.Add(message);
             };
             Application.logMessageReceived += listen;
             try
@@ -225,6 +227,26 @@ namespace Halcyonic.XR.Workspace.Editor
                     return false;
                 }
 
+                // 0. A placing cancelled (AUDIT, 2026-11-13T22:31Z): Place Agents, then its Close, with no shelf placed; the plane must decide
+                // its width again within two draws (it held the floor's width while placing), never wait for another change.
+                controlsType.GetMethod("PlaceAgents", BindingFlags.Public | BindingFlags.Instance)!.Invoke(controls, null);
+                Draw();
+                bool decidesWidth;
+                lock (widths) decidesWidth = widths.Count > 0;
+                if (Press(Footer.Close))
+                {
+                    lock (widths) widths.Clear();
+                    Draw();
+                    Draw();
+                    lock (widths)
+                    {
+                        // Only where the plane decides a width at all (a tip with the plane's width rule says so while placing).
+                        if (!decidesWidth) Debug.Log("Halcyonic: shelf walk: the plane says no width while placing here: the cancelled placing's width is not measured");
+                        else if (widths.Count == 0) failures.Add("a cancelled placing: no width line within two draws of its Close (the plane waits for another change)");
+                        else Debug.Log("Halcyonic: shelf walk: a cancelled placing, then: " + widths[0]);
+                    }
+                }
+                else failures.Add("nothing drawn closes the shelf's placing");
                 // 1. Place Agents, as the room's control offers it, and Apply.
                 controlsType.GetMethod("PlaceAgents", BindingFlags.Public | BindingFlags.Instance)!.Invoke(controls, null);
                 Draw();
