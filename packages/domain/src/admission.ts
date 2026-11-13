@@ -25,6 +25,9 @@ import type { ExecutionFacts, Projection } from './projection.ts';
 import { reservedSecretName } from './secrets.ts';
 import type { StarterCatalog } from './starter-declarations.ts';
 
+/** Why a spending limit is refused where the agent app keeps none. */
+const NO_SPENDING_CAP = 'This app cannot stop a task at a spending limit, so none was set.';
+
 export interface CommandScope {
   project_id: ProjectId | null;
   workstream_id: WorkstreamId | null;
@@ -883,6 +886,32 @@ function admit(
           return reject(scope, 'invalid_state', 'Carry the plan out once it stops.');
         }
       }
+      // A task at its limit, or waiting with its spending not known, carries on only under a limit
+      // raised now (lead's ruling, 2026-11-13); every sender comes through here, the host's own too.
+      if (command.payload.spending_cap_usd !== undefined) {
+        if (runtime.offers_spending_cap !== true) {
+          return reject(scope, 'capability_unsupported', NO_SPENDING_CAP);
+        }
+        if (facts.spendingCap !== 'reached' && facts.spendingCap !== 'waiting') {
+          return reject(
+            scope,
+            'invalid_state',
+            'A limit is raised only for a task that is at its limit or waiting for one. Send the instruction without it.',
+          );
+        }
+      } else if (facts.spendingCap === 'reached') {
+        return reject(
+          scope,
+          'invalid_state',
+          'This task is at its spending limit. Raise it to carry on.',
+        );
+      } else if (facts.spendingCap === 'waiting') {
+        return reject(
+          scope,
+          'invalid_state',
+          'What this task spent before the restart is not fully known. Give it a limit that counts from now to carry on.',
+        );
+      }
       switch (facts.status) {
         case 'completed':
         case 'failed':
@@ -1137,6 +1166,11 @@ function startRefusal(
       'capability_unsupported',
       `Runtime ${runtime.runtime_id} does not offer planning without changing a file.`,
     );
+  }
+  // A spending limit is the runtime's own stop, offered once verified; the host never stops a task
+  // on its own sums.
+  if (command.payload.spending_cap_usd !== undefined && runtime.offers_spending_cap !== true) {
+    return reject(scope, 'capability_unsupported', NO_SPENDING_CAP);
   }
   const pictures = picturesRefusal(runtime, command.payload.attachments, scope);
   if (pictures !== undefined) return pictures;

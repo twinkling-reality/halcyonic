@@ -710,14 +710,17 @@ describe('the C# bindings', () => {
     'ExecutionCreatedPayload.secret_names', // the project secrets a start gave (ADR 0057)
     'ExecutionSendInstructionPayload.attachments', // pictures with the words (A4)
     'ExecutionSendInstructionPayload.leave_plan', // carrying a plan out (PLAN 4a)
+    'ExecutionSendInstructionPayload.spending_cap_usd', // a new limit to carry on under
     'ExecutionStartPayload.approval_level', // ADR 0043
     'ExecutionStartPayload.attachments', // pictures with the instruction (A4)
     'ExecutionStartPayload.plan', // a start in the runtime's own plan mode (PLAN)
+    'ExecutionStartPayload.spending_cap_usd', // a spending limit, where the runtime offers one
     'ExecutionView.approval_level', // ADR 0043
     'ExecutionView.auto_fix', // a failed check sent back on its own (ADR 0044)
     'ExecutionView.plan', // whether its start recorded a plan (PLAN 4a)
     'ExecutionView.plan_left', // whether the plan was left to carry it out (PLAN 4a)
     'ExecutionView.queued_instructions', // instructions waiting for the turn to end (ADR 0056)
+    'ExecutionView.spending_cap', // its spending limit, absent for none
     'ExecutionView.unconfined_reason', // why its start was not counted confined (BOX-4, PLAN 4a)
     'ExecutionView.usage', // what its reported turns used, absent until one is reported
     'LocationRoot.label', // a location's label
@@ -750,6 +753,7 @@ describe('the C# bindings', () => {
     'RuntimeDescriptor.holds_instructions', // the host's own declaration (ADR 0056)
     'RuntimeDescriptor.offers_never_ask', // ADR 0043
     'RuntimeDescriptor.offers_plan', // a declaration (PLAN)
+    'RuntimeDescriptor.offers_spending_cap', // a declaration
     'RuntimeDescriptor.reports_tool_results', // a declaration
     'RuntimeDescriptor.reports_usage', // a declaration
     'RuntimeDescriptor.resumes_after_restart', // ADR 0046

@@ -227,3 +227,155 @@ test('a project’s check is refused by what its starter declares, not by its id
     ),
   );
 });
+
+describe("a task's spending limit in what can be done here (lead's ruling, 2026-11-13)", () => {
+  test('the raise is a need only for a task at its limit, where it is the one way on', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('Game', { path: '/tmp/game', name: 'game', created: false });
+    const task = b.workstream(project.projectId, 'Make it night');
+    const start = {
+      schema_version: 1 as const,
+      command_id: '00000000-0000-4000-8000-0000000000e1' as CommandEnvelope['command_id'],
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      command_type: 'execution.start' as const,
+      payload: {
+        workstream_id: task.workstreamId,
+        runtime_id: 'mock' as RuntimeId,
+        instruction: 'Go.',
+        options: {},
+        model_ref: null,
+        spending_cap_usd: 1,
+      },
+    };
+    const accepted = b.command(start, 'accepted');
+    const run = b.execution(project.projectId, task.workstreamId);
+    for (const stored of [
+      project.event,
+      task.event,
+      accepted,
+      { ...run.event, event: { ...run.event.event, causation_id: start.command_id } },
+    ])
+      projection.apply(stored);
+    const ids = {
+      projectId: project.projectId,
+      workstreamId: task.workstreamId,
+      executionId: run.executionId,
+    };
+    const scope: HereScope = {
+      project_id: project.projectId,
+      workstream_id: task.workstreamId,
+      execution_id: run.executionId,
+    };
+    const offers: RuntimeCatalog = {
+      get: (id) => (id === 'mock' ? { ...MOCK, offers_spending_cap: true } : undefined),
+    };
+    const instruct = () =>
+      hereActions(scope, projection, offers).actions.find(
+        (action) =>
+          action.kind === 'command' && action.command_type === 'execution.send_instruction',
+      );
+    const raise = () =>
+      instruct()?.kind === 'command'
+        ? (instruct() as Extract<HereAction, { kind: 'command' }>).needs.find(
+            (need) => need.name === 'spending_cap_usd',
+          )
+        : undefined;
+    projection.apply(b.runtimeEvent(ids, 'runtime.execution.started', { native_id: 'ses_1' }));
+    projection.apply(b.runtimeEvent(ids, 'runtime.turn.started', { turn_id: 't1' }));
+    projection.apply(b.runtimeEvent(ids, 'runtime.turn.completed', { turn_id: 't1' }));
+    assert.ok(instruct(), 'an open task takes an instruction');
+    assert.equal(raise(), undefined, 'and no raise is offered to it');
+    projection.apply(b.runtimeEvent(ids, 'runtime.turn.started', { turn_id: 't2' }));
+    projection.apply(
+      b.runtimeEvent(ids, 'runtime.turn.failed', {
+        turn_id: 't2',
+        error: { code: 'spending_cap_reached', message: 'Stopped at its limit.' },
+      }),
+    );
+    assert.ok(instruct(), 'at its limit it is still offered, as the raise');
+    assert.equal(raise()?.required, true, 'the raise is the one way on');
+    assert.equal(raise()?.kind, 'amount');
+  });
+
+  test('a restart with a turn in flight offers the raise, admits it, and refuses a plain instruction in words (AUDIT2)', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('Game', { path: '/tmp/game', name: 'game', created: false });
+    const task = b.workstream(project.projectId, 'Make it night');
+    const start = {
+      schema_version: 1 as const,
+      command_id: '00000000-0000-4000-8000-0000000000e2' as CommandEnvelope['command_id'],
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      command_type: 'execution.start' as const,
+      payload: {
+        workstream_id: task.workstreamId,
+        runtime_id: 'mock' as RuntimeId,
+        instruction: 'Go.',
+        options: {},
+        model_ref: null,
+        spending_cap_usd: 0.5,
+      },
+    };
+    const accepted = b.command(start, 'accepted');
+    const run = b.execution(project.projectId, task.workstreamId);
+    for (const stored of [
+      project.event,
+      task.event,
+      accepted,
+      { ...run.event, event: { ...run.event.event, causation_id: start.command_id } },
+    ])
+      projection.apply(stored);
+    const ids = {
+      projectId: project.projectId,
+      workstreamId: task.workstreamId,
+      executionId: run.executionId,
+    };
+    for (const stored of [
+      b.runtimeEvent(ids, 'runtime.execution.started', { native_id: 'ses_1' }),
+      b.runtimeEvent(ids, 'runtime.turn.started', { turn_id: 't1' }),
+      b.runtimeEvent(ids, 'runtime.usage.reported', {
+        turn_id: 't1',
+        tokens: { input: 5, cache_read: 0, cache_write: 0, output: 1, reasoning: null },
+        cost: { estimated_usd: 0.2, prices: 'list' },
+        counted: 'differenced',
+      }),
+      b.runtimeEvent(ids, 'runtime.turn.completed', { turn_id: 't1' }),
+      b.runtimeEvent(ids, 'runtime.turn.started', { turn_id: 't2' }),
+      b.runtimeEvent(ids, 'runtime.connection.restored', { reason: 'Re-attached.' }),
+      b.runtimeEvent(ids, 'runtime.turn.interrupted', { turn_id: 't2' }),
+    ])
+      projection.apply(stored);
+    const scope: HereScope = {
+      project_id: project.projectId,
+      workstream_id: task.workstreamId,
+      execution_id: run.executionId,
+    };
+    const offers: RuntimeCatalog = {
+      get: (id) => (id === 'mock' ? { ...MOCK, offers_spending_cap: true } : undefined),
+    };
+    const entry = hereActions(scope, projection, offers).actions.find(
+      (action) => action.kind === 'command' && action.command_type === 'execution.send_instruction',
+    ) as Extract<HereAction, { kind: 'command' }> | undefined;
+    assert.equal(entry?.needs.find((need) => need.name === 'spending_cap_usd')?.required, true);
+    const instruct = (cap?: number): CommandEnvelope => ({
+      ...start,
+      command_id: '00000000-0000-4000-8000-0000000000e3' as CommandEnvelope['command_id'],
+      command_type: 'execution.send_instruction',
+      payload: {
+        execution_id: run.executionId,
+        text: 'Carry on.',
+        ...(cap !== undefined && { spending_cap_usd: cap }),
+      },
+    });
+    assert.equal(admitCommand(instruct(1), projection, offers).admitted, true);
+    const plain = admitCommand(instruct(), projection, offers);
+    assert.deepEqual(plain.admitted ? null : plain.rejection, {
+      code: 'invalid_state',
+      message:
+        'What this task spent before the restart is not fully known. Give it a limit that counts from now to carry on.',
+    });
+  });
+});

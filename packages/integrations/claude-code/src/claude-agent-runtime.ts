@@ -36,6 +36,7 @@ import type {
   RuntimeModel,
   RuntimeOptions,
 } from '@halcyonic/contracts';
+import { SPENDING_CAP_REACHED } from '@halcyonic/contracts';
 import {
   type Clock,
   CREDENTIAL_REFUSED,
@@ -217,6 +218,8 @@ interface StartOptions {
    * which a secret never replaces.
    */
   readonly secrets?: Readonly<Record<string, string>>;
+  /** The task's spending limit, which Claude Code applies as `maxBudgetUsd`; absent for none. */
+  readonly spendingCapUsd?: number;
 }
 
 /**
@@ -297,6 +300,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       // Each result's per-model counts and Claude Code's own cost estimate, cumulative for the query,
       // so a turn's usage is the difference (agent-usage.md, SDK 0.3.283's types).
       reports_usage: true,
+      // `maxBudgetUsd`: the CLI the SDK 0.3.283 bundles stops at it with `error_max_budget_usd`,
+      // subagents counted, and a resumed query counts from its start (spending-cap.md).
+      offers_spending_cap: true,
       // Its own plan mode, which `system/init` reports back; every write still asks, as on every Claude
       // Code start (agent-plan-modes.md, the bundled 2.1.283's run on a fake host).
       offers_plan: true,
@@ -473,18 +479,30 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     );
     if (scope.folder !== null) session.keep(cwd);
     this.#sessions.set(executionId, session);
+    const bounds: StartOptions = {
+      ...parsed.value,
+      cwd,
+      secrets: request.environment ?? {},
+      ...(request.spending_cap_usd !== undefined && { spendingCapUsd: request.spending_cap_usd }),
+    };
+    const confinedTo =
+      scope.folder === null || gate === null ? null : { folder: scope.folder, gate };
+    // Carried on under a new limit, the session resumes in a new query with the same bounds.
+    session.relaunchWith((cap) =>
+      this.#options(
+        { ...bounds, spendingCapUsd: cap },
+        session,
+        true,
+        confinedTo,
+        personal,
+        openGate,
+      ),
+    );
     let started: Promise<string>;
     try {
       started = session.start(
         this.#query,
-        this.#options(
-          { ...parsed.value, cwd, secrets: request.environment ?? {} },
-          session,
-          false,
-          scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
-          personal,
-          openGate,
-        ),
+        this.#options(bounds, session, false, confinedTo, personal, openGate),
         request.instruction,
         request.pictures ?? [],
       );
@@ -596,16 +614,34 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       this.#planSwitchWaitMs,
     );
     if (scope.folder !== null) session.keep(cwd);
+    const bounds: StartOptions = {
+      ...parsed.value,
+      cwd,
+      secrets: request.environment ?? {},
+      // What is left of its limit, handed to the launch its next instruction makes; a query
+      // counts from its own start, so never the whole limit again (lead's ruling, 2026-11-13).
+      ...(typeof request.spending_allowance_usd === 'number' && {
+        spendingCapUsd: request.spending_allowance_usd,
+      }),
+    };
+    const confinedTo =
+      scope.folder === null || gate === null ? null : { folder: scope.folder, gate };
+    session.relaunchWith(
+      (cap) =>
+        this.#options(
+          { ...bounds, spendingCapUsd: cap },
+          session,
+          true,
+          confinedTo,
+          personal,
+          openGate,
+        ),
+      // Nothing left to hand, or not known: it launches nothing until it carries on under a new limit.
+      request.spending_allowance_usd === null,
+    );
     session.prepare(
       this.#query,
-      this.#options(
-        { ...parsed.value, cwd, secrets: request.environment ?? {} },
-        session,
-        true,
-        scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
-        personal,
-        openGate,
-      ),
+      this.#options(bounds, session, true, confinedTo, personal, openGate),
     );
     this.#sessions.set(executionId, session);
     session.restored(request.cut_turn);
@@ -614,6 +650,15 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   async sendInstruction(request: InstructionRequest): Promise<void> {
     const session = this.#session(request.execution);
     if (request.leave_plan === true) await session.leavePlan();
+    // A task stopped at its limit carries on only under a new one, in a new query that counts from it.
+    if (request.spending_cap_usd !== undefined) {
+      await session.carryOnUnder(this.#query, request.spending_cap_usd);
+    } else if (session.stoppedAtCap) {
+      throw new RuntimeActionError(
+        'invalid_state',
+        'This task stopped at its spending limit. Give it a new limit to carry on.',
+      );
+    }
     await session.instruct(request.text, request.pictures ?? []);
   }
 
@@ -885,6 +930,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
         }),
       ...(start.model !== undefined && { model: start.model }),
       ...(start.permissionMode !== undefined && { permissionMode: start.permissionMode }),
+      // Claude Code stops the query once its own estimate of the query's spending passes it, checked
+      // after each model call, subagents counted (spending-cap.md).
+      ...(start.spendingCapUsd !== undefined && { maxBudgetUsd: start.spendingCapUsd }),
       ...(this.#executable !== undefined && { pathToClaudeCodeExecutable: this.#executable }),
     };
   }
@@ -1043,7 +1091,7 @@ class ClaudeSession {
   readonly id: string;
   readonly #emitObservation: ObservationSink;
   readonly #clock: Clock;
-  readonly #input = new InputQueue();
+  #input = new InputQueue();
   readonly #approvals = new Map<string, PendingApproval>();
   readonly #questions = new Map<string, PendingQuestion>();
   readonly #activeTools = new Set<string>();
@@ -1062,6 +1110,15 @@ class ClaudeSession {
    * process started, unknown (null) for a re-attached one until its first result (agent-usage.md).
    */
   #usageTotals: ResultTotals | null;
+  /** Builds the options of a query that resumes this session under a new limit. */
+  #relaunchOptions: ((cap: number) => Options) | null = null;
+  /**
+   * Whether only a new limit carries the task on: its last turn ended at the limit, or it was
+   * re-attached with nothing of its limit left to hand, or that not known.
+   */
+  #stoppedAtCap = false;
+  /** True while the spent query is closed for a new one, which is no lost connection. */
+  #relaunching = false;
   /**
    * What every native event id starts with: the session id, and for a re-attached session also a
    * mark of this attachment, since the journal keeps every id the session's earlier runs used.
@@ -1113,6 +1170,53 @@ class ClaudeSession {
    */
   keep(folder: string): void {
     this.#kept = folder;
+  }
+
+  /**
+   * How to build a query that resumes it under a new limit, and whether it must wait for one before
+   * it launches anything.
+   */
+  relaunchWith(options: (cap: number) => Options, waits = false): void {
+    this.#relaunchOptions = options;
+    this.#stoppedAtCap = waits;
+  }
+
+  /** Whether its last turn ended at its spending limit. */
+  get stoppedAtCap(): boolean {
+    return this.#stoppedAtCap;
+  }
+
+  /**
+   * Readies a task that stopped at its limit to carry on under a new one: the spent query, which
+   * refuses everything after the stop, is closed, and the next instruction launches a query that
+   * resumes the session under the new limit, counting from it (spending-cap.md).
+   */
+  async carryOnUnder(queryFunction: QueryFunction, cap: number): Promise<void> {
+    this.#assertOpen();
+    if (!this.#stoppedAtCap || this.#turn !== null || this.#relaunchOptions === null) {
+      throw new RuntimeActionError(
+        'invalid_state',
+        'A new limit is given only to a task that stopped at its limit.',
+      );
+    }
+    const spent = this.#query;
+    if (spent !== null) {
+      // A query that stopped at its limit: closed, never reported lost, for the one that follows.
+      this.#relaunching = true;
+      this.#input.end();
+      try {
+        spent.close();
+      } catch {
+        // A query that already ended changes nothing by being closed.
+      }
+      await this.#consuming;
+      this.#relaunching = false;
+      this.#query = null;
+      this.#input = new InputQueue();
+    }
+    // Re-attached and not launched yet, or just closed: the next instruction launches under the new limit.
+    this.#stoppedAtCap = false;
+    this.prepare(queryFunction, this.#relaunchOptions(cap));
   }
 
   /** Sets the query a re-attached session's next instruction launches, resuming it. */
@@ -1456,7 +1560,7 @@ class ClaudeSession {
     } catch (error) {
       failure = error;
     }
-    if (this.#state === 'open') this.#lose(failure);
+    if (this.#state === 'open' && !this.#relaunching) this.#lose(failure);
   }
 
   #handle(message: SDKMessage): void {
@@ -1656,6 +1760,24 @@ class ClaudeSession {
       );
     }
     const provenance = observed(`result.${result.subtype}`);
+    if (result.subtype === 'error_max_budget_usd') {
+      // Claude Code's own stop at the limit, which the host words from the task's span.
+      this.#stoppedAtCap = true;
+      this.#emit(
+        'runtime.turn.failed',
+        {
+          turn_id: turn.id,
+          // The host says the person's own figures (ADR 0062); this is only the app's report.
+          error: {
+            code: SPENDING_CAP_REACHED,
+            message: 'The app stopped this task at its spending limit.',
+          },
+        },
+        provenance,
+        result.uuid,
+      );
+      return;
+    }
     const succeeded = result.subtype === 'success' && !result.is_error;
     const aborted =
       result.terminal_reason === 'aborted_streaming' || result.terminal_reason === 'aborted_tools';

@@ -13,15 +13,17 @@ import type {
   QuestionView,
   QueuedInstructionView,
   RuntimeRef,
+  SpendingCapView,
   TestRunResultView,
   TestRunView,
   Timestamp,
   ToolActivityView,
   UsageEstimate,
+  UsagePrices,
   UsageTokens,
   WorkstreamId,
 } from '@halcyonic/contracts';
-import { USAGE_USD_MAX } from '@halcyonic/contracts';
+import { SPENDING_CAP_REACHED, USAGE_USD_MAX } from '@halcyonic/contracts';
 import { shownQuestions } from './questions.ts';
 
 export type TurnOutcome = 'completed' | 'failed' | 'interrupted';
@@ -89,6 +91,138 @@ export interface ExecutionState {
   queued: QueuedInstructionView[];
   /** What its reported turns used (`runtime.usage.reported`); null until one is reported. */
   usage: ExecutionUsage | null;
+  /** Its spending limit and the span the app's estimates are summed over; null for none. */
+  spendingCap: SpendingCapState | null;
+}
+
+/**
+ * A task's spending limit as the host keeps it (lead's ruling, 2026-11-13): the limit the person set
+ * or raised it by, and the sum of the app's own estimates since then, null once not known.
+ */
+export interface SpendingCapState {
+  limitUsd: number;
+  spentUsd: number | null;
+  prices: UsagePrices | null;
+  /** Whether the running turn reported its usage; a turn that ends without one leaves the sum unknown. */
+  turnReported: boolean;
+  /** Re-attached with nothing it could be handed: it carries on only under a limit that counts from now. */
+  waiting: boolean;
+  /** Whether the span began at a raise (Carry On) rather than at the task's start. */
+  raised: boolean;
+  /** The known sum of the spans before this one, 0 at the start; null once any of them was not known. */
+  earlierUsd: number | null;
+  /** The known sum when the app stopped it at the limit, null when not known; absent before a stop. */
+  stoppedAt?: { readonly spentUsd: number | null };
+}
+
+/**
+ * A limit set at the start, or raised now by Carry On from the span before (`after`): nothing spent
+ * against it yet, and the earlier spans' known sum carried, so the whole task's figure can be said.
+ */
+export function newSpendingCap(
+  limitUsd: number,
+  after?: SpendingCapState | null,
+): SpendingCapState {
+  const earlier =
+    after == null
+      ? 0
+      : // A state from before the earlier sum was kept has none: not known.
+        after.earlierUsd == null || after.spentUsd === null
+        ? null
+        : after.earlierUsd + after.spentUsd;
+  return {
+    limitUsd,
+    spentUsd: 0,
+    prices: null,
+    turnReported: false,
+    waiting: false,
+    raised: after != null,
+    earlierUsd: earlier,
+  };
+}
+
+/**
+ * What a person reads when the app stopped a task at its limit (ADR 0062): the limit, then the
+ * known sum over the person's own span, named only where a raise began it, or that it is not known.
+ * Never a span the person cannot see, never "at most".
+ */
+export function capStopWords(cap: SpendingCapState): string {
+  const spent = cap.stoppedAt === undefined ? cap.spentUsd : cap.stoppedAt.spentUsd;
+  const limit = dollars(cap.limitUsd);
+  const unreported = 'because the app did not report the cost of some of its work';
+  if (cap.raised) {
+    const first = `You let this task spend ${limit} more, and the app stopped it once its estimate passed that.`;
+    const earlier = cap.earlierUsd ?? null;
+    const second =
+      spent === null
+        ? `How much it spent since then is not known, ${unreported}.`
+        : earlier === null
+          ? `It estimates the task spent ${dollars(spent)} since then but cannot say what it spent before, an estimate and not your provider's bill.`
+          : `It estimates the task spent ${dollars(spent)} since then and ${dollars(earlier + spent)} in all, an estimate and not your provider's bill.`;
+    return `${first} ${second}`;
+  }
+  const first = `The app stopped this task once its estimate passed your ${limit} limit.`;
+  const second =
+    spent === null
+      ? `How much the task spent in all is not known, ${unreported}.`
+      : `It estimates the task spent ${dollars(spent)}, an estimate and not your provider's bill.`;
+  return `${first} ${second}`;
+}
+
+function dollars(value: number): string {
+  return `$${value.toFixed(2)}`;
+}
+
+/** Adds a turn's reported estimate to the sum: unknown once a turn gives none or other prices. */
+export function capOnUsage(
+  cap: SpendingCapState,
+  turn: { readonly tokens: UsageTokens; readonly cost: UsageEstimate | null },
+): void {
+  cap.turnReported = true;
+  if (cap.spentUsd === null) return;
+  if (turn.cost === null) {
+    if (!usedNothing(turn.tokens)) cap.spentUsd = null;
+    return;
+  }
+  if (cap.prices !== null && cap.prices !== turn.cost.prices) {
+    cap.spentUsd = null;
+    return;
+  }
+  const spent = cap.spentUsd + turn.cost.estimated_usd;
+  cap.spentUsd = spent <= USAGE_USD_MAX ? spent : null;
+  cap.prices = turn.cost.prices;
+}
+
+/** A turn ended: if it reported nothing, what it spent is not known, so neither is the sum. */
+export function capOnTurnEnded(cap: SpendingCapState): void {
+  if (!cap.turnReported) cap.spentUsd = null;
+  cap.turnReported = false;
+}
+
+/** The view of a task's limit: reached once the app stopped it there or the known sum is at it. */
+export function spendingCapView(state: ExecutionState): SpendingCapView | null {
+  const cap = state.spendingCap ?? null;
+  if (cap === null) return null;
+  return { limit_usd: cap.limitUsd, spent_usd: cap.spentUsd, state: capState(state, cap) };
+}
+
+function capState(state: ExecutionState, cap: SpendingCapState): SpendingCapView['state'] {
+  const stopped = state.activeTurn === null && state.lastTurn?.error?.code === SPENDING_CAP_REACHED;
+  if (stopped || (cap.spentUsd !== null && cap.spentUsd >= cap.limitUsd)) return 'reached';
+  return cap.waiting ? 'waiting' : 'open';
+}
+
+/**
+ * What is left of the limit to hand the session's next launch: the limit less the known sum, or
+ * null where the sum is not known (a turn in flight that has not reported counts as not known) or
+ * nothing is left. Never more than the limit.
+ */
+export function spendingAllowance(state: ExecutionState): number | null {
+  const cap = state.spendingCap ?? null;
+  if (cap === null || cap.spentUsd === null) return null;
+  if (state.activeTurn !== null && !cap.turnReported) return null;
+  const left = cap.limitUsd - cap.spentUsd;
+  return left > 0 ? Math.min(left, cap.limitUsd) : null;
 }
 
 export function createExecutionState(init: {
@@ -128,6 +262,7 @@ export function createExecutionState(init: {
     autoFixDriven: false,
     queued: [],
     usage: null,
+    spendingCap: null,
   };
 }
 
@@ -221,7 +356,13 @@ export function deriveExecutionStatus(state: ExecutionState): ExecutionStatus {
 export function deriveStatusReason(state: ExecutionState): ErrorInfo | null {
   if (state.unknownReason !== null) return state.unknownReason;
   if (state.startFailure !== null) return state.startFailure;
-  if (deriveExecutionStatus(state) === 'failed') return state.lastTurn?.error ?? null;
+  if (deriveExecutionStatus(state) === 'failed') {
+    const error = state.lastTurn?.error ?? null;
+    // A stop at the limit says the person's own figures, in the host's words (ADR 0062).
+    if (error?.code === SPENDING_CAP_REACHED && state.spendingCap != null)
+      return { code: error.code, message: capStopWords(state.spendingCap) };
+    return error;
+  }
   return null;
 }
 
@@ -268,6 +409,10 @@ export function toExecutionView(
     ...(state.approvalLevel !== null && { approval_level: state.approvalLevel }),
     ...(state.plan && { plan: true }),
     ...(state.planLeft && { plan_left: true }),
+    // A state from before the limit was recorded has none.
+    ...(spendingCapView(state) !== null && {
+      spending_cap: spendingCapView(state) as SpendingCapView,
+    }),
     ...(state.unconfinedReason !== null && { unconfined_reason: state.unconfinedReason }),
     instruction: state.instruction,
     directory: state.directory,

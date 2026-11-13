@@ -596,6 +596,10 @@
         },
         {
           "type": "string",
+          "const": "amount"
+        },
+        {
+          "type": "string",
           "const": "answers"
         },
         {
@@ -9754,6 +9758,9 @@
                             "leave_plan": {
                               "type": "boolean"
                             },
+                            "spending_cap_usd": {
+                              "$ref": "#/$defs/SpendingCapUsd"
+                            },
                             "attachments": {
                               "$ref": "#/$defs/InstructionAttachments"
                             }
@@ -13957,6 +13964,9 @@
                 "plan": {
                   "type": "boolean"
                 },
+                "spending_cap_usd": {
+                  "$ref": "#/$defs/SpendingCapUsd"
+                },
                 "attachments": {
                   "$ref": "#/$defs/InstructionAttachments"
                 }
@@ -14016,6 +14026,9 @@
                 },
                 "leave_plan": {
                   "type": "boolean"
+                },
+                "spending_cap_usd": {
+                  "$ref": "#/$defs/SpendingCapUsd"
                 },
                 "attachments": {
                   "$ref": "#/$defs/InstructionAttachments"
@@ -15115,6 +15128,9 @@
         },
         "reports_usage": {
           "type": "boolean"
+        },
+        "offers_spending_cap": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -15370,6 +15386,11 @@
         }
       ]
     },
+    "SpendingCapUsd": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1000000
+    },
     "ExecutionUsage": {
       "type": "object",
       "required": [
@@ -15425,6 +15446,48 @@
             },
             {
               "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpendingCapView": {
+      "type": "object",
+      "required": [
+        "limit_usd",
+        "spent_usd",
+        "state"
+      ],
+      "properties": {
+        "limit_usd": {
+          "$ref": "#/$defs/SpendingCapUsd"
+        },
+        "spent_usd": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "open"
+            },
+            {
+              "type": "string",
+              "const": "reached"
+            },
+            {
+              "type": "string",
+              "const": "waiting"
             }
           ]
         }
@@ -19623,6 +19686,9 @@
         },
         "plan_left": {
           "type": "boolean"
+        },
+        "spending_cap": {
+          "$ref": "#/$defs/SpendingCapView"
         },
         "unconfined_reason": {
           "type": "string",

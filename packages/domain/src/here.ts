@@ -138,6 +138,47 @@ export function commandEntry(commandType: Listed): Extract<HereAction, { kind: '
 }
 
 /**
+ * A task at its limit or waiting for one takes an instruction only as a raise, so the list asks the
+ * admission about the raise it would be; the limit itself is the person's to give.
+ */
+function asRaise(
+  command: CommandEnvelope,
+  scope: HereScope,
+  projection: Projection,
+): CommandEnvelope {
+  if (command.command_type !== 'execution.send_instruction' || scope.execution_id === null)
+    return command;
+  const cap = projection.executionFacts(scope.execution_id)?.spendingCap ?? 'none';
+  if (cap !== 'reached' && cap !== 'waiting') return command;
+  return { ...command, payload: { ...command.payload, spending_cap_usd: 0.01 } };
+}
+
+/**
+ * An instruction's new spending limit is a need only for a task at its limit or waiting for one
+ * (lead's ruling, 2026-11-13): nowhere else is it offered, so nobody fills a field that is then
+ * refused.
+ */
+function withoutUnofferedNeeds(
+  entry: Extract<HereAction, { kind: 'command' }>,
+  scope: HereScope,
+  projection: Projection,
+): Extract<HereAction, { kind: 'command' }> {
+  if (entry.command_type !== 'execution.send_instruction' || scope.execution_id === null)
+    return entry;
+  const cap = projection.executionFacts(scope.execution_id)?.spendingCap ?? 'none';
+  if (cap === 'reached' || cap === 'waiting') {
+    // Only the raise carries it on, so it is needed, not a choice.
+    return {
+      ...entry,
+      needs: entry.needs.map((need) =>
+        need.name === 'spending_cap_usd' ? { ...need, required: true } : need,
+      ),
+    };
+  }
+  return { ...entry, needs: entry.needs.filter((need) => need.name !== 'spending_cap_usd') };
+}
+
+/**
  * What can be done here now (ADR 0060): each command of the scope, in the host's order, that the
  * one admission admits for the state with only what the scope binds; then the lists the scope opens.
  * `refused` collects what was left out and why, for the host's own reasons to join (a check that is
@@ -162,7 +203,7 @@ export function hereActions(
     const command = boundCommand(commandType, scope);
     if (command === null) continue;
     seen.add(commandType);
-    const admission = admitHere(command, projection, runtimes);
+    const admission = admitHere(asRaise(command, scope, projection), projection, runtimes);
     if (!admission.admitted) {
       refused.push({
         command_type: commandType,
@@ -171,7 +212,7 @@ export function hereActions(
       });
       continue;
     }
-    actions.push(commandEntry(commandType));
+    actions.push(withoutUnofferedNeeds(commandEntry(commandType), scope, projection));
   }
   if (scope.project_id !== null && projection.project(scope.project_id) !== undefined)
     actions.push(...PROJECT_LISTS);

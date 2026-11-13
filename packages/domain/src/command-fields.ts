@@ -151,12 +151,14 @@ export const COMMAND_FIELDS: Readonly<
     model_ref: need('choice', 'Model', { ...optional, list: 'models' }),
     approval_level: need('choice', 'Asking', { ...optional, list: 'approval_levels' }),
     plan: need('yes_no', 'Plan First', optional),
+    spending_cap_usd: need('amount', 'Spending Limit', optional),
     attachments: need('choices', 'Pictures', { ...optional, list: 'pictures', max: 4 }),
   },
   'execution.send_instruction': {
     execution_id: execution,
     text: need('text', 'Instruction'),
     leave_plan: need('yes_no', 'Carry Out Plan', optional),
+    spending_cap_usd: need('amount', 'Raise Limit By', optional),
     attachments: need('choices', 'Pictures', { ...optional, list: 'pictures', max: 4 }),
   },
   'execution.respond_to_approval': {

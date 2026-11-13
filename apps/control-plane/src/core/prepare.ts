@@ -162,6 +162,17 @@ export async function prepareCommand(
           return refuse('invalid_state', `${field.label} is a whole number.`);
         payload[name] = value;
         break;
+      case 'amount':
+        // Dollars to the cent, more than none: never a figure rounded for the person.
+        if (
+          typeof value !== 'number' ||
+          !Number.isFinite(value) ||
+          value <= 0 ||
+          Math.abs(value * 100 - Math.round(value * 100)) > 1e-6
+        )
+          return refuse('invalid_state', `${field.label} is an amount in dollars and cents.`);
+        payload[name] = value;
+        break;
       case 'choice':
       case 'choices': {
         const list = field.list;

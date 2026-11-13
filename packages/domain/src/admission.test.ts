@@ -1659,3 +1659,107 @@ function starterApplied() {
     template: 'b'.repeat(64),
   } as never;
 }
+
+describe("a spending limit (lead's ruling, 2026-11-13)", () => {
+  const offers: RuntimeCatalog = {
+    get: (id) => {
+      const descriptor = catalog().get(id);
+      return descriptor && { ...descriptor, offers_spending_cap: true };
+    },
+  };
+  const rejection = (result: ReturnType<typeof admitCommand>) =>
+    result.admitted ? null : result.rejection;
+
+  test('a start carries one only to a runtime that offers it, refused in words otherwise', () => {
+    const { projection, commands, idle } = setup();
+    const start = commands.start(idle.workstreamId);
+    const capped = {
+      ...start,
+      payload: { ...(start.payload as object), spending_cap_usd: 5 },
+    } as typeof start;
+    assert.deepEqual(rejection(admitCommand(capped, projection, catalog())), {
+      code: 'capability_unsupported',
+      message: 'This app cannot stop a task at a spending limit, so none was set.',
+    });
+    assert.equal(admitCommand(capped, projection, offers).admitted, true);
+  });
+
+  test('a task at its limit, or waiting for one, carries on only under a limit raised now', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project();
+    const workstream = b.workstream(project.projectId);
+    const start: CommandEnvelope = {
+      schema_version: 1,
+      command_id: '00000000-0000-4000-8000-0000000000d1' as CommandId,
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      command_type: 'execution.start',
+      payload: {
+        workstream_id: workstream.workstreamId,
+        runtime_id: 'mock' as RuntimeId,
+        instruction: 'Go.',
+        options: {},
+        model_ref: null,
+        spending_cap_usd: 1,
+      },
+    };
+    const accepted = b.command(start, 'accepted');
+    const execution = b.execution(project.projectId, workstream.workstreamId);
+    for (const event of [
+      project.event,
+      workstream.event,
+      accepted,
+      { ...execution.event, event: { ...execution.event.event, causation_id: start.command_id } },
+    ])
+      projection.apply(event);
+    const scope = {
+      projectId: project.projectId,
+      workstreamId: workstream.workstreamId,
+      executionId: execution.executionId,
+    };
+    const instruct = (cap?: number): CommandEnvelope => ({
+      ...start,
+      command_id: '00000000-0000-4000-8000-0000000000d2' as CommandId,
+      command_type: 'execution.send_instruction',
+      payload: {
+        execution_id: execution.executionId,
+        text: 'Carry on.',
+        ...(cap !== undefined && { spending_cap_usd: cap }),
+      },
+    });
+    for (const event of [
+      b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'ses_1' }),
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }),
+      b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }),
+    ])
+      projection.apply(event);
+    // Open (the sum not known, yet not re-attached): a plain instruction goes; a raise does not.
+    assert.equal(admitCommand(instruct(), projection, offers).admitted, true);
+    assert.equal(rejection(admitCommand(instruct(2), projection, offers))?.code, 'invalid_state');
+    projection.apply(b.runtimeEvent(scope, 'runtime.connection.restored', { reason: 'Back.' }));
+    assert.deepEqual(rejection(admitCommand(instruct(), projection, offers)), {
+      code: 'invalid_state',
+      message:
+        'What this task spent before the restart is not fully known. Give it a limit that counts from now to carry on.',
+    });
+    assert.equal(admitCommand(instruct(2), projection, offers).admitted, true);
+    assert.equal(
+      rejection(admitCommand(instruct(2), projection, catalog()))?.code,
+      'capability_unsupported',
+    );
+    for (const event of [
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't2' }),
+      b.runtimeEvent(scope, 'runtime.turn.failed', {
+        turn_id: 't2',
+        error: { code: 'spending_cap_reached', message: 'Stopped at its limit.' },
+      }),
+    ])
+      projection.apply(event);
+    assert.deepEqual(rejection(admitCommand(instruct(), projection, offers)), {
+      code: 'invalid_state',
+      message: 'This task is at its spending limit. Raise it to carry on.',
+    });
+    assert.equal(admitCommand(instruct(5), projection, offers).admitted, true);
+  });
+});

@@ -154,6 +154,9 @@ export class Reattacher {
           model_ref: bounds.model_ref,
           ...(bounds.approval_level !== undefined && { approval_level: bounds.approval_level }),
           ...(bounds.plan && { plan: true }),
+          ...(bounds.spending_allowance_usd !== undefined && {
+            spending_allowance_usd: bounds.spending_allowance_usd,
+          }),
           confined: bounds.confined,
           directory: bounds.directory,
           ...(Object.keys(given).length > 0 && { environment: given }),

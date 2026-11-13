@@ -41,6 +41,7 @@ import type {
   RuntimeOptions,
   SecretName,
   ShareWay,
+  SpendingCapView,
   StoredEvent,
   Timestamp,
   ToolResultSummary,
@@ -50,16 +51,21 @@ import type {
   WorkstreamId,
   WorkstreamView,
 } from '@halcyonic/contracts';
-import { fitQuestion, TOOL_RESULT_RECENT } from '@halcyonic/contracts';
+import { fitQuestion, SPENDING_CAP_REACHED, TOOL_RESULT_RECENT } from '@halcyonic/contracts';
 import { deriveAttention } from './attention.ts';
 import { DeviceRegistry, type DeviceRegistryState } from './devices.ts';
 import {
   addTurnUsage,
+  capOnTurnEnded,
+  capOnUsage,
   createExecutionState,
   deriveExecutionStatus,
   type ExecutionState,
   endTurn,
+  newSpendingCap,
   projectUsage,
+  spendingAllowance,
+  spendingCapView,
   toExecutionView,
 } from './execution-state.ts';
 import { fixSteps } from './fix-steps.ts';
@@ -95,6 +101,8 @@ export interface ExecutionFacts {
   pendingQuestions: readonly QuestionView[];
   /** True while it is a plan: its start recorded one, and it has not been left (PLAN). */
   inPlan: boolean;
+  /** Its spending limit's state, `none` without one (lead's ruling, 2026-11-13). */
+  spendingCap: 'none' | SpendingCapView['state'];
 }
 
 const ACTIVE_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
@@ -256,8 +264,9 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * `project.world.read` gives it (ADR 0049). 19: a request's prepared commands hold proposals and presses beside
  * instructions (ADR 0060); each raised past the base's again at the rebase. 20: where the person chose the assistant
  * to run (`assistantModel`, ADR 0030, 2026-11-12). 21: what each execution's reported turns used (`usage`).
+ * 22: the spending limit each execution runs under (`spendingCapUsd`).
  */
-export const PROJECTION_STATE_FORMAT = 21;
+export const PROJECTION_STATE_FORMAT = 22;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -307,6 +316,8 @@ export interface ReattachBounds {
   readonly approval_level?: ApprovalLevel;
   /** Whether its start recorded the runtime's own plan mode (PLAN). */
   readonly plan: boolean;
+  /** What is left of its spending limit for the next launch, null for none; absent without a limit. */
+  readonly spending_allowance_usd?: number | null;
   readonly confined: boolean;
   readonly directory: string | null;
   readonly cut_turn: { readonly turn_id: string | null } | null;
@@ -801,6 +812,7 @@ export class Projection {
       ...(state.approvalLevel !== null && { approval_level: state.approvalLevel }),
       // Still a plan only until it was left: a re-attach then expects the session off its plan mode.
       plan: state.plan && !state.planLeft,
+      ...(state.spendingCap != null && { spending_allowance_usd: spendingAllowance(state) }),
       confined: state.confined,
       directory: state.directory,
       cut_turn: state.activeTurn === null ? null : { turn_id: state.activeTurn.turnId },
@@ -1968,6 +1980,15 @@ export class Projection {
           }),
         );
         workstream.executionIds.push(event.execution_id);
+        const start = this.#commands.get(event.causation_id as CommandId)?.envelope;
+        if (
+          start?.command_type === 'execution.start' &&
+          start.payload.spending_cap_usd !== undefined
+        ) {
+          (this.#executions.get(event.execution_id) as ExecutionState).spendingCap = newSpendingCap(
+            start.payload.spending_cap_usd,
+          );
+        }
         const inProject = this.#executionsByProject.get(event.project_id) ?? [];
         inProject.push(this.#executions.get(event.execution_id) as ExecutionState);
         this.#executionsByProject.set(event.project_id, inProject);
@@ -2086,6 +2107,22 @@ export class Projection {
         if (event.event_type === 'command.completed') {
           command.status = 'completed';
           command.result = event.payload.result;
+          // A task carried on under a new limit runs under it once the runtime confirmed the instruction.
+          const sent = command.envelope;
+          if (
+            sent.command_type === 'execution.send_instruction' &&
+            sent.payload.spending_cap_usd !== undefined
+          ) {
+            const carried = this.#executions.get(sent.payload.execution_id);
+            if (carried !== undefined) {
+              // A new span: the amount raised, counting from now.
+              carried.spendingCap = newSpendingCap(
+                sent.payload.spending_cap_usd,
+                carried.spendingCap,
+              );
+              this.#touchExecution(carried, event.ingested_at, changes);
+            }
+          }
         } else {
           command.status = 'failed';
           command.failure = event.payload.failure;
@@ -2361,10 +2398,16 @@ export class Projection {
         }
         if (event.event_type === 'runtime.turn.completed') {
           endTurn(execution, 'completed', null);
+          if (execution.spendingCap != null) capOnTurnEnded(execution.spendingCap);
         } else if (event.event_type === 'runtime.turn.failed') {
           endTurn(execution, 'failed', event.payload.error);
+          if (execution.spendingCap != null) capOnTurnEnded(execution.spendingCap);
+          if (execution.spendingCap != null && event.payload.error.code === SPENDING_CAP_REACHED) {
+            execution.spendingCap.stoppedAt = { spentUsd: execution.spendingCap.spentUsd };
+          }
         } else {
           endTurn(execution, 'interrupted', null);
+          if (execution.spendingCap != null) capOnTurnEnded(execution.spendingCap);
         }
         if (execution.directory !== null) {
           this.#updateProjectChecks(
@@ -2460,6 +2503,11 @@ export class Projection {
       case 'runtime.connection.restored':
         // Observable again, which every runtime event other than a loss already records above;
         // what changed meanwhile arrives in the events that follow.
+        // Nothing it could be handed now (the sum not known, a turn in flight unreported, nothing
+        // left): it waits for a limit that counts from now, the cut turn ending after this or not.
+        if (execution.spendingCap != null && spendingAllowance(execution) === null) {
+          execution.spendingCap.waiting = true;
+        }
         break;
       case 'runtime.model.used':
         execution.modelRef = event.payload.model_ref;
@@ -2469,6 +2517,7 @@ export class Projection {
         break;
       case 'runtime.usage.reported':
         execution.usage = addTurnUsage(execution.usage ?? null, event.payload);
+        if (execution.spendingCap != null) capOnUsage(execution.spendingCap, event.payload);
         break;
       default: {
         const unhandled: never = event;
@@ -2706,6 +2755,7 @@ function toFacts(state: ExecutionState): ExecutionFacts {
     // Only those shown can be answered: one behind them waits its turn.
     pendingQuestions: shownQuestions(state.pendingQuestions),
     inPlan: state.plan && !state.planLeft,
+    spendingCap: spendingCapView(state)?.state ?? 'none',
   };
 }
 

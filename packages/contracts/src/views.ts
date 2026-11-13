@@ -32,6 +32,8 @@ import {
   ModelRef,
   RuntimeDescriptor,
   RuntimeRef,
+  SpendingCapUsd,
+  USAGE_USD_MAX,
   UsageEstimate,
   UsageTokens,
 } from './runtime.ts';
@@ -171,6 +173,24 @@ export const ProjectShareView = Type.Object(
   strict,
 );
 export type ProjectShareView = Static<typeof ProjectShareView>;
+
+/**
+ * A task's spending limit (lead's ruling, 2026-11-13): `limit_usd` the person set at its start or
+ * raised it by when it carried on, `spent_usd` the sum of the app's own estimates since then, null
+ * when not known (a turn reported none, or by other prices). `state`: `open`, `reached` once the app
+ * stopped it at the limit or the known sum is at it, `waiting` when re-attached after a restart
+ * with the sum not known, so it carries on only under a limit that counts from now. The app does
+ * every stop; a limit is not a ceiling, since the app stops after the step that passes it.
+ */
+export const SpendingCapView = Type.Object(
+  {
+    limit_usd: SpendingCapUsd,
+    spent_usd: Nullable(Type.Number({ minimum: 0, maximum: USAGE_USD_MAX })),
+    state: Type.Union([Type.Literal('open'), Type.Literal('reached'), Type.Literal('waiting')]),
+  },
+  strict,
+);
+export type SpendingCapView = Static<typeof SpendingCapView>;
 
 /**
  * What a project's runs used, summed over its executions by the same rules as `ExecutionUsage`:
@@ -360,6 +380,8 @@ export const ExecutionView = Type.Object(
     plan: Type.Optional(Type.Boolean()),
     /** True once the runtime left the plan to carry it out (`runtime.plan.left`); absent otherwise. */
     plan_left: Type.Optional(Type.Boolean()),
+    /** The task's spending limit and what the app's estimates say it spent against it; absent for none. */
+    spending_cap: Type.Optional(SpendingCapView),
     /**
      * Why its start, which asked for Halcyonic's sandbox, ran without it or is not counted confined
      * (BOX-4), as recorded; absent where none was.
