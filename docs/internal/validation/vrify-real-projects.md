@@ -177,7 +177,10 @@ and a search, a page per species, a form to log a sighting with five fields, and
 a scene: a critic who saw it found the cards, a species page, logging and the log, with seen or not seen on each card.
 It also left out the search, fixed three of the five fields (a place to one of two, the time to now, the note to
 empty), cut the log at six rows with "and N more", drew words too small to read at a laptop's distance, ran a title
-into the next line, and said none of it where a person reads: only a code comment did. The kit's own pages helper
+into the next line, and said none of it on screen, where a person in the headset reads. Its closing words, which the
+product shows with the result, did say five of those six omissions with their reasons (typing is hard in a headset);
+they missed that a species page shows only a count and the last sighting, and implied it showed them all. The kit's
+own pages helper
 showed only its first six pages and asked for "the ones that matter most".
 The same app on the local 30B model did not run to the end: it took the Mac under 30% free within three minutes and
 was stopped (local-models.md, "A VR build beside other work"), so there is no local result beside the hosted one.
