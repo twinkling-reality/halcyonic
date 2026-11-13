@@ -416,6 +416,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (live == null && fallback.Line != null && DemonstrationFallback.Notice(fallback.ShowingRecordedRun) is string line
                         && !root.GetComponentsInChildren<TMP_Text>(false).Any(text => text.enabled && text.GetParsedText().Replace("\n", " ").Contains(line)))
                         found.Add("the recording's own line is not drawn whole: \"" + line + "\"");
+                    // A line that is drawn and cannot be read is not said (lead, 00:47Z): nothing drawn nearer the eye crosses it.
+                    if (live == null && fallback.Line != null && plane.KitShows && plane.Kit.Bar.NoticeWords is TMP_Text noticeWords
+                        && plane.Kit.Bar.NoticePlate is Halcyonic.XR.UI.RoomSurface noticePlate)
+                        found.AddRange(NoticeCovered(root, camera, noticeWords, noticePlate.transform).Select(part => "the recording's line is covered by " + part));
                     if (live == null && director.VoiceOffered) found.Add("voice is offered with no computer");
                     if (live == null && plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy) found.Add("Hold to Talk is drawn with no computer");
                     found.AddRange(RoomBrands(root));
@@ -1050,6 +1054,45 @@ namespace Halcyonic.XR.Workspace.Editor
         /// For the census, never a failure: every drawn label holding facts joined by a dot (the form the owner rejected),
         /// every older label cut, and every pair of the redesign's labels whose rectangles on the render overlap.
         /// </summary>
+        /// <summary>
+        /// Every drawn part not clearly behind the notice's words (its nearest corner 5 mm or more behind them) whose screen box
+        /// crosses theirs by more than half a dp, named by its owner and part; empty where nothing does. The notice's own plate
+        /// and words are left out.
+        /// </summary>
+        private static List<string> NoticeCovered(GameObject root, Camera camera, TMP_Text words, Transform plate)
+        {
+            var covered = new SortedSet<string>();
+            words.ForceMeshUpdate(true);
+            var bounds = words.textBounds;
+            var ends = new[] { new Vector3(bounds.min.x, bounds.min.y), new Vector3(bounds.max.x, bounds.max.y) }
+                .Select(corner => camera.WorldToScreenPoint(words.transform.TransformPoint(corner))).ToList();
+            if (ends.Any(corner => corner.z <= 0f)) return covered.ToList();
+            var notice = Rect.MinMaxRect(Mathf.Min(ends[0].x, ends[1].x), Mathf.Min(ends[0].y, ends[1].y),
+                Mathf.Max(ends[0].x, ends[1].x), Mathf.Max(ends[0].y, ends[1].y));
+            var depth = Mathf.Min(ends[0].z, ends[1].z);
+            if (notice.width <= 0f || notice.height <= 0f) return covered.ToList();
+            // The kit's small touch, half a dp, in screen terms at the words' own distance (AUDIT, 01:52Z).
+            var middle = words.transform.TransformPoint(bounds.center);
+            var touch = Vector3.Distance(camera.WorldToScreenPoint(middle), camera.WorldToScreenPoint(middle + words.transform.right * RoomType.Units(0.5f)));
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>(false))
+            {
+                if (!renderer.enabled || renderer.transform == plate || renderer.transform.IsChildOf(plate)) continue;
+                var box = renderer.bounds;
+                var points = new List<Vector3>();
+                for (var i = 0; i < 8; i++)
+                    points.Add(camera.WorldToScreenPoint(new Vector3(i % 2 == 0 ? box.min.x : box.max.x, i / 2 % 2 == 0 ? box.min.y : box.max.y, i / 4 == 0 ? box.min.z : box.max.z)));
+                if (points.Any(point => point.z <= 0f)) continue;
+                // The notice keeps a band no part is laid over (lead, 00:47Z): a part is behind only when its NEAREST corner is
+                // 5 mm or more behind the words; any other part that crosses them stands over it (AUDIT, 01:52Z).
+                if (points.Min(point => point.z) >= depth + 0.005f) continue;
+                var rect = Rect.MinMaxRect(points.Min(point => point.x), points.Min(point => point.y), points.Max(point => point.x), points.Max(point => point.y));
+                var x = Mathf.Min(rect.xMax, notice.xMax) - Mathf.Max(rect.xMin, notice.xMin);
+                var y = Mathf.Min(rect.yMax, notice.yMax) - Mathf.Max(rect.yMin, notice.yMin);
+                if (x > touch && y > touch) covered.Add((OwnerOf(renderer.transform) ?? "?") + "/" + renderer.name);
+            }
+            return covered.ToList();
+        }
+
         private static string Census(GameObject root, Camera camera)
         {
             var dots = new List<string>();
