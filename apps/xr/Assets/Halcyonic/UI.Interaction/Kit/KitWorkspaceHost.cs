@@ -110,7 +110,9 @@ namespace Halcyonic.XR.UI
         public RoomForm Form
         {
             get => form;
-            set => form = value.Measured((row, marked) => bar.RowLines(row, marked, value.Narrow ? RoomGeometry.ColumnDp : value.PanelDp));
+            // A card's list rows too, by the kit's own count (SCREENS's 22:19Z), so a card of described answers pages as the card lays.
+            set => form = value.Measured((row, marked) => bar.RowLines(row, marked, value.Narrow ? RoomGeometry.ColumnDp : value.PanelDp))
+                .MeasuredList(ListRowLines);
         }
 
         private RoomForm form = RoomForm.Full;
