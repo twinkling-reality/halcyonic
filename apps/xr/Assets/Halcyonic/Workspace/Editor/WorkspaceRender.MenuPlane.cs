@@ -1061,7 +1061,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 new PageLine("Text Size", fact: "Standard", action: "settings-open-setting", key: "text-size", opens: true, chosen: true),
                 new PageLine("Motion", fact: "On", action: "settings-open-setting", key: "moving-badges", opens: true),
             },
-            side: new SidePanel("Text Size", facts: new[] { new SideFact("Now", "Standard"), new SideFact("Larger", "15% Larger · 3 Rows a Page") }));
+            side: new SidePanel("Text Size", facts: new[] { new SideFact("Now", "Standard"), new SideFact("Larger", ComfortSettings.LargerSize) }));
 
         /// <summary>Tasks: the waiting task chosen, <paramref name="count"/> rows, as many as the stage holds beside a file.</summary>
         private static MenuFrame Tasks(TextSize text, string waiting, int count)

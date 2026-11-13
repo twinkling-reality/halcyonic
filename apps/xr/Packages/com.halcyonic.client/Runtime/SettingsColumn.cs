@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace Halcyonic.Client
@@ -330,12 +331,28 @@ namespace Halcyonic.Client
     /// <summary>The comfort settings (ADR 0023) as Settings' rows, under Comfort: the text's size, motion (Keep things still) and sounds.</summary>
     public static class ComfortSettings
     {
+        /// <summary>
+        /// What Larger does, as one sentence, its numbers from the layout's own values (the lead, 2026-11-13T17:51Z): how much larger
+        /// the words stand (<see cref="Comfort.LargerTextScale"/>) and how many rows a page holds (<see cref="MenuFrame.RowsAPage"/>).
+        /// </summary>
+        public static string LargerSize =>
+            "Words " + ((int)Math.Round((Comfort.LargerTextScale - 1f) * 100f)).ToString(CultureInfo.InvariantCulture) + "% larger, with "
+            + Count(MenuFrame.RowsAPage(TextSize.Larger, sourceLine: false)) + " rows a page.";
+
+        /// <summary>What Standard does, as one sentence, its rows a page from the layout.</summary>
+        public static string StandardSize => "Words at their usual size, with " + Count(MenuFrame.RowsAPage(TextSize.Standard, sourceLine: false)) + " rows a page.";
+
+        private static readonly string[] CountWords = { "one", "two", "three", "four", "five", "six", "seven", "eight" };
+
+        /// <summary>A small count in words, as a sentence says it; a larger one in figures.</summary>
+        private static string Count(int rows) => rows >= 1 && rows <= CountWords.Length ? CountWords[rows - 1] : rows.ToString(CultureInfo.InvariantCulture);
+
         /// <param name="saved">The settings changed: the device keeps them, and the stage takes them.</param>
         public static IReadOnlyList<MenuSetting> Of(Comfort comfort, Action saved) => new[]
         {
             new MenuSetting("text-size", Comfort.Heading, "Text Size", () => comfort.Text == TextSize.Larger
-                    ? new SettingNow("Larger", "Larger", "Standard", "Standard · 4 Rows a Page", comfort.TextButton)
-                    : new SettingNow("Standard", "Standard", "Larger", "15% Larger · 3 Rows a Page", comfort.TextButton),
+                    ? new SettingNow("Larger", "Larger", "Standard", StandardSize, comfort.TextButton)
+                    : new SettingNow("Standard", "Standard", "Larger", LargerSize, comfort.TextButton),
                 () =>
                 {
                     comfort.Text = comfort.Text == TextSize.Larger ? TextSize.Standard : TextSize.Larger;

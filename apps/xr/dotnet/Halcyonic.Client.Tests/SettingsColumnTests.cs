@@ -50,7 +50,7 @@ public class SettingsColumnTests
         Assert.That(frame.Side!.Subject, Is.EqualTo("Text Size"));
         Assert.That(frame.Side.Facts.Select(fact => (fact.Name, fact.Value)), Is.EqualTo(new[]
         {
-            ("Now", "Standard"), ("Larger", "15% Larger · 3 Rows a Page"),
+            ("Now", "Standard"), ("Larger", "Words 15% larger, with three rows a page."),
         }));
         var change = frame.Footer[PromptSlot.FarRight]!;
         Assert.That((change.Words, change.Main, change.Id), Is.EqualTo(("Larger Text", true, SettingsColumn.ChangeSetting)));
