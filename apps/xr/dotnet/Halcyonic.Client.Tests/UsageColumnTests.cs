@@ -356,6 +356,8 @@ public class UsageColumnTests
                "observation_position":0,"active_turn_id":null,"had_active_turn":false,"command_id":COMMAND,"observation_after":0,"observed_turn_id":null,
                "runtime_status":null,"summary":"Use test-model-1",
                "proposal":{"command_type":"assistant.model.choose","confirm":{},"review":"review-1","said":[],
+                 "confirm_words":"Use This Model","facts":[{"kind":"words","value":"test-model-1","theirs":true},{"kind":"words","value":"Test Hosted","theirs":true}],
+                 "warnings":[{"code":"paid","line":"Each request is paid with your key"}],
                  "what_happens":"The assistant runs on this hosted model, paid with your key, and what each request reads goes to it"}}]}}
             """;
 
@@ -445,8 +447,10 @@ public class UsageColumnTests
             {
                 (RoomKind.Computer, "This Computer's Model", true, true),
                 (RoomKind.Link, "test-model-1", false, true),
-                (RoomKind.Link, "test-model-2", false, false),
+                (RoomKind.Failed, "test-model-2", false, false),
             }));
+            Assert.That(list.Card.List.Select(each => each.Note), Is.EqualTo(new[] { UsageColumn.InUse, null, null }), "the row in use says so");
+            Assert.That(list.Card.List[2].Tone, Is.EqualTo(RoomTone.Bad), "a row the host offers nothing on reads as unusable");
             Assert.That(list.Card.List[2].Under!.Text, Is.EqualTo("Other Hosted refused its key. Give it a new key on this computer."));
             Assert.That(list.Column.Select(action => action.Control.Action), Does.Contain(UsageColumn.Back));
             Assert.That(computer.Asked.Count(path => path.Contains("/api/actions/choices", StringComparison.Ordinal)), Is.EqualTo(1));
@@ -460,6 +464,9 @@ public class UsageColumnTests
             usage.Act(UsageColumn.ChooseModel, "1");
             Assert.That(host.Sent.Count, Is.EqualTo(1));
             var press = (WorkspaceRequestSubmitCommand)host.Sent[0];
+            var asking = usage.Frame!.Card!;
+            Assert.That((asking.Description!.Text, asking.List.Single().Kind, asking.List.Single().Name.Text, asking.List.Single().Name.AllTheirs),
+                Is.EqualTo((UsageColumn.Asking, RoomKind.Link, "test-model-1", true)), "the card while asked says for what");
             var act = Newtonsoft.Json.Linq.JObject.Parse(HalcyonicJson.Serialize(press))["payload"]!["act"]!;
             Assert.That(Newtonsoft.Json.Linq.JToken.DeepEquals(act, Newtonsoft.Json.Linq.JObject.Parse(
                 """{"command_type":"assistant.model.choose","values":{"model":1},"lists":{"assistant_models":"digest-1"}}""")), Is.True, act.ToString());
@@ -473,8 +480,11 @@ public class UsageColumnTests
             await Until(usage, host, () => usage.Frame!.Footer.All.Any(each => each.Prompt.Id == ReviewCard.Confirm));
             var reviewed = Bar();
             Assert.That(reviewed.Card!.Description!.Text, Is.EqualTo("The assistant runs on this hosted model, paid with your key, and what each request reads goes to it"));
-            Assert.That(reviewed.Card.Slots.Select(slot => slot.Value.Text), Is.EqualTo(new[] { "test-model-1" }), "the card names the model pressed");
-            Assert.That(reviewed.Card.Slots[0].Value.AllTheirs, Is.True);
+            // The host's own words, as the step carries them: its facts (theirs), its warning as Check First, its button.
+            Assert.That(reviewed.Card.Slots.Select(slot => slot.Value.Text), Is.EqualTo(new[] { "test-model-1", "Test Hosted" }));
+            Assert.That(reviewed.Card.Slots.All(slot => slot.Value.AllTheirs), Is.True);
+            Assert.That(reviewed.Card.Status?.Line, Does.Contain("Each request is paid with your key"));
+            Assert.That(reviewed.Column.First().Control.Words, Is.EqualTo("Use This Model"));
             Assert.That(reviewed.Column.First().Control.Action, Is.EqualTo(ReviewCard.Confirm));
             Assert.That(reviewed.Column.First().Main, Is.True);
             Assert.That(reviewed.Column.Select(action => action.Control.Action), Does.Contain(ReviewCard.Cancel));
@@ -490,13 +500,13 @@ public class UsageColumnTests
             host.Ack.SetResult(AckOf(confirm));
 
             // Done: the usage card again, its row read afresh, naming the model now chosen.
-            await Until(usage, host, () => AssistantRows(usage.Frame!.Card!).Any(each => each.Kind == RoomKind.Link));
+            await Until(usage, host, () => usage.Frame!.Card!.Gauges.Count == 2 && AssistantRows(usage.Frame!.Card!).Any(each => each.Kind == RoomKind.Link));
             var after = AssistantRows(usage.Frame!.Card!);
             Assert.That(after.Select(each => (each.Kind, each.Name.Text)), Is.EqualTo(new[] { (RoomKind.Link, "test-model-1") }));
             // Accepted is not done: the row is read again only after the step's own command says completed.
             Assert.That(computer.Asked.FindLastIndex(path => path.EndsWith("/api/workspace/agent", StringComparison.Ordinal)),
                 Is.GreaterThan(computer.Asked.FindLastIndex(path => path.EndsWith("/commands/choose-1", StringComparison.Ordinal))));
-            Assert.That(computer.Asked.Count(path => path.EndsWith("/commands/choose-1", StringComparison.Ordinal)), Is.EqualTo(3));
+            Assert.That(computer.Asked.Count(path => path.EndsWith("/commands/choose-1", StringComparison.Ordinal)), Is.EqualTo(3), string.Join("\n", computer.Asked));
             Assert.That(usage.Frame!.Card!.Gauges.Count, Is.EqualTo(2));
         }
         finally { RoomDesign.Enabled = was; }
@@ -666,5 +676,16 @@ public class UsageColumnTests
             Assert.That(host.Sent.Count, Is.EqualTo(2), "cancelled once");
         }
         finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>An older step without the host's words still reads: the entry's title on Confirm, and the row pressed named, theirs.</summary>
+    [Test]
+    public void AReviewWithoutTheHostsWordsNamesTheRowPressedAndTheEntry()
+    {
+        var shown = UsageColumn.ReviewOf(new WorkspaceRequestStepProposal
+        { CommandType = CommandType.AssistantModelChoose, WhatHappens = "The assistant runs on this hosted model", Review = "review-1" },
+            new AssistantOption(1, "test-model-1", "On Test Hosted", theirs: true, choosable: true));
+        Assert.That((shown.ConfirmWords, shown.Facts.Single().Value, shown.Facts.Single().Theirs, shown.Warnings.Count),
+            Is.EqualTo((AssistantPlace.UseModelTitle, "test-model-1", true, 0)));
     }
 }

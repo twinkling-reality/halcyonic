@@ -970,17 +970,18 @@ launch/return, process recreation and current-frame action behavior need separat
     - **`CommandFactory.ConfirmRequest`** is the card's one press. The row changes at the next status read.
   - **`UsageColumn`** draws it under the redesign. It reads the status beside the limits, and the row stands under the
     gauges; a read that fails draws no row. The row's press opens the host's list, read afresh each time
-    (**`UsageColumn.ModelsCard`**): the place it runs now chosen, Back to the card. A row pressed sends Use Model,
-    the request's waiting step is drawn as the one review card (**`ReviewCard`**, built by
-    **`UsageColumn.ReviewOf`** from the step's proposal, the model pressed named on it), and Confirm is one press.
+    (**`UsageColumn.ModelsCard`**): the place it runs now chosen with the note "In Use", a row the host offers
+    nothing on marked as failed in the bad tone, Back to the card. A row pressed sends Use Model; while the
+    computer is asked, the card names the row pressed (**`UsageColumn.AskingCard`**). The request's waiting
+    step is drawn as the one review card (**`ReviewCard`**, built by **`UsageColumn.ReviewOf`** from the host's
+    own words on the step: its confirm words, facts and warnings, a warning standing "Check First"; an older
+    step without them names the row pressed and Confirm says the entry's title), and Confirm is one press.
     The choice is made only when the confirmed step's own command says completed (the request's "responded"
     comes first); then the column reads the status again. Refused or failed at any step, the list stands again
     with the host's own line. Cancel cancels the press's request and confirms nothing; Back stands while any
     read waits, and reads slow after ten seconds.
     The press is offered only on the computer's own Usage (never the recording) with a command factory.
     **`RoomBar.Menu`** binds every press on the card to the frame drawn and stands Confirm as the main action.
-    The step's proposal does not yet carry the host's confirm words, facts or warnings, so the card shows the
-    host's line of what happens and Confirm says the entry's title (asked of LOOP, 2026-11-13).
 - **`ControlPlaneApi.GetRuntimeModelsAsync`** reads the models a runtime whose `ModelChoice` is
   `Listed` can use now, from the runtime's own list
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)): each
