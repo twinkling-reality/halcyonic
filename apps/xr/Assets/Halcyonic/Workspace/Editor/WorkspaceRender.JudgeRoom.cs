@@ -638,6 +638,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 // Steps the person takes until the goal holds: words where a keyboard is open, a control that asks for words
                 // where words are what is missing, else the screen's main action. Where none is drawn the journey stops there.
+                // A choice's answer may come from the plane a moment later (an agent app's models): three seconds of frames.
+                void Settle()
+                {
+                    var from = DateTime.UtcNow;
+                    while (DateTime.UtcNow - from < TimeSpan.FromSeconds(3)) { Draw(); Thread.Sleep(250); }
+                }
                 bool DriveUntil(Func<bool> goal, string label, string words, int steps = 12)
                 {
                     var wrote = false;
@@ -658,12 +664,30 @@ namespace Halcyonic.XR.Workspace.Editor
                             continue;
                         }
                         if (!wrote && TypeDrawn() is RoomButton type) { PressDrawn(type, "pressed"); continue; }
+                        // A row the walk was told to choose (an agent app, a model), as a person picks theirs, before the main action.
+                        if (live != null && live.Picks.Count > 0 && PressRow(control => live.Picks.Contains(control.Key ?? control.Action)
+                            && !tried.Contains("row " + control.Action + (control.Key == null ? "" : "/" + control.Key))) is string picked)
+                        {
+                            tried.Add(picked.Replace("pressed row ", "row "));
+                            journeyWays.Add("chose " + picked.Replace("pressed ", ""));
+                            Settle();
+                            continue;
+                        }
+                        // The same where the choice is drawn as the column's buttons (an agent app on the run settings page).
+                        if (live != null && live.Picks.Count > 0 && plane.KitShows && plane.Kit.Bar.Column.FirstOrDefault(each => each.gameObject.activeInHierarchy
+                            && !tried.Contains(ActionOf(each)) && (live.Picks.Contains(ActionOf(each)) || live.Picks.Contains(ActionOf(each).Split('/').Last()))) is RoomButton chosen)
+                        {
+                            tried.Add(ActionOf(chosen));
+                            PressDrawn(chosen, "chose");
+                            Settle();
+                            continue;
+                        }
                         if (MainDrawn() is RoomButton main) { PressDrawn(main, "pressed main"); continue; }
                         if (PressFrameMain()) continue;
                         // No main action to take: the next drawn control this journey has not pressed, as a person tries what
-                        // is there (never Close, Hold to Talk or a control that asks for words already given).
+                        // is there (never Close, Stop, Hold to Talk or a control that asks for words already given).
                         if (plane.KitShows && plane.Kit.Bar.Column.FirstOrDefault(each => each.gameObject.activeInHierarchy && !tried.Contains(ActionOf(each))
-                            && ActionOf(each) != Footer.Close && !ActionOf(each).Contains("talk") && !(wrote && TypeDrawn() == each)) is RoomButton other)
+                            && ActionOf(each) != Footer.Close && !ActionOf(each).StartsWith("stop") && !ActionOf(each).Contains("talk") && !(wrote && TypeDrawn() == each)) is RoomButton other)
                         {
                             tried.Add(ActionOf(other));
                             PressDrawn(other, "tried");
@@ -946,12 +970,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var old in Directory.GetFiles(folder)) File.Delete(old);
                 var moments = new List<string> { "moment\tdrawn by\tdots | older cut | overlaps\tcoverage\tredesign drew\tolder parts drew\tactions drawn\treached by\tfailures" };
                 // A real agent's turn is longer than the mock's: HALCYONIC_LIVE_TURN_SECONDS, and HALCYONIC_LIVE_THROUGH=keep ends
-                // the walk once Keep is tried, for a model window that holds one turn.
+                // the walk once Keep is tried, for a model window that holds one turn. HALCYONIC_LIVE_PICK names the agent app and
+                // model to choose where a plane offers several, comma separated.
                 var live = new LiveWalk(uri!, File.ReadAllText(Path.GetFullPath(tokenFile)).Trim(),
                     Environment.GetEnvironmentVariable("HALCYONIC_LIVE_IDEA") ?? "A page that says hello and counts my visits")
                 {
                     TurnSeconds = double.TryParse(Environment.GetEnvironmentVariable("HALCYONIC_LIVE_TURN_SECONDS"), out var turn) && turn > 0 ? turn : 90,
                     ThroughKeep = Environment.GetEnvironmentVariable("HALCYONIC_LIVE_THROUGH") == "keep",
+                    Picks = (Environment.GetEnvironmentVariable("HALCYONIC_LIVE_PICK") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
                 };
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 ViewField.Current = FieldChecks.Quest3S;
@@ -988,6 +1014,10 @@ namespace Halcyonic.XR.Workspace.Editor
 
             /// <summary>Whether the walk ends once Keep is tried, before the next instruction.</summary>
             public bool ThroughKeep { get; set; }
+
+            /// <summary>The rows the walk chooses where drawn, by key or, for a row with none, by action (HALCYONIC_LIVE_PICK: the way to
+            /// the run settings, an agent app's id, a model's ref).</summary>
+            public List<string> Picks { get; set; } = new List<string>();
 
             public List<string> Presses { get; } = new List<string>();
         }
