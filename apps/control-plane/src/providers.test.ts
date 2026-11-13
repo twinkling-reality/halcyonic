@@ -230,3 +230,39 @@ test('with a stand-in on this Mac, every reader of the list reaches it and no re
     /must be an address on this Mac/,
   );
 });
+
+test("a plane on a person's own data folder refuses the stand-in, so a lane's listener never gets a real key (AUDIT3)", (t) => {
+  const home = folder(t);
+  for (const own of ['.halcyonic', '.halcyonic-proving']) {
+    const dataDir = join(home, own);
+    mkdirSync(dataDir, { recursive: true });
+    assert.throws(
+      () =>
+        new HostProviders({
+          dataDir,
+          standIn: 'http://127.0.0.1:9',
+          ownDataFolders: [join(home, '.halcyonic'), join(home, '.halcyonic-proving')],
+        }),
+      /HALCYONIC_ASSISTANT_UPSTREAM is for test planes; this plane keeps a person's keys/,
+      own,
+    );
+    // Without the stand-in, the person's own plane starts as ever.
+    assert.ok(
+      new HostProviders({
+        dataDir,
+        ownDataFolders: [join(home, '.halcyonic'), join(home, '.halcyonic-proving')],
+      }).list().length > 0,
+    );
+  }
+  // A scratch folder elsewhere takes it.
+  const scratch = join(home, 'scratch-data');
+  mkdirSync(scratch);
+  assert.equal(
+    new HostProviders({
+      dataDir: scratch,
+      standIn: 'http://127.0.0.1:9',
+      ownDataFolders: [join(home, '.halcyonic'), join(home, '.halcyonic-proving')],
+    }).list()[0]?.upstream,
+    'http://127.0.0.1:9',
+  );
+});

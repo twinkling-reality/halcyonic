@@ -118,6 +118,9 @@ async function main(): Promise<void> {
     readers: [...AGENT_KEY_READERS, ASSISTANT_READER, OPENCODE_KEY_READER, CODEX_KEY_READER],
     // A stand-in on this Mac for every provider, for proofs and suites (rule 29): set, no request reaches a real one.
     standIn: process.env.HALCYONIC_ASSISTANT_UPSTREAM || null,
+    // A plane on a person's own data folder refuses it, so a variable left in a shell never sends their keys to a
+    // lane's listener (AUDIT3, 2026-11-13).
+    ownDataFolders: [join(homedir(), '.halcyonic'), join(homedir(), '.halcyonic-proving')],
   });
   // Each key a reader reads at its start, as kept now, by when it was written and never by its value: read before the
   // adapters start from them, so the setup page knows a key kept or removed since asks for a restart.
@@ -618,6 +621,12 @@ async function main(): Promise<void> {
     openLinkPrivately(config.dataDir, page.link());
   }
 
+  // Said once at the start, so a log reader sees it: this plane reaches no real provider (rule 29).
+  if (process.env.HALCYONIC_ASSISTANT_UPSTREAM)
+    app.log.warn(
+      { stand_in: process.env.HALCYONIC_ASSISTANT_UPSTREAM },
+      'every provider points at a stand-in on this Mac',
+    );
   app.log.info(
     {
       addresses: app.addresses(),
