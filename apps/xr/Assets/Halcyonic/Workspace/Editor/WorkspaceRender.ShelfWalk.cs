@@ -185,6 +185,13 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add(name + ": a part of the frame is not on screen (the bar's LostPart)");
                     Debug.Log("Halcyonic: shelf walk: " + name + ": the shelf stands " + ShelfSeen());
                 }
+                // The shelf travels aside and back as the eye follows it (XR, 2026-11-13T21:06Z): three seconds of drawn frames, so a
+                // moment is taken where it has arrived.
+                void Travel()
+                {
+                    var until = DateTime.UtcNow.AddSeconds(3);
+                    while (DateTime.UtcNow < until) { Draw(); Thread.Sleep(50); }
+                }
                 // A press through the redesign's drawn control, else through the frame the plane shows that offers it, said so.
                 bool Press(string action, string? key = null)
                 {
@@ -229,6 +236,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 menu.OpenFile(work.Workstream.WorkstreamId);
                 var refresh = System.Diagnostics.Stopwatch.StartNew();
                 do { Draw(); Thread.Sleep(50); } while (refresh.Elapsed.TotalSeconds < FileColumn.RefreshSeconds + 0.5);
+                Travel();
                 Shot("page-open");
                 var shelf = ShelfSeen();
                 var drawn = root.GetComponentsInChildren<Renderer>(false)
@@ -249,6 +257,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!Press(Footer.Close)) { failures.Add("nothing drawn closes the task's page"); menu.Navigator.CloseBeside(); }
                 Draw();
                 if (menu.Navigator.Beside != null) failures.Add("page closed: Close was pressed and the page stayed");
+                Travel();
                 Shot("page-closed");
                 var back = Vector3.Distance(stage.Shelf.position, home.position);
                 if (back > 0.01f || Quaternion.Angle(stage.Shelf.rotation, home.rotation) > 0.5f)
