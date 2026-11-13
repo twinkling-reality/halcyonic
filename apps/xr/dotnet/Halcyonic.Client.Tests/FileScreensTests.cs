@@ -219,6 +219,38 @@ public class FileScreensTests
         Assert.That(shown.Select(line => line.Chip), Is.EqualTo(lines.Select(line => line.Chip)), "every chip as the answer gave it");
     }
 
+    /// <summary>
+    /// Changes and Checks with an answer (the lead, 2026-11-13T19:47Z, on DEVICE's 19:46Z ALERT): the general reader holds each
+    /// in the six-action column at both forms, paging what is more, and loses none of the frame's actions across its pages, so
+    /// the kit holds them (KitWorkspaceHost.Holds) and the older view never draws them.
+    /// </summary>
+    [Test]
+    public void ChangesAndChecksWithAnAnswerStandInTheColumnAndLoseNoAction()
+    {
+        foreach (var section in new[] { FileSection.Changes, FileSection.Checks })
+        foreach (var form in new[] { RoomForm.Full, new RoomForm(true, 1) })
+        {
+            var frame = Screen(Read(section), room: AnswerRoom.Unlimited);
+            var bar = RoomBar.Of(KitFileBinding.PlainOf(frame), VoiceStage.Idle, false, form: form);
+            var named = section + (form.Narrow ? " narrow" : " full");
+            Assert.That(bar.Pair, Is.True, named);
+            var offered = new HashSet<(string, string?)>();
+            var pages = 0;
+            while (true)
+            {
+                Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(RoomBar.ColumnMost), named + ": a page within the column");
+                foreach (var action in bar.Column) offered.Add((action.Control.Action, action.Control.Key));
+                pages++;
+                if (bar.Whole || pages >= 20 || !bar.Turn()) break;
+            }
+            Assert.That((bar.Whole, pages < 20), Is.EqualTo((true, true)), named + ": every page shown");
+            foreach (var prompt in frame.Footer.All.Select(each => each.Prompt).Where(prompt => prompt.Available))
+                Assert.That(offered.Select(each => each.Item1), Does.Contain(prompt.Id), named + ": " + prompt.Id + " on some page");
+            foreach (var other in frame.Sections.Where(each => !each.Chosen))
+                Assert.That(offered, Does.Contain((MenuFrame.ChooseSection, other.Key)), named + ": section " + other.Key + " on some page");
+        }
+    }
+
     [Test]
     public void ChecksOpensItsFullAnswerAndOffersRefreshBesideClose()
     {
