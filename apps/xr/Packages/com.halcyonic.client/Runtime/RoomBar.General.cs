@@ -49,6 +49,9 @@ namespace Halcyonic.Client
             {
                 // The side panel, which the person opened, stands in the page's place; the page is one Close away.
                 words = side.SubjectRuns;
+                // What the panel is about stands as its first row, so a person sees where they are (the lead, 16:46Z): the bar's
+                // own words are not drawn where rows stand (gen-n2, 2026-11-13: "Text Size" and "Tests" unseen).
+                rows.Add(new RoomRow(side.SubjectRuns));
                 foreach (var fact in side.Facts) rows.Add(new RoomRow(fact.ValueRuns, label: fact.Name));
                 foreach (var line in side.Lines) rows.Add(Stating(line));
                 if (side.SourceRuns is LineWords source) rows.Add(new RoomRow(source));
@@ -119,6 +122,10 @@ namespace Halcyonic.Client
             var sections = frame.Side != null ? new List<RoomAction>() : frame.Sections.Where(section => !section.Chosen && section.Reached)
                 .Select(section => new RoomAction(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, section.Key, section.Words, null, true, null, false),
                     main: false, icon: GlazeIcon.Next)).ToList();
+            // A frame that pages itself (its own Next Page) keeps one pager: where the general reader pages it too, the frame's own
+            // stands on the reader's last page in the place of First Page, so a person meets one Next Page throughout (gen-n2:
+            // Usage at Larger drew two).
+            var ownPager = others.FirstOrDefault(action => frame.Footer.All.Any(each => each.Prompt.Kind == PromptKind.NextPage && each.Prompt.Id == action.Control.Action));
             var turning = new List<RoomAction>();
             turning.AddRange(acting);
             turning.AddRange(others);
@@ -146,16 +153,25 @@ namespace Halcyonic.Client
             var rowPages = rows.Count <= 0 ? 1 : (rows.Count + rowsAPage - 1) / rowsAPage;
             var pages = System.Math.Max(rowPages, actionPages);
             var each = pages > 1 ? room - 1 : room;
+            if (ownPager != null)
+            {
+                // The frame's own pager holds the pager's place on every page: the reader's Next Page before the last, the frame's own on it.
+                turning.Remove(ownPager);
+                each = System.Math.Max(1, room - 1);
+                actionPages = turning.Count <= each ? 1 : (turning.Count + each - 1) / each;
+                pages = System.Math.Max(rowPages, actionPages);
+            }
             var parts = new List<GeneralPage>();
             for (var page = 0; page < pages; page++)
             {
                 var column = new List<RoomAction>();
                 if (main != null) column.Add(main);
                 column.AddRange(turning.Skip(page * each).Take(each));
-                if (pages > 1)
+                if (pages > 1 || ownPager != null)
                 {
                     var last = page == pages - 1;
-                    column.Add(new RoomAction(new KitControl(KitPlace.Step, frame, TurnPage, null, Footer.NextPageWords(page, pages), GlazeIcon.Next, true, null, false),
+                    if (last && ownPager != null) column.Add(ownPager);
+                    else column.Add(new RoomAction(new KitControl(KitPlace.Step, frame, TurnPage, null, Footer.NextPageWords(page, pages), GlazeIcon.Next, true, null, false),
                         main: false, icon: GlazeIcon.Next, detail: last ? null : (page + 2) + " of " + pages));
                 }
                 column.AddRange(leaving);

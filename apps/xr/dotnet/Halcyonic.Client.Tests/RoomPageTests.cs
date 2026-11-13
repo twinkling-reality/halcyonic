@@ -110,7 +110,8 @@ public class RoomPageTests
         var side = Of(Frame(new[] { new PageLine("Report", action: "open-report", opens: true, chosen: true) },
             side: new SidePanel("Report", facts: new[] { new SideFact("Tests", "12 Passed"), new SideFact("Checked", "Today") })));
         Assert.That(side.Words.Text, Is.EqualTo("Report"));
-        Assert.That(side.Facts!.Select(row => (row.Label, row.Words.Text, row.Note)), Is.EqualTo(new[] { ("Tests", "12 Passed", (string?)null), ("Checked", "Today", null) }),
+        Assert.That(side.Facts!.Select(row => (row.Label, row.Words.Text, row.Note)),
+            Is.EqualTo(new[] { ((string?)null, "Report", (string?)null), ("Tests", "12 Passed", null), ("Checked", "Today", null) }),
             "a value is the row's words under its name, never a note");
         Assert.That(side.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { SidePanel.Close }), "the side panel's own Close is its one way out");
         Assert.That(side.Column.All(action => action.Control.Action != "open-report"), Is.True, "the page under it is one Close away, not drawn beside it");
@@ -189,7 +190,7 @@ public class RoomPageTests
             var bar = RoomBar.OfFrame(frame, VoiceStage.Idle);
             Assert.That(bar, Is.Not.Null, frame.Subject + ": the side panel was dropped");
             Assert.That(bar!.Words.Text, Is.EqualTo("Text Size"), frame.Subject);
-            Assert.That(bar.Facts!.Single().Words.Text, Is.EqualTo("Larger"), frame.Subject);
+            Assert.That(bar.Facts!.Select(row => row.Words.Text), Is.EqualTo(new[] { "Text Size", "Larger" }), frame.Subject + ": what the panel is about, then its value");
             Assert.That(bar.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { "change", SidePanel.Close }),
                 frame.Subject + ": only what acts on the panel, then its Close; never the hidden page's Send or its own Close");
         }
@@ -271,5 +272,35 @@ public class RoomPageTests
             "one to eight rows a page; the plane's fewer never reaches nought");
         // A specific reader's bar carries the form too, so the plane lays it in the form it asked for.
         Assert.That(RoomBar.OfFrame(Frame(new[] { new PageLine("All tests pass", chip: "Agent says", claim: true) }), VoiceStage.Idle, new RoomForm(true, 4))!.Form.Narrow, Is.True);
+    }
+
+    /// <summary>
+    /// A frame that pages itself keeps ONE pager when the general reader pages its actions too (gen-n2: Usage at Larger drew two
+    /// Next Page): the reader's Next Page before its last page, the frame's own Next Page on the last, and where the actions fit
+    /// on one page the frame's own alone.
+    /// </summary>
+    [Test]
+    public void AFrameThatPagesItselfKeepsOnePagerWhenTheGeneralReaderPagesItToo()
+    {
+        var own = new Footer(Close).WithNext(new Prompt(Footer.NextPage, "Next Page", GlazeIcon.Next, PromptKind.NextPage));
+        var many = RoomBar.OfFrame(Frame(Enumerable.Range(1, 7).Select(n => new PageLine("Do " + n, action: "do", key: n.ToString())).ToList(), own), VoiceStage.Idle)!;
+        var pagers = new List<string>();
+        var keys = new List<string?>();
+        for (var page = 0; page < many.GeneralPart.Pages; page++)
+        {
+            var turning = many.Column.Where(action => action.Control.Action is RoomBar.TurnPage or Footer.NextPage).ToList();
+            Assert.That(turning.Count, Is.EqualTo(1), "one pager on page " + (page + 1));
+            pagers.Add(turning[0].Control.Action);
+            keys.AddRange(many.Column.Where(action => action.Control.Action == "do").Select(action => action.Control.Key));
+            Assert.That(many.Column.Count, Is.LessThanOrEqualTo(RoomBar.ColumnMost));
+            many.Turn();
+        }
+        Assert.That(pagers.Last(), Is.EqualTo(Footer.NextPage), "the frame's own pager on the reader's last page");
+        Assert.That(pagers.Take(pagers.Count - 1).All(action => action == RoomBar.TurnPage), Is.True);
+        Assert.That(keys, Is.EqualTo(Enumerable.Range(1, 7).Select(n => n.ToString())));
+
+        var few = RoomBar.OfFrame(Frame(new[] { new PageLine("Do 1", action: "do", key: "1") }, own), VoiceStage.Idle)!;
+        Assert.That((few.GeneralPart.Pages, few.Column.Count(action => action.Control.Action == Footer.NextPage), few.Column.Any(action => action.Control.Action == RoomBar.TurnPage)),
+            Is.EqualTo((1, 1, false)), "on one page, the frame's own pager alone");
     }
 }
