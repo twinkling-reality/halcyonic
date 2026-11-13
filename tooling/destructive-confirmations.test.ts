@@ -42,10 +42,10 @@ function confirmations(): { where: string; destructive: string | null }[] {
       }
       const call = text.slice(match.index, end);
       if (!call.includes('PromptKind.Yes')) continue;
-      const declared = /destructive:\s*([^,)]+?)\s*(?:[,)]|$)/.exec(call + ')');
+      const declared = /destructive:\s*([^,)]+?)\s*(?:[,)]|$)/.exec(call + ')')?.[1];
       found.push({
         where: `${file} ${match[1]}`,
-        destructive: declared ? declared[1].trim() : null,
+        destructive: declared === undefined ? null : declared.trim(),
       });
     }
   }
