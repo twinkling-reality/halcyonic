@@ -9,7 +9,13 @@ import {
   type ProjectId,
   type Timestamp,
 } from '@halcyonic/contracts';
-import { fixSteps, folderInUse, foldersOverlap, type Projection } from '@halcyonic/domain';
+import {
+  fixSteps,
+  folderInUse,
+  foldersOverlap,
+  type Projection,
+  readingFix,
+} from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
@@ -31,6 +37,9 @@ export const AUTO_FIX_CAP = 2;
  */
 export const AUTO_FIX_WORDS =
   '[Sent by your computer on its own, not by the person] Your computer checked this project after your last turn, and the check failed. Fix what it found, change nothing else, then end your turn.';
+/** The host's words for a check that passed but does not read on a laptop (ADR 0044's second trigger). */
+export const AUTO_FIX_READING_WORDS =
+  '[Sent by your computer on its own, not by the person] Your computer checked this project after your last turn: it builds and runs, but a person cannot read it on a laptop. Fix what it found, change nothing else, then end your turn.';
 
 type ProjectCheck = NonNullable<ReturnType<Projection['latestCheck']>>;
 
@@ -294,7 +303,8 @@ export class AutoFix {
       for (const id of executions) this.#end(id, 'check_unavailable', null);
       return;
     }
-    if (check.findings.passed) {
+    // A check that passed but does not read on a laptop goes back too, under the same cap (ADR 0044, VRIFY 2026-11-13).
+    if (check.findings.passed && readingFix(check.findings) === null) {
       for (const id of executions) if (this.#fixing(id)) this.#end(id, 'passed', check.check_id);
       return;
     }
@@ -456,9 +466,14 @@ export class AutoFix {
       refusals.length === 0
         ? ''
         : `\n\nThe check refused it:\n${refusals.map((each) => `- ${each.words} (${each.file})`).join('\n')}`;
+    // The laptop reading under its floors, in words that may name the kit's parts (AUDIT3 R4).
+    const reading = steps.includes('reading') ? readingFix(check.findings) : null;
+    const readingPart = reading === null ? '' : `\n\n${reading}`;
     const codeSteps = steps.includes('typecheck') || steps.includes('build');
-    if (!(codeSteps && lines) && pagePart === '' && refusedPart === '') return null;
-    return AUTO_FIX_WORDS + pagePart + refusedPart;
+    if (!(codeSteps && lines) && pagePart === '' && refusedPart === '' && readingPart === '')
+      return null;
+    const head = check.findings.passed ? AUTO_FIX_READING_WORDS : AUTO_FIX_WORDS;
+    return head + pagePart + refusedPart + readingPart;
   }
 
   #send(

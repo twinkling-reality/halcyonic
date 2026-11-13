@@ -8,6 +8,7 @@ import {
   SRGBColorSpace,
   type Texture,
 } from 'three';
+import { PAGES_DISTANCE, PAGES_EYE, wordsOn } from './legible.js';
 import { ambientMotion, gameIsland, gameTime } from './look.js';
 import { fitText, wrapLines } from './page-fit.js';
 
@@ -78,7 +79,7 @@ const HEIGHT = 0.8;
 /** Canvas pixels per metre: 1600, sharp enough to read 3 cm letters in a headset. */
 const PIXELS = 1600;
 /** The panels' centres, at the height a standing person reads at. */
-const EYE = 1.45;
+const EYE = PAGES_EYE;
 /** The most pages laid out at once: more would widen the arc past where a person reads without turning. */
 export const MAX_PAGES = 6;
 /** How far the pressed page comes toward the person, and how much bigger it grows. */
@@ -96,7 +97,7 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
   const color = options.color ?? '#FFF8EC';
   const ink = options.ink ?? '#2B2118';
   const accent = options.accent ?? '#E8743B';
-  const distance = options.distance ?? 1.6;
+  const distance = options.distance ?? PAGES_DISTANCE;
   const group = new Group();
   // Side by side with a 6 cm gap, bent round the person so each faces them.
   const step = (WIDTH + 0.06) / distance;
@@ -108,6 +109,8 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
       new MeshBasicMaterial({ toneMapped: false }),
     );
     group.add(panel);
+    // Its running words are `TYPE.words` high in the panel's own metres, for the computer's check of a laptop's view.
+    wordsOn(panel, TYPE.words);
     return panel;
   });
   let chosen = -1;

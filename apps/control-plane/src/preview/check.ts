@@ -4,12 +4,15 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { get } from 'node:http';
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { CheckLaptop, CheckNotes, CheckVr } from '@halcyonic/contracts';
+import type { CheckLaptop, CheckNotes, CheckReading, CheckVr } from '@halcyonic/contracts';
 import { launchChrome } from './chrome.ts';
 import {
   laptopStep,
   layerState,
   pipeDriver,
+  readingFiles,
+  readingOf,
+  readingPasses,
   TWIN_FRAMES,
   type TwinVerdict,
   twinLoad,
@@ -118,6 +121,11 @@ export interface CheckOptions {
    * so a restart stops a server the control plane left serving when it died mid-check (AUDIT S1).
    */
   readonly onServer?: (pid: number) => Promise<void>;
+  /**
+   * The project's last measured laptop reading (VRIFY, 2026-11-13), or null: a reading this check cannot measure keeps
+   * a failure it measured under the floor, never clears it.
+   */
+  readonly lastReading?: CheckReading | null;
 }
 
 export interface CheckStep {
@@ -244,6 +252,8 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
   // Both read the project in the host, before anything of it runs.
   const notes = await scanSource(project);
   const layer = await layerState(project, options.template);
+  // Whether the kit that measures the laptop reading is the starter's own (VRIFY, AUDIT3 R1).
+  const reading = await readingFiles(project, options.template);
   const steps = {
     notes,
     laptop: null,
@@ -374,6 +384,8 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
       served,
       cache,
       layer,
+      reading,
+      options.lastReading ?? null,
     );
     if (opened === null) {
       return {
@@ -426,7 +438,8 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
         ...laptop,
         response_seen: verdict.seen,
         ...(verdict.unknown === null ? {} : { response_unknown: verdict.unknown }),
-        ready: laptop.ready || verdict.seen === true,
+        // The reading holds the step back either way (R3), as a press that never reached the layer does.
+        ready: readingPasses(laptop.reading) && (laptop.ready || verdict.seen === true),
       };
     }
     // Only a picture to compare, or to make the reference from, is worth a load.
@@ -520,6 +533,11 @@ export function laptopUnknown(laptop: CheckLaptop): string | null {
     return "The check could not read the app's input layer, so whether it works with a mouse and keyboard is not known.";
   if (laptop.mouse === 'no_target')
     return 'The check found nothing it can press through the input layer, so whether the app works with a mouse is not known.';
+  // Whether it reads on a laptop, where the check could not measure it: said apart from whether it plays, never as
+  // ready (AUDIT2); with the last measured failure where one is held.
+  const reading = laptop.reading;
+  if (reading !== undefined && reading.state !== 'measured')
+    return `${reading.words}.${reading.detail === null ? '' : ` (${reading.detail})`}`;
   return null;
 }
 
@@ -654,6 +672,8 @@ async function openPage(
   port: number,
   cache: string,
   layer: CheckLaptop['layer'],
+  reading: CheckLaptop['layer'],
+  lastReading: CheckReading | null,
 ): Promise<
   | { page: Omit<PageFindings, 'drawn' | 'own'>; laptop: CheckLaptop; vr: CheckVr | null }
   | string
@@ -690,17 +710,18 @@ async function openPage(
     await devtools.send('Page.navigate', { url: `http://127.0.0.1:${port}/?check` }, session);
     const picture = async (
       atMs: number,
-    ): Promise<{ edges: number | null; saved: PagePicture | null }> => {
+    ): Promise<{ edges: number | null; saved: PagePicture | null; bytes: Buffer | null }> => {
       const shot = await devtools
         .send('Page.captureScreenshot', { format: 'png' }, session)
         .catch((): Record<string, unknown> => ({}));
-      if (typeof shot.data !== 'string') return { edges: null, saved: null };
+      if (typeof shot.data !== 'string') return { edges: null, saved: null, bytes: null };
       const bytes = Buffer.from(shot.data, 'base64');
       const file = join(cache, `picture-${atMs / 1000}s.png`);
       await writeFile(file, bytes, { mode: 0o600 });
       return {
         edges: edgeCount(bytes),
         saved: { at_ms: atMs, file, sha256: createHash('sha256').update(bytes).digest('hex') },
+        bytes,
       };
     };
     await delay(EARLY_MS);
@@ -728,13 +749,19 @@ async function openPage(
       pictures: [early.saved, late.saved].filter((saved): saved is PagePicture => saved !== null),
     } satisfies Omit<PageFindings, 'drawn' | 'own'>;
     const thrownBefore = exceptionCount;
-    const stepped = await laptopStep(pipeDriver(devtools, session), layer).catch(
+    // The fill share, information only, is read from the picture at 10 s, before the step acts.
+    const stepped = await laptopStep(pipeDriver(devtools, session), layer, {
+      files: reading,
+      picture: late.bytes,
+      last: lastReading,
+    }).catch(
       (): CheckLaptop => ({
         layer,
         targets: 0,
         mouse: 'unknown',
         key: 'unknown',
         screen_changed: null,
+        reading: readingOf(reading, null, null, lastReading),
         ready: false,
       }),
     );

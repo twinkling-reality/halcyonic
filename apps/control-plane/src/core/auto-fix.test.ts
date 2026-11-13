@@ -18,10 +18,11 @@ import type {
   StartExecutionResult,
 } from '@halcyonic/runtime-core';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
-import type { CheckResult } from '../preview/check.ts';
+import type { CheckOptions, CheckResult } from '../preview/check.ts';
 import { DRAWN_EDGES } from '../preview/check.ts';
+import { readingOf, readingPasses } from '../preview/laptop-probe.ts';
 import { createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
-import { AUTO_FIX_WORDS } from './auto-fix.ts';
+import { AUTO_FIX_READING_WORDS, AUTO_FIX_WORDS } from './auto-fix.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 
 const [FEATURE] = DEMO_WORKSTREAMS as unknown as [(typeof DEMO_WORKSTREAMS)[number]];
@@ -79,6 +80,23 @@ const BLANK: CheckResult = { ...UNEXPLAINED, page: page(0) };
 /** A type error, and a page that shows only the starter's scene: the try is sent for the type check alone. */
 const TSC_AND_STARTER_LOOK: CheckResult = { ...FAILED, page: page(56_000) };
 const MARK = 'error TS2304: Cannot find name (the stand-in).';
+/** A check that passed, its laptop step pressed and answered, with the kit's words read at `px` high, a game's. */
+const readAt = (px: number): CheckResult => ({
+  ...PASSED,
+  laptop: {
+    layer: 'starter',
+    targets: 1,
+    mouse: 'reached',
+    key: 'reached',
+    screen_changed: true,
+    reading: readingOf('starter', { texts: [px] }, null),
+    ready: px >= 10,
+  },
+  ready: px >= 10,
+});
+/** Passed, but its words read 6 px high on a laptop: the second trigger (VRIFY, 2026-11-13). */
+const UNREADABLE = readAt(6);
+const READABLE = readAt(14);
 
 async function until(check: () => boolean, what: string): Promise<void> {
   const deadline = Date.now() + 10_000;
@@ -95,7 +113,7 @@ async function quiet(): Promise<void> {
 
 function plane(
   t: TestContext,
-  results: CheckResult[],
+  results: (CheckResult | ((check: CheckOptions) => CheckResult))[],
   options: { atRest?: boolean; dataDir?: string; trackedDir?: string } = {},
 ) {
   const dataDir =
@@ -135,7 +153,8 @@ function plane(
         mkdirSync(check.cache, { recursive: true });
         writeFileSync(join(check.cache, 'tsc.log'), `src/game.ts(3,1): ${MARK}\n`);
         writeFileSync(join(check.cache, 'build.log'), '');
-        return results.shift() ?? FAILED;
+        const next = results.shift() ?? FAILED;
+        return typeof next === 'function' ? next(check) : next;
       },
       serve: () => {
         throw new Error('no preview in this test');
@@ -508,6 +527,151 @@ describe('a failed check goes back to its agent on its own, within a cap (ADR 00
     p.changedFiles(executionId, 0);
     await until(() => p.ended().length === 1, 'the end');
     assert.equal(p.ended()[0]?.payload.reason, 'no_change');
+  });
+});
+
+describe('a check that passed but does not read on a laptop goes back too, under the same cap (ADR 0044, VRIFY 2026-11-13)', () => {
+  test('the reading alone starts a chain, in its own words with the numbers; it ends when the words read', async (t) => {
+    const p = plane(t, [UNREADABLE, READABLE]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the try');
+    assert.equal(
+      p.runtime.given[1],
+      `${AUTO_FIX_READING_WORDS}\n\nWords are drawn 6 px high at a laptop's 1280 by 800 view; a person reads at least 10 px. Bring the pages nearer the laptop camera or make the words larger (TYPE in src/pages.ts), so the laptop reads as the headset does.`,
+    );
+    assert.deepEqual(p.controlPlane.projection.execution(executionId)?.auto_fix?.failed_steps, [
+      'reading',
+    ]);
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.ended().length === 1, 'the end of the chain');
+    assert.equal(p.ended()[0]?.payload.reason, 'passed');
+    assert.equal(p.ended()[0]?.payload.attempts, 1);
+    assert.deepEqual(p.controlPlane.projection.execution(executionId)?.auto_fix?.failed_steps, [
+      'reading',
+    ]);
+  });
+
+  test('a failed check and then an unreadable one share the two tries: the cap counts both triggers', async (t) => {
+    const p = plane(t, [FAILED, UNREADABLE, UNREADABLE]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the first try, for the type check');
+    assert.ok((p.runtime.given[1] ?? '').startsWith(`${AUTO_FIX_WORDS}\n\n`));
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 2, 'the second try, for the reading');
+    assert.ok((p.runtime.given[2] ?? '').startsWith(`${AUTO_FIX_READING_WORDS}\n\n`));
+    assert.deepEqual(
+      p.sent().map((event) => [event.payload.attempt, event.payload.cap]),
+      [
+        [1, 2],
+        [2, 2],
+      ],
+    );
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.ended().length === 1, 'the end of the chain');
+    await quiet();
+    assert.equal(p.ended()[0]?.payload.reason, 'cap_reached');
+    assert.equal(p.ended()[0]?.payload.attempts, 2);
+    assert.equal(p.sent().length, 2, 'no third try, whatever triggered it');
+  });
+
+  test('a check that passed and reads on a laptop, or whose reading is not known, sends nothing', async (t) => {
+    const unknown: CheckResult = {
+      ...READABLE,
+      laptop: {
+        ...(READABLE.laptop as NonNullable<CheckResult['laptop']>),
+        reading: readingOf('starter', { texts: [] }, null),
+        ready: true,
+      },
+    };
+    for (const result of [READABLE, unknown]) {
+      const p = plane(t, [result]);
+      const executionId = await p.start();
+      p.changedFiles(executionId);
+      await p.time.runUntilIdle();
+      await quiet();
+      assert.equal(p.sent().length, 0);
+      assert.equal(p.runtime.given.length, 1);
+    }
+  });
+
+  /**
+   * A check of this project whose kit files changed, its reading built as the real check builds it, from the last
+   * measured reading the host hands it: a reading that cannot measure never clears one measured under the floor.
+   */
+  const kitChanged = (check: CheckOptions): CheckResult => {
+    const reading = readingOf('changed', null, null, check.lastReading ?? null);
+    const ready = readingPasses(reading);
+    return {
+      ...READABLE,
+      laptop: { ...(READABLE.laptop as NonNullable<CheckResult['laptop']>), reading, ready },
+      ready,
+    };
+  };
+
+  test('measured under, then changed: not fixed, the next try says the last measurement; never "ready" (AUDIT3)', async (t) => {
+    const p = plane(t, [UNREADABLE, kitChanged, kitChanged]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the first try');
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 2, 'the second try: not fixed');
+    const second = p.runtime.given[2] ?? '';
+    assert.ok(second.startsWith(`${AUTO_FIX_READING_WORDS}\n\n`), second);
+    assert.match(
+      second,
+      /Words were drawn 6 px high at a laptop's 1280 by 800 view when last measured/,
+    );
+    assert.match(second, /can no longer measure them: a starter kit file that measures them/);
+    assert.doesNotMatch(second, /ready/i);
+    const latest = p.controlPlane.projection.latestCheck(p.projectId);
+    assert.equal(latest?.findings.laptop?.reading?.last_measured_px, 6);
+    assert.equal(latest?.findings.laptop?.ready, false);
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.ended().length === 1, 'the end of the chain');
+    await quiet();
+    assert.equal(
+      p.ended()[0]?.payload.reason,
+      'cap_reached',
+      'never passed by becoming unmeasurable',
+    );
+  });
+
+  test('measured under, then measured over: cleared; never measured and not known: nothing held', async (t) => {
+    const p = plane(t, [UNREADABLE, READABLE, kitChanged]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the try');
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.ended().length === 1, 'the end of the chain');
+    assert.equal(p.ended()[0]?.payload.reason, 'passed');
+    // The last measured reading is now over the floor, so a check that cannot measure holds nothing.
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.checksDone() === 3, 'the third check');
+    await quiet();
+    const latest = p.controlPlane.projection.latestCheck(p.projectId);
+    assert.equal(latest?.findings.laptop?.reading?.state, 'changed');
+    assert.equal(latest?.findings.laptop?.reading?.last_measured_px, null);
+    assert.equal(latest?.findings.laptop?.ready, true);
+    assert.equal(p.sent().length, 1);
+    const fresh = plane(t, [kitChanged]);
+    const first = await fresh.start();
+    fresh.changedFiles(first);
+    await until(() => fresh.checksDone() === 1, 'the first check');
+    await quiet();
+    assert.equal(
+      fresh.controlPlane.projection.latestCheck(fresh.projectId)?.findings.laptop?.ready,
+      true,
+    );
+    assert.equal(fresh.sent().length, 0);
   });
 });
 

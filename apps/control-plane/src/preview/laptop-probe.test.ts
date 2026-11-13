@@ -6,15 +6,23 @@ import { PassThrough } from 'node:stream';
 import { describe, test } from 'node:test';
 import { createContext, runInContext } from 'node:vm';
 import { deflateSync } from 'node:zlib';
+import { type CheckReading, READING_FLOOR_PX } from '@halcyonic/contracts';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
 import {
   acceptCall,
+  BACKGROUND_LEAST,
   CHANGED_AFTER,
   clockScript,
   type Driver,
+  fillShare,
   laptopStep,
   layerState,
+  parseReadings,
   parseReport,
+  READING_FILES,
+  readingFiles,
+  readingOf,
+  readingPasses,
   STILL_CONTROL,
   screenChanged,
   settledPicture,
@@ -57,9 +65,21 @@ function picture(lit: number): Buffer {
   ]);
 }
 
+/** What the hook says of the kit's words: heights in CSS pixels. */
+interface Readings {
+  texts: { px: number }[];
+}
+
+/** Kit words standing 14 px high: readable. */
+const READABLE: Readings = { texts: [{ px: 14 }] };
+/** The kit's files are the starter's own; no picture, so no fill share. */
+const KIT = { files: 'starter', picture: null } as const;
+
 interface Page {
   /** Whether the page has the hook at all. */
   hook?: boolean;
+  /** What its hook says of the words; `READABLE` unless given, absent with `null`. */
+  readings?: Readings | null;
   targets?: { x: number; y: number }[];
   /** Whether a click reaches the layer, and how many pixels it changes. */
   reaches?: boolean;
@@ -76,7 +96,13 @@ function driver(page: Page) {
   const actions: string[] = [];
   const fake: Driver = {
     evaluate: async () =>
-      page.hook === false ? null : JSON.stringify({ counts, targets: page.targets ?? [] }),
+      page.hook === false
+        ? null
+        : JSON.stringify({
+            counts,
+            targets: page.targets ?? [],
+            readings: page.readings === undefined ? READABLE : page.readings,
+          }),
     async mouse(type, x, y) {
       actions.push(`${type} ${x},${y}`);
       if (type === 'mouseReleased' && page.reaches !== false) {
@@ -103,13 +129,24 @@ const MANY = Math.ceil(W * H * CHANGED_AFTER) + 50;
 describe("the check's laptop step (M1.8b)", () => {
   test('a press that reaches the layer and changes the screen, with a still control pair, is ready', async () => {
     const { fake, actions } = driver({ targets: [AT], changes: MANY });
-    const laptop = await laptopStep(fake, 'starter');
+    const laptop = await laptopStep(fake, 'starter', KIT);
     assert.deepEqual(laptop, {
       layer: 'starter',
       targets: 1,
       mouse: 'reached',
       key: 'reached',
       screen_changed: true,
+      reading: {
+        state: 'measured',
+        smallest_px: 14,
+        measured: 1,
+        fill_share: null,
+        floor_px: 10,
+        last_measured_px: null,
+        words:
+          'Readable on a laptop where it could measure (1 text); text the app drew itself was not measured',
+        detail: 'smallest words 14 px high',
+      },
       ready: true,
     });
     assert.deepEqual(actions, [
@@ -123,7 +160,7 @@ describe("the check's laptop step (M1.8b)", () => {
 
   test('a press the layer reports but the screen does not show is not ready', async () => {
     const { fake } = driver({ targets: [AT], changes: 5 });
-    const laptop = await laptopStep(fake, 'starter');
+    const laptop = await laptopStep(fake, 'starter', KIT);
     assert.equal(laptop.mouse, 'reached');
     assert.equal(laptop.screen_changed, false);
     assert.equal(laptop.ready, false);
@@ -135,34 +172,38 @@ describe("the check's laptop step (M1.8b)", () => {
       changes: MANY,
       moving: Math.ceil(W * H * STILL_CONTROL) + 10,
     });
-    const laptop = await laptopStep(fake, 'starter');
+    const laptop = await laptopStep(fake, 'starter', KIT);
     assert.equal(laptop.screen_changed, null);
     assert.equal(laptop.ready, false);
   });
 
   test('a changed layer is never ready, even when everything else is', async () => {
     const { fake } = driver({ targets: [AT], changes: MANY });
-    const laptop = await laptopStep(fake, 'changed');
+    const laptop = await laptopStep(fake, 'changed', KIT);
     assert.equal(laptop.screen_changed, true);
     assert.equal(laptop.ready, false);
   });
 
   test('nothing to press, a press that never reaches, and no hook at all are each said as they are', async () => {
-    assert.equal((await laptopStep(driver({ targets: [] }).fake, 'starter')).mouse, 'no_target');
+    assert.equal(
+      (await laptopStep(driver({ targets: [] }).fake, 'starter', KIT)).mouse,
+      'no_target',
+    );
     const missed = driver({
       targets: [AT, { x: 10, y: 10 }, { x: 20, y: 20 }, { x: 30, y: 30 }],
       reaches: false,
     });
-    const notReached = await laptopStep(missed.fake, 'starter');
+    const notReached = await laptopStep(missed.fake, 'starter', KIT);
     assert.equal(notReached.mouse, 'not_reached');
     assert.equal(missed.actions.filter((action) => action.startsWith('mousePressed')).length, 3);
-    const none = await laptopStep(driver({ hook: false }).fake, 'starter');
+    const none = await laptopStep(driver({ hook: false }).fake, 'starter', KIT);
     assert.deepEqual(none, {
       layer: 'starter',
       targets: 0,
       mouse: 'unknown',
       key: 'unknown',
       screen_changed: null,
+      reading: readingOf('starter', null, null),
       ready: false,
     });
   });
@@ -208,14 +249,14 @@ describe("the check's laptop step (M1.8b)", () => {
       },
       wait: async () => {},
     };
-    await laptopStep(moving, 'starter');
+    await laptopStep(moving, 'starter', KIT);
     assert.deepEqual(pressed, ['900,300']);
   });
 
   test("the hook's report is read in the host against a strict shape", () => {
     const counts = { mouse: 1, key: 0, trigger: 0, pinch: 0, touch: 0 };
     const ok = parseReport(JSON.stringify({ counts, targets: [AT] }));
-    assert.deepEqual(ok, { counts, targets: [AT] });
+    assert.deepEqual(ok, { counts, targets: [AT], readings: null });
     for (const bad of [
       null,
       42,
@@ -242,6 +283,231 @@ describe("the check's laptop step (M1.8b)", () => {
     assert.equal(screenChanged(STILL_CONTROL + 0.0001, 0.5), null);
     assert.equal(screenChanged(null, 0.5), null);
     assert.equal(screenChanged(0, null), null);
+  });
+});
+
+/** A PNG `w` by `h` whose pixel at (x, y) is `colour(x, y)`, as RGB; filter 0, no CRCs read. */
+function pngOf(w: number, h: number, colour: (x: number, y: number) => readonly number[]): Buffer {
+  const raw = Buffer.alloc(h * (w * 3 + 1));
+  for (let y = 0; y < h; y += 1)
+    for (let x = 0; x < w; x += 1) {
+      const at = y * (w * 3 + 1) + 1 + x * 3;
+      const [r = 0, g = 0, b = 0] = colour(x, y);
+      raw[at] = r;
+      raw[at + 1] = g;
+      raw[at + 2] = b;
+    }
+  const chunk = (type: string, body: Buffer) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(body.length);
+    return Buffer.concat([length, Buffer.from(type, 'latin1'), body, Buffer.alloc(4)]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(w, 0);
+  header.writeUInt32BE(h, 4);
+  header[8] = 8;
+  header[9] = 2;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+/**
+ * A view of 160 by 100: a page-coloured panel `share` of it wide and the full height, words on it in ink, over a
+ * clear dark background, or over noise, a picture with no one background colour.
+ */
+function view(share: number, background: 'clear' | 'noise' = 'clear'): Buffer {
+  let seed = 7;
+  const noise = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return (seed >> 16) & 0xff;
+  };
+  return pngOf(160, 100, (x, y) => {
+    if (x < 160 * share) return y % 10 === 5 && x % 4 !== 0 ? [43, 33, 24] : [255, 248, 236];
+    return background === 'clear' ? [5, 6, 15] : [noise(), noise(), noise()];
+  });
+}
+
+describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT3, 2026-11-13)', () => {
+  /** A laptop step on a page that presses and answers, with the hook saying `readings`, the view and the last reading. */
+  const step = (
+    readings: Readings | null,
+    picture: Buffer | null = view(0.5),
+    files: 'starter' | 'changed' | 'missing' = 'starter',
+    last: CheckReading | null = null,
+  ) =>
+    laptopStep(driver({ targets: [AT], changes: MANY, readings }).fake, 'starter', {
+      files,
+      picture,
+      last,
+    });
+  const at = (...px: number[]): Readings => ({ texts: px.map((each) => ({ px: each })) });
+  /** A reading measured at `px`, as an earlier check of the project recorded it. */
+  const measuredAt = (px: number) => readingOf('starter', { texts: [px] }, null);
+
+  test('the one floor is 10 px words, at 1280 by 800', () => {
+    assert.equal(READING_FLOOR_PX, 10);
+  });
+
+  test('words under, at and over the floor as the page reports them: only at and over is ready, the smallest decides', async () => {
+    const under = await step(at(6));
+    assert.equal(under.mouse, 'reached');
+    assert.equal(under.screen_changed, true);
+    assert.equal(under.reading?.state, 'measured');
+    assert.equal(under.reading?.smallest_px, 6);
+    assert.equal(under.ready, false, 'as a press that never reached the layer');
+    assert.equal(under.reading?.words, 'The words are too small to read on a laptop');
+    assert.equal(under.reading?.detail, '6 px high; at least 10 needed');
+    assert.equal((await step(at(10))).ready, true);
+    const over = await step(at(16, 12));
+    assert.equal(over.ready, true);
+    assert.equal(over.reading?.smallest_px, 12);
+    assert.equal(over.reading?.measured, 2);
+    assert.equal(
+      over.reading?.words,
+      'Readable on a laptop where it could measure (2 texts); text the app drew itself was not measured',
+    );
+    const one = await step(at(16, 9.96));
+    assert.equal(one.ready, false);
+    // Never rounded up onto the floor, neither for the step nor for the person.
+    assert.equal(one.reading?.smallest_px, 9.96);
+    assert.equal(one.reading?.detail, '9.9 px high; at least 10 needed');
+    assert.equal((await step(at(9.999))).ready, false);
+  });
+
+  test('no kit text measured, or no answer about the words, is not known and holds nothing back (the lead, 22:40Z)', async () => {
+    const none = await step(at());
+    assert.equal(none.reading?.state, 'unknown');
+    assert.equal(none.reading?.measured, 0);
+    assert.equal(none.reading?.smallest_px, null);
+    assert.equal(
+      none.reading?.words,
+      'Not known whether it reads on a laptop: no kit text could be measured',
+    );
+    assert.equal(none.ready, true, 'it plays; whether it reads is said apart');
+    const silent = await step(null);
+    assert.equal(silent.reading?.state, 'unknown');
+    assert.equal(silent.ready, true);
+    // A page that answers in another shape says nothing about its words.
+    assert.equal(parseReadings({ texts: [{ px: 'big' }] }), null);
+    assert.equal(parseReadings({ texts: [{ px: Number.NaN }] }), null);
+    assert.equal(parseReadings({ texts: 'many' }), null);
+    assert.deepEqual(parseReadings({ texts: [{ px: 12 }] }), { texts: [12] });
+    assert.equal(
+      parseReadings({ texts: Array.from({ length: 80 }, () => ({ px: 12 })) })?.texts.length,
+      64,
+    );
+  });
+
+  test('a kit file that feeds the reading changed: changed, not known, and it holds nothing back by itself (AUDIT3 R1)', async () => {
+    const changed = await step(at(40), view(0.6), 'changed');
+    assert.equal(changed.mouse, 'reached');
+    assert.equal(changed.reading?.state, 'changed');
+    assert.equal(
+      changed.reading?.smallest_px,
+      null,
+      'the page said it, and the page is not the kit',
+    );
+    assert.equal(
+      changed.reading?.words,
+      "Not known whether it reads on a laptop: the app's own kit files changed",
+    );
+    assert.equal(changed.ready, true);
+    assert.equal((await step(at(40), view(0.6), 'missing')).reading?.state, 'changed');
+  });
+
+  test('a reading never improves by becoming unmeasurable: a failure last measured is held until a measured pass (AUDIT3)', async () => {
+    // Measured under, then changed: still not ready, in words that say the last measurement and why.
+    const held = await step(at(40), view(0.5), 'changed', measuredAt(6));
+    assert.equal(held.reading?.state, 'changed');
+    assert.equal(held.reading?.last_measured_px, 6);
+    assert.equal(
+      held.reading?.words,
+      "The words were too small to read on a laptop when last measured (6 px high; at least 10 needed), and can no longer be measured: the app's own kit files changed",
+    );
+    assert.equal(held.ready, false);
+    const silent = await step(at(), view(0.5), 'starter', measuredAt(6));
+    assert.equal(silent.reading?.last_measured_px, 6);
+    assert.equal(silent.ready, false);
+    // Measured under, then measured over: cleared.
+    const cleared = await step(at(12), view(0.5), 'starter', measuredAt(6));
+    assert.equal(cleared.reading?.last_measured_px, null);
+    assert.equal(cleared.ready, true);
+    // Last measured over the floor, now not known: nothing held.
+    const fine = await step(at(), view(0.5), 'changed', measuredAt(14));
+    assert.equal(fine.reading?.last_measured_px, null);
+    assert.equal(fine.ready, true);
+  });
+
+  test("every kit file whose code feeds the reading is compared with the template's", async (t) => {
+    assert.deepEqual([...READING_FILES].sort(), [
+      'decor.ts',
+      'legible.ts',
+      'look.ts',
+      'pages.ts',
+      'play-input-core.ts',
+      'play-input.ts',
+    ]);
+    const template = new URL('../../../../starters/iwsdk-vr/template/', import.meta.url).pathname;
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-reading-')));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const project = join(root, 'project');
+    cpSync(join(template, 'src'), join(project, 'src'), { recursive: true });
+    assert.equal(await readingFiles(project, template), 'starter');
+    for (const file of ['legible.ts', 'pages.ts', 'decor.ts', 'look.ts']) {
+      writeFileSync(join(project, 'src', file), '// changed\n', { flag: 'a' });
+      assert.equal(await readingFiles(project, template), 'changed', file);
+      // The input layer alone is still the starter's: only the reading is not the kit's own.
+      assert.equal(await layerState(project, template), 'starter', file);
+      cpSync(join(template, 'src', file), join(project, 'src', file));
+    }
+    rmSync(join(project, 'src', 'legible.ts'));
+    assert.equal(await readingFiles(project, template), 'missing');
+  });
+
+  test("the fill share is information from the picture's pixels, never a gate (AUDIT3)", async () => {
+    const small = await step(at(14), view(0.2));
+    assert.ok(
+      Math.abs((small.reading?.fill_share ?? 0) - 0.2) < 0.01,
+      String(small.reading?.fill_share),
+    );
+    assert.equal(small.ready, true, 'a small app with readable words is ready');
+    assert.equal(small.reading?.detail, 'smallest words 14 px high; the app fills 20% of the view');
+    const large = await step(at(14), view(0.5));
+    assert.ok(
+      Math.abs((large.reading?.fill_share ?? 0) - 0.5) < 0.01,
+      String(large.reading?.fill_share),
+    );
+    // No clear background, no picture, or one that cannot be read: no share, and nothing held back.
+    const noisy = await step(at(14), view(0.05, 'noise'));
+    assert.equal(noisy.reading?.fill_share, null);
+    assert.equal(noisy.ready, true);
+    const split = (part: number) =>
+      fillShare(
+        pngOf(100, 100, (x, y) =>
+          y * 100 + x < part * 10_000
+            ? [0, 0, 0]
+            : [(x * 7 + y * 13) % 256, (x * 3) % 256, y % 256],
+        ),
+      );
+    assert.equal(split(BACKGROUND_LEAST - 0.01), null);
+    assert.notEqual(split(BACKGROUND_LEAST), null);
+    assert.equal(fillShare(null), null);
+    assert.equal(fillShare(Buffer.from('not a picture')), null);
+  });
+
+  test('the reading never says passed or failed; only a measured failure holds the laptop step back (AUDIT3 R3)', () => {
+    assert.equal(readingPasses(undefined), true);
+    const reading = readingOf('starter', { texts: [12] }, view(0.5));
+    assert.equal(readingPasses(reading), true);
+    assert.equal(readingPasses({ ...reading, smallest_px: 9.99 }), false);
+    assert.equal(readingPasses(readingOf('changed', null, null)), true);
+    assert.equal(readingPasses(readingOf('starter', { texts: [] }, null)), true);
+    assert.equal(readingPasses(readingOf('changed', null, null, measuredAt(6))), false);
+    assert.equal(Object.hasOwn(reading, 'passed'), false);
   });
 });
 

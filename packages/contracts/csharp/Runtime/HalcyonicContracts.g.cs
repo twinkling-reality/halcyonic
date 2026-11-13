@@ -2038,6 +2038,33 @@ namespace Halcyonic.Contracts
         public global::System.Collections.Generic.List<CheckPagePicturesItem> Pictures { get; set; } = new global::System.Collections.Generic.List<CheckPagePicturesItem>();
     }
 
+    public sealed class CheckReading
+    {
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken State { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("smallest_px", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public double? SmallestPx { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("measured", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Measured { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("fill_share", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public double? FillShare { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("floor_px", Required = global::Newtonsoft.Json.Required.Always)]
+        public double FloorPx { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("last_measured_px", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public double? LastMeasuredPx { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("words", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Words { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("detail", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Detail { get; set; }
+    }
+
     public sealed class CheckLaptop
     {
         [global::Newtonsoft.Json.JsonProperty("layer", Required = global::Newtonsoft.Json.Required.Always)]
@@ -2063,6 +2090,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("exceptions_during", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public long? ExceptionsDuring { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("reading", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public CheckReading? Reading { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("ready", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Ready { get; set; }
@@ -3225,6 +3255,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "build")] Build,
         [global::System.Runtime.Serialization.EnumMember(Value = "page")] Page,
         [global::System.Runtime.Serialization.EnumMember(Value = "own_check")] OwnCheck,
+        [global::System.Runtime.Serialization.EnumMember(Value = "reading")] Reading,
     }
 
     public sealed class AutoFixView

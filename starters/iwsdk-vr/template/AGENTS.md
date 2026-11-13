@@ -111,7 +111,10 @@ An app's use, not a game (a guide, a log, a list, a form, a tool):
   the words over the cards they take. Map a pressed panel back to your own entry with `book.source(i)`, never
   `first + i`: a long entry takes more than one page.
 - Words in the scene are read at a distance: draw them no smaller than `TYPE` from `./kit.js` (font sizes in metres
-  for words read 1.6 m away, `TYPE.words` for running words and `TYPE.title` for titles; twice as far, twice as big).
+  for words read 1.6 m away in the headset, `TYPE.words` for running words and `TYPE.title` for titles; twice as far,
+  twice as big). The laptop view must read too: the person's computer checks it at 1280 by 800 and judges whether the
+  kit's words stand at least 10 pixels high there. `setupScene` puts the laptop camera where the person stands, so
+  pages at 1.6 m read on both.
   Measure each line with `measureText` and start the next thing after it, so a title never runs into the words beside
   or below it. The welcome card keeps its own sizes.
 - What this version does not carry yet goes in one plain line that stays in the scene beside the use (the welcome

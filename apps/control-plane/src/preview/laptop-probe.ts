@@ -1,9 +1,15 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CheckLaptop, CheckVr } from '@halcyonic/contracts';
+import {
+  type CheckLaptop,
+  type CheckReading,
+  type CheckVr,
+  READING_FLOOR_PX,
+} from '@halcyonic/contracts';
+import { readingPasses } from '@halcyonic/domain';
 import type { ChromeRun, DevToolsPipe } from './chrome.ts';
-import { changedShare } from './png.ts';
+import { changedShare, decodePng, type Pixels } from './png.ts';
 import { readNoLink } from './scan.ts';
 
 /**
@@ -20,22 +26,70 @@ export const HOOK_MS = 10_000;
 export const VR_MS = 10_000;
 
 const LAYER_FILES = ['play-input.ts', 'play-input-core.ts'] as const;
+/**
+ * The kit's files whose code feeds the laptop reading (VRIFY, 2026-11-13): the hook that measures, the registry it
+ * reads, the pages and the score sign that register their words, and the look that places a view's laptop camera. One
+ * of them changed makes the page's reading not the kit's own (AUDIT3 R1).
+ */
+export const READING_FILES = [
+  ...LAYER_FILES,
+  'legible.ts',
+  'pages.ts',
+  'decor.ts',
+  'look.ts',
+] as const;
+/**
+ * A pixel is the app's, for the fill share, when any of its channels differs from the picture's most common colour by
+ * more than this. The share is information only; it gates nothing (AUDIT3, 2026-11-13).
+ */
+export const FILL_CHANNEL = 16;
+/**
+ * The least share of the picture its most common colour must cover to be taken as the background; under it the fill
+ * share is null rather than a number measured against a colour that is not the background (a picture sky, a gradient).
+ */
+export const BACKGROUND_LEAST = 0.25;
 const MAX_REPORT = 16 * 1024;
 const MAX_TARGETS = 32;
+/** The most texts the reading keeps from a report; the first ones are kept, as targets are. */
+const MAX_TEXTS = 64;
 const SOURCES = ['mouse', 'key', 'trigger', 'pinch', 'touch'] as const;
 
 type Counts = Record<(typeof SOURCES)[number], number>;
+
+/** How high the kit's words stand on the screen, as the page reports them; `reported`. */
+export interface HookReadings {
+  /** Each text the kit drew that the laptop camera sees: its smallest words' height in CSS pixels. */
+  readonly texts: readonly number[];
+}
 
 /** What the page's input layer reports through its check hook; `reported`, never observed. */
 export interface HookReport {
   readonly counts: Counts;
   readonly targets: readonly { readonly x: number; readonly y: number }[];
+  /** Null when the page gave none, or none of the strict shape. */
+  readonly readings: HookReadings | null;
 }
 
 /** Whether the project's input layer is the starter's own, byte for byte. */
 export async function layerState(project: string, template: string): Promise<CheckLaptop['layer']> {
+  return sameAsTemplate(project, template, LAYER_FILES);
+}
+
+/** Whether every kit file that feeds the laptop reading is the starter's own, byte for byte. */
+export async function readingFiles(
+  project: string,
+  template: string,
+): Promise<CheckLaptop['layer']> {
+  return sameAsTemplate(project, template, READING_FILES);
+}
+
+async function sameAsTemplate(
+  project: string,
+  template: string,
+  files: readonly string[],
+): Promise<CheckLaptop['layer']> {
   let changed = false;
-  for (const file of LAYER_FILES) {
+  for (const file of files) {
     const theirs = join(project, 'src', file);
     const info = await lstat(theirs).catch(() => null);
     if (info === null || info.isSymbolicLink() || !info.isFile() || info.size > 1024 * 1024)
@@ -55,7 +109,8 @@ export const HOOK_EXPRESSION = `(() => {
   try {
     const hook = globalThis.__playCheck;
     if (hook === null || typeof hook !== 'object') return null;
-    return JSON.stringify({ counts: hook.counts(), targets: hook.targets() });
+    const readings = typeof hook.readings === 'function' ? hook.readings() : null;
+    return JSON.stringify({ counts: hook.counts(), targets: hook.targets(), readings });
   } catch {
     return null;
   }
@@ -71,7 +126,11 @@ export function parseReport(value: unknown): HookReport | null {
     return null;
   }
   if (data === null || typeof data !== 'object') return null;
-  const { counts, targets } = data as { counts?: unknown; targets?: unknown };
+  const { counts, targets, readings } = data as {
+    counts?: unknown;
+    targets?: unknown;
+    readings?: unknown;
+  };
   if (counts === null || typeof counts !== 'object' || !Array.isArray(targets)) return null;
   const read: Partial<Counts> = {};
   for (const source of SOURCES) {
@@ -89,8 +148,145 @@ export function parseReport(value: unknown): HookReport | null {
     if (!inside(x) || !inside(y)) return null;
     points.push({ x, y });
   }
-  return { counts: read as Counts, targets: points };
+  return { counts: read as Counts, targets: points, readings: parseReadings(readings) };
 }
+
+/** The hook's readings against a strict shape; anything else is null, so the reading is unknown. */
+export function parseReadings(value: unknown): HookReadings | null {
+  if (value === null || typeof value !== 'object') return null;
+  const { texts } = value as { texts?: unknown };
+  if (!Array.isArray(texts)) return null;
+  const heights: number[] = [];
+  for (const text of texts.slice(0, MAX_TEXTS)) {
+    const { px } = (text ?? {}) as { px?: unknown };
+    if (typeof px !== 'number' || !Number.isFinite(px) || px < 0 || px > 4096) return null;
+    heights.push(px);
+  }
+  return { texts: heights };
+}
+
+/**
+ * The share of a laptop picture the app fills, observed in the host from its pixels, as information: the pixels whose
+ * channels differ by more than `FILL_CHANNEL` from the picture's most common colour. Null when there is no picture,
+ * it cannot be read, or that colour covers less than `BACKGROUND_LEAST` of it. Fragile (white cards on a white page
+ * count only their words), so it gates nothing.
+ */
+export function fillShare(png: Buffer | null): number | null {
+  if (png === null) return null;
+  let pixels: Pixels;
+  try {
+    pixels = decodePng(png);
+  } catch {
+    return null;
+  }
+  const { rgba } = pixels;
+  const total = pixels.width * pixels.height;
+  const seen = new Map<number, number>();
+  let dominant = 0;
+  let most = 0;
+  for (let i = 0; i < rgba.length; i += 4) {
+    const colour = ((rgba[i] ?? 0) << 16) | ((rgba[i + 1] ?? 0) << 8) | (rgba[i + 2] ?? 0);
+    const count = (seen.get(colour) ?? 0) + 1;
+    seen.set(colour, count);
+    if (count > most) {
+      most = count;
+      dominant = colour;
+    }
+  }
+  if (most < total * BACKGROUND_LEAST) return null;
+  const back = [(dominant >> 16) & 0xff, (dominant >> 8) & 0xff, dominant & 0xff];
+  let app = 0;
+  for (let i = 0; i < rgba.length; i += 4) {
+    for (let c = 0; c < 3; c += 1) {
+      if (Math.abs((rgba[i + c] ?? 0) - (back[c] ?? 0)) > FILL_CHANNEL) {
+        app += 1;
+        break;
+      }
+    }
+  }
+  return app / total;
+}
+
+/** `n` cut to `places` decimal places, never rounded up; the tiny allowance keeps 0.29 from reading 0.28. */
+function cut(n: number, places: number): number {
+  const scale = 10 ** places;
+  return Math.floor(n * scale + 1e-9) / scale;
+}
+
+/** A number for a person, to one place, cut rather than rounded, so a figure under a floor never reads as on it. */
+function figure(n: number): string {
+  return String(cut(n, 1));
+}
+
+const NOT_KNOWN = 'Not known whether it reads on a laptop';
+
+/**
+ * The laptop reading (VRIFY, 2026-11-13): the words' height the page reports for the kit's texts in view, the one floor,
+ * for every app; and, as information, the share of the view the app fills, from the picture's pixels in the host.
+ * `files` is whether the kit's files that feed it are the starter's own; changed or missing, the page's report is not
+ * the kit's, and the reading is `changed`. A reading not measured holds nothing back by itself, but never clears a
+ * failure: where `last`, the project's last measured reading, was under the floor, it is held (AUDIT3, the lead).
+ */
+export function readingOf(
+  files: CheckLaptop['layer'],
+  readings: HookReadings | null,
+  picture: Buffer | null,
+  last: CheckReading | null = null,
+): CheckReading {
+  const share = fillShare(picture);
+  const base = {
+    fill_share: share === null ? null : cut(share, 4),
+    floor_px: READING_FLOOR_PX,
+  } as const;
+  const notMeasured = (state: 'unknown' | 'changed', why: string): CheckReading => {
+    const held =
+      last?.state === 'measured' && last.smallest_px !== null && last.smallest_px < READING_FLOOR_PX
+        ? last.smallest_px
+        : null;
+    return {
+      ...base,
+      state,
+      smallest_px: null,
+      measured: 0,
+      last_measured_px: held,
+      words:
+        held === null
+          ? `${NOT_KNOWN}: ${why}`
+          : `The words were too small to read on a laptop when last measured (${figure(held)} px high; at least ${READING_FLOOR_PX} needed), and can no longer be measured: ${why}`,
+      detail: null,
+    };
+  };
+  if (files !== 'starter') return notMeasured('changed', "the app's own kit files changed");
+  if (readings === null) return notMeasured('unknown', 'the app did not say how big its words are');
+  if (readings.texts.length === 0) return notMeasured('unknown', 'no kit text could be measured');
+  // Cut, never rounded up onto the floor.
+  const smallest = cut(Math.min(...readings.texts), 2);
+  const measured = readings.texts.length;
+  const measuredBase = {
+    ...base,
+    state: 'measured',
+    smallest_px: smallest,
+    measured,
+    last_measured_px: null,
+  } as const;
+  if (smallest < READING_FLOOR_PX)
+    return {
+      ...measuredBase,
+      words: 'The words are too small to read on a laptop',
+      detail: `${figure(smallest)} px high; at least ${READING_FLOOR_PX} needed`,
+    };
+  const texts = measured === 1 ? '1 text' : `${measured} texts`;
+  const fills =
+    base.fill_share === null ? '' : `; the app fills ${figure(base.fill_share * 100)}% of the view`;
+  return {
+    ...measuredBase,
+    words: `Readable on a laptop where it could measure (${texts}); text the app drew itself was not measured`,
+    detail: `smallest words ${figure(smallest)} px high${fills}`,
+  };
+}
+
+/** Whether the reading lets the laptop step be ready: the domain's one rule, which admission reads too. */
+export { readingPasses } from '@halcyonic/domain';
 
 /**
  * Whether the screen changed after a press, from the share of pixels that changed after it and in
@@ -158,6 +354,12 @@ export function pipeDriver(devtools: DevToolsPipe, session: string): Driver {
 export async function laptopStep(
   driver: Driver,
   layer: CheckLaptop['layer'],
+  view: {
+    readonly files: CheckLaptop['layer'];
+    readonly picture: Buffer | null;
+    /** The project's last measured reading, which a reading that cannot measure never clears. */
+    readonly last?: CheckReading | null;
+  },
 ): Promise<CheckLaptop> {
   const report = async () => parseReport(await driver.evaluate(HOOK_EXPRESSION).catch(() => null));
   let first: HookReport | null = null;
@@ -167,10 +369,17 @@ export async function laptopStep(
     if (now !== null && now.targets.length > 0) break;
     await driver.wait(500);
   }
-  const finish = (findings: Omit<CheckLaptop, 'layer' | 'ready'>): CheckLaptop => ({
+  // Read before any press, as the app stands at rest: a press may bring a page nearer.
+  const reading = readingOf(view.files, first?.readings ?? null, view.picture, view.last ?? null);
+  const finish = (findings: Omit<CheckLaptop, 'layer' | 'ready' | 'reading'>): CheckLaptop => ({
     layer,
     ...findings,
-    ready: layer === 'starter' && findings.mouse === 'reached' && findings.screen_changed === true,
+    reading,
+    ready:
+      layer === 'starter' &&
+      findings.mouse === 'reached' &&
+      findings.screen_changed === true &&
+      readingPasses(reading),
   });
   if (first === null)
     return finish({ targets: 0, mouse: 'unknown', key: 'unknown', screen_changed: null });

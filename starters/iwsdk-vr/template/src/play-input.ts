@@ -19,7 +19,8 @@ import {
   VisibilityState,
   type World,
 } from '@iwsdk/core';
-import { Vector3 } from 'three';
+import { type Object3D, Vector3 } from 'three';
+import { inView, segmentPixels, wordedMeshes } from './legible.js';
 import {
   BUTTONS,
   type ButtonName,
@@ -182,6 +183,35 @@ function targets(w: World): { x: number; y: number }[] {
   return points;
 }
 
+const foot = new Vector3();
+const head = new Vector3();
+
+/** Whether the object and every group it is in are shown. */
+function shown(object: Object3D): boolean {
+  for (let at: Object3D | null = object; at !== null; at = at.parent) if (!at.visible) return false;
+  return true;
+}
+
+/**
+ * How high the kit's words stand on the laptop's screen, in CSS pixels, for the computer's check of the app: for each
+ * mesh the kit drew words on whose centre the camera sees, the height of its smallest words projected through the
+ * camera at the mesh's place. Words the app drew itself are not here.
+ */
+function readings(w: World): { texts: { px: number }[] } {
+  const rect = w.renderer.domElement.getBoundingClientRect();
+  const texts: { px: number }[] = [];
+  for (const [mesh, height] of wordedMeshes()) {
+    const object = mesh as Object3D;
+    if (!shown(object)) continue;
+    object.updateWorldMatrix(true, false);
+    object.localToWorld(foot.set(0, 0, 0)).project(w.camera);
+    if (!inView(foot)) continue;
+    object.localToWorld(head.set(0, height, 0)).project(w.camera);
+    texts.push({ px: segmentPixels(foot.y, head.y, rect.height) });
+  }
+  return { texts };
+}
+
 /** Call once, in src/index.ts, before registering the game's systems. */
 export function setupPlayInput(w: World): void {
   current = w;
@@ -192,10 +222,16 @@ export function setupPlayInput(w: World): void {
   ]);
   w.registerSystem(PlayInputSystem);
   dragToLook(w);
-  // Only when the person's computer checks the app (it adds ?check): what reached the game, and where to click.
+  // Only when the person's computer checks the app (it adds ?check): what reached the game, where to click, and how
+  // high the kit's words stand on the screen.
   if (new URLSearchParams(location.search).has('check')) {
     Object.assign(globalThis, {
-      __playCheck: { counts: () => counts.snapshot(), mode, targets: () => targets(w) },
+      __playCheck: {
+        counts: () => counts.snapshot(),
+        mode,
+        targets: () => targets(w),
+        readings: () => readings(w),
+      },
     });
   }
 }

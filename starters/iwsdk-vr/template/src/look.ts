@@ -27,6 +27,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { VIEW_CAMERA } from './legible.js';
 import { drift } from './motion.js';
 import { toyMaterial } from './palette.js';
 import { startAmbience } from './sound.js';
@@ -559,6 +560,11 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
  * the world's own frame.
  */
 export function setupScene(world: World, background = '#000000'): { root: Group } {
+  // On a laptop the view is seen from the person's own place, as the headset sees it, not from the game's camera behind
+  // them in iwsdk.config.json: World.create placed that one before this runs, and a VR session sets its own pose and
+  // puts this one back when it ends.
+  world.camera.position.set(...VIEW_CAMERA.position);
+  world.camera.lookAt(...VIEW_CAMERA.lookAt);
   const renderer = world.renderer;
   renderer.toneMapping = NoToneMapping;
   world.scene.environment = null;
