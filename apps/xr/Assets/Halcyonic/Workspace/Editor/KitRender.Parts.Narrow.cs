@@ -101,7 +101,7 @@ namespace Halcyonic.XR.Workspace.Editor
             if (state == "57-destructive-confirm")
             {
                 var yes = buttons.FirstOrDefault(button => button.Words.text.Contains("Forget Computer"));
-                var red = RoomSurface.Hex(RoomButton.DestructiveChipColour);
+                var red = Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.DestructiveChipColour);
                 Require(yes != null && Mathf.Abs(yes.ChipColour.x - red.r) < 0.02f && Mathf.Abs(yes.ChipColour.y - red.g) < 0.02f && Mathf.Abs(yes.ChipColour.z - red.b) < 0.02f,
                     "the destructive Yes is not drawn in the destructive red: " + (yes == null ? "no Yes" : yes.ChipColour.ToString()));
             }
