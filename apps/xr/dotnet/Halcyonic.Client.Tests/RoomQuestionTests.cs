@@ -509,4 +509,49 @@ public class RoomQuestionTests
         }
         finally { RoomDesign.Enabled = was; }
     }
+
+    /// <summary>
+    /// The mixed question (XR's 22:26Z: descriptions are optional in every agent app, so one prompt may be plain and another described;
+    /// the file then hands the whole question in one part): the plain prompt's seven answers would pass the kit's column, so they
+    /// stand on the card too, never a column past it and never a second pager (no More Choices beside the card's Next Page).
+    /// </summary>
+    [Test]
+    public void AMixedQuestionsPlainSevenAnswersStandOnTheCardWithOnePager()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var question = new QuestionView
+            {
+                QuestionId = "mixed", Answerable = true, AskedAt = Samples.Time,
+                Prompts = new List<QuestionPrompt>
+                {
+                    new() { Key = "q0", Header = "Level", Text = "Which level comes first?", Multiple = false, FreeText = false, Secret = false,
+                        Options = Enumerable.Range(1, 7).Select(n => new QuestionOption { Label = "Level " + n }).ToList() },
+                    new() { Key = "q1", Header = "Scene", Text = "Which scene should open it?", Multiple = false, FreeText = false, Secret = false,
+                        Options = new List<QuestionOption> { new() { Label = "Beach", Description = "Opens on the beach at dawn." }, new() { Label = "Forest", Description = "Opens in the forest at dusk." } } },
+                },
+            };
+            var host = new FileMenuHost();
+            var work = new AskingWork(question);
+            var column = Column(host, () => work.Present());
+            column.QuestionBudgetOf = () => new ChoiceBudget(RoomBar.ChoicesAPage);
+            column.Reflow();
+            Draw(host, column);
+            var bar = Bar(column);
+            Assert.That(bar.Card, Is.Not.Null, "the plain prompt's seven answers stand on the card: " + Show(bar));
+            Assert.That(bar.Column.Any(action => action.Control.Place == KitPlace.Choice), Is.False, Show(bar));
+            Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(RoomBar.ColumnMost), Show(bar));
+            Assert.That(bar.Column.Count(action => action.Control.Action is RoomBar.TurnPage || action.Words == "More Choices"), Is.LessThanOrEqualTo(1), "one pager: " + Show(bar));
+            var reached = new List<string>();
+            for (var page = 0; page < bar.GeneralPart.Pages; page++)
+            {
+                reached.AddRange(bar.Card!.List.Select(row => row.Name.Text));
+                bar.Turn();
+            }
+            Assert.That(reached, Is.EqualTo(Enumerable.Range(1, 7).Select(n => "Level " + n)), "every answer once, in order");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }
