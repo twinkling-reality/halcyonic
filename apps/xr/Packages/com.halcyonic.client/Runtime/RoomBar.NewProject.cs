@@ -130,9 +130,11 @@ namespace Halcyonic.Client
                             continue;
                         }
                         index++;
-                        var words = line.Runs + LineWords.Ours(KitMomentWords.Dot) + status.Runs;
-                        if (status.Waits && under == null) under = words.Text;
-                        else rows.Add(new RoomRow(words, status.Tone == LineTone.Good ? RoomRowMark.Check : status.Tone == LineTone.Problem ? RoomRowMark.Cross : RoomRowMark.None));
+                        // A step and how it went given apart (JUDGE's 1203Z item 5, AUDIT's MUST): the step its row's words, its state the
+                        // row's note, its mark the state's kind; the one under way is the sentence, the step then its state after a colon.
+                        if (status.Waits && under == null) under = (line.Runs + LineWords.Ours(": ") + status.Runs).Text;
+                        else rows.Add(new RoomRow(line.Runs, status.Tone == LineTone.Good ? RoomRowMark.Check : status.Tone == LineTone.Problem ? RoomRowMark.Cross : RoomRowMark.None,
+                            note: status.Words));
                     }
                     var acts = main != null || prompts.Any(prompt => prompt.Kind == PromptKind.Action);
                     // Where the page gives the start's card, the card says how it stands: no sentence of facts joined on a dot beside it.
@@ -154,7 +156,7 @@ namespace Halcyonic.Client
                 {
                     // The facts: the recap's card where the page gives one (A17), else rows that say what they are; Start Task
                     // first, then Change.
-                    var facts = plain.Select(line => new RoomRow(line.Runs)).ToList();
+                    var facts = plain.Select(line => new RoomRow(line.Runs, label: line.RowLabel)).ToList();
                     var recap = Rows(RoomBarState.Choose, facts, main is { Available: false } ? why : null, Column(withClose: true, Offered(NewProjectScreens.ChangeRecap)));
                     if (frame.Card != null) recap.Card = frame.Card;
                     return recap;

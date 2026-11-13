@@ -2400,8 +2400,11 @@ public class NewProjectFlowTests
         Assert.That(Actions(flow), Is.Empty, "the facts are read, not pressed");
         var words = Words(flow);
         var recap = flow.Frame!;
-        Assert.That(words.Any(line => line.StartsWith(NewWorkReview.ProjectLabel, StringComparison.Ordinal)), "the name's row says what it is: " + string.Join(" | ", words));
-        Assert.That(words, Does.Contain(NewWorkReview.FirstTaskLabel + "A page of race times for my running club"));
+        var labelled = flow.Frame!.Lines.Where(line => line.RowLabel != null).Select(line => (line.RowLabel, line.Words)).ToList();
+        Assert.That(labelled.Select(each => each.RowLabel), Is.EqualTo(new[] { NewProjectScreens.ProjectRowLabel, NewProjectScreens.FirstTaskRowLabel }),
+            "the name's row and the first task's say what they are, apart from their words: " + string.Join(" | ", words));
+        Assert.That(words, Does.Contain("A page of race times for my running club"));
+        Assert.That(words, Has.None.Contains("\u00b7"), "no label joined to their words on a dot (JUDGE's 1203Z item 6)");
         Assert.That(words, Has.None.EqualTo(EntryText.StartOver), "Start Over stands on the page of what can be changed");
         Assert.That(words, Has.None.EqualTo(EntryText.RecapLine), "no line that only says the facts can be edited");
         var prompts = recap.Footer.All.Select(each => each.Prompt).ToList();
@@ -2469,7 +2472,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.TypeWords, null);
         Press(flow, NewProjectScreens.Done, null);
         Assert.That(flow.Idea!.Name, Is.EqualTo("Race Times"));
-        Assert.That(Words(flow), Does.Contain(NewWorkReview.ProjectLabel + "Race Times"), "back on the facts, the row reads the new name");
+        Assert.That(Words(flow), Does.Contain("Race Times"), "back on the facts, the row reads the new name");
         Press(flow, NewProjectScreens.ChangeRecap, null);
         PressOn(flow, NewProjectScreens.ChooseWhere);
         Assert.That(Actions(flow), Has.None.EqualTo(NewProjectScreens.Rename), "the folder's own page");
@@ -2786,7 +2789,10 @@ public class NewProjectFlowTests
         Assert.That(bar.Facts!.All(row => row.Mark == RoomRowMark.None));
         Assert.That(bar.Lines!.Select(line => line.Text), Is.EqualTo(bar.Facts!.Select(row => row.Words.Text)), "a view that draws no rows still holds the words");
         Assert.That(Pages(flow).Select(page => RoomBar.NewProject(page, VoiceStage.Idle)!).SelectMany(page => page.Facts!).Select(row => row.Words.Text),
-            Does.Contain(NewWorkReview.FirstTaskLabel + "A page of race times for my running club"));
+            Does.Contain("A page of race times for my running club"));
+        Assert.That(bar.Facts!.Where(row => row.Label != null).Select(row => row.Label), Is.EqualTo(new[] { NewProjectScreens.ProjectRowLabel, NewProjectScreens.FirstTaskRowLabel }),
+            "each fact's label given to its row apart from the words");
+        Assert.That(bar.Facts!.Select(row => row.Words.Text), Has.None.Contains("\u00b7"));
         Assert.That(bar.Facts!.Select(row => row.Words.Text), Has.None.EqualTo(EntryText.RecapLine));
         Assert.That(Reads(bar).Take(2), Is.EqualTo(new[] { EntryText.StartBuilding, EntryText.Change }));
         Assert.That(bar.Column[0].Control.Action, Is.EqualTo(NewProjectScreens.StartBuilding));
@@ -2862,6 +2868,10 @@ public class NewProjectFlowTests
         Assert.That(bar.Sentence, Is.Null);
         Assert.That(bar.Column, Is.Empty, "nothing to press while it starts");
         Assert.That(bar.Facts!.Select(row => row.Words.Text), Has.None.EqualTo(EntryText.SendingLine));
+        // Each step and how it went given apart (JUDGE's 1203Z item 5, AUDIT's MUST): the step the row's words, its state the note.
+        Assert.That(bar.Facts!.Select(row => row.Words.Text), Has.None.Contains("\u00b7"), string.Join(" | ", bar.Facts!.Select(row => row.Words.Text)));
+        Assert.That(bar.Facts!.Where(row => row.Note != null).Select(row => row.Words.Text), Has.Some.EqualTo(EntryText.StepName(BuildStepKind.CreateWorkstream, true)),
+            "the step its own words, its state beside it");
     });
 
     [Test]

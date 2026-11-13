@@ -281,6 +281,16 @@ namespace Halcyonic.Client
             return this;
         }
 
+        /// <summary>What a fact's words are, ours, given apart from them ("Project" over a person's idea), never joined on a dot (JUDGE's 1203Z item 6).</summary>
+        public string? RowLabel { get; private set; }
+
+        /// <summary>This fact, with <paramref name="label"/> as its label, given apart from its words.</summary>
+        public PageLine WithRowLabel(string label)
+        {
+            RowLabel = label;
+            return this;
+        }
+
         /// <summary>This row, with <paramref name="note"/> as its note on a card.</summary>
         public PageLine WithRowNote(string? note)
         {
