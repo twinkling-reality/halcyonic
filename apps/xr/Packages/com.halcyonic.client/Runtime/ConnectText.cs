@@ -16,8 +16,8 @@ namespace Halcyonic.Client
         public const string FoldersLine = "Unused Folders · Connecting Changes Nothing Inside";
         public const string NoFreeFolders = "Every Folder Is a Project";
         public const string Connect = "Connect";
-        public const string Connecting = "Sent · Awaiting Computer";
-        public const string NotConnectedYet = "Not Sent · Not Connected · Try Again";
+        public const string Connecting = "Waiting on Computer";
+        public const string NotConnectedYet = "Not Sent. Not Connected. Try Again";
         public const string Gone = "Folder Unavailable · Choose Another";
         public const string LooksLikeAnother = "Similar Name";
 
