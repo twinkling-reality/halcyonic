@@ -61,9 +61,22 @@ namespace Halcyonic.Client
             RoomCardStatus? status = warnings.Count == 0 ? (RoomCardStatus?)null
                 : new RoomCardStatus(RoomReview.CheckTitle, string.Join(". ", warnings.Select(each => each.Line.Trim().TrimEnd('.'))) + (warnings.Count > 1 ? "." : ""),
                     RoomTone.Attention, RoomKind.Failed);
+            // What happens first, the warnings after (AUDIT2's 2026-11-13T22:37Z), except where a warning is a consent the press gives:
+            // then it stands under the name, read before the press (AUDIT2's 22:38Z).
+            var after = status != null && !warnings.Any(each => ConsentFirst.Contains(each.Code));
             return new RoomCard(Host(title), review.WhatHappens.Trim().Length > 0 ? Host(review.WhatHappens) : null, status: status, slots: slots, list: rows,
-                more: Foot(review, at, parts));
+                more: Foot(review, at, parts), statusAfter: after);
         }
+
+        /// <summary>
+        /// The host's warning codes that are a consent the person gives by pressing (it never asks, it reaches past its folder, it
+        /// cannot be brought back, history is left, it becomes public, it replaces what was published): a review carrying any keeps its
+        /// warnings first, under its name. A new consent code joins here in the same change that adds it to the host.
+        /// </summary>
+        public static readonly IReadOnlyCollection<string> ConsentFirst = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "never_asks", "unconfined", "cannot_undo", "history_left", "public", "replaces",
+        };
 
         /// <summary>The actions at <paramref name="part"/>: Confirm (main, see the class), Next Part and Previous Part where they turn, then Cancel.</summary>
         public static IReadOnlyList<ReviewAction> Actions(ActionReview review, int part = 0, int saidPages = 1)
