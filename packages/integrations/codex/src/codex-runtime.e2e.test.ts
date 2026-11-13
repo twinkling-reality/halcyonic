@@ -471,9 +471,12 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         'runtime.model.used',
         'runtime.turn.started',
         'runtime.agent_message',
+        'runtime.usage.reported',
         'runtime.turn.completed',
       ]);
-      const [started, model, turn, message, completed] = execution.observations;
+      const [started, model, turn, message, usage, completed] = execution.observations;
+      // The turn's usage is reported once, after its last message and before its end (turns ended counts it).
+      assert.equal(usage?.type, 'runtime.usage.reported');
       assert.ok(started?.type === 'runtime.execution.started');
       const threadId = started.payload.native_id ?? '';
       assert.equal(turnId(completed), turnId(turn));
@@ -717,6 +720,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       'runtime.tool.result',
       'runtime.tool.completed',
       'runtime.agent_message',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
     const payloads = execution.observations.map((observation) => observation.payload);
@@ -917,6 +921,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         'runtime.tool.result',
         'runtime.tool.completed',
         'runtime.agent_message',
+        'runtime.usage.reported',
         'runtime.turn.completed',
       ]);
       const resolved = execution.observations.find(
@@ -968,6 +973,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         'runtime.tool.result',
         'runtime.tool.completed',
         'runtime.agent_message',
+        'runtime.usage.reported',
         'runtime.turn.completed',
       ]);
       assert.equal(readFileSync(outside, 'utf8'), `${PATCH_CONTENT}\n`);
@@ -1007,6 +1013,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       await runtime.interrupt({ execution: execution.context });
       await execution.next('runtime.turn.interrupted');
       assert.deepEqual(execution.typesAfter('runtime.approval.requested'), [
+        'runtime.usage.reported',
         'runtime.turn.interrupted',
       ]);
       await assert.rejects(
@@ -1062,6 +1069,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         'runtime.question.asked',
         'runtime.question.resolved',
         'runtime.agent_message',
+        'runtime.usage.reported',
         'runtime.turn.completed',
       ]);
       assert.deepEqual(execution.observations[4]?.payload, {
@@ -1102,6 +1110,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       // Codex ends the turn before it settles the request, so the turn's end is what withdraws
       // the question, as it does a pending approval.
       assert.deepEqual(execution.typesAfter('runtime.question.asked'), [
+        'runtime.usage.reported',
         'runtime.turn.interrupted',
       ]);
       await assert.rejects(
