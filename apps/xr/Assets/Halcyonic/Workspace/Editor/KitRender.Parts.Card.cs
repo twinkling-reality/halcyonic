@@ -175,7 +175,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
                 // The assistant's row under the gauges: on this computer, on a provider's hosted model with a long id, and unable to run.
                 "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, null, CardRowControl("use-model")))!,
-                "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0-preview", "Tidewater", null, CardRowControl("use-model")))!,
+                "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0", "Tidewater", null, CardRowControl("use-model")))!,
                 "47-card-usage-unavailable" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant(null, null, "Tidewater refused its key. Give it a new key on this computer.", CardRowControl("use-model")))!,
                 // Use Model, the row pressed: the host's list (this computer's model chosen, a hosted one, one whose key was refused),
                 // the card while the computer is asked, and the one review a hosted pick waits on.
