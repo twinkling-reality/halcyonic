@@ -387,6 +387,9 @@ namespace Halcyonic.XR.Workspace
         {
             // A local overlay stands in the file's place while it shows: its frame is the one drawn, never the file's.
             var activeFile = SeparateWorkspace && !navigator.IsCompact && placement == null ? navigator.Beside as FileColumn : null;
+            // A file's page in a side panel (FileScreens' Side) is never bound by the task's own binding, which has no place for it
+            // and would drop it unseen (AUDIT's D, 2026-11-13): under the redesign the frame goes plain to a reader that draws it.
+            if (RoomDesign.Enabled && activeFile?.Frame?.Side != null) activeFile = null;
             plane.ComposerFocused = activeFile?.ActivityContextFrame != null && composerFocus.TryGetValue(activeFile, out var focused) && focused;
             plane.ActivityFrame = plane.ComposerFocused ? null : activeFile?.ActivityContextFrame;
             var choices = State?.Projects.Values.OrderBy(project => project.Name, StringComparer.Ordinal).ThenBy(project => project.ProjectId, StringComparer.Ordinal).ToList()
