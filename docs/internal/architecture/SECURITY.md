@@ -615,7 +615,7 @@ person's branch that the remote's own branch reaches.
   reachable again.
 - **Staged as the person's own branch tracks the files,** with a secret-shaped file kept as the base has it, so
   one the unsent versions added stays out, and a file the person stopped tracking is not sent again.
-- **The press fetches again.** A base the branch no longer reaches sends nothing (`review_stale`).
+- **The press fetches again.** A base the branch no longer reaches sends nothing (`review_stale`). Each search, with its record, runs one at a time per project, so presses at once never empty each other's refs.
 - **The one reader.** The leak fix's history check reads the new commit before the push. A hit there is the
   fix's own refusal, never the offer again.
 - **The record** of what a refusal found (base, branch, the secret's name, never its value) is kept in Halcyonic's
