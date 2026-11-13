@@ -74,4 +74,8 @@ four edits, and a third meant four more.
 - A stored key is asked of its provider before any start (`KeyChecks`, 2026-11-13). This is the same metadata read
   the assistant makes, which spends nothing, so the model rows show a refused key before a task fails on it. An agent
   app tags a model it reaches through a declared provider with that provider (OpenCode's gated models, for one).
+- One stand-in redirects them all (2026-11-13, rule 29). `HALCYONIC_ASSISTANT_UPSTREAM`, an address on this Mac
+  only, is read into the host's one list, so every reader (the assistant, the key check, the key gate) reaches it
+  and no real provider. The suites set it, at a closed port, for every plane they start. A fake key never meets a
+  real provider; the proving plane is the one place a real key does.
 - Revisit when a provider needs something a declaration cannot state, such as a sign-in that is not a key.

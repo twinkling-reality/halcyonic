@@ -19,6 +19,8 @@ import { tlsRequest } from './testing/tls-client.ts';
 const MAIN = fileURLToPath(new URL('./main.ts', import.meta.url));
 const LAUNCHER = fileURLToPath(new URL('./testing/launcher.ts', import.meta.url));
 const EXIT_ON_STDIN_END = { HALCYONIC_EXIT_ON_STDIN_END: '1' };
+/** A closed port on this Mac that every hosted provider is reached at in these tests (rule 29). */
+const CLOSED_STAND_IN = 'http://127.0.0.1:9';
 
 /** A line of output: a log line, the launcher's report, or `{ text }` for anything else. */
 type Line = Record<string, unknown>;
@@ -93,6 +95,8 @@ function environment(extra: Record<string, string>) {
     HALCYONIC_DATA_DIR: join(root, 'data'),
     HALCYONIC_PORT: '0',
     HALCYONIC_LOG_LEVEL: 'info',
+    // Every hosted provider at a closed port on this Mac: no key a test stores reaches a real one (rule 29).
+    HALCYONIC_ASSISTANT_UPSTREAM: CLOSED_STAND_IN,
     ...extra,
   };
   return { root, env };
@@ -238,6 +242,7 @@ describe('the control plane process', () => {
         HALCYONIC_DATA_DIR: dataDir,
         HALCYONIC_PORT: '0',
         HALCYONIC_LOG_LEVEL: 'info',
+        HALCYONIC_ASSISTANT_UPSTREAM: CLOSED_STAND_IN,
         ...network,
       },
       stdio: 'pipe',
@@ -333,6 +338,21 @@ describe('the control plane process', () => {
     await until(() => exited(child) && output.ended(), 'the control plane to stop');
     assert.equal(child.exitCode, 1);
     assert.match(output.stderr(), /chmod 600/);
+    assert.ok(!output.lines.some((entry) => entry.msg === 'control plane ready'));
+  });
+
+  test("refuses to start with a providers' stand-in that is not on this Mac, so no fake key leaves it (rule 29)", async (t) => {
+    const { root, env } = environment({ HALCYONIC_ASSISTANT_UPSTREAM: 'https://example.com/v1' });
+    const child = spawn(process.execPath, [MAIN], { env, stdio: 'pipe' });
+    const output = collect(child.stdout, child.stderr);
+    t.after(async () => {
+      child.kill('SIGKILL');
+      await until(() => exited(child), 'the control plane to be killed');
+      rmSync(root, { recursive: true, force: true });
+    });
+    await until(() => exited(child) && output.ended(), 'the control plane to stop');
+    assert.equal(child.exitCode, 1);
+    assert.match(output.stderr(), /must be an address on this Mac/);
     assert.ok(!output.lines.some((entry) => entry.msg === 'control plane ready'));
   });
 });

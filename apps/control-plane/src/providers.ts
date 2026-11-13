@@ -40,12 +40,28 @@ export class HostProviders {
    * `readers` are the keys' readers as each declares itself (an agent app's adapter, the assistant); `dir` is where
    * the declarations are, the repository's own unless a test hands its own.
    */
+  /**
+   * `standIn`, where set, is one address on this Mac every provider is reached at instead of its own: the stand-in a
+   * proof or a suite runs, or a closed port, so no fake key ever reaches a real provider (rule 29). Every reader reads
+   * the list, so the assistant, the key check and the gate are all redirected by this one setting. An address that is
+   * not this Mac's stops the start.
+   */
   constructor(options: {
     readonly dir?: string;
     readonly dataDir: string;
     readonly readers?: readonly KeyReader[];
+    readonly standIn?: string | null;
   }) {
-    this.#providers = readDeclarations(options.dir ?? PROVIDERS_DIR);
+    const declared = readDeclarations(options.dir ?? PROVIDERS_DIR);
+    const standIn = options.standIn ?? null;
+    if (standIn !== null && !onThisMac(standIn))
+      throw new ConfigError(
+        `HALCYONIC_ASSISTANT_UPSTREAM must be an address on this Mac (http or https on 127.0.0.1, [::1] or localhost), not ${standIn}.`,
+      );
+    this.#providers =
+      standIn === null
+        ? declared
+        : declared.map((provider) => ({ ...provider, upstream: standIn }));
     this.#readers = options.readers ?? [];
     this.#keys = declaredKeys(options.dataDir);
   }
@@ -79,6 +95,12 @@ export class HostProviders {
     const provider = this.byId(id);
     return provider === undefined ? { kind: 'none' } : this.#keys(provider.key);
   }
+}
+
+/** Whether `address` is a plain address on this Mac's loopback, the only place a stand-in may be. */
+export function onThisMac(address: string): boolean {
+  if (upstreamProblem(address) !== null) return false;
+  return ['127.0.0.1', '[::1]', 'localhost'].includes(new URL(address).hostname);
 }
 
 function readDeclarations(dir: string): HostedProvider[] {

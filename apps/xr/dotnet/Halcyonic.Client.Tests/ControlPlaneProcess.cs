@@ -105,6 +105,9 @@ internal sealed class ControlPlaneProcess : IDisposable
         start.Environment["HALCYONIC_LOG_LEVEL"] = port == 0 || networkPort == 0 ? "info" : "warn";
         start.Environment["HALCYONIC_EXIT_ON_STDIN_END"] = "1";
         if (projectRoot != null) start.Environment["HALCYONIC_PROJECT_ROOTS"] = projectRoot;
+        // Every hosted provider at a closed port on this Mac, so no key a test stores ever reaches a real provider
+        // (rule 29, 2026-11-13). A test that runs its own stand-in names it in environment.
+        start.Environment["HALCYONIC_ASSISTANT_UPSTREAM"] = "http://127.0.0.1:9";
         foreach (var variable in environment ?? new Dictionary<string, string>()) start.Environment[variable.Key] = variable.Value;
         if (networkPort != null)
         {
