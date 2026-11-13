@@ -6,6 +6,27 @@ namespace Halcyonic.Client.Tests;
 /// <summary>The plane's form: the widest that clears every shelf, decided again only on an event, never while a person reads.</summary>
 public class PlaneFormTests
 {
+    /// <summary>
+    /// The plane's form carries the kit's own line measure (the lead's 20:15Z: eight lines means eight lines): it survives the
+    /// plane asking for fewer rows or actions, and the general reader pages by it.
+    /// </summary>
+    [Test]
+    public void AMeasuredFormKeepsItsLineMeasureWhenThePlaneAsksForLessAndTheReaderPagesByIt()
+    {
+        var calls = 0;
+        var form = RoomForm.Full.Measured(words => { calls++; return 3; });
+        var frame = new MenuFrame("Settings", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)),
+            lines: new[] { new PageLine("One"), new PageLine("Two"), new PageLine("Three") });
+        foreach (var asked in new[] { form, form.Fewer(), form.FewerActions(), form.Fewer().Fewer() })
+        {
+            Assert.That(asked.LinesOf, Is.Not.Null);
+            calls = 0;
+            var bar = RoomBar.Of(KitFileBinding.PlainOf(frame), VoiceStage.Idle, false, form: asked);
+            Assert.That(calls, Is.GreaterThan(0), "the reader measures by the form's own function");
+            Assert.That(bar.Whole, Is.False, "three rows of three lines pass eight lines a page, so they page");
+        }
+    }
+
     [Test]
     public void TheFullPlaneStandsWhereItClearsAndTheNarrowOneWhereOnlyItDoes()
     {

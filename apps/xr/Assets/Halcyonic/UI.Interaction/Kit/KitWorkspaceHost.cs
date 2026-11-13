@@ -101,7 +101,18 @@ namespace Halcyonic.XR.UI
         /// The form the plane lays the bar in, decided by the plane before any reader measures (its rule: the widest form that clears
         /// every shelf in the field, held between events): every bar this host makes, and every Holds, is read for it.
         /// </summary>
-        public RoomForm Form { get; set; } = RoomForm.Full;
+        /// <remarks>
+        /// Set, it carries the bar's own line measure at the width it will lay the panel (the lead's 20:15Z: eight lines means eight
+        /// lines), so the general reader pages to eight lines as the kit wraps them, never by a count of characters: the column's
+        /// width in the narrow form, else the panel's (RoomBarView.LinesAt, FIELD's 20:15Z).
+        /// </remarks>
+        public RoomForm Form
+        {
+            get => form;
+            set => form = value.Measured(words => bar.LinesAt(words, false, value.Narrow ? RoomGeometry.ColumnDp : RoomGeometry.PanelDp));
+        }
+
+        private RoomForm form = RoomForm.Full;
 
         /// <summary>Its extent as laid out, in units of the plane's distance at the standard text size.</summary>
         public Vector2 Size { get; private set; }
