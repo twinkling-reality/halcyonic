@@ -298,34 +298,44 @@ namespace Halcyonic.Client
         public const string OpenTask = "Open Task";
 
         public const string PreviousRequestTitle = "Start Unconfirmed";
-        public const string PreviousRequestLine = "Last Start May Have Run · Check Stage First · Retry Could Repeat It";
 
-        /// <summary>On Starting your work, where it only opens Not sure it happened.</summary>
-        public const string CheckFirst = "Next";
+        /// <summary>
+        /// A start that may have run, where nothing says which step: where a person sees what it may have made, and why not to
+        /// try again blind, in sentences of New Project's own (AUDIT, 2026-11-13T1627Z: never facts joined on a dot).
+        /// </summary>
+        public const string PreviousRequestLine = "The last start may have run. Look in Projects and in the room. Trying again could make it twice.";
+
+        /// <summary>A start that may have run, by the step that may have: the same sentence its card says, then why not to try again blind.</summary>
+        public static string PreviousRequest(BuildStepKind? kind) => kind == null ? PreviousRequestLine : NotSureItHappened(kind) + " " + TryingAgainTwice;
+
+        private const string TryingAgainTwice = "Trying again could make it twice.";
+
+        /// <summary>On a start whose outcome is unknown, where it only opens the page that says what is known and how to clear it.</summary>
+        public const string CheckFirst = "See What Happened";
 
         /// <summary>The first of the two presses that clear a start whose outcome is unknown.</summary>
         public const string Clear = "Clear";
-        public const string ClearOnceChecked = "Clear After Checking";
-        public const string ClearOnlyAfterChecking = "Check Stage, Then Clear";
+        public const string ClearOnceChecked = "Once you have looked, Clear lets you start again.";
+        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Clearing sends nothing again.";
         public const string ConfirmClear = "Confirm";
         public const string Cancel = "Cancel";
         public const string Cleared = "Cleared · Start from Idea";
 
         /// <summary>The unknown start's note after its words changed while Yes, clear waited.</summary>
-        public const string ChangedBeforeClear = "Not Cleared · Changed · Reread";
+        public const string ChangedBeforeClear = "Nothing was cleared: this changed while you were clearing it. Read it again.";
 
         /// <summary>The command whose outcome is unknown, by its id.</summary>
-        public static string Reference(string commandId) => "Reference · " + commandId;
+        public static string Reference(string commandId) => "Its reference is " + commandId + ".";
 
-        /// <summary>What the Mac recorded of a start whose outcome is unknown, in words: a failure may still have changed something.</summary>
+        /// <summary>What the computer recorded of a start whose outcome is unknown, in a sentence: a failure may still have changed something.</summary>
         public static string Recorded(CommandStatus? status) => status switch
         {
-            null => "Unconfirmed",
-            CommandStatus.Accepted => "Accepted · Unconfirmed",
-            CommandStatus.Completed => "Confirmed",
-            CommandStatus.Rejected => "Refused · Nothing Happened",
-            CommandStatus.Failed => "Failed · May Have Changed Something · Check Stage",
-            _ => "Unexpected Answer · Check Stage",
+            null => "The computer has not said how it went.",
+            CommandStatus.Accepted => "The computer took it and has not said how it went.",
+            CommandStatus.Completed => "The computer says it happened.",
+            CommandStatus.Rejected => "The computer refused it, and nothing changed.",
+            CommandStatus.Failed => "The computer says it failed, but it may have changed something.",
+            _ => "The computer answered in a way this headset can't read.",
         };
 
         public const string OpenNow = "Open Now";
@@ -365,8 +375,19 @@ namespace Halcyonic.Client
             _ => "Start Task",
         };
 
-        /// <summary>A start whose effect is unknown is never said to have had none.</summary>
-        public const string NotSureItHappened = "It may have happened. Look for the task in the room to see.";
+        /// <summary>
+        /// A step whose effect is unknown, never said to have had none: what that step may have made and where a person sees it
+        /// (AUDIT's MUST, 2026-11-13T1627Z: a step names only what it makes, so a Create Project step that may have happened never
+        /// sends a person to look for a task its start has not asked for yet). Null, where nothing says which step, names both places.
+        /// </summary>
+        public static string NotSureItHappened(BuildStepKind? kind) => kind switch
+        {
+            BuildStepKind.CreateProject => "It may have made the project and its folder. Look for it in Projects.",
+            BuildStepKind.BindFolder => "It may have moved the project to its folder. Look for it in Projects.",
+            BuildStepKind.CreateWorkstream => "It may have made the task. Look for the task in the room.",
+            BuildStepKind.StartWork => "The task may have started. Look for it working in the room.",
+            _ => "It may have happened. Look in Projects and in the room.",
+        };
 
         /// <summary>
         /// How a step of Start task went: sent is not done, and only a completed record confirms.
@@ -389,11 +410,11 @@ namespace Halcyonic.Client
             // the shared reasons (WorkspaceText) are other flows' and stay theirs. The row's cross says it stopped.
             BuildStepStatus.Refused => StepRefused(refusal) ?? StepRefusedOther,
             // A failure that may have had an effect is never put in words that say nothing happened.
-            BuildStepStatus.Failed when effectUnknown => NotSureItHappened,
+            BuildStepStatus.Failed when effectUnknown => NotSureItHappened(kind),
             BuildStepStatus.Failed => StepFolder(refusal, failure) ?? StepFailed(failure) ?? StepFailedOther,
-            BuildStepStatus.Unknown => NotSureItHappened,
+            BuildStepStatus.Unknown => NotSureItHappened(kind),
             BuildStepStatus.NotSent => StepNotSent,
-            _ => NotSureItHappened,
+            _ => NotSureItHappened(kind),
         };
 
         /// <summary>A step the host refused for a reason it gives: what stopped it, then the way on, as New Project says it.</summary>
@@ -406,12 +427,12 @@ namespace Halcyonic.Client
             if (refusal == RejectionCode.ModelRequired) return "It needs a model. Choose one in More Options.";
             if (refusal == RejectionCode.InvalidRuntimeOptions) return "The computer refused the run settings. Choose them again.";
             if (refusal == RejectionCode.CapabilityUnsupported) return "The agent app can't do this. Change the agent app.";
-            if (refusal == RejectionCode.InvalidState) return "That isn't possible right now. Check the stage.";
+            if (refusal == RejectionCode.InvalidState) return "That isn't possible right now. Look in the room.";
             return null;
         }
 
         /// <summary>A step refused for a reason New Project has no words for: that it was refused, and that nothing changed.</summary>
-        public const string StepRefusedOther = "The computer refused this, and nothing changed. Check the stage.";
+        public const string StepRefusedOther = "The computer refused this, and nothing changed. Look in the room.";
 
         /// <summary>A step stopped over its folder, from the host's refusal or a failure's code.</summary>
         private static string? StepFolder(RejectionCode? refusal, string? failure)

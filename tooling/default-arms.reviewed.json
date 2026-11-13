@@ -139,9 +139,9 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/EntryText.cs",
-    "answer": "NotSureItHappened",
+    "answer": "NotSureItHappened(kind)",
     "count": 1,
-    "why": "true: Only Unexpected reaches it (a completed record with a result the step did not expect), and Effect Unconfirmed is true for that."
+    "why": "true: Only Unexpected reaches it (a completed record with a result the step did not expect), and that step may have made what it makes, which is what the sentence for its kind says."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/EntryText.cs",

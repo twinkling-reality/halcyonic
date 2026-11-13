@@ -360,7 +360,7 @@ public class FolderRefusalTests
         var sequence = new BuildSequence(Draft("p1"), Commands, null);
         var workstream = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(Refused(workstream, RejectionCode.InvalidState, "Not now‮.")));
-        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("That isn't possible right now. Check the stage."));
+        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("That isn't possible right now. Look in the room."));
         Assert.That(EntryText.AboutFolder(sequence.StoppedAt!), Is.False);
     }
 
@@ -376,7 +376,8 @@ public class FolderRefusalTests
         }));
         var step = sequence.StoppedAt!;
         Assert.That(EntryText.StepStatus(step), Does.Not.Contain("nothing changed"));
-        Assert.That(EntryText.StepStatus(step), Is.EqualTo(EntryText.NotSureItHappened));
+        Assert.That(EntryText.StepStatus(step), Is.EqualTo("It may have made the project and its folder. Look for it in Projects."),
+            "a Create Project step names no task: Create Task was never sent (AUDIT, 2026-11-13T1627Z)");
         Assert.That(EntryText.AboutFolder(step), Is.False);
         Assert.That(sequence.CanRetry, Is.False);
     }

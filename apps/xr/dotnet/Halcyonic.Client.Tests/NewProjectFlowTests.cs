@@ -623,12 +623,17 @@ public class NewProjectFlowTests
         host.State = With();
         flow.Tick();
         Assert.That(kept.Id, Is.EqualTo(host.Sent.Single().CommandId), "kept, so a restart still blocks a blind retry");
+        // The card's See What Happened opens the page, which says what the card said, by the step that may have run (AUDIT, 2026-11-13T1627Z).
+        Press(flow, NewProjectScreens.CheckFirst, null);
+        Assert.That(flow.Frame!.Lines.Select(line => line.Words), Does.Contain(EntryText.PreviousRequest(BuildStepKind.CreateProject)), "this build's own step, by its kind");
+        Assert.That(flow.Frame!.Lines.Select(line => line.Words).Where(words => words.Contains('\u00b7')), Is.Empty, "no facts joined on a dot");
 
         var restarted = Flow(new Host(), kept);
         restarted.Open(null, null);
         Assert.That(restarted.Step, Is.EqualTo(NewProjectStep.Build));
         var unresolved = restarted.Frame!;
-        Assert.That(unresolved.Lines.Any(line => line.Words == "Reference · " + kept.Id), Is.True);
+        Assert.That(unresolved.Lines.Any(line => line.Words == EntryText.Reference(kept.Id!)), Is.True);
+        Assert.That(unresolved.Lines.Select(line => line.Words), Does.Contain(EntryText.PreviousRequestLine), "a start kept from before names both places");
         Press(restarted, NewProjectScreens.ConfirmClear, null);
         Assert.That(kept.Id, Is.Not.Null, "one press never clears it");
         Press(restarted, NewProjectScreens.Clear, null);
@@ -1222,7 +1227,7 @@ public class NewProjectFlowTests
         Assert.That(flow.Review, Is.Null, "nothing starts while an earlier start may have run");
         Assert.That(recap.Sections.Single(step => step.Key == NewProjectScreens.Key(NewProjectStep.Build)).Reached, Is.True);
         Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Build));
-        Assert.That(flow.Frame!.Lines.Any(line => line.Words == "Reference · " + kept.Id), Is.True, "Build shows the start to check");
+        Assert.That(flow.Frame!.Lines.Any(line => line.Words == EntryText.Reference(kept.Id!)), Is.True, "Build shows the start to check");
         Assert.That(host.Sent, Is.Empty);
         Assert.That(kept.Id, Is.EqualTo("01a0dcf1-5a80-7000-8000-0000000000c1"), "never replaced");
     }

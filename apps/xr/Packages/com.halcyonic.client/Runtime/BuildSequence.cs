@@ -146,6 +146,9 @@ namespace Halcyonic.Client
         /// <summary>The step that stopped the sequence, or null while it runs or once it started the work.</summary>
         public BuildStep? StoppedAt => Stopped && index < steps.Count ? steps[index] : null;
 
+        /// <summary>The step whose command is <see cref="Unresolved"/>, the one under way, so its words can say what it may have made.</summary>
+        public BuildStep? UnresolvedStep => Unresolved != null && index < steps.Count ? steps[index] : null;
+
         /// <summary>
         /// The id of the command that may have run without this headset knowing its result. While
         /// set, the entry panel keeps it on the device and offers no other start.
