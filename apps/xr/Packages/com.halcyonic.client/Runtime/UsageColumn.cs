@@ -336,17 +336,28 @@ namespace Halcyonic.Client
                 var words = stage == Stage.Sent ? Asking : stage == Stage.Confirmed ? Choosing : modelsFailed ? UsageLeftPresenter.Unreachable().Note : ReadingModels;
                 return new MenuFrame(UsageText.Subject, footer).WithCard(new RoomCard(title, LineWords.Ours(words)));
             }
-            var here = AssistantPlace.Row(agent);
-            var rows = options.Select(option => new RoomListRow(
+            return new MenuFrame(UsageText.Subject, footer).WithCard(ModelsCard(options, AssistantPlace.Row(agent), refused,
+                option => new KitControl(KitPlace.Choice, Placeholder, ChooseModel, option.Index.ToString(CultureInfo.InvariantCulture), option.Label, GlazeIcon.Next, true, null,
+                    false, Runs(option, AssistantPlace.Row(agent)))));
+        }
+
+        /// <summary>
+        /// The host's list as Use Model's card: its title, the host's words where it did not take the last press, and a row a place
+        /// in the host's order, at most a list's page: hosted ones the link's mark and the model's id theirs, this computer's its
+        /// own; its second line the host's (this computer's model's name theirs); the place it runs now chosen; a press only where
+        /// the host offers one (<paramref name="press"/>), so a row it does not shows its reason and presses nothing. For the
+        /// column and the kit's renders alike.
+        /// </summary>
+        public static RoomCard ModelsCard(IReadOnlyList<AssistantOption> options, AssistantRow here, string? refused, Func<AssistantOption, KitControl?> press)
+        {
+            var rows = options.Take(RoomCard.ListAPage).Select(option => new RoomListRow(
                 option.Theirs ? RoomKind.Link : RoomKind.Computer,
                 option.Theirs ? LineWords.TheirName(option.Label) : LineWords.Written(LabelText.Plain(option.Label)),
-                press: option.Choosable
-                    ? new KitControl(KitPlace.Choice, Placeholder, ChooseModel, option.Index.ToString(CultureInfo.InvariantCulture), option.Label, GlazeIcon.Next, true, null, false, Runs(option, here))
-                    : null,
+                press: option.Choosable ? press(option) : null,
                 chosen: Runs(option, here),
-                under: option.Detail == null ? null : option.Theirs || option.Choosable ? DetailOf(option) : LineWords.Written(LabelText.Plain(option.Detail)))).ToList();
-            return new MenuFrame(UsageText.Subject, footer)
-                .WithCard(new RoomCard(title, refused == null ? null : LineWords.Written(LabelText.Plain(refused)), list: rows.Take(RoomCard.ListAPage).ToList()));
+                under: option.Detail == null ? null : DetailOf(option))).ToList();
+            return new RoomCard(LineWords.Written(LabelText.Plain(AssistantPlace.UseModelTitle)),
+                refused == null ? null : LineWords.Written(LabelText.Plain(refused)), list: rows);
         }
 
         /// <summary>The row the assistant runs on now: this computer's where it runs here, else the hosted model of that name.</summary>
@@ -362,7 +373,7 @@ namespace Halcyonic.Client
         /// out, its digest carried back by Confirm. The step does not carry the host's own confirm words, facts or warnings
         /// (LOOP, asked 2026-11-13): Confirm says the entry's title.
         /// </summary>
-        private static ActionReview ReviewOf(WorkspaceRequestStepProposal proposal) => new ActionReview
+        public static ActionReview ReviewOf(WorkspaceRequestStepProposal proposal) => new ActionReview
         {
             CommandType = proposal.CommandType,
             Digest = proposal.Review!,
