@@ -311,6 +311,9 @@ namespace Halcyonic.XR.Workspace
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
             var now = (GlazeText.Scale, shelfKey, characters, Mathf.RoundToInt(Direction.Yaw), Mathf.RoundToInt(Direction.Elevation), placing);
             if (formSituation is { } was && was == now) return;
+            // Placing just ended and the shelf placed is not standing yet (it stands a frame later): no event yet, or the plane would
+            // widen for a room with no shelf and narrow again a frame later, two changes for one placing (JUDGE's charR).
+            if (formSituation is { } placed && placed.Placing && !placing && shelf == null) return;
             PlaneFormEvent happened = formSituation is not { } before ? PlaneFormEvent.PlaneMoved
                 : !Mathf.Approximately(before.Scale, now.Item1) ? PlaneFormEvent.TextSizeChanged
                 : before.Shelf != shelfKey || before.Placing != placing ? PlaneFormEvent.ShelfChanged
