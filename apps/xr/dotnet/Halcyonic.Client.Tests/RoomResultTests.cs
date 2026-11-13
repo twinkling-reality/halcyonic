@@ -641,6 +641,45 @@ public class RoomResultTests
     }
 
     /// <summary>
+    /// Every reason on the account's Why, as the desk shows them (SCREENS's 2026-11-13T0533Z proposal, FIELD's words): with the
+    /// full answer beside the brief, the parts hold every reason the agent gave, oldest first, five a part, each with the files
+    /// changed after it on its quieter line under it; the brief's "And N more" is gone and the latest reason is said once; the
+    /// byline on every part says whose they are, so no row repeats it. What Changed stays brief: the page's files come first.
+    /// </summary>
+    [Test]
+    public void TheAccountsWhyHoldsEveryReasonTheAgentGaveWithTheFilesUnderEach()
+    {
+        var reasons = Enumerable.Range(1, 7).Select(index => Answers.File("src/part" + index + ".ts", "[\"update\"]", 1, 0,
+            "2026-09-20T15:40:0" + index + ".000Z", reason: "Reason " + index + ", said before part " + index + "."));
+        var json = Answers.Files(Intelligence.Verified, "[" + string.Join(",", reasons) + "]");
+        SectionPresentation Read(UnderstandPrompt prompt, AnswerDepth depth) =>
+            UnderstandingPresenter.Present(prompt, Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(json), "2026-09-20T16:21:30.000Z"),
+                false, null, Intelligence.At(Answers.Now), Intelligence.Utc, depth: depth);
+        var brief = Read(UnderstandPrompt.WhyChanged, AnswerDepth.Brief);
+        Assert.That(brief.Lines.Select(line => line.Text), Has.Some.StartsWith("And 6 more reasons"), "the brief alone counts the rest");
+
+        var what = Read(UnderstandPrompt.WhatChanged, AnswerDepth.Brief);
+        var account = new ChangesAccount(what, brief, null, Read(UnderstandPrompt.WhyChanged, AnswerDepth.Full));
+        var why = Enumerable.Range(0, account.Parts).Select(account.Card).Where(card => card.Title!.Text == ChangesAccount.WhyTitle).ToList();
+        Assert.That(why.Count, Is.EqualTo(2), "seven reasons, five a part");
+        var rows = why.SelectMany(card => card.List).ToList();
+        Assert.That(rows.Select(row => row.Name.Text), Is.EqualTo(Enumerable.Range(1, 7).Select(index => "Reason " + index + ", said before part " + index + ".")),
+            "every reason, oldest first, each once");
+        Assert.That(rows.Select(row => row.Under?.Text), Is.EqualTo(Enumerable.Range(1, 7).Select(index => "Said before it changed part" + index + ".ts")),
+            "the files changed after each under it");
+        Assert.That(rows.All(row => row.Name.AllTheirs && row.Kind == RoomKind.None && row.Note == null), Is.True, "the agent's words, no mark or note again");
+        Assert.That(why.Select(card => card.Status?.Title), Is.All.EqualTo(ChangesAccount.AgentSays), "the byline on every part says whose");
+        Assert.That(why[0].Description, Is.Null, "the latest reason is said once, on its row with its file, not again as the description");
+        Assert.That(rows.Select(row => row.Name.Text), Has.None.StartsWith("And "), "no count of the rest: they all follow");
+        foreach (var card in why) Assert.That(card.AnyDot, Is.False, "no fact on a dot");
+
+        // What Changed stays brief: in full it is the files the page has already shown.
+        var whatPart = account.Card(0);
+        Assert.That((whatPart.Title!.Text, whatPart.Description!.Text), Is.EqualTo((ChangesAccount.WhatChangedTitle, what.Lines[0].Runs.Text)));
+        Assert.That(whatPart.List.Select(row => row.Name.Text), Is.EqualTo(what.Lines.Skip(1).Select(line => line.Runs.Text)));
+    }
+
+    /// <summary>
     /// SCREENS's understanding's account on the one Changes page (the lead's 1115Z and 1256Z): after the files, a part an
     /// answer, what changed, why and how it was built: its lead line whole as the description, the agent's words alone with
     /// a slot saying they are the agent's, the rest as rows each with its kind and how it is known as its note, never on a dot; Next Page
@@ -680,7 +719,8 @@ public class RoomResultTests
         Assert.That((whyPart.Status?.Title, whyPart.Status?.Mark, whyPart.Status?.Tone), Is.EqualTo(((string?)ChangesAccount.AgentSays, (RoomKind?)RoomKind.Says, (RoomTone?)RoomTone.Quiet)),
             "the card's state says whose they are, under the title and before them");
         Assert.That((whatPart.Status, whatPart.Slots.Count), Is.EqualTo(((RoomCardStatus?)null, 0)), "what was observed needs no one's name");
-        Assert.That((whyPart.List.Count, whyPart.List[0].Kind, whyPart.List[0].Note), Is.EqualTo((RoomCard.ListAPage, RoomKind.Says, (string?)ChangesAccount.AgentSays)));
+        Assert.That((whyPart.List.Count, whyPart.List[0].Kind, whyPart.List[0].Note), Is.EqualTo((RoomCard.ListAPage, RoomKind.None, (string?)null)),
+            "the byline says whose the rows are once, so no row carries the bubble or the note again (FIELD's words)");
         var last = Bar(new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Changes, part: 3, account: account));
         Assert.That((last.Card!.Title!.Text, last.Card.Description, last.Card.List.Single().Name.Text), Is.EqualTo((ChangesAccount.WhyTitle, (LineWords?)null, "Reason 6")),
             "a later part carries on with its rows alone");

@@ -16,6 +16,11 @@ namespace Halcyonic.Client
     /// is no part. The foot says where the answers come from in FIELD's words, From the Agent's Records, only where every answer
     /// shown was read from the agent app's own records, never a stand-in's (a simulated brief says no source); the brief's own
     /// provenance names the provider's product, which never stands on a person's screen, so it is not drawn.
+    /// Where the answer's full lines are given beside its brief (SCREENS's 2026-11-13T0533Z proposal, FIELD's and XR's yes), its
+    /// rows are every one of them, as the desk shows them, so Next Page reads every reason and the brief's "And N more" is
+    /// gone: a line's detail beneath it (the files changed after a reason) is its row's quieter line under it, and the lead is
+    /// never said twice. Only Why is given whole: What Changed in full is the files the page has already shown, with what is not
+    /// done joined on a dot, and How It's Built in full heads each step on a joining dot, so both stay brief.
     /// </summary>
     public sealed class ChangesAccount
     {
@@ -33,14 +38,19 @@ namespace Halcyonic.Client
         /// <summary>The foot's source words (FIELD's, 2026-11-12T1734Z): the understanding is read from the agent app's own records.</summary>
         public const string FromAgentsRecords = "From the Agent's Records";
 
-        private readonly List<(UnderstandPrompt Prompt, SectionLine? Lead, IReadOnlyList<SectionLine> Rows)> answers = new();
+        private readonly List<(UnderstandPrompt Prompt, SectionLine? Lead, RoomCardStatus? Who, IReadOnlyList<(SectionLine Line, LineWords? Under)> Rows)> answers = new();
         private readonly List<(int Answer, int From)> parts = new();
 
         /// <param name="whatChanged">The brief answer to what changed, or null where none was read.</param>
-        public ChangesAccount(SectionPresentation? whatChanged, SectionPresentation? why, SectionPresentation? howBuilt)
+        /// <param name="whyFull">Why's full lines from the same read, its rows where given (every reason and the files changed after it); the brief's otherwise.</param>
+        public ChangesAccount(SectionPresentation? whatChanged, SectionPresentation? why, SectionPresentation? howBuilt, SectionPresentation? whyFull = null)
         {
             var simulated = false;
-            foreach (var (prompt, brief) in new[] { (UnderstandPrompt.WhatChanged, whatChanged), (UnderstandPrompt.WhyChanged, why), (UnderstandPrompt.HowBuilt, howBuilt) })
+            foreach (var (prompt, brief, full) in new[]
+            {
+                (UnderstandPrompt.WhatChanged, whatChanged, (SectionPresentation?)null), (UnderstandPrompt.WhyChanged, why, whyFull),
+                (UnderstandPrompt.HowBuilt, howBuilt, (SectionPresentation?)null),
+            })
             {
                 if (brief == null || brief.Lines.Count == 0) continue;
                 simulated |= brief.Simulated;
@@ -48,8 +58,22 @@ namespace Halcyonic.Client
                 // lead stays a row, its note saying so.
                 var lead = brief.Lines[0];
                 var leads = Leads(lead);
-                var rows = brief.Lines.Skip(leads ? 1 : 0).ToList();
-                answers.Add((prompt, leads ? lead : null, rows));
+                var who = leads ? WhoSaid(lead) : null;
+                List<(SectionLine Line, LineWords? Under)> rows;
+                if (full != null && full.Lines.Count > 0)
+                {
+                    rows = Rows(full.Lines);
+                    // The lead is said once: where a full line reads as it does, that line stands as the description, or, where
+                    // something is under it (the latest reason's files), as its row with what is under it and no description.
+                    var same = leads ? rows.FindIndex(row => row.Line.Text == lead.Text) : -1;
+                    if (same >= 0 && rows[same].Under != null) leads = false;
+                    else if (same >= 0) rows.RemoveAt(same);
+                }
+                else
+                {
+                    rows = brief.Lines.Skip(leads ? 1 : 0).Select(line => (line, (LineWords?)null)).ToList();
+                }
+                answers.Add((prompt, leads ? lead : null, who, rows));
                 // Five rows a part, as every card's list (RoomCard.ListAPage); a long answer takes the parts it needs.
                 parts.Add((answers.Count - 1, 0));
                 for (var from = RoomCard.ListAPage; from < rows.Count; from += RoomCard.ListAPage) parts.Add((answers.Count - 1, from));
@@ -119,12 +143,32 @@ namespace Halcyonic.Client
         {
             if (part < 0 || part >= parts.Count) throw new ArgumentOutOfRangeException(nameof(part), part, "The account has no such part.");
             var (answer, from) = parts[part];
-            var (prompt, lead, lines) = answers[answer];
-            var rows = lines.Skip(from).Take(RoomCard.ListAPage).Select(line => new RoomListRow(KindOf(line), line.Runs, NoteOf(line))).ToList();
+            var (prompt, lead, who, lines) = answers[answer];
+            // Whose the words are is said once, by the byline on every part of the answer (FIELD's 2026-11-13T0631Z words): a row
+            // the byline already names carries neither the bubble nor the note again; any other row keeps its own.
+            bool Named(SectionLine line) => who is RoomCardStatus byline && NoteOf(line) == byline.Title;
+            var rows = lines.Skip(from).Take(RoomCard.ListAPage).Select(row => new RoomListRow(
+                Named(row.Line) && KindOf(row.Line) == RoomKind.Says ? RoomKind.None : KindOf(row.Line), row.Line.Runs,
+                Named(row.Line) ? null : NoteOf(row.Line), under: row.Under)).ToList();
             // The lead on the answer's first part alone; a later part of a long answer carries on with its rows.
             var first = from == 0 && lead != null;
-            var who = first ? WhoSaid(lead!) : null;
             return new RoomCard(LineWords.Ours(TitleOf(prompt)), first ? lead!.Runs : null, status: who, list: rows, more: Source);
+        }
+
+        /// <summary>
+        /// A full answer's lines as rows: each line its row, a detail line under the line before it (the files changed after a
+        /// reason) that row's quieter line under it; a blank line is none.
+        /// </summary>
+        private static List<(SectionLine Line, LineWords? Under)> Rows(IReadOnlyList<SectionLine> lines)
+        {
+            var rows = new List<(SectionLine Line, LineWords? Under)>();
+            foreach (var line in lines)
+            {
+                if (line.Text.Length == 0) continue;
+                if (line.Detail && rows.Count > 0 && rows[rows.Count - 1].Under == null) rows[rows.Count - 1] = (rows[rows.Count - 1].Line, line.Runs);
+                else rows.Add((line, null));
+            }
+            return rows;
         }
     }
 }
