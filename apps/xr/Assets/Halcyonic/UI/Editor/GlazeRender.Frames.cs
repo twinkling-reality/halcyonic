@@ -274,11 +274,11 @@ namespace Halcyonic.XR.UI.Editor
                 new SideFact("Seen", "Today 15:18"),
                 new SideFact("Resets", "Today 18:00"),
                 new SideFact("Account", UsageText.NotIdentified),
-            }, source: UsageLeftPresenter.FromSeorak);
+            }, source: UsageLeftPresenter.FromSource);
             var usage = new MenuFrame("Usage", new Footer(CloseFrame, rare: new Prompt("refresh", "Refresh", GlazeIcon.Refresh)),
                 sections: Places(MenuPlace.Usage),
                 lines: limits.Select((limit, index) => new PageLine(limit.Item1, fact: limit.Item2, action: "open-limit", key: index.ToString(), opens: true, chosen: index == 0)).ToList(),
-                source: UsageLeftPresenter.FromSeorak, side: side);
+                source: UsageLeftPresenter.FromSource, side: side);
             var subject = Subject(false, (usage.Subject, Glaze.Menu.MenuColumnDegrees), (side.Subject, Glaze.Menu.SideColumnDegrees));
             var menuView = View(holder, "Usage");
             menuView.Show(usage, Glaze.Menu.MenuColumnDegrees, subject, pillRoom: false);
@@ -307,7 +307,7 @@ namespace Halcyonic.XR.UI.Editor
                     new PageLine("No tests changed", tone: LineTone.Secondary),
                     new PageLine("Where it worked", fact: "storefront-api-checkout-and-orders-service-with-a-long-folder-name", factIsData: true, tone: LineTone.Secondary),
                 },
-                source: "Salidium 0.9 · Read 15:20", sourceIsData: true, side: side);
+                source: "Explanation, Read 15:20", sourceIsData: true, side: side);
             var subject = Subject(true, (file.Subject, Glaze.Menu.FileColumnDegrees), (side.Subject, Glaze.Menu.SideColumnDegrees));
             var fileView = View(holder, "File");
             fileView.Show(file, Glaze.Menu.FileColumnDegrees, subject, pillRoom: true);

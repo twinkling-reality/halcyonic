@@ -90,10 +90,9 @@ public class FileScreensTests
         Assert.That(openers.All(line => line.Action == FileScreens.Open && line.Pressable), Is.True);
         Assert.That((frame.Lines[2].Runs.AllTheirs, frame.Lines[2].Icon), Is.EqualTo((true, (GlazeIcon?)GlazeIcon.Quote)), "the agent's words lean as its own");
         Assert.That(frame.Lines.Where(line => !line.Opens).Any(line => line.Action != null), Is.False, "the other lines only say something");
-        Assert.That(frame.Source, Does.StartWith("Salidium"), "one source line, last");
-        // The version Salidium names for itself leans on its ground; "Salidium" and when are Halcyonic's (settled 2026-10-08).
-        Assert.That(frame.SourceRuns!.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true, false }));
-        Assert.That(frame.SourceRuns!.Runs[0].Text, Is.EqualTo("Salidium "));
+        Assert.That(frame.Source, Does.StartWith("Explanation, "), "one source line, last");
+        // Where it came from is the product's own words, all of it: the source's name and version are never drawn (2026-11-13).
+        Assert.That(frame.SourceRuns!.AnyTheirs, Is.False);
         Assert.That(frame.Side, Is.Null);
         Assert.That(frame.Lines.Any(line => line.Tone == LineTone.Waiting), Is.False, "amber only for what waits");
     }
@@ -107,7 +106,7 @@ public class FileScreensTests
         Assert.That(frame.Lines[0].Chosen, Is.True);
         var side = frame.Side!;
         Assert.That(side.Subject, Is.EqualTo(WorkspaceText.PromptLabel(UnderstandPrompt.WhatChanged)));
-        Assert.That(side.Source, Does.StartWith("Salidium"));
+        Assert.That(side.Source, Does.StartWith("Explanation, "));
         Assert.That(side.Lines.Any(line => line.Action != null), Is.False, "a side panel holds nothing to press");
         var files = side.Lines.Where(line => line.Icon != null).ToList();
         Assert.That(files.Count, Is.GreaterThan(0));
@@ -194,12 +193,12 @@ public class FileScreensTests
         var frame = Screen(screen, room: AnswerRoom.Unlimited);
         Assert.That(frame.Lines[0].Words, Is.EqualTo("Tests passed at 15:40: 118/118 tests passed (vitest)"));
         Assert.That(frame.Lines[0].Key, Is.EqualTo(FileScreens.ChecksKey));
-        // Salidium's checks, then Seorak's state on a page of its own under its own source (D-XR-6), which Next Page reaches.
+        // The explanation's checks, then the measurement's state on a page of its own under its own source (D-XR-6), which Next Page reaches.
         Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Refresh, null, null, Footer.NextPage }));
-        Assert.That(frame.Source, Does.StartWith("Salidium"));
+        Assert.That(frame.Source, Does.StartWith("Explanation, "));
         screen.NextPage();
         var seorak = Screen(screen, room: AnswerRoom.Unlimited);
-        Assert.That(seorak.Source, Is.EqualTo("Seorak · Read 1 min ago"));
+        Assert.That(seorak.Source, Is.EqualTo("Measurement, Read 1 min ago"));
         Assert.That(seorak.Lines[0].Words, Does.StartWith("Checks · "), "its checks line under its own source");
         screen.NextPage();
         screen.Chosen = FileScreens.ChecksKey;
@@ -222,7 +221,7 @@ public class FileScreensTests
                 null, Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc, depth: depth);
         var screen = new FileScreen { Section = FileSection.Checks, Checked = new FileAnswer(Checked(AnswerDepth.Brief), Checked(AnswerDepth.Full)) };
         var why = Screen(screen, room: AnswerRoom.Unlimited).Lines.Single();
-        Assert.That((why.Words, why.Opens, why.Key), Is.EqualTo(("Salidium · Conclusions Unavailable · Agent App Not Followed", true, FileScreens.ChecksKey)));
+        Assert.That((why.Words, why.Opens, why.Key), Is.EqualTo(("Conclusions Unavailable, Agent App Not Followed", true, FileScreens.ChecksKey)));
         screen.Chosen = FileScreens.ChecksKey;
         var sources = new List<string?>();
         var side = Screen(screen, room: AnswerRoom.Unlimited).Side!;
@@ -231,7 +230,7 @@ public class FileScreensTests
             sources.Add(Screen(screen, room: AnswerRoom.Unlimited).Side!.Source);
             screen.NextPage();
         }
-        Assert.That(sources, Has.Some.EqualTo("Seorak · Read 1 min ago"));
+        Assert.That(sources, Has.Some.EqualTo("Measurement, Read 1 min ago"));
     }
 
     [Test]

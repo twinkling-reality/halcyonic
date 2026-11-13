@@ -66,8 +66,9 @@ namespace Halcyonic.Client
             if (!(read.Response.Result is AvailableUnderstanding available)) return Failure(SectionKind.Understanding, read.Response.Result, status);
             var understanding = available.Understanding;
             var source = understanding.Source;
-            var provenanceRuns = IntelligenceText.UnderstandingProvenanceRuns(read, source, now, zone) + LineWords.Written(status);
-            var provenance = provenanceRuns.Text;
+            var from = IntelligenceText.UnderstandingSource(read, source, now, zone, status: status);
+            var provenance = from.Text;
+            var provenanceRuns = LineWords.Written(provenance);
             // Amber is for what waits for the person only: "Simulated" says so in words.
             var tone = SectionTone.Secondary;
             if (depth == AnswerDepth.Brief)
@@ -78,7 +79,7 @@ namespace Halcyonic.Client
                     UnderstandPrompt.WhyChanged => WhyChangedBrief(understanding),
                     _ => HowBuiltBrief(understanding),
                 };
-                return new SectionPresentation(SectionKind.Understanding, provenance, tone, brief, source.Synthetic, provenanceRuns: provenanceRuns);
+                return new SectionPresentation(SectionKind.Understanding, provenance, tone, brief, source.Synthetic, provenanceRuns: provenanceRuns, from: from);
             }
             var lines = prompt switch
             {
@@ -87,16 +88,16 @@ namespace Halcyonic.Client
                 _ => HowBuilt(understanding, zone, room),
             };
             var steps = prompt == UnderstandPrompt.HowBuilt && Flow(understanding.Explanation) != null;
-            return new SectionPresentation(SectionKind.Understanding, provenance, tone, lines, source.Synthetic, steps, provenanceRuns);
+            return new SectionPresentation(SectionKind.Understanding, provenance, tone, lines, source.Synthetic, steps, provenanceRuns, from);
         }
 
         /// <summary>The section an understanding that is not available becomes: why there is none, said in words.</summary>
-        internal static SectionPresentation Failure(SectionKind kind, UnderstandingResult result, string status) => result switch
+        internal static SectionPresentation Failure(SectionKind kind, UnderstandingResult result, Notice? status) => result switch
         {
-            NotFoundUnderstanding notFound => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "No Conclusions · ", notFound.Reason, SectionTone.Secondary, status),
-            UnavailableUnderstanding unavailable => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Conclusions Unavailable · ", unavailable.Reason, SectionTone.Secondary, status),
-            IncompatibleUnderstanding incompatible => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Conclusions Unreadable · ", incompatible.Reason, SectionTone.Problem, status),
-            UnauthorizedUnderstanding unauthorized => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Conclusions Not Allowed · ", unauthorized.Reason, SectionTone.Secondary, status),
+            NotFoundUnderstanding notFound => IntelligenceText.Failure(kind, "No Conclusions", notFound.Reason, SectionTone.Secondary, status),
+            UnavailableUnderstanding unavailable => IntelligenceText.Failure(kind, "Conclusions Unavailable", unavailable.Reason, SectionTone.Secondary, status),
+            IncompatibleUnderstanding incompatible => IntelligenceText.Failure(kind, "Conclusions Unreadable", incompatible.Reason, SectionTone.Problem, status),
+            UnauthorizedUnderstanding unauthorized => IntelligenceText.Failure(kind, "Conclusions Not Allowed", unauthorized.Reason, SectionTone.Secondary, status),
             _ => IntelligenceText.Empty(kind, "Conclusions Format Unknown"),
         };
 
@@ -823,12 +824,12 @@ namespace Halcyonic.Client
                         ? Brief(observed.Understanding, understanding, briefStatus, now, zone)
                         : UnderstandingPresenter.Failure(SectionKind.Checked, understanding.Response.Result, briefStatus);
                 }
-                // Seorak's state on a page of its own after Salidium's, so the Checks page itself says it (DEVICE's D-XR-6): its
+                // The measurement's state on a page of its own after the explanation's, so the Checks page itself says it (DEVICE's D-XR-6): its
                 // source line, then its checks line and that part's own status, or only the source line saying why there are none.
                 var state = measurement.Take(1).Concat(measurement.Skip(1).TakeWhile(line => line.Tag != "Cost"));
                 return new SectionPresentation(SectionKind.Checked, seen.Provenance, seen.ProvenanceTone,
                     seen.Lines.Concat(state.Select((line, index) => index == 0 ? line.With(startsPage: true, repeats: true) : line)).ToList(),
-                    seen.Simulated || simulated, provenanceRuns: seen.ProvenanceRuns);
+                    seen.Simulated || simulated, provenanceRuns: seen.ProvenanceRuns, from: seen.From);
             }
             SectionPresentation runs;
             if (understanding == null) runs = IntelligenceText.Waiting(SectionKind.Checked, understandingLoading, understandingError);
@@ -843,7 +844,7 @@ namespace Halcyonic.Client
             // so every page has one source, even when the understanding source had no answer.
             var paged = measurement.Select((line, index) => index == 0 ? line.With(startsPage: true, repeats: true) : line);
             return new SectionPresentation(SectionKind.Checked, runs.Provenance, runs.ProvenanceTone, runs.Lines.Concat(paged).ToList(),
-                runs.Simulated || simulated, provenanceRuns: runs.ProvenanceRuns);
+                runs.Simulated || simulated, provenanceRuns: runs.ProvenanceRuns, from: runs.From);
         }
 
         /// <summary>
@@ -851,7 +852,7 @@ namespace Halcyonic.Client
         /// changed after it, that they did. The other checks are detail, and so is the evaluation
         /// source's measurement past its checks line, which the brief gives a page of its own.
         /// </summary>
-        private static SectionPresentation Brief(Understanding understanding, IntelligenceRead<UnderstandingResponse> read, string status, DateTimeOffset now,
+        private static SectionPresentation Brief(Understanding understanding, IntelligenceRead<UnderstandingResponse> read, Notice? status, DateTimeOffset now,
             TimeZoneInfo zone)
         {
             var source = understanding.Source;
@@ -870,8 +871,8 @@ namespace Halcyonic.Client
                 // Only what makes the check no longer cover the work: files changed since.
                 if (run.Stale || UnderstandingPresenter.ChangedSince(run, understanding.Changes.Files).Count > 0) lines.Add(latest[1]);
             }
-            var provenance = IntelligenceText.UnderstandingProvenanceRuns(read, source, now, zone, checks: true) + LineWords.Written(status);
-            return new SectionPresentation(SectionKind.Checked, provenance.Text, SectionTone.Secondary, lines, source.Synthetic, provenanceRuns: provenance);
+            var from = IntelligenceText.UnderstandingSource(read, source, now, zone, checks: true, status: status);
+            return new SectionPresentation(SectionKind.Checked, from.Text, SectionTone.Secondary, lines, source.Synthetic, from: from);
         }
 
         /// <summary>
@@ -879,7 +880,7 @@ namespace Halcyonic.Client
         /// ran after, as many as fit and the rest counted; whether a check ran after every change;
         /// then, where there is room, what needs a look and what the agent said about its checks.
         /// </summary>
-        private static SectionPresentation Runs(Understanding understanding, IntelligenceRead<UnderstandingResponse> read, string status, DateTimeOffset now,
+        private static SectionPresentation Runs(Understanding understanding, IntelligenceRead<UnderstandingResponse> read, Notice? status, DateTimeOffset now,
             TimeZoneInfo zone, AnswerRoom room)
         {
             var source = understanding.Source;
@@ -909,8 +910,8 @@ namespace Halcyonic.Client
             {
                 page.AddIfRoom(UnderstandingPresenter.QuoteLine(statement, rows: 2));
             }
-            var provenance = IntelligenceText.UnderstandingProvenanceRuns(read, source, now, zone, checks: true) + LineWords.Written(status);
-            return new SectionPresentation(SectionKind.Checked, provenance.Text, SectionTone.Secondary, page.Lines, source.Synthetic, provenanceRuns: provenance);
+            var from = IntelligenceText.UnderstandingSource(read, source, now, zone, checks: true, status: status);
+            return new SectionPresentation(SectionKind.Checked, from.Text, SectionTone.Secondary, page.Lines, source.Synthetic, from: from);
         }
     }
 
@@ -963,8 +964,10 @@ namespace Halcyonic.Client
             // source's page: its provenance is that line, never the section's own source's.
             return pages
                 .Select(lines => lines.Count > 0 && lines[0].Source && lines[0].StartsPage
-                    ? new SectionPresentation(section.Kind, lines[0].Text, lines[0].Tone, lines.Skip(1).ToList(), section.Simulated, section.Steps, lines[0].Runs)
-                    : new SectionPresentation(section.Kind, section.Provenance, section.ProvenanceTone, lines, section.Simulated, section.Steps, section.ProvenanceRuns))
+                    ? new SectionPresentation(section.Kind, lines[0].Text, lines[0].Tone, lines.Skip(1).ToList(), section.Simulated, section.Steps, lines[0].Runs,
+                        lines[0].From)
+                    : new SectionPresentation(section.Kind, section.Provenance, section.ProvenanceTone, lines, section.Simulated, section.Steps, section.ProvenanceRuns,
+                        section.From))
                 .ToList();
         }
 

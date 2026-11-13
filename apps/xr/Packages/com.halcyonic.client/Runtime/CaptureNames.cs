@@ -3,8 +3,10 @@
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// What the headset draws for an agent app, a model, the host and the sibling sources while a development build's
-    /// capture extra asks for footage free of product names (the competition's rules; lead 11-04, DEMO's shot list).
+    /// What the headset draws for an agent app, a model and the host while a development build's capture extra asks for
+    /// footage free of product names (the competition's rules; lead 11-04, DEMO's shot list). Where an understanding or a
+    /// measurement came from is not this switch's: the headset names it in its own words in every build
+    /// (<see cref="SourceWords"/>; the lead's ruling, 2026-11-13).
     /// Off by default. Only the development build's capture presets turn it on: <c>UseGeneric</c> is compiled into
     /// development builds, the editor and the test build alone (<c>WorkspaceRender.CapturePresetsCheck</c> proves a release
     /// build's client carries no such switch), so a release build always draws the real names. It changes presentation
@@ -20,12 +22,6 @@ namespace Halcyonic.Client
 
         /// <summary>The host, where the live build names it "This Mac", under the extra.</summary>
         public const string Host = "This Computer";
-
-        /// <summary>The source of an explanation (Understand, the evidence doors) under the extra.</summary>
-        public const string Explanation = "Explanation";
-
-        /// <summary>The source of a measurement (Checks, usage) under the extra.</summary>
-        public const string Measurement = "Measurement";
 
         /// <summary>Whether the extra is on; always false in a release build.</summary>
         public static bool Generic { get; private set; }

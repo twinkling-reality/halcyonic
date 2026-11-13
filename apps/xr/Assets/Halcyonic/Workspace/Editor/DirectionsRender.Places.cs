@@ -61,7 +61,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 y -= U(RowHeight) + menu.TargetGap;
             }
             y -= U(GroupGap) - menu.TargetGap;
-            y -= Body(menu, "Source", UsageLeftPresenter.FromSeorak, l, y, r - l, Secondary).Height;
+            y -= Body(menu, "Source", UsageLeftPresenter.FromSource, l, y, r - l, Secondary).Height;
             var menuNeed = -y + U(GroupGap) + FooterRoom(menu);
             var close = new Prompt("Close", GlazeIcon.Close);
             var refresh = new Prompt(WorkspaceText.Refresh, GlazeIcon.Refresh);
@@ -87,7 +87,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 sy -= SideFact(side, name, value, sl, sr, sy, lines) + U(GroupGap);
             }
-            sy -= Body(side, "Source", UsageLeftPresenter.FromSeorak, sl, sy, sr - sl, Secondary, lines: 2).Height;
+            sy -= Body(side, "Source", UsageLeftPresenter.FromSource, sl, sy, sr - sl, Secondary, lines: 2).Height;
             var sideNeed = -sy + U(GroupGap) + FooterRoom(side);
             // Both columns end on one line, their footers on it. Paging waits while a row is chosen.
             var menuHeight = Mathf.Max(menuNeed, sideNeed - places.Height - U(RowGap));

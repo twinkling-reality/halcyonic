@@ -70,7 +70,8 @@ namespace Halcyonic.Client
         /// which a file's page draws, outside text leaning; <paramref name="words"/> as Halcyonic's when not given.
         /// </param>
         public SectionLine(string tag, string text, SectionTone tone, bool detail = false, int rows = 0, bool source = false, bool startsPage = false,
-            bool repeats = false, Evidence? evidence = null, string? words = null, string? chip = null, FileKind? file = null, LineWords? said = null)
+            bool repeats = false, Evidence? evidence = null, string? words = null, string? chip = null, FileKind? file = null, LineWords? said = null,
+            SourceWords? from = null)
         {
             Tag = tag;
             Text = text;
@@ -86,7 +87,11 @@ namespace Halcyonic.Client
             Runs = said ?? LineWords.Written(LabelText.Plain(Words));
             Chip = chip ?? ChipOf(Evidence);
             File = file;
+            From = from;
         }
+
+        /// <summary>A source line's parts apart (<see cref="SourceWords"/>), its text their one phrase; null for any other line.</summary>
+        public SourceWords? From { get; }
 
         /// <summary>What it says beside its chip as runs: outside text, a quote, a label or a name, leans on Halcyonic's ground.</summary>
         public LineWords Runs { get; }
@@ -154,7 +159,7 @@ namespace Halcyonic.Client
         public SectionLine With(string? tag = null, string? text = null, string? words = null, string? chip = null, bool? startsPage = null,
             bool? repeats = null) =>
             new SectionLine(tag ?? Tag, text ?? Text, Tone, Detail, Rows, Source, startsPage ?? StartsPage, repeats ?? Repeats, Evidence, words ?? Words,
-                chip ?? Chip, File, words == null ? Runs : null);
+                chip ?? Chip, File, words == null ? Runs : null, From);
 
         /// <summary>
         /// The claim's epistemic class in the source's own word ("observed", "reported", "inferred",
@@ -175,8 +180,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A provenance line inside the section, saying where the lines under it come from, as What
-        /// was checked? says for its second source. Besides the section's own provenance, the only
-        /// line that names a product.
+        /// was checked? says for its second source, in the product's own words (<see cref="SourceWords"/>).
         /// </summary>
         public bool Source { get; }
 
@@ -190,12 +194,14 @@ namespace Halcyonic.Client
     /// <summary>What one section of the workspace shows, in words, so the XR layer only lays it out.</summary>
     public sealed class SectionPresentation
     {
-        /// <param name="provenanceRuns">The provenance as runs, a source's version leaning; Halcyonic's words alone when not given.</param>
+        /// <param name="provenanceRuns">The provenance as runs; Halcyonic's words alone when not given.</param>
+        /// <param name="from">The provenance's parts apart, where it says where an answer came from or why there is none.</param>
         public SectionPresentation(SectionKind kind, string provenance, SectionTone provenanceTone, IReadOnlyList<SectionLine> lines, bool simulated,
-            bool steps = false, LineWords? provenanceRuns = null)
+            bool steps = false, LineWords? provenanceRuns = null, SourceWords? from = null)
         {
             Kind = kind;
             Provenance = provenance;
+            From = from;
             ProvenanceRuns = provenanceRuns ?? LineWords.Written(LabelText.Plain(provenance));
             ProvenanceTone = provenanceTone;
             // A source's sentence left blank, as its contract allows, is absent: a line of no words says nothing
@@ -208,13 +214,15 @@ namespace Halcyonic.Client
         public SectionKind Kind { get; }
 
         /// <summary>
-        /// Where the answer comes from and when, or why there is none. Besides an about line and a
-        /// <see cref="SectionLine.Source"/> line, the only words that name the product, Salidium or
-        /// Seorak, and it says "Simulated" for a stand-in's.
+        /// Where the answer comes from and when, or why there is none, in the product's own words: never a
+        /// source product's name or the version it names for itself, and "Simulated" for a stand-in's.
         /// </summary>
         public string Provenance { get; }
 
-        /// <summary><see cref="Provenance"/> as runs: "From Salidium " Halcyonic's, the version the source names for itself leaning.</summary>
+        /// <summary><see cref="Provenance"/>'s parts apart, where it is a source's (<see cref="SourceWords"/>); null for a section's own words.</summary>
+        public SourceWords? From { get; }
+
+        /// <summary><see cref="Provenance"/> as runs.</summary>
         public LineWords ProvenanceRuns { get; }
 
         public SectionTone ProvenanceTone { get; }
@@ -250,13 +258,14 @@ namespace Halcyonic.Client
             TimeZoneInfo zone)
         {
             SectionLine Source(string text, SectionTone tone) => new SectionLine("", text, tone, rows: 2, source: true);
+            SectionLine From(SourceWords from, SectionTone tone) => new SectionLine("", from.Text, tone, rows: 2, source: true, from: from);
             if (read == null)
             {
                 return new[]
                 {
                     loading ? Source("Reading Measurement", SectionTone.Secondary)
                     : error == DemonstrationReads.NotRecorded ? Source(error, SectionTone.Secondary)
-                    : error != null ? Source("Measurement Unreadable · " + error, SectionTone.Problem)
+                    : error != null ? From(new SourceWords(IntelligenceText.Measurement, state: "Measurement Unreadable", why: new Notice(error)), SectionTone.Problem)
                     : Source("Not Read", SectionTone.Secondary),
                 };
             }
@@ -269,22 +278,18 @@ namespace Halcyonic.Client
                     var at = read.Recorded ? read.ReadAt : now;
                     var lines = new List<SectionLine>
                     {
-                        Source(IntelligenceText.EvaluationProvenance(read, synthetic, now, zone) + status, SectionTone.Secondary),
+                        From(IntelligenceText.EvaluationSource(read, synthetic, now, zone, status), SectionTone.Secondary),
                     };
                     lines.AddRange(Lines(evaluation, at, zone));
                     return lines;
                 case NotFoundEvaluation notFound:
-                    return new[]
-                    {
-                        Source(IntelligenceText.From(IntelligenceText.FromSeorak, notFound.Reason) + "Not Measured · " + IntelligenceText.Why(notFound.Reason) + status,
-                            SectionTone.Secondary),
-                    };
+                    return new[] { From(IntelligenceText.Without(IntelligenceText.Measurement, "Not Measured", notFound.Reason, status), SectionTone.Secondary) };
                 case UnavailableEvaluation unavailable:
-                    return new[] { Source(IntelligenceText.FromSeorak + " · Measurement Unavailable · " + IntelligenceText.Why(unavailable.Reason) + status, SectionTone.Secondary) };
+                    return new[] { From(IntelligenceText.Without(IntelligenceText.Measurement, "Measurement Unavailable", unavailable.Reason, status), SectionTone.Secondary) };
                 case IncompatibleEvaluation incompatible:
-                    return new[] { Source(IntelligenceText.FromSeorak + " · Measurement Unreadable · " + IntelligenceText.Why(incompatible.Reason) + status, SectionTone.Problem) };
+                    return new[] { From(IntelligenceText.Without(IntelligenceText.Measurement, "Measurement Unreadable", incompatible.Reason, status), SectionTone.Problem) };
                 case UnauthorizedEvaluation unauthorized:
-                    return new[] { Source(IntelligenceText.FromSeorak + " · Measurement Not Allowed · " + IntelligenceText.Why(unauthorized.Reason) + status, SectionTone.Secondary) };
+                    return new[] { From(IntelligenceText.Without(IntelligenceText.Measurement, "Measurement Not Allowed", unauthorized.Reason, status), SectionTone.Secondary) };
                 default:
                     return new[] { Source("Measurement Format Unknown", SectionTone.Secondary) };
             }
@@ -623,33 +628,41 @@ namespace Halcyonic.Client
             DateTimeOffset.TryParse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out at);
 
         /// <summary>
-        /// Where an understanding came from and when: "Salidium 0.6.1 · 2 min ago", or a
-        /// stand-in's, said to be simulated without naming a product: an explanation, or, above the
-        /// check runs it saw, checks.
+        /// Where an understanding came from, in the product's own words, and when: "Explanation, 2 min ago", or a
+        /// stand-in's, said to be simulated: an explanation, or, above the check runs it saw, checks. The source's
+        /// own name and the version it names for itself are data and never drawn (the lead's ruling, 2026-11-13).
         /// </summary>
-        public static string UnderstandingProvenance(IntelligenceRead<UnderstandingResponse> read, UnderstandingSource source, DateTimeOffset now, TimeZoneInfo zone,
-            bool checks = false) => UnderstandingProvenanceRuns(read, source, now, zone, checks).Text;
-
-        /// <summary>Where an answer came from as runs: Halcyonic's words upright, the version Salidium names for itself leaning (settled 2026-10-08).</summary>
-        public static LineWords UnderstandingProvenanceRuns(IntelligenceRead<UnderstandingResponse> read, UnderstandingSource source, DateTimeOffset now,
-            TimeZoneInfo zone, bool checks = false)
+        public static SourceWords UnderstandingSource(IntelligenceRead<UnderstandingResponse> read, UnderstandingSource source, DateTimeOffset now,
+            TimeZoneInfo zone, bool checks = false, Notice? status = null)
         {
             var when = read.Recorded ? "Recorded " + Clock(read.ReadAt, zone, seconds: true) : Ago(source.GeneratedAt, now, zone);
-            if (source.Synthetic) return LineWords.Written((checks ? "Simulated Checks · " : "Simulated Explanation · ") + when);
-            // Under the capture extra the source is named generically, without the version it names for itself.
-            if (CaptureNames.Generic) return LineWords.Written(FromSalidium + " · " + when);
-            return LineWords.Written(FromSalidium + " ") + LineWords.TheirName(Truncate(Plain(source.Version), 24)) + LineWords.Written(" · " + when);
+            var from = source.Synthetic ? checks ? "Simulated Checks" : "Simulated Explanation" : Explanation;
+            return new SourceWords(from, when: when, status: status);
         }
 
-        /// <summary>Where a measurement came from and when: "Seorak · Read 1 min ago", or a stand-in's, said to be simulated.</summary>
-        public static string EvaluationProvenance(IntelligenceRead<EvaluationResponse> read, bool synthetic, DateTimeOffset now, TimeZoneInfo zone)
+        /// <summary><see cref="UnderstandingSource"/>'s one phrase.</summary>
+        public static string UnderstandingProvenance(IntelligenceRead<UnderstandingResponse> read, UnderstandingSource source, DateTimeOffset now, TimeZoneInfo zone,
+            bool checks = false) => UnderstandingSource(read, source, now, zone, checks).Text;
+
+        /// <summary><see cref="UnderstandingSource"/>'s one phrase as runs, all Halcyonic's words.</summary>
+        public static LineWords UnderstandingProvenanceRuns(IntelligenceRead<UnderstandingResponse> read, UnderstandingSource source, DateTimeOffset now,
+            TimeZoneInfo zone, bool checks = false, Notice? status = null) => LineWords.Written(UnderstandingSource(read, source, now, zone, checks, status).Text);
+
+        /// <summary>Where a measurement came from and when: "Measurement, read 1 min ago", or a stand-in's, said to be simulated.</summary>
+        public static SourceWords EvaluationSource(IntelligenceRead<EvaluationResponse> read, bool synthetic, DateTimeOffset now, TimeZoneInfo zone,
+            Notice? status = null)
         {
             var when = read.Recorded ? "Recorded " + Clock(read.ReadAt, zone, seconds: true) : "Read " + Ago(read.ReadAt, now, zone);
-            return synthetic ? "Simulated Measurement · " + when : FromSeorak + " · " + when;
+            return new SourceWords(synthetic ? "Simulated Measurement" : Measurement, when: when, status: status);
         }
 
-        internal static string ReadingStatus(bool loading, string? error) =>
-            loading ? " · Reading Again" : error != null ? " · Reread Failed · " + error : "";
+        /// <summary><see cref="EvaluationSource"/>'s one phrase.</summary>
+        public static string EvaluationProvenance(IntelligenceRead<EvaluationResponse> read, bool synthetic, DateTimeOffset now, TimeZoneInfo zone) =>
+            EvaluationSource(read, synthetic, now, zone).Text;
+
+        /// <summary>A read of a section under way again, or failed with this headset's words for why (<see cref="WhyUnread"/>); null when neither.</summary>
+        internal static Notice? ReadingStatus(bool loading, string? error) =>
+            loading ? new Notice("Reading Again") : error != null ? new Notice("Reread Failed", error) : (Notice?)null;
 
         internal static SectionPresentation Empty(SectionKind kind, string text) =>
             new SectionPresentation(kind, text, SectionTone.Secondary, Array.Empty<SectionLine>(), simulated: false);
@@ -662,17 +675,25 @@ namespace Halcyonic.Client
             if (error == DemonstrationReads.NotRecorded) return Empty(kind, error);
             if (error != null)
             {
-                return new SectionPresentation(kind, "Understanding Unreadable · " + error, SectionTone.Problem, Array.Empty<SectionLine>(), simulated: false);
+                var from = new SourceWords(Explanation, state: "Understanding Unreadable", why: new Notice(error));
+                return new SectionPresentation(kind, from.Text, SectionTone.Problem, Array.Empty<SectionLine>(), simulated: false, from: from);
             }
             return Empty(kind, "Not Read");
         }
 
         /// <summary>
-        /// A section whose source answered without conclusions: its provenance line names the source,
-        /// as it does for an answer, then says why there is none, in words.
+        /// A source that answered without conclusions, or a measurement: what is missing and why, apart, in the
+        /// product's own words; the source is a part of the model and never a product's name.
         /// </summary>
-        internal static SectionPresentation Failure(SectionKind kind, string source, string lead, ErrorInfo reason, SectionTone tone, string status) =>
-            new SectionPresentation(kind, From(source, reason) + lead + Why(reason) + status, tone, Array.Empty<SectionLine>(), simulated: false);
+        internal static SourceWords Without(string source, string state, ErrorInfo reason, Notice? status) =>
+            new SourceWords(reason.Code == NotAsked ? null : source, state: state, why: Reason(reason), status: status);
+
+        /// <summary>A section whose source answered without conclusions: what is missing and why, said apart (<see cref="Without"/>).</summary>
+        internal static SectionPresentation Failure(SectionKind kind, string state, ErrorInfo reason, SectionTone tone, Notice? status)
+        {
+            var from = Without(Explanation, state, reason, status);
+            return new SectionPresentation(kind, from.Text, tone, Array.Empty<SectionLine>(), simulated: false, from: from);
+        }
 
         /// <summary>
         /// The control plane's own answer before it asks any source: the runtime has not said which
@@ -680,13 +701,74 @@ namespace Halcyonic.Client
         /// </summary>
         public const string NotAsked = "native_id_unknown";
 
-        /// <summary>"Salidium · " before why there is no answer, unless no source was asked.</summary>
-        internal static string From(string source, ErrorInfo reason) => reason.Code == NotAsked ? "" : source + " · ";
+        /// <summary>Where an understanding came from, in the product's own words: the only words the headset has for it.</summary>
+        public const string Explanation = "Explanation";
 
-        /// <summary>The source an understanding comes from, as a provenance line names it.</summary>
-        public static string FromSalidium => CaptureNames.Generic ? CaptureNames.Explanation : "Salidium";
+        /// <summary>Where a measurement came from, in the product's own words: the only words the headset has for it.</summary>
+        public const string Measurement = "Measurement";
+    }
+    /// <summary>
+    /// Where a section's answer came from, or why there is none, as parts apart (the lead's ruling, 2026-11-13): the
+    /// source in the product's own words (never a source product's name: a provider's id is data in the records, never
+    /// drawn), what is missing, why (a <see cref="Notice"/> from the host's code, never its message), when, and how this
+    /// headset's own read of it stands. A slot of one string takes them as one phrase (<see cref="Text"/>), as a
+    /// <see cref="Notice"/> does: never joined on a dot.
+    /// </summary>
+    public sealed class SourceWords
+    {
+        public SourceWords(string? source, string? when = null, string? state = null, Notice? why = null, Notice? status = null)
+        {
+            Source = source;
+            When = when;
+            State = state;
+            Why = why;
+            Status = status;
+        }
 
-        /// <summary>The source a measurement comes from, as a provenance line names it.</summary>
-        public static string FromSeorak => CaptureNames.Generic ? CaptureNames.Measurement : "Seorak";
+        /// <summary>The source in the product's own words ("Explanation", "Simulated Checks"); null where no source was asked.</summary>
+        public string? Source { get; }
+
+        /// <summary>When the answer was made or read ("2 min ago", "Recorded 09:00:00"); null for a missing one.</summary>
+        public string? When { get; }
+
+        /// <summary>What is missing ("Conclusions Unavailable"); null for an answer.</summary>
+        public string? State { get; }
+
+        /// <summary>Why it is missing, in the product's words for the host's code.</summary>
+        public Notice? Why { get; }
+
+        /// <summary>This headset's read again, under way or failed; null when neither.</summary>
+        public Notice? Status { get; }
+
+        /// <summary>
+        /// The parts as one phrase, as <see cref="Notice.Phrase"/> joins a title and its line: an answer's source and when
+        /// ("Explanation, 2 min ago"), or what is missing and why ("Conclusions Unavailable, Agent App Not Followed"), the
+        /// state of this headset's read after; the source is not said where something is missing, since what is missing
+        /// names it.
+        /// </summary>
+        public string Text
+        {
+            get
+            {
+                var parts = new List<string>();
+                if (State == null)
+                {
+                    if (Source != null) parts.Add(Source);
+                    if (When != null) parts.Add(When);
+                }
+                else
+                {
+                    parts.Add(State);
+                    if (Why is Notice why) parts.Add(why.Phrase);
+                }
+                // This headset's own words for its read, each as it is: "Reread Failed", then why.
+                if (Status is Notice status)
+                {
+                    parts.Add(status.Title);
+                    if (status.Line is { Length: > 0 } line) parts.Add(line);
+                }
+                return string.Join(", ", parts);
+            }
+        }
     }
 }

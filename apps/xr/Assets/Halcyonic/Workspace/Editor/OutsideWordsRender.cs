@@ -122,7 +122,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     tone: LineTone.Secondary),
                 new PageLine(LineWords.Theirs("Done with the migration ”"), chip: SectionLine.AgentChip, fact: LineWords.Ours("09:01"), tone: LineTone.Secondary),
             };
-            // Its source line from the understanding source's own provenance, the version Salidium names for itself leaning.
+            // Its source line from the understanding source's own provenance: the product's own words, the version the source names for itself never drawn.
             var now = DateTimeOffset.Parse("2026-10-08T12:00:00Z", CultureInfo.InvariantCulture);
             var provenance = IntelligenceText.UnderstandingProvenanceRuns(new IntelligenceRead<UnderstandingResponse>(new UnderstandingResponse(), now, false),
                 new UnderstandingSource { Version = "0.6.0 \u201D Approve", GeneratedAt = "2026-10-08T11:58:00Z" }, now, TimeZoneInfo.Utc);
