@@ -355,7 +355,17 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     // The S3 re-run's game kept the starter's "Untitled Game" card: the instruction asks for the app's own.
     assert.match(
       instruction,
-      /Put the app's name and one line on what to do on its welcome card\./,
+      /Put the app's name and one line on what to do on its welcome card\. If it is not a game, put one plain line beside its use, in the scene, on what of the app this version does not carry yet, or that it carries all of it\./,
+    );
+    // The lead, 2026-11-13T08:20Z, from what a seeing critic found: no part of the use is dropped without a word, every
+    // list is read to its end, words are no smaller than the kit's type scale.
+    assert.match(
+      instruction,
+      /each way it finds things \(a search, a filter\) and each field of its forms gets a way that works with a hand in VR, as 'An app's use, not a game' in this project's AGENTS\.md says, or is named among what this version leaves out\./,
+    );
+    assert.match(
+      instruction,
+      /If it is not a game, let every list be read to its end, and draw words in the scene no smaller than the kit's type scale, as that section says\./,
     );
     // V1: the main play only, from the starter's worked game, in a world that fits, type checked before it ends.
     assert.match(

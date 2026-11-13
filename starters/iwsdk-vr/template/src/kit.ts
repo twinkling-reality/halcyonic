@@ -31,5 +31,5 @@ export { bob, bonk, drift, flap, flight, hide, motion, pop, pulse, sway, wiggle 
 export { type PaletteName, palette, toyMaterial } from './palette.js';
 export { mode, moveAxis, onSelect, onTouch, pressed, setupPlayInput } from './play-input.js';
 export { type WorldLook, type WorldName, worlds } from './worlds.js';
-export { type Page, type Pages, type PagesOptions, pages } from './pages.js';
+export { type Page, type Pages, type PagesOptions, MAX_PAGES, pages, TYPE } from './pages.js';
 export { type HeightEncoding, type HeightGrid, type ReliefOptions, relief } from './relief.js';
