@@ -214,5 +214,6 @@ welcome card's laptop keys do nothing here. Its closing words named what it left
 build run. The run took 21 approvals (the run before, 13) and, by the runtime's own count, one turn of about 1.4
 million cached input tokens read, 61 thousand output tokens and an estimate of 2.68 US dollars at list prices.
 The product's check passed, but its laptop step found no target to press on a page a mouse can press.
+Since then the check says it could not tell, with the reason, instead of not ready.
 Since then the instruction asks an app that is not a game to rewrite the card's laptop line to what a mouse and
 keyboard really do in it; not yet seen in a run.

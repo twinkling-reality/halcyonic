@@ -1252,6 +1252,20 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     assert.equal(opens(), 'invalid_state', 'not passed');
     record(first, { laptop: { ...laptopReady.laptop, ready: false } });
     assert.equal(opens(), 'invalid_state', 'not laptop ready');
+    const refusal = () => {
+      const result = admitCommand(command('project.open_on_mac'), projection, catalog());
+      return result.admitted ? '' : result.rejection.message;
+    };
+    assert.match(refusal(), /didn't see the game work/);
+    // Where the check could not tell, it says so, never that the game does not work (run (a4), 2026-11-13).
+    for (const mouse of ['unknown', 'no_target']) {
+      record(first, { laptop: { ...laptopReady.laptop, mouse, targets: 0, ready: false } });
+      assert.match(
+        refusal(),
+        /couldn't tell whether the game works with a mouse and keyboard/,
+        mouse,
+      );
+    }
     record(first, { ...laptopReady, reads_confined: false });
     assert.equal(opens(), 'invalid_state', 'not confined');
     record(first, laptopReady);

@@ -443,7 +443,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
       tsc,
       build,
       page,
-      unknown: ownUnknown(own, options.reference),
+      unknown: ownUnknown(own, options.reference) ?? laptopUnknown(laptop),
       passed,
       notes,
       laptop,
@@ -508,6 +508,19 @@ async function ownFrom(
     reference: reference.kind === 'making' ? 'unavailable' : reference.kind,
     frame: saved,
   };
+}
+
+/**
+ * Why the laptop step could not tell, or null: its page never answered through the input layer's check hook, or
+ * answered with nothing to press, as an app whose presses go another way than the starter's targets does. Then the
+ * check does not know whether a mouse works; it never says the app does not work (AGENTS.md: unknown stays unknown).
+ */
+export function laptopUnknown(laptop: CheckLaptop): string | null {
+  if (laptop.mouse === 'unknown')
+    return "The check could not read the app's input layer, so whether it works with a mouse and keyboard is not known.";
+  if (laptop.mouse === 'no_target')
+    return 'The check found nothing it can press through the input layer, so whether the app works with a mouse is not known.';
+  return null;
 }
 
 /** What a check could not find out about the page's own pixels, or null. */
