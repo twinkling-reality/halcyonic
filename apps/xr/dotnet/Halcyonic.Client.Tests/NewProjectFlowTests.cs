@@ -2870,6 +2870,7 @@ public class NewProjectFlowTests
         Assert.That(bar.Facts!.Select(row => row.Words.Text), Has.None.EqualTo(EntryText.SendingLine));
         // Each step and how it went given apart (JUDGE's 1203Z item 5, AUDIT's MUST): the step the row's words, its state the note.
         Assert.That(bar.Facts!.Select(row => row.Words.Text), Has.None.Contains("\u00b7"), string.Join(" | ", bar.Facts!.Select(row => row.Words.Text)));
+        Assert.That(bar.Sentence ?? "", Does.Not.Contain("\u00b7"), "the step under way, its sentence heard whole, joins nothing on a dot");
         Assert.That(bar.Facts!.Where(row => row.Note != null).Select(row => row.Words.Text), Has.Some.EqualTo(EntryText.StepName(BuildStepKind.CreateWorkstream, true)),
             "the step its own words, its state beside it");
     });

@@ -481,7 +481,7 @@ public class BuildSequenceTests
         Assert.That(project, Is.InstanceOf<ProjectCreateCommand>());
         Assert.That(sequence.Unresolved, Is.EqualTo(project.CommandId));
         Assert.That(sequence.Advance(With()), Is.Null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Sent · Awaiting Computer"));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Waiting on Computer"));
 
         var accepted = new CommandView { CommandId = project.CommandId, Status = CommandStatus.Accepted };
         Assert.That(sequence.Advance(With(accepted)), Is.Null, "accepted is not done");
@@ -577,7 +577,7 @@ public class BuildSequenceTests
         sequence.Begin(Samples.Reviewed(sequence));
         sequence.AcknowledgementLost(new SessionUnavailableException("Not connected."));
         sequence.Advance(null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Not Sent · Not Connected · Try Again"));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Not Sent. Not Connected. Try Again"));
         Assert.That(sequence.Unresolved, Is.Null);
         Assert.That(sequence.Retry(Samples.Reviewed(sequence, "Recipes, renamed"), "Recipes, renamed"), Is.InstanceOf<ProjectCreateCommand>());
     }
@@ -953,6 +953,20 @@ public class EntryWordsTests
     /// New Project's run settings, its new folder and Start Over say what they mean in sentences, never facts on a dot
     /// (JUDGE's live walk, 2026-11-13T0851Z and 0935Z; the lead's 09:37Z item 3).
     /// </summary>
+    /// <summary>
+    /// A step's state is said in sentences, never facts on a dot (AUDIT's MUST, 2026-11-13T1246Z): the start's rows draw it whole as
+    /// their note and the step under way as the bar's sentence, so every reason a refusal or a failure can give comes apart.
+    /// </summary>
+    [Test]
+    public void AStartsStepStateIsSaidInSentencesNeverOnADot()
+    {
+        var said = Enum.GetValues(typeof(RejectionCode)).Cast<RejectionCode>()
+            .Select(code => EntryText.Sentences(WorkspaceText.Couldnt("Refused", WorkspaceText.WhyRefused(code))))
+            .Concat(new[] { EntryText.NotSureItHappened, EntryText.Sentences("Not Sent \u00b7 Not Connected \u00b7 Try Again") }).ToList();
+        Assert.That(said, Has.None.Contains("\u00b7"), string.Join(" | ", said.Where(each => each.Contains('\u00b7'))));
+        Assert.That(EntryText.Sentences("Not Sent \u00b7 Not Connected \u00b7 Try Again"), Is.EqualTo("Not Sent. Not Connected. Try Again"));
+    }
+
     [Test]
     public void NewProjectsRunSettingsFolderAndStartOverJoinNothingOnADot()
     {

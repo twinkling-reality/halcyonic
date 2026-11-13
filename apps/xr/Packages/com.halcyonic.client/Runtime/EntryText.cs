@@ -366,17 +366,27 @@ namespace Halcyonic.Client
         };
 
         /// <summary>A start whose effect is unknown is never said to have had none.</summary>
-        public const string NotSureItHappened = "Effect Unconfirmed · Check Stage";
+        public const string NotSureItHappened = "Effect Unconfirmed. Check Stage";
 
         /// <summary>
         /// How a step of Start task went: sent is not done, and only a completed record confirms.
         /// A refusal says why and what to do from its code, and so does a failure about a folder; never the
         /// control plane's or an agent app's message (<see cref="WorkspaceText.WhyRefused"/>).
         /// </summary>
-        public static string StepStatus(BuildStep step) => step.Status switch
+        public static string StepStatus(BuildStep step) => Sentences(StepWords(step));
+
+        /// <summary>
+        /// A step's state as sentences, never facts on a dot (JUDGE's 1203Z item 5, AUDIT's MUST, 2026-11-13): the state is the row's
+        /// note and the step under way the bar's sentence, both drawn whole, so each part a reason joins on a dot becomes its own sentence.
+        /// </summary>
+        public static string Sentences(string words) => words.Replace(" \u00b7 ", ". ");
+
+        private static string StepWords(BuildStep step) => step.Status switch
         {
             BuildStepStatus.NotYet => "Not Sent",
-            BuildStepStatus.Waiting => step.Kind == BuildStepKind.StartWork ? "Sent · Awaiting Agent" : "Sent · Awaiting Computer",
+            // Sent is not done: the step waits on whoever answers it, said plainly, never on a dot (FIELD and JUDGE, 2026-11-13: the
+            // step under way is the bar's sentence, which is heard whole).
+            BuildStepStatus.Waiting => step.Kind == BuildStepKind.StartWork ? "Waiting on Agent" : "Waiting on Computer",
             BuildStepStatus.Confirmed => "Confirmed",
             // One sentence for a revoked pairing, alone, within the step's two rows (settled by the coordinator, 2026-10-07).
             BuildStepStatus.Refused when step.Refusal == RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
