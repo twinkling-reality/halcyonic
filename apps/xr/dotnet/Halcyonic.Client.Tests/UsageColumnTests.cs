@@ -324,4 +324,190 @@ public class UsageColumnTests
         }
         finally { RoomDesign.Enabled = was; }
     }
+
+    /// <summary>The computer behind Use Model: the limits, where the assistant runs, the host's list, and the request a press makes.</summary>
+    private sealed class UseModelComputer : HttpMessageHandler
+    {
+        public bool Confirmed { get; set; }
+
+        public List<string> Asked { get; } = new();
+
+        private const string Request = """
+            {"request":{"request_id":"request-1","journal_id":"journal-1","project_id":null,"workstream_id":null,"execution_id":null,
+             "original_text":"Use Model","status":"STATUS","reply":null,"earlier_steps":0,
+             "created_at":"2026-11-13T00:00:00.000Z","updated_at":"2026-11-13T00:00:00.000Z",
+             "steps":[{"step_id":"step-1","tool_name":"assistant_model_choose","status":"STEP","command_id":null,"command_status":null,
+               "observation_position":0,"active_turn_id":null,"had_active_turn":false,"observation_after":0,"observed_turn_id":null,
+               "runtime_status":null,"summary":"Use test-model-1",
+               "proposal":{"command_type":"assistant.model.choose","confirm":{},"review":"review-1","said":[],
+                 "what_happens":"The assistant runs on this hosted model, paid with your key, and what each request reads goes to it"}}]}}
+            """;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.PathAndQuery;
+            Asked.Add(path);
+            var body = path.EndsWith("/api/usage-limits", StringComparison.Ordinal) ? TwoWindows
+                : path.EndsWith("/api/workspace/agent", StringComparison.Ordinal) ? HalcyonicJson.Serialize(Confirmed
+                    ? new AvailableWorkspaceAgent { Model = "test-model-1", Served = AssistantServed.Remote, Provider = "Test Hosted" }
+                    : new AvailableWorkspaceAgent { Model = "local-model:tag" })
+                : path.Contains("/api/actions/choices?list=assistant_models", StringComparison.Ordinal) ? Models
+                : path.EndsWith("/api/workspace/requests/request-1", StringComparison.Ordinal)
+                    ? Request.Replace("STATUS", Confirmed ? "responded" : "waiting_for_human", StringComparison.Ordinal)
+                        .Replace("STEP", Confirmed ? "confirmed" : "waiting", StringComparison.Ordinal)
+                : null;
+            return Task.FromResult(new HttpResponseMessage(body == null ? HttpStatusCode.NotFound : HttpStatusCode.OK)
+            { Content = new StringContent(body ?? "{}", Encoding.UTF8, "application/json") });
+        }
+    }
+
+    private const string Models = """
+        {"scope":{"project_id":null,"workstream_id":null,"execution_id":null},"list":"assistant_models","position":3,"digest":"digest-1","total":3,
+         "rows":[{"index":0,"kind":"model","label":"This Computer's Model","detail":"local-model:tag","theirs":false,"actions":["assistant.model.choose"]},
+                 {"index":1,"kind":"model","label":"test-model-1","detail":"On Test Hosted","theirs":true,"actions":["assistant.model.choose"]},
+                 {"index":2,"kind":"model","label":"test-model-2","detail":"Other Hosted refused its key. Give it a new key on this computer.","theirs":true,"actions":[]}]}
+        """;
+
+    /// <summary>Ticks the column, the clock moving on, until <paramref name="done"/> or about two seconds.</summary>
+    private static async Task Until(UsageColumn usage, FakeMenuHost host, Func<bool> done)
+    {
+        for (var tries = 0; tries < 200 && !done(); tries++)
+        {
+            await Task.Delay(10);
+            host.Now += 0.3;
+            usage.Tick();
+        }
+    }
+
+    private static CommandAckMessage AckOf(CommandEnvelope sent, CommandView? view = null) =>
+        new() { CommandId = sent.CommandId, Disposition = CommandAckDisposition.Accepted, Command = view };
+
+    /// <summary>
+    /// Use Model, end to end against the host's seam (LOOP's f34b93c7f): the Assistant row presses the host's entry, bound by the
+    /// bar to the frame drawn; the host's list in its order, the place it runs now marked, a row the host offers nothing on shown
+    /// with its reason and pressing nothing; a row pressed sends Use Model with the row's index and the list's digest; the ONE
+    /// review card stands with the host's line and its Confirm the main action, one press; the confirm carries the review's
+    /// digest, and once the request is done the row reads the computer again and names the model now chosen.
+    /// </summary>
+    [Test]
+    public async Task UseModelIsTheRowsPressTheHostsListItsOneReviewAndTheRowReadAgain()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var computer = new UseModelComputer();
+            using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", computer);
+            var host = new FakeMenuHost { Clock = Now, Height = MenuPage.Rows(6), Api = api };
+            var usage = new UsageColumn(host, _ => null, new CommandFactory(Samples.Client));
+            var sections = new MenuBar(MenuPlace.Usage, "Nothing Waiting").Sections();
+            RoomBar Bar() => RoomBar.OfFrame(usage.Frame!.WithSections(sections, sections.Count), VoiceStage.Idle)!;
+            await Until(usage, host, () => AssistantRows(usage.Frame!.Card!).Count == 1 && usage.Frame!.Card!.Gauges.Count == 2);
+
+            // The row presses Use Model, made from the frame the bar draws.
+            var drawn = usage.Frame!.WithSections(sections, sections.Count);
+            var bar = RoomBar.OfFrame(drawn, VoiceStage.Idle)!;
+            var row = AssistantRows(bar.Card!).Single();
+            Assert.That(row.Press?.Action, Is.EqualTo(UsageColumn.UseModel));
+            Assert.That(row.Press!.Frame, Is.SameAs(drawn), "a press must come from the frame that stands");
+
+            // The host's list, in its order.
+            usage.Act(UsageColumn.UseModel, null);
+            await Until(usage, host, () => usage.Frame!.Card!.List.Count == 3);
+            var list = Bar();
+            Assert.That(list.Card!.Title!.Text, Is.EqualTo(AssistantPlace.UseModelTitle));
+            Assert.That(list.Card.List.Select(each => (each.Kind, each.Name.Text, each.Chosen, each.Press != null)), Is.EqualTo(new[]
+            {
+                (RoomKind.Computer, "This Computer's Model", true, true),
+                (RoomKind.Link, "test-model-1", false, true),
+                (RoomKind.Link, "test-model-2", false, false),
+            }));
+            Assert.That(list.Card.List[2].Under!.Text, Is.EqualTo("Other Hosted refused its key. Give it a new key on this computer."));
+            Assert.That(list.Column.Select(action => action.Control.Action), Does.Contain(UsageColumn.Back));
+            Assert.That(computer.Asked.Count(path => path.Contains("/api/actions/choices", StringComparison.Ordinal)), Is.EqualTo(1));
+
+            // A row the host offers nothing on presses nothing.
+            usage.Act(UsageColumn.ChooseModel, "2");
+            Assert.That(host.Sent, Is.Empty);
+
+            // A row pressed: Use Model, by the row's index and the list's digest.
+            host.Ack = new TaskCompletionSource<CommandAckMessage>();
+            usage.Act(UsageColumn.ChooseModel, "1");
+            Assert.That(host.Sent.Count, Is.EqualTo(1));
+            var press = (WorkspaceRequestSubmitCommand)host.Sent[0];
+            var act = Newtonsoft.Json.Linq.JObject.Parse(HalcyonicJson.Serialize(press))["payload"]!["act"]!;
+            Assert.That(Newtonsoft.Json.Linq.JToken.DeepEquals(act, Newtonsoft.Json.Linq.JObject.Parse(
+                """{"command_type":"assistant.model.choose","values":{"model":1},"lists":{"assistant_models":"digest-1"}}""")), Is.True, act.ToString());
+            host.Ack.SetResult(AckOf(press, new CommandView
+            {
+                CommandId = press.CommandId, CommandType = CommandType.WorkspaceRequestSubmit, Status = CommandStatus.Completed,
+                IssuedAt = Samples.Time, UpdatedAt = Samples.Time, Result = new WorkspaceRequestCreatedResult { RequestId = "request-1" },
+            }));
+
+            // Its one review card: the host's line, Confirm the main action.
+            await Until(usage, host, () => usage.Frame!.Footer.All.Any(each => each.Prompt.Id == ReviewCard.Confirm));
+            var reviewed = Bar();
+            Assert.That(reviewed.Card!.Description!.Text, Is.EqualTo("The assistant runs on this hosted model, paid with your key, and what each request reads goes to it"));
+            Assert.That(reviewed.Column.First().Control.Action, Is.EqualTo(ReviewCard.Confirm));
+            Assert.That(reviewed.Column.First().Main, Is.True);
+            Assert.That(reviewed.Column.Select(action => action.Control.Action), Does.Contain(ReviewCard.Cancel));
+
+            // The one press confirms the step with the review's digest.
+            host.Ack = new TaskCompletionSource<CommandAckMessage>();
+            usage.Act(ReviewCard.Confirm, null);
+            Assert.That(host.Sent.Count, Is.EqualTo(2));
+            var confirm = (WorkspaceRequestResumeCommand)host.Sent[1];
+            Assert.That((confirm.Payload.RequestId, confirm.Payload.Confirm!.StepId, confirm.Payload.Confirm.Review), Is.EqualTo(("request-1", "step-1", "review-1")));
+            computer.Confirmed = true;
+            host.Ack.SetResult(AckOf(confirm));
+
+            // Done: the usage card again, its row read afresh, naming the model now chosen.
+            await Until(usage, host, () => AssistantRows(usage.Frame!.Card!).Any(each => each.Kind == RoomKind.Link));
+            var after = AssistantRows(usage.Frame!.Card!);
+            Assert.That(after.Select(each => (each.Kind, each.Name.Text)), Is.EqualTo(new[] { (RoomKind.Link, "test-model-1") }));
+            Assert.That(usage.Frame!.Card!.Gauges.Count, Is.EqualTo(2));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>
+    /// Use Model is never offered on the recording (it is not the computer's), nor where there is no way to send it; Cancel on
+    /// the review leaves the usage card with nothing confirmed.
+    /// </summary>
+    [Test]
+    public async Task UseModelIsOfferedOnlyWhereTheComputerCanBeAskedAndCancelConfirmsNothing()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var computer = new UseModelComputer();
+            using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", computer);
+            var host = new FakeMenuHost { Clock = Now, Height = MenuPage.Rows(6), Api = api };
+            var unsent = new UsageColumn(host, _ => null);
+            await Until(unsent, host, () => AssistantRows(unsent.Frame!.Card!).Count == 1);
+            Assert.That(AssistantRows(unsent.Frame!.Card!).Single().Press, Is.Null, "no command factory: the row presses nothing");
+            unsent.Act(UsageColumn.UseModel, null);
+            Assert.That(unsent.Frame!.Card!.Gauges.Count, Is.EqualTo(2), "and a press of it changes nothing");
+
+            var usage = new UsageColumn(host, _ => null, new CommandFactory(Samples.Client));
+            await Until(usage, host, () => AssistantRows(usage.Frame!.Card!).Count == 1);
+            usage.Act(UsageColumn.UseModel, null);
+            await Until(usage, host, () => usage.Frame!.Card!.List.Count == 3);
+            host.Ack = new TaskCompletionSource<CommandAckMessage>();
+            usage.Act(UsageColumn.ChooseModel, "1");
+            var press = host.Sent.Single();
+            host.Ack.SetResult(AckOf(press, new CommandView
+            {
+                CommandId = press.CommandId, CommandType = CommandType.WorkspaceRequestSubmit, Status = CommandStatus.Completed,
+                IssuedAt = Samples.Time, UpdatedAt = Samples.Time, Result = new WorkspaceRequestCreatedResult { RequestId = "request-1" },
+            }));
+            await Until(usage, host, () => usage.Frame!.Footer.All.Any(each => each.Prompt.Id == ReviewCard.Cancel));
+            usage.Act(ReviewCard.Cancel, null);
+            await Until(usage, host, () => usage.Frame!.Card!.Gauges.Count == 2);
+            Assert.That(host.Sent.Count, Is.EqualTo(1), "Cancel sends nothing");
+            Assert.That(AssistantRows(usage.Frame!.Card!).Single().Kind, Is.EqualTo(RoomKind.Computer));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }
