@@ -231,6 +231,27 @@ namespace Halcyonic.XR.UI
         public int LinesAsLaid(LineWords words, bool mono, bool? narrow = null) =>
             bar.LinesAt(words, mono, (narrow ?? Form.Narrow) ? RoomGeometry.ColumnDp : Form.PanelDp);
 
+        /// <summary>
+        /// The lines a card's list row takes as the card lays it at the plane's panel width (FIELD's RoomCardView.LinesOfListRow, on
+        /// a card view kept hidden for measuring, never one shown): the one count the file's budget and the reader both take, so a
+        /// described answer's part is the card's page (AUDIT's 22:06Z; the lesson of charN's request part 2).
+        /// </summary>
+        public int ListRowLines(RoomListRow row)
+        {
+            if (measuringCard == null)
+            {
+                measuringCard = RoomCardView.Create(transform);
+                measuringCard.gameObject.name = "Card measure";
+            }
+            var width = RoomType.Units(Form.PanelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp);
+            var lines = measuringCard.LinesOfListRow(row, width);
+            // Never drawn, as the bar's own measures: kept active so its words lay, every part it made hidden.
+            foreach (var shown in measuringCard.GetComponentsInChildren<Renderer>(true)) shown.enabled = false;
+            return lines;
+        }
+
+        private RoomCardView? measuringCard;
+
         public bool Holds(KitFileBinding binding, bool? narrow = null)
         {
             var laidNarrow = narrow ?? Form.Narrow;
