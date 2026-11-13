@@ -47,6 +47,8 @@ namespace Halcyonic.Client
             var pressed = new List<RoomListRow>();
             var lost = false;
             LineWords? words = null;
+            // The panel's first row is its title (where am I), kept with the row after it when they page.
+            var titled = false;
 
             if (frame.Side is SidePanel side)
             {
@@ -55,6 +57,7 @@ namespace Halcyonic.Client
                 // What the panel is about stands as its first row, so a person sees where they are (the lead, 16:46Z): the bar's
                 // own words are not drawn where rows stand (gen-n2, 2026-11-13: "Text Size" and "Tests" unseen).
                 rows.Add(new RoomRow(side.SubjectRuns));
+                titled = true;
                 foreach (var fact in side.Facts) rows.Add(new RoomRow(fact.ValueRuns, label: fact.Name));
                 foreach (var line in side.Lines) rows.Add(Stating(line));
                 if (side.SourceRuns is LineWords source) rows.Add(new RoomRow(source));
@@ -64,7 +67,11 @@ namespace Halcyonic.Client
                 // Where am I (the lead, 16:46Z; the critic, 17:49Z: Settings and paged lists had no title): the frame's subject stands
                 // as the panel's first row, unless its first line already says it or the frame is a task's or a project's, whose
                 // name the room already stands on its plate.
-                if (frame.IdentityKind == null && frame.Lines.FirstOrDefault()?.Words != frame.Subject) rows.Add(new RoomRow(frame.SubjectRuns));
+                if (frame.IdentityKind == null && frame.Lines.FirstOrDefault()?.Words != frame.Subject)
+                {
+                    rows.Add(new RoomRow(frame.SubjectRuns));
+                    titled = true;
+                }
                 foreach (var line in frame.Lines)
                 {
                     if (line.Control == LineControl.Input)
@@ -92,8 +99,9 @@ namespace Halcyonic.Client
                             pressed.Add(new RoomListRow(line.Kind, line.Runs, value, press: control, chosen: line.Chosen, under: line.Under, label: line.RowLabel));
                             continue;
                         }
+                        // An answer's description is its button's detail, never dropped (gen-n8's caps drew "Answer 1" and nothing of what it keeps).
                         acting.Add(new RoomAction(control, main: false, icon: line.Choice ? (GlazeIcon?)null : line.Icon ?? GlazeIcon.Next, mark: line.AnswerMark,
-                            chosen: line.Chosen));
+                            chosen: line.Chosen, detail: line.Under?.Text));
                         continue;
                     }
                     // Outside words, however the frame marks them: one on the band, any more as rows of their own.
@@ -199,7 +207,7 @@ namespace Halcyonic.Client
             // measure shortens a card as it shortens rows (FIELD's F100: Usage's card narrow passed its footprint at one row a page).
             var perCard = System.Math.Min(RoomCard.ListAPage, rowsAPage);
             var pressPages = carded ? (pressed.Count + perCard - 1) / perCard : 1;
-            var rowPagesOf = carded ? new List<IReadOnlyList<RoomRow>> { new List<RoomRow>() } : PageRows(rows, form);
+            var rowPagesOf = carded ? new List<IReadOnlyList<RoomRow>> { new List<RoomRow>() } : PageRows(rows, form, titled);
             var rowPages = rowPagesOf.Count;
             var pages = System.Math.Max(System.Math.Max(rowPages, actionPages), pressPages);
             var each = pages > 1 ? roomPaged : room;
@@ -212,12 +220,16 @@ namespace Halcyonic.Client
                 pages = System.Math.Max(rowPages, actionPages);
             }
             // Rows that fit one page stand on every page while the actions turn; one plain line is the panel's words on all of them.
+            // A confirmation's Yes stands only once every line of what it does was shown (gen-n8, 2026-11-13: narrow at the larger
+            // size drew Forget Computer beside the title alone, what forgetting does on the next page); Cancel stands on every page.
+            var confirming = main?.Control.Place == KitPlace.Yes;
+            var contentLast = carded ? pressPages - 1 : ownCard != null ? 0 : rowPages - 1;
             var oneLine = !carded && rowPages == 1 && field == null && rowPagesOf[0].Count == 1 && rowPagesOf[0][0].Label == null && rowPagesOf[0][0].Lines == null;
             var parts = new List<GeneralPage>();
             for (var page = 0; page < pages; page++)
             {
                 var column = new List<RoomAction>();
-                if (main != null) column.Add(main);
+                if (main != null && (!confirming || page >= contentLast)) column.Add(main);
                 column.AddRange(turning.Skip(page * each).Take(each));
                 if (pages > 1 || ownPager != null)
                 {
@@ -264,7 +276,7 @@ namespace Halcyonic.Client
         /// its rows a page; a row longer than a page stands in its own parts, each on its own page with the row's label kept,
         /// nothing cut and nothing taller. Without a measure, the form's rows a page.
         /// </summary>
-        private static List<IReadOnlyList<RoomRow>> PageRows(IReadOnlyList<RoomRow> rows, RoomForm form)
+        private static List<IReadOnlyList<RoomRow>> PageRows(IReadOnlyList<RoomRow> rows, RoomForm form, bool titled = false)
         {
             var pages = new List<IReadOnlyList<RoomRow>>();
             if (form.LinesOf is not System.Func<RoomRow, bool, int> measure)
@@ -294,6 +306,27 @@ namespace Halcyonic.Client
                 var lines = row.Lines ?? (row.Label == null ? whole : System.Math.Max(1, measure(new RoomRow(row.Words, row.Mark, note: row.Note), indented)));
                 var label = row.Label == null ? 0 : System.Math.Max(0, whole - lines);
                 if (row.Lines != null && row.Label != null) label = System.Math.Max(1, measure(new RoomRow(LineWords.Ours(row.Label)), indented));
+                if (titled && pages.Count == 0 && page.Count == 1 && row.Lines == null && used + label + lines > budget
+                    && budget - used - label >= 1)
+                {
+                    // The title keeps with the row after it (gen-n8): that row's first lines beside it, the rest in parts after, the last
+                    // part opening the next page so the rows after it may share it.
+                    var beside = budget - used - label;
+                    page.Add(new RoomRow(row.Words, row.Mark, fromLine: 0, lines: beside, label: row.Label, note: row.Note));
+                    Close();
+                    var rest = System.Math.Max(1, budget - label);
+                    for (var from = beside; from < lines; from += rest)
+                    {
+                        var part = new RoomRow(row.Words, row.Mark, fromLine: from, lines: System.Math.Min(rest, lines - from), label: row.Label);
+                        if (from + rest >= lines)
+                        {
+                            page.Add(part);
+                            used = label + part.Lines!.Value;
+                        }
+                        else pages.Add(new List<RoomRow> { part });
+                    }
+                    continue;
+                }
                 if (row.Lines == null && label + lines > budget)
                 {
                     // Longer than a page: its own parts, each on a page of its own, the label kept on every part.

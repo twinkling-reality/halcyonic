@@ -436,6 +436,15 @@ public class RoomPageTests
         Assert.That(bar.Whole, Is.False, "a later page holds an answer's description");
         while (bar.GeneralPart.Page < bar.GeneralPart.Pages - 1) bar.Turn();
         Assert.That(bar.Whole, Is.True, "shown, now read");
+
+        // An answer's description stands on its button as the detail, never dropped (gen-n8's caps: "Answer 1" drawn, what it
+        // keeps nowhere), and its page is one to read.
+        var choices = Enumerable.Range(1, 3).Select(n => new PageLine("Answer " + n, action: "answer", key: n.ToString(), choice: true, answerMark: AnswerMark.Single)
+            .WithUnder(LineWords.Ours("Keeps answer " + n + "."))).ToList();
+        var asked = RoomBar.OfFrame(Frame(choices), VoiceStage.Idle)!;
+        Assert.That(asked.Column.Where(action => action.Control.Action == "answer").Select(action => action.Detail),
+            Is.EqualTo(new[] { "Keeps answer 1.", "Keeps answer 2.", "Keeps answer 3." }), Show(asked));
+        Assert.That(asked.LostPart, Is.False);
     }
 
     /// <summary>
@@ -483,6 +492,42 @@ public class RoomPageTests
 
         // Without a measure, rows a page as before.
         Assert.That(RoomBar.OfFrame(frame, VoiceStage.Idle)!.GeneralPart.Pages, Is.EqualTo(1));
+    }
+
+    /// <summary>
+    /// A confirmation whose words pass a page with its title (gen-n8, 2026-11-13: narrow at the larger size, page 1 drew the title
+    /// and Forget Computer, the sentence that says what forgetting does stood on page 2): the title keeps with the row after it, that
+    /// row's first lines beside it and the rest in parts after, and the Yes stands only once every line of what it does was shown;
+    /// Cancel and the pager stand on every page.
+    /// </summary>
+    [Test]
+    public void AConfirmationsYesStandsOnlyOnceWhatItDoesWasShownAndTheTitleKeepsWithItsWords()
+    {
+        int Measure(LineWords words) => System.Math.Max(1, (words.Text.Length + 29) / 30);
+        var form = RoomForm.Full.Measured((row, indented) => (row.Label == null ? 0 : Measure(LineWords.Ours(row.Label))) + Measure(row.Words));
+        var eight = new string('d', 30 * 8 - 1);
+        var forgets = Footer.Confirm(new Footer(Close, farRight: new Prompt("forget", "Forget Computer", GlazeIcon.Next)), PromptSlot.FarRight,
+            new Prompt("yes", "Forget Computer", GlazeIcon.Next, PromptKind.Yes, destructive: true), new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel));
+        var bar = RoomBar.OfFrame(new MenuFrame("Settings", forgets, lines: new[] { new PageLine(LineWords.Ours(eight)) }), VoiceStage.Idle, form)!;
+        Assert.That(bar.GeneralPart.Pages, Is.EqualTo(2), Show(bar));
+
+        var first = bar.Facts!;
+        Assert.That(first.Select(row => row.Words.Text), Is.EqualTo(new[] { "Settings", eight }), "the title keeps with its words");
+        Assert.That((first[1].FromLine, first[1].Lines), Is.EqualTo((0, (int?)7)), "the words' first seven lines beside the title, eight in all");
+        Assert.That(bar.Column.Any(action => action.Control.Action == "yes"), Is.False, "the Yes waits for the rest of what it does: " + Show(bar));
+        Assert.That((bar.Column[^2].Control.Action, bar.Column[^1].Control.Action), Is.EqualTo((RoomBar.TurnPage, "cancel")), Show(bar));
+
+        bar.Turn();
+        Assert.That(bar.Facts!.Select(row => (row.FromLine, row.Lines)), Is.EqualTo(new[] { (7, (int?)1) }), "the last line on the next page");
+        Assert.That((bar.Column[0].Control.Action, bar.Column[0].Main, bar.Column[0].Locks), Is.EqualTo(("yes", true, true)), Show(bar));
+        Assert.That(bar.Column[^1].Control.Action, Is.EqualTo("cancel"), Show(bar));
+        Assert.That(bar.Whole, Is.True);
+
+        // Back on the first page the Yes waits again, and a confirmation that fits one page has its Yes at once.
+        bar.Turn();
+        Assert.That(bar.Column.Any(action => action.Control.Action == "yes"), Is.False, Show(bar));
+        var short_ = RoomBar.OfFrame(new MenuFrame("Settings", forgets, lines: new[] { new PageLine("Forget this computer?") }), VoiceStage.Idle, form)!;
+        Assert.That((short_.GeneralPart.Pages, short_.Column[0].Control.Action), Is.EqualTo((1, "yes")), Show(short_));
     }
 
     /// <summary>
