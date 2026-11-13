@@ -292,6 +292,9 @@ namespace Halcyonic.XR.Workspace
         }
 
         private readonly PlaneWidthRule widthRule = new PlaneWidthRule();
+
+        /// <summary>The frame a placing ended on, while the plane waits for the shelf it placed; -1 otherwise.</summary>
+        private int placingEndedFrame = -1;
         private (float Scale, string Shelf, int Characters, int Yaw, int Pitch, bool Placing)? formSituation;
 
         /// <summary>The plane's panel width now, in dp, held between events (the lead's 2026-11-13T17:16Z and 19:34Z rulings).</summary>
@@ -311,9 +314,17 @@ namespace Halcyonic.XR.Workspace
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
             var now = (GlazeText.Scale, shelfKey, characters, Mathf.RoundToInt(Direction.Yaw), Mathf.RoundToInt(Direction.Elevation), placing);
             if (formSituation is { } was && was == now) return;
-            // Placing just ended and the shelf placed is not standing yet (it stands a frame later): no event yet, or the plane would
-            // widen for a room with no shelf and narrow again a frame later, two changes for one placing (JUDGE's charR).
-            if (formSituation is { } placed && placed.Placing && !placing && shelf == null) return;
+            // Placing just ended and the shelf placed is not standing yet (it stands a frame later): wait those frames, or the plane would
+            // widen for a room with no shelf and narrow again, two changes for one placing (JUDGE's charR); never longer, and never over
+            // another change, so a cancelled placing is decided at once (AUDIT's 22:30Z).
+            if (formSituation is { } placed && placed.Placing && !placing)
+            {
+                if (placingEndedFrame < 0) placingEndedFrame = Time.frameCount;
+                var otherChange = !Mathf.Approximately(placed.Scale, now.Item1) || placed.Characters != characters
+                    || placed.Yaw != now.Item4 || placed.Pitch != now.Item5;
+                if (PlaneWidthRule.AwaitsPlacedShelf(true, false, shelf != null, otherChange, Time.frameCount - placingEndedFrame)) return;
+            }
+            placingEndedFrame = -1;
             PlaneFormEvent happened = formSituation is not { } before ? PlaneFormEvent.PlaneMoved
                 : !Mathf.Approximately(before.Scale, now.Item1) ? PlaneFormEvent.TextSizeChanged
                 : before.Shelf != shelfKey || before.Placing != placing ? PlaneFormEvent.ShelfChanged

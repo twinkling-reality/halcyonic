@@ -59,6 +59,17 @@ public class PlaneFormTests
         Assert.That(RoomForm.Full.AtWidth(360f).Fewer().FewerActions().PanelDp, Is.EqualTo(360f), "the width kept as the plane asks for less");
     }
 
+    /// <summary>A placing that ends waits only for its shelf to stand: never longer, never over another change, a cancel decided at once.</summary>
+    [Test]
+    public void APlacingThatEndsWaitsOnlyTheFramesItsShelfNeeds()
+    {
+        Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, shelfStands: false, otherChange: false, framesSincePlacingEnded: 0), Is.True, "the shelf stands a frame later");
+        Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, false, PlaneWidthRule.PlacedShelfFrames), Is.False, "a cancelled placing: no shelf will come");
+        Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, true, false, 0), Is.False, "the shelf stands: decide now, once");
+        Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, otherChange: true, 0), Is.False, "a text size, the plane or the characters changed: decide now");
+        Assert.That(PlaneWidthRule.AwaitsPlacedShelf(false, false, false, false, 0), Is.False, "no placing ended");
+    }
+
     [Test]
     public void TheWidthIsHeldBetweenEventsWhateverTheCharactersDo()
     {

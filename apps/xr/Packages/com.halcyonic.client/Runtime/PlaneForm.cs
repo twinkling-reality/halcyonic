@@ -88,6 +88,17 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class PlaneWidthRule
     {
+        /// <summary>The frames a placing that just ended waits for the shelf it placed to stand (it stands a frame later).</summary>
+        public const int PlacedShelfFrames = 2;
+
+        /// <summary>
+        /// Whether the plane waits before deciding again (JUDGE's charR; AUDIT's 22:30Z): only where placing just ended, no shelf
+        /// stands yet, nothing else changed (the text size, the plane, the characters), and no more than <see cref="PlacedShelfFrames"/>
+        /// frames have passed; so a placed shelf changes the width once, and a cancelled placing, or any real change, is decided at once.
+        /// </summary>
+        public static bool AwaitsPlacedShelf(bool wasPlacing, bool placing, bool shelfStands, bool otherChange, int framesSincePlacingEnded) =>
+            wasPlacing && !placing && !shelfStands && !otherChange && framesSincePlacingEnded < PlacedShelfFrames;
+
         /// <summary>The panel width held now, in dp.</summary>
         public float WidthDp { get; private set; } = RoomGeometry.PanelDp;
 
