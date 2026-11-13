@@ -180,6 +180,7 @@ export class Reattacher {
             execution,
             view.runtime.runtime_id,
             this.#deps.redaction,
+            bounds.directory,
           ),
         }),
         timedOut,

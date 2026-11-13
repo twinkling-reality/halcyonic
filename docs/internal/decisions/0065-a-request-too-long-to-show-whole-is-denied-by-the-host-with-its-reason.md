@@ -40,6 +40,22 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    newline, carriage return, the bidirectional overrides and isolates, the zero-width characters and the byte order
    mark) are written in the summary as their escape (`\u{202E}`), for every request, before it is fitted.
 
+5. **The second half: an approval shows whole what it approves, a file's change too** (the lead, 2026-11-13 19:46Z;
+   AUDIT3's shape read with W1 to W4). A file tool's request carries its change as `ApprovalSubject.changes`
+   (`ApprovalChange`: path, the host's `real_path` where a link takes the write elsewhere, a move's `to_path`, kind,
+   shape, `before` and `after`, `every`, a notebook `cell`), and each agent app declares `shows_changes`:
+   - Claude Agent: from the tool's own input (Write the whole new file, a new file or a rewrite by whether it exists;
+     Edit the text replaced and its replacement, every match where `replace_all`; NotebookEdit a cell's new source,
+     id, type and mode). These inputs are no longer "quiet" (W2).
+   - Codex 0.157.0: the file-change item's own whole diff per file (`FileUpdateChange.diff`), a move's both paths.
+   - OpenCode 2.0.18: the edit ask's `metadata.files[].patch`, a whole unified diff (read from the pinned binary,
+     opencode-permissions.md); an edit ask without it is not approvable.
+   A file tool's request without its change is not approvable. The summary, every path and every before and after are
+   escaped and counted together against the approvable bound (W3); the host resolves each path against the task's
+   folder and shows the real one where a link leads elsewhere (W1). A confined app's own write is answered by the host
+   whatever its length (point 2). The denial's advice to send a long command in parts may now return, in its own
+   words change (AUDIT2).
+
 ## Alternatives considered
 
 - **Raise the approvable bound to 32000 now.** The card's gate exists but no test has paged 30000 characters (about

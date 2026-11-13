@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { after, describe, type TestContext, test } from 'node:test';
@@ -43,6 +43,7 @@ import {
   KEPT_BY_HALCYONIC,
   keptPath,
   type QueryHandle,
+  requestChanges,
   requestPaths,
 } from './claude-agent-runtime.ts';
 
@@ -2383,5 +2384,72 @@ describe("a request's places, as structure, by the SDK's own tool schemas (AUDIT
     ];
     for (const [tool, input, expected] of given)
       assert.deepEqual(requestPaths(tool, input), expected, `${tool} ${JSON.stringify(input)}`);
+  });
+});
+
+describe("a file tool's change, carried whole on its approval (ADR 0065, AUDIT3 W2)", () => {
+  test('Write, Edit and NotebookEdit give their whole change; nothing that changes what is written is quiet', () => {
+    const folder = mkdtempSync(join(tmpdir(), 'halcyonic-changes-'));
+    try {
+      writeFileSync(join(folder, 'old.txt'), 'x');
+      const base = { real_path: null, to_path: null, every: false, cell: null };
+      assert.deepEqual(requestChanges('Write', { file_path: 'new.txt', content: 'hi' }, folder), [
+        { ...base, path: 'new.txt', kind: 'add', shape: 'content', before: null, after: 'hi' },
+      ]);
+      assert.equal(
+        requestChanges('Write', { file_path: 'old.txt', content: 'hi' }, folder)?.[0]?.kind,
+        'update',
+        'a rewrite never reads as a new file',
+      );
+      assert.deepEqual(
+        requestChanges('Edit', {
+          file_path: 'a.ts',
+          old_string: 'a',
+          new_string: 'b',
+          replace_all: true,
+        }),
+        [
+          {
+            ...base,
+            path: 'a.ts',
+            kind: 'update',
+            shape: 'replace',
+            before: 'a',
+            after: 'b',
+            every: true,
+          },
+        ],
+      );
+      assert.deepEqual(
+        requestChanges('NotebookEdit', {
+          notebook_path: 'n.ipynb',
+          new_source: '',
+          edit_mode: 'delete',
+          cell_id: 'c1',
+        }),
+        [
+          {
+            ...base,
+            path: 'n.ipynb',
+            kind: 'delete',
+            shape: 'replace',
+            before: null,
+            after: null,
+            cell: { id: 'c1', type: null, mode: 'delete' },
+          },
+        ],
+      );
+      // Not in the schema's shape: no change, so the request is not approvable.
+      for (const [tool, input] of [
+        ['Write', { file_path: 'a' }],
+        ['Edit', { file_path: 'a', old_string: 'a' }],
+        ['Edit', { file_path: 'a', old_string: 'a', new_string: 'b', replace_all: 'yes' }],
+        ['NotebookEdit', { notebook_path: 'n', new_source: 's', edit_mode: 'move' }],
+        ['Bash', { command: 'ls' }],
+      ] as const)
+        assert.equal(requestChanges(tool, input), null, `${tool} ${JSON.stringify(input)}`);
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
   });
 });

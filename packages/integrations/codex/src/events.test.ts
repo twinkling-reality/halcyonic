@@ -325,6 +325,20 @@ describe('Codex 0.157.0 event mapping', () => {
         kind: 'tool_use',
         tool_name: 'fileChange',
         summary: 'add /workspace/as-b/hello.txt',
+        // The item's own whole diff, carried on the approval (ADR 0065).
+        changes: [
+          {
+            path: '/workspace/as-b/hello.txt',
+            real_path: null,
+            to_path: null,
+            kind: 'add',
+            shape: 'diff',
+            before: null,
+            after: 'hello from the fake provider\n',
+            every: false,
+            cell: null,
+          },
+        ],
       },
       complete: true,
     });
@@ -583,8 +597,13 @@ describe('Codex approval summaries', () => {
     };
     const command = 'item/commandExecution/requestApproval';
     const change = 'item/fileChange/requestApproval';
-    const added = [{ path: '/w/a.txt', kind: { type: 'add' } }];
+    const added = [{ path: '/w/a.txt', kind: { type: 'add' }, diff: '+hello\n' }];
     assert.deepEqual(asked(change, {}, added), ['add /w/a.txt', true]);
+    // Without its own diff the change is not shown whole, so the request is not complete (ADR 0065).
+    assert.deepEqual(asked(change, {}, [{ path: '/w/a.txt', kind: { type: 'add' } }]), [
+      'add /w/a.txt',
+      false,
+    ]);
     // Write access for the rest of the session covers writes no later request names.
     assert.deepEqual(asked(change, { grantRoot: '/w' }, added), [
       'add /w/a.txt\nand write access under /w for the rest of the session',

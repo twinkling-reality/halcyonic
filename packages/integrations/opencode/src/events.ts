@@ -1,4 +1,5 @@
 import type {
+  ApprovalChange,
   ApprovalSubject,
   ErrorInfo,
   EventOf,
@@ -331,6 +332,7 @@ export function observeEvent(
         data.action,
         data.resources,
         askedCommand(state, data.action, data.source),
+        data.metadata,
       );
       if (id === null || request === null || state.approvals.has(id)) return [];
       state.approvals.add(id);
@@ -576,24 +578,67 @@ export function approvalRequest(
   action: unknown,
   resources: unknown,
   request: string | null = null,
+  metadata: unknown = undefined,
 ): { readonly subject: ApprovalSubject; readonly complete: boolean } | null {
   const tool = nonBlank(action);
   if (tool === null) return null;
   const listed = Array.isArray(resources)
     ? resources.filter((item): item is string => typeof item === 'string' && /\S/.test(item))
     : [];
+  const changes = tool === 'edit' ? editChanges(metadata) : null;
   return {
     subject: {
       kind: 'tool_use',
       tool_name: clip(tool, 128),
       // Whole: the control plane takes credentials out, then cuts it to the contract.
       summary: request ?? (listed.length > 0 ? listed.join('\n') : tool),
+      ...(changes !== null && { changes }),
     },
-    // A tool's name cut to the contract could read as another's.
+    // A tool's name cut to the contract could read as another's; an edit without its change carried is not whole.
     complete:
       tool.length <= 128 &&
+      (tool !== 'edit' || changes !== null) &&
       (tool === SHELL_TOOL ? request !== null : PATH_ACTIONS.has(tool) && listed.length > 0),
   };
+}
+
+const CHANGE_STATUS: Readonly<Record<string, ApprovalChange['kind']>> = {
+  added: 'add',
+  modified: 'update',
+  deleted: 'delete',
+};
+
+/**
+ * An edit ask's change, from its own metadata (`files: [{ file, patch, status }]`, read from the pinned 2.0.18's write
+ * and edit tools: the patch is a whole unified diff of the file's full old and new text; opencode-permissions.md), or
+ * null where it carries none or another shape, so the request is not approvable (ADR 0065).
+ */
+export function editChanges(metadata: unknown): ApprovalChange[] | null {
+  if (!isRecord(metadata) || !Array.isArray(metadata.files) || metadata.files.length === 0)
+    return null;
+  if (metadata.files.length > 16) return null;
+  const changes: ApprovalChange[] = [];
+  for (const entry of metadata.files) {
+    if (!isRecord(entry)) return null;
+    const file = nonBlank(entry.file);
+    const kind =
+      typeof entry.status === 'string' && Object.hasOwn(CHANGE_STATUS, entry.status)
+        ? CHANGE_STATUS[entry.status]
+        : undefined;
+    if (file === null || kind === undefined || typeof entry.patch !== 'string') return null;
+    changes.push({
+      path: file,
+      real_path: null,
+      to_path: null,
+      kind,
+      shape: 'diff',
+      before: null,
+      after: entry.patch,
+      every: false,
+      cell: null,
+    });
+  }
+  return changes;
 }
 
 /** OpenCode reports `{type, message}`; its type becomes the error code, for example `provider_no_route`. */

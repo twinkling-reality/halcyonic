@@ -386,6 +386,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       // Each turn's tokens from the thread's running total; no money (agent-usage.md, the end to end
       // test on the pinned binary).
       reports_usage: true,
+      // A file change's approval carries the item's own whole diff (0.157.0's FileUpdateChange; ADR 0065).
+      shows_changes: true,
       // A thread's shell_environment_policy.set, given at its start and every resume, reaches its
       // commands (project-secrets.md; ADR 0057).
       secret_environment: true,

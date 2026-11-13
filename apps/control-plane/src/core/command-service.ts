@@ -2564,6 +2564,7 @@ export class CommandService {
         execution,
         runtime.runtime_id,
         this.#deps.redaction,
+        directory,
       );
       // A failed check's first lines go after the person's words, once per check (FX1).
       const checked = this.#checkOutputFor(project_id, workstream_id);

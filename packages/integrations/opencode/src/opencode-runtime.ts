@@ -673,6 +673,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // Each step's tokens and OpenCode's own estimate, summed per turn where every step was seen
       // (agent-usage.md; the captured streams carry them).
       reports_usage: true,
+      // An edit ask's metadata carries the file's whole unified diff (2.0.18's write and edit tools; ADR 0065).
+      shows_changes: true,
       // Each session's own command environment, set before its first prompt, takes the project's
       // secrets: no server restarts for them (ADR 0057, project-secrets.md).
       secret_environment: true,

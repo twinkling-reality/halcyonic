@@ -2909,6 +2909,72 @@ namespace Halcyonic.Contracts
         public ToolUsePathsItemAccess Access { get; set; }
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum ToolUseChangesItemKind
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "add")] Add,
+        [global::System.Runtime.Serialization.EnumMember(Value = "update")] Update,
+        [global::System.Runtime.Serialization.EnumMember(Value = "delete")] Delete,
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum ToolUseChangesItemShape
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "content")] Content,
+        [global::System.Runtime.Serialization.EnumMember(Value = "replace")] Replace,
+        [global::System.Runtime.Serialization.EnumMember(Value = "diff")] Diff,
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum ToolUseChangesItemCellMode
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "replace")] Replace,
+        [global::System.Runtime.Serialization.EnumMember(Value = "insert")] Insert,
+        [global::System.Runtime.Serialization.EnumMember(Value = "delete")] Delete,
+    }
+
+    public sealed class ToolUseChangesItemCell
+    {
+        [global::Newtonsoft.Json.JsonProperty("id", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Id { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("type", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Type { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("mode", Required = global::Newtonsoft.Json.Required.Always)]
+        public ToolUseChangesItemCellMode Mode { get; set; }
+    }
+
+    public sealed class ToolUseChangesItem
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("real_path", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? RealPath { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("to_path", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? ToPath { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
+        public ToolUseChangesItemKind Kind { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("shape", Required = global::Newtonsoft.Json.Required.Always)]
+        public ToolUseChangesItemShape Shape { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("before", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Before { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("after", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? After { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("every", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool Every { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("cell", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public ToolUseChangesItemCell? Cell { get; set; }
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(ApprovalSubjectConverter))]
     public abstract class ApprovalSubject
     {
@@ -2965,6 +3031,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<ToolUsePathsItem>? Paths { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("changes", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<ToolUseChangesItem>? Changes { get; set; }
     }
 
     public sealed class ApprovalView
@@ -3637,6 +3706,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("delivers_denial_message", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? DeliversDenialMessage { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("shows_changes", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? ShowsChanges { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("offers_spending_cap", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? OffersSpendingCap { get; set; }

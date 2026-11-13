@@ -14,6 +14,7 @@ import {
   clip,
   createSessionState,
   decodeEvent,
+  editChanges,
   formAnswer,
   formQuestion,
   observeEvent,
@@ -901,5 +902,38 @@ describe('OpenCode event decoding', () => {
     assert.deepEqual(observeEvent(state, delivered, NOW), []);
     assert.deepEqual([...state.steered], ['msg_other']);
     assert.deepEqual(state.turn, { id: 'evt_turn' });
+  });
+});
+
+describe("an edit ask's change, from its own metadata (2.0.18; ADR 0065, AUDIT3 W4)", () => {
+  test('the whole patch is carried, and an edit ask without one is not approvable', () => {
+    const files = [
+      { file: '/w/a.ts', patch: '--- a\n+++ b\n', status: 'modified', additions: 1, deletions: 0 },
+    ];
+    assert.deepEqual(editChanges({ files }), [
+      {
+        path: '/w/a.ts',
+        real_path: null,
+        to_path: null,
+        kind: 'update',
+        shape: 'diff',
+        before: null,
+        after: '--- a\n+++ b\n',
+        every: false,
+        cell: null,
+      },
+    ]);
+    assert.equal(editChanges({ files: [{ ...files[0], status: 'added' }] })?.[0]?.kind, 'add');
+    for (const bad of [
+      undefined,
+      {},
+      { files: [] },
+      { files: [{ ...files[0], status: 'constructor' }] },
+      { files: [{ file: '/w/a.ts', status: 'modified' }] },
+    ])
+      assert.equal(editChanges(bad), null, JSON.stringify(bad));
+    assert.equal(approvalRequest('edit', ['/w/a.ts'], null, { files })?.complete, true);
+    // The ask OpenCode makes when an edit's old text was not found carries no metadata.
+    assert.equal(approvalRequest('edit', ['/w/a.ts'], null, undefined)?.complete, false);
   });
 });

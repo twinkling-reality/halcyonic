@@ -1,4 +1,5 @@
-import type { ToolResult } from '@halcyonic/contracts';
+import { isAbsolute, join } from 'node:path';
+import type { ApprovalChange, ToolResult } from '@halcyonic/contracts';
 import {
   type CommandId,
   type ControlPlaneEvent,
@@ -10,6 +11,7 @@ import {
 } from '@halcyonic/contracts';
 import type { ExecutionContext, ObservationSink } from '@halcyonic/runtime-core';
 import type { Logger } from '../logger.ts';
+import { resolvedPath } from './real-path.ts';
 import type { EventDraft, Recorder } from './recorder.ts';
 import { fitted, type Redaction, redaction as redactionOf, withinLimit } from './redaction.ts';
 import { normalizedToolResult } from './tool-result-redaction.ts';
@@ -70,6 +72,8 @@ export function createObservationSink(
   execution: ExecutionContext,
   runtimeId: RuntimeId,
   redaction: Redaction = redactionOf(),
+  /** The task's folder, where a change's relative path lands; the host adds where it really writes (W1). */
+  folder: string | null = null,
 ): ObservationSink {
   return (observation) => {
     try {
@@ -86,7 +90,7 @@ export function createObservationSink(
         causation_id: null,
         provenance: observation.provenance,
         // Inside the try: a payload too malformed to clean is an adapter defect like any other.
-        payload: withoutCredentials(observation, redaction),
+        payload: withoutCredentials(observation, redaction, folder),
       } as unknown as EventDraft;
       recorder.record(draft);
     } catch (error) {
@@ -120,9 +124,52 @@ export const APPROVABLE_LIMIT = 2000;
 export function visible(text: string): string {
   return text.replace(
     // biome-ignore lint/suspicious/noControlCharactersInRegex: finding control characters is the rule.
-    /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u200B-\u200D\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g,
+    /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u00AD\u061C\u200B-\u200F\u2028-\u202E\u2060\u2066-\u2069\uFEFF\u{E0000}-\u{E007F}]/gu,
     (c) => `\\u{${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}}`,
   );
+}
+
+/**
+ * One change of a request, each text part with what Halcyonic holds taken out and what a card does not draw escaped,
+ * kept whole up to the record's bound (`whole` before fitting, `fitted` after, `cut` where any part was cut), and
+ * `real_path` set by the host where the path, or a folder on it, is a link (AUDIT3 W1).
+ */
+function fittedChange(
+  change: ApprovalChange,
+  redaction: Redaction,
+  folder: string | null,
+): { readonly whole: ApprovalChange; readonly fitted: ApprovalChange; readonly cut: boolean } {
+  const shown = (text: string | null) => (text === null ? null : visible(redaction.held(text)));
+  const real = (path: string) => {
+    if (folder === null && !isAbsolute(path)) return null;
+    const plain = isAbsolute(path) ? join(path) : join(folder ?? '', path);
+    const resolved = resolvedPath(plain);
+    return resolved === plain ? null : resolved;
+  };
+  const whole: ApprovalChange = {
+    ...change,
+    path: visible(change.path),
+    real_path: real(change.path),
+    to_path: change.to_path === null ? null : visible(change.to_path),
+    before: shown(change.before),
+    after: shown(change.after),
+  };
+  const fit = (text: string | null, limit: number) => (text === null ? null : fitted(text, limit));
+  const fittedOne: ApprovalChange = {
+    ...whole,
+    path: fitted(whole.path, 4096),
+    real_path: fit(whole.real_path, 4096),
+    to_path: fit(whole.to_path, 4096),
+    before: fit(whole.before, SUMMARY_LIMIT),
+    after: fit(whole.after, SUMMARY_LIMIT),
+  };
+  const cut =
+    fittedOne.path !== whole.path ||
+    fittedOne.real_path !== whole.real_path ||
+    fittedOne.to_path !== whole.to_path ||
+    fittedOne.before !== whole.before ||
+    fittedOne.after !== whole.after;
+  return { whole, fitted: fittedOne, cut };
 }
 
 /**
@@ -139,6 +186,7 @@ export function visible(text: string): string {
 function withoutCredentials(
   observation: Parameters<ObservationSink>[0],
   redaction: Redaction,
+  folder: string | null = null,
 ): unknown {
   const payload = observation.payload as Record<string, unknown>;
   const held = (field: string, limit: number) =>
@@ -163,19 +211,38 @@ function withoutCredentials(
     case 'runtime.approval.requested': {
       // `too_long` is the host's own fact, never an adapter's: whatever the observation carried is dropped here.
       const { too_long: _adapters, ...given } = payload;
-      const subject = given.subject as { summary?: unknown } | undefined;
+      const subject = given.subject as { summary?: unknown; changes?: unknown } | undefined;
       if (typeof subject?.summary !== 'string') return given;
       // What a card does not draw is drawn as its escape, so what is shown is what runs (AUDIT3 L1).
       const held = visible(redaction.held(subject.summary));
       const summary = fitted(held, SUMMARY_LIMIT);
-      // A request a person cannot be shown whole can never be approved; the host denies it at once.
-      // Counted in code points, as the contract counts text.
-      const length = [...held].length;
+      // Every change the request makes, each part escaped and kept whole up to the record's bound, with where the
+      // write really lands (ADR 0065, AUDIT3 W1, W3).
+      const changes = Array.isArray(subject.changes)
+        ? subject.changes.map((change) => fittedChange(change as ApprovalChange, redaction, folder))
+        : undefined;
+      const parts = [
+        held,
+        ...(changes ?? []).flatMap((change) => [
+          change.whole.path,
+          change.whole.real_path ?? '',
+          change.whole.to_path ?? '',
+          change.whole.before ?? '',
+          change.whole.after ?? '',
+        ]),
+      ];
+      // One bound for all a person reads before Approve, counted in code points as the contract counts text.
+      const length = parts.reduce((sum, part) => sum + [...part].length, 0);
+      const cut = summary !== held || (changes ?? []).some((change) => change.cut);
       const tooLong = length > APPROVABLE_LIMIT;
       return {
         ...given,
-        subject: { ...subject, summary },
-        complete: given.complete === true && summary === held && !tooLong,
+        subject: {
+          ...subject,
+          summary,
+          ...(changes !== undefined && { changes: changes.map((change) => change.fitted) }),
+        },
+        complete: given.complete === true && !cut && !tooLong,
         ...(tooLong && { too_long: { length, reported_complete: given.complete === true } }),
       };
     }

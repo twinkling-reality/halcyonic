@@ -1,4 +1,5 @@
 import type {
+  ApprovalChange,
   ApprovalSubject,
   ErrorInfo,
   EventOf,
@@ -50,7 +51,10 @@ export interface ThreadState {
   readonly tools: Set<string>;
   /** What each file change item changes, for an approval that names the item. */
   /** Each file change item's files, one line each, and whether every change was described. */
-  readonly fileChanges: Map<string, { readonly text: string; readonly complete: boolean }>;
+  readonly fileChanges: Map<
+    string,
+    { readonly text: string; readonly complete: boolean; readonly changes: ApprovalChange[] | null }
+  >;
   /** Approvals Codex asked for and has not resolved, by approval id. */
   readonly approvals: Map<string, PendingApproval>;
   /** Questions Codex asked and has not resolved, by question id. */
@@ -440,6 +444,7 @@ function observeRequest(
     kind: 'tool_use',
     tool_name: asked.tool,
     summary: asked.summary,
+    ...('changes' in asked && asked.changes !== null && { changes: asked.changes }),
   };
   state.sequence += 1;
   return {
@@ -734,13 +739,29 @@ function commandSummary(params: Readonly<Record<string, unknown>>): {
  * request names, so a request asking for it is not complete.
  */
 function fileChangeSummary(
-  changes: { readonly text: string; readonly complete: boolean } | undefined,
+  changes:
+    | {
+        readonly text: string;
+        readonly complete: boolean;
+        readonly changes: ApprovalChange[] | null;
+      }
+    | undefined,
   grantRoot: unknown,
-): { readonly summary: string; readonly complete: boolean } {
+): {
+  readonly summary: string;
+  readonly complete: boolean;
+  readonly changes: ApprovalChange[] | null;
+} {
   let summary = changes?.text ?? NO_CHANGES_NAMED;
   const root = nonBlank(grantRoot);
   if (root !== null) summary += `\nand write access under ${root} for the rest of the session`;
-  return { summary, complete: changes?.complete === true && root === null };
+  const carried = changes?.changes ?? null;
+  // Approvable only with every change carried whole (ADR 0065).
+  return {
+    summary,
+    complete: changes?.complete === true && root === null && carried !== null,
+    changes: carried,
+  };
 }
 
 const NO_CHANGES_NAMED = 'Codex did not say which files it wants to change.';
@@ -780,8 +801,13 @@ function toolItemTitle(item: Readonly<Record<string, unknown>>): string | null {
  * The files a file change item touches, one line each, from `v2/FileUpdateChange.ts`; complete
  * only when every change was one it could describe.
  */
-function describeChanges(changes: unknown): { readonly text: string; readonly complete: boolean } {
+function describeChanges(changes: unknown): {
+  readonly text: string;
+  readonly complete: boolean;
+  readonly changes: ApprovalChange[] | null;
+} {
   const lines: string[] = [];
+  const carried: ApprovalChange[] = [];
   const listed = Array.isArray(changes) ? changes : [];
   for (const change of listed) {
     if (!isRecord(change) || !isRecord(change.kind)) continue;
@@ -793,10 +819,30 @@ function describeChanges(changes: unknown): { readonly text: string; readonly co
     else if (kind === 'delete') lines.push(`delete ${path}`);
     else if (kind === 'update')
       lines.push(moved === null ? `update ${path}` : `move ${path} to ${moved}`);
+    else continue;
+    // The item's own whole diff (FileUpdateChange.diff, 0.157.0's schema), carried on the approval (ADR 0065).
+    if (typeof change.diff === 'string')
+      carried.push({
+        path,
+        real_path: null,
+        to_path: kind === 'update' ? moved : null,
+        kind,
+        shape: 'diff',
+        before: null,
+        after: change.diff,
+        every: false,
+        cell: null,
+      });
   }
+  const whole = lines.length > 0 && lines.length === listed.length;
   return lines.length > 0
-    ? { text: lines.join('\n'), complete: lines.length === listed.length }
-    : { text: NO_CHANGES_NAMED, complete: false };
+    ? {
+        text: lines.join('\n'),
+        complete: whole,
+        // Every change with its diff, or none: a part of a request's changes is never shown as all of it.
+        changes: whole && carried.length === lines.length && carried.length <= 16 ? carried : null,
+      }
+    : { text: NO_CHANGES_NAMED, complete: false, changes: null };
 }
 
 /**
