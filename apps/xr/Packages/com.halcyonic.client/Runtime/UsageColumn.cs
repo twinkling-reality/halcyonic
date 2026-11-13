@@ -381,7 +381,8 @@ namespace Halcyonic.Client
         public static RoomCard ModelsCard(IReadOnlyList<AssistantOption> options, AssistantRow here, LineWords? refused, Func<AssistantOption, KitControl?> press)
         {
             // A row the host offers nothing on reads as unusable by its mark and tone, never by the missing chevron alone; the row it
-            // runs on now says so in its note (FIELD's reader, 03:46Z).
+            // runs on now says so in its note (FIELD's reader, 03:46Z). A hosted model's id that presses stands on one line, its end
+            // cut with its ellipsis where it does not fit, never broken at a hyphen (FIELD's 8698aa558; the review names it whole).
             var rows = options.Take(RoomCard.ListAPage).Select(option => new RoomListRow(
                 !option.Choosable ? RoomKind.Failed : option.Theirs ? RoomKind.Link : RoomKind.Computer,
                 NameOf(option),
@@ -389,7 +390,8 @@ namespace Halcyonic.Client
                 tone: option.Choosable ? RoomTone.Quiet : RoomTone.Bad,
                 press: option.Choosable ? press(option) : null,
                 chosen: Runs(option, here),
-                under: option.Detail == null ? null : DetailOf(option))).ToList();
+                under: option.Detail == null ? null : DetailOf(option),
+                excerpt: true)).ToList();
             return new RoomCard(LineWords.Written(LabelText.Plain(AssistantPlace.UseModelTitle)),
                 refused, list: rows);
         }
