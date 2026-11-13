@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] NarrowStates = { "56-narrow-colour", "56-narrow-shelf", "56-narrow-colour-wide", "57-destructive-confirm" };
+        private static readonly string[] NarrowStates = { "56-narrow-colour", "56-narrow-shelf", "56-narrow-colour-wide", "57-destructive-confirm", "58-row-label" };
 
         private static MenuFrame NarrowFrame(string state)
         {
@@ -52,6 +52,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var shot = new PartShot { Elevation = 0f };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            if (state == "58-row-label") return RowLabelShot(shot, root, eyes, name);
             var was = RoomDesign.Enabled;
             RoomBar? bar;
             var frame = NarrowFrame(state);
@@ -121,6 +122,45 @@ namespace Halcyonic.XR.Workspace.Editor
             Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : "ordinary") + " bar "
                 + degrees.x.ToString("0.0", CultureInfo.InvariantCulture) + " by " + degrees.y.ToString("0.0", CultureInfo.InvariantCulture)
                 + " degrees at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + "; drawn: " + string.Join(" | ", drawn.Select(Words)) + ".");
+            return shot;
+        }
+
+        /// <summary>
+        /// A card's pressed rows each holding four parts apart (SCREENS's 2026-11-13T1757Z ask, AUDIT's 17:56Z MUST): what the
+        /// name is above it, the name, its value as the note, a quiet line under it. Every part drawn whole at both sizes, none on
+        /// a dot. Synthetic names only.
+        /// </summary>
+        private static PartShot RowLabelShot(PartShot shot, Transform root, Vector3 eyes, string name)
+        {
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            var rows = new[] { ("5-Hour Window", "Ember App", "Up to 60% Left", "Seen 2 minutes ago. Resets at 18:40."),
+                    ("Weekly Window", "Ember App", "Up to 85% Left", "Seen 2 minutes ago. Resets on Monday."),
+                    ("Daily Window", "Lantern App", "Up to 12% Left", "Seen 1 hour ago. Resets not known.") }
+                .Select(each => new RoomListRow(RoomKind.None, LineWords.Theirs(each.Item2), each.Item3, under: LineWords.Ours(each.Item4), label: each.Item1,
+                    press: new KitControl(KitPlace.Route, new MenuFrame("Usage", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close))), "row-label-open", each.Item1, each.Item2, null, true, null, false)))
+                .ToList();
+            var card = new RoomCard(LineWords.Ours("Usage"), list: rows);
+            var plane = new GameObject("Plane").transform;
+            plane.SetParent(root, false);
+            var width = RoomType.Units(RoomGeometry.PanelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp);
+            var view = RoomCardView.Create(plane);
+            view.Show(card, width);
+            Place(plane, eyes, 0f, shot.Elevation);
+            Require(view.LaidWhole, "the card does not stand whole");
+            var drawn = new List<string>();
+            foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
+            {
+                label.ForceMeshUpdate(true);
+                var said = label.GetParsedText();
+                if (said.Trim().Length == 0) continue;
+                drawn.Add(string.Join(" ", said.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)));
+                Require(!label.isTextOverflowing && !said.Contains("…"), "\"" + said + "\" is cut");
+                Require(!said.Contains(KitMomentWords.Dot.Trim()), "\"" + said + "\" joins facts on a dot");
+            }
+            foreach (var row in rows)
+                foreach (var part in new[] { row.Label!, row.Name.Text, row.Note!, row.Under!.Text })
+                    Require(drawn.Contains(part), "\"" + part + "\" is not drawn as a line of its own: " + string.Join(" | ", drawn));
+            Debug.Log("Halcyonic: parts: " + name + ": drawn: " + string.Join(" | ", drawn) + ".");
             return shot;
         }
     }

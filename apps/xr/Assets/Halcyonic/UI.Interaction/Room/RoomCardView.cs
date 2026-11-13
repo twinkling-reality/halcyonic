@@ -1127,13 +1127,24 @@ namespace Halcyonic.XR.UI
                     (underLabel, underTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Under, nameLeft, 0f, nameWidth, row.Under.AllTheirs ? 1 : 3);
                     if (row.Under.AllTheirs) underTall = Excerpt(underLabel, row.Under, nameWidth, 1, RowNoteLineDp);
                 }
+                // What the name is, ours, a quiet line of its own above it, whole: never joined to it on a dot.
+                TextMeshPro? labelLabel = null;
+                var labelTall = 0f;
+                if (row.Label != null)
+                {
+                    JoinedFacts.Given(row.Label);
+                    (labelLabel, labelTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), LineWords.Ours(row.Label), nameLeft, 0f, nameWidth, 2);
+                }
+                var labelGap = labelLabel != null ? S(2f) : 0f;
                 // Under someone's words, our line stands a small gap apart, so it never reads as them still talking (critic 8).
                 var underGap = row.Name.AllTheirs && row.Under != null && !row.Under.AllTheirs ? S(UnderTheirsGapDp) : S(2f);
-                var block = nameTall + (underLabel != null ? underGap + underTall : 0f);
+                var block = labelTall + labelGap + nameTall + (underLabel != null ? underGap + underTall : 0f);
                 var rowTall = marked ? Mathf.Max(S(RowTileDp), block) : block;
                 var middle = top + rowTall / 2f;
-                nameLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f), -RoomType.Units(0.5f));
-                if (underLabel != null) underLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f + nameTall + underGap), -RoomType.Units(0.5f));
+                if (labelLabel != null) labelLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f), -RoomType.Units(0.5f));
+                var nameTop = middle - block / 2f + labelTall + labelGap;
+                nameLabel.transform.localPosition = new Vector3(nameLeft, -nameTop, -RoomType.Units(0.5f));
+                if (underLabel != null) underLabel.transform.localPosition = new Vector3(nameLeft, -(nameTop + nameTall + underGap), -RoomType.Units(0.5f));
                 if (noteLabel != null) noteLabel.transform.localPosition = new Vector3(width - chevronRoom - noteWidth, -(middle - S(RowNoteLineDp) / 2f), -RoomType.Units(0.5f));
                 if (picked)
                 {

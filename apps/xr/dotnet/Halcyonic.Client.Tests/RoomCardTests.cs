@@ -180,4 +180,15 @@ public sealed class RoomCardTests
         var card = new RoomCard(LineWords.Ours("Use Model"), status: status);
         Assert.That(card.Words(), Does.Contain("Your requests go to Tidewater.").And.Contain("Tidewater sets each request's price; it is not shown here."));
     }
+
+    [Test]
+    public void A_list_row_carries_what_its_name_is_above_it_apart_and_among_its_words()
+    {
+        // SCREENS's 17:57Z ask: a Usage limit's four parts on one pressed row: the window above, the app, the amount, seen and resets under.
+        var row = new RoomListRow(RoomKind.None, LineWords.Theirs("Ember App"), "Up to 60% Left", under: LineWords.Ours("Seen 2 minutes ago. Resets at 18:40."), label: " 5-Hour Window ");
+        Assert.That((row.Label, row.Name.Text, row.Note), Is.EqualTo(("5-Hour Window", "Ember App", "Up to 60% Left")));
+        Assert.That(new RoomListRow(RoomKind.None, LineWords.Ours("Row"), label: "  ").Label, Is.Null);
+        var card = new RoomCard(LineWords.Ours("Usage"), list: new[] { row });
+        Assert.That(card.Words(), Does.Contain("5-Hour Window").And.Contain("Up to 60% Left"), "every part is among the card's words, for its checks");
+    }
 }

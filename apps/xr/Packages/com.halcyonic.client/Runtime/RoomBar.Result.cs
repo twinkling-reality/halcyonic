@@ -112,7 +112,7 @@ namespace Halcyonic.Client
                     card = shareCard == null || shareCard.List.Count == 0 ? shareCard
                         : new RoomCard(shareCard.Title, shareCard.Description, shareCard.Head, shareCard.Status, shareCard.Slots, shareCard.Steps, shareCard.TrackAt,
                             shareCard.TrackOf, shareCard.List.Zip(share.Ways(), (row, way) => new RoomListRow(row.Kind, row.Name, row.Note, row.Tone, row.Mono,
-                                new KitControl(KitPlace.Step, frame, RoomResult.ShareWayAction, way.ToString(), row.Name.Text, GlazeIcon.Next, true, null, false))).ToList(),
+                                new KitControl(KitPlace.Step, frame, RoomResult.ShareWayAction, way.ToString(), row.Name.Text, GlazeIcon.Next, true, null, false), label: row.Label)).ToList(),
                             shareCard.Gauges, shareCard.More);
                     foreach (var action in share.Actions())
                     {

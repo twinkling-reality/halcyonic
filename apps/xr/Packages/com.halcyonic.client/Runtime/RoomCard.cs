@@ -277,9 +277,10 @@ namespace Halcyonic.Client
         /// that presses is ever cut; Halcyonic's own words never are.
         /// </param>
         public RoomListRow(RoomKind kind, LineWords name, string? note = null, RoomTone tone = RoomTone.Quiet, bool mono = false, KitControl? press = null,
-            bool chosen = false, LineWords? under = null, bool excerpt = false)
+            bool chosen = false, LineWords? under = null, bool excerpt = false, string? label = null)
         {
             Kind = kind;
+            Label = string.IsNullOrWhiteSpace(label) ? null : label!.Trim();
             Name = name;
             Note = note;
             Tone = tone;
@@ -292,6 +293,12 @@ namespace Halcyonic.Client
 
         /// <summary>The quieter second line under the name; null for none.</summary>
         public LineWords? Under { get; }
+
+        /// <summary>
+        /// What the name is, ours, a quiet line of its own ABOVE it ("5-Hour Window" over an agent app's name), never joined to it
+        /// on a dot, as a panel row's label is (<see cref="RoomRow.Label"/>); null for none (SCREENS's 2026-11-13T1757Z ask).
+        /// </summary>
+        public string? Label { get; }
 
         /// <summary>The name may show its lead cut at a word (see the constructor); true only for a wholly theirs name on a row that presses.</summary>
         public bool Excerpt { get; }
@@ -483,6 +490,7 @@ namespace Halcyonic.Client
             foreach (var row in List)
             {
                 yield return row.Name.Text;
+                if (row.Label != null) yield return row.Label;
                 if (row.Note != null) yield return row.Note;
             }
             if (More != null) yield return More.Text;

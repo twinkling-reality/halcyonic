@@ -58,7 +58,7 @@ namespace Halcyonic.Client
             return new RoomCard(card.Title, card.Description, card.Head, card.Status,
                 card.Slots.Select(slot => new RoomSlot(slot.Kind, slot.Value, slot.Mono, Bound(slot.Press))).ToList(),
                 card.Steps, card.TrackAt, card.TrackOf,
-                card.List.Select(row => new RoomListRow(row.Kind, row.Name, row.Note, row.Tone, row.Mono, Bound(row.Press), row.Chosen, row.Under, row.Excerpt)).ToList(),
+                card.List.Select(row => new RoomListRow(row.Kind, row.Name, row.Note, row.Tone, row.Mono, Bound(row.Press), row.Chosen, row.Under, row.Excerpt, row.Label)).ToList(),
                 card.Gauges, card.More, card.Code, card.Reading, card.DescriptionPage, card.TitleMono, Bound(card.Press));
         }
     }
