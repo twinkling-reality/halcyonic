@@ -143,7 +143,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static IReadOnlyList<AssistantOption> CardModels() => new[]
         {
             new AssistantOption(0, "This Computer's Model", "glimmer-30b-q4", theirs: false, choosable: true),
-            new AssistantOption(1, "muse-wonder-1.0", "On Tidewater, Costs Money", theirs: true, choosable: true),
+            new AssistantOption(1, "muse-wonder-1.0", "On Tidewater, Paid by You", theirs: true, choosable: true),
             new AssistantOption(2, "orbit-large-2", "Fernhill refused its key", theirs: true, choosable: false),
         };
 
@@ -186,21 +186,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-usage-review" => ReviewCard.Card(UsageColumn.ReviewOf(new Halcyonic.Contracts.WorkspaceRequestStepProposal
                     {
                         CommandType = Halcyonic.Contracts.CommandType.AssistantModelChoose,
-                        WhatHappens = "From now on the assistant answers on this model, and Tidewater charges you money for each request.",
+                        WhatHappens = "From now on the assistant answers on muse-wonder-1.0, and Tidewater charges you money for each request.",
                         Review = "0193b3a0-review-digest",
-                        // The host's own words on the step (LOOP's 8c6895ce7 and 89984589a), as the control plane gives them for a hosted pick.
+                        // The host's own words on the step (LOOP's 8c6895ce7, 89984589a and 1cb4c7812: the model named in the line, no facts), as the control plane gives them for a hosted pick.
                         ConfirmWords = "Use This Model",
-                        Facts = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewFact>
-                        {
-                            new Halcyonic.Contracts.ActionReviewFact { Kind = Halcyonic.Contracts.ReviewKind.Words, Value = "muse-wonder-1.0", Theirs = true },
-                            new Halcyonic.Contracts.ActionReviewFact { Kind = Halcyonic.Contracts.ReviewKind.Words, Value = "Tidewater", Theirs = true },
-                        },
+                        Facts = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewFact>(),
                         Warnings = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewWarning>
                         {
-                            new Halcyonic.Contracts.ActionReviewWarning { Code = "costs_money", Line = "You pay for it on your own Tidewater account, through the access key from that account you added on this computer" },
-                            new Halcyonic.Contracts.ActionReviewWarning { Code = "price_unknown", Line = "Halcyonic does not know the price, so it cannot say how much a request costs or show a total yet" },
-                            new Halcyonic.Contracts.ActionReviewWarning { Code = "sent_to_provider", Line = "Your requests, and what the assistant reads from your projects to answer them, are sent to Tidewater" },
-                            new Halcyonic.Contracts.ActionReviewWarning { Code = "free_here", Line = "This Computer's Model is free: nobody charges you for its requests" },
+                            new Halcyonic.Contracts.ActionReviewWarning { Code = "costs_money", Line = "Each request is charged to your own Tidewater account, through the access key you added" },
+                            new Halcyonic.Contracts.ActionReviewWarning { Code = "price_unknown", Line = "Halcyonic does not know the price, and cannot show a total yet" },
+                            new Halcyonic.Contracts.ActionReviewWarning { Code = "sent_to_provider", Line = "Your requests, and what the assistant reads to answer them, are sent to Tidewater" },
+                            new Halcyonic.Contracts.ActionReviewWarning { Code = "free_here", Line = "This Computer's Model is free" },
                         },
                     }, CardModels()[1]), AssistantPlace.UseModelTitle),
                 "47-card-needs-you" => new RoomCard(Theirs("Tail"), Theirs("Should the tail stream left or right?"),
