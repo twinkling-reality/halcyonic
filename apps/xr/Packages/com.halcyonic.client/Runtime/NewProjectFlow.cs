@@ -2022,7 +2022,9 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The agent app taken for the person where the rule says so (<see cref="Preselection"/>): the one the computer offers,
-        /// else the one last used in this project, else anywhere. Shown chosen on the recap and changeable there; its models
+        /// else the one last used in this project, else anywhere, else the only real agent app where the practice run is the
+        /// other (JUDGE's count on b130's tip, 2026-11-13T1327Z: the computer always hosts the practice run, so one real app was
+        /// never taken and Start Building waited on Choose Agent App). Shown chosen on the recap and changeable there; its models
         /// are read, as a choice reads them, without opening their page.
         /// </summary>
         private void PreselectRuntime()
@@ -2034,7 +2036,8 @@ namespace Halcyonic.Client
             RuntimeDescriptor? Of(ExecutionView run) => ready.FirstOrDefault(runtime => runtime.RuntimeId == run.Runtime.RuntimeId);
             var here = runs.Where(each => draft.ProjectId != null && each.task.ProjectId == draft.ProjectId).Select(each => Of(each.run!)).OfType<RuntimeDescriptor>();
             var anywhere = runs.Select(each => Of(each.run!)).OfType<RuntimeDescriptor>();
-            if (Preselection.Pick(ready, here, anywhere) is not RuntimeDescriptor runtime) return;
+            var real = ready.Where(each => !each.Synthetic).ToList();
+            if ((Preselection.Pick(ready, here, anywhere) ?? (real.Count == 1 ? real[0] : null)) is not RuntimeDescriptor runtime) return;
             draft.ChooseRuntime(runtime);
             if (runtime.ModelChoice == ModelChoice.Listed) ReadModels(runtime);
         }
