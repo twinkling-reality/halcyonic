@@ -144,22 +144,48 @@ namespace Halcyonic.XR.Workspace.Editor
                     secondary: new Prompt("caps-c", "Choose Folder", GlazeIcon.Change).WithUnder(LineWords.Ours("In Projects")),
                     farRight: new Prompt("caps-a", "Start Building", GlazeIcon.StartBuilding, main: true).WithUnder(LineWords.Ours("Ember App"))),
                 lines: Enumerable.Range(1, 8).Select(n => new PageLine("Row " + n)).ToList());
-            foreach (var width in TableWidthsDp)
+            // A specific reader at its budgets: New Project's recap card, its title wrapping, its first task past the description's
+            // four lines (so it pages), the companion's note at its two lines, its run settings as slots.
+            MenuFrame recap;
+            RoomDesign.Enabled = true;
+            try
+            {
+                var commands = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" });
+                var idea = new ProjectIdea();
+                idea.UseIdea(string.Join(" ", Enumerable.Repeat("Make a kite that follows my hand and climbs when I raise it, with a tail that streams behind it", 6)));
+                idea.Rename("A Kite Run Over the Long Bright Beach at the End of a Summer Afternoon");
+                var place = new LocationRoot { Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false, Folders = new List<LocationFolder>() };
+                idea.ChooseFolder(ProjectFolder.New(place, "a-kite-run-over-the-long-bright-beach")!);
+                var draft = new NewWorkDraft(commands);
+                draft.ChooseRuntime(new RuntimeDescriptor
+                {
+                    RuntimeId = "local", DisplayName = "Ember App", Kind = "render", Synthetic = false, ModelChoice = ModelChoice.Listed, UsesProjectLocation = true, OffersNeverAsk = true,
+                    Capabilities = new RuntimeCapabilities { StartExecution = true, InstructAtRest = true, RespondToApproval = true, AnswerQuestion = true, Interrupt = true },
+                });
+                draft.SetModels(new RuntimeModelsResponse
+                {
+                    RuntimeId = "local",
+                    Result = new AvailableModels { Models = new List<RuntimeModel> { new() { ModelRef = "render/glimmer-30b-long-context-instruct", DisplayName = "Glimmer 30B Long Context Instruct", Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared } } },
+                });
+                recap = NewProjectScreens.Recap(idea, draft, null, true, "It may have made the project and its folder. Look for it in Projects. A new start could repeat it.", null);
+            }
+            finally { RoomDesign.Enabled = was; }
+            foreach (var (capsFrame, width) in new[] { frame, recap }.SelectMany(each => TableWidthsDp.Select(width => (each, width))))
             {
                 RoomBar? bar;
                 RoomDesign.Enabled = true;
-                try { bar = RoomBar.OfFrame(frame, VoiceStage.Idle, new RoomForm(width < RoomGeometry.PanelDp, RoomRows.APage)); }
+                try { bar = RoomBar.OfFrame(capsFrame, VoiceStage.Idle, new RoomForm(width < RoomGeometry.PanelDp, RoomRows.APage)); }
                 finally { RoomDesign.Enabled = was; }
-                Require(bar != null, "no reader takes the caps frame");
+                Require(bar != null, "no reader takes the caps frame " + capsFrame.Subject);
                 if (bar == null) continue;
                 bar.PanelWidthDp = width;
-                var plane = new GameObject("Caps " + width.ToString("0", CultureInfo.InvariantCulture)).transform;
+                var plane = new GameObject("Caps " + capsFrame.Subject + " " + width.ToString("0", CultureInfo.InvariantCulture)).transform;
                 plane.SetParent(root, false);
                 var view = RoomBarView.Create(plane);
                 view.Show(bar);
                 view.SettleForRender();
                 Place(plane, eyes, 0f, shot.Elevation);
-                Debug.Log("Halcyonic: parts: " + name + ": caps at " + width.ToString("0", CultureInfo.InvariantCulture) + " dp: " + (view.Size / RoomType.Units(1f)).ToString("0") + " dp laid.");
+                Debug.Log("Halcyonic: parts: " + name + ": caps of " + capsFrame.Subject + " at " + width.ToString("0", CultureInfo.InvariantCulture) + " dp: " + (view.Size / RoomType.Units(1f)).ToString("0") + " dp laid.");
             }
             // The shipped record covers both sizes and every width the plane can choose.
             foreach (var scale in new[] { 1f, Comfort.LargerTextScale })
