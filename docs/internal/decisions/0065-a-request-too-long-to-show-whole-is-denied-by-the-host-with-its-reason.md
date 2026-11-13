@@ -40,8 +40,9 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    newline, carriage return, the bidirectional overrides and isolates, the zero-width characters and the byte order
    mark) are written in the summary as their escape (`\u{202E}`), for every request, before it is fitted.
 
-5. **The second half: an approval shows whole what it approves, a file's change too** (the lead, 2026-11-13 19:46Z;
-   AUDIT3's shape read with W1 to W4). A file tool's request carries its change as `ApprovalSubject.changes`
+5. **The second half: an approval shows whole what it approves, a file's change too, once the headset's card draws
+   `changes`** (the lead, 2026-11-13 19:46Z; AUDIT3's shape read with W1 to W4). Until then the request carries the
+   change and the card still shows its path only (SECURITY.md). A file tool's request carries its change as `ApprovalSubject.changes`
    (`ApprovalChange`: path, the host's `real_path` where a link takes the write elsewhere, a move's `to_path`, kind,
    shape, `before` and `after`, `every`, a notebook `cell`), and each agent app declares `shows_changes`:
    - Claude Agent: from the tool's own input (Write the whole new file, a new file or a rewrite by whether it exists;
