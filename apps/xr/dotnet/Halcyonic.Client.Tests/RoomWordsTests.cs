@@ -28,11 +28,11 @@ public class RoomWordsTests
         var first = RoomWords.Of(7);
         Assert.That(first.Parts, Is.EqualTo(3));
         Assert.That((first.First, first.Count), Is.EqualTo((0, 3)));
-        Assert.That(first.Next, Is.EqualTo("Next Part · 2 of 3"));
+        Assert.That((first.Next, first.NextCount), Is.EqualTo(("Next Part", "2 of 3")), "the way and its count given apart, never joined on a dot");
 
         var second = first.Following();
         Assert.That((second.Part, second.First, second.Count), Is.EqualTo((1, 3, 3)));
-        Assert.That(second.Next, Is.EqualTo("Next Part · 3 of 3"));
+        Assert.That((second.Next, second.NextCount), Is.EqualTo(("Next Part", "3 of 3")));
 
         var last = second.Following();
         Assert.That((last.Part, last.First, last.Count), Is.EqualTo((2, 6, 1)));

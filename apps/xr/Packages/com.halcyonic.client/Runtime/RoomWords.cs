@@ -67,8 +67,11 @@ namespace Halcyonic.Client
         /// <summary>Whether a later part waits.</summary>
         public bool More => Part + 1 < Parts;
 
-        /// <summary>The way to the next part in the product's words, "Next Part · 2 of 3", or null on the last part.</summary>
-        public string? Next => More ? EntryText.NextPart(Part + 2, Parts) : null;
+        /// <summary>The way to the next part in the product's words, "Next Part", or null on the last part; its count is <see cref="NextCount"/>.</summary>
+        public string? Next => More ? EntryText.NextPartLabel : null;
+
+        /// <summary>Which part the way leads to, given apart from its words (JUDGE's dot list, item 2): "2 of 3", or null on the last part.</summary>
+        public string? NextCount => More ? EntryText.PartOf(Part + 2, Parts) : null;
 
         /// <summary>The paging of <paramref name="lines"/> laid lines at <paramref name="part"/>, held inside the parts there are.</summary>
         public static RoomWords Of(int lines, int part = 0) => new RoomWords(lines, part);

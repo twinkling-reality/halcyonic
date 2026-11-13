@@ -509,9 +509,20 @@ namespace Halcyonic.Client
         /// <summary>An answer as its row shows it: the agent's label and description, all outside text, leaning beside Halcyonic's quote mark.</summary>
         public static LineWords AnswerRuns(QuestionOption option) => LineWords.TheirName(AnswerWords(option));
 
-        /// <summary>An answer's row to choose, as the page draws it and the layout measures it.</summary>
+        /// <summary>
+        /// An answer's row to choose, as the page draws it and the layout measures it. Under the redesign its label is the row's words
+        /// and its description its quieter line under them, given apart (<see cref="PageLine.Under"/>; JUDGE's dot list,
+        /// 2026-11-13T1203Z, item 1), never one string joined on a dot; the older view lays both as before.
+        /// </summary>
         public static PageLine AnswerRow(QuestionOption option, string key, bool chosen = false, bool available = true, int rows = 1, bool multiple = false) =>
-            new PageLine(AnswerRuns(option), action: Choose, key: key, choice: true, chosen: chosen, available: available, rows: rows, answerMark: multiple ? AnswerMark.Multiple : AnswerMark.Single);
+            RoomDesign.Enabled
+                ? new PageLine(LineWords.TheirName(LabelText.Name(option.Label)), action: Choose, key: key, choice: true, chosen: chosen, available: available, rows: rows,
+                    answerMark: multiple ? AnswerMark.Multiple : AnswerMark.Single).WithUnder(DescriptionRuns(option))
+                : new PageLine(AnswerRuns(option), action: Choose, key: key, choice: true, chosen: chosen, available: available, rows: rows, answerMark: multiple ? AnswerMark.Multiple : AnswerMark.Single);
+
+        /// <summary>An answer's description as the agent wrote it, on one line, theirs; none where it has none.</summary>
+        public static LineWords? DescriptionRuns(QuestionOption option) =>
+            string.IsNullOrWhiteSpace(option.Description) ? null : LineWords.TheirName(WorkspaceText.OneLine(option.Description!));
 
         /// <summary>An answer's words as its row and its side panel show them: its label, then its description.</summary>
         public static string AnswerWords(QuestionOption option) =>

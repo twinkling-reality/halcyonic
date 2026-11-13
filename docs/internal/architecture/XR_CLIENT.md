@@ -2769,7 +2769,12 @@ in a slot of one string, never joined on a dot; every table's default arm reads 
 words (AUDIT's census of 2026-11-12). So far: a pending command (`WorkspacePresenter.PendingNotice`: only a command an
 agent answers waits for the agent, every other one for the computer), a source's reason (`IntelligenceText.Reason`, the
 host's `own_sources_not_set_up` its own), and the companion's failures (`CompanionText.Failure`: the host's
-`companion_failed` is "No Reply"; a local error the client cannot name has its own code and is "Reason Unknown"). Checks that walk
+`companion_failed` is "No Reply"; a local error the client cannot name has its own code and is "Reason Unknown"). An action's
+two parts are given apart, never one string joined on a dot (JUDGE's dot list, 2026-11-13; FIELD's `RoomAction.Detail`): a
+question's answer under the redesign is its label as the row's words and its description as the row's `PageLine.Under`
+(`FileScreens.AnswerRow`), which `KitControl.Under` carries and a `RoomAction` takes as its detail where its reader gives
+none; the band's pager is `RoomWords.Next` ("Next Part") with `RoomWords.NextCount` ("2 of 3") as its detail
+(`RoomBarView.BandNextDetail`). Checks that walk
 the older views on purpose turn it off inside themselves until then: KitRender's old-kit states,
 `WorkspaceRender.KitSpatialCheck` and `KitActivityComposerCheck` (the old kit's spine, rail, pills and switch),
 `ShowTaskHereCheck` (the older file's Show Task Here and its one-character shelf) and New Project's older review

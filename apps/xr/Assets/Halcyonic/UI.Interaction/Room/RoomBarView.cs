@@ -143,6 +143,9 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public string? BandNext { get; set; }
 
+        /// <summary>Which part <see cref="BandNext"/> leads to ("2 of 3"), given apart and drawn as its detail under its words; null for none.</summary>
+        public string? BandNextDetail { get; set; }
+
         /// <summary>The action that turns the band to its next part, where it stands now.</summary>
         public RoomButton? BandNextButton => bandNext != null && bandNext.gameObject.activeSelf ? bandNext : null;
 
@@ -794,7 +797,7 @@ namespace Halcyonic.XR.UI
             {
                 cores[index] = index < count
                     ? column[index].Measure(bar.Column[index].Words, bar.Column[index].Mark != AnswerMark.None ? wrap : 0f, bar.Column[index].Detail)
-                    : column[index].Measure(BandNext!, 0f);
+                    : column[index].Measure(BandNext!, 0f, BandNextDetail);
                 widest = Mathf.Max(widest, cores[index].x);
             }
             var rises = new float[places];
@@ -869,7 +872,7 @@ namespace Halcyonic.XR.UI
                 if (index >= count)
                 {
                     // The band's next part: the way on while no other stands, since the agent's words are read before they are answered.
-                    button.Show(BandNext!, GlazeIcon.Next, !bar.Column.Any(each => each.Main), available: true, centre, cores[index].x);
+                    button.Show(BandNext!, GlazeIcon.Next, !bar.Column.Any(each => each.Main), available: true, centre, cores[index].x, detail: BandNextDetail);
                     bandNext = button;
                     continue;
                 }
