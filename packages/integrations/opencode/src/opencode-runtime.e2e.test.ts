@@ -333,6 +333,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await execution.next('runtime.turn.completed');
       const sent = sandbox.provider.requests.map((request) => request.body);
       assert.ok(sent.length >= 1);
+      // The control (AUDIT3): what OpenCode is given, the instruction, is in the same captured bodies.
+      assert.ok(sent.some((body) => body.includes('Hello from the Halcyonic end to end test.')));
       // Its project configuration switch is on (no project AGENTS.md at boot), it has a home of its own, and its
       // sandbox reads no folder above the task's: neither file reaches the model.
       assert.ok(
