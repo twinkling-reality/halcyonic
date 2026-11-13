@@ -175,9 +175,9 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
-    "answer": "\"Host Unverified · Code Not Sent · Check App · Refresh\"",
+    "answer": "\"What answered couldn't prove it is your computer, so nothing was sent. Check that the app is running there.\"",
     "count": 1,
-    "why": "true: A guarded arm: only a TokenNotSentException with Unproved reaches it, and Host Unverified, Code Not Sent is true."
+    "why": "true: A guarded arm: only a TokenNotSentException with Unproved reaches it, and that what answered could not prove it is the computer, so nothing was sent, is true."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",

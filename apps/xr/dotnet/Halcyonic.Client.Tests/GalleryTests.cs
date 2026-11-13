@@ -333,8 +333,8 @@ public class GalleryTests
             Assert.That(gallery.Note, Is.EqualTo(note));
             Assert.That(gallery.Age, Is.Null);
         }
-        var failed = Build(halcyonic, readError: "No Answer · Refresh");
-        Assert.That(failed.Note, Is.EqualTo("Projects Unreadable · No Answer · Refresh"));
+        var failed = Build(halcyonic, readError: "The computer didn't answer.");
+        Assert.That(failed.Note, Is.EqualTo("Projects couldn't be read. The computer didn't answer."));
         Assert.That(Build(halcyonic).Note, Is.Null, "nothing asked yet");
     }
 

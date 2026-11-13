@@ -471,23 +471,23 @@ public class IntelligenceFeedTests
         feed.Show(Intelligence.ExecutionId, null, Start);
         reads.Asked[0].Answer.SetException(new ControlPlaneRequestException("The control plane could not be reached: refused", new System.Net.Http.HttpRequestException("refused")));
         feed.Poll();
-        Assert.That(feed.Error, Is.EqualTo("No Answer · Refresh"));
+        Assert.That(feed.Error, Is.EqualTo("The computer didn't answer."));
         feed.Show(Intelligence.ExecutionId, null, Start.AddMinutes(1));
         Assert.That(reads.Asked, Has.Count.EqualTo(1));
 
         feed.Refresh(null, Start.AddMinutes(1));
         reads.Asked[1].Answer.SetCanceled();
         feed.Poll();
-        Assert.That(feed.Error, Is.EqualTo("Computer Timed Out · Refresh"));
+        Assert.That(feed.Error, Is.EqualTo("The computer took too long to answer."));
 
         var throwing = new IntelligenceFeed<UnderstandingResponse>((_, _) => throw new InvalidOperationException("no reader"));
         throwing.Show(Intelligence.ExecutionId, null, Start);
         throwing.Poll();
-        Assert.That(throwing.Error, Is.EqualTo("Read Failed · Refresh"));
+        Assert.That(throwing.Error, Is.EqualTo("Something went wrong reading it."));
         var unasked = new IntelligenceFeed<UnderstandingResponse>((_, _) => throw new UnaskedReadException(IntelligenceText.NotConnected));
         unasked.Show(Intelligence.ExecutionId, null, Start);
         unasked.Poll();
-        Assert.That(unasked.Error, Is.EqualTo("Not Connected · Refresh Once Connected"));
+        Assert.That(unasked.Error, Is.EqualTo("This headset isn't connected to the computer."));
     }
 
     /// <summary>
@@ -501,25 +501,25 @@ public class IntelligenceFeedTests
         const string Paired = "Your computer refused this headset's pairing.";
         var cases = new (Exception Error, string Why)[]
         {
-            (new OperationCanceledException(Leak), "Computer Timed Out · Refresh"),
-            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)), "No Answer · Refresh"),
-            (new UnaskedReadException(IntelligenceText.NotConnected), "Not Connected · Refresh Once Connected"),
+            (new OperationCanceledException(Leak), "The computer took too long to answer."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)), "The computer didn't answer."),
+            (new UnaskedReadException(IntelligenceText.NotConnected), "This headset isn't connected to the computer."),
             (new ControlPlaneRequestException(Leak, "too_many_requests", 429),
-                "Pairing Paused · Too Many Tries · Refresh in 1 min"),
+                "The computer paused this headset after too many tries. Wait a minute."),
             (new ControlPlaneRequestException(Leak, "device_revoked", 401), ConnectionText.PairingRefused),
             (new ControlPlaneRequestException(Leak, "unauthorized", 401), Paired),
             // A code counts only with the status that carries it.
-            (new ControlPlaneRequestException(Leak, "device_revoked", 500), "Read Failed · Refresh"),
+            (new ControlPlaneRequestException(Leak, "device_revoked", 500), "Something went wrong reading it."),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new CertificateMismatchException("ab"))),
                 ConnectionText.NotThePairedComputer),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unproved, new Uri("http://127.0.0.1:47800/")))),
-                "Host Unverified · Code Not Sent · Check App · Refresh"),
+                "What answered couldn't prove it is your computer, so nothing was sent. Check that the app is running there."),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unreachable, new Uri("http://127.0.0.1:47800/")))),
-                "No Answer · Refresh"),
-            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new System.IO.InvalidDataException(Leak))), "Read Failed · Refresh"),
-            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new HandshakeFailedException(Leak, null))), "Read Failed · Refresh"),
+                "The computer didn't answer."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new System.IO.InvalidDataException(Leak))), "Something went wrong reading it."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new HandshakeFailedException(Leak, null))), "Something went wrong reading it."),
             (new Newtonsoft.Json.JsonReaderException(Leak), ConnectionText.Unreadable),
-            (new InvalidOperationException(Leak), "Read Failed · Refresh"),
+            (new InvalidOperationException(Leak), "Something went wrong reading it."),
         };
         foreach (var (error, why) in cases)
         {

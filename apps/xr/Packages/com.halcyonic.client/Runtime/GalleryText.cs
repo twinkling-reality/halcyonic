@@ -84,7 +84,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>This headset's own read failed: <paramref name="why"/> is <see cref="IntelligenceText.WhyUnread"/>'s.</summary>
-        public static string Unread(string why) => "Projects Unreadable · " + why;
+        public static string Unread(string why) => "Projects couldn't be read. " + why;
 
         /// <summary>
         /// How old the catalog is, by when its source last read the person's repositories: "Checked · Today
