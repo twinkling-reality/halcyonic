@@ -100,7 +100,12 @@ namespace Halcyonic.XR.Room
             var console = GetComponent<WorkspaceDirector>()?.ShelfConsole(head.transform.position);
             float Half(float distance) => ShelfHalfDegrees(width, head.transform.position, distance);
             turnAside = false;
-            if (AgentShelfSearch.Begin(Draft, eyes, facing, out _, console, Half)) return true;
+            refusedByPlane = 0;
+            if (AgentShelfSearch.Begin(Draft, eyes, facing, out var triedInside, console, Half))
+            {
+                SaySearch(triedInside, "inside the field");
+                return true;
+            }
             // The room yields, never the plane, and a text size refuses nothing (the lead's 18:07Z and 19:34Z; AUDIT's 20:36Z): where
             // nothing inside the field clears the plane's keep-out, a place the person sees by turning the head up to
             // ShelfAside.AsideDegrees is a place. Said once, so a walk knows the shelf stood a turn away.
@@ -110,7 +115,8 @@ namespace Halcyonic.XR.Room
             {
                 turnAside = true;
                 fieldAside = aside;
-                if (!AgentShelfSearch.Begin(Draft, eyes, facing, out _, console, Half, turn) || Draft.Candidate is not AgentShelfPose found) continue;
+                if (!AgentShelfSearch.Begin(Draft, eyes, facing, out var triedTurned, console, Half, turn) || Draft.Candidate is not AgentShelfPose found) continue;
+                SaySearch(triedInside + triedTurned, "a turn of the head out");
                 var away = Mathf.Abs(Mathf.DeltaAngle(facing, Mathf.Atan2(found.Position.X - eyes.X, found.Position.Z - eyes.Z) * Mathf.Rad2Deg));
                 Debug.Log("Halcyonic: the shelf stands a turn of the head past the field's side, about " + away.ToString("0") + " degrees from where the person faces: the plane's keep-out left no place inside it.");
                 return true;
@@ -179,7 +185,22 @@ namespace Halcyonic.XR.Room
                 pendingRestoredAnchor = null;
             }
         }
-        private bool AllowsShelf(AgentShelfPose candidate) => ShelfRefusedBy(candidate) == null;
+        private bool AllowsShelf(AgentShelfPose candidate)
+        {
+            var refusedBy = ShelfRefusedBy(candidate);
+            if (refusedBy == "the plane's footprint") refusedByPlane++;
+            return refusedBy == null;
+        }
+
+        /// <summary>The candidates the plane's footprint (its bar or its band) refused in the search running now.</summary>
+        private int refusedByPlane;
+
+        /// <summary>
+        /// Said once a search that found a place: how many it tried and how many the plane refused, so a walk sees the search never run
+        /// dry for the plane, its band included (AUDIT's 22:36Z).
+        /// </summary>
+        private void SaySearch(int tried, string where) =>
+            Debug.Log("Halcyonic: the shelf search found a place " + where + " after " + tried + " tried; the plane's footprint refused " + refusedByPlane + ".");
 
         /// <summary>This preview found no place inside the field and stands a turn of the head past its side (<see cref="BeginPreview"/>).</summary>
         private bool turnAside;
