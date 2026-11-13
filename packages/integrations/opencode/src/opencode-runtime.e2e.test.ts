@@ -357,9 +357,12 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       'runtime.turn.started',
       'runtime.model.used',
       'runtime.agent_message',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
-    const [started, turn, model, message, completed] = execution.observations;
+    const [started, turn, model, message, usage, completed] = execution.observations;
+    // The turn's usage is reported once, after its last message and before its end (turns ended counts it).
+    assert.equal(usage?.type, 'runtime.usage.reported');
     assert.ok(started?.type === 'runtime.execution.started');
     assert.match(started.payload.native_id ?? '', /^ses/);
     // OpenCode reported the session with exactly the rules it was given, so asking is recorded as
@@ -486,6 +489,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       'runtime.approval.resolved',
       'runtime.tool.completed',
       'runtime.agent_message',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
     const payloads = execution.observations.map((observation) => observation.payload);
@@ -518,6 +522,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         'runtime.approval.resolved',
         'runtime.tool.completed',
         'runtime.agent_message',
+        'runtime.usage.reported',
         'runtime.turn.completed',
       ]);
       const resolved = execution.observations.find(
@@ -553,6 +558,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assert.deepEqual(execution.typesAfter('runtime.approval.requested'), [
       'runtime.approval.resolved',
       'runtime.tool.completed',
+      'runtime.usage.reported',
       'runtime.turn.interrupted',
     ]);
     assertValidObservations(execution.observations, execution.context);
@@ -591,6 +597,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await execution.next('runtime.turn.interrupted');
       assert.deepEqual(execution.typesAfter('runtime.approval.requested'), [
         'runtime.tool.completed',
+        'runtime.usage.reported',
         'runtime.turn.interrupted',
       ]);
       await assert.rejects(
@@ -692,6 +699,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         'runtime.model.used',
         'runtime.agent_message',
         'runtime.agent_message',
+        'runtime.usage.reported',
         'runtime.turn.completed',
       ]);
       assert.equal(sandbox.provider.requests.length, 2);
