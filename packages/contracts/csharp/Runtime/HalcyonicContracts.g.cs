@@ -2326,7 +2326,7 @@ namespace Halcyonic.Contracts
         public UsagePrices Prices { get; set; }
     }
 
-    public sealed class ProjectUsage
+    public sealed class RunUsage
     {
         [global::Newtonsoft.Json.JsonProperty("turns", Required = global::Newtonsoft.Json.Required.Always)]
         public long Turns { get; set; }
@@ -2475,7 +2475,7 @@ namespace Halcyonic.Contracts
         public ProjectPublishedView? Published { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("usage", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
-        public ProjectUsage? Usage { get; set; }
+        public RunUsage? Usage { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("secrets", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<string>? Secrets { get; set; }
@@ -3007,18 +3007,6 @@ namespace Halcyonic.Contracts
         public string CompletedAt { get; set; } = default!;
     }
 
-    public sealed class ExecutionUsage
-    {
-        [global::Newtonsoft.Json.JsonProperty("turns", Required = global::Newtonsoft.Json.Required.Always)]
-        public long Turns { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("tokens", Required = global::Newtonsoft.Json.Required.Always)]
-        public UsageTokens Tokens { get; set; } = default!;
-
-        [global::Newtonsoft.Json.JsonProperty("cost", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public UsageEstimate? Cost { get; set; }
-    }
-
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum AutoFixViewState
     {
@@ -3156,7 +3144,7 @@ namespace Halcyonic.Contracts
         public long TurnCount { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("usage", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
-        public ExecutionUsage? Usage { get; set; }
+        public RunUsage? Usage { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("auto_fix", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public AutoFixView? AutoFix { get; set; }

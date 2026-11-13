@@ -193,11 +193,15 @@ export const SpendingCapView = Type.Object(
 export type SpendingCapView = Static<typeof SpendingCapView>;
 
 /**
- * What a project's runs used, summed over its executions by the same rules as `ExecutionUsage`:
- * `turns` the turns reported, `turns_ended` every turn of its runs that has ended, reported or not.
- * `turns` below `turns_ended` means some of the use is not counted here, and a client says so.
+ * What runs used, as their runtimes reported it (`runtime.usage.reported`): an execution's turns, or
+ * all the runs of a project, summed by the same rules. `turns` counts the turns reported, `tokens` sums each part over them, null where any of them left it null,
+ * and `cost` sums the runtime's own estimates, null unless every turn reported gave one by the same
+ * prices, a turn that used nothing at all (every part a counted 0) aside. A turn the runtime did
+ * not report is in none of it. `turns_ended` counts every ended turn of them, completed,
+ * failed or interrupted, reported or not, and is never below `turns`: `turns` below it means some of
+ * its use is not counted here, and a client says "2 of 3 turns", never against completed turns.
  */
-export const ProjectUsage = Type.Object(
+export const RunUsage = Type.Object(
   {
     turns: Type.Integer({ minimum: 1 }),
     turns_ended: Type.Integer({ minimum: 1 }),
@@ -206,7 +210,7 @@ export const ProjectUsage = Type.Object(
   },
   strict,
 );
-export type ProjectUsage = Static<typeof ProjectUsage>;
+export type RunUsage = Static<typeof RunUsage>;
 
 /**
  * `check`, `preview` and `mac_play` hold the facts their events carried, so a client that connects
@@ -236,7 +240,7 @@ export const ProjectView = Type.Object(
      * What its runs used, as their runtimes reported it; absent until one reports, which never
      * reads as nothing used.
      */
-    usage: Type.Optional(ProjectUsage),
+    usage: Type.Optional(RunUsage),
     /**
      * The project's secrets by name, sorted (ADR 0057); absent when it has none. Never a value.
      */
@@ -339,24 +343,6 @@ export const QueuedInstructionView = Type.Object(
 );
 export type QueuedInstructionView = Static<typeof QueuedInstructionView>;
 
-/**
- * What an execution's turns used, as its runtime reported them (`runtime.usage.reported`): `turns`
- * counts the turns reported, `tokens` sums each part over them, null where any of them left it null,
- * and `cost` sums the runtime's own estimates, null unless every turn reported gave one by the same
- * prices, a turn that used nothing at all (every part a counted 0) aside. A turn the runtime did
- * not report is in none of it, so `turns` below the execution's `turn_count` means some of its use
- * is not counted here.
- */
-export const ExecutionUsage = Type.Object(
-  {
-    turns: Type.Integer({ minimum: 1 }),
-    tokens: UsageTokens,
-    cost: Nullable(UsageEstimate),
-  },
-  strict,
-);
-export type ExecutionUsage = Static<typeof ExecutionUsage>;
-
 export const ExecutionView = Type.Object(
   {
     execution_id: ExecutionId,
@@ -420,7 +406,7 @@ export const ExecutionView = Type.Object(
      * What its turns used, as the runtime reported them; absent until a turn's usage is reported,
      * which never reads as nothing used.
      */
-    usage: Type.Optional(ExecutionUsage),
+    usage: Type.Optional(RunUsage),
     /**
      * The project's failed check sent back to this agent on its own (ADR 0044): the latest chain,
      * under way or ended. Absent where none was ever recorded.

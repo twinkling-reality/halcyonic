@@ -15391,35 +15391,7 @@
       "exclusiveMinimum": 0,
       "maximum": 1000000
     },
-    "ExecutionUsage": {
-      "type": "object",
-      "required": [
-        "turns",
-        "tokens",
-        "cost"
-      ],
-      "properties": {
-        "turns": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "tokens": {
-          "$ref": "#/$defs/UsageTokens"
-        },
-        "cost": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/UsageEstimate"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "additionalProperties": false
-    },
-    "ProjectUsage": {
+    "RunUsage": {
       "type": "object",
       "required": [
         "turns",
@@ -16144,7 +16116,7 @@
           "$ref": "#/$defs/ProjectPublishedView"
         },
         "usage": {
-          "$ref": "#/$defs/ProjectUsage"
+          "$ref": "#/$defs/RunUsage"
         },
         "secrets": {
           "$ref": "#/$defs/SecretNames"
@@ -19787,7 +19759,7 @@
           "minimum": 0
         },
         "usage": {
-          "$ref": "#/$defs/ExecutionUsage"
+          "$ref": "#/$defs/RunUsage"
         },
         "auto_fix": {
           "$ref": "#/$defs/AutoFixView"

@@ -217,6 +217,7 @@ describe('command lifecycle', () => {
     const [execution] = controlPlane.projection.executions();
     assert.deepEqual(execution?.usage, {
       turns: 1,
+      turns_ended: 1,
       tokens,
       cost: { estimated_usd: 0.02, prices: 'catalog' },
     });
