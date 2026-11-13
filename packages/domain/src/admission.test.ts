@@ -1287,7 +1287,7 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       floor_px: 10,
       last_measured_px: 6,
       words:
-        "The words were too small to read on a laptop when last measured (6 px high; at least 10 needed), and can no longer be measured: the app's own kit files changed",
+        'The words were too small to read on a laptop when last measured (6 px high; at least 10 needed), and can no longer be measured: the app changed the files the check reads its words through',
       detail: null,
     };
     record(first, { laptop: { ...laptopReady.laptop, reading: held, ready: false } });
@@ -1297,7 +1297,8 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     const notKnown = {
       ...held,
       last_measured_px: null,
-      words: 'Not known whether it reads on a laptop: no kit text could be measured',
+      words:
+        "Not known whether it reads on a laptop: no text from the app's built-in pages could be measured",
     };
     record(first, {
       laptop: { ...laptopReady.laptop, mouse: 'not_reached', reading: notKnown, ready: false },

@@ -52,7 +52,8 @@ const notMeasured = (state: 'unknown' | 'changed', held: number | null): CheckRe
   fill_share: null,
   floor_px: 10,
   last_measured_px: held,
-  words: 'Not known whether it reads on a laptop: no kit text could be measured',
+  words:
+    "Not known whether it reads on a laptop: no text from the app's built-in pages could be measured",
   detail: null,
 });
 

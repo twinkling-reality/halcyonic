@@ -256,9 +256,11 @@ export function readingOf(
       detail: null,
     };
   };
-  if (files !== 'starter') return notMeasured('changed', "the app's own kit files changed");
+  if (files !== 'starter')
+    return notMeasured('changed', 'the app changed the files the check reads its words through');
   if (readings === null) return notMeasured('unknown', 'the app did not say how big its words are');
-  if (readings.texts.length === 0) return notMeasured('unknown', 'no kit text could be measured');
+  if (readings.texts.length === 0)
+    return notMeasured('unknown', "no text from the app's built-in pages could be measured");
   // Cut, never rounded up onto the floor.
   const smallest = cut(Math.min(...readings.texts), 2);
   const measured = readings.texts.length;
