@@ -45,11 +45,16 @@ namespace Halcyonic.Client
                 if (frame != null) return frame;
                 var subject = taskTitle ?? Subject;
                 var room = host.PageHeight(host.TitleRows(subject, Glaze.Menu.FileColumnDegrees), false, focused: true);
-                var explanation = taskTitle == null ? "Hold Move Shelf to Drag · Apply for This Session"
-                    : "Apply Shows Task This Session · Cancel Keeps Shelf";
-                var note = new PageLine(explanation, rows: host.RowsOf(explanation, Glaze.Menu.FileColumnDegrees), tone: LineTone.Secondary);
-                var used = MenuPage.Words(host.RowsOf(note, Glaze.Menu.FileColumnDegrees)) + MenuPage.TargetGap;
-                var count = Math.Max(1, (int)Math.Floor((room - used + MenuPage.TargetGap) / (MenuPage.Target() + MenuPage.TargetGap)));
+                // Two instructions, handed apart, never joined on a dot (the owner's 2026-11-11; the lead's 21:11Z): the first as the
+                // line, the second under it, the words as they were.
+                var (first, then) = taskTitle == null ? ("Hold Move Shelf to Drag", "Apply for This Session")
+                    : ("Apply Shows Task This Session", "Cancel Keeps Shelf");
+                var note = new PageLine(first, rows: host.RowsOf(first, Glaze.Menu.FileColumnDegrees), tone: LineTone.Secondary).WithUnder(LineWords.Ours(then));
+                var used = MenuPage.Words(host.RowsOf(note, Glaze.Menu.FileColumnDegrees) + host.RowsOf(then, Glaze.Menu.FileColumnDegrees)) + MenuPage.TargetGap;
+                // Under the redesign the general reader pages the moves, keeping each pair on one page (the lead's 21:11Z): the frame
+                // hands them all at once rather than cutting them by the older view's room.
+                var count = RoomDesign.Enabled ? Directions.Length + 1
+                    : Math.Max(1, (int)Math.Floor((room - used + MenuPage.TargetGap) / (MenuPage.Target() + MenuPage.TargetGap)));
                 var pages = (Directions.Length + 1 + count - 1) / count;
                 page %= pages;
                 var lines = new List<PageLine> { note };
