@@ -248,4 +248,42 @@ public class AskMenuColumnTests
         Assert.That(host.Sent.Last().CommandId, Is.EqualTo(first), "Send Again carries the first id");
         Assert.That(host.Sent.Select(command => command.CommandId).Distinct().Count(), Is.EqualTo(1));
     }
+
+    /// <summary>
+    /// Ask beside the menu, as talking anywhere opens it, always has a reader under the redesign (AUDIT's 17:42Z, JUDGE's room-20):
+    /// fresh, while it listens, heard, written, sent and answered, and with no assistant at all, the frame is drawn by the
+    /// redesign's own reader, never left to the older view.
+    /// </summary>
+    [Test]
+    public void AskBesideTheMenuHasAReaderAtEveryMomentTalkingOpensIt()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var (column, _) = Make();
+            void Drawn(string moment)
+            {
+                Assert.That(column.Frame, Is.Not.Null, moment + ": no frame");
+                var bar = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle);
+                Assert.That(bar is { FromMoment: true }, Is.True, moment + ": no reader of the redesign takes Ask's frame");
+            }
+            Drawn("fresh");
+            column.HoldStarted(AskMenuColumn.Talk);
+            Drawn("listening");
+            column.Heard("The home page");
+            column.HoldEnded(AskMenuColumn.Talk, letGo: true);
+            Drawn("heard");
+            column.Ask.Write("What is going on?");
+            Drawn("written");
+            column.Act(AskMenuColumn.Send, null);
+            Drawn("sent");
+
+            var host = new FileMenuHost();
+            var none = new AskMenuColumn(host, commands, AskScope.AllWork());
+            none.Ask.Offer(new UnavailableWorkspaceAgent { Reason = new ErrorInfo { Code = "not_configured", Message = "No model." } });
+            Assert.That(RoomBar.OfFrame(none.Frame!, VoiceStage.Idle), Is.Not.Null, "with no assistant: still the redesign's");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }
