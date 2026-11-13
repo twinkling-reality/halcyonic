@@ -763,6 +763,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     Whole(said, "the notice's words");
                     Require(said.GetParsedText().Replace("\n", " ").Contains("Nothing here is live"), "the notice does not say that nothing here is live");
                     Require(shown.Pair || bar.NoticePlate!.transform.localPosition.y > 0f, "with no panel the notice does not stand over the bar");
+                    // The words stand inside their plate with its pad on every side (JUDGE's reader, 2026-11-13: first letters on the
+                    // plate's edge, the first line over its top), as the plate's own space measures what the words draw.
+                    var plateSize = bar.NoticePlate!.Size;
+                    said.ForceMeshUpdate(true);
+                    var drawn = said.textBounds;
+                    var to = bar.NoticePlate.transform.worldToLocalMatrix * said.transform.localToWorldMatrix;
+                    var low = to.MultiplyPoint3x4(drawn.min);
+                    var high = to.MultiplyPoint3x4(drawn.max);
+                    var insets = (left: low.x + plateSize.x / 2f, right: plateSize.x / 2f - high.x, bottom: low.y + plateSize.y / 2f, top: plateSize.y / 2f - high.y);
+                    var least = RoomType.Scaled(RoomBarView.NoticePadDp) / 2f;
+                    Debug.Log("Halcyonic: spatial kit: " + state + (GlazeText.Scale > 1.001f ? " (Larger)" : " (Standard)") + ": the notice's words stand in from its plate "
+                        + string.Join(", ", new[] { ("left", insets.left), ("right", insets.right), ("top", insets.top), ("bottom", insets.bottom) }
+                            .Select(each => each.Item1 + " " + (each.Item2 / RoomType.Units(1f)).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " dp")));
+                    Require(insets.left >= least && insets.right >= least && insets.top >= least && insets.bottom >= least, "the notice's words do not stand inside their plate with its pad");
                 }
                 // Its band is its own (the lead's ruling, 2026-11-13): no part the host draws, the bar's, the band's, the working
                 // field's or the cursor's, crosses it. A line drawn under another part is not said.
