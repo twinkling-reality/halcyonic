@@ -8,12 +8,14 @@ namespace Halcyonic.Client
     /// The understanding's account of a change as later parts of the result's one Changes page (SCREENS, the lead's
     /// 2026-11-12T1115Z and 1256Z): after the files, what changed, why and how it was built, each the brief answer XR
     /// computes from the understanding (<see cref="UnderstandingPresenter"/>, <see cref="AnswerDepth.Brief"/>), a part a
-    /// card: the answer's lead line its description, whole, the agent's or a model's words alone with a slot of whose they are
-    /// (the agent's mark and Agent Says, or Model Says), so ours never run into theirs; the rest as rows,
+    /// card: the answer's lead line its description, whole, the agent's or a model's words alone, said to be theirs first, as
+    /// the card's state under its title (the speech bubble, RoomKind.Says, and Agent Says or Model Says; FIELD's 17:34Z; the
+    /// critic, 2026-11-13: a slot beneath the words read as a button and came after them); the rest as rows,
     /// each with its kind and how it is known as its quiet note in our words (the product's chips join facts on a dot, so
     /// they are never drawn here). The files stay first and nothing the page offers moves behind it. An answer with no lines
-    /// is no part. The source line is FIELD's words, given whole (<paramref name="source"/>):
-    /// the brief's own provenance names the provider's product, which never stands on a person's screen, so it is not drawn.
+    /// is no part. The foot says where the answers come from in FIELD's words, From the Agent's Records, only where every answer
+    /// shown was read from the agent app's own records, never a stand-in's (a simulated brief says no source); the brief's own
+    /// provenance names the provider's product, which never stands on a person's screen, so it is not drawn.
     /// </summary>
     public sealed class ChangesAccount
     {
@@ -28,17 +30,20 @@ namespace Halcyonic.Client
         public const string Inferred = "Inferred";
         public const string Planned = "Planned";
 
+        /// <summary>The foot's source words (FIELD's, 2026-11-12T1734Z): the understanding is read from the agent app's own records.</summary>
+        public const string FromAgentsRecords = "From the Agent's Records";
+
         private readonly List<(UnderstandPrompt Prompt, SectionLine? Lead, IReadOnlyList<SectionLine> Rows)> answers = new();
         private readonly List<(int Answer, int From)> parts = new();
 
         /// <param name="whatChanged">The brief answer to what changed, or null where none was read.</param>
-        /// <param name="source">Where the answers come from, in FIELD's words; none is drawn where null.</param>
-        public ChangesAccount(SectionPresentation? whatChanged, SectionPresentation? why, SectionPresentation? howBuilt, LineWords? source = null)
+        public ChangesAccount(SectionPresentation? whatChanged, SectionPresentation? why, SectionPresentation? howBuilt)
         {
-            Source = source is LineWords given && !given.IsEmpty ? given : (LineWords?)null;
+            var simulated = false;
             foreach (var (prompt, brief) in new[] { (UnderstandPrompt.WhatChanged, whatChanged), (UnderstandPrompt.WhyChanged, why), (UnderstandPrompt.HowBuilt, howBuilt) })
             {
                 if (brief == null || brief.Lines.Count == 0) continue;
+                simulated |= brief.Simulated;
                 // The lead stands whole as the description where its knowing can be said before it; an inferred or planned
                 // lead stays a row, its note saying so.
                 var lead = brief.Lines[0];
@@ -49,9 +54,11 @@ namespace Halcyonic.Client
                 parts.Add((answers.Count - 1, 0));
                 for (var from = RoomCard.ListAPage; from < rows.Count; from += RoomCard.ListAPage) parts.Add((answers.Count - 1, from));
             }
+            // A stand-in's answers come from no agent app's records, so they name none (the recorded notice says what they are).
+            Source = answers.Count > 0 && !simulated ? LineWords.Ours(FromAgentsRecords) : null;
         }
 
-        /// <summary>FIELD's source line, drawn quiet at each part's foot; null where none was given.</summary>
+        /// <summary>FIELD's source line, drawn quiet at each part's foot; null for a stand-in's answers or none.</summary>
         public LineWords? Source { get; }
 
         /// <summary>How many parts the account adds after the files: none where no answer has a line.</summary>
@@ -69,11 +76,11 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
-        /// A line's kind on its row: a changed file its file's mark, what the agent said the agent's, any other line none. The
-        /// chip ("Agent says", "Inferred", "Planned") is the row's quiet note, its words alone, never joined to the line.
+        /// A line's kind on its row: a changed file its file's mark, what the agent said the speech bubble (RoomKind.Says), any
+        /// other line none, which draws no mark. How it is known is the row's quiet note (<see cref="NoteOf"/>), never joined to it.
         /// </summary>
         public static RoomKind KindOf(SectionLine line) =>
-            line.File != null ? RoomKind.File : line.Evidence == Evidence.Reported ? RoomKind.Agent : RoomKind.None;
+            line.File != null ? RoomKind.File : line.Evidence == Evidence.Reported ? RoomKind.Says : RoomKind.None;
 
         /// <summary>How a row's line is known, its note; null where it was observed, measured or is Halcyonic's own.</summary>
         public static string? NoteOf(SectionLine line) => line.Evidence switch
@@ -87,7 +94,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Whether a line can lead as the description, whole: what was observed or measured, Halcyonic's own words, or the
-        /// agent's or a model's words, whose a slot then says (<see cref="WhoSaid"/>); an inferred or planned line stays a row.
+        /// agent's or a model's words, whose the card's state then says (<see cref="WhoSaid"/>); an inferred or planned line stays a row.
         /// </summary>
         public static bool Leads(SectionLine line) => line.Evidence switch
         {
@@ -96,11 +103,14 @@ namespace Halcyonic.Client
             _ => false,
         };
 
-        /// <summary>The slot saying whose a lead's words are: the agent's mark and Agent Says, or Model Says; none for our own or observed words.</summary>
-        public static RoomSlot? WhoSaid(SectionLine line) => line.Evidence switch
+        /// <summary>
+        /// The card's state saying whose a lead's words are, under the title and before them: the speech bubble and Agent Says,
+        /// or Model Says, quiet; none for our own or observed words.
+        /// </summary>
+        public static RoomCardStatus? WhoSaid(SectionLine line) => line.Evidence switch
         {
-            Evidence.Reported => new RoomSlot(RoomKind.Agent, LineWords.Ours(AgentSays)),
-            Evidence.Explained => new RoomSlot(RoomKind.Agent, LineWords.Ours(ModelSays)),
+            Evidence.Reported => new RoomCardStatus(AgentSays, null, RoomTone.Quiet, RoomKind.Says),
+            Evidence.Explained => new RoomCardStatus(ModelSays, null, RoomTone.Quiet, RoomKind.Says),
             _ => null,
         };
 
@@ -114,7 +124,7 @@ namespace Halcyonic.Client
             // The lead on the answer's first part alone; a later part of a long answer carries on with its rows.
             var first = from == 0 && lead != null;
             var who = first ? WhoSaid(lead!) : null;
-            return new RoomCard(LineWords.Ours(TitleOf(prompt)), first ? lead!.Runs : null, slots: who is RoomSlot slot ? new[] { slot } : null, list: rows, more: Source);
+            return new RoomCard(LineWords.Ours(TitleOf(prompt)), first ? lead!.Runs : null, status: who, list: rows, more: Source);
         }
     }
 }

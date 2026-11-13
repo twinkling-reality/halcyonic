@@ -658,8 +658,7 @@ public class RoomResultTests
         var why = Brief(new[] { new SectionLine("reported", "I split the tail.", SectionTone.Claim, rows: 2, said: LineWords.Theirs("I split the tail.")) }
             .Concat(Enumerable.Range(1, 6).Select(index => Line("reported", "Reason " + index))).ToArray());
         var none = Brief();
-        var source = LineWords.Ours("From Its Records");
-        var account = new ChangesAccount(what, why, none, source);
+        var account = new ChangesAccount(what, why, none);
         Assert.That((account.Parts, account.Prompts), Is.EqualTo((3, new[] { UnderstandPrompt.WhatChanged, UnderstandPrompt.WhyChanged })),
             "what changed one part, why two (its lead and six rows, five a part), how it was built none: it said nothing");
 
@@ -673,14 +672,15 @@ public class RoomResultTests
         var whatPart = Part(1);
         Assert.That((whatPart.Title!.Text, whatPart.Description!.Text), Is.EqualTo((ChangesAccount.WhatChangedTitle, "3 files changed: 1 new, 2 edited")), "the lead whole, as observed");
         Assert.That(whatPart.List.Select(row => (row.Kind, row.Name.Text, row.Note)), Is.EqualTo(new[] { (RoomKind.None, "All checked after the last change", (string?)ChangesAccount.Inferred) }));
-        Assert.That(whatPart.More!.Text, Is.EqualTo("From Its Records"), "FIELD's source words at the foot");
+        Assert.That(whatPart.More!.Text, Is.EqualTo(ChangesAccount.FromAgentsRecords), "FIELD's source words at the foot");
 
         var whyPart = Part(2);
         Assert.That(whyPart.Description!.Text, Is.EqualTo("I split the tail."), "the agent's words alone, whole, never run into ours");
         Assert.That(whyPart.Description.Runs.All(run => run.Theirs), Is.True, "they lean as theirs");
-        Assert.That(whyPart.Slots.Select(slot => (slot.Kind, slot.Value.Text)), Is.EqualTo(new[] { (RoomKind.Agent, ChangesAccount.AgentSays) }), "a slot says whose they are");
-        Assert.That(whatPart.Slots, Is.Empty, "what was observed needs no one's name");
-        Assert.That((whyPart.List.Count, whyPart.List[0].Kind, whyPart.List[0].Note), Is.EqualTo((RoomCard.ListAPage, RoomKind.Agent, (string?)ChangesAccount.AgentSays)));
+        Assert.That((whyPart.Status?.Title, whyPart.Status?.Mark, whyPart.Status?.Tone), Is.EqualTo(((string?)ChangesAccount.AgentSays, (RoomKind?)RoomKind.Says, (RoomTone?)RoomTone.Quiet)),
+            "the card's state says whose they are, under the title and before them");
+        Assert.That((whatPart.Status, whatPart.Slots.Count), Is.EqualTo(((RoomCardStatus?)null, 0)), "what was observed needs no one's name");
+        Assert.That((whyPart.List.Count, whyPart.List[0].Kind, whyPart.List[0].Note), Is.EqualTo((RoomCard.ListAPage, RoomKind.Says, (string?)ChangesAccount.AgentSays)));
         var last = Bar(new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Changes, part: 3, account: account));
         Assert.That((last.Card!.Title!.Text, last.Card.Description, last.Card.List.Single().Name.Text), Is.EqualTo((ChangesAccount.WhyTitle, (LineWords?)null, "Reason 6")),
             "a later part carries on with its rows alone");
@@ -692,10 +692,13 @@ public class RoomResultTests
             Assert.That(card.AnyDot, Is.False, "no fact on a dot: the product's chips are never drawn here");
         }
 
-        // An inferred lead stays a row with its note; no source words given: nothing at the foot; no answer with a line: no part.
+        // An inferred lead stays a row with its note; a stand-in's answers name no agent's records; no answer with a line: no part.
         var guessed = new ChangesAccount(Brief(Line("inferred", "Probably a style change")), null, null);
-        Assert.That((guessed.Card(0).Description, guessed.Card(0).List.Single().Note, guessed.Card(0).More), Is.EqualTo(((LineWords?)null, (string?)ChangesAccount.Inferred, (LineWords?)null)));
-        var silent = new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Changes, account: new ChangesAccount(none, null, none, source));
+        Assert.That((guessed.Card(0).Description, guessed.Card(0).List.Single().Note), Is.EqualTo(((LineWords?)null, (string?)ChangesAccount.Inferred)));
+        var standIn = new ChangesAccount(new SectionPresentation(SectionKind.Understanding, "Simulated", SectionTone.Secondary,
+            new[] { Line("observed", "3 files changed: 1 new, 2 edited") }, simulated: true), null, null);
+        Assert.That((standIn.Parts, standIn.Card(0).More), Is.EqualTo((1, (LineWords?)null)), "a stand-in's answers come from no agent app's records");
+        var silent = new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Changes, account: new ChangesAccount(none, null, none));
         Assert.That((silent.Account, silent.Parts), Is.EqualTo(((ChangesAccount?)null, 1)));
         Assert.That(new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Checks, account: account).Account, Is.Null, "the account is Changes' alone");
     }

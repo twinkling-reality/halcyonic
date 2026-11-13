@@ -44,7 +44,9 @@ namespace Halcyonic.XR.Workspace.Editor
         private static RoomCard AccountCard(string state)
         {
             SectionLine Line(string tag, LineWords said) => new SectionLine(tag, said.Text, SectionTone.Normal, said: said);
-            SectionPresentation Brief(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1", SectionTone.Secondary, lines, simulated: false);
+            // The unsourced state is a stand-in's answers: they come from no agent app's records, so the foot names none.
+            var standIn = state == "66-account-unsourced";
+            SectionPresentation Brief(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1", SectionTone.Secondary, lines, simulated: standIn);
             // As UnderstandingPresenter's brief answers stand: the count and whether a check followed; the latest reason quoted and how many more.
             var what = Brief(
                 Line("observed", LineWords.Ours("3 files changed: 1 new, 2 edited")),
@@ -53,8 +55,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 new SectionLine("reported", "\u201cI split the tail into six segments so it moves like cloth, not a stick.\u201d", SectionTone.Claim, rows: 2,
                     said: LineWords.Theirs("I split the tail into six segments so it moves like cloth, not a stick.")),
                 Line("", LineWords.Ours("And 2 more reasons it gave")));
-            var source = state == "66-account-unsourced" ? (LineWords?)null : LineWords.Ours("From Its Records");
-            var account = new ChangesAccount(what, why, null, source);
+            var account = new ChangesAccount(what, why, null);
             return account.Card(state == "66-account-why" ? 1 : 0);
         }
 
