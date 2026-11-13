@@ -859,7 +859,11 @@ namespace Halcyonic.XR.UI
                             Glyph(GlyphOf(slot.Kind), SlotGlyphDp, Rgb(TileInk, 0.86f), mark, "slot " + slot.Kind);
                             break;
                     }
-                    values[index].Label.transform.localPosition = new Vector3(x + S(SlotPadDp), -(top + S(SlotPadDp) + S(SlotGlyphBoxDp) + S(CaptionGapDp)), -RoomType.Units(0.5f));
+                    // A slot with no mark stands its value in the middle of its well, never at the foot of a mark's empty place
+                    // (the critic, 2026-11-13: a model's name low in a grey box read as a stray label).
+                    var valueTop = slot.Kind == RoomKind.None ? top + (rowWell - S(CaptionLineDp) * (1 + extra[index])) / 2f
+                        : top + S(SlotPadDp) + S(SlotGlyphBoxDp) + S(CaptionGapDp);
+                    values[index].Label.transform.localPosition = new Vector3(x + S(SlotPadDp), -valueTop, -RoomType.Units(0.5f));
                     x += tile + S(TileGapDp);
                 }
                 rowIndex++;
