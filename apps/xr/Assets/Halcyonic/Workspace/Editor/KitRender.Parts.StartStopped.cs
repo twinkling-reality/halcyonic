@@ -154,6 +154,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 button.Settle();
             }
             Place(plane, eyes, 0f, shot.Elevation);
+            Require(!view.PassedLargest, "the bar laid past its largest footprint: " + view.Size + " against " + RoomBarView.Largest);
             var drawn = new List<string>();
             foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
             {

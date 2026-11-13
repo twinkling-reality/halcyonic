@@ -85,6 +85,8 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             else Require(view.Size.x > column + RoomType.Units(RoomGeometry.PanelDp), "the ordinary bar is not the pair's width");
 
+            Require(!view.PassedLargest, "the bar laid past its largest footprint: " + (view.Size / unit).ToString("0") + " dp against "
+                + ((narrow ? RoomBarView.LargestNarrow : RoomBarView.Largest) / unit).ToString("0"));
             var drawn = new List<string>();
             foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
             {
