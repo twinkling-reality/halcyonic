@@ -25,7 +25,7 @@ import type { Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import { WIFI_SHARE_PORT_FIRST, WIFI_SHARE_PORT_LAST } from '../config.ts';
 import { type Cause, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
-import { heldInFolder, heldMessage } from '../core/held-in-tree.ts';
+import { FolderRefused, heldInFolder, heldMessage } from '../core/held-in-tree.ts';
 import type { EventPublisher } from '../core/publisher.ts';
 import type { Recorder } from '../core/recorder.ts';
 import type { HeldSecret } from '../core/redaction.ts';
@@ -56,8 +56,8 @@ const ADDRESS = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
 
 /** A share that cannot start here, with words for the person and a code for the command. */
 export class ShareRefused extends Error {
-  readonly code: 'unavailable' | 'no_network' | 'holds_secret';
-  constructor(code: 'unavailable' | 'no_network' | 'holds_secret', message: string) {
+  readonly code: 'unavailable' | 'no_network' | 'holds_secret' | 'link_out';
+  constructor(code: 'unavailable' | 'no_network' | 'holds_secret' | 'link_out', message: string) {
     super(message);
     this.code = code;
   }
@@ -168,7 +168,17 @@ export class ProjectShares {
         let hit: Awaited<ReturnType<typeof heldInFolder>>;
         try {
           hit = await heldInFolder(copy, this.#deps.held());
-        } catch {
+        } catch (error) {
+          if (error instanceof FolderRefused && error.kind === 'link_out')
+            throw new ShareRefused(
+              'link_out',
+              `${error.path} in the game's built files is a link that leads out of them, so nothing was shared. Take the link out of the project, then check the game again.`,
+            );
+          if (error instanceof FolderRefused)
+            throw new ShareRefused(
+              'unavailable',
+              "The game's built files are more than a share reads (20,000 files or 512 MB), so nothing was shared. Check that the project builds only the game, then check it again.",
+            );
           throw new ShareRefused(
             'unavailable',
             "The game's built files could not be read, so nothing was shared. Check the game again.",

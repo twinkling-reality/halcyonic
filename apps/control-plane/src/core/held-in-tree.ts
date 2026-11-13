@@ -1,5 +1,5 @@
-import { lstat, readdir, readFile, realpath, stat } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { lstat, readdir, readFile, readlink, realpath, stat } from 'node:fs/promises';
+import { dirname, join, relative, resolve } from 'node:path';
 import type { HeldSecret } from './redaction.ts';
 
 /**
@@ -156,20 +156,37 @@ export function heldMessage(hit: HeldHit, what: 'sent' | 'published' | 'saved' |
   return `${hit.path} holds a secret this Mac keeps (${hit.what}), so ${done}. Take it out of the file, then try again.`;
 }
 
+/** Why a share's built copy is not read: a link out of it (by its path in the copy), or more than a share reads. */
+export class FolderRefused extends Error {
+  readonly kind: 'link_out' | 'too_large';
+  readonly path: string | null;
+  constructor(kind: 'link_out' | 'too_large', path: string | null) {
+    super(
+      kind === 'link_out'
+        ? `${path} leads out of the built copy`
+        : 'the built copy is larger than a share reads',
+    );
+    this.kind = kind;
+    this.path = path;
+  }
+}
+
 /**
  * The first file under `root` (a check's built copy, as a share serves it) that holds a held secret, by its path
- * from `root`, or null, in a stable order. A link is followed, as the preview's server follows it (a build copies
- * `public/` as it is, links kept): a link to a file is read as that file, a link to a folder is walked, each real
- * folder once, so a loop ends. A folder that cannot be read is an error, so nothing is shared unread.
+ * from `root`, or null, in a stable order. A link that leads out of the copy (its real place outside the copy's
+ * real folder) is refused by its path (FolderRefused `link_out`), whatever is held, since the preview's server
+ * would serve what it leads to; Send and Publish never send such a link either. A link within the copy is followed:
+ * to a file, read as that file; to a folder, walked, each real folder once. Bounded (FolderRefused `too_large`). A
+ * folder that cannot be read is an error, so nothing is shared unread.
  */
 export async function heldInFolder(
   root: string,
   secrets: Iterable<HeldSecret>,
 ): Promise<HeldHit | null> {
   const forms = heldForms(secrets);
-  if (forms.length === 0) return null;
+  const top = await realpath(root);
+  const inside = (real: string) => real === top || real.startsWith(`${top}/`);
   const seen = new Set<string>();
-  // Bounded, as a link may lead anywhere: past the bound the copy counts as unreadable and nothing is shared.
   let files = 0;
   let bytes = 0;
   const walk = async (dir: string): Promise<HeldHit | null> => {
@@ -178,10 +195,27 @@ export async function heldInFolder(
     seen.add(real);
     for (const entry of (await readdir(dir)).sort()) {
       const path = join(dir, entry);
-      const linked = (await lstat(path)).isSymbolicLink();
-      // A link whose target is gone serves nothing: nothing to read.
-      const found = linked ? await stat(path).catch(() => null) : await lstat(path);
-      if (found === null) continue;
+      const shown = relative(root, path).split('\\').join('/');
+      let found = await lstat(path);
+      if (found.isSymbolicLink()) {
+        const target = await realpath(path).catch(() => null);
+        if (target === null) {
+          // A link whose target is not there serves nothing now, but would serve what appears there. Its target is
+          // text the system resolves link by link, which no reading of the text alone can follow (critic, b116): one
+          // that is absolute or climbs (holds a .. part) is refused, and one that does neither, as `missing.js`, stays
+          // within the copy.
+          const written = await readlink(path);
+          if (
+            written.startsWith('/') ||
+            written.split('/').includes('..') ||
+            !inside(resolve(await realpath(dirname(path)), written))
+          )
+            throw new FolderRefused('link_out', shown);
+          continue;
+        }
+        if (!inside(target)) throw new FolderRefused('link_out', shown);
+        found = await stat(path);
+      }
       if (found.isDirectory()) {
         const hit = await walk(path);
         if (hit !== null) return hit;
@@ -189,9 +223,10 @@ export async function heldInFolder(
         files += 1;
         bytes += found.size;
         if (files > FOLDER_FILES_MAX || bytes > FOLDER_BYTES_MAX)
-          throw new Error('the built copy is larger than a share reads');
+          throw new FolderRefused('too_large', null);
+        if (forms.length === 0) continue;
         const what = heldIn(await readFile(path), forms);
-        if (what !== null) return { path: relative(root, path).split('\\').join('/'), what };
+        if (what !== null) return { path: shown, what };
       }
     }
     return null;
