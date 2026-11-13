@@ -248,6 +248,42 @@ namespace Halcyonic.Client
         public WorkspaceRequestResumeCommand ResumeRequest(string requestId, string? text = null) =>
             Stamp(new WorkspaceRequestResumeCommand { Payload = new WorkspaceRequestResumePayload { RequestId = requestId, Text = text } });
 
+        /// <summary>
+        /// The person's press on a row of the host's list of where the assistant may run (ADR 0030, 2026-11-12): the host's
+        /// entry Use Model (<c>assistant.model.choose</c>) with the row by its index in the list as read and that read's
+        /// digest, so a list that changed since refuses it. The host answers with a request waiting for the review card's
+        /// press; send <see cref="ConfirmRequest"/> for it (<see cref="AssistantPlace.WaitingReview"/>).
+        /// </summary>
+        public WorkspaceRequestSubmitCommand UseModel(int row, string listDigest) =>
+            Stamp(new WorkspaceRequestSubmitCommand
+            {
+                Payload = new WorkspaceRequestSubmitPayload
+                {
+                    ProjectId = null,
+                    WorkstreamId = null,
+                    ExecutionId = null,
+                    Text = AssistantPlace.UseModelTitle,
+                    Act = new WorkspaceRequestSubmitPayloadAct
+                    {
+                        CommandType = AssistantPlace.UseModelCommand,
+                        Values = new Dictionary<string, JToken> { ["model"] = row },
+                        Lists = new Dictionary<string, JToken> { [AssistantPlace.ListName] = listDigest },
+                    },
+                },
+            });
+
+        /// <summary>The person's one press on a waiting step's review card: the step and the digest the card showed.</summary>
+        public WorkspaceRequestResumeCommand ConfirmRequest(string requestId, string stepId, string review) =>
+            Stamp(new WorkspaceRequestResumeCommand
+            {
+                Payload = new WorkspaceRequestResumePayload
+                {
+                    RequestId = requestId,
+                    Text = null,
+                    Confirm = new WorkspaceRequestResumePayloadConfirm { StepId = stepId, Review = review },
+                },
+            });
+
         public WorkspaceRequestCancelCommand CancelRequest(string requestId) =>
             Stamp(new WorkspaceRequestCancelCommand { Payload = new WorkspaceRequestCancelPayload { RequestId = requestId } });
 

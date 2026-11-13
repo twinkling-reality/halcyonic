@@ -955,6 +955,19 @@ launch/return, process recreation and current-frame action behavior need separat
   again and sends nothing. Limits read from the control plane close when the demonstration starts,
   and the recording's when it stops. A recording without limits says "Usage left isn't part of
   the demo." with no Refresh. **`UsageLeftScreens`** builds its panel model.
+- **`AssistantPlace`** is what the Usage card's Assistant row reads
+  ([ADR 0030](../decisions/0030-workspace-requests-use-a-journaled-agent-tool-loop.md), 2026-11-12). It decides
+  nothing.
+  - **`Row`** reads `GET /api/workspace/agent`: the model and the hosted provider's declared name (both theirs), or the
+    host's own reason it cannot run. A remote status without a provider reads as unread, never as running.
+  - **`Options`** reads `ControlPlaneApi.GetAssistantModelsAsync`, the host's list `assistant_models`. It reads no
+    provider, and takes the list's own order: this computer's model first, then each declared model whose key is
+    stored. A row that offers nothing is shown with its reason and presses nothing.
+  - **The press** is `CommandFactory.UseModel(index, digest)`, the host's entry Use Model. The host answers with a
+    request; **`WaitingReview`** finds its step.
+    - **`OnePress`** tells the host's own offer of this computer's model (no review) from a reviewed hosted choice.
+    - **`Ended`** says a press was refused or ended without waiting, so nothing waits on it.
+    - **`CommandFactory.ConfirmRequest`** is the card's one press. The row changes at the next status read.
 - **`ControlPlaneApi.GetRuntimeModelsAsync`** reads the models a runtime whose `ModelChoice` is
   `Listed` can use now, from the runtime's own list
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)): each
