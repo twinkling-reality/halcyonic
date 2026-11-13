@@ -325,14 +325,14 @@ describe('Codex 0.157.0 event mapping', () => {
         kind: 'tool_use',
         tool_name: 'fileChange',
         summary: 'add /workspace/as-b/hello.txt',
-        // The item's own whole diff, carried on the approval (ADR 0065).
+        // The item's own change, carried on the approval (ADR 0065): a new file's whole content.
         changes: [
           {
             path: '/workspace/as-b/hello.txt',
             real_path: null,
             to_path: null,
             kind: 'add',
-            shape: 'diff',
+            shape: 'content',
             before: null,
             after: 'hello from the fake provider\n',
             every: false,
@@ -631,6 +631,72 @@ describe('Codex approval summaries', () => {
     assert.deepEqual(asked(command, { command: 'ls', cwd: '/w', environmentId: 'remote-1' }), [
       'ls\nin /w',
       false,
+    ]);
+  });
+
+  test('a file change carries each file as Codex gives it: a new or removed file whole, an update as its diff', () => {
+    // 0.157.0's FileUpdateChange.diff is the whole content for an add and a delete and the unified diff for an
+    // update, with "Moved to:" after a move's (format_file_change_diff, app-server-protocol's item_builders.rs).
+    const state = createThreadState();
+    state.activeTurnId = 'turn-1';
+    const update = '--- a/w/c.txt\n+++ b/w/c.txt\n@@ -1 +1 @@\n-old\n+new\n';
+    const changes = [
+      { path: '/w/a.txt', kind: { type: 'add' }, diff: 'hello\n' },
+      { path: '/w/b.txt', kind: { type: 'delete' }, diff: 'gone\n' },
+      { path: '/w/c.txt', kind: { type: 'update', move_path: null }, diff: update },
+      {
+        path: '/w/d.txt',
+        kind: { type: 'update', move_path: '/w/e.txt' },
+        diff: `${update}\n\nMoved to: /w/e.txt`,
+      },
+    ];
+    observe(
+      state,
+      {
+        kind: 'notification',
+        method: 'item/started',
+        params: {
+          threadId: 't',
+          turnId: 'turn-1',
+          item: { type: 'fileChange', id: 'call-1', changes, status: 'inProgress' },
+        },
+        emittedAtMs: null,
+      },
+      NOW,
+    );
+    const item = observe(
+      state,
+      {
+        kind: 'request',
+        id: 7,
+        method: 'item/fileChange/requestApproval',
+        params: { threadId: 't', turnId: 'turn-1', itemId: 'call-1' },
+      },
+      NOW,
+    ).observations.find((each) => each.type === 'runtime.approval.requested');
+    assert.ok(item?.type === 'runtime.approval.requested');
+    assert.equal(item.payload.complete, true);
+    const base = { real_path: null, to_path: null, every: false, cell: null };
+    assert.deepEqual(item.payload.subject.kind === 'tool_use' && item.payload.subject.changes, [
+      { ...base, path: '/w/a.txt', kind: 'add', shape: 'content', before: null, after: 'hello\n' },
+      {
+        ...base,
+        path: '/w/b.txt',
+        kind: 'delete',
+        shape: 'content',
+        before: 'gone\n',
+        after: null,
+      },
+      { ...base, path: '/w/c.txt', kind: 'update', shape: 'diff', before: null, after: update },
+      {
+        ...base,
+        path: '/w/d.txt',
+        to_path: '/w/e.txt',
+        kind: 'update',
+        shape: 'diff',
+        before: null,
+        after: `${update}\n\nMoved to: /w/e.txt`,
+      },
     ]);
   });
 

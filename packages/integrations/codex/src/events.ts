@@ -820,16 +820,18 @@ function describeChanges(changes: unknown): {
     else if (kind === 'update')
       lines.push(moved === null ? `update ${path}` : `move ${path} to ${moved}`);
     else continue;
-    // The item's own whole diff (FileUpdateChange.diff, 0.157.0's schema), carried on the approval (ADR 0065).
+    // The item's own FileUpdateChange.diff, carried on the approval (ADR 0065). In 0.157.0 it is a new file's whole
+    // content, a removed file's whole content, or an update's unified diff (format_file_change_diff in
+    // app-server-protocol's item_builders.rs).
     if (typeof change.diff === 'string')
       carried.push({
         path,
         real_path: null,
         to_path: kind === 'update' ? moved : null,
         kind,
-        shape: 'diff',
-        before: null,
-        after: change.diff,
+        shape: kind === 'update' ? 'diff' : 'content',
+        before: kind === 'delete' ? change.diff : null,
+        after: kind === 'delete' ? null : change.diff,
         every: false,
         cell: null,
       });
