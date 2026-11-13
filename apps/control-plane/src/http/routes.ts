@@ -295,7 +295,11 @@ export function registerRoutes(
 
   // One of the host's lists, by index, for a choice or a list card (ADR 0060); the ids stay the host's.
   app.get('/api/actions/choices', async (request, reply) => {
-    const query = validateChoicesQuery(request.query);
+    const raw = request.query as Record<string, unknown>;
+    // A row's index arrives as words in the query string: a whole number, or the query is refused.
+    const query = validateChoicesQuery(
+      raw.runtime === undefined ? raw : { ...raw, runtime: toInteger(raw.runtime, 0) },
+    );
     if (!query.ok)
       return reply
         .code(400)
@@ -305,10 +309,21 @@ export function registerRoutes(
       workstream_id: query.value.workstream_id ?? null,
       execution_id: query.value.execution_id ?? null,
     };
-    const body: ChoicesResponse | null = await controlPlane.commands.choices(
-      scope,
-      query.value.list,
-    );
+    const { runtime, runtimes } = query.value;
+    if ((runtime === undefined) !== (runtimes === undefined))
+      return reply
+        .code(400)
+        .send(errorBody('invalid_request', 'runtime and runtimes come together.'));
+    if (runtime !== undefined && query.value.list !== 'models')
+      return reply.code(400).send(errorBody('invalid_request', 'runtime is for the models list.'));
+    const body: ChoicesResponse | 'choices_changed' | null =
+      runtime === undefined || runtimes === undefined
+        ? await controlPlane.commands.choices(scope, query.value.list)
+        : await controlPlane.commands.appModels(scope, { runtime, runtimes });
+    if (body === 'choices_changed')
+      return reply
+        .code(409)
+        .send(errorBody('choices_changed', 'The agent app list changed. Read it again.'));
     if (body === null)
       return reply
         .code(404)

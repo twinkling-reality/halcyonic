@@ -37,7 +37,11 @@ export interface PrepareSources {
   /** The commit the project's published page holds, as the host recorded it, or null. */
   readonly publishedCommit: (projectId: string) => string | null;
   /** The rows of a list for the scope, and its digest, as the host reads them now. */
-  readonly rows: (list: ChoiceList) => Promise<{ rows: readonly HeldRow[]; digest: string } | null>;
+  readonly rows: (
+    list: ChoiceList,
+    /** The payload as built so far, its earlier fields filled: a model's list is its runtime's. */
+    payload: Readonly<Record<string, unknown>>,
+  ) => Promise<{ rows: readonly HeldRow[]; digest: string } | null>;
 }
 
 /** Fields whose words are one line: a name or a title, never a paragraph. */
@@ -176,7 +180,7 @@ export async function prepareCommand(
       case 'choice':
       case 'choices': {
         const list = field.list;
-        const read = list === null ? null : await sources.rows(list);
+        const read = list === null ? null : await sources.rows(list, payload);
         if (list === null || read === null)
           return refuse('capability_unsupported', `${field.label} cannot be chosen here yet.`);
         if (given.read[list] !== read.digest)

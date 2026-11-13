@@ -1180,6 +1180,12 @@ export const WorkspaceRequestStepRecorded = requestEvent(
       prepared_command: Nullable(ExecutionSendInstructionCommand),
       /** Only on a `propose_command` step: the whole command the host built, durable before anything acts (ADR 0060). */
       proposed_command: Type.Optional(CommandEnvelope),
+      /**
+       * Only beside `proposed_command` on a start's step: the commands the press runs before it, in order (a new
+       * project, then its task), each prepared whole before the press. An id a later one needs from an earlier one's
+       * result stands as the host's placeholder, filled by the host from what was made, never by a proposer.
+       */
+      proposed_before: Type.Optional(Type.Array(CommandEnvelope, { maxItems: 2 })),
     },
     strict,
   ),

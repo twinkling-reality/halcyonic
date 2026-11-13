@@ -1097,6 +1097,27 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
    * The server a project's threads run on: its own inside Halcyonic's sandbox when the project is
    * confined (ADR 0041), else the open one.
    */
+  /**
+   * What a start at `directory` will really run at, before it starts (ADR 0043): the confinement its start would get,
+   * a starter's project asking nothing (ADR 0041), and the policy `askingInside` gives it, read through the same
+   * `recordedLevel` the start records. Null where the options do not parse.
+   */
+  levelAt(request: {
+    readonly directory: string;
+    readonly starter_project: boolean;
+    readonly options: RuntimeOptions;
+    readonly model_ref: string | null;
+    readonly approval_level?: ApprovalLevel;
+  }): ApprovalLevel | null {
+    const parsed = parseStartOptions(request.options, request.model_ref, request.approval_level);
+    if (!parsed.ok) return null;
+    const found = this.#confinement?.forDirectory(request.directory) ?? null;
+    const confinement =
+      found !== null && request.starter_project ? { ...found, asksNothing: true } : found;
+    const options = askingInside({ ...parsed.value, cwd: request.directory }, confinement);
+    return recordedLevel(confinement, options.approvalPolicy);
+  }
+
   #slotFor(directory: string): Slot {
     const confinement = this.#confinement?.forDirectory(directory) ?? null;
     if (confinement === null) return this.#open;

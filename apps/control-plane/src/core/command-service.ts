@@ -82,6 +82,7 @@ import {
   CHOICE_ROWS_SHOWN,
   choiceRows,
   choicesDigest,
+  defaultRow,
   type HeldRow,
   type ModelRun,
 } from './choices.ts';
@@ -115,6 +116,12 @@ const ROWS_ADMITTED: ReadonlySet<ChoiceList> = new Set([
  * models needs one chosen, which is the models list's to offer, never the agent row's to refuse.
  */
 const ANOTHER_NEED: ReadonlySet<RejectionCode> = new Set(['model_required']);
+/** The commands a start's press runs, in order (the recap is the review, 2026-11-13). */
+const START_CHAIN: ReadonlySet<string> = new Set([
+  'project.create',
+  'workstream.create',
+  'execution.start',
+]);
 
 import type { HostProviders, KeyChecks } from '../providers.ts';
 import { type Preparation, type Prepared, prepareCommand, REQUIRED } from './prepare.ts';
@@ -692,9 +699,31 @@ export class CommandService {
    * digest a choice by index carries back. Null when the scope does not hold together, or the list is
    * not one it has, or one this host cannot read yet.
    */
-  async choices(scope: HereScope, list: ChoiceList): Promise<ChoicesResponse | null> {
+  /**
+   * The models of one agent app alone (the recap is the review, 2026-11-13): the app at `runtime` of the `runtimes`
+   * list as read with digest `runtimes`, with their own digest and default; `choices_changed` where that list changed.
+   */
+  async appModels(
+    scope: HereScope,
+    app: { readonly runtime: number; readonly runtimes: string },
+  ): Promise<ChoicesResponse | 'choices_changed' | null> {
     if (!this.#scopeHolds(scope)) return null;
-    const rows = await this.#choiceRows(scope, list);
+    const apps = await this.#choiceRows(scope, 'runtimes');
+    if (apps === null || choicesDigest('runtimes', apps) !== app.runtimes) return 'choices_changed';
+    const chosen = apps[app.runtime]?.value;
+    if (typeof chosen !== 'string') return 'choices_changed';
+    return this.choices(scope, 'models', chosen);
+  }
+
+  async choices(
+    scope: HereScope,
+    list: ChoiceList,
+    /** For `models` only: that runtime's models alone. */
+    runtimeId: string | null = null,
+  ): Promise<ChoicesResponse | null> {
+    if (!this.#scopeHolds(scope)) return null;
+    if (runtimeId !== null && list !== 'models') return null;
+    const rows = await this.#choiceRows(scope, list, runtimeId);
     if (rows === null) return null;
     return {
       scope,
@@ -703,7 +732,44 @@ export class CommandService {
       digest: choicesDigest(list, rows),
       rows: rows.slice(0, CHOICE_ROWS_SHOWN).map((held) => held.row),
       total: rows.length,
+      default: defaultRow(
+        list,
+        scope,
+        rows,
+        { projection: this.#deps.projection, runtimes: () => this.#deps.registry.descriptors() },
+        runtimeId,
+      ),
     };
+  }
+
+  /** What row `index` of `list` stands for, where the list still reads as `digest`; undefined otherwise. */
+  async rowValue(
+    scope: HereScope,
+    list: ChoiceList,
+    index: number,
+    digest: string | undefined,
+  ): Promise<unknown> {
+    const rows = await this.#choiceRows(scope, list);
+    if (rows === null || choicesDigest(list, rows) !== digest) return undefined;
+    return rows[index]?.value;
+  }
+
+  /** The row the host takes for `list` where none is named, as `choices` gives it, with the rows it indexes. */
+  async defaultOf(
+    scope: HereScope,
+    list: ChoiceList,
+    runtimeId: string | null = null,
+  ): Promise<{ index: number; digest: string } | null> {
+    const rows = await this.#choiceRows(scope, list, runtimeId);
+    if (rows === null) return null;
+    const index = defaultRow(
+      list,
+      scope,
+      rows,
+      { projection: this.#deps.projection, runtimes: () => this.#deps.registry.descriptors() },
+      runtimeId,
+    );
+    return index === null ? null : { index, digest: choicesDigest(list, rows) };
   }
 
   /**
@@ -719,18 +785,47 @@ export class CommandService {
     );
     if (!offered)
       return { ok: false, code: 'invalid_state', message: 'That cannot be done here now.' };
-    return prepareCommand(given, {
-      publishedCommit: (projectId) =>
-        this.#deps.projection.project(projectId)?.published?.commit ?? null,
-      rows: async (list) => {
-        const rows = await this.#choiceRows(given.scope, list);
-        return rows === null ? null : { rows, digest: choicesDigest(list, rows) };
-      },
-    });
+    return prepareCommand(given, this.#prepareSources(given, given.scope));
   }
 
-  async #choiceRows(scope: HereScope, list: ChoiceList): Promise<HeldRow[] | null> {
-    const rows = await this.#allChoiceRows(scope, list);
+  /**
+   * One command of a start's chain (the recap is the review, 2026-11-13): a new project, its task, and the task's
+   * run, prepared before anything is made, each by the one preparation as it will stand once the command before it
+   * is made. So it is bound to the scope it will stand in, where an id not yet made is the host's placeholder, and
+   * not offered by that scope's list now; each list a value chose from is read where the person read it (`readFrom`).
+   */
+  async prepareInStart(given: Preparation, readFrom: HereScope): Promise<Prepared> {
+    if (!this.#scopeHolds(readFrom))
+      return { ok: false, code: 'invalid_state', message: 'That place no longer holds together.' };
+    if (!START_CHAIN.has(given.command_type))
+      return { ok: false, code: 'invalid_state', message: 'That is not part of a start.' };
+    return prepareCommand(given, this.#prepareSources(given, readFrom));
+  }
+
+  #prepareSources(given: Preparation, readFrom: HereScope) {
+    return {
+      publishedCommit: (projectId: string) =>
+        this.#deps.projection.project(projectId)?.published?.commit ?? null,
+      rows: async (list: ChoiceList, payload: Readonly<Record<string, unknown>>) => {
+        const rows = await this.#choiceRows(readFrom, list);
+        if (rows === null) return null;
+        const whole = { rows, digest: choicesDigest(list, rows) };
+        // A model chosen from its runtime's own list: that list, where its digest is the one read.
+        if (list !== 'models' || typeof payload.runtime_id !== 'string') return whole;
+        const own = await this.#choiceRows(readFrom, list, payload.runtime_id);
+        if (own === null) return whole;
+        const digest = choicesDigest(list, own);
+        return digest === given.read.models ? { rows: own, digest } : whole;
+      },
+    };
+  }
+
+  async #choiceRows(
+    scope: HereScope,
+    list: ChoiceList,
+    runtimeId: string | null = null,
+  ): Promise<HeldRow[] | null> {
+    const rows = await this.#allChoiceRows(scope, list, runtimeId);
     if (rows === null || !ROWS_ADMITTED.has(list)) return rows;
     // A row offers only the commands the whole admission takes it for (LOOP's run, 06:36Z): a version
     // holding a task's work never added is no version a task can start from, yet it can be restored;
@@ -796,45 +891,59 @@ export class CommandService {
     return null;
   }
 
-  #allChoiceRows(scope: HereScope, list: ChoiceList): Promise<HeldRow[] | null> {
-    return choiceRows(list, scope, {
-      projection: this.#deps.projection,
-      runtimes: () => this.#deps.registry.descriptors(),
-      pictures: async (folder) =>
-        (await listPictures(folder, this.#deps.protectedFolders ?? [])).pictures,
-      models: async (runtime) => {
-        const adapter = this.#deps.registry.adapter(runtime.runtime_id);
-        if (adapter === undefined) return [];
-        const read = await readRuntimeModels(adapter, MODEL_LIST_TIMEOUT_MS, this.#deps.redaction);
-        return read.availability === 'available' ? read.models : [];
+  #allChoiceRows(
+    scope: HereScope,
+    list: ChoiceList,
+    onlyRuntime: string | null = null,
+  ): Promise<HeldRow[] | null> {
+    return choiceRows(
+      list,
+      scope,
+      {
+        projection: this.#deps.projection,
+        runtimes: () => this.#deps.registry.descriptors(),
+        pictures: async (folder) =>
+          (await listPictures(folder, this.#deps.protectedFolders ?? [])).pictures,
+        models: async (runtime) => {
+          const adapter = this.#deps.registry.adapter(runtime.runtime_id);
+          if (adapter === undefined) return [];
+          const read = await readRuntimeModels(
+            adapter,
+            MODEL_LIST_TIMEOUT_MS,
+            this.#deps.redaction,
+          );
+          return read.availability === 'available' ? read.models : [];
+        },
+        locations: () =>
+          this.#deps.locations.list(
+            // A folder whose project was taken off the list reads as one to add, the way it comes back (ADR 0063).
+            this.#deps.projection
+              .listedProjects()
+              .flatMap((project) =>
+                project.location === null
+                  ? []
+                  : [{ project_id: project.project_id, path: project.location.path }],
+              ),
+          ),
+        credential: (runtimeId) => this.#credential(runtimeId),
+        providerName: (id) => this.#deps.providers?.byId(id)?.name ?? null,
+        keyCheck: (id) => this.#deps.keyChecks?.state(id) ?? Promise.resolve('unknown'),
+        assistantModels: async () => (this.#assistantModels ? this.#assistantModels() : null),
+        starters: () => this.#deps.starters?.list() ?? [],
+        catalog: async () => {
+          const read = this.#deps.catalogLinks?.read;
+          if (read === undefined) return null;
+          return read.call(this.#deps.catalogLinks).catch(() => null);
+        },
+        scripts: async (projectId) => {
+          const found = await this.#deps.ownChecks
+            ?.found(projectId as ProjectId)
+            .catch(() => undefined);
+          return found === undefined ? null : found.scripts;
+        },
       },
-      locations: () =>
-        this.#deps.locations.list(
-          // A folder whose project was taken off the list reads as one to add, the way it comes back (ADR 0063).
-          this.#deps.projection
-            .listedProjects()
-            .flatMap((project) =>
-              project.location === null
-                ? []
-                : [{ project_id: project.project_id, path: project.location.path }],
-            ),
-        ),
-      credential: (runtimeId) => this.#credential(runtimeId),
-      providerName: (id) => this.#deps.providers?.byId(id)?.name ?? null,
-      keyCheck: (id) => this.#deps.keyChecks?.state(id) ?? Promise.resolve('unknown'),
-      assistantModels: async () => (this.#assistantModels ? this.#assistantModels() : null),
-      catalog: async () => {
-        const read = this.#deps.catalogLinks?.read;
-        if (read === undefined) return null;
-        return read.call(this.#deps.catalogLinks).catch(() => null);
-      },
-      scripts: async (projectId) => {
-        const found = await this.#deps.ownChecks
-          ?.found(projectId as ProjectId)
-          .catch(() => undefined);
-        return found === undefined ? null : found.scripts;
-      },
-    });
+      onlyRuntime,
+    );
   }
 
   /** Whether a scope's ids hold together: a task in its project, and its current execution. */

@@ -37,6 +37,7 @@ import { causedBy, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { fitted } from '../core/redaction.ts';
 import { reviewDigest } from '../core/review.ts';
 import { buildReview, saidIn } from '../core/reviews.ts';
+import { prepareStart, runStart, startReview } from '../core/start.ts';
 import { ToolResults } from '../core/tool-results.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
@@ -410,6 +411,8 @@ const SYSTEM = `You direct the person's open-ended software-work request within 
 export class WorkspaceRequests implements WorkspaceRequestHandler {
   readonly #o: Options;
   readonly #active = new Map<string, AbortController>();
+  /** A start's step whose press is under way: a second press on it is refused, never a second project (M2). */
+  readonly #pressing = new Set<string>();
   readonly #queued = new Set<string>();
   readonly #dirty = new Set<string>();
   readonly #starts = new Map<string, { minute: number; count: number }>();
@@ -2292,6 +2295,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       this.#step(request, 'act', 'rejected', summary);
       this.#changed(request, 'failed', null);
     };
+    // A start where no task is bound: a new project, or a new task in this one, and its run, as one review.
+    if (act.command_type === 'execution.start' && request.workstream_id === null) {
+      await this.#actStart(request, act);
+      return;
+    }
     const here = await this.#refreshHere(request, false);
     const entry = here.entries.find((candidate) => candidate.command_type === act.command_type);
     if (!entry) {
@@ -2386,6 +2394,16 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         'review_stale',
         'What would be done has changed since it was shown. Look again before confirming.',
       );
+    if (held.before !== undefined) {
+      this.#confirmStart(
+        request,
+        step,
+        { command: held.command, before: held.before },
+        confirm,
+        principal,
+      );
+      return;
+    }
     const proposal = step.proposal;
     const entry = { confirm: proposal.confirm } as const;
     void this.#shown(entry.confirm, held.command, proposal.what_happens).then((shown) => {
@@ -2453,6 +2471,134 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       }
       this.#resumeModel(current);
     });
+  }
+  /**
+   * A start from the person's press (the recap is the review, 2026-11-13): prepared whole by CORE's one start
+   * preparation, values not given taken from each list's default, and shown as one review; nothing is made until the
+   * press. A list with no default and no row chosen refuses it, naming the list.
+   */
+  async #actStart(
+    request: WorkspaceRequestView,
+    act: NonNullable<CommandOf<'workspace.request.submit'>['payload']['act']>,
+  ): Promise<void> {
+    const prepared = await prepareStart(this.#o.controlPlane, {
+      scope: this.#actionScope(request),
+      values: act.values as Record<string, string | boolean | number | number[]>,
+      lists: act.lists,
+      id: () => this.#o.ids.next() as CommandId,
+      now: this.#now(),
+      client: { name: 'workspace-agent', version: null, device_label: null },
+    });
+    if (!prepared.ok) {
+      this.#step(request, 'act', 'rejected', `Nothing was made: ${prepared.message}`, null, null, {
+        ...(prepared.needs === undefined ? {} : { needs_choice: prepared.needs }),
+      });
+      this.#changed(request, 'failed', null);
+      return;
+    }
+    const { review } = prepared;
+    this.#step(
+      request,
+      'act',
+      'waiting',
+      'Prepared; nothing is made until the person confirms the review with one press.',
+      null,
+      null,
+      {
+        proposal: {
+          command_type: 'execution.start',
+          confirm: 'review',
+          what_happens: review.what_happens,
+          review: review.digest,
+          said: review.said,
+          confirm_words: review.confirm_words,
+          facts: review.facts,
+          warnings: review.warnings,
+        },
+        proposed: prepared.command,
+        before: prepared.before,
+      },
+    );
+    this.#changed(request, 'waiting_for_human', null);
+  }
+  /**
+   * The press on a start's review: the review is made again from the commands held and must give the digest shown
+   * (review_stale otherwise, nothing made); then the commands run in order under the person's principal, the step
+   * saying what each made (`made`), and a stop part way says what was made and what was not. Only one press runs.
+   */
+  #confirmStart(
+    request: WorkspaceRequestView,
+    step: WorkspaceRequestStep,
+    held: { readonly command: CommandEnvelope; readonly before: readonly CommandEnvelope[] },
+    confirm: { readonly step_id: string; readonly review: string },
+    principal: Principal,
+  ): void {
+    if (this.#pressing.has(step.step_id))
+      throw new RuntimeActionError('invalid_state', 'This start is already under way.');
+    this.#pressing.add(step.step_id);
+    const plane = this.#o.controlPlane;
+    void startReview(plane, held.before, held.command)
+      .then((review) => {
+        const current = plane.projection.workspaceRequest(request.request_id);
+        const now = current?.steps.find((candidate) => candidate.step_id === step.step_id);
+        if (!current || now?.status !== 'waiting') return;
+        if (!review.ok || review.review.digest !== confirm.review) {
+          this.#recordStep(
+            current,
+            {
+              ...now,
+              status: 'rejected',
+              summary:
+                'What would be done changed after it was shown, so nothing was made. Look again.',
+            },
+            null,
+            null,
+            held.command,
+          );
+          this.#changed(current, 'failed', current.reply);
+          return;
+        }
+        // From here to the end nothing awaits: the commands run in this turn, so a cancel cannot fall between them.
+        let shown: WorkspaceRequestStep = {
+          ...now,
+          status: 'running',
+          summary: 'Confirmed by the person; the start is under way.',
+          made: { project_id: null, workstream_id: null, execution_id: null },
+        };
+        this.#recordStep(current, shown, null, null, held.command);
+        const ran = runStart(plane, held.before, held.command, principal, (made) => {
+          shown = { ...shown, made };
+          this.#recordStep(current, shown, null, null, held.command);
+        });
+        const status = plane.projection.command(held.command.command_id)?.status ?? null;
+        const stopped = ran.stopped;
+        const said =
+          stopped === null
+            ? "Confirmed by the person and done under their own principal; the run's outcome is its own."
+            : stopped.command_type === 'project.create'
+              ? `Nothing was made: ${stopped.message}`
+              : stopped.command_type === 'workstream.create'
+                ? `The project was made, but its task was not: ${stopped.message}`
+                : ran.made.project_id !== null && held.before.length === 2
+                  ? `The project and its task were made, but the agent did not start: ${stopped.message}`
+                  : `The task was made, but the agent did not start: ${stopped.message}`;
+        this.#recordStep(
+          current,
+          {
+            ...shown,
+            made: ran.made,
+            status:
+              stopped !== null ? 'rejected' : status === 'completed' ? 'confirmed' : 'running',
+            command_status: status,
+            summary: fitted(said, 2000),
+          },
+          null,
+          null,
+          held.command,
+        );
+        this.#changed(current, stopped !== null ? 'failed' : 'responded', current.reply);
+      })
+      .finally(() => this.#pressing.delete(step.step_id));
   }
   /**
    * The host's own proposal of this computer's model (`assistant.model.choose` with its first row), for a request whose
@@ -2840,6 +2986,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       proposal?: WorkspaceRequestProposal;
       proposed?: CommandEnvelope;
       place?: number;
+      /** A start's commands before its run, held with it. */
+      before?: readonly CommandEnvelope[];
+      needs_choice?: ChoiceList;
     } = {},
   ): WorkspaceRequestStep {
     const facts = bound(request)
@@ -2860,8 +3009,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       summary,
       ...(extra.proposal ? { proposal: extra.proposal } : {}),
       ...(extra.place !== undefined ? { place: extra.place } : {}),
+      ...(extra.needs_choice !== undefined ? { needs_choice: extra.needs_choice } : {}),
     };
-    this.#recordStep(request, step, command, externalCommand, extra.proposed);
+    this.#recordStep(request, step, command, externalCommand, extra.proposed, extra.before);
     return step;
   }
   #recordStep(
@@ -2870,6 +3020,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     command: CommandOf<'execution.send_instruction'> | null,
     externalCommand: CommandId | null = null,
     proposed?: CommandEnvelope,
+    before?: readonly CommandEnvelope[],
   ): void {
     this.#o.controlPlane.recorder.record(
       controlPlaneDraft(
@@ -2880,6 +3031,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
           step,
           prepared_command: command,
           ...(proposed ? { proposed_command: proposed } : {}),
+          ...(before ? { proposed_before: [...before] } : {}),
         },
         this.#now(),
         command

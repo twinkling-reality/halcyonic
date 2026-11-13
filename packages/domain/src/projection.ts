@@ -271,9 +271,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * to run (`assistantModel`, ADR 0030, 2026-11-12). 21: what each execution's reported turns used (`usage`).
  * 22: the spending limit each execution runs under (`spendingCapUsd`). 23: when a project was taken off the list
  * (`removedAt`, ADR 0063). 24: how many of each
- * execution's requests the host answered itself and how many asked (`approvals`).
+ * execution's requests the host answered itself and how many asked (`approvals`). 25: the commands a start's press
+ * runs before its run (`before`, the recap is the review).
  */
-export const PROJECTION_STATE_FORMAT = 24;
+export const PROJECTION_STATE_FORMAT = 25;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -454,7 +455,15 @@ export class Projection {
        * Each step's prepared command: an instruction (`continue_task`), or, on a step that holds a `proposal`, the
        * command a proposal or a press prepared (ADR 0060). One map, so the saved state keeps its shape.
        */
-      prepared: Map<string, { command: CommandEnvelope; step: WorkspaceRequestStep }>;
+      prepared: Map<
+        string,
+        {
+          command: CommandEnvelope;
+          step: WorkspaceRequestStep;
+          /** On a start's step: the commands its press runs before `command`, in order. */
+          before?: CommandEnvelope[];
+        }
+      >;
       bindings: Map<
         string,
         {
@@ -879,11 +888,16 @@ export class Projection {
       ? structuredClone(prepared.command)
       : undefined;
   }
-  /** The command a proposal or a press prepared on one step, with that step as it was recorded (ADR 0060). */
+  /**
+   * The command a proposal or a press prepared on one step, with that step as it was recorded (ADR 0060), and on a
+   * start's step the commands its press runs first.
+   */
   workspaceProposal(
     id: string,
     step: string,
-  ): { command: CommandEnvelope; step: WorkspaceRequestStep } | undefined {
+  ):
+    | { command: CommandEnvelope; step: WorkspaceRequestStep; before?: CommandEnvelope[] }
+    | undefined {
     const prepared = this.#requests.get(id)?.prepared.get(step);
     return prepared?.step.proposal ? structuredClone(prepared) : undefined;
   }
@@ -1446,7 +1460,8 @@ export class Projection {
         } else {
           const step = event.payload.step,
             instruction = event.payload.prepared_command,
-            proposed = event.payload.proposed_command;
+            proposed = event.payload.proposed_command,
+            before = event.payload.proposed_before;
           if (
             instruction &&
             (request.view.execution_id === null ||
@@ -1467,6 +1482,20 @@ export class Projection {
             notes.push(note('unknown_entity', event, 'proposed request command does not match'));
             return;
           }
+          // A start's earlier commands stand only beside its own start command, never alone or beside an instruction.
+          if (
+            before &&
+            (proposed?.command_type !== 'execution.start' ||
+              before.some(
+                (earlier) =>
+                  earlier.command_id === proposed.command_id ||
+                  (earlier.command_type !== 'project.create' &&
+                    earlier.command_type !== 'workstream.create'),
+              ))
+          ) {
+            notes.push(note('unknown_entity', event, 'a start step carries other commands'));
+            return;
+          }
           const command: CommandEnvelope | null = instruction ?? proposed ?? null;
           const binding = request.bindings.get(step.step_id),
             retained = request.prepared.get(step.step_id);
@@ -1481,6 +1510,7 @@ export class Projection {
               (retained?.step.observation_after ?? step.observation_position) ||
             step.observation_after > this.#position ||
             (command && retained && JSON.stringify(retained.command) !== JSON.stringify(command)) ||
+            (before && retained && JSON.stringify(retained.before) !== JSON.stringify(before)) ||
             (step.command_id !== null && !command && !retained) ||
             (command &&
               [...request.prepared.entries()].some(
@@ -1506,10 +1536,12 @@ export class Projection {
           if (at < 0) request.view.steps.push(structuredClone(step));
           else request.view.steps[at] = structuredClone(step);
           const prepared = retained?.command ?? command;
+          const earlier = retained?.before ?? before;
           if (prepared)
             request.prepared.set(step.step_id, {
               command: structuredClone(prepared),
               step: structuredClone(step),
+              ...(earlier ? { before: structuredClone(earlier) } : {}),
             });
         }
         request.view.updated_at = event.ingested_at;

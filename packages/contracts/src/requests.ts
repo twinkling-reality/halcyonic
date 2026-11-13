@@ -1,5 +1,11 @@
 import Type, { type Static } from 'typebox';
-import { ActionReviewFact, ActionReviewSaid, ActionReviewWarning } from './actions.ts';
+import {
+  ActionReviewFact,
+  ActionReviewSaid,
+  ActionReviewWarning,
+  ChoiceList,
+  HereScope,
+} from './actions.ts';
 import { ReviewDigest } from './checkpoints.ts';
 import { CommandType, WorkspaceRequestPlaces } from './commands.ts';
 import {
@@ -104,6 +110,14 @@ export const WorkspaceRequestStep = Type.Object(
     proposal: Type.Optional(WorkspaceRequestProposal),
     /** Only on a `go_to` step: the index of the client's place the assistant picked; the client goes there. */
     place: Type.Optional(Type.Integer({ minimum: 0, maximum: 15 })),
+    /**
+     * Only on a start's step (a new project, or a new task in one, and its run): what the press has made so far,
+     * each null until made, so a start that stops part way names the project it made. `command_id` stays the run's
+     * own start command throughout.
+     */
+    made: Type.Optional(HereScope),
+    /** Only on a start's step refused because a list has no default row and none was chosen: that list. */
+    needs_choice: Type.Optional(ChoiceList),
   },
   strict,
 );

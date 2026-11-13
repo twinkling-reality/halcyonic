@@ -12,6 +12,7 @@ import type {
   ProjectPicture,
   RuntimeDescriptor,
   RuntimeModel,
+  StarterView,
 } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
 
@@ -72,6 +73,8 @@ export interface ChoiceSources {
   readonly catalog: () => Promise<CatalogResponse | null>;
   /** Where the assistant may run, read now; null where this host has no assistant. */
   readonly assistantModels: () => Promise<readonly AssistantModelOption[] | null>;
+  /** The starters on this computer, read now, each saying whether it is set up; none where the host has none. */
+  readonly starters: () => readonly StarterView[];
 }
 
 /** One line of the host's words or someone else's, clipped to fit, never with an ellipsis. */
@@ -118,6 +121,8 @@ export async function choiceRows(
   list: ChoiceList,
   scope: HereScope,
   sources: ChoiceSources,
+  /** For `models` only: that runtime's models alone. */
+  runtimeId: string | null = null,
 ): Promise<HeldRow[] | null> {
   const { projection } = sources;
   const project = scope.project_id === null ? undefined : projection.project(scope.project_id);
@@ -235,6 +240,7 @@ export async function choiceRows(
       const rows: HeldRow[] = [];
       for (const runtime of sources.runtimes()) {
         if (runtime.model_choice !== 'listed' || !runtime.capabilities.start_execution) continue;
+        if (runtimeId !== null && runtime.runtime_id !== runtimeId) continue;
         // A hosted model whose provider refused the key is shown, never offered as ready; a refusal from
         // before this host read its key leaves it offered, saying so, since nobody knows yet. A key never
         // serves a model on this Mac. A refusal counts for the models of the same declared provider, or,
@@ -391,6 +397,14 @@ export async function choiceRows(
         }),
       );
     }
+    case 'starters':
+      // Only a starter set up on this computer: one whose dependencies are not installed cannot begin a project.
+      return sources
+        .starters()
+        .filter((starter) => starter.installed)
+        .map((starter, index) =>
+          row(index, 'starter', starter.title, starter.starter_id, { actions: ['project.create'] }),
+        );
     default: {
       const unhandled: never = list;
       throw new Error(`unhandled list ${String(unhandled)}`);
@@ -409,4 +423,81 @@ export function choicesDigest(list: ChoiceList, rows: readonly HeldRow[]): strin
       `\0${held.row.kind}\0${held.row.label}\0${held.row.detail ?? ''}\0${JSON.stringify(held.value)}`,
     );
   return hash.digest('hex');
+}
+
+/**
+ * The row the host takes where the person names none (the recap is the review, 2026-11-13), by its index, from the
+ * host's own facts only, or null where none qualifies. Agent apps: of the rows offering a start, only the real ones
+ * (told apart by the descriptor's declared `synthetic`, never by a name); exactly one is taken; with more, the app of
+ * the newest real run in this project, then anywhere. Models (only one app's own list): exactly one
+ * offered is taken; with more, the model of the newest real run of that app in this project, then anywhere. Folders:
+ * the first new folder offered. A practice or simulated run never seeds a default; every other list has none.
+ */
+export function defaultRow(
+  list: ChoiceList,
+  scope: HereScope,
+  rows: readonly HeldRow[],
+  sources: {
+    readonly projection: Projection;
+    readonly runtimes: () => readonly RuntimeDescriptor[];
+  },
+  runtimeId: string | null,
+): number | null {
+  const offered = (type: CommandType) => rows.filter((held) => held.row.actions.includes(type));
+  // Real runs only, newest first: this project's before the rest.
+  const runs = () => {
+    const real = sources.projection
+      .executions()
+      .filter((run) => !run.runtime.synthetic)
+      .reverse();
+    return scope.project_id === null
+      ? real
+      : [
+          ...real.filter((run) => run.project_id === scope.project_id),
+          ...real.filter((run) => run.project_id !== scope.project_id),
+        ];
+  };
+  const pick = (pool: readonly HeldRow[], used: readonly unknown[]): number | null => {
+    if (pool.length === 1) return pool[0]?.row.index ?? null;
+    for (const value of used) {
+      const found = pool.find((held) => held.value === value);
+      if (found !== undefined) return found.row.index;
+    }
+    return null;
+  };
+  switch (list) {
+    case 'runtimes': {
+      const ready = offered('execution.start');
+      const synthetic = new Set(
+        sources
+          .runtimes()
+          .filter((runtime) => runtime.synthetic)
+          .map((runtime) => runtime.runtime_id as string),
+      );
+      // The practice run is a row the person may press, never a default, even as the only one (the lead, 13:33Z).
+      return pick(
+        ready.filter((held) => !synthetic.has(held.value as string)),
+        runs().map((run) => run.runtime.runtime_id),
+      );
+    }
+    case 'models':
+      if (runtimeId === null) return null;
+      return pick(
+        offered('execution.start'),
+        runs()
+          .filter((run) => run.runtime.runtime_id === runtimeId && run.model_ref !== null)
+          .map((run) => run.model_ref),
+      );
+    case 'folders': {
+      const first = rows.find(
+        (held) =>
+          typeof held.value === 'object' &&
+          held.value !== null &&
+          (held.value as { kind?: unknown }).kind === 'new_folder',
+      );
+      return first === undefined ? null : first.row.index;
+    }
+    default:
+      return null;
+  }
 }
