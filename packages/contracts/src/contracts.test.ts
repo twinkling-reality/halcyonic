@@ -743,6 +743,7 @@ describe('the C# bindings', () => {
     'ProjectView.rules', // a project's own rules while on (E5)
     'ProjectView.secrets', // a project's secrets by name (ADR 0057)
     'ProjectView.share', // a project's shared link (ADR 0054)
+    'ProjectView.usage', // what its runs used, absent until one reports
     'ProjectView.world', // a world project's world (ADR 0049)
     'ProjectViewCheck.workstream_id', // ADR 0045
     'RuntimeDescriptor.approval_may_leave_sandbox', // a declaration

@@ -2290,6 +2290,56 @@ namespace Halcyonic.Contracts
         public string PublishedAt { get; set; } = default!;
     }
 
+    public sealed class UsageTokens
+    {
+        [global::Newtonsoft.Json.JsonProperty("input", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Input { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("cache_read", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? CacheRead { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("cache_write", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? CacheWrite { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("output", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Output { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("reasoning", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Reasoning { get; set; }
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UsagePrices
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "list")] List,
+        [global::System.Runtime.Serialization.EnumMember(Value = "managed")] Managed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "catalog")] Catalog,
+    }
+
+    public sealed class UsageEstimate
+    {
+        [global::Newtonsoft.Json.JsonProperty("estimated_usd", Required = global::Newtonsoft.Json.Required.Always)]
+        public double EstimatedUsd { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("prices", Required = global::Newtonsoft.Json.Required.Always)]
+        public UsagePrices Prices { get; set; }
+    }
+
+    public sealed class ProjectUsage
+    {
+        [global::Newtonsoft.Json.JsonProperty("turns", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Turns { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("turns_ended", Required = global::Newtonsoft.Json.Required.Always)]
+        public long TurnsEnded { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("tokens", Required = global::Newtonsoft.Json.Required.Always)]
+        public UsageTokens Tokens { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("cost", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public UsageEstimate? Cost { get; set; }
+    }
+
     public sealed class WorldLight
     {
         [global::Newtonsoft.Json.JsonProperty("light", Required = global::Newtonsoft.Json.Required.Always)]
@@ -2422,6 +2472,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("published", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectPublishedView? Published { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("usage", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public ProjectUsage? Usage { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("secrets", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<string>? Secrets { get; set; }
@@ -2931,41 +2984,6 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("completed_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string CompletedAt { get; set; } = default!;
-    }
-
-    public sealed class UsageTokens
-    {
-        [global::Newtonsoft.Json.JsonProperty("input", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public long? Input { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("cache_read", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public long? CacheRead { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("cache_write", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public long? CacheWrite { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("output", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public long? Output { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("reasoning", Required = global::Newtonsoft.Json.Required.AllowNull)]
-        public long? Reasoning { get; set; }
-    }
-
-    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
-    public enum UsagePrices
-    {
-        [global::System.Runtime.Serialization.EnumMember(Value = "list")] List,
-        [global::System.Runtime.Serialization.EnumMember(Value = "managed")] Managed,
-        [global::System.Runtime.Serialization.EnumMember(Value = "catalog")] Catalog,
-    }
-
-    public sealed class UsageEstimate
-    {
-        [global::Newtonsoft.Json.JsonProperty("estimated_usd", Required = global::Newtonsoft.Json.Required.Always)]
-        public double EstimatedUsd { get; set; }
-
-        [global::Newtonsoft.Json.JsonProperty("prices", Required = global::Newtonsoft.Json.Required.Always)]
-        public UsagePrices Prices { get; set; }
     }
 
     public sealed class ExecutionUsage

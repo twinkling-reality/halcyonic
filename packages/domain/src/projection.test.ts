@@ -337,6 +337,58 @@ describe('execution status is derived from observed facts', () => {
     assert.equal(view()?.usage?.cost, null, 'a turn whose use is not all known still voids it');
   });
 
+  test("a project's usage adds up its runs' reports and counts every ended turn of them", () => {
+    const { b, apply, execution, scope, projection } = setup();
+    const other = b.execution(scope.projectId, scope.workstreamId);
+    const otherScope = { ...scope, executionId: other.executionId };
+    apply(execution.event, other.event);
+    const usage = () => projection.project(scope.projectId)?.usage;
+    const report = (at: typeof scope, turn: string, input: number, usd: number | null) =>
+      b.runtimeEvent(at, 'runtime.usage.reported', {
+        turn_id: turn,
+        tokens: { input, cache_read: 0, cache_write: 0, output: 2, reasoning: null },
+        cost: usd === null ? null : { estimated_usd: usd, prices: 'list' },
+        counted: 'differenced',
+      });
+    const changed = (event: StoredEvent) =>
+      projection.apply(event).changes.projects.map((view) => view.project_id);
+    apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    assert.equal(usage(), undefined, 'nothing reported, so absent, never zero');
+    assert.deepEqual(changed(report(scope, 't1', 10, 0.25)), [scope.projectId]);
+    assert.deepEqual(changed(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' })), [
+      scope.projectId,
+    ]);
+    // The other run's turn ends with no report, and a third turn runs on the first.
+    apply(
+      b.runtimeEvent(otherScope, 'runtime.turn.started', { turn_id: 'o1' }),
+      b.runtimeEvent(otherScope, 'runtime.turn.completed', { turn_id: 'o1' }),
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't2' }),
+    );
+    assert.deepEqual(usage(), {
+      turns: 1,
+      turns_ended: 2,
+      tokens: { input: 10, cache_read: 0, cache_write: 0, output: 2, reasoning: null },
+      cost: { estimated_usd: 0.25, prices: 'list' },
+    });
+    apply(
+      report(scope, 't2', 5, 0.5),
+      b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't2' }),
+      b.runtimeEvent(otherScope, 'runtime.turn.started', { turn_id: 'o2' }),
+      report(otherScope, 'o2', 7, null),
+      b.runtimeEvent(otherScope, 'runtime.turn.completed', { turn_id: 'o2' }),
+    );
+    assert.deepEqual(usage(), {
+      turns: 3,
+      turns_ended: 4,
+      tokens: { input: 22, cache_read: 0, cache_write: 0, output: 6, reasoning: null },
+      cost: null,
+    });
+    assert.deepEqual(projection.execution(execution.executionId)?.usage?.cost, {
+      estimated_usd: 0.75,
+      prices: 'list',
+    });
+  });
+
   test("a summed estimate past the contract's bound is unknown, so the view keeps to its schema", () => {
     const { b, apply, execution, scope, projection } = setup();
     apply(execution.event);

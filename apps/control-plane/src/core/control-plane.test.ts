@@ -225,6 +225,15 @@ describe('command lifecycle', () => {
         ?.reports_usage,
       true,
     );
+    const project = controlPlane
+      .snapshot()
+      .projects.find((each) => each.project_id === execution?.project_id);
+    assert.deepEqual(project?.usage, {
+      turns: 1,
+      turns_ended: 1,
+      tokens,
+      cost: { estimated_usd: 0.02, prices: 'catalog' },
+    });
     await controlPlane.close();
   });
 

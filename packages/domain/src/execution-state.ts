@@ -9,6 +9,7 @@ import type {
   ExecutionUsage,
   ExecutionView,
   ProjectId,
+  ProjectUsage,
   QuestionView,
   QueuedInstructionView,
   RuntimeRef,
@@ -138,39 +139,68 @@ function usedNothing(tokens: UsageTokens): boolean {
 }
 
 /**
- * Adds one turn's reported usage to what an execution's turns used before: each token part is
- * summed, and stays null once any turn left it null; the cost is summed while every turn gave one
- * by the same prices, and null from the first that did not. A stretch that used nothing at all, every
- * part a counted 0, costs nothing whatever its estimate says, so it never voids the cost. A sum
- * past `USAGE_USD_MAX` is unknown, so the view keeps to its contract. Unknown never becomes a number.
+ * Adds one turn's reported usage to what an execution's turns used before (`addUsage`).
  */
 export function addTurnUsage(
   before: ExecutionUsage | null,
   turn: { readonly tokens: UsageTokens; readonly cost: UsageEstimate | null },
 ): ExecutionUsage {
+  return addUsage(before, { turns: 1, tokens: turn.tokens, cost: turn.cost });
+}
+
+/**
+ * Adds what more turns used to what turns used before: each token part is summed, and stays null
+ * once any turn left it null; the cost is summed while every turn gave one by the same prices, and
+ * null from the first that did not. A stretch that used nothing at all, every part a counted 0,
+ * costs nothing whatever its estimate says, so it never voids the cost. A sum past `USAGE_USD_MAX`
+ * is unknown, so a view keeps to its contract. Unknown never becomes a number.
+ */
+export function addUsage(before: ExecutionUsage | null, more: ExecutionUsage): ExecutionUsage {
   if (before === null)
-    return { turns: 1, tokens: { ...turn.tokens }, cost: turn.cost && { ...turn.cost } };
+    return { turns: more.turns, tokens: { ...more.tokens }, cost: more.cost && { ...more.cost } };
   const tokens = { ...before.tokens };
   for (const part of TOKEN_PARTS) {
     const was = before.tokens[part];
-    const now = turn.tokens[part];
+    const now = more.tokens[part];
     tokens[part] = was === null || now === null ? null : was + now;
   }
   const cost =
-    turn.cost === null && usedNothing(turn.tokens)
+    more.cost === null && usedNothing(more.tokens)
       ? before.cost && { ...before.cost }
       : before.cost === null && usedNothing(before.tokens)
-        ? turn.cost && { ...turn.cost }
+        ? more.cost && { ...more.cost }
         : before.cost !== null &&
-            turn.cost !== null &&
-            before.cost.prices === turn.cost.prices &&
-            before.cost.estimated_usd + turn.cost.estimated_usd <= USAGE_USD_MAX
+            more.cost !== null &&
+            before.cost.prices === more.cost.prices &&
+            before.cost.estimated_usd + more.cost.estimated_usd <= USAGE_USD_MAX
           ? {
-              estimated_usd: before.cost.estimated_usd + turn.cost.estimated_usd,
+              estimated_usd: before.cost.estimated_usd + more.cost.estimated_usd,
               prices: before.cost.prices,
             }
           : null;
-  return { turns: before.turns + 1, tokens, cost };
+  return { turns: before.turns + more.turns, tokens, cost };
+}
+
+/**
+ * What a project's runs used: their reported usage added up (`addUsage`), and every ended turn of
+ * them counted, reported or not, so a client can say how much of the use is in it. Null where none of
+ * its runs reported any.
+ */
+export function projectUsage(executions: Iterable<ExecutionState>): ProjectUsage | null {
+  let sum: ExecutionUsage | null = null;
+  let ended = 0;
+  for (const execution of executions) {
+    ended += execution.turnCount - (execution.activeTurn === null ? 0 : 1);
+    if (execution.usage != null) sum = addUsage(sum, execution.usage);
+  }
+  if (sum === null) return null;
+  // A report never comes before its turn's start, so this holds; the bound keeps the view whole if not.
+  return {
+    turns: sum.turns,
+    turns_ended: Math.max(ended, sum.turns),
+    tokens: sum.tokens,
+    cost: sum.cost,
+  };
 }
 
 /**

@@ -173,6 +173,22 @@ export const ProjectShareView = Type.Object(
 export type ProjectShareView = Static<typeof ProjectShareView>;
 
 /**
+ * What a project's runs used, summed over its executions by the same rules as `ExecutionUsage`:
+ * `turns` the turns reported, `turns_ended` every turn of its runs that has ended, reported or not.
+ * `turns` below `turns_ended` means some of the use is not counted here, and a client says so.
+ */
+export const ProjectUsage = Type.Object(
+  {
+    turns: Type.Integer({ minimum: 1 }),
+    turns_ended: Type.Integer({ minimum: 1 }),
+    tokens: UsageTokens,
+    cost: Nullable(UsageEstimate),
+  },
+  strict,
+);
+export type ProjectUsage = Static<typeof ProjectUsage>;
+
+/**
  * `check`, `preview` and `mac_play` hold the facts their events carried, so a client that connects
  * after them still has them; each is absent when there is none, which never reads as false.
  * `world` is there only for a world project whose description file the Mac has read (ADR 0049).
@@ -196,6 +212,11 @@ export const ProjectView = Type.Object(
     share: Type.Optional(ProjectShareView),
     /** The game as last published to the person's own GitHub Pages (ADR 0039, amended). */
     published: Type.Optional(ProjectPublishedView),
+    /**
+     * What its runs used, as their runtimes reported it; absent until one reports, which never
+     * reads as nothing used.
+     */
+    usage: Type.Optional(ProjectUsage),
     /**
      * The project's secrets by name, sorted (ADR 0057); absent when it has none. Never a value.
      */
