@@ -276,38 +276,6 @@ namespace Halcyonic.Client
                 rows.Add(new RoomRow(frame.SubjectRuns));
             }
 
-            // Units laid a page at a time, never split across a page break unless one is longer than a whole page.
-            // Where a weight is given, a page holds at most its budget of lines too.
-            List<List<T>> Pack<T>(IReadOnlyList<List<T>> units, int capacity, System.Func<T, int>? weight = null, int budget = int.MaxValue)
-            {
-                var packed = new List<List<T>>();
-                var page = new List<T>();
-                var used = 0;
-                foreach (var unit in units)
-                {
-                    var unitWeight = weight == null ? 0 : unit.Sum(weight);
-                    if (page.Count > 0 && (page.Count + unit.Count > capacity || used + unitWeight > budget))
-                    {
-                        packed.Add(page);
-                        page = new List<T>();
-                        used = 0;
-                    }
-                    foreach (var item in unit)
-                    {
-                        var itemWeight = weight?.Invoke(item) ?? 0;
-                        if (page.Count == capacity || page.Count > 0 && used + itemWeight > budget && unit.Count > 1)
-                        {
-                            packed.Add(page);
-                            page = new List<T>();
-                            used = 0;
-                        }
-                        page.Add(item);
-                        used += itemWeight;
-                    }
-                }
-                if (page.Count > 0 || packed.Count == 0) packed.Add(page);
-                return packed;
-            }
             // The column's turning actions in units: a group of the frame's lines together, every other action alone.
             var turnUnits = new List<List<RoomAction>>();
             foreach (var action in turning)
@@ -316,22 +284,9 @@ namespace Halcyonic.Client
                     turnUnits[^1].Add(action);
                 else turnUnits.Add(new List<RoomAction> { action });
             }
-            // Rows a page by the form it will be laid in (the plane measures it and asks again with fewer where a page passes the field).
-            // A card's rows page by the form too (five at most, fewer where the plane measured fewer rows a page), so the plane's
-            // measure shortens a card as it shortens rows (FIELD's F100: Usage's card narrow passed its footprint at one row a page).
-            var perCard = System.Math.Min(RoomCard.ListAPage, form.RowsAPage);
-            // And by the plane's LINE measure where it gives one (eight lines a page, the card's title, description and foot among them on
-            // every page), so a card of long answers pages as rows do (the lead's 22:04Z: under the eight lines a page).
-            int RowWeight(RoomListRow row) => form.ListLinesOf is System.Func<RoomListRow, int> listed ? System.Math.Max(1, listed(row))
-                : form.LinesOf is System.Func<RoomRow, bool, int> lines
-                ? System.Math.Max(1, lines(new RoomRow(row.Name, label: row.Label, note: row.Note), false)) + (row.Under is LineWords under ? System.Math.Max(1, lines(new RoomRow(under), false)) : 0)
-                : 0;
-            var cardHead = form.LinesOf is System.Func<RoomRow, bool, int> headLines
-                ? new[] { rows.Count > 0 ? rows[0].Words : frame.SubjectRuns, description, foot }.Where(words => words != null).Sum(words => System.Math.Max(1, headLines(new RoomRow(words!), false)))
-                : 0;
-            var cardPages = carded
-                ? Pack(cardUnits, perCard, form.LinesOf != null || form.ListLinesOf != null ? RowWeight : null,
-                    form.LinesOf != null || form.ListLinesOf != null ? System.Math.Max(1, form.LinesAPage - cardHead) : int.MaxValue)
+            // A card's rows page by the form it will be laid in, by count and by the plane's line measure (PackCard; FIELD's F100: Usage's
+            // card narrow passed its footprint at one row a page; the lead's 22:04Z: under the eight lines a page).
+            var cardPages = carded ? PackCard(cardUnits, form, rows.Count > 0 ? rows[0].Words : frame.SubjectRuns, description, foot)
                 : new List<List<RoomListRow>> { new List<RoomListRow>() };
             var pressPages = cardPages.Count;
             // A stating row's quieter line stands as a row of its own under it, never dropped (AUDIT's 21:14Z: the plain rows lost it).
@@ -542,6 +497,58 @@ namespace Halcyonic.Client
         }
 
         /// <summary>A line that states, as a row: its own label where it has one, a fact beside it as the words under the line's own.</summary>
+        // Units laid a page at a time, never split across a page break unless one is longer than a whole page.
+        // Where a weight is given, a page holds at most its budget of lines too.
+        private static List<List<T>> Pack<T>(IReadOnlyList<List<T>> units, int capacity, System.Func<T, int>? weight = null, int budget = int.MaxValue)
+        {
+            var packed = new List<List<T>>();
+            var page = new List<T>();
+            var used = 0;
+            foreach (var unit in units)
+            {
+                var unitWeight = weight == null ? 0 : unit.Sum(weight);
+                if (page.Count > 0 && (page.Count + unit.Count > capacity || used + unitWeight > budget))
+                {
+                    packed.Add(page);
+                    page = new List<T>();
+                    used = 0;
+                }
+                foreach (var item in unit)
+                {
+                    var itemWeight = weight?.Invoke(item) ?? 0;
+                    if (page.Count == capacity || page.Count > 0 && used + itemWeight > budget && unit.Count > 1)
+                    {
+                        packed.Add(page);
+                        page = new List<T>();
+                        used = 0;
+                    }
+                    page.Add(item);
+                    used += itemWeight;
+                }
+            }
+            if (page.Count > 0 || packed.Count == 0) packed.Add(page);
+            return packed;
+        }
+
+        /// <summary>A card's list row's lines on <paramref name="form"/>: the kit's own count where the plane gives it, else the panel row's; 0 with no measure.</summary>
+        private static int CardRowLines(RoomForm form, RoomListRow row) => form.ListLinesOf is System.Func<RoomListRow, int> listed ? System.Math.Max(1, listed(row))
+            : form.LinesOf is System.Func<RoomRow, bool, int> lines
+            ? System.Math.Max(1, lines(new RoomRow(row.Name, label: row.Label, note: row.Note), false)) + (row.Under is LineWords under ? System.Math.Max(1, lines(new RoomRow(under), false)) : 0)
+            : 0;
+
+        /// <summary>
+        /// A card's rows in pages (the general reader's and the question reader's alike): five at most, fewer where the plane measured
+        /// fewer rows a page, and by the plane's LINE measure where it gives one, eight lines a page with the card's title, description
+        /// and foot counted on every page (the lead's 2026-11-13T22:04Z); units (a group of rows used together) never split.
+        /// </summary>
+        private static List<List<RoomListRow>> PackCard(IReadOnlyList<List<RoomListRow>> units, RoomForm form, params LineWords?[] head)
+        {
+            var perCard = System.Math.Min(RoomCard.ListAPage, form.RowsAPage);
+            if (form.LinesOf == null && form.ListLinesOf == null) return Pack(units, perCard);
+            var headLines = form.LinesOf is System.Func<RoomRow, bool, int> lines ? head.Where(words => words != null).Sum(words => System.Math.Max(1, lines(new RoomRow(words!), false))) : 0;
+            return Pack(units, perCard, row => CardRowLines(form, row), System.Math.Max(1, form.LinesAPage - headLines));
+        }
+
         private static RoomRow Stating(PageLine line)
         {
             if (line.FactRuns is LineWords fact) return new RoomRow(fact, label: line.Words, fromLine: 0);

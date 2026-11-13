@@ -285,7 +285,7 @@ namespace Halcyonic.Client
             string? label = null, RoomKind kind = RoomKind.None, int? swatch = null) =>
             new RoomListRow(kind, words, note, press: press, chosen: chosen, under: description, label: label, mark: mark, swatch: swatch);
 
-        private static RoomBar Asking(KitFileBinding binding, KitAsk ask, VoiceStage voice)
+        private static RoomBar Asking(KitFileBinding binding, KitAsk ask, VoiceStage voice, RoomForm form)
         {
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
             if (ask.Writing is string written)
@@ -355,7 +355,28 @@ namespace Halcyonic.Client
             var card = listed.Count > 0 && !sending ? new RoomCard(body.IsEmpty ? null : body, list: listed) : null;
             var asking = new RoomBar(RoomBarState.Question, body: card != null ? LineWords.None : body, sentence: sentence, column: sending ? None : column, waits: sending,
                 band: ask.Prompt, wide: body.IsEmpty && card == null, lines: card != null ? null : lines);
-            if (card != null) asking.Card = card;
+            if (card == null) return asking;
+            asking.Card = card;
+            // The card pages ITSELF (XR's and AUDIT's 22:21Z: one pager, the kit's count; the file hands a described prompt's answers in
+            // one part): eight lines a page by the plane's measure of a list row, its title counted on every page; the general reader's
+            // own pager before the ways out, Write Answer and the way on on every page; every page holds descriptions to read, so the
+            // bar is whole, and the press that sends held, only once every page was shown. Choosing a row acts at once (it sends nothing).
+            var pages = PackCard(listed.Select(row => new List<RoomListRow> { row }).ToList(), form, card.Title);
+            if (pages.Count == 1) return asking;
+            var wayOut = column.FindIndex(action => action.Control.Place is KitPlace.Back or KitPlace.Cancel or KitPlace.Stop or KitPlace.Close);
+            var parts = new List<GeneralPage>();
+            for (var page = 0; page < pages.Count; page++)
+            {
+                var paged = new List<RoomAction>(column);
+                paged.Insert(wayOut < 0 ? paged.Count : wayOut, new RoomAction(new KitControl(KitPlace.Step, binding.Frame, TurnPage, null,
+                    Footer.NextPageWords(page, pages.Count), GlazeIcon.Next, true, null, false), main: false, icon: GlazeIcon.Next, detail: FileChangeText.PageOf(page, pages.Count)));
+                parts.Add(new GeneralPage(new List<RoomRow>(), paged, new RoomCard(card.Title, list: pages[page])));
+            }
+            asking.generalPages = parts;
+            asking.Column = parts[0].Column;
+            asking.Card = parts[0].Card;
+            asking.readPages = new HashSet<int>(Enumerable.Range(0, parts.Count));
+            asking.Whole = false;
             return asking;
         }
 
@@ -448,7 +469,7 @@ namespace Halcyonic.Client
         {
             // A frame the task's binding does not bind is read off the frame itself (RoomBar.Frames), for the form it will be laid in.
             if (binding.Plain) return OfFrame(binding.Frame, voice, form) ?? new RoomBar(RoomBarState.Hidden);
-            var tasks = Tasks(binding, voice, sentAwaitingStart);
+            var tasks = Tasks(binding, voice, sentAwaitingStart, form);
             // What waits on the person, and what was sent, always stands: no moment is asked over an approval, a question,
             // a confirmation or Sent (AUDIT, 2026-11-10).
             if (tasks.State is RoomBarState.Request or RoomBarState.Question or RoomBarState.Confirm or RoomBarState.Sent) return WithClose(binding, tasks);
@@ -502,9 +523,9 @@ namespace Halcyonic.Client
         /// The task's own loop: the row at rest, talking, a draft, a confirmation, an approval, a question, what was sent;
         /// and, while the agent works and none of those moments stands, at work (<see cref="Working"/>).
         /// </summary>
-        private static RoomBar Tasks(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
+        private static RoomBar Tasks(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart, RoomForm form)
         {
-            var loop = Loop(binding, voice, sentAwaitingStart);
+            var loop = Loop(binding, voice, sentAwaitingStart, form);
             var model = binding.Model;
             // A task at rest with no result read says how its run stands (B), on the same result moment.
             if (!model.Working && (model.Result ?? (model.Standing != null ? RoomResult.Nothing : null)) is RoomResult result) return Resulting(binding, result, loop);
@@ -519,7 +540,7 @@ namespace Halcyonic.Client
             return loop;
         }
 
-        private static RoomBar Loop(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
+        private static RoomBar Loop(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart, RoomForm form)
         {
             var model = binding.Model;
             if (model.Stops is string stops)
@@ -538,7 +559,7 @@ namespace Halcyonic.Client
             if (model.Need is KitNeed need) return Asked(binding, need);
             // A question's page as the redesign reads it (its prompt, caption and lines apart); one bound without them stays the file's.
             if (model.Ask is KitAsk ask) return ask.Lines.Count > 0 && (ask.Prompt != null || ask.Caption != null || ask.Body.Count > 0 || ask.Asks != null)
-                ? Asking(binding, ask, voice) : new RoomBar(RoomBarState.Hidden);
+                ? Asking(binding, ask, voice, form) : new RoomBar(RoomBarState.Hidden);
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
             var talk = binding[KitPlace.Talk];
             var field = binding[KitPlace.Field];

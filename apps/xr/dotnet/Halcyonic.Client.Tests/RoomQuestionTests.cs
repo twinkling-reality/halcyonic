@@ -458,4 +458,55 @@ public class RoomQuestionTests
         Draw(plainHost, plain);
         Assert.That(Bar(plain).Column.Count(action => action.Control.Place == KitPlace.Choice), Is.EqualTo(2), Show(Bar(plain)));
     }
+
+    /// <summary>
+    /// A described question's card pages ITSELF (XR's and AUDIT's 22:21Z: one pager, the kit's count): seven described answers handed
+    /// in one part lay eight lines a page by the plane's measure of a list row, every answer reached once and in the file's order; on
+    /// every page Write Answer, the pager before the ways out, and no answer in the column; the bar whole, and the press that sends
+    /// held, only once every page was shown.
+    /// </summary>
+    [Test]
+    public void ADescribedQuestionsCardPagesItselfWithItsWaysOnEveryPage()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var question = new QuestionView
+            {
+                QuestionId = "seven", Answerable = true, AskedAt = Samples.Time,
+                Prompts = new List<QuestionPrompt>
+                {
+                    new() { Key = "q0", Header = "Scene", Text = "Which scene should the game open on?", Multiple = false, FreeText = true, Secret = false,
+                        Options = Enumerable.Range(1, 7).Select(n => new QuestionOption { Label = "Scene " + n, Description = "What scene " + n + " shows first, in a sentence." }).ToList() },
+                },
+            };
+            var host = new FileMenuHost();
+            var work = new AskingWork(question);
+            var column = Column(host, () => work.Present());
+            column.QuestionBudgetOf = () => new ChoiceBudget(7);
+            column.Reflow();
+            Draw(host, column);
+            var form = RoomForm.Full.Measured((_, _) => 1).MeasuredList(row => 1 + (row.Under == null ? 0 : 2));
+            var bar = RoomBar.Of(KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
+                new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!, VoiceStage.Idle, false, form: form);
+            Assert.That(bar.GeneralPart.Pages, Is.GreaterThan(1), Show(bar));
+            var reached = new List<string>();
+            for (var page = 0; page < bar.GeneralPart.Pages; page++)
+            {
+                Assert.That(bar.Whole, Is.EqualTo(page == bar.GeneralPart.Pages - 1 && page > 0 || bar.GeneralPart.Pages == 1), "whole only once every page was shown (page " + (page + 1) + ")");
+                Assert.That((bar.Card!.Title == null ? 0 : 1) + bar.Card.List.Sum(row => 1 + (row.Under == null ? 0 : 2)), Is.LessThanOrEqualTo(RoomForm.SpecLines), "page " + (page + 1));
+                Assert.That(bar.Column.Any(action => action.Control.Place == KitPlace.Choice), Is.False, Show(bar));
+                Assert.That(bar.Column.Any(action => action.Words == "Write Answer"), Is.True, "Write Answer on page " + (page + 1) + ": " + Show(bar));
+                Assert.That(bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), Is.True, "the pager on page " + (page + 1));
+                reached.AddRange(bar.Card.List.Select(row => row.Name.Text));
+                bar.Turn();
+            }
+            // Every answer the file handed in this part, once, in its order (all seven once the file hands a described prompt in one part,
+            // XR's half of the 22:21Z, pinned by its own test).
+            Assert.That(reached, Is.EqualTo(column.Frame!.Lines.Where(line => line.Choice).Select(line => line.Words)), "every answer once, in the file's order");
+            Assert.That(reached.Count, Is.GreaterThan(RoomCard.ListAPage - 1), "more than one page of described answers");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }
