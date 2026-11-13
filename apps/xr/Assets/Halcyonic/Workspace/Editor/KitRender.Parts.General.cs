@@ -22,12 +22,21 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] GeneralStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage" };
+        private static readonly string[] GeneralBaseStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage" };
+
+        /// <summary>
+        /// Every state twice: as the full bar, and in the kit's narrow form (AUDIT's 17:15Z condition 2, the lead's 17:16Z condition 1),
+        /// read with the rows a page the plane would measure (fewer until the laid bar keeps inside its largest narrow footprint),
+        /// and the pages it then takes logged as the worst case in parts.
+        /// </summary>
+        private static readonly string[] GeneralStates = GeneralBaseStates.Concat(GeneralBaseStates.Select(each => each + "-narrow")).ToArray();
 
         private static PartShot GeneralShot(string state, Transform root, Vector3 eyes, string name)
         {
             var shot = new PartShot { Elevation = 0f };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            var narrow = state.EndsWith("-narrow", StringComparison.Ordinal);
+            if (narrow) state = state.Substring(0, state.Length - "-narrow".Length);
             var was = RoomDesign.Enabled;
             MenuFrame? frame;
             RoomBar? bar;
@@ -77,14 +86,40 @@ namespace Halcyonic.XR.Workspace.Editor
             finally { RoomDesign.Enabled = was; }
             Require(frame != null && bar != null, "the general reader gives the redesign no bar");
             if (frame == null || bar == null) return shot;
-            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || state == "52-general-usage" && bar.GeneralPart.Pages > 1;
+            var plane = new GameObject("Plane").transform;
+            plane.SetParent(root, false);
+            var view = RoomBarView.Create(plane);
+            if (narrow)
+            {
+                // The plane's measure, as XR's loop takes it: read narrow, lay, and while the laid bar passes its largest narrow
+                // footprint, read again with one row fewer a page, down to one.
+                var rowsAPage = RoomRows.APage;
+                while (true)
+                {
+                    RoomDesign.Enabled = true;
+                    try
+                    {
+                        bar = RoomBar.OfFrame(frame, VoiceStage.Idle, new RoomForm(true, rowsAPage))!;
+                        if (state == "52-general-rows-2") bar.Turn();
+                    }
+                    finally { RoomDesign.Enabled = was; }
+                    bar.Narrow = true;
+                    view.Show(bar);
+                    view.SettleForRender();
+                    if (!view.PassedLargest || rowsAPage == 1) break;
+                    rowsAPage--;
+                }
+                Debug.Log("Halcyonic: parts: " + name + ": narrow at " + rowsAPage + " rows a page, " + bar.GeneralPart.Pages + " page" + (bar.GeneralPart.Pages == 1 ? "" : "s")
+                    + (bar.Card != null ? " (" + bar.Card.List.Count + " pressed rows on the first)" : "") + ".");
+            }
+            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || (state == "52-general-usage" || narrow) && bar.GeneralPart.Pages > 1;
             // The general reader's card holds pressed rows, never the usage card's gauges (which would mean a specific reader took it).
             if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
             if (paged)
             {
                 Require(bar.Column.Last().Control.Action == Footer.Close && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its Close");
-                Require(bar.Whole == (state == "52-general-rows-2"), "Whole before every page was shown, or not after");
+                if (!narrow) Require(bar.Whole == (state == "52-general-rows-2"), "Whole before every page was shown, or not after");
             }
             if (state == "52-general-confirm")
                 Require(bar.Column[0].Control.Action == "forget-yes" && bar.Column[0].Locks && bar.Column.Last().Control.Action == "forget-cancel", "the confirmation's Yes is not first behind its lock, or Cancel not last");
@@ -103,6 +138,7 @@ namespace Halcyonic.XR.Workspace.Editor
             else if (paged)
             {
                 expected.AddRange((bar.Facts ?? new List<RoomRow>()).Select(row => row.Words.Text));
+                expected.AddRange(bar.Card?.List.Select(row => row.Name.Text) ?? Enumerable.Empty<string>());
                 expected.AddRange(bar.Column.Select(action => action.Words));
             }
             else
@@ -112,11 +148,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 expected.AddRange(frame.Lines.Where(line => line.Action != null && line.Fact != null).Select(line => line.Fact!));
             }
 
-            var plane = new GameObject("Plane").transform;
-            plane.SetParent(root, false);
-            var view = RoomBarView.Create(plane);
-            view.Show(bar);
-            view.SettleForRender();
+            if (!narrow)
+            {
+                view.Show(bar);
+                view.SettleForRender();
+            }
+            Require(!view.PassedLargest, "the bar laid past its largest footprint");
             var buttons = view.Column.Where(button => button.gameObject.activeSelf).ToList();
             foreach (var button in buttons)
             {
