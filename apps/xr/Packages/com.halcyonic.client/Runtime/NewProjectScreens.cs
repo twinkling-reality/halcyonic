@@ -606,12 +606,13 @@ namespace Halcyonic.Client
         /// off, since that page could only show them.
         /// </param>
         public static MenuFrame Recap(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, string? notice, string? problem,
-            RecapFact? chosen = null, bool confirmingStartOver = false, bool? buildReached = null, string? startOverProblem = null, bool words = true)
+            RecapFact? chosen = null, bool confirmingStartOver = false, bool? buildReached = null, string? startOverProblem = null, bool words = true,
+            bool startUnknown = false)
         {
             var existing = idea.ExistingProjectId != null;
             var suggested = idea.NameSuggested || idea.TaskSuggested;
             var proposal = suggested ? idea.Companion?.Proposal : null;
-            if (RoomDesign.Enabled) return RoomRecap(idea, draft, currentFolder, live, notice, problem, buildReached);
+            if (RoomDesign.Enabled) return RoomRecap(idea, draft, currentFolder, live, notice, problem, buildReached, startUnknown);
             // An existing project's name is not changed here, so its row takes no press.
             if (existing && chosen == RecapFact.Name) chosen = null;
             var lines = new List<PageLine>();
@@ -669,14 +670,16 @@ namespace Halcyonic.Client
         /// them pressed. Start Task opens the review as ever, which shows everything before its Confirm; Change opens the
         /// page of what can be changed (<see cref="RecapChange"/>), where Start Over stands too.
         /// </summary>
-        private static MenuFrame RoomRecap(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, string? notice, string? problem, bool? buildReached)
+        /// <param name="startUnknown">A start may have run (the flow's own fact, never read from the words): <paramref name="problem"/> is its sentence.</param>
+        private static MenuFrame RoomRecap(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, string? notice, string? problem, bool? buildReached,
+            bool startUnknown)
         {
             var suggested = idea.NameSuggested || idea.TaskSuggested;
             var proposal = suggested ? idea.Companion?.Proposal : null;
             var lines = new List<PageLine>();
             // A start that may have run holds Start Building: the card says so in the page's own sentence, and its way on, See What
             // Happened, is the main action (a reader, 2026-11-13: no lit button and nothing naming the wait read as a dead end).
-            if (notice == null && EntryText.IsPreviousRequest(problem)) notice = problem;
+            if (notice == null && startUnknown && problem != null) notice = problem;
             if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 3));
             else if (proposal != null) lines.Add(new PageLine(EntryScreens.Proposed(proposal), rows: 2));
             else if (EntryScreens.Moves(idea, currentFolder)) lines.Add(new PageLine(EntryText.RebindWarning, tone: LineTone.Secondary, rows: 2));
@@ -690,7 +693,7 @@ namespace Halcyonic.Client
             // No dead end (JUDGE's FINDING 2026-11-13T0935Z): where Start Building waits on a choice the person makes here, that choice
             // is the main action in its place, named for what it picks, one press to its page; Start Building stands once it is made.
             var footer = new Footer(Close(), rare: new Prompt(ChangeRecap, EntryText.Change, GlazeIcon.Change, safeInPlace: true),
-                farRight: WayOn(problem));
+                farRight: WayOn(problem, startUnknown));
             return new MenuFrame(Subject(idea), footer, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
                 source: suggested ? CompanionText.Note : null).WithCard(RecapCard(idea, draft, currentFolder, live, lines.Count > 0 && lines[0].RowLabel == null ? lines[0].Runs : null));
         }
@@ -703,13 +706,13 @@ namespace Halcyonic.Client
         /// The recap's way on: Start Building, or, where it waits on the folder or the run settings, the choice that it waits on
         /// (Choose Folder, Choose Agent App, Choose Model), its page a press away; any other wait is Start Building's reason.
         /// </summary>
-        internal static Prompt WayOn(string? problem)
+        internal static Prompt WayOn(string? problem, bool startUnknown = false)
         {
             if (problem == EntryText.ChooseWhereFilesLive) return new Prompt(ChooseAnotherFolder, EntryText.ChooseAnotherFolder, GlazeIcon.Change, main: true, safeInPlace: true);
             if (problem == EntryText.ChooseHowItRuns || problem == EntryText.ChooseAgain) return new Prompt(MoreOptions, EntryText.ChooseAgentApp, GlazeIcon.Change, main: true, safeInPlace: true);
             if (problem == EntryText.FinishChoosing) return new Prompt(MoreOptions, EntryText.ChooseModel, GlazeIcon.Change, main: true, safeInPlace: true);
             // A start that may have run: the page that says what is known and how to clear it, one press away.
-            if (EntryText.IsPreviousRequest(problem)) return new Prompt(CheckFirst, EntryText.CheckFirst, GlazeIcon.Next, main: true, safeInPlace: true);
+            if (startUnknown && problem != null) return new Prompt(CheckFirst, EntryText.CheckFirst, GlazeIcon.Next, main: true, safeInPlace: true);
             // Any other wait is Start Building's own reason, said where it stands.
             return new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem, safeInPlace: true);
         }

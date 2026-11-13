@@ -628,7 +628,8 @@ public class NewProjectFlowTests
         Assert.That(flow.Frame!.Lines.Select(line => line.Words), Does.Contain(EntryText.PreviousRequest(BuildStepKind.CreateProject)), "this build's own step, by its kind");
         Assert.That(flow.Frame!.Lines.Select(line => line.Words).Where(words => words.Contains('\u00b7')), Is.Empty, "no facts joined on a dot");
 
-        var restarted = Flow(new Host(), kept);
+        var restartHost = new Host();
+        var restarted = Flow(restartHost, kept);
         restarted.Open(null, null);
         Assert.That(restarted.Step, Is.EqualTo(NewProjectStep.Build));
         var unresolved = restarted.Frame!;
@@ -640,6 +641,10 @@ public class NewProjectFlowTests
         Press(restarted, NewProjectScreens.ConfirmClear, null);
         Assert.That(kept.Id, Is.Null);
         Assert.That(restarted.Step, Is.EqualTo(NewProjectStep.YourIdea));
+        // Clear's words are what Confirm does (AUDIT's MUST J): nothing sent to the computer, the idea here started over.
+        Assert.That(restartHost.Sent, Is.Empty, "nothing on the computer is deleted or sent");
+        Assert.That(EntryText.ClearOnceChecked, Does.Contain("Nothing on the computer is deleted or sent").And.Contain("idea over"));
+        Assert.That(EntryText.Cleared, Does.Not.Contain("\u00b7"));
     }
 
     [Test]

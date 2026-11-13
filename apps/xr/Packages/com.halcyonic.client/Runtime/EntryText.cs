@@ -313,20 +313,18 @@ namespace Halcyonic.Client
 
         private const string StartBuildingWaits = "Start Building waits so nothing is made twice.";
 
-        /// <summary>Whether <paramref name="words"/> are a start that may have run, as <see cref="PreviousRequest"/> says it for any step.</summary>
-        public static bool IsPreviousRequest(string? words) =>
-            words != null && (words == PreviousRequestLine || Enum.GetValues(typeof(BuildStepKind)).Cast<BuildStepKind>().Any(kind => words == PreviousRequest(kind)));
-
         /// <summary>On a start whose outcome is unknown, where it only opens the page that says what is known and how to clear it.</summary>
         public const string CheckFirst = "See What Happened";
 
         /// <summary>The first of the two presses that clear a start whose outcome is unknown.</summary>
         public const string Clear = "Clear";
-        public const string ClearOnceChecked = "Once you have looked, Clear lets you start again. It deletes nothing.";
-        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Clear deletes nothing and sends nothing again.";
+        // What Clear does, both true things (AUDIT's MUST J, 2026-11-13T1659Z): the idea on this headset starts over (Confirm makes a
+        // new one), and nothing on the computer is deleted or sent (Confirm sends no command).
+        public const string ClearOnceChecked = "Once you have looked, Clear starts your idea over here. Nothing on the computer is deleted or sent.";
+        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Your idea here starts over; nothing on the computer is deleted or sent.";
         public const string ConfirmClear = "Confirm";
         public const string Cancel = "Cancel";
-        public const string Cleared = "Cleared · Start from Idea";
+        public const string Cleared = "Cleared. Start again with your idea.";
 
         /// <summary>The unknown start's note after its words changed while Yes, clear waited.</summary>
         public const string ChangedBeforeClear = "Nothing was cleared: this changed while you were clearing it. Read it again.";

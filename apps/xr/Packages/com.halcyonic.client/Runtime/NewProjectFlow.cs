@@ -482,7 +482,7 @@ namespace Halcyonic.Client
                             Building() || OutcomeUnknown ? problem : null, WordsOffered, LevelOfDraft(), startFrom: StarterChoice.Offered(current, StarterChoice.Ready(starters))),
                         RecapPage.StartFrom when RoomDesign.Enabled => StarterChoice.Page(current, StarterChoice.Ready(starters), startersPage, reached),
                         _ => RecapBuilt(current, WithStarter(current, NewProjectScreens.Recap(current, LevelOfDraft(), CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
-                            Building() || OutcomeUnknown ? problem : null, WordsOffered).Focus())),
+                            Building() || OutcomeUnknown ? problem : null, WordsOffered, startUnknown: OutcomeUnknown).Focus())),
                     };
                 default:
                     switch (buildPage)
