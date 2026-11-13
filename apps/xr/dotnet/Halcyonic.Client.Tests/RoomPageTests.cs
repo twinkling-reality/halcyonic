@@ -424,4 +424,17 @@ public class RoomPageTests
         var rows = RoomBar.OfFrame(Frame(Enumerable.Range(1, 12).Select(n => new PageLine("Line " + n)).ToList()), VoiceStage.Idle)!;
         Assert.That(rows.Whole, Is.False, "rows on a later page still hold it");
     }
+
+    /// <summary>An action that carries words to read counts as content (AUDIT's 20:10Z): a later page holding a line with its description (a pressed row) holds the frame back until shown.</summary>
+    [Test]
+    public void AnActionThatCarriesWordsToReadHoldsItsPageAsContent()
+    {
+        var answers = Enumerable.Range(1, 6).Select(n => new PageLine("Answer " + n, action: "answer", key: n.ToString())
+            .WithUnder(n == 5 ? LineWords.Ours("Keeps the tail short and steady.") : null)).ToList();
+        var bar = RoomBar.OfFrame(Frame(answers), VoiceStage.Idle)!;
+        Assert.That(bar.GeneralPart.Pages, Is.GreaterThan(1));
+        Assert.That(bar.Whole, Is.False, "a later page holds an answer's description");
+        while (bar.GeneralPart.Page < bar.GeneralPart.Pages - 1) bar.Turn();
+        Assert.That(bar.Whole, Is.True, "shown, now read");
+    }
 }

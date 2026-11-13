@@ -240,12 +240,18 @@ namespace Halcyonic.Client
                 column: first.Column, field: field, band: band, wide: rows.Count == 0 && body.IsEmpty && field == null && ownCard == null && !carded,
                 lines: shown.Count > 0 ? shown.Select(row => row.Words).ToList() : null);
             bar.generalPages = pages > 1 ? parts : null;
-            // What a person reads is the panel: a frame counts as read once every page that holds something of it to read was shown.
-            // Pages that only turn actions hide nothing (the rows stand on every page), so they never hold a frame back (JUDGE's
-            // 20:08Z shelf walk: the shelf's Move buttons paged one a page and its Apply waited for a draw that never came).
-            var readPages = ownCard != null ? 1 : carded ? pressPages : rowPages == 1 ? 1 : rowPages;
-            bar.readPages = readPages;
-            bar.Whole = readPages == 1 && !lost;
+            // A frame counts as read once every page that holds something of it to read was shown. Pages that only turn bare actions
+            // hide nothing (the rows stand on every page), so they never hold a frame back (JUDGE's 20:08Z shelf walk: the shelf's
+            // Move buttons paged one a page and its Apply waited for a draw that never came).
+            // An action that carries words to read counts as content too (AUDIT's 20:10Z): a button with a detail (an answer's
+            // description, a value) on a page makes that page one to be shown; a bare action (a move, a section, Next) does not.
+            var toRead = new HashSet<int> { 0 };
+            for (var page = 0; page < parts.Count; page++)
+                if ((ownCard == null && carded) || (!carded && ownCard == null && rowPages > 1 && page < rowPages)
+                    || parts[page].Column.Any(action => action.Detail != null && action.Control.Action != TurnPage))
+                    toRead.Add(page);
+            bar.readPages = toRead;
+            bar.Whole = toRead.Count == 1 && !lost;
             bar.lostPart = lost;
             if (first.Card != null) bar.Card = first.Card;
             return shown.Count > 0 ? bar.WithFacts(shown) : bar;
@@ -273,8 +279,8 @@ namespace Halcyonic.Client
 
         private HashSet<int>? generalSeen;
 
-        /// <summary>The general reader's pages that hold something of the frame to read (the first ones); the rest only turn actions.</summary>
-        private int readPages = 1;
+        /// <summary>The general reader's pages that hold something of the frame to read; the rest only turn bare actions.</summary>
+        private HashSet<int> readPages = new HashSet<int> { 0 };
 
         /// <summary>The general reader's page showing, from 0, and how many it made (1 where it made none).</summary>
         public (int Page, int Pages) GeneralPart => (generalAt, generalPages?.Count ?? 1);
@@ -294,7 +300,7 @@ namespace Halcyonic.Client
             Facts = page.Rows.Count > 0 ? page.Rows : null;
             if (page.Card != null) Card = page.Card;
             Lines = page.Rows.Count > 0 ? page.Rows.Select(row => row.Words).ToList() : null;
-            Whole = Enumerable.Range(0, readPages).All(generalSeen.Contains) && !lostPart;
+            Whole = readPages.All(generalSeen.Contains) && !lostPart;
             return true;
         }
 
