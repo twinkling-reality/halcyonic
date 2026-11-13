@@ -142,7 +142,7 @@ public class ReviewCardTests
         var cost = Review(CommandType.AssistantModelChoose, "Use Model", "From now on the assistant answers on a paid model",
             warnings: new[] { Warn("price_unknown", "The provider sets each request's price; it is not shown here"), Warn("free_here", "To stop paying, choose This Computer's Model, which is free") });
         Assert.That(ReviewCard.Card(cost, "Use Model").StatusAfter, Is.True, "a cost fact after what happens");
-        foreach (var consent in new[] { "never_asks", "unconfined", "cannot_undo", "history_left", "public", "replaces" })
+        foreach (var consent in new[] { "never_asks", "unconfined", "cannot_undo", "history_left", "public", "replaces", "costs_money", "cost_unknown" })
         {
             var asked = Review(CommandType.ProjectSend, "Go Ahead", "Something happens", warnings: new[] { Warn("may_leave", "Words may leave this computer"), Warn(consent, "A consent given by pressing") });
             Assert.That(ReviewCard.Card(asked, "Review").StatusAfter, Is.False, consent + " keeps the warning first");

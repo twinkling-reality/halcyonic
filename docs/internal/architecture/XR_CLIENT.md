@@ -4720,7 +4720,8 @@ presence, contextual moment cards and the on-demand project screen:
   from the list of what can be done heads it, the line under it; "Check First" (attention) follows the line of what happens
   (`RoomCard.StatusAfter`, AUDIT2's 2026-11-13T22:37Z: the Use Model card read its warning first and its main fact last), except
   where a warning is a consent the press gives (`ReviewCard.ConsentFirst`: never asks, reaches past its folder, cannot be undone,
-  history left, becomes public, replaces what was published), when it leads under the name, read before the press;
+  history left, becomes public, replaces what was published, costs money or its cost not known: the money said before the press),
+  when it leads under the name, read before the press;
   the facts are slots; what it touches is the kit's list, five a part, with Next Part and Previous Part offered and never
   on the way to the press; the last part counts what the host did not list ("And 2 More"). Where a model wrote what goes
   out (`ActionReview.said`, the decision's 04:45Z amendment), those words come first and whole, each after the host's
