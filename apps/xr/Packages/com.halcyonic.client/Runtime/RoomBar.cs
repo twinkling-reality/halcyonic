@@ -223,6 +223,13 @@ namespace Halcyonic.Client
         public bool Narrow { get; set; }
 
         /// <summary>
+        /// The panel's width in dp where the plane lays it narrower than DESIGN's (<see cref="RoomGeometry.PanelDp"/>), the column
+        /// still beside it: the one width the plane takes between the floor and full width (the lead's 2026-11-13T1807Z ruling, a
+        /// width, not two forms); null for DESIGN's own.
+        /// </summary>
+        public float? PanelWidthDp { get; set; }
+
+        /// <summary>
         /// The rows the file counted for what is read under a confirmation (<see cref="Body"/>, whole), where it has measured
         /// it: the panel draws the confirmation only where it wraps the same words to as many, so its parts are the file's.
         /// </summary>

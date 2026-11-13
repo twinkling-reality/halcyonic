@@ -64,7 +64,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
                     var shown = 0;
-                    foreach (var state in BandStates.Concat(FieldStates).Concat(CursorStates).Concat(GlyphStates).Concat(AgentStates).Concat(RowsStates).Concat(RowsApartStates).Concat(TagStates).Concat(CardStates).Concat(RecapStates).Concat(StartFromStates).Concat(StartStoppedStates).Concat(NarrowStates).Concat(PairingStates).Concat(AskColumnStates).Concat(GeneralStates))
+                    foreach (var state in BandStates.Concat(FieldStates).Concat(CursorStates).Concat(GlyphStates).Concat(AgentStates).Concat(RowsStates).Concat(RowsApartStates).Concat(TagStates).Concat(CardStates).Concat(RecapStates).Concat(StartFromStates).Concat(StartStoppedStates).Concat(NarrowStates).Concat(WidthStates).Concat(PairingStates).Concat(AskColumnStates).Concat(GeneralStates))
                     {
                         if (narrowed && !state.Contains(only!, StringComparison.OrdinalIgnoreCase)) continue;
                         shown++;
@@ -239,6 +239,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     : StartFromStates.Contains(state) ? StartFromShot(state, root.transform, eyes, name)
                     : StartStoppedStates.Contains(state) ? StartStoppedShot(state, root.transform, eyes, name)
                     : NarrowStates.Contains(state) ? NarrowShot(state, root.transform, eyes, name)
+                    : WidthStates.Contains(state) ? WidthShot(state, root.transform, eyes, name)
                     : PairingStates.Contains(state) ? PairingShot(state, root.transform, eyes, name)
                     : AskColumnStates.Contains(state) ? AskColumnShot(state, root.transform, eyes, name)
                     : GeneralStates.Contains(state) ? GeneralShot(state, root.transform, eyes, name)

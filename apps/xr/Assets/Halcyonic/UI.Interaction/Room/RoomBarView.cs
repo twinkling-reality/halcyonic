@@ -726,6 +726,17 @@ namespace Halcyonic.XR.UI
         /// mono, else prose): what the file counts a request's or an instruction's rows by while the panel draws its
         /// confirmation, so the file's parts are the panel's own lines, eight a part.
         /// </summary>
+        /// <summary>The lines <paramref name="words"/> take laid at a panel <paramref name="panelDp"/> wide, its padding off, at the person's text size.</summary>
+        public int LinesAt(LineWords words, bool mono, float panelDp)
+        {
+            var label = mono ? measureRequest : measureBody;
+            Set(label, words, mono);
+            KitType.Lay(label, RoomType.Units(panelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp), 400);
+            var lines = Mathf.Max(1, label.textInfo.lineCount);
+            if (mono) label.text = "";
+            return lines;
+        }
+
         public int Lines(LineWords words, bool mono, bool narrow = false)
         {
             var label = mono ? measureRequest : measureBody;
@@ -798,13 +809,13 @@ namespace Halcyonic.XR.UI
             var unit = RoomType.Units(1f);
             // The narrow form (RoomBar.Narrow): the panel as wide as the column, standing over it.
             var narrow = bar.Narrow && !bar.Wide;
-            var panelWidth = RoomType.Units(narrow ? RoomGeometry.ColumnDp : RoomGeometry.PanelDp);
+            var panelWidth = RoomType.Units(narrow ? RoomGeometry.ColumnDp : bar.PanelWidthDp is float given ? Mathf.Min(given, RoomGeometry.PanelDp) : RoomGeometry.PanelDp);
             // Larger text scales every length inside the panel, its padding too; the panel's width stays (DESIGN's units).
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
             var inset = RoomType.Scaled(RoomGeometry.SentenceInsetDp);
             var line = RoomType.Scaled(RoomGeometry.LineDp);
 
-            var wordsWidth = narrow ? NarrowWordsWidth : BodyWidth;
+            var wordsWidth = narrow ? NarrowWordsWidth : bar.PanelWidthDp != null ? panelWidth - 2f * pad : BodyWidth;
             // What the panel reads: a request in mono, exact and literal, or the person's words; under a confirmation the rows
             // the file's part names, of the panel's own lines; a request before its answer at most eight of them. Cut between
             // lines, never inside one.
