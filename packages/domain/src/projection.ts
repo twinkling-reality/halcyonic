@@ -70,6 +70,7 @@ import {
 } from './execution-state.ts';
 import { fixSteps } from './fix-steps.ts';
 import { foldersOverlap } from './folders.ts';
+import { COMMAND_SAYING } from './policy.ts';
 import { shownQuestions } from './questions.ts';
 
 /** Something in the journal that the projection could not apply as written. */
@@ -1363,7 +1364,8 @@ export class Projection {
         command.envelope.command_id !== except &&
         (requests || !command.envelope.command_type.startsWith('workspace.request.'))
       )
-        return `A ${command.envelope.command_type} command in this project is still in progress.`;
+        // By the button's own words, never the command's internal name (the lead, 20:46Z).
+        return `${COMMAND_SAYING[command.envelope.command_type].title} in this project is still under way.`;
     }
     return null;
   }

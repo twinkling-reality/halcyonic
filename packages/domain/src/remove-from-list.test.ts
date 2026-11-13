@@ -293,6 +293,47 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
     assert.equal(removalRefusal(projection, view, remove.command_id), null);
   });
 
+  test('one GitHub action of a project at a time, each told the one under way by its button (the lead, 20:46Z)', () => {
+    const { b, projection, project, at, rest } = world();
+    rest();
+    const sending = command('project.send', {
+      project_id: project.projectId,
+      review: 'a'.repeat(64),
+    });
+    projection.apply(
+      b.controlPlane('command.accepted', at, {
+        command: sending,
+        policy: 'review_required',
+        received_via: 'internal',
+        principal: null,
+      }),
+    );
+    const again = admitCommand(
+      command('project.send', { project_id: project.projectId, review: 'b'.repeat(64) }),
+      projection,
+      RUNTIMES,
+    );
+    assert.deepEqual(again.admitted ? null : again.rejection, {
+      code: 'invalid_state',
+      message: 'Send for Review in this project is still under way. Send it once it has finished.',
+    });
+    for (const sent of [
+      command('project.unpublish', { project_id: project.projectId, commit: 'c'.repeat(40) }),
+      command('project.make_private', { project_id: project.projectId }),
+    ]) {
+      const refused = admitCommand(sent, projection, RUNTIMES);
+      assert.deepEqual(
+        refused.admitted ? null : refused.rejection,
+        {
+          code: 'invalid_state',
+          message:
+            'Send for Review in this project is still under way. Try again once it has finished.',
+        },
+        sent.command_type,
+      );
+    }
+  });
+
   test('a project with no folder that holds secrets is refused, since it could not come back to remove them', () => {
     const b = new EventBuilder();
     const projection = new Projection();

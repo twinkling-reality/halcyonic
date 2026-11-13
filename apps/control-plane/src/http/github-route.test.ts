@@ -117,6 +117,39 @@ describe('Send to GitHub through the control plane (ADR 0039, amended)', {
     assert.match(readFileSync(stand.ghLog, 'utf8'), /pr create --repo owner\/garden/);
   });
 
+  test('one send of a project at a time: a second press while one is under way is told so, and the first goes (the lead, 20:46Z)', async (t) => {
+    const { server, stand, projectId, review } = await serve(t, 'twice');
+    writeFileSync(join(stand.folder, 'app.txt'), 'lanterns\n');
+    const read = await review();
+    assert.ok(read.availability === 'available');
+    const first = server.controlPlane.commands.submit(
+      send(projectId, read.send.review),
+      'internal',
+    );
+    const second = server.controlPlane.commands.submit(
+      send(projectId, read.send.review),
+      'internal',
+    );
+    assert.equal(first.disposition, 'accepted');
+    assert.equal(second.disposition, 'rejected', JSON.stringify(second.command?.status));
+    assert.deepEqual(second.command?.rejection, {
+      code: 'invalid_state',
+      message: 'Send for Review in this project is still under way. Send it once it has finished.',
+    });
+    const done = await settled(server, first.command?.command_id ?? '');
+    assert.equal(done.status, 'completed', JSON.stringify(done.failure));
+    // Once it has finished, the next press is taken.
+    writeFileSync(join(stand.folder, 'app.txt'), 'more lanterns\n');
+    const again = await review();
+    assert.ok(again.availability === 'available');
+    const third = server.controlPlane.commands.submit(
+      send(projectId, again.send.review),
+      'internal',
+    );
+    assert.equal(third.disposition, 'accepted');
+    assert.equal((await settled(server, third.command?.command_id ?? '')).status, 'completed');
+  });
+
   test("with no title given, the review shows the host's own and the send goes with it", async (t) => {
     const { server, stand, projectId, review } = await serve(t, 'titled');
     writeFileSync(join(stand.folder, 'app.txt'), 'lanterns\n');

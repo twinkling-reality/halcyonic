@@ -1457,7 +1457,10 @@ describe("a project's view holds its latest check, its preview and its play (M1.
     projection.apply(b.runtimeEvent(runtimeScope, 'runtime.execution.started', { native_id: 'n' }));
     projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.started', { turn_id: 't1' }));
 
-    assert.match(projection.projectBusy(garden.projectId) ?? '', /project.restore command/);
+    assert.match(
+      projection.projectBusy(garden.projectId) ?? '',
+      /^Restore in this project is still under way\.$/,
+    );
     assert.equal(projection.restoreInProgress(garden.projectId), true);
     assert.match(projection.projectBusy(pond.projectId) ?? '', /running/);
     assert.equal(projection.restoreInProgress(pond.projectId), false);
