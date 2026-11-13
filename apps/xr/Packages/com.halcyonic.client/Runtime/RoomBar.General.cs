@@ -52,6 +52,8 @@ namespace Halcyonic.Client
             var lineActs = new List<(PageLine Line, KitControl Control)>();
             // A stating row's quieter line, by the row's place in rows: a row of its own under it, or the card's foot under its description.
             var unders = new Dictionary<int, LineWords>();
+            // Stating rows a frame marks as headings (PageLine.AsHeading: by kind, never by words): they head the rows under them.
+            var headings = new HashSet<int>();
             var lost = false;
             LineWords? words = null;
             // The panel's first row is its title (where am I), kept with the row after it when they page.
@@ -115,6 +117,7 @@ namespace Halcyonic.Client
                     {
                         rows.Add(Stating(line));
                         if (line.Under != null) unders[rows.Count - 1] = line.Under;
+                        if (line.Heading) headings.Add(rows.Count - 1);
                     }
                 }
             }
@@ -197,11 +200,16 @@ namespace Halcyonic.Client
                 if (at > 0 && group != null && group == lineActs[at - 1].Line.Group) groups[groups.Count - 1].Add(at);
                 else groups.Add(new List<int> { at });
             }
-            // The card holds a title and one description (its quieter line the card's foot). A frame that states more keeps its rows,
+            // The card holds a title, one description and a foot: the description's quieter line, or a second line that states unless
+            // the frame marks it a heading (a heading stands over the lines it heads, so such a frame keeps its rows); the shelf's two
+            // instructions (XR's a46dc4651, each a line of its own) stand on every page of its moves. A frame that states more keeps its rows,
             // and its lines that act stand in the column, its pages breaking only between groups; where a group cannot stand whole
             // beside the main action, the ways out and the pager, the frame takes the card after all, its stating rows the card's
             // unpressed rows before the pressed ones (AUDIT's 21:14Z: no group split on any path).
-            var cardable = rows.Count <= 2 && rows.All(row => row.Label == null && row.Lines == null) && unders.Keys.All(at => at == 1);
+            var cardable = rows.All(row => row.Label == null && row.Lines == null) && unders.Keys.All(at => at == 1)
+                && (rows.Count <= 2 || rows.Count == 3 && unders.Count == 0 && !headings.Contains(2));
+            LineWords? description = cardable && rows.Count >= 2 ? rows[1].Words : null;
+            LineWords? foot = !cardable ? null : unders.TryGetValue(1, out var under1) ? under1 : rows.Count == 3 ? rows[2].Words : null;
             var forced = !cardable && lineActs.Count + others.Count + sections.Count > room && groups.Any(group => group.Count > roomPaged);
             var carded = lineActs.Count > 0 && (cardable || forced);
             var cardUnits = new List<List<RoomListRow>>();
@@ -233,7 +241,7 @@ namespace Halcyonic.Client
                         groupOf[action] = index;
                     }
             RoomCard CardOf(IReadOnlyList<RoomListRow> list) => new RoomCard(rows.Count > 0 ? rows[0].Words : frame.SubjectRuns,
-                cardable && rows.Count > 1 ? rows[1].Words : null, list: list, more: cardable && unders.TryGetValue(1, out var foot) ? foot : null);
+                description, list: list, more: foot);
             var turning = new List<RoomAction>();
             turning.AddRange(acting);
             turning.AddRange(others);

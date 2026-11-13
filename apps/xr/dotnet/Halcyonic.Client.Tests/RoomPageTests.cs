@@ -20,8 +20,8 @@ public class RoomPageTests
     private static MenuFrame Frame(IReadOnlyList<PageLine> lines, Footer? footer = null, IReadOnlyList<FrameSection>? sections = null, SidePanel? side = null) =>
         new("New Project", footer ?? new Footer(Close), sections: sections, lines: lines, side: side);
 
-    /// <summary>Two stating lines before <paramref name="acting"/>: with the title, more than a card holds, so the lines that act stand in the column.</summary>
-    private static List<PageLine> Stating(IEnumerable<PageLine> acting) => new[] { new PageLine("Note 1"), new PageLine("Note 2") }.Concat(acting).ToList();
+    /// <summary>Three stating lines before <paramref name="acting"/>: with the title, more than a card holds (a title, a description and a foot), so the lines that act stand in the column.</summary>
+    private static List<PageLine> Stating(IEnumerable<PageLine> acting) => new[] { new PageLine("Note 1"), new PageLine("Note 2"), new PageLine("Note 3") }.Concat(acting).ToList();
 
     private static string Show(RoomBar bar) => bar.State + " | panel: " + bar.Body.Text + " | says: " + bar.Sentence + " | band: " + bar.Band + " | " +
         string.Join(", ", bar.Column.Select(action => action.Words + (action.Main ? "*" : "") + (action.Locks ? "(lock)" : "") + (action.Chosen ? "[x]" : "")));
@@ -77,11 +77,12 @@ public class RoomPageTests
         {
             new PageLine("Your Idea"),
             new PageLine("A game where balloons pop for points", wordsAreData: true),
-            new PageLine("Fixed Questions"),
+            new PageLine("Fixed Questions").AsHeading(),
             new PageLine("Talk It Through", action: "talk-it-through"),
             new PageLine("Light", action: "answer", key: "0", choice: true, chosen: true, answerMark: AnswerMark.Single),
         }, footer, new[] { new FrameSection("idea", "Your Idea", chosen: true), new FrameSection("questions", "Questions"), new FrameSection("build", "Build", reached: false) });
         var page = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+        // A heading heads the lines under it, so the frame keeps its rows (never a card's foot under the choices it heads).
         Assert.That(page.Lines!.Select(line => line.Text), Is.EqualTo(new[] { "New Project", "Your Idea", "Fixed Questions" }), "where am I first, then Halcyonic's lines, each its own");
         Assert.That(page.Band, Is.EqualTo("A game where balloons pop for points"), "the outside words stand on the band, never in the panel");
         Assert.That(page.Body.Text, Does.Not.Contain("balloons"));
@@ -592,11 +593,14 @@ public class RoomPageTests
         Assert.That((eight.GeneralPart.Pages, eight.Card!.List.Count), Is.EqualTo((2, 5)), Show(eight));
     }
 
-    private static MenuFrame Grouped(int stating, bool apply)
+    /// <summary>The shelf's shape (XR's a46dc4651: its two instructions each a line of its own), its moves in pairs, and <paramref name="notes"/> more lines that state.</summary>
+    private static MenuFrame Grouped(int notes, bool apply)
     {
-        var lines = new List<PageLine>();
-        if (stating >= 1) lines.Add(new PageLine("Hold Move Shelf to Drag", tone: LineTone.Secondary).WithUnder(LineWords.Ours("Apply for This Session")));
-        for (var extra = 1; extra < stating; extra++) lines.Add(new PageLine("Room note " + extra));
+        var lines = new List<PageLine>
+        {
+            new PageLine("Hold Move Shelf to Drag", tone: LineTone.Secondary), new PageLine("Apply for This Session", tone: LineTone.Secondary),
+        };
+        for (var extra = 1; extra <= notes; extra++) lines.Add(new PageLine("Room note " + extra));
         foreach (var (a, b) in new[] { ("Left", "Right"), ("Closer", "Farther"), ("Up", "Down"), ("Turn Left", "Turn Right") })
         {
             lines.Add(new PageLine(a, action: "move", key: a, control: LineControl.Action).WithGroup(a));
@@ -619,41 +623,47 @@ public class RoomPageTests
         void Whole(MenuFrame frame, RoomForm form, string path)
         {
             var bar = RoomBar.OfFrame(frame, VoiceStage.Idle, form)!;
-            var pageOf = new Dictionary<string, int>();
+            var pagesOf = new Dictionary<string, List<int>>();
             for (var page = 0; page < bar.GeneralPart.Pages; page++)
             {
                 foreach (var name in (bar.Card?.List.Where(row => row.Press != null).Select(row => row.Name.Text) ?? Enumerable.Empty<string>())
                              .Concat(bar.Column.Where(action => action.Control.Action is "move" or "read-room").Select(action => action.Words)))
-                    pageOf[name] = page;
+                {
+                    if (!pagesOf.ContainsKey(name)) pagesOf[name] = new List<int>();
+                    pagesOf[name].Add(page);
+                }
                 Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(RoomForm.SpecActions), path + ", page " + (page + 1));
                 bar.Turn();
             }
-            Assert.That(pageOf.Keys, Is.EquivalentTo(new[] { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn Left", "Turn Right", "Find Room Surface" }), path);
+            Assert.That(pagesOf.Keys, Is.EquivalentTo(new[] { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn Left", "Turn Right", "Find Room Surface" }), path);
+            Assert.That(pagesOf.Where(each => each.Value.Count != 1).Select(each => each.Key), Is.Empty, path + ": a move on more than one page");
             foreach (var (a, b) in new[] { ("Left", "Right"), ("Closer", "Farther"), ("Up", "Down"), ("Turn Left", "Turn Right") })
-                Assert.That(pageOf[b], Is.EqualTo(pageOf[a]), path + ": " + a + " and " + b + " split");
+                Assert.That(pagesOf[b], Is.EqualTo(pagesOf[a]), path + ": " + a + " and " + b + " split");
         }
 
-        // The card: two stating rows at most (title, the instruction with its second line under it).
-        var shelf = RoomBar.OfFrame(Grouped(1, apply: true), VoiceStage.Idle, RoomForm.Full)!;
+        // The card: a title, the first instruction its description, the second its foot, both standing on every page of the moves.
+        var shelf = RoomBar.OfFrame(Grouped(0, apply: true), VoiceStage.Idle, RoomForm.Full)!;
         Assert.That(shelf.GeneralPart.Pages, Is.EqualTo(2), Show(shelf));
         Assert.That(shelf.Card!.List.Select(row => row.Name.Text), Is.EqualTo(new[] { "Left", "Right", "Closer", "Farther" }));
         Assert.That((shelf.Card.Description?.Text, shelf.Card.More?.Text), Is.EqualTo(("Hold Move Shelf to Drag", "Apply for This Session")));
         Assert.That(shelf.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { "apply", RoomBar.TurnPage, Footer.Close }), Show(shelf));
         for (var rows = 1; rows <= RoomRows.APage; rows++)
-            if (rows >= 2) Whole(Grouped(1, apply: true), new RoomForm(false, rows), "card at " + rows + " rows a page");
+            if (rows >= 2) Whole(Grouped(0, apply: true), new RoomForm(false, rows), "card at " + rows + " rows a page");
+        var second = RoomBar.OfFrame(Grouped(0, apply: true), VoiceStage.Idle, RoomForm.Full)!;
+        second.Turn();
+        Assert.That((second.Card!.Description?.Text, second.Card.More?.Text), Is.EqualTo(("Hold Move Shelf to Drag", "Apply for This Session")), "both instructions on the second page too");
 
-        // The column: a frame that states more (three rows) with room for a pair beside the pager and Cancel.
-        var column = RoomBar.OfFrame(Grouped(3, apply: false), VoiceStage.Idle, RoomForm.Full)!;
+        // The column: a frame that states more (a title and four lines) with room for a pair beside the pager and Cancel.
+        var column = RoomBar.OfFrame(Grouped(2, apply: false), VoiceStage.Idle, RoomForm.Full)!;
         Assert.That(column.Card, Is.Null, "a frame that states more keeps its rows: " + Show(column));
-        Whole(Grouped(3, apply: false), RoomForm.Full, "column");
+        Whole(Grouped(2, apply: false), RoomForm.Full, "column");
 
         // Taken by the card after all: with Apply too, a pair cannot stand whole in the column; its stating rows come first, unpressed.
-        var taken = RoomBar.OfFrame(Grouped(3, apply: true), VoiceStage.Idle, RoomForm.Full)!;
+        var taken = RoomBar.OfFrame(Grouped(2, apply: true), VoiceStage.Idle, RoomForm.Full)!;
         Assert.That(taken.Card, Is.Not.Null, Show(taken));
         Assert.That(taken.Card!.List.TakeWhile(row => row.Press == null).Select(row => row.Name.Text),
-            Is.EqualTo(new[] { "Hold Move Shelf to Drag", "Room note 1", "Room note 2" }));
-        Assert.That(taken.Card.List[0].Under?.Text, Is.EqualTo("Apply for This Session"));
-        Whole(Grouped(3, apply: true), RoomForm.Full, "taken by the card");
+            Is.EqualTo(new[] { "Hold Move Shelf to Drag", "Apply for This Session", "Room note 1", "Room note 2" }));
+        Whole(Grouped(2, apply: true), RoomForm.Full, "taken by the card");
         Assert.That(taken.LostPart, Is.False);
     }
 }
