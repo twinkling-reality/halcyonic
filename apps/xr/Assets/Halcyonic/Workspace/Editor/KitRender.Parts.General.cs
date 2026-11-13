@@ -89,6 +89,7 @@ namespace Halcyonic.XR.Workspace.Editor
             if (state == "52-general-confirm")
                 Require(bar.Column[0].Control.Action == "forget-yes" && bar.Column[0].Locks && bar.Column.Last().Control.Action == "forget-cancel", "the confirmation's Yes is not first behind its lock, or Cancel not last");
             Require(bar.Column.Count is > 0 and <= RoomBar.ColumnMost, "the column holds " + bar.Column.Count + " actions");
+            Require(!bar.LostPart, "the general reader lost a part of the frame (not on screen)");
             var expected = new List<string>();
             if (frame.Side is SidePanel side)
             {

@@ -243,8 +243,14 @@ namespace Halcyonic.Client
 
         private int generalAt;
 
-        /// <summary>A part of a line the general reader could not lay (its pressed row's label and quieter line both given, until the kit's row takes a label); the bar is then never whole.</summary>
         private bool lostPart;
+
+        /// <summary>
+        /// A part of a frame the general reader could not lay at all (a pressed row's label and quieter line both given, until the
+        /// kit's row takes a label; a pressed line's quieter line on a button): the part is not on screen, told apart from a page not
+        /// yet turned (AUDIT's 18:00Z), so the plane logs it and the renders and walks fail on it. The bar is then never whole.
+        /// </summary>
+        public bool LostPart => lostPart;
 
         private HashSet<int>? generalSeen;
 

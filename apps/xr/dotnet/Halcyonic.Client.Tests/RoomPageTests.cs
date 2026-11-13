@@ -339,7 +339,7 @@ public class RoomPageTests
 
         var labelled = RoomBar.OfFrame(Frame(new[] { new PageLine(LineWords.TheirName("Ember App"), fact: LineWords.Ours("Up to 60% Left"), action: "open-limit", key: "a", opens: true)
             .WithRowLabel("5-Hour Window").WithUnder(LineWords.Ours("Seen 2 minutes ago.")) }), VoiceStage.Idle)!;
-        Assert.That((labelled.Card!.List.Single().Under!.Text, labelled.Whole), Is.EqualTo(("5-Hour Window", false)),
+        Assert.That((bar.LostPart, labelled.Card!.List.Single().Under!.Text, labelled.Whole, labelled.LostPart), Is.EqualTo((false, "5-Hour Window", false, true)),
             "the window under the name; seen and resets wait for the kit's row label, and the bar says it is not whole");
     }
 }
