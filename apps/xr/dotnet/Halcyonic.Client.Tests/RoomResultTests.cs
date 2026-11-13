@@ -703,6 +703,25 @@ public class RoomResultTests
     /// the source's own provenance, which names the provider's product, never stands: only FIELD's source words where given.
     /// </summary>
     [Test]
+    public void AReasonIsNeverSaidToBeTheAgentsWhereTheSourceSaysASubagentOrNoOneKnownSaidIt()
+    {
+        SectionLine Said(string words, string chip) => new SectionLine("reported", words, SectionTone.Claim, chip: chip, said: LineWords.Theirs(words));
+        SectionPresentation Of(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1", SectionTone.Secondary, lines, simulated: false);
+        var agents = Said("I split the tail.", SectionLine.AgentChip);
+        var subagents = Said("I matched the colour.", SectionLine.SubagentChip);
+        var unknown = Said("Someone tuned the delay.", SectionLine.AuthorUnknownChip);
+        var account = new ChangesAccount(null, Of(agents), null, Of(agents, subagents, unknown));
+        var card = account.Card(0);
+        Assert.That(card.Status?.Title, Is.EqualTo(ChangesAccount.AgentSays));
+        Assert.That(card.List.Select(row => row.Kind), Has.All.EqualTo(RoomKind.None), "the bubble on the byline alone, so no row's words are pushed in");
+        Assert.That(card.List.Select(row => (row.Name.Text, row.Note)), Is.EqualTo(new[]
+        {
+            ("I split the tail.", (string?)null), ("I matched the colour.", ChangesAccount.SubagentSays), ("Someone tuned the delay.", ChangesAccount.AuthorUnknown),
+        }), "the byline names the agent once; a subagent's and an unknown author's rows say whose they are");
+        Assert.That(new ChangesAccount(null, Of(subagents), null).Card(0).Status?.Title, Is.EqualTo(ChangesAccount.SubagentSays), "a subagent's lead is never the agent's");
+    }
+
+    [Test]
     public void TheUnderstandingsAccountFollowsTheFilesOnChangesAPartAnAnswer()
     {
         SectionPresentation Brief(params SectionLine[] lines) =>

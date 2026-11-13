@@ -32,6 +32,9 @@ namespace Halcyonic.Client
 
         /// <summary>A row's note for how it is known, our words with no dot; none for what was observed or is Halcyonic's own.</summary>
         public const string AgentSays = "Agent Says";
+        /// <summary>A subagent's words, and words whose author the source does not know: said so, never given to the agent.</summary>
+        public const string SubagentSays = "Subagent Says";
+        public const string AuthorUnknown = "Author Unknown";
         public const string ModelSays = "Model Says";
         public const string Inferred = "Inferred";
         public const string Planned = "Planned";
@@ -110,7 +113,7 @@ namespace Halcyonic.Client
         /// <summary>How a row's line is known, its note; null where it was observed, measured or is Halcyonic's own.</summary>
         public static string? NoteOf(SectionLine line) => line.Evidence switch
         {
-            Evidence.Reported => AgentSays,
+            Evidence.Reported => Who(line),
             Evidence.Explained => ModelSays,
             Evidence.Inferred => Inferred,
             Evidence.Planned => Planned,
@@ -129,12 +132,19 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
-        /// The card's state saying whose a lead's words are, under the title and before them: the speech bubble and Agent Says,
-        /// or Model Says, quiet; none for our own or observed words.
+        /// Who said reported words, as the presenter's chip names them: the agent, a subagent, or an author the source does not
+        /// know, never the agent by default.
+        /// </summary>
+        private static string Who(SectionLine line) =>
+            line.Chip == SectionLine.SubagentChip ? SubagentSays : line.Chip == SectionLine.AuthorUnknownChip ? AuthorUnknown : AgentSays;
+
+        /// <summary>
+        /// The card's state saying whose a lead's words are, under the title and before them: the speech bubble and who said them
+        /// (Agent Says, Subagent Says, Author Unknown) or Model Says, quiet; none for our own or observed words.
         /// </summary>
         public static RoomCardStatus? WhoSaid(SectionLine line) => line.Evidence switch
         {
-            Evidence.Reported => new RoomCardStatus(AgentSays, null, RoomTone.Quiet, RoomKind.Says),
+            Evidence.Reported => new RoomCardStatus(Who(line), null, RoomTone.Quiet, RoomKind.Says),
             Evidence.Explained => new RoomCardStatus(ModelSays, null, RoomTone.Quiet, RoomKind.Says),
             _ => null,
         };
@@ -146,10 +156,11 @@ namespace Halcyonic.Client
             var (answer, from) = parts[part];
             var (prompt, lead, who, lines) = answers[answer];
             // Whose the words are is said once, by the byline on every part of the answer (FIELD's 2026-11-13T0631Z words): a row
-            // the byline already names carries neither the bubble nor the note again; any other row keeps its own.
+            // the byline already names carries no note again; one said by another (a subagent, an author unknown) keeps its note.
+            // The bubble stands on the byline alone, so a row's words are never pushed in for a mark (a reason cut at Larger, n38).
             bool Named(SectionLine line) => who is RoomCardStatus byline && NoteOf(line) == byline.Title;
             var rows = lines.Skip(from).Take(RoomCard.ListAPage).Select(row => new RoomListRow(
-                Named(row.Line) && KindOf(row.Line) == RoomKind.Says ? RoomKind.None : KindOf(row.Line), row.Line.Runs,
+                who != null && KindOf(row.Line) == RoomKind.Says ? RoomKind.None : KindOf(row.Line), row.Line.Runs,
                 Named(row.Line) ? null : NoteOf(row.Line), under: row.Under)).ToList();
             // The lead on the answer's first part alone; a later part of a long answer carries on with its rows.
             var first = from == 0 && lead != null;
