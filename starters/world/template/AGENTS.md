@@ -14,6 +14,8 @@ What you can do:
   person sees their world turn to the new values. If it breaks a rule, their world stays as it was.
 
 What you cannot do here:
+- This world's version control and editor settings (`.git`, `.gitmodules`, `.envrc`, `.vscode`, `.idea`,
+  `.devcontainer`, `*.code-workspace`) are kept by Halcyonic: you cannot write them, and need not.
 - Do not add a member that is not listed below, and do not remove one: every member must be there, and nothing
   else. A file with an unknown member is refused whole.
 - Do not write code, scripts, pictures, sounds or other files for the world. Only `world.json` is read.

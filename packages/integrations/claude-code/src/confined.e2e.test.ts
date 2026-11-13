@@ -68,12 +68,18 @@ function filesHolding(folder: string, text: string): string[] {
   return found;
 }
 const RESULTS = join(PROJECT, 'results.txt');
+// The project's own git data, which the agent may read and never write.
+mkdirSync(join(PROJECT, '.git'));
+writeFileSync(join(PROJECT, '.git', 'config'), '[kept]\n');
 writeFileSync(join(ROOT, 'outside', 'marker.txt'), 'outside-marker-4c1d\n');
 writeFileSync(join(ROOT, 'home', 'marker.txt'), 'home-marker-9a2e\n');
 const COMMAND = [
   `cat ${ROOT}/outside/marker.txt >> ${RESULTS} 2>&1; echo "outside=$?" >> ${RESULTS}`,
   `cat ${ROOT}/home/marker.txt >> ${RESULTS} 2>&1; echo "home=$?" >> ${RESULTS}`,
   `ls /Users > /dev/null 2>&1; echo "users=$?" >> ${RESULTS}`,
+  // What in the project runs later outside the sandbox, never written: its git data and an open-time file (AUDIT3).
+  `echo '[core]' >> ${PROJECT}/.git/config 2>/dev/null; echo "gitconfig=$?" >> ${RESULTS}`,
+  `echo 'export X=1' > ${PROJECT}/.envrc 2>/dev/null; echo "envrc=$?" >> ${RESULTS}`,
   `echo "own-home=$([ "$HOME" != ${ROOT}/home ] && echo yes)" >> ${RESULTS}`,
   `/usr/bin/curl --noproxy '*' -s --max-time 5 -o /dev/null -w 'net=%{http_code}' http://1.1.1.1/ >> ${RESULTS}; echo " curl=$?" >> ${RESULTS}`,
   `echo inside > ${PROJECT}/inside.txt`,
@@ -356,6 +362,11 @@ test("a new app's confined Claude Code runs a command that reaches nothing outsi
   assert.match(said, /outside=1/);
   assert.match(said, /home=1/);
   assert.match(said, /users=1/);
+  // The shell's writes to the project's git data and to an open-time file are refused by the profile.
+  assert.match(said, /gitconfig=1/);
+  assert.match(said, /envrc=1/);
+  assert.equal(readFileSync(join(PROJECT, '.git', 'config'), 'utf8'), '[kept]\n');
+  assert.ok(!existsSync(join(PROJECT, '.envrc')));
   assert.match(said, /net=000/, 'reached beyond loopback');
   // The command holds only this run's credential from the gate; the gate refuses a request without it;
   // ps from inside shows no key of the plane's; another host is refused.

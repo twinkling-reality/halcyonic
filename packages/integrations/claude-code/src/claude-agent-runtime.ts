@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import {
   type CanUseTool,
   getSessionInfo,
@@ -57,6 +58,7 @@ import {
   type ApiGate,
   type HostFoldersScope,
   type KeyGateDeclaration,
+  runsLater,
   startKeyGate,
   withinHostFolders,
 } from '@halcyonic/seatbelt';
@@ -469,6 +471,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       this.#recordFor(scope),
       this.#planSwitchWaitMs,
     );
+    if (scope.folder !== null) session.keep(cwd);
     this.#sessions.set(executionId, session);
     let started: Promise<string>;
     try {
@@ -592,6 +595,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       { confined: false },
       this.#planSwitchWaitMs,
     );
+    if (scope.folder !== null) session.keep(cwd);
     session.prepare(
       this.#query,
       this.#options(
@@ -1079,6 +1083,7 @@ class ClaudeSession {
   #initMode: string | undefined = undefined;
   /** What the session's start records of its confinement (S2, BOX-4). */
   readonly #record: { readonly confined: boolean; readonly unconfined_reason?: string };
+  #kept: string | null = null;
 
   constructor(
     id: string,
@@ -1100,6 +1105,14 @@ class ClaudeSession {
     this.#usageTotals = reattached ? null : NOTHING_YET;
     // A re-attached session was confirmed by its first run; its start is not reported again.
     if (reattached) this.#nativeId = id;
+  }
+
+  /**
+   * A confined session's folder, whose version control and open-time files the closed profile never lets it write
+   * (`RUNS_LATER`): a file tool aimed at one is refused at once, in words the model reads, rather than asking.
+   */
+  keep(folder: string): void {
+    this.#kept = folder;
   }
 
   /** Sets the query a re-attached session's next instruction launches, resuming it. */
@@ -1368,6 +1381,10 @@ class ClaudeSession {
         `${approvalId}:asked`,
       );
       return promise;
+    }
+    if (this.#kept !== null && keptPath(this.#kept, toolName, input)) {
+      // The profile would refuse the write anyway; said in words, so the model does not loop on it (the lead, 12:52Z).
+      return Promise.resolve({ behavior: 'deny', message: KEPT_BY_HALCYONIC });
     }
     this.#approvals.set(approvalId, { input, answer: resolve });
     // Claude Code withdraws a request it no longer needs, for example when the turn is interrupted.
@@ -1945,6 +1962,28 @@ function approvalRequest(
       toolName.length <= 128 &&
       (described === null || others.every((name) => quiet.includes(name))),
   };
+}
+
+/** What a confined agent is told when it tries to write a file Halcyonic keeps (`RUNS_LATER`). */
+export const KEPT_BY_HALCYONIC =
+  "This app's version control and editor settings (.git, .gitmodules, .envrc, .vscode, .idea, .devcontainer, *.code-workspace) are kept by Halcyonic and cannot be written here. Leave them as they are and go on with the app: Halcyonic keeps the versions of your work itself.";
+
+/** Whether a file tool's input writes one of `RUNS_LATER` in `folder`, as the SDK's tool schemas name the file. */
+export function keptPath(
+  folder: string,
+  toolName: string,
+  input: Record<string, unknown>,
+): boolean {
+  const named =
+    toolName === 'Write' || toolName === 'Edit'
+      ? input.file_path
+      : toolName === 'NotebookEdit'
+        ? input.notebook_path
+        : undefined;
+  if (typeof named !== 'string' || named === '') return false;
+  const within = relative(resolve(folder), resolve(folder, named));
+  if (within === '' || within.startsWith('..') || isAbsolute(within)) return false;
+  return runsLater(within.split(sep).join('/'));
 }
 
 /** Shortens text to a contract limit. Null when nothing visible remains. */
