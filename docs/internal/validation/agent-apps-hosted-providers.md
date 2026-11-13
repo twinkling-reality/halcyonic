@@ -102,6 +102,7 @@ hosted provider reaches it only through its key gate", failing first on main (th
 `halcyonic_meta/muse-wonder-1.0` remote with provider `meta`; a thread's command printed `gate=none openai=none`;
 every request reached the stand-in with the fake key and no run credential; the turn ran on the hosted model; no file
 of the sandbox held the key. And "a hosted model chosen in a project that is not confined is refused in words".
-Not verified: whether a command in the same sandbox can read the server's environment, and so the run credential,
-through `ps` (the profile allows `process-info` for its own sandbox). Were it so, the credential is still worthless
-off the gate and revoked when the server exits; the key itself is never in the sandbox.
+Seen 2026-11-13 (the same end to end test now asserts it, counts only): a command on the confined thread ran
+`ps -axeww -o command` and saw no process at all (0 lines), so it could not read the server's environment, and found
+no run credential (0 matches). Were it readable, the credential is still worthless off the gate and revoked when the
+server exits; the key itself is never in the sandbox.

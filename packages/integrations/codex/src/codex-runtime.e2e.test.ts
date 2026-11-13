@@ -2080,7 +2080,7 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
       assert.equal(hosted.provider, 'meta');
       // A command on the thread: the gate's credential is not in its environment (AUDIT3's read, B).
       const execution = await start(
-        'CMD:echo gate=${HALCYONIC_GATE_META_TOKEN:-none} openai=${OPENAI_API_KEY:-none}',
+        'CMD:echo gate=${HALCYONIC_GATE_META_TOKEN:-none} openai=${OPENAI_API_KEY:-none}; echo ps-credentials=$(/bin/ps -axeww -o command= 2>/dev/null | grep -c halcyonic-gate-run-)',
         {},
         'halcyonic_meta/muse-wonder-1.0',
       );
@@ -2090,6 +2090,8 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
         .map((observation) => JSON.stringify(observation.payload))
         .join('\n');
       assert.match(output, /gate=none openai=none/);
+      // Nor can it read the server's environment through ps: no process shows a run credential.
+      assert.match(output, /ps-credentials=0/);
       // Every request reached the provider through the gate, with the person's key in place of the credential.
       assert.ok(seen.length > 0, 'nothing reached the provider');
       assert.ok(
