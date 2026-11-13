@@ -1197,6 +1197,153 @@ function stateUnknownCodes(
   );
 }
 
+/**
+ * A resumable runtime that lets a session at rest go, as OpenCode's adapter does once a folder's server has been
+ * quiet (`hosts` false), and may keep a spending limit; its start reports one turn's usage when told a cost.
+ */
+class RestingRuntime extends ResumableRuntime {
+  readonly #let = new Set<string>();
+  readonly #cost: number | null;
+
+  constructor(answer: 'restore' | 'refuse' = 'restore', cost: number | null = null) {
+    super(answer);
+    this.#cost = cost;
+    // It keeps a spending limit too, so a task can carry one across the hand-over.
+    (this as { descriptor: RuntimeDescriptor }).descriptor = {
+      ...this.descriptor,
+      offers_spending_cap: true,
+    };
+  }
+
+  letGo(executionId: string): void {
+    this.#let.add(executionId);
+  }
+
+  hosts(executionId: string): boolean {
+    return !this.#let.has(executionId);
+  }
+
+  override async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
+    // Its turn ends here, after the usage report, as an agent app reports a turn's usage before its end.
+    const started = await super.startExecution({ ...request, instruction: 'Go.' });
+    if (this.#cost !== null)
+      request.emit({
+        type: 'runtime.usage.reported',
+        occurred_at: new Date().toISOString() as never,
+        native_event_id: `${started.native_id}-u1`,
+        sequence: null,
+        provenance: { epistemic: 'reported', native_type: null },
+        payload: {
+          turn_id: 't1',
+          tokens: { input: 5, cache_read: 0, cache_write: 0, output: 1, reasoning: null },
+          cost: { estimated_usd: this.#cost, prices: 'list' },
+          counted: 'differenced',
+        },
+      } as never);
+    request.emit({
+      type: 'runtime.turn.completed',
+      occurred_at: new Date().toISOString() as never,
+      native_event_id: `${started.native_id}-t1c`,
+      sequence: null,
+      provenance: { epistemic: 'observed', native_type: null },
+      payload: { turn_id: 't1' },
+    });
+    return started;
+  }
+
+  override async reattach(request: ReattachRequest): Promise<void> {
+    this.#let.delete(request.execution.execution_id);
+    return super.reattach(request);
+  }
+}
+
+describe('a session the runtime let go at rest (a quiet folder server, 2026-11-13)', () => {
+  const finished = async (runtime: RestingRuntime) => {
+    const harness = createTestControlPlane({ adapters: () => [runtime] });
+    const workstreamId = await createWorkstream(harness);
+    startOn(harness, workstreamId, 'resumable', 'Finish.');
+    await harness.time.runUntilIdle();
+    const executionId = harness.controlPlane.projection.workstream(workstreamId)
+      ?.current_execution_id as ExecutionId;
+    assert.equal(harness.controlPlane.projection.execution(executionId)?.status, 'completed');
+    return { harness, executionId };
+  };
+  const instruct = async (harness: ReturnType<typeof createTestControlPlane>, id: ExecutionId) => {
+    const sent = harness.controlPlane.commands.submit(
+      harness.commands.instruct(id, 'One more thing.'),
+      'internal',
+    );
+    await harness.time.runUntilIdle();
+    return harness.controlPlane.projection.command(sent.command?.command_id ?? '');
+  };
+
+  test('its next instruction re-attaches it as after a restart, and reaches the agent', async () => {
+    const runtime = new RestingRuntime();
+    const { harness, executionId } = await finished(runtime);
+    runtime.letGo(executionId);
+    const done = await instruct(harness, executionId);
+    assert.equal(done?.status, 'completed');
+    assert.equal(runtime.reattached.length, 1);
+    assert.equal(runtime.reattached[0]?.native_id, `native-${executionId}`);
+    assert.equal(runtime.reattached[0]?.cut_turn, null);
+    assert.deepEqual(runtime.instructions, ['One more thing.']);
+    // Nothing said it was lost: the task read at rest throughout.
+    assert.deepEqual(stateUnknownCodes(harness, executionId), []);
+    await harness.controlPlane.close();
+  });
+
+  test('a session the runtime still holds is never re-attached', async () => {
+    const runtime = new RestingRuntime();
+    const { harness, executionId } = await finished(runtime);
+    assert.equal((await instruct(harness, executionId))?.status, 'completed');
+    assert.equal(runtime.reattached.length, 0);
+    await harness.controlPlane.close();
+  });
+
+  test('where it cannot be found again, the instruction is refused having sent nothing, and said lost plainly', async () => {
+    const runtime = new RestingRuntime('refuse');
+    const { harness, executionId } = await finished(runtime);
+    runtime.letGo(executionId);
+    const failed = await instruct(harness, executionId);
+    assert.deepEqual(
+      { status: failed?.status, code: failed?.failure?.code, effect: failed?.failure?.effect },
+      { status: 'failed', code: 'session_lost', effect: 'none' },
+    );
+    assert.deepEqual(runtime.instructions, []);
+    assert.deepEqual(stateUnknownCodes(harness, executionId), ['session_lost']);
+    await harness.controlPlane.close();
+  });
+
+  test('a task with a spending limit is handed only what is left of it, never the whole limit (ADR 0062)', async () => {
+    const runtime = new RestingRuntime('restore', 0.3);
+    const harness = createTestControlPlane({ adapters: () => [runtime] });
+    const workstreamId = await createWorkstream(harness);
+    harness.controlPlane.commands.submit(
+      {
+        ...harness.commands.startExecution(workstreamId, FEATURE),
+        payload: {
+          workstream_id: workstreamId,
+          runtime_id: 'resumable' as RuntimeId,
+          instruction: 'Finish.',
+          options: { lane: 'core' },
+          model_ref: null,
+          spending_cap_usd: 1,
+        },
+      },
+      'internal',
+    );
+    await harness.time.runUntilIdle();
+    const executionId = harness.controlPlane.projection.workstream(workstreamId)
+      ?.current_execution_id as ExecutionId;
+    runtime.letGo(executionId);
+    assert.equal((await instruct(harness, executionId))?.status, 'completed');
+    assert.equal(runtime.reattached.length, 1);
+    const left = runtime.reattached[0]?.spending_allowance_usd;
+    assert.ok(typeof left === 'number' && Math.abs(left - 0.7) < 1e-9, String(left));
+    await harness.controlPlane.close();
+  });
+});
+
 describe('closing (core audit 2026-11-03)', () => {
   test('an event that arrives after the journal closed is refused quietly, never thrown at the late caller', async () => {
     const { logger, entries } = capturingLogger();

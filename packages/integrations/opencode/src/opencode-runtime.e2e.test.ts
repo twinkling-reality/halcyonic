@@ -223,15 +223,29 @@ interface Harness {
 
 async function harness(
   t: TestContext,
-  setup: { runtime?: Partial<OpenCodeRuntimeOptions>; provider?: FakeProviderOptions } = {},
+  setup: {
+    runtime?: Partial<OpenCodeRuntimeOptions>;
+    provider?: FakeProviderOptions;
+    /** Declared originals the folder's sandbox reads (a VR version's), made as folders beside the project. */
+    originals?: readonly string[];
+  } = {},
 ): Promise<Harness> {
   const sandbox = await createSandbox(setup.provider);
+  const originals = (setup.originals ?? []).map((name) => {
+    const folder = join(dirname(sandbox.project), name);
+    mkdirSync(folder, { recursive: true });
+    return realpathSync(folder);
+  });
+  const confined = sandboxOf(sandbox);
   const runtime = new OpenCodeRuntimeAdapter({
     binaryPath: BINARY,
     serverRecordFile: sandbox.recordFile,
     directoryPolicy: allowOnly(sandbox.project),
     env: sandbox.env,
-    sandbox: sandboxOf(sandbox),
+    sandbox:
+      confined === null || originals.length === 0
+        ? confined
+        : { ...confined, forFolder: () => ({ readable: [], originals }) },
     ...setup.runtime,
   });
   t.after(async () => {
@@ -2922,4 +2936,115 @@ describe("OpenCode reaches a hosted provider only through Halcyonic's key gate (
     assert.deepEqual(holding, []);
     assert.deepEqual(sandbox.egress, [], 'OpenCode tried to reach the network');
   });
+});
+
+/** Whether the OpenCode server `pid` still runs, by its own command line. */
+async function serverAlive(pid: number): Promise<boolean> {
+  const identity = await readProcessIdentity(pid).catch(() => null);
+  return identity?.command.startsWith(`${BINARY} `) === true;
+}
+
+async function eventually(found: () => Promise<boolean>, timeoutMs: number): Promise<boolean> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (await found()) return true;
+    await delay(250);
+  }
+  return found();
+}
+
+describe("a confined folder's OpenCode server comes to rest (2026-11-13)", { skip: SKIP }, () => {
+  const QUIET_MS = 1500;
+  const nativeOf = (execution: Execution) => {
+    const started = execution.observations.find(
+      (item) => item.type === 'runtime.execution.started',
+    );
+    assert.ok(started?.type === 'runtime.execution.started');
+    return started.payload.native_id ?? '';
+  };
+  const restAndPickUp = async (t: TestContext, originals: readonly string[]) => {
+    const { runtime, sandbox, start } = await harness(t, {
+      runtime: { restingServerMs: QUIET_MS },
+      originals,
+    });
+    const execution = await start('Hello MARKER-REST-ONE.');
+    await execution.next('runtime.turn.completed');
+    const { pid } = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as { pid: number };
+    assert.ok(await serverAlive(pid), 'the folder server runs after the turn');
+    // Every task here at rest for the quiet time: the folder's server stops, and nothing says the task was lost.
+    assert.ok(
+      await eventually(async () => !(await serverAlive(pid)), 20_000),
+      'the server stopped',
+    );
+    assert.equal(runtime.hosts(execution.context.execution_id), false);
+    assert.ok(!execution.types().includes('runtime.connection.lost'), execution.types().join());
+    // The next action picks the session up from the folder's store, as after a restart (ADR 0046).
+    await runtime.reattach({
+      execution: execution.context,
+      emit: execution.emit,
+      native_id: nativeOf(execution),
+      options: {},
+      model_ref: null,
+      confined: true,
+      directory: sandbox.project,
+      cut_turn: null,
+      last_sequence: null,
+    });
+    assert.equal(runtime.hosts(execution.context.execution_id), true);
+    const before = sandbox.provider.requests.length;
+    await runtime.sendInstruction({
+      execution: execution.context,
+      text: 'Hello again MARKER-REST-TWO.',
+    });
+    await execution.next('runtime.turn.completed', 2);
+    const resumed = sandbox.provider.requests
+      .slice(before)
+      .find((request) => request.lastUserText.includes('MARKER-REST-TWO'));
+    assert.ok(resumed !== undefined, 'the instruction reached the model');
+    assert.ok(resumed.body.includes('MARKER-REST-ONE'), 'the first turn is in the history');
+  };
+
+  test(
+    'once every task in the folder rests a quiet time its server stops without a word, and the next action picks the session up from its store',
+    SLOW_TEST,
+    (t) => restAndPickUp(t, []),
+  );
+
+  test(
+    'a folder with a declared original rests and is picked up the same, its rules the same (VRIFY, 19:36Z)',
+    SLOW_TEST,
+    (t) => restAndPickUp(t, ['the-original']),
+  );
+
+  test(
+    "an approval still waiting for the person keeps the folder's server: a waiting card is never at rest",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t, {
+        runtime: { restingServerMs: QUIET_MS },
+      });
+      const first = await start('Hello MARKER-REST-ONE.');
+      await first.next('runtime.turn.completed');
+      const second = await start('Please RUN_SHELL for the end to end test.');
+      const requested = await second.next('runtime.approval.requested');
+      assert.ok(requested.type === 'runtime.approval.requested');
+      const { pid } = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as { pid: number };
+      // The first task's quiet time ends while the second's card waits: the server stays.
+      await delay(QUIET_MS * 3);
+      assert.ok(await serverAlive(pid), 'the server runs under a waiting card');
+      assert.equal(runtime.hosts(first.context.execution_id), true);
+      await runtime.respondToApproval({
+        execution: second.context,
+        approval_id: requested.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await second.next('runtime.turn.completed');
+      // Then both rest, and it stops.
+      assert.ok(
+        await eventually(async () => !(await serverAlive(pid)), 20_000),
+        'the server stopped',
+      );
+    },
+  );
 });

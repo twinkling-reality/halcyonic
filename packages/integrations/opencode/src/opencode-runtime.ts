@@ -128,6 +128,12 @@ const PLAN_NEVER_ASK =
 
 /** The listing server's slot key (BOX-3). */
 const MODELS_SLOT = 'models';
+/** The observations that end a turn, after which a folder's server may come to rest. */
+const TURN_ENDS: ReadonlySet<string> = new Set([
+  'runtime.turn.completed',
+  'runtime.turn.failed',
+  'runtime.turn.interrupted',
+]);
 
 /** A short, stable name for a folder's server (BOX-3): its record, sandbox folder and profile carry it. */
 export function folderKey(folder: string): string {
@@ -418,6 +424,11 @@ export interface OpenCodeRuntimeOptions {
   readonly startupTimeoutMs?: number;
   /** Silence after which the event stream is treated as dead. OpenCode sends a heartbeat every 15 s. */
   readonly streamSilenceTimeoutMs?: number;
+  /**
+   * How long every task of a confined folder stays at rest before that folder's server is stopped (10 minutes by
+   * default). The next action on one of them starts it again and picks the session up from its store (`hosts`).
+   */
+  readonly restingServerMs?: number;
   /** Delays before successive reconnection attempts; when they run out the server is given up. */
   readonly reconnectDelaysMs?: readonly number[];
   /**
@@ -602,6 +613,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly #snapshotRetryDelaysMs: readonly number[];
   readonly #recoveryDelaysMs: readonly number[];
   readonly #modelWaitMs: number;
+  readonly #restingServerMs: number;
+  /** The quiet time running for a folder's server since one of its sessions last ended a turn. */
+  readonly #resting = new Map<Connection, ReturnType<typeof setTimeout>>();
   readonly #foldersInside: (folder: string) => readonly string[];
   readonly #clock: Clock;
   readonly #sessions = new Map<string, HostedSession>();
@@ -631,6 +645,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#snapshotRetryDelaysMs = options.snapshotRetryDelaysMs ?? [1000, 3000];
     this.#recoveryDelaysMs = options.recoveryDelaysMs ?? [5000, 15_000, 30_000, 60_000, 300_000];
     this.#modelWaitMs = options.modelWaitMs ?? 10_000;
+    this.#restingServerMs = options.restingServerMs ?? 600_000;
     this.#foldersInside = options.foldersInside ?? (() => []);
     this.#clock = options.clock ?? systemClock;
     this.descriptor = {
@@ -1210,7 +1225,17 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     return this.#closing;
   }
 
+  /**
+   * Whether this process still holds the execution's session. False once its folder's server was stopped at rest
+   * (or the session was never here): the host then re-attaches it before its next action (ADR 0046).
+   */
+  hosts(executionId: string): boolean {
+    return this.#sessions.has(executionId);
+  }
+
   async #shutDown(): Promise<void> {
+    for (const timer of this.#resting.values()) clearTimeout(timer);
+    this.#resting.clear();
     // Halting first also releases a launch that is still waiting for its event stream.
     const stopping: Connection[] = [];
     const halt = () => {
@@ -2026,6 +2051,56 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         // A sink must not throw; one that does cannot stop the adapter observing.
       }
     }
+    if (observations.some((item) => TURN_ENDS.has(item.type))) this.#restLater(session.connection);
+  }
+
+  /** Starts, again, the quiet time after which a confined folder's server stops if every task there is at rest. */
+  #restLater(connection: Connection): void {
+    // The listing server, and the one server of an unsandboxed adapter, serve no one folder's tasks.
+    if (connection.slot.folder === null || connection.halted.signal.aborted) return;
+    const running = this.#resting.get(connection);
+    if (running !== undefined) clearTimeout(running);
+    const timer = setTimeout(() => {
+      this.#resting.delete(connection);
+      void this.#rest(connection).catch(() => undefined);
+    }, this.#restingServerMs);
+    timer.unref?.();
+    this.#resting.set(connection, timer);
+  }
+
+  /**
+   * Stops a folder's server once every session on it is at rest: no turn, no start awaited, nothing in flight, no
+   * approval being sent, no reconcile, no instruction steered and not yet delivered, and no start being made. Its
+   * sessions are let go without a word, since nothing was lost: they stay in the folder's own store, and the next
+   * action on one re-attaches it on a new server. A turn that started meanwhile keeps the server; its end starts
+   * the quiet time again.
+   */
+  async #rest(connection: Connection): Promise<void> {
+    if (this.#closing !== null || connection.halted.signal.aborted) return;
+    if (connection.slot.current !== connection || this.#creating > 0) return;
+    const sessions = [...this.#sessions.values()].filter(
+      (session) => session.connection === connection,
+    );
+    const busy = sessions.some(
+      (session) =>
+        !session.lost &&
+        (session.state.turn !== null ||
+          session.state.awaitingStart ||
+          session.state.steered.size > 0 ||
+          session.inFlight.size > 0 ||
+          session.approving.size > 0 ||
+          session.reconciling !== null),
+    );
+    if (busy) return;
+    for (const session of sessions) {
+      this.#sessions.delete(session.execution.execution_id);
+      this.#bySessionId.delete(session.sessionId);
+    }
+    for (const [sessionId, owner] of this.#unclaimed)
+      if (owner === connection) this.#unclaimed.delete(sessionId);
+    this.#halt(connection);
+    await connection.server.stop();
+    await connection.gone;
   }
 
   /**

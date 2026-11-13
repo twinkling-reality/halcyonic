@@ -83,7 +83,14 @@ export class Reattacher {
    */
   async ensure(execution: ExecutionContext): Promise<void> {
     const id = execution.execution_id;
-    if (this.#attached.has(id)) return;
+    if (this.#attached.has(id)) {
+      // A runtime that let a session at rest go (its server stopped after a quiet time) no longer holds it: the
+      // session is picked up again as after a restart, from the runtime's own store.
+      const runtimeId = this.#deps.projection.execution(id)?.runtime.runtime_id ?? '';
+      const adapter = this.#deps.registry.adapter(runtimeId);
+      if (adapter?.hosts === undefined || adapter.hosts(id)) return;
+      this.#attached.delete(id);
+    }
     const attached = await (this.#pending.get(id) ?? this.#attach(id));
     if (attached) return;
     throw new RuntimeActionError(
@@ -185,7 +192,7 @@ export class Reattacher {
       halt.abort();
     }
     this.#attached.add(id);
-    this.#deps.logger.info({ execution_id: id }, 're-attached execution after restart');
+    this.#deps.logger.info({ execution_id: id }, 're-attached execution');
     return true;
   }
 
