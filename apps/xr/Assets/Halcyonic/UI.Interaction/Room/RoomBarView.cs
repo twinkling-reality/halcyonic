@@ -737,6 +737,17 @@ namespace Halcyonic.XR.UI
         /// mono, else prose): what the file counts a request's or an instruction's rows by while the panel draws its
         /// confirmation, so the file's parts are the panel's own lines, eight a part.
         /// </summary>
+        /// <summary>
+        /// The lines <paramref name="row"/> takes as the panel's rows draw it with a panel <paramref name="panelDp"/> wide, on a page
+        /// that <paramref name="pageMarked"/> or not, its label's lines counted: the measure the general reader fills a page to eight
+        /// lines by (<see cref="RoomRowsView.RowLines"/>, the rows' own lay path; XR's and AUDIT's 2026-11-13T2020Z).
+        /// </summary>
+        public int RowLines(RoomRow row, bool pageMarked, float panelDp)
+        {
+            if (facts == null) facts = RoomRowsView.Create(panel.transform, KitType.Order.Words);
+            return facts.RowLines(row, pageMarked, RoomType.Units(panelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp));
+        }
+
         /// <summary>The lines <paramref name="words"/> take laid at a panel <paramref name="panelDp"/> wide, its padding off, at the person's text size.</summary>
         public int LinesAt(LineWords words, bool mono, float panelDp)
         {

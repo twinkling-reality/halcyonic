@@ -73,6 +73,56 @@ namespace Halcyonic.XR.UI
             return view;
         }
 
+        private TextMeshPro? measureWords, measureTag, measureNote;
+
+        /// <summary>
+        /// The lines <paramref name="row"/> takes laid as <see cref="Show"/> lays it <paramref name="width"/> wide on a page that
+        /// <paramref name="pageMarked"/> or not: its label's lines above, then its words' lines at the width left by the page's
+        /// mark indent and its own note's room, by the very lay path the rows are drawn with (XR's and AUDIT's 2026-11-13T2020Z:
+        /// one source of truth, so a page of eight lines is eight as drawn). Hidden labels of its own; nothing shown changes.
+        /// </summary>
+        public int RowLines(RoomRow row, bool pageMarked, float width)
+        {
+            if (measureWords == null)
+            {
+                measureWords = RoomType.Create(transform, "Row measure", Color.clear, order);
+                measureTag = KitType.Create(transform, "Row label measure", KitRole.Body, Color.clear, order, TMPro.TextAlignmentOptions.TopLeft, room: true);
+                measureNote = KitType.Create(transform, "Row note measure", KitRole.Body, Color.clear, order, TMPro.TextAlignmentOptions.TopLeft, room: true);
+            }
+            var was = gameObject.activeSelf;
+            gameObject.SetActive(true);
+            measureWords.gameObject.SetActive(true);
+            measureTag!.gameObject.SetActive(true);
+            measureNote!.gameObject.SetActive(true);
+            var indent = pageMarked ? RoomType.Scaled(RoomRows.MarkDp + RoomRows.MarkGapDp) : 0f;
+            var lines = 0;
+            if (row.Label is string said)
+            {
+                measureTag.fontSize = GlazeTokens.FontSize(RoomType.Scaled(TagDp));
+                measureTag.lineSpacing = KitType.LineSpacingFor(measureTag, TagLineDp / TagDp);
+                GlazeRuns.Of(measureTag).Set(LineWords.Ours(said));
+                lines += Mathf.Max(1, KitType.Lay(measureTag, width - indent, 2).Lines);
+            }
+            var noteRoom = 0f;
+            if (row.Note is string state)
+            {
+                measureNote.fontSize = GlazeTokens.FontSize(RoomType.Scaled(TagDp));
+                measureNote.lineSpacing = KitType.LineSpacingFor(measureNote, TagLineDp / TagDp);
+                GlazeRuns.Of(measureNote).Set(LineWords.Ours(state));
+                noteRoom = Mathf.Min(width / 2f, measureNote.GetPreferredValues(measureNote.text).x + RoomType.Units(0.5f)) + RoomType.Scaled(NoteGapDp);
+            }
+            RoomType.Size(measureWords);
+            var runs = GlazeRuns.Of(measureWords);
+            runs.Set(row.Words);
+            runs.SetProseMode(true);
+            lines += Mathf.Max(1, LayAtSeparators(measureWords, runs, width - indent - noteRoom).Lines);
+            measureWords.gameObject.SetActive(false);
+            measureTag.gameObject.SetActive(false);
+            measureNote.gameObject.SetActive(false);
+            gameObject.SetActive(was);
+            return lines;
+        }
+
         /// <summary>
         /// Shows <paramref name="rows"/> <paramref name="width"/> wide, at the person's text size, and returns how tall
         /// they stand. More than a page's rows are the caller's to turn (<see cref="RoomRows.Page"/>): every row given is drawn.
