@@ -184,7 +184,7 @@ namespace Halcyonic.XR.Room
         /// <summary>This preview found no place inside the field and stands a turn of the head past its side (<see cref="BeginPreview"/>).</summary>
         private bool turnAside;
 
-        /// <summary>How far past its side the field reaches for this preview, turned: thirty degrees, then out to the person's side.</summary>
+        /// <summary>How far the head may turn toward the shelf for this preview: thirty degrees, then out to the person's side.</summary>
         private float fieldAside;
 
         /// <summary>What refuses a shelf at <paramref name="candidate"/>: the field, the plane's footprint, or no head; null where it may stand.</summary>
@@ -194,14 +194,22 @@ namespace Halcyonic.XR.Room
             if (head == null) return "no head to measure from";
             var pose = ToPose(candidate);
             var measured = ViewField.Current ?? new ViewField(48, 48, 45, 45);
-            // Turned a little (turnAside), the field reaches ShelfAside.AsideDegrees further to either side, as the head turned sees it.
-            var aside = turnAside ? fieldAside : 0f;
-            var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees + aside, measured.Right - ViewField.EdgeMarginDegrees + aside,
+            var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
                 measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
             CharacterStage.WriteShelfCorners(pose, GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(1), head.transform.position, shelfCorners);
+            // A turn of the head (turnAside) turns the head, never stretches the field (a field wider than ninety degrees is no
+            // field: JUDGE's charN): the corners are seen from the head turned toward the shelf by as much as this pass allows.
+            var turned = Quaternion.identity;
+            if (turnAside)
+            {
+                var middle = Quaternion.Inverse(head.transform.rotation) * (pose.position - head.transform.position);
+                var toward = Mathf.Atan2(middle.x, middle.z) * Mathf.Rad2Deg;
+                turned = Quaternion.Euler(0f, Mathf.Clamp(toward, -fieldAside, fieldAside), 0f);
+            }
+            var seenFrom = head.transform.rotation * turned;
             for (var corner = 0; corner < 8; corner++)
             {
-                var direction = Quaternion.Inverse(head.transform.rotation) * (shelfCorners[corner] - head.transform.position);
+                var direction = Quaternion.Inverse(seenFrom) * (shelfCorners[corner] - head.transform.position);
                 var yaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
                 var elevation = Mathf.Atan2(direction.y, new Vector2(direction.x, direction.z).magnitude) * Mathf.Rad2Deg;
                 if (!field.Shows(yaw, elevation)) return "a corner outside the field";
