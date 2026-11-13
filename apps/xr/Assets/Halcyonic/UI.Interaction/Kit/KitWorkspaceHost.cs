@@ -171,7 +171,13 @@ namespace Halcyonic.XR.UI
             composer.Talk.Press.Target.Released += host.OnTalkReleased;
             // The redesign's actions are the frame's own controls; Hold to Talk is held, as the composer's is.
             host.bar = RoomBarView.Create(go.transform);
-            host.bar.Acted += control => { if (host.binding != null) host.Acted?.Invoke(host.column, control.Action, control.Key, control.Frame, null); };
+            host.bar.Acted += control =>
+            {
+                if (host.binding == null) return;
+                // The general reader's own pager turns its page here; it is no action of the frame's.
+                if (control.Action == RoomBar.TurnPage) { host.OnTurnPage(); return; }
+                host.Acted?.Invoke(host.column, control.Action, control.Key, control.Frame, null);
+            };
             host.bar.TalkPressed += host.OnTalkPressed;
             host.bar.TalkReleased += host.OnTalkReleased;
             host.band = RoomBand.Create(go.transform);
@@ -305,6 +311,9 @@ namespace Halcyonic.XR.UI
             bar.transform.localScale = Vector3.one / zoom;
             bar.transform.localPosition = Vector3.zero;
             var room = RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork());
+            // The general reader's pages turned for this very frame stay turned; another frame starts on its first page.
+            if (turned is { } kept && ReferenceEquals(kept.Frame, binding.Frame)) { for (var turn = 0; turn < kept.Turns && room.Turn(); turn++) { } }
+            else turned = null;
             // The agent's own words stand on the band, never in the panel; the same words again keep the part it shows.
             if (room.Band != null) band.Show(room.Band);
             else band.Hide();
@@ -369,6 +378,24 @@ namespace Halcyonic.XR.UI
             cursor.transform.localScale = Vector3.one / zoom;
             cursor.transform.localPosition = field.transform.localPosition;
             cursor.Show(room.Step);
+        }
+
+        // The general reader's page turns for the frame it turned on: kept while that frame stands, as the bar is made again from it.
+        private (MenuFrame Frame, int Turns)? turned;
+
+        /// <summary>
+        /// The general reader's Next Page pressed (RoomBar.TurnPage): its next page, or the first after the last, drawn as the same
+        /// bar; the frame counts as drawn again only once every page was shown (RoomBar.Whole, ReportDrawn).
+        /// </summary>
+        private void OnTurnPage()
+        {
+            if (binding == null || !Settled || !Accepting() || bar.Shown == null) return;
+            var turns = turned is { } was && ReferenceEquals(was.Frame, binding.Frame) ? was.Turns : 0;
+            turned = (binding.Frame, turns + 1);
+            ShowBar(binding);
+            drawn = null;
+            shownAt = Time.unscaledTime;
+            foreach (var press in bar.Presses) press.Unsettle();
         }
 
         /// <summary>
