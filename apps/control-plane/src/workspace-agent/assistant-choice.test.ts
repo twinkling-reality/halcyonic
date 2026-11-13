@@ -1,18 +1,26 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import type { CommandId, HereScope, WorkspaceAgentStatus } from '@halcyonic/contracts';
+import {
+  type ActionReview,
+  type CommandId,
+  compileValidator,
+  type HereScope,
+  type WorkspaceAgentStatus,
+  WorkspaceRequestProposal,
+} from '@halcyonic/contracts';
 import { Projection } from '@halcyonic/domain';
 import type { HostedProvider } from '@halcyonic/runtime-core';
 import { createUuidV7Generator } from '../ids.ts';
+import { HostProviders } from '../providers.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
 import type { Model } from './assistant-model.ts';
 import type { ToolTurnResult } from './ollama.ts';
 import { assistantModel } from './providers/assistant.ts';
 import { KEY_REFUSED, type Protocol } from './providers/provider.ts';
-import { WorkspaceRequests } from './requests.ts';
+import { reviewWords, WorkspaceRequests } from './requests.ts';
 
 // The person's own choice of where the assistant runs, end to end in one plane (the lead's D1 and D2, 2026-11-12).
 // A test provider and an in-process protocol: nothing leaves this process, and the key is a fake value.
@@ -41,6 +49,15 @@ function plane(t: { after: (fn: () => unknown) => void }, refuse: boolean) {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   writeFileSync(join(dir, provider.key.file), `${FAKE}\n`);
   chmodSync(join(dir, provider.key.file), 0o600);
+  // The test provider as one declaration file, read into the host's one list as the plane reads its own (ADR 0061).
+  const declarations = mkdtempSync(join(tmpdir(), 'assistant-choice-providers-'));
+  t.after(() => rmSync(declarations, { recursive: true, force: true }));
+  mkdirSync(join(declarations, provider.id));
+  writeFileSync(
+    join(declarations, provider.id, 'provider.json'),
+    JSON.stringify({ format: 1, ...provider }),
+  );
+  const host = new HostProviders({ dir: declarations, dataDir: dir });
   let hostedTurns = 0;
   let hostedChecks = 0;
   let localTurns = 0;
@@ -79,7 +96,7 @@ function plane(t: { after: (fn: () => unknown) => void }, refuse: boolean) {
       };
     },
   };
-  const h = createTestControlPlane({});
+  const h = createTestControlPlane({ providers: host });
   const ids = createUuidV7Generator({ now: () => h.time.now().getTime() });
   const assistant = assistantModel({
     local,
@@ -239,8 +256,11 @@ test('a refused key is said in words, never sent again, and this computer is one
   const offer = request?.steps.find((step) => step.tool_name === 'use_this_computer');
   assert.equal(offer?.status, 'waiting');
   assert.equal(offer?.proposal?.command_type, 'assistant.model.choose');
-  // The host's own offer (not the model's step), of this computer's model only, one press with no review (AUDIT2).
+  // The host's own offer (not the model's step), of this computer's model only, one press with no review (AUDIT2),
+  // with the host's own words for its card (XR, 2026-11-13).
   assert.equal(offer?.proposal?.confirm, 'none');
+  assert.equal(offer?.proposal?.confirm_words, "Use This Computer's Model");
+  assert.match(offer?.proposal?.what_happens ?? '', /nothing it reads leaves this computer/);
   const held = p.h.controlPlane.projection.workspaceProposal(id, offer?.step_id as never);
   assert.deepEqual(held?.command.payload, { model: null });
   assert.equal(p.counts().hosted, 1);
@@ -288,5 +308,84 @@ test('the last press decides: a hosted choice still reading its options never la
   assert.equal(
     p.h.controlPlane.projection.command(hosted.command?.command_id as CommandId)?.status,
     'failed',
+  );
+});
+
+test("a press on a hosted row waits on the host's own card: its button, the model and provider, the warning", async (t) => {
+  const p = plane(t, false);
+  const list = await p.h.controlPlane.commands.choices(ALL, 'assistant_models');
+  const sent = p.h.controlPlane.commands.submit(
+    p.envelope('workspace.request.submit', {
+      project_id: null,
+      workstream_id: null,
+      execution_id: null,
+      text: 'Use Model',
+      act: {
+        command_type: 'assistant.model.choose',
+        values: { model: 1 },
+        lists: { assistant_models: list?.digest },
+      },
+    }),
+    'http',
+    { kind: 'local' },
+  );
+  const id =
+    sent.command?.result?.kind === 'workspace_request_created'
+      ? sent.command.result.request_id
+      : null;
+  assert.ok(id);
+  await settle();
+  const step = p.coordinator
+    .read(id as string, { kind: 'local' })
+    ?.steps.find((each) => each.proposal && each.status === 'waiting');
+  assert.equal(step?.proposal?.confirm, 'review');
+  assert.equal(step?.proposal?.confirm_words, 'Use This Model');
+  assert.deepEqual(step?.proposal?.facts, [
+    { kind: 'words', value: 'test-model-1', theirs: true },
+    { kind: 'words', value: 'Test Hosted', theirs: true },
+  ]);
+  assert.deepEqual(step?.proposal?.warnings, [
+    { code: 'paid', line: 'Each request is paid with your key' },
+  ]);
+});
+
+test("a review holding more than a proposal may carry is fitted to the proposal's own contract", () => {
+  const review: ActionReview = {
+    command_type: 'workstream.add_to_project',
+    digest: 'a'.repeat(64),
+    confirm_words: 'Add Twelve Files To The Project Folder Now Please',
+    what_happens: 'Twelve files are added.',
+    facts: Array.from({ length: 6 }, (_, at) => ({
+      kind: 'folder' as const,
+      value: `/${'deep/'.repeat(100)}${at}`,
+      theirs: true,
+    })),
+    items: [],
+    items_total: 0,
+    warnings: Array.from({ length: 11 }, (_, at) => ({
+      code: 'moves_a_key',
+      line: `providers/p${at}/provider.json changes where a key goes`,
+    })),
+    said: [],
+  };
+  const words = reviewWords(review);
+  assert.equal(words.facts?.length, 4);
+  assert.ok(words.facts?.every((fact) => [...fact.value].length <= 400));
+  assert.equal(words.warnings?.length, 8);
+  assert.deepEqual(words.warnings?.at(-1), {
+    code: 'more_warnings',
+    line: 'And 4 more to read on this computer',
+  });
+  assert.ok([...(words.confirm_words ?? '')].length <= 40);
+  const check = compileValidator(WorkspaceRequestProposal);
+  assert.ok(
+    check({
+      command_type: 'workstream.add_to_project',
+      confirm: 'review',
+      what_happens: 'x',
+      review: 'a'.repeat(64),
+      said: [],
+      ...words,
+    }).ok,
   );
 });

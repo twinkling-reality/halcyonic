@@ -515,7 +515,13 @@ export async function buildReview(
             ? []
             : [
                 { kind: 'words', value: chosen.model, theirs: true },
-                { kind: 'address', value: chosen.provider_id, theirs: true },
+                // The provider by the name it declares, as the person knows it; its id only where none is declared now.
+                {
+                  kind: 'words',
+                  value:
+                    controlPlane.providers?.byId(chosen.provider_id)?.name ?? chosen.provider_id,
+                  theirs: true,
+                },
               ],
         items: [],
         items_total: 0,

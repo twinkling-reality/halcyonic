@@ -166,6 +166,10 @@ items_total, warnings }`, with one reader per command type for its facts.
 - `items`: each `{ kind, name, note, theirs }`.
 - `warnings`: each `{ code, line }`.
 - Every word is the host's, and kinds come from one enum. The card reads no `command_type` and no words of its own.
+- **A waiting proposal carries the review's words too** (2026-11-13, XR's Usage row): `confirm_words`, `facts` and
+  `warnings`. That holds for a reviewed one, and for the host's own one-press offer where the command has a review.
+  So the client draws the host's card from the step alone. The fields are optional: a proposal recorded before them
+  has only `what_happens` and `said`.
 
 ## Alternatives considered
 

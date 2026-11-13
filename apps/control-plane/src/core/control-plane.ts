@@ -180,6 +180,8 @@ export class ControlPlane {
   readonly copies: TaskCopies | null;
   /** The starters a new project can begin from, or null when there are none. */
   readonly starters: HostStarters | null;
+  /** The host's one list of declared hosted providers (ADR 0061), for the words a review names one by; null where none. */
+  readonly providers: HostProviders | null;
   /** Folders of Halcyonic's own data that no read of a project's files may reach. */
   readonly protectedFolders: readonly string[];
   /** The Mac's own reading of what each turn changed in its folder (ADR 0038), or null when off. */
@@ -278,6 +280,7 @@ export class ControlPlane {
           });
     this.checkpoints?.attach(this.publisher);
     this.starters = options.starters ?? null;
+    this.providers = options.providers ?? null;
     this.previews =
       options.previews === undefined
         ? null

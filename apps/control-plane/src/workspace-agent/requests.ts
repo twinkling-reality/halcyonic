@@ -1,4 +1,5 @@
 import {
+  type ActionReview,
   type ChoiceList,
   COMMAND_VARIANTS,
   type CommandEnvelope,
@@ -98,6 +99,36 @@ export const ANSWERING = `You answer the person's software-work request from wha
 
 /** The first line of the quoted block of what was read, on an answering turn. */
 export const READ_FOR_IT = 'What was read for this request, oldest first:';
+
+/** The host's review's words a proposal carries for the client's card (`WorkspaceRequestProposal`, 2026-11-13). */
+type ReviewWords = Pick<WorkspaceRequestProposal, 'confirm_words' | 'facts' | 'warnings'>;
+/** The most facts and warnings a proposal carries, its contract's own limits (`WorkspaceRequestProposal`). */
+const MOST_FACTS = 4;
+const MOST_WARNINGS = 8;
+/**
+ * The review's words fitted to the proposal's contract, since they are journaled with the step and a review may hold
+ * more than it does (one warning per changed declaration file, a long folder path): the button's words to 40, at most
+ * four facts each to 400, at most eight warnings, the last saying how many more there were (review of b4c7facf6).
+ */
+export const reviewWords = (review: ActionReview): ReviewWords => {
+  const warnings =
+    review.warnings.length <= MOST_WARNINGS
+      ? review.warnings
+      : [
+          ...review.warnings.slice(0, MOST_WARNINGS - 1),
+          {
+            code: 'more_warnings',
+            line: `And ${review.warnings.length - MOST_WARNINGS + 1} more to read on this computer`,
+          },
+        ];
+  return {
+    confirm_words: fitted(review.confirm_words, 40),
+    facts: review.facts
+      .slice(0, MOST_FACTS)
+      .map((fact) => ({ ...fact, value: fitted(fact.value, 400) })),
+    warnings: warnings.map((warning) => ({ ...warning, line: fitted(warning.line, 200) })),
+  };
+};
 
 /** The transport failures of a chosen hosted model's key or model, after which the host offers this computer's (D2). */
 const KEY_FAILURES = new Set([
@@ -1746,6 +1777,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         what_happens: fitted(shown.what_happens, 2000),
         review: shown.digest,
         said: shown.said,
+        ...shown.words,
       },
     };
   }
@@ -1755,7 +1787,14 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     command: CommandEnvelope,
     description: string,
   ): Promise<
-    | { ok: true; what_happens: string; digest: string; said: ReturnType<typeof saidIn> }
+    | {
+        ok: true;
+        what_happens: string;
+        digest: string;
+        said: ReturnType<typeof saidIn>;
+        /** The host's review's own words for the card, where the command is reviewed. */
+        words?: ReviewWords;
+      }
     | { ok: false; code: string; message: string }
   > {
     if (confirm !== 'review')
@@ -1772,6 +1811,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       what_happens: built.review.what_happens,
       digest: built.review.digest,
       said: built.review.said,
+      words: reviewWords(built.review),
     };
   }
   /**
@@ -2441,6 +2481,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     if ((prepared.command.payload as { model?: unknown }).model !== null) return false;
     const shown = await this.#shown('none', prepared.command, entry.description);
     if (!shown.ok) return false;
+    // One press, yet the card still shows the host's own words for it (XR, 2026-11-13): its button and what happens.
+    const built = await buildReview(plane, prepared.command).catch(() => null);
+    const words = built?.ok ? reviewWords(built.review) : {};
     // A request cancelled or stopped while the list was read gets no offer and is not brought back.
     const current = this.#current(request.request_id, controller);
     if (!current) return false;
@@ -2455,9 +2498,10 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         proposal: {
           command_type: 'assistant.model.choose',
           confirm: 'none',
-          what_happens: fitted(shown.what_happens, 2000),
+          what_happens: fitted(built?.ok ? built.review.what_happens : shown.what_happens, 2000),
           review: shown.digest,
           said: shown.said,
+          ...words,
         },
         proposed: prepared.command,
       },
