@@ -968,6 +968,16 @@ launch/return, process recreation and current-frame action behavior need separat
     - **`OnePress`** tells the host's own offer of this computer's model (no review) from a reviewed hosted choice.
     - **`Ended`** says a press was refused or ended without waiting, so nothing waits on it.
     - **`CommandFactory.ConfirmRequest`** is the card's one press. The row changes at the next status read.
+  - **`UsageColumn`** draws it under the redesign. It reads the status beside the limits, and the row stands under the
+    gauges; a read that fails draws no row. The row's press opens the host's list, read afresh each time
+    (**`UsageColumn.ModelsCard`**): the place it runs now chosen, Back to the card. A row pressed sends Use Model,
+    the request's waiting step is drawn as the one review card (**`ReviewCard`**, built by
+    **`UsageColumn.ReviewOf`** from the step's proposal), and Confirm is one press; once the request ends, the
+    column reads the status again. Cancel confirms nothing. A refusal returns to the list with the host's words.
+    The press is offered only on the computer's own Usage (never the recording) with a command factory.
+    **`RoomBar.Menu`** binds every press on the card to the frame drawn and stands Confirm as the main action.
+    The step's proposal does not yet carry the host's confirm words, facts or warnings, so the card shows the
+    host's line of what happens and Confirm says the entry's title (asked of LOOP, 2026-11-13).
 - **`ControlPlaneApi.GetRuntimeModelsAsync`** reads the models a runtime whose `ModelChoice` is
   `Listed` can use now, from the runtime's own list
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)): each
