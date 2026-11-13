@@ -1,0 +1,224 @@
+/* The Usage page, on the Mac pages' kit (page.css): one block per project, its two figures as slots (the label above
+   the value, never "Label: Value"), a Breakdown that opens, then its tasks as a table with column heads once. */
+/* The page's one column never grows past the window for a wide table: the table scrolls inside its well instead. */
+body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.card,
+.card * {
+  min-width: 0;
+}
+
+.usage-line {
+  margin: 16px 0 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--secondary);
+  text-wrap: pretty;
+}
+.usage-empty {
+  margin: 0;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+h2.usage-name {
+  font-size: 20px;
+  line-height: 26px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/* A figure: the value, then each owed line under it. A word for why there is no number reads quieter. */
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.slot .figure {
+  margin-top: 8px;
+}
+.figure-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.slot .figure-value {
+  font-size: 26px;
+  line-height: 32px;
+}
+.figure-word .figure-value {
+  color: var(--secondary);
+}
+.slot .figure-word .figure-value {
+  font-size: 20px;
+}
+.figure-note {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--quiet);
+  text-wrap: pretty;
+}
+
+.usage-breakdown {
+  margin-top: 12px;
+}
+.usage-breakdown summary {
+  cursor: pointer;
+  width: fit-content;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+.usage-breakdown summary:hover {
+  color: var(--text);
+}
+.usage-breakdown summary:focus-visible {
+  outline: 2px solid var(--focus);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  line-height: 20px;
+}
+th {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--quiet);
+}
+th,
+td {
+  padding: 10px 20px 10px 0;
+  vertical-align: top;
+}
+/* The Breakdown: a small table in its own well, with its two column heads. */
+.usage-parts {
+  width: 100%;
+  margin-top: 8px;
+  padding: 4px 16px;
+  border-radius: 16px;
+  background: var(--well);
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.usage-parts tbody th {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--secondary);
+  padding-right: 24px;
+}
+.usage-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.usage-parts th.usage-number {
+  text-align: right;
+}
+/* A part's number with its "At least this much" under it. */
+.usage-parts td.usage-number > span {
+  display: block;
+}
+/* The numbers end at the well's own edge. */
+.usage-parts tr > :last-child {
+  padding-right: 0;
+}
+
+/* The tasks: a table in a well; on a narrow window it scrolls inside the card, never the page. */
+.usage-scroll {
+  margin-top: 16px;
+  padding: 4px 16px;
+  border-radius: 16px;
+  background: var(--well);
+  overflow-x: auto;
+}
+.usage-tasks {
+  table-layout: fixed;
+}
+/* The same column widths in every project's table, so the tables line up down the page. */
+.usage-tasks th:nth-child(1) {
+  width: 34%;
+}
+.usage-tasks th:nth-child(2) {
+  width: 18%;
+}
+.usage-tasks tbody tr + tr td {
+  border-top: 1px solid var(--card-edge);
+}
+.usage-estimates {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--quiet);
+}
+.usage-task {
+  min-width: 10em;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+/* A number keeps to one line; a word for why there is none wraps inside its own cell. */
+.usage-tasks .usage-figure .figure-value {
+  white-space: nowrap;
+}
+.usage-tasks .usage-figure .figure-word .figure-value {
+  white-space: normal;
+}
+.usage-figure .figure-note {
+  white-space: normal;
+  max-width: 16em;
+}
+
+/* A narrow window: the two figures one above the other, and each task its own card, every value under its label. */
+@media (max-width: 560px) {
+  .slots {
+    grid-template-columns: 1fr;
+  }
+  .usage-scroll {
+    padding: 0;
+    background: none;
+    overflow: visible;
+  }
+  .usage-tasks,
+  .usage-tasks tbody,
+  .usage-tasks tr,
+  .usage-tasks td {
+    display: block;
+    width: auto;
+  }
+  .usage-tasks thead {
+    display: none;
+  }
+  .usage-tasks tr {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: var(--well);
+  }
+  .usage-tasks tr + tr {
+    margin-top: 10px;
+  }
+  .usage-tasks td {
+    padding: 4px 0;
+    white-space: normal;
+  }
+  .usage-tasks tbody tr + tr td {
+    border-top: none;
+  }
+  .usage-tasks td.usage-task {
+    padding-bottom: 8px;
+    font-size: 17px;
+  }
+  .usage-tasks td:not(.usage-task)::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--quiet);
+  }
+  .usage-tasks td.usage-app:empty {
+    display: none;
+  }
+}

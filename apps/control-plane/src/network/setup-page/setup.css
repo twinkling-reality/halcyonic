@@ -15,6 +15,16 @@
   }
 }
 
+/* The two ways to the other pages share the head's link place: Pairing back, Usage on. */
+.page-links {
+  grid-area: link;
+  display: flex;
+  gap: 4px;
+}
+.page-links .page-link {
+  grid-area: auto;
+}
+
 /* Nothing here is wider than the card: long paths and names break where they must. */
 .card * {
   min-width: 0;

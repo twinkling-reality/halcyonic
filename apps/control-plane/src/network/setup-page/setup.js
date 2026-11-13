@@ -865,7 +865,16 @@ function draw() {
   const running = !gone && state !== null && state.job !== null && state.job.state === 'running';
   status(...standing());
   elsewhere(state?.data_folder ?? null);
-  for (const id of ['restart', 'confirm-top', 'job', 'said', 'shared', 'check', 'pairing-link'])
+  for (const id of [
+    'restart',
+    'confirm-top',
+    'job',
+    'said',
+    'shared',
+    'check',
+    'pairing-link',
+    'usage-link',
+  ])
     $(id).hidden = gone;
   $('steps-block').hidden = gone || state === null;
   $('optional-block').hidden = gone || state === null;
