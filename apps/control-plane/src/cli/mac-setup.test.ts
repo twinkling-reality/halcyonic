@@ -352,7 +352,7 @@ describe('pnpm mac-setup', () => {
     let output = text(machine);
     assert.match(
       output,
-      /Claude Agent runs on your own key, .* Add its Anthropic key under Agent Apps on the setup page\./,
+      /Claude Agent runs on your own key, which pays for every task on it\. Add its Anthropic key under Agent Apps on the setup page\./,
     );
     assert.match(output, /Claude Agent is off\./);
     assert.match(output, /No agent app is set up, so no task can start\./);
@@ -515,7 +515,7 @@ describe('pnpm mac-setup', () => {
     await machine.run();
     assert.match(
       text(machine),
-      /Claude Agent runs on your own key, .* Add its Anthropic key below\./,
+      /Claude Agent runs on your own key, which pays for every task on it\. Add its Anthropic key below\./,
     );
   });
 
@@ -1239,7 +1239,7 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Look at this');
     assert.match(
       text(machine),
-      /Claude Agent is on from Halcyonic's next start\. Its models run on a remote service, Anthropic's: nothing starts on one without its second press/,
+      /Claude Agent is on from Halcyonic's next start\. Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key\./,
     );
   });
 
