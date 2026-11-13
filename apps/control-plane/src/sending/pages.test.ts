@@ -612,7 +612,7 @@ describe('a built copy holding a secret the host keeps is never published (the l
     assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
     assert.equal(
       pressed.ok ? '' : pressed.message,
-      'An earlier publish of assets/app.js held a secret this Mac keeps (MY_SERVICE_KEY), and it left this Mac with that publish, so nothing was published. Make a new MY_SERVICE_KEY with the service that gave it to you and store it on this Mac; then Publish works, and the old one no longer works for anyone.',
+      'An earlier publish of assets/app.js held a secret this Mac keeps (MY_SERVICE_KEY), and it left this Mac with that publish, so nothing was published. Until the old MY_SERVICE_KEY is turned off, treat it as exposed: turn it off with the service that gave it to you, make a new one there and store it on this Mac; then Publish works.',
     );
     assert.ok(!(pressed.ok ? '' : pressed.message).includes(value), 'never the value');
     assert.deepEqual(opened, [], 'never made public');

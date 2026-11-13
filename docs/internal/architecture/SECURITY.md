@@ -595,10 +595,11 @@ its own text (message, people, signature), every file it brings and every folder
 every name, one with a line break or a submodule's included. Less known about the remote means more is read, never less. A hit refuses the press (`holds_secret`): an
 earlier version of a file, a change's saved description, or a name (shown with the value as the secret's name in brackets), said
 to be one the repository does not have (what the check knows, never "not yet sent": it may have gone elsewhere), with
-the two ways forward that are true (a new value made where it was issued and stored on this Mac, after which the old
-one still goes but no longer works, or a developer taking the old version out). On Publish the earlier version is
-Halcyonic's own earlier publish, which left this Mac with it, so its words put the new value first and offer no other
-way (AUDIT2, 16:49Z). A title that holds one is refused at
+the two ways forward that are true, said as steps with no claim about what a service has done (a new value made and
+the old one turned off where it was issued, since making a new one does not turn the old one off at most services,
+then the new one stored on this Mac, the old one treated as exposed until it is off; or a developer taking the old
+version out). On Publish the earlier version is Halcyonic's own earlier publish, which left this Mac with it, so its
+words put turning the old one off first and offer no other way (AUDIT2, 16:49Z and 18:07Z; the lead, 18:08Z). A title that holds one is refused at
 the review, before a first send makes a repository. More than 512 MB to read is refused (`history_too_large`), and so
 is a remote that cannot be asked (`not_reached`). The tree check reads names too.
 
