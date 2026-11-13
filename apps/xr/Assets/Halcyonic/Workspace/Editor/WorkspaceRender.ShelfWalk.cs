@@ -191,10 +191,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw();
                     if (plane.KitShows && plane.Kit.Bar.Button(action, key) is RoomButton button && button.gameObject.activeInHierarchy)
                     {
+                        // Counted only where its column takes it (the walks' rule): the column beside the menu, else the menu's own.
+                        var column = menu.Navigator.Beside != null ? MenuColumn.File : MenuColumn.Menu;
+                        var refused = menu.Navigator.Taking(column, action, plane.Showing(column), null) == null;
                         button.Press.SettleForRender();
                         button.Press.PressForRender(985);
                         Draw();
-                        return true;
+                        if (refused) failures.Add("the drawn " + action + " was pressed and its column did not take it (its frame was not reported drawn)");
+                        return !refused;
                     }
                     foreach (var (kind, view) in plane.Shown)
                     {
