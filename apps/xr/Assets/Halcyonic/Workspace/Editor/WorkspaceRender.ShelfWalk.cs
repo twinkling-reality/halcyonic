@@ -229,6 +229,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 controlsType.GetMethod("PlaceAgents", BindingFlags.Public | BindingFlags.Instance)!.Invoke(controls, null);
                 Draw();
                 Shot("placing");
+                // What the room had to give at the moment of placing (AUDIT, 2026-11-13T22:01Z): how wide the plane stands as the eyes see
+                // it, and the free room the measured field leaves beside it each side (the plane's width step is the plane's own line).
+                var planeSeen = GlazeChecks.Of("the plane", eyes, root.GetComponentsInChildren<Renderer>(false)
+                    .Where(renderer => renderer.enabled && !renderer.transform.IsChildOf(stage.Shelf) && OwnerOf(renderer.transform)?.StartsWith("Room", StringComparison.Ordinal) == true));
+                if (!planeSeen.IsEmpty && ViewField.Current is ViewField seenField)
+                    Debug.Log("Halcyonic: shelf walk: placing, the plane stands " + GlazeChecks.Degrees(planeSeen.Left) + " to " + GlazeChecks.Degrees(planeSeen.Right)
+                        + " across; the field leaves " + GlazeChecks.Degrees(planeSeen.Left + seenField.Left) + " degrees free on the left and "
+                        + GlazeChecks.Degrees(seenField.Right - planeSeen.Right) + " on the right");
                 if (placement.Preview == null) failures.Add("Place Agents offered no place for the shelf in the field (the room must yield, never refuse for the text size)");
                 if (!Press(AgentShelfColumn.Apply)) failures.Add("nothing drawn applies the shelf's place");
                 PlacementCall(stage, "LateUpdate"); stage.Refresh(); Draw();
