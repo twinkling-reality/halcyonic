@@ -537,6 +537,16 @@ tokens a second; the cause was not found.
 | Memory held, loaded | 22.1 GiB | 17.2 GiB | 17.8 GiB |
 | Memory at the long prompt, peak and held after | 26.6 and 23.2 GiB | 24.5 and 20.1 GiB | 19.2 and 18.5 GiB |
 
+### A VR build beside other work (2026-11-13)
+
+On the owner's 64 GB Mac, with other work running (a virtual machine that is not Halcyonic's among it), Make VR Version
+of a small web app on `muse-glimmer:30b-mlx` started at 73% free, held 19 GB once loaded (41% free), and took the Mac
+under 30% free twice within three minutes of the agent's first turn, before it had written a file; the lane's rule
+stopped it there. The same night the local 30B held the assistant's request handling with room to spare (38% free at
+load). So on such a Mac the local model can hold the assistant but not a VR build beside other work; a hosted model
+built the same app in five minutes. The 30B side of that comparison is not seen; it waits for a night without the
+virtual machine.
+
 ## Muse Glimmer, a checked model; the default unchanged (2026-10-31)
 
 - **Changed:** `pnpm mac-setup` lists `muse-glimmer:30b-mlx` as a checked model after `qwen3.6:35b-a3b-nvfp4`, which

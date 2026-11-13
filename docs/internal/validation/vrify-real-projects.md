@@ -179,6 +179,8 @@ It also left out the search, fixed three of the five fields (a place to one of t
 empty), cut the log at six rows with "and N more", drew words too small to read at a laptop's distance, ran a title
 into the next line, and said none of it where a person reads: only a code comment did. The kit's own pages helper
 showed only its first six pages and asked for "the ones that matter most".
+The same app on the local 30B model did not run to the end: it took the Mac under 30% free within three minutes and
+was stopped (local-models.md, "A VR build beside other work"), so there is no local result beside the hosted one.
 
 So the words now ask (the lead, 2026-11-13T08:20Z) that nothing of the use be dropped without a word: each way the
 app finds things and each field of its forms gets a way that works with a hand (a row of the app's own choices,
