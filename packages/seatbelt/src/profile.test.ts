@@ -19,6 +19,8 @@ import {
   confinementKey,
   gitDataOutside,
   hostFoldersDeniedProfile,
+  RUNS_LATER,
+  runsLater,
   SANDBOX_EXEC,
   secretsUnder,
   TOOL_PREFIXES,
@@ -196,6 +198,74 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
     } finally {
       cleanup();
     }
+  });
+
+  test("never writes what in the project runs later outside the sandbox: its git data, an editor's or a shell's open-time files (AUDIT3)", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { scope, cleanup } = scene();
+    try {
+      const file = join(scope.temp, 'profile.sb');
+      writeFileSync(file, confinedProfile(scope));
+      for (const folder of ['.git/hooks', '.vscode', '.idea', '.devcontainer'])
+        mkdirSync(join(scope.project, folder), { recursive: true });
+      const inside = (command: string[]) =>
+        run(SANDBOX_EXEC, ['-f', file, ...command]).then(
+          () => 'ok',
+          (error: { stdout?: string; stderr?: string }) =>
+            `${error.stdout ?? ''}${error.stderr ?? ''}`,
+        );
+      const refused = /Operation not permitted/;
+      const write = (path: string) =>
+        inside(['/bin/sh', '-c', `echo x > '${join(scope.project, path)}'`]);
+      for (const path of [
+        '.git/config',
+        '.git/hooks/pre-commit',
+        '.envrc',
+        '.gitmodules',
+        '.vscode/tasks.json',
+        '.idea/workspace.xml',
+        '.devcontainer/devcontainer.json',
+        'garden.code-workspace',
+      ])
+        assert.match(await write(path), refused, path);
+      // The rest of the project is written as before, a look-alike name included.
+      for (const path of ['src.ts', 'notes.envrc.txt', 'docs.code-workspace.md'])
+        assert.equal(await write(path), 'ok', path);
+      mkdirSync(join(scope.project, 'src/.vscode'), { recursive: true });
+      assert.equal(await write('src/.vscode/kept.json'), 'ok');
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('names what runs later in one list, and the host reads the same one', () => {
+    assert.deepEqual(RUNS_LATER, {
+      folders: ['.git', '.vscode', '.idea', '.devcontainer'],
+      files: ['.envrc', '.gitmodules'],
+      suffixes: ['.code-workspace'],
+    });
+    for (const path of [
+      '.git',
+      '.git/config',
+      './.vscode/tasks.json',
+      '.idea/x',
+      '.devcontainer/a',
+      '.envrc',
+      '.gitmodules',
+      'a.code-workspace',
+    ])
+      assert.equal(runsLater(path), true, path);
+    for (const path of [
+      'src/.git/config',
+      'src/.envrc',
+      'src/a.code-workspace',
+      'a.code-workspace.md',
+      'envrc',
+      'src/index.ts',
+      '',
+    ])
+      assert.equal(runsLater(path), false, path);
   });
 
   test('lets the folders between a hidden one and its own be found, never listed or read (CX1)', () => {
