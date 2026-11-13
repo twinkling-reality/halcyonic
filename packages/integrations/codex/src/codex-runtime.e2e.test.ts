@@ -958,6 +958,20 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         kind: 'tool_use',
         tool_name: 'fileChange',
         summary: `add ${outside}`,
+        // The new file whole, as Codex's own item gives it (ADR 0065).
+        changes: [
+          {
+            path: outside,
+            real_path: null,
+            to_path: null,
+            kind: 'add',
+            shape: 'content',
+            before: null,
+            after: `${PATCH_CONTENT}\n`,
+            every: false,
+            cell: null,
+          },
+        ],
       });
       await runtime.respondToApproval({
         execution: execution.context,

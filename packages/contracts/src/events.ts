@@ -949,10 +949,11 @@ export type ApprovalPath = Static<typeof ApprovalPath>;
 
 /**
  * One file a request would change, as the agent app's own request gives it (an approval shows whole what it approves,
- * ADR 0065): `content`, the whole new file in `after`; `replace`, the text replaced (`before`) and its replacement
- * (`after`), a part of the file; `diff`, the app's own whole diff in `after`. `every` is true where the replacement is
- * made at every occurrence. `real_path` is the host's: where the path, or a folder on it, is a link, the place the
- * write really reaches; null where it is the path itself. `to_path` is a move's new path.
+ * ADR 0065): `content`, the whole file, the new one in `after` or, for a delete, the one removed in `before`;
+ * `replace`, the text replaced (`before`) and its replacement (`after`), a part of the file; `diff`, the app's own
+ * whole diff in `after`. `every` is true where the replacement is made at every occurrence. `real_path` is the
+ * host's: where the path, or a folder on it, is a link, the place the write really reaches; null where it is the path
+ * itself. `to_path` is a move's new path.
  */
 export const ApprovalChange = Type.Object(
   {

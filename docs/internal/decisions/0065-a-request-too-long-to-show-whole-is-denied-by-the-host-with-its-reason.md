@@ -48,7 +48,9 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    - Claude Agent: from the tool's own input (Write the whole new file, a new file or a rewrite by whether it exists;
      Edit the text replaced and its replacement, every match where `replace_all`; NotebookEdit a cell's new source,
      id, type and mode). These inputs are no longer "quiet" (W2).
-   - Codex 0.157.0: the file-change item's own whole diff per file (`FileUpdateChange.diff`), a move's both paths.
+   - Codex 0.157.0: the file-change item's own `FileUpdateChange.diff` per file, which is a new or removed file's
+     whole content (shape `content`, in `after` or, for a delete, `before`) and an update's unified diff (shape
+     `diff`), a move's both paths (`format_file_change_diff` in its app-server protocol's `item_builders.rs`).
    - OpenCode 2.0.18: the edit ask's `metadata.files[].patch`, a whole unified diff (read from the pinned binary,
      opencode-permissions.md); an edit ask without it is not approvable.
    A file tool's request without its change is not approvable. The summary, every path and every before and after are

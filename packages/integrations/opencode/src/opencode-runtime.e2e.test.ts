@@ -1566,7 +1566,25 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
       );
       assert.equal(existsSync(outside), false, 'written after the folder alone');
       const file = await answer(2);
-      assert.deepEqual(file.subject, { kind: 'tool_use', tool_name: 'edit', summary: outside });
+      // The new file as OpenCode's own ask gives it, a whole unified diff (ADR 0065).
+      assert.deepEqual(file.subject, {
+        kind: 'tool_use',
+        tool_name: 'edit',
+        summary: outside,
+        changes: [
+          {
+            path: outside,
+            real_path: null,
+            to_path: null,
+            kind: 'add',
+            shape: 'diff',
+            before: null,
+            after: `Index: ${outside}\n${'='.repeat(67)}\n--- ${outside}\n+++ ${outside}\n@@ -0,0 +1,1 @@\n+hello\n`,
+            every: false,
+            cell: null,
+          },
+        ],
+      });
       assert.equal(file.complete, true);
       await execution.next('runtime.turn.completed');
       // Approved twice, it is still outside the project roots, which the sandbox alone lets it
