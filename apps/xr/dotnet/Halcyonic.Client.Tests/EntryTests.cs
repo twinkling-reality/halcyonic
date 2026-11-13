@@ -525,6 +525,25 @@ public class BuildSequenceTests
     }
 
     [Test]
+    public void ARefusalOfTheRunSettingsLeadsWithChangeTheWayItsSentenceNames()
+    {
+        var sequence = new BuildSequence(Draft("existing"), Commands, null);
+        var workstream = sequence.Begin(Samples.Reviewed(sequence));
+        var start = sequence.Advance(With(Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
+        sequence.Advance(With(new CommandView
+        {
+            CommandId = start.CommandId, Status = CommandStatus.Rejected,
+            Rejection = new CommandRejection { Code = RejectionCode.InvalidRuntimeOptions, Message = "The runtime needs a working directory." },
+        }));
+        var idea = new ProjectIdea();
+        idea.UseIdea("Make a website for my team.");
+        var frame = NewProjectScreens.Starting(idea, sequence, null);
+        var main = frame.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Main);
+        Assert.That(main.Words, Is.EqualTo(EntryText.Change), "the sentence says to choose the settings again, so Change leads");
+        Assert.That(frame.Footer.All.Any(each => each.Prompt.Words == EntryText.TryAgain && !each.Prompt.Main), Is.True, "Try Again stands beside it");
+    }
+
+    [Test]
     public void ARefusalStopsAndCanBeSentAgainAsANewCommand()
     {
         var draft = Draft("existing");

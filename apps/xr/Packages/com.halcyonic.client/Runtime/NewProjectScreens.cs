@@ -1172,6 +1172,13 @@ namespace Halcyonic.Client
                     ? new Prompt(UseThatFolder, EntryText.UseThatFolder, GlazeIcon.Next, main: true)
                     : new Prompt(TryAgainStart, EntryText.TryAgain, GlazeIcon.Refresh, main: true);
             }
+            else if (sequence.CanRetry && sequence.StoppedAt is BuildStep refused && refused.Refusal == RejectionCode.InvalidRuntimeOptions)
+            {
+                // The computer refused the run settings: the way on the step's sentence names, choosing them again, is the main
+                // action, Try Again beside it (a reader, 2026-11-13: the words said Change while Try Again was lit).
+                beside = new Prompt(TryAgainStart, EntryText.TryAgain, GlazeIcon.Refresh);
+                main = new Prompt(ChangeRequest, EntryText.Change, GlazeIcon.Change, main: true);
+            }
             else if (sequence.CanRetry)
             {
                 beside = new Prompt(ChangeRequest, EntryText.Change, GlazeIcon.Change);
