@@ -857,10 +857,10 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     git(folder, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
     const before = git(origin, 'for-each-ref', '--format=%(refname)');
     const pressed = await press();
-    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret_in_history');
     assert.equal(
       pressed.ok ? '' : pressed.message,
-      'An earlier version of key.txt, which owner/garden does not have, holds a secret this Mac keeps (MY_SERVICE_KEY), and sending now would send it too, so nothing was sent. To send, make a new MY_SERVICE_KEY with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. The old one is still in that earlier version and goes with it: until it is turned off, treat it as exposed. Or ask a developer to take that old version out.',
+      'An earlier version of key.txt, which owner/garden does not have, holds a secret this Mac keeps (MY_SERVICE_KEY), and sending now would send it too, so nothing was sent. To send, make a new MY_SERVICE_KEY with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. The old one is still in that earlier version and goes with it: until it is turned off, treat it as exposed. Or ask a developer to take that old version out. Or send the files as they are now, without the earlier versions, as one change.',
     );
     assert.equal(git(origin, 'for-each-ref', '--format=%(refname)'), before);
     assert.equal(onRemote(), false);
@@ -869,10 +869,10 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
   test("one in a commit's own message is found too", async () => {
     git(folder, 'commit', '-q', '--allow-empty', '-m', `token ${VALUE}`);
     const pressed = await press();
-    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret_in_history');
     assert.match(
       pressed.ok ? '' : pressed.message,
-      /^The description saved with an earlier change, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\), and sending now would send it too, so nothing was sent\..* Or ask a developer to change that description\.$/,
+      /^The description saved with an earlier change, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\), and sending now would send it too, so nothing was sent\..* Or ask a developer to change that description\. Or send the files as they are now, without the earlier versions, as one change\.$/,
     );
     assert.equal(onRemote(), false);
   });
@@ -961,7 +961,7 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     git(folder, 'rm', '-q', `note-${VALUE}.txt`);
     git(folder, 'commit', '-q', '-m', 'unnamed');
     const pressed = await press();
-    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret_in_history');
     assert.match(
       pressed.ok ? '' : pressed.message,
       /^A file's or folder's name in an earlier version that owner\/garden does not have \(note-\[MY_SERVICE_KEY\]\.txt, with the secret's name in place of its value\) holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
@@ -982,7 +982,7 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     git(folder, 'rm', '-q', `odd\n${VALUE}.txt`);
     git(folder, 'commit', '-q', '-m', 'gone');
     const pressed = await press();
-    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret_in_history');
     assert.match(
       pressed.ok ? '' : pressed.message,
       /^A name in the top folder of an earlier version, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
@@ -995,7 +995,7 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     git(home, 'config', '--global', 'protocol.version', '0');
     commitWithKey();
     const pressed = await press();
-    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret_in_history');
     assert.equal(onRemote(), false);
   });
 
@@ -1004,6 +1004,224 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     git(folder, 'push', '-q', 'origin', 'main');
     const pressed = await press();
     assert.ok(pressed.ok, pressed.ok ? '' : pressed.message);
+  });
+});
+
+describe('Send One Change: the files as they are now, as one change on a base the remote holds (TASKS, 2026-11-13)', {
+  skip: process.platform !== 'darwin',
+}, () => {
+  const VALUE = HELD[0]?.value ?? '';
+  const commitWithKey = () => {
+    writeFileSync(join(folder, 'key.txt'), `KEY=${VALUE}\n`);
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', 'with key');
+    rmSync(join(folder, 'key.txt'));
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', 'without key');
+  };
+  const commitFile = (name: string, text: string) => {
+    writeFileSync(join(folder, name), text);
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', name);
+  };
+  const press = async () => {
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const reviewed = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    return sender({ held: HELD }).send(PROJECT, folder, [], 'Lanterns', reviewed.send.review);
+  };
+  const oneReview = () =>
+    sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns', { oneChange: true });
+  const onePress = (review: string) =>
+    sender({ held: HELD }).send(PROJECT, folder, [], 'Lanterns', review, { oneChange: true });
+  const onRemote = () => git(origin, 'log', '--all', '-p').includes(VALUE);
+  const remoteRefs = () => git(origin, 'for-each-ref', '--format=%(refname)');
+
+  test('a send refused for an earlier version offers it; it sends the files as they are now on what the remote has, leaving the folder as it was', async () => {
+    const first = git(origin, 'rev-parse', 'main');
+    commitWithKey();
+    const refused = await press();
+    assert.equal(refused.ok ? null : refused.code, 'holds_secret_in_history');
+    assert.match(
+      refused.ok ? '' : refused.message,
+      /^An earlier version of key\.txt, which owner\/garden does not have/,
+    );
+    const head = git(folder, 'rev-parse', 'HEAD');
+    const status = git(folder, 'status', '--porcelain');
+    const reviewed = await oneReview();
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.equal(reviewed.send.branch, 'main');
+    assert.equal(reviewed.send.base_commit, first);
+    assert.equal(reviewed.send.one_change?.secret_name, 'MY_SERVICE_KEY');
+    assert.deepEqual(reviewed.send.one_change?.kept_back.paths, []);
+    assert.deepEqual(
+      reviewed.send.files.files.map((file) => [file.path, file.change]),
+      [['app.txt', 'changed']],
+    );
+    const sent = await onePress(reviewed.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(git(origin, 'rev-parse', `${sent.commit}^`), first, 'its one parent is the base');
+    assert.equal(git(origin, 'rev-parse', `refs/heads/${sent.send.new_branch}`), sent.commit);
+    assert.equal(git(origin, 'show', `${sent.commit}:app.txt`), 'lanterns');
+    assert.equal(onRemote(), false, 'the earlier versions, and the secret, stay on this computer');
+    assert.match(
+      readFileSync(ghLog, 'utf8'),
+      /pr create --repo owner\/garden --head halcyonic\/garden-[0-9a-f]{8} --base main/,
+    );
+    assert.equal(git(folder, 'rev-parse', 'HEAD'), head);
+    assert.equal(git(folder, 'status', '--porcelain'), status);
+  });
+
+  test('its base is never a commit the remote only keeps in its store, and the remote moving back between the review and the press sends nothing (AUDIT3 D1)', async () => {
+    const first = git(origin, 'rev-parse', 'main');
+    commitFile('more.txt', 'more\n');
+    const pushed = git(folder, 'rev-parse', 'HEAD');
+    git(folder, 'push', '-q', 'origin', 'main');
+    commitWithKey();
+    assert.equal((await press()).ok, false);
+    const shown = await oneReview();
+    assert.ok(shown.ok, shown.ok ? '' : shown.message);
+    assert.equal(shown.send.base_commit, pushed);
+    // The remote's branch is moved back past the base; its objects stay in the remote's store.
+    git(folder, 'push', '-q', '--force', 'origin', `${first}:refs/heads/main`);
+    git(origin, 'cat-file', '-e', pushed);
+    const before = remoteRefs();
+    const stale = await onePress(shown.send.review);
+    assert.equal(stale.ok ? null : stale.code, 'review_stale');
+    assert.equal(remoteRefs(), before, 'nothing pushed');
+    // Looking again finds the base the remote's branch reaches now, never the one it only keeps.
+    const again = await oneReview();
+    assert.ok(again.ok, again.ok ? '' : again.message);
+    assert.equal(again.send.base_commit, first);
+    const sent = await onePress(again.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(git(origin, 'rev-parse', `${sent.commit}^`), first);
+    assert.equal(onRemote(), false);
+  });
+
+  test('a commit the remote keeps in its store though no branch of its reaches it is never the base (AUDIT3, 16:46Z (a))', async () => {
+    const first = git(origin, 'rev-parse', 'main');
+    commitFile('more.txt', 'more\n');
+    const kept = git(folder, 'rev-parse', 'HEAD');
+    git(folder, 'push', '-q', 'origin', 'main');
+    git(folder, 'push', '-q', '--force', 'origin', `${first}:refs/heads/main`);
+    git(origin, 'cat-file', '-e', kept);
+    commitWithKey();
+    const refused = await press();
+    assert.equal(refused.ok ? null : refused.code, 'holds_secret_in_history');
+    const reviewed = await oneReview();
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.equal(reviewed.send.base_commit, first);
+    const sent = await onePress(reviewed.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(git(origin, 'rev-parse', `${sent.commit}^`), first);
+    assert.equal(onRemote(), false);
+  });
+
+  test("the branch it goes on is the remote's, never the folder's tracking settings or its record of the remote (AUDIT3 D4)", async () => {
+    const first = git(origin, 'rev-parse', 'main');
+    git(folder, 'push', '-q', 'origin', `${first}:refs/heads/decoy`);
+    git(folder, 'checkout', '-q', '-b', 'work');
+    commitWithKey();
+    git(folder, 'config', 'branch.work.remote', 'origin');
+    git(folder, 'config', 'branch.work.merge', 'refs/heads/decoy');
+    git(folder, 'update-ref', 'refs/remotes/origin/work', 'HEAD');
+    const refused = await press();
+    assert.equal(refused.ok ? null : refused.code, 'holds_secret_in_history');
+    const reviewed = await oneReview();
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.equal(
+      reviewed.send.branch,
+      'main',
+      "the remote's default, as the remote lists no work branch",
+    );
+    assert.equal(reviewed.send.base_commit, first);
+  });
+
+  test('a file like .env that only the earlier versions added is not sent, and the review says so', async () => {
+    commitFile('.env', 'MODE=dev\n');
+    commitWithKey();
+    assert.equal((await press()).ok, false);
+    const reviewed = await oneReview();
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.deepEqual(reviewed.send.one_change?.kept_back.paths, ['.env']);
+    assert.ok(!reviewed.send.files.files.some((file) => file.path === '.env'));
+    const sent = await onePress(reviewed.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.throws(() => git(origin, 'cat-file', '-e', `${sent.commit}:.env`));
+  });
+
+  test("the files go as the person's own branch tracks them: one they stopped tracking is not sent again from the base (critic of 7962692ab)", async () => {
+    commitFile('local.json', '{}\n');
+    git(folder, 'push', '-q', 'origin', 'main');
+    const base = git(folder, 'rev-parse', 'HEAD');
+    git(folder, 'rm', '-q', '--cached', 'local.json');
+    writeFileSync(join(folder, '.gitignore'), 'node_modules\nlocal.json\n');
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', 'stop tracking local.json');
+    writeFileSync(join(folder, 'local.json'), '{"password":"not-held-but-private"}\n');
+    commitWithKey();
+    assert.equal((await press()).ok, false);
+    const reviewed = await oneReview();
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    assert.equal(reviewed.send.base_commit, base);
+    assert.deepEqual(reviewed.send.files.files.map((file) => [file.path, file.change]).sort(), [
+      ['.gitignore', 'changed'],
+      ['app.txt', 'changed'],
+      ['local.json', 'removed'],
+    ]);
+    const sent = await onePress(reviewed.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.throws(() => git(origin, 'cat-file', '-e', `${sent.commit}:local.json`));
+  });
+
+  test('the press fetches into a namespace of its own, emptied first and with no tags; a send clears what a refusal recorded (AUDIT3 D2)', async () => {
+    git(folder, 'tag', 'v1');
+    git(folder, 'push', '-q', 'origin', 'v1');
+    commitWithKey();
+    assert.equal((await press()).ok, false);
+    const ours = join(root, 'data', 'sending', `${PROJECT}.git`);
+    git(
+      ours,
+      'update-ref',
+      'refs/halcyonic/remote/gone',
+      git(ours, 'rev-parse', 'refs/halcyonic/send-base'),
+    );
+    const reviewed = await oneReview();
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    const sent = await onePress(reviewed.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(
+      git(ours, 'for-each-ref', '--format=%(refname)', 'refs/halcyonic/remote/'),
+      'refs/halcyonic/remote/main',
+    );
+    assert.equal(git(ours, 'tag', '--list'), '');
+    const after = await oneReview();
+    assert.equal(after.ok ? null : after.code, 'one_change_unavailable');
+  });
+
+  test('never offered where the files as they are now hold one, nor with no history in common, nor before a refused send', async () => {
+    const none = await oneReview();
+    assert.equal(none.ok ? null : none.code, 'one_change_unavailable');
+    commitWithKey();
+    writeFileSync(join(folder, 'key.txt'), `KEY=${VALUE}\n`);
+    const now = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.equal(now.ok ? null : now.code, 'holds_secret');
+    const nowOne = await oneReview();
+    assert.equal(nowOne.ok ? null : nowOne.code, 'one_change_unavailable');
+    rmSync(join(folder, 'key.txt'));
+    // The remote's branch replaced by one that shares nothing with the folder's.
+    const other = join(root, 'other');
+    git(root, 'init', '-q', other);
+    writeFileSync(join(other, 'theirs.txt'), 'theirs\n');
+    git(other, 'add', '-A');
+    git(other, 'commit', '-q', '-m', 'theirs');
+    git(other, 'push', '-q', '--force', origin, 'HEAD:refs/heads/main');
+    const refused = await press();
+    assert.equal(refused.ok ? null : refused.code, 'holds_secret');
+    const after = await oneReview();
+    assert.equal(after.ok ? null : after.code, 'one_change_unavailable');
+    assert.equal(onRemote(), false);
   });
 });
 

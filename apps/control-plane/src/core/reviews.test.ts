@@ -431,3 +431,88 @@ test("Add to Project's review names a change to a provider's declaration, above 
     'unknown stays unknown: more files changed than were listed',
   );
 });
+
+test("Send One Change's one review says what goes, that none of it holds the secret, and what stays behind (AUDIT2's words, 16:42Z)", async () => {
+  const { standInGitHub } = await import('../testing/github-stand-in.ts');
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-one-change-')));
+  after(() => rmSync(base, { recursive: true, force: true }));
+  const stand = standInGitHub(base);
+  const value = 'svc-held-value-0123456789abcdef';
+  // Two files like .env that only the unsent versions added: both kept back, counted on the card (AUDIT2 S5).
+  writeFileSync(join(stand.folder, '.env'), 'MODE=dev\n');
+  writeFileSync(join(stand.folder, '.env.local'), 'MODE=local\n');
+  writeFileSync(join(stand.folder, 'key.txt'), `KEY=${value}\n`);
+  stand.git(stand.folder, 'add', '-A');
+  stand.git(stand.folder, 'commit', '-q', '-m', 'with key');
+  stand.git(stand.folder, 'rm', '-q', 'key.txt');
+  stand.git(stand.folder, 'commit', '-q', '-m', 'without key');
+  writeFileSync(join(stand.folder, 'app.txt'), 'lanterns\n');
+  const { controlPlane, commands } = createTestControlPlane({
+    locations: createHostLocations([stand.projects]),
+    github: {
+      git: '/usr/bin/git',
+      gh: stand.ghPath,
+      dataDir: join(base, 'data'),
+      env: { HOME: stand.home },
+      held: () => [{ what: 'MY_SERVICE_KEY', value }],
+    },
+  });
+  const created = controlPlane.commands.submit(
+    commands.createProject('Garden', {
+      kind: 'existing_folder',
+      root: stand.projects,
+      folder_name: 'garden',
+    }),
+    'internal',
+  );
+  const projectId = (
+    created.command?.result?.kind === 'project_created' ? created.command.result.project_id : ''
+  ) as ProjectId;
+  const github = controlPlane.github;
+  assert.ok(github !== null);
+  const plain = await github.review(projectId, stand.folder, [], 'Lanterns');
+  assert.ok(plain.ok, plain.ok ? '' : plain.message);
+  const refused = await github.send(projectId, stand.folder, [], 'Lanterns', plain.send.review);
+  assert.equal(refused.ok ? null : refused.code, 'holds_secret_in_history');
+  const built = await buildReview(controlPlane, {
+    ...commands.createProject('unused', null),
+    command_type: 'project.send',
+    payload: { project_id: projectId, title: 'Lanterns', one_change: true, review: '0'.repeat(64) },
+  } as never);
+  assert.ok(built.ok, built.ok ? '' : built.message);
+  assert.equal(built.review.confirm_words, 'Send One Change');
+  assert.equal(
+    built.review.what_happens,
+    "Sends the project's files as they are now to owner/garden, as one change. None of the files sent holds MY_SERVICE_KEY.",
+  );
+  assert.deepEqual(
+    built.review.facts.map((fact) =>
+      fact.kind === 'branch' && !fact.theirs ? { ...fact, value: fact.value.slice(0, 16) } : fact,
+    ),
+    [
+      { kind: 'repository', value: 'github.com/owner/garden', theirs: true },
+      { kind: 'branch', value: 'halcyonic/garden', theirs: false },
+      { kind: 'branch', value: 'main', theirs: true },
+      { kind: 'words', value: 'Lanterns', theirs: true },
+    ],
+  );
+  assert.deepEqual(built.review.warnings, [
+    {
+      code: 'history_left',
+      line: 'Your earlier versions still hold MY_SERVICE_KEY. Do not send them another way.',
+    },
+    {
+      code: 'one_change',
+      line: 'The repository gets one change, not your earlier versions one by one.',
+    },
+    {
+      code: 'stays_sent',
+      line: 'Once sent, anyone who can read owner/garden can read it.',
+    },
+    {
+      code: 'files_kept_back',
+      line: '.env and 1 more are not sent, since files like them can hold secrets.',
+    },
+  ]);
+  assert.ok(!JSON.stringify(built.review).includes(value), 'never the value');
+});

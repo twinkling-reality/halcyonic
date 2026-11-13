@@ -1287,6 +1287,15 @@ namespace Halcyonic.Contracts
         public long Total { get; set; }
     }
 
+    public sealed class SendReviewOneChange
+    {
+        [global::Newtonsoft.Json.JsonProperty("secret_name", Required = global::Newtonsoft.Json.Required.Always)]
+        public string SecretName { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("kept_back", Required = global::Newtonsoft.Json.Required.Always)]
+        public PathList KeptBack { get; set; } = default!;
+    }
+
     public sealed class SendReview
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -1318,6 +1327,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("review_request", Required = global::Newtonsoft.Json.Required.Always)]
         public bool ReviewRequest { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("one_change", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public SendReviewOneChange? OneChange { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public string Review { get; set; } = default!;
@@ -5065,6 +5077,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("repository_name", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? RepositoryName { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("one_change", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? OneChange { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public string Review { get; set; } = default!;

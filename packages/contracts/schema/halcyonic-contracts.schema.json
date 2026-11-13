@@ -14345,6 +14345,9 @@
                   "type": "string",
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
                 },
+                "one_change": {
+                  "type": "boolean"
+                },
                 "review": {
                   "$ref": "#/$defs/ReviewDigest"
                 }
@@ -17891,6 +17894,25 @@
         "review_request": {
           "type": "boolean"
         },
+        "one_change": {
+          "type": "object",
+          "required": [
+            "secret_name",
+            "kept_back"
+          ],
+          "properties": {
+            "secret_name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "\\S"
+            },
+            "kept_back": {
+              "$ref": "#/$defs/PathList"
+            }
+          },
+          "additionalProperties": false
+        },
         "review": {
           "$ref": "#/$defs/ReviewDigest"
         }
@@ -17921,6 +17943,9 @@
         "repository_name": {
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
+        },
+        "one_change": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

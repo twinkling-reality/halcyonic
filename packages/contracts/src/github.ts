@@ -91,6 +91,13 @@ export const SendReview = Type.Object(
     /** Links the folder holds that point outside it: never sent (a starter's `node_modules` is one). */
     links_left_out: PathList,
     review_request: Type.Boolean(),
+    /**
+     * Send One Change's (ADR 0039, amended): `branch` is the repository's own branch it goes on top of
+     * and `base_commit` the newest commit of the person's branch that branch holds; `secret_name` is
+     * the held secret the earlier versions hold, by its name only, and `kept_back` the files like
+     * `.env` the folder has and the base lacks, which are not sent.
+     */
+    one_change: Type.Optional(Type.Object({ secret_name: Text(200), kept_back: PathList }, strict)),
     review: ReviewDigest,
   },
   strict,
@@ -106,6 +113,7 @@ export const SendReviewRequest = Type.Object(
     title: Type.Optional(Text(200)),
     visibility: Type.Optional(RepositoryVisibility),
     repository_name: Type.Optional(RepositoryName),
+    one_change: Type.Optional(Type.Boolean()),
   },
   strict,
 );

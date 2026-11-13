@@ -60,6 +60,7 @@ export async function sendReviewOf(
       visibility: values.visibility ?? 'private',
       name: values.repository_name,
       made: controlPlane.projection.madeRepository(projectId),
+      oneChange: values.one_change === true,
     });
     return reviewed.ok
       ? { availability: 'available', send: reviewed.send }
@@ -239,11 +240,12 @@ export async function buildReview(
   const { projection } = controlPlane;
   switch (command.command_type) {
     case 'project.send': {
-      const { title, visibility, repository_name } = command.payload;
+      const { title, visibility, repository_name, one_change } = command.payload;
       const read = await sendReviewOf(controlPlane, command.payload.project_id, {
         ...(title === undefined ? {} : { title }),
         ...(visibility === undefined ? {} : { visibility }),
         ...(repository_name === undefined ? {} : { repository_name }),
+        ...(one_change === true ? { one_change } : {}),
       });
       if (read.availability !== 'available') return no(read.reason.code, read.reason.message);
       const { send } = read;
@@ -269,6 +271,74 @@ export async function buildReview(
               ? [{ code: 'public', line: 'Anyone can see its code and history' }]
               : [],
         });
+      // Send One Change (ADR 0039, amended): the words AUDIT2 passed at 16:42Z, the secret by its name only.
+      if (send.one_change !== undefined && send.remote !== null) {
+        const repository = send.remote.path;
+        const secret = send.one_change.secret_name;
+        const keptBack = send.one_change.kept_back;
+        return review({
+          digest: send.review,
+          confirm_words: 'Send One Change',
+          what_happens: fits(
+            `Sends the project's files as they are now to ${repository}, as one change. None of the files sent holds ${secret}.`,
+            `Sends the project's files as they are now, as one change. None of the files sent holds ${secret}.`,
+          ),
+          facts: [
+            { kind: 'repository', value: `${send.remote.host}/${repository}`, theirs: true },
+            { kind: 'branch', value: send.new_branch, theirs: false },
+            { kind: 'branch', value: send.branch, theirs: true },
+            { kind: 'words', value: send.title, theirs: true },
+          ],
+          items: listed.items,
+          items_total: listed.total,
+          warnings: [
+            {
+              code: 'history_left',
+              line: fits(
+                `Your earlier versions still hold ${secret}. Do not send them another way.`,
+                'Your earlier versions still hold the secret. Do not send them another way.',
+              ),
+            },
+            {
+              code: 'one_change',
+              line: 'The repository gets one change, not your earlier versions one by one.',
+            },
+            {
+              code: 'stays_sent',
+              line: fits(
+                `Once sent, anyone who can read ${repository} can read it.`,
+                'Once sent, anyone who can read the repository can read it.',
+              ),
+            },
+            ...(keptBack.paths[0] === undefined
+              ? []
+              : [
+                  {
+                    code: 'files_kept_back',
+                    // Every one kept back is counted, the first by name (AUDIT2 S5).
+                    line:
+                      keptBack.total === 1
+                        ? fits(
+                            `${keptBack.paths[0]} is not sent, since files like it can hold secrets.`,
+                            'A file that can hold secrets is not sent.',
+                          )
+                        : fits(
+                            `${keptBack.paths[0]} and ${keptBack.total - 1} more are not sent, since files like them can hold secrets.`,
+                            `${keptBack.total} files that can hold secrets are not sent.`,
+                          ),
+                  },
+                ]),
+            ...(send.review_request
+              ? []
+              : [
+                  {
+                    code: 'no_review_request',
+                    line: 'No review request is opened, only the branch',
+                  },
+                ]),
+          ],
+        });
+      }
       return review({
         digest: send.review,
         confirm_words: `Send ${count(send.files.total, 'File', 'Files')}`,
@@ -534,4 +604,9 @@ export async function buildReview(
     default:
       return no('invalid_state', 'This command has no review: one press does it.');
   }
+}
+
+/** A line of the card whole, or a shorter true one where it would not fit: never one cut short. */
+function fits(line: string, shorter: string): string {
+  return line.length <= 200 ? line : shorter;
 }

@@ -69,6 +69,8 @@ export type SendFailure = {
   readonly effect?: 'unknown';
   /** For `holds_secret`: the file and which secret, never its value. */
   readonly hit?: HeldHit;
+  /** For a history hit (an earlier version, never what is here now): the held secret's name, never its value. */
+  readonly inHistory?: string;
 };
 
 /** What this Mac's journal says of a repository a send of Halcyonic's made, which Publish reads. */
@@ -88,6 +90,11 @@ export interface SendOptions {
   readonly name?: string | undefined;
   readonly made?: MadeRepository | undefined;
   readonly onMade?: (made: MadeRepository) => void;
+  /**
+   * Send One Change: the files as they are now, as one change on top of the base a refused send
+   * recorded, never the person's unsent commits (ADR 0039, amended).
+   */
+  readonly oneChange?: boolean;
 }
 
 /**
@@ -102,6 +109,8 @@ export interface PublishOptions {
 
 interface Prepared {
   readonly send: SendReview;
+  /** The person's own branch the folder is on: `send.branch` is the one it goes on top of, which differs for Send One Change. */
+  readonly from: string;
   readonly ssh: boolean;
   readonly tree: string;
   readonly repository: string;
@@ -165,7 +174,7 @@ export class GitHubSender {
   > {
     const prepared = await this.#prepare(projectId, folder, otherFolders, title, options);
     if (!prepared.ok) return prepared;
-    const { send, repository, tree, ssh } = prepared.prepared;
+    const { send, from, repository, tree, ssh } = prepared.prepared;
     if (send.review !== review)
       return refuse(
         'review_stale',
@@ -185,6 +194,35 @@ export class GitHubSender {
       );
     if (send.creates !== null || send.remote === null || send.base_commit === null)
       return this.#sendNew(folder, prepared.prepared, title, options);
+    const remote = remoteOf(send.remote, ssh);
+    if (send.one_change !== undefined) {
+      // Send One Change goes only on a base the remote's branch reaches as fetched at this press, never
+      // one it merely acknowledged or one fetched at an earlier press (AUDIT3 D1).
+      const found = await this.#oneChangeBase(repository, remote, from);
+      const reached =
+        found !== null &&
+        found.target === send.branch &&
+        (
+          await this.#run(this.#deps.git, [
+            '--git-dir',
+            repository,
+            'merge-base',
+            '--is-ancestor',
+            send.base_commit,
+            `refs/halcyonic/remote/${send.branch}`,
+          ])
+        ).code === 0;
+      if (!reached) {
+        await this.#recordOneChange(
+          repository,
+          found === null ? null : { ...found, from, secret: send.one_change.secret_name },
+        );
+        return refuse(
+          'review_stale',
+          `${send.remote.path} changed since this was shown, so nothing was sent. Look at it again.`,
+        );
+      }
+    }
     const committed = await this.#run(this.#deps.git, [
       '--git-dir',
       repository,
@@ -198,7 +236,6 @@ export class GitHubSender {
     const commit = committed.stdout.trim();
     if (committed.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit))
       return refuse('send_failed', 'The commit could not be made, so nothing was sent.');
-    const remote = remoteOf(send.remote, ssh);
     const sentTo = { ...send, remote: send.remote };
     // The push carries every commit of the branch the remote lacks, not only the tree read for the review:
     // each, and every file it brings, is read for a held secret first (TASKS's ALERT, 2026-11-13T1257Z).
@@ -210,7 +247,24 @@ export class GitHubSender {
       this.#deps.historyMost,
       send.remote.path,
     );
-    if (history !== null) return history;
+    if (history !== null) {
+      // Only an earlier version, never what is here now, and never on Send One Change's own commit, which is
+      // refused in the fix's own words (AUDIT3 D3): offered where a true base is found, recorded for its review.
+      if (send.one_change !== undefined || history.inHistory === undefined) return history;
+      const found = await this.#oneChangeBase(repository, remote, from);
+      await this.#recordOneChange(
+        repository,
+        found === null ? null : { ...found, from, secret: history.inHistory },
+      );
+      // The refusal names the one offer under it (AUDIT2 W4); with no true base it keeps its own words.
+      return found === null
+        ? history
+        : {
+            ...history,
+            code: 'holds_secret_in_history',
+            message: `${history.message} Or send the files as they are now, without the earlier versions, as one change.`,
+          };
+    }
     const pushed = await this.#run(
       this.#deps.git,
       [
@@ -267,6 +321,8 @@ export class GitHubSender {
       );
       if (opened.code === 0) reviewRequestUrl = PULL_REQUEST.exec(opened.stdout)?.[0] ?? null;
     }
+    // Sent: what a refused press found no longer stands for a later review.
+    await this.#recordOneChange(repository, null);
     return { ok: true, send: sentTo, commit, reviewRequestUrl, cloned: true };
   }
 
@@ -586,7 +642,125 @@ export class GitHubSender {
         'holds_secret',
         `The title you gave this send holds a secret this Mac keeps (${hit.what}), so ${done}. Change the title, then try again.`,
       );
-    return refuse('holds_secret', heldHistoryMessage(hit, what, named));
+    return { ...refuse('holds_secret', heldHistoryMessage(hit, what, named)), inHistory: hit.what };
+  }
+
+  /**
+   * Send One Change's base (ADR 0039, amended; AUDIT3's D1, D2, D4): the newest commit of the person's branch
+   * that the remote's own branch reaches, as fetched now at the push's own address. That branch is the remote's
+   * alone: the one with the person's branch's own name where the remote lists it, else the remote's default, never
+   * the folder's tracking settings or its record of the remote, which its agent can write. Null where there is none:
+   * a shallow history, an address read from elsewhere than it is pushed to, a remote that cannot be asked, or no
+   * history in common.
+   */
+  async #oneChangeBase(
+    repository: string,
+    remote: string,
+    branch: string,
+  ): Promise<{ readonly base: string; readonly target: string } | null> {
+    const ours = (args: readonly string[], timeout = 30_000) =>
+      this.#run(this.#deps.git, ['--git-dir', repository, ...args], timeout);
+    if ((await ours(['rev-parse', '--is-shallow-repository'])).stdout.trim() !== 'false')
+      return null;
+    const pushedTo = await this.#pushAddress(repository, remote);
+    if (pushedTo === null) return null;
+    const asIs = ['-c', `url.${pushedTo}.insteadOf=${pushedTo}`];
+    if ((await ours([...asIs, 'ls-remote', '--get-url', pushedTo])).stdout.trim() !== pushedTo)
+      return null;
+    const listed = await ours(
+      [...asIs, 'ls-remote', '--symref', pushedTo, 'HEAD', `refs/heads/${branch}`],
+      60_000,
+    );
+    if (listed.code !== 0) return null;
+    let named = false;
+    let byDefault: string | null = null;
+    for (const line of listed.stdout.split('\n')) {
+      const head = /^ref: refs\/heads\/(\S+)\tHEAD$/.exec(line);
+      if (head?.[1] !== undefined) byDefault = head[1];
+      else if (line.split('\t')[1] === `refs/heads/${branch}`) named = true;
+    }
+    const target = named ? branch : byDefault;
+    if (target === null) return null;
+    if ((await this.#run(this.#deps.git, ['check-ref-format', `refs/heads/${target}`])).code !== 0)
+      return null;
+    // Halcyonic's own namespace, emptied and fetched anew at each press, so a tip the remote dropped is
+    // never a base later; with no hooks, no tags and none of the folder's settings (AUDIT3 D2).
+    const old = await ours(['for-each-ref', '--format=%(refname)', 'refs/halcyonic/remote/']);
+    if (old.code !== 0) return null;
+    for (const ref of old.stdout.split('\n').filter((line) => line !== ''))
+      if ((await ours(['update-ref', '-d', ref])).code !== 0) return null;
+    const fetched = await ours(
+      [
+        ...asIs,
+        '-c',
+        'core.hooksPath=/dev/null',
+        'fetch',
+        '--quiet',
+        '--no-tags',
+        '--no-write-fetch-head',
+        '--force',
+        pushedTo,
+        `+refs/heads/${target}:refs/halcyonic/remote/${target}`,
+      ],
+      120_000,
+    );
+    if (fetched.code !== 0) return null;
+    const merged = await ours([
+      'merge-base',
+      'refs/halcyonic/base',
+      `refs/halcyonic/remote/${target}`,
+    ]);
+    const base = merged.stdout.trim();
+    if (merged.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(base)) return null;
+    return { base, target };
+  }
+
+  /**
+   * Keeps what a refused press found for Send One Change's review, in Halcyonic's own repository, which no agent
+   * run can write: the base, the branch it goes on, the person's branch it was found for and the held secret's
+   * name, never its value. Null clears it, so a base found earlier never serves a later review.
+   */
+  async #recordOneChange(
+    repository: string,
+    record: {
+      readonly base: string;
+      readonly target: string;
+      readonly from: string;
+      readonly secret: string;
+    } | null,
+  ): Promise<void> {
+    const ours = (args: readonly string[]) =>
+      this.#run(this.#deps.git, ['--git-dir', repository, ...args]);
+    if (record === null) {
+      await ours(['update-ref', '-d', 'refs/halcyonic/send-base']);
+      for (const key of ['target', 'from', 'secret'])
+        await ours(['config', '--unset-all', `halcyonic-one-change.${key}`]);
+      return;
+    }
+    await ours(['update-ref', 'refs/halcyonic/send-base', record.base]);
+    await ours(['config', 'halcyonic-one-change.target', record.target]);
+    await ours(['config', 'halcyonic-one-change.from', record.from]);
+    await ours(['config', 'halcyonic-one-change.secret', record.secret]);
+  }
+
+  async #oneChangeRecord(repository: string): Promise<{
+    readonly base: string;
+    readonly target: string;
+    readonly from: string;
+    readonly secret: string;
+  } | null> {
+    const ours = (args: readonly string[]) =>
+      this.#run(this.#deps.git, ['--git-dir', repository, ...args]);
+    const base = (
+      await ours(['rev-parse', '--verify', '--quiet', 'refs/halcyonic/send-base^{commit}'])
+    ).stdout.trim();
+    const [target, from, secret] = await Promise.all(
+      ['target', 'from', 'secret'].map(async (key) =>
+        (await ours(['config', '--get', `halcyonic-one-change.${key}`])).stdout.trim(),
+      ),
+    );
+    if (base === '' || !target || !from || !secret) return null;
+    return { base, target, from, secret };
   }
 
   /** One address lookup at a time per repository: each writes the same remote of Halcyonic's own. */
@@ -1043,7 +1217,13 @@ export class GitHubSender {
         `The title you gave this send holds a secret this Mac keeps (${titled}), so nothing was sent. Change the title, then try again.`,
       );
     const git = await lstat(join(folder, '.git')).catch(() => null);
-    if (git === null) return this.#prepareNew(projectId, folder, otherFolders, title, options);
+    if (git === null)
+      return options.oneChange === true
+        ? refuse(
+            'one_change_unavailable',
+            'Send One Change is offered when a send is refused for an earlier version. Send again first.',
+          )
+        : this.#prepareNew(projectId, folder, otherFolders, title, options);
     if (!git.isDirectory())
       return refuse('not_a_repository', "The project's folder isn't a git repository of its own.");
     const origin = await readOrigin(folder);
@@ -1068,10 +1248,47 @@ export class GitHubSender {
     ]);
     if (fetched.code !== 0)
       return refuse('no_commit', "The project's branch has no commit to send on top of.");
-    const base = (
+    let base = (
       await this.#run(this.#deps.git, ['--git-dir', repository, 'rev-parse', 'refs/halcyonic/base'])
     ).stdout.trim();
-    const built = await this.#tree(repository, folder, otherFolders, 'refs/halcyonic/base');
+    let onTop = branch;
+    let oneChange: { readonly secret: string } | null = null;
+    if (options.oneChange === true) {
+      // What the refused press found, in Halcyonic's own repository: the review asks nothing of the remote.
+      const record = await this.#oneChangeRecord(repository);
+      if (record === null || record.from !== branch)
+        return refuse(
+          'one_change_unavailable',
+          'Send One Change is offered when a send is refused for an earlier version. Send again first.',
+        );
+      // In the person's own history, so the change holds only their own work: nothing of anyone else's is undone.
+      const own = await this.#run(this.#deps.git, [
+        '--git-dir',
+        repository,
+        'merge-base',
+        '--is-ancestor',
+        record.base,
+        'refs/halcyonic/base',
+      ]);
+      if (own.code !== 0)
+        return refuse(
+          'review_stale',
+          "The project's branch changed since the send was refused. Send again first.",
+        );
+      base = record.base;
+      onTop = record.target;
+      oneChange = { secret: record.secret };
+    }
+    // Staged as the person's own branch tracks it; for Send One Change a file like .env is kept as the base the
+    // change goes on has it, so one only the unsent versions added stays out (ADR 0039, amended).
+    const built = await this.#tree(
+      repository,
+      folder,
+      otherFolders,
+      'refs/halcyonic/base',
+      undefined,
+      oneChange === null ? 'refs/halcyonic/base' : 'refs/halcyonic/send-base',
+    );
     if (!built.ok) return built;
     const tree = built.tree;
     const diff = await this.#run(this.#deps.git, [
@@ -1090,38 +1307,48 @@ export class GitHubSender {
     if (files.total === 0)
       return refuse(
         'nothing_to_send',
-        built.outside.length > 0
-          ? "Only links that point outside the project's folder differ from its branch's last commit, and those are never sent."
-          : "Nothing in the project differs from its branch's last commit.",
+        oneChange !== null
+          ? `Nothing in the project differs from what ${origin.remote.path} already has.`
+          : built.outside.length > 0
+            ? "Only links that point outside the project's folder differ from its branch's last commit, and those are never sent."
+            : "Nothing in the project differs from its branch's last commit.",
       );
+    const keptBack =
+      oneChange === null ? [] : (built.withheld ?? []).filter((path) => secretShapedPath(path));
     const newBranch = `halcyonic/${slug(basename(folder))}-${tree.slice(0, 8)}`;
     // A review request where the host's tool is set up on this Mac, never asked of the host: a review
     // sends nothing anywhere (AUDIT3 S2). Whether the person is signed in shows only at the press.
     const reviewRequest = this.#deps.gh !== null && HOST_TOOLS[origin.remote.host] !== undefined;
     const facts = {
       remote: origin.remote,
-      branch,
+      branch: onTop,
       base_commit: base,
       tree,
       new_branch: newBranch,
       title,
       files,
       links_left_out: built.outside,
+      ...(oneChange === null
+        ? {}
+        : { one_change: { from: branch, secret: oneChange.secret, kept_back: keptBack } }),
     };
     const send: SendReview = {
       project_id: projectId,
       remote: origin.remote,
       creates: null,
-      branch,
+      branch: onTop,
       base_commit: base,
       new_branch: newBranch,
       title,
       files,
       links_left_out: pathList(built.outside),
       review_request: reviewRequest,
+      ...(oneChange === null
+        ? {}
+        : { one_change: { secret_name: oneChange.secret, kept_back: pathList(keptBack) } }),
       review: reviewDigest('project.send', { project_id: projectId }, facts),
     };
-    return { ok: true, prepared: { send, ssh: origin.ssh, tree, repository } };
+    return { ok: true, prepared: { send, from: branch, ssh: origin.ssh, tree, repository } };
   }
 
   /**
@@ -1207,7 +1434,14 @@ export class GitHubSender {
     };
     return {
       ok: true,
-      prepared: { send, ssh: false, tree: built.tree, repository, withheld: built.withheld },
+      prepared: {
+        send,
+        from: 'main',
+        ssh: false,
+        tree: built.tree,
+        repository,
+        withheld: built.withheld,
+      },
     };
   }
 
@@ -1226,6 +1460,12 @@ export class GitHubSender {
     otherFolders: readonly string[],
     base: string | null,
     excludes: string | null = join(folder, '.git', 'info', 'exclude'),
+    /**
+     * Where a kept path (secret-shaped, another project's, a link out) is taken from, when not `base`: Send One
+     * Change stages the folder as the person's own branch tracks it, and keeps such paths as the commit it goes
+     * on has them, so a file only the unsent versions added stays out (the critic of 7962692ab).
+     */
+    keepFrom: string | null = base,
   ): Promise<
     | {
         readonly ok: true;
@@ -1343,7 +1583,7 @@ export class GitHubSender {
       );
       if (whole.code !== 0) return unreadable;
       const now = await entries(whole.stdout.trim());
-      const before = base === null ? new Map<string, string>() : await entries(base);
+      const before = keepFrom === null ? new Map<string, string>() : await entries(keepFrom);
       if (now === null || before === null) return unreadable;
       if (await this.#filtered(repository, now))
         return refuse(

@@ -599,9 +599,28 @@ the two ways forward that are true, said as steps with no claim about what a ser
 the old one turned off where it was issued, since making a new one does not turn the old one off at most services,
 then the new one stored on this Mac, the old one treated as exposed until it is off; or a developer taking the old
 version out). On Publish the earlier version is Halcyonic's own earlier publish, which left this Mac with it, so its
-words put turning the old one off first and offer no other way (AUDIT2, 16:49Z and 18:07Z; the lead, 18:08Z). A title that holds one is refused at
+words put turning the old one off first and offer no other way (AUDIT2, 16:49Z and 18:07Z; the lead, 18:08Z). Where
+Send One Change is offered, Send's refusal names it as one more way (AUDIT2 W4). A title that holds one is refused at
 the review, before a first send makes a repository. More than 512 MB to read is refused (`history_too_large`), and so
 is a remote that cannot be asked (`not_reached`). The tree check reads names too.
+
+Send One Change ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md), amended
+2026-11-13) is the one offer on Send's refusal for an earlier version (`holds_secret_in_history`, made only where a
+true base exists). It sends the files as they are now as one commit whose one parent is the newest commit of the
+person's branch that the remote's own branch reaches.
+- **The fetch.** That branch is fetched at that moment, at the push's own address, into Halcyonic's own repository.
+- **The branch it goes on** is the remote's: the one with the person's branch's name where listed, else the
+  remote's default. It is never read from the folder's tracking settings or its record of the remote.
+- **What can never be the base:** a commit the remote only keeps in its store. So nothing scrubbed is made
+  reachable again.
+- **Staged as the person's own branch tracks the files,** with a secret-shaped file kept as the base has it, so
+  one the unsent versions added stays out, and a file the person stopped tracking is not sent again.
+- **The press fetches again.** A base the branch no longer reaches sends nothing (`review_stale`).
+- **The one reader.** The leak fix's history check reads the new commit before the push. A hit there is the
+  fix's own refusal, never the offer again.
+- **The record** of what a refusal found (base, branch, the secret's name, never its value) is kept in Halcyonic's
+  own repository in the data folder, which no agent run can write.
+- **Not guaranteed:** that the person never pushes the earlier versions themselves; the card says so.
 
 No git command of Send's or Publish's reads the project repository's own configuration but one: the push and the
 question to the remote run in Halcyonic's own bare repository in the data folder, which no agent writes, with the
