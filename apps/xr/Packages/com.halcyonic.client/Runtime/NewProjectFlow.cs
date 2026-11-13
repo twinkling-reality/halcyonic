@@ -1176,8 +1176,8 @@ namespace Halcyonic.Client
             var lines = all.Skip(from).Take(to - from).ToList();
             if (linePage + 1 < unresolvedParts)
             {
-                lines.Add(new PageLine(EntryText.NextPart(linePage + 2, unresolvedParts), icon: GlazeIcon.Next, action: NewProjectScreens.NextPart,
-                    key: linePage.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                lines.Add(new PageLine(EntryText.NextPartShown(linePage + 2, unresolvedParts), icon: GlazeIcon.Next, action: NewProjectScreens.NextPart,
+                    key: linePage.ToString(System.Globalization.CultureInfo.InvariantCulture)).WithUnder(EntryText.NextPartCount(linePage + 2, unresolvedParts)));
             }
             var footer = frame.Footer;
             if (!each.All(unresolvedDrawn.Contains) && footer[PromptSlot.FarRight] is Prompt clear && clear.Id == NewProjectScreens.Clear)

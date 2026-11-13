@@ -2488,10 +2488,10 @@ public class FileColumnTests
 
             var unread = Bar();
             Assert.That((column.Screen.RequestPartRows, column.Screen.RequestParts), Is.EqualTo((2, 2)), "the request is cut by the rows its drawing gives");
-            Assert.That(unread.Column.Select(action => action.Words), Is.EqualTo(new[] { "Next Part · 2 of 2", "Cancel" }), "no Confirm before the whole request was drawn");
+            Assert.That(unread.Column.Select(action => (action.Words, action.Detail)), Is.EqualTo(new[] { ("Next Part", (string?)"2 of 2"), ("Cancel", (string?)null) }), "no Confirm before the whole request was drawn");
             Draw(host, column);
             Press(Bar().Column[0]);
-            Assert.That((column.Screen.RequestPart, Bar().Column.Select(action => action.Words).First(), host.Sent.Count), Is.EqualTo((1, "First Part · 1 of 2", 0)),
+            Assert.That((column.Screen.RequestPart, Bar().Column.Select(action => action.Words + " / " + action.Detail).First(), host.Sent.Count), Is.EqualTo((1, "First Part / 1 of 2", 0)),
                 "the last part turned to is not yet read");
             Draw(host, column);
             var read = Bar();
