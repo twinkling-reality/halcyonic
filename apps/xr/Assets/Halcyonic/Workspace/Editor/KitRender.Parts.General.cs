@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
@@ -21,7 +22,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] GeneralStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column" };
+        private static readonly string[] GeneralStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage" };
 
         private static PartShot GeneralShot(string state, Transform root, Vector3 eyes, string name)
         {
@@ -62,13 +63,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (state == "52-general-column")
                     frame = new MenuFrame("Settings", new Footer(close),
                         lines: Enumerable.Range(1, 8).Select(n => new PageLine("Choice " + n, action: "choose", key: n.ToString(CultureInfo.InvariantCulture), opens: true)).ToList());
+                // Usage with more windows than its card holds (two apps, two windows each): the general reader draws them. Synthetic names.
+                if (state == "52-general-usage")
+                {
+                    var limits = JsonConvert.DeserializeObject<UsageLimitsResponse>(GeneralUsageLimits, HalcyonicJson.Strict) as AvailableUsageLimits;
+                    var usage = new UsageColumn(new GeneralRenderHost(demonstration: true), _ => limits);
+                    var sections = new MenuBar(MenuPlace.Usage, "Nothing Waiting").Sections();
+                    frame = usage.Frame?.WithSections(sections, sections.Count);
+                }
                 bar = frame == null ? null : RoomBar.OfFrame(frame, VoiceStage.Idle);
                 if (state == "52-general-rows-2") bar?.Turn();
             }
             finally { RoomDesign.Enabled = was; }
             Require(frame != null && bar != null, "the general reader gives the redesign no bar");
             if (frame == null || bar == null) return shot;
-            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column";
+            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || state == "52-general-usage" && bar.GeneralPart.Pages > 1;
+            if (state == "52-general-usage") Require(bar.Card == null, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
             if (paged)
             {
@@ -131,12 +141,26 @@ namespace Halcyonic.XR.Workspace.Editor
             return shot;
         }
 
-        /// <summary>A menu host for Settings in a render: the production font's measures, nothing sent.</summary>
+        /// <summary>Four windows of two agent apps (synthetic names), more than the usage card holds.</summary>
+        private const string GeneralUsageLimits = @"{
+  ""availability"": ""available"",
+  ""source"": { ""system"": ""seorak"", ""synthetic"": true, ""api_version"": ""v1"" },
+  ""complete"": true,
+  ""readings"": [
+    { ""agent"": ""ember"", ""label"": ""Ember App"", ""window"": ""rolling-5h"", ""used_percent"": 40.2, ""resets_at"": ""2026-11-11T11:05:00.000Z"", ""observed_at"": ""2026-11-11T08:58:00.000Z"", ""freshness"": ""fresh"", ""account"": { ""state"": ""unidentified"" } },
+    { ""agent"": ""ember"", ""label"": ""Ember App"", ""window"": ""weekly"", ""used_percent"": 15.1, ""resets_at"": ""2026-11-16T09:00:00.000Z"", ""observed_at"": ""2026-11-11T08:58:00.000Z"", ""freshness"": ""fresh"", ""account"": { ""state"": ""unidentified"" } },
+    { ""agent"": ""tide"", ""label"": ""Tide App"", ""window"": ""rolling-5h"", ""used_percent"": 97.2, ""resets_at"": ""2026-11-11T11:05:00.000Z"", ""observed_at"": ""2026-11-11T08:58:00.000Z"", ""freshness"": ""fresh"", ""account"": { ""state"": ""unidentified"" } },
+    { ""agent"": ""tide"", ""label"": ""Tide App"", ""window"": ""weekly"", ""used_percent"": 60.4, ""resets_at"": ""2026-11-16T09:00:00.000Z"", ""observed_at"": ""2026-11-11T08:58:00.000Z"", ""freshness"": ""fresh"", ""account"": { ""state"": ""unidentified"" } }
+  ]
+}";
+
+        /// <summary>A menu host for the general reader's renders: the production font's measures, nothing sent; a recording for Usage.</summary>
         private sealed class GeneralRenderHost : IMenuHost
         {
+            public GeneralRenderHost(bool demonstration = false) => Demonstration = demonstration;
             public ClientProjection State { get; } = new();
-            public bool Connected => true;
-            public bool Demonstration => false;
+            public bool Connected => !Demonstration;
+            public bool Demonstration { get; }
             public double Now => 0;
             public DateTimeOffset Clock => DateTimeOffset.Parse(AskColumnTime, CultureInfo.InvariantCulture);
             public TimeZoneInfo Zone => TimeZoneInfo.Utc;
