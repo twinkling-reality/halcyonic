@@ -21,7 +21,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] WidthStates = { "59-width-table" };
+        private static readonly string[] WidthStates = { "59-width-table", "60-envelope-caps" };
 
         private static readonly float[] TableWidthsDp = { 440f, 400f, 360f, 320f, 280f, 240f };
 
@@ -29,6 +29,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var shot = new PartShot { Elevation = 0f };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            if (state == "60-envelope-caps") return CapsShot(shot, root, eyes, name);
             var was = RoomDesign.Enabled;
             var screens = new List<(string Name, MenuFrame Frame)>();
             NewWorkReview review;
@@ -124,6 +125,48 @@ namespace Halcyonic.XR.Workspace.Editor
             finally { RoomDesign.Enabled = was; }
             if (shown != null) { view.Show(shown); view.SettleForRender(); }
             Place(plane, eyes, 0f, shot.Elevation);
+            return shot;
+        }
+
+        /// <summary>
+        /// A bar laid AT the design's caps (AUDIT, 2026-11-13T2010Z: the envelope measured at the caps, not at the fixtures), at every
+        /// width the table names: eight rows of one line each, the spec's eight lines a panel (the tallest eight lines, their seven
+        /// hairlines between them), and four actions, the spec's column, each with its quieter second line. Every bar is laid in
+        /// turn on its own plane so the run's envelope records it at that width; then the record's coverage is checked: both
+        /// sizes and every width, so no build carries an envelope the plane could not trust.
+        /// </summary>
+        private static PartShot CapsShot(PartShot shot, Transform root, Vector3 eyes, string name)
+        {
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            var was = RoomDesign.Enabled;
+            var close = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
+            var frame = new MenuFrame("Settings", new Footer(close, rare: new Prompt("caps-b", "Run Checks Again", GlazeIcon.Refresh).WithUnder(LineWords.Ours("All four")),
+                    secondary: new Prompt("caps-c", "Choose Folder", GlazeIcon.Change).WithUnder(LineWords.Ours("In Projects")),
+                    farRight: new Prompt("caps-a", "Start Building", GlazeIcon.StartBuilding, main: true).WithUnder(LineWords.Ours("Ember App"))),
+                lines: Enumerable.Range(1, 8).Select(n => new PageLine("Row " + n)).ToList());
+            foreach (var width in TableWidthsDp)
+            {
+                RoomBar? bar;
+                RoomDesign.Enabled = true;
+                try { bar = RoomBar.OfFrame(frame, VoiceStage.Idle, new RoomForm(width < RoomGeometry.PanelDp, RoomRows.APage)); }
+                finally { RoomDesign.Enabled = was; }
+                Require(bar != null, "no reader takes the caps frame");
+                if (bar == null) continue;
+                bar.PanelWidthDp = width;
+                var plane = new GameObject("Caps " + width.ToString("0", CultureInfo.InvariantCulture)).transform;
+                plane.SetParent(root, false);
+                var view = RoomBarView.Create(plane);
+                view.Show(bar);
+                view.SettleForRender();
+                Place(plane, eyes, 0f, shot.Elevation);
+                Debug.Log("Halcyonic: parts: " + name + ": caps at " + width.ToString("0", CultureInfo.InvariantCulture) + " dp: " + (view.Size / RoomType.Units(1f)).ToString("0") + " dp laid.");
+            }
+            // The shipped record covers both sizes and every width the plane can choose.
+            foreach (var scale in new[] { 1f, Comfort.LargerTextScale })
+                foreach (var width in TableWidthsDp)
+                    Require(KitEnvelope.Entries.Any(entry => Mathf.Abs(entry.scale - scale) < 0.01f && Mathf.Abs(entry.panelDp - width) < 0.5f),
+                        "the kit's recorded envelope (Resources/" + KitEnvelope.ResourceName + ".json) has no entry at scale " + scale.ToString("0.00", CultureInfo.InvariantCulture)
+                        + " for a panel " + width.ToString("0", CultureInfo.InvariantCulture) + " dp wide");
             return shot;
         }
     }

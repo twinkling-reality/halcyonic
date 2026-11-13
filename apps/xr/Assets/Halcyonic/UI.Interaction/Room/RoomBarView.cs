@@ -652,9 +652,19 @@ namespace Halcyonic.XR.UI
         /// <summary>The same for the narrow form: the column's width, the panel over the column.</summary>
         public static Vector2 LargestNarrow => LargestAt(RoomGeometry.ColumnDp);
 
-        /// <summary>The most laid with a panel <paramref name="panelDp"/> wide at the person's text size; where nothing is recorded, unbounded, and the check says so.</summary>
-        public static Vector2 LargestAt(float panelDp) =>
-            KitEnvelope.Most(GlazeText.Scale, panelDp) is Vector2 dp ? new Vector2(RoomType.Units(dp.x), RoomType.Units(dp.y)) : new Vector2(float.MaxValue, float.MaxValue);
+        /// <summary>
+        /// The most laid with a panel <paramref name="panelDp"/> wide at the person's text size. Never unbounded (AUDIT, 2026-11-13T2010Z):
+        /// where nothing is recorded it is the Quest 3S field itself less its margin, from the foot line up and each side, so a plane
+        /// that reads it keeps clear of everything a bar could ever stand over; PartsCheck fails a record that does not cover both sizes.
+        /// </summary>
+        public static Vector2 LargestAt(float panelDp)
+        {
+            if (KitEnvelope.Most(GlazeText.Scale, panelDp) is Vector2 dp) return new Vector2(RoomType.Units(dp.x), RoomType.Units(dp.y));
+            var field = MenuPage.Quest3S;
+            var side = (float)System.Math.Min(field.Left, field.Right) - ViewField.EdgeMarginDegrees;
+            var up = (float)field.Up - ViewField.EdgeMarginDegrees;
+            return new Vector2(2f * Mathf.Tan(side * Mathf.Deg2Rad), Mathf.Tan(up * Mathf.Deg2Rad) - Mathf.Tan(RoomGeometry.FeetPitch * Mathf.Deg2Rad));
+        }
 
         /// <summary>The panel's width, in dp, of the bar last laid: what its envelope is recorded under.</summary>
         public float LaidPanelDp { get; private set; }
