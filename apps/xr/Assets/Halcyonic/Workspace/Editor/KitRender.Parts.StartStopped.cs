@@ -13,7 +13,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// A start of New Project stopped on a step, as the redesign draws it (AUDIT's 2026-11-13T1327Z, SCREENS's sentences): the
     /// computer refused the run settings; the agent app stopped answering (the longest of the step sentences); and a step that
     /// may have happened, the task's own and a Create Project step's (AUDIT's 2026-11-13T1627Z MUSTs: a step names only what it makes);
-    /// the page its See What Happened opens, unarmed and with Clear armed; and the recap whose Start Building waits on that start.
+    /// the page its Check Last Start opens, unarmed and with Clear armed; and the recap whose Start Building waits on that start.
     /// Built by the flow's own sequence (BuildSequence on a draft, the computer's answers as CommandViews),
     /// framed by NewProjectScreens.Starting and drawn by the room's bar. Measured: every word whole, no word given or drawn on a
     /// dot, and the step's own sentence among what is drawn. Synthetic names only.

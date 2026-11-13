@@ -162,7 +162,7 @@ namespace Halcyonic.Client
                     // The facts: the recap's card where the page gives one (A17), else rows that say what they are; Start Task
                     // first, then Change.
                     var facts = plain.Select(line => new RoomRow(line.Runs, label: line.RowLabel)).ToList();
-                    // A wait's reason is the bar's sentence: Start Building held, or See What Happened standing in its place.
+                    // A wait's reason is the bar's sentence: Start Building held, or Check Last Start standing in its place.
                     var waiting = main is { Available: false } ? why : main?.Id == NewProjectScreens.CheckFirst ? plain.FirstOrDefault()?.Words : null;
                     var recap = Rows(RoomBarState.Choose, facts, waiting, Column(withClose: true, Offered(NewProjectScreens.ChangeRecap)));
                     if (frame.Card != null) recap.Card = frame.Card;

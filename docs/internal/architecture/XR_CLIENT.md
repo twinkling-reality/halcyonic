@@ -1363,13 +1363,13 @@ launch/return, process recreation and current-frame action behavior need separat
   line is that step's own sentence; a step whose effect is unknown names only what that step makes
   and where a person sees it (`EntryText.NotSureItHappened(kind)`: a project and its folder in
   Projects, a task or its run in the room), so a Create Project step never sends a person to look
-  for a task not yet asked for. Its main control, See What Happened, opens the unknown start's page,
+  for a task not yet asked for. Its main control, Check Last Start, opens the unknown start's page,
   which says the same sentence by the same step (`EntryText.PreviousRequest(kind)`, both places
   where only a reference kept from an earlier run is known), then what the computer recorded, how
   to clear it and its reference, each a sentence; under the redesign that page is a card (the project
   as its title, Start Unconfirmed over the step's sentence, what the computer recorded as its words, and
-  what Clear does as the bar's sentence: the idea here restarts, nothing on the computer is sent or deleted). While that start is unknown the recap says the same
-  sentence, which names that Start Building waits, and its main action is See What Happened.
+  what Clear does as the bar's sentence: the idea here is erased, nothing on the computer is sent or deleted). While that start is unknown the recap says the same
+  sentence, which says a new start could repeat it, and its main action is Check Last Start.
 - **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
   presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the
   tab chosen, a notice, the instructions offered where no keyboard is, and the agent's question or

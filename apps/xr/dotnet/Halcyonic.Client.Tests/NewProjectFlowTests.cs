@@ -623,7 +623,7 @@ public class NewProjectFlowTests
         host.State = With();
         flow.Tick();
         Assert.That(kept.Id, Is.EqualTo(host.Sent.Single().CommandId), "kept, so a restart still blocks a blind retry");
-        // The card's See What Happened opens the page, which says what the card said, by the step that may have run (AUDIT, 2026-11-13T1627Z).
+        // The card's Check Last Start opens the page, which says what the card said, by the step that may have run (AUDIT, 2026-11-13T1627Z).
         Press(flow, NewProjectScreens.CheckFirst, null);
         Assert.That(flow.Frame!.Lines.Select(line => line.Words), Does.Contain(EntryText.PreviousRequest(BuildStepKind.CreateProject)), "this build's own step, by its kind");
         Assert.That(flow.Frame!.Lines.Select(line => line.Words).Where(words => words.Contains('\u00b7')), Is.Empty, "no facts joined on a dot");
@@ -643,7 +643,7 @@ public class NewProjectFlowTests
         Assert.That(restarted.Step, Is.EqualTo(NewProjectStep.YourIdea));
         // Clear's words are what Confirm does (AUDIT's MUST J): nothing sent to the computer, the idea here started over.
         Assert.That(restartHost.Sent, Is.Empty, "nothing on the computer is deleted or sent");
-        Assert.That(EntryText.ClearOnceChecked, Does.Contain("Nothing on the computer is sent or deleted").And.Contain("restarts your idea"));
+        Assert.That(EntryText.ClearOnceChecked, Does.Contain("Nothing on the computer is sent or deleted").And.Contain("erases your idea"));
         Assert.That(EntryText.Cleared, Does.Not.Contain("\u00b7"));
     }
 
