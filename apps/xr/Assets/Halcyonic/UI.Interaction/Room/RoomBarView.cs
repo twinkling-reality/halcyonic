@@ -661,6 +661,9 @@ namespace Halcyonic.XR.UI
         /// <summary>Whether the bar last laid stood past <see cref="Largest"/> (or <see cref="LargestNarrow"/> in the narrow form): a finding, never drawn quietly.</summary>
         public bool PassedLargest { get; private set; }
 
+        /// <summary>Whether the bar last laid was the narrow form (<see cref="RoomBar.Narrow"/>).</summary>
+        public bool Narrow { get; private set; }
+
         /// <summary>Sets what the panel reads on <paramref name="label"/> as it stands there: a request literal in mono, else words by their runs, as prose.</summary>
         private static void Set(TextMeshPro label, LineWords words, bool mono)
         {
@@ -937,6 +940,7 @@ namespace Halcyonic.XR.UI
                     + (total / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " by " + (height / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
                     + " dp against " + (most.x / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " by " + (most.y / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + ".");
             PassedLargest = passed;
+            Narrow = narrow;
         }
     }
 }
