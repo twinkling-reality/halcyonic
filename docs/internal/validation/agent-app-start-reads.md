@@ -57,23 +57,37 @@ for it. The other half, what Halcyonic's light profile allows (`hostFoldersDenie
   outside directories allowed (https://opencode.ai/docs/permissions/); the v1.19.5 source asks for any path outside the
   working directory and git root (`external_directory: {"*": "ask"}`, `packages/opencode/src/agent/agent.ts`).
 
+## Seen: Claude Code as Halcyonic starts it (2026-11-13, a stand-in API on loopback)
+
+Halcyonic starts Claude Code with no settings source (`settingSources: []` in `claude-agent-runtime.ts`), so the walk
+above does not happen at start: no `CLAUDE.md` in the folder or above it loads, and outside the closed profile only the
+person's own `CLAUDE.md` in Claude Code's configuration folder is passed in. `open-launch.e2e.test.ts` (a connected
+folder) and `confined.e2e.test.ts` (a confined app) each put a marker `CLAUDE.md` in the project's parent folder and
+start the bundled Claude Code 2.1.283 once in the project against a stand-in Messages API: neither run's requests carry
+the marker. Fail first: with `settingSources: ['project']` the connected-folder run's requests carry it, so the CLI's
+own walk is real and only Halcyonic's launch keeps it out. In a confined app the closed profile refuses reading that
+folder besides. Codex and OpenCode were not run: their pinned binaries are only under the owner's own data folder.
+
 ## What follows (inference, not a decision)
 
 - None of the three keeps its tools' reads inside the working directory by default. Claude Code asks before a Read or
   Grep outside it but runs a shell command that reads anywhere; Codex reads the whole disk; OpenCode's release asks.
-- Two of them read files above the folder on their own at start: Claude Code walks to the filesystem root for
-  `CLAUDE.md`, and OpenCode walks to the root for `AGENTS.md` and its config when the folder has no git. Codex stops at
-  the git root. So a connected folder inside a person's home gives the agent app the instruction files of every folder
-  above it, and those words reach the model.
+- Two of them read files above the folder on their own at start by default: Claude Code walks to the filesystem root
+  for `CLAUDE.md` (not as Halcyonic starts it, seen above), and OpenCode walks to the root for `AGENTS.md` and its
+  config when the folder has no git. Codex stops at the git root. Where an app does walk, a connected folder inside a
+  person's home gives it the instruction files of every folder above it, and those words reach the model.
+- What stays open on a connected folder is what the agent's own commands read once it runs (a `find /` lists the
+  whole disk), which the light profile does not bound beyond the host's own folders.
 - A light profile that keeps a person's tools working must leave each app its own config, credentials and state
   folders above, and the toolchains and caches it runs (AUDIT3's read lists them); denying the person's secret shapes
   and their other project roots is the shape to test.
 
 ## Not verified
 
-- No run: what each app actually opens at start on this Mac (a run under a file-access trace, or a deny-by-default
-  profile that logs refusals, answers it), and whether each still starts and works with secret shapes and other
-  project roots denied.
+- Codex and OpenCode at start on this Mac (a run under a file-access trace, or a deny-by-default profile that logs
+  refusals, answers it), and whether each still starts and works with secret shapes and other project roots denied.
+- Claude Code's other reads at start (its configuration folder, the Keychain) were not traced; only what reaches the
+  model was.
 - Claude Code: whether a git status or `.gitignore` is read at start; whether Manual mode asks for every outside read.
 - Codex: system config paths such as `/etc/codex`; `auth.json`'s exact place.
 - OpenCode: whether the walk up to the home directory on its development branch has shipped.
