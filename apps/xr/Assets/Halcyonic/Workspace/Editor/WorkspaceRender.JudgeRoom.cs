@@ -286,10 +286,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw();
                     if (Drawn(action, key) is RoomButton button)
                     {
+                        // A press counts only where the column took it (XR 18:16Z, AUDIT 18:16Z): where the navigator would not take it from
+                        // the frame shown and nothing changed after it (nothing sent, opened, closed or turned), it is said and not counted.
+                        var column = Opened() != null ? MenuColumn.File : MenuColumn.Menu;
+                        var refused = navigator.Taking(column, action, director.Plane.Showing(column), null) == null;
+                        var before = (sent.Count, navigator.Shown, navigator.Beside, Opened()?.Screen.Section, Opened()?.Frame?.Side);
                         button.Press.SettleForRender();
                         button.Press.PressForRender(990);
-                        presses++;
                         Draw();
+                        if (refused && before == (sent.Count, navigator.Shown, navigator.Beside, Opened()?.Screen.Section, Opened()?.Frame?.Side))
+                        {
+                            failures.Add("judge room: the drawn " + action + (key == null ? "" : " " + key) + " was pressed and its column did not take it (its frame was not reported drawn)");
+                            return false;
+                        }
+                        presses++;
                         return true;
                     }
                     if (Opened()?.Frame is MenuFrame record && director.PressForRender(MenuColumn.File, action, key, record, null))
