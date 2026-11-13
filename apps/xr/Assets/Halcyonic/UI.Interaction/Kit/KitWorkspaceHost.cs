@@ -328,6 +328,22 @@ namespace Halcyonic.XR.UI
             bar.BandNext = band.Words?.Next;
             bar.BandNextDetail = band.Words?.NextCount;
             bar.Show(room);
+            // Measured, never guessed (the plane's rule, 2026-11-13): where what the bar laid does not stand whole at the width it had, or
+            // passes its largest footprint, the reader is asked again for one row fewer a page, down to one; at one, still not whole, one
+            // finding line says so (the walks fail on it) and the frame is not reported drawn (ReportDrawn), never drawn cut quietly.
+            var asked = Form;
+            while (RoomDesign.Enabled && (!bar.LaidWhole || bar.PassedLargest) && asked.RowsAPage > 1)
+            {
+                asked = asked.Fewer();
+                room = RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), asked);
+                if (turned is { } again && ReferenceEquals(again.Frame, binding.Frame)) { for (var turn = 0; turn < again.Turns && room.Turn(); turn++) { } }
+                bar.Show(room);
+            }
+            if (RoomDesign.Enabled && (!bar.LaidWhole || bar.PassedLargest) && !ReferenceEquals(notWholeSaid, binding.Frame))
+            {
+                notWholeSaid = binding.Frame;
+                Debug.LogWarning("Halcyonic: the bar did not lay whole at one row a page (" + (asked.Narrow ? "narrow" : "full") + " form).");
+            }
             if (!bar.gameObject.activeSelf)
             {
                 ShowWork(room, zoom);
@@ -390,6 +406,9 @@ namespace Halcyonic.XR.UI
 
         // The general reader's page turns for the frame it turned on: kept while that frame stands, as the bar is made again from it.
         private (MenuFrame Frame, int Turns)? turned;
+
+        // The frame whose bar was last said not to lay whole, so it is said once.
+        private MenuFrame? notWholeSaid;
 
         /// <summary>
         /// The general reader's Next Page pressed (RoomBar.TurnPage): its next page, or the first after the last, drawn as the same
@@ -514,8 +533,9 @@ namespace Halcyonic.XR.UI
             // The agent's words still hold a part not shown: the frame is not read yet. (Stop alone does not wait for this:
             // the navigator takes it from the frame as it shows, MenuNavigator.Taking.)
             if (RoomDesign.Enabled && band.Words is { More: true } && bar.Shown is { BandIsRead: true }) return;
-            // A frame its reader could not lay whole (a part cut, a page of its own not yet shown) is not read yet (AUDIT's 3).
-            if (RoomDesign.Enabled && bar.Shown is { Whole: false }) return;
+            // A frame its reader could not lay whole (a part cut, a page of its own not yet shown), or one the view could not lay whole at
+            // the width it had, is not read yet (AUDIT's 3; FIELD's RoomBarView.LaidWhole).
+            if (RoomDesign.Enabled && (bar.Shown is { Whole: false } || !bar.LaidWhole)) return;
             drawn = binding.Frame;
             Drawn?.Invoke(column, binding.Frame);
         }
