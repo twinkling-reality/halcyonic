@@ -537,24 +537,24 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
-        /// Why this headset's own read of a section failed, after "Measurement Unreadable · " or
-        /// " · Reread Failed · ", by what failed and never the error's message, which is the control
-        /// plane's or the runtime's and can hold an address: one line per cause, as the folders say it, a
-        /// refused credential as <paramref name="accessRefused"/> says it for how this headset reaches the
-        /// computer (settled by the coordinator, 2026-10-07).
+        /// Why this headset's own read failed (a section's, the catalog's, the projects'), by what failed and never the error's
+        /// message, which is the control plane's or the runtime's and can hold an address: a plain sentence of what happened,
+        /// naming no control, since the page's own Refresh is drawn; a remedy no control gives is a second sentence (the lead's
+        /// ruling, 2026-11-13). A refused credential reads as <paramref name="accessRefused"/> says it for how this headset
+        /// reaches the computer (settled by the coordinator, 2026-10-07).
         /// </summary>
         public static string WhyUnread(Exception? error, string accessRefused) => error switch
         {
-            OperationCanceledException => "Computer Timed Out · Refresh",
+            OperationCanceledException => "The computer took too long to answer.",
             _ when Within<UnaskedReadException>(error) is UnaskedReadException unasked => unasked.Message,
             _ when Within<CertificateMismatchException>(error) != null => ConnectionText.NotThePairedComputer,
             _ when Within<TokenNotSentException>(error) is TokenNotSentException notSent && notSent.Outcome == LoopbackProofOutcome.Unproved
-                => "Host Unverified · Code Not Sent · Check App · Refresh",
+                => "What answered couldn't prove it is your computer, so nothing was sent. Check that the app is running there.",
             _ when Within<TokenNotSentException>(error) is TokenNotSentException notSent && notSent.Outcome == LoopbackProofOutcome.Unreachable => DidntAnswer,
             ControlPlaneRequestException { Code: "device_revoked", Status: 401 } => ConnectionText.PairingRefused,
             ControlPlaneRequestException { Code: "unauthorized", Status: 401 } => accessRefused,
             ControlPlaneRequestException { Code: "too_many_requests", Status: 429 }
-                => "Pairing Paused · Too Many Tries · Refresh in 1 min",
+                => "The computer paused this headset after too many tries. Wait a minute.",
             _ when Within<Newtonsoft.Json.JsonException>(error) != null => ConnectionText.Unreadable,
             // Something answered, with what isn't HTTP or too much of it, or took the connection and set up no secure
             // one: never "didn't answer".
@@ -564,11 +564,11 @@ namespace Halcyonic.Client
             _ => SomethingWentWrong,
         };
 
-        private const string DidntAnswer = "No Answer · Refresh";
-        private const string SomethingWentWrong = "Read Failed · Refresh";
+        private const string DidntAnswer = "The computer didn't answer.";
+        private const string SomethingWentWrong = "Something went wrong reading it.";
 
         /// <summary>The headset's read when there is nothing to ask (settled by the coordinator, 2026-10-07).</summary>
-        public const string NotConnected = "Not Connected · Refresh Once Connected";
+        public const string NotConnected = "This headset isn't connected to the computer.";
 
         /// <summary>Said where a source measured nothing, or said so in words that show as nothing (settled by the coordinator, 2026-10-08).</summary>
         public const string NothingMeasured = "Not Measured";

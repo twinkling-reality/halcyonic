@@ -63,10 +63,38 @@ public class SiblingNamesTests
             Assert.That(text, Does.Not.Contain("consumer create"), "the host's message is never drawn");
         }
 
-        var unread = CheckedPresenter.Present(Intelligence.ExecutionId, null, false, "Computer Timed Out, refresh", null, false, null,
+        var unread = CheckedPresenter.Present(Intelligence.ExecutionId, null, false, "The computer took too long to answer.", null, false, null,
             Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc);
-        Assert.That(unread.Provenance, Is.EqualTo("Understanding Unreadable, Computer Timed Out, refresh"));
+        Assert.That(unread.Provenance, Is.EqualTo("Understanding Unreadable, The computer took too long to answer."));
         Assert.That(unread.From!.State, Is.EqualTo("Understanding Unreadable"));
+    }
+
+    /// <summary>
+    /// The measurement's and the understanding's read failures are this headset's own sentences: the error a read keeps is
+    /// IntelligenceText.WhyUnread's, never the exception's message, so a message naming the provider and a command for it
+    /// never reaches the Checks page (AUDIT's MUST O, 2026-11-13).
+    /// </summary>
+    [Test]
+    public void AFailedReadNeverCarriesItsMessageToTheChecksPage()
+    {
+        const string Leak = "Seorak refused at http://127.0.0.1:7600; run salidium consumer create";
+        foreach (var error in new Exception[]
+        {
+            new OperationCanceledException(Leak),
+            new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)),
+            new ControlPlaneRequestException(Leak, "too_many_requests", 429),
+            new InvalidOperationException(Leak),
+        })
+        {
+            var why = IntelligenceText.WhyUnread(error, "Access Refused");
+            var section = CheckedPresenter.Present(Intelligence.ExecutionId, null, false, why, null, false, why,
+                Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc);
+            foreach (var text in Drawn(section).Append(why))
+            {
+                foreach (var sibling in Siblings) Assert.That(text, Does.Not.Contain(sibling).IgnoreCase, "drawn: " + text);
+                Assert.That(text, Does.Not.Contain("consumer create").And.Not.Contain("127.0.0.1"), "drawn: " + text);
+            }
+        }
     }
 
     [Test]

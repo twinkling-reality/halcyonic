@@ -531,16 +531,16 @@ public class UnderstandingAnswersTests
             Is.EqualTo("No Work Yet"));
         Assert.That(UnderstandingPresenter.Present(UnderstandPrompt.WhyChanged, Intelligence.ExecutionId, null, true, null, now, Intelligence.Utc).Provenance,
             Is.EqualTo("Reading Understanding"));
-        var failed = UnderstandingPresenter.Present(UnderstandPrompt.HowBuilt, Intelligence.ExecutionId, null, false, "No Answer · Refresh",
+        var failed = UnderstandingPresenter.Present(UnderstandPrompt.HowBuilt, Intelligence.ExecutionId, null, false, "The computer didn't answer.",
             now, Intelligence.Utc);
-        Assert.That(failed.Provenance, Is.EqualTo("Understanding Unreadable, No Answer · Refresh"));
+        Assert.That(failed.Provenance, Is.EqualTo("Understanding Unreadable, The computer didn't answer."));
         Assert.That(failed.ProvenanceTone, Is.EqualTo(SectionTone.Problem));
 
         var read = Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z");
         Assert.That(UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, Intelligence.ExecutionId, read, true, null, now, Intelligence.Utc).Provenance,
             Is.EqualTo("Explanation, 2 min ago, Reading Again"), "the last answer stays while a new one is read");
-        Assert.That(UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, Intelligence.ExecutionId, read, false, "Computer Timed Out · Refresh", now, Intelligence.Utc).Provenance,
-            Is.EqualTo("Explanation, 2 min ago, Reread Failed, Computer Timed Out · Refresh"));
+        Assert.That(UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, Intelligence.ExecutionId, read, false, "The computer took too long to answer.", now, Intelligence.Utc).Provenance,
+            Is.EqualTo("Explanation, 2 min ago, Reread Failed, The computer took too long to answer."));
     }
 
     [Test]
@@ -802,8 +802,8 @@ public class CheckedTests
         var asking = CheckedPresenter.Present(Intelligence.ExecutionId, null, true, null, null, true, null, now, Intelligence.Utc);
         Assert.That(asking.Provenance, Is.EqualTo("Reading Understanding"));
         Assert.That(Intelligence.Texts(asking), Is.EqualTo(new[] { "Reading Measurement" }));
-        var failed = CheckedPresenter.Present(Intelligence.ExecutionId, null, false, null, null, false, "Read Failed · Refresh", now, Intelligence.Utc);
-        Assert.That((failed.Lines[0].Text, failed.Lines[0].Tone), Is.EqualTo(("Measurement Unreadable, Read Failed · Refresh", SectionTone.Problem)));
+        var failed = CheckedPresenter.Present(Intelligence.ExecutionId, null, false, null, null, false, "Something went wrong reading it.", now, Intelligence.Utc);
+        Assert.That((failed.Lines[0].Text, failed.Lines[0].Tone), Is.EqualTo(("Measurement Unreadable, Something went wrong reading it.", SectionTone.Problem)));
         var notYet = CheckedPresenter.Present(Intelligence.ExecutionId, null, false, null, null, false, null, now, Intelligence.Utc);
         Assert.That(notYet.Provenance + " / " + notYet.Lines[0].Text, Is.EqualTo("Not Read / Not Read"));
 
