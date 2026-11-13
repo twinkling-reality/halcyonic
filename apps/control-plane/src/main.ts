@@ -4,6 +4,7 @@ import { chmod, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CODEX_KEY_READER } from '@halcyonic/integration-codex';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
@@ -114,7 +115,7 @@ async function main(): Promise<void> {
   // which reach providers through it, and handed to the plane, the assistant and the setup page as the same instance.
   const providers = new HostProviders({
     dataDir: config.dataDir,
-    readers: [...AGENT_KEY_READERS, ASSISTANT_READER, OPENCODE_KEY_READER],
+    readers: [...AGENT_KEY_READERS, ASSISTANT_READER, OPENCODE_KEY_READER, CODEX_KEY_READER],
   });
   // Each key a reader reads at its start, as kept now, by when it was written and never by its value: read before the
   // adapters start from them, so the setup page knows a key kept or removed since asks for a restart.

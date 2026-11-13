@@ -9,6 +9,7 @@ import {
   personalSetupUsed,
 } from '@halcyonic/integration-claude-code';
 import {
+  CODEX_KEY_READER,
   CodexRuntimeAdapter,
   type CodexRuntimeOptions,
   PROXY_VARIABLES,
@@ -225,6 +226,11 @@ export function createRuntimeAdapters(
         env: codexEnvironment(additions),
         foldersInside: (folder) => foldersInside(folder, dependencies.projectFolders?.() ?? []),
         ...codexConfinement(dependencies),
+        // A confined server reaches the declared providers Codex's reader reaches, each through a key gate.
+        hostedProviders: () =>
+          dependencies.providers === undefined
+            ? []
+            : gatedProviders(dependencies.providers, CODEX_KEY_READER),
       }),
     );
   }

@@ -129,7 +129,10 @@ which would replace Halcyonic's identity on its threads, or
 `CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED`, which the adapter always sets so the server
 never enables remote control, a second control channel through chatgpt.com.
 
-Codex runs only on models served on this Mac, in a home of its own, never the person's `~/.codex`
+Codex runs on models served on this Mac and, since 2026-11-13, in a new app's confined project only, on a declared
+hosted provider through a key gate that holds the person's key (the server holds a run credential, its commands
+none; [agent-apps-hosted-providers.md](../validation/agent-apps-hosted-providers.md)); every other remote provider stays
+refused. It runs in a home of its own, never the person's `~/.codex`
 ([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md), note of 2026-10-07). The control
 plane chooses the home, `<data dir>/codex-home` (`~/.halcyonic/codex-home`); it is not a setting.
 Before every launch the adapter makes it with mode 700 when it is missing, and refuses to launch

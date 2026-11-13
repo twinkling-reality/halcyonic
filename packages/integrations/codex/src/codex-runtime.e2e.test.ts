@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { createServer as createHttpServer, request as httpRequest } from 'node:http';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -1176,6 +1177,47 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
     },
   );
 
+  test(
+    "a hosted model chosen in a project that is not confined is refused in words, and nothing reaches it (AUDIT3's read, C)",
+    SLOW_TEST,
+    async (t) => {
+      let reached = 0;
+      const { runtime, sandbox } = await harness(t, {
+        runtime: {
+          hostedProviders: () => [
+            {
+              id: 'meta',
+              name: 'Meta',
+              upstream: 'http://127.0.0.1:9/v1',
+              header: 'authorization',
+              bearer: true,
+              key: 'LLM_fake-meta-key-never-sent',
+              models: ['muse-wonder-1.0'],
+            },
+          ],
+        },
+      });
+      const before = sandbox.provider.requests.length;
+      const execution = new Execution();
+      await assert.rejects(
+        runtime.startExecution({
+          execution: execution.context,
+          instruction: 'Hello.',
+          options: {},
+          directory: sandbox.project,
+          model_ref: 'halcyonic_meta/muse-wonder-1.0',
+          emit: execution.emit,
+        }),
+        (error: unknown) =>
+          error instanceof RuntimeActionError &&
+          error.code === 'model_unavailable' &&
+          /Hosted models run in a new app's project only/.test(error.message),
+      );
+      reached += sandbox.provider.requests.length - before;
+      assert.equal(reached, 0, 'the local provider was asked instead');
+    },
+  );
+
   test('a provider error fails the turn with the error Codex reports', SLOW_TEST, async (t) => {
     const { start } = await harness(t);
     const execution = await start('Please FAIL.');
@@ -1962,6 +2004,107 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
     assert.match(output, /Operation not permitted/);
     assert.doesNotMatch(output, /marker-5d2e/);
   });
+
+  test(
+    'a confined thread on a hosted provider reaches it only through its key gate, holding a run credential, never the key (VRIFY, 2026-11-13)',
+    SLOW_TEST,
+    async (t) => {
+      /** A fake key for a stand-in of Meta's documented shape: never a real one. */
+      const KEY = 'LLM_fake-meta-key-for-a-codex-test';
+      let upstream: string | null = null;
+      const seen: { key: boolean; runCredential: boolean }[] = [];
+      const { sandbox, runtime, start } = await harness(t, {
+        runtime: (box) => ({
+          ...confined(box),
+          hostedProviders: () =>
+            upstream === null
+              ? []
+              : [
+                  {
+                    id: 'meta',
+                    name: 'Meta',
+                    upstream,
+                    header: 'authorization',
+                    bearer: true,
+                    key: KEY,
+                    models: ['muse-wonder-1.0'],
+                  },
+                ],
+        }),
+      });
+      // Meta's shape: Responses under /v1, answering only `Authorization: Bearer <key>`; in front of the fake
+      // provider, which serves the turn. Only whether each request carried the key is kept.
+      const fake = new URL(sandbox.provider.baseUrl);
+      const standIn = createHttpServer((req, res) => {
+        const authorization = req.headers.authorization ?? '';
+        seen.push({
+          key: authorization === `Bearer ${KEY}`,
+          runCredential: authorization.includes('halcyonic-gate-run-'),
+        });
+        if (authorization !== `Bearer ${KEY}`) {
+          req.resume();
+          res.writeHead(401, { 'content-type': 'application/json' }).end('{}');
+          return;
+        }
+        const headers = { ...req.headers };
+        delete headers.authorization;
+        delete headers.host;
+        const out = httpRequest(
+          {
+            hostname: '127.0.0.1',
+            port: Number(fake.port),
+            method: req.method,
+            path: req.url,
+            headers,
+          },
+          (answer) => {
+            res.writeHead(answer.statusCode ?? 502, answer.headers);
+            answer.pipe(res);
+          },
+        );
+        out.on('error', () => res.writeHead(502).end());
+        req.pipe(out);
+      });
+      await new Promise<void>((resolve) => standIn.listen(0, '127.0.0.1', () => resolve()));
+      t.after(() => {
+        standIn.closeAllConnections();
+        standIn.close();
+      });
+      const address = standIn.address();
+      upstream = `http://127.0.0.1:${typeof address === 'object' && address !== null ? address.port : 0}/v1`;
+      // Listed from the declaration, served remote, its provider named.
+      const listed = await runtime.listModels();
+      const hosted = listed.find((model) => model.model_ref === 'halcyonic_meta/muse-wonder-1.0');
+      assert.ok(hosted, listed.map((model) => model.model_ref).join(', '));
+      assert.equal(hosted.served, 'remote');
+      assert.equal(hosted.provider, 'meta');
+      // A command on the thread: the gate's credential is not in its environment (AUDIT3's read, B).
+      const execution = await start(
+        'CMD:echo gate=${HALCYONIC_GATE_META_TOKEN:-none} openai=${OPENAI_API_KEY:-none}',
+        {},
+        'halcyonic_meta/muse-wonder-1.0',
+      );
+      await execution.next('runtime.turn.completed', 1, 90_000);
+      const output = execution.observations
+        .filter((observation) => observation.type === 'runtime.tool.result')
+        .map((observation) => JSON.stringify(observation.payload))
+        .join('\n');
+      assert.match(output, /gate=none openai=none/);
+      // Every request reached the provider through the gate, with the person's key in place of the credential.
+      assert.ok(seen.length > 0, 'nothing reached the provider');
+      assert.ok(
+        seen.every((each) => each.key && !each.runCredential),
+        JSON.stringify(seen),
+      );
+      // The model the turn ran on, as recorded: the hosted one, remote.
+      const used = execution.observations.find(
+        (observation) => observation.type === 'runtime.model.used',
+      );
+      assert.match(JSON.stringify(used?.payload ?? {}), /halcyonic_meta\/muse-wonder-1\.0/);
+      // No file of the sandbox holds the key.
+      assert.deepEqual(filesHolding(sandbox.root, KEY), []);
+    },
+  );
 
   test(
     "runs on a Codex home of its own, and cannot write to the open server's",

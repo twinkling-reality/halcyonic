@@ -93,6 +93,11 @@ runtime's environment can reach every command its agent runs unless the runtime 
      a `meta` provider the adapter writes into its own home (`wire_api = "responses"`); its home of its
      own, never signed in, and plugins, the update check, analytics and web search off on every launch
      all stay.
+   - As built (VRIFY, 2026-11-13; AUDIT3 read the shape first): never in Codex's home, and only for a confined
+     server (a new app's project): each declared provider Codex's reader reaches (it serves Responses) and whose
+     key is stored becomes `halcyonic_<id>`, passed as `-c` overrides whose `base_url` is a key gate of its own;
+     the server holds only a run credential, its threads' commands not even that. The open server gets none, and a
+     hosted model chosen there is refused in words. [agent-apps-hosted-providers.md](../validation/agent-apps-hosted-providers.md).
    - OpenCode may run the same models through its built-in `meta` provider, configured by the control
      plane at launch. Halcyonic's own OpenCode settings file stays local by construction (ADR 0024,
      decision 5), catalog fetches stay off, `webfetch` and `websearch` stay refused.
