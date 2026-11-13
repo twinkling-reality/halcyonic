@@ -143,7 +143,7 @@ namespace Halcyonic.XR.Workspace
             // screen), the menu's own frame is the one a reader takes.
             // The very frame the plane is handed (the navigator's own, as drawn), never the column's frame read again: a column that
             // builds its frame on each read would give another object, and the kit would decline it (JUDGE's Ask beside the menu).
-            var frame = placement != null ? placementFrame : navigator.Beside != null ? besideFrame ?? navigator.Beside.Frame : menuFrame;
+            var frame = placement != null ? placementFrame : navigator.Beside != null ? besideFrame : menuFrame;
             if (!room || frame == null) return null;
             // Asked for the form the plane will lay it in, as the kit will read it.
             return RoomBar.OfFrame(frame, VoiceStage.Idle, plane.Kit.Form) != null ? KitFileBinding.PlainOf(frame) : null;
@@ -186,9 +186,13 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Whether the redesign's card drew New Project's recap whole (<see cref="NewProjectFlow.RecapShownWhole"/>).</summary>
         private Func<bool>? recapShownWhole;
 
-        private KitFileBinding? KitBindingOf(FileColumn? file, IReadOnlyList<ProjectView> choices, string? selected)
+        /// <remarks>
+        /// Bound to <paramref name="handed"/>, the very frame the navigator handed for this pass, never the column's Frame read again
+        /// (AUDIT's 20:25Z: one frame object per draw), so the kit and the plane always hold the same object.
+        /// </remarks>
+        private KitFileBinding? KitBindingOf(FileColumn? file, MenuFrame? handed, IReadOnlyList<ProjectView> choices, string? selected)
         {
-            if (!KitWorkspaceHost.Enabled || file?.Frame is not MenuFrame frame || file.Now is not WorkspacePresentation now) return null;
+            if (!KitWorkspaceHost.Enabled || file == null || handed is not MenuFrame frame || file.Now is not WorkspacePresentation now) return null;
             var projects = choices.Take(3).Select(project => new KitRowModel("project:" + project.ProjectId, LineWords.TheirName(project.Name),
                 opensMore: false, selected: project.ProjectId == selected, isName: true)).ToList();
             if (choices.Count > 3) projects.Add(new KitRowModel("place:" + MenuPlace.Projects, LineWords.Ours("More projects")));
@@ -393,7 +397,7 @@ namespace Halcyonic.XR.Workspace
             var activeFile = SeparateWorkspace && !navigator.IsCompact && placement == null ? navigator.Beside as FileColumn : null;
             // A file's page in a side panel (FileScreens' Side) is never bound by the task's own binding, which has no place for it
             // and would drop it unseen (AUDIT's D, 2026-11-13): under the redesign the frame goes plain to a reader that draws it.
-            if (RoomDesign.Enabled && activeFile?.Frame?.Side != null) activeFile = null;
+            if (RoomDesign.Enabled && activeFile != null && besideFrame?.Side != null) activeFile = null;
             plane.ComposerFocused = activeFile?.ActivityContextFrame != null && composerFocus.TryGetValue(activeFile, out var focused) && focused;
             plane.ActivityFrame = plane.ComposerFocused ? null : activeFile?.ActivityContextFrame;
             var choices = State?.Projects.Values.OrderBy(project => project.Name, StringComparer.Ordinal).ThenBy(project => project.ProjectId, StringComparer.Ordinal).ToList()
@@ -419,7 +423,7 @@ namespace Halcyonic.XR.Workspace
                 contextProject = selected; contextChoices = identities;
             }
             plane.ContextProjects = choices; plane.ContextSelectedProject = selected; plane.ContextBinding = contextOwner;
-            plane.KitBinding = KitBindingOf(activeFile, choices, selected) ?? PlainBindingOf(menuFrame, besideFrame);
+            plane.KitBinding = KitBindingOf(activeFile, besideFrame, choices, selected) ?? PlainBindingOf(menuFrame, besideFrame);
         }
 
         private bool ContextStanding(object owner)
