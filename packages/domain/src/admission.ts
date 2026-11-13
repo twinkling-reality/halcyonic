@@ -21,7 +21,7 @@ import {
   WORLD_STARTER_ID,
 } from '@halcyonic/contracts';
 import { foldersOverlap } from './folders.ts';
-import { COMMAND_POLICY } from './policy.ts';
+import { COMMAND_POLICY, COMMAND_SAYING } from './policy.ts';
 import type { ExecutionFacts, Projection } from './projection.ts';
 import { reservedSecretName } from './secrets.ts';
 import type { StarterCatalog } from './starter-declarations.ts';
@@ -531,6 +531,8 @@ function admit(
       const scope = { ...NO_SCOPE, project_id: projectId };
       if (project.location === null)
         return reject(scope, 'location_required', 'The project has no folder on this computer.');
+      const going = githubUnderWay(projection, projectId, command.command_id);
+      if (going !== null) return reject(scope, 'invalid_state', going);
       if (command.command_type === 'project.unpublish') {
         if (project.published === undefined)
           return reject(scope, 'invalid_state', 'This game is not published.');
@@ -575,6 +577,8 @@ function admit(
       const scope = { ...NO_SCOPE, project_id: projectId };
       if (project.location === null)
         return reject(scope, 'location_required', 'The project has no folder on this computer.');
+      const going = githubUnderWay(projection, projectId, command.command_id);
+      if (going !== null) return reject(scope, 'invalid_state', going);
       if (projection.madeRepository(projectId)?.visibility !== 'public')
         return reject(
           scope,
@@ -1461,6 +1465,33 @@ function untilFree(status: ExecutionStatus): string {
   return status === 'starting'
     ? 'Wait for it to start, then try again.'
     : 'Wait for it to finish or stop it, then try again.';
+}
+
+/**
+ * Send, Publish, Take Down and Make Private each work in the project's one sending repository of
+ * Halcyonic's own, so one runs at a time per project: the words of the one under way, by its button,
+ * or null (the lead, 2026-11-13 20:46Z). Send itself is held by `projectBusy`, which names any
+ * command of the project still waiting for its outcome in the same words.
+ */
+const GITHUB_ACTIONS: ReadonlySet<CommandType> = new Set([
+  'project.send',
+  'project.publish',
+  'project.unpublish',
+  'project.make_private',
+]);
+
+function githubUnderWay(projection: Projection, projectId: string, self: string): string | null {
+  const going = projection
+    .pendingCommands()
+    .find(
+      (pending) =>
+        pending.project_id === projectId &&
+        pending.command_id !== self &&
+        GITHUB_ACTIONS.has(pending.command_type),
+    );
+  return going === undefined
+    ? null
+    : `${COMMAND_SAYING[going.command_type].title} in this project is still under way. Try again once it has finished.`;
 }
 
 /** A command for a task as a person would say it, at the start of a refusal. */
