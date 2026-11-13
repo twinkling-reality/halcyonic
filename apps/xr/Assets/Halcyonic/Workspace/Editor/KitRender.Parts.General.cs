@@ -22,7 +22,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] GeneralBaseStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage" };
+        private static readonly string[] GeneralBaseStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage", "52-general-caps" };
 
         /// <summary>
         /// Every state twice: as the full bar, and in the kit's narrow form (AUDIT's 17:15Z condition 2, the lead's 17:16Z condition 1),
@@ -73,6 +73,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     frame = new MenuFrame("Settings", new Footer(close),
                         lines: Enumerable.Range(1, 8).Select(n => new PageLine("Choice " + n, action: "choose", key: n.ToString(CultureInfo.InvariantCulture), opens: true)).ToList());
                 // Usage with more windows than its card holds (two apps, two windows each): the general reader draws them. Synthetic names.
+                // At the design's caps (AUDIT's 20:1xZ, for FIELD's measured envelope): eight rows a page, each a label over a value that
+                // wraps (a real sentence, two to three lines), and four actions in all, three of them answers with their descriptions.
+                if (state == "52-general-caps")
+                {
+                    const string value = "The agent keeps the kite's tail short and steady while it climbs, then lets it ripple when the wind turns.";
+                    var lines = Enumerable.Range(1, 7).Select(n => new PageLine("Setting Number " + n, fact: value)).ToList();
+                    lines.AddRange(Enumerable.Range(1, 3).Select(n => new PageLine("Answer " + n, action: "answer", key: n.ToString(CultureInfo.InvariantCulture), choice: true,
+                        answerMark: AnswerMark.Single).WithUnder(LineWords.Ours("Keeps what the agent made and starts the next step from it."))));
+                    frame = new MenuFrame("Settings", new Footer(close), lines: lines);
+                }
                 if (state == "52-general-usage")
                 {
                     var limits = JsonConvert.DeserializeObject<UsageLimitsResponse>(GeneralUsageLimits, HalcyonicJson.Strict) as AvailableUsageLimits;
@@ -112,14 +122,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 Debug.Log("Halcyonic: parts: " + name + ": narrow at " + rowsAPage + " rows a page, " + bar.GeneralPart.Pages + " page" + (bar.GeneralPart.Pages == 1 ? "" : "s")
                     + (bar.Card != null ? " (" + bar.Card.List.Count + " pressed rows on the first)" : "") + ".");
             }
-            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || (state == "52-general-usage" || narrow) && bar.GeneralPart.Pages > 1;
+            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || (state is "52-general-usage" or "52-general-caps" || narrow) && bar.GeneralPart.Pages > 1;
             // The general reader's card holds pressed rows, never the usage card's gauges (which would mean a specific reader took it).
             if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
             if (paged)
             {
                 Require(bar.Column.Last().Control.Action == Footer.Close && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its Close");
-                if (!narrow) Require(bar.Whole == (state == "52-general-rows-2"), "Whole before every page was shown, or not after");
+                // Read once every page with something to read was shown: the second page of rows, and at once where only bare actions page.
+                if (!narrow) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column"), "Whole before every page to read was shown, or not after");
             }
             if (state == "52-general-confirm")
                 Require(bar.Column[0].Control.Action == "forget-yes" && bar.Column[0].Locks && bar.Column.Last().Control.Action == "forget-cancel", "the confirmation's Yes is not first behind its lock, or Cancel not last");
