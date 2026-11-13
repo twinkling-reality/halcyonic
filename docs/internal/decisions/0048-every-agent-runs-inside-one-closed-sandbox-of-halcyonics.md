@@ -134,3 +134,21 @@ things that sets the product apart, so it is kept wherever the person works in t
 - **Tests:** unit tests of the gate, the launch, the store reader, the scope and the re-attach rule; an e2e test on
   the bundled CLI with a fake API (`confined.e2e.test.ts`).
 - **Revisit** when Salidium reads confined sessions, or when a real run allows never asking.
+
+## Amendment, 2026-11-13: what runs later is never written (AUDIT3, the lead's 12:52Z)
+
+The closed profile let a confined run write all of its folder, the folder's own `.git` included. Some files there run
+later outside any sandbox without the person choosing to run anything: the project's git configuration and hooks (in
+the person's git, their editor's and Halcyonic's own send) and the files an editor or a shell runs when the folder is
+opened (`.envrc`, `.vscode/`, `.idea/`, `.devcontainer/`, `*.code-workspace`, `.gitmodules`). The profile now refuses
+every write to them in the confined folder, a task's copy as well as the project's (`RUNS_LATER` and `runsLaterUnder`
+in `packages/seatbelt/src/profile.ts`, one list; AUDIT3 owns it, by "runs without the person choosing to run the
+app"). The app's own code and package scripts are not on it: they run when the person runs the app, or in the host's
+confined preview. A git directory a `.git` file names outside the folder was read only already.
+
+- **The agent is told:** both starters' `AGENTS.md` say these are kept by Halcyonic, and a confined Claude Code
+  session refuses a Write, Edit or NotebookEdit aimed at one at once, in words the model reads (`KEPT_BY_HALCYONIC`),
+  instead of asking; a shell's write gets the kernel's refusal.
+- **Tests:** `profile.test.ts` writes each under `sandbox-exec` with the profile (refused; failing first without the
+  rule) and the rest of the folder as before; `confined.e2e.test.ts`'s confined shell writes `.git/config` and
+  `.envrc` and both are refused; `keptPath` is unit tested.
