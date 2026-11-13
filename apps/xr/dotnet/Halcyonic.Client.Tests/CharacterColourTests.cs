@@ -12,6 +12,24 @@ public class CharacterColourTests
     private static string Save(CharacterColourSettings settings, CharacterColourScope scope, string colour)
     { var owner = new object(); settings.Preview(owner, scope, colour); string saved = ""; Assert.That(settings.Apply(owner, scope, colour, text => { saved = text; return true; }), Is.True); return saved; }
 
+    /// <summary>Under the redesign the picker hands every colour at once, one group, and leaves the paging, with its count, to the reader.</summary>
+    [Test]
+    public void UnderTheRedesignEveryColourStandsInOneGroupAndTheReaderPagesThem()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var column = new CharacterColourColumn(new CharacterColourSettings(), Scope(), () => true, _ => true);
+            var frame = column.Frame!;
+            var colours = frame.Lines.Where(line => line.Action == CharacterColourColumn.Choose).ToList();
+            Assert.That(colours.Select(line => line.Key), Is.EqualTo(CharacterColourSettings.Choices));
+            Assert.That(colours.Select(line => line.Group).Distinct(), Is.EqualTo(new[] { "colours" }));
+            Assert.That(frame.Footer.All.Select(each => each.Prompt.Id), Does.Not.Contain(Footer.NextPage), "the reader's pager, with its count, not the frame's");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     [Test]
     public void PreviewIsVisibleButNeverPersistedUntilAnExplicitDrawnApply()
     {
