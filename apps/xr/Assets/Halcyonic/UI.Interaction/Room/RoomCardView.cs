@@ -1069,6 +1069,10 @@ namespace Halcyonic.XR.UI
                 // A name is never cut: a path or a moment's name takes a second line where one is not enough (a long path at larger text).
                 // A name of the person's own words (a task's title) takes a third line before anything is cut (XR's critic, 06:33Z).
                 var nameLines = row.Name.AllTheirs && !row.Mono ? 3 : 2;
+                // One word of theirs (a model's id) never breaks inside itself, at a hyphen or anywhere: it stands on one line,
+                // its end cut with its ellipsis where it does not fit, on a row that presses to where it is named whole (the
+                // reader, 2026-11-13: "muse-wonder-1.0-" over "preview").
+                if (row.Excerpt && row.Name.Text.Trim().IndexOf(' ') < 0) nameLines = 1;
                 var (nameLabel, nameTall) = row.Mono
                     ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines)
                     : plain ? Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Name, nameLeft, 0f, nameWidth, nameLines)
@@ -1115,13 +1119,15 @@ namespace Halcyonic.XR.UI
         private float Excerpt(TextMeshPro label, LineWords words, float width, int lines, float lineDp)
         {
             label.ForceMeshUpdate(true);
-            if (!label.isTextOverflowing) return Mathf.Max(label.textInfo.lineCount, 1) * S(lineDp);
+            // On one line TMP does not wrap, so words wider than the row never overflow by its count: their width is measured too.
+            bool Fits() => !label.isTextOverflowing && (lines > 1 || label.GetPreferredValues(label.text).x <= width + 1e-4f);
+            if (Fits()) return Mathf.Max(label.textInfo.lineCount, 1) * S(lineDp);
             var runs = GlazeRuns.Of(label);
             var cut = words.CutToFit(tried =>
             {
                 runs.Set(tried);
                 label.ForceMeshUpdate(true);
-                return !label.isTextOverflowing;
+                return Fits();
             });
             // At a word: where the cut fell inside one, back to the space before it, so no word is shown in part.
             var text = cut.Text;
