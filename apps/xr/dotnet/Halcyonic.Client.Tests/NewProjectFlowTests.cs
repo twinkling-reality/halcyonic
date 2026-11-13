@@ -870,6 +870,23 @@ public class NewProjectFlowTests
         var ready = taken.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Id == NewProjectScreens.StartBuilding);
         Assert.That((ready.Available, ready.Reason), Is.EqualTo((true, (string?)null)), "one real app and the practice run: the real one is taken, Start Building stands");
 
+        // The practice run last used is still never the default while a real app is ready: it is told apart by its declared kind.
+        var used = new ClientProjection();
+        var snapshot = Samples.Snapshot(1, new[] { Samples.Workstream("w-practice", executionId: "e-practice") },
+            new[] { Samples.Execution("e-practice", "w-practice", ExecutionStatus.Completed, synthetic: true) });
+        snapshot.Runtimes = new List<RuntimeDescriptor> { codex, practice };
+        used.ApplySnapshot(snapshot, new StateChanges());
+        var afterPractice = new Host { State = used };
+        var still = Flow(afterPractice);
+        still.Open(null, null);
+        afterPractice.Typed.Enqueue("A page of race times for my running club");
+        Press(still, NewProjectScreens.TypeIdea, null);
+        Press(still, NewProjectScreens.UseIdea, null);
+        Press(still, NewProjectScreens.StartBuilding, null);
+        Assert.That(still.Review, Is.Not.Null, "a real app was taken, so the review opens");
+        Assert.That(still.Review!.Items.Any(item => item.ValueRuns.Text.Contains("Agent app codex")), Is.True,
+            "the real app, never the practice run last used");
+
         var two = new Host { State = WithRuntimes(Runtime("one"), Runtime("other")) };
         var asked = Flow(two);
         asked.Open(null, null);
@@ -936,11 +953,88 @@ public class NewProjectFlowTests
         Assert.That(flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.ModelId).Value, Is.EqualTo("local/30b"),
             "the one model on this computer, never the hosted one first");
 
+        // A folder taken between the recap and the press (AUDIT's 13:29Z item 3): the host refuses it by its own code, and the
+        // page says so and offers that folder or another, never a guess that it worked.
+        ReadToTheEnd(flow, host);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        var create = host.Sent.OfType<ProjectCreateCommand>().Single();
+        var refused = new ClientProjection();
+        var later = Samples.Snapshot(1);
+        later.Runtimes = new List<RuntimeDescriptor> { local };
+        later.Commands = new List<CommandView>
+        {
+            new()
+            {
+                CommandId = create.CommandId, Status = CommandStatus.Rejected, IssuedAt = Samples.Time, UpdatedAt = Samples.Time,
+                Rejection = new CommandRejection { Code = RejectionCode.LocationExists, Message = "There is already a folder with that name." },
+            },
+        };
+        refused.ApplySnapshot(later, new StateChanges());
+        host.State = refused;
+        flow.Tick();
+        Assert.That(flow.Sequence!.StoppedAt!.Refusal, Is.EqualTo(RejectionCode.LocationExists), "the host's own code, kept");
+        Assert.That(Ids(flow.Frame!), Does.Contain(NewProjectScreens.UseThatFolder).And.Contain(NewProjectScreens.ChooseAnotherFolder));
+        Assert.That(flow.Frame!.Lines.Select(line => line.Words), Does.Contain(EntryText.StepStatus(flow.Sequence.StoppedAt)),
+            "the step says what the host refused, in the words its code maps to");
+        Press(flow, NewProjectScreens.Done, null);
+
         // The person's own folder stands: the next read never replaces it.
         var mine = ProjectFolder.Existing(listing.Roots[0], listing.Roots[0].Folders[0]);
         flow.Idea.ChooseFolder(mine);
         flow.Tick();
         Assert.That(flow.Idea.Folder, Is.SameAs(mine));
+    }
+
+    /// <summary>
+    /// A simulated run never seeds the model default (AUDIT's 13:29Z item 3): a practice or stand-in run's model, even one with the
+    /// same agent app's id, is not the person's choice, so with two models on this computer the person is still asked.
+    /// </summary>
+    [Test]
+    public async Task ASimulatedRunNeverSeedsTheModelDefaultAndARealOneDoes()
+    {
+        Assert.That(await ModelTakenAfter(simulated: true), Is.EqualTo("local/a"), "a simulated run's model is not the person's: the best local one stands");
+        Assert.That(await ModelTakenAfter(simulated: false), Is.EqualTo("local/b"), "a real run's model is the person's choice before: it is taken");
+    }
+
+    private static async Task<string> ModelTakenAfter(bool simulated)
+    {
+        var local = Runtime("local", ModelChoice.Listed);
+        local.Synthetic = false;
+        var routes = new Routes();
+        routes.Answers["GET /api/runtimes/local/models"] = () => HalcyonicJson.Serialize(new RuntimeModelsResponse
+        {
+            RuntimeId = "local",
+            Result = new AvailableModels
+            {
+                Models = new List<RuntimeModel>
+                {
+                    new() { ModelRef = "local/a", DisplayName = "a", Served = ModelServed.ThisMac },
+                    new() { ModelRef = "local/b", DisplayName = "b", Served = ModelServed.ThisMac },
+                },
+            },
+        });
+        var before = Samples.Execution("e-sim", "w-sim", ExecutionStatus.Completed, synthetic: simulated);
+        before.Runtime = new RuntimeRef { RuntimeId = "local", Kind = "local", DisplayName = "Agent app local", Synthetic = simulated };
+        before.ModelRef = "local/b";
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(1, new[] { Samples.Workstream("w-sim", executionId: "e-sim") }, new[] { before });
+        snapshot.Runtimes = new List<RuntimeDescriptor> { local };
+        state.ApplySnapshot(snapshot, new StateChanges());
+        using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes);
+        var host = new Host { State = state, Api = api };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        await Until(flow, () => routes.Asked.Contains("GET /api/runtimes/local/models"));
+        for (var tick = 0; tick < 5; tick++)
+        {
+            await Task.Delay(10);
+            flow.Tick();
+        }
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        return flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.ModelId).Value;
     }
 
     [Test]

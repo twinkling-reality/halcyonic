@@ -1218,7 +1218,13 @@ launch/return, process recreation and current-frame action behavior need separat
   work, and nothing else sends a creating command.
 - **`NewProjectFlow`** is New project as a column (`IMenuColumn`), opened by Projects' New project
   or Add a task (`Open`), in the file's place beside Projects with no light line, which replaced
-  the entry panel's creation screens. It keeps each place's draft and how far its start got, the step
+  the entry panel's creation screens. What it takes for the person, so Start Building stands the moment the idea is in (the
+  lead's 09:37Z and 13:33Z, JUDGE's counts): the agent app last used in a real run, else the only real one ready, the practice
+  run told apart by its declared kind (`RuntimeDescriptor.Synthetic`) and never the default while a real app is ready; the
+  model last used with that app in a real run over the draft's own best local pick, else that pick, a simulated run never
+  seeding either; and a new folder named from the idea in the place offered (`DefaultFolder`), refused by the host by its
+  own code where it was taken before the press. Each shows chosen on the recap and is changed there.
+  It keeps each place's draft and how far its start got, the step
   and page showing and what is chosen on it, and gives the frame `NewProjectScreens` builds for
   them, built once for each change, so `Drawn` counts a review's part read only for the very frame
   it gave. Every page is packed into the page the stage gives a file's page standing alone
