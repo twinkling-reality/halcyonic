@@ -750,6 +750,14 @@ public class RoomResultTests
         }), "a part a speaker, its byline over its own words alone, never one name over another's");
         Assert.That(cards.SelectMany(card => card.List).Select(row => (row.Kind, row.Note)), Has.All.EqualTo((RoomKind.None, (string?)null)),
             "the byline says whose, so no row carries a mark or a note that pushes its words in");
+
+        // Our own line after someone's words never stands under their byline (critic 9: "No reason given" read as the subagent's).
+        var none = new SectionLine("", "No reason given before c.ts changed", SectionTone.Secondary, evidence: Evidence.Observed);
+        var after = new ChangesAccount(null, Of(subagents), null, Of(subagents, none));
+        Assert.That(Enumerable.Range(0, after.Parts).Select(after.Card).Select(card => (card.Status?.Title, card.List.Select(row => row.Name.Text).Single())), Is.EqualTo(new[]
+        {
+            ((string?)ChangesAccount.SubagentSays, "I matched the colour."), (null, "No reason given before c.ts changed"),
+        }), "a part of our own, with no one's name over it");
         Assert.That(new ChangesAccount(null, Of(subagents), null).Card(0).Status?.Title, Is.EqualTo(ChangesAccount.SubagentSays), "a subagent's lead is never the agent's");
     }
 

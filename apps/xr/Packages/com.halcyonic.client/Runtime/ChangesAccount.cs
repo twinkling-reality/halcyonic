@@ -100,10 +100,13 @@ namespace Halcyonic.Client
                     var current = part;
                     var full_ = current != null && current.Value.Rows.Count >= RoomCard.ListAPage;
                     var otherSpeaker = current?.Who is RoomCardStatus speaking && said is RoomCardStatus speaker && speaker.Title != speaking.Title;
-                    if (current == null || full_ || otherSpeaker || (row.Line.StartsPage && current.Value.Rows.Count > 0))
+                    // Our own line after someone's words never stands under their byline (critic 9, 2026-11-13: "No reason given
+                    // before KiteTests.cs changed" read as the subagent's): it begins a part of our own, with no one's name over it.
+                    var oursAfterTheirs = current?.Who != null && said == null && !row.Line.StartsPage;
+                    if (current == null || full_ || otherSpeaker || oursAfterTheirs || (row.Line.StartsPage && current.Value.Rows.Count > 0))
                     {
                         Start(null, said);
-                        if (!row.Line.StartsPage && heading is { } again) part!.Value.Rows.Add(again);
+                        if (!row.Line.StartsPage && !oursAfterTheirs && heading is { } again) part!.Value.Rows.Add(again);
                     }
                     else if (current.Value.Who == null && said != null)
                     {

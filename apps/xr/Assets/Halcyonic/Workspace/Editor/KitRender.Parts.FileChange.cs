@@ -37,7 +37,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // SCREENS's one review card (ReviewCard), any command's review from a stand-in of the host's shape.
             "65-review-add", "65-review-send", "65-review-send-next", "65-review-publish", "65-review-said",
             // SCREENS's understanding's account on the one Changes page (ChangesAccount): what changed, then why, after the files.
-            "66-account-what", "66-account-why", "66-account-why-next", "66-account-how", "66-account-how-next", "66-account-unsourced",
+            "66-account-what", "66-account-why", "66-account-why-next", "66-account-why-none", "66-account-how", "66-account-how-next", "66-account-unsourced",
         };
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var standIn = state == "66-account-unsourced";
             SectionPresentation Answer(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1", SectionTone.Secondary, lines, simulated: standIn);
             var what = Answer(
-                Line("observed", Ours("3 files changed: 1 new, 2 edited")),
+                Line("observed", Ours("4 files changed: 1 new, 3 edited")),
                 Line("inferred", Ours("A check ran after every file's last change")));
             var agents = Reason("I split the tail into six segments so it moves like cloth, not a stick.", SectionLine.AgentChip);
             var subagents = Reason("I matched the tail's colour to the sail so the kite reads as one thing from below.", SectionLine.SubagentChip);
@@ -77,11 +77,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 Heading("What it is about"), Note(), Model("", "A kite whose tail moves like cloth in the wind."),
                 Heading(UnderstandingPresenter.WhyStep), Note(), Model("", "A stiff tail read as a stick in the first test."), Model("1. ", "Split the tail."), Model("2. ", "Match its colour to the sail."),
                 Heading(UnderstandingPresenter.HowStep), Note(), how, Model("Starts at ", "TailSegments.cs"), Model("1. ", "Each segment follows the one ahead."), Model("2. ", "The delay grows toward the end."),
-                Heading("The evidence"), Line("observed", Ours("3 files changed: 1 new, 2 edited")), Line("inferred", Ours("A check ran after every file's last change")));
+                Heading("The evidence"), Line("observed", Ours("4 files changed: 1 new, 3 edited")), Line("inferred", Ours("A check ran after every file's last change")));
             var account = new ChangesAccount(what, why, howBuilt, whyFull, howFull);
             // A part a speaker and a step: what changed; the agent's reason; the subagent's; then How It's Built's steps, the Why
-            // step (numbered) and the How step (its words, where it starts, its steps), each under its heading.
-            return account.Card(state switch { "66-account-why" => 1, "66-account-why-next" => 2, "66-account-how" => 4, "66-account-how-next" => 5, _ => 0 });
+            // step (numbered) and the How step (its words, where it starts, its steps), each under its heading; the files no reason
+            // came before stand on a part of our own, after the reasons.
+            return account.Card(state switch { "66-account-why" => 1, "66-account-why-next" => 2, "66-account-why-none" => 3, "66-account-how" => 5, "66-account-how-next" => 6, _ => 0 });
         }
 
         /// <summary>The one review card for a review state, from a synthetic host review (<see cref="ActionReview"/>).</summary>
