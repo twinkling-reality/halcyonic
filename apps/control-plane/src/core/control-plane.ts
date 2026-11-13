@@ -38,6 +38,7 @@ import { type CatalogLinks, CommandService } from './command-service.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 import { GivenPictures } from './given-pictures.ts';
 import { type ConfinedReads, HostAnswers } from './host-answers.ts';
+import { HostDenials } from './host-denials.ts';
 import { InstructionQueue } from './instruction-queue.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
@@ -225,6 +226,7 @@ export class ControlPlane {
   #autoCheckScheduled = false;
   readonly #autoFix: AutoFix | null;
   readonly #hostAnswers: HostAnswers | null;
+  readonly #hostDenials: HostDenials;
   #closed = false;
   readonly #closeWaitMs: number;
   /** Events between checkpoints, or null for a fixture journal, never checkpointed (ADR 0050). */
@@ -473,6 +475,19 @@ export class ControlPlane {
             live: this.journal.info.origin === 'live',
           });
     this.#hostAnswers?.attach();
+    // A request too long to show a person whole is denied by the host at once, in every run (AUDIT3, 2026-11-13).
+    this.#hostDenials = new HostDenials({
+      projection: this.projection,
+      recorder: this.recorder,
+      publisher: this.publisher,
+      commands: this.commands,
+      delivers: (runtimeId) => this.registry.get(runtimeId)?.delivers_denial_message === true,
+      ids: options.ids,
+      clock: options.clock,
+      logger: options.logger,
+      live: this.journal.info.origin === 'live',
+    });
+    this.#hostDenials.attach();
     // The person's instructions held for a runtime that cannot steer (ADR 0056).
     new InstructionQueue({
       projection: this.projection,
@@ -785,6 +800,7 @@ export class ControlPlane {
     this.#autoCheckNeeded.clear();
     this.#autoFix?.close();
     this.#hostAnswers?.close();
+    this.#hostDenials.close();
     // A shared link stops before the preview it reaches.
     await this.shares?.close();
     await this.previews?.close();

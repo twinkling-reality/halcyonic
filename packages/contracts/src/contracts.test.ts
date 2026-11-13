@@ -753,7 +753,9 @@ describe('the C# bindings', () => {
     'ProjectView.usage', // what its runs used, absent until one reports
     'ProjectView.world', // a world project's world (ADR 0049)
     'ProjectViewCheck.workstream_id', // ADR 0045
+    'RuntimeApprovalRequestedPayload.too_long', // a request longer than a person can approve whole (long commands)
     'RuntimeDescriptor.approval_may_leave_sandbox', // a declaration
+    'RuntimeDescriptor.delivers_denial_message', // a declaration: a denial's words reach the agent
     'RuntimeDescriptor.holds_instructions', // the host's own declaration (ADR 0056)
     'RuntimeDescriptor.offers_never_ask', // ADR 0043
     'RuntimeDescriptor.offers_plan', // a declaration (PLAN)

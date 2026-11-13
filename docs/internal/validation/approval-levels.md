@@ -108,3 +108,13 @@ runtime.
   action Halcyonic's rules do not name, was not tried. By the rule order it still asks.
 - **A runtime upgrade:** these findings must be verified again on each pinned upgrade. Codex's end to end suite pins
   its own; OpenCode's never-asking test left with its offer, and returns with a sandbox bounded to one task's project.
+
+## A denial's words: which agent app carries them (2026-11-13, for ADR 0065)
+
+- **Codex 0.157.0:** `codex app-server generate-json-schema` of the pinned binary: `CommandExecutionRequestApprovalResponse`
+  and `FileChangeRequestApprovalResponse` take only `decision` (`accept`, `acceptForSession`,
+  `acceptWithExecpolicyAmendment`, `applyNetworkPolicyAmendment`, `decline`, `cancel`); there is no field for a reason,
+  so a denial's words cannot reach a Codex agent.
+- **OpenCode 2.0.18:** its e2e, "a denial with a message fails the tool; 2.0.18 delivers the message nowhere".
+- **Claude Agent SDK 0.3.283:** `sdk.d.ts`, `PermissionResult`'s deny carries `message: string`, the tool result the
+  model reads (the same path the confined session's `KEPT_BY_HALCYONIC` uses).

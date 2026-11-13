@@ -71,6 +71,8 @@ describe('OpenCode runtime descriptor', () => {
     // working without asking is not offered (ADR 0043).
     assert.equal(runtime.descriptor.approval_may_leave_sandbox, undefined);
     assert.equal(runtime.descriptor.offers_never_ask, undefined);
+    // 2.0.18 delivers a denial's message nowhere (its e2e; ADR 0065).
+    assert.equal(runtime.descriptor.delivers_denial_message, undefined);
     // Each session's own command environment takes the project's secrets (ADR 0057).
     assert.equal(runtime.descriptor.secret_environment, true);
     assert.deepEqual(runtime.validateStartOptions({}, null, 'never_ask'), {

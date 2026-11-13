@@ -1810,6 +1810,18 @@ export class Projection {
         this.#touchExecution(execution, event.ingested_at, changes);
         return;
       }
+      case 'execution.approval.denied_by_host': {
+        // The host denied it itself; the runtime's own resolution takes the card away (AUDIT3, 2026-11-13).
+        const execution = this.#executions.get(event.execution_id);
+        if (execution === undefined) {
+          notes.push(
+            note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
+          );
+          return;
+        }
+        this.#touchExecution(execution, event.ingested_at, changes);
+        return;
+      }
       case 'execution.approval.host_answer_withdrawn': {
         // The host's answer was not taken: the request is a card for the person after all (AUDIT3 S3).
         const execution = this.#executions.get(event.execution_id);

@@ -3635,6 +3635,9 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("reports_usage", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? ReportsUsage { get; set; }
 
+        [global::Newtonsoft.Json.JsonProperty("delivers_denial_message", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? DeliversDenialMessage { get; set; }
+
         [global::Newtonsoft.Json.JsonProperty("offers_spending_cap", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? OffersSpendingCap { get; set; }
     }
@@ -4708,6 +4711,27 @@ namespace Halcyonic.Contracts
     {
         [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ApprovalId { get; set; } = default!;
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum ExecutionApprovalDeniedByHostPayloadBecause
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "too_long_to_show")] TooLongToShow,
+    }
+
+    public sealed class ExecutionApprovalDeniedByHostPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string ApprovalId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("because", Required = global::Newtonsoft.Json.Required.Always)]
+        public ExecutionApprovalDeniedByHostPayloadBecause Because { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("length", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Length { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("delivered", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool Delivered { get; set; }
     }
 
     public sealed class ExecutionStartFailedPayload
@@ -6148,6 +6172,12 @@ namespace Halcyonic.Contracts
         public string? TurnId { get; set; }
     }
 
+    public sealed class RuntimeApprovalRequestedPayloadTooLong
+    {
+        [global::Newtonsoft.Json.JsonProperty("length", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Length { get; set; }
+    }
+
     public sealed class RuntimeApprovalRequestedPayload
     {
         [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -6158,6 +6188,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("complete", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Complete { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("too_long", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public RuntimeApprovalRequestedPayloadTooLong? TooLong { get; set; }
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -6424,6 +6457,7 @@ namespace Halcyonic.Contracts
                 "execution.auto_fix.ended" => new ExecutionAutoFixEndedEvent(),
                 "execution.approval.answered_by_host" => new ExecutionApprovalAnsweredByHostEvent(),
                 "execution.approval.host_answer_withdrawn" => new ExecutionApprovalHostAnswerWithdrawnEvent(),
+                "execution.approval.denied_by_host" => new ExecutionApprovalDeniedByHostEvent(),
                 "execution.start_failed" => new ExecutionStartFailedEvent(),
                 "execution.state_unknown" => new ExecutionStateUnknownEvent(),
                 "command.accepted" => new CommandAcceptedEvent(),
@@ -6914,6 +6948,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionApprovalHostAnswerWithdrawnPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionApprovalDeniedByHostEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.approval.denied_by_host";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ExecutionApprovalDeniedByHostPayload Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionStartFailedEvent : EventEnvelope
