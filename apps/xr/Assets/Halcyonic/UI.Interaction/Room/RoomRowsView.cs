@@ -41,6 +41,12 @@ namespace Halcyonic.XR.UI
         /// <summary>Row <paramref name="index"/>'s words, its mark (hidden where it has none) and the hairline under it (hidden under the last).</summary>
         public TextMeshPro Label(int index) => labels[index];
 
+        /// <summary>A row's quiet label above its words, where it shows one (<see cref="RoomRow.Label"/>); null otherwise.</summary>
+        public TextMeshPro? Tag(int index) => tags[index].gameObject.activeSelf ? tags[index] : null;
+
+        /// <summary>A row's quiet note at its right, where it shows one (<see cref="RoomRow.Note"/>); null otherwise.</summary>
+        public TextMeshPro? Note(int index) => notes[index].gameObject.activeSelf ? notes[index] : null;
+
         public RoomGlyphView Mark(int index) => marks[index];
 
         public Surface Hairline(int index) => hairlines[index];
