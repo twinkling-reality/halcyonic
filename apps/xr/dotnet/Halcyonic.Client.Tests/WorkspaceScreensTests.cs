@@ -195,7 +195,7 @@ public class WorkspaceScreensTests
         Assert.That(model.Parts, Is.EqualTo((1, 7)));
         Assert.That(model.PartsCaption, Is.Null, "the pager in the heading's row has no words");
         Assert.That(screen.Answer!.Provenance, Is.EqualTo("Step 2 of 7 · Salidium 0.6.0 · 2 min ago"), "which step leads the provenance");
-        Assert.That((screen.Answer!.Lines[0].Text, screen.Answer.Lines[1].Text), Is.EqualTo(("Why", UnderstandingPresenter.ExplainedUpToDate)));
+        Assert.That((screen.Answer!.Lines[0].Text, screen.Answer.Lines[1].Text), Is.EqualTo((UnderstandingPresenter.WhyStep, UnderstandingPresenter.ExplainedUpToDate)));
         screen.TurnAnswer(-5);
         Assert.That(screen.AnswerPage, Is.Zero, "never before the first");
         screen.TurnAnswer(50);

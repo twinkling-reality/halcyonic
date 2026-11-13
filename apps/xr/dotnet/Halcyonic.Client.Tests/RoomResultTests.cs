@@ -666,7 +666,7 @@ public class RoomResultTests
         var rows = why.SelectMany(card => card.List).ToList();
         Assert.That(rows.Select(row => row.Name.Text), Is.EqualTo(Enumerable.Range(1, 7).Select(index => "Reason " + index + ", said before part " + index + ".")),
             "every reason, oldest first, each once");
-        Assert.That(rows.Select(row => row.Under?.Text), Is.EqualTo(Enumerable.Range(1, 7).Select(index => "Said before it changed part" + index + ".ts")),
+        Assert.That(rows.Select(row => row.Under?.Text), Is.EqualTo(Enumerable.Range(1, 7).Select(index => "Said before part" + index + ".ts changed")),
             "the files changed after each under it");
         Assert.That(rows.All(row => row.Name.AllTheirs && row.Kind == RoomKind.None && row.Note == null), Is.True, "the agent's words, no mark or note again");
         Assert.That(why.Select(card => card.Status?.Title), Is.All.EqualTo(ChangesAccount.AgentSays), "the byline on every part says whose");
@@ -686,15 +686,19 @@ public class RoomResultTests
         var built = new ChangesAccount(null, null, How(AnswerDepth.Brief), null, How(AnswerDepth.Full));
         var steps = Enumerable.Range(0, built.Parts).Select(built.Card).ToList();
         var stepRows = steps.SelectMany(card => card.List).ToList();
-        Assert.That(stepRows.Where(row => row.Under?.Text == UnderstandingPresenter.ExplainedUpToDate).Select(row => row.Name.Text),
-            Is.EqualTo(new[] { "What it is about", "Why", "Why, part by part", "Why, part by part", "How", "How" }),
+        // Under the Model Says byline the note says only how current the step is (critic 8: it repeated the byline).
+        var current = UnderstandingPresenter.Currency(LineWords.Ours(UnderstandingPresenter.ExplainedUpToDate))!.Text;
+        Assert.That(current, Is.EqualTo("Written from the latest evidence"));
+        Assert.That(stepRows.Select(row => row.Under?.Text), Has.None.EqualTo(UnderstandingPresenter.ExplainedUpToDate), "never a model named twice");
+        Assert.That(stepRows.Where(row => row.Under?.Text == current).Select(row => row.Name.Text),
+            Is.EqualTo(new[] { "What it is about", "Why it was needed", "Why it was needed, part by part", "Why it was needed, part by part", "How", "How" }),
             "every step, its note under its heading; How takes two parts and heads both");
         Assert.That(stepRows.Count(row => row.Name.Text == How(AnswerDepth.Brief).Lines[0].Runs.Text), Is.EqualTo(1), "the how said once, in its step");
         Assert.That((steps[0].Description, steps.Select(card => card.Status?.Title)),
             Is.EqualTo(((LineWords?)null, steps.Select(card => card.List[0].Name.Text == "The evidence" ? null : (string?)ChangesAccount.ModelSays))),
             "the byline on every step's part says a model wrote it; the evidence was observed, so its part names no one");
         Assert.That(steps.Where(card => card.List[0].Name.Text != "The evidence").Select(card => card.List[0].Under?.Text),
-            Is.All.EqualTo(UnderstandingPresenter.ExplainedUpToDate), "each step begins a part, and a step that takes two heads both, so none is read mid-step");
+            Is.All.EqualTo(current), "each step begins a part, and a step that takes two heads both, so none is read mid-step");
         Assert.That(stepRows.Select(row => row.Name.Text), Does.Contain("The evidence").And.Contain("4 files changed: 4 edited"));
         foreach (var card in steps) Assert.That(card.AnyDot, Is.False, "no fact on a dot: " + string.Join(" | ", card.List.Select(row => row.Name.Text + " / " + row.Under?.Text)));
     }

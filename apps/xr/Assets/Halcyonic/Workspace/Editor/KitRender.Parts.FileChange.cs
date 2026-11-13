@@ -65,17 +65,17 @@ namespace Halcyonic.XR.Workspace.Editor
             var why = Answer(subagents, Line("", Ours("And 1 more reason it gave")));
             var whyFull = Answer(
                 agents,
-                Line("", Ours("Said before it changed ") + Name("TailSegments.cs") + Ours(" and ") + Name("Kite.prefab"), detail: true),
+                Line("", Ours("Said before ") + Name("TailSegments.cs") + Ours(" and ") + Name("Kite.prefab") + Ours(" changed"), detail: true),
                 subagents,
-                Line("", Ours("Said before it changed ") + Name("Palette.cs"), detail: true),
-                Line("", Ours("No reason given before it changed ") + Name("KiteTests.cs")));
+                Line("", Ours("Said before ") + Name("Palette.cs") + Ours(" changed"), detail: true),
+                Line("", Ours("No reason given before ") + Name("KiteTests.cs") + Ours(" changed")));
             var how = Model("", "Six linked segments follow the one ahead with a short delay.");
             SectionLine Heading(string title) => new SectionLine("", title, SectionTone.Secondary, startsPage: true, repeats: true);
             SectionLine Note() => new SectionLine("", UnderstandingPresenter.ExplainedUpToDate, SectionTone.Secondary, detail: true, rows: 1, repeats: true);
             var howBuilt = Answer(how, Line("", Ours(UnderstandingPresenter.ExplainedUpToDate)));
             var howFull = Answer(
                 Heading("What it is about"), Note(), Model("", "A kite whose tail moves like cloth in the wind."),
-                Heading("Why"), Note(), Model("", "A stiff tail read as a stick in the first test."), Model("1. ", "Split the tail."), Model("2. ", "Match its colour to the sail."),
+                Heading(UnderstandingPresenter.WhyStep), Note(), Model("", "A stiff tail read as a stick in the first test."), Model("1. ", "Split the tail."), Model("2. ", "Match its colour to the sail."),
                 Heading("How"), Note(), how, Model("Starts at ", "TailSegments.cs"), Model("1. ", "Each segment follows the one ahead."), Model("2. ", "The delay grows toward the end."),
                 Heading("The evidence"), Line("observed", Ours("3 files changed: 1 new, 2 edited")), Line("inferred", Ours("All checked after the last change")));
             var account = new ChangesAccount(what, why, howBuilt, whyFull, howFull);

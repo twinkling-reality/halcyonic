@@ -188,7 +188,7 @@ namespace Halcyonic.Client
             bool Named(SectionLine line) => who is RoomCardStatus byline && NoteOf(line) == byline.Title;
             var rows = lines.Select(row => new RoomListRow(
                 who != null && KindOf(row.Line) == RoomKind.Says ? RoomKind.None : KindOf(row.Line), row.Line.Runs,
-                Named(row.Line) ? null : NoteOf(row.Line), under: row.Under)).ToList();
+                Named(row.Line) ? null : NoteOf(row.Line), under: who?.Title == ModelSays ? UnderstandingPresenter.Currency(row.Under) : row.Under)).ToList();
             return new RoomCard(LineWords.Ours(TitleOf(prompt)), lead?.Runs, status: who, list: rows, more: Source);
         }
 
