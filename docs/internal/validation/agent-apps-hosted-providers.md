@@ -57,3 +57,17 @@ nothing, since Anthropic serves Messages only.
 - Meta's API itself, with a real key: none is used. The owner enters theirs in the product.
 - Tool calls on a hosted provider through OpenCode (the turn above is text); Meta states tool calling.
 - Codex on a hosted provider (Responses): next.
+
+## Meta's address refuses a wrong key (2026-11-13, CORE)
+
+A scratch control plane with the pinned OpenCode 2.0.18 and a FAKE Meta key, stored 0600 in its scratch data
+folder. It read the agents' model list once. Through the host's key check (`KeyChecks`, the assistant's
+Chat Completions `check`), that sent ONE metadata request carrying the fake key: `GET
+https://api.meta.ai/v1/models/muse-wonder-1.0`, the first model of `providers/meta/provider.json`. Verified:
+- the address answers;
+- it refuses a wrong key: the check's answer was the refusal it maps from a 401 or 403 status (which of the two was
+  not recorded);
+- no inference was asked, so nothing was spent.
+
+Not verified: what it answers a valid key, and what it answers a revoked one.
+
