@@ -63,8 +63,9 @@ namespace Halcyonic.Client
     public sealed class RoomAction
     {
         public RoomAction(KitControl control, bool main, string? words = null, bool locks = false, GlazeIcon? icon = null, AnswerMark mark = AnswerMark.None,
-            bool chosen = false, string? chip = null)
+            bool chosen = false, string? chip = null, string? detail = null)
         {
+            Detail = string.IsNullOrWhiteSpace(detail) ? null : detail!.Trim();
             Chip = string.IsNullOrWhiteSpace(chip) ? null : chip;
             Control = control;
             Main = main;
@@ -89,6 +90,12 @@ namespace Halcyonic.Client
 
         /// <summary>The answer is chosen: its mark is the light disc with a check.</summary>
         public bool Chosen { get; }
+
+        /// <summary>
+        /// The action's second part, given apart from its words and drawn on its own line under them: an answer's description,
+        /// a pager's count ("2 of 7"). Never joined to the words on a dot (the owner, 2026-11-11). Null for none.
+        /// </summary>
+        public string? Detail { get; }
 
         /// <summary>The file's control a press raises, with its frame.</summary>
         public KitControl Control { get; }

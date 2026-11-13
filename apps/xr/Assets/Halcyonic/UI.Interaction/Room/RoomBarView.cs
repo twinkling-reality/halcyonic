@@ -388,7 +388,7 @@ namespace Halcyonic.XR.UI
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
             var target = RoomType.Units(RoomButton.HeightDp);
             var stops = bar.Column.Count > 0;
-            var core = stops ? column[0].Measure(bar.Column[0].Words, 0f) : Vector2.zero;
+            var core = stops ? column[0].Measure(bar.Column[0].Words, 0f, bar.Column[0].Detail) : Vector2.zero;
             var total = panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), core.x);
             var rowed = bar.Row.Count > 0;
             // Where the row does not stand, the agent's plate stands in its place: a name tag, never pressed (FIELD's part).
@@ -413,7 +413,7 @@ namespace Halcyonic.XR.UI
             {
                 var action = bar.Column[0];
                 column[0].Show(action.Words, action.Icon, action.Main, available: true, new Vector2(-total / 2f + panelWidth + gap + core.x / 2f, foot + core.y / 2f), core.x,
-                    doing: RoomButton.Doing(action.Control));
+                    doing: RoomButton.Doing(action.Control), detail: action.Detail);
                 controls[column[0]] = action.Control;
             }
             Foot = foot;
@@ -578,7 +578,7 @@ namespace Halcyonic.XR.UI
             foreach (var (button, action, width) in buttons)
             {
                 button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(left + width / 2f, up), width, aside: action.Chip,
-                    doing: RoomButton.Doing(action.Control));
+                    doing: RoomButton.Doing(action.Control), detail: action.Detail);
                 if (button != talk) controls[button] = action.Control;
                 left += width + gap;
             }
@@ -793,7 +793,7 @@ namespace Halcyonic.XR.UI
             for (var index = 0; index < places; index++)
             {
                 cores[index] = index < count
-                    ? column[index].Measure(bar.Column[index].Words, bar.Column[index].Mark != AnswerMark.None ? wrap : 0f)
+                    ? column[index].Measure(bar.Column[index].Words, bar.Column[index].Mark != AnswerMark.None ? wrap : 0f, bar.Column[index].Detail)
                     : column[index].Measure(BandNext!, 0f);
                 widest = Mathf.Max(widest, cores[index].x);
             }
@@ -875,7 +875,7 @@ namespace Halcyonic.XR.UI
                 }
                 var action = bar.Column[index];
                 button.Show(action.Words, action.Icon, action.Main, available: true, centre, cores[index].x, action.Mark, action.Chosen,
-                    action.Mark != AnswerMark.None ? wrap : 0f, doing: RoomButton.Doing(action.Control));
+                    action.Mark != AnswerMark.None ? wrap : 0f, doing: RoomButton.Doing(action.Control), detail: action.Detail);
                 controls[button] = action.Control;
                 // A held action (Hold to Talk in the column) acts at its pinch; every other on its release (the one press).
                 button.Press.ActsOnPinch = action.Control.Holds;
