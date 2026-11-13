@@ -1780,8 +1780,14 @@ History, Checks and Back where they were. An answer with no lines is no part. Th
 provider's product, so it is never drawn: the foot says From the Agent's Records (FIELD's words) where every answer
 shown was read from the agent app's own records, and nothing for a stand-in's answers. XR reads the understanding while
 the redesign shows the result's Changes page and passes the three briefs at the one `RoomResult.Of` call
-(`FileColumn.Account`). `RoomResult.FileParts` are the files' parts, `RoomResult.Account` the rest. Tests:
+(`FileColumn.Account`), with Why in full from the same read (SCREENS's proposal of 2026-11-13, so the headset never takes
+more steps than the desk): Why's parts then hold every reason the agent gave, oldest first, five a part, the files changed
+after each as its row's quieter line under it, the brief's "And N more" gone and the latest reason said once; the byline
+stands on every part of an answer, and a row it already names carries neither the bubble nor the note again. What Changed
+stays brief (in full it is the files the page has already shown) and so does How It's Built (its full steps head each
+page on a joining dot). `RoomResult.FileParts` are the files' parts, `RoomResult.Account` the rest. Tests:
 `RoomResultTests.TheUnderstandingsAccountFollowsTheFilesOnChangesAPartAnAnswer`,
+`RoomResultTests.TheAccountsWhyHoldsEveryReasonTheAgentGaveWithTheFilesUnderEach`,
 `RoomWorkingTests.TheAccountForTheResultsChangesIsNothingBeforeTheUnderstandingAnswers`; render states
 `66-account-what`, `66-account-why`, `66-account-unsourced` in `KitRender.FileChangeCheck`.
 

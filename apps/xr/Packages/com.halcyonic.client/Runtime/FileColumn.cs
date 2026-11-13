@@ -1150,7 +1150,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The understanding's account of the last turn for the result's Changes page: its three brief answers as the Changes
-        /// section reads them (what changed, why, how it is built), never the source's own provenance. Null until anything is read.
+        /// section reads them (what changed, why, how it is built), and why in full from the same read, so the account's parts
+        /// hold every reason the desk shows; never the source's own provenance. Null until anything is read.
         /// </summary>
         public ChangesAccount? Account()
         {
@@ -1158,7 +1159,8 @@ namespace Halcyonic.Client
             var room = new AnswerRoom(host.PageRows(sourceLine: false), line => host.RowsOf(FileScreens.Line(line, rows: 1), Glaze.Menu.FileColumnDegrees));
             var clock = host.Clock;
             SectionPresentation Brief(UnderstandPrompt prompt) => UnderstandingPresenter.Present(prompt, understanding, clock, host.Zone, room, AnswerDepth.Brief);
-            return new ChangesAccount(Brief(UnderstandPrompt.WhatChanged), Brief(UnderstandPrompt.WhyChanged), Brief(UnderstandPrompt.HowBuilt));
+            return new ChangesAccount(Brief(UnderstandPrompt.WhatChanged), Brief(UnderstandPrompt.WhyChanged), Brief(UnderstandPrompt.HowBuilt),
+                UnderstandingPresenter.Present(UnderstandPrompt.WhyChanged, understanding, clock, host.Zone, AnswerRoom.Unlimited, AnswerDepth.Full));
         }
 
         private FileAnswer? Understand(UnderstandPrompt prompt, AnswerRoom room, DateTimeOffset clock) =>
