@@ -357,6 +357,12 @@ describe('making a VR version of a project (M1.8c-1)', () => {
       instruction,
       /Put the app's name and one line on what to do on its welcome card\. If it is not a game, put one plain line beside its use, in the scene, on what of the app this version does not carry yet, or that it carries all of it\./,
     );
+    // Run (b4)'s model put its plan to the person before building (the lead, 2026-11-13T19:47Z item 3); a question an
+    // agent does ask still reaches the person.
+    assert.match(
+      instruction,
+      /Do not put your plan to the person to confirm: build it, and ask only where these words leave a real choice\./,
+    );
     // Run (b3)'s model asked whether a field guide belonged in the seaside world: the words leave no choice (the lead,
     // 2026-11-13T16:45Z item 3).
     assert.match(
