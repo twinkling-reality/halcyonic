@@ -127,7 +127,7 @@ namespace Halcyonic.XR.Workspace
         /// the file with no place of its own, or another column's frame, as New Project's steps) and a reader of the
         /// redesign takes it (<see cref="RoomBar.OfFrame"/>). Null otherwise, and the older view draws the frame.
         /// </summary>
-        private KitFileBinding? PlainBindingOf(MenuFrame? menuFrame = null)
+        private KitFileBinding? PlainBindingOf(MenuFrame? menuFrame = null, MenuFrame? besideFrame = null)
         {
             var room = KitWorkspaceHost.Enabled && RoomDesign.Enabled && SeparateWorkspace && !navigator.IsCompact;
             // New Project's review is cut by the redesign's own lines where the redesign draws it, eight a part, so a part
@@ -141,7 +141,9 @@ namespace Halcyonic.XR.Workspace
             }
             // A local overlay's frame while it shows; else, with nothing beside the menu (the Projects place, Settings, the launch
             // screen), the menu's own frame is the one a reader takes.
-            var frame = placement != null ? placementFrame : navigator.Beside != null ? navigator.Beside.Frame : menuFrame;
+            // The very frame the plane is handed (the navigator's own, as drawn), never the column's frame read again: a column that
+            // builds its frame on each read would give another object, and the kit would decline it (JUDGE's Ask beside the menu).
+            var frame = placement != null ? placementFrame : navigator.Beside != null ? besideFrame ?? navigator.Beside.Frame : menuFrame;
             if (!room || frame == null) return null;
             // Asked for the form the plane will lay it in, as the kit will read it.
             return RoomBar.OfFrame(frame, VoiceStage.Idle, plane.Kit.Form) != null ? KitFileBinding.PlainOf(frame) : null;
@@ -385,7 +387,7 @@ namespace Halcyonic.XR.Workspace
         private static int OwnerTitleRows(FileColumn owner) => owner.Now?.Character is CharacterPresentation character
             ? MenuFrameView.IndependentTitleRows(character.Title, Glaze.Menu.FileColumnDegrees) : 2;
 
-        private void PrepareSpatialContext(MenuFrame? menuFrame = null)
+        private void PrepareSpatialContext(MenuFrame? menuFrame = null, MenuFrame? besideFrame = null)
         {
             // A local overlay stands in the file's place while it shows: its frame is the one drawn, never the file's.
             var activeFile = SeparateWorkspace && !navigator.IsCompact && placement == null ? navigator.Beside as FileColumn : null;
@@ -417,7 +419,7 @@ namespace Halcyonic.XR.Workspace
                 contextProject = selected; contextChoices = identities;
             }
             plane.ContextProjects = choices; plane.ContextSelectedProject = selected; plane.ContextBinding = contextOwner;
-            plane.KitBinding = KitBindingOf(activeFile, choices, selected) ?? PlainBindingOf(menuFrame);
+            plane.KitBinding = KitBindingOf(activeFile, choices, selected) ?? PlainBindingOf(menuFrame, besideFrame);
         }
 
         private bool ContextStanding(object owner)

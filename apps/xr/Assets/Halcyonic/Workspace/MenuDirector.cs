@@ -867,7 +867,7 @@ namespace Halcyonic.XR.Workspace
             plane.SelectionContext = WorkspaceContext();
             plane.OtherAppsAvailable = CanOpenOtherApps;
             plane.Chrome.MoveMode = moveMode;
-            PrepareSpatialContext(menu);
+            PrepareSpatialContext(menu, beside);
             plane.ScreenStands = setup.SpatialWorkspace && !Away && setup.Presentation.ActiveScreen(State, Connected || Demonstration) != null;
             void ShowComposition() => plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null,
                 navigator.IsCompact && State != null ? State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired) : 0,
