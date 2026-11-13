@@ -33,8 +33,9 @@ namespace Halcyonic.Client
                 new PageLine(error ?? (chosen == "original" ? "Original Colour" : CharacterColourSettings.Name(chosen))) }
                 : CharacterColourSettings.Choices.Skip(RoomDesign.Enabled ? 0 : page * 3).Take(RoomDesign.Enabled ? CharacterColourSettings.Choices.Count : 3).Select(choice => new PageLine(CharacterColourSettings.Name(choice), fact: choice == settings.Applied(scope) ? "Current" : null,
                     action: Choose, key: choice, choice: true, chosen: chosen == choice, answerMark: AnswerMark.Single)
-                    // The colours a person compares stand together (the lead's 21:11Z): one group, which the reader never breaks.
-                    .WithGroup("colours")).ToArray());
+                    // The colours a person compares stand together (the lead's 21:11Z): one group, which the reader never breaks; each
+                    // shows the colour it names on this task's character (SCREENS's 22:03Z swatch).
+                    .WithGroup("colours").WithSwatch(CharacterColourSettings.Swatch(choice, CharacterIdentity.Of(scope.Task)))).ToArray());
         private void Invalidate() { frame = drawn = null; Changed?.Invoke(); }
         public void Act(string id, string? key)
         {

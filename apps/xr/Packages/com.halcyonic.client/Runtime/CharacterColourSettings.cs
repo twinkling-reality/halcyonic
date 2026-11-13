@@ -33,6 +33,22 @@ namespace Halcyonic.Client
         public event Action? Changed;
         public static readonly IReadOnlyList<string> Choices = Array.AsReadOnly(new[] { "original", "cyan", "violet", "pink" });
         public static string Name(string key) => key switch { "original" => "Original", "cyan" => "Cyan", "violet" => "Violet", "pink" => "Pink", _ => throw new ArgumentException("Unknown character colour.") };
+        /// <summary>
+        /// The colour <paramref name="key"/> gives the character of <paramref name="identity"/>, as 0xRRGGBB: its hue (the original's
+        /// own where the key names none) at the identity's own saturation and value, as the character's body draws it (CharacterView).
+        /// </summary>
+        public static int Swatch(string key, CharacterIdentity identity)
+        {
+            var hue = ((Hue(key) ?? identity.Hue) % 360.0 + 360.0) % 360.0 / 60.0;
+            var s = Math.Clamp(identity.Saturation, 0.0, 1.0);
+            var v = Math.Clamp(identity.Value, 0.0, 1.0);
+            var c = v * s;
+            var x = c * (1 - Math.Abs(hue % 2 - 1));
+            var (r, g, b) = hue < 1 ? (c, x, 0.0) : hue < 2 ? (x, c, 0.0) : hue < 3 ? (0.0, c, x) : hue < 4 ? (0.0, x, c) : hue < 5 ? (x, 0.0, c) : (c, 0.0, x);
+            int Channel(double value) => (int)Math.Round((value + v - c) * 255.0);
+            return (Channel(r) << 16) | (Channel(g) << 8) | Channel(b);
+        }
+
         public static double? Hue(string key) => key switch { "original" => null, "cyan" => 197.0, "violet" => 285.0, "pink" => 329.0, _ => throw new ArgumentException("Unknown character colour.") };
         public string Applied(CharacterColourScope scope) => applied.TryGetValue(scope, out var value) ? value : "original";
         public double? DisplayedHue(CharacterColourScope scope) => Hue(previewScope?.Equals(scope) == true ? previewChoice! : Applied(scope));

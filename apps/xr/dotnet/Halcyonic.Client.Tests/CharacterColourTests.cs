@@ -12,6 +12,23 @@ public class CharacterColourTests
     private static string Save(CharacterColourSettings settings, CharacterColourScope scope, string colour)
     { var owner = new object(); settings.Preview(owner, scope, colour); string saved = ""; Assert.That(settings.Apply(owner, scope, colour, text => { saved = text; return true; }), Is.True); return saved; }
 
+    /// <summary>A swatch is the hue at the character's own saturation and value: pure red, green and blue at full saturation and value.</summary>
+    [Test]
+    public void ASwatchIsTheHueAtTheCharactersOwnSaturationAndValue()
+    {
+        var identity = CharacterIdentity.Of("w1");
+        static double HueOf(int rgb)
+        {
+            double r = ((rgb >> 16) & 0xFF) / 255.0, g = ((rgb >> 8) & 0xFF) / 255.0, b = (rgb & 0xFF) / 255.0;
+            double max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b)), d = max - min;
+            var hue = max == r ? 60 * (((g - b) / d) % 6) : max == g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+            return (hue + 360) % 360;
+        }
+        foreach (var key in CharacterColourSettings.Choices.Where(key => CharacterColourSettings.Hue(key) != null))
+            Assert.That(HueOf(CharacterColourSettings.Swatch(key, identity)), Is.EqualTo(CharacterColourSettings.Hue(key)!.Value).Within(2.0), key);
+        Assert.That(HueOf(CharacterColourSettings.Swatch("original", identity)), Is.EqualTo((identity.Hue % 360 + 360) % 360).Within(2.0), "the original is the task's own hue");
+    }
+
     /// <summary>Under the redesign the picker hands every colour at once, one group, and leaves the paging, with its count, to the reader.</summary>
     [Test]
     public void UnderTheRedesignEveryColourStandsInOneGroupAndTheReaderPagesThem()
@@ -26,6 +43,9 @@ public class CharacterColourTests
             Assert.That(colours.Select(line => line.Key), Is.EqualTo(CharacterColourSettings.Choices));
             Assert.That(colours.Select(line => line.Group).Distinct(), Is.EqualTo(new[] { "colours" }));
             Assert.That(frame.Footer.All.Select(each => each.Prompt.Id), Does.Not.Contain(Footer.NextPage), "the reader's pager, with its count, not the frame's");
+            Assert.That(colours.All(line => line.Swatch is int), Is.True, "each colour shows the colour it names");
+            Assert.That(colours.Where(line => line.Key != "original").Select(line => line.Swatch).Distinct().Count(), Is.EqualTo(colours.Count - 1),
+                "the named colours differ (the original is the task's own, which may match one)");
         }
         finally { RoomDesign.Enabled = was; }
     }

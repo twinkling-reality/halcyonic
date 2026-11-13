@@ -265,6 +265,19 @@ namespace Halcyonic.Client
             return this;
         }
 
+        /// <summary>
+        /// The colour a line names, as 0xRRGGBB, shown beside its words as a swatch (FIELD's RoomListRow.Swatch), decoration only: the
+        /// words stay the name; null for a line that names no colour.
+        /// </summary>
+        public int? Swatch { get; private set; }
+
+        /// <summary>This line, showing <paramref name="rgb"/> (0xRRGGBB) beside its name (<see cref="Swatch"/>).</summary>
+        public PageLine WithSwatch(int rgb)
+        {
+            Swatch = rgb & 0xFFFFFF;
+            return this;
+        }
+
         /// <summary>This line, saying it is about <paramref name="kind"/> (<see cref="Kind"/>).</summary>
         public PageLine Marked(RoomKind kind)
         {
