@@ -196,7 +196,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
                 // Every bar the state laid stands within its largest footprint, the one the plane keeps a shelf clear of (AUDIT, 2026-11-13T1725Z).
                 failures.AddRange(root.GetComponentsInChildren<Halcyonic.XR.UI.RoomBarView>(true).Where(bar => bar.PassedLargest)
-                    .Select(bar => name + ": the bar laid past its largest footprint, " + bar.Size + " against " + (bar.Narrow ? Halcyonic.XR.UI.RoomBarView.LargestNarrow : Halcyonic.XR.UI.RoomBarView.Largest)));
+                    .Select(bar => name + ": the bar laid past its recorded envelope, " + bar.Size + " against " + Halcyonic.XR.UI.RoomBarView.LargestAt(bar.LaidPanelDp)));
                 // Every button's chip, glyph and lock ring inside its own edge (AUDIT, 2026-11-13T1754Z).
                 failures.AddRange(root.GetComponentsInChildren<Halcyonic.XR.UI.RoomButton>(false).Where(button => !button.MarksInside)
                     .Select(button => name + ": a mark of \"" + button.Words.text + "\" stands past its button's edge"));

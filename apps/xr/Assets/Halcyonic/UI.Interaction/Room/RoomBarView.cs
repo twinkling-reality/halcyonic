@@ -642,21 +642,22 @@ namespace Halcyonic.XR.UI
         public static float NarrowWordsWidth => RoomType.Units(RoomGeometry.ColumnDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp);
 
         /// <summary>
-        /// The most the bar lays, in <see cref="Size"/>'s units at the person's text size, from the kit's own geometry: the pair's
-        /// width (<see cref="RoomGeometry.PairDegrees"/>) and the working field's inner box above the foot line, the panel's place
-        /// (<see cref="RoomGeometry.FieldTallDp"/>), or the column at its most where that stands taller. The plane keeps a shelf
-        /// clear of it (the lead's 2026-11-13T1711Z ruling); a bar laid past it says so (<see cref="PassedLargest"/>).
+        /// The most the bar lays with DESIGN's panel at the person's text size, in <see cref="Size"/>'s units: the kit's own
+        /// measured most (<see cref="KitEnvelope"/>, recorded by PartsCheck), never a typed box (the lead's 2026-11-13T1936Z and
+        /// 1941Z rulings: the twelve-degree working field was a picture, not a limit). The plane keeps a shelf clear of it; a bar
+        /// laid past it says so (<see cref="PassedLargest"/>).
         /// </summary>
-        public static Vector2 Largest => new Vector2(RoomType.Units(RoomGeometry.PairDegrees * RoomGeometry.DpPerDegree),
-            Mathf.Max(RoomType.Units(RoomGeometry.FieldTallDp), ColumnTallest));
+        public static Vector2 Largest => LargestAt(RoomGeometry.PanelDp);
 
-        /// <summary>The same for the narrow form: the column's width, the panel's place over the column at its most.</summary>
-        public static Vector2 LargestNarrow => new Vector2(RoomType.Units(RoomGeometry.ColumnDp),
-            RoomType.Units(RoomGeometry.FieldTallDp) + RoomType.Units(RoomGeometry.PairGapDp) + ColumnTallest);
+        /// <summary>The same for the narrow form: the column's width, the panel over the column.</summary>
+        public static Vector2 LargestNarrow => LargestAt(RoomGeometry.ColumnDp);
 
-        /// <summary>The column at its most: <see cref="ColumnMost"/> actions of a target's height, their gaps, and the gap between answers and actions.</summary>
-        private static float ColumnTallest => ColumnMost * RoomType.Units(RoomButton.HeightDp)
-            + (ColumnMost - 1) * KitType.Units(SpatialKit.TargetGapDegrees) + RoomType.Units(GroupGapDp);
+        /// <summary>The most laid with a panel <paramref name="panelDp"/> wide at the person's text size; where nothing is recorded, unbounded, and the check says so.</summary>
+        public static Vector2 LargestAt(float panelDp) =>
+            KitEnvelope.Most(GlazeText.Scale, panelDp) is Vector2 dp ? new Vector2(RoomType.Units(dp.x), RoomType.Units(dp.y)) : new Vector2(float.MaxValue, float.MaxValue);
+
+        /// <summary>The panel's width, in dp, of the bar last laid: what its envelope is recorded under.</summary>
+        public float LaidPanelDp { get; private set; }
 
         /// <summary>Whether the bar last laid stood past <see cref="Largest"/> (or <see cref="LargestNarrow"/> in the narrow form): a finding, never drawn quietly.</summary>
         public bool PassedLargest { get; private set; }
@@ -989,7 +990,8 @@ namespace Halcyonic.XR.UI
             Foot = foot;
             PanelRight = left + panelWidth;
             Size = new Vector2(total, height);
-            var largest = narrow ? LargestNarrow : Largest;
+            LaidPanelDp = panelWidth / unit;
+            var largest = LargestAt(LaidPanelDp);
             var passed = total > largest.x + unit * 0.5f || height > largest.y + unit * 0.5f;
             if (passed && !PassedLargest)
                 Debug.LogWarning("Halcyonic: the bar laid past its largest footprint (" + (narrow ? "narrow" : "full") + "), "

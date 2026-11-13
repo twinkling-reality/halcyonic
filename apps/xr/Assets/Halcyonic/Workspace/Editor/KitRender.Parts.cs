@@ -42,6 +42,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The parts' one entry point in batch mode: renders and checks every part's states, then exits 1 on any failure.</summary>
         public static void PartsCheck() => RunParts(exitWhenDone: true);
 
+        /// <summary>The most each text size and panel width laid in this run, in dp (<see cref="Halcyonic.XR.UI.KitEnvelope"/>).</summary>
+        private static readonly Dictionary<(float, float), Vector2> measuredEnvelope = new Dictionary<(float, float), Vector2>();
+
         private static void RunParts(bool exitWhenDone)
         {
             var failures = new List<string>();
@@ -82,6 +85,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 GlazeMotion.Still = previousStill;
                 KeepFontsAsCommitted();
             }
+            // The measured envelope, written beside the renders for a person to commit as Resources/HalcyonicKitEnvelope.json when it
+            // changes on purpose; each entry logged.
+            var measured = measuredEnvelope.Select(each => new Halcyonic.XR.UI.KitEnvelope.Entry { scale = each.Key.Item1, panelDp = each.Key.Item2, widthDp = Mathf.Ceil(each.Value.x), heightDp = Mathf.Ceil(each.Value.y) }).ToList();
+            foreach (var entry in measured.OrderBy(entry => entry.scale).ThenByDescending(entry => entry.panelDp))
+                Debug.Log("Halcyonic: parts: kit envelope measured: scale " + entry.scale.ToString("0.00") + ", panel " + entry.panelDp.ToString("0") + " dp: " + entry.widthDp.ToString("0") + " by " + entry.heightDp.ToString("0") + " dp.");
+            if (measured.Count > 0)
+            {
+                var folder = System.IO.Path.Combine(Application.dataPath, "..", "Builds", "PartsRenders");
+                System.IO.Directory.CreateDirectory(folder);
+                System.IO.File.WriteAllText(System.IO.Path.Combine(folder, "kit-envelope-measured.json"), Halcyonic.XR.UI.KitEnvelope.ToJson(measured));
+            }
+            measuredEnvelope.Clear();
             foreach (var failure in failures) Debug.LogError("Halcyonic: parts: " + failure);
             if (failures.Count == 0 && narrowed)
                 Debug.LogWarning("Halcyonic: parts: narrowed by HALCYONIC_KIT_ONLY=" + only + " (iteration only; exits 2 so a narrowed run is never a full gate pass).");
@@ -246,8 +261,24 @@ namespace Halcyonic.XR.Workspace.Editor
                     : BandShot(state, root.transform, eyes, name);
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
                 // Every bar the state laid stands within its largest footprint, the one the plane keeps a shelf clear of (AUDIT, 2026-11-13T1725Z).
-                failures.AddRange(root.GetComponentsInChildren<Halcyonic.XR.UI.RoomBarView>(true).Where(bar => bar.PassedLargest)
-                    .Select(bar => name + ": the bar laid past its largest footprint, " + bar.Size + " against " + (bar.Narrow ? Halcyonic.XR.UI.RoomBarView.LargestNarrow : Halcyonic.XR.UI.RoomBarView.Largest)));
+                var unitDp = Halcyonic.XR.UI.RoomType.Units(1f);
+                foreach (var laid in root.GetComponentsInChildren<Halcyonic.XR.UI.RoomBarView>(true).Where(bar => bar.gameObject.activeInHierarchy && bar.Size.x > 0f))
+                {
+                    // What the kit lays, recorded for the envelope (the lead's 2026-11-13T1936Z: measured, never typed).
+                    var key = (Mathf.Round(GlazeText.Scale * 100f) / 100f, Mathf.Round(laid.LaidPanelDp));
+                    var dp = laid.Size / unitDp;
+                    measuredEnvelope[key] = measuredEnvelope.TryGetValue(key, out var was) ? Vector2.Max(was, dp) : dp;
+                    if (laid.PassedLargest)
+                        failures.Add(name + ": the bar laid past its recorded envelope, " + dp.x.ToString("0") + " by " + dp.y.ToString("0") + " dp with a panel "
+                            + laid.LaidPanelDp.ToString("0") + " dp wide against " + (Halcyonic.XR.UI.RoomBarView.LargestAt(laid.LaidPanelDp) / unitDp).ToString("0"));
+                    // What a person can see (the lead's 2026-11-13T1941Z ruling): standing on the foot line, its top within the Quest 3S
+                    // field's up less the margin, its half width within the field's side, the head level. Sizes are at a metre, so angles are atans.
+                    var top = Mathf.Atan(laid.Size.y) * Mathf.Rad2Deg + RoomGeometry.FeetPitch;
+                    var half = Mathf.Atan(laid.Size.x / 2f) * Mathf.Rad2Deg;
+                    var field = MenuPage.Quest3S;
+                    if (top > (float)field.Up - ViewField.EdgeMarginDegrees || half > (float)Math.Min(field.Left, field.Right) - ViewField.EdgeMarginDegrees)
+                        failures.Add(name + ": the bar stands past the field, its top " + top.ToString("0.0") + " degrees up and " + half.ToString("0.0") + " each side");
+                }
                 // Every button's chip, glyph and lock ring inside its own edge (AUDIT, 2026-11-13T1754Z).
                 failures.AddRange(root.GetComponentsInChildren<Halcyonic.XR.UI.RoomButton>(false).Where(button => !button.MarksInside)
                     .Select(button => name + ": a mark of \"" + button.Words.text + "\" stands past its button's edge"));

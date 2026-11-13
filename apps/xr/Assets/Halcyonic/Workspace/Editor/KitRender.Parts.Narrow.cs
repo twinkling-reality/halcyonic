@@ -97,7 +97,7 @@ namespace Halcyonic.XR.Workspace.Editor
             else Require(view.Size.x > column + RoomType.Units(RoomGeometry.PanelDp), "the ordinary bar is not the pair's width");
 
             Require(!view.PassedLargest, "the bar laid past its largest footprint: " + (view.Size / unit).ToString("0") + " dp against "
-                + ((narrow ? RoomBarView.LargestNarrow : RoomBarView.Largest) / unit).ToString("0"));
+                + (RoomBarView.LargestAt(view.LaidPanelDp) / unit).ToString("0"));
             if (state == "57-destructive-confirm")
             {
                 var yes = buttons.FirstOrDefault(button => button.Words.text.Contains("Forget Computer"));
