@@ -199,4 +199,18 @@ same title after it (AUDIT2 found the pages still cut them with an ellipsis whil
 text and files are named as left out, an account or a sign-in is never rebuilt, and the line stands in the scene.
 The starter's check measures none of
 these: its words are drawn into canvas textures, not the page, and a cut list has no one shape to find, so the
-instruction carries them. Not yet seen: a run on these words.
+instruction carries them.
+
+Seen on these words (2026-11-13, the same small web app, the same hosted model, one turn of ten minutes, confined):
+a critic who saw the result and read its code found every part of the use carried. The search and the zone filter
+come with a keyboard of letter buttons, and all five fields of a sighting work by hand (a species stepped through
+the guide, minus and plus for the count, a pool typed or one the log knows, day, hour and five minutes by steps, a
+typed note). The log and a species' own sightings are paged to their end with Back and Next. Words are at or above
+the kit's type scale, and no title runs into another. What improved on the run before: the search, the form, the
+paging and a species' sightings; nothing got worse. What still falls short: the line saying what is not carried
+stands in the scene but low, behind the desk, and is incomplete; smaller words on the side panels and log entries
+are hard to read at a laptop's distance; the species is stepped one at a time rather than chosen from the guide; the
+welcome card's laptop keys do nothing here. Its closing words named what it left out, and said it never saw the
+build run. The run took 21 approvals (the run before, 13) and, by the runtime's own count, one turn of about 1.4
+million cached input tokens read, 61 thousand output tokens and an estimate of 2.68 US dollars at list prices.
+The product's check passed, but its laptop step found no target to press on a page a mouse can press.
