@@ -22,21 +22,16 @@ export const HOSTED_COST = {
   detail: (provider: string) => `On ${provider}, Paid by You`,
   /** The line names the model where it fits its contract (200 characters); otherwise "this model", and the review names it. */
   whatHappens: (provider: string, model: string | null) =>
-    `From now on the assistant answers on ${model ?? 'this model'}, and ${provider} charges you money for each request.`,
+    `From now on the assistant answers on ${model ?? 'this model'}, and each request costs money on your own ${provider} account.`,
+  // Short enough to read at a glance at the larger text size (the owner's report, 2026-11-13: the review was tall and
+  // said the cost in one long paragraph). Who pays is said once, in the line; each warning is one short fact.
   warnings: (provider: string) => [
-    {
-      code: 'costs_money',
-      line: `Each request is charged to your own ${provider} account, through the access key you added`,
-    },
-    {
-      code: 'price_unknown',
-      line: 'Halcyonic does not know the price, and cannot show a total yet',
-    },
+    { code: 'price_unknown', line: 'The price is not known, so no cost or total is shown' },
     {
       code: 'sent_to_provider',
-      line: `Your requests, and what the assistant reads to answer them, are sent to ${provider}`,
+      line: `Your requests, and what the assistant reads in your projects, go to ${provider}`,
     },
-    { code: 'free_here', line: "This Computer's Model is free" },
+    { code: 'free_here', line: "This Computer's Model stays free" },
   ],
   /** This computer's own model, the one nobody charges for. */
   localWhatHappens:

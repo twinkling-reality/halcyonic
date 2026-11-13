@@ -110,7 +110,7 @@ public class AssistantPlaceTests
                 if (review == null) await Task.Delay(100);
             }
             Assert.That(review, Is.Not.Null, "the press waits for its review card");
-            Assert.That(review!.Proposal!.WhatHappens, Does.Contain("charges you money for each request"));
+            Assert.That(review!.Proposal!.WhatHappens, Does.Contain("each request costs money on your own Meta account"));
             Assert.That(AssistantPlace.OnePress(review), Is.False, "a hosted choice is reviewed first");
             Assert.That(AssistantPlace.Ended((await api.ReadWorkspaceRequestAsync(requestId)).Request), Is.False);
             await Post(http, Commands.ConfirmRequest(requestId, review.StepId, review.Proposal.Review!));
