@@ -740,12 +740,12 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// The lines <paramref name="row"/> takes as the panel's rows draw it with a panel <paramref name="panelDp"/> wide, on a page
         /// that <paramref name="pageMarked"/> or not, its label's lines counted: the measure the general reader fills a page to eight
-        /// lines by (<see cref="RoomRowsView.RowLines"/>, the rows' own lay path; XR's and AUDIT's 2026-11-13T2020Z).
+        /// lines by (<see cref="RoomRowsView.LinesOfRow"/>, the rows' own lay path; XR's and AUDIT's 2026-11-13T2020Z).
         /// </summary>
         public int RowLines(RoomRow row, bool pageMarked, float panelDp)
         {
             if (facts == null) facts = RoomRowsView.Create(panel.transform, KitType.Order.Words);
-            return facts.RowLines(row, pageMarked, RoomType.Units(panelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp));
+            return facts.LinesOfRow(row, pageMarked, RoomType.Units(panelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp));
         }
 
         /// <summary>The lines <paramref name="words"/> take laid at a panel <paramref name="panelDp"/> wide, its padding off, at the person's text size.</summary>

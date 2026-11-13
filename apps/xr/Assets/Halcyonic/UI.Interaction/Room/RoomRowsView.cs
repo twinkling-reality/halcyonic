@@ -81,7 +81,7 @@ namespace Halcyonic.XR.UI
         /// mark indent and its own note's room, by the very lay path the rows are drawn with (XR's and AUDIT's 2026-11-13T2020Z:
         /// one source of truth, so a page of eight lines is eight as drawn). Hidden labels of its own; nothing shown changes.
         /// </summary>
-        public int RowLines(RoomRow row, bool pageMarked, float width)
+        public int LinesOfRow(RoomRow row, bool pageMarked, float width)
         {
             if (measureWords == null)
             {
