@@ -778,9 +778,10 @@ public class NewProjectFlowTests
 
         // A read that fails changes nothing; the place back unblocks Start building by itself.
         routes.Answers.Remove("GET /api/locations");
+        var readBefore = routes.Asked.Count(asked => asked == "GET /api/locations");
         flow.Close();
         flow.Open(null, null);
-        await Until(flow, () => routes.Asked.Count(asked => asked == "GET /api/locations") == 3);
+        await Until(flow, () => routes.Asked.Count(asked => asked == "GET /api/locations") == readBefore + 1);
         for (var tick = 0; tick < 5; tick++)
         {
             await Task.Delay(10);
@@ -863,6 +864,69 @@ public class NewProjectFlowTests
         Press(asked, NewProjectScreens.UseIdea, null);
         var waiting = asked.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Id == NewProjectScreens.StartBuilding);
         Assert.That((waiting.Available, waiting.Reason), Is.EqualTo((false, (string?)EntryText.ChooseHowItRuns)), "two and none used before: asked");
+    }
+
+    /// <summary>
+    /// JUDGE's finding of 2026-11-13T0935Z (14 presses and a typed folder name from New Project to a running agent, 2 at a desk)
+    /// and the lead's 09:37Z: with an agent app that works in a folder and lists its models, nothing is asked that has one
+    /// answer or was answered before. The app on offer is taken; its one model that runs on this computer is taken, a hosted
+    /// one never unless chosen before; a NEW folder named from the idea is taken in the place the computer offers, shown as
+    /// one phrase. So Start Building stands the moment the idea is in, and every default stays a recap row to change. A folder
+    /// the person chose is never replaced, and a taken name gets the next free one.
+    /// </summary>
+    [Test]
+    public async Task WithAFolderAgentItsModelAndANewFolderAreTakenSoTheRecapStartsTheMomentTheIdeaIsIn()
+    {
+        const string Taken = "a-page-of-race-times-for-my-running-club";
+        var local = Runtime("local", ModelChoice.Listed);
+        local.UsesProjectLocation = true;
+        var routes = new Routes();
+        routes.Answers["GET /api/runtimes/local/models"] = () => HalcyonicJson.Serialize(new RuntimeModelsResponse
+        {
+            RuntimeId = "local",
+            Result = new AvailableModels
+            {
+                Models = new List<RuntimeModel>
+                {
+                    new() { ModelRef = "hosted/wonder", DisplayName = "wonder", Served = ModelServed.Remote, Provider = "Tidewater" },
+                    new() { ModelRef = "local/30b", DisplayName = "30b", Served = ModelServed.ThisMac },
+                },
+            },
+        });
+        var listing = new LocationsResponse
+        {
+            Roots = new List<LocationRoot>
+            {
+                new()
+                {
+                    Path = "/Users/person/Projects", Name = "Projects", Label = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+                    Folders = new List<LocationFolder> { new() { Name = Taken, Path = "/Users/person/Projects/" + Taken } },
+                },
+            },
+        };
+        routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(listing);
+        using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes);
+        var host = new Host { State = WithRuntimes(local), Api = api };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        Prompt Start() => flow.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Id == NewProjectScreens.StartBuilding);
+        await Until(flow, () => Start().Available);
+        Assert.That(Start().Reason, Is.Null, "nothing left to choose: two presses (New Project, Start Building) and the idea");
+        Assert.That((flow.Idea!.Folder!.IsNew, flow.Idea.Folder.FolderName, flow.Idea.Folder.Describe()),
+            Is.EqualTo((true, Taken + "-2", "New " + Taken + "-2 in Projects")), "a new folder named from the idea, the taken name passed over");
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.ModelId).Value, Is.EqualTo("local/30b"),
+            "the one model on this computer, never the hosted one first");
+
+        // The person's own folder stands: the next read never replaces it.
+        var mine = ProjectFolder.Existing(listing.Roots[0], listing.Roots[0].Folders[0]);
+        flow.Idea.ChooseFolder(mine);
+        flow.Tick();
+        Assert.That(flow.Idea.Folder, Is.SameAs(mine));
     }
 
     [Test]
