@@ -598,8 +598,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         ?? (plane.Kit.Bar.Type.gameObject.activeInHierarchy ? plane.Kit.Bar.Type : null)
                     : null;
                 string ActionOf(RoomButton button) => plane.Kit.Bar.ControlOf(button) is KitControl control ? control.Action + (control.Key == null ? "" : "/" + control.Key) : "?";
+                var lastPressed = "";
                 void PressDrawn(RoomButton button, string why)
                 {
+                    lastPressed = ActionOf(button);
                     // A Confirm behind its lock takes its press once the ring has filled, as a person's hold fills it: one press.
                     if (plane.KitShows && plane.Kit.Bar.Locking == button)
                     {
@@ -652,6 +654,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         Fresh();
                         if (goal()) return true;
+                        // A start the person confirmed takes the plane a moment to show as a run: wait for it, as a person watches,
+                        // rather than press on (a press here would open the instruction over the result), 30 s at most.
+                        if (lastPressed == NewProjectScreens.ConfirmStart || lastPressed == NewProjectScreens.StartBuilding)
+                        {
+                            lastPressed = "";
+                            var since = DateTime.UtcNow;
+                            while (!goal() && DateTime.UtcNow - since < TimeSpan.FromSeconds(30)) { Pump(); Draw(); Thread.Sleep(250); }
+                            Fresh();
+                            if (goal()) return true;
+                        }
                         Moment(label + " " + step);
                         if (keyboard is { } open)
                         {
@@ -665,29 +677,32 @@ namespace Halcyonic.XR.Workspace.Editor
                         }
                         if (!wrote && TypeDrawn() is RoomButton type) { PressDrawn(type, "pressed"); continue; }
                         // A row the walk was told to choose (an agent app, a model), as a person picks theirs, before the main action.
-                        if (live != null && live.Picks.Count > 0 && PressRow(control => live.Picks.Contains(control.Key ?? control.Action)
+                        if (live != null && live.Picks.Count > 0 && PressRow(control => (live.Picked(control.Key ?? control.Action) || live.Picked(control.Action + (control.Key == null ? "" : "/" + control.Key)))
                             && !tried.Contains("row " + control.Action + (control.Key == null ? "" : "/" + control.Key))) is string picked)
                         {
                             tried.Add(picked.Replace("pressed row ", "row "));
                             journeyWays.Add("chose " + picked.Replace("pressed ", ""));
                             Settle();
+                            tried.Remove(NewProjectScreens.ChangeRecap);
                             continue;
                         }
                         // The same where the choice is drawn as the column's buttons (an agent app on the run settings page).
                         if (live != null && live.Picks.Count > 0 && plane.KitShows && plane.Kit.Bar.Column.FirstOrDefault(each => each.gameObject.activeInHierarchy
-                            && !tried.Contains(ActionOf(each)) && (live.Picks.Contains(ActionOf(each)) || live.Picks.Contains(ActionOf(each).Split('/').Last()))) is RoomButton chosen)
+                            && !tried.Contains(ActionOf(each)) && (live.Picked(ActionOf(each)) || live.Picked(ActionOf(each).Split('/').Last()))) is RoomButton chosen)
                         {
                             tried.Add(ActionOf(chosen));
                             PressDrawn(chosen, "chose");
                             Settle();
+                            tried.Remove(NewProjectScreens.ChangeRecap);
                             continue;
                         }
                         if (MainDrawn() is RoomButton main) { PressDrawn(main, "pressed main"); continue; }
                         if (PressFrameMain()) continue;
                         // No main action to take: the next drawn control this journey has not pressed, as a person tries what
-                        // is there (never Close, Stop, Hold to Talk or a control that asks for words already given).
+                        // is there (never Close, Stop, Start Over, Hold to Talk or a control that asks for words already given). After a
+                        // choice the recap may be opened again, as a person goes back to it for the next.
                         if (plane.KitShows && plane.Kit.Bar.Column.FirstOrDefault(each => each.gameObject.activeInHierarchy && !tried.Contains(ActionOf(each))
-                            && ActionOf(each) != Footer.Close && !ActionOf(each).StartsWith("stop") && !ActionOf(each).Contains("talk") && !(wrote && TypeDrawn() == each)) is RoomButton other)
+                            && ActionOf(each) != Footer.Close && !ActionOf(each).StartsWith("stop") && ActionOf(each) != NewProjectScreens.StartOver && !ActionOf(each).Contains("talk") && !(wrote && TypeDrawn() == each)) is RoomButton other)
                         {
                             tried.Add(ActionOf(other));
                             PressDrawn(other, "tried");
@@ -718,8 +733,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     Journey("start a project", "2: make a folder, start the agent in it");
                     if (Press(ProjectsScreens.NewProject)) journeyWays.Add("pressed " + ProjectsScreens.NewProject);
                     else journeyWays.Add("no drawn New Project");
+                    // Dry: the way to a ready Start Building, never pressed, so no agent starts and no model is asked.
+                    if (on.Dry)
+                    {
+                        var ready = DriveUntil(() => MainDrawn() is RoomButton next && ActionOf(next) == NewProjectScreens.StartBuilding, "new project", on.Idea, 24);
+                        journeyWays.Add(ready ? "dry: Start Building ready, not pressed" : "dry: Start Building never ready");
+                        if (!ready) failures.Add("live walk: Start Building never ready through drawn controls (" + string.Join("; ", journeyWays) + ")");
+                        EndJourney();
+                        return;
+                    }
                     var started = DriveUntil(() => State()!.Projects.Count > projectsBefore && State()!.Workstreams.Count > tasksBefore
-                        && State()!.Workstreams.Values.Any(task => State()!.CurrentExecution(task) != null), "new project", on.Idea);
+                        && State()!.Workstreams.Values.Any(task => State()!.CurrentExecution(task) != null), "new project", on.Idea, on.Picks.Count > 0 ? 24 : 12);
                     if (!started) failures.Add("live walk: no project and task started through drawn controls (" + string.Join("; ", journeyWays) + ")");
                     var task = State()!.Workstreams.Values.FirstOrDefault(each => State()!.CurrentExecution(each) != null);
                     EndJourney();
@@ -763,6 +787,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     EndJourney();
 
                     Journey("keep it", "0 to 1: the work is in the folder; a commit is 1");
+                    // From Changes a person goes back to the result, where Add to Project stands.
+                    if (Drawn(RoomResult.ShowAdd, null) == null && Drawn(RoomResult.Back, null) != null && Press(RoomResult.Back))
+                    {
+                        journeyWays.Add("pressed " + RoomResult.Back);
+                        Fresh();
+                    }
                     if (Drawn(RoomResult.ShowAdd, null) != null && Press(RoomResult.ShowAdd))
                     {
                         journeyWays.Add("pressed " + RoomResult.ShowAdd);
@@ -978,6 +1008,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     TurnSeconds = double.TryParse(Environment.GetEnvironmentVariable("HALCYONIC_LIVE_TURN_SECONDS"), out var turn) && turn > 0 ? turn : 90,
                     ThroughKeep = Environment.GetEnvironmentVariable("HALCYONIC_LIVE_THROUGH") == "keep",
                     Picks = (Environment.GetEnvironmentVariable("HALCYONIC_LIVE_PICK") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                    Dry = Environment.GetEnvironmentVariable("HALCYONIC_LIVE_DRY") == "1",
                 };
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 ViewField.Current = FieldChecks.Quest3S;
@@ -1018,6 +1049,13 @@ namespace Halcyonic.XR.Workspace.Editor
             /// <summary>The rows the walk chooses where drawn, by key or, for a row with none, by action (HALCYONIC_LIVE_PICK: the way to
             /// the run settings, an agent app's id, a model's ref).</summary>
             public List<string> Picks { get; set; } = new List<string>();
+
+            /// <summary>Whether a pick names this action or key: exactly, or where the pick holds "*", as a pattern ("*" any run).</summary>
+            public bool Picked(string action) =>
+                Picks.Any(pick => pick.Contains("*") ? Regex.IsMatch(action, "^" + string.Join(".*", pick.Split('*').Select(Regex.Escape)) + "$") : pick == action);
+
+            /// <summary>Whether the walk stops once Start Building is ready, unpressed (HALCYONIC_LIVE_DRY=1): no agent, no model.</summary>
+            public bool Dry { get; set; }
 
             public List<string> Presses { get; } = new List<string>();
         }
