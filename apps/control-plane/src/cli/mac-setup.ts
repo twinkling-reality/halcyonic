@@ -44,7 +44,11 @@ import { delimiter, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/contracts';
-import { CLAUDE_AGENT_RUNTIME_ID, cloudProvider } from '@halcyonic/integration-claude-code';
+import {
+  CLAUDE_AGENT_RUNTIME_ID,
+  cloudProvider,
+  type PersonalSetupUse,
+} from '@halcyonic/integration-claude-code';
 import { OPENCODE_SANDBOX_FOLDER, sandboxedSessionStore } from '@halcyonic/integration-opencode';
 import {
   defaultSalidiumHome,
@@ -200,6 +204,8 @@ interface KeyedApp {
     readonly declared: string;
     readonly variable: string;
     readonly file: string;
+    /** What of the person's own set-up a task outside the sandbox uses, as the adapter declares; null for none. */
+    readonly personal: (() => PersonalSetupUse) | null;
   };
   readonly stored: boolean;
   /** A file is where its key would be, but the app would refuse it (others can read it, or it is empty). */
@@ -583,6 +589,7 @@ class MacSetup {
         `A provider's declaration doesn't hold, so Halcyonic won't start until it is fixed: ${this.#tilde(declarations)}`,
       );
     }
+    const said = new Set<string>();
     for (const keyed of this.#keyedApps(env)) {
       const { key } = keyed;
       // Said as of the next start where nothing tells setup what the running Halcyonic started with (Terminal).
@@ -591,17 +598,11 @@ class MacSetup {
       if (keyed.now && !(keyed.stops !== null && !known)) ready += 1;
       const onWords = known ? `${key.app} is on` : `${key.app} is on from Halcyonic's next start`;
       const byEnvironment = keyIn(env, key.variable);
-      // Until a Claude Agent task here runs on Halcyonic's settings alone, the person's own Claude Code settings may
-      // sign it in another way (AUDIT3's settings-gap verdict): every line that says what pays says so.
-      const unless =
-        key.runtimeId === CLAUDE_AGENT_RUNTIME_ID
-          ? ', unless your own Claude Code settings sign it in another way'
-          : '';
       const paid = byEnvironment
-        ? `Every task on it is paid for with the ${key.variable} in Halcyonic's environment${keyed.stored ? ', not the stored key' : ''}${unless}.`
+        ? `Every task on it is paid for with the ${key.variable} in Halcyonic's environment${keyed.stored ? ', not the stored key' : ''}.`
         : keyed.stored
-          ? `Every task on it is paid for with that key${unless}.`
-          : `Every task on it is paid for through your ${keyed.provider ?? 'cloud provider'} account, set in Halcyonic's environment${unless}.`;
+          ? `Every task on it is paid for with that key.`
+          : `Every task on it is paid for through your ${keyed.provider ?? 'cloud provider'} account, set in Halcyonic's environment.`;
       const its = `its ${key.declared} key`;
       const addIt = known ? `Add ${its} below.` : `Add ${its} under Agent Apps on the setup page.`;
       // While the start stops, the setup page is not there: in Terminal, the way to it is a start without the switch.
@@ -635,10 +636,34 @@ class MacSetup {
             ? `${onWords}, with your key stored on this computer. ${paid}`
             : `${onWords}. ${paid}`,
         );
-      else
+      else lines.push(`${key.app} runs on your own key, which pays for every task on it. ${addIt}`);
+      // What of the person's own set-up for it a task outside the sandbox uses, read from what the adapter declares:
+      // once per app, however many providers it reads.
+      if (key.personal !== null && !said.has(key.runtimeId)) {
+        said.add(key.runtimeId);
+        const used = key.personal();
+        const and = (names: readonly string[]) =>
+          names.length <= 2
+            ? names.join(' and ')
+            : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+        // Claude Agent also runs outside the sandbox on an app made here while a cloud provider is switched on.
+        const where =
+          key.runtimeId === CLAUDE_AGENT_RUNTIME_ID
+            ? 'On a folder you connected, and anywhere while a cloud provider is switched on'
+            : 'On a folder you connected';
+        // Only hooks as each integration's current installer writes them are passed (personal-settings.ts).
+        const hooks =
+          used.hooksOf.length === 0
+            ? ''
+            : ` and ${and(used.hooksOf.map((name) => `${name}'s`))} hooks there, as their current installers write them`;
+        const folder =
+          key.runtimeId === CLAUDE_AGENT_RUNTIME_ID
+            ? 'your own Claude Code settings folder'
+            : 'your own settings folder';
         lines.push(
-          `${key.app} runs on your own key, which pays for every task on it${unless}. ${addIt}`,
+          `${where}, a task on ${key.app} uses the ${used.instructions} in ${folder}${hooks}${used.restUsed ? '' : ', and nothing else of your own settings'}.`,
         );
+      }
       if (keyed.unusable) {
         look = true;
         lines.push(
@@ -683,13 +708,14 @@ class MacSetup {
   #keyedApps(env: NodeJS.ProcessEnv): KeyedApp[] {
     const { providers } = this.#providerList();
     if (providers === null) return [];
-    const declared = KEYED_AGENT_APPS.flatMap(({ runtimeId, reader }) =>
+    const declared = KEYED_AGENT_APPS.flatMap(({ runtimeId, reader, personalSetup }) =>
       providersReadBy(providers, runtimeId).map((provider) => ({
         runtimeId,
         app: reader.name,
         declared: provider.name,
         variable: provider.key.variable,
         file: provider.key.file,
+        personal: personalSetup,
       })),
     );
     return declared.map((key) => {
@@ -879,8 +905,8 @@ class MacSetup {
       const keyed = claude.stored || keyIn(this.#io.env, claude.key.variable);
       lines.push(
         keyed || claude.provider === null
-          ? `${on} Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key, unless your own Claude Code settings sign it in another way.`
-          : `${on} Its models run on a remote service, ${claude.provider}: nothing starts on one without its second press, and a task on one is paid for through your ${claude.provider} account, unless your own Claude Code settings sign it in another way.`,
+          ? `${on} Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key.`
+          : `${on} Its models run on a remote service, ${claude.provider}: nothing starts on one without its second press, and a task on one is paid for through your ${claude.provider} account.`,
       );
       const key = this.#fileState(claude.key.file);
       if (key === 'exposed')

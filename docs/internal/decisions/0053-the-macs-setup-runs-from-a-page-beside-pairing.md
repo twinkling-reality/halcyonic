@@ -166,3 +166,9 @@ key, and for it to serve any agent app, not one vendor's.
 - A third provider gets its card by its one declaration file. The tests prove it with a test provider's file beside
   Anthropic's own declaration, and a test reader beside Claude Agent's. An agent app that a stored key turns on still
   registers in its own branch of `createRuntimeAdapters`.
+- **What of the person's own set-up a task uses** (2026-11-13). Under Agent apps, each keyed agent app whose adapter
+  declares a personal set-up says, in one line read from that declaration (Claude Agent's `personalSetupUsed()`),
+  what a task outside the sandbox uses of it ("the CLAUDE.md in your own Claude Code settings folder and Salidium's
+  and Seorak's hooks there, as their current installers write them, and nothing else of your own settings"), on a connected folder and, for Claude Agent,
+  anywhere while a cloud provider is switched on. The pay lines no longer add "unless your own Claude Code settings
+  sign it in another way", which the settings fix of 1111-b114 made untrue.
