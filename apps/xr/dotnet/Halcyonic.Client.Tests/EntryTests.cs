@@ -949,6 +949,26 @@ public class EntryWordsTests
         Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo(EntryText.WaitingForYou(2)), "the ambient line and the entry agree");
     }
 
+    /// <summary>
+    /// New Project's run settings, its new folder and Start Over say what they mean in sentences, never facts on a dot
+    /// (JUDGE's live walk, 2026-11-13T0851Z and 0935Z; the lead's 09:37Z item 3).
+    /// </summary>
+    [Test]
+    public void NewProjectsRunSettingsFolderAndStartOverJoinNothingOnADot()
+    {
+        var remote = new RuntimeModel { ModelRef = "hosted/x", DisplayName = "Hosted", Served = ModelServed.Remote };
+        var unknown = new RuntimeModel { ModelRef = "gateway/y", DisplayName = "Gateway", Served = ModelServed.Unknown };
+        var said = new[]
+        {
+            EntryText.OptionsLine, EntryText.StartOverClears(true), EntryText.StartOverClears(false), EntryText.NewFolderRule,
+            EntryText.Served(ModelServed.Remote), EntryText.Served(ModelServed.Unknown), EntryText.ConfirmElsewhere(remote), EntryText.ConfirmElsewhere(unknown),
+            EntryText.ElsewhereDivider(new[] { remote }), EntryText.ElsewhereDivider(new[] { remote, unknown }),
+        };
+        Assert.That(said, Has.None.Contains("\u00b7"), string.Join(" | ", said));
+        Assert.That(EntryText.StartOverClears(false), Is.EqualTo("Clears the idea, answers, name, first task and folder. Keeps the run settings."));
+        Assert.That(EntryText.OptionsLine, Is.EqualTo("Choose an agent app, then its model"));
+    }
+
     [Test]
     public void TheRecapSaysWhereTheModelRunsAndChoosesNothing()
     {
@@ -959,7 +979,7 @@ public class EntryWordsTests
         draft.ChooseRuntime(Samples.MockRuntime());
         Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Simulated · Mock runtime"), "the recorded demonstration keeps its names");
         Assert.That(EntryText.RunsWith(draft, live: true), Is.EqualTo(EntryText.PracticeRun));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Practice · No Agent · No Files"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("A practice run: no agent and no files"));
 
         var listed = Samples.MockRuntime();
         listed.RuntimeId = "local";
@@ -974,22 +994,22 @@ public class EntryWordsTests
         Assert.That(draft.Model, Is.Null, "a remote model is never chosen for the person");
         Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Unfinished"));
         Assert.That(draft.ChooseModel(remote), Is.False, "the first press only says where it runs");
-        Assert.That(EntryText.ConfirmElsewhere(remote), Is.EqualTo("Remote Service · Code and Instructions Leave · Press Again to Use"));
+        Assert.That(EntryText.ConfirmElsewhere(remote), Is.EqualTo("Runs on a remote service: your code and instructions leave this computer. Press again to use it."));
         Assert.That(draft.ChooseModel(remote), Is.True);
         Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Remote Service"));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Remote Service · Code and Instructions Leave"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo(EntryText.RemoteLeaves));
 
         var local = new RuntimeModel { ModelRef = "ollama/qwen3.6", DisplayName = "qwen3.6 (Ollama)", Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared };
         draft.ChooseRuntime(listed);
         draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel> { remote, local } } });
         Assert.That(EntryText.RunsWith(draft), Is.EqualTo("On Your Computer"));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Chosen for You · Change in More Options"), "chosen for the person, and said so");
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo(EntryText.ModelChosenForYou), "chosen for the person, and said so");
 
         // An agent app that picks its own model is named, by the one rule, since where its model runs isn't known here.
         listed.ModelChoice = ModelChoice.None;
         draft.ChooseRuntime(listed);
         Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Local‹U+202E› agent"));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Location Unknown · Code May Leave"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo(EntryText.UnknownMayLeave));
     }
 
     [Test]
