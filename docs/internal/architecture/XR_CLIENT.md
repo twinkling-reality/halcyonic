@@ -2802,8 +2802,11 @@ host's `own_sources_not_set_up` its own), and the companion's failures (`Compani
 `companion_failed` is "No Reply"; a local error the client cannot name has its own code and is "Reason Unknown"). An action's
 two parts are given apart, never one string joined on a dot (JUDGE's dot list, 2026-11-13; FIELD's `RoomAction.Detail`): a
 question's answer under the redesign is its label as the row's words and its description as the row's `PageLine.Under`
-(`FileScreens.AnswerRow`), which `KitControl.Under` carries and a `RoomAction` takes as its detail where its reader gives
-none; the question still measures the two together (`FileScreens.OptionMeasured`), so a description too long for its rows
+(`FileScreens.AnswerRow`), which `KitControl.Under` carries; where any answer of the page carries a description, the question
+reader (`RoomBar.Asking`) lays every answer of the page as a pressed row of the panel's card (its mark, its words as the agent wrote
+them, its description under it, at the panel's width; the panel's words, which question this is, the card's title), and the column keeps
+the prompts and never an answer (the lead's ruling of 2026-11-13T22:04Z: the column never widens with an agent's words); plain short
+answers stay in the column; the question still measures the two together (`FileScreens.OptionMeasured`), so a description too long for its rows
 is cut and opens whole in its side panel as before; the band's pager is `RoomWords.Next` ("Next Part") with `RoomWords.NextCount` ("2 of 3") as its detail
 (`RoomBarView.BandNextDetail`); and every other part pager under the redesign, a request's, a question's, its typed answer's,
 its answers' review, New Project's review and an unknown start's, is "Next Part" or "First Part" with its count as the row's

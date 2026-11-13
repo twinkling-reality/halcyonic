@@ -361,4 +361,58 @@ public class RoomQuestionTests
         }
         finally { RoomDesign.Enabled = was; }
     }
+
+    /// <summary>
+    /// An agent's answers that carry a description are choices read in the PANEL (the lead's 2026-11-13T22:04Z; the shape of the
+    /// paid run's question of 16:44Z: a header, two options each with a sentence, one marked recommended in its own words, free
+    /// text allowed): each a pressed row of the card with its mark and its description under it, at the panel's width, the
+    /// column keeping the prompts and never an answer, so it never widens with the agent's words; a press of a row chooses.
+    /// </summary>
+    [Test]
+    public void DescribedAnswersAreChosenInThePanelAndTheColumnKeepsThePrompts()
+    {
+        // Under the redesign the file hands an answer's description apart, as its quieter line (FileScreens.AnswerRow).
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try { Described(); }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    private void Described()
+    {
+        var question = new QuestionView
+        {
+            QuestionId = "described", Answerable = true, AskedAt = Samples.Time,
+            Prompts = new List<QuestionPrompt>
+            {
+                new() { Key = "q0", Header = "Storage", Text = "Where should the saved games live?", Multiple = false, FreeText = true, Secret = false,
+                    Options = new List<QuestionOption>
+                    {
+                        new() { Label = "Local file (Recommended)", Description = "Keeps every save on this computer, with nothing to set up." },
+                        new() { Label = "Cloud sync", Description = "Keeps saves in step across devices, and needs an account." },
+                    } },
+            },
+        };
+        var (host, _, column) = Asking(question);
+        Draw(host, column);
+        var bar = Bar(column);
+        Assert.That(bar.Card, Is.Not.Null, Show(bar));
+        Assert.That(bar.Card!.List.Select(row => (row.Name.Text, row.Under?.Text, row.Mark, row.Press != null)), Is.EqualTo(new[]
+        {
+            ("Local file (Recommended)", (string?)"Keeps every save on this computer, with nothing to set up.", AnswerMark.Single, true),
+            ("Cloud sync", "Keeps saves in step across devices, and needs an account.", AnswerMark.Single, true),
+        }), "each answer its row, the agent's own words, its description under it");
+        Assert.That(bar.Column.Any(action => action.Control.Place == KitPlace.Choice), Is.False, "no answer in the column: " + Show(bar));
+        Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(RoomForm.SpecActions), Show(bar));
+
+        // A press of a row chooses it, as a column answer did.
+        column.Act(bar.Card.List[1].Press!.Action, bar.Card.List[1].Press!.Key);
+        Draw(host, column);
+        Assert.That(Bar(column).Card!.List.Select(row => row.Chosen), Is.EqualTo(new[] { false, true }), Show(Bar(column)));
+
+        // Plain short answers stay in the column.
+        var (plainHost, _, plain) = Asking(Two("plain"));
+        Draw(plainHost, plain);
+        Assert.That(Bar(plain).Column.Count(action => action.Control.Place == KitPlace.Choice), Is.EqualTo(2), Show(Bar(plain)));
+    }
 }

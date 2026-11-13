@@ -302,10 +302,18 @@ namespace Halcyonic.Client
                     column: writing, field: Available(KitPlace.Field), band: ask.Prompt);
             }
             var column = new List<RoomAction>();
+            // Answers that carry a description are choices read in the PANEL (the lead's 2026-11-13T22:04Z): every answer of the page a
+            // pressed row of the card, its mark, its words as the agent wrote them, its description under it, at the panel's width; the
+            // column keeps the prompts and never widens with an agent's words. Plain short answers stay in the column.
+            var described = binding.Controls.Any(control => control.Available && control.Place == KitPlace.Choice && control.Under != null);
+            var listed = new List<RoomListRow>();
             foreach (var control in binding.Controls.Where(control => control.Available && (control.Place == KitPlace.Choice || control.Place == KitPlace.Step)))
             {
-                if (control.Place == KitPlace.Choice)
-                    column.Add(new RoomAction(control, main: false, mark: control.Mark == AnswerMark.None ? AnswerMark.Single : control.Mark, chosen: control.Chosen));
+                var answerMark = control.Mark == AnswerMark.None ? AnswerMark.Single : control.Mark;
+                if (control.Place == KitPlace.Choice && described)
+                    listed.Add(new RoomListRow(RoomKind.None, LineWords.Theirs(control.Words), press: control, chosen: control.Chosen, under: control.Under, mark: answerMark));
+                else if (control.Place == KitPlace.Choice)
+                    column.Add(new RoomAction(control, main: false, mark: answerMark, chosen: control.Chosen));
                 // An answer given, on the page of the person's answers: it reads as chosen, and its press goes back to its question.
                 else if (control.Action == FileScreens.GoToQuestion) column.Add(new RoomAction(control, main: false, mark: AnswerMark.Single, chosen: true));
                 else column.Add(new RoomAction(control, main: false, icon: control.Icon ?? GlazeIcon.Next));
@@ -333,8 +341,12 @@ namespace Halcyonic.Client
             else if (ask.Several && ask.Caption != null) body = LineWords.Ours(ask.Caption);
             // Where the way on waits and a panel stands, its sentence bar says why, in the file's words.
             if (!sending && !ask.Confirming && !body.IsEmpty && binding[KitPlace.Forward] is { Available: false, Reason: string why }) sentence = why;
-            return new RoomBar(RoomBarState.Question, body: body, sentence: sentence, column: sending ? None : column, waits: sending, band: ask.Prompt, wide: body.IsEmpty,
-                lines: lines);
+            // The described answers' card stands in the panel's place, what the panel would say (which question this is) its title.
+            var card = listed.Count > 0 && !sending ? new RoomCard(body.IsEmpty ? null : body, list: listed) : null;
+            var asking = new RoomBar(RoomBarState.Question, body: card != null ? LineWords.None : body, sentence: sentence, column: sending ? None : column, waits: sending,
+                band: ask.Prompt, wide: body.IsEmpty && card == null, lines: card != null ? null : lines);
+            if (card != null) asking.Card = card;
+            return asking;
         }
 
         /// <summary>

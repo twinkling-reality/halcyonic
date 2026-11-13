@@ -2657,20 +2657,21 @@ public class FileColumnTests
             void Press(RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
 
             var asked = Bar();
-            Assert.That((asked.State, asked.Band, asked.Wide, asked.Body.IsEmpty), Is.EqualTo((RoomBarState.Question, (string?)"Which colour scheme should the game use?", true, true)),
-                "one prompt: it stands on the band, and with nothing from the computer to say the choices take the panel's place");
-            Assert.That(asked.Column.Take(2).Select(action => (action.Words, action.Detail, action.Mark, action.Chosen, action.Control.Action)), Is.EqualTo(new[]
+            Assert.That((asked.State, asked.Band, asked.Card != null, asked.Body.IsEmpty), Is.EqualTo((RoomBarState.Question, (string?)"Which colour scheme should the game use?", true, true)),
+                "one prompt: it stands on the band, and its described answers are the panel's card (the lead's 22:04Z: read in the panel, never widening the column)");
+            Assert.That(asked.Card!.List.Select(row => (row.Name.Text, row.Under?.Text, row.Mark, row.Chosen, row.Press!.Action)), Is.EqualTo(new[]
             {
                 ("Light", (string?)"Dark text on a light background", AnswerMark.Single, false, FileScreens.Choose),
                 ("Dark", (string?)"Light text on a dark background", AnswerMark.Single, false, FileScreens.Choose),
             }), "an answer's label and its description given apart, never one string joined on a dot (JUDGE's dot list, item 1)");
-            Assert.That(asked.Column.Take(2).Select(action => action.Control.Under!.AllTheirs), Is.All.True, "the description is the agent's words");
+            Assert.That(asked.Card.List.Select(row => row.Under!.AllTheirs), Is.All.True, "the description is the agent's words");
+            Assert.That(asked.Column.Any(action => action.Control.Place == KitPlace.Choice), Is.False, "no described answer in the column");
             Assert.That(asked.Column.Any(action => action.Main), Is.False, "no way on before an answer is chosen: an action that cannot act is not drawn");
 
             Draw(host, column);
-            Press(asked.Column[1]);
+            column.Act(asked.Card.List[1].Press!.Action, asked.Card.List[1].Press!.Key);
             var chosen = Bar();
-            Assert.That(chosen.Column.Take(2).Select(action => action.Chosen), Is.EqualTo(new[] { false, true }));
+            Assert.That(chosen.Card!.List.Select(row => row.Chosen), Is.EqualTo(new[] { false, true }));
             // The way on, by the file's own steps and words, each the main action, until the one command goes.
             var steps = new List<string>();
             for (var step = 0; step < 6 && host.Sent.Count == 0; step++)
@@ -2708,13 +2709,15 @@ public class FileColumnTests
             void Press(RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
             RoomAction Named(RoomBar bar, string words) => bar.Column.Single(action => action.Words == words);
 
-            // The first of two: which it is stands in the panel, the computer's own; the prompt on the band; the choices beside the panel.
+            // The first of two: which it is is the card's title, the computer's own; the prompt on the band; its described answers the
+            // card's rows (the lead's 22:04Z).
             var first = Bar();
-            Assert.That((first.State, first.Wide, first.Body.Text, first.Band), Is.EqualTo((RoomBarState.Question, false, "Question 1 of 2 · Choose One",
+            Assert.That((first.State, first.Wide, first.Card?.Title?.Text, first.Band), Is.EqualTo((RoomBarState.Question, false, "Question 1 of 2 · Choose One",
                 (string?)"Which colour scheme should the dashboard use?")));
-            Assert.That(first.Column.Where(action => action.Mark != AnswerMark.None).Select(action => action.Mark), Is.All.EqualTo(AnswerMark.Single));
+            Assert.That(first.Card!.List.Select(row => row.Mark), Is.All.EqualTo(AnswerMark.Single));
             Draw(host, column);
-            Press(Named(first, "Dark"));
+            var dark = first.Card.List.Single(row => row.Name.Text == "Dark").Press!;
+            column.Act(dark.Action, dark.Key);
             Draw(host, column);
             Press(Bar().Column.Single(action => action.Main));
 
