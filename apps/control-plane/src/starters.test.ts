@@ -669,6 +669,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'kit.ts',
       'look.ts',
       'motion.ts',
+      // VRIFY: a page's words spread over the pages they take, never cut off (AUDIT2, 2026-11-13).
+      'page-fit.ts',
       // VRIFY unit 2: a web page's own cards, drawn as readable pages.
       'pages.ts',
       'palette.ts',
