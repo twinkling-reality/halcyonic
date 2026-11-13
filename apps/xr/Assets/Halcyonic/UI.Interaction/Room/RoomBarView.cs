@@ -661,6 +661,30 @@ namespace Halcyonic.XR.UI
         /// <summary>Whether the bar last laid stood past <see cref="Largest"/> (or <see cref="LargestNarrow"/> in the narrow form): a finding, never drawn quietly.</summary>
         public bool PassedLargest { get; private set; }
 
+        /// <summary>
+        /// Whether everything the bar last laid stands whole, whoever read the frame: its card where it has one
+        /// (<see cref="RoomCardView.LaidWhole"/>), and every other label it shows (the rows, the body, the sentence, the column)
+        /// showing all its words, none cut or ellipsed. A flow that counts what was read asks this, so a frame drawn by the
+        /// general reader, with no card, still answers truthfully (AUDIT, 2026-11-13T1726Z); in the narrow form a card never
+        /// cuts quietly: where this is false the plane asks again, and at its floor the frame goes to the general reader.
+        /// </summary>
+        public bool LaidWhole
+        {
+            get
+            {
+                if (!gameObject.activeInHierarchy) return false;
+                if (Card is RoomCardView laid && !laid.LaidWhole) return false;
+                var paged = Card?.PagedDescription;
+                foreach (var label in GetComponentsInChildren<TMP_Text>(false))
+                {
+                    if (label == paged || Card != null && label.transform.IsChildOf(Card.transform)) continue;
+                    label.ForceMeshUpdate(true);
+                    if (label.isTextOverflowing || label.GetParsedText().Contains("\u2026")) return false;
+                }
+                return true;
+            }
+        }
+
         /// <summary>Whether the bar last laid was the narrow form (<see cref="RoomBar.Narrow"/>).</summary>
         public bool Narrow { get; private set; }
 
