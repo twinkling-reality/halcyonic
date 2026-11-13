@@ -26,9 +26,13 @@ namespace Halcyonic.Client
         /// setting's <see cref="MenuSetting.Confirmed"/> as it read when armed, so the Yes acts on what
         /// the person saw; an arming lapses if it changes.
         /// </param>
+        /// <summary>Whether its confirmation removes or forgets something the person has (Forget Computer): the kit draws it as the destructive kind.</summary>
+        public bool Destructive { get; }
+
         public SettingNow(string value, string now, string next, string does, string prompt, string? reason = null, string? confirm = null,
-            bool valueIsData = false, string? about = null, LineWords? nowRuns = null)
+            bool valueIsData = false, string? about = null, LineWords? nowRuns = null, bool destructive = false)
         {
+            Destructive = destructive;
             Value = value;
             Now = nowRuns?.Text ?? now;
             Next = next;
@@ -208,7 +212,7 @@ namespace Halcyonic.Client
                         safeInPlace: true));
                     if (armed == chosen && now.Confirm != null)
                     {
-                        footer = Footer.Confirm(footer, PromptSlot.FarRight, new Prompt(Yes, now.Confirm, GlazeIcon.Change, PromptKind.Yes, safeInPlace: true),
+                        footer = Footer.Confirm(footer, PromptSlot.FarRight, new Prompt(Yes, now.Confirm, GlazeIcon.Change, PromptKind.Yes, safeInPlace: true, destructive: now.Destructive),
                             new Prompt(Cancel, SettingsText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
                     }
                     side = new SidePanel(open.Name, facts: new[] { new SideFact(SettingsText.Now, now.NowRuns), new SideFact(now.Next, now.Does) });

@@ -167,7 +167,7 @@ namespace Halcyonic.Client
                     available: Current && commandId == null && !editor.InputFocused,
                     reason: Current && commandId == null && !editor.InputFocused ? null : reason ?? "Finish Typing First", pageExplains: true) : null, farRight: send);
             var footer = armed ? Footer.Confirm(before, PromptSlot.FarRight,
-                reason == null && maySend ? new Prompt(Yes, "Confirm", GlazeIcon.Next, PromptKind.Yes) : null,
+                reason == null && maySend ? new Prompt(Yes, "Confirm", GlazeIcon.Next, PromptKind.Yes, destructive: false) : null,
                 new Prompt(CancelReview, "Cancel", GlazeIcon.Close, PromptKind.Cancel)) : before;
             return new MenuFrame(subject, footer, sections: sections, lines: lines, sourceRuns: source).Focus();
         }

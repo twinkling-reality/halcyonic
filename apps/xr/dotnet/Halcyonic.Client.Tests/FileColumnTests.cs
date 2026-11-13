@@ -245,7 +245,7 @@ public class FileColumnTests
         Assert.That((reported.Chip, reported.Runs.AllTheirs), Is.EqualTo((SectionLine.AgentChip, true)));
         column.ConfigureActivityComposer(() => new HeightBudget(0), () => new RowBudget(3));
         Assert.That(column.Screen.Instruction.Words, Is.EqualTo("Keep these words"));
-        Assert.That(column.ActivityContextFrame!.Lines.Select(line => line.Words), Has.Some.Contains("Move Workspace"));
+        Assert.That(column.ActivityContextFrame!.Lines.Select(line => line.Words), Has.Some.EqualTo(ProjectsText.MoreRoom));
         Assert.That(column.ActivityContextFrame.Footer.All, Is.Empty);
         Assert.That(host.Sent, Is.Empty);
     }

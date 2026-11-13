@@ -656,7 +656,7 @@ namespace Halcyonic.Client
             {
                 lines.Add(new PageLine(EntryText.StartOverClears(existing), rows: 3));
                 footer = Footer.Confirm(footer, PromptSlot.Rare,
-                    new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true),
+                    new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true, destructive: true),
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
             var subject = Subject(idea);
@@ -808,7 +808,7 @@ namespace Halcyonic.Client
                 lines.Clear();
                 lines.Add(new PageLine(EntryText.StartOverClears(existing), rows: 3));
                 footer = Footer.Confirm(footer, PromptSlot.Rare,
-                    new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true),
+                    new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true, destructive: true),
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
             // The page's card names the project as the recap's does (a title names the thing, the verb stays on the button: the
@@ -1137,7 +1137,7 @@ namespace Halcyonic.Client
             }
             var before = new Footer(Close(), farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true));
             var yes = review.CanConfirm
-                ? new Prompt(ConfirmStart, EntryText.ConfirmStart, GlazeIcon.StartBuilding, PromptKind.Yes, available: problem == null, reason: problem)
+                ? new Prompt(ConfirmStart, EntryText.ConfirmStart, GlazeIcon.StartBuilding, PromptKind.Yes, destructive: false, available: problem == null, reason: problem)
                 : null;
             var footer = Footer.Confirm(before, PromptSlot.FarRight, yes, new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             var subject = Subject(idea);
@@ -1255,7 +1255,7 @@ namespace Halcyonic.Client
             if (live && armed)
             {
                 footer = Footer.Confirm(footer, PromptSlot.FarRight,
-                    new Prompt(ConfirmClear, EntryText.ConfirmClear, GlazeIcon.Next, PromptKind.Yes),
+                    new Prompt(ConfirmClear, EntryText.ConfirmClear, GlazeIcon.Next, PromptKind.Yes, destructive: true),
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
             var subject = Subject(idea);

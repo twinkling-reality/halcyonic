@@ -706,7 +706,9 @@ namespace Halcyonic.Client
         };
 
         /// <summary>A confirmation's Yes, named by what it sends.</summary>
-        private static Prompt YesFor(WorkspaceAction armed) => new Prompt(Yes, WorkspaceText.ConfirmLabel(armed), WorkspaceText.IconOf(armed), PromptKind.Yes);
+        private static Prompt YesFor(WorkspaceAction armed) => new Prompt(Yes, WorkspaceText.ConfirmLabel(armed), WorkspaceText.IconOf(armed), PromptKind.Yes,
+            // Stopping running work is the destructive kind; approving, denying, steering and answering are not.
+            destructive: armed == WorkspaceAction.Interrupt);
 
         private static Prompt CancelConfirm => new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel);
     }

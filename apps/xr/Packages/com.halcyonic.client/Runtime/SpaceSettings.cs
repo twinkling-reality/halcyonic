@@ -246,7 +246,7 @@ namespace Halcyonic.Client
             }
             // Forgetting asks first, Settings' own Yes; the address is the person's typing, shown as data.
             return new SettingNow("Paired", "Paired · " + pairing.Address, Forget, AgainNeeded, Forget,
-                confirm: "Confirm", valueIsData: true, about: pairing.Address);
+                confirm: "Confirm", valueIsData: true, about: pairing.Address, destructive: true);
         }
     }
 }
