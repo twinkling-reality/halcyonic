@@ -110,7 +110,7 @@ namespace Halcyonic.Client
                     : prompt.Kind switch { PromptKind.Close => KitPlace.Close, PromptKind.Cancel => KitPlace.Cancel, PromptKind.Yes => KitPlace.Yes, _ => KitPlace.Step };
                 var leads = main == null && !leaves && !prompt.Holds && (prompt.Main || prompt.Kind == PromptKind.Yes);
                 // A confirmation's Yes stands behind its lock, as every Confirm of the redesign does.
-                var action = new RoomAction(new KitControl(place, frame, prompt.Id, null, prompt.Words, prompt.Icon, true, null, prompt.Holds), main: leads,
+                var action = new RoomAction(new KitControl(place, frame, prompt.Id, null, prompt.Words, prompt.Icon, true, null, prompt.Holds, destructive: prompt.Destructive), main: leads,
                     locks: prompt.Kind == PromptKind.Yes, icon: prompt.Icon);
                 if (leads) main = action;
                 else if (leaves) leaving.Add(action);
