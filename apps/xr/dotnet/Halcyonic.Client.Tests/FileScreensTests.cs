@@ -235,13 +235,16 @@ public class FileScreensTests
             var named = section + (form.Narrow ? " narrow" : " full");
             Assert.That(bar.Pair, Is.True, named);
             var offered = new HashSet<(string, string?)>();
+            // Every page in turn, until the pager comes back to the first (a page that only turns actions may count as read at once).
+            string Signature() => string.Join("|", bar.Column.Select(action => action.Control.Action + " " + action.Control.Key));
+            var first = Signature();
             var pages = 0;
             while (true)
             {
                 Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(form.ActionsAPage), named + ": a page within the spec's four in all");
                 foreach (var action in bar.Column) offered.Add((action.Control.Action, action.Control.Key));
                 pages++;
-                if (bar.Whole || pages >= 20 || !bar.Turn()) break;
+                if (pages >= 20 || !bar.Turn() || Signature() == first) break;
             }
             Assert.That((bar.Whole, pages < 20), Is.EqualTo((true, true)), named + ": every page shown");
             foreach (var prompt in frame.Footer.All.Select(each => each.Prompt).Where(prompt => prompt.Available))
