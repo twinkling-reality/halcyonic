@@ -147,8 +147,10 @@ namespace Halcyonic.Client
                 var title = plain.FirstOrDefault()?.Words;
                 var facts = plain.Skip(1).Select(line => new RoomRow(line.Runs)).ToList();
                 // Where the page gives its card (the project, Start Unconfirmed and the step's sentence), the card stands in the rows' place.
-                var unknown = yes != null ? Rows(RoomBarState.Confirm, facts, frame.Card != null ? null : title, Confirming())
-                    : Rows(RoomBarState.Choose, facts, frame.Card != null ? why : why ?? title, Column(withClose: true, Offered(NewProjectScreens.Clear)));
+                // With the card, the bar's sentence says what Clear does: armed, after Clear (Confirm stands), or not yet.
+                var clearing = yes != null ? EntryText.ClearOnlyAfterChecking : EntryText.ClearOnceChecked;
+                var unknown = yes != null ? Rows(RoomBarState.Confirm, facts, frame.Card != null ? clearing : title, Confirming())
+                    : Rows(RoomBarState.Choose, facts, frame.Card != null ? why ?? clearing : why ?? title, Column(withClose: true, Offered(NewProjectScreens.Clear)));
                 if (frame.Card != null) unknown.Card = frame.Card;
                 return unknown;
             }
@@ -160,7 +162,9 @@ namespace Halcyonic.Client
                     // The facts: the recap's card where the page gives one (A17), else rows that say what they are; Start Task
                     // first, then Change.
                     var facts = plain.Select(line => new RoomRow(line.Runs, label: line.RowLabel)).ToList();
-                    var recap = Rows(RoomBarState.Choose, facts, main is { Available: false } ? why : null, Column(withClose: true, Offered(NewProjectScreens.ChangeRecap)));
+                    // A wait's reason is the bar's sentence: Start Building held, or See What Happened standing in its place.
+                    var waiting = main is { Available: false } ? why : main?.Id == NewProjectScreens.CheckFirst ? plain.FirstOrDefault()?.Words : null;
+                    var recap = Rows(RoomBarState.Choose, facts, waiting, Column(withClose: true, Offered(NewProjectScreens.ChangeRecap)));
                     if (frame.Card != null) recap.Card = frame.Card;
                     return recap;
                 }

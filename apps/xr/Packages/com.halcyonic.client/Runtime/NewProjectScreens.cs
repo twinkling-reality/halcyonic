@@ -677,9 +677,10 @@ namespace Halcyonic.Client
             var suggested = idea.NameSuggested || idea.TaskSuggested;
             var proposal = suggested ? idea.Companion?.Proposal : null;
             var lines = new List<PageLine>();
-            // A start that may have run holds Start Building: the card says so in the page's own sentence, and its way on, See What
-            // Happened, is the main action (a reader, 2026-11-13: no lit button and nothing naming the wait read as a dead end).
-            if (notice == null && startUnknown && problem != null) notice = problem;
+            // A start that may have run holds Start Building: its sentence is the page's first line, which the bar says as its
+            // sentence beside See What Happened (a reader, 2026-11-13: no lit button and nothing naming the wait read as a dead end).
+            var held = startUnknown && problem != null;
+            if (notice == null && held) notice = problem;
             if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 3));
             else if (proposal != null) lines.Add(new PageLine(EntryScreens.Proposed(proposal), rows: 2));
             else if (EntryScreens.Moves(idea, currentFolder)) lines.Add(new PageLine(EntryText.RebindWarning, tone: LineTone.Secondary, rows: 2));
@@ -695,7 +696,7 @@ namespace Halcyonic.Client
             var footer = new Footer(Close(), rare: new Prompt(ChangeRecap, EntryText.Change, GlazeIcon.Change, safeInPlace: true),
                 farRight: WayOn(problem, startUnknown));
             return new MenuFrame(Subject(idea), footer, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
-                source: suggested ? CompanionText.Note : null).WithCard(RecapCard(idea, draft, currentFolder, live, lines.Count > 0 && lines[0].RowLabel == null ? lines[0].Runs : null));
+                source: suggested ? CompanionText.Note : null).WithCard(RecapCard(idea, draft, currentFolder, live, !held && lines.Count > 0 && lines[0].RowLabel == null ? lines[0].Runs : null));
         }
 
         /// <summary>The redesign's recap rows' labels, ours, given apart from the person's words.</summary>
@@ -1266,14 +1267,14 @@ namespace Halcyonic.Client
         /// <summary>
         /// The unknown start's page under the redesign as a card, as the start's own card is (a reader, 2026-11-13: the page had no
         /// title, no project, and its state sat last like a footnote): the project as its title, Start Unconfirmed over the step's
-        /// sentence as its status, and what the computer recorded and what Clear does as its words. The reference stays in the
+        /// sentence as its status, and what the computer recorded as its words; what Clear does is the bar's sentence. The reference stays in the
         /// page's lines for the older view; a person has nothing to do with it here.
         /// </summary>
         public static RoomCard UnresolvedCard(ProjectIdea idea, CommandView? record, bool armed, string? said, BuildStepKind? kind)
         {
             var title = idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet);
-            var words = EntryText.Recorded(record?.Status) + " " + (armed ? EntryText.ClearOnlyAfterChecking : EntryText.ClearOnceChecked)
-                + (said != null ? " " + said : "");
+            // What Clear does is the bar's sentence under the card, as the page's own line (its four lines hold the record).
+            var words = EntryText.Recorded(record?.Status) + (said != null ? " " + said : "");
             return new RoomCard(title, LineWords.Ours(words), RoomCardHead.Project,
                 new RoomCardStatus(EntryText.PreviousRequestTitle, EntryText.PreviousRequest(kind), RoomTone.Quiet));
         }

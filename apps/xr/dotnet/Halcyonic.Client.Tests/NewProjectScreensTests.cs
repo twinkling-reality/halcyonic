@@ -420,7 +420,9 @@ public class NewProjectRecapTests
             var recap = NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: reason, buildReached: true, startOverProblem: reason, startUnknown: true);
             var main = recap.Footer[PromptSlot.FarRight]!;
             Assert.That((main.Id, main.Words, main.Available, main.Main), Is.EqualTo((NewProjectScreens.CheckFirst, EntryText.CheckFirst, true, true)), "its way on, lit");
-            Assert.That(recap.Lines[0].Words, Is.EqualTo(reason), "the card says why Start Building waits");
+            Assert.That(recap.Lines[0].Words, Is.EqualTo(reason), "the page says why Start Building waits");
+            Assert.That(recap.Card!.More, Is.Null, "never cut into the card's foot");
+            Assert.That(RoomBar.OfFrame(recap, VoiceStage.Idle)!.Sentence, Is.EqualTo(reason), "as its sentence");
             Assert.That(NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: EntryText.ChooseWhereFilesLive).Footer[PromptSlot.FarRight]!.Id,
                 Is.Not.EqualTo(NewProjectScreens.CheckFirst), "any other wait keeps its own way on");
             Assert.That(NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: reason).Footer[PromptSlot.FarRight]!.Id,
@@ -430,7 +432,8 @@ public class NewProjectRecapTests
                 kind: BuildStepKind.CreateProject);
             var card = page.Card!;
             Assert.That((card.Title!.Text, card.Status!.Value.Title, card.Status.Value.Line), Is.EqualTo(("Race Times", EntryText.PreviousRequestTitle, reason)), "the project, its state and its sentence at the head");
-            Assert.That(card.Description!.Text, Does.Contain(EntryText.Recorded(CommandStatus.Failed)).And.Contain(EntryText.ClearOnceChecked).And.Not.Contain("c-1"));
+            Assert.That(card.Description!.Text, Does.Contain(EntryText.Recorded(CommandStatus.Failed)).And.Not.Contain("c-1"));
+            Assert.That(RoomBar.OfFrame(page, VoiceStage.Idle)!.Sentence, Is.EqualTo(EntryText.ClearOnceChecked), "what Clear does, the bar's sentence");
             Assert.That(card.Description.Text, Does.Not.Contain("\u00b7"));
         }
         finally { RoomDesign.Enabled = was; }
