@@ -145,10 +145,13 @@ namespace Halcyonic.XR.Room
                 pendingRestoredAnchor = null;
             }
         }
-        private bool AllowsShelf(AgentShelfPose candidate)
+        private bool AllowsShelf(AgentShelfPose candidate) => ShelfRefusedBy(candidate) == null;
+
+        /// <summary>What refuses a shelf at <paramref name="candidate"/>: the field, the plane's footprint, or no head; null where it may stand.</summary>
+        private string? ShelfRefusedBy(AgentShelfPose candidate)
         {
             var head = Camera.main;
-            if (head == null) return false;
+            if (head == null) return "no head to measure from";
             var pose = ToPose(candidate);
             var measured = ViewField.Current ?? new ViewField(48, 48, 45, 45);
             var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
@@ -159,10 +162,11 @@ namespace Halcyonic.XR.Room
                 var direction = Quaternion.Inverse(head.transform.rotation) * (shelfCorners[corner] - head.transform.position);
                 var yaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
                 var elevation = Mathf.Atan2(direction.y, new Vector2(direction.x, direction.z).magnitude) * Mathf.Rad2Deg;
-                if (!field.Shows(yaw, elevation)) return false;
+                if (!field.Shows(yaw, elevation)) return "a corner outside the field";
             }
             var workspace = GetComponent<WorkspaceDirector>();
-            return workspace != null && workspace.ClearsShelf(shelfCorners, head.transform.position);
+            if (workspace == null) return "no workspace";
+            return workspace.ClearsShelf(shelfCorners, head.transform.position) ? null : "the plane's footprint";
         }
         public void CancelPreview()
         {
@@ -176,8 +180,11 @@ namespace Halcyonic.XR.Room
             run++;
             var pendingAnchor = pendingRestoredAnchor;
             pendingRestoredAnchor = null;
+            // Said once a refusal, so a walk names the check that kept the shelf where it was (JUDGE's 19:46Z).
+            var refusedBy = Draft.Candidate is AgentShelfPose held ? ShelfRefusedBy(held) : "no preview held";
             if (!surfaceSession.TryApply(Draft, Status, memory, out var applied))
             {
+                Debug.Log("Halcyonic: the shelf was not placed: " + (refusedBy ?? "out of the draft's reach"));
                 if (pendingAnchor != null) Destroy(pendingAnchor.gameObject);
                 CancelPreview();
                 return false;
