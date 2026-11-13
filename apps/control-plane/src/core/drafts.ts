@@ -103,6 +103,28 @@ export function createObservationSink(
   };
 }
 
+/** What an approval's request keeps for the record, whole: the bound an agent's message has. */
+export const SUMMARY_LIMIT = 32000;
+
+/**
+ * The longest request a person can approve: one the headset's card shows whole. 2000 until the card pages a longer
+ * one and holds Approve to its last part (AUDIT3, 2026-11-13); beyond it the host denies the step with its reason.
+ */
+export const APPROVABLE_LIMIT = 2000;
+
+/**
+ * `text` with every character a card does not draw written as its escape (`\u{202E}`): C0 and C1 controls but tab and
+ * newline, carriage return, the bidirectional overrides and isolates, the zero-width characters and the byte order
+ * mark, so a request cannot read otherwise than it runs (AUDIT3 L1).
+ */
+export function visible(text: string): string {
+  return text.replace(
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: finding control characters is the rule.
+    /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u200B-\u200D\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g,
+    (c) => `\\u{${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}}`,
+  );
+}
+
 /**
  * An observation's payload with credentials taken out, then cut to the contract's limits, since
  * what stands in for a credential can be longer than it, and a held secret is found only whole:
@@ -141,13 +163,18 @@ function withoutCredentials(
     case 'runtime.approval.requested': {
       const subject = payload.subject as { summary?: unknown } | undefined;
       if (typeof subject?.summary !== 'string') return payload;
-      const held = redaction.held(subject.summary);
-      const summary = fitted(held, 2000);
-      // A request cut to fit was never shown whole, so it can no longer be approved.
+      // What a card does not draw is drawn as its escape, so what is shown is what runs (AUDIT3 L1).
+      const held = visible(redaction.held(subject.summary));
+      const summary = fitted(held, SUMMARY_LIMIT);
+      // A request a person cannot be shown whole can never be approved; the host denies it at once.
+      // Counted in code points, as the contract counts text.
+      const length = [...held].length;
+      const tooLong = length > APPROVABLE_LIMIT;
       return {
         ...payload,
         subject: { ...subject, summary },
-        complete: payload.complete === true && summary === held,
+        complete: payload.complete === true && summary === held && !tooLong,
+        ...(tooLong && { too_long: { length } }),
       };
     }
     case 'runtime.question.asked':

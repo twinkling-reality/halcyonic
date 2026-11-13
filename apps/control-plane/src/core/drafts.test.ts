@@ -9,7 +9,7 @@ import {
 } from '@halcyonic/contracts';
 import type { ExecutionContext, RuntimeObservation } from '@halcyonic/runtime-core';
 import { capturingLogger } from '../testing/harness.ts';
-import { createObservationSink } from './drafts.ts';
+import { APPROVABLE_LIMIT, createObservationSink, SUMMARY_LIMIT, visible } from './drafts.ts';
 import type { Recorder } from './recorder.ts';
 import { redaction, TRUNCATED } from './redaction.ts';
 
@@ -164,7 +164,7 @@ describe("a runtime's observations", () => {
   test("are cut to their field's limit after redaction, never before, so no part of a held value is left", () => {
     const { sink, recorded } = recordingSink();
     // As the adapters now pass them: whole, with the held value across where the contract cuts.
-    const summary = `${'x'.repeat(1990)}${held} and more`;
+    const summary = `${'x'.repeat(31_990)}${held} and more`;
     const title = `${'x'.repeat(490)}${held} and more`;
     sink(
       observation('runtime.approval.requested', {
@@ -179,18 +179,23 @@ describe("a runtime's observations", () => {
       observation('runtime.test_run.completed', { test_run_id: 'x', outcome: 'failed', summary }),
     );
     const [approval, tool, started, completed] = recorded.map((draft) => draft.payload);
-    const cutSummary = `${'x'.repeat(1990)}${MARK}`.slice(0, 2000 - TRUNCATED.length) + TRUNCATED;
+    const cutSummary =
+      `${'x'.repeat(31_990)}${MARK}`.slice(0, 32_000 - TRUNCATED.length) + TRUNCATED;
+    const cutCompleted =
+      `${'x'.repeat(31_990)}${MARK}`.slice(0, 2000 - TRUNCATED.length) + TRUNCATED;
     const cutTitle = `${'x'.repeat(490)}${MARK}`.slice(0, 500 - TRUNCATED.length) + TRUNCATED;
     // Cut to fit, it was never shown whole, so it is no longer complete.
+    // Cut to the record's bound and too long to show a person whole, so it is not approvable and is marked so.
     assert.deepEqual(approval, {
       approval_id: 'a',
       subject: { kind: 'tool_use', tool_name: 'Bash', summary: cutSummary },
       complete: false,
+      too_long: { length: 31_990 + [...MARK].length + ' and more'.length },
     });
     assert.deepEqual(tool, { tool_call_id: 't', tool_name: 'Bash', title: cutTitle });
     assert.deepEqual(started, { test_run_id: 'x', label: cutTitle });
-    assert.deepEqual(completed, { test_run_id: 'x', outcome: 'failed', summary: cutSummary });
-    for (const text of [cutSummary, cutTitle]) {
+    assert.deepEqual(completed, { test_run_id: 'x', outcome: 'failed', summary: cutCompleted });
+    for (const text of [cutSummary, cutTitle, cutCompleted]) {
       assert.ok(!text.includes(held.slice(0, 8)), 'no prefix of the held value');
     }
   });
@@ -199,8 +204,8 @@ describe("a runtime's observations", () => {
     // Eight characters, the shortest held value replaced, which its marker lengthens.
     const short = 'pw-12345';
     const { sink, recorded } = recordingSink([{ what: 'TEST_PASS', value: short }]);
-    // 2000 code points with the emoji, 2001 UTF-16 units: it fits, until the marker lengthens it.
-    const summary = `😀${'x'.repeat(1999 - short.length)}${short}`;
+    // 32000 code points with the emoji, 32001 UTF-16 units: it fits, until the marker lengthens it.
+    const summary = `😀${'x'.repeat(31_999 - short.length)}${short}`;
     sink(
       observation('runtime.approval.requested', {
         approval_id: 'a',
@@ -218,7 +223,7 @@ describe("a runtime's observations", () => {
     );
     const [approval, question] = recorded.map((draft) => draft.payload);
     const cut = (approval as { subject: { summary: string } }).subject.summary;
-    assert.equal(Array.from(cut).length, 2000);
+    assert.equal(Array.from(cut).length, 32_000);
     assert.ok(cut.startsWith('😀') && cut.endsWith(TRUNCATED));
     assert.ok(
       validatePayload({
@@ -339,5 +344,53 @@ describe("a runtime's observations", () => {
     );
     assert.equal(recorded.length, 0);
     assert.ok(entries.some((entry) => entry.message === 'runtime observation rejected'));
+  });
+});
+
+describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-13)", () => {
+  const ask = (tool: string, summary: string) => {
+    const { sink, recorded } = recordingSink();
+    sink(
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: { kind: 'tool_use', tool_name: tool, summary },
+        complete: true,
+      }),
+    );
+    return recorded[0]?.payload as {
+      subject: { summary: string };
+      complete: boolean;
+      too_long?: { length: number };
+    };
+  };
+
+  test('what a card does not draw is shown as its escape, so what is shown is what runs (L1)', () => {
+    // A right-to-left override makes "rm -rf ~ #txt.gnp" read as something else on a card that draws it.
+    const asked = ask('Bash', 'echo safe \u202E; rm -rf ~ #gnp.txt');
+    assert.equal(asked.subject.summary, 'echo safe \\u{202E}; rm -rf ~ #gnp.txt');
+    assert.equal(asked.complete, true);
+    assert.equal(
+      visible('a\u200Bb\u2066c\uFEFFd\re\u0007f\tg\nh'),
+      'a\\u{200B}b\\u{2066}c\\u{FEFF}d\\u{000D}e\\u{0007}f\tg\nh',
+    );
+  });
+
+  test("a request longer than a person can approve is kept whole up to the record's bound and marked too long", () => {
+    const fits = ask('Bash', 'x'.repeat(APPROVABLE_LIMIT));
+    assert.equal(fits.complete, true);
+    assert.equal(fits.too_long, undefined);
+    const long = ask('Bash', 'x'.repeat(APPROVABLE_LIMIT + 1));
+    assert.equal(long.complete, false);
+    assert.deepEqual(long.too_long, { length: APPROVABLE_LIMIT + 1 });
+    assert.equal(long.subject.summary.length, APPROVABLE_LIMIT + 1, 'kept whole');
+    const huge = ask('Bash', 'y'.repeat(SUMMARY_LIMIT + 10));
+    assert.equal([...huge.subject.summary].length, SUMMARY_LIMIT);
+    assert.deepEqual(huge.too_long, { length: SUMMARY_LIMIT + 10 });
+    // The same rule for a file a run would write, so a long script cannot be approved as a Write instead (L3).
+    const write = ask('Write', `Write ${'z'.repeat(APPROVABLE_LIMIT)}`);
+    assert.equal(write.complete, false);
+    assert.ok(write.too_long !== undefined);
+    // A part at the bound, as the denial's words ask, is approvable (AUDIT2 W1).
+    assert.equal(ask('Write', 'z'.repeat(APPROVABLE_LIMIT)).complete, true);
   });
 });

@@ -125,6 +125,13 @@ export const RuntimeDescriptor = Type.Object(
      */
     reports_usage: Type.Optional(Type.Boolean()),
     /**
+     * True when a denial's message reaches the agent as words it reads (Claude Agent's SDK carries it). Declared only
+     * from the pinned version's own types or a runtime test (approval-levels.md); absent means the words reach the
+     * agent nowhere, so Halcyonic never says the agent was told (OpenCode 2.0.18 delivers them nowhere, Codex
+     * 0.157.0's reply has no field for them).
+     */
+    delivers_denial_message: Type.Optional(Type.Boolean()),
+    /**
      * True when a start may carry `spending_cap_usd` and the runtime itself stops the task once its
      * own estimate of what the task spent since it last started passes it: declared only once a run
      * of the pinned version shows the stop (spending-cap.md). Absent means no cap is offered, and the

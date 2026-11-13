@@ -300,6 +300,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       // Each result's per-model counts and Claude Code's own cost estimate, cumulative for the query,
       // so a turn's usage is the difference (agent-usage.md, SDK 0.3.283's types).
       reports_usage: true,
+      // A denial's `message` is the tool result the model reads (SDK 0.3.283's PermissionResult: `message: string`).
+      delivers_denial_message: true,
       // `maxBudgetUsd`: the CLI the SDK 0.3.283 bundles stops at it with `error_max_budget_usd`,
       // subagents counted, and a resumed query counts from its start (spending-cap.md).
       offers_spending_cap: true,

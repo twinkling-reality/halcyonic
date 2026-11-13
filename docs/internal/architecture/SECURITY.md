@@ -982,6 +982,11 @@ part of a request: Codex and Claude Code edits are approved on the paths they na
   access token still rotates only by deleting its file. Nothing expires.
 - **Keystore protection** of the credential on the headset, and discovery without typing the
   address (mDNS).
+- **A file write's approval shows only its path** (AUDIT3, 2026-11-13). In an unconfined run, approving a write
+  approves content the card does not show: Claude Agent's Write, Edit and NotebookEdit requests carry the file's path,
+  not what is written. A confined run is not affected (the closed profile holds its writes and the host answers them,
+  ADR 0064). Ordered as the second half of ADR 0065: an approval shows whole what it approves; this line leaves when
+  it lands.
 
 Device pairing, encrypted transport for devices on the network, and per-device identity exist
 ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)); serving anything to the

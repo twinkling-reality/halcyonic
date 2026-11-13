@@ -904,6 +904,8 @@ describe('observing a turn', () => {
   test("each turn reports what it used, the difference of the query's running totals", async () => {
     const { adapter, startConfirmed, observed } = setup();
     assert.equal(adapter.descriptor.reports_usage, true);
+    // A denial's message is the tool result the model reads (ADR 0065).
+    assert.equal(adapter.descriptor.delivers_denial_message, true);
     const scripted = await startConfirmed();
     const totals = (input: number, output: number, cost: number) => ({
       total_cost_usd: cost,

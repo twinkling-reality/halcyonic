@@ -984,6 +984,25 @@ export const ExecutionApprovalHostAnswerWithdrawn = executionEvent(
   Type.Object({ approval_id: NativeId }, strict),
 );
 
+/**
+ * The host denied a request of this execution itself, recorded before the denial is sent: a request longer than a
+ * person can be shown whole (`too_long_to_show`, with its length), for every run, so no card that can only be denied
+ * is left waiting. `delivered` is whether the agent app declares that a denial's words reach its agent
+ * (`delivers_denial_message`): where false, the words are recorded and shown, and the agent was never told them.
+ */
+export const ExecutionApprovalDeniedByHost = executionEvent(
+  'execution.approval.denied_by_host',
+  Type.Object(
+    {
+      approval_id: NativeId,
+      because: Type.Union([Type.Literal('too_long_to_show')]),
+      length: Type.Integer({ minimum: 0 }),
+      delivered: Type.Boolean(),
+    },
+    strict,
+  ),
+);
+
 /** The adapter reported that the runtime could not start the execution. */
 export const ExecutionStartFailed = executionEvent(
   'execution.start_failed',
@@ -1131,7 +1150,8 @@ export const ApprovalSubject = Type.Union([
     {
       kind: Type.Literal('tool_use'),
       tool_name: Text(128),
-      summary: Text(2000),
+      /** Whole up to 32000 characters, the bound an agent's message has; cut beyond it (never approvable then). */
+      summary: Text(32000),
       /**
        * Every place the tool's input names, when the adapter can give them all as structure; absent when it cannot
        * (a shell command, a pattern that may climb out of its folder), which never reads as none.
@@ -1182,6 +1202,12 @@ export const RUNTIME_EVENT_PAYLOADS = {
        * summary to fit. Only a complete request can be approved.
        */
       complete: Type.Boolean(),
+      /**
+       * Set by the control plane when the request is longer than a person can be shown whole and approve
+       * (`length`, its characters after credentials were taken out): it is never approvable, and the host
+       * denies it at once (`execution.approval.denied_by_host`). Absent otherwise.
+       */
+      too_long: Type.Optional(Type.Object({ length: Type.Integer({ minimum: 0 }) }, strict)),
     },
     strict,
   ),
@@ -1400,6 +1426,7 @@ export const EVENT_VARIANTS = [
   ExecutionAutoFixEnded,
   ExecutionApprovalAnsweredByHost,
   ExecutionApprovalHostAnswerWithdrawn,
+  ExecutionApprovalDeniedByHost,
   ExecutionStartFailed,
   ExecutionStateUnknown,
   CommandAccepted,

@@ -267,6 +267,8 @@ describe('Codex never asking (ADR 0043)', () => {
     const { runtime } = adapter(t);
     // Declared once the end to end suite showed it on the pinned binary.
     assert.equal(runtime.descriptor.offers_never_ask, true);
+    // 0.157.0's approval reply has no field for a reason (its schema; ADR 0065).
+    assert.equal(runtime.descriptor.delivers_denial_message, undefined);
     assert.deepEqual(runtime.validateStartOptions({}, null, 'never_ask'), { ok: true });
     assert.deepEqual(runtime.validateStartOptions({}, null, 'ask'), { ok: true });
     for (const options of [
