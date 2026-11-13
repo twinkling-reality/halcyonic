@@ -982,6 +982,10 @@ part of a request: Codex and Claude Code edits are approved on the paths they na
   access token still rotates only by deleting its file. Nothing expires.
 - **Keystore protection** of the credential on the headset, and discovery without typing the
   address (mDNS).
+- **The headset's card does not yet draw a file write's change** (AUDIT3, 2026-11-13). The request carries the
+  change whole (`ApprovalSubject.changes`, ADR 0065 point 5), but no headset card draws it yet: in an unconfined run,
+  approving a write on the headset still approves content the person was not shown. A confined run is not affected
+  (the closed profile holds its writes and the host answers them, ADR 0064). This line leaves when the card draws it.
 
 Device pairing, encrypted transport for devices on the network, and per-device identity exist
 ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)); serving anything to the
