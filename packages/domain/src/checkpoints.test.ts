@@ -292,7 +292,10 @@ describe('admitting a restore', () => {
     runtime('runtime.turn.started');
     const running = admitCommand(restore(saved), projection, RUNTIMES);
     assert.equal(!running.admitted && running.rejection.code, 'invalid_state');
-    assert.match(!running.admitted ? running.rejection.message : '', /Stop it before/);
+    assert.match(
+      !running.admitted ? running.rejection.message : '',
+      /^Workstream is running in this project, so this was not done\. Stop it, then put the files back\.$/,
+    );
     finishTurn();
     assert.equal(admitCommand(restore(saved), projection, RUNTIMES).admitted, true);
   });

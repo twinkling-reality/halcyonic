@@ -334,10 +334,9 @@ function admit(
         );
       }
       // Files the runtime is still writing cannot be put back, and a restore must not race a start.
-      const busy = projection.projectBusy(projectId);
-      if (busy !== null) {
-        return reject(scope, 'invalid_state', `${busy} Stop it before putting files back.`);
-      }
+      const busy = projection.projectBusyReason(projectId);
+      if (busy !== null)
+        return reject(scope, 'invalid_state', busyWords(busy, 'Stop it, then put the files back.'));
       return { admitted: true, policy, scope, runtime: null };
     }
 
@@ -421,8 +420,13 @@ function admit(
           return { admitted: true, policy, scope: taskScope, runtime: null };
         }
         // A check of files a runtime is still writing would describe neither before nor after.
-        const busy = projection.projectBusy(projectId);
-        if (busy !== null) return reject(scope, 'invalid_state', `${busy} Check it once it stops.`);
+        const busy = projection.projectBusyReason(projectId);
+        if (busy !== null)
+          return reject(
+            scope,
+            'invalid_state',
+            busyWords(busy, 'Check the project once it stops.'),
+          );
         return { admitted: true, policy, scope, runtime: null };
       }
       const preview = projection.preview(projectId);
@@ -1126,9 +1130,13 @@ function admit(
       if (project.location === null)
         return reject(scope, 'invalid_state', 'This project has no folder to check.');
       // Choosing runs the check once: never over files a runtime is still writing.
-      const busy = projection.projectBusy(projectId);
+      const busy = projection.projectBusyReason(projectId);
       if (busy !== null)
-        return reject(scope, 'invalid_state', `${busy} Choose its check once it stops.`);
+        return reject(
+          scope,
+          'invalid_state',
+          busyWords(busy, "Choose the project's check once it stops."),
+        );
       return { admitted: true, policy, scope, runtime: null };
     }
 
@@ -1218,11 +1226,11 @@ export function removalRefusal(
   except?: string,
 ): string | null {
   // A request of the assistant's about it ends itself once the project is off the list, its press included.
-  const busy = projection.projectBusy(project.project_id, except, false);
+  const busy = projection.projectBusyReason(project.project_id, except, false);
   if (busy !== null)
     // A task has a Stop; a command still under way has none, and its name is not a person's word.
-    return busy.startsWith('A task')
-      ? `${busy} Stop it, then remove the project.`
+    return busy.kind === 'task'
+      ? `${busy.sentence} Stop it, then remove the project.`
       : 'Something in this project is still under way. Wait for it to finish, then remove the project.';
   if (project.share !== undefined) return 'This game is shared now. Stop sharing it first.';
   if (project.mac_play !== undefined) return 'This game is playing on the Mac now. Stop it first.';
@@ -1465,6 +1473,17 @@ function untilFree(status: ExecutionStatus): string {
   return status === 'starting'
     ? 'Wait for it to start, then try again.'
     : 'Wait for it to finish or stop it, then try again.';
+}
+
+/**
+ * A busy project's refusal: its sentence, then a Stop for a task, which has one, or "try again" for a command
+ * still under way, which has none (AUDIT2 S1, 2026-11-13).
+ */
+function busyWords(
+  busy: { readonly kind: 'task' | 'command'; readonly sentence: string },
+  forTask: string,
+): string {
+  return `${busy.sentence} ${busy.kind === 'task' ? forTask : 'Try again once it has finished.'}`;
 }
 
 /**
