@@ -206,6 +206,8 @@ interface KeyedApp {
     readonly file: string;
     /** What of the person's own set-up a task outside the sandbox uses, as the adapter declares; null for none. */
     readonly personal: (() => PersonalSetupUse) | null;
+    /** Whether a run outside the sandbox could read the host's own folders, the key's file among them, as declared. */
+    readonly holdsKey: () => boolean;
   };
   readonly stored: boolean;
   /** A file is where its key would be, but the app would refuse it (others can read it, or it is empty). */
@@ -660,8 +662,19 @@ class MacSetup {
           key.runtimeId === CLAUDE_AGENT_RUNTIME_ID
             ? 'your own Claude Code settings folder'
             : 'your own settings folder';
+        // At its start no instructions file of the task's folder or above it reaches the model (the adapter's
+        // declaration). Once it works, where the adapter declares it holds no key outside the sandbox (this Mac) the
+        // light profile denies it only Halcyonic's own folders; elsewhere nothing does. Its model's service is named
+        // only as a service: a gateway on this Mac may serve it (VRIFY, 2026-11-13; a fresh reader's read).
+        const reach = key.holdsKey()
+          ? "any file you can, Halcyonic's own folders included"
+          : "any file you can except Halcyonic's own folders";
+        const starts =
+          used.folderInstructionsSent !== false
+            ? ''
+            : ` It doesn't start with the ${used.instructions} of the task's own folder or any folder above it, but once it's working it can read ${reach}, and what it reads goes to the service its models run on.`;
         lines.push(
-          `${where}, a task on ${key.app} uses the ${used.instructions} in ${folder}${hooks}${used.restUsed ? '' : ', and nothing else of your own settings'}.`,
+          `${where}, a task on ${key.app} uses the ${used.instructions} in ${folder}${hooks}${used.restUsed ? '' : ', and nothing else of your own settings'}.${starts}`,
         );
       }
       if (keyed.unusable) {
@@ -708,15 +721,17 @@ class MacSetup {
   #keyedApps(env: NodeJS.ProcessEnv): KeyedApp[] {
     const { providers } = this.#providerList();
     if (providers === null) return [];
-    const declared = KEYED_AGENT_APPS.flatMap(({ runtimeId, reader, personalSetup }) =>
-      providersReadBy(providers, runtimeId).map((provider) => ({
-        runtimeId,
-        app: reader.name,
-        declared: provider.name,
-        variable: provider.key.variable,
-        file: provider.key.file,
-        personal: personalSetup,
-      })),
+    const declared = KEYED_AGENT_APPS.flatMap(
+      ({ runtimeId, reader, personalSetup, holdsKeyOutsideSandbox }) =>
+        providersReadBy(providers, runtimeId).map((provider) => ({
+          runtimeId,
+          app: reader.name,
+          declared: provider.name,
+          variable: provider.key.variable,
+          file: provider.key.file,
+          personal: personalSetup,
+          holdsKey: holdsKeyOutsideSandbox,
+        })),
     );
     return declared.map((key) => {
       const file = keyFile(this.#dataDir, key);
