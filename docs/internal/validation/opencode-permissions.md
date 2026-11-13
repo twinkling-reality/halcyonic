@@ -250,6 +250,13 @@ commands; edits do not ask; subagents stay denied.
   folder: there OpenCode asks for the folder (`external_directory`), which names no file and does
   not say it writes, so since 2026-10-08 the session also asks for the edit by its absolute path
   (`edit` on `/*`; runtime: the folder's ask, then the file's, and only then the write).
+- **A confined app's declared original** (2026-11-13, ADR 0064): seen on the proving plane in run (b), OpenCode
+  2.0.18 on a hosted model asks `external_directory` for the original (`<original>/*`) and then for each folder
+  inside it it reads (`<original>/src/*`), again each time, since the replies are once only: three asks in three
+  seconds before any file. So a confined folder's session also allows `external_directory` on each declared
+  original's real path and on `<original>/*` (`*` matches `/` too, so every folder inside it), and refuses
+  `<original>/.git` and `<original>/.git/*` after them, the last match winning. The closed profile keeps the
+  original read only, its secret shapes and version control refused, and refuses a folder inside it that links out.
 - **Plugins can change what runs or turn the ask off** (source): a `shell` `create.before` hook
   runs before the parse and can change the command (`core/src/shell.ts:274`); a `tool`
   `execute.before` hook can change a tool's input after `session.tool.called` was published

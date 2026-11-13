@@ -62,6 +62,7 @@ import { HostProviders, KeyChecks } from './providers.ts';
 import {
   AGENT_KEY_READERS,
   createRuntimeAdapters,
+  folderReads,
   heldSecrets,
   heldToFolder,
   KEYED_AGENT_APPS,
@@ -233,6 +234,12 @@ async function main(): Promise<void> {
     logger: app.log,
     commandTimeoutMs: config.commandTimeoutMs,
     locations,
+    // A confined app's requests inside its own copy are answered by the host (the lead's ruling, 2026-11-13): the same
+    // reads its sandbox is given (`folderReads`), for a starter's project only.
+    confinedReads: (directory) =>
+      starterOf(directory) === null
+        ? null
+        : folderReads({ starterOf, originalOf, dataDir: config.dataDir }, directory),
     ...(config.gitBinary === null
       ? {}
       : {

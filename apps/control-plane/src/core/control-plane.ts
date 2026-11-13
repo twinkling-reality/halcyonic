@@ -37,6 +37,7 @@ import { AutoFix } from './auto-fix.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 import { GivenPictures } from './given-pictures.ts';
+import { type ConfinedReads, HostAnswers } from './host-answers.ts';
 import { InstructionQueue } from './instruction-queue.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
@@ -132,6 +133,12 @@ export interface ControlPlaneOptions {
    */
   readonly autoFix?: boolean;
   /**
+   * What a confined app's folder reads besides itself (a starter's shared files, a VR version's original), or null for
+   * a folder that is not a confined app's: with it, the host answers that app's requests inside its own copy itself
+   * (`HostAnswers`, the lead's ruling, 2026-11-13). Absent, every request reaches the person.
+   */
+  readonly confinedReads?: (directory: string) => ConfinedReads | null;
+  /**
    * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's text is
    * journaled or read through to a device, since some change (redaction.ts). None by default;
    * credential shapes still go from error text.
@@ -217,6 +224,7 @@ export class ControlPlane {
   readonly #autoCheckNeeded = new Map<ProjectId, Set<string>>();
   #autoCheckScheduled = false;
   readonly #autoFix: AutoFix | null;
+  readonly #hostAnswers: HostAnswers | null;
   #closed = false;
   readonly #closeWaitMs: number;
   /** Events between checkpoints, or null for a fixture journal, never checkpointed (ADR 0050). */
@@ -450,6 +458,21 @@ export class ControlPlane {
             live: this.journal.info.origin === 'live',
           });
     this.#autoFix?.attach();
+    this.#hostAnswers =
+      options.confinedReads === undefined
+        ? null
+        : new HostAnswers({
+            projection: this.projection,
+            recorder: this.recorder,
+            publisher: this.publisher,
+            commands: this.commands,
+            confinedReads: options.confinedReads,
+            ids: options.ids,
+            clock: options.clock,
+            logger: options.logger,
+            live: this.journal.info.origin === 'live',
+          });
+    this.#hostAnswers?.attach();
     // The person's instructions held for a runtime that cannot steer (ADR 0056).
     new InstructionQueue({
       projection: this.projection,
@@ -761,6 +784,7 @@ export class ControlPlane {
     this.#closed = true;
     this.#autoCheckNeeded.clear();
     this.#autoFix?.close();
+    this.#hostAnswers?.close();
     // A shared link stops before the preview it reaches.
     await this.shares?.close();
     await this.previews?.close();

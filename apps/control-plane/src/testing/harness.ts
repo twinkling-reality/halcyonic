@@ -104,6 +104,8 @@ export interface TestControlPlaneOptions {
   readonly projectSecrets?: ControlPlaneOptions['projectSecrets'];
   /** Pictures the person gives (ADR 0058, amended); none by default. */
   readonly givenPictures?: ControlPlaneOptions['givenPictures'];
+  /** A confined app's reads besides its folder, for the host's own answers; off by default. */
+  readonly confinedReads?: ControlPlaneOptions['confinedReads'];
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -133,6 +135,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.github !== undefined && { github: options.github }),
     ...(options.projectSecrets !== undefined && { projectSecrets: options.projectSecrets }),
     ...(options.givenPictures !== undefined && { givenPictures: options.givenPictures }),
+    ...(options.confinedReads !== undefined && { confinedReads: options.confinedReads }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
     ...(options.providers !== undefined && { providers: options.providers }),
     ...(options.keyChecks !== undefined && { keyChecks: options.keyChecks }),

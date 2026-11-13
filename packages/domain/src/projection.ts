@@ -270,9 +270,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * instructions (ADR 0060); each raised past the base's again at the rebase. 20: where the person chose the assistant
  * to run (`assistantModel`, ADR 0030, 2026-11-12). 21: what each execution's reported turns used (`usage`).
  * 22: the spending limit each execution runs under (`spendingCapUsd`). 23: when a project was taken off the list
- * (`removedAt`, ADR 0063).
+ * (`removedAt`, ADR 0063). 24: how many of each
+ * execution's requests the host answered itself and how many asked (`approvals`).
  */
-export const PROJECTION_STATE_FORMAT = 23;
+export const PROJECTION_STATE_FORMAT = 24;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -1784,6 +1785,51 @@ export class Projection {
         this.#touchExecution(execution, event.ingested_at, changes);
         return;
       }
+      case 'execution.approval.answered_by_host': {
+        // The host approved it itself: no card for the person, counted as went ahead (the lead, 2026-11-13).
+        const execution = this.#executions.get(event.execution_id);
+        if (execution === undefined) {
+          notes.push(
+            note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
+          );
+          return;
+        }
+        if (!execution.pendingApprovals.has(event.payload.approval_id)) {
+          notes.push(
+            note('unknown_entity', event, `approval ${event.payload.approval_id} is not pending`),
+          );
+          return;
+        }
+        // Kept pending for admission until the runtime resolves it; never shown as a card.
+        execution.hostAnswered ??= new Set();
+        execution.hostAnswered.add(event.payload.approval_id);
+        execution.approvals = {
+          wentAhead: (execution.approvals?.wentAhead ?? 0) + 1,
+          asked: Math.max(0, (execution.approvals?.asked ?? 1) - 1),
+        };
+        this.#touchExecution(execution, event.ingested_at, changes);
+        return;
+      }
+      case 'execution.approval.host_answer_withdrawn': {
+        // The host's answer was not taken: the request is a card for the person after all (AUDIT3 S3).
+        const execution = this.#executions.get(event.execution_id);
+        if (execution?.hostAnswered?.delete(event.payload.approval_id) !== true) {
+          notes.push(
+            note(
+              'unknown_entity',
+              event,
+              `approval ${event.payload.approval_id} was not answered by the host`,
+            ),
+          );
+          return;
+        }
+        execution.approvals = {
+          wentAhead: Math.max(0, (execution.approvals?.wentAhead ?? 1) - 1),
+          asked: (execution.approvals?.asked ?? 0) + 1,
+        };
+        this.#touchExecution(execution, event.ingested_at, changes);
+        return;
+      }
       case 'execution.auto_fix.sent':
       case 'execution.auto_fix.ended': {
         // A failed check sent back to its agent on its own (ADR 0044).
@@ -2533,9 +2579,14 @@ export class Projection {
           approvable: event.payload.complete,
           requested_at: event.occurred_at,
         });
+        execution.approvals = {
+          wentAhead: execution.approvals?.wentAhead ?? 0,
+          asked: (execution.approvals?.asked ?? 0) + 1,
+        };
         break;
       case 'runtime.approval.resolved':
         execution.pendingApprovals.delete(event.payload.approval_id);
+        execution.hostAnswered?.delete(event.payload.approval_id);
         break;
       case 'runtime.question.asked': {
         const fitted = fitQuestion(event.payload.prompts, event.payload.answerable);

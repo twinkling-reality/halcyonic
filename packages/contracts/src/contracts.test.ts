@@ -716,6 +716,7 @@ describe('the C# bindings', () => {
     'ExecutionStartPayload.plan', // a start in the runtime's own plan mode (PLAN)
     'ExecutionStartPayload.spending_cap_usd', // a spending limit, where the runtime offers one
     'ExecutionView.approval_level', // ADR 0043
+    'ExecutionView.approvals', // how many requests the host answered and how many asked, absent until one
     'ExecutionView.auto_fix', // a failed check sent back on its own (ADR 0044)
     'ExecutionView.plan', // whether its start recorded a plan (PLAN 4a)
     'ExecutionView.plan_left', // whether the plan was left to carry it out (PLAN 4a)
@@ -769,6 +770,7 @@ describe('the C# bindings', () => {
     'RuntimeModel.picture_input', // what the runtime's list says a model takes (A4)
     'RuntimeModel.provider', // the declared provider a runtime reaches a model through, whose key it needs
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
+    'ToolUseSubject.paths', // the places a request names, as structure, absent where they are not known
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
     'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came
     'WorkspaceRequestReply.provider', // where a remote reply ran, by its declared provider (ADR 0030, 2026-11-12)
