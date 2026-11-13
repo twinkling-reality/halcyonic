@@ -100,7 +100,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var view = RoomBarView.Create(plane);
             // The kit's own line measure at the width the bar is laid (the lead's 20:15Z: eight lines means eight lines), as the plane
             // hands it; narrow: the plane's measure loop too, one row and one line fewer a page while the laid bar passes its footprint.
-            var form = new RoomForm(narrow, RoomRows.APage).Measured((row, indented) => (row.Label == null ? 0 : view.Lines(LineWords.Ours(row.Label), false, narrow)) + view.Lines(row.Words, false, narrow));
+            var form = new RoomForm(narrow, RoomRows.APage).Measured((row, marked) => view.RowLines(row, marked, narrow ? RoomGeometry.ColumnDp : RoomGeometry.PanelDp));
             while (true)
             {
                 RoomDesign.Enabled = true;
@@ -114,7 +114,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 bar.Narrow = narrow;
                 view.Show(bar);
                 view.SettleForRender();
-                if (!narrow || !view.PassedLargest || form.LinesAPage == 1) break;
+                // Fewer lines only mend a bar too TALL: a bar too wide (its widest action past the column) is the kit's finding, kept.
+                var largest = narrow ? RoomBarView.LargestNarrow : RoomBarView.Largest;
+                if (!narrow || !view.PassedLargest || view.Size.y <= largest.y || form.LinesAPage == 1) break;
                 form = form.Fewer();
             }
             Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : "full") + " at " + form.LinesAPage + " lines a page, " + bar.GeneralPart.Pages + " page"
@@ -125,7 +127,8 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
             if (paged)
             {
-                Require(bar.Column.Last().Control.Action == Footer.Close && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its Close");
+                var wayOut = frame.Side != null ? SidePanel.Close : Footer.Close;
+                Require(bar.Column.Last().Control.Action == wayOut && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its way out");
                 // Read once every page with something to read was shown: the second page of rows, and at once where only bare actions page.
                 if (!narrow) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column"), "Whole before every page to read was shown, or not after");
             }
@@ -134,11 +137,14 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(bar.Column.Count is > 0 and <= RoomBar.ColumnMost, "the column holds " + bar.Column.Count + " actions");
             Require(!bar.LostPart, "the general reader lost a part of the frame (not on screen)");
             var expected = new List<string>();
-            if (frame.Side is SidePanel side)
+            if (frame.Side is SidePanel panel)
             {
-                Require(bar.Words.Text == side.Subject, "the side panel's title is not the bar's words");
+                Require(bar.Words.Text == panel.Subject, "the side panel's title is not the bar's words");
                 Require(bar.Column.Last().Control.Action == SidePanel.Close, "the side panel's own Close is not the last way out");
                 Require(bar.Column.All(action => action.Control.Action != "run-checks" && action.Control.Action != Footer.Close), "the hidden page's actions stand beside its side panel");
+            }
+            if (frame.Side is SidePanel side && !paged)
+            {
                 expected.Add(side.Subject);
                 expected.AddRange(side.Facts.Select(fact => fact.Name));
                 expected.AddRange(side.Facts.Select(fact => fact.ValueRuns.Text));
