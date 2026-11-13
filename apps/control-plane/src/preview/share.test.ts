@@ -114,20 +114,31 @@ describe('sharing a checked game at an address anyone can open (F1)', () => {
     }
     assert.deepEqual(types(), [], 'nothing shared, nothing recorded');
     writeFileSync(join(built, 'assets', 'app.js'), 'const key = null;\n');
-    // A link the build kept, to a file holding the value outside the copy, is read as the server would serve it.
+    // A link the build kept that leads out of the copy (to a .env beside the project) is refused by its path,
+    // whatever is held: the preview's server would serve what it leads to (critic NIT, 2026-11-12).
     const outside = mkdtempSync(join(tmpdir(), 'halcyonic-share-outside-'));
     t.after(() => rmSync(outside, { recursive: true, force: true }));
-    writeFileSync(join(outside, '.env'), 'KEY=share-held-value-0123456789\n');
+    writeFileSync(join(outside, '.env'), 'KEY=a-value-nobody-holds-0123\n');
     symlinkSync(join(outside, '.env'), join(built, 'assets', 'env.txt'));
-    symlinkSync(built, join(built, 'loop'));
     await assert.rejects(
       shares.start(PROJECT, 'link', NO_CAUSE),
       (error: unknown) =>
         error instanceof ShareRefused &&
-        error.code === 'holds_secret' &&
-        error.message.startsWith('assets/env.txt holds'),
+        error.code === 'link_out' &&
+        error.message ===
+          "assets/env.txt in the game's built files is a link that leads out of them, so nothing was shared. Take the link out of the project, then check the game again.",
     );
     rmSync(join(built, 'assets', 'env.txt'));
+    // A link within the copy is followed and read: a loop ends, and a held value behind a link is found.
+    symlinkSync(built, join(built, 'loop'));
+    writeFileSync(join(built, 'assets', 'held.txt'), 'share-held-value-0123456789');
+    symlinkSync(join(built, 'assets', 'held.txt'), join(built, 'assets', 'via-link.txt'));
+    await assert.rejects(
+      shares.start(PROJECT, 'link', NO_CAUSE),
+      (error: unknown) => error instanceof ShareRefused && error.code === 'holds_secret',
+    );
+    rmSync(join(built, 'assets', 'via-link.txt'));
+    rmSync(join(built, 'assets', 'held.txt'));
     // Two presses at once: the second is refused at once, and only one share is ever started.
     const [first, second] = await Promise.allSettled([
       shares.start(PROJECT, 'link', NO_CAUSE),
@@ -135,6 +146,40 @@ describe('sharing a checked game at an address anyone can open (F1)', () => {
     ]);
     assert.equal(first.status, 'fulfilled');
     assert.equal(second.status, 'rejected');
+    assert.deepEqual(types(), ['project.share.started']);
+  });
+
+  test('a link that leads out of the built copy is refused with nothing held: to a parent folder, and a broken one by its own target (critic SHOULDs)', async (t) => {
+    const project = mkdtempSync(join(tmpdir(), 'halcyonic-share-project-'));
+    t.after(() => rmSync(project, { recursive: true, force: true }));
+    const built = join(project, 'dist');
+    mkdirSync(join(built, 'assets'), { recursive: true });
+    writeFileSync(join(built, 'index.html'), '<title>Garden</title>\n');
+    const { shares, types } = setup({ builtCopy: built, held: [] });
+    t.after(() => shares.close());
+    const refusedFor = async (link: string) =>
+      assert.rejects(
+        shares.start(PROJECT, 'link', NO_CAUSE),
+        (error: unknown) =>
+          error instanceof ShareRefused &&
+          error.code === 'link_out' &&
+          error.message.startsWith(`${link} in the game's built files`),
+      );
+    symlinkSync('../..', join(built, 'assets', 'up'));
+    await refusedFor('assets/up');
+    rmSync(join(built, 'assets', 'up'));
+    symlinkSync('../../.env', join(built, 'assets', 'later.env'));
+    await refusedFor('assets/later.env');
+    rmSync(join(built, 'assets', 'later.env'));
+    // A broken link that climbs through a link inside the copy (the critic's loop/../.env) is refused too.
+    symlinkSync(built, join(built, 'loop'));
+    symlinkSync('loop/../.env', join(built, 'assets', 'through.env'));
+    await refusedFor('assets/through.env');
+    rmSync(join(built, 'assets', 'through.env'));
+    // A broken link within the copy serves nothing and stays within it: the share goes on.
+    symlinkSync('missing.js', join(built, 'assets', 'soon.js'));
+    const shared = await shares.start(PROJECT, 'link', NO_CAUSE);
+    assert.equal(shared.url, ADDRESS);
     assert.deepEqual(types(), ['project.share.started']);
   });
 
