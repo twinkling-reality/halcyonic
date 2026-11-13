@@ -416,7 +416,7 @@ public class NewProjectRecapTests
             RoomDesign.Enabled = true;
             var idea = Proposed();
             var reason = EntryText.PreviousRequest(BuildStepKind.CreateProject);
-            Assert.That(reason, Does.Contain("Start Building waits"), "the sentence names what waits");
+            Assert.That(reason, Does.Contain("A new start could repeat it"), "the sentence says why a new start waits");
             var recap = NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: reason, buildReached: true, startOverProblem: reason, startUnknown: true);
             var main = recap.Footer[PromptSlot.FarRight]!;
             Assert.That((main.Id, main.Words, main.Available, main.Main), Is.EqualTo((NewProjectScreens.CheckFirst, EntryText.CheckFirst, true, true)), "its way on, lit");

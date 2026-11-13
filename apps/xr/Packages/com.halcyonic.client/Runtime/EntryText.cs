@@ -311,19 +311,20 @@ namespace Halcyonic.Client
         /// </summary>
         public static string PreviousRequest(BuildStepKind? kind) => kind == null ? PreviousRequestLine : NotSureItHappened(kind) + " " + StartBuildingWaits;
 
-        // Short enough that the sentence stands whole in the bar's three lines at the larger size (F99, 2026-11-13: "so nothing is made
-        // twice" cut it there); why it waits is the sentence before it, what the start may have made.
-        private const string StartBuildingWaits = "Start Building waits.";
+        // Why a new start waits, said as what it would do (a reader, 2026-11-13: "Start Building waits." gave no reason and named a
+        // button the page does not show), short enough to stand whole in the bar's three lines at the larger size.
+        private const string StartBuildingWaits = "A new start could repeat it.";
 
         /// <summary>On a start whose outcome is unknown, where it only opens the page that says what is known and how to clear it.</summary>
-        public const string CheckFirst = "See What Happened";
+        public const string CheckFirst = "Check Last Start";
 
         /// <summary>The first of the two presses that clear a start whose outcome is unknown.</summary>
         public const string Clear = "Clear";
         // What Clear does, both true things (AUDIT's MUST J, 2026-11-13T1659Z): the idea on this headset starts over (Confirm makes a
         // new one), and nothing on the computer is deleted or sent (Confirm sends no command).
-        public const string ClearOnceChecked = "Once you have looked, Clear restarts your idea here. Nothing on the computer is sent or deleted.";
-        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Your idea here restarts; nothing on the computer is sent or deleted.";
+        // "Erases", not "restarts": Confirm makes a new idea, so what the person typed is gone (a reader, 2026-11-13, could not tell).
+        public const string ClearOnceChecked = "Once you have looked, Clear erases your idea here. Nothing on the computer is sent or deleted.";
+        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Your idea here is erased; nothing on the computer is sent or deleted.";
         public const string ConfirmClear = "Confirm";
         public const string Cancel = "Cancel";
         public const string Cleared = "Cleared. Start again with your idea.";

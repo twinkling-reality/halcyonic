@@ -678,7 +678,7 @@ namespace Halcyonic.Client
             var proposal = suggested ? idea.Companion?.Proposal : null;
             var lines = new List<PageLine>();
             // A start that may have run holds Start Building: its sentence is the page's first line, which the bar says as its
-            // sentence beside See What Happened (a reader, 2026-11-13: no lit button and nothing naming the wait read as a dead end).
+            // sentence beside Check Last Start (a reader, 2026-11-13: no lit button and nothing naming the wait read as a dead end).
             var held = startUnknown && problem != null;
             if (notice == null && held) notice = problem;
             if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 3));
