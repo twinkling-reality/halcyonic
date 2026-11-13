@@ -29,7 +29,10 @@ namespace Halcyonic.XR.Workspace.Editor
         /// read with the rows a page the plane would measure (fewer until the laid bar keeps inside its largest narrow footprint),
         /// and the pages it then takes logged as the worst case in parts.
         /// </summary>
-        private static readonly string[] GeneralStates = GeneralBaseStates.Concat(GeneralBaseStates.Select(each => each + "-narrow")).ToArray();
+        /// <remarks>And a third time at the plane's floor (the lead's 18:07Z: the twins render at the floor; XR's width rule, PlaneWidth): the
+        /// narrowest width the plane lays a main screen at for the text size, its pages logged as the worst case in parts.</remarks>
+        private static readonly string[] GeneralStates = GeneralBaseStates.Concat(GeneralBaseStates.Select(each => each + "-narrow"))
+            .Concat(GeneralBaseStates.Select(each => each + "-floor")).ToArray();
 
         private static PartShot GeneralShot(string state, Transform root, Vector3 eyes, string name)
         {
@@ -37,6 +40,12 @@ namespace Halcyonic.XR.Workspace.Editor
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
             var narrow = state.EndsWith("-narrow", StringComparison.Ordinal);
             if (narrow) state = state.Substring(0, state.Length - "-narrow".Length);
+            var floor = state.EndsWith("-floor", StringComparison.Ordinal);
+            if (floor) state = state.Substring(0, state.Length - "-floor".Length);
+            // The panel's width: the column's in the narrow form, the floor of this text size, or the full panel.
+            var width = narrow ? RoomGeometry.ColumnDp : floor ? PlaneWidth.FloorDp(GlazeText.Scale) : RoomGeometry.PanelDp;
+            // Narrower than the full panel: the plane's measure loop runs and its pages may pass what the full panel holds on one.
+            var measured = narrow || floor;
             var was = RoomDesign.Enabled;
             MenuFrame? frame;
             RoomBar? bar;
@@ -101,7 +110,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var view = RoomBarView.Create(plane);
             // The kit's own line measure at the width the bar is laid (the lead's 20:15Z: eight lines means eight lines), as the plane
             // hands it; narrow: the plane's measure loop too, one row and one line fewer a page while the laid bar passes its footprint.
-            var form = new RoomForm(narrow, RoomRows.APage).Measured((row, marked) => view.RowLines(row, marked, narrow ? RoomGeometry.ColumnDp : RoomGeometry.PanelDp));
+            var form = new RoomForm(narrow, RoomRows.APage, panelDp: floor ? width : RoomGeometry.PanelDp).Measured((row, marked) => view.RowLines(row, marked, width));
             RoomBar Read()
             {
                 RoomDesign.Enabled = true;
@@ -109,6 +118,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var read = RoomBar.OfFrame(given, VoiceStage.Idle, form)!;
                     read.Narrow = narrow;
+                    // As RoomBar.Of lays a plain frame: the panel at the form's width where it is under the full one.
+                    if (floor) read.PanelWidthDp = width;
                     return read;
                 }
                 finally { RoomDesign.Enabled = was; }
@@ -118,7 +129,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // (its widest action past the column) is the kit's finding, kept.
             bool TooTall(RoomBar each)
             {
-                var largest = narrow ? RoomBarView.LargestNarrow : RoomBarView.Largest;
+                var largest = RoomBarView.LargestAt(width);
                 var tall = false;
                 for (var page = 0; page < PagesOf(each); page++)
                 {
@@ -132,16 +143,16 @@ namespace Halcyonic.XR.Workspace.Editor
             while (true)
             {
                 bar = Read();
-                if (!narrow || form.LinesAPage == 1 || !TooTall(bar)) break;
+                if (!measured || form.LinesAPage == 1 || !TooTall(bar)) break;
                 form = form.Fewer();
             }
             bar = Read();
             // The last page of the long list, every earlier one shown on the way (eight lines a page may make more than two).
             if (state == "52-general-rows-2") while (bar.GeneralPart.Page < bar.GeneralPart.Pages - 1) bar.Turn();
-            Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : "full") + " at " + form.LinesAPage + " lines a page, " + bar.GeneralPart.Pages + " page"
+            Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : floor ? "floor " + width.ToString("0", CultureInfo.InvariantCulture) + " dp" : "full") + " at " + form.LinesAPage + " lines a page, " + bar.GeneralPart.Pages + " page"
                 + (bar.GeneralPart.Pages == 1 ? "" : "s") + (bar.Card != null ? " (" + bar.Card.List.Count + " pressed rows on the first)" : "") + ".");
             var confirm = state == "52-general-confirm";
-            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || (state is "52-general-usage" or "52-general-caps" || narrow || confirm) && bar.GeneralPart.Pages > 1;
+            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || (state is "52-general-usage" or "52-general-caps" || measured || confirm) && bar.GeneralPart.Pages > 1;
             // The general reader's card holds pressed rows, never the usage card's gauges (which would mean a specific reader took it).
             if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
@@ -151,7 +162,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 Require(bar.Column.Last().Control.Action == wayOut && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its way out");
                 // Read once every page with something to read was shown: the second page of rows, and at once where only bare actions page.
-                if (!narrow && !confirm) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column"), "Whole before every page to read was shown, or not after");
+                if (!measured && !confirm) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column"), "Whole before every page to read was shown, or not after");
             }
             Require(!bar.LostPart, "the general reader lost a part of the frame (not on screen)");
             if (frame.Side is SidePanel panel)
