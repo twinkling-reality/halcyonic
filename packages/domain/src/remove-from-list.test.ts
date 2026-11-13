@@ -315,7 +315,8 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
     );
     assert.deepEqual(again.admitted ? null : again.rejection, {
       code: 'invalid_state',
-      message: 'Send for Review in this project is still under way. Send it once it has finished.',
+      message:
+        'Send for Review in this project is still under way, so this was not done. Try again once it has finished.',
     });
     for (const sent of [
       command('project.unpublish', { project_id: project.projectId, commit: 'c'.repeat(40) }),
@@ -327,7 +328,7 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
         {
           code: 'invalid_state',
           message:
-            'Send for Review in this project is still under way. Try again once it has finished.',
+            'Send for Review in this project is still under way, so this was not done. Try again once it has finished.',
         },
         sent.command_type,
       );

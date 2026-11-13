@@ -1459,7 +1459,7 @@ describe("a project's view holds its latest check, its preview and its play (M1.
 
     assert.match(
       projection.projectBusy(garden.projectId) ?? '',
-      /^Restore in this project is still under way\.$/,
+      /^Restore in this project is still under way, so this was not done\.$/,
     );
     assert.equal(projection.restoreInProgress(garden.projectId), true);
     assert.match(projection.projectBusy(pond.projectId) ?? '', /running/);

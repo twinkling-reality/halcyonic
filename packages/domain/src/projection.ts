@@ -1365,7 +1365,8 @@ export class Projection {
         (requests || !command.envelope.command_type.startsWith('workspace.request.'))
       )
         // By the button's own words, never the command's internal name (the lead, 20:46Z).
-        return `${COMMAND_SAYING[command.envelope.command_type].title} in this project is still under way.`;
+        // The press did nothing, and every caller adds its own next step (AUDIT2, 22:14Z).
+        return `${COMMAND_SAYING[command.envelope.command_type].title} in this project is still under way, so this was not done.`;
     }
     return null;
   }
