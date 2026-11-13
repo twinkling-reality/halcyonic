@@ -1,5 +1,4 @@
-import { realpathSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 import {
   type ApprovalPath,
   COMMAND_SCHEMA_VERSION,
@@ -16,6 +15,7 @@ import type { Logger } from '../logger.ts';
 import type { CommandService } from './command-service.ts';
 import { type Cause, controlPlaneDraft, SUMMARY_LIMIT } from './drafts.ts';
 import type { EventPublisher } from './publisher.ts';
+import { resolvedPath } from './real-path.ts';
 import type { Recorder } from './recorder.ts';
 
 const CLIENT = { name: 'halcyonic-control-plane', version: null, device_label: null } as const;
@@ -119,26 +119,6 @@ export function judgeRequest(
 /** Whether `path` is `folder` or inside it, both resolved. */
 function inside(path: string, folder: string): boolean {
   return path === folder || path.startsWith(folder.endsWith(sep) ? folder : `${folder}${sep}`);
-}
-
-/**
- * `path` as the file system resolves it: its longest existing part through `realpath` (so a link out of a folder
- * reads as where it leads), the rest as written, with `.` and `..` taken out first.
- */
-export function resolvedPath(path: string): string {
-  const plain = join(path);
-  const rest: string[] = [];
-  let at = plain;
-  for (;;) {
-    try {
-      return join(realpathSync(at), ...rest.reverse());
-    } catch {
-      const parent = dirname(at);
-      if (parent === at) return plain;
-      rest.push(basename(at));
-      at = parent;
-    }
-  }
 }
 
 /**

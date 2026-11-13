@@ -184,7 +184,7 @@ describe("the host's answers in the pipeline", () => {
     return adapter;
   }
 
-  type Extra = { approval_id: string; length: number };
+  type Extra = { approval_id: string; length: number; write?: string };
   async function confinedRun(confined: boolean, respondToApproval = true, extra: Extra[] = []) {
     const harness = createTestControlPlane({
       adapters: () => [answeringRuntime(respondToApproval)],
@@ -244,8 +244,9 @@ describe("the host's answers in the pipeline", () => {
       // Commands too long for a person to approve, as the control plane marks them (AUDIT3 M1).
       ...extra.map((each) => ({
         approval_id: each.approval_id,
-        tool: 'Bash',
-        paths: undefined,
+        tool: each.write === undefined ? 'Bash' : 'Write',
+        paths:
+          each.write === undefined ? undefined : [{ path: each.write, access: 'write' as const }],
         tooLong: each.length,
       })),
     ];
@@ -381,6 +382,24 @@ describe("the host's answers in the pipeline", () => {
     // Approved by the same command a press sends, and never denied for length.
     assert.ok(sent.some(([id, decision]) => id === 'a5' && decision === 'approve'));
     assert.ok(sent.some(([id, decision]) => id === 'a6' && decision === 'approve'));
+    assert.equal(
+      events.filter((event) => event.event_type === 'execution.approval.denied_by_host').length,
+      0,
+    );
+  });
+
+  test('a confined Write of 10000 characters, its content now carried, is answered by the host, never denied (AUDIT3 M1)', async () => {
+    const { events, answered, sent } = await confinedRun(true, true, [
+      { approval_id: 'w1', length: 10_000, write: 'src/scene.ts' },
+    ]);
+    const written = answered.find(
+      (event) =>
+        event.event_type === 'execution.approval.answered_by_host' &&
+        event.payload.approval_id === 'w1',
+    );
+    assert.ok(written?.event_type === 'execution.approval.answered_by_host');
+    assert.equal(written.payload.because, 'inside_copy');
+    assert.ok(sent.some(([id, decision]) => id === 'w1' && decision === 'approve'));
     assert.equal(
       events.filter((event) => event.event_type === 'execution.approval.denied_by_host').length,
       0,

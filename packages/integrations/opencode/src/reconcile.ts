@@ -207,7 +207,12 @@ export function reconcileSession(
   }
   for (const permission of snapshot.permissions) {
     if (state.approvals.has(permission.id)) continue;
-    const request = approvalRequest(permission.action, permission.resources, permission.command);
+    const request = approvalRequest(
+      permission.action,
+      permission.resources,
+      permission.command,
+      'metadata' in permission ? permission.metadata : undefined,
+    );
     if (request === null) continue;
     state.approvals.add(permission.id);
     observations.push(

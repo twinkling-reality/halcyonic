@@ -132,6 +132,11 @@ export const RuntimeDescriptor = Type.Object(
      */
     delivers_denial_message: Type.Optional(Type.Boolean()),
     /**
+     * True when the adapter carries a file change's whole change on its approval (`ApprovalSubject.changes`), read
+     * from the pinned version's own requests (ADR 0065). Absent, a file tool's request is not approvable.
+     */
+    shows_changes: Type.Optional(Type.Boolean()),
+    /**
      * True when a start may carry `spending_cap_usd` and the runtime itself stops the task once its
      * own estimate of what the task spent since it last started passes it: declared only once a run
      * of the pinned version shows the stop (spending-cap.md). Absent means no cap is offered, and the

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import {
@@ -20,6 +21,7 @@ import {
   type SpawnOptions,
 } from '@anthropic-ai/claude-agent-sdk';
 import type {
+  ApprovalChange,
   ApprovalDecision,
   ApprovalLevel,
   ApprovalSubject,
@@ -302,6 +304,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       reports_usage: true,
       // A denial's `message` is the tool result the model reads (SDK 0.3.283's PermissionResult: `message: string`).
       delivers_denial_message: true,
+      // Each file tool's input is its whole change, carried on its approval (ADR 0065).
+      shows_changes: true,
       // `maxBudgetUsd`: the CLI the SDK 0.3.283 bundles stops at it with `error_max_budget_usd`,
       // subagents counted, and a resumed query counts from its start (spending-cap.md).
       offers_spending_cap: true,
@@ -479,6 +483,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       this.#recordFor(scope),
       this.#planSwitchWaitMs,
     );
+    session.workIn(cwd);
     if (scope.folder !== null) session.keep(cwd);
     this.#sessions.set(executionId, session);
     const bounds: StartOptions = {
@@ -615,6 +620,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       { confined: false },
       this.#planSwitchWaitMs,
     );
+    session.workIn(cwd);
     if (scope.folder !== null) session.keep(cwd);
     const bounds: StartOptions = {
       ...parsed.value,
@@ -1143,6 +1149,7 @@ class ClaudeSession {
   /** What the session's start records of its confinement (S2, BOX-4). */
   readonly #record: { readonly confined: boolean; readonly unconfined_reason?: string };
   #kept: string | null = null;
+  #cwd: string | null = null;
 
   constructor(
     id: string,
@@ -1172,6 +1179,11 @@ class ClaudeSession {
    */
   keep(folder: string): void {
     this.#kept = folder;
+  }
+
+  /** The task's folder, where a file tool's relative path lands (a Write's change says whether the file is new). */
+  workIn(folder: string): void {
+    this.#cwd = folder;
   }
 
   /**
@@ -1506,7 +1518,7 @@ class ClaudeSession {
       'runtime.approval.requested',
       {
         approval_id: approvalId,
-        ...approvalRequest(toolName, input),
+        ...approvalRequest(toolName, input, this.#cwd),
       },
       observed('can_use_tool'),
       `${approvalId}:requested`,
@@ -2047,6 +2059,13 @@ const NOT_ACTING_INPUTS: Readonly<Record<string, readonly string[]>> = {
   // Reads that run nothing and write nothing: which part of a file, what to ask of a page.
   Read: ['offset', 'limit'],
   WebFetch: ['prompt'],
+};
+
+/**
+ * The inputs that ARE the change a file tool makes, carried whole on its approval as `changes` (ADR 0065, AUDIT3 W2),
+ * never quiet: what is written, what is replaced and with what, at every match or one, which cell and how.
+ */
+const CHANGE_INPUTS: Readonly<Record<string, readonly string[]>> = {
   Edit: ['old_string', 'new_string', 'replace_all'],
   Write: ['content'],
   NotebookEdit: ['new_source', 'cell_id', 'cell_type', 'edit_mode'],
@@ -2063,11 +2082,17 @@ const NOT_ACTING_INPUTS: Readonly<Record<string, readonly string[]>> = {
 function approvalRequest(
   toolName: string,
   input: Record<string, unknown>,
+  folder: string | null = null,
 ): { readonly subject: ApprovalSubject; readonly complete: boolean } {
   const described = describeInput(input);
   const field = DESCRIBING_FIELDS.find((name) => input[name] === described);
   const others = Object.keys(input).filter((name) => name !== field);
-  const quiet = NOT_ACTING_INPUTS[toolName] ?? [];
+  const changes = requestChanges(toolName, input, folder);
+  // The change's own inputs count as shown only once they are carried whole in `changes`.
+  const quiet = [
+    ...(NOT_ACTING_INPUTS[toolName] ?? []),
+    ...(changes !== null ? (CHANGE_INPUTS[toolName] ?? []) : []),
+  ];
   // A Bash command names no folder: it runs in the session's shell, which started in the task's
   // folder (the session's cwd) and keeps where an earlier command moved it. Said in a bracket that
   // always comes first, so a command that starts with a bracket of its own follows the real one.
@@ -2082,10 +2107,12 @@ function approvalRequest(
       tool_name: toolName.slice(0, 128),
       summary: described === null ? JSON.stringify(input) : `${where}${described}`,
       ...(paths !== null && { paths }),
+      ...(changes !== null && { changes }),
     },
-    // A tool's name cut to the contract could read as another's.
+    // A tool's name cut to the contract could read as another's; a file tool without its change carried is not whole.
     complete:
       toolName.length <= 128 &&
+      (CHANGE_INPUTS[toolName] === undefined || changes !== null) &&
       (described === null || others.every((name) => quiet.includes(name))),
   };
 }
@@ -2148,6 +2175,90 @@ export function requestPaths(
       return input.glob !== undefined && climbs(input.glob)
         ? null
         : place(input.path ?? '.', 'read');
+    default:
+      return null;
+  }
+}
+
+/**
+ * The change a file tool's input makes, whole, as the SDK's own tool schemas give it (sdk-tools.d.ts, 0.3.283; ADR
+ * 0065): Write the whole new file (a new file or a rewrite, by whether it exists in the task's folder); Edit the text
+ * replaced and its replacement, a part of the file, at every match where `replace_all`; NotebookEdit a cell's new
+ * source, its id and type, and whether it is replaced, inserted or deleted. Null where the input does not give the
+ * change in the shape the schema says, so the request is not approvable. The real path is the host's to add.
+ */
+export function requestChanges(
+  toolName: string,
+  input: Record<string, unknown>,
+  folder: string | null = null,
+): ApprovalChange[] | null {
+  const text = (value: unknown) => (typeof value === 'string' ? value : null);
+  const path = (value: unknown) => (typeof value === 'string' && value !== '' ? value : null);
+  const base = { real_path: null, to_path: null, every: false, cell: null };
+  switch (toolName) {
+    case 'Write': {
+      const file = path(input.file_path);
+      const content = text(input.content);
+      if (file === null || content === null) return null;
+      const exists = folder !== null && existsSync(resolve(folder, file));
+      return [
+        {
+          ...base,
+          path: file,
+          kind: exists ? 'update' : 'add',
+          shape: 'content',
+          before: null,
+          after: content,
+        },
+      ];
+    }
+    case 'Edit': {
+      const file = path(input.file_path);
+      const before = text(input.old_string);
+      const after = text(input.new_string);
+      if (file === null || before === null || after === null) return null;
+      if (input.replace_all !== undefined && typeof input.replace_all !== 'boolean') return null;
+      return [
+        {
+          ...base,
+          path: file,
+          kind: 'update',
+          shape: 'replace',
+          before,
+          after,
+          every: input.replace_all === true,
+        },
+      ];
+    }
+    case 'NotebookEdit': {
+      const file = path(input.notebook_path);
+      const source = text(input.new_source);
+      const mode = input.edit_mode ?? 'replace';
+      if (
+        file === null ||
+        source === null ||
+        (mode !== 'replace' && mode !== 'insert' && mode !== 'delete')
+      )
+        return null;
+      const id = input.cell_id === undefined ? null : text(input.cell_id);
+      const type = input.cell_type === undefined ? null : text(input.cell_type);
+      if (
+        (input.cell_id !== undefined && id === null) ||
+        (input.cell_type !== undefined && type === null)
+      )
+        return null;
+      return [
+        {
+          ...base,
+          path: file,
+          kind: mode === 'delete' ? 'delete' : 'update',
+          shape: 'replace',
+          before: null,
+          after: mode === 'delete' ? null : source,
+          cell: { id, type, mode },
+        },
+      ];
+    }
     default:
       return null;
   }

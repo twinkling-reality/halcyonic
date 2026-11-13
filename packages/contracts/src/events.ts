@@ -948,6 +948,43 @@ export const ApprovalPath = Type.Object(
 export type ApprovalPath = Static<typeof ApprovalPath>;
 
 /**
+ * One file a request would change, as the agent app's own request gives it (an approval shows whole what it approves,
+ * ADR 0065): `content`, the whole new file in `after`; `replace`, the text replaced (`before`) and its replacement
+ * (`after`), a part of the file; `diff`, the app's own whole diff in `after`. `every` is true where the replacement is
+ * made at every occurrence. `real_path` is the host's: where the path, or a folder on it, is a link, the place the
+ * write really reaches; null where it is the path itself. `to_path` is a move's new path.
+ */
+export const ApprovalChange = Type.Object(
+  {
+    path: Text(4096),
+    real_path: Nullable(Text(4096)),
+    to_path: Nullable(Text(4096)),
+    kind: Type.Union([Type.Literal('add'), Type.Literal('update'), Type.Literal('delete')]),
+    shape: Type.Union([Type.Literal('content'), Type.Literal('replace'), Type.Literal('diff')]),
+    before: Nullable(Text(32000)),
+    after: Nullable(Text(32000)),
+    every: Type.Boolean(),
+    /** A notebook cell's edit: which cell, its type, and whether it is replaced, inserted or deleted. */
+    cell: Nullable(
+      Type.Object(
+        {
+          id: Nullable(Text(200)),
+          type: Nullable(Text(40)),
+          mode: Type.Union([
+            Type.Literal('replace'),
+            Type.Literal('insert'),
+            Type.Literal('delete'),
+          ]),
+        },
+        strict,
+      ),
+    ),
+  },
+  strict,
+);
+export type ApprovalChange = Static<typeof ApprovalChange>;
+
+/**
  * Why the host answered an approval itself, without a card (the lead's ruling, 2026-11-13): in an execution whose
  * start recorded it confined, every place the request names is inside the task's folder, or is read in a declared
  * original or the starter's shared files; or it is a shell command, which the closed profile holds.
@@ -1162,6 +1199,11 @@ export const ApprovalSubject = Type.Union([
        * (a shell command, a pattern that may climb out of its folder), which never reads as none.
        */
       paths: Type.Optional(Type.Array(ApprovalPath, { maxItems: 8 })),
+      /**
+       * Every file the request would change, whole, from the app's own request; absent where the app gives none,
+       * which never reads as no change: a file tool's request without it is not approvable.
+       */
+      changes: Type.Optional(Type.Array(ApprovalChange, { maxItems: 16 })),
     },
     strict,
   ),

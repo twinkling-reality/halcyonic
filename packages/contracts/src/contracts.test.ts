@@ -765,6 +765,7 @@ describe('the C# bindings', () => {
     'RuntimeDescriptor.reports_usage', // a declaration
     'RuntimeDescriptor.resumes_after_restart', // ADR 0046
     'RuntimeDescriptor.secret_environment', // ADR 0057
+    'RuntimeDescriptor.shows_changes', // a declaration: a file change's approval carries the change (ADR 0065)
     'RuntimeDescriptor.takes_pictures', // a declaration (A4)
     'RuntimeExecutionStartedPayload.approval_level', // ADR 0043
     'RuntimeExecutionStartedPayload.confined', // whether a start recorded it confined (S2)
@@ -773,6 +774,7 @@ describe('the C# bindings', () => {
     'RuntimeModel.picture_input', // what the runtime's list says a model takes (A4)
     'RuntimeModel.provider', // the declared provider a runtime reaches a model through, whose key it needs
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
+    'ToolUseSubject.changes', // every file a request would change, whole (ADR 0065)
     'ToolUseSubject.paths', // the places a request names, as structure, absent where they are not known
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
     'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came

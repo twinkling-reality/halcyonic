@@ -401,3 +401,19 @@ commands; edits do not ask; subagents stay denied.
 - A real local model's behaviour when shell commands ask: how many presses an ordinary task needs.
 - Which plugins a person might configure that change a shell command before its ask.
 - Whether a child session's ask can be answered through the parent: the adapter does not see it.
+
+## What a file change's ask carries (2026-11-13, for ADR 0065's second half)
+
+Read from the pinned 2.0.18 binary's own bundled code (the `opencode.tool.write` and `opencode.tool.edit` plugins and
+the helper they share):
+
+- **Write** asks `edit` with `resources: [<path>]` and `metadata: { files: [entry] }`, the entry built from the file's
+  whole old text (empty for a new file) and its whole new text, status `added` or `modified`.
+- **Edit** asks `edit` the same way once its old text was found in the file (`metadata: { files: [entry] }` built from
+  the whole file before and after the replacement, every match when `replaceAll`); where the old text was not found
+  it asks with NO metadata and then fails the tool ("Could not find oldString ...").
+- **The entry** is `{ file, patch, status, additions, deletions }`: `patch` is a whole unified diff of the file
+  (`createTwoFilesPatch` of the old and new text), so the change is carried whole.
+
+So OpenCode can show a file change's whole diff on the card from `metadata.files[].patch` (ADR 0065's second half);
+an edit ask without metadata carries no change and is not approvable.

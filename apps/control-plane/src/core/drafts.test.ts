@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import {
   compileValidator,
@@ -19,7 +22,10 @@ const MARK = '[redacted: OpenCode server password]';
 
 const held = 'opencode-server-password-1';
 
-function recordingSink(secrets = [{ what: 'OpenCode server password', value: held }]) {
+function recordingSink(
+  secrets = [{ what: 'OpenCode server password', value: held }],
+  folder: string | null = null,
+) {
   const recorded: { payload: unknown }[] = [];
   const recorder = {
     record: (draft: { payload: unknown }) => recorded.push(draft),
@@ -35,6 +41,7 @@ function recordingSink(secrets = [{ what: 'OpenCode server password', value: hel
     execution,
     'r' as never,
     redaction(() => secrets),
+    folder,
   );
   return { sink, recorded };
 }
@@ -407,5 +414,65 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
     assert.ok(write.too_long !== undefined);
     // A part at the bound, as the denial's words ask, is approvable (AUDIT2 W1).
     assert.equal(ask('Write', 'z'.repeat(APPROVABLE_LIMIT)).complete, true);
+  });
+});
+
+describe("a file change's approval shows the change whole (ADR 0065 second half, AUDIT3 W1, W3)", () => {
+  const change = (path: string, after: string) => ({
+    path,
+    real_path: null,
+    to_path: null,
+    kind: 'update',
+    shape: 'content',
+    before: null,
+    after,
+    every: false,
+    cell: null,
+  });
+  const write = (changes: unknown[], folder: string | null = null, complete = true) => {
+    const { sink, recorded } = recordingSink(undefined, folder);
+    sink(
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: { kind: 'tool_use', tool_name: 'Write', summary: 'docs/notes.md', changes },
+        complete,
+      }),
+    );
+    return recorded[0]?.payload as {
+      subject: { changes: { real_path: string | null; after: string | null }[] };
+      complete: boolean;
+      too_long?: { length: number };
+    };
+  };
+
+  test('the place a write really reaches is shown where the path, or a folder on it, is a link (W1)', () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-real-')));
+    try {
+      const outside = join(root, 'outside');
+      mkdirSync(join(root, 'copy'));
+      mkdirSync(outside);
+      symlinkSync(outside, join(root, 'copy', 'docs'));
+      const asked = write([change('docs/notes.md', 'x')], join(root, 'copy'));
+      assert.equal(asked.subject.changes[0]?.real_path, join(outside, 'notes.md'));
+      const plain = write([change('src/a.ts', 'x')], join(root, 'copy'));
+      assert.equal(plain.subject.changes[0]?.real_path, null, 'the path itself');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('one bound for all a person reads, the change escaped like the command (W3, L1)', () => {
+    const short = write([change('a.ts', 'x'.repeat(100))]);
+    assert.equal(short.complete, true);
+    const long = write([change('a.ts', 'x'.repeat(APPROVABLE_LIMIT))]);
+    assert.equal(long.complete, false);
+    assert.ok(
+      (long.too_long?.length ?? 0) > APPROVABLE_LIMIT,
+      'the summary and the content together',
+    );
+    const hidden = write([change('a.ts', 'ok \u202E txt.exe')]);
+    assert.equal(hidden.subject.changes[0]?.after, 'ok \\u{202E} txt.exe');
+    // A file tool whose app did not carry its change stays as the app said: not approvable.
+    assert.equal(write([], null, false).complete, false);
   });
 });
