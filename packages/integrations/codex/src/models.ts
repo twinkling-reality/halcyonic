@@ -10,6 +10,9 @@ const BUILT_IN_NAMES: Readonly<Record<string, string>> = {
   'amazon-bedrock': 'Amazon Bedrock',
 };
 
+/** No provider reached through a key gate. */
+const NONE_GATED: ReadonlySet<string> = new Set();
+
 /** Codex's built-in providers for models served on this machine, by port unless configured. */
 const LOCAL_BUILT_INS: ReadonlySet<string> = new Set(['ollama', 'lmstudio']);
 
@@ -34,11 +37,12 @@ export function modelsFromCodex(
   config: Readonly<Record<string, unknown>>,
   catalog: readonly unknown[],
   environment: Readonly<Record<string, string>>,
+  gated: ReadonlySet<string> = NONE_GATED,
 ): RuntimeModel[] {
   const provider = nonBlank(config.model_provider) ?? 'openai';
   const defined = definedProvider(config, provider);
   const label = BUILT_IN_NAMES[provider] ?? nonBlank(defined?.name) ?? provider;
-  const served = servedBy(config, provider, environment);
+  const served = servedBy(config, provider, environment, gated);
   const catalogIsProviders =
     nonBlank(config.model_catalog_json) !== null ||
     nonBlank(defined?.model_catalog_url) !== null ||
@@ -77,13 +81,17 @@ export function modelsFromCodex(
  * so `openai` is judged by `openai_base_url` alone, and the built-in `ollama` and `lmstudio`
  * providers are on this machine unless `CODEX_OSS_BASE_URL` in Codex's environment says otherwise.
  * Amazon Bedrock is always remote. "This Mac" means the three loopback names Codex reaches without
- * a proxy (`NO_PROXY`): `localhost`, `127.0.0.1` and `::1`.
+ * a proxy (`NO_PROXY`): `localhost`, `127.0.0.1` and `::1`. A provider in `gated`, one the server reaches through
+ * Halcyonic's key gate, is `remote` whatever its address: the gate listens on loopback, and every request goes on to
+ * the provider's own host (VRIFY, 2026-11-13).
  */
 export function servedBy(
   config: Readonly<Record<string, unknown>>,
   provider: string,
   environment: Readonly<Record<string, string>>,
+  gated: ReadonlySet<string> = NONE_GATED,
 ): ModelServed {
+  if (gated.has(provider)) return 'remote';
   if (provider === 'openai') {
     const base = nonBlank(config.openai_base_url);
     return base === null ? 'remote' : servedAt(base);

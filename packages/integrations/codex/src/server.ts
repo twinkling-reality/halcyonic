@@ -244,6 +244,11 @@ export interface LaunchOptions {
    * started through `sandbox-exec`, which becomes the binary in the same process.
    */
   readonly sandboxProfile?: string;
+  /**
+   * More `-c` overrides after the local-only ones: a confined server's gated providers (VRIFY, 2026-11-13). Never a
+   * credential: those are in the environment alone.
+   */
+  readonly extraArguments?: readonly string[];
 }
 
 /**
@@ -340,8 +345,14 @@ export async function launchServer(options: LaunchOptions): Promise<CodexServer>
   const child = spawn(
     confined ? SANDBOX_EXEC : options.binaryPath,
     confined
-      ? ['-f', options.sandboxProfile as string, options.binaryPath, ...APP_SERVER_ARGUMENTS]
-      : APP_SERVER_ARGUMENTS,
+      ? [
+          '-f',
+          options.sandboxProfile as string,
+          options.binaryPath,
+          ...APP_SERVER_ARGUMENTS,
+          ...(options.extraArguments ?? []),
+        ]
+      : [...APP_SERVER_ARGUMENTS, ...(options.extraArguments ?? [])],
     {
       cwd: options.cwd,
       env: options.environment,

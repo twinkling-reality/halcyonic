@@ -120,6 +120,26 @@ describe('Codex model list', () => {
     assert.equal(servedBy({}, 'amazon-bedrock-runtime', {}), 'remote');
   });
 
+  test("a hosted provider reached through Halcyonic's key gate on loopback is remote, never this Mac's (VRIFY, 2026-11-13)", () => {
+    const config = {
+      model_provider: 'halcyonic_meta',
+      model: 'muse-wonder-1.0',
+      model_providers: {
+        // The gate's own address: loopback, though every request goes on to the provider's host.
+        halcyonic_meta: { name: 'Meta', base_url: 'http://127.0.0.1:53120', wire_api: 'responses' },
+        ollama_here: { name: 'Ollama', base_url: 'http://127.0.0.1:11434/v1' },
+      },
+    };
+    const gated = new Set(['halcyonic_meta']);
+    assert.equal(servedBy(config, 'halcyonic_meta', {}, gated), 'remote');
+    assert.deepEqual(
+      modelsFromCodex(config, [], {}, gated).map((model) => model.served),
+      ['remote'],
+    );
+    // Only the providers this server reaches through a gate: a local one on loopback stays this Mac's.
+    assert.equal(servedBy(config, 'ollama_here', {}, gated), 'this_mac');
+  });
+
   test('names that cannot travel as a model_ref are left out, and duplicates are listed once', () => {
     const models = modelsFromCodex(
       { model: 'gpt-5.5' },

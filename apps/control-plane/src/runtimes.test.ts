@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import type { ExecutionId, ProjectId, WorkstreamId } from '@halcyonic/contracts';
 import { ClaudeAgentRuntimeAdapter, EnvironmentError } from '@halcyonic/integration-claude-code';
-import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
+import { CODEX_KEY_READER, CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
@@ -535,6 +535,21 @@ describe('which hosted providers an agent app reaches through its key gate (VRIF
       routed().map((each) => each.id),
       ['third-host'],
     );
+  });
+
+  test("on the repository's own declarations, a stored Meta key gives Codex Meta's models (Responses), and an Anthropic key gives it nothing", () => {
+    const dataDir = mkdtempSync(join(base, 'provider-keys-'));
+    const routed = () =>
+      gatedProviders(
+        new HostProviders({ dataDir, readers: [CODEX_KEY_READER] }),
+        CODEX_KEY_READER,
+      ).map((each) => [each.id, each.upstream, each.models]);
+    writeFileSync(join(dataDir, 'anthropic-api-key'), 'fake-anthropic-key\n', { mode: 0o600 });
+    assert.deepEqual(routed(), []);
+    writeFileSync(join(dataDir, 'meta-api-key'), 'LLM_fake-meta-key\n', { mode: 0o600 });
+    assert.deepEqual(routed(), [
+      ['meta', 'https://api.meta.ai/v1', ['muse-wonder-1.0', 'muse-spark-1.3']],
+    ]);
   });
 
   test("on the repository's own declarations, a stored Meta key gives OpenCode Meta's models, and an Anthropic key gives it nothing", () => {

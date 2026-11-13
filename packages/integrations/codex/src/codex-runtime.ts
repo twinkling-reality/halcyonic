@@ -30,10 +30,13 @@ import {
   systemClock,
 } from '@halcyonic/runtime-core';
 import {
+  type ApiGate,
   type Confinement,
   confinedHomeEnvironment,
   confinedProfile,
   confinementKey,
+  type GatedProvider,
+  startProviderGate,
   TOOL_PREFIXES,
 } from '@halcyonic/seatbelt';
 import { makeTemp, removeTemp, tempFolder } from './confined-temp.ts';
@@ -51,6 +54,11 @@ import {
   type ThreadState,
 } from './events.ts';
 import { prepareHome } from './home.ts';
+import {
+  GATED_PROVIDER_PREFIX,
+  gatedCredentialVariable,
+  gatedEntriesProblem,
+} from './key-reader.ts';
 import { presentSystemConfiguration, systemConfigurationPaths } from './managed.ts';
 import { modelsFromCodex, servedBy } from './models.ts';
 import {
@@ -178,6 +186,12 @@ export interface CodexRuntimeOptions {
     readonly loopbackPorts: readonly number[];
   };
   readonly clock?: Clock;
+  /**
+   * The hosted providers a confined server may reach (VRIFY, 2026-11-13; AUDIT3's read of the shape): each through a
+   * key gate of its own that holds the person's key, the server holding only a run credential. Read at each confined
+   * launch; the open server never gets one.
+   */
+  readonly hostedProviders?: () => readonly GatedProvider[];
 }
 
 export type StaleServerResult =
@@ -233,6 +247,8 @@ interface Connection {
   readonly launchedAt: number;
   /** Launched to replace a server that exited unexpectedly. */
   readonly relaunch: boolean;
+  /** The provider ids (`halcyonic_<id>`) this server reaches through a key gate, each with its gate's address. */
+  readonly gated: ReadonlyMap<string, string>;
 }
 
 interface Confirmation {
@@ -307,6 +323,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   readonly #confinement: NonNullable<CodexRuntimeOptions['confinement']> | null;
   readonly #foldersInside: (directory: string) => readonly string[];
   readonly #clock: Clock;
+  readonly #hostedProviders: () => readonly GatedProvider[];
   readonly #threads = new Map<string, HostedThread>();
   readonly #byThreadId = new Map<string, HostedThread>();
   readonly #open: Slot;
@@ -335,6 +352,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     this.#answerQuestions = options.answerQuestions ?? true;
     this.#confinement = options.confinement ?? null;
     this.#foldersInside = options.foldersInside ?? (() => []);
+    this.#hostedProviders = options.hostedProviders ?? (() => []);
     this.#open = {
       confinement: null,
       replacing: null,
@@ -430,10 +448,24 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       cursor = isRecord(result) && typeof result.nextCursor === 'string' ? result.nextCursor : null;
       if (cursor === null) break;
     }
-    // Only models served on this Mac are offered: through Halcyonic, Codex runs on no other.
-    return modelsFromCodex(config, catalog, this.#environment).filter(
+    // Models served on this Mac, and the declared models of each hosted provider Codex reaches through a key gate
+    // (in a new app's project only, said where one is chosen elsewhere): served remote, the provider named.
+    const local = modelsFromCodex(config, catalog, this.#environment).filter(
       (model) => model.served === 'this_mac' && !runsOnOllamasService(model.model_ref),
     );
+    const hosted = this.#hostedProviders().flatMap((provider) =>
+      provider.models.map(
+        (model): RuntimeModel => ({
+          model_ref: toModelRef(`${GATED_PROVIDER_PREFIX}${provider.id}`, model),
+          display_name: `${model} (${provider.name})`,
+          served: 'remote',
+          tool_calling: 'unknown',
+          context_tokens: null,
+          provider: provider.id,
+        }),
+      ),
+    );
+    return [...local, ...hosted.filter((model) => /^\S{1,256}$/.test(model.model_ref))];
   }
 
   /**
@@ -489,7 +521,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     // Asked again right before the folder is handed over: listing and launching wait.
     confirmProjectLocation(this.#directoryPolicy, cwd);
     const params: ThreadStartParams = {
-      ...threadSettings(local, this.#answerQuestions),
+      ...threadSettings(local, this.#answerQuestions, this.#gatedVariables()),
       threadSource: THREAD_SOURCE,
     };
     const reported = checkSettings(
@@ -604,7 +636,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     try {
       const params: ThreadResumeParams = {
         threadId: request.native_id,
-        ...threadSettings(local, this.#answerQuestions),
+        ...threadSettings(local, this.#answerQuestions, this.#gatedVariables()),
         excludeTurns: true,
       };
       const reported = checkSettings(
@@ -934,6 +966,12 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         `Codex did not apply the settings that keep it on this Mac: ${unapplied.join(', ')}. A managed configuration, such as one under /etc/codex, may set them.`,
       );
     }
+    const gatedProblem = gatedEntriesProblem(config, connection.gated);
+    if (gatedProblem !== null) {
+      throw notLocalOnly(
+        `Codex's configuration does not hold its hosted providers as Halcyonic set them: ${gatedProblem}.`,
+      );
+    }
     const managed = layers.flatMap(managedLayer);
     if (managed.length > 0) {
       throw notLocalOnly(
@@ -1031,14 +1069,26 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     neverAskingWithoutMcp(config, options.approvalPolicy);
     const configured = typeof config.model_provider === 'string' ? config.model_provider : '';
     const provider = options.modelProvider ?? (configured === '' ? 'openai' : configured);
-    const served = servedBy(config, provider, this.#environment);
-    if (served !== 'this_mac') {
+    // A hosted provider runs only where this server reaches it through its key gate: a new app's project.
+    if (provider.startsWith(GATED_PROVIDER_PREFIX) && !connection.gated.has(provider)) {
+      throw new RuntimeActionError(
+        'model_unavailable',
+        "Hosted models run in a new app's project only. Make a new app here, then choose this model there.",
+      );
+    }
+    const served = servedBy(config, provider, this.#environment, new Set(connection.gated.keys()));
+    if (served !== 'this_mac' && !connection.gated.has(provider)) {
       throw new RuntimeActionError(
         'model_unavailable',
         `Codex runs only on models served on this Mac through Halcyonic, and the provider ${provider} ${served === 'remote' ? 'is a remote service' : 'is not known to be on this Mac'}.`,
       );
     }
     return { ...options, modelProvider: provider };
+  }
+
+  /** Every declared provider's gate variable, set empty for each thread's commands wherever the server holds one. */
+  #gatedVariables(): string[] {
+    return this.#hostedProviders().map((provider) => gatedCredentialVariable(provider.id));
   }
 
   // Server lifecycle ---------------------------------------------------------------------------
@@ -1126,6 +1176,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   async #confine(
     slot: Slot,
     confinement: Confinement,
+    gatePorts: readonly number[] = [],
   ): Promise<{ codexHome: string; temp: string; profile: string }> {
     const settings = this.#confinement;
     if (settings === null) throw new Error('a confined server needs the confinement settings');
@@ -1154,7 +1205,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         // The binary's platform folder: Codex runs its bundled tools (rg, zsh) from beside it.
         runtimeFolder: dirname(dirname(this.#binaryPath)),
         toolFolders: settings.toolFolders,
-        loopbackPorts: settings.loopbackPorts,
+        // The key gates' ports alone of the hosted providers: never a provider's own host.
+        loopbackPorts: [...settings.loopbackPorts, ...gatePorts],
       }),
       { mode: 0o600 },
     );
@@ -1183,9 +1235,53 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
     // Checked before every launch: the home may have changed since the last one.
     await prepareHome(this.#home);
-    const confined = slot.confinement === null ? null : await this.#confine(slot, slot.confinement);
+    // A confined server's hosted providers, each through a key gate of its own holding the key; the open server none.
+    const hosted: { readonly id: string; readonly gate: ApiGate; readonly credential: string }[] =
+      [];
+    const closeHosted = () => Promise.all(hosted.map((each) => each.gate.close()));
+    if (slot.confinement !== null) {
+      try {
+        for (const provider of this.#hostedProviders()) {
+          // Codex sends a custom provider's env_key as `Authorization: Bearer`.
+          const gate = await startProviderGate(provider, { header: 'authorization', bearer: true });
+          hosted.push({ id: provider.id, gate, credential: gate.issue() });
+        }
+      } catch (error) {
+        await closeHosted();
+        throw new RuntimeActionError(
+          'runtime_unavailable',
+          `Could not open Codex's way to a hosted model: ${message(error)}`,
+        );
+      }
+    }
+    const providers = this.#hostedProviders();
+    const gatedEntries = hosted.map((each) => {
+      const provider = providers.find((candidate) => candidate.id === each.id);
+      return {
+        codexId: `${GATED_PROVIDER_PREFIX}${each.id}`,
+        name: provider?.name ?? each.id,
+        url: each.gate.url,
+        variable: gatedCredentialVariable(each.id),
+        credential: each.credential,
+      };
+    });
+    let confined: { codexHome: string; temp: string; profile: string } | null;
+    try {
+      confined =
+        slot.confinement === null
+          ? null
+          : await this.#confine(
+              slot,
+              slot.confinement,
+              hosted.map((each) => each.gate.port),
+            );
+    } catch (error) {
+      await closeHosted();
+      throw error;
+    }
     let connection: Connection | null = null;
     const server = await launchServer({
+      extraArguments: gatedArguments(gatedEntries),
       binaryPath: this.#binaryPath,
       environment:
         confined === null
@@ -1203,18 +1299,33 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
               PATH: [dirname(process.execPath), this.#environment.PATH ?? process.env.PATH ?? '']
                 .filter(Boolean)
                 .join(':'),
+              // Each gated provider's run credential, for the server alone (every thread's commands exclude it).
+              ...Object.fromEntries(
+                gatedEntries.map((entry) => [entry.variable, entry.credential]),
+              ),
             },
       recordFile: slot.recordFile,
       cwd: confined?.temp ?? tmpdir(),
       startupTimeoutMs: this.#startupTimeoutMs,
       handlers: this.#handlers(() => connection),
       ...(confined !== null && { sandboxProfile: confined.profile }),
+    }).catch(async (error: unknown) => {
+      await closeHosted();
+      throw error;
     });
     if (this.#closing !== null) {
       await server.stop();
       throw closedError();
     }
-    connection = { server, slot, halted: new AbortController(), launchedAt: Date.now(), relaunch };
+    void server.exited.then(() => closeHosted());
+    connection = {
+      server,
+      slot,
+      halted: new AbortController(),
+      launchedAt: Date.now(),
+      relaunch,
+      gated: new Map(gatedEntries.map((entry) => [entry.codexId, entry.url])),
+    };
     // Before anything is listed or started on it: a server that is not local-only is stopped, and
     // so is a confined one that can read outside its project.
     try {
@@ -1415,7 +1526,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       }
       const params: ThreadResumeParams = {
         threadId: thread.threadId,
-        ...threadSettings(thread.options, this.#answerQuestions),
+        ...threadSettings(thread.options, this.#answerQuestions, this.#gatedVariables()),
         excludeTurns: true,
       };
       const reported = checkSettings(
@@ -1718,6 +1829,7 @@ const NEW_PROJECT_INSIDE =
 function threadSettings(
   options: StartOptions,
   askQuestions: boolean,
+  gatedVariables: readonly string[] = [],
 ): Omit<ThreadStartParams, 'threadSource'> {
   const config: ThreadConfigOverrides = {
     ...(options.contextWindow !== undefined && { model_context_window: options.contextWindow }),
@@ -1727,6 +1839,12 @@ function threadSettings(
     ...(askQuestions && { [QUESTION_FEATURE]: true }),
     // Above the home's config.toml: no network for commands and no folder but the project's.
     'sandbox_workspace_write.network_access': false,
+    // A key gate's run credential is the server's alone: each gate's variable set empty for the thread's commands
+    // (AUDIT3's read, B). Codex 0.157.0 applied neither a launch's nor a thread's shell_environment_policy.exclude
+    // to them (the end to end test), while a thread's set is applied (project-secrets.md).
+    ...Object.fromEntries(
+      gatedVariables.map((name) => [`shell_environment_policy.set.${name}`, '']),
+    ),
     'sandbox_workspace_write.writable_roots': [],
     projects: untrustedFrom(options.cwd),
     // The project's secrets, for this thread's commands alone (ADR 0057; a runtime test of 0.157.0,
@@ -1747,6 +1865,35 @@ function threadSettings(
     ...(options.modelProvider !== undefined && { modelProvider: options.modelProvider }),
     ...(Object.keys(config).length > 0 && { config }),
   };
+}
+
+/**
+ * The `-c` overrides for a confined server's gated providers (VRIFY, 2026-11-13): each entry's name, its gate as
+ * `base_url`, its credential's variable as `env_key` (the variable's name, never its value) and the Responses wire;
+ * and, with any, every gate's credential kept out of every command's environment (AUDIT3's read, B).
+ */
+export function gatedArguments(
+  entries: readonly {
+    readonly codexId: string;
+    readonly name: string;
+    readonly url: string;
+    readonly variable: string;
+  }[],
+): string[] {
+  if (entries.length === 0) return [];
+  return [
+    ...entries.flatMap((entry) =>
+      [
+        ['name', entry.name],
+        ['base_url', entry.url],
+        ['env_key', entry.variable],
+        ['wire_api', 'responses'],
+      ].flatMap(([field, value]) => [
+        '-c',
+        `model_providers.${entry.codexId}.${field}=${JSON.stringify(value)}`,
+      ]),
+    ),
+  ];
 }
 
 const SANDBOX_TYPES: Readonly<Record<StartOptions['sandbox'], string>> = {
