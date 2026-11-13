@@ -337,6 +337,9 @@ public class UsageColumnTests
         /// <summary>Reads of the step's own command that still say accepted before <see cref="ChooseStatus"/>.</summary>
         public int ChooseAcceptedReads { get; set; }
 
+        /// <summary>A press's command the computer answers as completed, its result the request it made.</summary>
+        public string? Created { get; set; }
+
         public List<string> Asked { get; } = new();
 
         private static string Command(string id, string type, string status, string? failure) =>
@@ -371,6 +374,8 @@ public class UsageColumnTests
                         .Replace("COMMAND", Confirmed ? "\"choose-1\"" : "null", StringComparison.Ordinal)
                 : path.EndsWith("/api/workspace/commands/choose-1", StringComparison.Ordinal)
                     ? Command("choose-1", "assistant.model.choose", ChooseAcceptedReads-- > 0 ? "accepted" : ChooseStatus, ChooseFailure)
+                : Created != null && path.EndsWith("/api/workspace/commands/" + Created, StringComparison.Ordinal)
+                    ? Command(Created, "workspace.request.submit", "completed", null).Replace("\"result\":null", "\"result\":{\"kind\":\"workspace_request_created\",\"request_id\":\"request-1\"}", StringComparison.Ordinal)
                 : path.Contains("/api/workspace/commands/", StringComparison.Ordinal)
                     ? Command(path[(path.LastIndexOf('/') + 1)..], "workspace.request.resume", "completed", null)
                 : null;
@@ -628,6 +633,37 @@ public class UsageColumnTests
             });
             await Until(refusing, refusingHost, () => refusing.Frame!.Card!.List.Count == 3);
             Assert.That(refusing.Frame!.Card!.Description!.Text, Is.EqualTo("This request no longer waits on you."));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>
+    /// Back pressed before the computer said which request a press made still leaves none waiting on the person: the press's
+    /// command is read till it says, and its request is cancelled; and a refused press is never cancelled after.
+    /// </summary>
+    [Test]
+    public async Task BackBeforeTheComputerAnswersCancelsTheRequestThePressMade()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var computer = new UseModelComputer();
+            using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", computer);
+            var host = new FakeMenuHost { Clock = Now, Height = MenuPage.Rows(6), Api = api };
+            var usage = new UsageColumn(host, _ => null, new CommandFactory(Samples.Client));
+            await Until(usage, host, () => AssistantRows(usage.Frame!.Card!).Count == 1);
+            usage.Act(UsageColumn.UseModel, null);
+            await Until(usage, host, () => usage.Frame!.Card!.List.Count == 3);
+            host.Ack = new TaskCompletionSource<CommandAckMessage>();
+            usage.Act(UsageColumn.ChooseModel, "1");
+            usage.Act(UsageColumn.Back, null);
+            Assert.That(usage.Frame!.Card!.Gauges.Count, Is.EqualTo(2), "Back leaves at once");
+            computer.Created = host.Sent[0].CommandId;
+            await Until(usage, host, () => host.Sent.Count == 2);
+            Assert.That(((WorkspaceRequestCancelCommand)host.Sent[1]).Payload.RequestId, Is.EqualTo("request-1"));
+            await Until(usage, host, () => false);
+            Assert.That(host.Sent.Count, Is.EqualTo(2), "cancelled once");
         }
         finally { RoomDesign.Enabled = was; }
     }

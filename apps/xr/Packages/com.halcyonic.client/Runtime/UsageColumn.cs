@@ -90,6 +90,18 @@ namespace Halcyonic.Client
         private bool confirmDone;
         private string? chooseId;
 
+        /// <summary>
+        /// A press left by Back before the computer said which request it made: its command is read till it says, and the
+        /// request it made is cancelled, so none is left waiting on the person.
+        /// </summary>
+        private string? abandoned;
+        private Task<WorkspaceCommandResponse>? abandonedReading;
+        private double abandonedAt;
+        private int abandonedReads;
+
+        /// <summary>The reads given a left press before the column stops asking (a minute, slowly).</summary>
+        private const int AbandonedReads = 30;
+
         /// <summary>When the stage now waiting began, by <see cref="IMenuHost.Now"/>, for <see cref="Patience"/>.</summary>
         private double waitingSince;
 
@@ -186,6 +198,7 @@ namespace Halcyonic.Client
                     // Nothing was confirmed: the request the press made is cancelled, so none waits on the person, and nothing
                     // changes where the assistant runs.
                     if (requestId != null && commands != null) host.Submit(commands.CancelRequest(requestId));
+                    else if (stage == Stage.Sent && sentId != null) (abandoned, abandonedReads, abandonedAt) = (sentId, 0, host.Now);
                     Done();
                     return;
                 case Back when stage == Stage.Confirmed:
@@ -244,6 +257,7 @@ namespace Halcyonic.Client
         public void Tick()
         {
             if (stage != Stage.None || modelsReading != null) TickChoice();
+            TickAbandoned();
             if (agentReading is Task<WorkspaceAgentStatus> asked && asked.IsCompleted)
             {
                 agentReading = null;
@@ -459,6 +473,15 @@ namespace Halcyonic.Client
 
         private void Refused(LineWords? words)
         {
+            // The press refused has ended: nothing of it is read again, and nothing of it is cancelled later.
+            requestId = null;
+            sentId = null;
+            review = null;
+            chooseId = null;
+            confirmDone = false;
+            sending = null;
+            commandReading = null;
+            requestReading = null;
             OpenList();
             refused = words == null || words.IsEmpty ? LineWords.Ours(NotTaken) : words;
             Changed?.Invoke();
@@ -492,6 +515,29 @@ namespace Halcyonic.Client
             chooseId = null;
             if (host.Api is ControlPlaneApi api) agentReading = api.GetWorkspaceAgentAsync(cancel?.Token ?? default);
             Changed?.Invoke();
+        }
+
+        /// <summary>The press left before its request was known: read its command until it says, then cancel the request it made.</summary>
+        private void TickAbandoned()
+        {
+            if (abandoned == null || host.Api is not ControlPlaneApi api) return;
+            if (abandonedReading is Task<WorkspaceCommandResponse> found)
+            {
+                if (!found.IsCompleted) return;
+                abandonedReading = null;
+                var command = found.Status == TaskStatus.RanToCompletion ? found.Result.Command : null;
+                if (command != null && command.CommandId == abandoned && command.Status != CommandStatus.Accepted)
+                {
+                    if (command.Status == CommandStatus.Completed && command.Result is WorkspaceRequestCreatedResult created && commands != null)
+                        host.Submit(commands.CancelRequest(created.RequestId));
+                    abandoned = null;
+                    return;
+                }
+            }
+            if (host.Now < abandonedAt) return;
+            if (++abandonedReads > AbandonedReads) { abandoned = null; return; }
+            abandonedAt = host.Now + ReadSlowly;
+            abandonedReading = api.ReadWorkspaceCommandAsync(abandoned, cancel?.Token ?? default);
         }
 
         /// <summary>Use Model's reads, once a frame: the list, the press's acknowledgement, its command, then its request.</summary>
