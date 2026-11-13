@@ -751,6 +751,84 @@ describe('Send to GitHub (ADR 0039, amended)', { skip: process.platform !== 'dar
   });
 });
 
+describe("the project repository's own git settings never run in a send (AUDIT3, 2026-11-13)", {
+  skip: process.platform !== 'darwin',
+}, () => {
+  test("over ssh, its ssh command, its push address, its other settings and its hooks run nothing at the review or the press, though the folder's own git runs them", async () => {
+    const marks = join(root, 'marks');
+    mkdirSync(marks);
+    const mark = (name: string) => `touch ${join(marks, name)}`;
+    // The person's own ssh command stands in for ssh to a host of its own, serving the stand-in repository.
+    const ssh = join(root, 'bin', 'person-ssh');
+    writeFileSync(
+      ssh,
+      `#!/bin/sh\nfor a; do last=$a; done\nexec sh -c "$(printf %s "$last" | sed "s#'owner/garden.git'#'${origin}'#")"\n`,
+    );
+    chmodSync(ssh, 0o755);
+    git(home, 'config', '--global', 'core.sshCommand', ssh);
+    const address = 'git@standin.test:owner/garden.git';
+    git(folder, 'remote', 'set-url', 'origin', address);
+    // Where the repository's own settings would push the person's git instead.
+    const decoy = join(root, 'decoy.git');
+    git(root, 'init', '--bare', '-q', decoy);
+    const settings: [string, string][] = [
+      ['core.sshCommand', mark('sshCommand')],
+      [`url.file://${decoy}.pushInsteadOf`, address],
+      ['core.fsmonitor', mark('fsmonitor')],
+      ['core.pager', mark('pager')],
+      ['core.askPass', mark('askPass')],
+      ['core.alternateRefsCommand', mark('alternateRefsCommand')],
+      ['uploadpack.packObjectsHook', mark('packObjectsHook')],
+      ['credential.helper', `!${mark('credential')}`],
+      ['gpg.program', mark('gpg')],
+      ['commit.gpgSign', 'true'],
+      ['diff.external', mark('diffExternal')],
+      ['core.hooksPath', join(folder, '.git', 'hooks')],
+    ];
+    for (const [key, value] of settings) git(folder, 'config', key, value);
+    for (const hook of [
+      'pre-push',
+      'reference-transaction',
+      'pre-commit',
+      'post-commit',
+      'post-checkout',
+    ]) {
+      writeFileSync(join(folder, '.git', 'hooks', hook), `#!/bin/sh\n${mark(`hook-${hook}`)}\n`);
+      chmodSync(join(folder, '.git', 'hooks', hook), 0o755);
+    }
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    // With a secret held, so the press asks the remote what it holds before it pushes.
+    const reviewed = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    const sent = await sender({ held: HELD }).send(
+      PROJECT,
+      folder,
+      [],
+      'Lanterns',
+      reviewed.send.review,
+    );
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.equal(
+      git(origin, 'for-each-ref', '--format=%(refname)', 'refs/heads/halcyonic'),
+      `refs/heads/${reviewed.send.new_branch}`,
+      "it reached the stand-in through the person's own ssh command",
+    );
+    assert.equal(git(decoy, 'for-each-ref'), '', 'not the address the repository would push to');
+    assert.deepEqual(readdirSync(marks), [], 'nothing of the repository ran');
+    // The controls: the folder's own git, as the person runs it, uses the repository's push address and hooks,
+    // and its ssh command.
+    git(folder, 'push', '-q', 'origin', 'HEAD:refs/heads/control');
+    assert.notEqual(git(decoy, 'for-each-ref'), '');
+    assert.ok(readdirSync(marks).includes('hook-pre-push'));
+    try {
+      git(folder, 'ls-remote', 'origin');
+    } catch {
+      // The repository's ssh command only touched its mark, so there was no remote to list.
+    }
+    assert.ok(readdirSync(marks).includes('sshCommand'));
+  });
+});
+
 describe('a tree holding a secret the host keeps is never sent (the lead, 2026-11-12)', {
   skip: process.platform !== 'darwin',
 }, () => {
