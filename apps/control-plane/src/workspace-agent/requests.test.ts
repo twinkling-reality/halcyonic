@@ -3191,3 +3191,67 @@ test("a proposal the domain's admission refuses is refused when it is made, neve
     await f.close();
   }
 });
+
+test("a proposal the one preparation takes and only the domain's admission refuses is refused when it is made (AUDIT2's b95 point)", async () => {
+  let turn = 0;
+  const f = await fixture({
+    turn: async () => {
+      turn++;
+      if (turn === 1) return answer([{ name: 'read_choices', arguments: { list: 'runtimes' } }]);
+      if (turn === 2)
+        return answer([
+          {
+            name: 'propose_command',
+            arguments: {
+              command_type: 'execution.start',
+              values: { runtime_id: 0, instruction: 'Plan the night sky first.', plan: true },
+            },
+          },
+        ]);
+      return answer([], 'That agent cannot plan first.');
+    },
+  });
+  try {
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
+    await settle();
+    // Plan First is a yes or no the person gives, never a row: the agent row is offered and the preparation builds
+    // the command, and only the admission knows this agent offers no plan.
+    const scope = {
+      project_id: f.projectId,
+      workstream_id: f.workstreamId,
+      execution_id: f.execution,
+    };
+    const runtimes = await f.controlPlane.commands.choices(scope, 'runtimes');
+    assert.ok(runtimes, 'the agents list is offered in the task');
+    assert.ok(runtimes.rows[0]?.actions.includes('execution.start'), JSON.stringify(runtimes));
+    const prepared = await f.controlPlane.commands.prepare({
+      scope,
+      command_type: 'execution.start',
+      values: { runtime_id: 0, instruction: 'Plan the night sky first.', plan: true },
+      read: { runtimes: runtimes.digest },
+      command_id: f.ids.next() as CommandId,
+      issued_at: f.time.now().toISOString(),
+      client: { name: 'synthetic', version: null, device_label: null },
+    });
+    assert.equal(prepared.ok, true, JSON.stringify(prepared));
+    const id = submitIn(f, 'Start a run that plans the night sky first.', {
+      workstream_id: f.workstreamId,
+      execution_id: f.execution,
+    });
+    for (let i = 0; i < 10; i++) await settle();
+    const request = f.controlPlane.projection.workspaceRequest(id);
+    const proposed = request?.steps.filter((s) => s.tool_name === 'propose_command') ?? [];
+    assert.equal(
+      proposed.length,
+      1,
+      JSON.stringify(request?.steps.map((s) => [s.tool_name, s.status, s.summary])),
+    );
+    assert.equal(proposed[0]?.status, 'rejected');
+    assert.match(proposed[0]?.summary ?? '', /does not offer planning without changing a file/);
+    assert.equal(proposed[0]?.proposal, undefined);
+    assert.ok(!request?.steps.some((s) => s.status === 'waiting'));
+    assert.notEqual(request?.status, 'waiting_for_human');
+  } finally {
+    await f.close();
+  }
+});
