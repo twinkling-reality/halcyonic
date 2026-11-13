@@ -15,8 +15,12 @@ namespace Halcyonic.Client
     /// <summary>One row of the information panel: its words, and its mark.</summary>
     public readonly struct RoomRow
     {
-        public RoomRow(LineWords words, RoomRowMark mark = RoomRowMark.None, int fromLine = 0, int? lines = null)
+        /// <param name="label">What the row's words are, ours, a quiet line of its own above them ("Project" over a person's idea); never joined to them on a dot.</param>
+        /// <param name="note">The row's state, ours, a quiet note at its right ("Confirmed" beside "Create Project"); never joined on a dot.</param>
+        public RoomRow(LineWords words, RoomRowMark mark = RoomRowMark.None, int fromLine = 0, int? lines = null, string? label = null, string? note = null)
         {
+            Label = string.IsNullOrWhiteSpace(label) ? null : label!.Trim();
+            Note = string.IsNullOrWhiteSpace(note) ? null : note!.Trim();
             Words = words;
             Mark = mark;
             FromLine = fromLine < 0 ? 0 : fromLine;
@@ -24,6 +28,12 @@ namespace Halcyonic.Client
         }
 
         public LineWords Words { get; }
+
+        /// <summary>What the words are, ours, drawn quiet above them; null for none.</summary>
+        public string? Label { get; }
+
+        /// <summary>The row's state, ours, drawn quiet at its right; null for none.</summary>
+        public string? Note { get; }
 
         public RoomRowMark Mark { get; }
 

@@ -21,6 +21,14 @@ namespace Halcyonic.XR.UI
         private readonly List<TextMeshPro> labels = new List<TextMeshPro>();
         private readonly List<Surface> hairlines = new List<Surface>();
         private readonly List<RoomGlyphView> marks = new List<RoomGlyphView>();
+        private readonly List<TextMeshPro> tags = new List<TextMeshPro>();
+        private readonly List<TextMeshPro> notes = new List<TextMeshPro>();
+
+        /// <summary>A row's label and note: a step smaller than its words and quiet, as a card's notes are.</summary>
+        public const float TagDp = 16f;
+        public const float TagLineDp = 22f;
+        public const float TagAlpha = 0.78f;
+        public const float NoteGapDp = 14f;
         private int order;
         private int shown;
 
@@ -78,24 +86,54 @@ namespace Halcyonic.XR.UI
                     labels.Add(RoomType.Create(transform, "Row", Color.white, order));
                     hairlines.Add(Surface.Create(transform, "Hairline", order));
                     marks.Add(RoomGlyphView.Create(transform, "Mark", order));
+                    tags.Add(KitType.Create(transform, "Row label", KitRole.Body, new Color(1f, 1f, 1f, TagAlpha), order, TMPro.TextAlignmentOptions.TopLeft, room: true));
+                    notes.Add(KitType.Create(transform, "Row note", KitRole.Body, new Color(1f, 1f, 1f, TagAlpha), order, TMPro.TextAlignmentOptions.TopLeft, room: true));
                 }
+                var row = rows[index];
+                // The row's label above its words and its note at its right, each its own words, quiet (never joined on a dot).
+                var tag = tags[index];
+                var tagTall = 0f;
+                if (row.Label is string said)
+                {
+                    tag.gameObject.SetActive(true);
+                    tag.fontSize = GlazeTokens.FontSize(RoomType.Scaled(TagDp));
+                    tag.lineSpacing = KitType.LineSpacingFor(tag, TagLineDp / TagDp);
+                    GlazeRuns.Of(tag).Set(LineWords.Ours(said));
+                    tagTall = Mathf.Max(1, KitType.Lay(tag, width - indent, 2).Lines) * RoomType.Scaled(TagLineDp);
+                    tag.transform.localPosition = new Vector3(indent, -down, 0f);
+                    down += tagTall;
+                }
+                else tag.gameObject.SetActive(false);
+                var note = notes[index];
+                var noteRoom = 0f;
+                if (row.Note is string state)
+                {
+                    note.gameObject.SetActive(true);
+                    note.fontSize = GlazeTokens.FontSize(RoomType.Scaled(TagDp));
+                    note.lineSpacing = KitType.LineSpacingFor(note, TagLineDp / TagDp);
+                    GlazeRuns.Of(note).Set(LineWords.Ours(state));
+                    KitType.Lay(note, width / 2f, 1);
+                    noteRoom = note.GetPreferredValues(note.text).x + RoomType.Scaled(NoteGapDp);
+                }
+                else note.gameObject.SetActive(false);
                 var label = labels[index];
                 label.gameObject.SetActive(true);
                 RoomType.Size(label);
                 var runs = GlazeRuns.Of(label);
                 runs.Set(rows[index].Words);
                 runs.SetProseMode(true);
-                var laid = LayAtSeparators(label, runs, width - indent);
+                var laid = LayAtSeparators(label, runs, width - indent - noteRoom);
                 // A row that shows a part of its words (a review read part by part): its own lines from the first of the part,
                 // as many as the part holds, cut where the rows themselves break the words.
                 if (rows[index].FromLine > 0 || rows[index].Lines is int part && label.textInfo.lineCount > part)
                 {
                     runs.Set(LineWords.Theirs(LabelText.FromTextMeshPro(Part(label, rows[index].FromLine, rows[index].Lines ?? RowLines))));
                     runs.SetProseMode(true);
-                    laid = LayAtSeparators(label, runs, width - indent);
+                    laid = LayAtSeparators(label, runs, width - indent - noteRoom);
                 }
                 var tall = Mathf.Max(line, laid.Height);
                 label.transform.localPosition = new Vector3(indent, -down, 0f);
+                if (row.Note != null) note.transform.localPosition = new Vector3(width - noteRoom + RoomType.Scaled(NoteGapDp), -down - (line - RoomType.Scaled(TagLineDp)) / 2f, 0f);
                 var mark = marks[index];
                 if (rows[index].Mark == RoomRowMark.None) mark.Hide();
                 else
@@ -120,6 +158,8 @@ namespace Halcyonic.XR.UI
                 labels[index].gameObject.SetActive(false);
                 hairlines[index].gameObject.SetActive(false);
                 marks[index].Hide();
+                tags[index].gameObject.SetActive(false);
+                notes[index].gameObject.SetActive(false);
             }
             Size = new Vector2(width, down);
             return down;

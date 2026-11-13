@@ -54,4 +54,15 @@ public sealed class RoomRowsTests
         Assert.That(RoomRows.LightAlpha(0f, ground), Is.EqualTo(0f).Within(1e-6f));
         Assert.That(RoomRows.LightAlpha(1f, ground), Is.EqualTo(1f).Within(1e-5f));
     }
+    [Test]
+    public void ARowsLabelAndStateStandApartFromItsWordsNeverJoinedOnADot()
+    {
+        var step = new RoomRow(LineWords.Ours("Create Project"), note: " Confirmed ");
+        var fact = new RoomRow(LineWords.TheirName("Make a kite that follows my hand"), label: "Project");
+        var plain = new RoomRow(LineWords.Ours("Every check passed"), label: " ", note: "");
+        Assert.That((step.Words.Text, step.Note, step.Label), Is.EqualTo(("Create Project", "Confirmed", (string?)null)), "the state is its own part, trimmed");
+        Assert.That((fact.Label, fact.Words.AllTheirs), Is.EqualTo(("Project", true)), "the label is ours, the words stay theirs");
+        Assert.That((plain.Label, plain.Note), Is.EqualTo(((string?)null, (string?)null)), "blank parts are none");
+        Assert.That(step.Words.Text.Contains("·") || fact.Words.Text.Contains("·"), Is.False);
+    }
 }
