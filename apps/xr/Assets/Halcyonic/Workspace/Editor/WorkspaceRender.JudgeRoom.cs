@@ -429,7 +429,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     if (live == null && director.VoiceOffered) found.Add("voice is offered with no computer");
                     if (live == null && plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy) found.Add("Hold to Talk is drawn with no computer");
-                    found.AddRange(RoomBrands(root));
+                    found.AddRange(RoomBrands(root, live?.OwnNames, live?.OwnNamesDrawn));
                     if (covered) found.AddRange(gaps);
                     UnityEngine.Object.DestroyImmediate(image);
                     // The redesign's actions drawn now, as action/key, so a moment's way on can be read off the list.
@@ -726,6 +726,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 void WalkLive(LiveWalk on)
                 {
                     if (!Until(() => Session()?.Status.IsLive == true && State() != null, "the live control plane", 60)) return;
+                    on.LearnOwnNames(State()!.Runtimes);
                     Moment("live launch");
                     var projectsBefore = State()!.Projects.Count;
                     var tasksBefore = State()!.Workstreams.Count;
@@ -1020,6 +1021,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 File.WriteAllText(Path.Combine(folder, "moments.tsv"), string.Join("\n", moments) + "\n");
                 File.WriteAllText(Path.Combine(folder, "presses.tsv"), "journey\theadset\tdesk\tthe way\n" + string.Join("\n", live.Presses) + "\n");
                 foreach (var row in live.Presses) Debug.Log("Halcyonic: live walk: presses: " + row);
+                if (live.OwnNamesDrawn.Count > 0)
+                    Debug.Log("Halcyonic: live walk: drawn where a person chooses their own agent app or model: " + string.Join(", ", live.OwnNamesDrawn.OrderBy(each => each, StringComparer.Ordinal)));
             }
             foreach (var failure in failures) Debug.LogError("Halcyonic: live walk: " + failure);
             if (failures.Count == 0) Debug.Log("Halcyonic: live walk: every check passed");
@@ -1056,6 +1059,34 @@ namespace Halcyonic.XR.Workspace.Editor
 
             /// <summary>Whether the walk stops once Start Building is ready, unpressed (HALCYONIC_LIVE_DRY=1): no agent, no model.</summary>
             public bool Dry { get; set; }
+
+            /// <summary>The brands in the names of the agent apps and models this plane offers: the person's own.</summary>
+            public HashSet<string> OwnNames { get; } = new HashSet<string>();
+
+            /// <summary>Which of those were drawn on the walk.</summary>
+            public HashSet<string> OwnNamesDrawn { get; } = new HashSet<string>();
+
+            /// <summary>
+            /// Reads which names are the person's own: each real agent app's name, and the models it lists, from the plane itself
+            /// (its own model list, as the headset reads it when a person opens the choice; it lists, it loads no model).
+            /// </summary>
+            public void LearnOwnNames(IEnumerable<RuntimeDescriptor> runtimes)
+            {
+                var said = new List<string>();
+                using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Token);
+                var origin = "http://" + Endpoint.Host + ":" + Endpoint.Port;
+                foreach (var runtime in runtimes.Where(each => !each.Synthetic))
+                {
+                    said.Add(runtime.DisplayName);
+                    if (runtime.ModelChoice != ModelChoice.Listed) continue;
+                    try { said.Add(http.GetStringAsync(origin + "/api/runtimes/" + Uri.EscapeDataString(runtime.RuntimeId) + "/models").GetAwaiter().GetResult()); }
+                    catch (Exception error) { Debug.LogWarning("Halcyonic: live walk: the models of " + runtime.RuntimeId + " could not be read: " + error.GetType().Name); }
+                }
+                foreach (var brand in JudgeBrands)
+                    if (said.Any(words => Regex.IsMatch(words, @"\b" + Regex.Escape(brand) + @"\b"))) OwnNames.Add(brand);
+                Debug.Log("Halcyonic: live walk: the agent apps and models this computer offers name: " + (OwnNames.Count == 0 ? "none" : string.Join(", ", OwnNames.OrderBy(each => each, StringComparer.Ordinal))));
+            }
 
             public List<string> Presses { get; } = new List<string>();
         }
@@ -1238,8 +1269,12 @@ namespace Halcyonic.XR.Workspace.Editor
             return counts.Count == 0 ? Color.black : counts.Values.OrderByDescending(each => each.Count).First().Colour;
         }
 
-        /// <summary>Every label drawn names no brand, as JudgeWordsTests lists them.</summary>
-        private static List<string> RoomBrands(GameObject root)
+        /// <summary>
+        /// Every label drawn names no brand, as JudgeWordsTests lists them. On a live plane (<paramref name="own"/>) the names of
+        /// the agent apps and models that computer offers are the person's own, drawn where they choose them (lead, 09:37Z): those
+        /// are kept in <paramref name="ownDrawn"/>, not failed. Any other brand fails, saying which kind it is.
+        /// </summary>
+        private static List<string> RoomBrands(GameObject root, ISet<string>? own = null, ISet<string>? ownDrawn = null)
         {
             var found = new List<string>();
             foreach (var label in root.GetComponentsInChildren<TMP_Text>(false))
@@ -1247,7 +1282,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (string.IsNullOrEmpty(label.text) || label.GetComponent<Renderer>() is Renderer shown && !shown.enabled) continue;
                 foreach (var brand in JudgeBrands)
                     if (Regex.IsMatch(label.text, @"\b" + Regex.Escape(brand) + @"\b"))
-                        found.Add(PathOf(label.transform) + " names " + brand);
+                    {
+                        if (own != null && own.Contains(brand)) { ownDrawn?.Add(brand); continue; }
+                        found.Add(PathOf(label.transform) + " names " + brand + (own == null
+                            ? " on the judges' path"
+                            : ", not an agent app or model this computer offers"));
+                    }
             }
             return found;
         }
