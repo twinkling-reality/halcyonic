@@ -40,6 +40,8 @@ import {
 import {
   ClaudeAgentRuntimeAdapter,
   type ClaudeAgentRuntimeOptions,
+  KEPT_BY_HALCYONIC,
+  keptPath,
   type QueryHandle,
 } from './claude-agent-runtime.ts';
 
@@ -2211,5 +2213,31 @@ describe("Claude Agent whose temporary folder is one of the host's own (VRIFY, 2
     await assert.rejects(adapter.listModels(), words);
     await assert.rejects(start(), words);
     assert.equal(runs.length, 0, 'a query was started');
+  });
+});
+
+describe('a confined session never writes what Halcyonic keeps, and says so (the lead, 2026-11-13T12:52Z)', () => {
+  test('keptPath names the version control and open-time files a file tool would write', () => {
+    const folder = '/Users/someone/dev/garden';
+    for (const [tool, input] of [
+      ['Write', { file_path: '/Users/someone/dev/garden/.git/config' }],
+      ['Edit', { file_path: '.git/hooks/pre-commit' }],
+      ['Write', { file_path: '.envrc' }],
+      ['Write', { file_path: '/Users/someone/dev/garden/.vscode/tasks.json' }],
+      ['NotebookEdit', { notebook_path: '.idea/x.ipynb' }],
+      ['Write', { file_path: 'garden.code-workspace' }],
+      ['Write', { file_path: 'src/../.gitmodules' }],
+    ] as const)
+      assert.equal(keptPath(folder, tool, input), true, `${tool} ${JSON.stringify(input)}`);
+    for (const [tool, input] of [
+      ['Write', { file_path: 'src/index.ts' }],
+      ['Write', { file_path: 'src/.vscode/kept.json' }],
+      ['Read', { file_path: '.git/config' }],
+      ['Bash', { command: 'git config core.pager x' }],
+      ['Write', { file_path: '/Users/someone/dev/other/.git/config' }],
+      ['Write', { file_path: 'notes.envrc.txt' }],
+    ] as const)
+      assert.equal(keptPath(folder, tool, input), false, `${tool} ${JSON.stringify(input)}`);
+    assert.match(KEPT_BY_HALCYONIC, /kept by Halcyonic and cannot be written here/);
   });
 });
