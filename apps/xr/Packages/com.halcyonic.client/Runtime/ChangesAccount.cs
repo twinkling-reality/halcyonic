@@ -17,10 +17,11 @@ namespace Halcyonic.Client
     /// shown was read from the agent app's own records, never a stand-in's (a simulated brief says no source); the brief's own
     /// provenance names the provider's product, which never stands on a person's screen, so it is not drawn.
     /// Where the answer's full lines are given beside its brief (SCREENS's 2026-11-13T0533Z proposal, FIELD's and XR's yes), its
-    /// rows are every one of them, as the desk shows them, so Next Page reads every reason and the brief's "And N more" is
-    /// gone: a line's detail beneath it (the files changed after a reason) is its row's quieter line under it, and the lead is
-    /// never said twice. Only Why is given whole: What Changed in full is the files the page has already shown, with what is not
-    /// done joined on a dot, and How It's Built in full heads each step on a joining dot, so both stay brief.
+    /// rows are every one of them, as the desk shows them, so Next Page reads every reason and step and the brief's "And N
+    /// more" is gone: a line's detail beneath it (the files changed after a reason, a step's "Explained by a model") is its
+    /// row's quieter line under it, and the lead, where the full lines hold it, stands once in its own place among them, not
+    /// again as the description. Why and How It's Built are given whole; What Changed stays brief, since in full it is the
+    /// files the page has already shown.
     /// </summary>
     public sealed class ChangesAccount
     {
@@ -43,13 +44,15 @@ namespace Halcyonic.Client
 
         /// <param name="whatChanged">The brief answer to what changed, or null where none was read.</param>
         /// <param name="whyFull">Why's full lines from the same read, its rows where given (every reason and the files changed after it); the brief's otherwise.</param>
-        public ChangesAccount(SectionPresentation? whatChanged, SectionPresentation? why, SectionPresentation? howBuilt, SectionPresentation? whyFull = null)
+        /// <param name="howBuiltFull">How It's Built's full lines from the same read: every step under its heading, then the evidence.</param>
+        public ChangesAccount(SectionPresentation? whatChanged, SectionPresentation? why, SectionPresentation? howBuilt,
+            SectionPresentation? whyFull = null, SectionPresentation? howBuiltFull = null)
         {
             var simulated = false;
             foreach (var (prompt, brief, full) in new[]
             {
                 (UnderstandPrompt.WhatChanged, whatChanged, (SectionPresentation?)null), (UnderstandPrompt.WhyChanged, why, whyFull),
-                (UnderstandPrompt.HowBuilt, howBuilt, (SectionPresentation?)null),
+                (UnderstandPrompt.HowBuilt, howBuilt, howBuiltFull),
             })
             {
                 if (brief == null || brief.Lines.Count == 0) continue;
@@ -63,11 +66,9 @@ namespace Halcyonic.Client
                 if (full != null && full.Lines.Count > 0)
                 {
                     rows = Rows(full.Lines);
-                    // The lead is said once: where a full line reads as it does, that line stands as the description, or, where
-                    // something is under it (the latest reason's files), as its row with what is under it and no description.
-                    var same = leads ? rows.FindIndex(row => row.Line.Text == lead.Text) : -1;
-                    if (same >= 0 && rows[same].Under != null) leads = false;
-                    else if (same >= 0) rows.RemoveAt(same);
+                    // The lead is said once: where the full lines hold it, it stands in its own place among them (the latest
+                    // reason with its files, the how under its step), never again as the description.
+                    if (leads && rows.Any(row => row.Line.Text == lead.Text)) leads = false;
                 }
                 else
                 {
@@ -157,7 +158,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A full answer's lines as rows: each line its row, a detail line under the line before it (the files changed after a
-        /// reason) that row's quieter line under it; a blank line is none.
+        /// reason, a step's "Explained by a model") that row's quieter line under it; a blank line is none.
         /// </summary>
         private static List<(SectionLine Line, LineWords? Under)> Rows(IReadOnlyList<SectionLine> lines)
         {
