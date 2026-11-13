@@ -83,6 +83,34 @@ personal.hooks.UserPromptSubmit = [
 ];
 writeFileSync(join(ROOT, 'config', 'settings.json'), JSON.stringify(personal));
 writeFileSync(join(ROOT, 'config', 'CLAUDE.md'), 'The person says: user-rules-5b0e.\n');
+// And the rest of the person's own set-up, none of which is a settings file (AUDIT3, 2026-11-13): a user-scope MCP
+// server in their global configuration that creates a marker when started, an agent, a command and a skill of theirs.
+writeFileSync(
+  join(ROOT, 'config', '.claude.json'),
+  JSON.stringify({
+    mcpServers: {
+      personal: {
+        type: 'stdio',
+        command: '/usr/bin/touch',
+        args: [join(MARKS, 'user-mcp-server')],
+      },
+    },
+  }),
+);
+for (const folder of ['agents', 'commands', join('skills', 'personal-skill')])
+  mkdirSync(join(ROOT, 'config', folder), { recursive: true });
+writeFileSync(
+  join(ROOT, 'config', 'agents', 'personal-agent.md'),
+  '---\nname: personal-agent\ndescription: agent-marker-71aa does nothing.\n---\nYou do nothing.\n',
+);
+writeFileSync(
+  join(ROOT, 'config', 'commands', 'personal-command.md'),
+  '---\ndescription: command-marker-52bb does nothing.\n---\nDo nothing.\n',
+);
+writeFileSync(
+  join(ROOT, 'config', 'skills', 'personal-skill', 'SKILL.md'),
+  '---\nname: personal-skill\ndescription: skill-marker-93cc does nothing.\n---\nDo nothing.\n',
+);
 
 // A project with its own CLAUDE.md, CLAUDE.local.md, rules folder and skill, hooks in both of its
 // settings files, and an MCP server its settings approve, which creates a marker when started.
@@ -274,6 +302,10 @@ test("Claude Code loads none of the person's settings but Salidium's and Seorak'
   // Nothing else of the person's settings: not their other hook, and not the token in their env, which would pay
   // for the task instead of the stored key.
   assert.equal(marked('user-prompt'), false, "the person's other prompt hook ran");
+  // Nor their MCP server, agent, command or skill (personalSetupUsed's restUsed: false).
+  assert.equal(marked('user-mcp-server'), false, "the person's MCP server was started");
+  for (const marker of ['agent-marker-71aa', 'command-marker-52bb', 'skill-marker-93cc'])
+    assert.doesNotMatch(withClaudeMd, new RegExp(marker), `the person's own ${marker} was offered`);
   assert.ok(api.authorized.length > 0);
   assert.equal(
     api.authorized.filter(Boolean).length,

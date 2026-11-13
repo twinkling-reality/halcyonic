@@ -25,6 +25,22 @@ the stored key: a task could be paid for by a credential the person never chose 
   `ANTHROPIC_AUTH_TOKEN`, every `/v1/messages` request carried the key in `x-api-key` AND the settings token as
   `Authorization: Bearer` (8 of 8); without it, the key alone (8 of 8). (`.private` evidence.)
 
+## What else of the person's set-up loads with no settings file (2026-11-13, AUDIT3's question)
+
+`settingSources: []` keeps every settings file out; the rest of a person's Claude Code set-up is not a settings
+file. Seen on the bundled 2.1.283 through the SDK's own query, fake values, a scratch HOME and configuration folder,
+each planted with a marker, both layouts (`CLAUDE_CONFIG_DIR`, and `~/.claude` with `~/.claude.json`):
+- With `settingSources: ['user']` (the control): a user-scope MCP server in the global configuration
+  (`.claude.json`) was started (its marker file made); the person's agent, command and skill were listed at start and
+  offered in the request; a plugin installed from a local marketplace with Claude Code's own `plugin install` (user
+  scope) was loaded with its skill.
+- With `settingSources: []` (every Claude Agent run since 2026-11-12): none of them. No MCP server started, no agent,
+  command or skill listed or offered, no plugin but Claude Code's built-in `agents-md`.
+So nothing of the person's own set-up loads but what the adapter passes (`personalSetupUsed()`'s `restUsed: false`
+stands). `project-settings.e2e.test.ts` now plants the MCP server, agent, command and skill and asserts none
+loads; the plugin case is the recorded probe only (`.private` evidence), as installing a plugin inside a test needs
+Claude Code's own install step.
+
 ## What is built
 
 - Every Claude Agent start, resume and model listing passes `settingSources: []`, inside the sandbox and out.
