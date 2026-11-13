@@ -434,7 +434,7 @@ public class CreationDraftTests
         Assert.That(back.FirstTask, Is.EqualTo(idea.FirstTask));
         Assert.That(back.NameSuggested && back.TaskSuggested, Is.True);
         Assert.That(back.OwnWords, Is.EqualTo("something for my running club"));
-        Assert.That(back.Folder!.Describe(), Is.EqualTo("New Folder · race-times in Projects"));
+        Assert.That(back.Folder!.Describe(), Is.EqualTo("New race-times in Projects"));
         Assert.That(back.Companion!.Turns.Select(turn => turn.GetType()),
             Is.EqualTo(new[] { typeof(PersonTurn), typeof(CompanionTurn), typeof(PersonTurn), typeof(CompanionTurn) }));
         Assert.That(back.Companion.Waiting, Is.False);

@@ -558,7 +558,7 @@ public class NewProjectRecapTests
         Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Recap"), "changing a fact stays on the recap");
         Assert.That(frame.Lines.Where(line => line.Choice).Select(line => (line.Words, line.Chosen, line.Available)), Is.EqualTo(new[]
         {
-            ("New Folder · Projects", false, true), ("Directly in Projects", false, true), ("shop", true, true), ("Old", false, false),
+            ("New Folder in Projects", false, true), ("Directly in Projects", false, true), ("shop", true, true), ("Old", false, false),
         }));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.Done));
         var unread = NewProjectScreens.RecapFolder(idea, startReached: false, null, problem: EntryText.FoldersUnanswered, notice: null);
@@ -1064,7 +1064,7 @@ public class NewProjectFixedQuestionsTests
             Folders = new List<LocationFolder>(),
         };
         var folder = NewProjectScreens.Words(idea, startReached: false, WordsFor.FolderName, written: null, heard: false, voice: true, said: null, root: root);
-        Assert.That(folder.Lines[0].Words, Is.EqualTo("New Folder · Projects"));
+        Assert.That(folder.Lines[0].Words, Is.EqualTo("New Folder in Projects"));
         Assert.That((folder.Lines[1].Words, folder.Reason), Is.EqualTo((EntryText.TypeName, EntryText.NewFolderRule)));
         var bad = NewProjectScreens.Words(idea, startReached: false, WordsFor.FolderName, written: "race times!", heard: false, voice: true, said: null, root: root);
         Assert.That(bad.Footer[PromptSlot.FarRight]!.Available, Is.False);
