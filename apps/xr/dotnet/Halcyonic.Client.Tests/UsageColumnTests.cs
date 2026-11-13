@@ -357,7 +357,7 @@ public class UsageColumnTests
                "runtime_status":null,"summary":"Use test-model-1",
                "proposal":{"command_type":"assistant.model.choose","confirm":{},"review":"review-1","said":[],
                  "confirm_words":"Use This Model","facts":[],
-                 "warnings":[{"code":"price_unknown","line":"The price is not known, so no cost or total is shown"},{"code":"sent_to_provider","line":"Your requests, and what the assistant reads in your projects, go to Test Hosted"}],
+                 "warnings":[{"code":"price_unknown","line":"Test Hosted sets each request's price; it is not shown here"},{"code":"sent_to_provider","line":"Your requests, and what the assistant reads in your projects, go to Test Hosted"}],
                  "what_happens":"From now on the assistant answers on test-model-1, and each request costs money on your own Test Hosted account."}}]}}
             """;
 
@@ -484,7 +484,7 @@ public class UsageColumnTests
             Assert.That(reviewed.Card!.Description!.Text, Is.EqualTo("From now on the assistant answers on test-model-1, and each request costs money on your own Test Hosted account."));
             // The host's own words, as the step carries them: the model named in its line, its warnings as Check First, its button.
             Assert.That(reviewed.Card.Slots, Is.Empty, "the line names the model; no fact box stands for it");
-            Assert.That(reviewed.Card.Status?.Line, Does.Contain("The price is not known, so no cost or total is shown"));
+            Assert.That(reviewed.Card.Status?.Line, Does.Contain("Test Hosted sets each request's price; it is not shown here"));
             Assert.That(reviewed.Column.First().Control.Words, Is.EqualTo("Use This Model"));
             Assert.That(reviewed.Column.First().Control.Action, Is.EqualTo(ReviewCard.Confirm));
             Assert.That(reviewed.Column.First().Main, Is.True);
