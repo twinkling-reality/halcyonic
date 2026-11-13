@@ -2417,7 +2417,7 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
   );
 
   test(
-    "reads are closed (BOX-3b): a command reads its folder and nothing of the person's home or another project, runs with a home of its own where git works, and the start records it confined",
+    "reads are closed (BOX-3b): a command reads its folder and nothing of the person's home or another project, runs with a home of its own where git works in a folder of its own, is refused git data in the project itself (the door, 1111-b134), and the start records it confined",
     SLOW_TEST,
     async (t) => {
       const { sandbox, start } = await harness(t);
@@ -2438,15 +2438,23 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
         `cat ${other}/kept.txt >> ${results} 2>/dev/null; echo "other=$?" >> ${results}`,
         `ls /private/tmp > /dev/null 2>&1; echo "tmp=$?" >> ${results}`,
         `echo "own-home=$([ "$HOME" != ${home} ] && echo yes)" >> ${results}`,
-        `git init -q . > /dev/null 2>&1; git status > /dev/null 2>&1; echo "git=$?" >> ${results}`,
+        `git init -q . > /dev/null 2>&1; echo "git-init-here=$?" >> ${results}`,
+        `mkdir -p lib && git -C lib init -q > /dev/null 2>&1 && git -C lib status > /dev/null 2>&1; echo "git=$?" >> ${results}`,
       ].join('\n');
       const execution = await start(call('shell', { command }), {}, 'never_ask');
       await execution.next('runtime.turn.completed');
       const said = readFileSync(results, 'utf8');
       t.diagnostic(said);
-      // The controls: the folder's own file was read, and git ran.
+      // The controls: the folder's own file was read, and git ran in a folder inside it.
       assert.match(said, /inside-marker-71f4\ninside=0/);
       assert.match(said, /git=0/);
+      // The project's own git data is refused: it would run later outside the sandbox (ADR 0048, amended).
+      assert.match(said, /git-init-here=[1-9]/);
+      assert.equal(
+        existsSync(join(sandbox.project, '.git')),
+        false,
+        'git data written in the project',
+      );
       assert.match(said, /own-home=yes/);
       assert.doesNotMatch(said, /home-marker-5e1a/, "read the person's home");
       assert.doesNotMatch(said, /home=0|list-home=0/, "reached the person's home");
