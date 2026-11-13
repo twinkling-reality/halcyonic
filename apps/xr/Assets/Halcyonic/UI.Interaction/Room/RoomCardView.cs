@@ -528,9 +528,34 @@ namespace Halcyonic.XR.UI
             var under = card.Title != null;
             // Under a name the state is a step smaller in the status's own weight; under a file's mono name, whose face is regular,
             // in the reading face, so the name stays the heavier of the two.
-            var (titleLabel, titleTall) = Text(under && card.TitleMono ? KitRole.Body : KitRole.Title, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
+            var titleRole = under && card.TitleMono ? KitRole.Body : KitRole.Title;
+            var (titleLabel, titleTall) = Text(titleRole, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
                 LineWords.Ours(status.Title), left, -down, column, 2);
-            var tall = titleTall;
+            // A state is never cut (JUDGE's live walk at Larger: "Turn Finished" cut beside the mark on the narrow form): a step
+            // smaller on three lines beside the mark, else under the mark across the card's whole width at its own size.
+            var stacked = false;
+            if (titleLabel.isTextOverflowing)
+            {
+                void Unlay(TextMeshPro label)
+                {
+                    label.gameObject.SetActive(false);
+                    Shown.Remove(label);
+                    textsUsed[titleRole]--;
+                }
+                Unlay(titleLabel);
+                (titleLabel, titleTall) = Text(titleRole, under ? FinalTitleTypeDp : UnderTitleStatusDp, under ? FinalTitleLineDp : UnderTitleStatusLineDp, Color.white,
+                    LineWords.Ours(status.Title), left, -down, column, 3);
+                if (titleLabel.isTextOverflowing)
+                {
+                    Unlay(titleLabel);
+                    stacked = true;
+                    left = 0f;
+                    column = width;
+                    (titleLabel, titleTall) = Text(titleRole, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
+                        LineWords.Ours(status.Title), 0f, -(down + S(StatusMarkDp) + S(DescriptionGapDp)), width, 3);
+                }
+            }
+            var tall = stacked ? S(StatusMarkDp) + S(DescriptionGapDp) + titleTall : titleTall;
             TextMeshPro? lineLabel = null;
             if (status.Line != null)
             {
@@ -539,7 +564,7 @@ namespace Halcyonic.XR.UI
                 // Laid a dp inside its room, so a glyph's ink at the end of a wrapped line never passes the card's edge.
                 var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column - S(1f), StatusLineMost);
                 lineLabel = laidLine.Label;
-                if (laidLine.Tall > StatusColumnLines * S(LineLineDp) + 0.5f)
+                if (!stacked && laidLine.Tall > StatusColumnLines * S(LineLineDp) + 0.5f)
                 {
                     // Too long for the column beside the mark (the host's money words under Check First): the title stands centred
                     // on the mark, and the line runs the card's whole width under both, a paragraph, never a thin column.

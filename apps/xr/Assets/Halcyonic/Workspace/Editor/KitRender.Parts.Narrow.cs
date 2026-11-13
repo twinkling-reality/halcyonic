@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] NarrowStates = { "56-narrow-colour", "56-narrow-shelf", "56-narrow-colour-wide", "57-destructive-confirm", "58-row-label" };
+        private static readonly string[] NarrowStates = { "56-narrow-colour", "56-narrow-shelf", "56-narrow-colour-wide", "57-destructive-confirm", "58-row-label", "58-narrow-status" };
 
         private static MenuFrame NarrowFrame(string state)
         {
@@ -53,6 +53,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var shot = new PartShot { Elevation = 0f };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
             if (state == "58-row-label") return RowLabelShot(shot, root, eyes, name);
+            if (state == "58-narrow-status") return NarrowStatusShot(shot, root, eyes, name);
             var was = RoomDesign.Enabled;
             RoomBar? bar;
             var frame = NarrowFrame(state);
@@ -138,6 +139,47 @@ namespace Halcyonic.XR.Workspace.Editor
                 + degrees.x.ToString("0.0", CultureInfo.InvariantCulture) + " by " + degrees.y.ToString("0.0", CultureInfo.InvariantCulture)
                 + " degrees at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + " in " + pages + (pages == 1 ? " page" : " pages")
                 + "; drawn: " + string.Join(" | ", drawn.Select(Words)) + ".");
+            return shot;
+        }
+
+        /// <summary>
+        /// A card's state laid on the narrow form's panel, as wide as the column (JUDGE's live walk at Larger, 2026-11-13T2059Z:
+        /// "Turn Finished" cut beside its mark): a state alone, a state under a name, and a long state, each whole at both sizes,
+        /// none on a dot. Synthetic words only.
+        /// </summary>
+        private static PartShot NarrowStatusShot(PartShot shot, Transform root, Vector3 eyes, string name)
+        {
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            var cards = new[]
+            {
+                new RoomCard(status: new RoomCardStatus("Turn Finished", "The agent finished its turn.", RoomTone.Good)),
+                new RoomCard(LineWords.Theirs("Kite Run"), status: new RoomCardStatus("Turn Finished", "The agent finished its turn.", RoomTone.Good)),
+                new RoomCard(status: new RoomCardStatus("Waiting on the Computer", "It has not answered yet.", RoomTone.Attention)),
+            };
+            var plane = new GameObject("Plane").transform;
+            plane.SetParent(root, false);
+            var width = RoomType.Units(RoomGeometry.ColumnDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp);
+            var drawn = new List<string>();
+            for (var at = 0; at < cards.Length; at++)
+            {
+                var view = RoomCardView.Create(plane);
+                view.Show(cards[at], width);
+                view.transform.localPosition = new Vector3((at - 1) * (width + RoomType.Units(40f)), 0f, 0f);
+                Require(view.LaidWhole, "card " + (at + 1) + " does not stand whole at the column's width");
+                foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
+                {
+                    label.ForceMeshUpdate(true);
+                    var said = label.GetParsedText();
+                    if (said.Trim().Length == 0) continue;
+                    drawn.Add(string.Join(" ", said.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)));
+                    Require(!label.isTextOverflowing && !said.Contains("…"), "\"" + said + "\" is cut at the column's width");
+                    Require(!said.Contains(KitMomentWords.Dot.Trim()), "\"" + said + "\" joins facts on a dot");
+                }
+                foreach (var part in new[] { cards[at].Title?.Text, cards[at].Status!.Title, cards[at].Status!.Line }.OfType<string>())
+                    Require(drawn.Contains(part), "\"" + part + "\" is not drawn whole: " + string.Join(" | ", drawn));
+            }
+            Place(plane, eyes, 0f, shot.Elevation);
+            Debug.Log("Halcyonic: parts: " + name + ": " + (width / RoomType.Units(1f)).ToString("0", CultureInfo.InvariantCulture) + " dp cards drawn: " + string.Join(" | ", drawn) + ".");
             return shot;
         }
 
