@@ -183,6 +183,15 @@ namespace Halcyonic.XR.UI
         public RoomButton? Button(string action, string? key = null) => controls
             .FirstOrDefault(each => each.Key.gameObject.activeInHierarchy && each.Value.Action == action && (key == null || each.Value.Key == key)).Key;
 
+        /// <summary>
+        /// The press of a shown card row that raises <paramref name="action"/> (and <paramref name="key"/> where given): an answer
+        /// or a move laid as the panel's card row (the lead's 2026-11-13T21:11Z and 22:04Z), pressed as a person presses it, as
+        /// <see cref="Button"/> finds a column's. Null where the card shows no such row (SCREENS's 2026-11-13T2303Z, for the walks).
+        /// </summary>
+        public KitPress? Row(string action, string? key = null) => Card?.RowTargets
+            .Where(each => each.Press.gameObject.activeInHierarchy && each.Control.Action == action && (key == null || each.Control.Key == key))
+            .Select(each => each.Press).FirstOrDefault();
+
         /// <summary>The control a shown button raises, for the renders; null where it raises none.</summary>
         public KitControl? ControlOf(RoomButton button) => controls.TryGetValue(button, out var control) ? control : null;
 
