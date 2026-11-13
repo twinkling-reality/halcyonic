@@ -350,14 +350,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     break;
                 case "40-band-parts-next":
                     Require(words.Part == 1 && words.First == RoomWords.LinesAPart, "Next Part turned to part " + (words.Part + 1));
-                    Require(words.Next == (words.Parts > 2 ? "Next Part · 3 of " + words.Parts.ToString(CultureInfo.InvariantCulture) : null), "the second of " + words.Parts + " parts offers \"" + words.Next + "\"");
+                    Require((words.Next, words.NextCount) == (words.Parts > 2 ? (EntryText.NextPartLabel, "3 of " + words.Parts.ToString(CultureInfo.InvariantCulture)) : ((string?)null, (string?)null)),
+                        "the second of " + words.Parts + " parts offers \"" + words.Next + "\" and \"" + words.NextCount + "\"");
                     break;
                 case "40-band-question":
                 case "40-band-arriving":
                     Require(words.Lines == 1 && words.Parts == 1 && words.Next == null, "the question takes " + words.Lines + " lines in " + words.Parts + " parts");
                     break;
                 default:
-                    Require(words.Next == (words.Parts > 1 ? "Next Part · 2 of " + words.Parts.ToString(CultureInfo.InvariantCulture) : null), "the way on does not follow the parts");
+                    Require((words.Next, words.NextCount) == (words.Parts > 1 ? (EntryText.NextPartLabel, "2 of " + words.Parts.ToString(CultureInfo.InvariantCulture)) : ((string?)null, (string?)null)),
+                        "the way on does not follow the parts");
                     break;
             }
 
