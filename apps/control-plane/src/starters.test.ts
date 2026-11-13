@@ -362,11 +362,30 @@ describe('making a VR version of a project (M1.8c-1)', () => {
       instruction,
       /If it is a game, build its main play: start from the whole small game at the end of this project's AGENTS\.md/,
     );
-    // VRIFY: an app that is not a game brings its most striking view, as the starter's AGENTS.md says.
+    // The lead, 2026-11-13T06:05Z: an app that is not a game carries what a person DOES in it, found from its own
+    // code and said before building, never its landing page unless it is nothing else; what cannot come is carried
+    // with its own sample content and said; its look dresses the use; the agent says at the end what it carried.
     assert.match(
       instruction,
-      /If it is not a game, bring its one most striking view, the scene people open it for, as 'A view from another app' in this project's AGENTS\.md says/,
+      /If it is not a game, first find from its own code \(its routes, its main screen, what its data is\) the one thing people open it to do, write in a line or two what it is for and what of it this VR version will carry, then build without waiting/,
     );
+    assert.match(
+      instruction,
+      /Its landing or marketing page is not its use, unless the app is nothing else\./,
+    );
+    assert.match(
+      instruction,
+      /carry with the app's own sample content, or where it has none with a small stand-in of the same kind, and say so; never drop it silently/,
+    );
+    assert.match(
+      instruction,
+      /If it is not a game, let its own look \(its colours, pictures and effects\) dress that use, never replace it/,
+    );
+    assert.match(
+      instruction,
+      /End your turn with a few lines for the person: what the app is for, what this VR version carries, what stands in for what could not come, and what it leaves out and why\./,
+    );
+    assert.doesNotMatch(instruction, /most striking view/);
     assert.match(instruction, /leave out title, end and pause screens, menus and best scores/);
     assert.match(instruction, /the world from src\/worlds\.ts that fits the original/);
     assert.match(instruction, /Run npx tsc --noEmit/);

@@ -102,12 +102,13 @@ A view from another app, not a game:
   draw: `rg -l "from 'three'" <original> -g '!node_modules' -g '!*.test.*'`, or its canvas or WebGL code. Pick the
   view from them, read only those files, and start writing `src/index.ts` early; a big app has docs, data, tests and
   services you never need.
-- Start from the whole small view at the end of this file and change it into the original's. Its main subject is
-  what the original shows biggest (a planet, the terrain), with the original's own pictures, never a placeholder
+- The view is the one the app's use shows (what you found people open it to do), never the one its landing or marketing
+  page shows. Start from the whole small view at the end of this file and change it into the original's. Its main
+  subject is what that view shows biggest (a planet, the terrain), with the original's own pictures, never a placeholder
   shape. Rebuild the look from the original's own code: read how it draws (its three.js scene, materials, shaders and
   textures) and write the parts that make the look into `src/index.ts` with `three` (this project has three.js 0.181).
-  Never import from the original's folder. Copy only the images the view needs into `public/`, each under 8 MB, and
-  name them in `src/assets.ts`.
+  Never import from the original's folder. Copy only the images the view needs into `public/`, each under 8 MB, and name
+  them in `src/assets.ts`.
 - For land (a valley, a site, terrain under a map), the subject is a relief table: `relief(heights, options)` from
   `./kit.js` raises real ground from the heights the original's own relief or terrain view loads: follow its code to
   that file and its metadata, never a picture of bands or classes. A raw grid (a `.f32` file) goes in as
