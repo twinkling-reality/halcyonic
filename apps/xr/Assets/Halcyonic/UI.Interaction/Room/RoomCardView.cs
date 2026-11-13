@@ -526,7 +526,8 @@ namespace Halcyonic.XR.UI
             {
                 // The product's own words are never cut: a status line runs as long as it needs (the host's money words before a
                 // paid model, four sentences under Check First, the lead's 0635Z).
-                var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, StatusLineMost);
+                // Laid a dp inside its room, so a glyph's ink at the end of a wrapped line never passes the card's edge.
+                var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column - S(1f), StatusLineMost);
                 lineLabel = laidLine.Label;
                 if (laidLine.Tall > StatusColumnLines * S(LineLineDp) + 0.5f)
                 {
@@ -535,7 +536,7 @@ namespace Halcyonic.XR.UI
                     var titleDrop = Mathf.Max(0f, (S(StatusMarkDp) - titleTall) / 2f);
                     titleLabel.transform.localPosition += new Vector3(0f, -titleDrop, 0f);
                     var head = Mathf.Max(S(StatusMarkDp), titleTall) + S(DescriptionGapDp);
-                    var wide = KitType.Lay(lineLabel, width, StatusLineMost);
+                    var wide = KitType.Lay(lineLabel, width - S(1f), StatusLineMost);
                     lineLabel.transform.localPosition = new Vector3(0f, -(down + head), -RoomType.Units(0.5f));
                     tall = head + Mathf.Max(wide.Lines, 1) * S(LineLineDp);
                 }
