@@ -797,6 +797,21 @@ namespace Halcyonic.XR.Workspace
         /// is drawn. Measured from the same corners <see cref="ClearsShelf"/> keeps the shelf clear of, the room's screen and
         /// bar included, widened to the file column when that is wider than what shows.
         /// </summary>
+        /// <summary>The yaw (as the plane's Direction measures it) and elevation bounds of <paramref name="corners"/> from <paramref name="viewer"/>; null with none.</summary>
+        private (float Left, float Right, float Bottom)? Bounds(Vector3[]? corners, Vector3 viewer)
+        {
+            if (corners == null || corners.Length == 0) return null;
+            float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity;
+            foreach (var corner in corners)
+            {
+                var offset = corner - viewer;
+                var yaw = Direction.Yaw + Mathf.DeltaAngle(Direction.Yaw, Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg);
+                left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw);
+                bottom = Mathf.Min(bottom, Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg);
+            }
+            return (left, right, bottom);
+        }
+
         public ConsoleExtent? ConsoleExtentFrom(Vector3 viewer)
         {
             if (!gameObject.activeInHierarchy) return null;
@@ -814,12 +829,16 @@ namespace Halcyonic.XR.Workspace
             }
             var shown = new ConsoleExtent(left, right, bottom);
             // Under the redesign the console a shelf must expect is the plane's keep-out (KeepOutExtent), from its foot line (the lead's
-            // 2026-11-13T17:11Z and 19:34Z rulings), whether the kit shows yet or not, never the older view's widest column.
+            // 2026-11-13T17:11Z and 19:34Z rulings), whether the kit shows yet or not, never the older view's widest column; with the
+            // room's screen, never the bar laid this moment, which placing lays narrow as it opens (JUDGE's charM: a home measured
+            // beside the full bar laid before placing put every candidate past the field).
             if (RoomDesign.Enabled && KitWorkspaceHost.Enabled)
             {
                 var largest = KeepOutExtent();
-                return new ConsoleExtent(Mathf.Min(shown.LeftYaw, Direction.Yaw + largest.Left), Mathf.Max(shown.RightYaw, Direction.Yaw + largest.Right),
-                    Mathf.Min(shown.BottomElevation, largest.Bottom));
+                var room = Bounds(RoomCorners(), viewer);
+                return new ConsoleExtent(Mathf.Min(room?.Left ?? float.PositiveInfinity, Direction.Yaw + largest.Left),
+                    Mathf.Max(room?.Right ?? float.NegativeInfinity, Direction.Yaw + largest.Right),
+                    Mathf.Min(room?.Bottom ?? float.PositiveInfinity, largest.Bottom));
             }
             // The widest single-column console the workspace can take: a file column at Larger in the reading band, so a shelf
             // placed beside Projects is still a full degree clear when a Larger file opens or is dragged low (LARGER-SHELF, 2026-10-31).
@@ -863,9 +882,9 @@ namespace Halcyonic.XR.Workspace
             if (RoomDesign.Enabled && KitWorkspaceHost.Enabled)
             {
                 if (KeepOutExtent().Apart(new AngularExtent(shelf.Left, shelf.Right, shelf.Bottom, shelf.Top)) < WorkspacePlacement.ClearanceDegrees) return false;
-                // Where the plane returns after a local overlay is the held form's own largest bar, just kept clear of; the footprint
-                // retained from before the overlay (the full plane) no longer binds, or a shelf would never find room at Larger.
-                return Clear(VisibleCorners()) && Clear(RoomCorners());
+                // The keep-out stands for the plane, so the bar laid this moment does not bind as well (placing lays it narrow as it
+                // opens); nor does the footprint retained from before a local overlay. The room's screen does.
+                return Clear(RoomCorners());
             }
             return Clear(VisibleCorners()) && Clear(retainedWorkspace) && Clear(RoomCorners());
         }
