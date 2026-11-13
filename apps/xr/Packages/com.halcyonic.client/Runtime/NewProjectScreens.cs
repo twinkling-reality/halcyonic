@@ -1189,7 +1189,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A start under the redesign as a card (the lead's first journey, 2026-11-12): the project as its title, how the start
-        /// stands as its status, and each step a node of its own in the step's tone, never facts joined on a dot. FIELD's words to come.
+        /// stands as its status, and each step a node of its own in the step's tone, never facts joined on a dot; a stopped start's line is the stopped step's own sentence.
         /// </summary>
         public static RoomCard StartingCard(ProjectIdea idea, BuildSequence sequence)
         {
@@ -1203,9 +1203,12 @@ namespace Halcyonic.Client
                 BuildStepStatus.Refused or BuildStepStatus.NotSent or BuildStepStatus.Failed => RoomTone.Bad,
                 _ => RoomTone.Attention,
             })).ToList();
+            // Where a step stopped the start, its own sentence is the status's line: what stopped it and the way on, never a
+            // state alone (FIELD's words, AUDIT's 2026-11-13T1327Z: a refused or failed step said, not only marked).
+            var why = sequence.StoppedAt is BuildStep stopped ? EntryText.StepStatus(stopped) : null;
             var status = sequence.Started ? new RoomCardStatus("Task Started", null, RoomTone.Good)
-                : sequence.CanRetry ? new RoomCardStatus("Not Started", null, RoomTone.Bad)
-                : sequence.Stopped || sequence.Steps.Any(step => step.Status == BuildStepStatus.Unknown) ? new RoomCardStatus("Start Unknown", "It may or may not have started", RoomTone.Quiet)
+                : sequence.CanRetry ? new RoomCardStatus("Not Started", why, RoomTone.Bad)
+                : sequence.Stopped || sequence.Steps.Any(step => step.Status == BuildStepStatus.Unknown) ? new RoomCardStatus("Start Unknown", why ?? "It may or may not have started", RoomTone.Quiet)
                 : new RoomCardStatus("Starting", null, RoomTone.Working);
             var title = idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet);
             return new RoomCard(title, head: RoomCardHead.Project, status: status, steps: steps);
