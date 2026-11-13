@@ -56,6 +56,39 @@ public class RoomQuestionTests
         return (host, work, column);
     }
 
+    private static QuestionView Seven(string id, bool described) => new()
+    {
+        QuestionId = id, Answerable = true, AskedAt = Samples.Time,
+        Prompts = new List<QuestionPrompt>
+        {
+            new() { Key = "q0", Header = "Scene approach", Text = "Which approach should the scene take?", Multiple = false, FreeText = true, Secret = false,
+                Options = Enumerable.Range(1, 7).Select(index => new QuestionOption
+                {
+                    Label = "Option " + index, Description = described ? "What option " + index + " does, in a sentence the agent wrote." : null,
+                }).ToList() },
+        },
+    };
+
+    /// <summary>
+    /// One pager (the lead's 22:04Z; SCREENS's and XR's 22:21Z): a question whose answers carry descriptions comes from the file as ONE
+    /// part, every answer in it, and the panel's card pages them by the kit's own line count; plain answers stay in the column, paged by
+    /// the file's places as before.
+    /// </summary>
+    [Test]
+    public void ADescribedQuestionComesAsOnePartAndAPlainOneIsPagedByPlaces()
+    {
+        var was = RoomDesign.Enabled; RoomDesign.Enabled = true;
+        try
+        {
+            var (_, _, described) = Asking(Seven("question-described", described: true));
+            Assert.That(described.Frame!.Lines.Count(line => line.Choice), Is.EqualTo(7), "every described answer in the one part");
+            Assert.That(described.Frame.Lines.Select(line => line.Words), Has.None.EqualTo("More Choices"));
+            var (_, _, plain) = Asking(Seven("question-plain", described: false));
+            Assert.That(plain.Frame!.Lines.Count(line => line.Choice), Is.LessThan(7), "plain answers paged by the column's places");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     [Test]
     public void TwoQuestionsAnswersAreSentEachUnderItsOwnKeyAsChosen()
     {

@@ -1052,7 +1052,7 @@ namespace Halcyonic.Client
                 else Screen.MeasurePresets(Screen.Presets.Select((preset, index) => Math.Min(2, host.RowsOf(FileScreens.PresetLine(preset, index, recordedPresets), Glaze.Menu.FileColumnDegrees))).ToList(), budget,
                     notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             }
-            if (draft != null) ReadQuestion(draft, QuestionBudgetOf?.Invoke() is PageBudget choices ? choices : budget, QuestionBudgetOf?.Invoke() != null);
+            if (draft != null) ReadQuestion(draft, QuestionBudgetOf?.Invoke() is PageBudget choices ? OnePartWhereDescribed(draft, choices) : budget, QuestionBudgetOf?.Invoke() != null);
             Screen.ShowTaskHereOffered = CanShowTaskHere();
             if (Screen.ShowTaskHereOffered) Screen.ShowTaskHereRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.ShowTaskHereWords, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             Screen.ShowScreenOffered = CanShowScreen();
@@ -1173,6 +1173,19 @@ namespace Halcyonic.Client
         /// The agent's question measured as the view wraps it at the file's and the side panel's widths:
         /// every prompt and every answer, and the typed answers and the person's answers as they read now.
         /// </summary>
+        /// <summary>
+        /// The redesign's budget for <paramref name="asked"/>: where every prompt with answers carries an answer with a description, the
+        /// answers stand in the panel's card, which pages them itself by the kit's own line count (the lead's 22:04Z; SCREENS's and XR's
+        /// one pager, 22:21Z), so the file hands each prompt's answers in ONE part (its answers, the row to write one, none to more);
+        /// otherwise the answers stand in the column and the file pages them by <paramref name="places"/> as before.
+        /// </summary>
+        private static PageBudget OnePartWhereDescribed(QuestionDraft asked, PageBudget places)
+        {
+            var withAnswers = asked.Prompts.Where(prompt => prompt.Options.Count > 0).ToList();
+            if (withAnswers.Count == 0 || !withAnswers.All(prompt => prompt.Options.Any(option => FileScreens.DescriptionRuns(option) != null))) return places;
+            return new ChoiceBudget(withAnswers.Max(prompt => prompt.Options.Count) + 2);
+        }
+
         private void ReadQuestion(QuestionDraft asked, PageBudget page, bool whole = false)
         {
             const float File = Glaze.Menu.FileColumnDegrees;
