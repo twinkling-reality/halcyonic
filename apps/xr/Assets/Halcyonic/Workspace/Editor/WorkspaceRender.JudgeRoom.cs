@@ -304,13 +304,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The redesign's own drawn button that raises the file's action, where the redesign draws the file.
                 RoomButton? Drawn(string action, string? key) => plane.KitShows ? plane.Kit.Bar.Button(action, key) : null;
                 // Closing the task's file: through the frame of record's Close, else the navigator, said either way.
+                // A press counts only where it took (XR, 2026-11-13T18:16Z): Close shuts the answer beside the page where one stands, else
+                // the page. Where a press of Close shut neither, the walk closes the file and says so: a person would be left with it.
                 void CloseFile()
                 {
-                    if (!Press(Footer.Close))
-                    {
-                        momentFailures.Add("nothing drawn closes the task's file: the walk closed it");
-                        navigator.CloseBeside();
-                    }
+                    var open = Opened();
+                    var hadSide = open?.Frame?.Side != null;
+                    var pressed = Press(Footer.Close);
+                    var took = Opened() != open || open == null || hadSide && Opened()?.Frame?.Side == null;
+                    if (pressed && took) { Draw(); return; }
+                    momentFailures.Add(pressed ? "Close was pressed and the task's file stayed: the walk closed it" : "nothing drawn closes the task's file: the walk closed it");
+                    if (pressed) failures.Add("judge room: Close was pressed and the task's file stayed: a person cannot leave it");
+                    navigator.CloseBeside();
                     Draw();
                 }
                 // Confirm behind its lock: drawn locked and taking no press, then, its lock passed, one press. True when pressed.
