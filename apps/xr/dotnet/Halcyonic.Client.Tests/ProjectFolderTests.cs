@@ -214,6 +214,11 @@ public class FolderRefusalTests
         var slot = NewProjectScreens.RecapCard(idea, Draft(), null, live: true, null).Slots.First(item => item.Kind == RoomKind.Folder);
         Assert.That(slot.Value.Text, Is.EqualTo("New kite-run in Projects"));
         Assert.That(slot.Value.Runs.Single(run => run.Theirs && run.Text.Contains("kite-run")).Text, Is.EqualTo("kite-run"), "the folder's name stays theirs");
+        // A starter's folder is made new too, so it says so the same way (the critic, 2026-11-13: "kite-run in Projects" hid it).
+        var started = new ProjectIdea();
+        started.UseIdea("Plan the week's dinners.");
+        started.ChooseFolder(ProjectFolder.NewStarter(new LocationRoot { Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false, Folders = new List<LocationFolder>() }, "kite-run")!);
+        Assert.That(NewProjectScreens.RecapCard(started, Draft(), null, live: true, null).Slots.First(item => item.Kind == RoomKind.Folder).Value.Text, Is.EqualTo("New kite-run in Projects"));
     }
 
     private static ClientProjection With(CommandView command)
