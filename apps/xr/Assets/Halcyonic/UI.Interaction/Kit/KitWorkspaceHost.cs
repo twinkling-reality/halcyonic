@@ -309,6 +309,7 @@ namespace Halcyonic.XR.UI
             if (room.Band != null) band.Show(room.Band);
             else band.Hide();
             bar.BandNext = band.Words?.Next;
+            bar.BandNextDetail = band.Words?.NextCount;
             bar.Show(room);
             if (!bar.gameObject.activeSelf)
             {

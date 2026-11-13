@@ -2635,11 +2635,12 @@ public class FileColumnTests
             var asked = Bar();
             Assert.That((asked.State, asked.Band, asked.Wide, asked.Body.IsEmpty), Is.EqualTo((RoomBarState.Question, (string?)"Which colour scheme should the game use?", true, true)),
                 "one prompt: it stands on the band, and with nothing from the computer to say the choices take the panel's place");
-            Assert.That(asked.Column.Take(2).Select(action => (action.Words, action.Mark, action.Chosen, action.Control.Action)), Is.EqualTo(new[]
+            Assert.That(asked.Column.Take(2).Select(action => (action.Words, action.Detail, action.Mark, action.Chosen, action.Control.Action)), Is.EqualTo(new[]
             {
-                ("Light · Dark text on a light background", AnswerMark.Single, false, FileScreens.Choose),
-                ("Dark · Light text on a dark background", AnswerMark.Single, false, FileScreens.Choose),
-            }));
+                ("Light", (string?)"Dark text on a light background", AnswerMark.Single, false, FileScreens.Choose),
+                ("Dark", (string?)"Light text on a dark background", AnswerMark.Single, false, FileScreens.Choose),
+            }), "an answer's label and its description given apart, never one string joined on a dot (JUDGE's dot list, item 1)");
+            Assert.That(asked.Column.Take(2).Select(action => action.Control.Under!.AllTheirs), Is.All.True, "the description is the agent's words");
             Assert.That(asked.Column.Any(action => action.Main), Is.False, "no way on before an answer is chosen: an action that cannot act is not drawn");
 
             Draw(host, column);
@@ -2689,7 +2690,7 @@ public class FileColumnTests
                 (string?)"Which colour scheme should the dashboard use?")));
             Assert.That(first.Column.Where(action => action.Mark != AnswerMark.None).Select(action => action.Mark), Is.All.EqualTo(AnswerMark.Single));
             Draw(host, column);
-            Press(Named(first, "Dark · Light text on a dark background"));
+            Press(Named(first, "Dark"));
             Draw(host, column);
             Press(Bar().Column.Single(action => action.Main));
 

@@ -65,6 +65,8 @@ namespace Halcyonic.Client
         public RoomAction(KitControl control, bool main, string? words = null, bool locks = false, GlazeIcon? icon = null, AnswerMark mark = AnswerMark.None,
             bool chosen = false, string? chip = null, string? detail = null)
         {
+            // The control's own second part where the reader gives none (an answer's description, a pager's count; JUDGE's dot list).
+            detail ??= control.Under?.Text;
             Detail = string.IsNullOrWhiteSpace(detail) ? null : detail!.Trim();
             Chip = string.IsNullOrWhiteSpace(chip) ? null : chip;
             Control = control;

@@ -249,6 +249,12 @@ namespace Halcyonic.Client
         /// <summary>New project's row to the review's next part, which replaces <see cref="ReadToPart"/> (ADR 0026).</summary>
         public static string NextPart(int part, int parts) => "Next Part · " + Count(part) + " of " + Count(parts);
 
+        /// <summary>A pager's words where its count is given apart (JUDGE's dot list, 2026-11-13T1203Z, item 2): the action alone.</summary>
+        public const string NextPartLabel = "Next Part";
+
+        /// <summary>A pager's count, given apart from its words: "2 of 7".</summary>
+        public static string PartOf(int part, int parts) => Count(part) + " of " + Count(parts);
+
         /// <summary>
         /// What starting over clears, as Start over's side panel on New project's recap and its
         /// confirmation both say: for a new project its idea, answers, name, first task and folder; for a

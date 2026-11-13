@@ -239,6 +239,19 @@ namespace Halcyonic.Client
         /// </summary>
         public RoomKind Kind { get; private set; }
 
+        /// <summary>
+        /// The line's own quieter line under its words, given apart (an answer's description under its label; JUDGE's dot list,
+        /// 2026-11-13T1203Z, item 1): never joined to the words on a dot. Null for none.
+        /// </summary>
+        public LineWords? Under { get; private set; }
+
+        /// <summary>This line, with <paramref name="under"/> as its quieter line under its words (<see cref="Under"/>); none where empty.</summary>
+        public PageLine WithUnder(LineWords? under)
+        {
+            Under = under == null || under.IsEmpty ? null : under;
+            return this;
+        }
+
         /// <summary>This line, saying it is about <paramref name="kind"/> (<see cref="Kind"/>).</summary>
         public PageLine Marked(RoomKind kind)
         {

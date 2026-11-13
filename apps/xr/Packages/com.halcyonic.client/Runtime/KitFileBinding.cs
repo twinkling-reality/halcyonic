@@ -73,9 +73,10 @@ namespace Halcyonic.Client
     public sealed class KitControl
     {
         public KitControl(KitPlace place, MenuFrame frame, string action, string? key, string words, GlazeIcon? icon, bool available, string? reason, bool holds,
-            bool chosen = false, AnswerMark mark = AnswerMark.None)
+            bool chosen = false, AnswerMark mark = AnswerMark.None, LineWords? under = null)
         {
             Mark = mark;
+            Under = under == null || under.IsEmpty ? null : under;
             Place = place;
             Frame = frame;
             Action = action;
@@ -114,6 +115,9 @@ namespace Halcyonic.Client
 
         /// <summary>An answer's mark as the file's row carries it: one of several to choose, or any number.</summary>
         public AnswerMark Mark { get; }
+
+        /// <summary>The row's quieter line under its words, given apart (an answer's description; <see cref="PageLine.Under"/>); null for none.</summary>
+        public LineWords? Under { get; }
     }
 
     /// <summary>
@@ -235,7 +239,7 @@ namespace Halcyonic.Client
                     : StepActions.Contains(line.Action!) || (offering && line.Action == FileScreens.NextPresetPage) ? KitPlace.Step : (KitPlace?)null;
                 var several = place is KitPlace.Route or KitPlace.Choice or KitPlace.Step;
                 if (place == null || (!several && controls.Any(control => control.Place == place))) return null;
-                controls.Add(new KitControl(place.Value, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false, line.Chosen, line.AnswerMark));
+                controls.Add(new KitControl(place.Value, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false, line.Chosen, line.AnswerMark, line.Under));
             }
             foreach (var section in frame.Sections)
                 controls.Add(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, section.Key, section.Words, null, true, null, false, section.Chosen));

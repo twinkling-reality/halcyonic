@@ -345,8 +345,8 @@ namespace Halcyonic.XR.Workspace.Editor
             switch (state)
             {
                 case "40-band-parts":
-                    Require(words.Parts >= 2 && words.Part == 0 && words.Next == "Next Part · 2 of " + words.Parts.ToString(CultureInfo.InvariantCulture),
-                        "the first of " + words.Parts + " parts offers \"" + words.Next + "\"");
+                    Require(words.Parts >= 2 && words.Part == 0 && words.Next == EntryText.NextPartLabel && words.NextCount == "2 of " + words.Parts.ToString(CultureInfo.InvariantCulture),
+                        "the first of " + words.Parts + " parts offers \"" + words.Next + "\" and \"" + words.NextCount + "\"");
                     break;
                 case "40-band-parts-next":
                     Require(words.Part == 1 && words.First == RoomWords.LinesAPart, "Next Part turned to part " + (words.Part + 1));
