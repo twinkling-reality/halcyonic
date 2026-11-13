@@ -476,7 +476,7 @@ describe("checking a task's own copy (ADR 0045)", () => {
     assert.equal(admitted.scope.workstream_id, first);
     assert.match(
       refusal(check()) ?? '',
-      /^Second is running in this project, so this was not done\. Check the project once it stops\.$/,
+      /^The task Second is running in this project, so this was not done\. Check the project once it stops\.$/,
       "the project's own check still waits",
     );
     assert.equal(refusal(check(second)), 'This task is running. Check it once it stops.');
@@ -569,7 +569,7 @@ describe("keeping a project's work (F3)", () => {
     const turn = running(busy, '/work/app');
     assert.equal(
       refusal(keep('project.save_copy')),
-      'Busy is running in this project, so this was not done. Save a copy once it has finished.',
+      'The task Busy is running in this project, so this was not done. Save a copy once it has finished.',
     );
     assert.equal(admit(keep('project.show_in_finder')).admitted, true);
     turn.rest();

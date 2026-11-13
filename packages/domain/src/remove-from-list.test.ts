@@ -346,6 +346,49 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
     }
   });
 
+  test('a busy task waiting for you is told to answer it or stop it, and a long title is cut at a word (AUDIT2 N1, N2)', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('Birds', FOLDER);
+    const long =
+      'Field guide cards with a photo, a range map and a call for every bird we have seen in the valley this year, sorted by season and by how often we saw them, with a print layout for each card and a short'.slice(
+        0,
+        200,
+      );
+    const task = b.workstream(project.projectId, long);
+    const run = b.execution(project.projectId, task.workstreamId, FOLDER.path);
+    for (const stored of [project.event, task.event, run.event]) projection.apply(stored);
+    const scope = {
+      projectId: project.projectId,
+      workstreamId: task.workstreamId,
+      executionId: run.executionId,
+    };
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    projection.apply(
+      b.runtimeEvent(scope, 'runtime.approval.requested', {
+        approval_id: 'a1',
+        subject: { kind: 'tool_use', tool_name: 'bash', summary: 'Run it' },
+        complete: true,
+      }),
+    );
+    const choosing = admitCommand(
+      command('project.own_check.choose', { project_id: project.projectId, scripts: [] }),
+      projection,
+      RUNTIMES,
+    );
+    assert.deepEqual(choosing.admitted ? null : choosing.rejection, {
+      code: 'invalid_state',
+      message:
+        'The task Field guide cards with a photo, a range map and a call for… is waiting for you in this project, so this was not done. Answer it or stop it, then try again.',
+    });
+    const view = projection.project(project.projectId);
+    assert.ok(view !== undefined);
+    assert.match(
+      removalRefusal(projection, view) ?? '',
+      /Answer it or stop it, then remove the project\.$/,
+    );
+  });
+
   test('a project with no folder that holds secrets is refused, since it could not come back to remove them', () => {
     const b = new EventBuilder();
     const projection = new Projection();
