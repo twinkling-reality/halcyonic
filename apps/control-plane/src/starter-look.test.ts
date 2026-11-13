@@ -606,22 +606,77 @@ describe("a web page's own cards come into VR as pages of their own (VRIFY unit 
     );
   });
 
-  test('the kit lays out at most six pages, as the instruction says, so the arc stays readable (AUDIT pages SHOULD)', () => {
+  test('the kit lays out at most six pages at a time, so the arc stays readable (AUDIT pages SHOULD), and turns to the rest', () => {
     const pages = read('src/pages.ts');
     assert.match(pages, /export const MAX_PAGES = 6;/);
-    assert.match(pages, /const shown = list\.slice\(0, MAX_PAGES\);/);
-    assert.match(pages, /const panels = shown\.map\(/);
-    assert.match(read('AGENTS.md'), /up to six of them/);
+    assert.match(pages, /const panels = Array\.from\(\{ length: MAX_PAGES \}/);
+    assert.match(pages, /const page = items\[first \+ index\];/);
+    assert.match(read('AGENTS.md'), /six stand at a time/);
   });
 
   test('the kit gives pages, and the agent is told when a web page becomes pages and how to press one', () => {
     assert.match(
       read('src/kit.ts'),
-      /export \{ type Page, type Pages, type PagesOptions, pages \} from '\.\/pages\.js';/,
+      /export \{ type Page, type Pages, type PagesOptions, MAX_PAGES, pages, TYPE \} from '\.\/pages\.js';/,
     );
     const agents = read('AGENTS.md');
     assert.match(agents, /pages\(list/);
     assert.match(agents, /onSelect\(world\.createTransformEntity\(panel\)/);
     assert.match(agents, /show\(i\)/);
+  });
+});
+
+describe("an app's use comes whole, read to its end and readable (the lead, 2026-11-13T08:20Z)", () => {
+  // A hosted Make VR Version of a field guide carried its use but dropped its search and three of a sighting's five
+  // fields, cut its log at six rows with "and N more", drew small words, and said none of it where a person reads.
+  test('the kit pages a long list six at a time and draws its words on its own type scale', () => {
+    const pages = read('src/pages.ts');
+    assert.match(pages, /export const TYPE = \{ title: 0\.04, words: 0\.026 \} as const;/);
+    assert.match(pages, /turn\(by: 1 \| -1\): boolean;/);
+    assert.match(pages, /readonly first: number;/);
+    assert.match(pages, /readonly count: number;/);
+    // A search or a filter shows what it leaves in the same row; a hidden panel takes no press.
+    assert.match(pages, /set\(list: readonly Page\[\]\): void;/);
+    assert.match(pages, /panel\.scale\.setScalar\(panel\.visible \? 1 \+ GROW \* near : 0\)/);
+    // The last, partial six stand centred.
+    assert.match(
+      pages,
+      /const across = Math\.max\(Math\.min\(items\.length - first, MAX_PAGES\), 1\);/,
+    );
+    assert.match(pages, /const next = first \+ by \* MAX_PAGES;/);
+    // The pages draw on that scale, never sizes of their own.
+    assert.match(pages, /Math\.round\(TYPE\.title \* PIXELS\)/);
+    assert.match(pages, /Math\.round\(TYPE\.words \* PIXELS\)/);
+    assert.doesNotMatch(pages, /\d+px \$\{font\}/);
+    assert.doesNotMatch(pages, /pass the ones that matter most/);
+    assert.match(read('src/kit.ts'), /MAX_PAGES, pages, TYPE \} from '\.\/pages\.js';/);
+  });
+
+  test('AGENTS.md says how each part of the use works with a hand, and that what is left out is said on the card', () => {
+    const agents = read('AGENTS.md');
+    const has = (pattern: RegExp) => assert.match(agents, pattern);
+    has(/An app's use, not a game/);
+    has(/Nothing of the use is dropped without a word/);
+    has(/a keyboard of letter buttons for short free words \(a search, a name, a short\s+note\)/);
+    has(/Never fix such a field to a sample value or to now without saying so/);
+    // A words critic: long text, files and sign-ins would push an agent to build editors or fake a form.
+    has(
+      /Long text to write \(steps, an article\)\s+and files to upload are named among what this version leaves out/,
+    );
+    has(/An account, a sign-in or a server is never rebuilt, not even its form/);
+    has(/`turn\(1\)` and `turn\(-1\)`/);
+    has(/`set\(list\)` shows what a search or\s+a filter leaves/);
+    has(/never cut it with "and N more" and no way there/);
+    has(/A card's words that do not fit go on to the\s+next card, never cut off/);
+    has(
+      /Words in the scene are read at a distance: draw them no smaller than `TYPE` from `\.\/kit\.js`/,
+    );
+    has(/a title never runs into the words beside\s+or below it/);
+    // The welcome card's words leave at once in VR, so the line stands in the scene.
+    has(
+      /one plain line that stays in the scene beside the use \(the welcome\s+card's words leave after a few seconds, and at once in VR\), and in your closing words; a code comment is not saying\s+it/,
+    );
+    has(/pass all of them/);
+    assert.doesNotMatch(agents, /pass up to six/);
   });
 });

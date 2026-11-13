@@ -95,6 +95,28 @@ Make it fun to look at:
   `.patch` files.
 - Run `npx tsc --noEmit` before ending your turn and fix any type, syntax or module error it reports.
 
+An app's use, not a game (a guide, a log, a list, a form, a tool):
+- Nothing of the use is dropped without a word. Each way it finds things (a search, a filter, a sort) and each field
+  of its forms gets a way that works with a hand and with a mouse, all through `onSelect`: a row of the app's own
+  choices to press for a field with a few values (a type, a place it already knows), minus and plus for a number,
+  steps of day and hour for a time, and a keyboard of letter buttons for short free words (a search, a name, a short
+  note). Never fix such a field to a sample value or to now without saying so. Long text to write (steps, an article)
+  and files to upload are named among what this version leaves out, or chosen from the app's own (its pictures) and
+  said so. An account, a sign-in or a server is never rebuilt, not even its form: name it and carry the use without it.
+- Every list can be read to its end. `pages()` lays out six at a time: `turn(1)` and `turn(-1)` lay out the next and
+  previous six, `count` and `first` say where the person is ("7 to 12 of 14"), and `set(list)` shows what a search or
+  a filter leaves in the same row. A list you draw yourself pages the same way, `MAX_PAGES` at a time. Give it a Next
+  and a Back to press; never cut it with "and N more" and no way there. A card's words that do not fit go on to the
+  next card, never cut off.
+- Words in the scene are read at a distance: draw them no smaller than `TYPE` from `./kit.js` (font sizes in metres
+  for words read 1.6 m away, `TYPE.words` for running words and `TYPE.title` for titles; twice as far, twice as big).
+  Measure each line with `measureText` and start the next thing after it, so a title never runs into the words beside
+  or below it. The welcome card keeps its own sizes.
+- What this version does not carry yet goes in one plain line that stays in the scene beside the use (the welcome
+  card's words leave after a few seconds, and at once in VR), and in your closing words; a code comment is not saying
+  it.
+- Build it in `setupScene(world, colour)` with the app's own page colour, not the island, as for a view below.
+
 A view from another app, not a game:
 - When you bring an app's view into VR (a sky, planets, a terrain model, a diagram), it keeps its own look, not the
   island's. In `src/index.ts` call `setupScene(world, '#000000')` from `./kit.js` instead of `setupLook` and
@@ -124,8 +146,9 @@ A view from another app, not a game:
 - For pages (a lesson, a set of cards or steps, slides, a page of sections, rather than one picture to stand in), the
   subject is the original's own pages: `pages(list, options)` from `./kit.js` draws each as a readable panel in an arc
   1.6 m in front of the person. Read the cards' own words from the original's files (its HTML, Markdown, JSON or the
-  component that renders them, never the share image or the landing page's banner) and pass up to six of them, each
-  `{ title, text, picture }`, in the original's order, with `picture` the card's own picture read with
+  component that renders them, never the share image or the landing page's banner) and pass all of them, each
+  `{ title, text, picture }`, in the original's order (six stand at a time; give a Next and a Back that call
+  `book.turn(1)` and `book.turn(-1)`), with `picture` the card's own picture read with
   `AssetManager.getTexture(...)` where it has one. Give `color`, `ink` and `accent` from the original's own styles.
   Make each panel pressable and answer with the page coming forward:
   `book.panels.forEach((panel, i) => onSelect(world.createTransformEntity(panel), () => book.show(i)))`, with

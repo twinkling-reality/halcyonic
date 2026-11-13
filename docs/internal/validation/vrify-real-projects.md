@@ -171,4 +171,26 @@ A fresh critic read the words on two other apps (one not a game, one a game) as 
 path is unharmed; it asked that the look line be scoped to apps that are not games, that the agent write its line and
 build without waiting, that a stand-in carry what has no sample content, and that the view section yield to the use
 (an app's biggest picture can sit only on its landing page). All four are in the words and the starter's AGENTS.md.
-Not yet seen: a run on the new words.
+
+Seen on the new words: a hosted run on a small field guide written for the proof (a guide of species with a filter
+and a search, a page per species, a form to log a sighting with five fields, and the log) built the guide in use, not
+a scene: a critic who saw it found the cards, a species page, logging and the log, with seen or not seen on each card.
+It also left out the search, fixed three of the five fields (a place to one of two, the time to now, the note to
+empty), cut the log at six rows with "and N more", drew words too small to read at a laptop's distance, ran a title
+into the next line, and said none of it where a person reads: only a code comment did. The kit's own pages helper
+showed only its first six pages and asked for "the ones that matter most".
+
+So the words now ask (the lead, 2026-11-13T08:20Z) that nothing of the use be dropped without a word: each way the
+app finds things and each field of its forms gets a way that works with a hand (a row of the app's own choices,
+minus and plus, steps of day and hour, a keyboard of letter buttons for free words), or is named among what is left
+out; that every list be read to its end, and the kit's pages turn six at a time (`turn(1)`, `turn(-1)`); that words
+be no smaller than the kit's type scale (`TYPE`, font sizes in metres at 1.6 m, which the pages draw with); and that
+what is not carried yet be said in one line that stays in the scene beside the use and in the closing words. A fresh
+critic read these words for an imagined recipe box (search, tags, a form with long steps and a photo, a sign-in) and a
+small arcade game: the game path is unharmed; it found that the pages could not show what a filter leaves, that long
+text and files had no rule, that a sign-in form would be rebuilt and faked, and that the welcome card's words leave at
+once in VR. So the pages take `set(list)` and centre a last, partial six, short free words get a keyboard while long
+text and files are named as left out, an account or a sign-in is never rebuilt, and the line stands in the scene.
+The starter's check measures none of
+these: its words are drawn into canvas textures, not the page, and a cut list has no one shape to find, so the
+instruction carries them. Not yet seen: a run on these words.

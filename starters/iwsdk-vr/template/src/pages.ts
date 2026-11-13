@@ -32,11 +32,30 @@ export interface PagesOptions {
 export interface Pages {
   /** The row, already in the scene; move or turn it as a whole if the view needs it. */
   readonly group: Group;
-  /** One flat panel per page, in the order given: wrap each in an entity to press it. */
+  /** The row's six flat panels: wrap each in an entity to press it. Panel `i` shows page `first + i`, if there is one. */
   readonly panels: readonly Mesh[];
-  /** Brings page `index` forward and lights it, the others back; on the game's own clock. */
+  /** Brings panel `index` forward and lights it, the others back; on the game's own clock. */
   show(index: number): void;
+  /** The list's index of the page the first panel shows: 0, then 6, 12 and on as the row turns. */
+  readonly first: number;
+  /** How many pages the list has now, so a person can be told where they are ("7 to 12 of 14"). */
+  readonly count: number;
+  /**
+   * Lays out the next six pages (`turn(1)`) or the previous six (`turn(-1)`), so a long list is read to its end;
+   * give the person a Next and a Back to press. Returns false, changing nothing, past either end.
+   */
+  turn(by: 1 | -1): boolean;
+  /** Shows another list in the same row from its first page: what a search or a filter leaves, say. */
+  set(list: readonly Page[]): void;
 }
+
+/**
+ * The kit's type scale: font sizes in metres for words read 1.6 m away, the distance `pages` stands at; scale them
+ * with the distance they are read from (twice as far, twice as big). Running words are never drawn smaller than
+ * `words`, and a title takes `title` with its own line below it. On a canvas of `p` pixels per metre the size in
+ * pixels is `TYPE.words * p`.
+ */
+export const TYPE = { title: 0.04, words: 0.026 } as const;
 
 /** Each page's size in metres: about a book page, read at arm's length. */
 const WIDTH = 0.64;
@@ -45,7 +64,7 @@ const HEIGHT = 0.8;
 const PIXELS = 1600;
 /** The panels' centres, at the height a standing person reads at. */
 const EYE = 1.45;
-/** The most pages laid out: more would widen the arc past where a person reads without turning. */
+/** The most pages laid out at once: more would widen the arc past where a person reads without turning. */
 export const MAX_PAGES = 6;
 /** How far the pressed page comes toward the person, and how much bigger it grows. */
 const FORWARD = 0.32;
@@ -55,7 +74,8 @@ const GROW = 0.18;
  * Lays the original's own cards out as readable pages in a shallow arc in front of the person, facing them, each drawn
  * from its title, words and picture on a canvas of its own. Pressing one should answer: call `show(i)` from
  * `onSelect`, and that page comes forward and brightens while the rest step back, on the game's own clock.
- * Only the first `MAX_PAGES` (six) are laid out; pass the ones that matter most.
+ * Six (`MAX_PAGES`) are laid out at a time; `turn(1)` and `turn(-1)` lay out the next and previous six, so pass the
+ * whole list, and `set(list)` shows another (what a search or a filter leaves).
  */
 export function pages(list: readonly Page[], options: PagesOptions = {}): Pages {
   const color = options.color ?? '#FFF8EC';
@@ -63,26 +83,40 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
   const accent = options.accent ?? '#E8743B';
   const distance = options.distance ?? 1.6;
   const group = new Group();
-  const shown = list.slice(0, MAX_PAGES);
-  const count = Math.max(shown.length, 1);
   // Side by side with a 6 cm gap, bent round the person so each faces them.
   const step = (WIDTH + 0.06) / distance;
-  const panels = shown.map((page, index) => {
-    const material = new MeshBasicMaterial({
-      map: drawPage(page, color, ink, accent),
-      toneMapped: false,
-    });
-    const panel = new Mesh(new PlaneGeometry(WIDTH, HEIGHT), material);
-    const angle = (index - (count - 1) / 2) * step;
-    panel.position.set(Math.sin(angle) * distance, EYE, -Math.cos(angle) * distance);
-    panel.rotation.y = -angle;
-    panel.userData.home = panel.position.clone();
+  let items = list;
+  let first = 0;
+  const panels = Array.from({ length: MAX_PAGES }, () => {
+    const panel = new Mesh(
+      new PlaneGeometry(WIDTH, HEIGHT),
+      new MeshBasicMaterial({ toneMapped: false }),
+    );
     group.add(panel);
     return panel;
   });
-  gameIsland().add(group);
   let chosen = -1;
   let chosenAt = Number.NEGATIVE_INFINITY;
+  /** Draws the six pages from `first` on and centres the ones there are; a panel with no page is hidden. */
+  const lay = () => {
+    const across = Math.max(Math.min(items.length - first, MAX_PAGES), 1);
+    chosen = -1;
+    chosenAt = Number.NEGATIVE_INFINITY;
+    panels.forEach((panel, index) => {
+      const page = items[first + index];
+      const material = panel.material as MeshBasicMaterial;
+      material.map?.dispose();
+      material.map = page === undefined ? null : drawPage(page, color, ink, accent);
+      material.needsUpdate = true;
+      panel.visible = page !== undefined;
+      const angle = (index - (across - 1) / 2) * step;
+      panel.position.set(Math.sin(angle) * distance, EYE, -Math.cos(angle) * distance);
+      panel.rotation.y = -angle;
+      panel.userData.home = panel.position.clone();
+    });
+  };
+  lay();
+  gameIsland().add(group);
   const bright = new Color('#FFFFFF');
   const dim = new Color('#B8B2A8');
   ambientMotion(() => {
@@ -98,7 +132,8 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
         home.y,
         home.z - (home.z / towards) * FORWARD * near,
       );
-      panel.scale.setScalar(1 + GROW * near);
+      // A hidden panel has no size, so a pointer passes through it and presses nothing.
+      panel.scale.setScalar(panel.visible ? 1 + GROW * near : 0);
       const material = panel.material as MeshBasicMaterial;
       material.color.copy(chosen === -1 || index === chosen ? bright : dim);
     });
@@ -107,9 +142,27 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
     group,
     panels,
     show(index) {
-      if (index === chosen || index < 0 || index >= panels.length) return;
+      if (index === chosen || index < 0 || index >= panels.length || !panels[index]?.visible) return;
       chosen = index;
       chosenAt = gameTime();
+    },
+    get first() {
+      return first;
+    },
+    get count() {
+      return items.length;
+    },
+    turn(by) {
+      const next = first + by * MAX_PAGES;
+      if (next < 0 || next >= items.length) return false;
+      first = next;
+      lay();
+      return true;
+    },
+    set(next) {
+      items = next;
+      first = 0;
+      lay();
     },
   };
 }
@@ -132,22 +185,25 @@ function drawPage(page: Page, color: string, ink: string, accent: string): Canva
   context.fillRect(0, 0, canvas.width, 28);
   context.fillStyle = ink;
   context.textBaseline = 'top';
-  context.font = `700 64px ${font}`;
+  const title = Math.round(TYPE.title * PIXELS);
+  const words = Math.round(TYPE.words * PIXELS);
+  context.font = `700 ${title}px ${font}`;
   let y = margin + 24;
   for (const line of wrap(context, page.title, canvas.width - margin * 2).slice(0, 2)) {
     context.fillText(line, margin, y);
-    y += 78;
+    y += Math.round(title * 1.22);
   }
   y += 18;
-  context.font = `400 42px ${font}`;
+  context.font = `400 ${words}px ${font}`;
   const picture = page.picture?.image as CanvasImageSource | undefined;
   // The words take what the picture leaves, and stop with an ellipsis rather than run off the page.
   const pictureHeight = picture === undefined ? 0 : Math.round(canvas.height * 0.36);
-  const room = Math.max(0, Math.floor((canvas.height - margin - pictureHeight - y) / 56));
+  const leading = Math.round(words * 1.33);
+  const room = Math.max(0, Math.floor((canvas.height - margin - pictureHeight - y) / leading));
   const lines = wrap(context, page.text, canvas.width - margin * 2);
   lines.slice(0, room).forEach((line, index) => {
     const cut = index === room - 1 && lines.length > room;
-    context.fillText(cut ? `${line.replace(/\s*\S*$/, '')} ...` : line, margin, y + index * 56);
+    context.fillText(cut ? `${line.replace(/\s*\S*$/, '')} ...` : line, margin, y + index * leading);
   });
   if (picture !== undefined) {
     const box = {
