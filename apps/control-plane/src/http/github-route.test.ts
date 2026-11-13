@@ -134,7 +134,8 @@ describe('Send to GitHub through the control plane (ADR 0039, amended)', {
     assert.equal(second.disposition, 'rejected', JSON.stringify(second.command?.status));
     assert.deepEqual(second.command?.rejection, {
       code: 'invalid_state',
-      message: 'Send for Review in this project is still under way. Send it once it has finished.',
+      message:
+        'Send for Review in this project is still under way, so this was not done. Try again once it has finished.',
     });
     const done = await settled(server, first.command?.command_id ?? '');
     assert.equal(done.status, 'completed', JSON.stringify(done.failure));

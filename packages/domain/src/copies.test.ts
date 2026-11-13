@@ -585,7 +585,7 @@ describe("keeping a project's work (F3)", () => {
     accept(add(other), other);
     assert.equal(
       refusal(keep('project.save_copy')),
-      'Adding to the project in this project is still under way. Save a copy once it has finished.',
+      'Adding to the project in this project is still under way, so this was not done. Save a copy once it has finished.',
     );
     assert.equal(admit(keep('project.show_in_finder')).admitted, true, 'showing changes nothing');
     void scopeOf;

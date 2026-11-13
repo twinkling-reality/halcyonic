@@ -239,7 +239,7 @@ function admit(
         const after =
           command.command_type === 'project.save_copy'
             ? 'Save a copy once it has finished.'
-            : 'Send it once it has finished.';
+            : 'Try again once it has finished.';
         const writing = projection
           .pendingCommands()
           .find(
@@ -252,7 +252,7 @@ function admit(
           return reject(
             scope,
             'invalid_state',
-            `${commandInWords(writing.command_type)} in this project is still under way. ${after}`,
+            `${commandInWords(writing.command_type)} in this project is still under way, so this was not done. ${after}`,
           );
         // A turn at work may leave a file half written (AUDIT2 S1), as a restore waits for it.
         const busy = projection.projectBusy(projectId);
@@ -1491,7 +1491,7 @@ function githubUnderWay(projection: Projection, projectId: string, self: string)
     );
   return going === undefined
     ? null
-    : `${COMMAND_SAYING[going.command_type].title} in this project is still under way. Try again once it has finished.`;
+    : `${COMMAND_SAYING[going.command_type].title} in this project is still under way, so this was not done. Try again once it has finished.`;
 }
 
 /** A command for a task as a person would say it, at the start of a refusal. */
