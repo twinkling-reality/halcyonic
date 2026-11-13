@@ -156,11 +156,14 @@ sum, and stays null once any turn left it null, and `cost` is the sum of the run
 while every turn gave one by the same prices, null from the first that did not; a turn that used
 nothing at all, every part a counted 0, costs nothing and never voids it. It is absent until
 a turn reports, which never reads as nothing used, and a turn that reported nothing is in none of
-it, so `turns` below `turn_count` means part of the use is not counted, and a client says so
-("reported for 2 of 3 turns"), never showing the sum as the whole. A client showing the cost says
+it. `turns_ended` counts every ended turn, completed, failed or interrupted, reported or not, and is
+never below `turns` (a report comes just before its turn's end event): `turns` below it means part
+of the use is not counted, and a client says so against it ("reported for 2 of 3 turns"), never
+against completed turns and never showing the sum as the whole. An interrupted turn spent what it
+spent, so its report counts. A client showing the cost says
 whose estimate it is and that it is no bill, beside the host's own words that Halcyonic knows no
-price. A project view's `usage` adds up its executions' by the same rules, with `turns_ended`
-counting every ended turn of its runs, reported or not, so the same "2 of 3 turns" can be said of
+price. A project view's `usage` (the same `RunUsage`) adds up its executions' by the same rules,
+its `turns_ended` counting every ended turn of its runs, so the same "2 of 3 turns" can be said of
 the project; it is absent until one of its runs reports. Adapters report a turn at
 most once; the projection takes each report as one turn. The host never prices
 anything itself: money appears only where the runtime estimated it, and only as an estimate.

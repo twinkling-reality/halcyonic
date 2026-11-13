@@ -6,13 +6,12 @@ import type {
   ErrorInfo,
   ExecutionId,
   ExecutionStatus,
-  ExecutionUsage,
   ExecutionView,
   ProjectId,
-  ProjectUsage,
   QuestionView,
   QueuedInstructionView,
   RuntimeRef,
+  RunUsage,
   SpendingCapView,
   TestRunResultView,
   TestRunView,
@@ -90,7 +89,7 @@ export interface ExecutionState {
   /** The person's instructions waiting for the turn to end, oldest first (ADR 0056). */
   queued: QueuedInstructionView[];
   /** What its reported turns used (`runtime.usage.reported`); null until one is reported. */
-  usage: ExecutionUsage | null;
+  usage: UsageSum | null;
   /** Its spending limit and the span the app's estimates are summed over; null for none. */
   spendingCap: SpendingCapState | null;
 }
@@ -268,6 +267,14 @@ export function createExecutionState(init: {
 
 const TOKEN_PARTS = ['input', 'cache_read', 'cache_write', 'output', 'reasoning'] as const;
 
+/** What turns used, as the host keeps it: the view's usage without its count of ended turns. */
+export type UsageSum = Omit<RunUsage, 'turns_ended'>;
+
+/** Every ended turn of an execution, completed, failed or interrupted: the running one is not. */
+function turnsEnded(state: ExecutionState): number {
+  return state.turnCount - (state.activeTurn === null ? 0 : 1);
+}
+
 /** Whether every token part is a counted 0: nothing was used, so no price could make it cost. */
 function usedNothing(tokens: UsageTokens): boolean {
   return TOKEN_PARTS.every((part) => tokens[part] === 0);
@@ -277,9 +284,9 @@ function usedNothing(tokens: UsageTokens): boolean {
  * Adds one turn's reported usage to what an execution's turns used before (`addUsage`).
  */
 export function addTurnUsage(
-  before: ExecutionUsage | null,
+  before: UsageSum | null,
   turn: { readonly tokens: UsageTokens; readonly cost: UsageEstimate | null },
-): ExecutionUsage {
+): UsageSum {
   return addUsage(before, { turns: 1, tokens: turn.tokens, cost: turn.cost });
 }
 
@@ -290,7 +297,7 @@ export function addTurnUsage(
  * costs nothing whatever its estimate says, so it never voids the cost. A sum past `USAGE_USD_MAX`
  * is unknown, so a view keeps to its contract. Unknown never becomes a number.
  */
-export function addUsage(before: ExecutionUsage | null, more: ExecutionUsage): ExecutionUsage {
+export function addUsage(before: UsageSum | null, more: UsageSum): UsageSum {
   if (before === null)
     return { turns: more.turns, tokens: { ...more.tokens }, cost: more.cost && { ...more.cost } };
   const tokens = { ...before.tokens };
@@ -321,11 +328,11 @@ export function addUsage(before: ExecutionUsage | null, more: ExecutionUsage): E
  * them counted, reported or not, so a client can say how much of the use is in it. Null where none of
  * its runs reported any.
  */
-export function projectUsage(executions: Iterable<ExecutionState>): ProjectUsage | null {
-  let sum: ExecutionUsage | null = null;
+export function projectUsage(executions: Iterable<ExecutionState>): RunUsage | null {
+  let sum: UsageSum | null = null;
   let ended = 0;
   for (const execution of executions) {
-    ended += execution.turnCount - (execution.activeTurn === null ? 0 : 1);
+    ended += turnsEnded(execution);
     if (execution.usage != null) sum = addUsage(sum, execution.usage);
   }
   if (sum === null) return null;
@@ -431,7 +438,14 @@ export function toExecutionView(
       queued_instructions: state.queued.map((queued) => ({ ...queued })),
     }),
     // A state from before usage was recorded has none.
-    ...(state.usage != null && { usage: structuredClone(state.usage) }),
+    // A report comes before its turn's end event, so between them its turn counts as ended: never
+    // "1 of 0 turns".
+    ...(state.usage != null && {
+      usage: {
+        ...structuredClone(state.usage),
+        turns_ended: Math.max(turnsEnded(state), state.usage.turns),
+      },
+    }),
     created_at: state.createdAt,
     started_at: state.startedAt,
     updated_at: state.updatedAt,

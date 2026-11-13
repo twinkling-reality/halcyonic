@@ -276,6 +276,7 @@ describe('execution status is derived from observed facts', () => {
     assert.equal(status(), 'completed', 'a usage report changes no status');
     assert.deepEqual(view()?.usage, {
       turns: 1,
+      turns_ended: 1,
       tokens: { input: 10, cache_read: 200, cache_write: 40, output: 30, reasoning: 5 },
       cost: { estimated_usd: 0.25, prices: 'list' },
     });
@@ -289,7 +290,9 @@ describe('execution status is derived from observed facts', () => {
       }),
     );
     assert.deepEqual(view()?.usage, {
+      // t2 runs, yet its report is in: it counts as ended, never "2 of 1 turns".
       turns: 2,
+      turns_ended: 2,
       tokens: { input: 17, cache_read: 500, cache_write: 40, output: 42, reasoning: null },
       cost: { estimated_usd: 0.75, prices: 'list' },
     });
@@ -313,6 +316,7 @@ describe('execution status is derived from observed facts', () => {
     );
     assert.equal(view()?.usage?.cost, null, 'a sum that lost a turn is never resumed');
     assert.equal(view()?.usage?.turns, 4);
+    assert.ok((view()?.usage?.turns_ended ?? 0) >= 4, 'never fewer ended than reported');
   });
 
   test('a turn that used nothing costs nothing, so it never voids the estimate', () => {
@@ -1919,5 +1923,45 @@ describe("a task's spending limit counts the app's own estimates since it was se
     apply(report('t2', 1), b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't2' }));
     assert.deepEqual(cap(), { limit_usd: 5, spent_usd: 1, state: 'open' });
     assert.equal(projection.executionFacts(scope.executionId)?.spendingCap, 'open');
+  });
+});
+
+describe('an interrupted turn spent what it spent (lead, 2026-11-13, VRIFY run b)', () => {
+  test('its usage counts and it counts as ended, so a screen reads 1 of 1 turns, never 1 of 0', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project();
+    const workstream = b.workstream(project.projectId);
+    const execution = b.execution(project.projectId, workstream.workstreamId);
+    for (const event of [project.event, workstream.event, execution.event]) projection.apply(event);
+    const scope = {
+      projectId: project.projectId,
+      workstreamId: workstream.workstreamId,
+      executionId: execution.executionId,
+    };
+    const usage = () => projection.execution(execution.executionId)?.usage;
+    for (const event of [
+      b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'ses_1' }),
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }),
+      // As OpenCode reported the stopped turn of run (b): its usage first, then its end.
+      b.runtimeEvent(scope, 'runtime.usage.reported', {
+        turn_id: 't1',
+        tokens: { input: 16350, cache_read: 5108, cache_write: 0, output: 380, reasoning: 105 },
+        cost: null,
+        counted: 'summed',
+      }),
+    ])
+      projection.apply(event);
+    assert.equal(usage()?.turns, 1);
+    assert.equal(usage()?.turns_ended, 1, 'between the report and the end: already ended');
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.interrupted', { turn_id: 't1' }));
+    assert.deepEqual(
+      [
+        usage()?.turns,
+        usage()?.turns_ended,
+        projection.execution(execution.executionId)?.turn_count,
+      ],
+      [1, 1, 1],
+    );
   });
 });
