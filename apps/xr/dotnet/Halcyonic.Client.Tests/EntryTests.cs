@@ -1119,7 +1119,7 @@ public class EntryWordsTests
             EntryText.ChangeAgentApp, EntryText.ListsModels, EntryText.ChoosesModel, EntryText.NoModels, EntryText.Practice, EntryText.PracticeRun,
             EntryText.PracticeDetail, EntryText.Done, EntryText.ReviewLine, EntryText.ConfirmStart, EntryText.Change,
             EntryText.ReadToPart(4), EntryText.Previous, EntryText.Next, EntryText.Page(0, 2), EntryText.Part(0, 2), EntryText.NextPage(0, 2), EntryText.NextPage(1, 2),
-            EntryText.SendingLine, EntryText.TryAgain, EntryText.Started, EntryText.NotSureItHappened(null), EntryText.PreviousRequest(null),
+            EntryText.SendingLine, EntryText.TryAgain, EntryText.Started, EntryText.NotSureItHappened(null),
             EntryText.PreviousRequestTitle, EntryText.PreviousRequestLine, EntryText.CheckFirst, EntryText.Clear, EntryText.ClearOnceChecked,
             EntryText.ClearOnlyAfterChecking, EntryText.ConfirmClear, EntryText.Cancel, EntryText.Cleared, EntryText.Reference("id"),
             EntryText.OpenNow, EntryText.KeepCreating, EntryText.Move, EntryText.ResetPosition, EntryText.Close,
@@ -1131,7 +1131,7 @@ public class EntryWordsTests
         words.AddRange(ProjectIdea.Questions.SelectMany(question =>
             question.Choices.Concat(new[] { question.Prompt, question.TypeLabel, question.SkipLabel ?? "" })));
         words.AddRange(Enum.GetValues<BuildStepKind>().SelectMany(kind => new[] { EntryText.StepName(kind, true), EntryText.StepName(kind, false),
-            EntryText.NotSureItHappened(kind), EntryText.PreviousRequest(kind) }));
+            EntryText.NotSureItHappened(kind) }));
         words.AddRange(Enum.GetValues<ModelServed>().SelectMany(served => new[] { EntryText.Served(served), EntryText.ServedShort(served), EntryText.ServedInSentence(served) }));
         words.AddRange(Enum.GetValues<ModelToolCalling>().Select(EntryText.Tools));
         words.AddRange(new CommandStatus?[] { null, CommandStatus.Accepted, CommandStatus.Completed, CommandStatus.Rejected, CommandStatus.Failed }.Select(EntryText.Recorded));
@@ -1153,6 +1153,12 @@ public class EntryWordsTests
             Assert.That(word, Does.Not.Contain("\u2014"), "no em dash");
         }
         Assert.That(words.Where(word => word.Length > 110).Distinct(), Is.Empty, "two rows at the step's width");
+        // The unknown start's sentence with its wait is a row of three, not a step's two: brand-free and dash-free all the same.
+        foreach (var long_ in Enum.GetValues<BuildStepKind>().Select(kind => EntryText.PreviousRequest(kind)).Append(EntryText.PreviousRequest(null)))
+        {
+            Assert.That(Regex.IsMatch(long_, @"\b(Claude|Codex|OpenCode|Halcyonic|Mac)\b") || long_.Contains('\u2014'), Is.False, long_);
+            Assert.That(long_.Length, Is.LessThanOrEqualTo(165), "three rows at the step's width");
+        }
         Assert.That(words.Where(word => Regex.IsMatch(word, @"\b(runtime|workstream|control plane)\b", RegexOptions.IgnoreCase)), Is.Empty,
             "the glossary's words: an agent app, a task, your computer");
         Assert.That(EntryText.GuideNote, Does.Contain("Not AI"));

@@ -407,6 +407,34 @@ public class NewProjectRecapTests
         frame.Lines.Single(line => line.Key == NewProjectScreens.FactKey(fact));
 
     [Test]
+    public void UnderTheRedesignAStartThatMayHaveRunHoldsTheRecapWithItsSentenceAndItsWayOnAndItsPageIsACard()
+    {
+        // A reader, 2026-11-13: the held recap had no lit button and nothing naming the wait; the unknown start's page had no title.
+        var was = RoomDesign.Enabled;
+        try
+        {
+            RoomDesign.Enabled = true;
+            var idea = Proposed();
+            var reason = EntryText.PreviousRequest(BuildStepKind.CreateProject);
+            Assert.That(reason, Does.Contain("Start Building waits"), "the sentence names what waits");
+            var recap = NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: reason, buildReached: true, startOverProblem: reason);
+            var main = recap.Footer[PromptSlot.FarRight]!;
+            Assert.That((main.Id, main.Words, main.Available, main.Main), Is.EqualTo((NewProjectScreens.CheckFirst, EntryText.CheckFirst, true, true)), "its way on, lit");
+            Assert.That(recap.Lines[0].Words, Is.EqualTo(reason), "the card says why Start Building waits");
+            Assert.That(NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: EntryText.ChooseWhereFilesLive).Footer[PromptSlot.FarRight]!.Id,
+                Is.Not.EqualTo(NewProjectScreens.CheckFirst), "any other wait keeps its own way on");
+
+            var page = NewProjectScreens.Unresolved(idea, "c-1", new CommandView { CommandId = "c-1", Status = CommandStatus.Failed }, armed: false, live: true,
+                kind: BuildStepKind.CreateProject);
+            var card = page.Card!;
+            Assert.That((card.Title!.Text, card.Status!.Value.Title, card.Status.Value.Line), Is.EqualTo(("Race Times", EntryText.PreviousRequestTitle, reason)), "the project, its state and its sentence at the head");
+            Assert.That(card.Description!.Text, Does.Contain(EntryText.Recorded(CommandStatus.Failed)).And.Contain(EntryText.ClearOnceChecked).And.Not.Contain("c-1"));
+            Assert.That(card.Description.Text, Does.Not.Contain("\u00b7"));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
     public void EachFactIsARowWithSuggestedBesideWhatTheCompanionSuggested()
     {
         var idea = Proposed();

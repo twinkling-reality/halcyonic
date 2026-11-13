@@ -303,20 +303,27 @@ namespace Halcyonic.Client
         /// A start that may have run, where nothing says which step: where a person sees what it may have made, and why not to
         /// try again blind, in sentences of New Project's own (AUDIT, 2026-11-13T1627Z: never facts joined on a dot).
         /// </summary>
-        public const string PreviousRequestLine = "The last start may have run. Look in Projects and in the room. Trying again could make it twice.";
+        public const string PreviousRequestLine = "The last start may have run. Look in Projects and in the room. " + StartBuildingWaits;
 
-        /// <summary>A start that may have run, by the step that may have: the same sentence its card says, then why not to try again blind.</summary>
-        public static string PreviousRequest(BuildStepKind? kind) => kind == null ? PreviousRequestLine : NotSureItHappened(kind) + " " + TryingAgainTwice;
+        /// <summary>
+        /// A start that may have run, by the step that may have: the same sentence its card says, then that Start Building waits and
+        /// why (a reader, 2026-11-13: with Start Building held and nothing naming it, the recap read as a button gone missing).
+        /// </summary>
+        public static string PreviousRequest(BuildStepKind? kind) => kind == null ? PreviousRequestLine : NotSureItHappened(kind) + " " + StartBuildingWaits;
 
-        private const string TryingAgainTwice = "Trying again could make it twice.";
+        private const string StartBuildingWaits = "Start Building waits so nothing is made twice.";
+
+        /// <summary>Whether <paramref name="words"/> are a start that may have run, as <see cref="PreviousRequest"/> says it for any step.</summary>
+        public static bool IsPreviousRequest(string? words) =>
+            words != null && (words == PreviousRequestLine || Enum.GetValues(typeof(BuildStepKind)).Cast<BuildStepKind>().Any(kind => words == PreviousRequest(kind)));
 
         /// <summary>On a start whose outcome is unknown, where it only opens the page that says what is known and how to clear it.</summary>
         public const string CheckFirst = "See What Happened";
 
         /// <summary>The first of the two presses that clear a start whose outcome is unknown.</summary>
         public const string Clear = "Clear";
-        public const string ClearOnceChecked = "Once you have looked, Clear lets you start again.";
-        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Clearing sends nothing again.";
+        public const string ClearOnceChecked = "Once you have looked, Clear lets you start again. It deletes nothing.";
+        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Clear deletes nothing and sends nothing again.";
         public const string ConfirmClear = "Confirm";
         public const string Cancel = "Cancel";
         public const string Cleared = "Cleared · Start from Idea";
