@@ -1011,6 +1011,13 @@ launch/return, process recreation and current-frame action behavior need separat
   `Name` (null for the root itself), and **`SetProjectLocation`** binds a project again; the
   client never composes a path. A runtime whose descriptor has `UsesProjectLocation` starts work
   only in a project with a folder. Folder names are untrusted text, shown through `LabelText`.
+- **The recap's way on** (SCREENS, 2026-11-13, from JUDGE's live walk: 14 presses from New Project to a running agent, 2 at
+  a desk): under the redesign, where Start Building waits on a choice the person makes on the recap, that choice is the main
+  action in its place, named for what it picks and one press to its page (`NewProjectScreens.WayOn`: Choose Folder, Choose
+  Agent App, Choose Model); any other wait stays Start Building's reason. New Project's run settings, its new folder's
+  rules and what Start Over clears are sentences, never facts on a dot (`EntryText`). Tests:
+  `NewProjectFlowTests.In_the_redesign_a_recap_that_waits_on_a_choice_leads_with_that_choice`,
+  `EntryTests.NewProjectsRunSettingsFolderAndStartOverJoinNothingOnADot`.
 - **`NewWorkDraft`** keeps the headset's selected project, runtime, model and typed objective. A
   runtime change drops its previous model. It accepts a model only from the selected runtime's
   current list, builds a workstream with a short title from the objective, and sends the objective
@@ -3047,7 +3054,9 @@ in order, as before.
   `Resets`). The agent and the level were already apart (`KitSelectors`, `AgentColumn.LevelWords`). The joined forms
   stay until FIELD's cards replace them.
 - **Add to Project in the result** (ADR 0045, FIELD's A13 in A17's language; copies on by default on the host): read
-  only from the task's copy through FIELD's `RoomAdd.Of`. Where work waits, Add to Project leads the result; its page is a
+  only from the task's copy through FIELD's `RoomAdd.Of`. Where work waits, Add to Project leads the result, and the Changes
+  page offers it too, leading on its last part, so keeping is that press and the review's one (JUDGE's walk, 2026-11-13:
+  Back, Add to Project, Add; `RoomResultTests.ChangesOffersAddToProjectSoKeepingIsTwoPresses`); its page is a
   card (the task as its title, where its work goes, the files as its list), five files a page, and Add to Project the one
   press on every page, main and with no lock (the lead's R1, 2026-11-12: no forced paging), Next Page reading on beside it,
   only where the host listed every file; it says nothing of undoing, since nothing on the headset can undo an add yet

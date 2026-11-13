@@ -348,6 +348,29 @@ public class RoomResultTests
     /// <summary>The digest of the copy's reading, as the host gives it with its files (ADR 0051, amended).</summary>
     private const string Review = "5f7a0c3e9b1d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a";
 
+    /// <summary>
+    /// Keep in two presses (JUDGE's live walk with a real agent, 2026-11-13T0935Z: Back, Add to Project, Add): the Changes page
+    /// offers Add to Project itself, so a person reading what changed keeps it with that press and the review's one; Next Page
+    /// still leads where there is more to read, and Add to Project leads on the last part.
+    /// </summary>
+    [Test]
+    public void ChangesOffersAddToProjectSoKeepingIsTwoPresses()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            RoomBar At(RoomAdd add, int part = 0) =>
+                Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps(), RoomResultPage.Changes, part, add: add, addReview: Review));
+            var changes = At(Copy(Own(2)));
+            var add = changes.Column.Single(action => action.Control.Action == RoomResult.ShowAdd);
+            Assert.That((add.Words, add.Main), Is.EqualTo((RoomAdd.AddToProject, true)), Show(changes));
+            Assert.That(changes.Column.Count(action => action.Main), Is.EqualTo(1));
+            Assert.That(At(Copy(Own(0))).Column.Any(action => action.Control.Action == RoomResult.ShowAdd), Is.False, "nothing to add, nothing offered");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     [Test]
     public void AddToProjectLeadsAndItsReviewCardIsOnePressWithNoForcedPaging()
     {
