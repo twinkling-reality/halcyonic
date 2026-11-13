@@ -29,6 +29,24 @@ namespace Halcyonic.Client
         /// </summary>
         public const string Compact = "menu-compact";
 
+        /// <summary>The Assistant row's press, the host's entry Use Model (<see cref="AssistantPlace.UseModelCommand"/>): opens the host's list.</summary>
+        public const string UseModel = "usage-use-model";
+
+        /// <summary>A row of the host's list pressed, its index the key: sends Use Model for it, and its review follows.</summary>
+        public const string ChooseModel = "usage-choose-model";
+
+        /// <summary>Back from the host's list to the usage card.</summary>
+        public const string Back = "usage-back";
+
+        /// <summary>The list's words while the computer is read, and while a press waits for the computer's review or its result.</summary>
+        public const string ReadingModels = "Reading Models", Asking = "Asking the Computer", Choosing = "Choosing Model";
+
+        /// <summary>Said where the computer did not take the press and gave no words of its own (unknown stays unknown).</summary>
+        public const string NotTaken = "Not Taken";
+
+        /// <summary>How long the column waits between reads of a press's command and request, in seconds.</summary>
+        private const double ReadEvery = 0.25;
+
         /// <summary>The most usage windows the redesign's card holds (FIELD's two wells); more, and the older view draws the page.</summary>
         private const int CardWindows = 2;
 
@@ -47,11 +65,34 @@ namespace Halcyonic.Client
         private int detailParts;
         private int minute = -1;
 
+        /// <summary>Use Model, where the person stands in it: none (the usage card), the host's list, the press sent, its review, its confirm sent.</summary>
+        private enum Stage { None, List, Sent, Review, Confirmed }
+
+        private readonly CommandFactory? commands;
+        private Stage stage;
+        private Task<ChoicesResponse>? modelsReading;
+        private ChoicesResponse? models;
+        private bool modelsFailed;
+        private AssistantOption? pressed;
+        private Task<CommandAckMessage>? sending;
+        private string? sentId;
+        private Task<WorkspaceCommandResponse>? commandReading;
+        private string? requestId;
+        private Task<WorkspaceRequestResponse>? requestReading;
+        private WorkspaceRequestStep? review;
+        private int reviewPart;
+        private double readAt;
+
+        /// <summary>The host's own words where it did not take the press, or <see cref="NotTaken"/>; shown on the list until another press.</summary>
+        private string? refused;
+
         /// <param name="recorded">The demonstration's limits as if read at a time (<see cref="DemonstrationRecording.UsageLimitsAt"/>), or null where it holds none.</param>
-        public UsageColumn(IMenuHost host, Func<DateTimeOffset, AvailableUsageLimits?> recorded)
+        /// <param name="commands">Makes Use Model's press and its confirm; null where the host has none, and the row then presses nothing.</param>
+        public UsageColumn(IMenuHost host, Func<DateTimeOffset, AvailableUsageLimits?> recorded, CommandFactory? commands = null)
         {
             this.host = host;
             this.recorded = recorded;
+            this.commands = commands;
             Read();
         }
 
@@ -67,6 +108,7 @@ namespace Halcyonic.Client
                 var refresh = host.Demonstration ? null
                     : new Prompt(UsageLeftScreens.Refresh, WorkspaceText.Refresh, GlazeIcon.Refresh, available: reading == null, reason: reading == null ? null : UsageLeftPresenter.Reading);
                 var compact = RoomDesign.Enabled ? new Prompt(Compact, WorkspaceText.Compact, GlazeIcon.Next) : null;
+                if (RoomDesign.Enabled && stage != Stage.None) return ChoiceFrame();
                 var presentation = shown;
                 if (presentation == null || presentation.Rows.Count == 0)
                 {
@@ -114,6 +156,29 @@ namespace Halcyonic.Client
         {
             switch (id)
             {
+                case UseModel when Offered && stage == Stage.None:
+                    OpenList();
+                    return;
+                case ChooseModel when stage == Stage.List && int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var row)
+                    && AssistantPlace.Options(models).FirstOrDefault(option => option.Index == row) is AssistantOption option && option.Choosable:
+                    Choose(option);
+                    return;
+                case ReviewCard.Confirm when stage == Stage.Review:
+                    Confirm();
+                    return;
+                case ReviewCard.NextPart when stage == Stage.Review:
+                    reviewPart++;
+                    Changed?.Invoke();
+                    return;
+                case ReviewCard.PreviousPart when stage == Stage.Review && reviewPart > 0:
+                    reviewPart--;
+                    Changed?.Invoke();
+                    return;
+                case Back when stage == Stage.List || stage == Stage.Sent:
+                case ReviewCard.Cancel when stage == Stage.Review:
+                    // Nothing was confirmed: the request waits unconfirmed, and nothing changes where the assistant runs.
+                    Done();
+                    return;
                 case OpenLimit when int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && shown != null && index < shown.Rows.Count:
                     chosen = chosen == index ? (int?)null : index;
                     detailPart = 0;
@@ -165,6 +230,7 @@ namespace Halcyonic.Client
         /// <summary>Takes a read that came back, and says the times again each minute, as "today at 15:18" stays true.</summary>
         public void Tick()
         {
+            if (stage != Stage.None || modelsReading != null) TickChoice();
             if (agentReading is Task<WorkspaceAgentStatus> asked && asked.IsCompleted)
             {
                 agentReading = null;
@@ -224,7 +290,230 @@ namespace Halcyonic.Client
         private RoomListRow? AssistantRow()
         {
             var row = AssistantPlace.Row(agent);
-            return row.Model == null && row.Reason == null ? null : RoomPanelCards.Assistant(row.Model, row.Provider, row.Reason, null);
+            if (row.Model == null && row.Reason == null) return null;
+            // The press is the host's Use Model, offered only where the computer can be asked; the bar binds it to the frame drawn.
+            var press = Offered ? new KitControl(KitPlace.Choice, Placeholder, UseModel, null, AssistantPlace.UseModelTitle, GlazeIcon.Next, true, null, false) : null;
+            return RoomPanelCards.Assistant(row.Model, row.Provider, row.Reason, press);
+        }
+
+        /// <summary>Use Model is offered: the redesign, the computer's own (never the recording), and a way to send it.</summary>
+        private bool Offered => RoomDesign.Enabled && !host.Demonstration && host.Api != null && commands != null;
+
+        /// <summary>The frame a card's press is made with before the bar binds it to the frame drawn (<see cref="RoomBar"/>'s Menu).</summary>
+        private static readonly MenuFrame Placeholder = new MenuFrame(UsageText.Subject, new Footer());
+
+        /// <summary>
+        /// Use Model's own frame under the redesign: the host's list as rows, each its place and a press where the host offers
+        /// one (a row it does not shows its reason and presses nothing), the place it runs now marked; while the press waits, the
+        /// list's card says so; then the ONE review card (<see cref="ReviewCard"/>) with its Confirm. Back, or Cancel, returns
+        /// to the usage card.
+        /// </summary>
+        private MenuFrame ChoiceFrame()
+        {
+            var title = LineWords.Written(LabelText.Plain(AssistantPlace.UseModelTitle));
+            if (stage == Stage.Review && review?.Proposal is WorkspaceRequestStepProposal proposal && proposal.Review != null)
+            {
+                var shown = ReviewOf(proposal);
+                var parts = ReviewCard.Parts(shown);
+                reviewPart = Math.Max(0, Math.Min(reviewPart, parts - 1));
+                Prompt? confirm = null, cancel = null, next = null, previous = null;
+                foreach (var action in ReviewCard.Actions(shown, reviewPart))
+                {
+                    // Under the redesign the bar reads these (RoomBar.Menu): Confirm the main action at the far right, Cancel the way out.
+                    if (action.Id == ReviewCard.Confirm) confirm = new Prompt(action.Id, action.Words, GlazeIcon.Next, main: true);
+                    else if (action.Id == ReviewCard.Cancel) cancel = new Prompt(action.Id, action.Words, GlazeIcon.Close, PromptKind.Close);
+                    else if (action.Id == ReviewCard.NextPart) next = new Prompt(action.Id, action.Words, GlazeIcon.Next);
+                    else previous = new Prompt(action.Id, action.Words, GlazeIcon.Back);
+                }
+                return new MenuFrame(UsageText.Subject, new Footer(cancel, rare: previous, secondary: next, farRight: confirm))
+                    .WithCard(ReviewCard.Card(shown, AssistantPlace.UseModelTitle, reviewPart));
+            }
+            var back = new Prompt(Back, EntryText.Back, GlazeIcon.Back, PromptKind.Close);
+            var footer = new Footer(back);
+            var options = AssistantPlace.Options(models);
+            if (stage != Stage.List || options.Count == 0)
+            {
+                var words = stage == Stage.Sent ? Asking : stage == Stage.Confirmed ? Choosing : modelsFailed ? UsageLeftPresenter.Unreachable().Note : ReadingModels;
+                return new MenuFrame(UsageText.Subject, footer).WithCard(new RoomCard(title, LineWords.Ours(words)));
+            }
+            var here = AssistantPlace.Row(agent);
+            var rows = options.Select(option => new RoomListRow(
+                option.Theirs ? RoomKind.Link : RoomKind.Computer,
+                option.Theirs ? LineWords.TheirName(option.Label) : LineWords.Written(LabelText.Plain(option.Label)),
+                press: option.Choosable
+                    ? new KitControl(KitPlace.Choice, Placeholder, ChooseModel, option.Index.ToString(CultureInfo.InvariantCulture), option.Label, GlazeIcon.Next, true, null, false, Runs(option, here))
+                    : null,
+                chosen: Runs(option, here),
+                under: option.Detail == null ? null : option.Theirs || option.Choosable ? DetailOf(option) : LineWords.Written(LabelText.Plain(option.Detail)))).ToList();
+            return new MenuFrame(UsageText.Subject, footer)
+                .WithCard(new RoomCard(title, refused == null ? null : LineWords.Written(LabelText.Plain(refused)), list: rows.Take(RoomCard.ListAPage).ToList()));
+        }
+
+        /// <summary>The row the assistant runs on now: this computer's where it runs here, else the hosted model of that name.</summary>
+        private static bool Runs(AssistantOption option, AssistantRow here) =>
+            here.Model != null && (option.Theirs ? here.Provider != null && option.Label == here.Model : here.OnThisComputer);
+
+        /// <summary>A row's second line: this computer's model's name (theirs), or the host's line naming where it runs.</summary>
+        private static LineWords DetailOf(AssistantOption option) =>
+            !option.Theirs ? LineWords.TheirName(option.Detail) : LineWords.Written(LabelText.Plain(option.Detail!));
+
+        /// <summary>
+        /// The review the step waits on, as the one review card reads it: the host's line of what happens and the words that go
+        /// out, its digest carried back by Confirm. The step does not carry the host's own confirm words, facts or warnings
+        /// (LOOP, asked 2026-11-13): Confirm says the entry's title.
+        /// </summary>
+        private static ActionReview ReviewOf(WorkspaceRequestStepProposal proposal) => new ActionReview
+        {
+            CommandType = proposal.CommandType,
+            Digest = proposal.Review!,
+            ConfirmWords = AssistantPlace.UseModelTitle,
+            WhatHappens = proposal.WhatHappens,
+            Said = proposal.Said,
+        };
+
+        /// <summary>Opens the host's list, read afresh each time it opens (never cached: the host decides what may be chosen).</summary>
+        private void OpenList()
+        {
+            if (host.Api is not ControlPlaneApi api) return;
+            stage = Stage.List;
+            models = null;
+            modelsFailed = false;
+            refused = null;
+            modelsReading = api.GetAssistantModelsAsync(cancel?.Token ?? default);
+            Changed?.Invoke();
+        }
+
+        /// <summary>A row of the list pressed: Use Model sent for it, as any command, its review read from the request it makes.</summary>
+        private void Choose(AssistantOption option)
+        {
+            if (commands == null || models == null) return;
+            var command = commands.UseModel(option.Index, models.Digest);
+            if (host.Submit(command) is not Task<CommandAckMessage> ack)
+            {
+                refused = NotTaken;
+                Changed?.Invoke();
+                return;
+            }
+            pressed = option;
+            sentId = command.CommandId;
+            sending = ack;
+            requestId = null;
+            review = null;
+            reviewPart = 0;
+            refused = null;
+            stage = Stage.Sent;
+            Changed?.Invoke();
+        }
+
+        /// <summary>The review's one press: its step confirmed with the review's digest; the row reads the computer again once it is done.</summary>
+        private void Confirm()
+        {
+            if (commands == null || requestId == null || review?.Proposal?.Review is not string digest) return;
+            var command = commands.ConfirmRequest(requestId, review.StepId, digest);
+            if (host.Submit(command) is not Task<CommandAckMessage> ack)
+            {
+                Refused(NotTaken);
+                return;
+            }
+            sentId = command.CommandId;
+            sending = ack;
+            stage = Stage.Confirmed;
+            readAt = host.Now + ReadEvery;
+            Changed?.Invoke();
+        }
+
+        /// <summary>Back to the list with the host's words, or <see cref="NotTaken"/>, and the list read again.</summary>
+        private void Refused(string? words)
+        {
+            var said = string.IsNullOrWhiteSpace(words) ? NotTaken : words!.Trim();
+            OpenList();
+            refused = said;
+            Changed?.Invoke();
+        }
+
+        /// <summary>Leaves Use Model for the usage card, and reads where the assistant runs again.</summary>
+        private void Done()
+        {
+            stage = Stage.None;
+            sending = null;
+            commandReading = null;
+            requestReading = null;
+            review = null;
+            requestId = null;
+            pressed = null;
+            if (host.Api is ControlPlaneApi api) agentReading = api.GetWorkspaceAgentAsync(cancel?.Token ?? default);
+            Changed?.Invoke();
+        }
+
+        /// <summary>Use Model's reads, once a frame: the list, the press's acknowledgement, its command, then its request.</summary>
+        private void TickChoice()
+        {
+            if (modelsReading is Task<ChoicesResponse> list && list.IsCompleted)
+            {
+                modelsReading = null;
+                models = list.Status == TaskStatus.RanToCompletion ? list.Result : null;
+                modelsFailed = models == null;
+                Changed?.Invoke();
+            }
+            if (sending is Task<CommandAckMessage> ack && ack.IsCompleted)
+            {
+                sending = null;
+                var taken = ack.Status == TaskStatus.RanToCompletion ? ack.Result : null;
+                if (taken == null || taken.CommandId != sentId
+                    || taken.Disposition != CommandAckDisposition.Accepted && taken.Disposition != CommandAckDisposition.Duplicate)
+                {
+                    Refused(taken?.Command?.Rejection?.Message);
+                    return;
+                }
+                if (stage == Stage.Sent && taken.Command is CommandView view) Took(view);
+                readAt = host.Now + ReadEvery;
+            }
+            if (host.Api is not ControlPlaneApi api || sending != null) return;
+            if (commandReading is Task<WorkspaceCommandResponse> found && found.IsCompleted)
+            {
+                commandReading = null;
+                if (found.Status == TaskStatus.RanToCompletion) Took(found.Result.Command);
+                readAt = host.Now + ReadEvery;
+            }
+            if (requestReading is Task<WorkspaceRequestResponse> read && read.IsCompleted)
+            {
+                requestReading = null;
+                if (read.Status == TaskStatus.RanToCompletion) Read(read.Result.Request);
+                readAt = host.Now + ReadEvery;
+            }
+            if (host.Now < readAt || commandReading != null || requestReading != null) return;
+            if (stage == Stage.Sent && requestId == null && sentId != null) commandReading = api.ReadWorkspaceCommandAsync(sentId, cancel?.Token ?? default);
+            else if ((stage == Stage.Sent || stage == Stage.Confirmed) && requestId != null) requestReading = api.ReadWorkspaceRequestAsync(requestId, cancel?.Token ?? default);
+        }
+
+        /// <summary>The press's command as the computer says it: done, its request read next; refused or failed, the host's words.</summary>
+        private void Took(CommandView command)
+        {
+            if (command.CommandId != sentId || stage != Stage.Sent) return;
+            if (command.Status == CommandStatus.Completed && command.Result is WorkspaceRequestCreatedResult created) requestId = created.RequestId;
+            else if (command.Status == CommandStatus.Rejected) Refused(command.Rejection?.Message);
+            else if (command.Status == CommandStatus.Failed) Refused(command.Failure?.Message);
+        }
+
+        /// <summary>
+        /// The request a press made: its review where a step waits on the person, and after the confirm, the request ended
+        /// (the usage card again, its row read afresh) or failed (the host's words).
+        /// </summary>
+        private void Read(WorkspaceRequestView request)
+        {
+            if (request.RequestId != requestId) return;
+            var status = request.Status.Type == Newtonsoft.Json.Linq.JTokenType.String ? request.Status.ToString() : null;
+            var waiting = AssistantPlace.WaitingReview(request);
+            if (stage == Stage.Sent && waiting != null)
+            {
+                review = waiting;
+                reviewPart = 0;
+                stage = Stage.Review;
+                Changed?.Invoke();
+            }
+            else if (status == "failed" || status == "stopped" || status == "interrupted") Refused(request.Reply?.Text);
+            else if (stage == Stage.Confirmed && waiting == null && status != "running" && status != "waiting_for_runtime") Done();
+            else if (stage == Stage.Sent && status == "responded") Refused(request.Reply?.Text);
         }
 
         /// <summary>What a chosen limit's side panel says: when it was seen, when it resets, and whose account it is.</summary>

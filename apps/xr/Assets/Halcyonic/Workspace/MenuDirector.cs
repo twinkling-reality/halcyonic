@@ -265,7 +265,7 @@ namespace Halcyonic.XR.Workspace
                     setup.SpatialWorkspace ? line => MenuFrameView.ProjectListLineHeight(line, Glaze.Menu.FileColumnDegrees) : null,
                     setup.SpatialWorkspace ? () => director.PageHeight(director.TitleRows("Projects", Glaze.Menu.FileColumnDegrees), besideMenu: true) : null, workspaceControls: setup.SpatialWorkspace,
                     pairOffered: setup.PairOffered, pair: setup.Pair),
-                [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
+                [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage, setup.Commands),
                 [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList(), setup.Appearance, setup.AppearanceSaved),
             });
             director.navigator.OpenMenu(MenuPlace.Projects);
