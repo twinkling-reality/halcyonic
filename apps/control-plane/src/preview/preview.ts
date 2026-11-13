@@ -68,8 +68,6 @@ export interface HostPreviewsDeps {
   readonly browserProblem?: (folder: string, sha256: string) => string | null;
   /** The repository's tracked starters and the data directory's installed ones. */
   readonly starters: { readonly trackedDir: string; readonly installedDir: string };
-  /** Whether this host confines a starter project's Codex to its folder (ADR 0041). */
-  readonly confinesCodex: boolean;
   /** The ports a check or a preview may take, the control plane's own family's (ADR 0047, amended). */
   readonly ports?: readonly [number, number];
   /** Playing a checked game on this Mac (P-A): its timings and, for tests, its browser's start. */
@@ -672,11 +670,11 @@ export class HostPreviews {
   }
 
   /**
-   * True only when this host confines Codex and every execution in the project recorded, at its
-   * start, that it ran confined (S2): observed per execution, never inferred from the runtime.
+   * True only when every execution in the project recorded, at its start, that it ran confined
+   * (S2): observed per execution, whichever runtime ran it, never inferred from the runtime or from
+   * which runtimes this host has set up.
    */
   #readsConfined(projectId: ProjectId): boolean {
-    if (!this.#deps.confinesCodex) return false;
     const projection = this.#deps.projection;
     return projection
       .executions()

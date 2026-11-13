@@ -131,7 +131,6 @@ function plane(
         trackedDir: options.trackedDir ?? '/repo/starters',
         installedDir: join(dataDir, 'starters'),
       },
-      confinesCodex: true,
       runCheck: async (check) => {
         mkdirSync(check.cache, { recursive: true });
         writeFileSync(join(check.cache, 'tsc.log'), `src/game.ts(3,1): ${MARK}\n`);

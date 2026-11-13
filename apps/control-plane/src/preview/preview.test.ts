@@ -213,7 +213,6 @@ function plane(
         trackedDir: '/repo/starters',
         installedDir: join(dataDir, 'starters'),
       },
-      confinesCodex: true,
       ...(play === undefined ? {} : { play }),
       ...(ports === undefined ? {} : { ports }),
       runCheck: async (options) => {
@@ -575,8 +574,11 @@ describe("the host's checks and previews (ADR 0037)", () => {
       ),
     );
     let n = 0;
-    /** A finished Codex execution whose start recorded `confined` as given, or nothing, as before S2. */
-    const execution = (confined: boolean | undefined) => {
+    /** A finished execution whose start recorded `confined` as given, or nothing, as before S2. */
+    const execution = (
+      confined: boolean | undefined,
+      runtimeId: 'codex' | 'claude-agent' = 'codex',
+    ) => {
       n += 1;
       const executionId = `01a19000-0000-7000-8000-0000000000e${n}` as never;
       const scope = {
@@ -590,9 +592,9 @@ describe("the host's checks and previews (ADR 0037)", () => {
           scope,
           {
             runtime: {
-              runtime_id: 'codex',
-              kind: 'codex',
-              display_name: 'Codex',
+              runtime_id: runtimeId,
+              kind: runtimeId,
+              display_name: runtimeId === 'codex' ? 'Codex' : 'Claude Agent',
               synthetic: false,
             },
             instruction: 'Make it.',
@@ -606,7 +608,7 @@ describe("the host's checks and previews (ADR 0037)", () => {
         controlPlane.recorder.record({
           ...controlPlaneDraft('execution.created', scope, {} as never, now, NO_CAUSE),
           event_type: eventType,
-          source: { kind: 'runtime', runtime_id: 'codex' },
+          source: { kind: 'runtime', runtime_id: runtimeId },
           source_native_id: `t${n}:${sequence}`,
           sequence,
           payload,
@@ -625,6 +627,10 @@ describe("the host's checks and previews (ADR 0037)", () => {
       assert.equal(finished?.status, 'completed', JSON.stringify(finished));
       return controlPlane.projection.latestCheck(projectId)?.findings.reads_confined;
     };
+    // A Claude Agent execution recorded confined reads confined on its own: the fact is the
+    // execution's, whether or not this host has Codex set up (the plane here has none).
+    execution(true, 'claude-agent');
+    assert.equal(await readsConfined(), true);
     execution(true);
     assert.equal(await readsConfined(), true);
     // An execution recorded before the fact existed reads not confined, and so the project does.
