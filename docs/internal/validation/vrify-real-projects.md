@@ -217,3 +217,32 @@ The product's check passed, but its laptop step found no target to press on a pa
 Since then the check says it could not tell, with the reason, instead of not ready.
 Since then the instruction asks an app that is not a game to rewrite the card's laptop line to what a mouse and
 keyboard really do in it; not yet seen in a run.
+
+## The fair runs: the same app with nothing to approve inside its own copy (2026-11-13, the proving plane)
+
+After a confined app's own work stopped asking (ADR 0064) and a long request in it stopped being denied for length
+(ADR 0065), the same small field guide was made into a VR version once more on each hosted model, through the
+product's own Make VR Version, confined, on the instruction then on main. The counts are the product's own record of
+each run (the approvals that went ahead without a card and those that asked a person).
+
+| Run | Agent app and model | Approvals asked of a person | Went ahead without a card | Questions | Turn | Check |
+| --- | --- | --- | --- | --- | --- | --- |
+| Before, (a4) | Claude Agent, Claude Opus 5.5 | 21 | 0 | 0 | about 10 minutes | passed; the laptop step found no target |
+| Before, (b3) | OpenCode 2.0.18, Muse Wonder 1.0 | 30 (one denied: too long to read) | 0 | 1 | 41 minutes, 28 of them waiting | failed first; passed on a later read |
+| (b4) | OpenCode 2.0.18, Muse Wonder 1.0 | 0 | 10 | 1 | 11 minutes, 2 of them waiting | passed first time |
+| (a5) | Claude Agent, Claude Opus 5.5 | 0 | 29 | 0 | 9.5 minutes | passed first time; laptop ready |
+
+A person would have pressed once in (b4), to answer the agent's question about how much of the app to carry (a
+question always reaches the person; the product never answers one itself), and not at all in (a5). (a5) cost an
+estimate of 2.26 US dollars at list prices by the runtime's own count (about 1.6 million cached input tokens read, 62
+thousand output tokens); OpenCode gives no estimate for Muse Wonder.
+
+What a fresh critic found, from two pictures of each result at a laptop's view and the agent's closing words: both
+are the app's own guide in use, not a scene. (a5) shows one page of six species cards with their drawings and a pager,
+a search field with a keyboard of letter buttons and the five zone buttons; (b4) drew its cards overlapping. In both,
+the words a person must read are about 5 to 8 pixels high at 1280 by 800 (only the title reaches about 14), the app
+fills a band of about 600 by 330 pixels in the middle of the view, and the line saying what is not carried is there
+but too small to read. The product's laptop check said ready on (a5): it presses targets and sees a response, and
+measures neither the size of the words nor how much of the view the app fills. So the record "at or above the kit's
+type scale" of the run before is the critic's reading of the code's sizes, not of what a person sees at a laptop's
+distance.
