@@ -610,6 +610,7 @@ namespace Halcyonic.XR.UI
             var lines = 1;
             if (alone.text.Contains(" · "))
             {
+                JoinedFacts.Given(alone.text);
                 alone.text = alone.text.Replace(" · ", "\n");
                 lines = alone.text.Split('\n').Length;
             }
@@ -671,7 +672,11 @@ namespace Halcyonic.XR.UI
         {
             // The bar never draws the joining dot (the owner, 2026-11-11; the lead, 2026-11-13; JUDGE's live walk on New Project's run
             // settings): each part its own line, as on a button, wrapped or not.
-            if (label.text.Contains(" · ")) label.text = label.text.Replace(" · ", "\n");
+            if (label.text.Contains(" · "))
+            {
+                JoinedFacts.Given(label.text);
+                label.text = label.text.Replace(" · ", "\n");
+            }
             var laid = KitType.Lay(label, width, maxLines);
             for (var pass = 0; pass < 8; pass++)
             {

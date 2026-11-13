@@ -134,6 +134,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private static (int Lines, float Width, float Height) LayAtSeparators(TextMeshPro label, GlazeRuns runs, float width)
         {
+            JoinedFacts.Given(label.text);
             var laid = KitType.Lay(label, width, RowLines);
             for (var pass = 0; pass < 8; pass++)
             {

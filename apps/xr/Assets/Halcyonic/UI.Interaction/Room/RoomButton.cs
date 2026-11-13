@@ -297,6 +297,7 @@ namespace Halcyonic.XR.UI
         {
             RoomType.Size(words);
             // As drawn: each part of words joined on the dot its own line, so the widest part decides (see the other Measure).
+            JoinedFacts.Given(text);
             var parts = LabelText.ForTextMeshPro(text).Split(new[] { " · " }, StringSplitOptions.None);
             return RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp) + parts.Max(part => words.GetPreferredValues(part).x);
         }
@@ -311,6 +312,7 @@ namespace Halcyonic.XR.UI
             GlazeText.SetLiteral(words, text);
             // A button never draws the joining dot (the owner, 2026-11-11; the lead, 2026-11-13): each part its own line, an
             // answer's label over its description, wrapped or not.
+            JoinedFacts.Given(words.text);
             var parts = words.text.Split(new[] { " · " }, StringSplitOptions.None);
             if (parts.Length > 1) words.text = string.Join("\n", parts);
             var inner = RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp);

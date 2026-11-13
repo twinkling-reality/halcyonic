@@ -60,9 +60,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     var context = SynchronizationContext.Current;
                     // As the judge kit walk: the session's acknowledgements continue on the thread pool while the walk holds the Editor's thread.
                     SynchronizationContext.SetSynchronizationContext(null);
+                    Halcyonic.XR.UI.JoinedFacts.Listen();
                     try { found.AddRange(RenderRoomWalk(folder, moments, null)); }
                     catch (Exception error) { found.Add("judge room: " + error); }
-                    finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                    finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); Halcyonic.XR.UI.JoinedFacts.Stop(); }
                     File.WriteAllText(Path.Combine(folder, "moments.tsv"), string.Join("\n", moments) + "\n");
                     foreach (var failure in found) Debug.LogError("Halcyonic: judge room: " + failure);
                     if (found.Count == 0) Debug.Log("Halcyonic: judge room: every check passed; " + (moments.Count - 1) + " moments; " + folder);
@@ -427,6 +428,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         var read = text.GetParsedText().Replace("\n", " ");
                         if (read.Contains("\u00b7")) found.Add("a text joined on a dot: " + (OwnerOf(text.transform) ?? "?") + "/" + text.name + " \"" + read + "\"");
                     }
+                    // The words a part was given, before it split them into lines (AUDIT, 2026-11-13): facts on a dot drawn one per
+                    // line are still a list of facts.
+                    foreach (var given in Halcyonic.XR.UI.JoinedFacts.Take())
+                        found.Add("a text given joined on a dot, drawn as lines: \"" + given + "\"");
                     if (live == null && director.VoiceOffered) found.Add("voice is offered with no computer");
                     if (live == null && plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy) found.Add("Hold to Talk is drawn with no computer");
                     found.AddRange(RoomBrands(root, live?.OwnNames, live?.OwnNamesDrawn));
@@ -1015,9 +1020,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 ViewField.Current = FieldChecks.Quest3S;
                 var context = SynchronizationContext.Current;
                 SynchronizationContext.SetSynchronizationContext(null);
+                Halcyonic.XR.UI.JoinedFacts.Listen();
                 try { failures.AddRange(RenderRoomWalk(folder, moments, live)); }
                 catch (Exception error) { failures.Add("live walk: " + error); }
-                finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); RoomDesign.Enabled = was; if (larger) GlazeText.SetScale(1f); }
+                finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); RoomDesign.Enabled = was; if (larger) GlazeText.SetScale(1f); Halcyonic.XR.UI.JoinedFacts.Stop(); }
                 File.WriteAllText(Path.Combine(folder, "moments.tsv"), string.Join("\n", moments) + "\n");
                 File.WriteAllText(Path.Combine(folder, "presses.tsv"), "journey\theadset\tdesk\tthe way\n" + string.Join("\n", live.Presses) + "\n");
                 foreach (var row in live.Presses) Debug.Log("Halcyonic: live walk: presses: " + row);
