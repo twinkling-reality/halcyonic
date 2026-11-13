@@ -170,7 +170,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 recap = NewProjectScreens.Recap(idea, draft, null, true, "It may have made the project and its folder. Look for it in Projects. A new start could repeat it.", null);
             }
             finally { RoomDesign.Enabled = was; }
-            foreach (var (capsFrame, width) in new[] { frame, recap }.SelectMany(each => TableWidthsDp.Select(width => (each, width))))
+            // The shelf's placing frame too (XR, 2026-11-13T2027Z: it laid wider than the record while placing): the frame the plane shows
+            // while a shelf is placed, at every width, so the record holds what placing lays.
+            var shelf = NarrowFrame("56-narrow-shelf");
+            foreach (var (capsFrame, width) in new[] { frame, recap, shelf }.SelectMany(each => TableWidthsDp.Select(width => (each, width))))
             {
                 RoomBar? bar;
                 RoomDesign.Enabled = true;
