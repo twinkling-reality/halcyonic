@@ -112,6 +112,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A colour row's swatch, a filled disc before its name: a mark's size, so it reads as the colour, never as a control.</summary>
         public const float SwatchDp = 22f;
+
+        /// <summary>The most lines a list row's name or quieter line lays: a page's eight (the spec), so words that are not an excerpt are never cut.</summary>
+        public const int RowMostLines = 8;
         public const float RowGapDp = 14f;
         public const float RowNameDp = 20f;
         public const float RowNameLineDp = 26f;
@@ -1165,9 +1168,10 @@ namespace Halcyonic.XR.UI
                 // ("All checked after the last change Inferred", SCREENS's critic, 2026-11-13).
                 var noteGap = plain ? 3f * S(RowGapDp) : S(RowGapDp);
                 var nameWidth = width - nameLeft - chevronRoom - (noteWidth > 0f ? noteWidth + noteGap : 0f);
-                // A name is never cut: a path or a moment's name takes a second line where one is not enough (a long path at larger text).
-                // A name of the person's own words (a task's title) takes a third line before anything is cut (XR's critic, 06:33Z).
-                var nameLines = row.Name.AllTheirs && !row.Mono ? 3 : 2;
+                // A name is never cut: it takes as many lines as it needs, up to a page's eight (the lead's 2026-11-13T20:15Z; a frame's
+                // stating row on the card path, F111: a value sentence cut at two lines). Only the person's own words on a row that opens
+                // them whole (row.Excerpt) show their lead, cut at a word, in three lines (XR's critic, 06:33Z).
+                var nameLines = row.Excerpt ? 3 : RowMostLines;
                 // One word of theirs (a model's id) never breaks inside itself, at a hyphen or anywhere: it stands on one line,
                 // its end cut with its ellipsis where it does not fit, on a row that presses to where it is named whole (the
                 // reader, 2026-11-13: "muse-wonder-1.0-" over "preview").
@@ -1183,8 +1187,8 @@ namespace Halcyonic.XR.UI
                 var underTall = 0f;
                 if (row.Under != null)
                 {
-                    // Outside words lead cut on one line; the product's own (a host's reason) are never cut, and take up to three.
-                    (underLabel, underTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Under, nameLeft, 0f, nameWidth, row.Under.AllTheirs ? 1 : 3);
+                    // Outside words lead cut on one line; the product's own (a host's reason) are never cut, as many lines as a page holds.
+                    (underLabel, underTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Under, nameLeft, 0f, nameWidth, row.Under.AllTheirs ? 1 : RowMostLines);
                     if (row.Under.AllTheirs) underTall = Excerpt(underLabel, row.Under, nameWidth, 1, RowNoteLineDp);
                 }
                 // What the name is, ours, a quiet line of its own above it, whole: never joined to it on a dot.
