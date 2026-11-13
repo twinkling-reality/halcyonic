@@ -341,22 +341,23 @@ describe('the control plane process', () => {
     assert.ok(!output.lines.some((entry) => entry.msg === 'control plane ready'));
   });
 
-  test("refuses the stand-in on the person's own data folder, and says it when a test plane runs on one (AUDIT3)", async (t) => {
+  test("a launcher's HOME never makes a folder the person's: a test plane on <HOME>/.halcyonic takes the stand-in and says so (AUDIT2)", async (t) => {
+    // The guard reads the account's own home (userInfo), as the pages' notice does, never HOME: with HOME pointed at a
+    // test folder, that folder's .halcyonic is a test plane's, and the stand-in is taken there and logged.
     const { root, env } = environment({});
-    const own = { ...env, HALCYONIC_DATA_DIR: join(root, '.halcyonic') };
-    const child = spawn(process.execPath, [MAIN], { env: own, stdio: 'pipe' });
+    const child = spawn(process.execPath, [MAIN], {
+      env: { ...env, HALCYONIC_DATA_DIR: join(root, '.halcyonic') },
+      stdio: 'pipe',
+    });
     const output = collect(child.stdout, child.stderr);
     t.after(async () => {
       child.kill('SIGKILL');
       await until(() => exited(child), 'the control plane to be killed');
       rmSync(root, { recursive: true, force: true });
     });
-    await until(() => exited(child) && output.ended(), 'the control plane to stop');
-    assert.equal(child.exitCode, 1);
-    assert.match(output.stderr(), /this plane keeps a person's keys/);
-    const scratch = await start(t, {});
+    await ready(output);
     assert.ok(
-      scratch.output.lines.some(
+      output.lines.some(
         (line) =>
           line.msg === 'every provider points at a stand-in on this Mac' &&
           line.stand_in === 'http://127.0.0.1:9',

@@ -17,6 +17,7 @@ import {
   downloadsDir,
   loadConfig,
   parseNetwork,
+  personsDataFolder,
   portFamily,
   unusualDataFolder,
 } from './config.ts';
@@ -120,7 +121,7 @@ async function main(): Promise<void> {
     standIn: process.env.HALCYONIC_ASSISTANT_UPSTREAM || null,
     // A plane on a person's own data folder refuses it, so a variable left in a shell never sends their keys to a
     // lane's listener (AUDIT3, 2026-11-13).
-    ownDataFolders: [join(homedir(), '.halcyonic'), join(homedir(), '.halcyonic-proving')],
+    personsFolder: (dataDir) => personsDataFolder(dataDir),
   });
   // Each key a reader reads at its start, as kept now, by when it was written and never by its value: read before the
   // adapters start from them, so the setup page knows a key kept or removed since asks for a restart.
