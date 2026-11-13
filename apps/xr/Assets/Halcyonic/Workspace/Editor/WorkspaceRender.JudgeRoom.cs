@@ -425,17 +425,24 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 // Which parts drew: the redesign's own (its types are Room*), the characters (kept as built), and anything else,
                 // the older views and kit, which no judge moment may show in the redesign.
+                // Where each older part drawn stands in the scene, so its owner can name it (XR, 2026-11-13T17:42Z).
+                var olderPaths = new SortedSet<string>();
                 (List<string> Redesign, List<string> Older) Parts()
                 {
                     var redesign = new SortedSet<string>();
                     var older = new SortedSet<string>();
+                    olderPaths.Clear();
                     foreach (var renderer in root.GetComponentsInChildren<Renderer>(false))
                     {
                         if (!renderer.enabled || stageParts.Any(part => renderer.transform.IsChildOf(part))) continue;
                         var owner = OwnerOf(renderer.transform);
                         if (owner == null) continue;
                         if (owner.StartsWith("Room", StringComparison.Ordinal)) redesign.Add(owner);
-                        else if (!owner.StartsWith("Character", StringComparison.Ordinal)) older.Add(owner);
+                        else if (!owner.StartsWith("Character", StringComparison.Ordinal))
+                        {
+                            older.Add(owner);
+                            olderPaths.Add(PathOf(renderer.transform));
+                        }
                     }
                     return (redesign.ToList(), older.ToList());
                 }
@@ -522,6 +529,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(found.Select(each => name + ": " + each));
                     reachedBy = "";
                     Debug.Log("Halcyonic: judge room: " + name + ": redesign [" + string.Join(", ", redesign) + "], older [" + string.Join(", ", older) + "]");
+                    if (olderPaths.Count > 0) Debug.Log("Halcyonic: judge room: " + name + ": older parts stand at " + string.Join("; ", olderPaths));
                 }
 
                 var handled = new HashSet<string>();
