@@ -88,9 +88,11 @@ public class AgentShelfTests
             column.Act(AgentShelfColumn.Apply, null); column.Act(AgentShelfColumn.Move, "Left");
             Assert.That(applied, Is.Zero); Assert.That(moved, Is.Empty);
             column.Drawn(frame, null);
-            var physical = MenuPage.Words(frame.Lines[0].Rows) + frame.Lines.Skip(1).Count() * MenuPage.Target() + (frame.Lines.Count - 1) * MenuPage.TargetGap;
+            // Its two instructions are two lines (never one on a dot), then the moves.
+            var physical = MenuPage.Words(frame.Lines[0].Rows + frame.Lines[1].Rows) + frame.Lines.Skip(2).Count() * MenuPage.Target() + (frame.Lines.Count - 2) * MenuPage.TargetGap;
             Assert.That(physical, Is.LessThanOrEqualTo(host.Height + 0.0001f));
-            foreach (var line in frame.Lines.Skip(1)) seen.Add(line.Key ?? line.Action!);
+            Assert.That(frame.Lines.Take(2).Select(line => line.Words), Has.None.Contains(" · "));
+            foreach (var line in frame.Lines.Skip(2)) seen.Add(line.Key ?? line.Action!);
             var absent = new[] { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn Left", "Turn Right" }.First(key => !frame.Lines.Any(line => line.Key == key));
             column.Act(AgentShelfColumn.Move, absent); Assert.That(moved, Is.Empty, "an unoffered movement has no authority");
             if (page < 4) column.Act(Footer.NextPage, null);
