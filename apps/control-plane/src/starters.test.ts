@@ -360,7 +360,7 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     // Run (a4)'s welcome card still named the starter's game keys in an app that is not a game (the lead, 13:31Z).
     assert.match(
       instruction,
-      /If it is not a game, rewrite the card's laptop line \(laptop-help in public\/ui\/welcome\.uikitml\) to say only what a mouse and keyboard really do in it: its game keys do nothing there\./,
+      /If it is not a game, rewrite the card's laptop line \(laptop-help in public\/ui\/welcome\.uikitml\) to say only what a mouse and keyboard really do in it: the starter's game keys do nothing there unless the app reads them\./,
     );
     // The lead, 2026-11-13T08:20Z, from what a seeing critic found: no part of the use is dropped without a word, every
     // list is read to its end, words are no smaller than the kit's type scale.
