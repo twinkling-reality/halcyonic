@@ -14,6 +14,53 @@
 const CLOSED = 'This page has closed. Open pairing again on this computer.';
 const UNREACHABLE = "This computer's app isn't answering. Check that it is running.";
 const RESTARTING = 'Restarting. A new page opens when Halcyonic is running again.';
+/** How long a restart may take before the page says it may not have started again. */
+const NOT_BACK_MS = 90_000;
+/**
+ * What the page says about a Restart to Apply it saw go through, by phase (restarting, started, not_back), by whether
+ * Halcyonic opens a new page by itself when it is running again, and by whether this is the usual data folder, where
+ * `pnpm pair` is the way back. Pure, so a test reads it: [tone, glyph, title, line].
+ */
+function restartView(phase, reopens, usual) {
+  const back = usual
+    ? 'Run pnpm pair in Terminal to open it again.'
+    : 'Open this page again the way you opened it.';
+  if (phase === 'started')
+    return reopens
+      ? [
+          'good',
+          'tick',
+          'Started Again',
+          'Halcyonic is running again with your changes, and opens a new page by itself. Once that page is open, you can close this one.',
+        ]
+      : ['good', 'tick', 'Started Again', `Halcyonic is running again with your changes. ${back}`];
+  if (phase === 'not_back')
+    return [
+      'bad',
+      'alert',
+      'Not Back Yet',
+      "Halcyonic hasn't answered for a minute and a half since it began restarting, so it may not have started again. Start it the way you usually do, and read what it says.",
+    ];
+  return [
+    'working',
+    'hourglass',
+    'Restarting',
+    reopens
+      ? 'A new page opens by itself when Halcyonic is running again.'
+      : `When Halcyonic is running again, ${back.charAt(0).toLowerCase()}${back.slice(1)}`,
+  ];
+}
+/**
+ * What a refusal of this page's session means: after a restart the page saw, the page server's own closed words mean
+ * Halcyonic is running again; anything else, or a page that saw no restart, is the closed page. Pure, so a test reads it.
+ */
+function refusalMeans(restartSeen, body) {
+  return restartSeen && body.trim() === CLOSED ? 'started' : 'closed';
+}
+/** A Restart to Apply this page saw go through (the plane said it was restarting): when, and the words it needs after. */
+let restart = null;
+const STARTED = 'started-again';
+let poll = null;
 /** Each step's status: its note's words and its mark's glyph. */
 const STATUS = {
   ready: ['Ready', 'tick'],
@@ -62,11 +109,21 @@ async function call(path, body) {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     if (response.status === 403) {
-      problem = CLOSED;
+      // After a restart this page saw, its own page server's refusal means Halcyonic is running again: not a fault.
+      const meaning = refusalMeans(restart !== null, await response.text().catch(() => ''));
+      problem = meaning === 'started' ? STARTED : CLOSED;
+      // Said once and kept: nothing more to ask this page's old session.
+      if (meaning === 'started' && poll !== null) clearInterval(poll);
       draw();
       return;
     }
     state = await response.json();
+    if (state.restarting && restart === null)
+      restart = {
+        at: Date.now(),
+        reopens: state.reopens_page === true,
+        usual: state.data_folder == null,
+      };
     problem = null;
   } catch {
     problem = state?.restarting ? RESTARTING : UNREACHABLE;
@@ -126,14 +183,14 @@ function status(tone, name, title, line) {
 }
 
 function standing() {
+  if (problem === STARTED) return restartView('started', restart.reopens, restart.usual);
   if (problem === CLOSED) return ['bad', 'alert', 'Page Closed', CLOSED];
-  if (problem === RESTARTING || state?.restarting)
-    return [
-      'working',
-      'hourglass',
-      'Restarting',
-      'A new page opens when Halcyonic is running again.',
-    ];
+  if (restart !== null && (problem === RESTARTING || state?.restarting))
+    return restartView(
+      Date.now() - restart.at > NOT_BACK_MS ? 'not_back' : 'restarting',
+      restart.reopens,
+      restart.usual,
+    );
   if (problem !== null) return ['bad', 'alert', 'Not Answering', problem];
   if (state === null) return ['quiet', 'hourglass', 'Reading', null];
   const todo = state.steps.filter((step) => step.status === 'todo').length;
@@ -879,4 +936,4 @@ $('restart-button').addEventListener('click', () => press('restart', null, false
 $('check').addEventListener('click', () => press('check', null, false));
 
 void call('/setup/state');
-setInterval(() => void call('/setup/state'), 2000);
+poll = setInterval(() => void call('/setup/state'), 2000);

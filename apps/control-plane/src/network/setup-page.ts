@@ -114,6 +114,11 @@ export interface SetupPageDeps {
    * Start Halcyonic.command started it (`--restartable`).
    */
   readonly canRestart: boolean;
+  /**
+   * Whether the control plane opens a new pairing page once it is running again (`--open-pairing-page`, as
+   * Start Halcyonic.command starts it); absent or false, as the login agent and the proving plane start it, it does not.
+   */
+  readonly reopensPage?: boolean;
   /** Closes the control plane cleanly and has the launcher start it again. */
   readonly restart: () => void;
   /** Each game shared now, link or Wi-Fi (ADR 0054); none when sharing is off. */
@@ -334,6 +339,8 @@ export interface SetupState {
   /** What the last action printed, as setup prints it. */
   readonly said: readonly string[];
   readonly restarting: boolean;
+  /** Whether a new page opens by itself once Halcyonic is running again after a restart (SetupPageDeps.reopensPage). */
+  readonly reopens_page: boolean;
   /** The data folder this Halcyonic keeps its data in, where it is not the usual one; null where it is. */
   readonly data_folder: string | null;
   /**
@@ -711,6 +718,7 @@ export class SetupView {
       confirm: here.confirm,
       said: here.said,
       restarting: this.#restarting,
+      reopens_page: this.#deps.reopensPage === true,
       data_folder: this.#deps.dataFolder ?? null,
       shared: (this.#deps.shared?.() ?? []).map((share) => ({
         project_id: share.project_id,
