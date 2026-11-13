@@ -1015,7 +1015,9 @@ launch/return, process recreation and current-frame action behavior need separat
   a desk): under the redesign, where Start Building waits on a choice the person makes on the recap, that choice is the main
   action in its place, named for what it picks and one press to its page (`NewProjectScreens.WayOn`: Choose Folder, Choose
   Agent App, Choose Model); any other wait stays Start Building's reason. New Project's run settings, its new folder's
-  rules and what Start Over clears are sentences, never facts on a dot (`EntryText`). Tests:
+  rules and what Start Over clears are sentences, never facts on a dot (`EntryText`). The recap's facts give their label
+  apart from the person's words (`PageLine.RowLabel`, drawn by FIELD's `RoomRow.Label`: "Project" over the name), and the
+  start's steps each give their state apart as the row's note (`RoomRow.Note`), its mark the state's kind. Tests:
   `NewProjectFlowTests.In_the_redesign_a_recap_that_waits_on_a_choice_leads_with_that_choice`,
   `EntryTests.NewProjectsRunSettingsFolderAndStartOverJoinNothingOnADot`.
 - **`NewWorkDraft`** keeps the headset's selected project, runtime, model and typed objective. A

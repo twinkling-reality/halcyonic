@@ -677,10 +677,11 @@ namespace Halcyonic.Client
             if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 2));
             else if (proposal != null) lines.Add(new PageLine(EntryScreens.Proposed(proposal), rows: 2));
             else if (EntryScreens.Moves(idea, currentFolder)) lines.Add(new PageLine(EntryText.RebindWarning, tone: LineTone.Secondary, rows: 2));
-            lines.Add(new PageLine(LineWords.Ours(NewWorkReview.ProjectLabel) + (idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet)),
-                fact: idea.NameSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null));
-            lines.Add(new PageLine(LineWords.Ours(NewWorkReview.FirstTaskLabel) + LineWords.TheirName(idea.FirstTask),
-                fact: idea.TaskSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null, rows: 2));
+            // Each fact's label given apart from its words, never joined on a dot (JUDGE's 1203Z item 6; FIELD's RoomRow label).
+            lines.Add(new PageLine(idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet),
+                fact: idea.NameSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null).WithRowLabel(ProjectRowLabel));
+            lines.Add(new PageLine(LineWords.TheirName(idea.FirstTask),
+                fact: idea.TaskSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null, rows: 2).WithRowLabel(FirstTaskRowLabel));
             lines.Add(new PageLine(EntryText.FolderFactRuns(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true)));
             lines.Add(new PageLine(Runs(draft, live), fact: LevelOf(draft)));
             // No dead end (JUDGE's FINDING 2026-11-13T0935Z): where Start Building waits on a choice the person makes here, that choice
@@ -688,8 +689,12 @@ namespace Halcyonic.Client
             var footer = new Footer(Close(), rare: new Prompt(ChangeRecap, EntryText.Change, GlazeIcon.Change, safeInPlace: true),
                 farRight: WayOn(problem));
             return new MenuFrame(Subject(idea), footer, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
-                source: suggested ? CompanionText.Note : null).WithCard(RecapCard(idea, draft, currentFolder, live, lines.Count > 0 && !lines[0].Words.StartsWith(NewWorkReview.ProjectLabel, System.StringComparison.Ordinal) ? lines[0].Runs : null));
+                source: suggested ? CompanionText.Note : null).WithCard(RecapCard(idea, draft, currentFolder, live, lines.Count > 0 && lines[0].RowLabel == null ? lines[0].Runs : null));
         }
+
+        /// <summary>The redesign's recap rows' labels, ours, given apart from the person's words.</summary>
+        public const string ProjectRowLabel = "Project";
+        public const string FirstTaskRowLabel = "First Task";
 
         /// <summary>
         /// The recap's way on: Start Building, or, where it waits on the folder or the run settings, the choice that it waits on
