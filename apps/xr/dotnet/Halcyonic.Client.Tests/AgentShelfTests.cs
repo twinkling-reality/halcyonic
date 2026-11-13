@@ -59,7 +59,7 @@ public class AgentShelfTests
     [Test]
     public void TheTurnRowsHandMovePreviewTheDirectionItTurnsBy()
     {
-        var host = new FakeMenuHost { Height = MenuPage.Words(1) + 2 * MenuPage.Target() + 2 * MenuPage.TargetGap, MeasureTitle = (_, _) => 2 };
+        var host = new FakeMenuHost { Height = MenuPage.Words(2) + 2 * MenuPage.Target() + 2 * MenuPage.TargetGap, MeasureTitle = (_, _) => 2 };
         var draft = Draft(); var moved = new List<string>();
         var column = new AgentShelfColumn(host, draft, moved.Add, () => { }, draft.Cancel, () => { });
         for (var page = 0; page < 5; page++)
@@ -77,7 +77,7 @@ public class AgentShelfTests
     [TestCase(TextSize.Larger)]
     public void EveryPlacementControlIsOfferedAcrossMeasuredPagesAndUndrawnOrUnseenControlsCannotAct(TextSize size)
     {
-        var host = new FakeMenuHost { TextSize = size, Height = MenuPage.Words(1) + 2 * MenuPage.Target() + 2 * MenuPage.TargetGap, MeasureTitle = (_, _) => 2 };
+        var host = new FakeMenuHost { TextSize = size, Height = MenuPage.Words(2) + 2 * MenuPage.Target() + 2 * MenuPage.TargetGap, MeasureTitle = (_, _) => 2 };
         var draft = Draft(); var moved = new List<string>(); var applied = 0; var reads = 0; var cancelled = 0;
         var column = new AgentShelfColumn(host, draft, moved.Add, () => applied++, () => { cancelled++; draft.Cancel(); }, () => reads++);
         var seen = new HashSet<string>();
