@@ -337,7 +337,8 @@ namespace Halcyonic.XR.Workspace
                 : PlaneFormEvent.PlaneMoved;
             formSituation = now;
             if (widthRule.Reconsider(happened, width => !(placing && width > floor + 0.5f) && WidthClears(width, shelf, viewer), floor))
-                Debug.Log("Halcyonic: the plane lays its panel " + widthRule.WidthDp.ToString("0") + " dp wide (" + happened + ").");
+                Debug.Log("Halcyonic: the plane lays its panel " + widthRule.WidthDp.ToString("0") + " dp wide (" + happened + (placing ? ", placing" : "")
+                    + (shelf == null ? ", no shelf" : "") + ").");
             Kit.Form = RoomForm.Full.AtWidth(widthRule.WidthDp);
             ShelfAsideDegrees = placing || shelf == null ? 0f : AsideFor(shelf, viewer, widthRule.WidthDp);
         }
