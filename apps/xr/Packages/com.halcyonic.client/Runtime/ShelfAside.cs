@@ -49,12 +49,20 @@ namespace Halcyonic.Client
         /// <paramref name="fieldHalfYaw"/> of <paramref name="facingYaw"/>, less the field's margin.
         /// </summary>
         public static ShelfAsidePlace For(float ownYaw, float halfYaw, float bottom, float top, AngularExtent plane, float planeYaw,
-            float facingYaw, float fieldHalfYaw)
+            float facingYaw, float fieldHalfYaw) => For(ownYaw, halfYaw, bottom, top, new[] { plane }, planeYaw, facingYaw, fieldHalfYaw);
+
+        /// <summary>
+        /// The same, for a plane drawn in <paramref name="parts"/> (the bar and the band under it, AUDIT's 22:34Z): the shelf clears
+        /// each part, never their bounding box, so the air beside the bar that nothing draws stays a place a shelf may stand.
+        /// </summary>
+        public static ShelfAsidePlace For(float ownYaw, float halfYaw, float bottom, float top, System.Collections.Generic.IReadOnlyList<AngularExtent> parts,
+            float planeYaw, float facingYaw, float fieldHalfYaw)
         {
-            if (Clears(ownYaw, halfYaw, bottom, top, plane, planeYaw)) return new ShelfAsidePlace(ownYaw, 0f, true, false);
+            if (parts == null) throw new ArgumentNullException(nameof(parts));
+            if (Clears(ownYaw, halfYaw, bottom, top, parts, planeYaw)) return new ShelfAsidePlace(ownYaw, 0f, true, false);
             var edge = fieldHalfYaw - ViewField.EdgeMarginDegrees;
             // The smaller turn first, either way; at equal turns the side away from the plane's middle.
-            var away = Math.Sign(Wrap(ownYaw - planeYaw - (plane.Left + plane.Right) / 2f));
+            var away = Math.Sign(Wrap(ownYaw - planeYaw - (parts[0].Left + parts[0].Right) / 2f));
             var first = away == 0 ? 1 : away;
             for (var turn = StepDegrees; turn <= 180f; turn += StepDegrees)
             {
@@ -64,18 +72,21 @@ namespace Halcyonic.Client
                     var yaw = ownYaw + sign * turn;
                     if (Math.Abs(Wrap(yaw - facingYaw)) + halfYaw > edge) continue;
                     inField = true;
-                    if (Clears(yaw, halfYaw, bottom, top, plane, planeYaw)) return new ShelfAsidePlace(yaw, sign * turn, true, turn > AsideDegrees);
+                    if (Clears(yaw, halfYaw, bottom, top, parts, planeYaw)) return new ShelfAsidePlace(yaw, sign * turn, true, turn > AsideDegrees);
                 }
                 if (!inField) break;
             }
             return new ShelfAsidePlace(ownYaw, 0f, false, false);
         }
 
-        /// <summary>Whether a shelf at <paramref name="yaw"/> keeps the clearance from the plane's footprint.</summary>
-        private static bool Clears(float yaw, float halfYaw, float bottom, float top, AngularExtent plane, float planeYaw)
+        /// <summary>Whether a shelf at <paramref name="yaw"/> keeps the clearance from every part of the plane.</summary>
+        private static bool Clears(float yaw, float halfYaw, float bottom, float top, System.Collections.Generic.IReadOnlyList<AngularExtent> parts, float planeYaw)
         {
             var middle = Wrap(yaw - planeYaw);
-            return plane.Apart(new AngularExtent(middle - halfYaw, middle + halfYaw, bottom, top)) >= WorkspacePlacement.ClearanceDegrees;
+            var shelf = new AngularExtent(middle - halfYaw, middle + halfYaw, bottom, top);
+            foreach (var part in parts)
+                if (part.Apart(shelf) < WorkspacePlacement.ClearanceDegrees) return false;
+            return true;
         }
 
         /// <summary>An angle in (-180, 180].</summary>

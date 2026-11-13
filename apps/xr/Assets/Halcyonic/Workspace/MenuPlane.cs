@@ -881,7 +881,9 @@ namespace Halcyonic.XR.Workspace
             // grow, so the place the search offers is the place Apply keeps (JUDGE's shelf walk, 2026-11-13: "the plane's footprint").
             if (RoomDesign.Enabled && KitWorkspaceHost.Enabled)
             {
-                if (KeepOutExtent().Apart(new AngularExtent(shelf.Left, shelf.Right, shelf.Bottom, shelf.Top)) < WorkspacePlacement.ClearanceDegrees) return false;
+                var placed = new AngularExtent(shelf.Left, shelf.Right, shelf.Bottom, shelf.Top);
+                // The bar at the floor and the band under it, each its own part (AUDIT's 22:34Z).
+                if (KeepOutExtent().Apart(placed) < WorkspacePlacement.ClearanceDegrees || BandExtent().Apart(placed) < WorkspacePlacement.ClearanceDegrees) return false;
                 // The keep-out stands for the plane, so the bar laid this moment does not bind as well (placing lays it narrow as it
                 // opens); nor does the footprint retained from before a local overlay. The room's screen does.
                 return Clear(RoomCorners());

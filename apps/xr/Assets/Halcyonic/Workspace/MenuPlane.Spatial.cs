@@ -358,8 +358,8 @@ namespace Halcyonic.XR.Workspace
                 var elevation = Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg;
                 left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
             }
-            var aside = ShelfAside.For((left + right) / 2f, (right - left) / 2f, bottom, top, LargestExtent(widthDp), Direction.Yaw, Direction.Yaw,
-                AgentShelfSearch.SideDegrees);
+            var aside = ShelfAside.For((left + right) / 2f, (right - left) / 2f, bottom, top, new[] { LargestExtent(widthDp), BandExtent() }, Direction.Yaw,
+                Direction.Yaw, AgentShelfSearch.SideDegrees);
             if (!aside.Clears) Debug.Log("Halcyonic: no turn out to the person's side clears the plane for the shelf; it stays in its own place.");
             else if (!Mathf.Approximately(aside.Moved, 0f))
                 Debug.Log("Halcyonic: the shelf stands aside " + Mathf.Abs(aside.Moved).ToString("0") + " degrees while the plane is open"
@@ -368,21 +368,27 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// Where the plane laid with its panel <paramref name="widthDp"/> wide would stand at its largest, in degrees from the eyes toward
-        /// where it faces: the bar from its foot line up (FIELD's measured record, RoomBarView.LargestAt, in DESIGN units) and the band
-        /// under it at its tallest, about the plane's heading, where the person's drag left them.
+        /// Where the bar laid with its panel <paramref name="widthDp"/> wide would stand at its largest, in degrees from the eyes toward
+        /// where it faces: from its foot line up (FIELD's measured record, RoomBarView.LargestAt, in DESIGN units), about the plane's
+        /// heading, where the person's drag left it. The band under it is its own part (<see cref="BandExtent"/>).
         /// </summary>
         private AngularExtent LargestExtent(float widthDp)
         {
             var largest = RoomBarView.LargestAt(widthDp);
-            var bar = AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
-            // With what the plane draws below it: the band, its ground at its tallest (RoomWords; JUDGE's charR, AUDIT's 22:29Z), the
-            // same width at every panel width, hanging from its own pitch moved by the person's drag as the bar's foot is.
+            return AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
+        }
+
+        /// <summary>
+        /// Where the band under the bar stands at its tallest (RoomWords; JUDGE's charR, AUDIT's 22:29Z), about the plane's heading: the
+        /// same at every panel width, hanging from its own pitch moved by the person's drag as the bar's foot is. A part of its own
+        /// beside the bar's (AUDIT's 22:34Z), never their bounding box, so the air beside the bar stays a place a shelf may stand.
+        /// </summary>
+        private AngularExtent BandExtent()
+        {
             var drag = Direction.Elevation - Placed.Elevation;
-            var bandHalf = RoomWords.WidthDp / 2f / RoomGeometry.DpPerDegree;
-            var bandTop = RoomWords.TopPitch + drag;
-            var bandBottom = bandTop - RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale) / RoomGeometry.DpPerDegree;
-            return new AngularExtent(Mathf.Min(bar.Left, -bandHalf), Mathf.Max(bar.Right, bandHalf), Mathf.Min(bar.Bottom, bandBottom), Mathf.Max(bar.Top, bandTop));
+            var half = RoomWords.WidthDp / 2f / RoomGeometry.DpPerDegree;
+            var top = RoomWords.TopPitch + drag;
+            return new AngularExtent(-half, half, top - RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale) / RoomGeometry.DpPerDegree, top);
         }
 
         /// <summary>
