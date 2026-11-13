@@ -100,7 +100,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var view = RoomBarView.Create(plane);
             // The kit's own line measure at the width the bar is laid (the lead's 20:15Z: eight lines means eight lines), as the plane
             // hands it; narrow: the plane's measure loop too, one row and one line fewer a page while the laid bar passes its footprint.
-            var form = new RoomForm(narrow, RoomRows.APage).Measured((words, indented) => view.Lines(words, false, narrow));
+            var form = new RoomForm(narrow, RoomRows.APage).Measured((row, indented) => (row.Label == null ? 0 : view.Lines(LineWords.Ours(row.Label), false, narrow)) + view.Lines(row.Words, false, narrow));
             while (true)
             {
                 RoomDesign.Enabled = true;

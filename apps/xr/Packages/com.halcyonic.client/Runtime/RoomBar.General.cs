@@ -267,7 +267,7 @@ namespace Halcyonic.Client
         private static List<IReadOnlyList<RoomRow>> PageRows(IReadOnlyList<RoomRow> rows, RoomForm form)
         {
             var pages = new List<IReadOnlyList<RoomRow>>();
-            if (form.LinesOf is not System.Func<LineWords, bool, int> measure)
+            if (form.LinesOf is not System.Func<RoomRow, bool, int> measure)
             {
                 for (var at = 0; at < rows.Count; at += form.RowsAPage) pages.Add(rows.Skip(at).Take(form.RowsAPage).ToList());
                 if (pages.Count == 0) pages.Add(new List<RoomRow>());
@@ -288,8 +288,12 @@ namespace Halcyonic.Client
             }
             foreach (var row in rows)
             {
-                var label = row.Label == null ? 0 : System.Math.Max(1, measure(LineWords.Ours(row.Label), indented));
-                var lines = row.Lines ?? System.Math.Max(1, measure(row.Words, indented));
+                // The row as it is laid (its label, words and note, at the page's width: XR's and FIELD's RowLines); its words' share
+                // is the row measured without its label, so a part counts only its words beside the label it keeps.
+                var whole = System.Math.Max(1, measure(row, indented));
+                var lines = row.Lines ?? (row.Label == null ? whole : System.Math.Max(1, measure(new RoomRow(row.Words, row.Mark, note: row.Note), indented)));
+                var label = row.Label == null ? 0 : System.Math.Max(0, whole - lines);
+                if (row.Lines != null && row.Label != null) label = System.Math.Max(1, measure(new RoomRow(LineWords.Ours(row.Label)), indented));
                 if (row.Lines == null && label + lines > budget)
                 {
                     // Longer than a page: its own parts, each on a page of its own, the label kept on every part.
@@ -390,7 +394,7 @@ namespace Halcyonic.Client
     /// </summary>
     public readonly struct RoomForm
     {
-        public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions, System.Func<LineWords, bool, int>? linesOf = null, int linesAPage = SpecLines)
+        public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions, System.Func<RoomRow, bool, int>? linesOf = null, int linesAPage = SpecLines)
         {
             Narrow = narrow;
             RowsAPage = rowsAPage < 1 ? 1 : rowsAPage > RoomRows.APage ? RoomRows.APage : rowsAPage;
@@ -403,17 +407,17 @@ namespace Halcyonic.Client
         public const int SpecLines = 8;
 
         /// <summary>
-        /// The plane's line measure: how many lines words take as the rows will lay them, at the width the bar will be laid, and
-        /// when the second argument is true at that width less a mark's indent (RoomRows.IndentDp), as a marked page lays its rows
-        /// (the kit's own measure, never a count of characters; XR wires it). Null: the reader pages by rows alone.
+        /// The plane's line measure: how many lines a row takes as the rows view lays it (its label, words and note, the mark's
+        /// indent where the second argument says its page carries a mark), at the width the bar will be laid: the kit's own lay
+        /// path (FIELD's RowLines, XR wires it), never a count of characters. Null: the reader pages by rows alone.
         /// </summary>
-        public System.Func<LineWords, bool, int>? LinesOf { get; }
+        public System.Func<RoomRow, bool, int>? LinesOf { get; }
 
         /// <summary>The lines a page of the panel holds, one to eight; fewer where the plane measured fewer to keep inside the field.</summary>
         public int LinesAPage { get; }
 
         /// <summary>This form with its line measure (the plane's), the rest kept.</summary>
-        public RoomForm Measured(System.Func<LineWords, bool, int> linesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, linesOf, LinesAPage);
+        public RoomForm Measured(System.Func<RoomRow, bool, int> linesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, linesOf, LinesAPage);
 
         /// <summary>The actions a choices column holds at most in all, its main action, ways out and pager among them (BUILD-SPEC-v4 1.1, the lead's 19:41Z).</summary>
         public const int SpecActions = 4;

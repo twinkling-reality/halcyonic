@@ -448,7 +448,7 @@ public class RoomPageTests
     public void EightLinesMeansEightLinesAndALongRowStandsInItsOwnPartsWithItsLabel()
     {
         int Measure(LineWords words) => System.Math.Max(1, (words.Text.Length + 29) / 30);
-        var form = RoomForm.Full.Measured((words, indented) => Measure(words));
+        var form = RoomForm.Full.Measured((row, indented) => (row.Label == null ? 0 : Measure(LineWords.Ours(row.Label))) + Measure(row.Words));
         int LinesOn(IReadOnlyList<RoomRow> rows) => rows.Sum(row => (row.Label == null ? 0 : Measure(LineWords.Ours(row.Label))) + (row.Lines ?? Measure(row.Words)));
 
         var forty = new string('a', 30 * 40 - 1);
@@ -494,14 +494,15 @@ public class RoomPageTests
     public void TheGeneralReaderMeasuresRowsAtTheWidthTheyAreLaid()
     {
         var asked = new List<bool>();
-        int Measure(LineWords words, bool indented)
+        int Measure(LineWords words, bool indented) => System.Math.Max(1, (words.Text.Length + (indented ? 27 : 29)) / (indented ? 28 : 30));
+        int MeasureRow(RoomRow row, bool indented)
         {
             asked.Add(indented);
-            return System.Math.Max(1, (words.Text.Length + (indented ? 27 : 29)) / (indented ? 28 : 30));
+            return (row.Label == null ? 0 : Measure(LineWords.Ours(row.Label), indented)) + Measure(row.Words, indented);
         }
         var row = new string('c', 60);
         var frame = Frame(new[] { new PageLine("Checks") }.Concat(Enumerable.Range(1, 6).Select(n => new PageLine(LineWords.Theirs(row)))).ToList());
-        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle, RoomForm.Full.Measured(Measure))!;
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle, RoomForm.Full.Measured(MeasureRow))!;
         Assert.That(asked.Count, Is.GreaterThan(0));
         Assert.That(asked.All(indented => !indented), Is.True, "no mark on the general reader's rows, so none is measured indented");
         for (var page = 0; page < bar.GeneralPart.Pages; page++)
