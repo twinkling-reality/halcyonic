@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +13,7 @@ import {
 } from '@halcyonic/runtime-core';
 import { ConfigError } from './config.ts';
 import { declaredKeys } from './workspace-agent/providers/keys.ts';
+import { KEY_REFUSED } from './workspace-agent/providers/provider.ts';
 
 /** The repository's own declarations: `providers/<id>/provider.json` (ADR 0061). */
 export const PROVIDERS_DIR = fileURLToPath(new URL('../../../providers', import.meta.url));
@@ -227,3 +229,87 @@ function declared(value: Declaration): HostedProvider {
         }),
   };
 }
+
+/** What a provider's no-spend check says of its stored key now (ADR 0061): taken, refused, none stored, or unknown. */
+export type KeyCheck = 'taken' | 'refused' | 'none' | 'unknown';
+
+/** A protocol's metadata read, as the host's wire shapes implement it: whether the key is taken, never inference. */
+export interface KeyCheckProtocol {
+  check(call: {
+    readonly provider: HostedProvider;
+    readonly upstream: URL;
+    readonly key: string;
+    readonly model: string;
+    readonly outputTokens: number;
+    readonly timeoutMs: number;
+    readonly signal: AbortSignal;
+  }): Promise<{ readonly ok: true } | { readonly ok: false; readonly code: string }>;
+}
+
+/**
+ * Tells, before any start, whether a declared provider takes its stored key: the same metadata read the assistant
+ * makes (each wire shape's `check`, which spends nothing), for the provider's first model, through the first shape it
+ * speaks that the host implements. A taken or refused answer is kept for that key only (by its digest, never its
+ * value) for ten minutes; a key changed since is read again. An answer that is no refusal (unreachable, a model not
+ * offered) is `unknown` and kept for none.
+ */
+export class KeyChecks {
+  readonly #providers: HostProviders;
+  readonly #protocols: ReadonlyMap<WireShape, KeyCheckProtocol>;
+  readonly #timeoutMs: number;
+  readonly #now: () => number;
+  readonly #kept = new Map<string, { digest: string; check: KeyCheck; at: number }>();
+
+  constructor(options: {
+    readonly providers: HostProviders;
+    readonly protocols: ReadonlyMap<WireShape, KeyCheckProtocol>;
+    readonly timeoutMs?: number;
+    readonly now?: () => number;
+  }) {
+    this.#providers = options.providers;
+    this.#protocols = options.protocols;
+    this.#timeoutMs = options.timeoutMs ?? 8000;
+    this.#now = options.now ?? Date.now;
+  }
+
+  async state(id: string): Promise<KeyCheck> {
+    const provider = this.#providers.byId(id);
+    if (provider === undefined) return 'unknown';
+    const key = this.#providers.keyState(id);
+    if (key.kind === 'none') return 'none';
+    if (key.kind === 'unusable') return 'unknown';
+    const digest = createHash('sha256').update(key.value).digest('hex');
+    const kept = this.#kept.get(id);
+    if (kept !== undefined && kept.digest === digest && this.#now() - kept.at < KEPT_MS)
+      return kept.check;
+    const shape = provider.speaks.find((each) => this.#protocols.has(each));
+    const protocol = shape === undefined ? undefined : this.#protocols.get(shape);
+    const model = provider.models[0];
+    if (
+      protocol === undefined ||
+      model === undefined ||
+      upstreamProblem(provider.upstream) !== null
+    )
+      return 'unknown';
+    let check: KeyCheck;
+    try {
+      const answer = await protocol.check({
+        provider,
+        upstream: new URL(provider.upstream),
+        key: key.value,
+        model,
+        outputTokens: 1,
+        timeoutMs: this.#timeoutMs,
+        signal: AbortSignal.timeout(this.#timeoutMs),
+      });
+      check = answer.ok ? 'taken' : answer.code === KEY_REFUSED.code ? 'refused' : 'unknown';
+    } catch {
+      check = 'unknown';
+    }
+    if (check === 'unknown') this.#kept.delete(id);
+    else this.#kept.set(id, { digest, check, at: this.#now() });
+    return check;
+  }
+}
+
+const KEPT_MS = 10 * 60_000;

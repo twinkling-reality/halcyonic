@@ -132,3 +132,49 @@ test('the list gives the providers by their ids, ascending, whatever order the f
     ['alpha', 'mid', 'zeta'],
   );
 });
+
+test("a provider's key is asked of the provider itself, spending nothing, and the answer kept for that key alone", async (t) => {
+  const { KeyChecks } = await import('./providers.ts');
+  const dir = folder(t);
+  const data = folder(t);
+  chmodSync(data, 0o700);
+  declare(dir, 'third');
+  const providers = new HostProviders({ dir, dataDir: data });
+  const asked: string[] = [];
+  let answer: { ok: true } | { ok: false; code: string } = { ok: true };
+  let now = 0;
+  const checks = new KeyChecks({
+    providers,
+    protocols: new Map([
+      [
+        'chat_completions',
+        {
+          check: async (call) => {
+            asked.push(`${call.model} ${call.upstream.host} ${call.key}`);
+            return answer;
+          },
+        },
+      ],
+    ]),
+    now: () => now,
+  });
+  assert.equal(await checks.state('third'), 'none', 'no key stored, nothing asked');
+  assert.deepEqual(asked, []);
+  writeFileSync(join(data, 'third-api-key'), 'k-one', { mode: 0o600 });
+  assert.equal(await checks.state('third'), 'taken');
+  assert.equal(await checks.state('third'), 'taken');
+  assert.deepEqual(
+    asked,
+    ['third-1 127.0.0.1:1 k-one'],
+    'asked once for that key, for its first model',
+  );
+  writeFileSync(join(data, 'third-api-key'), 'k-two', { mode: 0o600 });
+  answer = { ok: false, code: 'key_refused' };
+  assert.equal(await checks.state('third'), 'refused', 'a key changed since is asked again');
+  answer = { ok: false, code: 'provider_unreachable' };
+  now = 11 * 60_000;
+  assert.equal(await checks.state('third'), 'unknown', 'an answer that is no refusal says nothing');
+  assert.equal(await checks.state('third'), 'unknown');
+  assert.equal(asked.length, 4, 'an unknown answer is kept for none');
+  assert.equal(await checks.state('nobody'), 'unknown');
+});

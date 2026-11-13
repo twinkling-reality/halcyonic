@@ -107,7 +107,7 @@ test('a model whose provider refused the key is shown, never offered as ready; a
     assert.deepEqual(row.actions, [], 'a refused key offers none of its hosted models');
     assert.equal(
       row.detail,
-      'Mock runtime (development fixture): its key was refused. Give it a new key on this Mac.',
+      'Mock runtime (development fixture): Its provider refused your key. Add a new one on the Mac.',
     );
   }
   await controlPlane.close();
@@ -120,7 +120,7 @@ test('a model whose provider refused the key is shown, never offered as ready; a
   for (const row of hosted(again.rows) as typeof again.rows) {
     assert.equal(
       row.detail,
-      'Mock runtime (development fixture): its key was refused before, and is not tried since.',
+      'Mock runtime (development fixture): Its provider refused your key earlier. Start will recheck it.',
     );
   }
 });
@@ -253,6 +253,47 @@ test('the row names the declared provider whose key was refused, by its own decl
   );
   assert.equal(
     list?.rows[0]?.detail,
-    'Mock runtime (development fixture): the Alpha key was refused. Give it a new key on this Mac.',
+    'Mock runtime (development fixture): Alpha refused your key. Add a new one on the Mac.',
+  );
+});
+
+test("a model's row shows its provider's refusal before any start, from the provider's own no-spend answer", async (t) => {
+  const models: RuntimeModel[] = [
+    {
+      model_ref: 'alpha/one',
+      display_name: 'Simulated alpha/one (development fixture)',
+      served: 'remote',
+      tool_calling: 'declared',
+      context_tokens: null,
+      provider: 'alpha',
+    },
+    { ...(MOCK_MODELS[0] as RuntimeModel) },
+  ];
+  let answer: 'taken' | 'refused' = 'refused';
+  const time = createVirtualTime(new Date('2026-11-13T01:00:00.000Z'));
+  const { controlPlane, commands } = createTestControlPlane({
+    time,
+    keyChecks: { state: async () => answer } as never,
+    adapters: (clock) => [
+      new MockRuntimeAdapter({ scenarios: SCENARIOS, models, clock, scheduler: clock }),
+    ],
+  });
+  t.after(() => controlPlane.close());
+  const made = controlPlane.commands.submit(commands.createProject('Asked'), 'internal');
+  const projectId =
+    made.command?.result?.kind === 'project_created' ? made.command.result.project_id : '';
+  const scope = { project_id: projectId, workstream_id: null, execution_id: null } as HereScope;
+  const refused = await controlPlane.commands.choices(scope, 'models');
+  assert.deepEqual(
+    refused?.rows.map((row) => row.actions.length),
+    [0, 1],
+    "only the provider's model waits for a new key; this Mac's is offered",
+  );
+  assert.match(refused?.rows[0]?.detail ?? '', /refused your key\. Add a new one on the Mac\./);
+  answer = 'taken';
+  const taken = await controlPlane.commands.choices(scope, 'models');
+  assert.deepEqual(
+    taken?.rows.map((row) => row.actions.length),
+    [1, 1],
   );
 });

@@ -161,6 +161,9 @@ export function toRuntimeModel(
     ...(model.input !== null && {
       picture_input: model.input.includes('image') ? 'declared' : 'not_declared',
     }),
+    // A model reached through the key gate names the declared provider whose key it needs (ADR 0061): OpenCode's
+    // provider id for it is the declaration's id.
+    ...(gated.has(model.providerID) && { provider: model.providerID }),
   };
 }
 

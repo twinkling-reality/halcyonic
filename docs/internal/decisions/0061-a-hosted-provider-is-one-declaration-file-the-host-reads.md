@@ -71,4 +71,7 @@ four edits, and a third meant four more.
   asks for a restart. Add Key offers no card for a provider nothing here reads, since its key would do nothing.
 - A declaration is a file a task can change. Add to Project's review names each changed declaration and,
   above all, a new address for its key (AUDIT2 N1, 2026-11-12), so it is never added unseen.
+- A stored key is asked of its provider before any start (`KeyChecks`, 2026-11-13). This is the same metadata read
+  the assistant makes, which spends nothing, so the model rows show a refused key before a task fails on it. An agent
+  app tags a model it reaches through a declared provider with that provider (OpenCode's gated models, for one).
 - Revisit when a provider needs something a declaration cannot state, such as a sign-in that is not a key.

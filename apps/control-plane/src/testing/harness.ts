@@ -93,6 +93,7 @@ export interface TestControlPlaneOptions {
   /** The person's catalog as last read, for links; none by default. */
   readonly catalogLinks?: ControlPlaneOptions['catalogLinks'];
   readonly providers?: ControlPlaneOptions['providers'];
+  readonly keyChecks?: ControlPlaneOptions['keyChecks'];
   /** Checks and previews of starter projects (ADR 0037); off by default. */
   readonly previews?: ControlPlaneOptions['previews'];
   /** A project's own check (ADR 0055); off by default. */
@@ -134,6 +135,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.givenPictures !== undefined && { givenPictures: options.givenPictures }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
     ...(options.providers !== undefined && { providers: options.providers }),
+    ...(options.keyChecks !== undefined && { keyChecks: options.keyChecks }),
     ...(options.previews !== undefined && { previews: options.previews }),
     ...(options.ownChecks !== undefined && { ownChecks: options.ownChecks }),
     ...(options.autoFix !== undefined && { autoFix: options.autoFix }),

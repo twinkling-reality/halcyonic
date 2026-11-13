@@ -66,6 +66,8 @@ export interface ChoiceSources {
   readonly credential: (runtimeId: string) => readonly ModelRun[];
   /** A declared provider's name, as its declaration says it, or null where none is declared by that id. */
   readonly providerName: (id: string) => string | null;
+  /** What the provider's no-spend check says of its stored key now (KeyChecks); unknown where none is set up. */
+  readonly keyCheck: (id: string) => Promise<'taken' | 'refused' | 'none' | 'unknown'>;
   /** The person's catalog, read now; null where none is set up or it cannot be read by index. */
   readonly catalog: () => Promise<CatalogResponse | null>;
   /** Where the assistant may run, read now; null where this host has no assistant. */
@@ -247,19 +249,41 @@ export async function choiceRows(
           const seen = latest.get(key);
           if (seen === undefined || run.at > seen.at) latest.set(key, run);
         }
+        // A declared provider's key is also asked of the provider itself, once per list, before any start.
+        const checks = new Map<string, Promise<'taken' | 'refused' | 'none' | 'unknown'>>();
+        const checkOf = (id: string) => {
+          let check = checks.get(id);
+          if (check === undefined) {
+            check = sources.keyCheck(id);
+            checks.set(id, check);
+          }
+          return check;
+        };
         for (const model of models) {
           const key = keyOf(model);
-          const keyed = key === null ? null : (latest.get(key)?.refused ?? null);
+          const ran = key === null ? null : (latest.get(key)?.refused ?? null);
+          const asked =
+            key === null || model.provider === undefined
+              ? 'unknown'
+              : await checkOf(model.provider);
+          // The provider's own answer now settles a refusal from before; a refusal heard now stands.
+          const keyed =
+            asked === 'refused'
+              ? 'refused'
+              : asked === 'taken' && ran === 'refused_before'
+                ? null
+                : ran;
           // Whose key it is: the declared provider's, by its own name, else the runtime's own.
           const whose = model.provider === undefined ? null : sources.providerName(model.provider);
-          const its = whose === null ? 'its key' : `the ${whose} key`;
+          // The words a fresh critic required (2026-11-13): who refused, whose key, where to add one.
+          const refuser = whose === null ? 'Its provider' : whose;
           rows.push(
             row(rows.length, 'model', model.display_name, model.model_ref, {
               detail:
                 keyed === 'refused'
-                  ? `${runtime.display_name}: ${its} was refused. Give it a new key on this Mac.`
+                  ? `${runtime.display_name}: ${refuser} refused your key. Add a new one on the Mac.`
                   : keyed === 'refused_before'
-                    ? `${runtime.display_name}: ${its} was refused before, and is not tried since.`
+                    ? `${runtime.display_name}: ${refuser} refused your key earlier. Start will recheck it.`
                     : runtime.display_name,
               theirs: true,
               actions: keyed === 'refused' ? [] : ['execution.start'],

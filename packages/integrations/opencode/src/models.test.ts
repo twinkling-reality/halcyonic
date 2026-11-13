@@ -221,6 +221,9 @@ describe('OpenCode model listing', () => {
     const gated = new Set(['meta']);
     assert.equal(servedBy(meta, gated), 'remote');
     assert.equal(toRuntimeModel(meta, gated).served, 'remote');
+    // A gated model names the declared provider whose key it needs (ADR 0061); another names none.
+    assert.equal(toRuntimeModel(meta, gated).provider, 'meta');
+    assert.equal(toRuntimeModel({ ...meta, providerID: 'ollama' }, gated).provider, undefined);
     // Only the providers the server reaches through a gate: a local one on loopback stays this Mac's.
     assert.equal(servedBy({ ...meta, providerID: 'ollama', id: 'qwen3.6:35b' }, gated), 'this_mac');
   });
