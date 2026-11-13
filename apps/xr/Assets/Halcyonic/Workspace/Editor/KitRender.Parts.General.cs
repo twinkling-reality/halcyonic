@@ -72,8 +72,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var close = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
                 // A confirmation no specific reader takes: its words whole, its Yes the main action behind the lock, then Cancel.
                 if (state == "52-general-confirm")
-                    frame = new MenuFrame("Settings", Footer.Confirm(new Footer(close, farRight: new Prompt("forget", "Forget Computer", GlazeIcon.Close)), PromptSlot.FarRight,
-                            new Prompt("forget-yes", "Forget Computer", GlazeIcon.Close, PromptKind.Yes), new Prompt("forget-cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel)),
+                    // As the plane's own (SpaceSettings' Paired setting, the critic's 22:01Z): the setting's subject, its Yes declared destructive.
+                    frame = new MenuFrame("Paired Computer", Footer.Confirm(new Footer(close, farRight: new Prompt("forget", "Forget Computer", GlazeIcon.Close)), PromptSlot.FarRight,
+                            new Prompt("forget-yes", "Forget Computer", GlazeIcon.Close, PromptKind.Yes, destructive: true), new Prompt("forget-cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel)),
                         lines: new[] { new PageLine("This headset stops reaching the computer until you pair it again. The computer keeps every project and task.") });
                 // More rows than a page: the general reader's own pages, its pager between the actions and Close; -2 is the second page.
                 if (state is "52-general-rows" or "52-general-rows-2")
