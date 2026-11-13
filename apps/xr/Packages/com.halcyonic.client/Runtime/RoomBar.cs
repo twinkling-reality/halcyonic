@@ -209,7 +209,7 @@ namespace Halcyonic.Client
         /// The panel's words as the file's own lines, where it holds more than one (the answers about to go, why a question
         /// can't be answered): each stands on a line of its own, so none ends in a separator; null where <see cref="Body"/> is one line.
         /// </summary>
-        public IReadOnlyList<LineWords>? Lines { get; }
+        public IReadOnlyList<LineWords>? Lines { get; private set; }
 
         /// <summary>No panel: with nothing from the computer to say, the choices take its place, as wide as it (DESIGN 0, rule 3).</summary>
         public bool Wide { get; }

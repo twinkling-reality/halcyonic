@@ -93,7 +93,7 @@ public class UsageColumnTests
             Assert.That((empty.Card!.Gauges.Count, empty.Card.Description?.Text), Is.EqualTo((0, none.Frame!.Lines.Single().Words)), "the panel's one line, the product's own");
 
             var (four, _) = Demonstration(Recorded);
-            Assert.That(RoomBar.OfFrame(four.Frame!.WithSections(sections, sections.Count), VoiceStage.Idle), Is.Null, "four windows: the older view, until the card holds them");
+            Assert.That(RoomBar.OfFrame(four.Frame!.WithSections(sections, sections.Count), VoiceStage.Idle), Is.Not.Null, "four windows: the general reader draws them, never the older view");
         }
         finally { RoomDesign.Enabled = was; }
     }

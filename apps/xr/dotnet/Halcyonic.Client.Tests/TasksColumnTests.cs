@@ -167,7 +167,7 @@ public class TasksColumnTests
         {
             State = StateWith(new[] { Task("mine", WorkstreamStatus.Running, 5), Task("theirs", WorkstreamStatus.Running, 6, project: "other") }, twoProjects: true),
         };
-        Assert.That(RoomBar.OfFrame(new TasksColumn(all).Frame!, VoiceStage.Idle), Is.Null, "rows of several projects: the older view, until FIELD gives the row its project");
+        Assert.That(RoomBar.OfFrame(new TasksColumn(all).Frame!, VoiceStage.Idle), Is.Not.Null, "rows of several projects: the general reader draws them, never the older view");
     }
 
     /// <summary>Under the redesign a project's list offers Ask at every text size: its actions are the card's column, not page rows.</summary>

@@ -288,10 +288,10 @@
     "why": "true: Any kind answer other than website, app or tool gives the suggested name New project, a default name rather than a fact."
   },
   {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/RoomBar.Page.cs",
+    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/RoomBar.General.cs",
     "answer": "KitPlace.Step",
     "count": 1,
-    "why": "routing: Action and NextPage prompts go to the Step place; right for both."
+    "why": "routing: Action and NextPage prompts go to the Step place; right for both (the general reader, moved from RoomBar.Page.cs)."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ShareColumn.cs",
