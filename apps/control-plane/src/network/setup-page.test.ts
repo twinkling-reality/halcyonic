@@ -491,12 +491,14 @@ describe('the setup view', () => {
     await view.act('download', 'starter', true);
     const argv = runs[0]?.argv ?? [];
     assert.equal(argv[1], 'ci');
-    for (const pair of [
-      ['--userconfig', '/dev/null'],
-      ['--globalconfig', '/dev/null'],
-      ['--registry', 'https://registry.npmjs.org/'],
-    ] as const) {
-      assert.equal(argv[argv.indexOf(pair[0]) + 1], pair[1]);
+    assert.equal(argv[argv.indexOf('--registry') + 1], 'https://registry.npmjs.org/');
+    // An empty file each for npm's user and global settings, the run's own: npm 11 refuses /dev/null for both.
+    const userConfig = argv[argv.indexOf('--userconfig') + 1] ?? '';
+    const globalConfig = argv[argv.indexOf('--globalconfig') + 1] ?? '';
+    assert.notEqual(userConfig, globalConfig);
+    for (const file of [userConfig, globalConfig]) {
+      assert.ok(file.includes('halcyonic-npm-configs-'), file);
+      assert.equal(readFileSync(file, 'utf8'), '', 'empty');
     }
     assert.ok(argv.includes('--ignore-scripts'));
     const cache = argv[argv.indexOf('--cache') + 1] ?? '';
@@ -508,6 +510,7 @@ describe('the setup view', () => {
     );
     runs[0]?.finish(0);
     await ended(view);
+    assert.equal(existsSync(userConfig), false, 'the empty settings files go with the run');
     assert.equal(existsSync(cache), false, 'the cache is removed after');
   });
 

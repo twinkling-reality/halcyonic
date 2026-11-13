@@ -569,10 +569,11 @@ export function setupDownloads(
           '--ignore-scripts',
           '--no-audit',
           '--no-fund',
+          // An empty file each, the run's own: npm 11 refuses /dev/null for both ("double-loading config").
           '--userconfig',
-          '/dev/null',
+          '<empty user config>',
           '--globalconfig',
-          '/dev/null',
+          '<empty global config>',
           '--cache',
           '<fresh cache>',
           '--registry',
@@ -982,15 +983,26 @@ export class SetupView {
       if (job.lines.length > JOB_LINES) job.lines.shift();
     };
     let cache: string | null = null;
+    let configs: string | null = null;
     try {
+      // A fresh cache, and an empty settings file each for npm's user and global settings, the run's own.
+      const freshPart = (part: string): string => {
+        if (part === '<fresh cache>') {
+          cache ??= mkdtempSync(join(tmpdir(), 'halcyonic-npm-cache-'));
+          return cache;
+        }
+        if (part !== '<empty user config>' && part !== '<empty global config>') return part;
+        if (configs === null) {
+          configs = mkdtempSync(join(tmpdir(), 'halcyonic-npm-configs-'));
+          writeFileSync(join(configs, 'user'), '');
+          writeFileSync(join(configs, 'global'), '');
+        }
+        return join(configs, part === '<empty user config>' ? 'user' : 'global');
+      };
       download.prepare?.();
       for (const command of download.commands) {
         if (job.stopped) break;
-        const argv = command.map((part) => {
-          if (part !== '<fresh cache>') return part;
-          cache ??= mkdtempSync(join(tmpdir(), 'halcyonic-npm-cache-'));
-          return cache;
-        });
+        const argv = command.map(freshPart);
         const running = this.#deps.run(argv, { cwd: this.#deps.dataDir, onLine: add });
         job.running = running;
         const code = await running.done;
@@ -1023,6 +1035,7 @@ export class SetupView {
     } finally {
       job.ended ??= Date.now();
       if (cache !== null) rmSync(cache, { recursive: true, force: true });
+      if (configs !== null) rmSync(configs, { recursive: true, force: true });
       void this.#checked(true).catch(() => undefined);
     }
   }
