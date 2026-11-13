@@ -1189,7 +1189,7 @@ namespace Halcyonic.Client
                         selectedInputPagerFitsHalf: false);
                     return new PromptMeasure(
                         host.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), File),
-                        Enumerable.Range(0, prompt.Options.Count).Select(option => host.RowsOf(FileScreens.OptionRow(prompt, option), File)).ToList(),
+                        Enumerable.Range(0, prompt.Options.Count).Select(option => host.RowsOf(FileScreens.OptionMeasured(prompt, option), File)).ToList(),
                         prompt.Options.Select(option => host.RowsOf(FileScreens.SideAnswerLine(option, null), Side)).ToList(),
                         host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered), File) && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File),
                         host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered, edit: true), File) && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File),

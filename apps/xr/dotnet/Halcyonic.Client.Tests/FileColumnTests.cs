@@ -1080,6 +1080,30 @@ public class FileColumnTests
     private const string CutAnswer = "Lock the account for fifteen minutes, then email its owner a link that unlocks it at once and resets the password";
 
     [Test]
+    public void UnderTheRedesignAShortAnswerWithALongDescriptionIsCutAndOpensWholeInItsPanel()
+    {
+        // Under the redesign the row draws the label and the description apart; the question still measures both, so a description
+        // too long for the row opens whole beside the page (WorkspaceRender's long-option check, 2026-11-13).
+        var was = RoomDesign.Enabled;
+        try
+        {
+            RoomDesign.Enabled = true;
+            var host = new FileMenuHost();
+            var column = AskingOn(host, null, new QuestionPrompt
+            {
+                Key = "q0", Header = "Lockout", Text = "How long should a lockout last?", Multiple = false, FreeText = false,
+                Options = new List<QuestionOption> { new() { Label = "Short", Description = CutAnswer }, new() { Label = "1 hour" } },
+            });
+            Assert.That(column.Screen.Question.AnswerCut(0, 0), Is.True, "its description is too long for its rows");
+            Assert.That(column.Screen.Question.AnswerCut(0, 1), Is.False);
+            column.Act(FileScreens.Choose, "0");
+            Assert.That(column.Screen.Question.SideOption, Is.EqualTo(0), "cut, its words open beside the page");
+            Assert.That(FileScreens.AnswerRow(new QuestionOption { Label = "Short", Description = CutAnswer }, "0").Words, Is.EqualTo("Short"), "the row keeps them apart");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
     public void AChosenCutAnswerReadInItsPanelIsReadAgainAtANewSizeAndOnePressOfItsRowReopensIt()
     {
         var host = new FileMenuHost();
