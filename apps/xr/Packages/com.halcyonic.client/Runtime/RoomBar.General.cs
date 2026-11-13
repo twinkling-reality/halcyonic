@@ -175,10 +175,11 @@ namespace Halcyonic.Client
             // reaches here with more than a page, since its parts page it.
             var fixedCount = (main != null ? 1 : 0) + leaving.Count;
             // At least one turning action and the pager a page, however many ways out a frame gives (AUDIT's SHOULD, 16:56Z).
-            // At most the form's actions a page (the spec's four, BUILD-SPEC-v4 1.1; the lead's 19:41Z), fewer where the column's six
-            // leave less beside the main action, the ways out and the pager.
-            var room = System.Math.Max(1, System.Math.Min(form.ActionsAPage, ColumnMost - fixedCount));
-            var roomPaged = System.Math.Max(1, System.Math.Min(form.ActionsAPage, ColumnMost - fixedCount - 1));
+            // At most the form's actions on a page IN ALL (the spec's four, BUILD-SPEC-v4 1.1: "Choices column ... at most 4"; the lead's
+            // 19:41Z; AUDIT's 19:43Z): the main action, the ways out and the pager count among them, and at least one other action
+            // stands on each page so none is out of reach.
+            var room = System.Math.Max(1, System.Math.Min(form.ActionsAPage, ColumnMost) - fixedCount);
+            var roomPaged = System.Math.Max(1, System.Math.Min(form.ActionsAPage, ColumnMost) - fixedCount - 1);
             var actionPages = turning.Count <= room ? 1 : (turning.Count + roomPaged - 1) / roomPaged;
             // Rows a page by the form it will be laid in (the plane measures it and asks again with fewer where a page passes the field).
             var rowsAPage = form.RowsAPage;
@@ -197,6 +198,8 @@ namespace Halcyonic.Client
                 actionPages = turning.Count <= each ? 1 : (turning.Count + each - 1) / each;
                 pages = System.Math.Max(rowPages, actionPages);
             }
+            // Rows that fit one page stand on every page while the actions turn; one plain line is the panel's words on all of them.
+            var oneLine = !carded && rowPages == 1 && field == null && rows.Count == 1 && rows[0].Label == null && rows[0].Lines == null;
             var parts = new List<GeneralPage>();
             for (var page = 0; page < pages; page++)
             {
@@ -213,17 +216,13 @@ namespace Halcyonic.Client
                 column.AddRange(leaving);
                 parts.Add(carded
                     ? new GeneralPage(new List<RoomRow>(), column, CardOf(pressed.Skip(page * perCard).Take(perCard).ToList()))
-                    : new GeneralPage(page < rowPages ? rows.Skip(page * rowsAPage).Take(rowsAPage).ToList() : new List<RoomRow>(), column));
+                    : new GeneralPage(rowPages == 1 ? (oneLine ? new List<RoomRow>() : rows) : page < rowPages ? rows.Skip(page * rowsAPage).Take(rowsAPage).ToList() : new List<RoomRow>(), column));
             }
 
             var first = parts[0];
             var shown = first.Rows.ToList();
             // One plain line is the panel's words, as a page of one line always was; more, or any with a label, are rows.
-            if (pages == 1 && field == null && shown.Count == 1 && shown[0].Label == null && shown[0].Lines == null)
-            {
-                body = shown[0].Words;
-                shown.Clear();
-            }
+            if (oneLine) body = rows[0].Words;
             var bar = new RoomBar(field != null ? RoomBarState.Draft : RoomBarState.Page, words: words, body: body, caret: field != null, sentence: sentence,
                 column: first.Column, field: field, band: band, wide: rows.Count == 0 && body.IsEmpty && field == null,
                 lines: shown.Count > 0 ? shown.Select(row => row.Words).ToList() : null);
@@ -319,7 +318,7 @@ namespace Halcyonic.Client
             ActionsAPage = actionsAPage < 1 ? 1 : actionsAPage > RoomBar.ColumnMost ? RoomBar.ColumnMost : actionsAPage;
         }
 
-        /// <summary>The actions a choices column holds at most, beside the main action and the ways out (BUILD-SPEC-v4 1.1, the lead's 19:41Z).</summary>
+        /// <summary>The actions a choices column holds at most in all, its main action, ways out and pager among them (BUILD-SPEC-v4 1.1, the lead's 19:41Z).</summary>
         public const int SpecActions = 4;
 
         /// <summary>The full width, eight rows and four actions a page: the form where nothing asks for less.</summary>
@@ -331,7 +330,7 @@ namespace Halcyonic.Client
         /// <summary>The general reader's rows a page, one to eight.</summary>
         public int RowsAPage { get; }
 
-        /// <summary>The general reader's turning actions a page, one to the column's six; four by the spec.</summary>
+        /// <summary>The general reader's actions a page in all, one to the column's six; four by the spec.</summary>
         public int ActionsAPage { get; }
 
         /// <summary>This form with one row fewer a page, never fewer than one: the plane's next ask where a page passed the field.</summary>

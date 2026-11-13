@@ -44,16 +44,23 @@ public class RoomPageTests
         Assert.That(page.Body.Text, Is.EqualTo(frame.Lines.Single().Words), "the page's own line in the panel");
         Assert.That(page.Band, Is.Null);
         // The page's own prompt, then the file's other sections, and Close last: each the frame's own action.
-        Assert.That(page.Column.Last().Control.Action, Is.EqualTo(Footer.Close));
-        Assert.That(page.Column.Where(action => action.Place == KitPlace.Section).Select(action => action.Control.Key),
+        // Across the reader's pages (four actions a page in all): Close last on each, every other section reached in order.
+        var actions = new List<RoomAction>();
+        for (var at = 0; at < page.GeneralPart.Pages; at++)
+        {
+            Assert.That(page.Column.Last().Control.Action, Is.EqualTo(Footer.Close));
+            Assert.That(page.Column.All(action => ReferenceEquals(action.Control.Frame, frame)), Is.True);
+            actions.AddRange(page.Column);
+            page.Turn();
+        }
+        Assert.That(actions.Where(action => action.Place == KitPlace.Section).Select(action => action.Control.Key),
             Is.EqualTo(frame.Sections.Where(section => !section.Chosen).Select(section => section.Key)));
-        Assert.That(page.Column.All(action => ReferenceEquals(action.Control.Frame, frame)), Is.True);
         Assert.That(() => plain.Model, Throws.InvalidOperationException, "a plain binding has no task's model");
 
         // A section's action is the frame's own: pressed, the file shows that section.
         column.Drawn(frame, sidePanel: null);
         host.Wait(1);
-        var activity = page.Column.Single(action => action.Control.Key == FileScreens.Key(FileSection.Activity));
+        var activity = actions.Single(action => action.Control.Key == FileScreens.Key(FileSection.Activity));
         column.Act(activity.Control.Action, activity.Control.Key);
         Assert.That(column.Screen.Section, Is.EqualTo(FileSection.Activity));
     }
@@ -76,11 +83,22 @@ public class RoomPageTests
         Assert.That(page.Band, Is.EqualTo("A game where balloons pop for points"), "the outside words stand on the band, never in the panel");
         Assert.That(page.Body.Text, Does.Not.Contain("balloons"));
         Assert.That(page.Sentence, Is.EqualTo("Describe First Task"), "why the main action waits");
-        Assert.That(page.Column.Select(action => (action.Control.Action, action.Control.Key, action.Main)), Is.EqualTo(new[]
+        // In order across the reader's pages (four actions a page in all, the spec's): the lines that act, the other prompts, the
+        // sections reached, the way out on every page; the main action, which cannot act, is not drawn.
+        var order = new List<(string, string?, bool)>();
+        for (var at = 0; at < page.GeneralPart.Pages; at++)
         {
-            ("talk-it-through", (string?)null, false), ("answer", "0", false), ("start-over", null, false),
-            (MenuFrame.ChooseSection, "questions", false), (Footer.Close, null, false),
-        }), "the lines that act, the other prompts, the sections reached, then the way out; the main action, which cannot act, is not drawn");
+            Assert.That(page.Column.Count, Is.LessThanOrEqualTo(RoomForm.SpecActions));
+            Assert.That(page.Column.Last().Control.Action, Is.EqualTo(Footer.Close), "the way out on every page");
+            order.AddRange(page.Column.Where(action => action.Control.Action is not (RoomBar.TurnPage or Footer.Close))
+                .Select(action => (action.Control.Action, action.Control.Key, action.Main)));
+            if (at + 1 < page.GeneralPart.Pages) page.Turn();
+        }
+        Assert.That(order, Is.EqualTo(new[]
+        {
+            ("talk-it-through", (string?)null, false), ("answer", "0", false), ("start-over", null, false), (MenuFrame.ChooseSection, "questions", false),
+        }));
+        page = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
         var answer = page.Column[1];
         Assert.That((answer.Mark, answer.Chosen), Is.EqualTo((AnswerMark.Single, true)));
 
@@ -361,23 +379,31 @@ public class RoomPageTests
         Assert.That((two.GeneralPart.Pages, keys), Is.EqualTo((2, new[] { "1", "2", "3", "4" })));
     }
 
-    /// <summary>A page holds at most the spec's four actions beside the main action and the ways out (BUILD-SPEC-v4 1.1, the lead's 19:41Z), fewer where the plane asks.</summary>
+    /// <summary>
+    /// A page holds at most the spec's four actions IN ALL (BUILD-SPEC-v4 1.1, the lead's 19:41Z, AUDIT's 19:43Z): the main action,
+    /// the ways out and the pager among them, fewer where the plane asks, and every action reached.
+    /// </summary>
     [Test]
-    public void AColumnHoldsTheSpecsFourActionsAPageAndFewerWhereThePlaneAsks()
+    public void AColumnHoldsTheSpecsFourActionsAPageInAllAndFewerWhereThePlaneAsks()
     {
-        var frame = Frame(Enumerable.Range(1, 8).Select(n => new PageLine("Choice " + n, action: "choose", key: n.ToString())).ToList());
-        int Most(RoomBar bar)
+        List<string?> Walk(RoomBar bar, int most)
         {
-            var most = 0;
+            var keys = new List<string?>();
             for (var page = 0; page < bar.GeneralPart.Pages; page++)
             {
-                most = System.Math.Max(most, bar.Column.Count(action => action.Control.Action == "choose"));
+                Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(most), "page " + (page + 1) + ": " + string.Join(", ", bar.Column.Select(action => action.Words)));
+                keys.AddRange(bar.Column.Where(action => action.Control.Action == "choose").Select(action => action.Control.Key));
                 bar.Turn();
             }
-            return most;
+            return keys;
         }
-        Assert.That(Most(RoomBar.OfFrame(frame, VoiceStage.Idle)!), Is.EqualTo(RoomForm.SpecActions));
-        Assert.That(Most(RoomBar.OfFrame(frame, VoiceStage.Idle, RoomForm.Full.FewerActions().FewerActions())!), Is.EqualTo(2));
+        var eight = Enumerable.Range(1, 8).Select(n => new PageLine("Choice " + n, action: "choose", key: n.ToString())).ToList();
+        var all = Enumerable.Range(1, 8).Select(n => (string?)n.ToString()).ToList();
+        Assert.That(Walk(RoomBar.OfFrame(Frame(eight), VoiceStage.Idle)!, RoomForm.SpecActions), Is.EqualTo(all), "Close among the four");
+        var confirm = Footer.Confirm(new Footer(Close, farRight: new Prompt("go", "Go", GlazeIcon.Next)), PromptSlot.FarRight,
+            new Prompt("yes", "Confirm", GlazeIcon.Next, PromptKind.Yes), new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel));
+        Assert.That(Walk(RoomBar.OfFrame(Frame(eight, confirm), VoiceStage.Idle)!, RoomForm.SpecActions), Is.EqualTo(all), "Yes and Cancel among the four");
+        Assert.That(Walk(RoomBar.OfFrame(Frame(eight), VoiceStage.Idle, RoomForm.Full.FewerActions())!, 3), Is.EqualTo(all), "fewer where the plane asks");
         Assert.That(new RoomForm(true, 8, 0).ActionsAPage, Is.EqualTo(1), "never fewer than one action a page");
     }
 }
