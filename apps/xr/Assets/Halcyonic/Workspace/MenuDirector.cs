@@ -882,6 +882,9 @@ namespace Halcyonic.XR.Workspace
             {
                 (menu, beside) = navigator.Frames(bar);
                 if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
+                // Read again, a column that builds its frame on each read (a local notice) gives another object: bind the one shown
+                // now, or the kit declines it and the older view draws it (JUDGE's shelf-5, the no-place notice).
+                PrepareSpatialContext(menu, beside);
                 drawnVoice = Voiced();
                 plane.Voice = drawnVoice;
                 // One bounded repaint after FocusLeft changed the retained menu and its temporary palette.
