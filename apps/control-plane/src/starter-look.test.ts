@@ -611,7 +611,7 @@ describe("a web page's own cards come into VR as pages of their own (VRIFY unit 
     const pages = read('src/pages.ts');
     assert.match(pages, /export const MAX_PAGES = 6;/);
     assert.match(pages, /const panels = Array\.from\(\{ length: MAX_PAGES \}/);
-    assert.match(pages, /const page = items\[first \+ index\];/);
+    assert.match(pages, /const page = items\[first \+ index\]\?\.page;/);
     assert.match(read('AGENTS.md'), /six stand at a time/);
   });
 
@@ -708,6 +708,18 @@ describe("a page's words go on to the next page, never cut off (AUDIT2, 2026-11-
     assert.doesNotMatch(pages, / \.\.\.`/);
     assert.doesNotMatch(pages, /stop with an ellipsis/);
     assert.match(pages, /items = laid\(next\);/);
+    // A press maps back to the agent's own entry, which a long entry's pages share (AUDIT2 S1).
+    assert.match(pages, /source\(index: number\): number \| undefined;/);
+    assert.match(
+      pages,
+      /return panels\[index\]\?\.visible \? items\[first \+ index\]\?\.source : undefined;/,
+    );
+    assert.match(
+      read('AGENTS.md'),
+      /Map a pressed panel back to your own entry with `book\.source\(i\)`, never\s+`first \+ i`/,
+    );
+    // A title past two lines is marked as cut (AUDIT2 S3).
+    assert.match(pages, /if \(all\.length > 2\) titles\[1\] =/);
     // Cards an agent draws itself split their words the same way.
     assert.match(read('src/kit.ts'), /export \{ fitText \} from '\.\/page-fit\.js';/);
     assert.match(read('AGENTS.md'), /for cards you draw, `fitText` from `\.\/kit\.js` splits/);
