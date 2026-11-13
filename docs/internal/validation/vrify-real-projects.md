@@ -155,3 +155,20 @@ is no atmosphere on the Earth, and no overlays or rivers on the ground.
 - **A second model:** every run was `muse-glimmer:30b-mlx`.
 - **Repeats:** each try ran once, so these are single runs, not rates.
 - **The map app and the lesson app on main's instruction:** not run.
+
+## What a person does in it, not its most striking view (2026-11-13, a hosted model on the proving plane)
+
+A hosted run of Make VR Version on an app that is not a game built its landing page well, because the instruction
+asked for its one most striking view.
+
+The instruction now asks, for an app that is not a game (the lead's decision, 2026-11-13T06:05Z), that the agent first
+find from the app's own code the one thing people open it to DO and say it before building; build that use, working,
+with the app's own content, never its landing page unless the app is nothing else; carry what cannot come (a server,
+other people, an account) with the app's own sample content and say so; let the app's look dress the use, not
+replace it; and end its turn with a few lines for the person on what the app is for, what was carried and what was
+left out. "A view from another app" stays for an app whose use is itself a view. The game path is unchanged.
+A fresh critic read the words on two other apps (one not a game, one a game) as a person and as an agent: the game
+path is unharmed; it asked that the look line be scoped to apps that are not games, that the agent write its line and
+build without waiting, that a stand-in carry what has no sample content, and that the view section yield to the use
+(an app's biggest picture can sit only on its landing page). All four are in the words and the starter's AGENTS.md.
+Not yet seen: a run on the new words.
