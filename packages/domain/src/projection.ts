@@ -800,6 +800,17 @@ export class Projection {
     return state === undefined ? undefined : this.#workstreamView(state);
   }
 
+  /**
+   * What one task's runs used: `projectUsage` over that task's executions, the same sum as its project's, so a
+   * task and its project never count by two rules (the Mac's Usage page). Null where none of its runs reported.
+   */
+  workstreamUsage(workstreamId: string): ReturnType<typeof projectUsage> {
+    const state = this.#workstreams.get(workstreamId as WorkstreamId);
+    if (state === undefined) return null;
+    const runs = this.#executionsByProject.get(state.projectId) ?? [];
+    return projectUsage(runs.filter((run) => run.workstreamId === state.workstreamId));
+  }
+
   execution(executionId: string): ExecutionView | undefined {
     const state = this.#executions.get(executionId as ExecutionId);
     return state === undefined ? undefined : this.#view(state);

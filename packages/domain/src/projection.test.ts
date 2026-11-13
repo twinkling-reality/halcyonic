@@ -394,6 +394,55 @@ describe('execution status is derived from observed facts', () => {
     });
   });
 
+  test("a task's usage is its own runs' by the project's rule, and two tasks' add up to their project's", () => {
+    const { b, apply, execution, scope, projection } = setup();
+    const second = b.workstream(scope.projectId);
+    const run = b.execution(scope.projectId, second.workstreamId);
+    const runScope = { ...scope, workstreamId: second.workstreamId, executionId: run.executionId };
+    apply(execution.event, second.event, run.event);
+    const report = (at: typeof scope, turn: string, input: number, usd: number) =>
+      b.runtimeEvent(at, 'runtime.usage.reported', {
+        turn_id: turn,
+        tokens: { input, cache_read: 0, cache_write: 0, output: 2, reasoning: null },
+        cost: { estimated_usd: usd, prices: 'list' },
+        counted: 'given',
+      });
+    assert.equal(
+      projection.workstreamUsage(scope.workstreamId),
+      null,
+      'nothing reported, never zero',
+    );
+    assert.equal(projection.workstreamUsage('no-such-task'), null);
+    apply(
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }),
+      report(scope, 't1', 10, 0.25),
+      b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }),
+      b.runtimeEvent(runScope, 'runtime.turn.started', { turn_id: 'r1' }),
+      report(runScope, 'r1', 5, 0.5),
+      b.runtimeEvent(runScope, 'runtime.turn.completed', { turn_id: 'r1' }),
+      b.runtimeEvent(runScope, 'runtime.turn.started', { turn_id: 'r2' }),
+      b.runtimeEvent(runScope, 'runtime.turn.completed', { turn_id: 'r2' }),
+    );
+    assert.deepEqual(projection.workstreamUsage(scope.workstreamId), {
+      turns: 1,
+      turns_ended: 1,
+      tokens: { input: 10, cache_read: 0, cache_write: 0, output: 2, reasoning: null },
+      cost: { estimated_usd: 0.25, prices: 'list' },
+    });
+    assert.deepEqual(projection.workstreamUsage(second.workstreamId), {
+      turns: 1,
+      turns_ended: 2,
+      tokens: { input: 5, cache_read: 0, cache_write: 0, output: 2, reasoning: null },
+      cost: { estimated_usd: 0.5, prices: 'list' },
+    });
+    assert.deepEqual(projection.project(scope.projectId)?.usage, {
+      turns: 2,
+      turns_ended: 3,
+      tokens: { input: 15, cache_read: 0, cache_write: 0, output: 4, reasoning: null },
+      cost: { estimated_usd: 0.75, prices: 'list' },
+    });
+  });
+
   test("a summed estimate past the contract's bound is unknown, so the view keeps to its schema", () => {
     const { b, apply, execution, scope, projection } = setup();
     apply(execution.event);
