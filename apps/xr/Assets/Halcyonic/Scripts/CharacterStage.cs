@@ -303,8 +303,14 @@ namespace Halcyonic.XR
             }
             if (!placedOnce || preferredChanged)
             {
-                Place(preferred, "the person confirmed the shelf position");
+                Place(Turned(preferred.Value, asideNow), "the person confirmed the shelf position");
                 Refresh();
+            }
+            else if (!Mathf.Approximately(asideNow, asideTarget))
+            {
+                // Seen to travel, never to vanish and reappear (the lead's 19:34Z): a steady turn about the eyes to the aside place and back.
+                asideNow = Mathf.MoveTowards(asideNow, asideTarget, AsideDegreesPerSecond * Time.unscaledDeltaTime);
+                StandOnSurface(Turned(preferred.Value, asideNow));
             }
             Glide();
         }
@@ -464,6 +470,35 @@ namespace Halcyonic.XR
 
         /// <summary>The shelf as it stands, and the eyes it was placed for: what the shelf's own parts stand on.</summary>
         public Transform Shelf => arc;
+
+        /// <summary>
+        /// The turn about the eyes the shelf stands aside by while the plane is open (ShelfAside, the lead's 19:34Z GO), in degrees; 0
+        /// back in its own place. View placement only: the place the person chose (the placement's Preferred) is never rewritten,
+        /// and nothing is journaled. The shelf travels to it at <see cref="AsideDegreesPerSecond"/>.
+        /// </summary>
+        public float AsideDegrees
+        {
+            get => asideTarget;
+            set => asideTarget = float.IsFinite(value) ? value : 0f;
+        }
+
+        /// <summary>How fast the shelf turns aside and back, in degrees a second: a move the eye follows.</summary>
+        public const float AsideDegreesPerSecond = 60f;
+
+        private float asideTarget, asideNow;
+
+        /// <summary>The shelf in its own place, the aside turn taken off: what the plane keeps clear of and decides by.</summary>
+        public Pose OwnShelf => Turned(new Pose(arc.position, arc.rotation), -asideNow);
+
+        /// <summary><paramref name="pose"/> turned <paramref name="degrees"/> about the eyes' vertical, its facing turned with it.</summary>
+        private Pose Turned(Pose pose, float degrees)
+        {
+            if (Mathf.Approximately(degrees, 0f)) return pose;
+            var eyes = head != null ? head.position : Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+            var turn = Quaternion.Euler(0f, degrees, 0f);
+            var from = pose.position - new Vector3(eyes.x, pose.position.y, eyes.z);
+            return new Pose(new Vector3(eyes.x, pose.position.y, eyes.z) + turn * from, turn * pose.rotation);
+        }
 
         public Vector3 ShelfViewer => shelfViewer;
 

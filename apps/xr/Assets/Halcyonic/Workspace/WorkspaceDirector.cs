@@ -485,10 +485,14 @@ namespace Halcyonic.XR.Workspace
             if (stage != null && stage.Visible)
             {
                 shelf = new Vector3[8];
-                CharacterStage.WriteShelfCorners(new Pose(stage.Shelf.position, stage.Shelf.rotation), stage.ShelfWidth, WorkspaceVisuals.HeadPosition, shelf);
+                // The shelf's own place, never where it stands aside (CharacterStage.OwnShelf), so the plane's width and the aside
+                // turn are decided from the place the person chose and cannot feed each other.
+                CharacterStage.WriteShelfCorners(stage.OwnShelf, stage.ShelfWidth, WorkspaceVisuals.HeadPosition, shelf);
             }
+            var standingStage = stage;
             return new MenuDirector.Stage(WorkspaceVisuals.HeadPosition, head != null ? head.forward : Vector3.forward, standing.ToList(),
-                stage != null && stage.Visible && Room?.Status.OnSurface == true ? stage.SurfaceHeight : null, false, shelf);
+                stage != null && stage.Visible && Room?.Status.OnSurface == true ? stage.SurfaceHeight : null, false, shelf,
+                degrees => { if (standingStage != null) standingStage.AsideDegrees = degrees; });
         }
 
         private bool SomethingWaits() =>

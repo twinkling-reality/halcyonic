@@ -306,7 +306,7 @@ namespace Halcyonic.XR.Workspace
         /// <param name="placing">A local overlay places something in the room now (<see cref="IPlacesInRoom"/>): the floor's width meanwhile.</param>
         public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false)
         {
-            if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; return; }
+            if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; ShelfAsideDegrees = 0f; return; }
             var floor = PlaneWidth.FloorDp(GlazeText.Scale);
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
             var now = (GlazeText.Scale, shelfKey, characters, Mathf.RoundToInt(Direction.Yaw), Mathf.RoundToInt(Direction.Elevation), placing);
@@ -320,6 +320,37 @@ namespace Halcyonic.XR.Workspace
             if (widthRule.Reconsider(happened, width => !(placing && width > floor + 0.5f) && WidthClears(width, shelf, viewer), floor))
                 Debug.Log("Halcyonic: the plane lays its panel " + widthRule.WidthDp.ToString("0") + " dp wide (" + happened + ").");
             Kit.Form = RoomForm.Full.AtWidth(widthRule.WidthDp);
+            ShelfAsideDegrees = placing || shelf == null ? 0f : AsideFor(shelf, viewer, widthRule.WidthDp);
+        }
+
+        /// <summary>
+        /// How far the placed shelf stands aside about the eyes while the plane is open (ShelfAside; the lead's 19:34Z GO, pick B), decided
+        /// with the width on events only, from the shelf's own place; 0 where the plane at its width clears it.
+        /// </summary>
+        public float ShelfAsideDegrees { get; private set; }
+
+        /// <summary>
+        /// The turn that clears the plane's largest footprint at <paramref name="widthDp"/> for the shelf at <paramref name="shelf"/>, along
+        /// its own arc, thirty degrees first and as far as clears out to the person's side, each said once; 0 where none clears (a
+        /// finding, said once: the shelf stays, never put behind the person).
+        /// </summary>
+        private float AsideFor(Vector3[] shelf, Vector3 viewer, float widthDp)
+        {
+            float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity, top = float.NegativeInfinity;
+            foreach (var point in shelf)
+            {
+                var offset = point - viewer;
+                var yaw = Direction.Yaw + Mathf.DeltaAngle(Direction.Yaw, Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg);
+                var elevation = Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg;
+                left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
+            }
+            var aside = ShelfAside.For((left + right) / 2f, (right - left) / 2f, bottom, top, LargestExtent(widthDp), Direction.Yaw, Direction.Yaw,
+                AgentShelfSearch.SideDegrees);
+            if (!aside.Clears) Debug.Log("Halcyonic: no turn out to the person's side clears the plane for the shelf; it stays in its own place.");
+            else if (!Mathf.Approximately(aside.Moved, 0f))
+                Debug.Log("Halcyonic: the shelf stands aside " + Mathf.Abs(aside.Moved).ToString("0") + " degrees while the plane is open"
+                    + (aside.PastThirty ? ", past thirty, as far as clears." : "."));
+            return aside.Clears ? aside.Moved : 0f;
         }
 
         /// <summary>
