@@ -2412,6 +2412,35 @@ public class NewProjectFlowTests
         Assert.That(host.Sent, Is.Empty, "nothing is sent by reading the recap");
     });
 
+    /// <summary>
+    /// No dead end (JUDGE's FINDING 2026-11-13T0935Z, the lead's 09:37Z item 1): where Start Building waits on a choice, that choice
+    /// is the recap's main action, named for what it picks, one press to its page; never a reason with Change to find, twice.
+    /// </summary>
+    [Test]
+    public void In_the_redesign_a_recap_that_waits_on_a_choice_leads_with_that_choice() => InTheRedesign(() =>
+    {
+        var host = new Host { State = WithRuntimes(Runtime("one"), Runtime("other")) };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        var main = flow.Frame!.Footer[PromptSlot.FarRight]!;
+        Assert.That((main.Id, main.Words, main.Main, main.Available), Is.EqualTo((NewProjectScreens.MoreOptions, EntryText.ChooseAgentApp, true, true)),
+            "several agent apps and none used: the choice itself leads");
+        var bar = RoomBar.NewProject(flow.Frame!, VoiceStage.Idle)!;
+        Assert.That((bar.Column.First().Control.Action, bar.Column.First().Main), Is.EqualTo((NewProjectScreens.MoreOptions, true)));
+        Assert.That(bar.Column.Select(action => action.Control.Action), Has.None.EqualTo(NewProjectScreens.StartBuilding));
+
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        Press(flow, NewProjectScreens.ChooseRuntime, "one");
+        Press(flow, NewProjectScreens.Done, null);
+        var then = flow.Frame!.Footer[PromptSlot.FarRight]!;
+        Assert.That((then.Main, then.Available), Is.EqualTo((true, true)), "once chosen, the way on stands: " + then.Id);
+        Assert.That(host.Sent, Is.Empty);
+    });
+
     [Test]
     public void In_the_redesign_Change_opens_what_can_be_changed_and_Back_returns_to_the_facts() => InTheRedesign(() =>
     {

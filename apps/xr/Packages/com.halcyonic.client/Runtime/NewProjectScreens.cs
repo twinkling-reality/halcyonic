@@ -683,12 +683,25 @@ namespace Halcyonic.Client
                 fact: idea.TaskSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null, rows: 2));
             lines.Add(new PageLine(EntryText.FolderFactRuns(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true)));
             lines.Add(new PageLine(Runs(draft, live), fact: LevelOf(draft)));
+            // No dead end (JUDGE's FINDING 2026-11-13T0935Z): where Start Building waits on a choice the person makes here, that choice
+            // is the main action in its place, named for what it picks, one press to its page; Start Building stands once it is made.
             var footer = new Footer(Close(), rare: new Prompt(ChangeRecap, EntryText.Change, GlazeIcon.Change, safeInPlace: true),
-                farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem,
-                    safeInPlace: true));
+                farRight: WayOn(problem));
             return new MenuFrame(Subject(idea), footer, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
                 source: suggested ? CompanionText.Note : null).WithCard(RecapCard(idea, draft, currentFolder, live, lines.Count > 0 && !lines[0].Words.StartsWith(NewWorkReview.ProjectLabel, System.StringComparison.Ordinal) ? lines[0].Runs : null));
         }
+
+        /// <summary>
+        /// The recap's way on: Start Building, or, where it waits on the folder or the run settings, the choice that it waits on
+        /// (Choose Folder, Choose Agent App, Choose Model), its page a press away; any other wait is Start Building's reason.
+        /// </summary>
+        internal static Prompt WayOn(string? problem) => problem switch
+        {
+            EntryText.ChooseWhereFilesLive => new Prompt(ChooseAnotherFolder, EntryText.ChooseAnotherFolder, GlazeIcon.Change, main: true, safeInPlace: true),
+            EntryText.ChooseHowItRuns or EntryText.ChooseAgain => new Prompt(MoreOptions, EntryText.ChooseAgentApp, GlazeIcon.Change, main: true, safeInPlace: true),
+            EntryText.FinishChoosing => new Prompt(MoreOptions, EntryText.ChooseModel, GlazeIcon.Change, main: true, safeInPlace: true),
+            _ => new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem, safeInPlace: true),
+        };
 
         /// <summary>
         /// The recap as a card (the addendum's A17): the project's name as the title, its first task as the line under it, and

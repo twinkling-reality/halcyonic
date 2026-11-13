@@ -83,6 +83,10 @@ namespace Halcyonic.Client
         public const string NewFolderRule = "Up to 64 letters, digits, dots, dashes or underscores, starting with a letter or digit";
         public const string UseThatFolder = "Use Folder";
         public const string ChooseAnotherFolder = "Choose Folder";
+
+        /// <summary>The recap's main action where Start Building waits on run settings: the choice itself, one press to its page.</summary>
+        public const string ChooseAgentApp = "Choose Agent App";
+        public const string ChooseModel = "Choose Model";
         public const string RebindWarning = "Later Tasks Use New Folder · Running Tasks Keep Theirs";
 
         /// <summary>
