@@ -119,6 +119,7 @@ namespace Halcyonic.XR.UI
         private KitPress press = null!;
         private RoomButtonSize size;
         private bool main;
+        private bool destructive;
         private AnswerMark mark;
         private bool chosen;
         private string? shownWords;
@@ -367,7 +368,7 @@ namespace Halcyonic.XR.UI
         /// where approval A was answered must never take the pinch that answered A).
         /// </param>
         public void Show(string text, GlazeIcon? icon, bool isMain, bool available, Vector2 centre, float width, AnswerMark mark = AnswerMark.None,
-            bool chosen = false, float wrap = 0f, string? aside = null, string? doing = null, string? detail = null)
+            bool chosen = false, float wrap = 0f, string? aside = null, string? doing = null, string? detail = null, bool destructive = false)
         {
             // An action that cannot act yet is not drawn (BUILD-SPEC-v4 1.4, 2026-11-05): no disabled look; it arrives when it can act.
             if (!available)
@@ -378,12 +379,13 @@ namespace Halcyonic.XR.UI
             var arrives = !gameObject.activeSelf;
             aside = string.IsNullOrWhiteSpace(aside) ? null : aside;
             var shownAs = string.IsNullOrWhiteSpace(detail) ? text : text + "\n" + detail;
-            var changed = arrives || shownWords != shownAs || shownAside != aside || main != isMain || this.mark != mark || this.chosen != chosen
+            var changed = arrives || shownWords != shownAs || shownAside != aside || main != isMain || this.destructive != destructive || this.mark != mark || this.chosen != chosen
                 || !string.Equals(shownDoing, doing, StringComparison.Ordinal);
             shownDoing = doing;
             shownWords = shownAs;
             shownAside = aside;
             main = isMain;
+            this.destructive = destructive;
             this.mark = mark;
             this.chosen = chosen;
             var target = RoomType.Units(HeightDp);
@@ -416,7 +418,8 @@ namespace Halcyonic.XR.UI
             if (mark != AnswerMark.None) Lay(chosen ? RoomGlyph.Check : (RoomGlyph?)null, MarkCheckDp * GlazeText.Scale);
             // The one main action goes on: where it carries the pager's icon (a step forward written as Next), it draws the
             // forward arrow, never the pager's down chevron (the critic, 2026-11-12); a pager is never the main action.
-            else Lay(isMain && icon == GlazeIcon.Next && RoomGlyphs.Named(text) == null ? RoomGlyph.Continue : GlyphOf(text, icon),
+            // A destructive action carries the cross, never the arrow of going on (AUDIT's MUST, 2026-11-13T1754Z).
+            else Lay(destructive ? RoomGlyph.Cross : isMain && icon == GlazeIcon.Next && RoomGlyphs.Named(text) == null ? RoomGlyph.Continue : GlyphOf(text, icon),
                 (size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp) * GlazeText.Scale);
             LockProgress = null;
             press.Available = available;
@@ -528,6 +531,15 @@ namespace Halcyonic.XR.UI
         public const int MainHaloColour = 0x22586A;
         public const int MainPointedHaloColour = 0x296A7F;
 
+        /// <summary>
+        /// The destructive kind's colours (<see cref="Prompt.Destructive"/>): the kit's failure red on its chip (#D4463B, the
+        /// cards' BadFill) and a deep red backing (#6A2621, #7A2D27 pointed or held) under white words, so a Yes that removes
+        /// or forgets something never looks like going on.
+        /// </summary>
+        public const int DestructiveChipColour = 0xD4463B;
+        public const int DestructiveHaloColour = 0x6A2621;
+        public const int DestructivePointedHaloColour = 0x7A2D27;
+
         /// <summary>An action's chip at rest, a neutral that shows over a bright room and a dark one (#4A5258).</summary>
         public const int RestChipColour = 0x4A5258;
 
@@ -548,11 +560,13 @@ namespace Halcyonic.XR.UI
             var pointed = look is RoomButtonLook.Pointed or RoomButtonLook.MainPointed;
             var held = look == RoomButtonLook.Pressed;
             var leads = main || locked;
-            var backing = RoomSurface.Hex(leads ? (pointed || held ? MainPointedHaloColour : MainHaloColour) : HaloColour);
+            var backing = RoomSurface.Hex(leads && destructive ? (pointed || held ? DestructivePointedHaloColour : DestructiveHaloColour)
+                : leads ? (pointed || held ? MainPointedHaloColour : MainHaloColour) : HaloColour);
             var alpha = leads ? (pointed || held ? 0.96f : 0.93f) : (pointed || held ? 0.93f : 0.83f);
             Color chip;
             Color glyphColour;
             if (mark != AnswerMark.None) (chip, glyphColour) = (chosen ? accent : new Color(1f, 1f, 1f, 0f), ink);
+            else if ((main || locked) && destructive) (chip, glyphColour) = (held ? Dim(RoomSurface.Hex(DestructiveChipColour)) : RoomSurface.Hex(DestructiveChipColour), Color.white);
             else if (main || locked) (chip, glyphColour) = (held ? Dim(accent) : accent, ink);
             else if (held) (chip, glyphColour) = (Dim(light), ink);
             else if (pointed) (chip, glyphColour) = (light, ink);
@@ -634,6 +648,27 @@ namespace Halcyonic.XR.UI
         /// The lock ring's radius, in dp, for a chip <paramref name="chipDp"/> across with corners of <paramref name="cornerDp"/>:
         /// its inner edge <see cref="RingGapDp"/> past the squircle's farthest point, its corner, so it never touches the chip.
         /// </summary>
+        /// <summary>
+        /// Whether its chip, its glyph and, behind Confirm's lock, its ring stand wholly inside its core, at the person's text
+        /// size: a mark drawn past the button's edge is a defect as a cut word is (AUDIT's MUST, 2026-11-13T1754Z).
+        /// </summary>
+        public bool MarksInside
+        {
+            get
+            {
+                if (!gameObject.activeSelf) return true;
+                var unit = RoomType.Units(1f);
+                var scale = GlazeText.Scale;
+                var chipDp = mark != AnswerMark.None ? MarkDp * scale : ChipSizeDp;
+                var cornerDp = mark != AnswerMark.None ? (mark == AnswerMark.Multiple ? MarkBoxCornerDp * scale : chipDp / 2f)
+                    : (size == RoomButtonSize.Home ? HomeChipCornerDp : ChipCornerDp) * scale;
+                var reach = Mathf.Max(chipDp / 2f, glyphShown != null ? glyphDp / 2f : 0f);
+                if (LockProgress != null) reach = Mathf.Max(reach, RingRadius(chipDp, cornerDp) + RingWidthDp / 2f);
+                var fromLeft = chipCentreX / unit + core.x / unit / 2f;
+                return fromLeft - reach >= -0.05f && reach <= core.y / unit / 2f + 0.05f;
+            }
+        }
+
         public static float RingRadius(float chipDp, float cornerDp)
         {
             var half = chipDp / 2f;

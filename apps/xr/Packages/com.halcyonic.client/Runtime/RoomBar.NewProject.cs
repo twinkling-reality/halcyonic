@@ -60,7 +60,7 @@ namespace Halcyonic.Client
             var why = frame.Reason;
 
             RoomAction Of(Prompt prompt, KitPlace place, bool isMain = false, bool locks = false) =>
-                new RoomAction(new KitControl(place, frame, prompt.Id, null, prompt.Words, prompt.Icon, available: true, reason: null, holds: prompt.Holds), isMain, locks: locks);
+                new RoomAction(new KitControl(place, frame, prompt.Id, null, prompt.Words, prompt.Icon, available: true, reason: null, holds: prompt.Holds, destructive: prompt.Destructive), isMain, locks: locks);
             RoomAction Line(PageLine line, string? words = null, GlazeIcon? icon = null)
             {
                 var turns = line.Action is NewProjectScreens.NextPage or NewProjectScreens.MoreAnswers or NewProjectScreens.NextPart;

@@ -73,9 +73,10 @@ namespace Halcyonic.Client
     public sealed class KitControl
     {
         public KitControl(KitPlace place, MenuFrame frame, string action, string? key, string words, GlazeIcon? icon, bool available, string? reason, bool holds,
-            bool chosen = false, AnswerMark mark = AnswerMark.None, LineWords? under = null)
+            bool chosen = false, AnswerMark mark = AnswerMark.None, LineWords? under = null, bool destructive = false)
         {
             Mark = mark;
+            Destructive = destructive;
             Under = under == null || under.IsEmpty ? null : under;
             Place = place;
             Frame = frame;
@@ -109,6 +110,9 @@ namespace Halcyonic.Client
 
         /// <summary>Held rather than pressed, as Hold to talk is.</summary>
         public bool Holds { get; }
+
+        /// <summary>Its prompt is the destructive kind (<see cref="Prompt.Destructive"/>): drawn in the kit's destructive colour and mark.</summary>
+        public bool Destructive { get; }
 
         /// <summary>A section that is the one showing, or an answer that is chosen.</summary>
         public bool Chosen { get; }
@@ -224,7 +228,7 @@ namespace Halcyonic.Client
                 // approval drawn in its place is a new control, which settles again before it takes a press (AUDIT, 2026-11-12).
                 var answers = place is KitPlace.Approve or KitPlace.Deny ? workspace.ApprovalToAnswer?.ApprovalId : null;
                 controls.Add(new KitControl(place.Value, frame, prompt.Id, answers, prompt.Words, prompt.Icon, prompt.Available, prompt.Reason, prompt.Holds,
-                    under: prompt.Under));
+                    under: prompt.Under, destructive: prompt.Destructive));
             }
             // The task's routes stand under Activity's log; Read results beside an open instruction is the composer's, which has no place for it.
             var composing = frame.Lines.Any(line => line.Action == FileScreens.EditInstruction);

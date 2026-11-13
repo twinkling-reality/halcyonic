@@ -90,6 +90,13 @@ public class RoomPageTests
         var ready = RoomBar.OfFrame(Frame(new[] { new PageLine("Start Over?") }, asked), VoiceStage.Idle)!;
         Assert.That((ready.Column[0].Control.Action, ready.Column[0].Main, ready.Column[0].Locks, ready.Sentence), Is.EqualTo(("yes", true, true, (string?)null)), Show(ready));
         Assert.That(ready.Column.Last().Place, Is.EqualTo(KitPlace.Cancel), Show(ready));
+        Assert.That(ready.Column[0].Control.Destructive, Is.False, "a Yes is not destructive unless its model says so");
+
+        // A Yes that forgets something is the destructive kind, as its model declares it, carried to the kit's control (AUDIT, 2026-11-13T1754Z).
+        var forgets = Footer.Confirm(before, PromptSlot.FarRight, new Prompt("yes", "Forget Computer", GlazeIcon.Next, PromptKind.Yes, destructive: true),
+            new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel));
+        var forgetting = RoomBar.OfFrame(Frame(new[] { new PageLine("Forget this computer?") }, forgets), VoiceStage.Idle)!;
+        Assert.That((forgetting.Column[0].Control.Destructive, forgetting.Column[0].Locks), Is.EqualTo((true, true)), Show(forgetting));
 
         // With nothing of Halcyonic's to say there is no panel: the actions take its place.
         var bare = RoomBar.OfFrame(Frame(new[] { new PageLine("Continue", action: "continue") }), VoiceStage.Idle)!;

@@ -936,7 +936,8 @@ namespace Halcyonic.XR.UI
                 }
                 var action = bar.Column[index];
                 button.Show(action.Words, action.Icon, action.Main, available: true, centre, cores[index].x, action.Mark, action.Chosen,
-                    action.Mark != AnswerMark.None ? wrap : 0f, doing: RoomButton.Doing(action.Control), detail: action.Detail);
+                    action.Mark != AnswerMark.None ? wrap : 0f, doing: RoomButton.Doing(action.Control), detail: action.Detail,
+                    destructive: action.Control.Destructive);
                 controls[button] = action.Control;
                 // A held action (Hold to Talk in the column) acts at its pinch; every other on its release (the one press).
                 button.Press.ActsOnPinch = action.Control.Holds;

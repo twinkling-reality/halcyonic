@@ -197,6 +197,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Every bar the state laid stands within its largest footprint, the one the plane keeps a shelf clear of (AUDIT, 2026-11-13T1725Z).
                 failures.AddRange(root.GetComponentsInChildren<Halcyonic.XR.UI.RoomBarView>(true).Where(bar => bar.PassedLargest)
                     .Select(bar => name + ": the bar laid past its largest footprint, " + bar.Size + " against " + (bar.Narrow ? Halcyonic.XR.UI.RoomBarView.LargestNarrow : Halcyonic.XR.UI.RoomBarView.Largest)));
+                // Every button's chip, glyph and lock ring inside its own edge (AUDIT, 2026-11-13T1754Z).
+                failures.AddRange(root.GetComponentsInChildren<Halcyonic.XR.UI.RoomButton>(false).Where(button => !button.MarksInside)
+                    .Select(button => name + ": a mark of \"" + button.Words.text + "\" stands past its button's edge"));
                 SetLayer(root, KitLayer);
                 ForceMeshes(root);
                 // The curve is drawn by production's own drawing of a laid-out plane; everything after measures where

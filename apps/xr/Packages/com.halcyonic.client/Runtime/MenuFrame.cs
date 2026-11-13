@@ -561,7 +561,7 @@ namespace Halcyonic.Client
         /// </param>
         public Prompt(string id, string words, GlazeIcon icon, PromptKind kind = PromptKind.Action, bool main = false, bool available = true,
             string? reason = null, bool holds = false, bool pageExplains = false, bool safeInPlace = false, bool waits = false, bool listens = false,
-            IReadOnlyList<string>? alsoReads = null)
+            IReadOnlyList<string>? alsoReads = null, bool destructive = false)
         {
             if (string.IsNullOrEmpty(id)) throw new ArgumentException("A prompt raises an id.", nameof(id));
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A prompt has its words.", nameof(words));
@@ -584,6 +584,7 @@ namespace Halcyonic.Client
             Holds = holds;
             PageExplains = pageExplains;
             SafeInPlace = safeInPlace;
+            Destructive = destructive;
             Waits = waits;
             Listens = listens;
             AlsoReads = alsoReads ?? (icon == GlazeIcon.HoldToTalk ? VoiceText.TalkReads : Array.Empty<string>());
@@ -621,6 +622,13 @@ namespace Halcyonic.Client
 
         /// <summary>Its frame's side panel shows everything it acts on, so it may be carried there when the side panel takes the frame's place.</summary>
         public bool SafeInPlace { get; }
+
+        /// <summary>
+        /// What it does removes or forgets something the person cannot simply get back (Forget Computer, Discard): its model
+        /// declares it, never its words, and the kit draws it as the destructive kind, its own colour and mark, still behind
+        /// Confirm's lock (AUDIT's MUST, 2026-11-13T1754Z).
+        /// </summary>
+        public bool Destructive { get; }
 
         /// <summary>What it says is under way: its words shimmer, and so does its reason drawn as the page's last line, while it shows (ADR 0027).</summary>
         public bool Waits { get; }

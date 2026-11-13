@@ -18,10 +18,20 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] NarrowStates = { "56-narrow-colour", "56-narrow-shelf", "56-narrow-colour-wide" };
+        private static readonly string[] NarrowStates = { "56-narrow-colour", "56-narrow-shelf", "56-narrow-colour-wide", "57-destructive-confirm" };
 
         private static MenuFrame NarrowFrame(string state)
         {
+            if (state == "57-destructive-confirm")
+            {
+                // A Yes that forgets something, its model declaring it destructive (AUDIT's MUST, 2026-11-13T1754Z): drawn in the
+                // destructive kind's red with its cross, behind Confirm's lock, never as going on.
+                var before = new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close), farRight: new Prompt("narrow-forget", "Forget Computer", GlazeIcon.Next));
+                return new MenuFrame("Paired Computer", Footer.Confirm(before, PromptSlot.FarRight,
+                        new Prompt("narrow-forget-yes", "Forget Computer", GlazeIcon.Next, PromptKind.Yes, destructive: true),
+                        new Prompt("narrow-forget-cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel)),
+                    lines: new[] { new PageLine("This headset stops working with this computer until you pair it again.", rows: 2) });
+            }
             if (state == "56-narrow-shelf")
                 return new MenuFrame("Shelf", new Footer(new Prompt(Footer.Close, "Cancel", GlazeIcon.Close, PromptKind.Close),
                         farRight: new Prompt("narrow-apply", "Apply", GlazeIcon.Change, main: true)),
@@ -53,7 +63,7 @@ namespace Halcyonic.XR.Workspace.Editor
             finally { RoomDesign.Enabled = was; }
             Require(bar != null, "no reader of the kit takes the overlay's frame");
             if (bar == null) return shot;
-            var narrow = state != "56-narrow-colour-wide";
+            var narrow = state != "56-narrow-colour-wide" && state != "57-destructive-confirm";
             bar.Narrow = narrow;
 
             var plane = new GameObject("Plane").transform;
@@ -87,6 +97,13 @@ namespace Halcyonic.XR.Workspace.Editor
 
             Require(!view.PassedLargest, "the bar laid past its largest footprint: " + (view.Size / unit).ToString("0") + " dp against "
                 + ((narrow ? RoomBarView.LargestNarrow : RoomBarView.Largest) / unit).ToString("0"));
+            if (state == "57-destructive-confirm")
+            {
+                var yes = buttons.FirstOrDefault(button => button.Words.text.Contains("Forget Computer"));
+                var red = RoomSurface.Hex(RoomButton.DestructiveChipColour);
+                Require(yes != null && Mathf.Abs(yes.ChipColour.x - red.r) < 0.02f && Mathf.Abs(yes.ChipColour.y - red.g) < 0.02f && Mathf.Abs(yes.ChipColour.z - red.b) < 0.02f,
+                    "the destructive Yes is not drawn in the destructive red: " + (yes == null ? "no Yes" : yes.ChipColour.ToString()));
+            }
             var drawn = new List<string>();
             foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
             {
