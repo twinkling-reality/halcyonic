@@ -193,9 +193,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         Facts = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewFact>(),
                         Warnings = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewWarning>
                         {
-                            new Halcyonic.Contracts.ActionReviewWarning { Code = "price_unknown", Line = "The price is not known, so no cost or total is shown" },
+                            new Halcyonic.Contracts.ActionReviewWarning { Code = "price_unknown", Line = "Tidewater sets each request's price; it is not shown here" },
                             new Halcyonic.Contracts.ActionReviewWarning { Code = "sent_to_provider", Line = "Your requests, and what the assistant reads in your projects, go to Tidewater" },
-                            new Halcyonic.Contracts.ActionReviewWarning { Code = "free_here", Line = "This Computer's Model stays free" },
+                            new Halcyonic.Contracts.ActionReviewWarning { Code = "free_here", Line = "To stop paying, choose This Computer's Model, which is free" },
                         },
                     }, CardModels()[1]), AssistantPlace.UseModelTitle),
                 "47-card-needs-you" => new RoomCard(Theirs("Tail"), Theirs("Should the tail stream left or right?"),

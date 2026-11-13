@@ -235,8 +235,9 @@ What was read and seen is in [hosted-assistant.md](../validation/hosted-assistan
     read by the list's rows and the review alike; 2026-11-13, fresh readers of 1111-b123 and b130). A hosted row reads
     "On <provider>, Paid by You". The review's line names the model and says once that each request costs money on
     the person's own account with the provider (named from its declaration); the model stands as a fact only where
-    the line cannot hold it. Then three short warnings: the price is not known, so no cost or total is shown; what is
-    sent to the provider; this computer's own model stays free. No price, estimate or size is ever said. The whole
+    the line cannot hold it. Then three short warnings: the provider sets each request's price and it is not shown
+    here; what is sent to the provider; to stop paying, choose this computer's model, which is free. No price,
+    estimate, size or limit is ever said. The whole
     review stays under fifty-five words, so it reads at a glance at the larger text size (the owner's report of
     2026-11-13: it was tall and said the cost in one long paragraph).
 - **A provider is one declaration file,** `providers/<id>/provider.json`, read into the host's one list
