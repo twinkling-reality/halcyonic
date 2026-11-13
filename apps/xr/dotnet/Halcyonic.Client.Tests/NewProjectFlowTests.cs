@@ -856,6 +856,20 @@ public class NewProjectFlowTests
         var start = flow.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Id == NewProjectScreens.StartBuilding);
         Assert.That((start.Available, start.Reason), Is.EqualTo((true, (string?)null)), "nothing left to choose: Start Building stands");
 
+        // One real agent app beside the practice run, which the computer always hosts: the real one is taken (JUDGE, 13:27Z).
+        var codex = Runtime("codex");
+        codex.Synthetic = false;
+        var practice = Runtime("mock");
+        practice.Synthetic = true;
+        var real = new Host { State = WithRuntimes(codex, practice) };
+        var taken = Flow(real);
+        taken.Open(null, null);
+        real.Typed.Enqueue("A page of race times for my running club");
+        Press(taken, NewProjectScreens.TypeIdea, null);
+        Press(taken, NewProjectScreens.UseIdea, null);
+        var ready = taken.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Id == NewProjectScreens.StartBuilding);
+        Assert.That((ready.Available, ready.Reason), Is.EqualTo((true, (string?)null)), "one real app and the practice run: the real one is taken, Start Building stands");
+
         var two = new Host { State = WithRuntimes(Runtime("one"), Runtime("other")) };
         var asked = Flow(two);
         asked.Open(null, null);
