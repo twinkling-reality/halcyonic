@@ -248,7 +248,7 @@ public class RoomPageTests
             Assert.That(eight.Column.Count, Is.LessThanOrEqualTo(RoomBar.ColumnMost));
             Assert.That(eight.Column.Last().Control.Action, Is.EqualTo(Footer.Close), "Close on every page");
             keys.AddRange(eight.Column.Where(action => action.Control.Action == "do").Select(action => action.Control.Key));
-            Assert.That(eight.Whole, Is.EqualTo(page == eight.GeneralPart.Pages - 1));
+            Assert.That(eight.Whole, Is.True, "only actions page: nothing to read is hidden on a later page");
             eight.Turn();
         }
         Assert.That(keys, Is.EqualTo(Enumerable.Range(1, 8).Select(n => n.ToString())), "every action reached, none dropped");
@@ -405,5 +405,23 @@ public class RoomPageTests
         Assert.That(Walk(RoomBar.OfFrame(Frame(eight, confirm), VoiceStage.Idle)!, RoomForm.SpecActions), Is.EqualTo(all), "Yes and Cancel among the four");
         Assert.That(Walk(RoomBar.OfFrame(Frame(eight), VoiceStage.Idle, RoomForm.Full.FewerActions())!, 3), Is.EqualTo(all), "fewer where the plane asks");
         Assert.That(new RoomForm(true, 8, 0).ActionsAPage, Is.EqualTo(1), "never fewer than one action a page");
+    }
+
+    /// <summary>
+    /// Pages that only turn actions never hold a frame back from being read (JUDGE's 20:08Z: the shelf's Apply waited for a draw
+    /// that never came while its Move buttons paged): the rows stand on every page, so the bar is whole from its first page; rows
+    /// that page still need every page shown.
+    /// </summary>
+    [Test]
+    public void PagesThatOnlyTurnActionsNeverHoldAFrameBackFromBeingRead()
+    {
+        var footer = new Footer(new Prompt(Footer.Close, "Cancel", GlazeIcon.Close, PromptKind.Close), farRight: new Prompt("apply", "Apply", GlazeIcon.Change, main: true));
+        var moves = new[] { "Left", "Right", "Closer", "Farther", "Up", "Down" }.Select(each => new PageLine(each, action: "move", key: each, control: LineControl.Action)).ToList();
+        var shelf = RoomBar.OfFrame(Frame(new[] { new PageLine("Hold Move Shelf to drag it.") }.Concat(moves).ToList(), footer), VoiceStage.Idle)!;
+        Assert.That(shelf.GeneralPart.Pages, Is.GreaterThan(1), "the moves page");
+        Assert.That(shelf.Whole, Is.True, "nothing to read is hidden on a later page, so Apply is not held");
+        Assert.That(shelf.Column[0].Control.Action, Is.EqualTo("apply"), "Apply on the first page, first");
+        var rows = RoomBar.OfFrame(Frame(Enumerable.Range(1, 12).Select(n => new PageLine("Line " + n)).ToList()), VoiceStage.Idle)!;
+        Assert.That(rows.Whole, Is.False, "rows on a later page still hold it");
     }
 }
