@@ -35,7 +35,7 @@ namespace Halcyonic.Client
         /// and the ways out on every page, and holds <see cref="Whole"/> only once every page was shown. While a side panel stands,
         /// the column holds only what acts on it: a prompt safe in its place, its pager and its own Close.
         /// </summary>
-        private static RoomBar? General(MenuFrame frame, VoiceStage voice)
+        private static RoomBar? General(MenuFrame frame, VoiceStage voice, RoomForm form)
         {
             var rows = new List<RoomRow>();
             string? band = null;
@@ -141,7 +141,10 @@ namespace Halcyonic.Client
             // frame's column may then pass six, which the kit lays rather than lose an action.
             var room = System.Math.Max(2, ColumnMost - fixedCount);
             var actionPages = turning.Count <= room ? 1 : (turning.Count + room - 2) / (room - 1);
-            var pages = System.Math.Max(RoomRows.Pages(rows.Count), actionPages);
+            // Rows a page by the form it will be laid in (the plane measures it and asks again with fewer where a page passes the field).
+            var rowsAPage = form.RowsAPage;
+            var rowPages = rows.Count <= 0 ? 1 : (rows.Count + rowsAPage - 1) / rowsAPage;
+            var pages = System.Math.Max(rowPages, actionPages);
             var each = pages > 1 ? room - 1 : room;
             var parts = new List<GeneralPage>();
             for (var page = 0; page < pages; page++)
@@ -156,7 +159,7 @@ namespace Halcyonic.Client
                         main: false, icon: GlazeIcon.Next, detail: last ? null : (page + 2) + " of " + pages));
                 }
                 column.AddRange(leaving);
-                parts.Add(new GeneralPage(page < RoomRows.Pages(rows.Count) ? RoomRows.Page(rows, page) : new List<RoomRow>(), column));
+                parts.Add(new GeneralPage(page < rowPages ? rows.Skip(page * rowsAPage).Take(rowsAPage).ToList() : new List<RoomRow>(), column));
             }
 
             var first = parts[0];
@@ -174,6 +177,9 @@ namespace Halcyonic.Client
             bar.Whole = pages == 1;
             return shown.Count > 0 ? bar.WithFacts(shown) : bar;
         }
+
+        /// <summary>The form this bar is read for (<see cref="RoomForm"/>): what the plane will lay it in.</summary>
+        public RoomForm Form { get; private set; } = RoomForm.Full;
 
         /// <summary>The general reader's own pager: what its Next Page raises. The plane turns the bar (<see cref="Turn"/>) and draws it again.</summary>
         public const string TurnPage = "room-general-turn-page";
@@ -227,5 +233,31 @@ namespace Halcyonic.Client
             if (line.FromRow is int from) return new RoomRow(line.Runs, label: line.RowLabel, fromLine: from, lines: line.Rows);
             return new RoomRow(line.Runs, label: line.RowLabel);
         }
+    }
+
+    /// <summary>
+    /// The form a bar is laid in, decided by the plane before any reader measures (the lead, 2026-11-13T17:16Z; XR's rule: the
+    /// widest form that clears every shelf and character inside the field): narrow or full, and how many of the general reader's
+    /// rows stand on a page, as the plane measured them in that form (fewer where a page would pass the field).
+    /// </summary>
+    public readonly struct RoomForm
+    {
+        public RoomForm(bool narrow, int rowsAPage)
+        {
+            Narrow = narrow;
+            RowsAPage = rowsAPage < 1 ? 1 : rowsAPage > RoomRows.APage ? RoomRows.APage : rowsAPage;
+        }
+
+        /// <summary>The full width, eight rows a page: the form where nothing asks for less.</summary>
+        public static RoomForm Full => new RoomForm(false, RoomRows.APage);
+
+        /// <summary>Whether the bar is laid in the kit's narrow form (its panel above its column, a column wide).</summary>
+        public bool Narrow { get; }
+
+        /// <summary>The general reader's rows a page, one to eight.</summary>
+        public int RowsAPage { get; }
+
+        /// <summary>This form with one row fewer a page, never fewer than one: the plane's next ask where a page passed the field.</summary>
+        public RoomForm Fewer() => new RoomForm(Narrow, RowsAPage - 1);
     }
 }

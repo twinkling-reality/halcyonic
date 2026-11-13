@@ -244,4 +244,32 @@ public class RoomPageTests
         }
         Assert.That(keys, Is.EqualTo(new[] { "1", "2", "3", "4", "5" }));
     }
+
+    /// <summary>
+    /// The general reader reads a frame for the form the plane will lay it in (the lead's 17:16Z ruling, XR's shape of 17:22Z): its
+    /// rows a page are the form's, measured by the plane, and the bar keeps the form it was read for. Full width, eight a page,
+    /// where none is given.
+    /// </summary>
+    [Test]
+    public void TheGeneralReaderPagesByTheFormThePlaneWillLayItIn()
+    {
+        var frame = Frame(Enumerable.Range(1, 7).Select(n => new PageLine("Line " + n)).ToList());
+        var full = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+        Assert.That((full.Form.Narrow, full.Form.RowsAPage, full.GeneralPart.Pages, full.Whole), Is.EqualTo((false, RoomRows.APage, 1, true)));
+
+        var narrow = RoomBar.OfFrame(frame, VoiceStage.Idle, new RoomForm(narrow: true, rowsAPage: 3))!;
+        Assert.That((narrow.Form.Narrow, narrow.GeneralPart.Pages, narrow.Facts!.Count, narrow.Whole), Is.EqualTo((true, 3, 3, false)));
+        var seen = new List<string>(narrow.Facts.Select(row => row.Words.Text));
+        narrow.Turn();
+        seen.AddRange(narrow.Facts!.Select(row => row.Words.Text));
+        Assert.That(narrow.Whole, Is.False, "two of three pages seen");
+        narrow.Turn();
+        seen.AddRange(narrow.Facts!.Select(row => row.Words.Text));
+        Assert.That((narrow.Whole, seen), Is.EqualTo((true, Enumerable.Range(1, 7).Select(n => "Line " + n))), "every row reached, read once every page was shown");
+
+        Assert.That((new RoomForm(true, 0).RowsAPage, new RoomForm(false, 99).RowsAPage, new RoomForm(true, 2).Fewer().Fewer().RowsAPage), Is.EqualTo((1, RoomRows.APage, 1)),
+            "one to eight rows a page; the plane's fewer never reaches nought");
+        // A specific reader's bar carries the form too, so the plane lays it in the form it asked for.
+        Assert.That(RoomBar.OfFrame(Frame(new[] { new PageLine("All tests pass", chip: "Agent says", claim: true) }), VoiceStage.Idle, new RoomForm(true, 4))!.Form.Narrow, Is.True);
+    }
 }

@@ -14,8 +14,8 @@ namespace Halcyonic.Client
     {
         /// <summary>
         /// The readers, asked in this order; the first that answers draws the frame. A reader lives in a file of its own
-        /// (a partial of this class holding one static function) and has one line here, above the general reader, which
-        /// stays last and takes every frame the others leave (<see cref="General"/>).
+        /// (a partial of this class holding one static function) and has one line here; the general reader (<see cref="General"/>)
+        /// is asked last of all, with the form, and takes every frame the others leave.
         /// </summary>
         private static readonly RoomFrameMoment[] Frames =
         {
@@ -28,7 +28,6 @@ namespace Halcyonic.Client
             Pairing,
             Carded,
             Ask,
-            General,
         };
 
         /// <summary>
@@ -37,21 +36,22 @@ namespace Halcyonic.Client
         /// is. A frame with a side panel goes to the general reader alone: no specific reader draws a side panel, and one that
         /// took the frame would leave the panel the person opened unseen (AUDIT's D, 2026-11-13T16:47Z).
         /// </summary>
-        public static RoomBar? OfFrame(MenuFrame frame, VoiceStage voice)
+        /// <param name="form">The form the plane will lay the bar in (XR's rule: the widest that clears every shelf and character),
+        /// decided before any reader measures; full width with eight rows a page where none is given.</param>
+        public static RoomBar? OfFrame(MenuFrame frame, VoiceStage voice, RoomForm? form = null)
         {
-            if (frame.Side != null)
+            var laid = form ?? RoomForm.Full;
+            RoomBar? Mark(RoomBar? bar)
             {
-                var side = General(frame, voice);
-                if (side != null) side.FromMoment = true;
-                return side;
+                if (bar == null) return null;
+                bar.FromMoment = true;
+                bar.Form = laid;
+                return bar;
             }
+            if (frame.Side != null) return Mark(General(frame, voice, laid));
             foreach (var reader in Frames)
-                if (reader(frame, voice) is RoomBar own)
-                {
-                    own.FromMoment = true;
-                    return own;
-                }
-            return null;
+                if (reader(frame, voice) is RoomBar own) return Mark(own);
+            return Mark(General(frame, voice, laid));
         }
     }
 }
