@@ -229,9 +229,9 @@ namespace Halcyonic.Client
             var groupOf = new Dictionary<RoomAction, int>();
             if (carded)
             {
-                List<RoomListRow> Pressed(List<int> group) => group.Select(at => lineActs[at]).Select(each => new RoomListRow(each.Line.Kind, each.Line.Runs,
-                    each.Line.FactRuns?.Text ?? each.Line.Fact, press: each.Control, chosen: each.Line.Chosen, under: each.Line.Under, label: each.Line.RowLabel,
-                    mark: each.Line.Choice ? (each.Line.AnswerMark == AnswerMark.None ? AnswerMark.Single : each.Line.AnswerMark) : AnswerMark.None)).ToList();
+                List<RoomListRow> Pressed(List<int> group) => group.Select(at => lineActs[at]).Select(each => AnswerRow(each.Line.Runs, each.Line.Under,
+                    each.Line.Choice ? (each.Line.AnswerMark == AnswerMark.None ? AnswerMark.Single : each.Line.AnswerMark) : AnswerMark.None, each.Line.Chosen,
+                    each.Control, each.Line.FactRuns?.Text ?? each.Line.Fact, each.Line.RowLabel, each.Line.Kind, each.Line.Swatch)).ToList();
                 if (forced)
                 {
                     // In the frame's own order: each stating row unpressed, each group of lines that act together.

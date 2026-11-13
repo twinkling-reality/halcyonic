@@ -402,6 +402,9 @@ public class RoomQuestionTests
             ("Local file (Recommended)", (string?)"Keeps every save on this computer, with nothing to set up.", AnswerMark.Single, true),
             ("Cloud sync", "Keeps saves in step across devices, and needs an account.", AnswerMark.Single, true),
         }), "each answer its row, the agent's own words, its description under it");
+        var built = RoomBar.AnswerRow(LineWords.Theirs("Local file (Recommended)"), LineWords.TheirName("Keeps every save on this computer, with nothing to set up."), AnswerMark.Single, false);
+        Assert.That((bar.Card.List[0].Name.Text, bar.Card.List[0].Under!.Text, bar.Card.List[0].Mark, bar.Card.List[0].Label, bar.Card.List[0].Note),
+            Is.EqualTo((built.Name.Text, built.Under!.Text, built.Mark, built.Label, built.Note)), "the row the file's budget measures is the row the reader draws");
         Assert.That(bar.Column.Any(action => action.Control.Place == KitPlace.Choice), Is.False, "no answer in the column: " + Show(bar));
         Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(RoomForm.SpecActions), Show(bar));
 

@@ -275,6 +275,16 @@ namespace Halcyonic.Client
         /// confirmation holds what goes in the panel, the file's question in its sentence bar, Confirm behind its lock and
         /// Cancel; sent, the panel reads Sending and no action stands until the runtime takes the question away.
         /// </summary>
+        /// <summary>
+        /// A choice's row as the panel's card draws it (the lead's 2026-11-13T22:04Z: answers that carry words to read are read in the
+        /// panel): its words as given, its description under them, its mark and chosen state, a value as its note, a label above, the
+        /// colour it names as its swatch. The ONE builder the readers draw and the file's budget measures (XR's QuestionBudgetOf through
+        /// KitWorkspaceHost.ListRowLines, AUDIT's 22:06Z), so the file cuts its parts at the lines the card lays.
+        /// </summary>
+        public static RoomListRow AnswerRow(LineWords words, LineWords? description, AnswerMark mark, bool chosen, KitControl? press = null, string? note = null,
+            string? label = null, RoomKind kind = RoomKind.None, int? swatch = null) =>
+            new RoomListRow(kind, words, note, press: press, chosen: chosen, under: description, label: label, mark: mark, swatch: swatch);
+
         private static RoomBar Asking(KitFileBinding binding, KitAsk ask, VoiceStage voice)
         {
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
@@ -311,7 +321,7 @@ namespace Halcyonic.Client
             {
                 var answerMark = control.Mark == AnswerMark.None ? AnswerMark.Single : control.Mark;
                 if (control.Place == KitPlace.Choice && described)
-                    listed.Add(new RoomListRow(RoomKind.None, LineWords.Theirs(control.Words), press: control, chosen: control.Chosen, under: control.Under, mark: answerMark));
+                    listed.Add(AnswerRow(LineWords.Theirs(control.Words), control.Under, answerMark, control.Chosen, control));
                 else if (control.Place == KitPlace.Choice)
                     column.Add(new RoomAction(control, main: false, mark: answerMark, chosen: control.Chosen));
                 // An answer given, on the page of the person's answers: it reads as chosen, and its press goes back to its question.

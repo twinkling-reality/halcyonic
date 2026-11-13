@@ -709,7 +709,10 @@ public class RoomPageTests
             }));
 
             var colour = new CharacterColourColumn(new CharacterColourSettings(), new CharacterColourScope("connection", "journal", "task"), () => true, _ => true).Frame!;
-            Assert.That(RoomBar.OfFrame(colour, VoiceStage.Idle, RoomForm.Full)!.GeneralPart.Pages, Is.EqualTo(1));
+            var picked = RoomBar.OfFrame(colour, VoiceStage.Idle, RoomForm.Full)!;
+            Assert.That(picked.GeneralPart.Pages, Is.EqualTo(1));
+            Assert.That(picked.Card!.List.Select(row => row.Swatch), Is.EqualTo(colour.Lines.Where(line => line.Choice).Select(line => line.Swatch)), "each colour row shows the colour it names");
+            Assert.That(picked.Card.List.All(row => row.Swatch != null), Is.True);
         }
         finally { RoomDesign.Enabled = was; }
     }
