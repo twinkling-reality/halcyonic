@@ -3052,8 +3052,9 @@ in order, as before.
   "Outcome Unknown" quiet), "Simulated at {time}" its line, the latest run's own summary on the foot
   line, theirs and whole. A recorded run, which keeps no checks (the read refused as "Not Recorded"), carries "No Checks
   Recorded", quiet, with the line "This run kept no record of its checks" and no foot line: never that nothing failed,
-  which nobody knows (FIELD, 2026-11-11). `RoomBar.Carded` draws a task's frame that carries a
-  card, its column the frame's own prompts and other sections, the ways out last. A real source's checks stay its page.
+  which nobody knows (FIELD, 2026-11-11). The general reader (`RoomBar.General`) draws a frame that
+  carries its own card: the card in the panel in place of the page's lines, its column the frame's own prompts and other
+  sections, the ways out last, paged four actions a page in all (a task's Checks with an answer has seven). A real source's checks stay its page.
 - **The way back to the Projects place** (FIELD's parts note; the census): the result and its pages end their column
   with the file's own Close (its cross), and the row at rest with no pair ends with "Projects" (the Back glyph, never
   main), the same Close (`RoomBar.WithClose`). An approval, a question or a confirmation keeps its own ways out.

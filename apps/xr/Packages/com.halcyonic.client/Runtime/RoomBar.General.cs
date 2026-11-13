@@ -144,6 +144,18 @@ namespace Halcyonic.Client
             // stands on the reader's last page in the place of First Page, so a person meets one Next Page throughout (gen-n2:
             // Usage at Larger drew two).
             var ownPager = others.FirstOrDefault(action => frame.Footer.All.Any(each => each.Prompt.Kind == PromptKind.NextPage && each.Prompt.Id == action.Control.Action));
+            // A frame that carries its own card (a task's Checks with an answer, a specific reader's card it declined): the card stands in
+            // the panel in place of the page's lines, which say the same for the older view, and the line that opens the full answer
+            // goes with them, since the card shows the summary whole; the frame's own Next Page pages those lines, so it goes too. The
+            // column pages as every column does (the lead's 19:47Z: Checks with an answer had seven actions and fell to the older view).
+            var ownCard = frame.Side == null && pressed.Count == 0 ? frame.Card : null;
+            if (ownCard != null)
+            {
+                acting.Clear();
+                rows.Clear();
+                others.RemoveAll(action => frame.Footer.All.Any(each => each.Prompt.Kind == PromptKind.NextPage && each.Prompt.Id == action.Control.Action));
+                ownPager = null;
+            }
             // Pressed rows make the panel a card: its title the first row's words (where am I), the one other line that states its
             // description, the pressed rows its list five a page. A frame that states more than one other line keeps them as rows,
             // and its pressed rows become the column's buttons with their value as the detail; their quieter line is then lost, so
@@ -214,7 +226,8 @@ namespace Halcyonic.Client
                         main: false, icon: GlazeIcon.Next, detail: FileChangeText.PageOf(page, pages)));
                 }
                 column.AddRange(leaving);
-                parts.Add(carded
+                parts.Add(ownCard != null ? new GeneralPage(new List<RoomRow>(), column, ownCard)
+                    : carded
                     ? new GeneralPage(new List<RoomRow>(), column, CardOf(pressed.Skip(page * perCard).Take(perCard).ToList()))
                     : new GeneralPage(rowPages == 1 ? (oneLine ? new List<RoomRow>() : rows) : page < rowPages ? rows.Skip(page * rowsAPage).Take(rowsAPage).ToList() : new List<RoomRow>(), column));
             }
@@ -224,7 +237,7 @@ namespace Halcyonic.Client
             // One plain line is the panel's words, as a page of one line always was; more, or any with a label, are rows.
             if (oneLine) body = rows[0].Words;
             var bar = new RoomBar(field != null ? RoomBarState.Draft : RoomBarState.Page, words: words, body: body, caret: field != null, sentence: sentence,
-                column: first.Column, field: field, band: band, wide: rows.Count == 0 && body.IsEmpty && field == null,
+                column: first.Column, field: field, band: band, wide: rows.Count == 0 && body.IsEmpty && field == null && ownCard == null && !carded,
                 lines: shown.Count > 0 ? shown.Select(row => row.Words).ToList() : null);
             bar.generalPages = pages > 1 ? parts : null;
             bar.Whole = pages == 1 && !lost;

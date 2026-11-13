@@ -26,7 +26,6 @@ namespace Halcyonic.Client
             Tasks,
             Menu,
             Pairing,
-            Carded,
             Ask,
         };
 
