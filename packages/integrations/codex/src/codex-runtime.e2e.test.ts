@@ -660,6 +660,35 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
     },
   );
 
+  test(
+    "Codex as Halcyonic starts it sends no AGENTS.md to the model, the folder's own or one above it in a repository (agent-app-start-reads.md)",
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t);
+      const parent = dirname(sandbox.project);
+      const above = 'parent-instructions-3b8e';
+      const own = 'own-instructions-91d0';
+      await writeFile(join(parent, 'AGENTS.md'), `Say ${above} in every answer.\n`);
+      await writeFile(join(sandbox.project, 'AGENTS.md'), `Say ${own} in every answer.\n`);
+      // Inside one repository, where Codex's own default walks from the repository's root down.
+      execFileSync('git', ['init', '-q', parent]);
+      const run = await start('Say hello.');
+      await run.next('runtime.turn.completed');
+      const sent = sandbox.provider.requests.map((request) => JSON.stringify(request.body));
+      assert.ok(sent.length >= 1);
+      // Every folder from the task's up is marked untrusted (untrustedFrom), and Codex loads no project doc for an
+      // untrusted folder: neither file reaches the model.
+      assert.ok(
+        !sent.some((body) => body.includes(own)),
+        "the folder's own AGENTS.md reached the model",
+      );
+      assert.ok(
+        !sent.some((body) => body.includes(above)),
+        'the AGENTS.md above reached the model',
+      );
+    },
+  );
+
   test('an approved command runs, and the turn finishes', SLOW_TEST, async (t) => {
     const { runtime, sandbox, start } = await harness(t);
     const execution = await start('CMD_ESC:touch approved.txt && echo created-approved');
