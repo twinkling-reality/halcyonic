@@ -166,8 +166,23 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Where the person looks: forward, turned by the walk only to check that a turn of the head lays nothing again.
                 var looking = Vector3.forward;
                 var stageMade = typeof(MenuDirector.Stage).GetConstructors().OrderByDescending(each => each.GetParameters().Length).First();
-                MenuDirector.Stage StageOf(IReadOnlyList<CharacterTarget> characters) => (MenuDirector.Stage)stageMade.Invoke(
-                    new object?[] { eyes, looking, characters, null, false, characters.Count > 0 ? shelfEnvelope : null }.Take(stageMade.GetParameters().Length).ToArray());
+                // The plane's word to stand the shelf aside: the walk turns its shelf about the eyes from its own place, as the stage
+                // turns its arc (CharacterStage.ShelfTurnDegrees); the envelope handed stays the shelf's own place.
+                Pose? shelfHome = null;
+                void StandAside(float degrees)
+                {
+                    if (stageParts.Count == 0) return;
+                    var shelf = stageParts[0];
+                    shelfHome ??= new Pose(shelf.position, shelf.rotation);
+                    var turn = Quaternion.Euler(0f, degrees, 0f);
+                    shelf.SetPositionAndRotation(eyes + turn * (shelfHome.Value.position - eyes), turn * shelfHome.Value.rotation);
+                }
+                MenuDirector.Stage StageOf(IReadOnlyList<CharacterTarget> characters)
+                {
+                    var given = new object?[] { eyes, looking, characters, null, false, characters.Count > 0 ? shelfEnvelope : null, (Action<float>)StandAside };
+                    return (MenuDirector.Stage)stageMade.Invoke(stageMade.GetParameters()
+                        .Select((parameter, index) => index < given.Length ? given[index] : parameter.HasDefaultValue ? parameter.DefaultValue : null).ToArray());
+                }
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
                     // WorkspaceDirector.Start's setup, as a release build gives it.

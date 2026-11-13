@@ -119,9 +119,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (stage.Visible)
                     {
                         shelf = new Vector3[8];
-                        CharacterStage.WriteShelfCorners(new Pose(stage.Shelf.position, stage.Shelf.rotation), stage.ShelfWidth, eyes, shelf);
+                        // The shelf's own place where the stage keeps one (CharacterStage.OwnShelf: never where it stands aside), as
+                        // WorkspaceDirector writes it; else where it stands.
+                        var own = typeof(CharacterStage).GetProperty("OwnShelf")?.GetValue(stage) is Pose kept ? kept : new Pose(stage.Shelf.position, stage.Shelf.rotation);
+                        CharacterStage.WriteShelfCorners(own, stage.ShelfWidth, eyes, shelf);
                     }
-                    return (MenuDirector.Stage)stageMade.Invoke(new object?[] { eyes, Vector3.forward, standing, null, false, shelf }.Take(stageMade.GetParameters().Length).ToArray());
+                    // And the plane's word to stand the shelf aside, as WorkspaceDirector hands it (CharacterStage.ShelfTurnDegrees).
+                    var turn = typeof(CharacterStage).GetProperty("ShelfTurnDegrees");
+                    Action<float> standAside = degrees => turn?.SetValue(stage, degrees);
+                    var given = new object?[] { eyes, Vector3.forward, standing, null, false, shelf, standAside };
+                    return (MenuDirector.Stage)stageMade.Invoke(stageMade.GetParameters()
+                        .Select((parameter, index) => index < given.Length ? given[index] : parameter.HasDefaultValue ? parameter.DefaultValue : null).ToArray());
                 }
                 var setup = new MenuDirector.Setup
                 {
