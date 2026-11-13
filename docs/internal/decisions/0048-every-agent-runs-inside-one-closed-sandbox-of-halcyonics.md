@@ -163,3 +163,12 @@ confined preview. A git directory a `.git` file names outside the folder was rea
   (its own home). Package managers' configuration files (`.npmrc`, `.yarnrc.yml`, `.pnpmfile.cjs`, `bunfig.toml`) are
   not on it: the lead's call, open. `profile.test.ts` makes or writes every entry, at the top and two folders down, in
   its own case and in upper case, under `sandbox-exec` (each refused; the test failed first on the top-only rule).
+- **What it does not close (AUDIT3, 2026-11-13T17:53Z):** a bare repository needs no `.git` name. A confined run can
+  make a folder anywhere in the project holding `HEAD`, `config`, `objects` and `refs` (AUDIT3's probe made one), and
+  git treats such a folder as a repository when a person runs git inside it (`safe.bareRepository` is `all` by
+  default) and reads its `config`. It is narrow: editors' repository scans look for `.git` and do not find it; and of
+  the git commands a person runs inside that folder, `status`, `log`, `rev-parse` and `branch` ran none of the
+  programs its settings named, while a network command (`fetch`, and so `pull` and `push`) ran its `core.sshCommand`
+  (AUDIT3's probe, git 2.43.0 on this Mac, 2026-11-13). Closing it would mean refusing files named `HEAD` or `config`
+  at any depth, which breaks ordinary app files of those names and still leaves other layouts; decided not to
+  (AUDIT3, 2026-11-13T17:59Z), to be reopened if any product path ever runs git inside a sub-folder of a project.
