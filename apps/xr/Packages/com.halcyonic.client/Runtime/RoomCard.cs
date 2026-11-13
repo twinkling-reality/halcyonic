@@ -277,10 +277,11 @@ namespace Halcyonic.Client
         /// that presses is ever cut; Halcyonic's own words never are.
         /// </param>
         public RoomListRow(RoomKind kind, LineWords name, string? note = null, RoomTone tone = RoomTone.Quiet, bool mono = false, KitControl? press = null,
-            bool chosen = false, LineWords? under = null, bool excerpt = false, string? label = null, AnswerMark mark = AnswerMark.None)
+            bool chosen = false, LineWords? under = null, bool excerpt = false, string? label = null, AnswerMark mark = AnswerMark.None, int? swatch = null)
         {
             Kind = kind;
             Mark = mark;
+            Swatch = swatch is int rgb ? rgb & 0xFFFFFF : (int?)null;
             Label = string.IsNullOrWhiteSpace(label) ? null : label!.Trim();
             Name = name;
             Note = note;
@@ -326,6 +327,12 @@ namespace Halcyonic.Client
         /// None for a row that only opens or states.
         /// </summary>
         public AnswerMark Mark { get; }
+
+        /// <summary>
+        /// The colour the row names, 0xRRGGBB, shown as a filled disc before its name (SCREENS's and the critic's 2026-11-13T2203Z: a
+        /// colour row shows its colour): decoration only, the name stays the words. Null for a row that names no colour.
+        /// </summary>
+        public int? Swatch { get; }
     }
 
     /// <summary>One gauge of a card: its window's kind, how much is left, the window's word, and when it resets.</summary>

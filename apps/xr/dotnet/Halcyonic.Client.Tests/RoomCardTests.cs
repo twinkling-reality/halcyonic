@@ -202,4 +202,14 @@ public sealed class RoomCardTests
         Assert.That((several.Mark, several.Kind, several.Chosen), Is.EqualTo((AnswerMark.Multiple, RoomKind.Task, false)), "the mark stands whatever the kind");
         Assert.That(new RoomListRow(RoomKind.Task, LineWords.Ours("Open")).Mark, Is.EqualTo(AnswerMark.None), "a row that only opens or states has none");
     }
+
+    [Test]
+    public void A_colour_row_carries_the_colour_it_names_as_its_swatch_and_any_other_row_carries_none()
+    {
+        // SCREENS's 22:03Z and the critic: a colour row shows its colour, decoration only; the name stays the words.
+        var sea = new RoomListRow(RoomKind.None, LineWords.Ours("Sea Glass"), mark: AnswerMark.Single, swatch: 0x5FB3A5);
+        Assert.That((sea.Swatch, sea.Name.Text), Is.EqualTo(((int?)0x5FB3A5, "Sea Glass")));
+        Assert.That(new RoomListRow(RoomKind.None, LineWords.Ours("Ember"), swatch: unchecked((int)0xFFE0703A)).Swatch, Is.EqualTo((int?)0xE0703A), "only the colour is kept, never an alpha");
+        Assert.That(new RoomListRow(RoomKind.Task, LineWords.Ours("Open")).Swatch, Is.Null);
+    }
 }

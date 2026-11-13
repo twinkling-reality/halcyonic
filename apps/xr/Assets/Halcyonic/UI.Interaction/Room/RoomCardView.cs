@@ -109,6 +109,9 @@ namespace Halcyonic.XR.UI
         public const float RowTileDp = 38f;
         public const float RowTileCornerDp = 10f;
         public const float RowGlyphDp = 22f;
+
+        /// <summary>A colour row's swatch, a filled disc before its name: a mark's size, so it reads as the colour, never as a control.</summary>
+        public const float SwatchDp = 22f;
         public const float RowGapDp = 14f;
         public const float RowNameDp = 20f;
         public const float RowNameLineDp = 26f;
@@ -1088,6 +1091,8 @@ namespace Halcyonic.XR.UI
             // (SCREENS's critic, 2026-11-13: the empty room read as an icon that failed to draw). Where any row has a mark, all keep it.
             var marked = false;
             for (var index = 0; index < rows.Count && index < RoomCard.ListAPage; index++) marked |= rows[index].Kind != RoomKind.None || rows[index].Mark != AnswerMark.None;
+            // Where any row shows a colour, every name stands after the swatch's room, so the names line up.
+            var swatchRoom = rows.Take(RoomCard.ListAPage).Any(each => each.Swatch != null) ? S(SwatchDp + RowGapDp) : 0f;
             for (var index = 0; index < rows.Count && index < RoomCard.ListAPage; index++)
             {
                 var row = rows[index];
@@ -1119,7 +1124,8 @@ namespace Halcyonic.XR.UI
                 // An answer is pressed to choose it, in place: no chevron, as nothing opens.
                 var picked = row.Press != null;
                 var chevronRoom = picked && !answer ? S(ChevronDp + ChevronGapDp) : 0f;
-                var nameLeft = marked ? S(RowTileDp + RowGapDp) : 0f;
+                var markRoom = marked ? S(RowTileDp + RowGapDp) : 0f;
+                var nameLeft = markRoom + swatchRoom;
                 // Where the card is laid narrower than the panel's own words (the plane's narrower widths, the lead's 2026-11-13T1807Z
                 // ruling), the note stands on a line of its own under the name, the row's whole width, so neither is ever cut: at fifteen
                 // degrees a one-word name beside its note ("Appeara…") and a note held to half the width ("Up to 60…") were (F100).
@@ -1190,6 +1196,10 @@ namespace Halcyonic.XR.UI
                     if (!answer) Glyph(RoomGlyph.Chevron, ChevronDp, White(0.55f), new Vector2(width - S(ChevronDp) / 2f, -middle), "row chevron");
                     RowTarget(row.Press!, new Vector2(width / 2f, -middle), new Vector2(width, rowTall + 2f * S(RowPadDp)));
                 }
+                // The colour the row names, a filled disc between its mark and its name, its edge a light hairline so a dark colour
+                // still shows over the dark glass.
+                if (row.Swatch is int colour)
+                    Plate(new Vector2(S(SwatchDp), S(SwatchDp)), S(SwatchDp) / 2f, Rgb(colour), new Vector2(markRoom + S(SwatchDp) / 2f, -middle), "row swatch", White(0.35f), S(1f));
                 if (answer)
                 {
                     // The answer's own mark in the tile's place, as the column draws one: a disc for one answer, a squircle for several;

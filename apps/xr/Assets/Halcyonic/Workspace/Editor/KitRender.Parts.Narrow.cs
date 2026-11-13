@@ -195,8 +195,9 @@ namespace Halcyonic.XR.Workspace.Editor
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
             KitControl Choose(string key) => new KitControl(KitPlace.Step, new MenuFrame("Character Colour", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close))),
                 "answer-rows-choose", key, key, null, true, null, false);
+            var swatches = new[] { 0x8A93A6, 0x5FB3A5, 0xE0703A };
             var colours = new[] { "Original Colour", "Sea Glass", "Ember" }
-                .Select((each, at) => new RoomListRow(RoomKind.None, LineWords.Ours(each), press: Choose(each), chosen: at == 1, mark: AnswerMark.Single)).ToList();
+                .Select((each, at) => new RoomListRow(RoomKind.None, LineWords.Ours(each), press: Choose(each), chosen: at == 1, mark: AnswerMark.Single, swatch: swatches[at])).ToList();
             var several = new[] { "Run Tests", "Check Types" }
                 .Select((each, at) => new RoomListRow(RoomKind.Task, LineWords.Ours(each), press: Choose(each), chosen: at == 0, mark: AnswerMark.Multiple)).ToList();
             var cards = new[] { new RoomCard(LineWords.Ours("Character Colour"), list: colours), new RoomCard(LineWords.Ours("Before Finishing"), list: several) };
@@ -222,6 +223,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         && view.Glyphs.Count(each => each.What == "answer chosen") == rows.Count(row => row.Chosen),
                         "the chosen answers are not filled with their check" + where);
                     Require(!view.Glyphs.Any(each => each.What == "row chevron"), "an answer carries a chevron" + where);
+                    Require(view.Plates.Count(each => each.What == "row swatch") == rows.Count(row => row.Swatch != null), "a colour row does not show its colour" + where);
                     Require(!view.Plates.Any(each => each.What.StartsWith("row tile", StringComparison.Ordinal)), "an answer draws its kind's tile under its mark" + where);
                     foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
                     {
