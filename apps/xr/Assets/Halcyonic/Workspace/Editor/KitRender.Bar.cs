@@ -829,7 +829,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (state == "34-question-alike")
                         {
                             Require(prompt.StartsWith("Dark", StringComparison.Ordinal) && prompt.Contains(" / "), "the band does not hold the answers that read alike: \"" + prompt + "\"");
-                            Require(bar.Body.text == LabelText.ForTextMeshPro("Same Name · Not Selectable") && shown.Sentence == FileScreens.AlikeCaption, "the panel holds \"" + bar.Body.text + "\" under \"" + shown.Sentence + "\"");
+                            Require(bar.Body.text == LabelText.ForTextMeshPro("Same Name · Not Selectable").Replace(" · ", "\n") && shown.Sentence == FileScreens.AlikeCaption, "the panel holds \"" + bar.Body.text + "\" under \"" + shown.Sentence + "\"");
                         }
                         if (state == "34-question-writing")
                         {
@@ -889,7 +889,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (shown.Sentence != null)
                     {
                         Whole(bar.Sentence, "the sentence");
-                        Require(bar.Sentence.text == LabelText.ForTextMeshPro(shown.Sentence), "the sentence reads \"" + bar.Sentence.text + "\", not \"" + shown.Sentence + "\"");
+                        Require(bar.Sentence.text == LabelText.ForTextMeshPro(shown.Sentence).Replace(" · ", "\n"), "the sentence reads \"" + bar.Sentence.text + "\", not \"" + shown.Sentence + "\"");
                     }
                     Require(bar.CaretShown == shown.Caret, "the caret does not follow the field");
                     // The column: its actions left-aligned, the main one first, the last one's foot on the panel's foot.
@@ -932,7 +932,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var wordsMiddle = bar.Alone.transform.localPosition + bar.Alone.textBounds.center;
                     Require(bar.AlonePlate.gameObject.activeSelf && Mathf.Abs(wordsMiddle.x) < RoomType.Units(1f) && Mathf.Abs(wordsMiddle.y) < RoomType.Units(3f),
                         "the words alone stand " + (wordsMiddle.x / RoomType.Units(1f)).ToString("0.0") + " dp across and " + (wordsMiddle.y / RoomType.Units(1f)).ToString("0.0") + " dp up from their plate's middle");
-                    Require(bar.Alone.text == LabelText.ForTextMeshPro(shown.Words.Text), "the words read \"" + bar.Alone.text + "\", not \"" + shown.Words.Text + "\"");
+                    Require(bar.Alone.text == LabelText.ForTextMeshPro(shown.Words.Text).Replace(" · ", "\n"), "the words read \"" + bar.Alone.text + "\", not \"" + shown.Words.Text + "\"");
                 }
                 foreach (var button in actions)
                 {

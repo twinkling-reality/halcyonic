@@ -606,19 +606,26 @@ namespace Halcyonic.XR.UI
             levelRoot.gameObject.SetActive(false);
             RoomType.Size(alone);
             GlazeText.SetLiteral(alone, bar.Words.Text);
+            // No joining dot on the plate either: each part its own line, the plate as tall as its lines.
+            var lines = 1;
+            if (alone.text.Contains(" · "))
+            {
+                alone.text = alone.text.Replace(" · ", "\n");
+                lines = alone.text.Split('\n').Length;
+            }
             var width = alone.GetPreferredValues(alone.text).x + RoomType.Units(1f);
-            KitType.Lay(alone, width, 1);
+            KitType.Lay(alone, width, lines);
             // The label is laid about its own middle, which is this view's.
             alone.transform.localPosition = new Vector3(0f, 0f, -RoomType.Units(0.5f));
             aloneSweep.Waits = bar.State == RoomBarState.Sent;
             alone.gameObject.SetActive(true);
             // Words that stand alone stand on a plate of the panel's material, one line, as a name tag does: with nothing
             // under them they are lost over a bright wall or a lit screen behind the room.
-            var plate = new Vector2(width + 2f * RoomType.Units(AlonePadXDp), RoomType.Units(RoomGeometry.LineDp) + 2f * RoomType.Units(AlonePadYDp));
+            var plate = new Vector2(width + 2f * RoomType.Units(AlonePadXDp), lines * RoomType.Units(RoomGeometry.LineDp) + 2f * RoomType.Units(AlonePadYDp));
             alonePlate.transform.localPosition = Vector3.zero;
             alonePlate.Draw(plate);
             alonePlate.gameObject.SetActive(true);
-            Size = new Vector2(plate.x, RoomType.Units(RoomButton.HeightDp));
+            Size = new Vector2(plate.x, Mathf.Max(RoomType.Units(RoomButton.HeightDp), plate.y));
         }
 
         /// <summary>The width the panel's words wrap in: its 440 dp less its padding at each side, which grows with the text.</summary>
@@ -662,6 +669,9 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private static (int Lines, float Width, float Height) BreakAtSeparators(TextMeshPro label, float width, int maxLines)
         {
+            // The bar never draws the joining dot (the owner, 2026-11-11; the lead, 2026-11-13; JUDGE's live walk on New Project's run
+            // settings): each part its own line, as on a button, wrapped or not.
+            if (label.text.Contains(" · ")) label.text = label.text.Replace(" · ", "\n");
             var laid = KitType.Lay(label, width, maxLines);
             for (var pass = 0; pass < 8; pass++)
             {
