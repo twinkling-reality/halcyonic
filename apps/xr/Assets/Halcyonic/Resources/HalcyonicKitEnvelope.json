@@ -1,0 +1,76 @@
+{
+    "entries": [
+        {
+            "scale": 1.0,
+            "panelDp": 440.0,
+            "widthDp": 728.0,
+            "heightDp": 793.0
+        },
+        {
+            "scale": 1.0,
+            "panelDp": 400.0,
+            "widthDp": 661.0,
+            "heightDp": 793.0
+        },
+        {
+            "scale": 1.0,
+            "panelDp": 360.0,
+            "widthDp": 621.0,
+            "heightDp": 793.0
+        },
+        {
+            "scale": 1.0,
+            "panelDp": 320.0,
+            "widthDp": 581.0,
+            "heightDp": 813.0
+        },
+        {
+            "scale": 1.0,
+            "panelDp": 280.0,
+            "widthDp": 541.0,
+            "heightDp": 832.0
+        },
+        {
+            "scale": 1.0,
+            "panelDp": 240.0,
+            "widthDp": 501.0,
+            "heightDp": 872.0
+        },
+        {
+            "scale": 1.149999976158142,
+            "panelDp": 440.0,
+            "widthDp": 766.0,
+            "heightDp": 911.0
+        },
+        {
+            "scale": 1.149999976158142,
+            "panelDp": 400.0,
+            "widthDp": 699.0,
+            "heightDp": 934.0
+        },
+        {
+            "scale": 1.149999976158142,
+            "panelDp": 360.0,
+            "widthDp": 659.0,
+            "heightDp": 934.0
+        },
+        {
+            "scale": 1.149999976158142,
+            "panelDp": 320.0,
+            "widthDp": 619.0,
+            "heightDp": 957.0
+        },
+        {
+            "scale": 1.149999976158142,
+            "panelDp": 280.0,
+            "widthDp": 579.0,
+            "heightDp": 980.0
+        },
+        {
+            "scale": 1.149999976158142,
+            "panelDp": 240.0,
+            "widthDp": 539.0,
+            "heightDp": 1003.0
+        }
+    ]
+}
