@@ -521,7 +521,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     // Asked again right before the folder is handed over: listing and launching wait.
     confirmProjectLocation(this.#directoryPolicy, cwd);
     const params: ThreadStartParams = {
-      ...threadSettings(local, this.#answerQuestions, this.#gatedVariables()),
+      ...threadSettings(local, this.#answerQuestions, gatedVariables(connection)),
       threadSource: THREAD_SOURCE,
     };
     const reported = checkSettings(
@@ -636,7 +636,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     try {
       const params: ThreadResumeParams = {
         threadId: request.native_id,
-        ...threadSettings(local, this.#answerQuestions, this.#gatedVariables()),
+        ...threadSettings(local, this.#answerQuestions, gatedVariables(connection)),
         excludeTurns: true,
       };
       const reported = checkSettings(
@@ -1086,11 +1086,6 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     return { ...options, modelProvider: provider };
   }
 
-  /** Every declared provider's gate variable, set empty for each thread's commands wherever the server holds one. */
-  #gatedVariables(): string[] {
-    return this.#hostedProviders().map((provider) => gatedCredentialVariable(provider.id));
-  }
-
   // Server lifecycle ---------------------------------------------------------------------------
 
   /**
@@ -1526,7 +1521,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       }
       const params: ThreadResumeParams = {
         threadId: thread.threadId,
-        ...threadSettings(thread.options, this.#answerQuestions, this.#gatedVariables()),
+        ...threadSettings(thread.options, this.#answerQuestions, gatedVariables(connection)),
         excludeTurns: true,
       };
       const reported = checkSettings(
@@ -1865,6 +1860,13 @@ function threadSettings(
     ...(options.modelProvider !== undefined && { modelProvider: options.modelProvider }),
     ...(Object.keys(config).length > 0 && { config }),
   };
+}
+
+/** The variables of the gates this server holds, set empty for each thread's commands (AUDIT3's SHOULD). */
+function gatedVariables(connection: Connection): string[] {
+  return [...connection.gated.keys()].map((id) =>
+    gatedCredentialVariable(id.slice(GATED_PROVIDER_PREFIX.length)),
+  );
 }
 
 /**
