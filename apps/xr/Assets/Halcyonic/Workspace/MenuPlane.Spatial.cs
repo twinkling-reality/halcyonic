@@ -313,7 +313,7 @@ namespace Halcyonic.XR.Workspace
             // is the kit's to draw.
             var kitMenu = fileFrame == null && RoomDesign.Enabled;
             if (ShowKitWorkspace(kitMenu ? menuFrame : fileFrame, kitMenu ? MenuColumn.Menu : MenuColumn.File, panel, fileColumn, all, looking, surfaceHeight, moved, immediately)) return;
-            if (RoomDesign.Enabled) OlderViewDrawn(kitMenu ? menuFrame : fileFrame);
+            if (RoomDesign.Enabled && KitWorkspaceHost.Enabled) OlderViewDrawn(kitMenu ? menuFrame : fileFrame);
             Kit.Hide();
             var zoom = GlazeText.Scale;
             var kind = panel != null ? MenuColumn.Side : fileFrame != null ? MenuColumn.File : MenuColumn.Menu;

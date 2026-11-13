@@ -30,10 +30,11 @@ namespace Halcyonic.XR.Workspace
         private bool ShelfYieldsChooserAtLarger => !RoomDesign.Enabled && TextSize == TextSize.Larger
             && (setup.StageNow().Characters.Any(character => character != null)
                 || navigator.Beside is FileColumn file && (file.HasShowTaskHere || !setup.Presentation.AgentsVisible && CurrentColourSource(out _)));
-        // THE ONE RULE (the lead, 2026-11-13): under the redesign every frame a person is shown goes to the kit, whatever stands
-        // beside the menu, wherever the menu is, a local overlay included, at every text size; the room bar always has a reader
-        // for it (a specific one, else the general one, RoomBar.Frames), so no whole screen falls to the older view.
-        private bool SeparateWorkspace => setup.SpatialWorkspace && (RoomDesign.Enabled || OlderSeparateWorkspace);
+        // THE ONE RULE (the lead, 2026-11-13): under the redesign, where the kit draws (every player build; only the Editor's walks of
+        // the older views stand it aside), every frame a person is shown goes to the kit, whatever stands beside the menu, wherever
+        // the menu is, a local overlay included, at every text size; the room bar always has a reader for it (a specific one, else
+        // the general one, RoomBar.Frames), so no whole screen falls to the older view.
+        private bool SeparateWorkspace => setup.SpatialWorkspace && (RoomDesign.Enabled && KitWorkspaceHost.Enabled || OlderSeparateWorkspace);
 
         // The older view's own list: which columns stand in a workspace of their own beside the menu, and when a local overlay or
         // the shelf at Larger takes the single column instead.

@@ -671,7 +671,7 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             Context.Hide(); activityContext.Hide(); Kit.Hide();
-            if (RoomDesign.Enabled) OlderViewDrawn(fileFrame ?? menuFrame);
+            if (RoomDesign.Enabled && KitWorkspaceHost.Enabled) OlderViewDrawn(fileFrame ?? menuFrame);
             foreach (var frameView in frameViews) { frameView.IndependentSurface = false; frameView.PassiveActivity = false; frameView.HeadingOverride = null; }
             var zoom = GlazeText.Scale;
             var kind = panel != null ? MenuColumn.Side : fileFrame != null ? MenuColumn.File : MenuColumn.Menu;

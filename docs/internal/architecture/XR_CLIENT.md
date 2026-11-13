@@ -3182,7 +3182,7 @@ in order, as before.
   the readers, and a local overlay (`MenuDirector.OpenLocal`: shelf placement, character colour, the workspace's
   notices) is bound by its own frame (`placementFrame`) while what it places stands in the room as before. The kit
   takes a frame with a side panel, and the menu's own frame with one, under the redesign
-  (`MenuPlane.ShowKitWorkspace`). Wherever the older view still draws a whole screen under the redesign, the plane
+  (`MenuPlane.ShowKitWorkspace`). Where the Editor stands the kit aside to walk the older views (`KitWorkspaceHost.Enabled` false, never in a player), the older list holds. Wherever the older view still draws a whole screen under the redesign, the plane
   logs one line by the frame's kind alone (`MenuPlane.OlderViewDrawn`), which the walks fail on. A frame is reported
   drawn, and so read, only while its bar lays it whole (`RoomBar.Whole`, `KitWorkspaceHost.ReportDrawn`).
 - **Frames the binding does not bind.** Where the task's binding has no place for the frame of the column beside the
