@@ -174,7 +174,6 @@ namespace Halcyonic.XR.Workspace.Editor
                     ResponsiveWorkspace = true,
                     Presentation = presentation,
                     InitialPlacementReady = () => true,
-                    ConnectionTarget = () => null,
                     State = State,
                     Connected = () => Session()?.Status.IsLive == true,
                     Session = Session,
