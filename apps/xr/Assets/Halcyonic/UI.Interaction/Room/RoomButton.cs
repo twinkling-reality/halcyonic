@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Linq;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -295,7 +296,9 @@ namespace Halcyonic.XR.UI
         public float Measure(string text)
         {
             RoomType.Size(words);
-            return RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp) + words.GetPreferredValues(LabelText.ForTextMeshPro(text)).x;
+            // As drawn: each part of words joined on the dot its own line, so the widest part decides (see the other Measure).
+            var parts = LabelText.ForTextMeshPro(text).Split(new[] { " · " }, StringSplitOptions.None);
+            return RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp) + parts.Max(part => words.GetPreferredValues(part).x);
         }
 
         /// <summary>
@@ -306,36 +309,22 @@ namespace Halcyonic.XR.UI
         {
             RoomType.Size(words);
             GlazeText.SetLiteral(words, text);
+            // A button never draws the joining dot (the owner, 2026-11-11; the lead, 2026-11-13): each part its own line, an
+            // answer's label over its description, wrapped or not.
+            var parts = words.text.Split(new[] { " · " }, StringSplitOptions.None);
+            if (parts.Length > 1) words.text = string.Join("\n", parts);
             var inner = RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp);
+            words.textWrappingMode = TextWrappingModes.NoWrap;
             var wordsWidth = words.GetPreferredValues(words.text).x;
-            var lines = 1;
+            var lines = parts.Length;
             if (wrap > 0f && inner + wordsWidth > wrap)
             {
                 words.textWrappingMode = TextWrappingModes.Normal;
-                // Words that wrap and hold a separator break at the first one, the dot dropped (WORDS rule 2), whether or not a line happened to end there.
-                var first = words.text.IndexOf(" · ", StringComparison.Ordinal);
-                if (first > 0) words.text = words.text.Substring(0, first) + "\n" + words.text.Substring(first + 3);
-                var laid = KitType.Lay(words, wrap - inner, WordLines);
-                // A line breaks only between segments and drops the dot there (WORDS rule 2): where a line would end in the
-                // separator, the break stands in its place.
-                for (var pass = 0; pass < WordLines; pass++)
-                {
-                    var info = words.textInfo;
-                    var at = -1;
-                    for (var index = 0; index < info.lineCount - 1 && at < 0; index++)
-                    {
-                        var last = info.characterInfo[info.lineInfo[index].lastVisibleCharacterIndex];
-                        if (last.character == '·') at = last.index;
-                    }
-                    var shown = words.text;
-                    if (at < 1 || at + 1 >= shown.Length || shown[at - 1] != ' ' || shown[at + 1] != ' ') break;
-                    words.text = shown.Substring(0, at - 1) + "\n" + shown.Substring(at + 2);
-                    laid = KitType.Lay(words, wrap - inner, WordLines);
-                }
+                var laid = KitType.Lay(words, wrap - inner, Mathf.Max(WordLines, parts.Length));
                 lines = Mathf.Max(1, laid.Lines);
                 wordsWidth = wrap - inner;
             }
-            else words.textWrappingMode = TextWrappingModes.NoWrap;
+            else if (lines > 1) KitType.Lay(words, wordsWidth + 1e-4f, lines);
             return new Vector2(inner + wordsWidth, RoomType.Units(CoreHeightDp) + (lines - 1) * RoomType.Scaled(RoomGeometry.LineDp));
         }
 

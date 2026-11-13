@@ -850,7 +850,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require((bar.BandNextButton != null) == parted, parted ? "no way to the band's next part" : "a way to a next part the band does not have");
                         Require((drawnFrames == 0) == parted, parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");
                         if (stops) Require(shown.Column.Any(action => action.Place == KitPlace.Stop), "no Stop on a question that cannot be answered");
-                        if (parted) Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Main && band.Words!.Next == bar.BandNextButton.Words.text.Replace("\\\\", "\\"), "the next part is not the way on, in the band's words");
+                        if (parted) Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Main && band.Words!.Next.Replace(" · ", "\n") == bar.BandNextButton.Words.text.Replace("\\\\", "\\"), "the next part is not the way on, in the band's words");
                     }
                     if (armedWords != null)
                     {
