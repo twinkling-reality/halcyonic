@@ -278,6 +278,13 @@ stored key turns Claude Agent on at the next start
 `providers/<id>/provider.json` that something here reads gets the same field
 ([ADR 0061](../decisions/0061-a-hosted-provider-is-one-declaration-file-the-host-reads.md)).
 
+A plane that is not your own, such as a test's or a scratch plane with a fake key, sets
+`HALCYONIC_ASSISTANT_UPSTREAM` to an address on this Mac: a stand-in that speaks the provider's shape, or the
+closed port `http://127.0.0.1:9`. Every provider is then reached there instead of at its own address, by the
+assistant, the model list's key check and the key gate alike, so no fake key reaches a real provider. An address
+that is not on this Mac stops the start. The test suites set it for every plane they start. Only a plane holding a
+real key, such as your own or the proving plane, goes without it.
+
 `ANTHROPIC_API_KEY` in the environment, or a cloud provider's variables, work too and take
 precedence over the file; with those, turn the runtime on yourself:
 

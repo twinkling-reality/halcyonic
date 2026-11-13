@@ -178,3 +178,55 @@ test("a provider's key is asked of the provider itself, spending nothing, and th
   assert.equal(asked.length, 4, 'an unknown answer is kept for none');
   assert.equal(await checks.state('nobody'), 'unknown');
 });
+
+test('with a stand-in on this Mac, every reader of the list reaches it and no real provider: the key check, the gate and the assistant (rule 29)', async (t) => {
+  const { createServer } = await import('node:http');
+  const { KeyChecks } = await import('./providers.ts');
+  const { gatedProviders } = await import('./runtimes.ts');
+  const { PROTOCOLS } = await import('./workspace-agent/providers/index.ts');
+  const seen: string[] = [];
+  const standIn = createServer((req, res) => {
+    seen.push(
+      `${req.method} ${req.url} ${req.headers.authorization ?? req.headers['x-api-key'] ?? ''}`,
+    );
+    res
+      .writeHead(401, { 'content-type': 'application/json' })
+      .end('{"error":{"type":"authentication_error"}}');
+  });
+  await new Promise<void>((resolve) => standIn.listen(0, '127.0.0.1', () => resolve()));
+  t.after(() => standIn.close());
+  const address = `http://127.0.0.1:${(standIn.address() as { port: number }).port}`;
+  const data = folder(t);
+  chmodSync(data, 0o700);
+  const real = new HostProviders({ dataDir: data });
+  // A FAKE key for every provider the repository declares, as a lane's scratch plane might store.
+  for (const provider of real.list())
+    writeFileSync(join(data, provider.key.file), `fake-${provider.id}`, { mode: 0o600 });
+  const providers = new HostProviders({ dataDir: data, standIn: address });
+  assert.ok(providers.list().length >= 2, "the repository's own declarations");
+  for (const provider of providers.list()) assert.equal(provider.upstream, address);
+  const checks = new KeyChecks({ providers, protocols: PROTOCOLS });
+  for (const provider of providers.list())
+    assert.equal(
+      await checks.state(provider.id),
+      'refused',
+      `${provider.id} asked of the stand-in`,
+    );
+  assert.equal(
+    seen.length,
+    providers.list().length,
+    'each check reached the stand-in, so none left this Mac',
+  );
+  const gate = gatedProviders(providers, {
+    name: 'A gated agent app (test)',
+    providers: 'all',
+    needs: ['chat_completions'],
+    reads: 'at_start',
+    turnsOn: false,
+  });
+  assert.ok(gate.length > 0 && gate.every((provider) => provider.upstream === address));
+  assert.throws(
+    () => new HostProviders({ dataDir: data, standIn: 'https://example.com/v1' }),
+    /must be an address on this Mac/,
+  );
+});

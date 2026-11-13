@@ -116,6 +116,8 @@ async function main(): Promise<void> {
   const providers = new HostProviders({
     dataDir: config.dataDir,
     readers: [...AGENT_KEY_READERS, ASSISTANT_READER, OPENCODE_KEY_READER, CODEX_KEY_READER],
+    // A stand-in on this Mac for every provider, for proofs and suites (rule 29): set, no request reaches a real one.
+    standIn: process.env.HALCYONIC_ASSISTANT_UPSTREAM || null,
   });
   // Each key a reader reads at its start, as kept now, by when it was written and never by its value: read before the
   // adapters start from them, so the setup page knows a key kept or removed since asks for a restart.
