@@ -894,18 +894,27 @@ namespace Halcyonic.XR.UI
             // stand taller than a line: each is laid by its own height. Last, where the
             // band holds more of the agent's words, the way to its next part, the main action where the file offers none.
             var target = RoomType.Units(RoomButton.HeightDp);
-            // An answer wraps inside the information panel's width wherever it stands (DESIGN 1.4): the column's actions are content-sized.
-            var wrap = panelWidth;
+            // The column never changes width with its words (the lead's 2026-11-13T22:04Z): its actions are content-sized, and an
+            // answer wraps at the column's own width, the column's 240 dp or its widest other action where that is wider, never at
+            // the panel's; so the plane's recorded footprint holds whatever a question's answers say. Where the answers take the
+            // panel's place (RoomBar.Wide) they are the panel, and wrap at its width.
             var count = Mathf.Min(bar.Column.Count, ColumnMost);
             var paging = bar.Band != null && BandNext != null;
             var places = count + (paging ? 1 : 0);
             var cores = new Vector2[places];
             var widest = 0f;
+            bool IsAnswer(int at) => at < count && bar.Column[at].Mark != AnswerMark.None;
             for (var index = 0; index < places; index++)
             {
-                cores[index] = index < count
-                    ? column[index].Measure(bar.Column[index].Words, bar.Column[index].Mark != AnswerMark.None ? wrap : 0f, bar.Column[index].Detail)
-                    : column[index].Measure(BandNext!, 0f, BandNextDetail);
+                if (IsAnswer(index)) continue;
+                cores[index] = index < count ? column[index].Measure(bar.Column[index].Words, 0f, bar.Column[index].Detail) : column[index].Measure(BandNext!, 0f, BandNextDetail);
+                widest = Mathf.Max(widest, cores[index].x);
+            }
+            var wrap = bar.Wide ? panelWidth : Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
+            for (var index = 0; index < count; index++)
+            {
+                if (!IsAnswer(index)) continue;
+                cores[index] = column[index].Measure(bar.Column[index].Words, wrap, bar.Column[index].Detail);
                 widest = Mathf.Max(widest, cores[index].x);
             }
             var rises = new float[places];

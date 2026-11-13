@@ -2926,7 +2926,11 @@ in order, as before.
   (`RoomBand`, owned by `KitWorkspaceHost`, hung `BandUnderDp` under the pair's foot line and centred), never in the
   panel. Each answer is a floating action with its mark in the chip's place (`RoomAction.Mark`, `RoomButton`: a 22 dp
   circle for one of several, a squircle box where any number may be chosen, the chosen one a light disc or box with a
-  dark check; the shader's `_Mark`), its words "{label} · {description}", wrapped inside the panel's width (440 dp) and,
+  dark check; the shader's `_Mark`), its words "{label} · {description}", wrapped at the column's own width (240 dp,
+  or the column's widest other action where that is wider), never the panel's: the column never changes width with its
+  words, so the plane's recorded footprint (`KitEnvelope`) holds whatever a question's answers say (the lead's
+  2026-11-13T22:04Z; a described answer wrapped at the panel's 440 dp had stood the bar 896 dp wide against a record of
+  766). Where the answers take the panel's place (`RoomBar.Wide`) they are the panel and wrap at its width. And,
   where a line would end in the separator, broken there, the dot dropped (WORDS rule 2). With one prompt and nothing from the computer to say
   there is no panel and the choices take its place, as wide as it (`RoomBar.Wide`); with several the panel holds the
   file's caption (Question 1 of 2 · Choose One) and the choices stand in the column. After the answers come the
