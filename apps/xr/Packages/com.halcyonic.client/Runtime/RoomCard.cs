@@ -331,10 +331,12 @@ namespace Halcyonic.Client
         public RoomCard(LineWords? title = null, LineWords? description = null, RoomCardHead head = RoomCardHead.None, RoomCardStatus? status = null,
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
             IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
-            IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false, KitControl? press = null)
+            IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false, KitControl? press = null,
+            bool statusAfter = false)
         {
             Press = press;
             TitleMono = titleMono;
+            StatusAfter = statusAfter && status != null;
             DescriptionPage = descriptionPage is int page && page >= 0 ? page : (int?)null;
             Code = code;
             Reading = reading ?? new RoomReadingRow[0];
@@ -370,6 +372,14 @@ namespace Halcyonic.Client
 
         /// <summary>The title is a file's name or path, set in the mono face as a list sets one (the critic, 2026-11-11).</summary>
         public bool TitleMono { get; }
+
+        /// <summary>
+        /// The status stands after the description, not under the name: where the status is a warning about what the description
+        /// says will happen (a review's Check First), the main fact reads first and the warning after it (AUDIT2's 2026-11-13T2237Z
+        /// and SCREENS's critic: the main fact had stood last, under the warning). False keeps the status under the name, a
+        /// thing's state, as every other card. Declared by the card's model, never guessed from its words.
+        /// </summary>
+        public bool StatusAfter { get; }
 
         /// <summary>
         /// Where the description is too long to stand whole (a first task of many lines, in the review before Start), the page

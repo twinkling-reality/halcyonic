@@ -342,7 +342,7 @@ namespace Halcyonic.XR.UI
             {
                 Gap(BlockGapDp);
                 down = LayHead(card, width, down);
-                if (card.Status is RoomCardStatus status)
+                if (card.Status is RoomCardStatus status && !card.StatusAfter)
                 {
                     Gap(BlockGapDp);
                     down = LayStatus(status, card, width, down);
@@ -375,6 +375,13 @@ namespace Halcyonic.XR.UI
                     var (_, tall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, 4);
                     down += tall;
                 }
+            }
+            // A status the card's model declares a warning about what the description says (RoomCard.StatusAfter): after it, so the
+            // main fact reads first (AUDIT2's 2026-11-13T2237Z).
+            if (named && card.StatusAfter && card.Status is RoomCardStatus after)
+            {
+                Gap(BlockGapDp);
+                down = LayStatus(after, card, width, down);
             }
             if (card.Gauges.Count > 0)
             {
