@@ -529,8 +529,11 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>Whether <paramref name="footer"/> offers <paramref name="action"/> now as a way out: a Close, a Cancel or a page turn.</summary>
-        private static bool Leaves(Footer footer, string action) =>
+        /// <summary>
+        /// Whether <paramref name="footer"/> offers <paramref name="action"/> now as a way out: a Close, a Cancel or a page turn, as the
+        /// prompt declares. The one test for the menu, the file, a side panel and a placement (MenuDirector), so the rule cannot drift.
+        /// </summary>
+        public static bool Leaves(Footer footer, string action) =>
             footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available
                 && (each.Prompt.Kind == PromptKind.Close || each.Prompt.Kind == PromptKind.Cancel || each.Prompt.Kind == PromptKind.NextPage));
 

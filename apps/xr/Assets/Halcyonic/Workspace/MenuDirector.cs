@@ -930,8 +930,7 @@ namespace Halcyonic.XR.Workspace
             if (placement != null)
             {
                 // A way out of a placement (its Cancel, Close or page turn, as declared) never waits for the draw, as anywhere (pick A).
-                var wayOut = frame != null && frame.Footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available
-                    && (each.Prompt.Kind == PromptKind.Close || each.Prompt.Kind == PromptKind.Cancel || each.Prompt.Kind == PromptKind.NextPage));
+                var wayOut = frame != null && MenuNavigator.Leaves(frame.Footer, action);
                 if (frame != placementFrame || from != MenuColumn.File || frame == null || (frame != placementDrawn && !wayOut)
                     || !(frame.Footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available)
                         || frame.Lines.Any(line => line.Action == action && line.Key == key && line.Pressable))) return false;
