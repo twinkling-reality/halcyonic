@@ -332,6 +332,20 @@ namespace Halcyonic.XR.Workspace
             return AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
         }
 
+        /// <summary>
+        /// What the room keeps clear of while the plane stands (the lead's GO of 2026-11-13T19:34Z, AUDIT's condition 1): the largest
+        /// bar of EITHER form, as one box, since the plane may take either between events (placing a shelf lays it narrow,
+        /// IPlacesInRoom). The shelf search and its Apply ask the same box, so a place offered is a place kept. The width rule
+        /// replaces the two forms with the measured footprint at the plane's width.
+        /// </summary>
+        private AngularExtent KeepOutExtent()
+        {
+            var full = LargestExtent(PlaneForm.Full);
+            var narrow = LargestExtent(PlaneForm.Narrow);
+            return new AngularExtent(Mathf.Min(full.Left, narrow.Left), Mathf.Max(full.Right, narrow.Right),
+                Mathf.Min(full.Bottom, narrow.Bottom), Mathf.Max(full.Top, narrow.Top));
+        }
+
         /// <summary>Whether <paramref name="form"/>'s largest bar stands inside the field and clear of the shelf by the clearance kept between things.</summary>
         private bool FormClears(PlaneForm form, Vector3[]? shelf, Vector3 viewer)
         {

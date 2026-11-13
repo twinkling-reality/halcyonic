@@ -813,11 +813,11 @@ namespace Halcyonic.XR.Workspace
                 bottom = Mathf.Min(bottom, Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg);
             }
             var shown = new ConsoleExtent(left, right, bottom);
-            // Under the redesign the console a shelf must expect is the largest bar the kit can lay in the plane's form, from its foot line
-            // (the lead's 2026-11-13T17:11Z ruling), never the older view's widest column.
-            if (RoomDesign.Enabled && KitWorkspaceHost.Enabled && KitShows)
+            // Under the redesign the console a shelf must expect is the plane's keep-out (KeepOutExtent), from its foot line (the lead's
+            // 2026-11-13T17:11Z and 19:34Z rulings), whether the kit shows yet or not, never the older view's widest column.
+            if (RoomDesign.Enabled && KitWorkspaceHost.Enabled)
             {
-                var largest = LargestExtent(Form);
+                var largest = KeepOutExtent();
                 return new ConsoleExtent(Mathf.Min(shown.LeftYaw, Direction.Yaw + largest.Left), Mathf.Max(shown.RightYaw, Direction.Yaw + largest.Right),
                     Mathf.Min(shown.BottomElevation, largest.Bottom));
             }
@@ -858,10 +858,11 @@ namespace Halcyonic.XR.Workspace
                 var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
                 return apart >= WorkspacePlacement.ClearanceDegrees;
             }
-            // Under the redesign, also the largest bar the kit can lay in the plane's form: the shelf never stands where the plane may grow.
-            if (RoomDesign.Enabled && KitWorkspaceHost.Enabled && KitShows)
+            // Under the redesign, also the plane's keep-out, whether the kit shows yet or not: the shelf never stands where the plane may
+            // grow, so the place the search offers is the place Apply keeps (JUDGE's shelf walk, 2026-11-13: "the plane's footprint").
+            if (RoomDesign.Enabled && KitWorkspaceHost.Enabled)
             {
-                if (LargestExtent(Form).Apart(new AngularExtent(shelf.Left, shelf.Right, shelf.Bottom, shelf.Top)) < WorkspacePlacement.ClearanceDegrees) return false;
+                if (KeepOutExtent().Apart(new AngularExtent(shelf.Left, shelf.Right, shelf.Bottom, shelf.Top)) < WorkspacePlacement.ClearanceDegrees) return false;
                 // Where the plane returns after a local overlay is the held form's own largest bar, just kept clear of; the footprint
                 // retained from before the overlay (the full plane) no longer binds, or a shelf would never find room at Larger.
                 return Clear(VisibleCorners()) && Clear(RoomCorners());
