@@ -180,12 +180,21 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Use Model, the row pressed: the host's list (this computer's model chosen, a hosted one, one whose key was refused),
                 // the card while the computer is asked, and the one review a hosted pick waits on.
                 "47-card-usage-models" => UsageColumn.ModelsCard(CardModels(), new AssistantRow("glimmer-30b-q4", null, null), null, option => CardRowControl("model-" + option.Index)),
-                "47-card-usage-asking" => new RoomCard(LineWords.Ours(AssistantPlace.UseModelTitle), LineWords.Ours(UsageColumn.Asking)),
+                "47-card-usage-asking" => UsageColumn.AskingCard(UsageColumn.Asking, CardModels()[1]),
                 "47-card-usage-review" => ReviewCard.Card(UsageColumn.ReviewOf(new Halcyonic.Contracts.WorkspaceRequestStepProposal
                     {
                         CommandType = Halcyonic.Contracts.CommandType.AssistantModelChoose,
                         WhatHappens = "The assistant runs on this hosted model, paid with your key, and what each request reads goes to it",
                         Review = "0193b3a0-review-digest",
+                        // The host's own words on the step (LOOP's 8c6895ce7), as the control plane gives them for a hosted pick.
+                        ConfirmWords = "Use This Model",
+                        Facts = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewFact>
+                        {
+                            new Halcyonic.Contracts.ActionReviewFact { Kind = Halcyonic.Contracts.ReviewKind.Words, Value = "muse-wonder-1.0", Theirs = true },
+                            new Halcyonic.Contracts.ActionReviewFact { Kind = Halcyonic.Contracts.ReviewKind.Words, Value = "Meta", Theirs = true },
+                        },
+                        Warnings = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewWarning>
+                        { new Halcyonic.Contracts.ActionReviewWarning { Code = "paid", Line = "Each request is paid with your key" } },
                     }, CardModels()[1]), AssistantPlace.UseModelTitle),
                 "47-card-needs-you" => new RoomCard(Theirs("Tail"), Theirs("Should the tail stream left or right?"),
                     status: new RoomCardStatus("Needs You", "Waiting on your answer", RoomTone.Attention)),

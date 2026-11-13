@@ -41,6 +41,9 @@ namespace Halcyonic.Client
         /// <summary>The list's words while the computer is read, and while a press waits for the computer's review or its result.</summary>
         public const string ReadingModels = "Reading Models", Asking = "Asking the Computer", Choosing = "Choosing Model";
 
+        /// <summary>The note on the list's row the assistant runs on now, so the chosen row says why it is lit (FIELD's reader, 03:46Z).</summary>
+        public const string InUse = "In Use";
+
         /// <summary>Said where the computer did not take the press and gave no words of its own (unknown stays unknown).</summary>
         public const string NotTaken = "Not Taken";
 
@@ -361,7 +364,7 @@ namespace Halcyonic.Client
             if (stage != Stage.List || options.Count == 0)
             {
                 var words = stage == Stage.Sent ? Asking : stage == Stage.Confirmed ? Choosing : modelsFailed ? UsageLeftPresenter.Unreachable().Note : ReadingModels;
-                return new MenuFrame(UsageText.Subject, footer).WithCard(new RoomCard(title, LineWords.Ours(words)));
+                return new MenuFrame(UsageText.Subject, footer).WithCard(AskingCard(words, stage == Stage.List ? null : pressed));
             }
             return new MenuFrame(UsageText.Subject, footer).WithCard(ModelsCard(options, AssistantPlace.Row(agent), refused,
                 option => new KitControl(KitPlace.Choice, Placeholder, ChooseModel, option.Index.ToString(CultureInfo.InvariantCulture), option.Label, GlazeIcon.Next, true, null,
@@ -377,15 +380,32 @@ namespace Halcyonic.Client
         /// </summary>
         public static RoomCard ModelsCard(IReadOnlyList<AssistantOption> options, AssistantRow here, LineWords? refused, Func<AssistantOption, KitControl?> press)
         {
+            // A row the host offers nothing on reads as unusable by its mark and tone, never by the missing chevron alone; the row it
+            // runs on now says so in its note (FIELD's reader, 03:46Z).
             var rows = options.Take(RoomCard.ListAPage).Select(option => new RoomListRow(
-                option.Theirs ? RoomKind.Link : RoomKind.Computer,
-                option.Theirs ? LineWords.TheirName(option.Label) : LineWords.Written(LabelText.Plain(option.Label)),
+                !option.Choosable ? RoomKind.Failed : option.Theirs ? RoomKind.Link : RoomKind.Computer,
+                NameOf(option),
+                note: Runs(option, here) ? InUse : null,
+                tone: option.Choosable ? RoomTone.Quiet : RoomTone.Bad,
                 press: option.Choosable ? press(option) : null,
                 chosen: Runs(option, here),
                 under: option.Detail == null ? null : DetailOf(option))).ToList();
             return new RoomCard(LineWords.Written(LabelText.Plain(AssistantPlace.UseModelTitle)),
                 refused, list: rows);
         }
+
+        /// <summary>
+        /// The card while the computer is asked: its line, and under it the row pressed, its place's mark and its name (theirs
+        /// where hosted), so the line says for what (FIELD's reader, 03:46Z). With nothing pressed (the list being read), the line alone.
+        /// For the column and the kit's renders alike.
+        /// </summary>
+        public static RoomCard AskingCard(string words, AssistantOption? pressed) =>
+            new RoomCard(LineWords.Written(LabelText.Plain(AssistantPlace.UseModelTitle)), LineWords.Ours(words),
+                list: pressed == null ? null : new[] { new RoomListRow(pressed.Theirs ? RoomKind.Link : RoomKind.Computer, NameOf(pressed)) });
+
+        /// <summary>A place's name as the list shows it: a model's id theirs, this computer's model the host's words.</summary>
+        private static LineWords NameOf(AssistantOption option) =>
+            option.Theirs ? LineWords.TheirName(option.Label) : LineWords.Written(LabelText.Plain(option.Label));
 
         /// <summary>The row the assistant runs on now: this computer's where it runs here, else the hosted model of that name.</summary>
         private static bool Runs(AssistantOption option, AssistantRow here) =>
@@ -405,11 +425,14 @@ namespace Halcyonic.Client
         {
             CommandType = proposal.CommandType,
             Digest = proposal.Review!,
-            ConfirmWords = AssistantPlace.UseModelTitle,
+            // The host's own words where the step carries them (LOOP's 8c6895ce7): its button, its facts, its warnings, which stand
+            // the card's "Check First". An older step without them: the entry's title, and the row pressed as the press carried it.
+            ConfirmWords = string.IsNullOrWhiteSpace(proposal.ConfirmWords) ? AssistantPlace.UseModelTitle : proposal.ConfirmWords!,
             WhatHappens = proposal.WhatHappens,
             Said = proposal.Said,
-            Facts = pressed == null ? new List<ActionReviewFact>()
-                : new List<ActionReviewFact> { new ActionReviewFact { Kind = ReviewKind.Words, Value = pressed.Label, Theirs = pressed.Theirs } },
+            Facts = proposal.Facts ?? (pressed == null ? new List<ActionReviewFact>()
+                : new List<ActionReviewFact> { new ActionReviewFact { Kind = ReviewKind.Words, Value = pressed.Label, Theirs = pressed.Theirs } }),
+            Warnings = proposal.Warnings ?? new List<ActionReviewWarning>(),
         };
 
         /// <summary>Opens the host's list, read afresh each time it opens (never cached: the host decides what may be chosen).</summary>
