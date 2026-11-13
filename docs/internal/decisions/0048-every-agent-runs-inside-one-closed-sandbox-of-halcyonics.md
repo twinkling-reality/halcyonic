@@ -106,6 +106,11 @@ things that sets the product apart, so it is kept wherever the person works in t
      Anthropic API takes a key and how Claude Code sends `ANTHROPIC_API_KEY`), so a run inside is recorded confined and what it makes can be played, published and shared
      like any other. The owner's word, 2026-11-12 (lead's answer of 14:33Z); the record is
      [claude-code-key-gate.md](../validation/claude-code-key-gate.md).
+   - **On a connected folder too (VRIFY, 2026-11-13; the lead's 18:21Z step 3):** a Claude Code process outside the
+     closed profile reaches its API through the same gate with a run credential of its own, never the key, and runs
+     under a light profile that denies reading and writing the host's own folders (its data folder, the task copies'
+     folder, every `.halcyonic*` home) and takes nothing else away. It is still recorded `confined: false`.
+     [claude-code-connected-folders.md](../validation/claude-code-connected-folders.md).
 2. **Its one way out** is a gate on loopback (since 2026-11-12 `packages/seatbelt/src/key-gate.ts`, one mechanism for
    every confined agent app that takes a key, each adapter declaring how its app takes one: `KeyGateDeclaration`;
    the seatbelt package may import `node:http`, `node:https` and `node:net` for it, an architecture rule changed on

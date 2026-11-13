@@ -82,9 +82,8 @@ and the file that is not JSON.
 
 ## Not verified
 
-- An unconfined run still holds the person's key itself in its environment (the agent, its commands and every hook
-  passed), as before this change; only confined runs go through the key gate. AUDIT3's next unit: the gate for
-  unconfined runs too.
+- Until 2026-11-13 an unconfined run held the person's key itself in its environment; since then it goes through the
+  key gate too ([claude-code-connected-folders.md](claude-code-connected-folders.md)).
 
 - Whether Claude Code with the person's real config folder ever sends their `/login` subscription token beside a
   key. Not tested: it would send their token to a test's process.

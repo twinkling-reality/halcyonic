@@ -17,7 +17,7 @@ import {
   startProviderGate,
 } from '@halcyonic/seatbelt';
 import { CLAUDE_CODE_KEY_GATE } from './claude-agent-runtime.ts';
-import { confinedFolder, confinedLaunch, findInConfinedStore } from './confinement.ts';
+import { confinedFolder, confinedLaunch, findInConfinedStore, openLaunch } from './confinement.ts';
 
 function scratch(t: TestContext): string {
   const folder = mkdtempSync(join(tmpdir(), 'halcyonic-claude-confine-'));
@@ -458,5 +458,43 @@ describe("a confined Claude Code's launch and store (BOX-4)", () => {
     );
     assert.deepEqual(findInConfinedStore(config, id), { cwd: '/p/garden' });
     assert.equal(findInConfinedStore(config, '0f0e0d0c-0000-4000-8000-0000000000dd'), undefined);
+  });
+});
+
+describe("a Claude Code launch on a connected folder (VRIFY, 2026-11-13; the lead's 18:21Z step 3)", () => {
+  const options = {
+    command: '/opt/claude/bin/claude',
+    args: ['--session-id=abc'],
+    cwd: '/p',
+    env: { HOME: '/h', ANTHROPIC_API_KEY: REAL, ANTHROPIC_AUTH_TOKEN: 'other', KEEP: 'kept' },
+    signal: new AbortController().signal,
+  };
+  test('through the gate: its address and this run credential in place of the key, no other credential', () => {
+    const launched = openLaunch(
+      options,
+      { url: 'http://127.0.0.1:5555' },
+      CLAUDE_CODE_KEY_GATE,
+      'halcyonic-gate-run-x',
+      null,
+    );
+    assert.equal(launched.command, '/opt/claude/bin/claude');
+    assert.deepEqual(launched.args, ['--session-id=abc']);
+    assert.equal(launched.env.ANTHROPIC_BASE_URL, 'http://127.0.0.1:5555');
+    assert.equal(launched.env.ANTHROPIC_API_KEY, 'halcyonic-gate-run-x');
+    assert.equal(launched.env.ANTHROPIC_AUTH_TOKEN, undefined);
+    assert.equal(launched.env.HOME, '/h');
+    assert.equal(launched.env.KEEP, 'kept');
+    assert.ok(!Object.values(launched.env).includes(REAL));
+  });
+  test('under the light profile: sandbox-exec around the same command; without a gate (a cloud provider) the environment as it is', () => {
+    const launched = openLaunch(options, null, CLAUDE_CODE_KEY_GATE, null, '/d/open.sb');
+    assert.equal(launched.command, SANDBOX_EXEC);
+    assert.deepEqual(launched.args, [
+      '-f',
+      '/d/open.sb',
+      '/opt/claude/bin/claude',
+      '--session-id=abc',
+    ]);
+    assert.equal(launched.env.ANTHROPIC_API_KEY, REAL);
   });
 });

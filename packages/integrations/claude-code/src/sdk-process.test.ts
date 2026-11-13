@@ -277,8 +277,10 @@ describe('the adapter through the real Agent SDK', () => {
       // macOS CoreFoundation sets __CF_USER_TEXT_ENCODING inside every process it loads into; it
       // is not passed by the SDK or the adapter.
       const passed = recorded.env_names.filter((name) => name !== '__CF_USER_TEXT_ENCODING');
+      // The key gate's address beside this run's credential (the lead's 18:21Z step 3a): the key itself never.
       assert.deepEqual(passed, [
         'ANTHROPIC_API_KEY',
+        'ANTHROPIC_BASE_URL',
         'CLAUDE_AGENT_SDK_VERSION',
         'CLAUDE_CODE_ENTRYPOINT',
         'FAKE_CLAUDE_PROCESS_RECORD',
@@ -355,7 +357,12 @@ describe('the adapter through the real Agent SDK', () => {
       const withoutSessionId = (args: string[]) =>
         args.map((arg) => (arg.startsWith('--session-id=') ? '--session-id=<id>' : arg));
       assert.deepEqual(withoutSessionId(ours.args), withoutSessionId(sdk.args));
-      assert.deepEqual(ours.env_names, sdk.env_names);
+      // One difference only: ours reaches its API through the key gate, so it also names the gate's address.
+      assert.deepEqual(
+        ours.env_names.filter((name) => name !== 'ANTHROPIC_BASE_URL'),
+        sdk.env_names,
+      );
+      assert.ok(ours.env_names.includes('ANTHROPIC_BASE_URL'));
       assert.deepEqual(
         [ours.home, ours.config_dir, ours.path, ours.cwd],
         [sdk.home, sdk.config_dir, sdk.path, sdk.cwd],

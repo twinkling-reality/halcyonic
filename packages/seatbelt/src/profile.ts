@@ -643,3 +643,47 @@ function resolved(path: string): string {
     }
   }
 }
+
+/** What the light profile keeps an agent app out of: the host's own folders, and every Halcyonic home in `home`. */
+export interface HostFoldersScope {
+  /** The host's own folders by path: its data folder, the task copies' folder. */
+  readonly folders: readonly string[];
+  /** The person's home: every `.halcyonic` or `.halcyonic-<name>` folder in it is the host's too. */
+  readonly home: string;
+}
+
+/**
+ * The light profile for an agent app that runs outside the closed one, on a folder the person connected (VRIFY,
+ * 2026-11-13; the lead's 18:21Z step 3b): everything the person's own process may do, but never read or write the
+ * host's own folders, where the person's keys, the journal and the task copies are. Nothing else is taken away: the
+ * network, the person's home and tools, their own folder. It is not the closed profile, and a run under it is never
+ * recorded confined.
+ */
+export function hostFoldersDeniedProfile(scope: HostFoldersScope): string {
+  const subpaths = scope.folders.map((folder) => `(subpath ${JSON.stringify(resolved(folder))})`);
+  const home = resolved(scope.home).replace(/\/+$/, '');
+  const homes = `(regex ${JSON.stringify(`^${seatbeltRegexLiteral(home)}/\\.halcyonic(-[^/]*)?(/|$)`)})`;
+  return [
+    '(version 1)',
+    '(allow default)',
+    `(deny file-read* file-write* ${[...subpaths, homes].join(' ')})`,
+    '',
+  ].join('\n');
+}
+
+/** Whether `path` is one of the light profile's folders or inside one. */
+export function withinHostFolders(path: string, scope: HostFoldersScope): boolean {
+  const real = resolved(path);
+  const inside = (folder: string) => {
+    const root = resolved(folder).replace(/\/+$/, '');
+    return real === root || real.startsWith(`${root}/`);
+  };
+  if (scope.folders.some(inside)) return true;
+  const home = resolved(scope.home).replace(/\/+$/, '');
+  return new RegExp(`^${seatbeltRegexLiteral(home)}/\\.halcyonic(-[^/]*)?(/|$)`).test(real);
+}
+
+/** A path as a literal in a seatbelt (and JavaScript) regular expression. */
+function seatbeltRegexLiteral(path: string): string {
+  return path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}

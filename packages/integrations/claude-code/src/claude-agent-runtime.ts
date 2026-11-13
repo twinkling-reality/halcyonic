@@ -15,6 +15,8 @@ import {
   type SDKResultMessage,
   type SDKUserMessage,
   type Settings,
+  type SpawnedProcess,
+  type SpawnOptions,
 } from '@anthropic-ai/claude-agent-sdk';
 import type {
   ApprovalDecision,
@@ -51,14 +53,22 @@ import {
   type StartExecutionResult,
   systemClock,
 } from '@halcyonic/runtime-core';
-import { type ApiGate, type KeyGateDeclaration, startKeyGate } from '@halcyonic/seatbelt';
+import {
+  type ApiGate,
+  type HostFoldersScope,
+  type KeyGateDeclaration,
+  startKeyGate,
+  withinHostFolders,
+} from '@halcyonic/seatbelt';
 import {
   type ClaudeConfinementOptions,
   type ConfinedFolder,
   confinedFolder,
   confinedLaunch,
   findInConfinedStore,
+  openLaunch,
   prepareConfinedFolder,
+  writeHostFoldersProfile,
 } from './confinement.ts';
 import { buildEnvironment, cloudProvider, type ModelHost, modelHost } from './environment.ts';
 import { CLAUDE_AGENT_RUNTIME_ID } from './key-reader.ts';
@@ -134,6 +144,12 @@ export interface ClaudeAgentRuntimeOptions {
    * own `resolveSettings` with the SDK's own query; none where a test hands its own query.
    */
   readonly remainingSettings?: () => unknown;
+  /**
+   * Whether a Claude Code process outside the closed profile reaches its API through the key gate, holding a run
+   * credential in place of the key (the lead's 18:21Z step 3a). With the SDK's own query, yes; a test handing its
+   * own query starts no process, and no gate.
+   */
+  readonly openThroughGate?: boolean;
 }
 
 /**
@@ -225,6 +241,12 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   readonly #confinement: ClaudeConfinementOptions | null;
   readonly #planSwitchWaitMs: number;
   readonly #remainingSettings: () => unknown;
+  /** Whether processes outside the closed profile go through the key gate: where the adapter spawns them itself. */
+  readonly #openThroughGate: boolean;
+  /** The host's folders no process reaches outside the closed profile, and where its light profile is written. */
+  readonly #hostFolders: HostFoldersScope | null;
+  readonly #hostProfilePath: string;
+  #hostProfile: string | null = null;
   /** The one way out of the sandbox, started for the first confined start (BOX-4). */
   #gate: Promise<ApiGate> | null = null;
   #closed = false;
@@ -235,6 +257,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       options.environment ?? {},
     );
     this.#guard = new ProcessGuard(options.processRecordFile);
+    this.#hostProfilePath = `${options.processRecordFile}.open.sb`;
     this.#modelHost = modelHost(this.#environment);
     this.#directoryPolicy = options.directoryPolicy;
     this.#executable = options.pathToClaudeCodeExecutable;
@@ -248,6 +271,12 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       (options.query === undefined
         ? async () => (await resolveSettings({ settingSources: [] })).effective
         : () => ({}));
+    this.#openThroughGate = options.openThroughGate ?? options.query === undefined;
+    const hostFolders = options.confinement?.hostFolders;
+    this.#hostFolders =
+      hostFolders === undefined || process.platform !== 'darwin'
+        ? null
+        : { folders: hostFolders, home: this.#environment.HOME ?? '' };
     this.descriptor = {
       runtime_id: options.runtimeId ?? (CLAUDE_AGENT_RUNTIME_ID as RuntimeId),
       kind: 'claude-agent',
@@ -309,6 +338,17 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     return ClaudeAgentRuntimeAdapter.runsOutsideSandbox();
   }
 
+  /**
+   * Whether a run outside the closed profile holds the person's Anthropic key (the lead's 18:21Z step 3): on this Mac
+   * never, since it reaches its API through the key gate with a run credential of its own and runs under the light
+   * profile, which keeps the host's folders, the key's file among them, out of its reach. Elsewhere there is no
+   * seatbelt, so it could read the key's file: yes. Declared on the class, so the key's card can say it before any
+   * instance runs.
+   */
+  static holdsKeyOutsideSandbox(): boolean {
+    return process.platform !== 'darwin';
+  }
+
   /** Claude Code's and its provider's own variables, and Bun's, which the bundled build runs on. */
   ownsEnvironmentName(name: string): boolean {
     return ['CLAUDE_', 'ANTHROPIC_', 'BUN_'].some((prefix) => name.startsWith(prefix));
@@ -325,6 +365,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     // The same rule as a run's: no settings file, and no other credential left in the managed tier.
     const remaining = this.#checkRemainingSettings();
     if (remaining !== undefined) await remaining;
+    const openGate = this.#openThroughGate ? await this.#openGate() : null;
     const input = new InputQueue();
     let handle: QueryHandle;
     try {
@@ -337,7 +378,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
           // The guard knows a launched process by the session id its command line carries, so the
           // listing's process carries its label as one.
           sessionId: label,
-          spawnClaudeCodeProcess: (options) => this.#guard.spawn(options, label),
+          spawnClaudeCodeProcess: (options) => this.#openSpawn(options, openGate, label),
           systemPrompt: { type: 'preset', preset: 'claude_code' },
           // No settings file at all, as for an unconfined start: a settings `env` could add a credential
           // that outranks the key. A listing is no task, so it carries no observation hooks.
@@ -403,8 +444,10 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     const scope = this.#scopeFor(cwd);
     const gate = scope.folder === null ? null : await this.#apiGate();
     if (scope.folder !== null) prepareConfinedFolder(scope.folder);
+    if (scope.folder === null) this.#refuseHostFolder(cwd);
     const found = scope.folder === null ? this.#personal() : null;
     const personal = found instanceof Promise ? await found : found;
+    const openGate = scope.folder === null && this.#openThroughGate ? await this.#openGate() : null;
     // Asked again right before the folder is handed over: the model listing above waits.
     confirmProjectLocation(this.#directoryPolicy, cwd);
     if (this.#sessions.has(executionId)) {
@@ -429,6 +472,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
           false,
           scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
           personal,
+          openGate,
         ),
         request.instruction,
         request.pictures ?? [],
@@ -524,8 +568,10 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
     }
     const gate = scope.folder === null ? null : await this.#apiGate();
+    if (scope.folder === null) this.#refuseHostFolder(cwd);
     const found = scope.folder === null ? this.#personal() : null;
     const personal = found instanceof Promise ? await found : found;
+    const openGate = scope.folder === null && this.#openThroughGate ? await this.#openGate() : null;
     if (this.#closed) throw closedError();
     const session = new ClaudeSession(
       request.native_id,
@@ -543,6 +589,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
         true,
         scope.folder === null || gate === null ? null : { folder: scope.folder, gate },
         personal,
+        openGate,
       ),
     );
     this.#sessions.set(executionId, session);
@@ -658,6 +705,52 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
+   * The gate a process outside the closed profile reaches its API through (the lead's 18:21Z step 3a), the same
+   * one confined starts use, or null: where the adapter does not spawn its processes, or where a cloud provider
+   * serves Claude Code, whose hosts are not known ahead (ADR 0048).
+   */
+  async #openGate(): Promise<ApiGate | null> {
+    if (!this.#openThroughGate || cloudProvider(this.#environment) !== null) return null;
+    return this.#apiGate();
+  }
+
+  /** The light profile's file (step 3b), written once; null where the host names no folders of its own. */
+  #hostFoldersProfile(): string | null {
+    if (this.#hostFolders === null) return null;
+    this.#hostProfile ??= writeHostFoldersProfile(this.#hostProfilePath, this.#hostFolders);
+    return this.#hostProfile;
+  }
+
+  /** Refuses a folder outside the closed profile that is, or is inside, one of the host's own. */
+  #refuseHostFolder(cwd: string): void {
+    if (this.#hostFolders !== null && withinHostFolders(cwd, this.#hostFolders)) {
+      throw new RuntimeActionError(
+        'runtime_start_failed',
+        `Claude Agent was not started: ${cwd} is one of Halcyonic's own folders, which no task reaches.`,
+      );
+    }
+  }
+
+  /**
+   * Spawns a Claude Code process outside the closed profile: through the gate with a credential of its own, dead
+   * the moment the process ends, and under the light profile where the host names its folders.
+   */
+  #openSpawn(options: SpawnOptions, gate: ApiGate | null, label: string): SpawnedProcess {
+    const credential = gate === null ? null : gate.issue();
+    try {
+      const spawned = this.#guard.spawn(
+        openLaunch(options, gate, CLAUDE_CODE_KEY_GATE, credential, this.#hostFoldersProfile()),
+        label,
+      );
+      if (gate !== null && credential !== null) spawned.once('exit', () => gate.revoke(credential));
+      return spawned;
+    } catch (error) {
+      if (gate !== null && credential !== null) gate.revoke(credential);
+      throw error;
+    }
+  }
+
+  /**
    * Refuses a run or a listing when the settings Claude Code applies with no settings file loaded name another
    * credential; a resolver that fails refuses too, rather than guess.
    */
@@ -699,6 +792,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     resume = false,
     confined: { readonly folder: ConfinedFolder; readonly gate: ApiGate } | null = null,
     personal: PersonalSettings | null = null,
+    openGate: ApiGate | null = null,
   ): Options {
     const settings = this.#confinement;
     const open = confined === null || settings === null;
@@ -711,7 +805,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       // Inside the sandbox where the start is confined (BOX-4): the person's settings and hooks stay
       // outside it, since its home and configuration are the folder's own.
       spawnClaudeCodeProcess: (options) => {
-        if (confined === null || settings === null) return this.#guard.spawn(options, session.id);
+        if (confined === null || settings === null)
+          return this.#openSpawn(options, openGate, session.id);
         // This process's own credential for the gate: dead the moment the process ends (AUDIT3).
         const credential = confined.gate.issue();
         try {

@@ -2058,7 +2058,31 @@ describe("Claude Code's own plan mode (PLAN 4b)", () => {
 test("Claude Code says it runs outside Halcyonic's sandbox on a folder the person connected, and names its own variables (ADR 0057)", () => {
   const { adapter } = setup();
   assert.equal(adapter.runsOutsideSandbox(), true);
+  // But such a run holds no key on this Mac: the gate does, and the light profile keeps the key's file out of reach.
+  assert.equal(ClaudeAgentRuntimeAdapter.holdsKeyOutsideSandbox(), process.platform !== 'darwin');
   for (const name of ['CLAUDE_CODE_USE_BEDROCK', 'ANTHROPIC_API_KEY', 'BUN_CONFIG_REGISTRY'])
     assert.equal(adapter.ownsEnvironmentName(name), true, name);
   assert.equal(adapter.ownsEnvironmentName('PROJECT_TEST_KEY'), false);
+});
+
+describe("Claude Agent outside the closed profile, kept out of the host's own folders (VRIFY, 2026-11-13)", () => {
+  test("refuses a start in one of the host's own folders, in words", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { start, runs } = setup({
+      confinement: {
+        dataFolder: WORKDIR,
+        toolFolders: [],
+        forDirectory: () => null,
+        hostFolders: [WORKDIR],
+      },
+    });
+    await assert.rejects(start(), (error: unknown) => {
+      assert.ok(error instanceof RuntimeActionError);
+      assert.equal(error.code, 'runtime_start_failed');
+      assert.match(error.message, /one of Halcyonic's own folders/);
+      return true;
+    });
+    assert.equal(runs.length, 0, 'a query was started');
+  });
 });

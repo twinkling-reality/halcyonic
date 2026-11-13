@@ -54,15 +54,18 @@ export const ANTHROPIC_KEY_FILE = 'anthropic-api-key';
 export const KEYED_AGENT_APPS: readonly {
   readonly runtimeId: string;
   readonly reader: KeyReader;
-  /** Whether its runs can go outside Halcyonic's sandbox, as its adapter's class declares, whether or not it runs now. */
-  readonly runsOutsideSandbox: () => boolean;
+  /**
+   * Whether a run of it outside Halcyonic's sandbox, on a folder the person connected, holds the key itself, as its
+   * adapter's class declares, whether or not it runs now.
+   */
+  readonly holdsKeyOutsideSandbox: () => boolean;
   /** What of the person's own set-up for it a task outside the sandbox uses, as its adapter declares; null for none. */
   readonly personalSetup: (() => PersonalSetupUse) | null;
 }[] = [
   {
     runtimeId: CLAUDE_AGENT_RUNTIME_ID,
     reader: CLAUDE_AGENT_READER,
-    runsOutsideSandbox: () => ClaudeAgentRuntimeAdapter.runsOutsideSandbox(),
+    holdsKeyOutsideSandbox: () => ClaudeAgentRuntimeAdapter.holdsKeyOutsideSandbox(),
     personalSetup: personalSetupUsed,
   },
 ];
@@ -119,6 +122,8 @@ export interface RuntimeDependencies {
   readonly environment: NodeJS.ProcessEnv;
   /** The control plane's data directory, where a key file may be kept. */
   readonly dataDir: string;
+  /** The task copies' folder (ADR 0045): the host's own, which no agent outside the closed profile reaches. */
+  readonly tasksDir?: string;
   /**
    * The starter a project folder was made from, or null (ADR 0037). Codex runs such a project
    * confined to its folder (ADR 0041); asked at each start, since projects are made later.
@@ -334,13 +339,19 @@ export function folderReads(
  * and hooks, so Salidium and Seorak observe it. The adapter confines on macOS only.
  */
 export function claudeConfinement(
-  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir'>,
+  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir' | 'tasksDir'>,
   node: string = process.execPath,
 ): ClaudeConfinementOptions {
   return {
     dataFolder: dependencies.dataDir,
     toolFolders: toolFoldersFor(node),
     hidden: [dependencies.dataDir],
+    // No Claude Code process reaches the host's own folders, on a connected folder neither (the lead's 18:21Z step
+    // 3b): the data folder with the keys and the journal, and the task copies; every .halcyonic* home besides.
+    hostFolders: [
+      dependencies.dataDir,
+      ...(dependencies.tasksDir === undefined ? [] : [dependencies.tasksDir]),
+    ],
     forDirectory: (directory) =>
       (dependencies.starterOf?.(directory) ?? null) === null
         ? null

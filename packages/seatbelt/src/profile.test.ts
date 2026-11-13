@@ -18,10 +18,12 @@ import {
   confinedProfile,
   confinementKey,
   gitDataOutside,
+  hostFoldersDeniedProfile,
   SANDBOX_EXEC,
   secretsUnder,
   TOOL_PREFIXES,
   toolFoldersFor,
+  withinHostFolders,
 } from './profile.ts';
 
 const run = promisify(execFile);
@@ -767,6 +769,79 @@ describe('another bound project inside a confined folder (AUDIT BOX-3 F1)', () =
       assert.match((await inside(['/bin/mv', inner, join(project, 'moved')])).out, refused);
       assert.equal(readFileSync(join(inner, 'kept.txt'), 'utf8'), 'kept-3e1a\n');
       assert.equal(existsSync(join(inner, 'marker.txt')), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the light profile outside the closed one: the host's own folders out of reach (VRIFY, 2026-11-13)", () => {
+  test('names the host folders and every .halcyonic home, and nothing else', () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-host-folders-')));
+    try {
+      const text = hostFoldersDeniedProfile({
+        folders: [join(root, 'data')],
+        home: join(root, 'home'),
+      });
+      assert.match(text, /^\(version 1\)\n\(allow default\)\n\(deny file-read\* file-write\* /);
+      assert.ok(text.includes(`(subpath ${JSON.stringify(join(root, 'data'))})`));
+      assert.ok(text.includes('\\\\.halcyonic(-[^/]*)?(/|$)'));
+      // A folder is the host's when it is one, is inside one, or is a .halcyonic home; a look-alike is not.
+      const scope = { folders: [join(root, 'data')], home: join(root, 'home') };
+      assert.equal(withinHostFolders(join(root, 'data'), scope), true);
+      assert.equal(withinHostFolders(join(root, 'data', 'x'), scope), true);
+      assert.equal(withinHostFolders(join(root, 'home', '.halcyonic'), scope), true);
+      assert.equal(
+        withinHostFolders(join(root, 'home', '.halcyonic-proving', 'data'), scope),
+        true,
+      );
+      assert.equal(withinHostFolders(join(root, 'home', '.halcyonicnot'), scope), false);
+      assert.equal(withinHostFolders(join(root, 'data-other'), scope), false);
+      assert.equal(withinHostFolders(join(root, 'home', 'project'), scope), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('on this Mac: the host folders cannot be read, listed or written; the rest can', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-host-folders-')));
+    try {
+      for (const folder of [
+        'data',
+        'home/.halcyonic-proving',
+        'home/project',
+        'home/.halcyonicnot',
+      ])
+        mkdirSync(join(root, folder), { recursive: true });
+      for (const folder of [
+        'data',
+        'home/.halcyonic-proving',
+        'home/project',
+        'home/.halcyonicnot',
+      ])
+        writeFileSync(join(root, folder, 'marker.txt'), 'marker');
+      const file = join(root, 'light.sb');
+      writeFileSync(
+        file,
+        hostFoldersDeniedProfile({ folders: [join(root, 'data')], home: join(root, 'home') }),
+      );
+      const exit = (command: string[]) =>
+        run(SANDBOX_EXEC, ['-f', file, ...command]).then(
+          () => 0,
+          (error: { code?: number }) => error.code ?? -1,
+        );
+      assert.notEqual(await exit(['/bin/cat', join(root, 'data/marker.txt')]), 0);
+      assert.notEqual(await exit(['/bin/ls', join(root, 'data')]), 0);
+      assert.notEqual(await exit(['/usr/bin/touch', join(root, 'data/planted')]), 0);
+      assert.notEqual(
+        await exit(['/bin/cat', join(root, 'home/.halcyonic-proving/marker.txt')]),
+        0,
+      );
+      assert.equal(await exit(['/bin/cat', join(root, 'home/project/marker.txt')]), 0);
+      assert.equal(await exit(['/bin/cat', join(root, 'home/.halcyonicnot/marker.txt')]), 0);
+      assert.equal(await exit(['/usr/bin/touch', join(root, 'home/project/made')]), 0);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -134,6 +134,7 @@ async function main(): Promise<void> {
       : locations.policy,
     environment: process.env,
     dataDir: config.dataDir,
+    tasksDir: config.tasksDir,
     starterOf: (directory) => starterOf(directory),
     originalOf: (directory) => originalOf(directory),
     projectFolders: () => projectFolders(),
@@ -517,10 +518,10 @@ async function main(): Promise<void> {
                 }
               },
               // A card for each declared provider something here reads, with Add Key and Remove Key (ADR 0061).
-              // Each agent app that reads a key into its own run and, as its adapter's class declares, runs outside the
-              // sandbox on a connected folder, whether or not it runs now: the card says a task there can copy the key.
+              // Each agent app whose run on a connected folder, outside the sandbox, holds the key itself, as its adapter's
+              // class declares, whether or not it runs now: the card says a task there can copy the key.
               keys: new ProviderKeys(config.dataDir, providers, () =>
-                KEYED_AGENT_APPS.filter((keyed) => keyed.runsOutsideSandbox()).map(
+                KEYED_AGENT_APPS.filter((keyed) => keyed.holdsKeyOutsideSandbox()).map(
                   (keyed) => keyed.reader.name,
                 ),
               ),
