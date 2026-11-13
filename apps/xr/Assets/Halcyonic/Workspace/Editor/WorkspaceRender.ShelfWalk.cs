@@ -191,14 +191,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw();
                     if (plane.KitShows && plane.Kit.Bar.Button(action, key) is RoomButton button && button.gameObject.activeInHierarchy)
                     {
-                        // Counted only where its column takes it (the walks' rule): the column beside the menu, else the menu's own.
-                        var column = menu.Navigator.Beside != null ? MenuColumn.File : MenuColumn.Menu;
-                        var refused = menu.Navigator.Taking(column, action, plane.Showing(column), null) == null;
+                        // A placement's press is taken by the director (MenuDirector.OnActed), not the navigator, so whether it took is
+                        // judged by what it changed: the shelf placed, the page closed (each step below says so where it did not).
                         button.Press.SettleForRender();
                         button.Press.PressForRender(985);
                         Draw();
-                        if (refused) failures.Add("the drawn " + action + " was pressed and its column did not take it (its frame was not reported drawn)");
-                        return !refused;
+                        return true;
                     }
                     foreach (var (kind, view) in plane.Shown)
                     {
