@@ -1656,6 +1656,79 @@ describe('descriptor', () => {
   });
 });
 
+describe("a task's spending limit (lead's ruling, 2026-11-13)", () => {
+  const stop = (sessionId: string, spent: number) =>
+    failure(sessionId, 'error_max_budget_usd', ['Reached maximum budget ($0.5)'], {
+      total_cost_usd: spent,
+    });
+
+  test("the start hands the limit to Claude Code, whose stop ends the turn at the limit in the host's words", async () => {
+    const { adapter, run, runs, observed, types } = setup();
+    assert.equal(adapter.descriptor.offers_spending_cap, true);
+    const starting = adapter.startExecution({
+      execution,
+      instruction: 'Fix it.',
+      options: {},
+      model_ref: null,
+      directory: WORKDIR,
+      spending_cap_usd: 0.5,
+      emit: (observation) => observed.push(observation),
+    });
+    run().emit(init(run().sessionId));
+    await starting;
+    const first = run();
+    assert.equal(first.options.maxBudgetUsd, 0.5);
+    first.emit(stop(first.sessionId, 0.802));
+    await settle();
+    const failed = observed.at(-1);
+    assert.equal(failed?.type, 'runtime.turn.failed');
+    assert.deepEqual(failed?.type === 'runtime.turn.failed' && failed.payload.error, {
+      code: 'spending_cap_reached',
+      // The app's report only; the host words it from the task's span (ADR 0062).
+      message: 'The app stopped this task at its spending limit.',
+    });
+    // Only a new limit carries it on: a plain instruction is refused, nothing sent.
+    await assert.rejects(
+      adapter.sendInstruction({ execution, text: 'Go on.' }),
+      (error: unknown) => error instanceof RuntimeActionError && error.code === 'invalid_state',
+    );
+    assert.equal(first.delivered.length, 1);
+    // Carry On: the spent query is closed, never reported lost, and a resumed one counts the new limit.
+    const sending = adapter.sendInstruction({ execution, text: 'Carry on.', spending_cap_usd: 2 });
+    await settle();
+    assert.equal(first.closed, true);
+    assert.equal(runs.length, 2);
+    const next = run();
+    assert.equal(next.options.resume, first.sessionId);
+    assert.equal(next.options.sessionId, undefined, 'resume and sessionId together would fork');
+    assert.equal(next.options.maxBudgetUsd, 2);
+    next.emit(init(first.sessionId));
+    await sending;
+    assert.deepEqual(next.delivered[0]?.message.content, [{ type: 'text', text: 'Carry on.' }]);
+    assert.ok(
+      !types().includes('runtime.connection.lost'),
+      'a relaunch for a new limit is no loss',
+    );
+    assert.equal(types().at(-1), 'runtime.turn.started');
+    next.emit(success(first.sessionId));
+    await settle();
+    assert.equal(types().at(-1), 'runtime.turn.completed');
+    assertContractValid(observed);
+  });
+
+  test('a start without a limit hands none, and a limit is no reason to refuse an instruction', async () => {
+    const { adapter, startConfirmed } = setup();
+    const scripted = await startConfirmed();
+    assert.equal(scripted.options.maxBudgetUsd, undefined);
+    scripted.emit(success(scripted.sessionId));
+    await settle();
+    await assert.rejects(
+      adapter.sendInstruction({ execution, text: 'Raise it.', spending_cap_usd: 2 }),
+      (error: unknown) => error instanceof RuntimeActionError && error.code === 'invalid_state',
+    );
+  });
+});
+
 describe('re-attaching after a restart (ADR 0046)', () => {
   const SESSION = '0f0e0d0c-0000-4000-8000-0000000000aa';
   const found =
@@ -1762,6 +1835,34 @@ describe('re-attaching after a restart (ADR 0046)', () => {
       [{ input: 20, cost: { estimated_usd: 0.25, prices: 'list' }, counted: 'differenced' }],
     );
     assertContractValid(observed);
+  });
+
+  test('a re-attach hands what is left of its limit to the launch its next instruction makes', async () => {
+    const { adapter, run, observed } = setup({ sessionInfo: found() });
+    await reattach(adapter, observed, { cut_turn: null, spending_allowance_usd: 3.5 });
+    const sending = adapter.sendInstruction({ execution, text: 'Carry on.' });
+    await settle();
+    assert.equal(run().options.resume, SESSION);
+    assert.equal(run().options.maxBudgetUsd, 3.5, 'what is left, never the whole limit again');
+    run().emit(init(SESSION));
+    await sending;
+  });
+
+  test('a re-attach with nothing of its limit to hand launches nothing until a new limit', async () => {
+    const { adapter, run, runs, observed } = setup({ sessionInfo: found() });
+    await reattach(adapter, observed, { cut_turn: null, spending_allowance_usd: null });
+    await assert.rejects(
+      adapter.sendInstruction({ execution, text: 'Carry on.' }),
+      (error: unknown) => error instanceof RuntimeActionError && error.code === 'invalid_state',
+    );
+    assert.equal(runs.length, 0, 'no process for an instruction that cannot be counted');
+    const sending = adapter.sendInstruction({ execution, text: 'Carry on.', spending_cap_usd: 2 });
+    await settle();
+    assert.equal(run().options.resume, SESSION);
+    assert.equal(run().options.maxBudgetUsd, 2, 'the new limit, counting from now');
+    run().emit(init(SESSION));
+    await sending;
+    assert.ok(!observed.some((o) => o.type === 'runtime.connection.lost'));
   });
 
   test('a session at rest is re-attached with no turn to end', async () => {

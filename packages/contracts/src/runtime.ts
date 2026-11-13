@@ -124,6 +124,13 @@ export const RuntimeDescriptor = Type.Object(
      * which is never read as nothing used.
      */
     reports_usage: Type.Optional(Type.Boolean()),
+    /**
+     * True when a start may carry `spending_cap_usd` and the runtime itself stops the task once its
+     * own estimate of what the task spent since it last started passes it: declared only once a run
+     * of the pinned version shows the stop (spending-cap.md). Absent means no cap is offered, and the
+     * host never stops a task on its own sums.
+     */
+    offers_spending_cap: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
@@ -164,6 +171,16 @@ export type UsagePrices = Static<typeof UsagePrices>;
 
 /** The most money one estimate may hold, in US dollars; a sum past it is unknown, never cut. */
 export const USAGE_USD_MAX = 1_000_000;
+
+/**
+ * A spending limit in US dollars, more than 0: the runtime stops the task once its own estimate of
+ * what the task spent since it last started passes it. A limit, never a ceiling: the runtime checks
+ * after each model call, so a task ends past it by up to one call's cost.
+ */
+export const SpendingCapUsd = Type.Number({ exclusiveMinimum: 0, maximum: USAGE_USD_MAX });
+
+/** The code of a turn the runtime ended because the task passed its spending limit. */
+export const SPENDING_CAP_REACHED = 'spending_cap_reached';
 
 /**
  * Money the runtime itself estimates for what was used, in US dollars, by `prices`: never a

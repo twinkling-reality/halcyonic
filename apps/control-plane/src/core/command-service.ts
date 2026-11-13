@@ -2514,6 +2514,9 @@ export class CommandService {
                 approval_level: command.payload.approval_level,
               }),
               ...(command.payload.plan === true && { plan: true }),
+              ...(command.payload.spending_cap_usd !== undefined && {
+                spending_cap_usd: command.payload.spending_cap_usd,
+              }),
               ...(pictures !== undefined && { pictures }),
               directory,
               ...(names.length > 0 && { environment: given }),
@@ -2913,6 +2916,18 @@ export class CommandService {
         );
       return false;
     }
+    // A task at its limit, or waiting for one, takes no instruction sent for it by the host either.
+    const cap = view.spending_cap?.state;
+    if (cap === 'reached' || cap === 'waiting') {
+      this.failQueued(
+        commandId,
+        'spending_cap_reached',
+        cap === 'reached'
+          ? 'This task is at its spending limit, so it was not sent. Raise the limit to carry on.'
+          : 'What this task spent before the restart is not fully known, so it was not sent.',
+      );
+      return false;
+    }
     // No longer waiting from here: a drop or a restore cannot fail it unsent once its send began
     // (AUDIT2); it ends as any sent instruction does.
     this.#deps.recorder.record(
@@ -3086,6 +3101,9 @@ function actionFor(
             execution,
             text,
             ...(leave && { leave_plan: true }),
+            ...(command.payload.spending_cap_usd !== undefined && {
+              spending_cap_usd: command.payload.spending_cap_usd,
+            }),
             ...(pictures !== undefined && { pictures }),
           }))
       );

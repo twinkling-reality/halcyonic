@@ -23,8 +23,8 @@ export type ConfirmKind = Static<typeof ConfirmKind>;
 
 /**
  * What the person still gives for a command: words; one row of a host list; several of one; a yes or
- * no; a number; the answers to a runtime's question, as its prompts ask; or a secret, typed in a
- * field, never said and never passed through a model.
+ * no; a whole number; an amount of US dollars to the cent; the answers to a runtime's question, as
+ * its prompts ask; or a secret, typed in a field, never said and never passed through a model.
  */
 export const NeedKind = Type.Union([
   Type.Literal('text'),
@@ -32,6 +32,7 @@ export const NeedKind = Type.Union([
   Type.Literal('choices'),
   Type.Literal('yes_no'),
   Type.Literal('count'),
+  Type.Literal('amount'),
   Type.Literal('answers'),
   Type.Literal('secret'),
 ]);

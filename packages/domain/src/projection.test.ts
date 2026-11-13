@@ -10,6 +10,7 @@ import type {
   UsageTokens,
 } from '@halcyonic/contracts';
 import { fitQuestion, QUESTION_TEXT_LIMIT, questionTextLength } from '@halcyonic/contracts';
+import { capStopWords, newSpendingCap } from './execution-state.ts';
 import { Projection } from './projection.ts';
 import { SHOWN_QUESTIONS } from './questions.ts';
 import { EventBuilder } from './testing/events.ts';
@@ -1675,4 +1676,248 @@ test('command recovery retains the original journaled principal for accepted and
     assert.equal(projection.commandOwner(legacy.command_id), null);
   }
   assert.equal(projection.commandOwner(b.id()), null);
+});
+
+describe("a task's spending limit counts the app's own estimates since it was set (lead's ruling, 2026-11-13)", () => {
+  function capped(limit: number) {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const apply = (...events: StoredEvent[]) => events.map((event) => projection.apply(event));
+    const project = b.project();
+    const workstream = b.workstream(project.projectId);
+    const start: CommandEnvelope = {
+      schema_version: 1,
+      command_id: '00000000-0000-4000-8000-0000000000c1' as CommandId,
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      command_type: 'execution.start',
+      payload: {
+        workstream_id: workstream.workstreamId,
+        runtime_id: 'mock' as never,
+        instruction: 'Go.',
+        options: {},
+        model_ref: null,
+        spending_cap_usd: limit,
+      },
+    };
+    apply(project.event, workstream.event, b.command(start, 'accepted'));
+    const execution = b.execution(project.projectId, workstream.workstreamId);
+    apply({
+      ...execution.event,
+      event: { ...execution.event.event, causation_id: start.command_id },
+    });
+    const scope = {
+      projectId: project.projectId,
+      workstreamId: workstream.workstreamId,
+      executionId: execution.executionId,
+    };
+    const cap = () => projection.execution(execution.executionId)?.spending_cap;
+    const allowance = () =>
+      projection.reattachBounds(execution.executionId)?.spending_allowance_usd;
+    const report = (turn: string, usd: number | null, input = 5) =>
+      b.runtimeEvent(scope, 'runtime.usage.reported', {
+        turn_id: turn,
+        tokens: { input, cache_read: 0, cache_write: 0, output: 1, reasoning: null },
+        cost: usd === null ? null : { estimated_usd: usd, prices: 'list' },
+        counted: 'differenced',
+      });
+    return { b, apply, projection, scope, cap, allowance, report, start };
+  }
+
+  test('the start sets it; each reported estimate adds; what is left is handed at a re-attach', () => {
+    const { b, apply, scope, cap, allowance, report } = capped(5);
+    assert.deepEqual(cap(), { limit_usd: 5, spent_usd: 0, state: 'open' });
+    apply(b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'ses_1' }));
+    assert.equal(allowance(), 5, 'nothing spent: the whole limit');
+    apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    assert.equal(allowance(), null, 'a turn in flight that has not reported: not known');
+    apply(report('t1', 1.5), b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
+    assert.deepEqual(cap(), { limit_usd: 5, spent_usd: 1.5, state: 'open' });
+    assert.equal(allowance(), 3.5, 'the limit less the known sum, never the whole limit again');
+  });
+
+  test('a turn that reports nothing, or no estimate, leaves the sum unknown; a restore then waits', () => {
+    const { b, apply, scope, cap, allowance } = capped(5);
+    apply(
+      b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'ses_1' }),
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }),
+      b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }),
+    );
+    assert.deepEqual(cap(), { limit_usd: 5, spent_usd: null, state: 'open' });
+    assert.equal(allowance(), null);
+    apply(b.runtimeEvent(scope, 'runtime.connection.restored', { reason: 'Re-attached.' }));
+    assert.equal(cap()?.state, 'waiting', 'a relaunch would hand out allowance nobody can count');
+    const other = capped(5);
+    other.apply(
+      other.b.runtimeEvent(other.scope, 'runtime.execution.started', { native_id: 'ses_2' }),
+      other.b.runtimeEvent(other.scope, 'runtime.turn.started', { turn_id: 't1' }),
+      other.report('t1', null),
+      other.b.runtimeEvent(other.scope, 'runtime.turn.completed', { turn_id: 't1' }),
+    );
+    assert.equal(other.cap()?.spent_usd, null, 'a turn that used tokens and gave no estimate');
+    const nothing = capped(5);
+    nothing.apply(
+      nothing.b.runtimeEvent(nothing.scope, 'runtime.turn.started', { turn_id: 't1' }),
+      nothing.report('t1', null, 0),
+      nothing.b.runtimeEvent(nothing.scope, 'runtime.turn.completed', { turn_id: 't1' }),
+    );
+    // input 0 but output 1: something was used, so still not known.
+    assert.equal(nothing.cap()?.spent_usd, null);
+  });
+
+  test('after a raise the words carry the whole task, or say the part before is not known', () => {
+    const base = newSpendingCap(5);
+    base.spentUsd = 5.8;
+    const raised = newSpendingCap(2, base);
+    raised.spentUsd = 2.4;
+    assert.equal(
+      capStopWords(raised),
+      "You let this task spend $2.00 more, and the app stopped it once its estimate passed that. It estimates the task spent $2.40 since then and $8.20 in all, an estimate and not your provider's bill.",
+    );
+    const unknown = newSpendingCap(5);
+    unknown.spentUsd = null;
+    const after = newSpendingCap(2, unknown);
+    after.spentUsd = 2.4;
+    assert.equal(
+      capStopWords(after),
+      "You let this task spend $2.00 more, and the app stopped it once its estimate passed that. It estimates the task spent $2.40 since then but cannot say what it spent before, an estimate and not your provider's bill.",
+    );
+    // A state kept before the earlier sum was: not known, never NaN.
+    const older = { ...newSpendingCap(5), spentUsd: 1 } as Partial<
+      ReturnType<typeof newSpendingCap>
+    >;
+    delete older.earlierUsd;
+    const fromOlder = newSpendingCap(2, older as ReturnType<typeof newSpendingCap>);
+    assert.equal(fromOlder.earlierUsd, null);
+    after.spentUsd = null;
+    assert.equal(
+      capStopWords(after),
+      'You let this task spend $2.00 more, and the app stopped it once its estimate passed that. How much it spent since then is not known, because the app did not report the cost of some of its work.',
+    );
+  });
+
+  test('a restart with a turn in flight leaves the task waiting, so Carry On is its way on (AUDIT2)', () => {
+    const { b, apply, scope, cap, allowance, report, projection } = capped(0.5);
+    apply(
+      b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'ses_1' }),
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }),
+      report('t1', 0.2),
+      b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }),
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't2' }),
+    );
+    assert.equal(allowance(), null, 'the turn in flight has not reported');
+    // The adapter reports the restore first, then the turn the restart cut.
+    apply(
+      b.runtimeEvent(scope, 'runtime.connection.restored', { reason: 'Re-attached.' }),
+      b.runtimeEvent(scope, 'runtime.turn.interrupted', { turn_id: 't2' }),
+    );
+    assert.deepEqual(cap(), { limit_usd: 0.5, spent_usd: null, state: 'waiting' });
+    assert.equal(projection.executionFacts(scope.executionId)?.spendingCap, 'waiting');
+  });
+
+  test("the stop is said in the person's own figures: the whole task, a raise, and a sum not known", () => {
+    const stopAt = (limit: number, spent: number | null) => {
+      const t = capped(limit);
+      t.apply(
+        t.b.runtimeEvent(t.scope, 'runtime.execution.started', { native_id: 'ses_1' }),
+        t.b.runtimeEvent(t.scope, 'runtime.turn.started', { turn_id: 't1' }),
+        ...(spent === null ? [] : [t.report('t1', spent)]),
+        t.b.runtimeEvent(t.scope, 'runtime.turn.failed', {
+          turn_id: 't1',
+          error: {
+            code: 'spending_cap_reached',
+            message: 'The app stopped this task at its spending limit.',
+          },
+        }),
+      );
+      return t;
+    };
+    const reason = (t: ReturnType<typeof capped>) =>
+      t.projection.execution(t.scope.executionId)?.status_reason;
+    assert.deepEqual(reason(stopAt(5, 5.4)), {
+      code: 'spending_cap_reached',
+      message:
+        "The app stopped this task once its estimate passed your $5.00 limit. It estimates the task spent $5.40, an estimate and not your provider's bill.",
+    });
+    assert.equal(
+      reason(stopAt(5, null))?.message,
+      'The app stopped this task once its estimate passed your $5.00 limit. How much the task spent in all is not known, because the app did not report the cost of some of its work.',
+    );
+    const raised = stopAt(1, 1.2);
+    const raise: CommandEnvelope = {
+      schema_version: 1,
+      command_id: '00000000-0000-4000-8000-0000000000c3' as CommandId,
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      command_type: 'execution.send_instruction',
+      payload: { execution_id: raised.scope.executionId, text: 'Carry on.', spending_cap_usd: 2 },
+    };
+    const where = {
+      project_id: raised.scope.projectId,
+      workstream_id: raised.scope.workstreamId,
+      execution_id: raised.scope.executionId,
+    };
+    raised.apply(
+      raised.b.command(raise, 'accepted'),
+      raised.b.runtimeEvent(raised.scope, 'runtime.turn.started', { turn_id: 't2' }),
+      raised.b.controlPlane('command.completed', where, {
+        command_id: raise.command_id,
+        command_type: raise.command_type,
+        result: null,
+      }),
+      raised.report('t2', 2.4),
+      raised.b.runtimeEvent(raised.scope, 'runtime.turn.failed', {
+        turn_id: 't2',
+        error: {
+          code: 'spending_cap_reached',
+          message: 'The app stopped this task at its spending limit.',
+        },
+      }),
+    );
+    assert.equal(
+      reason(raised)?.message,
+      "You let this task spend $2.00 more, and the app stopped it once its estimate passed that. It estimates the task spent $2.40 since then and $3.60 in all, an estimate and not your provider's bill.",
+    );
+  });
+
+  test('the known sum at the limit, or the app stopping it there, reads reached; Carry On starts a new span', () => {
+    const { b, apply, scope, cap, allowance, report, projection } = capped(2);
+    apply(
+      b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'ses_1' }),
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }),
+      report('t1', 2.4),
+      b.runtimeEvent(scope, 'runtime.turn.failed', {
+        turn_id: 't1',
+        error: { code: 'spending_cap_reached', message: 'Stopped at its limit.' },
+      }),
+    );
+    assert.deepEqual(cap(), { limit_usd: 2, spent_usd: 2.4, state: 'reached' });
+    assert.equal(allowance(), null, 'nothing left: no launch');
+    const raise: CommandEnvelope = {
+      schema_version: 1,
+      command_id: '00000000-0000-4000-8000-0000000000c2' as CommandId,
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      command_type: 'execution.send_instruction',
+      payload: { execution_id: scope.executionId, text: 'Carry on.', spending_cap_usd: 5 },
+    };
+    apply(b.command(raise, 'accepted'));
+    assert.equal(cap()?.limit_usd, 2, 'accepted is not success: the old span holds');
+    apply(
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't2' }),
+      b.controlPlane(
+        'command.completed',
+        {
+          project_id: scope.projectId,
+          workstream_id: scope.workstreamId,
+          execution_id: scope.executionId,
+        },
+        { command_id: raise.command_id, command_type: raise.command_type, result: null },
+      ),
+    );
+    assert.deepEqual(cap(), { limit_usd: 5, spent_usd: 0, state: 'open' }, 'more from now');
+    apply(report('t2', 1), b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't2' }));
+    assert.deepEqual(cap(), { limit_usd: 5, spent_usd: 1, state: 'open' });
+    assert.equal(projection.executionFacts(scope.executionId)?.spendingCap, 'open');
+  });
 });

@@ -120,6 +120,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "choices")] Choices,
         [global::System.Runtime.Serialization.EnumMember(Value = "yes_no")] YesNo,
         [global::System.Runtime.Serialization.EnumMember(Value = "count")] Count,
+        [global::System.Runtime.Serialization.EnumMember(Value = "amount")] Amount,
         [global::System.Runtime.Serialization.EnumMember(Value = "answers")] Answers,
         [global::System.Runtime.Serialization.EnumMember(Value = "secret")] Secret,
     }
@@ -2795,6 +2796,26 @@ namespace Halcyonic.Contracts
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum SpendingCapViewState
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "open")] Open,
+        [global::System.Runtime.Serialization.EnumMember(Value = "reached")] Reached,
+        [global::System.Runtime.Serialization.EnumMember(Value = "waiting")] Waiting,
+    }
+
+    public sealed class SpendingCapView
+    {
+        [global::Newtonsoft.Json.JsonProperty("limit_usd", Required = global::Newtonsoft.Json.Required.Always)]
+        public double LimitUsd { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("spent_usd", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public double? SpentUsd { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
+        public SpendingCapViewState State { get; set; }
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum ExecutionStatus
     {
         [global::System.Runtime.Serialization.EnumMember(Value = "starting")] Starting,
@@ -3094,6 +3115,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("plan_left", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? PlanLeft { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("spending_cap", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public SpendingCapView? SpendingCap { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("unconfined_reason", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? UnconfinedReason { get; set; }
@@ -3523,6 +3547,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("reports_usage", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? ReportsUsage { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("offers_spending_cap", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? OffersSpendingCap { get; set; }
     }
 
     public sealed class Snapshot
@@ -4965,6 +4992,9 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("plan", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? Plan { get; set; }
 
+        [global::Newtonsoft.Json.JsonProperty("spending_cap_usd", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public double? SpendingCapUsd { get; set; }
+
         [global::Newtonsoft.Json.JsonProperty("attachments", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<InstructionAttachment>? Attachments { get; set; }
     }
@@ -4979,6 +5009,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("leave_plan", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public bool? LeavePlan { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("spending_cap_usd", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public double? SpendingCapUsd { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("attachments", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<InstructionAttachment>? Attachments { get; set; }

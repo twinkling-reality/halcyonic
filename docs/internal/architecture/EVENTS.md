@@ -165,6 +165,18 @@ the project; it is absent until one of its runs reports. Adapters report a turn 
 most once; the projection takes each report as one turn. The host never prices
 anything itself: money appears only where the runtime estimated it, and only as an estimate.
 
+An execution view's `spending_cap` (ADR 0062) holds the task's limit, set at its start or raised by
+Carry On, and `spent_usd`, the sum of the app's own estimates since then: each reported estimate
+adds, and a turn that reports none or no estimate, or one by other prices, leaves it null (not
+known). `state` is `reached` once a turn failed `spending_cap_reached` or the known sum is at the
+limit, `waiting` once a restored connection finds nothing it could hand a launch (the sum not
+known, a turn in flight unreported, nothing left), `open` otherwise. Carry On's instruction starts
+a new span once the runtime confirms it. Its `status_reason` after a stop is the host's words from
+the span: that the app stopped it once its estimate passed the limit (or the amount the person let
+it spend more), then the known sum named as an estimate and not the provider's bill, after a raise
+with the whole task's figure beside it, or that a sum is not known because the app did not report
+the cost of some of the work.
+
 An execution view's `tool_activity` says whether a tool call runs, from these events alone:
 `running` when a turn is active, its status is not `unknown`, and a tool call is open (started,
 not completed) or a test run is; `none` when no turn is active (it then says only that no turn

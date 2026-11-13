@@ -71,6 +71,12 @@ export interface InstructionRequest {
   readonly pictures?: readonly InstructionPicture[];
   /** Leave the runtime's plan mode first (PLAN); see `sendInstruction`. */
   readonly leave_plan?: true;
+  /**
+   * A new spending limit to carry on under: admission passes it only to an adapter that declares
+   * `offers_spending_cap`, for a task whose last turn ended at its limit. The runtime counts it from
+   * this instruction on.
+   */
+  readonly spending_cap_usd?: number;
 }
 
 export interface StartExecutionRequest {
@@ -101,6 +107,11 @@ export interface StartExecutionRequest {
    * `runtime.execution.started` whether the runtime confirmed it.
    */
   readonly plan?: boolean;
+  /**
+   * The task's spending limit, for an adapter that declares `offers_spending_cap`: the runtime
+   * stops the task once its own estimate passes it, and the turn fails `spending_cap_reached`.
+   */
+  readonly spending_cap_usd?: number;
   /**
    * The project's location: the real path the host's directory policy returned for it when the
    * control plane dispatched the start, or null when the project has none or the runtime does not
@@ -139,6 +150,12 @@ export interface ReattachRequest {
   readonly approval_level?: ApprovalLevel;
   /** Whether its start recorded the runtime's own plan mode; absent or false: not a plan. */
   readonly plan?: boolean;
+  /**
+   * For a task with a spending limit: what is left of it to hand the session's next launch (the limit
+   * less the app's known estimates since it was set), or null where that is not known or nothing is
+   * left, so the session launches nothing until it carries on under a new limit. Absent for none.
+   */
+  readonly spending_allowance_usd?: number | null;
   /**
    * Whether the runtime reported the execution confined to its project (S2). False also where it
    * was not recorded (executions from before S2), so it never permits less confinement than a new

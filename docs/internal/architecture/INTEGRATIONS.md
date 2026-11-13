@@ -265,3 +265,8 @@ None of these reads is a runtime capability, a journal event or a source of Work
     turn, a stream with a gap). Give a cost only where the runtime estimates one, by the kind of
     prices it names; never compute one. Claude Code, OpenCode and Codex declare it
     ([agent-usage.md](../validation/agent-usage.md)).
+14. Declare `offers_spending_cap` only once a run of the pinned version shows the runtime's own stop at a limit, and
+    hand it the allowance the request carries at every launch: the start's limit, a re-attach's
+    `spending_allowance_usd` (null: launch nothing until Carry On), Carry On's raise. End the stopped turn
+    `spending_cap_reached`; never stop a task on the host's own sums (ADR 0062). Claude Agent declares it
+    ([spending-cap.md](../validation/spending-cap.md)).
