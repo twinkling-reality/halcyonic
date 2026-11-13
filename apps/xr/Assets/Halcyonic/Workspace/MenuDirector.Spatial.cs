@@ -134,7 +134,7 @@ namespace Halcyonic.XR.Workspace
             // shows exactly its lines; for the older page it is cut as ever (FIELD's flow, NewProjectFlow.RoomLines).
             if (navigator.Beside is NewProjectFlow flow)
             {
-                flow.RoomLines = room ? (roomLines ??= words => plane.Kit.Bar.Lines(words, false)) : null;
+                flow.RoomLines = room ? (roomLines ??= words => plane.Kit.LinesAsLaid(words, false)) : null;
                 // The recap counts as shown for Start Task's one press only while its card stands whole (R1; RoomCardView.LaidWhole).
                 flow.RecapShownWhole = room ? (recapShownWhole ??= () => plane.Kit.Bar.Card?.LaidWhole == true) : null;
                 flow.ShownBeside = room ? () => navigator.Beside == flow && !navigator.IsCompact : null;

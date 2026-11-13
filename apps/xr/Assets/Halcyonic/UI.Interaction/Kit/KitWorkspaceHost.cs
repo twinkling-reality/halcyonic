@@ -223,6 +223,14 @@ namespace Halcyonic.XR.UI
         /// Where it can't, as a long report beside the whole composer at the larger size, the file draws the frame instead.
         /// </summary>
         /// <param name="narrow">The form the bar will be laid in (<see cref="RoomBar.Narrow"/>): its words are measured at that width.</param>
+        /// <summary>
+        /// The lines <paramref name="words"/> take in the panel as this host will lay it: the column's width in the narrow form, else
+        /// the panel at the plane's width (RoomForm.PanelDp). The one measure a file counts a confirmation's parts by and the kit holds
+        /// them by, so the two can never differ when the plane narrows (SCREENS's 21:08Z, JUDGE's charN request part 2).
+        /// </summary>
+        public int LinesAsLaid(LineWords words, bool mono, bool? narrow = null) =>
+            bar.LinesAt(words, mono, (narrow ?? Form.Narrow) ? RoomGeometry.ColumnDp : Form.PanelDp);
+
         public bool Holds(KitFileBinding binding, bool? narrow = null)
         {
             var laidNarrow = narrow ?? Form.Narrow;
@@ -246,13 +254,13 @@ namespace Halcyonic.XR.UI
             if (RoomDesign.Enabled && (model.Instruction != null || model.Need != null))
             {
                 var read = RoomBar.Of(binding, Voice(), AwaitingStart(), form: Form);
-                return read.Rows is not int rows || bar.Lines(read.Body, read.Mono, laidNarrow) == rows;
+                return read.Rows is not int rows || LinesAsLaid(read.Body, read.Mono, laidNarrow) == rows;
             }
             // Under the redesign the old kit is never asked what it holds (ON-1): the redesign draws what reaches here (the row at
             // rest, a draft in its field, the agent's words on the band by parts), save a draft longer than the panel's lines
             // that the file has not cut in parts of them: one it cut stands part by part, the column turning them.
             if (RoomDesign.Enabled)
-                return model.Draft.Length == 0 || bar.Lines(LineWords.Theirs(model.Draft), false, laidNarrow) <= RoomBar.RequestLines
+                return model.Draft.Length == 0 || LinesAsLaid(LineWords.Theirs(model.Draft), false, laidNarrow) <= RoomBar.RequestLines
                     || RoomBar.Of(binding, Voice(), AwaitingStart(), form: Form) is { State: RoomBarState.Draft, Part: PageLine part } && part.Rows <= RoomBar.RequestLines;
             if (model.Draft.Length > 0 && RowsOf(model.Draft) > ComposerRows) return false;
             if (model.Need?.Request is string request && RowsAt(request, SlateInner() - 2f * KitType.Scaled(1f)) > 8) return false;

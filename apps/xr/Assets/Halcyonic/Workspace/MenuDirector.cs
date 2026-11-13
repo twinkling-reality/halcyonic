@@ -1382,13 +1382,13 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         public int RowsOf(PageLine line, float columnDegrees)
         {
-            if (RoomDesign.Enabled && plane.KitShows && line.Action == FileScreens.EditInstruction) return plane.Kit.Bar.Lines(line.Runs, false);
+            if (RoomDesign.Enabled && plane.KitShows && line.Action == FileScreens.EditInstruction) return plane.Kit.LinesAsLaid(line.Runs, false);
             if (plane.KitShows && line.Action == FileScreens.EditInstruction) return plane.Kit.RowsOf(line.Words);
             if (RoomDesign.Enabled && plane.KitShows && line.Action == null && navigator.Beside is FileColumn file && file.Now is WorkspacePresentation now
                 && file.Steering.ToRead(now) is string read && line.Words == read)
             {
                 var (words, mono) = RoomBar.Reading(line, now, file.Steering.Armed == WorkspaceAction.Instruct);
-                return plane.Kit.Bar.Lines(words, mono);
+                return plane.Kit.LinesAsLaid(words, mono);
             }
             return MenuFrameView.RowsOf(line, columnDegrees);
         }
