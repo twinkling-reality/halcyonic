@@ -279,6 +279,23 @@ const CONFIG_PATHS: readonly string[] = [
 ];
 
 /**
+ * The declared originals a confined session works in without a card (`sessionPermissions`), each as its real path,
+ * the profile's own spelling; never one whose path holds `*` or `?`, which OpenCode's patterns would read as a
+ * wildcard and so allow its siblings too (AUDIT3 S4): such an original asks.
+ */
+export function workedInOriginals(originals: readonly string[]): string[] {
+  return originals
+    .map((original) => {
+      try {
+        return realpathSync(original);
+      } catch {
+        return original;
+      }
+    })
+    .filter((original) => !/[*?]/.test(original));
+}
+
+/**
  * The permission rules every session Halcyonic creates carries, after every configuration file's:
  * the tools above denied, shell commands asked (the owner's decision of 2026-10-08; OpenCode asks
  * only for the commands its parse of the command line finds, opencode-permissions.md), and
@@ -301,6 +318,7 @@ const CONFIG_PATHS: readonly string[] = [
 export function sessionPermissions(
   environment: Readonly<Record<string, string>>,
   approvalLevel: ApprovalLevel = 'ask',
+  originals: readonly string[] = [],
 ): PermissionRule[] {
   const configHome =
     environment.XDG_CONFIG_HOME !== undefined && environment.XDG_CONFIG_HOME !== ''
@@ -327,6 +345,17 @@ export function sessionPermissions(
     resource,
     effect: 'deny' as const,
   }));
+  // A confined folder's declared originals, and every folder inside them, are worked in without a card (the lead's
+  // ruling, 2026-11-13: reads of a declared original do not ask): OpenCode asks to work in a folder outside as
+  // `external_directory`, once per folder, and the closed profile keeps an original read only, its secret shapes and
+  // version control refused, and refuses a folder inside it that links out. Its own `.git` is refused here too
+  // (AUDIT3, 13:52Z). Last, so they outrank the refusal of every other folder before them.
+  const ownOriginals = originals.flatMap((original) => [
+    { action: 'external_directory', resource: original, effect: 'allow' as const },
+    { action: 'external_directory', resource: `${original}/*`, effect: 'allow' as const },
+    { action: 'external_directory', resource: `${original}/.git`, effect: 'deny' as const },
+    { action: 'external_directory', resource: `${original}/.git/*`, effect: 'deny' as const },
+  ]);
   if (approvalLevel === 'never_ask') {
     return [
       ...denied,
@@ -337,6 +366,7 @@ export function sessionPermissions(
       { action: 'read', resource: '*.env.example', effect: 'allow' },
       { action: 'edit', resource: '/*', effect: 'deny' },
       ...configuration,
+      ...ownOriginals,
     ];
   }
   return [
@@ -346,6 +376,7 @@ export function sessionPermissions(
     // approving the folder (`external_directory`) names no file and does not say it writes.
     { action: 'edit', resource: '/*', effect: 'ask' },
     ...configuration,
+    ...ownOriginals,
   ];
 }
 
@@ -783,7 +814,11 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // The policy's real path. It also avoids the odd relative subpath OpenCode computes for a
       // directory reached through a symbolic link.
       location: { directory },
-      permissions: sessionPermissions(this.#environment, approvalLevel),
+      permissions: sessionPermissions(
+        this.#environment,
+        approvalLevel,
+        this.#originalsOf(directory),
+      ),
       // OpenCode's own plan agent: its rules refuse the edit tools (PLAN).
       ...(plan && { agent: PLAN_AGENT }),
     };
@@ -940,7 +975,10 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       );
     }
     if (
-      !isDeepStrictEqual(info.permissions, sessionPermissions(this.#environment, approvalLevel))
+      !isDeepStrictEqual(
+        info.permissions,
+        sessionPermissions(this.#environment, approvalLevel, this.#originalsOf(directory)),
+      )
     ) {
       throw refuse(
         `OpenCode reports the session with other rules than the level ${approvalLevel} it was recorded at gives. The session is not used.`,
@@ -1197,6 +1235,14 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   // Server lifecycle ---------------------------------------------------------------------------
+
+  /**
+   * The declared originals a folder's sandbox reads (`forFolder`), each as its real path (the profile's own spelling),
+   * the ones its session works in without a card; never one whose path holds `*` or `?`.
+   */
+  #originalsOf(directory: string): readonly string[] {
+    return workedInOriginals(this.#sandbox?.forFolder?.(directory)?.originals ?? []);
+  }
 
   /**
    * The slot of the server that serves `directory`, made on first use: with Halcyonic's sandbox, one

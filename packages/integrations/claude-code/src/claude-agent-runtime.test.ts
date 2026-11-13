@@ -43,6 +43,7 @@ import {
   KEPT_BY_HALCYONIC,
   keptPath,
   type QueryHandle,
+  requestPaths,
 } from './claude-agent-runtime.ts';
 
 const WORKDIR = mkdtempSync(join(tmpdir(), 'halcyonic-claude-agent-'));
@@ -2343,5 +2344,42 @@ describe('a confined session never writes what Halcyonic keeps, and says so (the
     ] as const)
       assert.equal(keptPath(folder, tool, input), false, `${tool} ${JSON.stringify(input)}`);
     assert.match(KEPT_BY_HALCYONIC, /kept by Halcyonic and cannot be written here/);
+  });
+});
+
+describe("a request's places, as structure, by the SDK's own tool schemas (AUDIT3 C3, 2026-11-13)", () => {
+  test('each file tool names its places; a tool with none, or a pattern that could climb, gives none', () => {
+    const given: [string, Record<string, unknown>, unknown][] = [
+      ['Write', { file_path: 'src/a.ts', content: 'x' }, [{ path: 'src/a.ts', access: 'write' }]],
+      [
+        'Edit',
+        { file_path: '/abs/a.ts', old_string: 'a', new_string: 'b' },
+        [{ path: '/abs/a.ts', access: 'write' }],
+      ],
+      [
+        'NotebookEdit',
+        { notebook_path: 'n.ipynb', new_source: '' },
+        [{ path: 'n.ipynb', access: 'write' }],
+      ],
+      // The SDK names the notebook's field notebook_path, never file_path.
+      ['NotebookEdit', { file_path: 'n.ipynb', new_source: '' }, null],
+      ['Read', { file_path: '/abs/a.ts' }, [{ path: '/abs/a.ts', access: 'read' }]],
+      ['Glob', { pattern: 'src/**/*.ts' }, [{ path: '.', access: 'read' }]],
+      ['Glob', { pattern: '*.ts', path: 'src' }, [{ path: 'src', access: 'read' }]],
+      ['Grep', { pattern: '../anything' }, [{ path: '.', access: 'read' }]],
+      ['Grep', { pattern: 'x', path: '/abs', glob: '*.ts' }, [{ path: '/abs', access: 'read' }]],
+      ['Glob', { pattern: '/etc/*' }, null],
+      ['Glob', { pattern: '../other/*' }, null],
+      ['Glob', { pattern: '{..,src}/*' }, null],
+      ['Glob', { pattern: '~/.ssh/*' }, null],
+      ['Grep', { pattern: 'x', glob: '../*.env' }, null],
+      ['Read', { file_path: '' }, null],
+      ['Read', {}, null],
+      ['Bash', { command: 'cat src/a.ts' }, null],
+      ['WebFetch', { url: 'https://example.com' }, null],
+      ['MultiEdit', { file_path: 'a.ts' }, null],
+    ];
+    for (const [tool, input, expected] of given)
+      assert.deepEqual(requestPaths(tool, input), expected, `${tool} ${JSON.stringify(input)}`);
   });
 });

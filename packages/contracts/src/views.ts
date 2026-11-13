@@ -389,6 +389,16 @@ export const ExecutionView = Type.Object(
     /** Why the execution is `failed`, `interrupted` or `unknown`, when known. */
     status_reason: Nullable(ErrorInfo),
     pending_approvals: Type.Array(ApprovalView),
+    /**
+     * How many of its requests the host answered itself, without a card (`execution.approval.answered_by_host`), and
+     * how many reached the person; absent where it never asked anything.
+     */
+    approvals: Type.Optional(
+      Type.Object(
+        { went_ahead: Type.Integer({ minimum: 0 }), asked: Type.Integer({ minimum: 0 }) },
+        strict,
+      ),
+    ),
     pending_questions: Type.Array(QuestionView),
     active_tools: Type.Array(ToolActivityView),
     /**

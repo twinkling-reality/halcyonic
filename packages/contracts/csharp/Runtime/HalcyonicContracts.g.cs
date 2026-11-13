@@ -2893,6 +2893,22 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum ToolUsePathsItemAccess
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "read")] Read,
+        [global::System.Runtime.Serialization.EnumMember(Value = "write")] Write,
+    }
+
+    public sealed class ToolUsePathsItem
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("access", Required = global::Newtonsoft.Json.Required.Always)]
+        public ToolUsePathsItemAccess Access { get; set; }
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(ApprovalSubjectConverter))]
     public abstract class ApprovalSubject
     {
@@ -2946,6 +2962,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("summary", Required = global::Newtonsoft.Json.Required.Always)]
         public string Summary { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<ToolUsePathsItem>? Paths { get; set; }
     }
 
     public sealed class ApprovalView
@@ -2961,6 +2980,15 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("requested_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string RequestedAt { get; set; } = default!;
+    }
+
+    public sealed class ExecutionViewApprovals
+    {
+        [global::Newtonsoft.Json.JsonProperty("went_ahead", Required = global::Newtonsoft.Json.Required.Always)]
+        public long WentAhead { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("asked", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Asked { get; set; }
     }
 
     public sealed class QuestionOption
@@ -3189,6 +3217,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("pending_approvals", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<ApprovalView> PendingApprovals { get; set; } = new global::System.Collections.Generic.List<ApprovalView>();
+
+        [global::Newtonsoft.Json.JsonProperty("approvals", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public ExecutionViewApprovals? Approvals { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("pending_questions", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<QuestionView> PendingQuestions { get; set; } = new global::System.Collections.Generic.List<QuestionView>();
@@ -4635,6 +4666,48 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public AutoFixEndReason Reason { get; set; }
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum ExecutionApprovalAnsweredByHostPayloadBecause
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "inside_copy")] InsideCopy,
+        [global::System.Runtime.Serialization.EnumMember(Value = "reads_original")] ReadsOriginal,
+        [global::System.Runtime.Serialization.EnumMember(Value = "confined_command")] ConfinedCommand,
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum ExecutionApprovalAnsweredByHostPayloadPathsItemAccess
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "read")] Read,
+        [global::System.Runtime.Serialization.EnumMember(Value = "write")] Write,
+    }
+
+    public sealed class ExecutionApprovalAnsweredByHostPayloadPathsItem
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("access", Required = global::Newtonsoft.Json.Required.Always)]
+        public ExecutionApprovalAnsweredByHostPayloadPathsItemAccess Access { get; set; }
+    }
+
+    public sealed class ExecutionApprovalAnsweredByHostPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string ApprovalId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("because", Required = global::Newtonsoft.Json.Required.Always)]
+        public ExecutionApprovalAnsweredByHostPayloadBecause Because { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ExecutionApprovalAnsweredByHostPayloadPathsItem> Paths { get; set; } = new global::System.Collections.Generic.List<ExecutionApprovalAnsweredByHostPayloadPathsItem>();
+    }
+
+    public sealed class ExecutionApprovalHostAnswerWithdrawnPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string ApprovalId { get; set; } = default!;
     }
 
     public sealed class ExecutionStartFailedPayload
@@ -6349,6 +6422,8 @@ namespace Halcyonic.Contracts
                 "execution.check_output_given" => new ExecutionCheckOutputGivenEvent(),
                 "execution.auto_fix.sent" => new ExecutionAutoFixSentEvent(),
                 "execution.auto_fix.ended" => new ExecutionAutoFixEndedEvent(),
+                "execution.approval.answered_by_host" => new ExecutionApprovalAnsweredByHostEvent(),
+                "execution.approval.host_answer_withdrawn" => new ExecutionApprovalHostAnswerWithdrawnEvent(),
                 "execution.start_failed" => new ExecutionStartFailedEvent(),
                 "execution.state_unknown" => new ExecutionStateUnknownEvent(),
                 "command.accepted" => new CommandAcceptedEvent(),
@@ -6823,6 +6898,22 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionAutoFixEndedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionApprovalAnsweredByHostEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.approval.answered_by_host";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ExecutionApprovalAnsweredByHostPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionApprovalHostAnswerWithdrawnEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.approval.host_answer_withdrawn";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ExecutionApprovalHostAnswerWithdrawnPayload Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionStartFailedEvent : EventEnvelope

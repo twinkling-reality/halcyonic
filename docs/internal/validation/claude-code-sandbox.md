@@ -55,6 +55,15 @@ From the e2e test, an approved Bash call: a file outside the folder and one in t
 connection, and a write inside the folder works. Every request went through the gate to the fake API; none reached
 the trap.
 
+## The places a request names (2026-11-13, for ADR 0064)
+
+Read from the pinned SDK's own tool schemas, `sdk-tools.d.ts` in `@anthropic-ai/claude-agent-sdk` 0.3.283 (AUDIT3
+C3): `FileWriteInput`, `FileEditInput` and `FileReadInput` name `file_path`; `NotebookEditInput` names
+`notebook_path`, not `file_path`; `GlobInput` has `pattern` and an optional `path`; `GrepInput` has `pattern` (the
+text searched for, not a place), an optional `path` and an optional `glob`. There is no `MultiEdit` or `LS` tool in
+this version. A Glob pattern or Grep glob can name places beyond its `path`, so one that is absolute, starts at `~`
+or holds `..` anywhere gives no places (`requestPaths`, tested in `claude-agent-runtime.test.ts`).
+
 ## Re-attach
 
 The SDK's `getSessionInfo` reads this process's own `CLAUDE_CONFIG_DIR`, so it cannot see a confined folder's own

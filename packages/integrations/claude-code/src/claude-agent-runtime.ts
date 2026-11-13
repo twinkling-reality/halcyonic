@@ -2073,11 +2073,13 @@ function approvalRequest(
     toolName === 'Bash' && described !== null
       ? `[in its shell, which started in the task's folder${input.run_in_background === true ? ', in the background' : ''}] `
       : '';
+  const paths = requestPaths(toolName, input);
   return {
     subject: {
       kind: 'tool_use',
       tool_name: toolName.slice(0, 128),
       summary: described === null ? JSON.stringify(input) : `${where}${described}`,
+      ...(paths !== null && { paths }),
     },
     // A tool's name cut to the contract could read as another's.
     complete:
@@ -2106,6 +2108,47 @@ export function keptPath(
   const within = relative(resolve(folder), resolve(folder, named));
   if (within === '' || within.startsWith('..') || isAbsolute(within)) return false;
   return runsLater(within.split(sep).join('/'));
+}
+
+/**
+ * Every place a file tool's input names, as structure, by the SDK's own tool schemas (sdk-tools.d.ts, 0.3.283): the
+ * file Write, Edit and NotebookEdit change, the file Read reads, the folder Glob and Grep search (the task's folder,
+ * `.`, when they name none). Null when the tool names no place as structure (Bash, any other tool) or when its input
+ * could reach past the places it names: a Glob pattern or Grep glob that is absolute, starts at a home or holds `..`
+ * anywhere (AUDIT3 C3).
+ * Unknown stays unknown: a request with no paths is never answered by the host.
+ */
+export function requestPaths(
+  toolName: string,
+  input: Record<string, unknown>,
+): { path: string; access: 'read' | 'write' }[] | null {
+  const place = (value: unknown, access: 'read' | 'write') =>
+    typeof value === 'string' && value !== '' && value.length <= 4096
+      ? [{ path: value, access }]
+      : null;
+  // Any `..` at all, so a brace or class cannot spell a climb the test misses.
+  const climbs = (pattern: unknown) =>
+    typeof pattern !== 'string' ||
+    pattern.startsWith('/') ||
+    pattern.startsWith('~') ||
+    pattern.includes('..');
+  switch (toolName) {
+    case 'Write':
+    case 'Edit':
+      return place(input.file_path, 'write');
+    case 'NotebookEdit':
+      return place(input.notebook_path, 'write');
+    case 'Read':
+      return place(input.file_path, 'read');
+    case 'Glob':
+      return climbs(input.pattern) ? null : place(input.path ?? '.', 'read');
+    case 'Grep':
+      return input.glob !== undefined && climbs(input.glob)
+        ? null
+        : place(input.path ?? '.', 'read');
+    default:
+      return null;
+  }
 }
 
 /** Shortens text to a contract limit. Null when nothing visible remains. */

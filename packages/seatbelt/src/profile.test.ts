@@ -323,6 +323,12 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
       '.envrc',
       '.gitmodules',
       'a.code-workspace',
+      // The Mac's disk folds case.
+      '.GIT/config',
+      '.Git/hooks/pre-commit',
+      '.ENVRC',
+      '.VSCode/settings.json',
+      'A.Code-Workspace',
     ])
       assert.equal(runsLater(path), true, path);
     // At any depth, any case (AUDIT3 17:32Z).

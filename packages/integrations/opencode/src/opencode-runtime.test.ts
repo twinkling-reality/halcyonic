@@ -29,6 +29,7 @@ import {
   planSwitchOutcome,
   readSnapshot,
   sessionPermissions,
+  workedInOriginals,
 } from './opencode-runtime.ts';
 import { buildEnvironment, INHERITED_VARIABLES, launchServer } from './server.ts';
 import { allowOnly } from './testing/directory-policy.ts';
@@ -231,6 +232,35 @@ describe('reading a session back after the event stream reconnected', () => {
 });
 
 describe('OpenCode session rules', () => {
+  test('an original whose path OpenCode would read as a wildcard is never allowed (AUDIT3 S4)', () => {
+    assert.deepEqual(workedInOriginals(['/nowhere/plain', '/nowhere/a*b', '/nowhere/c?d']), [
+      '/nowhere/plain',
+    ]);
+  });
+
+  test("a confined folder's declared originals and the folders inside them are worked in without a card, nothing else (run (b), 2026-11-13)", () => {
+    const original = '/Users/someone/dev/tidewatch';
+    for (const level of ['ask', 'never_ask'] as const) {
+      const rules = sessionPermissions({ HOME: '/Users/someone' }, level, [original]);
+      const folders = rules.filter((rule) => rule.action === 'external_directory');
+      // Last, so they outrank every refusal of another folder before them; its own .git refused after them.
+      assert.deepEqual(folders.slice(-4), [
+        { action: 'external_directory', resource: original, effect: 'allow' },
+        { action: 'external_directory', resource: `${original}/*`, effect: 'allow' },
+        { action: 'external_directory', resource: `${original}/.git`, effect: 'deny' },
+        { action: 'external_directory', resource: `${original}/.git/*`, effect: 'deny' },
+      ]);
+      assert.deepEqual(rules.slice(-4), folders.slice(-4));
+      // No other folder is allowed.
+      assert.equal(folders.filter((rule) => rule.effect === 'allow').length, 2);
+    }
+    // Without originals the rules are as before.
+    assert.deepEqual(
+      sessionPermissions({ HOME: '/Users/someone' }),
+      sessionPermissions({ HOME: '/Users/someone' }, 'ask', []),
+    );
+  });
+
   test('deny the network tools and subagents, ask for shell commands, and deny edits to every hidden path and to opencode.json', () => {
     const rules = sessionPermissions({ HOME: '/Users/someone', PATH: '/usr/bin' });
     const denied = (action: string) =>

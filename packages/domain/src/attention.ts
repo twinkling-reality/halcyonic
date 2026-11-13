@@ -1,5 +1,5 @@
 import type { Attention, AttentionReason } from '@halcyonic/contracts';
-import { deriveExecutionStatus, type ExecutionState } from './execution-state.ts';
+import { deriveExecutionStatus, type ExecutionState, shownApprovals } from './execution-state.ts';
 import { shownQuestions } from './questions.ts';
 
 /**
@@ -22,7 +22,7 @@ export function deriveAttention(
 
   for (const execution of executions) {
     if (deriveExecutionStatus(execution) !== 'waiting_for_human') continue;
-    for (const approval of execution.pendingApprovals.values()) {
+    for (const approval of shownApprovals(execution)) {
       reasons.push({
         kind: 'approval_pending',
         execution_id: execution.executionId,

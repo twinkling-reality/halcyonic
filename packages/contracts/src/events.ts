@@ -934,6 +934,56 @@ export const ExecutionAutoFixEnded = executionEvent(
   ),
 );
 
+/**
+ * A place an approval request names, as the runtime's own tool input gives it (reported): read or written. The path
+ * is as the agent wrote it, absolute or relative to the task's folder.
+ */
+export const ApprovalPath = Type.Object(
+  {
+    path: Text(4096),
+    access: Type.Union([Type.Literal('read'), Type.Literal('write')]),
+  },
+  strict,
+);
+export type ApprovalPath = Static<typeof ApprovalPath>;
+
+/**
+ * Why the host answered an approval itself, without a card (the lead's ruling, 2026-11-13): in an execution whose
+ * start recorded it confined, every place the request names is inside the task's folder, or is read in a declared
+ * original or the starter's shared files; or it is a shell command, which the closed profile holds.
+ */
+export const HostApprovalReason = Type.Union([
+  Type.Literal('inside_copy'),
+  Type.Literal('reads_original'),
+  Type.Literal('confined_command'),
+]);
+export type HostApprovalReason = Static<typeof HostApprovalReason>;
+
+/**
+ * The host approved a request of this execution itself, recorded before the decision is sent: why, and the places it
+ * judged as it resolved them (none for a command), so every answer can be checked afterwards (AUDIT3 C4).
+ */
+export const ExecutionApprovalAnsweredByHost = executionEvent(
+  'execution.approval.answered_by_host',
+  Type.Object(
+    {
+      approval_id: NativeId,
+      because: HostApprovalReason,
+      paths: Type.Array(ApprovalPath, { maxItems: 8 }),
+    },
+    strict,
+  ),
+);
+
+/**
+ * The host's answer recorded by `execution.approval.answered_by_host` was not taken (its approve command was not
+ * accepted), so the request reaches the person after all (AUDIT3 S3, 2026-11-13).
+ */
+export const ExecutionApprovalHostAnswerWithdrawn = executionEvent(
+  'execution.approval.host_answer_withdrawn',
+  Type.Object({ approval_id: NativeId }, strict),
+);
+
 /** The adapter reported that the runtime could not start the execution. */
 export const ExecutionStartFailed = executionEvent(
   'execution.start_failed',
@@ -1078,7 +1128,16 @@ export const WorkspaceRequestStepRecorded = requestEvent(
 
 export const ApprovalSubject = Type.Union([
   Type.Object(
-    { kind: Type.Literal('tool_use'), tool_name: Text(128), summary: Text(2000) },
+    {
+      kind: Type.Literal('tool_use'),
+      tool_name: Text(128),
+      summary: Text(2000),
+      /**
+       * Every place the tool's input names, when the adapter can give them all as structure; absent when it cannot
+       * (a shell command, a pattern that may climb out of its folder), which never reads as none.
+       */
+      paths: Type.Optional(Type.Array(ApprovalPath, { maxItems: 8 })),
+    },
     strict,
   ),
 ]);
@@ -1339,6 +1398,8 @@ export const EVENT_VARIANTS = [
   ExecutionCheckOutputGiven,
   ExecutionAutoFixSent,
   ExecutionAutoFixEnded,
+  ExecutionApprovalAnsweredByHost,
+  ExecutionApprovalHostAnswerWithdrawn,
   ExecutionStartFailed,
   ExecutionStateUnknown,
   CommandAccepted,

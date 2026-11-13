@@ -169,7 +169,8 @@ describe('a project taken off the list (ADR 0063)', () => {
     remove();
     const state = deserialize(serialize(projection.exportState())) as ProjectionState;
     assert.equal(state.format, PROJECTION_STATE_FORMAT);
-    assert.equal(PROJECTION_STATE_FORMAT, 23);
+    // 23 brought `removedAt`; a later format keeps it.
+    assert.ok(PROJECTION_STATE_FORMAT >= 23);
     const restarted = new Projection();
     restarted.restoreState(state);
     assert.equal(restarted.listed(project.projectId), false);

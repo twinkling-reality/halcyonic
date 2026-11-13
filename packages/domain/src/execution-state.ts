@@ -92,6 +92,13 @@ export interface ExecutionState {
   usage: UsageSum | null;
   /** Its spending limit and the span the app's estimates are summed over; null for none. */
   spendingCap: SpendingCapState | null;
+  /** Its requests the host answered itself and those that reached the person; null until one is requested. */
+  approvals: { wentAhead: number; asked: number } | null;
+  /**
+   * The pending requests the host has answered itself, until the runtime reports them resolved: kept pending for
+   * admission, never shown to the person as a card.
+   */
+  hostAnswered: Set<string>;
 }
 
 /**
@@ -262,6 +269,8 @@ export function createExecutionState(init: {
     queued: [],
     usage: null,
     spendingCap: null,
+    approvals: null,
+    hostAnswered: new Set(),
   };
 }
 
@@ -382,6 +391,8 @@ export function endTurn(
   state.activeTurn = null;
   state.lastTurn = { outcome, error };
   state.pendingApprovals.clear();
+  // A state from before host answers has none.
+  state.hostAnswered?.clear();
   state.pendingQuestions.clear();
   state.activeTools.clear();
   state.activeTestRun = null;
@@ -425,7 +436,7 @@ export function toExecutionView(
     directory: state.directory,
     status: deriveExecutionStatus(state),
     status_reason: deriveStatusReason(state),
-    pending_approvals: [...state.pendingApprovals.values()],
+    pending_approvals: shownApprovals(state),
     pending_questions: shownQuestions(state.pendingQuestions),
     active_tools: [...state.activeTools.values()],
     tool_activity: deriveToolActivity(state, reportsToolActivity),
@@ -446,8 +457,18 @@ export function toExecutionView(
         turns_ended: Math.max(turnsEnded(state), state.usage.turns),
       },
     }),
+    ...(state.approvals != null && {
+      approvals: { went_ahead: state.approvals.wentAhead, asked: state.approvals.asked },
+    }),
     created_at: state.createdAt,
     started_at: state.startedAt,
     updated_at: state.updatedAt,
   };
+}
+
+/** The pending requests a person is shown: those the host has not answered itself. */
+export function shownApprovals(state: ExecutionState): ApprovalView[] {
+  // A state from before host answers has none.
+  const answered = state.hostAnswered ?? new Set<string>();
+  return [...state.pendingApprovals.values()].filter((each) => !answered.has(each.approval_id));
 }
