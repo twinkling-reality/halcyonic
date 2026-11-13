@@ -30,7 +30,6 @@ import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
 import { HostProviders, PROVIDERS_DIR } from './providers.ts';
 import {
   AGENT_KEY_READERS,
-  ANTHROPIC_KEY_FILE,
   CLAUDE_AGENT_PROCESS_RECORD,
   CODEX_SERVER_RECORD,
   claudeAgentEnvironment,
@@ -48,7 +47,9 @@ import {
   ripgrepOnPath,
   secretName,
   stopStaleRuntimeServers,
+  withDeclaredKey,
 } from './runtimes.ts';
+import { providersFolder } from './testing/declared-providers.ts';
 import { SCENARIOS } from './testing/harness.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'halcyonic-runtimes-'));
@@ -68,6 +69,14 @@ function adapters(
 }
 
 const HOST = { HOME: '/home/someone', PATH: '/usr/bin' };
+
+/** The key file Anthropic's declaration names: the tests read it from there, as the host does, never by a name of their own. */
+const ANTHROPIC_DECLARED = (
+  JSON.parse(readFileSync(join(PROVIDERS_DIR, 'anthropic', 'provider.json'), 'utf8')) as {
+    key: { file: string; variable: string };
+  }
+).key;
+const ANTHROPIC_KEY_FILE = ANTHROPIC_DECLARED.file;
 
 describe('runtime composition', () => {
   test('only the synthetic mock runtime is hosted unless a real runtime is enabled', () => {
@@ -165,11 +174,66 @@ describe('runtime composition', () => {
     );
   });
 
-  test("the held secrets' Anthropic key file is the one Anthropic's declaration names", () => {
-    const declared = JSON.parse(
-      readFileSync(join(PROVIDERS_DIR, 'anthropic', 'provider.json'), 'utf8'),
+  test("Claude Agent's start reads the key file and variable its provider's declaration names, none of its own", (t) => {
+    const declared = providersFolder(t);
+    // The declaration moved to another file: the start reads that one.
+    const anthropic = JSON.parse(
+      readFileSync(join(declared.dir, 'anthropic', 'provider.json'), 'utf8'),
     ) as { key: { file: string } };
-    assert.equal(ANTHROPIC_KEY_FILE, declared.key.file);
+    anthropic.key.file = 'elsewhere-key';
+    writeFileSync(join(declared.dir, 'anthropic', 'provider.json'), JSON.stringify(anthropic));
+    const dataDir = mkdtempSync(join(base, 'declared-file-'));
+    writeFileSync(join(dataDir, 'elsewhere-key'), 'from-the-declared-file\n', { mode: 0o600 });
+    // A file under the old name that others can read would stop the start if it were read: it is not.
+    writeFileSync(join(dataDir, ANTHROPIC_KEY_FILE), 'from-the-old-name\n', { mode: 0o644 });
+    chmodSync(join(dataDir, ANTHROPIC_KEY_FILE), 0o644);
+    const providers = new HostProviders({ dir: declared.dir, dataDir, readers: AGENT_KEY_READERS });
+    const made = createRuntimeAdapters(loadConfig({ HALCYONIC_CLAUDE_AGENT: '1' }), {
+      mock: new MockRuntimeAdapter({ scenarios: SCENARIOS }),
+      directoryPolicy: createDirectoryPolicy([]),
+      environment: HOST,
+      dataDir,
+      providers,
+    });
+    assert.ok(made.some((adapter) => adapter.descriptor.kind === 'claude-agent'));
+    assert.equal(
+      withDeclaredKey(HOST, dataDir, {
+        file: 'elsewhere-key',
+        variable: ANTHROPIC_DECLARED.variable,
+      })[ANTHROPIC_DECLARED.variable],
+      'from-the-declared-file',
+    );
+    // The environment's own value wins, as before.
+    assert.equal(
+      withDeclaredKey({ ...HOST, [ANTHROPIC_DECLARED.variable]: 'set-in-env' }, dataDir, {
+        file: 'elsewhere-key',
+        variable: ANTHROPIC_DECLARED.variable,
+      })[ANTHROPIC_DECLARED.variable],
+      'set-in-env',
+    );
+  });
+
+  test('with no provider declared for Claude Agent, its start reads no key file by a name of its own', (t) => {
+    // No declaration at all: a file under the name Anthropic's declaration uses today is never read.
+    const empty = mkdtempSync(join(base, 'no-declarations-'));
+    t.after(() => rmSync(empty, { recursive: true, force: true }));
+    const dataDir = mkdtempSync(join(base, 'undeclared-'));
+    writeFileSync(join(dataDir, ANTHROPIC_KEY_FILE), 'from-an-undeclared-file\n', { mode: 0o644 });
+    chmodSync(join(dataDir, ANTHROPIC_KEY_FILE), 0o644);
+    const providers = new HostProviders({ dir: empty, dataDir, readers: AGENT_KEY_READERS });
+    // Read, that file (others can read it) would stop the start with a ConfigError; unread, the start stops only
+    // for having no credentials at all.
+    assert.throws(
+      () =>
+        createRuntimeAdapters(loadConfig({ HALCYONIC_CLAUDE_AGENT: '1' }), {
+          mock: new MockRuntimeAdapter({ scenarios: SCENARIOS }),
+          directoryPolicy: createDirectoryPolicy([]),
+          environment: HOST,
+          dataDir,
+          providers,
+        }),
+      EnvironmentError,
+    );
   });
 
   test('a key file other users can read, or an empty one, stops startup', () => {
