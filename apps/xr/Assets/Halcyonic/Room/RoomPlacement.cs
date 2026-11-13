@@ -104,23 +104,29 @@ namespace Halcyonic.XR.Room
             // The room yields, never the plane, and a text size refuses nothing (the lead's 18:07Z and 19:34Z; AUDIT's 20:36Z): where
             // nothing inside the field clears the plane's keep-out, a place the person sees by turning the head up to
             // ShelfAside.AsideDegrees is a place. Said once, so a walk knows the shelf stood a turn away.
-            turnAside = true;
-            if (AgentShelfSearch.Begin(Draft, eyes, facing, out _, console, Half))
+            // Past thirty, as far as clears, logged (pick B; AUDIT's 20:38Z), the search turning out to the person's side and no further.
+            foreach (var (aside, turn) in new[] { (ShelfAside.AsideDegrees, AgentShelfSearch.MaximumTurnDegrees + ShelfAside.AsideDegrees),
+                (AgentShelfSearch.SideDegrees, AgentShelfSearch.SideDegrees) })
             {
-                Debug.Log("Halcyonic: the shelf stands a turn of the head past the field's side: the plane's keep-out left no place inside it.");
+                turnAside = true;
+                fieldAside = aside;
+                if (!AgentShelfSearch.Begin(Draft, eyes, facing, out _, console, Half, turn) || Draft.Candidate is not AgentShelfPose found) continue;
+                var away = Mathf.Abs(Mathf.DeltaAngle(facing, Mathf.Atan2(found.Position.X - eyes.X, found.Position.Z - eyes.Z) * Mathf.Rad2Deg));
+                Debug.Log("Halcyonic: the shelf stands a turn of the head past the field's side, about " + away.ToString("0") + " degrees from where the person faces: the plane's keep-out left no place inside it.");
                 return true;
             }
             // Said once a search that found nothing, with what refused each candidate, so a walk names the check the room failed
             // (JUDGE's shelf walks, 2026-11-13); the rest were out of the draft's reach.
             var refused = new Dictionary<string, int>();
             var tried = 0;
-            foreach (var candidate in AgentShelfSearch.Candidates(eyes, facing, console, Half))
+            foreach (var candidate in AgentShelfSearch.Candidates(eyes, facing, console, Half, AgentShelfSearch.SideDegrees))
             {
                 tried++;
                 var why = ShelfRefusedBy(candidate) ?? "out of the draft's reach";
                 refused[why] = refused.TryGetValue(why, out var count) ? count + 1 : 1;
             }
             turnAside = false;
+            fieldAside = 0f;
             Debug.Log("Halcyonic: no shelf place among " + tried + " tried, a turn of the head included"
                 + (console is ConsoleExtent near ? " (console " + near.LeftYaw.ToString("0.0") + " to " + near.RightYaw.ToString("0.0") + " across, foot "
                     + near.BottomElevation.ToString("0.0") + ")" : "") + ": "
@@ -178,6 +184,9 @@ namespace Halcyonic.XR.Room
         /// <summary>This preview found no place inside the field and stands a turn of the head past its side (<see cref="BeginPreview"/>).</summary>
         private bool turnAside;
 
+        /// <summary>How far past its side the field reaches for this preview, turned: thirty degrees, then out to the person's side.</summary>
+        private float fieldAside;
+
         /// <summary>What refuses a shelf at <paramref name="candidate"/>: the field, the plane's footprint, or no head; null where it may stand.</summary>
         private string? ShelfRefusedBy(AgentShelfPose candidate)
         {
@@ -186,7 +195,7 @@ namespace Halcyonic.XR.Room
             var pose = ToPose(candidate);
             var measured = ViewField.Current ?? new ViewField(48, 48, 45, 45);
             // Turned a little (turnAside), the field reaches ShelfAside.AsideDegrees further to either side, as the head turned sees it.
-            var aside = turnAside ? ShelfAside.AsideDegrees : 0f;
+            var aside = turnAside ? fieldAside : 0f;
             var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees + aside, measured.Right - ViewField.EdgeMarginDegrees + aside,
                 measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
             CharacterStage.WriteShelfCorners(pose, GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(1), head.transform.position, shelfCorners);

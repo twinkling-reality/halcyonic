@@ -62,6 +62,9 @@ namespace Halcyonic.Client
         /// <summary>The widest turn either way of where the person faces, tried last.</summary>
         public const float MaximumTurnDegrees = 40f;
 
+        /// <summary>The person's side: a shelf's middle never turns further from where they face, or it would stand behind them.</summary>
+        public const float SideDegrees = 90f;
+
         /// <summary>The step outward from the home, in degrees.</summary>
         public const float TurnStepDegrees = 5f;
 
@@ -85,8 +88,14 @@ namespace Halcyonic.Client
         /// The shelf's whole envelope, its label included, from its middle to its side as the eyes see it at a distance in metres,
         /// as the host measures it; the home's near edge is its edge, never nearer than the bare shelf's. Null for the bare shelf.
         /// </param>
-        public static IEnumerable<AgentShelfPose> Candidates(Vector3 eyes, float facingYaw, ConsoleExtent? console = null, Func<float, float>? halfDegreesAt = null)
+        /// <param name="widestTurn">
+        /// The widest turn either way of where the person faces, tried last; <see cref="MaximumTurnDegrees"/> unless the room must yield
+        /// further (the lead's 19:34Z: as far as clears, logged), never past <see cref="SideDegrees"/>, which would stand behind them.
+        /// </param>
+        public static IEnumerable<AgentShelfPose> Candidates(Vector3 eyes, float facingYaw, ConsoleExtent? console = null, Func<float, float>? halfDegreesAt = null,
+            float widestTurn = MaximumTurnDegrees)
         {
+            widestTurn = Math.Min(Math.Max(widestTurn, 0f), SideDegrees);
             var distance = console != null ? Clamp(HomeDistance, MinimumDistance, MaximumDistance) : 1.5f;
             var half = Degrees((float)Math.Atan(AgentShelfDraft.Width(1) / 2f / distance));
             // The whole envelope's near edge, its label included, where the host measures it (LARGER-SHELF L1, 2026-10-31).
@@ -101,7 +110,7 @@ namespace Halcyonic.Client
             var reach = console is ConsoleExtent d ? ((d.RightYaw - d.LeftYaw) / 2f + half) * widening + HomeGapDegrees : 0f;
             var rightHome = middle + reach;
             var leftHome = middle - reach;
-            foreach (var yaw in Side(rightHome, facingYaw, +1).Concat(Side(leftHome, facingYaw, -1)))
+            foreach (var yaw in Side(rightHome, facingYaw, +1, widestTurn).Concat(Side(leftHome, facingYaw, -1, widestTurn)))
             foreach (var at in Nearer(distance, Distances))
             foreach (var down in Lower(drop, Drops))
                 yield return new AgentShelfPose(Point(eyes, yaw, at, down), yaw);
@@ -111,10 +120,11 @@ namespace Halcyonic.Client
         /// Begins the draft on the first candidate it keeps. Returns false, with no candidate, when it refuses every one;
         /// <paramref name="tried"/> counts the candidates offered.
         /// </summary>
-        public static bool Begin(AgentShelfDraft draft, Vector3 eyes, float facingYaw, out int tried, ConsoleExtent? console = null, Func<float, float>? halfDegreesAt = null)
+        public static bool Begin(AgentShelfDraft draft, Vector3 eyes, float facingYaw, out int tried, ConsoleExtent? console = null, Func<float, float>? halfDegreesAt = null,
+            float widestTurn = MaximumTurnDegrees)
         {
             tried = 0;
-            foreach (var candidate in Candidates(eyes, facingYaw, console, halfDegreesAt))
+            foreach (var candidate in Candidates(eyes, facingYaw, console, halfDegreesAt, widestTurn))
             {
                 tried++;
                 draft.Begin(candidate, eyes);
@@ -124,9 +134,9 @@ namespace Halcyonic.Client
         }
 
         /// <summary>One side's yaws: the home, then outward by the step, the far turn last; none past it.</summary>
-        private static IEnumerable<float> Side(float home, float facing, int sign)
+        private static IEnumerable<float> Side(float home, float facing, int sign, float widestTurn)
         {
-            var limit = facing + sign * MaximumTurnDegrees;
+            var limit = facing + sign * widestTurn;
             var yaw = sign > 0 ? Math.Min(home, limit) : Math.Max(home, limit);
             for (; sign > 0 ? yaw < limit - 1e-3f : yaw > limit + 1e-3f; yaw += sign * TurnStepDegrees) yield return yaw;
             yield return limit;

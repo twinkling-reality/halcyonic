@@ -44,6 +44,22 @@ public sealed class AgentShelfSearchTests
         Assert.That(yaws, Has.All.InRange(-AgentShelfSearch.MaximumTurnDegrees, AgentShelfSearch.MaximumTurnDegrees));
     }
 
+    /// <summary>
+    /// Where the room must yield further (the lead's 19:34Z: as far as clears), the search turns as far as it is asked, the far turn
+    /// still last, and never past the person's side, where a shelf would stand behind them.
+    /// </summary>
+    [Test]
+    public void ItTurnsFurtherWhenAskedButNeverPastThePersonsSide()
+    {
+        var wider = AgentShelfSearch.Candidates(Eyes, 0f, Console, widestTurn: 70f).Select(candidate => candidate.Yaw).Distinct().ToList();
+        Assert.That(wider.Max(), Is.EqualTo(70f).Within(1e-3f));
+        Assert.That(wider.Min(), Is.EqualTo(-70f).Within(1e-3f));
+        Assert.That(AgentShelfSearch.Candidates(Eyes, 0f, Console).Take(1).Single().Yaw,
+            Is.EqualTo(AgentShelfSearch.Candidates(Eyes, 0f, Console, widestTurn: 70f).First().Yaw), "the home first, however far it may turn");
+        var behind = AgentShelfSearch.Candidates(Eyes, 0f, Console, widestTurn: 150f).Select(candidate => candidate.Yaw).ToList();
+        Assert.That(behind, Has.All.InRange(-AgentShelfSearch.SideDegrees, AgentShelfSearch.SideDegrees), "never behind the person");
+    }
+
     [Test]
     public void AtEachTurnTheHomesDepthThenNearerThenFartherAndTheHomesHeightThenLowerThenHigher()
     {
