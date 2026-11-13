@@ -481,8 +481,14 @@ namespace Halcyonic.XR.Workspace
             {
                 if (AgentVisible(target)) standing.Add(target);
             }
+            Vector3[]? shelf = null;
+            if (stage != null && stage.Visible)
+            {
+                shelf = new Vector3[8];
+                CharacterStage.WriteShelfCorners(new Pose(stage.Shelf.position, stage.Shelf.rotation), stage.ShelfWidth, WorkspaceVisuals.HeadPosition, shelf);
+            }
             return new MenuDirector.Stage(WorkspaceVisuals.HeadPosition, head != null ? head.forward : Vector3.forward, standing.ToList(),
-                stage != null && stage.Visible && Room?.Status.OnSurface == true ? stage.SurfaceHeight : null, false);
+                stage != null && stage.Visible && Room?.Status.OnSurface == true ? stage.SurfaceHeight : null, false, shelf);
         }
 
         private bool SomethingWaits() =>

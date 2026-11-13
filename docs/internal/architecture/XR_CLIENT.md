@@ -3185,6 +3185,18 @@ in order, as before.
   (`MenuPlane.ShowKitWorkspace`). Where the Editor stands the kit aside to walk the older views (`KitWorkspaceHost.Enabled` false, never in a player), the older list holds. Wherever the older view still draws a whole screen under the redesign, the plane
   logs one line by the frame's kind alone (`MenuPlane.OlderViewDrawn`), which the walks fail on. A frame is reported
   drawn, and so read, only while its bar lays it whole (`RoomBar.Whole`, `KitWorkspaceHost.ReportDrawn`).
+- **The plane's form** (the lead, 2026-11-13T17:11Z and 17:16Z). The plane never stands over a shelf: it lays the widest form
+  that clears the placed shelf's envelope inside the Quest 3S field (`PlaneFormRule`, `MenuPlane.ConsiderForm`): the full pair
+  where that clears, else the narrow bar (FIELD's `RoomBarView` narrow lay, its panel over its column), the same rule at both
+  sizes. The form is decided again only on an event (the text size, the shelf placed or moved, a character coming or going, the
+  plane placed or moved, a placing overlay opening or closing), never because a character moves, since the envelope
+  (`CharacterStage.WriteShelfCorners`) already holds the room it moves in; each change logs one line with its cause. While an
+  overlay places something in the room (`IPlacesInRoom`: the agent shelf, a character's colour) the plane stands narrow. The
+  form reaches the kit before any reader measures (`KitWorkspaceHost.Form`, into `RoomBar.Of` and `RoomBar.OfFrame` as
+  `RoomForm`); where what the bar lays does not stand whole, or passes its largest footprint, the kit asks the reader again for
+  one row fewer a page, down to one, and says so at one, the frame never reported drawn. The shelf search keeps clear of the
+  held form's largest bar (`RoomBarView.Largest` or `LargestNarrow`, from its foot line) under the redesign, never the older
+  view's widest column.
 - **Frames the binding does not bind.** Where the task's binding has no place for the frame of the column beside the
   menu (a page of the file with no moment of its own, or another column's frame, as New Project's steps), the
   director carries the frame plain (`MenuDirector.PlainBindingOf`, `KitFileBinding.PlainOf`: no control, no task's

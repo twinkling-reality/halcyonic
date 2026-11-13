@@ -5,7 +5,7 @@ using System.Linq;
 namespace Halcyonic.Client
 {
     /// <summary>A local preview of the deliberately shown task character; no runtime commands.</summary>
-    public sealed class CharacterColourColumn : IMenuColumn
+    public sealed class CharacterColourColumn : IMenuColumn, IPlacesInRoom
     {
         public const string Choose = "character-colour-choose", Preview = "character-colour-preview", Apply = "character-colour-apply", Cancel = "character-colour-cancel";
         private readonly CharacterColourSettings settings;

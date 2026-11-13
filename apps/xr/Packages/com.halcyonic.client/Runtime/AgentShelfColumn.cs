@@ -6,7 +6,7 @@ using System.Linq;
 namespace Halcyonic.Client
 {
     /// <summary>Measured local shelf controls. The visible current draw alone authorizes each preview movement or Apply.</summary>
-    public sealed class AgentShelfColumn : IMenuColumn
+    public sealed class AgentShelfColumn : IMenuColumn, IPlacesInRoom
     {
         public const string Apply = "shelf-apply";
         public const string Move = "shelf-move";

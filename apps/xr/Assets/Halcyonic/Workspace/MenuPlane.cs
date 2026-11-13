@@ -813,6 +813,14 @@ namespace Halcyonic.XR.Workspace
                 bottom = Mathf.Min(bottom, Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg);
             }
             var shown = new ConsoleExtent(left, right, bottom);
+            // Under the redesign the console a shelf must expect is the largest bar the kit can lay in the plane's form, from its foot line
+            // (the lead's 2026-11-13T17:11Z ruling), never the older view's widest column.
+            if (RoomDesign.Enabled && KitWorkspaceHost.Enabled && KitShows)
+            {
+                var largest = LargestExtent(Form);
+                return new ConsoleExtent(Mathf.Min(shown.LeftYaw, Direction.Yaw + largest.Left), Mathf.Max(shown.RightYaw, Direction.Yaw + largest.Right),
+                    Mathf.Min(shown.BottomElevation, largest.Bottom));
+            }
             // The widest single-column console the workspace can take: a file column at Larger in the reading band, so a shelf
             // placed beside Projects is still a full degree clear when a Larger file opens or is dragged low (LARGER-SHELF, 2026-10-31).
             var widestFile = PlaneComposition.Units(Glaze.Menu.FileColumnDegrees) * Comfort.LargerTextScale / Mathf.Cos(22f * Mathf.Deg2Rad);
@@ -849,6 +857,18 @@ namespace Halcyonic.XR.Workspace
                 var down = Mathf.Max(workspace.Bottom - shelf.Top, shelf.Bottom - workspace.Top);
                 var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
                 return apart >= WorkspacePlacement.ClearanceDegrees;
+            }
+            // Under the redesign, also the largest bar the kit can lay in the plane's form: the shelf never stands where the plane may grow.
+            if (RoomDesign.Enabled && KitWorkspaceHost.Enabled && KitShows)
+            {
+                var largest = LargestExtent(Form);
+                var across = Mathf.Max(largest.Left - shelf.Right, shelf.Left - largest.Right);
+                var down = Mathf.Max(largest.Bottom - shelf.Top, shelf.Bottom - largest.Top);
+                var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
+                if (apart < WorkspacePlacement.ClearanceDegrees) return false;
+                // Where the plane returns after a local overlay is the held form's own largest bar, just kept clear of; the footprint
+                // retained from before the overlay (the full plane) no longer binds, or a shelf would never find room at Larger.
+                return Clear(VisibleCorners()) && Clear(RoomCorners());
             }
             return Clear(VisibleCorners()) && Clear(retainedWorkspace) && Clear(RoomCorners());
         }

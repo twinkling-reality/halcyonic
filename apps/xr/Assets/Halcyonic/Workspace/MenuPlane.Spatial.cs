@@ -291,6 +291,71 @@ namespace Halcyonic.XR.Workspace
             Drawn?.Invoke(pendingIndependentKind, view);
         }
 
+        private readonly PlaneFormRule formRule = new PlaneFormRule();
+        private (float Scale, string Shelf, int Characters, int Yaw, int Pitch, bool Placing)? formSituation;
+
+        /// <summary>The plane's form now, held between events (the lead's 2026-11-13T17:16Z ruling).</summary>
+        public PlaneForm Form => formRule.Form;
+
+        /// <summary>
+        /// Decides the plane's form again, only where the situation changed by an event: the text size, the placed shelf, the characters
+        /// coming or going, or the plane placed or moved by the person (to the degree). A character moving on its shelf is no event: the
+        /// shelf's envelope already holds the room it moves in. The widest form that clears the shelf inside the field wins; the kit is
+        /// told before any reader measures, and each change is said once with its cause.
+        /// </summary>
+        /// <param name="placing">A local overlay places something in the room now (<see cref="IPlacesInRoom"/>): the narrow form meanwhile.</param>
+        public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false)
+        {
+            if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; return; }
+            var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
+            var now = (GlazeText.Scale, shelfKey, characters, Mathf.RoundToInt(Direction.Yaw), Mathf.RoundToInt(Direction.Elevation), placing);
+            if (formSituation is { } was && was == now) return;
+            PlaneFormEvent happened = formSituation is not { } before ? PlaneFormEvent.PlaneMoved
+                : !Mathf.Approximately(before.Scale, now.Item1) ? PlaneFormEvent.TextSizeChanged
+                : before.Shelf != shelfKey || before.Placing != placing ? PlaneFormEvent.ShelfChanged
+                : before.Characters != characters ? PlaneFormEvent.CharactersChanged
+                : PlaneFormEvent.PlaneMoved;
+            formSituation = now;
+            if (formRule.Reconsider(happened, form => !(placing && form == PlaneForm.Full) && FormClears(form, shelf, viewer)))
+                Debug.Log("Halcyonic: the plane lays its " + (formRule.Form == PlaneForm.Narrow ? "narrow" : "full") + " form (" + happened + ").");
+            Kit.Form = new RoomForm(formRule.Form == PlaneForm.Narrow, RoomRows.APage);
+        }
+
+        /// <summary>
+        /// Where the largest bar of <paramref name="form"/> would stand, in degrees from the eyes toward where the plane faces: the
+        /// width about the plane's heading, from its foot line up (RoomBarView.Largest and LargestNarrow, at the person's text size).
+        /// </summary>
+        private (float Left, float Right, float Bottom, float Top) LargestExtent(PlaneForm form)
+        {
+            var largest = form == PlaneForm.Narrow ? RoomBarView.LargestNarrow : RoomBarView.Largest;
+            var half = SpatialKit.DegreesTo(largest.x / 2f);
+            var foot = RoomGeometry.FeetPitch;
+            return (-half, half, foot, foot + SpatialKit.DegreesTo(largest.y));
+        }
+
+        /// <summary>Whether <paramref name="form"/>'s largest bar stands inside the field and clear of the shelf by the clearance kept between things.</summary>
+        private bool FormClears(PlaneForm form, Vector3[]? shelf, Vector3 viewer)
+        {
+            var plane = LargestExtent(form);
+            var measured = ViewField.Current ?? MenuPage.Quest3S;
+            var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
+                measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
+            if (!field.Shows(plane.Left, plane.Bottom) || !field.Shows(plane.Right, plane.Top)) return false;
+            if (shelf == null) return true;
+            float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity, top = float.NegativeInfinity;
+            foreach (var point in shelf)
+            {
+                var offset = point - viewer;
+                var yaw = Mathf.DeltaAngle(Direction.Yaw, Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg);
+                var elevation = Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg;
+                left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
+            }
+            var across = Mathf.Max(plane.Left - right, left - plane.Right);
+            var down = Mathf.Max(plane.Bottom - top, bottom - plane.Top);
+            var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
+            return apart >= WorkspacePlacement.ClearanceDegrees;
+        }
+
         private object? olderViewSaid;
 
         /// <summary>

@@ -27,8 +27,10 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Where the person is and what stands on the stage, as the plane is placed against it.</summary>
         public readonly struct Stage
         {
-            public Stage(Vector3 eyes, Vector3 looking, IReadOnlyList<CharacterTarget> characters, float? surfaceHeight, bool besideWindow)
+            public Stage(Vector3 eyes, Vector3 looking, IReadOnlyList<CharacterTarget> characters, float? surfaceHeight, bool besideWindow,
+                Vector3[]? shelf = null)
             {
+                Shelf = shelf;
                 Eyes = eyes;
                 Looking = looking;
                 Characters = characters;
@@ -45,6 +47,12 @@ namespace Halcyonic.XR.Workspace
             public float? SurfaceHeight { get; }
 
             public bool BesideWindow { get; }
+
+            /// <summary>
+            /// The placed shelf's envelope, its eight world corners (CharacterStage.WriteShelfCorners: the shelf, its labels and the room
+            /// its characters move in), or null where no shelf stands: what the plane's form keeps clear of, never the characters' live bodies.
+            /// </summary>
+            public Vector3[]? Shelf { get; }
         }
 
         /// <summary>What the director's host gives it: the session and the computer, the stage, and how to make the columns other lanes own.</summary>
@@ -834,6 +842,8 @@ namespace Halcyonic.XR.Workspace
             var stage = setup.StageNow();
             ApplyCharacterColours();
             if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
+            // The plane's form, decided before any reader measures and held between events (the lead's 2026-11-13T17:16Z ruling).
+            plane.ConsiderForm(stage.Shelf, stage.Eyes, stage.Characters.Count, placing: placement is IPlacesInRoom);
             var standing = (navigator.IsOpen, navigator.Beside);
             if (anchor == null)
             {
