@@ -374,14 +374,14 @@ public class HowBuiltTests
         var pages = AnswerPages.Split(section, new AnswerRoom(6));
         Assert.That(pages.Select(page => Intelligence.Texts(page)), Is.EqualTo(new[]
         {
-            new[] { "What it is about · explained by a model, up to date", "“Some customers were charged twice when checkout retried a payment.”" },
-            new[] { "Why · explained by a model, up to date", "“Two paths could charge the same order, and neither checked the other.”",
+            new[] { "What it is about", "Explained by a model, up to date", "“Some customers were charged twice when checkout retried a payment.”" },
+            new[] { "Why", "Explained by a model, up to date", "“Two paths could charge the same order, and neither checked the other.”",
                 "1. “Two charges for one order”", "2. “The card is billed twice”" },
-            new[] { "Why, part by part · explained by a model, up to date", "“Checkout request”", "1. “Times out, then retries”", "2. “Creates a charge”" },
-            new[] { "Why, part by part · explained by a model, up to date", "“Retry worker”", "1. “Picks the same order up”", "2. “Creates another charge”" },
-            new[] { "How · explained by a model, up to date", "“One idempotency key per order, sent with every charge.”", "Starts at “ChargeService.ts”",
+            new[] { "Why, part by part", "Explained by a model, up to date", "“Checkout request”", "1. “Times out, then retries”", "2. “Creates a charge”" },
+            new[] { "Why, part by part", "Explained by a model, up to date", "“Retry worker”", "1. “Picks the same order up”", "2. “Creates another charge”" },
+            new[] { "How", "Explained by a model, up to date", "“One idempotency key per order, sent with every charge.”", "Starts at “ChargeService.ts”",
                 "1. “Derive a key per order”" },
-            new[] { "How · explained by a model, up to date", "2. “Send it with the charge”", "3. “The worker reuses it”" },
+            new[] { "How", "Explained by a model, up to date", "2. “Send it with the charge”", "3. “The worker reuses it”" },
             new[] { "The evidence", "4 files changed: 4 edited", "1 file not checked after the last change: refunds.ts",
                 "Tests passed at 15:40: 118/118 tests passed (vitest)" },
         }), "a step too long for a page goes on to the next under its heading again");
@@ -398,7 +398,7 @@ public class HowBuiltTests
         {
             Assert.That((line.Tag, line.Tone), Is.EqualTo(("explained", SectionTone.Claim)), line.Text);
         }
-        Assert.That((pages[2].Lines[1].Tag, pages[2].Lines[1].Tone), Is.EqualTo(("explained", SectionTone.Claim)), "a lane's title is the model's words too");
+        Assert.That((pages[2].Lines[2].Tag, pages[2].Lines[2].Tone), Is.EqualTo(("explained", SectionTone.Claim)), "a lane's title is the model's words too");
         Assert.That(pages.Last().Lines.Where(line => line.Tag.Length > 0).Select(line => line.Tag), Is.EqualTo(new[] { "observed", "inferred", "observed" }));
         Assert.That(pages.SelectMany(page => page.Lines).Any(line => line.Text.Contains("claude", StringComparison.OrdinalIgnoreCase)), Is.False,
             "the model's name is not shown");
@@ -409,8 +409,10 @@ public class HowBuiltTests
     {
         var older = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["explanation"]!["current"] = false);
         var pages = Steps(older);
-        Assert.That(pages.Take(6).Select(page => page.Lines[0].Text), Has.All.EndWith(" · explained by a model before the latest evidence"));
-        Assert.That(pages.Take(6).Select(page => page.Lines[0].Tone), Has.All.EqualTo(SectionTone.Secondary), "the words say it; amber is for waiting only");
+        Assert.That(pages.Take(6).Select(page => page.Lines[1].Text), Has.All.EqualTo(UnderstandingPresenter.ExplainedBefore),
+            "under each step's heading, a sentence of its own, never after a dot");
+        Assert.That(pages.Take(6).Select(page => page.Lines[0].Text), Has.None.Contains("\u00b7"));
+        Assert.That(pages.Take(6).Select(page => page.Lines[1].Tone), Has.All.EqualTo(SectionTone.Secondary), "the words say it; amber is for waiting only");
     }
 
     [Test]
@@ -427,11 +429,11 @@ public class HowBuiltTests
         var pages = Steps(json);
         Assert.That(Intelligence.Texts(pages[0]), Is.EqualTo(new[]
         {
-            "What it is about · explained by a model, up to date", "“Some customers were charged twice when checkout retried a payment.”",
+            "What it is about", "Explained by a model, up to date", "“Some customers were charged twice when checkout retried a payment.”",
             "Now: “Retries reuse the first charge.”",
         }));
         var change = pages.Where(page => page.Lines[0].Text.StartsWith("A change of approach", StringComparison.Ordinal))
-            .SelectMany(page => page.Lines.Skip(1)).Select(line => line.Text);
+            .SelectMany(page => page.Lines.Skip(2)).Select(line => line.Text);
         Assert.That(change, Is.EqualTo(new[]
         {
             "At first: “Lock the order row”", "Then: “One key per order”", "Because: “Locks timed out under load.”",
@@ -648,7 +650,7 @@ public class UnderstandingAnswersTests
         {
             Intelligence.Texts(Answers.Understand(UnderstandPrompt.WhatChanged, json))[1],
             Intelligence.Texts(Answers.Understand(UnderstandPrompt.WhyChanged, json))[0],
-            Intelligence.Texts(Answers.Understand(UnderstandPrompt.HowBuilt, json))[1],
+            Intelligence.Texts(Answers.Understand(UnderstandPrompt.HowBuilt, json))[2],
         };
         Assert.That(texts[2], Is.EqualTo("“<color=#f00>Done</color>‹U+202E› <sprite=0>‹U+200B› next line \\u003Cb\\u003E”"),
             "markup characters stay as written, and what would not show as itself shows its code");
@@ -1276,8 +1278,8 @@ public class AnswerWordsTests
     {
         var words = new[]
         {
-            "How · explained by a model, up to date",
-            "How · explained by a model before the latest evidence",
+            UnderstandingPresenter.ExplainedUpToDate,
+            UnderstandingPresenter.ExplainedBefore,
             "No explanation was written for this work.",
             "Explanations are turned off on your computer, so there's none for this work.",
             "An explanation is being written. Until it is, here is the evidence.",

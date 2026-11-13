@@ -645,9 +645,10 @@ public class RoomResultTests
     /// full answer beside the brief, the parts hold every reason the agent gave, oldest first, five a part, each with the files
     /// changed after it on its quieter line under it; the brief's "And N more" is gone and the latest reason is said once; the
     /// byline on every part says whose they are, so no row repeats it. What Changed stays brief: the page's files come first.
+    /// How It's Built holds every step, its heading a row and "Explained by a model" under it, never on a dot.
     /// </summary>
     [Test]
-    public void TheAccountsWhyHoldsEveryReasonTheAgentGaveWithTheFilesUnderEach()
+    public void TheAccountsWhyAndHowHoldEveryReasonAndStepWithWhatIsUnderEach()
     {
         var reasons = Enumerable.Range(1, 7).Select(index => Answers.File("src/part" + index + ".ts", "[\"update\"]", 1, 0,
             "2026-09-20T15:40:0" + index + ".000Z", reason: "Reason " + index + ", said before part " + index + "."));
@@ -677,6 +678,21 @@ public class RoomResultTests
         var whatPart = account.Card(0);
         Assert.That((whatPart.Title!.Text, whatPart.Description!.Text), Is.EqualTo((ChangesAccount.WhatChangedTitle, what.Lines[0].Runs.Text)));
         Assert.That(whatPart.List.Select(row => row.Name.Text), Is.EqualTo(what.Lines.Skip(1).Select(line => line.Runs.Text)));
+
+        // How It's Built in full: every step its heading, "Explained by a model" under it as a sentence of its own, each step's
+        // words after it, then the evidence; the how said once, in its step, and no text on a dot.
+        SectionPresentation How(AnswerDepth depth) => UnderstandingPresenter.Present(UnderstandPrompt.HowBuilt, Intelligence.ExecutionId,
+            Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"), false, null, Intelligence.At(Answers.Now), Intelligence.Utc, depth: depth);
+        var built = new ChangesAccount(null, null, How(AnswerDepth.Brief), null, How(AnswerDepth.Full));
+        var steps = Enumerable.Range(0, built.Parts).Select(built.Card).ToList();
+        var stepRows = steps.SelectMany(card => card.List).ToList();
+        Assert.That(stepRows.Where(row => row.Under?.Text == UnderstandingPresenter.ExplainedUpToDate).Select(row => row.Name.Text),
+            Is.EqualTo(new[] { "What it is about", "Why", "Why, part by part", "Why, part by part", "How" }), "every step, its note under its heading");
+        Assert.That(stepRows.Count(row => row.Name.Text == How(AnswerDepth.Brief).Lines[0].Runs.Text), Is.EqualTo(1), "the how said once, in its step");
+        Assert.That((steps[0].Description, steps.Select(card => card.Status?.Title)), Is.EqualTo(((LineWords?)null, steps.Select(_ => (string?)ChangesAccount.ModelSays))),
+            "the byline on every part says a model wrote it");
+        Assert.That(stepRows.Select(row => row.Name.Text), Does.Contain("The evidence").And.Contain("4 files changed: 4 edited"));
+        foreach (var card in steps) Assert.That(card.AnyDot, Is.False, "no fact on a dot: " + string.Join(" | ", card.List.Select(row => row.Name.Text + " / " + row.Under?.Text)));
     }
 
     /// <summary>

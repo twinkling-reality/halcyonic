@@ -164,8 +164,8 @@ namespace Halcyonic.Client
             {
                 new SectionLine("explained", Quoted(content.How.Summary), SectionTone.Claim, rows: 2, said: Theirs(content.How.Summary)),
                 explanation.Current
-                    ? new SectionLine("", "Explained by a model, up to date", SectionTone.Secondary)
-                    : new SectionLine("", "Explained by a model before the latest evidence", SectionTone.Secondary),
+                    ? new SectionLine("", ExplainedUpToDate, SectionTone.Secondary)
+                    : new SectionLine("", ExplainedBefore, SectionTone.Secondary),
             };
         }
 
@@ -269,13 +269,15 @@ namespace Halcyonic.Client
                 AddEvidence(page, understanding, zone);
                 return page.Lines;
             }
-            // Each step's heading says what it is, that a model wrote it, and whether it covers the
-            // latest evidence, in one line that heads every page of the step.
-            var note = explanation.Current ? " · explained by a model, up to date" : " · explained by a model before the latest evidence";
+            // Each step's heading says what it is, and the quieter line under it that a model wrote it and whether it covers
+            // the latest evidence, a sentence of its own and never after a dot (FIELD's words, 2026-11-13T0734Z); both head
+            // every page of the step.
+            var note = explanation.Current ? ExplainedUpToDate : ExplainedBefore;
             const SectionTone noteTone = SectionTone.Secondary;
             void Step(string title, string? theirs, IEnumerable<SectionLine> body)
             {
-                lines.Add(new SectionLine("", title + note, noteTone, startsPage: true, repeats: true));
+                lines.Add(new SectionLine("", title, noteTone, startsPage: true, repeats: true));
+                lines.Add(new SectionLine("", note, noteTone, detail: true, rows: 1, repeats: true));
                 if (theirs != null) lines.Add(new SectionLine("explained", Quoted(theirs), SectionTone.Claim, repeats: true, said: Theirs(theirs)));
                 lines.AddRange(body);
             }
@@ -321,6 +323,10 @@ namespace Halcyonic.Client
             lines.AddRange(evidence.Lines);
             return lines;
         }
+
+        /// <summary>The line under each step's heading: a model wrote it, and whether it covers the latest evidence.</summary>
+        public const string ExplainedUpToDate = "Explained by a model, up to date";
+        public const string ExplainedBefore = "Explained by a model before the latest evidence";
 
         /// <summary>The explanation's content when there is a flow to step through, else null.</summary>
         private static UnderstandingExplanationContent? Flow(UnderstandingExplanation explanation) =>
