@@ -88,11 +88,8 @@ namespace Halcyonic.Client
                         var value = line.FactRuns?.Text ?? line.Fact;
                         if (!line.Choice && (value != null || line.Under != null || line.RowLabel != null))
                         {
-                            // A pressed row: its words the name, its value the note, its label (or else its quieter line) under it. Until the
-                            // kit's row takes a label above (FIELD), a line with both a label and a quieter line shows the label under it.
-                            var under = line.RowLabel != null ? LineWords.Ours(line.RowLabel) : line.Under;
-                            if (line.RowLabel != null && line.Under != null) lost = true;
-                            pressed.Add(new RoomListRow(line.Kind, line.Runs, value, press: control, chosen: line.Chosen, under: under));
+                            // A pressed row: its label above, its words the name, its value the note, its quieter line under it.
+                            pressed.Add(new RoomListRow(line.Kind, line.Runs, value, press: control, chosen: line.Chosen, under: line.Under, label: line.RowLabel));
                             continue;
                         }
                         acting.Add(new RoomAction(control, main: false, icon: line.Choice ? (GlazeIcon?)null : line.Icon ?? GlazeIcon.Next, mark: line.AnswerMark,
@@ -157,7 +154,7 @@ namespace Halcyonic.Client
                 foreach (var row in pressed)
                 {
                     acting.Add(new RoomAction(row.Press!, main: false, icon: GlazeIcon.Next, chosen: row.Chosen, detail: row.Note));
-                    if (row.Under != null) lost = true;
+                    if (row.Under != null || row.Label != null) lost = true;
                 }
             var turning = new List<RoomAction>();
             turning.AddRange(acting);

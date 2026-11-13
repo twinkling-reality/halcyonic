@@ -319,8 +319,7 @@ public class RoomPageTests
     /// <summary>
     /// A line that acts and carries a value or a quieter line is a pressed row of a card, so no part is lost on a button (AUDIT's
     /// 17:56Z MUST): its words, its value and its quieter line laid apart, and its press the line's own action and key; five rows a
-    /// page. A line with both a label and a quieter line loses one until the kit's row takes a label, and the bar then says it is
-    /// not whole.
+    /// page; a label stands above the name (FIELD's row label), so a line with a label, a value and a quieter line keeps all of them.
     /// </summary>
     [Test]
     public void ALineThatActsWithAValueIsAPressedRowWithEveryPartAndItsOwnPress()
@@ -339,7 +338,9 @@ public class RoomPageTests
 
         var labelled = RoomBar.OfFrame(Frame(new[] { new PageLine(LineWords.TheirName("Ember App"), fact: LineWords.Ours("Up to 60% Left"), action: "open-limit", key: "a", opens: true)
             .WithRowLabel("5-Hour Window").WithUnder(LineWords.Ours("Seen 2 minutes ago.")) }), VoiceStage.Idle)!;
-        Assert.That((bar.LostPart, labelled.Card!.List.Single().Under!.Text, labelled.Whole, labelled.LostPart), Is.EqualTo((false, "5-Hour Window", false, true)),
-            "the window under the name; seen and resets wait for the kit's row label, and the bar says it is not whole");
+        var limit = labelled.Card!.List.Single();
+        Assert.That((limit.Label, limit.Name.Text, limit.Note, limit.Under!.Text, labelled.Whole, labelled.LostPart, bar.LostPart),
+            Is.EqualTo(((string?)"5-Hour Window", "Ember App", (string?)"Up to 60% Left", "Seen 2 minutes ago.", true, false, false)),
+            "all four parts of a limit on its row: the window above, the app, the amount, seen and resets under; nothing lost");
     }
 }
