@@ -15,5 +15,6 @@ If it is not a game, let its own look (its colours, pictures and effects) dress 
 Read every input through src/play-input.ts.
 Copy pictures and sounds you need from the original into public/ and name them in src/assets.ts.
 Put the app's name and one line on what to do on its welcome card. If it is not a game, put one plain line beside its use, in the scene, on what of the app this version does not carry yet, or that it carries all of it.
+If it is not a game, rewrite the card's laptop line (laptop-help in public/ui/welcome.uikitml) to say only what a mouse and keyboard really do in it: its game keys do nothing there.
 Run npx tsc --noEmit and fix every error it reports before you finish.
 End your turn with a few lines for the person: what the app is for, what this VR version carries, what stands in for what could not come, and what it leaves out and why.
