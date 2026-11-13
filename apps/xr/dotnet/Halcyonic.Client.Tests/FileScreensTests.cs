@@ -221,11 +221,11 @@ public class FileScreensTests
 
     /// <summary>
     /// Changes and Checks with an answer (the lead, 2026-11-13T19:47Z, on DEVICE's 19:46Z ALERT): the general reader holds each
-    /// in the six-action column at both forms, paging what is more, and loses none of the frame's actions across its pages, so
+    /// within the spec's four actions a page in all at both forms (the lead's 19:41Z), paging what is more, and loses none of the frame's actions across its pages, so
     /// the kit holds them (KitWorkspaceHost.Holds) and the older view never draws them.
     /// </summary>
     [Test]
-    public void ChangesAndChecksWithAnAnswerStandInTheColumnAndLoseNoAction()
+    public void ChangesAndChecksWithAnAnswerStandWithinFourActionsAPageAndLoseNoAction()
     {
         foreach (var section in new[] { FileSection.Changes, FileSection.Checks })
         foreach (var form in new[] { RoomForm.Full, new RoomForm(true, 1) })
@@ -238,7 +238,7 @@ public class FileScreensTests
             var pages = 0;
             while (true)
             {
-                Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(RoomBar.ColumnMost), named + ": a page within the column");
+                Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(form.ActionsAPage), named + ": a page within the spec's four in all");
                 foreach (var action in bar.Column) offered.Add((action.Control.Action, action.Control.Key));
                 pages++;
                 if (bar.Whole || pages >= 20 || !bar.Turn()) break;

@@ -2949,7 +2949,9 @@ in order, as before.
   Close was refused and the judges' recording, whose holds wait while a file stands open, never went on): a way out
   decides nothing, so a Close, a Cancel or a page turn, as its prompt declares its kind (`PromptKind`), the side
   panel's Close Details and a section change are taken from what shows now, drawn or not, and a move of the plane
-  does not hold them either (`MenuNavigator.WayOut`). Every press that decides still waits for the last part. Writing an answer is the typed draft's moment on the same pair: the panel is the field holding the
+  does not hold them either (`MenuNavigator.WayOut`). Every press that decides still waits for the last part. While
+  the navigator is compact (the presentation minimized) the plane shows no frame, so nothing on it can hold a person;
+  restoring the presentation expands the same composition (`MenuDirector.PresentationChanged`, `MenuNavigator.Expand`). Writing an answer is the typed draft's moment on the same pair: the panel is the field holding the
   answer as written with the caret (a press opens the keyboard again), Use Answer the main action once the file has
   drawn the words, the file's Hold to Talk where it offers one, its way between parts and Cancel, the prompt staying
   on the band (`KitAsk.Writing`). Where two answers read alike and cannot be chosen, the press on one opens the

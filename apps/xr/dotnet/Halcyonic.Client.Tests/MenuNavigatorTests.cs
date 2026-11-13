@@ -444,6 +444,8 @@ public class MenuNavigatorTests
         menu.Drawn(MenuColumn.Side, new MenuFrame("Another", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)),
             lines: new[] { new PageLine("A line", action: "open", key: "k", opens: true, chosen: true) }, side: side), side);
         Assert.That(menu.Standing(MenuColumn.Side, null, side), Is.Null, "drawn in another frame's place, its draw is passed over");
+        var notTheFronts = new SidePanel("Details", lines: new[] { new PageLine("Part of them") });
+        Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, notTheFronts), Is.False, "a way out only from the front frame's own side panel");
         Draw(menu, inPlace: true);
         Assert.That(menu.Standing(MenuColumn.Side, null, side), Is.Not.Null);
         Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True, "its own Close, a way out, either way");
