@@ -1359,7 +1359,15 @@ launch/return, process recreation and current-frame action behavior need separat
   redesign the start is drawn as a card (`NewProjectScreens.StartingCard`): the project as its
   title, how the start stands as its status (Starting, Task Started, Not Started, Start Unknown over
   "It may or may not have started"),
-  and each step a node in its tone, never facts joined on a dot.
+  and each step a node in its tone, never facts joined on a dot. A stopped or unknown step's status
+  line is that step's own sentence; a step whose effect is unknown names only what that step makes
+  and where a person sees it (`EntryText.NotSureItHappened(kind)`: a project and its folder in
+  Projects, a task or its run in the room), so a Create Project step never sends a person to look
+  for a task not yet asked for. Its main control, See What Happened, opens the unknown start's page,
+  which says the same sentence by the same step (`EntryText.PreviousRequest(kind)`, both places
+  where only a reference kept from an earlier run is known), then what the computer recorded, how
+  to clear it and its reference, each a sentence; Start Building's reason while that start is
+  unknown is the same sentence.
 - **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
   presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the
   tab chosen, a notice, the instructions offered where no keyboard is, and the agent's question or

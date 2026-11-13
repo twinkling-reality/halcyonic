@@ -727,13 +727,13 @@ public class NewProjectStartTests
     {
         var waiting = NewProjectScreens.Unresolved(Idea(), "c-1", null, armed: false, live: true);
         HoldsThreePrompts(waiting);
-        Assert.That(waiting.Lines.Select(line => line.Words), Does.Contain(EntryText.Recorded(null)).And.Contain("Reference · c-1"));
+        Assert.That(waiting.Lines.Select(line => line.Words), Does.Contain(EntryText.Recorded(null)).And.Contain("Its reference is c-1."));
         Assert.That(waiting.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.Clear));
         var armed = NewProjectScreens.Unresolved(Idea(), "c-1", new CommandView { CommandId = "c-1", Status = CommandStatus.Failed }, armed: true, live: true);
         HoldsThreePrompts(armed);
         Assert.That(armed.Footer[PromptSlot.Free]!.Id, Is.EqualTo(NewProjectScreens.ConfirmClear), "Yes, clear, in the middle, where nothing stood");
         Assert.That(armed.Footer[PromptSlot.FarRight]!.Kind, Is.EqualTo(PromptKind.Cancel), "Cancel where Clear was pressed");
-        Assert.That(armed.Lines.Any(line => line.Words.Contains("May Have Changed Something")), Is.True);
+        Assert.That(armed.Lines.Any(line => line.Words.Contains("may have changed something")), Is.True);
         Assert.That(NewProjectScreens.Unresolved(Idea(), "c-1", null, armed: true, live: false).Footer.All.Count(), Is.EqualTo(1), "nothing to clear while not connected");
     }
 

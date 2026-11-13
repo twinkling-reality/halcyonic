@@ -490,8 +490,8 @@ namespace Halcyonic.Client
                         case BuildPage.Unresolved when UnknownId() is string id:
                             var record = RecordOf(id);
                             ClearLapsed(current, id);
-                            unresolvedWordsBuilt = UnresolvedWords(current, id, record);
-                            return NewProjectScreens.Unresolved(current, id, record, recoveryArmed, Live && host.Connected, Said(step));
+                            unresolvedWordsBuilt = UnresolvedWords(current, id, record, UnknownKind(id));
+                            return NewProjectScreens.Unresolved(current, id, record, recoveryArmed, Live && host.Connected, Said(step), UnknownKind(id));
                         case BuildPage.Starting when sequence != null:
                             return NewProjectScreens.Starting(current, sequence, current.Folder);
                         case BuildPage.Review when review != null:
@@ -522,7 +522,7 @@ namespace Halcyonic.Client
         /// </summary>
         private string? StartProblem() =>
             Building() ? EntryText.AlreadyStarting
-            : OutcomeUnknown ? EntryText.PreviousRequestLine
+            : OutcomeUnknown ? EntryText.PreviousRequest(UnknownKind(UnknownId()))
             : EntryScreens.StartProblem(!Live, host.State, host.Connected, idea, draft, CurrentFolder(), sequence);
 
         /// <summary>A start may have run without this headset knowing: an id is kept, and no build is on its way to settle it.</summary>
@@ -1027,15 +1027,15 @@ namespace Halcyonic.Client
         /// </summary>
         private bool ClearLapsed(ProjectIdea current, string id)
         {
-            if (!recoveryArmed || UnresolvedWords(current, id, RecordOf(id)) == recoveryArmedWords) return false;
+            if (!recoveryArmed || UnresolvedWords(current, id, RecordOf(id), UnknownKind(id)) == recoveryArmedWords) return false;
             recoveryArmed = false;
             said = (NewProjectStep.Build, EntryText.ChangedBeforeClear);
             return true;
         }
 
         /// <summary>The unknown start's words as it shows them unarmed, without a note, to tell when they change.</summary>
-        private static string UnresolvedWords(ProjectIdea idea, string id, CommandView? record) =>
-            string.Join("\n", NewProjectScreens.Unresolved(idea, id, record, armed: false, live: true).Lines.Select(line => line.Words));
+        private static string UnresolvedWords(ProjectIdea idea, string id, CommandView? record, BuildStepKind? kind) =>
+            string.Join("\n", NewProjectScreens.Unresolved(idea, id, record, armed: false, live: true, kind: kind).Lines.Select(line => line.Words));
 
         /// <summary>The page's room, read once for what shows (<see cref="pageRoom"/>).</summary>
         private float PageRoom(MenuFrame frame)
@@ -1948,6 +1948,10 @@ namespace Halcyonic.Client
         }
 
         private string? UnknownId() => unknownOutcome.Id ?? sequence?.Unresolved;
+
+        /// <summary>The step of this flow's own build whose command may have run, or null where only the reference is kept (an earlier run's).</summary>
+        private BuildStepKind? UnknownKind(string? id) =>
+            id != null && sequence?.Unresolved == id ? sequence.UnresolvedStep?.Kind : null;
 
         /// <summary>
         /// Keeps the command of this flow's own build whose outcome may be unknown on the device, so a

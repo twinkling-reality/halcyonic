@@ -1212,7 +1212,9 @@ namespace Halcyonic.Client
             })).ToList();
             // Where a step stopped the start, its own sentence is the status's line: what stopped it and the way on, never a
             // state alone (FIELD's words, AUDIT's 2026-11-13T1327Z: a refused or failed step said, not only marked).
-            var why = sequence.StoppedAt is BuildStep stopped ? EntryText.StepStatus(stopped) : null;
+            // A step under way whose outcome is unknown says the same sentence, by what that step may have made (AUDIT, 2026-11-13T1627Z).
+            var why = sequence.StoppedAt is BuildStep stopped ? EntryText.StepStatus(stopped)
+                : sequence.UnresolvedStep is BuildStep unsure && unsure.Status == BuildStepStatus.Unknown ? EntryText.StepStatus(unsure) : null;
             var status = sequence.Started ? new RoomCardStatus("Task Started", null, RoomTone.Good)
                 : sequence.CanRetry ? new RoomCardStatus("Not Started", why, RoomTone.Bad)
                 : sequence.Stopped || sequence.Steps.Any(step => step.Status == BuildStepStatus.Unknown) ? new RoomCardStatus("Start Unknown", why ?? "It may or may not have started", RoomTone.Quiet)
@@ -1228,12 +1230,13 @@ namespace Halcyonic.Client
         /// connected.
         /// </summary>
         /// <param name="said">A line for this page only, such as that it changed while Yes, clear waited.</param>
-        public static MenuFrame Unresolved(ProjectIdea idea, string commandId, CommandView? record, bool armed, bool live, string? said = null)
+        /// <param name="kind">The step that may have happened, where this headset knows it, so the page says what its card said; null names both places.</param>
+        public static MenuFrame Unresolved(ProjectIdea idea, string commandId, CommandView? record, bool armed, bool live, string? said = null, BuildStepKind? kind = null)
         {
             var lines = new List<PageLine>
             {
                 new PageLine(EntryText.PreviousRequestTitle),
-                new PageLine(EntryText.PreviousRequestLine, rows: 3),
+                new PageLine(EntryText.PreviousRequest(kind), rows: 3),
                 new PageLine(EntryText.Recorded(record?.Status), rows: 2),
                 new PageLine(armed ? EntryText.ClearOnlyAfterChecking : EntryText.ClearOnceChecked, rows: 2),
                 new PageLine(EntryText.Reference(commandId), tone: LineTone.Secondary),

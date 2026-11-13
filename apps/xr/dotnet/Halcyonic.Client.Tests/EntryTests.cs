@@ -512,14 +512,35 @@ public class BuildSequenceTests
     }
 
     [Test]
+    public void AStepThatMayHaveHappenedNamesOnlyWhatItsStepMakes()
+    {
+        // AUDIT's MUST, 2026-11-13T1627Z: a Create Project or Move to Folder step that may have happened never sends a person to look
+        // for a task, since Create Task was never sent; each says what its own step makes and where a person sees it.
+        Assert.That(EntryText.NotSureItHappened(BuildStepKind.CreateProject), Does.Contain("project").And.Not.Contain("task"));
+        Assert.That(EntryText.NotSureItHappened(BuildStepKind.BindFolder), Does.Contain("folder").And.Not.Contain("task"));
+        Assert.That(EntryText.NotSureItHappened(BuildStepKind.CreateWorkstream), Does.Contain("made the task").And.Not.Contain("started"));
+        Assert.That(EntryText.NotSureItHappened(BuildStepKind.StartWork), Does.Contain("task may have started"));
+        foreach (var kind in Enum.GetValues<BuildStepKind>())
+        {
+            foreach (var status in new[] { BuildStepStatus.Unknown, BuildStepStatus.Failed })
+            {
+                Assert.That(EntryText.StepStatusOf(status, kind, null, "timeout", effectUnknown: true), Is.EqualTo(EntryText.NotSureItHappened(kind)), kind + " " + status);
+            }
+            Assert.That(EntryText.PreviousRequest(kind), Does.StartWith(EntryText.NotSureItHappened(kind)), "the page says what the card said");
+        }
+        Assert.That(EntryText.PreviousRequest(null), Is.EqualTo(EntryText.PreviousRequestLine), "where nothing says which step, both places");
+    }
+
+    [Test]
     public void AProjectedCompletionWinsOverALostAcknowledgement()
     {
         var sequence = new BuildSequence(Draft("existing"), Commands, null);
         var workstream = sequence.Begin(Samples.Reviewed(sequence));
         sequence.AcknowledgementLost(new CommandOutcomeUnknownException(workstream.CommandId, "The socket closed."));
         Assert.That(sequence.Advance(With()), Is.Null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo(EntryText.NotSureItHappened));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("It may have made the task. Look for the task in the room."));
         Assert.That(sequence.Unresolved, Is.EqualTo(workstream.CommandId), "an unknown outcome is kept");
+        Assert.That(sequence.UnresolvedStep, Is.SameAs(sequence.Steps[0]), "the unknown command is the task step's");
         Assert.That(sequence.CanRetry, Is.False);
         Assert.That(sequence.Advance(With(Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" }))), Is.InstanceOf<ExecutionStartCommand>());
     }
@@ -579,7 +600,7 @@ public class BuildSequenceTests
         sequence.Advance(With(failed));
         Assert.That(sequence.Unresolved, Is.EqualTo(workstream.CommandId));
         Assert.That(sequence.CanRetry, Is.False);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo(EntryText.NotSureItHappened), "an effect that may have happened is never said not to have");
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo(EntryText.NotSureItHappened(BuildStepKind.CreateWorkstream)), "an effect that may have happened is never said not to have");
 
         var other = new BuildSequence(Draft("existing"), Commands, null);
         var command = other.Begin(Samples.Reviewed(other));
@@ -1098,7 +1119,7 @@ public class EntryWordsTests
             EntryText.ChangeAgentApp, EntryText.ListsModels, EntryText.ChoosesModel, EntryText.NoModels, EntryText.Practice, EntryText.PracticeRun,
             EntryText.PracticeDetail, EntryText.Done, EntryText.ReviewLine, EntryText.ConfirmStart, EntryText.Change,
             EntryText.ReadToPart(4), EntryText.Previous, EntryText.Next, EntryText.Page(0, 2), EntryText.Part(0, 2), EntryText.NextPage(0, 2), EntryText.NextPage(1, 2),
-            EntryText.SendingLine, EntryText.TryAgain, EntryText.Started, EntryText.NotSureItHappened,
+            EntryText.SendingLine, EntryText.TryAgain, EntryText.Started, EntryText.NotSureItHappened(null), EntryText.PreviousRequest(null),
             EntryText.PreviousRequestTitle, EntryText.PreviousRequestLine, EntryText.CheckFirst, EntryText.Clear, EntryText.ClearOnceChecked,
             EntryText.ClearOnlyAfterChecking, EntryText.ConfirmClear, EntryText.Cancel, EntryText.Cleared, EntryText.Reference("id"),
             EntryText.OpenNow, EntryText.KeepCreating, EntryText.Move, EntryText.ResetPosition, EntryText.Close,
@@ -1109,7 +1130,8 @@ public class EntryWordsTests
         };
         words.AddRange(ProjectIdea.Questions.SelectMany(question =>
             question.Choices.Concat(new[] { question.Prompt, question.TypeLabel, question.SkipLabel ?? "" })));
-        words.AddRange(Enum.GetValues<BuildStepKind>().SelectMany(kind => new[] { EntryText.StepName(kind, true), EntryText.StepName(kind, false) }));
+        words.AddRange(Enum.GetValues<BuildStepKind>().SelectMany(kind => new[] { EntryText.StepName(kind, true), EntryText.StepName(kind, false),
+            EntryText.NotSureItHappened(kind), EntryText.PreviousRequest(kind) }));
         words.AddRange(Enum.GetValues<ModelServed>().SelectMany(served => new[] { EntryText.Served(served), EntryText.ServedShort(served), EntryText.ServedInSentence(served) }));
         words.AddRange(Enum.GetValues<ModelToolCalling>().Select(EntryText.Tools));
         words.AddRange(new CommandStatus?[] { null, CommandStatus.Accepted, CommandStatus.Completed, CommandStatus.Rejected, CommandStatus.Failed }.Select(EntryText.Recorded));
