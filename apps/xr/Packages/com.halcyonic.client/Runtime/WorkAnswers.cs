@@ -138,8 +138,8 @@ namespace Halcyonic.Client
             {
                 return new[]
                 {
-                    new SectionLine("", "No reason given before it changed " + Names(files.Select(file => file.Path)), SectionTone.Secondary, rows: 2,
-                        evidence: Evidence.Observed, said: Ours("No reason given before it changed ") + NamesRuns(files.Select(file => file.Path))),
+                    new SectionLine("", "No reason given before " + Names(files.Select(file => file.Path)) + " changed", SectionTone.Secondary, rows: 2,
+                        evidence: Evidence.Observed, said: Ours("No reason given before ") + NamesRuns(files.Select(file => file.Path)) + Ours(" changed")),
                 };
             }
             var latest = reasons[reasons.Count - 1];
@@ -234,16 +234,16 @@ namespace Halcyonic.Client
                     return (IReadOnlyList<SectionLine>)new[]
                     {
                         QuoteLine(statement, rows: 2),
-                        new SectionLine("", "Said before it changed " + Names(reason.Select(file => file.Path)), SectionTone.Secondary, detail: true, rows: 1,
-                            evidence: Evidence.Observed, said: Ours("Said before it changed ") + NamesRuns(reason.Select(file => file.Path))),
+                        new SectionLine("", "Said before " + Names(reason.Select(file => file.Path)) + " changed", SectionTone.Secondary, detail: true, rows: 1,
+                            evidence: Evidence.Observed, said: Ours("Said before ") + NamesRuns(reason.Select(file => file.Path)) + Ours(" changed")),
                     };
                 })
                 .ToList();
             var unexplained = files.Where(file => file.Reason == null).Select(file => file.Path).ToList();
             var none = unexplained.Count == 0
                 ? null
-                : new SectionLine("", "No reason given before it changed " + Names(unexplained), SectionTone.Secondary, rows: 2, evidence: Evidence.Observed,
-                    said: Ours("No reason given before it changed ") + NamesRuns(unexplained));
+                : new SectionLine("", "No reason given before " + Names(unexplained) + " changed", SectionTone.Secondary, rows: 2, evidence: Evidence.Observed,
+                    said: Ours("No reason given before ") + NamesRuns(unexplained) + Ours(" changed"));
             page.AddCounted(reasons, more => new SectionLine("", "And " + IntelligenceText.Plural(more, "more reason") + " it gave", SectionTone.Secondary),
                 reserve: none);
             if (none != null) page.Add(none);
@@ -295,10 +295,10 @@ namespace Halcyonic.Client
 
             var why = new List<SectionLine> { Claim("", content.Why.Summary) };
             why.AddRange(Numbered(content.Why.Chain));
-            Step("Why", null, why);
+            Step(WhyStep, null, why);
             foreach (var lane in content.Why.Lanes)
             {
-                Step("Why, part by part", lane.Title, Numbered(lane.Steps));
+                Step(WhyStep + ", part by part", lane.Title, Numbered(lane.Steps));
             }
 
             var how = new List<SectionLine> { Claim("", content.How.Summary) };
@@ -324,9 +324,23 @@ namespace Halcyonic.Client
             return lines;
         }
 
-        /// <summary>The line under each step's heading: a model wrote it, and whether it covers the latest evidence.</summary>
-        public const string ExplainedUpToDate = "Explained by a model, up to date";
+        /// <summary>The line under each step's heading: a model wrote it, and whether it covers the latest evidence (critic 8: "up to date with what?").</summary>
+        public const string ExplainedUpToDate = "Explained by a model from the latest evidence";
         public const string ExplainedBefore = "Explained by a model before the latest evidence";
+
+        /// <summary>
+        /// The same line where a byline already says a model wrote it (the account's Model Says): how current it is alone, so
+        /// nothing is said twice (critic 8, 2026-11-13); the line itself for any other.
+        /// </summary>
+        public static LineWords? Currency(LineWords? note)
+        {
+            if (note?.Text == ExplainedUpToDate) return LineWords.Ours("Written from the latest evidence");
+            if (note?.Text == ExplainedBefore) return LineWords.Ours("Written before the latest evidence");
+            return note;
+        }
+
+        /// <summary>The step that says why the work was needed; never plain "Why", which is the account's own Why card (critic 8).</summary>
+        public const string WhyStep = "Why it was needed";
 
         /// <summary>The explanation's content when there is a flow to step through, else null.</summary>
         private static UnderstandingExplanationContent? Flow(UnderstandingExplanation explanation) =>

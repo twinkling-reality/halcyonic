@@ -1386,12 +1386,12 @@ launch/return, process recreation and current-frame action behavior need separat
     rest are counted ("And 4 more files"), then whether a check ran after the changes (inferred),
     and, where there is room, the commits and what is not done yet.
   - *Why?* shows what the agent said before each change, in the order it said it, leaning beside
-    "Agent says", with "Said before it changed …" under it, the files' names leaning: the source binds a reason to a file by
+    "Agent says", with "Said before … changed" under it, the files' names leaning: the source binds a reason to a file by
     time, so the words never claim the reason is the file's. Files with no reason are named.
   - *How was it built?* steps through the source's explanation only when one was generated, a page a
     step: what it is about, why, each of its Why lanes, how, a change of approach, then the evidence
-    (the changes and checks, observed). Each step's first line names it and says it was explained by
-    a model and whether it is "up to date" or written "before the latest evidence"; every line of it
+    (the changes and checks, observed). Each step's first line names it, and the line under it says it was
+    explained by a model "from the latest evidence" or "before the latest evidence"; every line of it
     is tagged explained and leans. Without an explanation it says why ("No explanation was written
     for this work.", "Explanations are turned off on your computer, …", "An explanation is being
     written. …") and shows the evidence. Nothing here asks for an explanation to be written.
@@ -1783,12 +1783,16 @@ shown was read from the agent app's own records, and nothing for a stand-in's an
 the redesign shows the result's Changes page and passes the three briefs at the one `RoomResult.Of` call
 (`FileColumn.Account`), with Why and How It's Built in full from the same read (SCREENS's proposal of 2026-11-13, so the
 headset never takes more steps than the desk): their parts then hold every reason the agent gave, oldest first, and every
-step, five rows a part, what is under a line (the files changed after a reason, a step's "Explained by a model, up to date")
+step, five rows a part, what is under a line (the files changed after a reason, a step's "Explained by a model from the latest evidence")
 as its row's quieter line under it, the brief's "And N more" gone and the lead said once, in its own place among the rows;
 the byline stands on every part of an answer, and a row it already names carries neither the bubble nor the note again.
 What Changed stays brief: in full it is the files the page has already shown. A step of How It's Built heads its pages
-with its title alone and, under it, whether a model wrote it up to date as a sentence of its own, never after a dot
-(`UnderstandingPresenter.ExplainedUpToDate`, `ExplainedBefore`), in the account and the file's side panel alike. `RoomResult.FileParts` are the files' parts, `RoomResult.Account` the rest. Tests:
+with its title alone and, under it, as a sentence of its own and never after a dot, that a model explained it from or
+before the latest evidence (`UnderstandingPresenter.ExplainedUpToDate`, `ExplainedBefore`), in the account and the file's
+side panel alike; under the account's Model Says byline that line says only how current it is (`Currency`: "Written from
+the latest evidence"), so nothing is said twice. Its step on why the work was needed is "Why it was needed"
+(`WhyStep`), never plain "Why", the account's own Why card (critic 8, 2026-11-13). A reason's files read "Said before
+X changed" and a file with none "No reason given before X changed", so no "it" stands without a referent. `RoomResult.FileParts` are the files' parts, `RoomResult.Account` the rest. Tests:
 `RoomResultTests.TheUnderstandingsAccountFollowsTheFilesOnChangesAPartAnAnswer`,
 `RoomResultTests.TheAccountsWhyAndHowHoldEveryReasonAndStepWithWhatIsUnderEach`,
 `RoomResultTests.AReasonIsNeverSaidToBeTheAgentsWhereTheSourceSaysASubagentOrNoOneKnownSaidIt`,

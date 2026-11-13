@@ -320,8 +320,8 @@ public class WhyChangedTests
         Assert.That(section.Lines.Select(line => (line.Tag, line.Text, line.Tone, line.Detail)), Is.EqualTo(new[]
         {
             ("reported", "Agent · Reported · I will add an idempotency key in ChargeService so a retried charge returns the first one.", SectionTone.Claim, false),
-            ("", "Said before it changed refunds.ts, RetryWorker.ts and ChargeService.ts", SectionTone.Secondary, true),
-            ("", "No reason given before it changed ChargeService.test.ts", SectionTone.Secondary, false),
+            ("", "Said before refunds.ts, RetryWorker.ts and ChargeService.ts changed", SectionTone.Secondary, true),
+            ("", "No reason given before ChargeService.test.ts changed", SectionTone.Secondary, false),
         }));
         Assert.That(section.Lines[0].Rows, Is.EqualTo(2), "a reason may wrap rather than be cut");
     }
@@ -338,9 +338,9 @@ public class WhyChangedTests
         Assert.That(texts, Is.EqualTo(new[]
         {
             "Subagent · Reported · First, a subagent changes a.",
-            "Said before it changed a.ts",
+            "Said before a.ts changed",
             "Agent · Reported · Second, I change b.",
-            "Said before it changed b.ts",
+            "Said before b.ts changed",
         }));
     }
 
@@ -350,7 +350,7 @@ public class WhyChangedTests
         var files = Enumerable.Range(1, 5).Select(index =>
             Answers.File("src/f" + index + ".ts", "[\"update\"]", 1, 0, "2026-09-20T15:40:0" + index + ".000Z", reason: "One reason."));
         var texts = Intelligence.Texts(Answers.Understand(UnderstandPrompt.WhyChanged, Answers.Files(Intelligence.Verified, "[" + string.Join(",", files) + "]")));
-        Assert.That(texts[1], Is.EqualTo("Said before it changed f1.ts, f2.ts, f3.ts and 2 more files"));
+        Assert.That(texts[1], Is.EqualTo("Said before f1.ts, f2.ts, f3.ts and 2 more files changed"));
     }
 
     [Test]
@@ -374,14 +374,14 @@ public class HowBuiltTests
         var pages = AnswerPages.Split(section, new AnswerRoom(6));
         Assert.That(pages.Select(page => Intelligence.Texts(page)), Is.EqualTo(new[]
         {
-            new[] { "What it is about", "Explained by a model, up to date", "“Some customers were charged twice when checkout retried a payment.”" },
-            new[] { "Why", "Explained by a model, up to date", "“Two paths could charge the same order, and neither checked the other.”",
+            new[] { "What it is about", "Explained by a model from the latest evidence", "“Some customers were charged twice when checkout retried a payment.”" },
+            new[] { "Why it was needed", "Explained by a model from the latest evidence", "“Two paths could charge the same order, and neither checked the other.”",
                 "1. “Two charges for one order”", "2. “The card is billed twice”" },
-            new[] { "Why, part by part", "Explained by a model, up to date", "“Checkout request”", "1. “Times out, then retries”", "2. “Creates a charge”" },
-            new[] { "Why, part by part", "Explained by a model, up to date", "“Retry worker”", "1. “Picks the same order up”", "2. “Creates another charge”" },
-            new[] { "How", "Explained by a model, up to date", "“One idempotency key per order, sent with every charge.”", "Starts at “ChargeService.ts”",
+            new[] { "Why it was needed, part by part", "Explained by a model from the latest evidence", "“Checkout request”", "1. “Times out, then retries”", "2. “Creates a charge”" },
+            new[] { "Why it was needed, part by part", "Explained by a model from the latest evidence", "“Retry worker”", "1. “Picks the same order up”", "2. “Creates another charge”" },
+            new[] { "How", "Explained by a model from the latest evidence", "“One idempotency key per order, sent with every charge.”", "Starts at “ChargeService.ts”",
                 "1. “Derive a key per order”" },
-            new[] { "How", "Explained by a model, up to date", "2. “Send it with the charge”", "3. “The worker reuses it”" },
+            new[] { "How", "Explained by a model from the latest evidence", "2. “Send it with the charge”", "3. “The worker reuses it”" },
             new[] { "The evidence", "4 files changed: 4 edited", "1 file not checked after the last change: refunds.ts",
                 "Tests passed at 15:40: 118/118 tests passed (vitest)" },
         }), "a step too long for a page goes on to the next under its heading again");
@@ -429,7 +429,7 @@ public class HowBuiltTests
         var pages = Steps(json);
         Assert.That(Intelligence.Texts(pages[0]), Is.EqualTo(new[]
         {
-            "What it is about", "Explained by a model, up to date", "“Some customers were charged twice when checkout retried a payment.”",
+            "What it is about", "Explained by a model from the latest evidence", "“Some customers were charged twice when checkout retried a payment.”",
             "Now: “Retries reuse the first charge.”",
         }));
         var change = pages.Where(page => page.Lines[0].Text.StartsWith("A change of approach", StringComparison.Ordinal))
@@ -931,7 +931,7 @@ public class BriefAnswersTests
         Assert.That(Answers.Pairs(how.Lines), Is.EqualTo(new[]
         {
             ("explained", "“One idempotency key per order, sent with every charge.”"),
-            ("", "Explained by a model, up to date"),
+            ("", "Explained by a model from the latest evidence"),
         }));
         Assert.That(how.Steps, Is.False, "a brief answer never pages");
 
@@ -963,7 +963,7 @@ public class BriefAnswersTests
         Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, none)), Is.EqualTo(new[] { "No files changed, so there are no reasons to show." }));
 
         var unexplained = Answers.Files(Intelligence.Verified, "[" + Answers.File("src/a.ts", "[\"update\"]", 1, 0, "2026-09-20T15:40:00.000Z") + "]");
-        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, unexplained)), Is.EqualTo(new[] { "No reason given before it changed a.ts" }));
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, unexplained)), Is.EqualTo(new[] { "No reason given before a.ts changed" }));
 
         var several = Answers.Files(Intelligence.Verified, "[" + string.Join(",",
             Answers.File("b.ts", "[\"update\"]", 1, 0, "2026-09-20T15:40:00.000Z", reason: "Later."),
@@ -1023,7 +1023,7 @@ public class EvidenceTests
         Assert.That(Classes(Brief(UnderstandPrompt.HowBuilt, Intelligence.Verified)), Is.EqualTo(new[]
         {
             (Evidence.Explained, (string?)SectionLine.ExplanationChip, "One idempotency key per order, sent with every charge."),
-            (Evidence.Halcyonic, null, "Explained by a model, up to date"),
+            (Evidence.Halcyonic, null, "Explained by a model from the latest evidence"),
         }));
         var checks = CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),
             false, null, null, false, null, Intelligence.At(Answers.Now), Intelligence.Utc, depth: AnswerDepth.Brief);
