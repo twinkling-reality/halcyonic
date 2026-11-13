@@ -116,6 +116,17 @@ namespace Halcyonic.Client
             + "&project_id=" + Uri.EscapeDataString(query.ProjectId)
             + "&workstream_id=" + Uri.EscapeDataString(query.WorkstreamId);
 
+        /// <summary>
+        /// Where the assistant may run (the host's list <c>assistant_models</c>, ADR 0030, 2026-11-12), read with no network
+        /// call to any provider: this computer's model first, then each declared model whose key is stored. Read it when
+        /// the person opens the choice; a press carries back a row's index and this read's digest.
+        /// </summary>
+        public async Task<ChoicesResponse> GetAssistantModelsAsync(CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/actions/choices?list=" + AssistantPlace.ListName, cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<ChoicesResponse>(body);
+        }
+
         /// <summary>Local workspace coordinator availability, checked without inference.</summary>
         public async Task<WorkspaceAgentStatus> GetWorkspaceAgentAsync(CancellationToken cancellationToken = default)
         {
