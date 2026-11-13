@@ -152,3 +152,14 @@ confined preview. A git directory a `.git` file names outside the folder was rea
 - **Tests:** `profile.test.ts` writes each under `sandbox-exec` with the profile (refused; failing first without the
   rule) and the rest of the folder as before; `confined.e2e.test.ts`'s confined shell writes `.git/config` and
   `.envrc` and both are refused; `keptPath` is unit tested.
+- **At every depth, the whole list (AUDIT3's 17:32Z alert, the lead's 17:33Z):** the first rule covered the folder's
+  top only, so a confined run could write `lib/.git/config` or a nested hook, which the person's git and their
+  editor find. The list is now AUDIT3's whole one (version control `.git`, `.hg`, `.svn`, `.jj`, `.gitmodules`; what a
+  shell runs on entering a folder, `.envrc`, `.autoenv*`, mise's files; editors' `.vscode/`, `.idea/`, `.devcontainer/`
+  and `.devcontainer.json`, `.zed/`, `.fleet/`, `.nova/`, `*.code-workspace`; the person's other agent apps' `.claude/`,
+  `.mcp.json`, `.cursor/`, `.windsurf/`, `opencode.json(c)`, `.opencode/`, `.codex/`; CI that runs with the repository's
+  secrets once sent, `.github/workflows/`, `.github/actions/` and the others), refused at ANY depth and in any letter
+  case, in the profile and in `runsLater` alike, one list. A git repository of the run's own lives outside the project
+  (its own home). Package managers' configuration files (`.npmrc`, `.yarnrc.yml`, `.pnpmfile.cjs`, `bunfig.toml`) are
+  not on it: the lead's call, open. `profile.test.ts` makes or writes every entry, at the top and two folders down, in
+  its own case and in upper case, under `sandbox-exec` (each refused; the test failed first on the top-only rule).

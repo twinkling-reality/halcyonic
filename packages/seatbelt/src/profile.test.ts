@@ -229,22 +229,91 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
         'garden.code-workspace',
       ])
         assert.match(await write(path), refused, path);
+      // A repository or a .envrc inside the project, at any depth and in any case (AUDIT3 17:32Z): its config and
+      // hooks run in the person's git and their editor's as surely as the top's.
+      for (const folder of ['lib/.git/hooks', 'deep/x/.Git', 'sub', 'src'])
+        mkdirSync(join(scope.project, folder), { recursive: true });
+      for (const path of [
+        'lib/.git/config',
+        'lib/.git/hooks/post-checkout',
+        'deep/x/.Git/config',
+        'sub/.git',
+        'src/.envrc',
+        'deep/x/.ENVRC',
+      ])
+        assert.match(await write(path), refused, path);
+      assert.match(
+        await inside(['/bin/mkdir', '-p', join(scope.project, 'other/.git')]),
+        refused,
+        'a nested repository made',
+      );
       // The rest of the project is written as before, a look-alike name included.
-      for (const path of ['src.ts', 'notes.envrc.txt', 'docs.code-workspace.md'])
+      for (const path of [
+        'src.ts',
+        'notes.envrc.txt',
+        'docs.code-workspace.md',
+        'src/.gitignore',
+        'src/my.git.txt',
+        'src/.envrc.example',
+        'src/github.md',
+        'jenkinsfile.txt',
+      ])
         assert.equal(await write(path), 'ok', path);
-      mkdirSync(join(scope.project, 'src/.vscode'), { recursive: true });
-      assert.equal(await write('src/.vscode/kept.json'), 'ok');
+      // Every entry of the one list, at the top and inside a folder, in its own case and in upper case (the lead,
+      // 17:33Z: the same list at every depth): a folder cannot be made, a file cannot be written.
+      mkdirSync(join(scope.project, 'deep/er'), { recursive: true });
+      const made = (path: string) => inside(['/bin/mkdir', '-p', join(scope.project, path)]);
+      for (const where of ['', 'deep/er/']) {
+        // A folder the test made before is written into instead; mkdir -p of it would succeed unchanged.
+        for (const folder of RUNS_LATER.folders)
+          for (const name of [folder, folder.toUpperCase()])
+            assert.match(
+              existsSync(join(scope.project, `${where}${name}`))
+                ? await write(`${where}${name}/x`)
+                : await made(`${where}${name}`),
+              refused,
+              `${where}${name}`,
+            );
+        for (const file of RUNS_LATER.files)
+          for (const name of [file, file.toUpperCase()])
+            assert.match(await write(`${where}${name}`), refused, `${where}${name}`);
+        assert.match(await write(`${where}garden.code-workspace`), refused);
+      }
     } finally {
       cleanup();
     }
   });
 
   test('names what runs later in one list, and the host reads the same one', () => {
-    assert.deepEqual(RUNS_LATER, {
-      folders: ['.git', '.vscode', '.idea', '.devcontainer'],
-      files: ['.envrc', '.gitmodules'],
-      suffixes: ['.code-workspace'],
-    });
+    // AUDIT3's list of 12:54Z, groups A to E, one list (the package managers' files are the lead's call, not on it).
+    assert.deepEqual(RUNS_LATER.suffixes, ['.code-workspace']);
+    for (const folder of [
+      '.git',
+      '.hg',
+      '.svn',
+      '.jj',
+      '.vscode',
+      '.idea',
+      '.devcontainer',
+      '.claude',
+      '.cursor',
+      '.codex',
+      '.github/workflows',
+    ])
+      assert.ok((RUNS_LATER.folders as readonly string[]).includes(folder), folder);
+    for (const file of [
+      '.envrc',
+      '.gitmodules',
+      '.mcp.json',
+      'opencode.json',
+      'Jenkinsfile',
+      '.gitlab-ci.yml',
+    ])
+      assert.ok((RUNS_LATER.files as readonly string[]).includes(file), file);
+    for (const path of [...RUNS_LATER.folders, ...RUNS_LATER.files]) {
+      assert.equal(runsLater(path), true, path);
+      assert.equal(runsLater(`deep/er/${path.toUpperCase()}`), true, path);
+    }
     for (const path of [
       '.git',
       '.git/config',
@@ -256,10 +325,20 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
       'a.code-workspace',
     ])
       assert.equal(runsLater(path), true, path);
+    // At any depth, any case (AUDIT3 17:32Z).
     for (const path of [
       'src/.git/config',
+      'lib/.git',
+      'deep/x/.GIT/hooks/a',
       'src/.envrc',
-      'src/a.code-workspace',
+      'a/b/.EnvRC',
+    ])
+      assert.equal(runsLater(path), true, path);
+    for (const path of [
+      'src/.gitignore',
+      'src/.envrc.example',
+      '.github/dependabot-notes.md',
+      'src/github/workflows.ts',
       'a.code-workspace.md',
       'envrc',
       'src/index.ts',
