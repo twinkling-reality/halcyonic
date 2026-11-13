@@ -8,6 +8,7 @@ import { type TestContext, test } from 'node:test';
 import type { AssistantHostedModel } from '@halcyonic/contracts';
 import type { HostedProvider } from '@halcyonic/runtime-core';
 import { HostProviders } from '../../providers.ts';
+import { capturingLogger } from '../../testing/harness.ts';
 import type { Model } from '../assistant-model.ts';
 import type { ToolDefinition, ToolMessage } from '../ollama.ts';
 import { asRecord } from './anthropic/messages.ts';
@@ -126,7 +127,12 @@ const shapes = {
             ? 'tool_use'
             : 'end_turn',
         stop_sequence: null,
-        usage: { input_tokens: 1, output_tokens: 1 },
+        usage: {
+          input_tokens: 10,
+          output_tokens: 5,
+          cache_read_input_tokens: 200,
+          cache_creation_input_tokens: 40,
+        },
       },
     };
   },
@@ -163,6 +169,11 @@ const shapes = {
         choices: [
           { finish_reason: refuse ? 'content_filter' : answered ? 'stop' : 'tool_calls', message },
         ],
+        usage: {
+          prompt_tokens: 120,
+          completion_tokens: 30,
+          prompt_tokens_details: { cached_tokens: 100 },
+        },
       },
     };
   },
@@ -730,4 +741,81 @@ test('a third provider is one declaration file: offered, chosen and run by the a
   const turn = await model.turn(ask, tools);
   assert.equal(turn.kind === 'answered' && turn.provider, 'Third Hosted');
   assert.ok(b.seen.every((entry) => entry.headers.authorization === `Bearer ${GOOD}`));
+});
+
+test('each hosted turn logs the provider own token counts, and nothing of the words or the key', async (t) => {
+  const a = await upstream(t, shapes.anthropic_messages(false));
+  const b = await upstream(t, shapes.openai_chat(false));
+  const [messages, chat] = declarations(a.url, b.url) as [HostedProvider, HostedProvider];
+  for (const [provider, expected] of [
+    // Messages: what was read is the plain input, the cache's reads and its writes; Chat's prompt_tokens holds all.
+    [messages, { input_tokens: 250, output_tokens: 5, cached_input_tokens: 200 }],
+    [chat, { input_tokens: 120, output_tokens: 30, cached_input_tokens: 100 }],
+  ] as const) {
+    const dir = dataDir(t);
+    store(dir, provider.key.file, GOOD);
+    const logs = capturingLogger();
+    const model = hostedOn({
+      local,
+      dataDir: dir,
+      environment: {},
+      providers: [provider],
+      logger: logs.logger,
+    });
+    assert.equal((await model.turn(ask, tools)).kind, 'answered');
+    const lines = logs.entries.filter((entry) => entry.message === 'hosted assistant turn');
+    assert.equal(lines.length, 1);
+    assert.deepEqual(lines[0]?.context, {
+      provider: provider.id,
+      model: provider.models[0],
+      outcome: 'answered',
+      ...expected,
+    });
+    const said = JSON.stringify(logs.entries);
+    assert.ok(!said.includes(GOOD) && !said.includes('garden'), 'counts only');
+  }
+});
+
+test('a refused turn is logged with its counts too, and a model string the upstream makes up is never logged', async (t) => {
+  const made = 'x'.repeat(5000);
+  const b = await upstream(t, (seen) =>
+    seen.method === 'GET'
+      ? { status: 200, body: { id: 'muse-wonder-1.0', object: 'model' } }
+      : {
+          status: 200,
+          body: {
+            model: made,
+            choices: [
+              { finish_reason: 'content_filter', message: { role: 'assistant', content: '' } },
+            ],
+            usage: { prompt_tokens: 80, completion_tokens: 0 },
+          },
+        },
+  );
+  const dir = dataDir(t);
+  store(dir, metaProvider.key.file, GOOD);
+  const logs = capturingLogger();
+  const model = hostedOn({
+    local,
+    dataDir: dir,
+    environment: {},
+    providers: [{ ...metaProvider, upstream: `${b.url}/v1` }],
+    logger: logs.logger,
+  });
+  assert.equal((await model.turn(ask, tools)).kind, 'failed');
+  const lines = logs.entries.filter((entry) => entry.message === 'hosted assistant turn');
+  assert.deepEqual(
+    lines.map((line) => line.context),
+    [
+      {
+        provider: 'meta',
+        model: 'muse-wonder-1.0',
+        outcome: 'model_refused',
+        input_tokens: 80,
+        output_tokens: 0,
+        cached_input_tokens: null,
+      },
+    ],
+  );
+  assert.ok(!JSON.stringify(logs.entries).includes(made));
 });

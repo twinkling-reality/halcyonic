@@ -95,7 +95,14 @@ provider's error text is never relayed, only the host's own words and a code. On
 reads leaves the Mac for that provider: the host's instructions and lists, project and task names, the Mac's evidence
 in words, the agent's quoted text and the person's words within the request's bound. The declared providers are
 Meta's (key in `meta-api-key`, sent as a Bearer token; Standard-mode models only) and Anthropic's (key in
-`anthropic-api-key`, sent as `x-api-key`).
+`anthropic-api-key`, sent as `x-api-key`). Each hosted turn writes one line to the plane's log, at info ("hosted
+assistant turn"). That covers an answered turn and a failed one whose reply gave counts, since both are billed. The
+line holds:
+- the provider's id and the declared model asked for, never the reply's own model string;
+- the outcome's code, the host's own;
+- the provider's own token counts: read, written, and cached reads where it says.
+
+It holds no word of the request or the reply, and never a key. tooling/log-calls.test.ts lists the call as reviewed.
 
 On a folder the person connected, Claude Code runs outside the closed profile but holds no key (since 2026-11-13): it
 reaches its API through the key gate with a run credential of its own, and a light seatbelt profile keeps it and its

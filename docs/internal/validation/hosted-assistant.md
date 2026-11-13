@@ -151,6 +151,29 @@ Meta adds steering text of its own, unpublished, to every prompt.
 
 The test fails without the host's offer.
 
+## What a turn costs (2026-11-13)
+
+Each hosted turn that reached the provider now logs one line at info, "hosted assistant turn", with these fields:
+- `provider`;
+- `model`, the declared model asked for;
+- `outcome`, `answered` or the host's code such as `model_refused`;
+- `input_tokens`, `output_tokens` and `cached_input_tokens`.
+
+A failed turn is logged too where its reply gave counts, since it is billed. The counts are the provider's own:
+- **Messages:** what was read is `input_tokens` plus `cache_read_input_tokens` plus `cache_creation_input_tokens`.
+  Written is `output_tokens`, and the cached reads are logged apart.
+- **Chat Completions:** read is `prompt_tokens`, written is `completion_tokens`, and cached is
+  `prompt_tokens_details.cached_tokens` where given.
+
+A count the reply does not give is null, never guessed. So a run's cost is read from the plane's log, multiplied by
+the provider's published prices (meta-models.md, and this record's own table). The rates differ by price class:
+cache writes cost more than plain input on Messages, and a cached read less.
+
+`hosted-model.test.ts` holds three things:
+- the line carries counts only;
+- a refused turn is logged with its counts;
+- a model string an upstream makes up never reaches the log.
+
 ## Not verified
 
 - No run with a real key. That run is the owner's, once the key is stored through the product's own Add Key.

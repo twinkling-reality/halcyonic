@@ -420,6 +420,7 @@ async function main(): Promise<void> {
     environment: process.env,
     chosen: () => controlPlane.projection.assistantModel(),
     providers: providers.list(),
+    logger: app.log,
   });
   controlPlane.commands.attachAssistantModels(() => assistant.options());
   const workspaceRequests = new WorkspaceRequests({

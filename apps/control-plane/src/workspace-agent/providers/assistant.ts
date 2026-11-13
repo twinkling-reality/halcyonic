@@ -1,5 +1,6 @@
 import type { AssistantHostedModel } from '@halcyonic/contracts';
 import { type HostedProvider, upstreamProblem, type WireShape } from '@halcyonic/runtime-core';
+import type { Logger } from '../../logger.ts';
 import { AssistantModel, type Model } from '../assistant-model.ts';
 import { HostedWorkspaceModel } from './hosted-model.ts';
 import { PROTOCOLS } from './index.ts';
@@ -19,6 +20,8 @@ export function assistantModel(options: {
   chosen: () => AssistantHostedModel | null;
   /** The host's one list of declared providers (`HostProviders.list()`, ADR 0061), in its order. */
   providers: readonly HostedProvider[];
+  /** Where each hosted turn's token counts are logged (the plane's own log). */
+  logger?: Logger;
   /** The wire shapes the assistant speaks; a test may give its own. */
   protocols?: ReadonlyMap<WireShape, Protocol>;
 }): AssistantModel {
@@ -36,6 +39,7 @@ export function assistantModel(options: {
         protocol,
         keys,
         upstream,
+        ...(options.logger === undefined ? {} : { logger: options.logger }),
       }),
     ];
   });

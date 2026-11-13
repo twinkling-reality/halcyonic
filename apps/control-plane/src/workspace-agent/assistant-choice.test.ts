@@ -58,6 +58,7 @@ function plane(t: { after: (fn: () => unknown) => void }, refuse: boolean) {
             content: 'Answered on the hosted model.',
             calls: [],
             model: 'test-model-1',
+            usage: null,
           };
     },
   };
