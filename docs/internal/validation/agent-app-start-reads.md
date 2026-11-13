@@ -25,7 +25,7 @@ for it. The other half, what Halcyonic's light profile allows (`hostFoldersDenie
   (https://code.claude.com/docs/en/agent-sdk/claude-code-features).
 - Credentials: the macOS Keychain, or `~/.claude/.credentials.json`; `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and
   an `apiKeyHelper` (https://code.claude.com/docs/en/authentication). State it writes: transcripts, history, file
-  history and shell snapshots under `~/.claude`, and a scratch folder under `/private/tmp/claude-<uid>/`.
+  history and shell snapshots under `~/.claude`, and a scratch folder in the system's temporary folder.
 - What its tools may read: Read and Grep need no approval inside the working directory and the added directories
   (https://code.claude.com/docs/en/permissions); `permissions.blockReadsOutsideWorkingDirectories` is a choice, off by
   default. Its own sandbox is off by default and, when on, covers Bash only, with "read access to the entire computer,

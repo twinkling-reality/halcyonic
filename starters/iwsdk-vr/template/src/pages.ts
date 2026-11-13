@@ -51,6 +51,17 @@ export interface Pages {
   turn(by: 1 | -1): boolean;
   /** Shows another list in the same row from its first page: what a search or a filter leaves, say. */
   set(list: readonly Page[]): void;
+  /**
+   * The index, in the list given, of the entry panel `index` shows: map a press back to your own data with it, never
+   * with `first + index`, since a long entry takes more than one page. Undefined for a hidden panel.
+   */
+  source(index: number): number | undefined;
+}
+
+/** A page as laid out: the page drawn and the index of the entry it comes from in the list given. */
+interface Laid {
+  readonly page: Page;
+  readonly source: number;
 }
 
 /**
@@ -107,7 +118,7 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
     chosen = -1;
     chosenAt = Number.NEGATIVE_INFINITY;
     panels.forEach((panel, index) => {
-      const page = items[first + index];
+      const page = items[first + index]?.page;
       const material = panel.material as MeshBasicMaterial;
       material.map?.dispose();
       material.map = page === undefined ? null : drawPage(page, color, ink, accent);
@@ -168,6 +179,9 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
       first = 0;
       lay();
     },
+    source(index) {
+      return panels[index]?.visible ? items[first + index]?.source : undefined;
+    },
   };
 }
 
@@ -179,12 +193,13 @@ const WORDS_PX = Math.round(TYPE.words * PIXELS);
 const LEADING = Math.round(WORDS_PX * 1.33);
 const CANVAS = { w: Math.round(WIDTH * PIXELS), h: Math.round(HEIGHT * PIXELS) };
 
-/** Where a page's words start below its title (at most two lines), and how many lines of words it holds. */
+/** Where a page's words start below its title (at most two lines, marked when cut), and how many lines it holds. */
 function room(context: CanvasRenderingContext2D, title: string, picture: boolean) {
   context.font = `700 ${TITLE_PX}px ${FONT}`;
-  const titles = wrapLines(title, CANVAS.w - MARGIN * 2, (text) => context.measureText(text).width)
-    .slice(0, 2)
-    .map((each) => each.line);
+  const all = wrapLines(title, CANVAS.w - MARGIN * 2, (text) => context.measureText(text).width);
+  const titles = all.slice(0, 2).map((each) => each.line);
+  // A title past two lines is marked as cut, never dropped without a sign.
+  if (all.length > 2) titles[1] = `${(titles[1] ?? '').replace(/\s*\S*$/, '')}\u2026`;
   const top = MARGIN + 24 + titles.length * Math.round(TITLE_PX * 1.22) + 18;
   const pictureHeight = picture ? Math.round(CANVAS.h * 0.36) : 0;
   const lines = Math.max(0, Math.floor((CANVAS.h - MARGIN - pictureHeight - top) / LEADING));
@@ -195,18 +210,19 @@ function room(context: CanvasRenderingContext2D, title: string, picture: boolean
  * The list as the pages it takes: a page whose words do not fit is followed by pages of the same title holding the
  * rest, its picture on the first, so nothing is cut off and `turn()` reaches every word.
  */
-function laid(list: readonly Page[]): Page[] {
+function laid(list: readonly Page[]): Laid[] {
   const context = document.createElement('canvas').getContext('2d');
-  if (context === null) return [...list];
-  return list.flatMap((page) => {
+  if (context === null) return list.map((page, source) => ({ page, source }));
+  return list.flatMap((page, source) => {
     const firstRoom = room(context, page.title, page.picture !== undefined).lines;
     const restRoom = room(context, page.title, false).lines;
     context.font = `400 ${WORDS_PX}px ${FONT}`;
     const measure = (text: string) => context.measureText(text).width;
     const texts = fitText(page.text, CANVAS.w - MARGIN * 2, measure, firstRoom, restRoom);
-    return texts.map((text, index) =>
-      index === 0 ? { ...page, text } : { title: page.title, text },
-    );
+    return texts.map((text, index) => ({
+      page: index === 0 ? { ...page, text } : { title: page.title, text },
+      source,
+    }));
   });
 }
 
