@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-unavailable", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -139,6 +139,14 @@ namespace Halcyonic.XR.Workspace.Editor
             new UsageLeftRow(LineWords.Ours(UsageLeftPresenter.Weekly), "At most 38% left", 38, resets: "Thursday", window: UsageLeftPresenter.Weekly),
         };
 
+        /// <summary>The host's list of where the assistant may run, as it gives it: this computer's model, a hosted one, one whose key was refused.</summary>
+        private static IReadOnlyList<AssistantOption> CardModels() => new[]
+        {
+            new AssistantOption(0, "This Computer's Model", "glimmer-30b-q4", theirs: false, choosable: true),
+            new AssistantOption(1, "muse-wonder-1.0", "On Meta", theirs: true, choosable: true),
+            new AssistantOption(2, "claude-opus-5-5", "Anthropic refused its key", theirs: true, choosable: false),
+        };
+
         private static RoomCard CardOf(string state)
         {
             LineWords Theirs(string words) => LineWords.TheirName(words);
@@ -169,6 +177,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, null, CardRowControl("use-model")))!,
                 "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0-preview", "Meta", null, CardRowControl("use-model")))!,
                 "47-card-usage-unavailable" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant(null, null, "Meta refused its key. Give it a new key on this computer.", CardRowControl("use-model")))!,
+                // Use Model, the row pressed: the host's list (this computer's model chosen, a hosted one, one whose key was refused),
+                // the card while the computer is asked, and the one review a hosted pick waits on.
+                "47-card-usage-models" => UsageColumn.ModelsCard(CardModels(), new AssistantRow("glimmer-30b-q4", null, null), null, option => CardRowControl("model-" + option.Index)),
+                "47-card-usage-asking" => new RoomCard(LineWords.Ours(AssistantPlace.UseModelTitle), LineWords.Ours(UsageColumn.Asking)),
+                "47-card-usage-review" => ReviewCard.Card(UsageColumn.ReviewOf(new Halcyonic.Contracts.WorkspaceRequestStepProposal
+                    {
+                        CommandType = Halcyonic.Contracts.CommandType.AssistantModelChoose,
+                        WhatHappens = "The assistant runs on this hosted model, paid with your key, and what each request reads goes to it",
+                        Review = "0193b3a0-review-digest",
+                    }, CardModels()[1]), AssistantPlace.UseModelTitle),
                 "47-card-needs-you" => new RoomCard(Theirs("Tail"), Theirs("Should the tail stream left or right?"),
                     status: new RoomCardStatus("Needs You", "Waiting on your answer", RoomTone.Attention)),
                 "47-card-share" => new RoomCard(Theirs("Kite Run"), status: new RoomCardStatus("Shared", "Scan the code to play", RoomTone.Good),
