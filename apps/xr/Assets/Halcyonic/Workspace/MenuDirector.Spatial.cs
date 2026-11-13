@@ -23,9 +23,11 @@ namespace Halcyonic.XR.Workspace
         private ClientProjection? contextState;
         private string? contextJournal, contextConnection, contextTask, contextProject;
         private (string Id, string Name)[] contextChoices = Array.Empty<(string, string)>();
-        // At Larger, the two-column workspace leaves no shelf candidate inside the Quest 3S field; the chooser column steps
+        // At Larger, the older two-column workspace leaves no shelf candidate inside the Quest 3S field; the chooser column steps
         // aside when a character stands on the stage or a task file offers shelf placement or character colour (LARGER-SHELF call (a)).
-        private bool ShelfYieldsChooserAtLarger => TextSize == TextSize.Larger
+        // The yield is the older view's alone: under the redesign the workspace's readers draw every frame they take at every text
+        // size, a character on the stage or not, so a person at Larger never meets the older screens (AUDIT's census, 2026-11-13).
+        private bool ShelfYieldsChooserAtLarger => !RoomDesign.Enabled && TextSize == TextSize.Larger
             && (setup.StageNow().Characters.Any(character => character != null)
                 || navigator.Beside is FileColumn file && (file.HasShowTaskHere || !setup.Presentation.AgentsVisible && CurrentColourSource(out _)));
         // Under the redesign New Project's steps and the agent's page stand in the workspace too, where FIELD's readers draw

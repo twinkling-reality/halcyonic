@@ -3428,7 +3428,8 @@ exists. Passthrough remains independent of whether optional characters are prese
   file opening or dragged low would widen its yaw span), and at the larger reading size the
   two-column workspace yields its chooser column (`MenuDirector.ShelfYieldsChooserAtLarger`) when a
   character stands on the stage or a task file offers shelf placement or character colour (ART's
-  LARGER-SHELF call (a), 2026-10-31); in the room it includes the picked project's screen and its
+  LARGER-SHELF call (a), 2026-10-31). That yield is the older view's alone: under the redesign the workspace's readers
+  draw every frame they take at every text size, a character on the stage or not (2026-11-13); in the room it includes the picked project's screen and its
   bar. Never nearer than 1.2 m (ART's
   rule for characters; only the person's own moves reach the draft's 0.4 m). Each candidate is kept
   or refused by the same field and console predicates, with no fallback when all are refused. The Unity owner also checks the
