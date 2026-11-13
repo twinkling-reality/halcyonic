@@ -687,10 +687,14 @@ public class RoomResultTests
         var steps = Enumerable.Range(0, built.Parts).Select(built.Card).ToList();
         var stepRows = steps.SelectMany(card => card.List).ToList();
         Assert.That(stepRows.Where(row => row.Under?.Text == UnderstandingPresenter.ExplainedUpToDate).Select(row => row.Name.Text),
-            Is.EqualTo(new[] { "What it is about", "Why", "Why, part by part", "Why, part by part", "How" }), "every step, its note under its heading");
+            Is.EqualTo(new[] { "What it is about", "Why", "Why, part by part", "Why, part by part", "How", "How" }),
+            "every step, its note under its heading; How takes two parts and heads both");
         Assert.That(stepRows.Count(row => row.Name.Text == How(AnswerDepth.Brief).Lines[0].Runs.Text), Is.EqualTo(1), "the how said once, in its step");
-        Assert.That((steps[0].Description, steps.Select(card => card.Status?.Title)), Is.EqualTo(((LineWords?)null, steps.Select(_ => (string?)ChangesAccount.ModelSays))),
-            "the byline on every part says a model wrote it");
+        Assert.That((steps[0].Description, steps.Select(card => card.Status?.Title)),
+            Is.EqualTo(((LineWords?)null, steps.Select(card => card.List[0].Name.Text == "The evidence" ? null : (string?)ChangesAccount.ModelSays))),
+            "the byline on every step's part says a model wrote it; the evidence was observed, so its part names no one");
+        Assert.That(steps.Where(card => card.List[0].Name.Text != "The evidence").Select(card => card.List[0].Under?.Text),
+            Is.All.EqualTo(UnderstandingPresenter.ExplainedUpToDate), "each step begins a part, and a step that takes two heads both, so none is read mid-step");
         Assert.That(stepRows.Select(row => row.Name.Text), Does.Contain("The evidence").And.Contain("4 files changed: 4 edited"));
         foreach (var card in steps) Assert.That(card.AnyDot, Is.False, "no fact on a dot: " + string.Join(" | ", card.List.Select(row => row.Name.Text + " / " + row.Under?.Text)));
     }
@@ -710,14 +714,15 @@ public class RoomResultTests
         var agents = Said("I split the tail.", SectionLine.AgentChip);
         var subagents = Said("I matched the colour.", SectionLine.SubagentChip);
         var unknown = Said("Someone tuned the delay.", SectionLine.AuthorUnknownChip);
-        var account = new ChangesAccount(null, Of(agents), null, Of(agents, subagents, unknown));
-        var card = account.Card(0);
-        Assert.That(card.Status?.Title, Is.EqualTo(ChangesAccount.AgentSays));
-        Assert.That(card.List.Select(row => row.Kind), Has.All.EqualTo(RoomKind.None), "the bubble on the byline alone, so no row's words are pushed in");
-        Assert.That(card.List.Select(row => (row.Name.Text, row.Note)), Is.EqualTo(new[]
+        // The brief leads with the latest reason, an unknown author's; the full lines hold three authors in the order they spoke.
+        var account = new ChangesAccount(null, Of(unknown), null, Of(agents, subagents, unknown));
+        var cards = Enumerable.Range(0, account.Parts).Select(account.Card).ToList();
+        Assert.That(cards.Select(card => (card.Status?.Title, card.List.Single().Name.Text)), Is.EqualTo(new[]
         {
-            ("I split the tail.", (string?)null), ("I matched the colour.", ChangesAccount.SubagentSays), ("Someone tuned the delay.", ChangesAccount.AuthorUnknown),
-        }), "the byline names the agent once; a subagent's and an unknown author's rows say whose they are");
+            ((string?)ChangesAccount.AgentSays, "I split the tail."), (ChangesAccount.SubagentSays, "I matched the colour."), (ChangesAccount.AuthorUnknown, "Someone tuned the delay."),
+        }), "a part a speaker, its byline over its own words alone, never one name over another's");
+        Assert.That(cards.SelectMany(card => card.List).Select(row => (row.Kind, row.Note)), Has.All.EqualTo((RoomKind.None, (string?)null)),
+            "the byline says whose, so no row carries a mark or a note that pushes its words in");
         Assert.That(new ChangesAccount(null, Of(subagents), null).Card(0).Status?.Title, Is.EqualTo(ChangesAccount.SubagentSays), "a subagent's lead is never the agent's");
     }
 

@@ -42,8 +42,7 @@ namespace Halcyonic.Client
         /// <summary>The foot's source words (FIELD's, 2026-11-12T1734Z): the understanding is read from the agent app's own records.</summary>
         public const string FromAgentsRecords = "From the Agent's Records";
 
-        private readonly List<(UnderstandPrompt Prompt, SectionLine? Lead, RoomCardStatus? Who, IReadOnlyList<(SectionLine Line, LineWords? Under)> Rows)> answers = new();
-        private readonly List<(int Answer, int From)> parts = new();
+        private readonly List<(UnderstandPrompt Prompt, SectionLine? Lead, RoomCardStatus? Who, List<(SectionLine Line, LineWords? Under)> Rows)> parts = new();
 
         /// <param name="whatChanged">The brief answer to what changed, or null where none was read.</param>
         /// <param name="whyFull">Why's full lines from the same read, its rows where given (every reason and the files changed after it); the brief's otherwise.</param>
@@ -64,7 +63,6 @@ namespace Halcyonic.Client
                 // lead stays a row, its note saying so.
                 var lead = brief.Lines[0];
                 var leads = Leads(lead);
-                var who = leads ? WhoSaid(lead) : null;
                 List<(SectionLine Line, LineWords? Under)> rows;
                 if (full != null && full.Lines.Count > 0)
                 {
@@ -77,13 +75,41 @@ namespace Halcyonic.Client
                 {
                     rows = brief.Lines.Skip(leads ? 1 : 0).Select(line => (line, (LineWords?)null)).ToList();
                 }
-                answers.Add((prompt, leads ? lead : null, who, rows));
-                // Five rows a part, as every card's list (RoomCard.ListAPage); a long answer takes the parts it needs.
-                parts.Add((answers.Count - 1, 0));
-                for (var from = RoomCard.ListAPage; from < rows.Count; from += RoomCard.ListAPage) parts.Add((answers.Count - 1, from));
+                // A part a speaker and a step (critic 7, 2026-11-13: one byline over another's words, and a step read from its
+                // middle): a part begins where the words' author changes, where a step begins, or after five rows (RoomCard.ListAPage).
+                // Its byline names the one who said its words; a part of observed words (the evidence) names no one.
+                (UnderstandPrompt Prompt, SectionLine? Lead, RoomCardStatus? Who, List<(SectionLine Line, LineWords? Under)> Rows)? part = null;
+                void Start(SectionLine? opening, RoomCardStatus? who)
+                {
+                    part = (prompt, opening, who, new List<(SectionLine, LineWords?)>());
+                    parts.Add(part.Value);
+                }
+                if (leads) Start(lead, WhoSaid(lead));
+                // The step a row belongs to: its heading heads every part of the step, as it heads every page of it at the desk.
+                (SectionLine Line, LineWords? Under)? heading = null;
+                foreach (var row in rows)
+                {
+                    if (row.Line.StartsPage) heading = row.Line.Repeats ? row : null;
+                    var said = WhoSaid(row.Line);
+                    var current = part;
+                    var full_ = current != null && current.Value.Rows.Count >= RoomCard.ListAPage;
+                    var otherSpeaker = current?.Who is RoomCardStatus speaking && said is RoomCardStatus speaker && speaker.Title != speaking.Title;
+                    if (current == null || full_ || otherSpeaker || (row.Line.StartsPage && current.Value.Rows.Count > 0))
+                    {
+                        Start(null, said);
+                        if (!row.Line.StartsPage && heading is { } again) part!.Value.Rows.Add(again);
+                    }
+                    else if (current.Value.Who == null && said != null)
+                    {
+                        // The part's first words of anyone's set its byline.
+                        part = (current.Value.Prompt, current.Value.Lead, said, current.Value.Rows);
+                        parts[parts.Count - 1] = part.Value;
+                    }
+                    part!.Value.Rows.Add(row);
+                }
             }
             // A stand-in's answers come from no agent app's records, so they name none (the recorded notice says what they are).
-            Source = answers.Count > 0 && !simulated ? LineWords.Ours(FromAgentsRecords) : null;
+            Source = parts.Count > 0 && !simulated ? LineWords.Ours(FromAgentsRecords) : null;
         }
 
         /// <summary>FIELD's source line, drawn quiet at each part's foot; null for a stand-in's answers or none.</summary>
@@ -93,7 +119,7 @@ namespace Halcyonic.Client
         public int Parts => parts.Count;
 
         /// <summary>The answers that have lines, in the order the page shows them.</summary>
-        public IReadOnlyList<UnderstandPrompt> Prompts => answers.Select(answer => answer.Prompt).ToList();
+        public IReadOnlyList<UnderstandPrompt> Prompts => parts.Select(part => part.Prompt).Distinct().ToList();
 
         public static string TitleOf(UnderstandPrompt prompt) => prompt switch
         {
@@ -149,22 +175,18 @@ namespace Halcyonic.Client
             _ => null,
         };
 
-        /// <summary>The account's <paramref name="part"/>th card (0 the first after the files): its answer's title and its rows.</summary>
+        /// <summary>The account's <paramref name="part"/>th card (0 the first after the files): its answer's title, its lead and its rows.</summary>
         public RoomCard Card(int part)
         {
             if (part < 0 || part >= parts.Count) throw new ArgumentOutOfRangeException(nameof(part), part, "The account has no such part.");
-            var (answer, from) = parts[part];
-            var (prompt, lead, who, lines) = answers[answer];
-            // Whose the words are is said once, by the byline on every part of the answer (FIELD's 2026-11-13T0631Z words): a row
-            // the byline already names carries no note again; one said by another (a subagent, an author unknown) keeps its note.
-            // The bubble stands on the byline alone, so a row's words are never pushed in for a mark (a reason cut at Larger, n38).
+            var (prompt, lead, who, lines) = parts[part];
+            // Whose the words are is said once, by the part's byline (FIELD's 2026-11-13T0631Z words): a row it names carries no
+            // note again, and the bubble stands on the byline alone, so a row's words are never pushed in for a mark (n38).
             bool Named(SectionLine line) => who is RoomCardStatus byline && NoteOf(line) == byline.Title;
-            var rows = lines.Skip(from).Take(RoomCard.ListAPage).Select(row => new RoomListRow(
+            var rows = lines.Select(row => new RoomListRow(
                 who != null && KindOf(row.Line) == RoomKind.Says ? RoomKind.None : KindOf(row.Line), row.Line.Runs,
                 Named(row.Line) ? null : NoteOf(row.Line), under: row.Under)).ToList();
-            // The lead on the answer's first part alone; a later part of a long answer carries on with its rows.
-            var first = from == 0 && lead != null;
-            return new RoomCard(LineWords.Ours(TitleOf(prompt)), first ? lead!.Runs : null, status: who, list: rows, more: Source);
+            return new RoomCard(LineWords.Ours(TitleOf(prompt)), lead?.Runs, status: who, list: rows, more: Source);
         }
 
         /// <summary>
