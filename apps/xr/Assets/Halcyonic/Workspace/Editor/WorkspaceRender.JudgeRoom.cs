@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Halcyonic.Client;
@@ -87,6 +88,14 @@ namespace Halcyonic.XR.Workspace.Editor
             var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
             DemonstrationFallback? fallback = null;
             ControlPlaneApi? api = null;
+            // The plane's own line where the older view draws a whole screen under the redesign (MenuPlane.OlderViewDrawn, XR,
+            // 2026-11-13): heard while the walk runs, a failure of the moment it came before.
+            var olderHeard = new List<string>();
+            Application.LogCallback heard = (message, _, _) =>
+            {
+                if (message.StartsWith("Halcyonic: older view drew a whole screen", StringComparison.Ordinal)) lock (olderHeard) olderHeard.Add(message);
+            };
+            Application.logMessageReceived += heard;
             try
             {
                 // As ControlPlaneConnection loads them with no control plane configured: the recorded run first where the build
@@ -139,6 +148,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 var presses = 0;
                 var typed = 0;
                 (string Prompt, Action<string> Done)? keyboard = null;
+                // The stage: one character once a task is in the room, as a person who placed the agent shelf has it, so no screen
+                // that changes with a character on the stage goes unwalked (AUDIT, 2026-11-13: at Larger a character turned the
+                // whole workspace back to the older view and no walk had stood one). Its shelf is the stage's, not a screen's part.
+                var stood = new List<CharacterTarget>();
+                var stageParts = new List<Transform>();
+                var standRefused = false;
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
                     // WorkspaceDirector.Start's setup, as a release build gives it.
@@ -164,7 +179,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     Keyboard = (text, prompt, done, dismissed) => keyboard = (prompt, done),
                     // Hold to talk as the release player carries it (ADR 0021, amended): with no computer it must never be offered.
                     Voice = root.AddComponent<HoldToTalk>(),
-                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
+                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, presentation.AgentsVisible ? stood.ToList() : new List<CharacterTarget>(), null, false),
+                    CharacterOf = task => presentation.AgentsVisible ? stood.FirstOrDefault(each => each.WorkstreamId == task) : null,
                     Bar = place => TasksColumn.Bar(place, State()),
                     SomethingWaits = () => State()?.Workstreams.Values.Any(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou) == true,
                     Comfort = comfort,
@@ -196,9 +212,28 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     activity.Record(changes.Events);
                 }
+                // The character stands on a shelf the production search keeps clear of the workspace as drawn, and agents are on.
+                void StandCharacter()
+                {
+                    if (stood.Count > 0 || standRefused || State() is not ClientProjection state || state.Workstreams.Values.FirstOrDefault() is not WorkstreamView work) return;
+                    try
+                    {
+                        var agent = ConfirmedPlaneAgent(root.transform, plane, eyes, CharacterPresenter.Present(work, state, live != null), failures, "judge room");
+                        stood.Add(agent.Target);
+                        stageParts.Add(agent.View.transform.parent);
+                        presentation.SetAgentsEnabled(true);
+                        Debug.Log("Halcyonic: judge room: one character stands on the stage, for the task " + work.WorkstreamId);
+                    }
+                    catch (InvalidOperationException error)
+                    {
+                        standRefused = true;
+                        failures.Add("judge room: no character could stand: " + error.Message);
+                    }
+                }
                 void Draw()
                 {
                     Pump();
+                    StandCharacter();
                     for (var turn = 0; turn < 4; turn++)
                     {
                         director.UpdateForRender(); director.DrawNow(); plane.Advance(MenuPlane.OpeningSeconds);
@@ -376,7 +411,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var older = new SortedSet<string>();
                     foreach (var renderer in root.GetComponentsInChildren<Renderer>(false))
                     {
-                        if (!renderer.enabled) continue;
+                        if (!renderer.enabled || stageParts.Any(part => renderer.transform.IsChildOf(part))) continue;
                         var owner = OwnerOf(renderer.transform);
                         if (owner == null) continue;
                         if (owner.StartsWith("Room", StringComparison.Ordinal)) redesign.Add(owner);
@@ -408,8 +443,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     var gaps = new List<string>(momentFailures);
                     momentFailures.Clear();
                     if (expectDrawn && redesign.Count == 0) gaps.Add("the redesign draws nothing");
-                    if (older.Count > 0) gaps.Add("older parts draw: " + string.Join(", ", older));
                     var found = new List<string>(RoomFrameChecks(root, camera, image, eyes, plane));
+                    // The redesign is on in every player: an older part drawn at any moment is the older view a person meets (AUDIT,
+                    // 2026-11-13), not a moment the redesign has yet to cover.
+                    if (older.Count > 0) found.Add("older parts draw: " + string.Join(", ", older));
+                    found.AddRange(StageClear(root, eyes, plane, stood));
                     // No computer: a recording plays, so voice is never offered and Hold to Talk never drawn (ADR 0021, amended).
                     // A recording says what it is wherever it plays (lead, 14:33Z): its own line, in its own words, drawn whole.
                     // The notice is the recording's own line whole, both sentences, word for word (lead, 17:45Z): the product's
@@ -421,6 +459,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (live == null && fallback.Line != null && plane.KitShows && plane.Kit.Bar.NoticeWords is TMP_Text noticeWords
                         && plane.Kit.Bar.NoticePlate is Halcyonic.XR.UI.RoomSurface noticePlate)
                         found.AddRange(NoticeCovered(root, camera, noticeWords, noticePlate.transform).Select(part => "the recording's line is covered by " + part));
+                    lock (olderHeard)
+                    {
+                        found.AddRange(olderHeard.Distinct().Select(line => "the plane said: " + line));
+                        olderHeard.Clear();
+                    }
                     // No text joined on a dot anywhere a person reads (the owner, 2026-11-11; lead, 04:22Z): each one named.
                     foreach (var text in root.GetComponentsInChildren<TMP_Text>(false))
                     {
@@ -582,6 +625,63 @@ namespace Halcyonic.XR.Workspace.Editor
                     EndJourney();
                     (journey, journeyDesk, journeyFrom, journeyTyped) = (name, desk, presses, typed);
                     journeyWays.Clear();
+                }
+                // The rest of the room a person opens, each a moment held to every check above, the character standing (AUDIT's census
+                // and the lead's ruling of 2026-11-13T16:40Z: no whole screen in the older view): a task's answer opened beside its
+                // page, Settings and Usage from the menu, and, where a computer is connected, Ask beside the menu as talking opens it.
+                void WalkTheRoom(string? workstreamId)
+                {
+                    if (workstreamId != null)
+                    {
+                        OpenSection(workstreamId, FileSection.Changes);
+                        Fresh();
+                        var opening = (Opened()?.Frame?.Lines ?? Array.Empty<PageLine>()).FirstOrDefault(line => line.Action == FileScreens.Open && line.Key != null);
+                        if (opening != null && Press(FileScreens.Open, opening.Key))
+                        {
+                            reachedBy = "pressed " + FileScreens.Open + "/" + opening.Key;
+                            Fresh();
+                            Moment("room side panel");
+                        }
+                        else Debug.Log("Halcyonic: judge room: no line of the task's Changes opens an answer beside it: the side panel is not reached here");
+                    }
+                    void Clear()
+                    {
+                        if (Opened() != null) CloseFile();
+                        else if (navigator.Beside != null) navigator.CloseBeside();
+                        Draw();
+                    }
+                    foreach (var place in new[] { MenuPlace.Settings, MenuPlace.Usage })
+                    {
+                        Clear();
+                        var key = place.ToString();
+                        if (Drawn("section", key) is RoomButton button)
+                        {
+                            button.Press.SettleForRender();
+                            button.Press.PressForRender(986);
+                            presses++;
+                            reachedBy = "pressed section/" + key;
+                        }
+                        else
+                        {
+                            navigator.OpenMenu(place);
+                            reachedBy = "no drawn control reached it: the walk opened it";
+                        }
+                        Fresh();
+                        Moment("room " + key.ToLowerInvariant());
+                    }
+                    if (live == null) return;
+                    // Talking opens Ask beside the menu (MenuDirector.TalkAnywhere); a batch Editor has no microphone, so the walk opens
+                    // it as letting go of talk does, bound to what is in view, through the director's own two steps.
+                    Clear();
+                    const BindingFlags inside = BindingFlags.NonPublic | BindingFlags.Instance;
+                    var scope = typeof(MenuDirector).GetMethod("ScopeInView", inside)?.Invoke(director, null);
+                    var open = typeof(MenuDirector).GetMethod("OpenAsk", inside);
+                    if (scope == null || open == null) { failures.Add("judge room: Ask beside the menu could not be opened as talking opens it"); return; }
+                    open.Invoke(director, new[] { scope });
+                    reachedBy = "talk opens it: the walk opened it, a batch Editor has no microphone";
+                    Fresh();
+                    Moment("room ask");
+                    Clear();
                 }
                 void EndJourney()
                 {
@@ -830,6 +930,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     journeyWays.Add("not run: a batch Editor has no microphone; Hold to Talk "
                         + (plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy ? "is drawn" : "is not drawn"));
                     EndJourney();
+                    WalkTheRoom(task.WorkstreamId);
                     if (sent.Count == 0) failures.Add("live walk: nothing was sent");
                 }
                 if (live != null)
@@ -948,6 +1049,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 if (Restarted()) { Draw(); Moment("restarted"); }
                 else failures.Add("judge room: waited 240 s and the restart after the end never came");
+                WalkTheRoom(State()?.Workstreams.Keys.FirstOrDefault());
                 if (decisions == 0) failures.Add("judge room: the demonstration offered no decision");
                 if (results == 0) failures.Add("judge room: the demonstration showed no result");
                 if (sent.Count != decisions) failures.Add("judge room: " + sent.Count + " commands were sent for " + decisions + " decisions");
@@ -955,6 +1057,7 @@ namespace Halcyonic.XR.Workspace.Editor
             catch (Exception error) { failures.Add("judge room: the walk stopped: " + error); }
             finally
             {
+                Application.logMessageReceived -= heard;
                 fallback?.Dispose();
                 api?.Dispose();
                 UnityEngine.Object.DestroyImmediate(root);
@@ -1143,6 +1246,36 @@ namespace Halcyonic.XR.Workspace.Editor
         /// margin, the head turned to the workspace and level (the design's angles are from the eyes, level); and each word's
         /// strokes at least 4.5:1 against what they stand on, as the render drew them.
         /// </summary>
+        /// <summary>
+        /// Each character standing on the stage, its body and its label, a degree at least from every part the redesign draws, as
+        /// the eyes see them, and its body inside the measured field while the person faces the workspace (AUDIT, 2026-11-13).
+        /// </summary>
+        private static IEnumerable<string> StageClear(GameObject root, Vector3 eyes, MenuPlane plane, IReadOnlyList<CharacterTarget> stood)
+        {
+            if (stood.Count == 0) yield break;
+            var drawn = root.GetComponentsInChildren<Renderer>(false)
+                .Where(renderer => renderer.enabled && OwnerOf(renderer.transform)?.StartsWith("Room", StringComparison.Ordinal) == true)
+                .Select(renderer => GlazeChecks.Of(OwnerOf(renderer.transform) + "/" + renderer.name, eyes, new[] { renderer }))
+                .Where(extent => !extent.IsEmpty).ToList();
+            foreach (var standing in stood)
+            {
+                if (standing == null || standing.View == null || !standing.View.gameObject.activeInHierarchy) continue;
+                var parts = new[] { BodyExtent(standing.View, eyes), GlazeChecks.Of("the character's label", eyes, standing.View.Label.gameObject) };
+                foreach (var part in parts.Where(each => !each.IsEmpty))
+                    foreach (var near in drawn.Where(each => each.Apart(part) < GlazeChecks.GapDegrees - 1e-3f).Take(1))
+                        yield return "the stage: " + part + " is " + GlazeChecks.Degrees(near.Apart(part)) + " degrees from " + near + ", under a degree";
+                if (ViewField.Current is ViewField field)
+                {
+                    var body = standing.View.Body.GetComponentsInChildren<MeshFilter>(false)
+                        .Where(filter => filter.sharedMesh != null && filter.GetComponent<Renderer>() is Renderer shown && shown.enabled)
+                        .SelectMany(filter => filter.sharedMesh.vertices.Select(vertex => filter.transform.TransformPoint(vertex))).ToList();
+                    if (body.Count > 0)
+                        foreach (var outside in GlazeChecks.InsideField("the character on the stage", body, eyes, plane.WorkspaceCentre, 0f, field))
+                            yield return "the stage: " + outside;
+                }
+            }
+        }
+
         private static List<string> RoomFrameChecks(GameObject root, Camera camera, Texture2D image, Vector3 eyes, MenuPlane plane)
         {
             var failures = new List<string>();

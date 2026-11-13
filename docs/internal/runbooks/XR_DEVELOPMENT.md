@@ -401,6 +401,11 @@ director's own keyboard hook; the batch Editor has no microphone, so hold to tal
 `moments.tsv` (with "reached by") land in `Builds/LiveWalkRenders`, beside `presses.tsv`: each journey's presses in
 the headset beside what the same takes in a terminal agent session at a desk.
 
+Both walks stand one character on the stage once a task is in the room, on a shelf the production search keeps clear of
+the workspace, with agents on, as a person who placed the agent shelf has it. Every moment then fails if an older part
+draws (the redesign is on in every player), if the character's body or label comes within a degree of a part the
+redesign draws, or if its body leaves the measured field while the person faces the workspace.
+
 It reads the plane from `HALCYONIC_LIVE_ENDPOINT` (for example `ws://127.0.0.1:47861/realtime`) and its token from
 `HALCYONIC_LIVE_TOKEN_FILE`, and refuses port 47800 and any token in `~/.halcyonic`: run it against a scratch control
 plane started with its own `HALCYONIC_DATA_DIR`, `HALCYONIC_TASKS_DIR` and `HALCYONIC_PROJECT_ROOTS`, and with no
