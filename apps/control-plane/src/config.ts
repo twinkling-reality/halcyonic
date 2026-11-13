@@ -228,7 +228,19 @@ export function unusualDataFolder(
   dataDir: string,
   home: string = userInfo().homedir,
 ): string | null {
-  // The account's own home, never a launcher's HOME; an alias of the usual folder (a link, another case) is the same.
+  const folder = resolve(dataDir);
+  if (isFolder(folder, resolve(home, '.halcyonic'))) return null;
+  const root = resolve(home);
+  return folder === root || folder.startsWith(`${root}${sep}`)
+    ? `~${folder.slice(root.length)}`
+    : folder;
+}
+
+/**
+ * Whether `folder` is `usual`, by the one rule the host has for a person's own folder: the same path, or an alias of it
+ * (a link, another case), real paths compared.
+ */
+function isFolder(folder: string, usual: string): boolean {
   const real = (path: string) => {
     try {
       return realpathSync.native(path);
@@ -236,13 +248,18 @@ export function unusualDataFolder(
       return resolve(path);
     }
   };
-  const folder = resolve(dataDir);
-  if (folder === resolve(home, '.halcyonic') || real(folder) === real(resolve(home, '.halcyonic')))
-    return null;
-  const root = resolve(home);
-  return folder === root || folder.startsWith(`${root}${sep}`)
-    ? `~${folder.slice(root.length)}`
-    : folder;
+  return resolve(folder) === resolve(usual) || real(folder) === real(usual);
+}
+
+/**
+ * Whether `dataDir` keeps a person's own keys: the usual ~/.halcyonic or the proving plane's ~/.halcyonic-proving, of
+ * the account's own home (userInfo, never a launcher's HOME), by the rule `unusualDataFolder` uses, so the stand-in's
+ * guard and the pages' notice never disagree about which folder is the person's (AUDIT2, 2026-11-13).
+ */
+export function personsDataFolder(dataDir: string, home: string = userInfo().homedir): boolean {
+  return ['.halcyonic', '.halcyonic-proving'].some((name) =>
+    isFolder(resolve(dataDir), resolve(home, name)),
+  );
 }
 
 /** The loopback address and port the control plane serves, as validated for the control plane. */

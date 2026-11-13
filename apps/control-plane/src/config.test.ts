@@ -550,3 +550,30 @@ test('an alias of the usual data folder (a link to it) is the usual one, and say
   assert.equal(unusualDataFolder(join(home, 'link-to-usual'), home), null);
   assert.equal(unusualDataFolder(join(home, '.halcyonic-second'), home), '~/.halcyonic-second');
 });
+
+test("the person's own data folders are found from the account's home and by real path, never from HOME (AUDIT2)", async (t) => {
+  const { mkdtempSync, mkdirSync, rmSync, symlinkSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { personsDataFolder } = await import('./config.ts');
+  const home = mkdtempSync(join(tmpdir(), 'halcyonic-persons-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  mkdirSync(join(home, '.halcyonic'));
+  symlinkSync(join(home, '.halcyonic'), join(home, 'alias'));
+  const before = process.env.HOME;
+  process.env.HOME = join(home, 'elsewhere');
+  t.after(() => {
+    process.env.HOME = before;
+  });
+  assert.equal(personsDataFolder(join(home, '.halcyonic'), home), true);
+  assert.equal(personsDataFolder(join(home, '.halcyonic-proving'), home), true);
+  assert.equal(personsDataFolder(join(home, 'alias'), home), true, 'a link to it is it');
+  assert.equal(
+    personsDataFolder(join(home, 'elsewhere', '.halcyonic'), home),
+    false,
+    'HOME is not the account',
+  );
+  assert.equal(personsDataFolder(join(home, 'scratch'), home), false);
+  // With no home given, the account's own: a test folder is never the person's, whatever HOME says.
+  assert.equal(personsDataFolder(join(home, 'elsewhere', '.halcyonic')), false);
+});

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { KeyReader } from '@halcyonic/runtime-core';
-import { ConfigError } from './config.ts';
+import { ConfigError, personsDataFolder } from './config.ts';
 import { HostProviders } from './providers.ts';
 
 function folder(t: { after: (f: () => void) => void }): string {
@@ -241,7 +241,7 @@ test("a plane on a person's own data folder refuses the stand-in, so a lane's li
         new HostProviders({
           dataDir,
           standIn: 'http://127.0.0.1:9',
-          ownDataFolders: [join(home, '.halcyonic'), join(home, '.halcyonic-proving')],
+          personsFolder: (dataDir: string) => personsDataFolder(dataDir, home),
         }),
       /HALCYONIC_ASSISTANT_UPSTREAM is for test planes; this plane keeps a person's keys/,
       own,
@@ -250,7 +250,7 @@ test("a plane on a person's own data folder refuses the stand-in, so a lane's li
     assert.ok(
       new HostProviders({
         dataDir,
-        ownDataFolders: [join(home, '.halcyonic'), join(home, '.halcyonic-proving')],
+        personsFolder: (dataDir: string) => personsDataFolder(dataDir, home),
       }).list().length > 0,
     );
   }
@@ -261,7 +261,7 @@ test("a plane on a person's own data folder refuses the stand-in, so a lane's li
     new HostProviders({
       dataDir: scratch,
       standIn: 'http://127.0.0.1:9',
-      ownDataFolders: [join(home, '.halcyonic'), join(home, '.halcyonic-proving')],
+      personsFolder: (dataDir: string) => personsDataFolder(dataDir, home),
     }).list()[0]?.upstream,
     'http://127.0.0.1:9',
   );

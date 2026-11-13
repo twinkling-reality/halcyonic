@@ -78,5 +78,7 @@ four edits, and a third meant four more.
   only, is read into the host's one list, so every reader (the assistant, the key check, the key gate) reaches it
   and no real provider. The suites set it, at a closed port, for every plane they start. A fake key never meets a
   real provider; the proving plane is the one place a real key does. A plane on a person's own data folder (the default one, the
-  proving plane's) refuses the stand-in and does not start, and one that takes it logs it once (AUDIT3).
+  proving plane's) refuses the stand-in and does not start, and one that takes it logs it once (AUDIT3). Which folder
+  is the person's is decided by the rule the Mac's pages use (`personsDataFolder` beside `unusualDataFolder`: the
+  account's own home, real paths), never a launcher's HOME (AUDIT2).
 - Revisit when a provider needs something a declaration cannot state, such as a sign-in that is not a key.
