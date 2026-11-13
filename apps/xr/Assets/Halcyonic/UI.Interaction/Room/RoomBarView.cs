@@ -672,18 +672,36 @@ namespace Halcyonic.XR.UI
         {
             get
             {
+                FirstCut = null;
                 if (!gameObject.activeInHierarchy) return false;
-                if (Card is RoomCardView laid && !laid.LaidWhole) return false;
+                if (Card is RoomCardView laid && !laid.LaidWhole)
+                {
+                    FirstCut = "Card";
+                    return false;
+                }
                 var paged = Card?.PagedDescription;
                 foreach (var label in GetComponentsInChildren<TMP_Text>(false))
                 {
                     if (label == paged || Card != null && label.transform.IsChildOf(Card.transform)) continue;
                     label.ForceMeshUpdate(true);
-                    if (label.isTextOverflowing || label.GetParsedText().Contains("\u2026")) return false;
+                    if (label.isTextOverflowing || label.GetParsedText().Contains("\u2026"))
+                    {
+                        FirstCut = label.gameObject.name;
+                        return false;
+                    }
                 }
                 return true;
             }
         }
+
+        /// <summary>The most lines the bar's sentence takes in the narrow form, where it wraps at the column's width.</summary>
+        public const int NarrowSentenceLines = 9;
+
+        /// <summary>
+        /// The name of the first part of the bar's object that did not lay whole when <see cref="LaidWhole"/> was last read
+        /// ("Sentence", "Words", a card's part), never its words: for the plane's finding line; null where all stood whole.
+        /// </summary>
+        public string? FirstCut { get; private set; }
 
         /// <summary>Whether the bar last laid was the narrow form (<see cref="RoomBar.Narrow"/>).</summary>
         public bool Narrow { get; private set; }
@@ -827,7 +845,9 @@ namespace Halcyonic.XR.UI
             {
                 RoomType.Size(sentence);
                 GlazeText.SetLiteral(sentence, said);
-                var saidHeight = BreakAtSeparators(sentence, panelWidth - 2f * inset - 2f * RoomType.Scaled(RoomGeometry.SentencePadXDp), 3).Height;
+                // Three lines across the pair's panel; in the narrow form the same words wrap at a third of that width, so they take
+                // as many as they need (AUDIT, 2026-11-13T1805Z: a sentence boxed to three lines narrow was cut at every row count).
+                var saidHeight = BreakAtSeparators(sentence, panelWidth - 2f * inset - 2f * RoomType.Scaled(RoomGeometry.SentencePadXDp), narrow ? NarrowSentenceLines : 3).Height;
                 barHeight = Mathf.Max(RoomType.Scaled(RoomGeometry.SentenceDp), saidHeight + 2f * RoomType.Scaled(RoomGeometry.SentencePadYDp));
             }
             sentence.gameObject.SetActive(said != null);
