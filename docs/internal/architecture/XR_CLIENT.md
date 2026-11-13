@@ -1367,8 +1367,8 @@ launch/return, process recreation and current-frame action behavior need separat
   which says the same sentence by the same step (`EntryText.PreviousRequest(kind)`, both places
   where only a reference kept from an earlier run is known), then what the computer recorded, how
   to clear it and its reference, each a sentence; under the redesign that page is a card (the project
-  as its title, Start Unconfirmed over the step's sentence, what the computer recorded and what Clear
-  does as its words: the idea here starts over, nothing on the computer is deleted or sent). While that start is unknown the recap says the same
+  as its title, Start Unconfirmed over the step's sentence, what the computer recorded as its words, and
+  what Clear does as the bar's sentence: the idea here restarts, nothing on the computer is sent or deleted). While that start is unknown the recap says the same
   sentence, which names that Start Building waits, and its main action is See What Happened.
 - **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
   presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the

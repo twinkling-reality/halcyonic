@@ -643,7 +643,7 @@ public class NewProjectFlowTests
         Assert.That(restarted.Step, Is.EqualTo(NewProjectStep.YourIdea));
         // Clear's words are what Confirm does (AUDIT's MUST J): nothing sent to the computer, the idea here started over.
         Assert.That(restartHost.Sent, Is.Empty, "nothing on the computer is deleted or sent");
-        Assert.That(EntryText.ClearOnceChecked, Does.Contain("Nothing on the computer is deleted or sent").And.Contain("idea over"));
+        Assert.That(EntryText.ClearOnceChecked, Does.Contain("Nothing on the computer is sent or deleted").And.Contain("restarts your idea"));
         Assert.That(EntryText.Cleared, Does.Not.Contain("\u00b7"));
     }
 

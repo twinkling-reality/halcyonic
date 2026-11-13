@@ -320,8 +320,8 @@ namespace Halcyonic.Client
         public const string Clear = "Clear";
         // What Clear does, both true things (AUDIT's MUST J, 2026-11-13T1659Z): the idea on this headset starts over (Confirm makes a
         // new one), and nothing on the computer is deleted or sent (Confirm sends no command).
-        public const string ClearOnceChecked = "Once you have looked, Clear starts your idea over here. Nothing on the computer is deleted or sent.";
-        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Your idea here starts over; nothing on the computer is deleted or sent.";
+        public const string ClearOnceChecked = "Once you have looked, Clear restarts your idea here. Nothing on the computer is sent or deleted.";
+        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Your idea here restarts; nothing on the computer is sent or deleted.";
         public const string ConfirmClear = "Confirm";
         public const string Cancel = "Cancel";
         public const string Cleared = "Cleared. Start again with your idea.";
@@ -339,7 +339,7 @@ namespace Halcyonic.Client
             CommandStatus.Accepted => "The computer took it and has not said how it went.",
             CommandStatus.Completed => "The computer says it happened.",
             CommandStatus.Rejected => "The computer refused it, and nothing changed.",
-            CommandStatus.Failed => "The computer says it failed, but it may have changed something.",
+            CommandStatus.Failed => "The computer says it failed but may have changed something.",
             _ => "The computer answered in a way this headset can't read.",
         };
 
