@@ -70,12 +70,13 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The host's warning codes that are a consent the person gives by pressing (it never asks, it reaches past its folder, it
-        /// cannot be brought back, history is left, it becomes public, it replaces what was published): a review carrying any keeps its
+        /// cannot be brought back, history is left, it becomes public, it replaces what was published, it costs money or its cost is not
+        /// known: AUDIT2's 22:42Z, the money said before the press, the lead's 1111-b123): a review carrying any keeps its
         /// warnings first, under its name. A new consent code joins here in the same change that adds it to the host.
         /// </summary>
         public static readonly IReadOnlyCollection<string> ConsentFirst = new HashSet<string>(StringComparer.Ordinal)
         {
-            "never_asks", "unconfined", "cannot_undo", "history_left", "public", "replaces",
+            "never_asks", "unconfined", "cannot_undo", "history_left", "public", "replaces", "costs_money", "cost_unknown",
         };
 
         /// <summary>The actions at <paramref name="part"/>: Confirm (main, see the class), Next Part and Previous Part where they turn, then Cancel.</summary>
