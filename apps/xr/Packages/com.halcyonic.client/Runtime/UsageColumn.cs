@@ -36,6 +36,10 @@ namespace Halcyonic.Client
         private readonly Func<DateTimeOffset, AvailableUsageLimits?> recorded;
         private UsageLeftPresentation? shown;
         private Task<UsageLimitsResponse>? reading;
+
+        /// <summary>The assistant's status as the computer last said it (GET /api/workspace/agent), read beside the limits; null until read.</summary>
+        private WorkspaceAgentStatus? agent;
+        private Task<WorkspaceAgentStatus>? agentReading;
         private CancellationTokenSource? cancel;
         private int? chosen;
         private int page;
@@ -69,7 +73,10 @@ namespace Halcyonic.Client
                     var words = presentation?.Note ?? UsageLeftPresenter.Reading;
                     var tone = presentation?.Failed == true ? LineTone.Problem : LineTone.Secondary;
                     var empty = new MenuFrame(UsageText.Subject, new Footer(close, rare: refresh, secondary: compact), lines: new[] { new PageLine(words, tone: tone, rows: 2) });
-                    // The redesign's menu (A4): the panel's one line, the product's own, on the usage card's title.
+                    // The redesign's menu (A4): the panel's one line, the product's own, on the usage card's title; with the assistant's
+                    // row known, the card stands for that row (FIELD's Usage with no windows).
+                    if (RoomDesign.Enabled && AssistantRow() is RoomListRow alone && RoomPanelCards.Usage(Array.Empty<UsageLeftRow>(), alone) is RoomCard rowCard)
+                        return empty.WithCard(rowCard);
                     return RoomDesign.Enabled ? empty.WithCard(new RoomCard(LineWords.Ours(RoomPanelCards.UsageTitle), LineWords.Ours(words))) : empty;
                 }
 
@@ -99,7 +106,7 @@ namespace Halcyonic.Client
                 var frame = new MenuFrame(UsageText.Subject, footer, lines: lines, source: presentation.Source, side: side);
                 // The redesign's menu (A4): FIELD's usage card, its windows as wells, where it holds every window read; the
                 // row's side panel is left out there, as the addendum says.
-                return RoomDesign.Enabled && presentation.Rows.Count <= CardWindows ? frame.WithCard(RoomPanelCards.Usage(presentation.Rows)) : frame;
+                return RoomDesign.Enabled && presentation.Rows.Count <= CardWindows ? frame.WithCard(RoomPanelCards.Usage(presentation.Rows, AssistantRow())) : frame;
             }
         }
 
@@ -158,6 +165,13 @@ namespace Halcyonic.Client
         /// <summary>Takes a read that came back, and says the times again each minute, as "today at 15:18" stays true.</summary>
         public void Tick()
         {
+            if (agentReading is Task<WorkspaceAgentStatus> asked && asked.IsCompleted)
+            {
+                agentReading = null;
+                // A read that failed says nothing of the assistant: no row is guessed (unknown stays unknown).
+                agent = asked.Status == TaskStatus.RanToCompletion ? asked.Result : null;
+                Changed?.Invoke();
+            }
             if (reading is Task<UsageLimitsResponse> pending && pending.IsCompleted)
             {
                 reading = null;
@@ -198,7 +212,19 @@ namespace Halcyonic.Client
             cancel?.Cancel();
             cancel = new CancellationTokenSource();
             reading = api.GetUsageLimitsAsync(cancel.Token);
+            // The assistant's model and where it runs, for the card's Assistant row (the lead's 16:46Z, FIELD's RoomPanelCards.Assistant).
+            agentReading = api.GetWorkspaceAgentAsync(cancel.Token);
             Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// The assistant's row as the computer said it: its model and where it runs (the provider's own name where hosted), or the host's own
+        /// words why it cannot run; none until read, or where the read failed. Use Model, its press, comes with the host's action (not yet).
+        /// </summary>
+        private RoomListRow? AssistantRow()
+        {
+            var row = AssistantPlace.Row(agent);
+            return row.Model == null && row.Reason == null ? null : RoomPanelCards.Assistant(row.Model, row.Provider, row.Reason, null);
         }
 
         /// <summary>What a chosen limit's side panel says: when it was seen, when it resets, and whose account it is.</summary>

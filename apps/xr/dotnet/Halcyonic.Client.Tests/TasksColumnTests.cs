@@ -26,7 +26,7 @@ internal sealed class FakeMenuHost : IMenuHost
 
     public bool VoiceOffered { get; set; }
 
-    public ControlPlaneApi? Api => null;
+    public ControlPlaneApi? Api { get; set; }
 
     public bool KeyboardOffered { get; set; }
 

@@ -1,5 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Halcyonic.Contracts;
 using NUnit.Framework;
 
@@ -245,5 +251,77 @@ public class UsageColumnTests
         unreachable.Closed += () => closed = true;
         unreachable.Act(Footer.Close, null);
         Assert.That(closed, Is.True);
+    }
+    /// <summary>The computer answering the column's two reads: the limits, and where the assistant runs.</summary>
+    private sealed class TwoReads : HttpMessageHandler
+    {
+        private readonly string? agent;
+
+        /// <param name="agent">GET /api/workspace/agent's body, or null for a read that fails.</param>
+        public TwoReads(string? agent) => this.agent = agent;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            var (status, body) = path.EndsWith("/api/usage-limits", StringComparison.Ordinal) ? (HttpStatusCode.OK, TwoWindows)
+                : path.EndsWith("/api/workspace/agent", StringComparison.Ordinal) && agent != null ? (HttpStatusCode.OK, agent)
+                : (HttpStatusCode.InternalServerError, "{}");
+            return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") });
+        }
+    }
+
+    /// <summary>The live column under the redesign, both reads taken; its card.</summary>
+    private static async Task<RoomCard> LiveCard(string? agent)
+    {
+        using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", new TwoReads(agent));
+        var host = new FakeMenuHost { Clock = Now, Height = MenuPage.Rows(6), Api = api };
+        var usage = new UsageColumn(host, _ => null);
+        for (var tries = 0; tries < 200 && (usage.Frame?.Card?.Gauges.Count ?? 0) == 0; tries++)
+        {
+            await Task.Delay(10);
+            usage.Tick();
+        }
+        // The agent's read may land after the limits: tick until it has, or long enough that a failed read has been taken.
+        for (var tries = 0; tries < 20; tries++)
+        {
+            await Task.Delay(10);
+            usage.Tick();
+        }
+        return usage.Frame!.Card!;
+    }
+
+    private static List<RoomListRow> AssistantRows(RoomCard card) =>
+        card.List.Where(row => row.Kind is RoomKind.Computer or RoomKind.Link or RoomKind.Failed).ToList();
+
+    /// <summary>
+    /// The usage card's Assistant row, read from the computer beside the limits (the lead, 2026-11-12): the model on this
+    /// computer, the model and the provider's own name where hosted, the host's reason where it cannot run; a read that
+    /// fails draws no row, as nothing is known.
+    /// </summary>
+    [Test]
+    public async Task TheUsageCardCarriesTheAssistantsRowAsTheComputerSaysIt()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var here = AssistantRows(await LiveCard(HalcyonicJson.Serialize(new AvailableWorkspaceAgent { Model = "local-model:tag" })));
+            Assert.That(here.Select(row => (row.Kind, row.Name.Text)), Is.EqualTo(new[] { (RoomKind.Computer, "local-model:tag") }));
+
+            var hosted = AssistantRows(await LiveCard(HalcyonicJson.Serialize(
+                new AvailableWorkspaceAgent { Model = "test-model-1", Served = AssistantServed.Remote, Provider = "Test Hosted" })));
+            Assert.That(hosted.Select(row => (row.Kind, row.Name.Text)), Is.EqualTo(new[] { (RoomKind.Link, "test-model-1") }));
+            Assert.That(hosted[0].Under!.Text, Does.Contain("Test Hosted"));
+
+            var refused = AssistantRows(await LiveCard(HalcyonicJson.Serialize(new UnavailableWorkspaceAgent
+                { Reason = new ErrorInfo { Code = "key_refused", Message = "Test Hosted refused its key. Give it a new key on this computer." } })));
+            Assert.That(refused.Select(row => (row.Kind, row.Name.Text)), Is.EqualTo(new[] { (RoomKind.Failed, RoomPanelCards.AssistantUnavailable) }));
+            Assert.That(refused[0].Under!.Text, Is.EqualTo("Test Hosted refused its key. Give it a new key on this computer."));
+
+            var card = await LiveCard(null);
+            Assert.That(AssistantRows(card), Is.Empty, "a failed read draws no row");
+            Assert.That(card.Gauges.Count, Is.EqualTo(2), "the windows stand without it");
+        }
+        finally { RoomDesign.Enabled = was; }
     }
 }
