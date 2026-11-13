@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Usage</title>
+<link rel="stylesheet" href="/page.css">
+<link rel="stylesheet" href="/setup/usage.css">
+<script src="/setup/usage.js" defer></script>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="g-gauge" viewBox="0 0 24 24"><path d="M4.5 16.5a7.5 7.5 0 1 1 15 0"/><path d="M12 16.5l4-5"/><path d="M12 16.6v.1"/></symbol>
+  <symbol id="g-back" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+</svg>
+
+<main class="card">
+  <header class="head">
+    <span class="emblem"><svg class="glyph" aria-hidden="true"><use href="#g-gauge"/></svg></span>
+    <div class="head-words">
+      <h1>Usage</h1>
+      <p class="description">Everything each project's agent tasks used since they began, as the agent apps reported it.</p>
+    </div>
+    <a class="page-link" href="/setup"><svg class="glyph" aria-hidden="true"><use href="#g-back"/></svg>Setup</a>
+  </header>
+
+  <p class="usage-line" id="assistant" hidden></p>
+  <p class="usage-line" id="problem" hidden></p>
+
+  <section class="block" id="nothing" hidden>
+    <p class="usage-empty">Nothing Used Yet</p>
+    <p class="usage-line">Tasks show here once an agent app reports what they used.</p>
+  </section>
+
+  <div id="projects"></div>
+</main>
+</body>
+</html>

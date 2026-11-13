@@ -51,6 +51,7 @@ import {
   setupDownloads,
 } from './network/setup-page.ts';
 import { NetworkSwitch } from './network/switch.ts';
+import { alongside, mountUsage, projectionSources } from './network/usage-page.ts';
 import { managersOn } from './own-check/own-check.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
 import { audioOutputFor, outputInTree } from './preview/audio-output.ts';
@@ -500,117 +501,123 @@ async function main(): Promise<void> {
       {
         ports: family.pairingPage,
         dataFolder,
-        // The setup view beside pairing (ADR 0053): every step `pnpm mac-setup` checks, with its presses.
-        mount: mountSetup(
-          new SetupView(
-            {
-              dataDir: config.dataDir,
-              dataFolder,
-              home: homedir(),
-              // The keyed agent apps this start registered, so the page says a key added or removed since waits.
-              io: (print) => ({
-                ...localMacSetupIo(print),
-                startedWith: keyedAtStart,
-                providers: () => providers,
-              }),
-              run: runCommand,
-              // A kept, replaced or removed agent key also takes effect only at a start, so it counts here.
-              appliedAtStart: `${settingsForRestart(settings)}\n${keysAtStart}`,
-              appliedNow: () => {
-                try {
-                  return `${settingsForRestart(readHostSettings(config.dataDir))}\n${keysKept()}`;
-                } catch {
-                  return 'unreadable';
-                }
-              },
-              // A card for each declared provider something here reads, with Add Key and Remove Key (ADR 0061).
-              // Each agent app whose run on a connected folder, outside the sandbox, holds the key itself, as its adapter's
-              // class declares, whether or not it runs now: the card says a task there can copy the key.
-              keys: new ProviderKeys(config.dataDir, providers, () =>
-                KEYED_AGENT_APPS.filter((keyed) => keyed.holdsKeyOutsideSandbox()).map(
-                  (keyed) => keyed.reader.name,
-                ),
-              ),
-              canRestart: process.argv.includes('--restartable'),
-              // Only Start Halcyonic.command opens a new page when Halcyonic is running again.
-              reopensPage: process.argv.includes('--open-pairing-page'),
-              // What is shared now, for Copy and Stop beside the steps (ADR 0054).
-              shared: () =>
-                controlPlane.projection.listedProjects().flatMap((project) => {
-                  const share = controlPlane.projection.share(project.project_id);
-                  return share === undefined
-                    ? []
-                    : [{ project_id: project.project_id, name: project.name, ...share }];
+        // The setup view beside pairing (ADR 0053): every step `pnpm mac-setup` checks, with its presses; and the
+        // Usage page under its paths: what each listed project's tasks used, read from the projection alone.
+        mount: alongside(
+          mountUsage(
+            projectionSources(controlPlane.projection, () => controlPlane.registry.descriptors()),
+          ),
+          mountSetup(
+            new SetupView(
+              {
+                dataDir: config.dataDir,
+                dataFolder,
+                home: homedir(),
+                // The keyed agent apps this start registered, so the page says a key added or removed since waits.
+                io: (print) => ({
+                  ...localMacSetupIo(print),
+                  startedWith: keyedAtStart,
+                  providers: () => providers,
                 }),
-              // Each project's secrets by name, with Set and Remove (ADR 0057).
-              ...(controlPlane.projectSecrets === null
-                ? {}
-                : {
-                    secrets: pageSecrets({
-                      submit: (command, via, principal) =>
-                        controlPlane.commands.submit(command, via, principal),
-                      store: controlPlane.projectSecrets,
-                      projects: () =>
-                        controlPlane.projection.listedProjects().map((project) => ({
-                          project_id: project.project_id,
-                          name: project.name,
-                          secrets: project.secrets ?? [],
-                        })),
-                      // Each agent by its own name, as the page's steps name OpenCode and Codex.
-                      without: () =>
-                        controlPlane.registry
-                          .descriptors()
-                          .filter(
-                            (descriptor) =>
-                              !descriptor.synthetic && descriptor.secret_environment !== true,
-                          )
-                          .map((descriptor) => descriptor.display_name),
-                      // Each runtime that says it can run with no sandbox of Halcyonic's, or does not say.
-                      outside: () =>
-                        controlPlane.registry
-                          .outsideSandbox()
-                          .map((descriptor) => descriptor.display_name),
-                      nextId: () => ids.next(),
-                      now: () => systemClock.now(),
-                    }),
-                  }),
-              stopShare: pageStopShare({
-                submit: (command, via, principal) =>
-                  controlPlane.commands.submit(command, via, principal),
-                isShared: (projectId) => controlPlane.projection.share(projectId) !== undefined,
-                nextId: () => ids.next(),
-                now: () => systemClock.now(),
-              }),
-              tasksThatPause: () =>
-                controlPlane.projection
-                  .executions()
-                  .filter((execution) =>
-                    ['starting', 'running', 'verifying', 'waiting_for_human'].includes(
-                      execution.status,
-                    ),
-                  )
-                  .map(
-                    (execution) =>
-                      controlPlane.projection.workstream(execution.workstream_id)?.title ??
-                      'a task',
+                run: runCommand,
+                // A kept, replaced or removed agent key also takes effect only at a start, so it counts here.
+                appliedAtStart: `${settingsForRestart(settings)}\n${keysAtStart}`,
+                appliedNow: () => {
+                  try {
+                    return `${settingsForRestart(readHostSettings(config.dataDir))}\n${keysKept()}`;
+                  } catch {
+                    return 'unreadable';
+                  }
+                },
+                // A card for each declared provider something here reads, with Add Key and Remove Key (ADR 0061).
+                // Each agent app whose run on a connected folder, outside the sandbox, holds the key itself, as its adapter's
+                // class declares, whether or not it runs now: the card says a task there can copy the key.
+                keys: new ProviderKeys(config.dataDir, providers, () =>
+                  KEYED_AGENT_APPS.filter((keyed) => keyed.holdsKeyOutsideSandbox()).map(
+                    (keyed) => keyed.reader.name,
                   ),
-              // Closed cleanly first (the journal's checkpoint, the runtimes stopped), then the
-              // launcher starts Halcyonic again on this exit code; tasks come back through re-attach.
-              restart: () => {
-                // A close that fails exits 1, so the launcher stops rather than start a half-closed one again.
-                void shutdown({ reason: 'restart to apply settings' }).then(
-                  () => process.exit(RESTART_EXIT_CODE),
-                  (error: unknown) => {
-                    app.log.error({ err: error }, 'closing for the restart failed');
-                    process.exit(1);
-                  },
-                );
+                ),
+                canRestart: process.argv.includes('--restartable'),
+                // Only Start Halcyonic.command opens a new page when Halcyonic is running again.
+                reopensPage: process.argv.includes('--open-pairing-page'),
+                // What is shared now, for Copy and Stop beside the steps (ADR 0054).
+                shared: () =>
+                  controlPlane.projection.listedProjects().flatMap((project) => {
+                    const share = controlPlane.projection.share(project.project_id);
+                    return share === undefined
+                      ? []
+                      : [{ project_id: project.project_id, name: project.name, ...share }];
+                  }),
+                // Each project's secrets by name, with Set and Remove (ADR 0057).
+                ...(controlPlane.projectSecrets === null
+                  ? {}
+                  : {
+                      secrets: pageSecrets({
+                        submit: (command, via, principal) =>
+                          controlPlane.commands.submit(command, via, principal),
+                        store: controlPlane.projectSecrets,
+                        projects: () =>
+                          controlPlane.projection.listedProjects().map((project) => ({
+                            project_id: project.project_id,
+                            name: project.name,
+                            secrets: project.secrets ?? [],
+                          })),
+                        // Each agent by its own name, as the page's steps name OpenCode and Codex.
+                        without: () =>
+                          controlPlane.registry
+                            .descriptors()
+                            .filter(
+                              (descriptor) =>
+                                !descriptor.synthetic && descriptor.secret_environment !== true,
+                            )
+                            .map((descriptor) => descriptor.display_name),
+                        // Each runtime that says it can run with no sandbox of Halcyonic's, or does not say.
+                        outside: () =>
+                          controlPlane.registry
+                            .outsideSandbox()
+                            .map((descriptor) => descriptor.display_name),
+                        nextId: () => ids.next(),
+                        now: () => systemClock.now(),
+                      }),
+                    }),
+                stopShare: pageStopShare({
+                  submit: (command, via, principal) =>
+                    controlPlane.commands.submit(command, via, principal),
+                  isShared: (projectId) => controlPlane.projection.share(projectId) !== undefined,
+                  nextId: () => ids.next(),
+                  now: () => systemClock.now(),
+                }),
+                tasksThatPause: () =>
+                  controlPlane.projection
+                    .executions()
+                    .filter((execution) =>
+                      ['starting', 'running', 'verifying', 'waiting_for_human'].includes(
+                        execution.status,
+                      ),
+                    )
+                    .map(
+                      (execution) =>
+                        controlPlane.projection.workstream(execution.workstream_id)?.title ??
+                        'a task',
+                    ),
+                // Closed cleanly first (the journal's checkpoint, the runtimes stopped), then the
+                // launcher starts Halcyonic again on this exit code; tasks come back through re-attach.
+                restart: () => {
+                  // A close that fails exits 1, so the launcher stops rather than start a half-closed one again.
+                  void shutdown({ reason: 'restart to apply settings' }).then(
+                    () => process.exit(RESTART_EXIT_CODE),
+                    (error: unknown) => {
+                      app.log.error({ err: error }, 'closing for the restart failed');
+                      process.exit(1);
+                    },
+                  );
+                },
               },
-            },
-            setupDownloads(
-              config.dataDir,
-              localMacSetupIo(() => undefined).which,
-              localMacSetupIo(() => undefined).pins,
+              setupDownloads(
+                config.dataDir,
+                localMacSetupIo(() => undefined).which,
+                localMacSetupIo(() => undefined).pins,
+              ),
             ),
           ),
         ),
