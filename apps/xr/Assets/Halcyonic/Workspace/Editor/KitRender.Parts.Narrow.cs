@@ -176,7 +176,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(!label.isTextOverflowing && !said.Contains("…"), "\"" + said + "\" is cut at the column's width");
                     Require(!said.Contains(KitMomentWords.Dot.Trim()), "\"" + said + "\" joins facts on a dot");
                 }
-                foreach (var part in new[] { cards[at].Title?.Text, cards[at].Status!.Title, cards[at].Status!.Line }.OfType<string>())
+                foreach (var part in new[] { cards[at].Title?.Text, cards[at].Status?.Title, cards[at].Status?.Line }.OfType<string>())
                     Require(drawn.Contains(part), "\"" + part + "\" is not drawn whole: " + string.Join(" | ", drawn));
             }
             Place(plane, eyes, 0f, shot.Elevation);
