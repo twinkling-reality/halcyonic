@@ -43,6 +43,9 @@ namespace Halcyonic.Client
             KitControl? field = null;
             var body = LineWords.None;
             var acting = new List<RoomAction>();
+            // Lines that act AND carry a value or a quieter line: the card's pressed rows, so no part is lost on a button (AUDIT's 17:56Z).
+            var pressed = new List<RoomListRow>();
+            var lost = false;
             LineWords? words = null;
 
             if (frame.Side is SidePanel side)
@@ -82,8 +85,18 @@ namespace Halcyonic.Client
                         }
                         var place = line.Choice ? KitPlace.Choice : KitPlace.Step;
                         var control = new KitControl(place, frame, line.Action, line.Key, line.Words, line.Icon, true, null, false, line.Chosen, line.AnswerMark);
+                        var value = line.FactRuns?.Text ?? line.Fact;
+                        if (!line.Choice && (value != null || line.Under != null || line.RowLabel != null))
+                        {
+                            // A pressed row: its words the name, its value the note, its label (or else its quieter line) under it. Until the
+                            // kit's row takes a label above (FIELD), a line with both a label and a quieter line shows the label under it.
+                            var under = line.RowLabel != null ? LineWords.Ours(line.RowLabel) : line.Under;
+                            if (line.RowLabel != null && line.Under != null) lost = true;
+                            pressed.Add(new RoomListRow(line.Kind, line.Runs, value, press: control, chosen: line.Chosen, under: under));
+                            continue;
+                        }
                         acting.Add(new RoomAction(control, main: false, icon: line.Choice ? (GlazeIcon?)null : line.Icon ?? GlazeIcon.Next, mark: line.AnswerMark,
-                            chosen: line.Chosen, detail: line.RowLabel ?? line.FactRuns?.Text ?? line.Fact ?? line.Under?.Text));
+                            chosen: line.Chosen));
                         continue;
                     }
                     // Outside words, however the frame marks them: one on the band, any more as rows of their own.
@@ -134,6 +147,18 @@ namespace Halcyonic.Client
             // stands on the reader's last page in the place of First Page, so a person meets one Next Page throughout (gen-n2:
             // Usage at Larger drew two).
             var ownPager = others.FirstOrDefault(action => frame.Footer.All.Any(each => each.Prompt.Kind == PromptKind.NextPage && each.Prompt.Id == action.Control.Action));
+            // Pressed rows make the panel a card: its title the first row's words (where am I), the one other line that states its
+            // description, the pressed rows its list five a page. A frame that states more than one other line keeps them as rows,
+            // and its pressed rows become the column's buttons with their value as the detail; their quieter line is then lost, so
+            // the bar is not whole.
+            RoomCard CardOf(IReadOnlyList<RoomListRow> list) => new RoomCard(rows.Count > 0 ? rows[0].Words : frame.SubjectRuns, rows.Skip(1).Select(row => row.Words).FirstOrDefault(), list: list);
+            var carded = pressed.Count > 0 && rows.Count <= 2 && rows.All(row => row.Label == null && row.Lines == null);
+            if (pressed.Count > 0 && !carded)
+                foreach (var row in pressed)
+                {
+                    acting.Add(new RoomAction(row.Press!, main: false, icon: GlazeIcon.Next, chosen: row.Chosen, detail: row.Note));
+                    if (row.Under != null) lost = true;
+                }
             var turning = new List<RoomAction>();
             turning.AddRange(acting);
             turning.AddRange(others);
@@ -158,8 +183,9 @@ namespace Halcyonic.Client
             var actionPages = turning.Count <= room ? 1 : (turning.Count + room - 2) / (room - 1);
             // Rows a page by the form it will be laid in (the plane measures it and asks again with fewer where a page passes the field).
             var rowsAPage = form.RowsAPage;
-            var rowPages = rows.Count <= 0 ? 1 : (rows.Count + rowsAPage - 1) / rowsAPage;
-            var pages = System.Math.Max(rowPages, actionPages);
+            var pressPages = carded ? (pressed.Count + RoomCard.ListAPage - 1) / RoomCard.ListAPage : 1;
+            var rowPages = carded ? 1 : rows.Count <= 0 ? 1 : (rows.Count + rowsAPage - 1) / rowsAPage;
+            var pages = System.Math.Max(System.Math.Max(rowPages, actionPages), pressPages);
             var each = pages > 1 ? room - 1 : room;
             if (ownPager != null)
             {
@@ -183,7 +209,9 @@ namespace Halcyonic.Client
                         main: false, icon: GlazeIcon.Next, detail: FileChangeText.PageOf(page, pages)));
                 }
                 column.AddRange(leaving);
-                parts.Add(new GeneralPage(page < rowPages ? rows.Skip(page * rowsAPage).Take(rowsAPage).ToList() : new List<RoomRow>(), column));
+                parts.Add(carded
+                    ? new GeneralPage(new List<RoomRow>(), column, CardOf(pressed.Skip(page * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList()))
+                    : new GeneralPage(page < rowPages ? rows.Skip(page * rowsAPage).Take(rowsAPage).ToList() : new List<RoomRow>(), column));
             }
 
             var first = parts[0];
@@ -198,7 +226,9 @@ namespace Halcyonic.Client
                 column: first.Column, field: field, band: band, wide: rows.Count == 0 && body.IsEmpty && field == null,
                 lines: shown.Count > 0 ? shown.Select(row => row.Words).ToList() : null);
             bar.generalPages = pages > 1 ? parts : null;
-            bar.Whole = pages == 1;
+            bar.Whole = pages == 1 && !lost;
+            bar.lostPart = lost;
+            if (first.Card != null) bar.Card = first.Card;
             return shown.Count > 0 ? bar.WithFacts(shown) : bar;
         }
 
@@ -212,6 +242,9 @@ namespace Halcyonic.Client
         private List<GeneralPage>? generalPages;
 
         private int generalAt;
+
+        /// <summary>A part of a line the general reader could not lay (its pressed row's label and quieter line both given, until the kit's row takes a label); the bar is then never whole.</summary>
+        private bool lostPart;
 
         private HashSet<int>? generalSeen;
 
@@ -231,18 +264,23 @@ namespace Halcyonic.Client
             var page = generalPages[generalAt];
             Column = page.Column;
             Facts = page.Rows.Count > 0 ? page.Rows : null;
+            if (page.Card != null) Card = page.Card;
             Lines = page.Rows.Count > 0 ? page.Rows.Select(row => row.Words).ToList() : null;
-            Whole = generalSeen.Count == generalPages.Count;
+            Whole = generalSeen.Count == generalPages.Count && !lostPart;
             return true;
         }
 
         private sealed class GeneralPage
         {
-            public GeneralPage(IReadOnlyList<RoomRow> rows, IReadOnlyList<RoomAction> column)
+            public GeneralPage(IReadOnlyList<RoomRow> rows, IReadOnlyList<RoomAction> column, RoomCard? card = null)
             {
                 Rows = rows;
                 Column = column;
+                Card = card;
             }
+
+            /// <summary>The page's card where its lines that act carry a value (the pressed rows); null where it has rows instead.</summary>
+            public RoomCard? Card { get; }
 
             public IReadOnlyList<RoomRow> Rows { get; }
 

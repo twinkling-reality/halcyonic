@@ -137,8 +137,11 @@ public class RoomPageTests
 
         // A line that cannot act now is a row, never dropped; one that can, with a fact, is an action with the fact as its detail.
         var dark = Of(Frame(new[] { new PageLine("Dark", action: "answer", available: false), new PageLine("Text Size", fact: "Larger", action: "open", opens: true) }));
-        Assert.That(dark.Facts!.Select(row => row.Words.Text), Is.EqualTo(new[] { "New Project", "Dark" }));
-        Assert.That(dark.Column.Select(action => (action.Control.Action, action.Words, action.Detail)), Is.EqualTo(new[] { ("open", "Text Size", (string?)"Larger"), (Footer.Close, "Close", null) }));
+        // The line that acts with a value is a pressed row of a card (AUDIT's 17:56Z): its words the name, its value the note; the
+        // card's title is where am I, the line that cannot act its description.
+        Assert.That((dark.Card!.Title!.Text, dark.Card.Description!.Text), Is.EqualTo(("New Project", "Dark")));
+        Assert.That(dark.Card.List.Select(row => (row.Name.Text, row.Note, row.Press!.Action)), Is.EqualTo(new[] { ("Text Size", (string?)"Larger", "open") }));
+        Assert.That(dark.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { Footer.Close }));
 
         // A held prompt keeps its hold.
         var held = Of(Frame(new[] { Words("Say It") }, new Footer(Close, secondary: new Prompt("hold", "Hold to Talk", GlazeIcon.Next, holds: true))));
@@ -311,5 +314,32 @@ public class RoomPageTests
         var few = RoomBar.OfFrame(Frame(new[] { new PageLine("Do 1", action: "do", key: "1") }, own), VoiceStage.Idle)!;
         Assert.That((few.GeneralPart.Pages, few.Column.Count(action => action.Control.Action == Footer.NextPage), few.Column.Any(action => action.Control.Action == RoomBar.TurnPage)),
             Is.EqualTo((1, 1, false)), "on one page, the frame's own pager alone");
+    }
+
+    /// <summary>
+    /// A line that acts and carries a value or a quieter line is a pressed row of a card, so no part is lost on a button (AUDIT's
+    /// 17:56Z MUST): its words, its value and its quieter line laid apart, and its press the line's own action and key; five rows a
+    /// page. A line with both a label and a quieter line loses one until the kit's row takes a label, and the bar then says it is
+    /// not whole.
+    /// </summary>
+    [Test]
+    public void ALineThatActsWithAValueIsAPressedRowWithEveryPartAndItsOwnPress()
+    {
+        var frame = Frame(Enumerable.Range(1, 6).Select(n => new PageLine(LineWords.TheirName("App " + n), fact: LineWords.Ours("Up to " + (10 * n) + "% Left"),
+            action: "open-limit", key: "limit-" + n, opens: true).WithUnder(LineWords.Ours("Seen 2 minutes ago. Resets at 18:40."))).ToList());
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+        Assert.That(bar.Card!.List.Count, Is.EqualTo(RoomCard.ListAPage), "five a page");
+        var row = bar.Card.List[0];
+        Assert.That((row.Name.Text, row.Name.AllTheirs, row.Note, row.Under!.Text, row.Press!.Action, row.Press.Key),
+            Is.EqualTo(("App 1", true, (string?)"Up to 10% Left", "Seen 2 minutes ago. Resets at 18:40.", "open-limit", "limit-1")));
+        Assert.That((bar.GeneralPart.Pages, bar.Whole), Is.EqualTo((2, false)));
+        bar.Turn();
+        Assert.That((bar.Card!.List.Single().Name.Text, bar.Whole), Is.EqualTo(("App 6", true)), "the sixth on the second page, whole once both were shown");
+        Assert.That(bar.Card.AnyDot, Is.False);
+
+        var labelled = RoomBar.OfFrame(Frame(new[] { new PageLine(LineWords.TheirName("Ember App"), fact: LineWords.Ours("Up to 60% Left"), action: "open-limit", key: "a", opens: true)
+            .WithRowLabel("5-Hour Window").WithUnder(LineWords.Ours("Seen 2 minutes ago.")) }), VoiceStage.Idle)!;
+        Assert.That((labelled.Card!.List.Single().Under!.Text, labelled.Whole), Is.EqualTo(("5-Hour Window", false)),
+            "the window under the name; seen and resets wait for the kit's row label, and the bar says it is not whole");
     }
 }
