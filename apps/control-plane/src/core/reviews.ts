@@ -19,7 +19,7 @@ import { COMMAND_FIELDS } from '@halcyonic/domain';
 import type { HostedProvider } from '@halcyonic/runtime-core';
 import { declarationProblem } from '../providers.ts';
 import { sendTitle } from '../sending/github.ts';
-import { HOSTED_COST } from '../workspace-agent/assistant-model.ts';
+import { HOSTED_COST, hostedReview } from '../workspace-agent/assistant-model.ts';
 import type { ControlPlane } from './control-plane.ts';
 import { readRules, rulesReview } from './project-rules.ts';
 import { removalReview } from './removal.ts';
@@ -515,18 +515,17 @@ export async function buildReview(
         chosen === null
           ? null
           : (controlPlane.providers?.byId(chosen.provider_id)?.name ?? chosen.provider_id);
+      // The model is named in the line itself, so no unlabelled box stands beside it (FIELD's reader, 1111-b123); the
+      // provider is named in the line and the warnings.
+      const said =
+        chosen === null || provider === null
+          ? { what_happens: HOSTED_COST.localWhatHappens, facts: [] }
+          : hostedReview(provider, chosen.model);
       return review({
         digest: reviewDigest('assistant.model.choose', {}, { model: chosen }),
         confirm_words: chosen === null ? "Use This Computer's Model" : 'Use This Model',
-        what_happens:
-          provider === null ? HOSTED_COST.localWhatHappens : HOSTED_COST.whatHappens(provider),
-        facts:
-          chosen === null || provider === null
-            ? []
-            : [
-                { kind: 'words', value: chosen.model, theirs: true },
-                { kind: 'words', value: provider, theirs: true },
-              ],
+        what_happens: said.what_happens,
+        facts: said.facts,
         items: [],
         items_total: 0,
         warnings: provider === null ? [] : HOSTED_COST.warnings(provider),

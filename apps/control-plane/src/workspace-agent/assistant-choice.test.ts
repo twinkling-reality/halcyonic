@@ -16,7 +16,7 @@ import type { HostedProvider } from '@halcyonic/runtime-core';
 import { createUuidV7Generator } from '../ids.ts';
 import { HostProviders } from '../providers.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
-import { HOSTED_COST, type Model } from './assistant-model.ts';
+import { HOSTED_COST, hostedReview, type Model } from './assistant-model.ts';
 import type { ToolTurnResult } from './ollama.ts';
 import { assistantModel } from './providers/assistant.ts';
 import { KEY_REFUSED, type Protocol } from './providers/provider.ts';
@@ -172,7 +172,7 @@ test('a stored key offers its models and moves nothing until the person presses 
     list?.rows.map((row) => [row.label, row.detail, row.actions]),
     [
       ["This Computer's Model", 'local-model:tag', ['assistant.model.choose']],
-      ['test-model-1', 'On Test Hosted, Costs Money', ['assistant.model.choose']],
+      ['test-model-1', 'On Test Hosted, Paid by You', ['assistant.model.choose']],
     ],
   );
   // Nothing chosen: the request runs on this computer, and the stored key spends nothing.
@@ -340,56 +340,55 @@ test("a press on a hosted row waits on the host's own card: its button, the mode
     ?.steps.find((each) => each.proposal && each.status === 'waiting');
   assert.equal(step?.proposal?.confirm, 'review');
   assert.equal(step?.proposal?.confirm_words, 'Use This Model');
-  assert.deepEqual(step?.proposal?.facts, [
-    { kind: 'words', value: 'test-model-1', theirs: true },
-    { kind: 'words', value: 'Test Hosted', theirs: true },
-  ]);
+  // The model named in the line itself, so no unlabelled box stands beside it (FIELD's reader on 1111-b123).
+  assert.deepEqual(step?.proposal?.facts, []);
   // The money first, in plain words, before the press: on whose account, that the price is not known, what is sent,
-  // and what stays free (the lead's ruling on 1111-b123).
+  // and what stays free (the lead's ruling on 1111-b123), short (the reader on b130).
   assert.equal(
     step?.proposal?.what_happens,
-    'From now on the assistant answers on this model, and Test Hosted charges you money for each request.',
+    'From now on the assistant answers on test-model-1, and Test Hosted charges you money for each request.',
   );
   assert.deepEqual(step?.proposal?.warnings, [
     {
       code: 'costs_money',
-      line: 'You pay for it on your own Test Hosted account, through the access key from that account you added on this computer',
+      line: 'Each request is charged to your own Test Hosted account, through the access key you added',
     },
     {
       code: 'price_unknown',
-      line: 'Halcyonic does not know the price, so it cannot say how much a request costs or show a total yet',
+      line: 'Halcyonic does not know the price, and cannot show a total yet',
     },
     {
       code: 'sent_to_provider',
-      line: 'Your requests, and what the assistant reads from your projects to answer them, are sent to Test Hosted',
+      line: 'Your requests, and what the assistant reads to answer them, are sent to Test Hosted',
     },
-    {
-      code: 'free_here',
-      line: "This Computer's Model is free: nobody charges you for its requests",
-    },
+    { code: 'free_here', line: "This Computer's Model is free" },
   ]);
 });
 
 test("the cost words fit the review's and the list's own contracts for the longest name a declaration may give", () => {
   const longest = 'W'.repeat(80);
+  const longestModel = 'm'.repeat(128);
   const review = compileValidator(ActionReview);
   const words: ActionReview = {
     command_type: 'assistant.model.choose',
     digest: 'a'.repeat(64),
     confirm_words: 'Use This Model',
-    what_happens: HOSTED_COST.whatHappens(longest),
-    facts: [],
+    ...hostedReview(longest, longestModel),
     items: [],
     items_total: 0,
     warnings: HOSTED_COST.warnings(longest),
     said: [],
   };
   assert.ok(review(words).ok);
+  // Too long to name in the line: "this model" there, and the model as the review's one fact.
+  assert.deepEqual(words.facts, [{ kind: 'words', value: longestModel, theirs: true }]);
+  assert.match(words.what_happens, /answers on this model/);
+  assert.deepEqual(hostedReview('Meta', 'muse-wonder-1.0').facts, []);
   assert.ok(review({ ...words, what_happens: HOSTED_COST.localWhatHappens, warnings: [] }).ok);
   assert.ok([...HOSTED_COST.detail(longest)].length <= 400);
   // Unknown stays unknown: no price, estimate or reassurance about size is ever said.
   const said = [
-    HOSTED_COST.whatHappens('P'),
+    HOSTED_COST.whatHappens('P', 'm'),
     ...HOSTED_COST.warnings('P').map((each) => each.line),
   ].join(' ');
   assert.doesNotMatch(said, /\$|\d|small|cheap|estimate|about/i);

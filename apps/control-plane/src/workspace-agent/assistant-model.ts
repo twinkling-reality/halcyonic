@@ -19,31 +19,46 @@ export interface Model {
  * costs money). The provider is named by its declaration. The price is not known here, so none is guessed.
  */
 export const HOSTED_COST = {
-  detail: (provider: string) => `On ${provider}, Costs Money`,
-  whatHappens: (provider: string) =>
-    `From now on the assistant answers on this model, and ${provider} charges you money for each request.`,
+  detail: (provider: string) => `On ${provider}, Paid by You`,
+  /** The line names the model where it fits its contract (200 characters); otherwise "this model", and the review names it. */
+  whatHappens: (provider: string, model: string | null) =>
+    `From now on the assistant answers on ${model ?? 'this model'}, and ${provider} charges you money for each request.`,
   warnings: (provider: string) => [
     {
       code: 'costs_money',
-      line: `You pay for it on your own ${provider} account, through the access key from that account you added on this computer`,
+      line: `Each request is charged to your own ${provider} account, through the access key you added`,
     },
     {
       code: 'price_unknown',
-      line: 'Halcyonic does not know the price, so it cannot say how much a request costs or show a total yet',
+      line: 'Halcyonic does not know the price, and cannot show a total yet',
     },
     {
       code: 'sent_to_provider',
-      line: `Your requests, and what the assistant reads from your projects to answer them, are sent to ${provider}`,
+      line: `Your requests, and what the assistant reads to answer them, are sent to ${provider}`,
     },
-    {
-      code: 'free_here',
-      line: "This Computer's Model is free: nobody charges you for its requests",
-    },
+    { code: 'free_here', line: "This Computer's Model is free" },
   ],
   /** This computer's own model, the one nobody charges for. */
   localWhatHappens:
     "From now on the assistant answers on this computer's model, which is free, and nothing it reads leaves this computer.",
 } as const;
+
+/** The most a review's line may hold (ActionReview's what_happens). */
+const LINE_MOST = 200;
+
+/** The hosted review's line and facts: the model named in the line where it fits, as a fact only where it does not. */
+export function hostedReview(
+  provider: string,
+  model: string,
+): { what_happens: string; facts: { kind: 'words'; value: string; theirs: true }[] } {
+  const named = HOSTED_COST.whatHappens(provider, model);
+  return [...named].length <= LINE_MOST
+    ? { what_happens: named, facts: [] }
+    : {
+        what_happens: HOSTED_COST.whatHappens(provider, null),
+        facts: [{ kind: 'words', value: model, theirs: true }],
+      };
+}
 
 const unavailable = (code: string, message: string): WorkspaceAgentStatus => ({
   availability: 'unavailable',

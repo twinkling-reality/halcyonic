@@ -232,11 +232,12 @@ What was read and seen is in [hosted-assistant.md](../validation/hosted-assistan
     restarts. Until the person chooses, the assistant runs on this computer's model.
   - The assistant may also propose Use Model, which waits for the press like any other proposal.
   - What a hosted model costs is said in plain words before the press, by the host in one place (`HOSTED_COST`,
-    read by the list's rows and the review alike; 2026-11-13, a fresh reader of 1111-b123). A hosted row reads "On
-    <provider>, Costs Money". The review says that the provider (named from its declaration) charges the person
-    money for each request, on their own account, through the access key from it they added on this computer. It says
-    that Halcyonic does not know the price and cannot show a total, what is sent to the provider, and that this
-    computer's own model is free. No price, estimate or size is ever said.
+    read by the list's rows and the review alike; 2026-11-13, fresh readers of 1111-b123 and b130). A hosted row reads
+    "On <provider>, Paid by You". The review's line names the model and says that the provider (named from its
+    declaration) charges the person money for each request; the model stands as a fact only where the line cannot
+    hold it. Its warnings, short and the cost first: each request is charged to the person's own account with that
+    provider, through the access key they added; Halcyonic does not know the price and cannot show a total; what is
+    sent to the provider; this computer's own model is free. No price, estimate or size is ever said.
 - **A provider is one declaration file,** `providers/<id>/provider.json`, read into the host's one list
   (`HostProviders`, [ADR 0061](0061-a-hosted-provider-is-one-declaration-file-the-host-reads.md)). It gives the wire
   shapes it serves, its address, its key's variable, file, field and header, its models and how hard they think.
