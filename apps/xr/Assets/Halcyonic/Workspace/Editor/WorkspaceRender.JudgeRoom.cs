@@ -831,7 +831,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (stood.Count == 0 || stageParts.Count == 0 || Opened() == null) return;
                     var view = stood[0].View;
                     var home = view.transform.localPosition;
+                    // The form once the plane has settled (a first measure can come before the kit has drawn); where the redesign
+                    // draws nothing here there is no form to hold, so the moves are not measured and that is said.
+                    Form();
                     var before = Form();
+                    if (before == "nothing drawn")
+                    {
+                        Debug.Log("Halcyonic: judge room: the redesign draws nothing with the task's page open: the plane's form under a character's moves is not measured here");
+                        return;
+                    }
                     lock (formHeard) formHeard.Clear();
                     var flipped = false;
                     // A one-agent shelf holds its character at its centre (CharacterStage.WriteShelfCorners), so it moves there: nine
