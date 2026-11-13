@@ -97,7 +97,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 // And the bar's own warning where it lays past the footprint the shelf search keeps clear of (FIELD, AUDIT 17:25Z).
                 if (message.StartsWith("Halcyonic: older view drew a whole screen", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the bar laid past its largest footprint", StringComparison.Ordinal)
-                    || message.StartsWith("Halcyonic: the bar did not lay whole at one row a page", StringComparison.Ordinal)) lock (olderHeard) olderHeard.Add(message);
+                    || message.StartsWith("Halcyonic: the bar did not lay whole at one row a page", StringComparison.Ordinal)
+                    || message.StartsWith("Halcyonic: the general reader lost a part", StringComparison.Ordinal)) lock (olderHeard) olderHeard.Add(message);
                 if (message.StartsWith("Halcyonic: the plane lays its ", StringComparison.Ordinal)) lock (formHeard) formHeard.Add(message);
             };
             Application.logMessageReceived += heard;
@@ -486,6 +487,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (live == null && fallback.Line != null && plane.KitShows && plane.Kit.Bar.NoticeWords is TMP_Text noticeWords
                         && plane.Kit.Bar.NoticePlate is Halcyonic.XR.UI.RoomSurface noticePlate)
                         found.AddRange(NoticeCovered(root, camera, noticeWords, noticePlate.transform).Select(part => "the recording's line is covered by " + part));
+                    // A part of the frame not on screen at all, apart from one not yet paged to (SCREENS's RoomBar.LostPart, AUDIT 18:00Z):
+                    // read by name, since the bar has it only where the general reader stands.
+                    if (plane.KitShows && plane.Kit.Bar.Shown is RoomBar laid && typeof(RoomBar).GetProperty("LostPart")?.GetValue(laid) is true)
+                        found.Add("a part of the frame is not on screen (the bar's LostPart)");
                     lock (olderHeard)
                     {
                         found.AddRange(olderHeard.Distinct().Select(line => "the plane said: " + line));
@@ -698,10 +703,19 @@ namespace Halcyonic.XR.Workspace.Editor
                         CrossTheStage(workstreamId);
                         if (live != null) ChooseColour(workstreamId);
                     }
+                    // Close what stands beside the menu as a person does, a press at a time (an answer beside its page closes first,
+                    // then the page), three at most; whatever still stands then the walk closes and says so.
                     void Clear()
                     {
-                        if (Opened() != null) CloseFile();
-                        else if (navigator.Beside != null) navigator.CloseBeside();
+                        for (var press = 0; press < 3 && navigator.Beside != null; press++)
+                        {
+                            if (Opened() != null) CloseFile();
+                            else navigator.CloseBeside();
+                            Draw();
+                        }
+                        if (navigator.Beside == null) return;
+                        momentFailures.Add("three presses of Close left " + navigator.Beside.GetType().Name + " beside the menu: the walk closed it");
+                        navigator.CloseBeside();
                         Draw();
                     }
                     foreach (var place in new[] { MenuPlace.Settings, MenuPlace.Usage })
