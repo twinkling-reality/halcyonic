@@ -360,4 +360,24 @@ public class RoomPageTests
         }
         Assert.That((two.GeneralPart.Pages, keys), Is.EqualTo((2, new[] { "1", "2", "3", "4" })));
     }
+
+    /// <summary>A page holds at most the spec's four actions beside the main action and the ways out (BUILD-SPEC-v4 1.1, the lead's 19:41Z), fewer where the plane asks.</summary>
+    [Test]
+    public void AColumnHoldsTheSpecsFourActionsAPageAndFewerWhereThePlaneAsks()
+    {
+        var frame = Frame(Enumerable.Range(1, 8).Select(n => new PageLine("Choice " + n, action: "choose", key: n.ToString())).ToList());
+        int Most(RoomBar bar)
+        {
+            var most = 0;
+            for (var page = 0; page < bar.GeneralPart.Pages; page++)
+            {
+                most = System.Math.Max(most, bar.Column.Count(action => action.Control.Action == "choose"));
+                bar.Turn();
+            }
+            return most;
+        }
+        Assert.That(Most(RoomBar.OfFrame(frame, VoiceStage.Idle)!), Is.EqualTo(RoomForm.SpecActions));
+        Assert.That(Most(RoomBar.OfFrame(frame, VoiceStage.Idle, RoomForm.Full.FewerActions().FewerActions())!), Is.EqualTo(2));
+        Assert.That(new RoomForm(true, 8, 0).ActionsAPage, Is.EqualTo(1), "never fewer than one action a page");
+    }
 }

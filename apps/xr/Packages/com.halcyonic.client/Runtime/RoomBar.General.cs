@@ -174,10 +174,12 @@ namespace Halcyonic.Client
             // first and the ways out last on every page, with the pager between; nothing is dropped. A frame with its own parts never
             // reaches here with more than a page, since its parts page it.
             var fixedCount = (main != null ? 1 : 0) + leaving.Count;
-            // At least one turning action and the pager a page, however many ways out a frame gives (AUDIT's SHOULD, 16:56Z): such a
-            // frame's column may then pass six, which the kit lays rather than lose an action.
-            var room = System.Math.Max(2, ColumnMost - fixedCount);
-            var actionPages = turning.Count <= room ? 1 : (turning.Count + room - 2) / (room - 1);
+            // At least one turning action and the pager a page, however many ways out a frame gives (AUDIT's SHOULD, 16:56Z).
+            // At most the form's actions a page (the spec's four, BUILD-SPEC-v4 1.1; the lead's 19:41Z), fewer where the column's six
+            // leave less beside the main action, the ways out and the pager.
+            var room = System.Math.Max(1, System.Math.Min(form.ActionsAPage, ColumnMost - fixedCount));
+            var roomPaged = System.Math.Max(1, System.Math.Min(form.ActionsAPage, ColumnMost - fixedCount - 1));
+            var actionPages = turning.Count <= room ? 1 : (turning.Count + roomPaged - 1) / roomPaged;
             // Rows a page by the form it will be laid in (the plane measures it and asks again with fewer where a page passes the field).
             var rowsAPage = form.RowsAPage;
             // A card's pressed rows page by the form too (five at most, fewer where the plane measured fewer rows a page), so the plane's
@@ -186,12 +188,12 @@ namespace Halcyonic.Client
             var pressPages = carded ? (pressed.Count + perCard - 1) / perCard : 1;
             var rowPages = carded ? 1 : rows.Count <= 0 ? 1 : (rows.Count + rowsAPage - 1) / rowsAPage;
             var pages = System.Math.Max(System.Math.Max(rowPages, actionPages), pressPages);
-            var each = pages > 1 ? room - 1 : room;
+            var each = pages > 1 ? roomPaged : room;
             if (ownPager != null)
             {
                 // The frame's own pager holds the pager's place on every page: the reader's Next Page before the last, the frame's own on it.
                 turning.Remove(ownPager);
-                each = System.Math.Max(1, room - 1);
+                each = roomPaged;
                 actionPages = turning.Count <= each ? 1 : (turning.Count + each - 1) / each;
                 pages = System.Math.Max(rowPages, actionPages);
             }
@@ -310,13 +312,17 @@ namespace Halcyonic.Client
     /// </summary>
     public readonly struct RoomForm
     {
-        public RoomForm(bool narrow, int rowsAPage)
+        public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions)
         {
             Narrow = narrow;
             RowsAPage = rowsAPage < 1 ? 1 : rowsAPage > RoomRows.APage ? RoomRows.APage : rowsAPage;
+            ActionsAPage = actionsAPage < 1 ? 1 : actionsAPage > RoomBar.ColumnMost ? RoomBar.ColumnMost : actionsAPage;
         }
 
-        /// <summary>The full width, eight rows a page: the form where nothing asks for less.</summary>
+        /// <summary>The actions a choices column holds at most, beside the main action and the ways out (BUILD-SPEC-v4 1.1, the lead's 19:41Z).</summary>
+        public const int SpecActions = 4;
+
+        /// <summary>The full width, eight rows and four actions a page: the form where nothing asks for less.</summary>
         public static RoomForm Full => new RoomForm(false, RoomRows.APage);
 
         /// <summary>Whether the bar is laid in the kit's narrow form (its panel above its column, a column wide).</summary>
@@ -325,7 +331,13 @@ namespace Halcyonic.Client
         /// <summary>The general reader's rows a page, one to eight.</summary>
         public int RowsAPage { get; }
 
+        /// <summary>The general reader's turning actions a page, one to the column's six; four by the spec.</summary>
+        public int ActionsAPage { get; }
+
         /// <summary>This form with one row fewer a page, never fewer than one: the plane's next ask where a page passed the field.</summary>
-        public RoomForm Fewer() => new RoomForm(Narrow, RowsAPage - 1);
+        public RoomForm Fewer() => new RoomForm(Narrow, RowsAPage - 1, ActionsAPage);
+
+        /// <summary>This form with one action fewer a page, never fewer than one: the plane's ask where the column passed the field.</summary>
+        public RoomForm FewerActions() => new RoomForm(Narrow, RowsAPage, ActionsAPage - 1);
     }
 }
