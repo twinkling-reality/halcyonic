@@ -127,6 +127,7 @@ import {
   EvaluationVerificationLens,
 } from './evaluation.ts';
 import {
+  ApprovalChange,
   ApprovalSubject,
   ControlPlaneSource,
   EventEnvelope,
@@ -381,6 +382,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ControlPlaneSource,
   RuntimeSource,
   Provenance,
+  ApprovalChange,
   ApprovalSubject,
   CommandEnvelope,
   CommandRejection,

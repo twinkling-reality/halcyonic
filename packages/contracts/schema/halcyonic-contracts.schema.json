@@ -13264,6 +13264,176 @@
         }
       ]
     },
+    "ApprovalChange": {
+      "type": "object",
+      "required": [
+        "path",
+        "real_path",
+        "to_path",
+        "kind",
+        "shape",
+        "before",
+        "after",
+        "every",
+        "cell"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "real_path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "to_path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "add"
+            },
+            {
+              "type": "string",
+              "const": "update"
+            },
+            {
+              "type": "string",
+              "const": "delete"
+            }
+          ]
+        },
+        "shape": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "content"
+            },
+            {
+              "type": "string",
+              "const": "replace"
+            },
+            {
+              "type": "string",
+              "const": "diff"
+            }
+          ]
+        },
+        "before": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "after": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "every": {
+          "type": "boolean"
+        },
+        "cell": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "id",
+                "type",
+                "mode"
+              ],
+              "properties": {
+                "id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "pattern": "\\S"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40,
+                      "pattern": "\\S"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "mode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "replace"
+                    },
+                    {
+                      "type": "string",
+                      "const": "insert"
+                    },
+                    {
+                      "type": "string",
+                      "const": "delete"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "ApprovalSubject": {
       "anyOf": [
         {
@@ -13325,174 +13495,7 @@
             "changes": {
               "type": "array",
               "items": {
-                "type": "object",
-                "required": [
-                  "path",
-                  "real_path",
-                  "to_path",
-                  "kind",
-                  "shape",
-                  "before",
-                  "after",
-                  "every",
-                  "cell"
-                ],
-                "properties": {
-                  "path": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 4096,
-                    "pattern": "\\S"
-                  },
-                  "real_path": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 4096,
-                        "pattern": "\\S"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "to_path": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 4096,
-                        "pattern": "\\S"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "kind": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "const": "add"
-                      },
-                      {
-                        "type": "string",
-                        "const": "update"
-                      },
-                      {
-                        "type": "string",
-                        "const": "delete"
-                      }
-                    ]
-                  },
-                  "shape": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "const": "content"
-                      },
-                      {
-                        "type": "string",
-                        "const": "replace"
-                      },
-                      {
-                        "type": "string",
-                        "const": "diff"
-                      }
-                    ]
-                  },
-                  "before": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 32000,
-                        "pattern": "\\S"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "after": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 32000,
-                        "pattern": "\\S"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "every": {
-                    "type": "boolean"
-                  },
-                  "cell": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "type",
-                          "mode"
-                        ],
-                        "properties": {
-                          "id": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 200,
-                                "pattern": "\\S"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "type": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 40,
-                                "pattern": "\\S"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "mode": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "const": "replace"
-                              },
-                              {
-                                "type": "string",
-                                "const": "insert"
-                              },
-                              {
-                                "type": "string",
-                                "const": "delete"
-                              }
-                            ]
-                          }
-                        },
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "additionalProperties": false
+                "$ref": "#/$defs/ApprovalChange"
               },
               "maxItems": 16
             }
