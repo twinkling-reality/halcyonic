@@ -306,10 +306,16 @@ namespace Halcyonic.XR.UI
         /// The core with these words, in the plane's units: content-sized, and where <paramref name="wrap"/> is given and the
         /// words would pass it, wrapped inside it and a line taller for each line more. Lays the words; <see cref="Show"/> follows.
         /// </summary>
-        public Vector2 Measure(string text, float wrap)
+        /// <param name="detail">
+        /// The action's second part, given apart from its words: an answer's description, a pager's count ("2 of 7"). It stands
+        /// on its own line under the words, never joined to them on a mark.
+        /// </param>
+        public Vector2 Measure(string text, float wrap, string? detail = null)
         {
             RoomType.Size(words);
-            GlazeText.SetLiteral(words, text);
+            var hasDetail = !string.IsNullOrWhiteSpace(detail);
+            if (hasDetail) JoinedFacts.Given(detail!);
+            GlazeText.SetLiteral(words, hasDetail ? text + "\n" + detail!.Trim() : text);
             // A button never draws the joining dot (the owner, 2026-11-11; the lead, 2026-11-13): each part its own line, an
             // answer's label over its description, wrapped or not.
             JoinedFacts.Given(words.text);
@@ -318,11 +324,11 @@ namespace Halcyonic.XR.UI
             var inner = RoomType.Units(ChipPadDp + ChipSizeDp + GapDp + RightDp);
             words.textWrappingMode = TextWrappingModes.NoWrap;
             var wordsWidth = words.GetPreferredValues(words.text).x;
-            var lines = parts.Length;
+            var lines = words.text.Split('\n').Length;
             if (wrap > 0f && inner + wordsWidth > wrap)
             {
                 words.textWrappingMode = TextWrappingModes.Normal;
-                var laid = KitType.Lay(words, wrap - inner, Mathf.Max(WordLines, parts.Length));
+                var laid = KitType.Lay(words, wrap - inner, Mathf.Max(WordLines, lines));
                 lines = Mathf.Max(1, laid.Lines);
                 wordsWidth = wrap - inner;
             }
@@ -358,7 +364,7 @@ namespace Halcyonic.XR.UI
         /// where approval A was answered must never take the pinch that answered A).
         /// </param>
         public void Show(string text, GlazeIcon? icon, bool isMain, bool available, Vector2 centre, float width, AnswerMark mark = AnswerMark.None,
-            bool chosen = false, float wrap = 0f, string? aside = null, string? doing = null)
+            bool chosen = false, float wrap = 0f, string? aside = null, string? doing = null, string? detail = null)
         {
             // An action that cannot act yet is not drawn (BUILD-SPEC-v4 1.4, 2026-11-05): no disabled look; it arrives when it can act.
             if (!available)
@@ -368,16 +374,17 @@ namespace Halcyonic.XR.UI
             }
             var arrives = !gameObject.activeSelf;
             aside = string.IsNullOrWhiteSpace(aside) ? null : aside;
-            var changed = arrives || shownWords != text || shownAside != aside || main != isMain || this.mark != mark || this.chosen != chosen
+            var shownAs = string.IsNullOrWhiteSpace(detail) ? text : text + "\n" + detail;
+            var changed = arrives || shownWords != shownAs || shownAside != aside || main != isMain || this.mark != mark || this.chosen != chosen
                 || !string.Equals(shownDoing, doing, StringComparison.Ordinal);
             shownDoing = doing;
-            shownWords = text;
+            shownWords = shownAs;
             shownAside = aside;
             main = isMain;
             this.mark = mark;
             this.chosen = chosen;
             var target = RoomType.Units(HeightDp);
-            var measured = Measure(text, wrap);
+            var measured = Measure(text, wrap, detail);
             asideWidth = AsideRoom(aside);
             var coreWidth = Mathf.Max(width - asideWidth, measured.x);
             core = new Vector2(coreWidth, measured.y);
