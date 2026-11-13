@@ -1,5 +1,5 @@
 import Type, { type Static } from 'typebox';
-import { ActionReviewSaid } from './actions.ts';
+import { ActionReviewFact, ActionReviewSaid, ActionReviewWarning } from './actions.ts';
 import { ReviewDigest } from './checkpoints.ts';
 import { CommandType, WorkspaceRequestPlaces } from './commands.ts';
 import {
@@ -73,6 +73,14 @@ export const WorkspaceRequestProposal = Type.Object(
      * sent (AUDIT2's N2): the card shows them whole, as the proposer's, for every proposal, reviewed or not.
      */
     said: Type.Array(ActionReviewSaid, { maxItems: 12 }),
+    /**
+     * The host's own words for the review card, as its review gives them (`ActionReview`): the one button's words, at
+     * most four facts and the warnings, so a client draws the host's card and never makes its own up. Absent on a
+     * proposal recorded before 2026-11-13, and on a command the host has no review for.
+     */
+    confirm_words: Type.Optional(Text(40)),
+    facts: Type.Optional(Type.Array(ActionReviewFact, { maxItems: 4 })),
+    warnings: Type.Optional(Type.Array(ActionReviewWarning, { maxItems: 8 })),
   },
   strict,
 );

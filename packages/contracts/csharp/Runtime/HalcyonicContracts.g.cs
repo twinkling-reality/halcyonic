@@ -5702,6 +5702,15 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("said", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<ActionReviewSaid> Said { get; set; } = new global::System.Collections.Generic.List<ActionReviewSaid>();
+
+        [global::Newtonsoft.Json.JsonProperty("confirm_words", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? ConfirmWords { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("facts", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<ActionReviewFact>? Facts { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("warnings", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<ActionReviewWarning>? Warnings { get; set; }
     }
 
     public sealed class WorkspaceRequestStep
