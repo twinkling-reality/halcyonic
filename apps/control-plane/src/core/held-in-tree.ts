@@ -281,9 +281,11 @@ export function heldMessage(hit: HeldHit, what: 'sent' | 'published' | 'saved' |
  * What a person reads when a push would carry a held secret in its history (the lead, 13:04Z; fresh readers,
  * 13:16Z and AUDIT2's at 16:49Z). Send: where it is (an earlier version of a file, a name in one, or the note
  * saved with a change) that `repository` does not have, as far as this check knows, that going now would send it
- * too, and the two true ways forward: a new value for the secret, after which the old one still goes but no
- * longer works, or a developer taking the old version out. Publish: the earlier version is Halcyonic's own
- * earlier publish, which left this Mac with that publish, so the new value comes first, as the thing to do now.
+ * too, and the two true ways forward, as steps a person can do and no claim about what a service has done: a new
+ * value made and the old one turned off where it was issued (making a new one does not turn the old one off at
+ * most services; until it is off, it is exposed), or a developer taking the old version out. Publish: the earlier
+ * version is Halcyonic's own earlier publish, which left this Mac with it, so turning the old one off comes first
+ * (AUDIT2, 16:49Z and 18:07Z; the lead, 18:08Z).
  * Never the value: a name that holds it is shown with it as the secret's name in brackets.
  */
 export function heldHistoryMessage(
@@ -300,7 +302,7 @@ export function heldHistoryMessage(
           : hit.path === null
             ? 'The description of an earlier publish'
             : `An earlier publish of ${hit.path}`;
-    return `${where} held a secret this Mac keeps (${hit.what}), and it left this Mac with that publish, so nothing was published. Make a new ${hit.what} with the service that gave it to you and store it on this Mac; then Publish works, and the old one no longer works for anyone.`;
+    return `${where} held a secret this Mac keeps (${hit.what}), and it left this Mac with that publish, so nothing was published. Until the old ${hit.what} is turned off, treat it as exposed: turn it off with the service that gave it to you, make a new one there and store it on this Mac; then Publish works.`;
   }
   const where =
     hit.within === true
@@ -314,7 +316,7 @@ export function heldHistoryMessage(
     hit.path === null
       ? 'ask a developer to change that description'
       : 'ask a developer to take that old version out';
-  return `${where} holds a secret this Mac keeps (${hit.what}), and sending now would send it too, so nothing was sent. To send, make a new ${hit.what} with the service that gave it to you, store it on this Mac, then send again: the old one goes with that version, but no longer works for anyone. Or ${developer}.`;
+  return `${where} holds a secret this Mac keeps (${hit.what}), and sending now would send it too, so nothing was sent. To send, make a new ${hit.what} with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. The old one is still in that earlier version and goes with it: until it is turned off, treat it as exposed. Or ${developer}.`;
 }
 
 /** Why a share's built copy is not read: a link out of it (by its path in the copy), or more than a share reads. */

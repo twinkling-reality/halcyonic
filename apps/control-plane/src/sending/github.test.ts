@@ -860,7 +860,7 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
     assert.equal(
       pressed.ok ? '' : pressed.message,
-      'An earlier version of key.txt, which owner/garden does not have, holds a secret this Mac keeps (MY_SERVICE_KEY), and sending now would send it too, so nothing was sent. To send, make a new MY_SERVICE_KEY with the service that gave it to you, store it on this Mac, then send again: the old one goes with that version, but no longer works for anyone. Or ask a developer to take that old version out.',
+      'An earlier version of key.txt, which owner/garden does not have, holds a secret this Mac keeps (MY_SERVICE_KEY), and sending now would send it too, so nothing was sent. To send, make a new MY_SERVICE_KEY with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. The old one is still in that earlier version and goes with it: until it is turned off, treat it as exposed. Or ask a developer to take that old version out.',
     );
     assert.equal(git(origin, 'for-each-ref', '--format=%(refname)'), before);
     assert.equal(onRemote(), false);
