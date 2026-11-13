@@ -200,14 +200,15 @@ namespace Halcyonic.Client
                 if (at > 0 && group != null && group == lineActs[at - 1].Line.Group) groups[groups.Count - 1].Add(at);
                 else groups.Add(new List<int> { at });
             }
-            // The card holds a title, one description and a foot: the description's quieter line, or a second line that states unless
-            // the frame marks it a heading (a heading stands over the lines it heads, so such a frame keeps its rows); the shelf's two
+            // The card holds a title, one description and a foot: the description's quieter line, or a second line that states. A frame
+            // that marks a heading keeps its rows (a heading stands over the lines it heads: never a card's description over other
+            // lines, nor its foot under them; Projects' Folders over its folders); the shelf's two
             // instructions (XR's a46dc4651, each a line of its own) stand on every page of its moves. A frame that states more keeps its rows,
             // and its lines that act stand in the column, its pages breaking only between groups; where a group cannot stand whole
             // beside the main action, the ways out and the pager, the frame takes the card after all, its stating rows the card's
             // unpressed rows before the pressed ones (AUDIT's 21:14Z: no group split on any path).
             var cardable = rows.All(row => row.Label == null && row.Lines == null) && unders.Keys.All(at => at == 1)
-                && (rows.Count <= 2 || rows.Count == 3 && unders.Count == 0 && !headings.Contains(2));
+                && headings.Count == 0 && (rows.Count <= 2 || rows.Count == 3 && unders.Count == 0);
             LineWords? description = cardable && rows.Count >= 2 ? rows[1].Words : null;
             LineWords? foot = !cardable ? null : unders.TryGetValue(1, out var under1) ? under1 : rows.Count == 3 ? rows[2].Words : null;
             var forced = !cardable && lineActs.Count + others.Count + sections.Count > room && groups.Any(group => group.Count > roomPaged);

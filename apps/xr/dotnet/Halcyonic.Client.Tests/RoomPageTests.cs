@@ -666,4 +666,41 @@ public class RoomPageTests
         Whole(Grouped(2, apply: true), RoomForm.Full, "taken by the card");
         Assert.That(taken.LostPart, Is.False);
     }
+
+    /// <summary>
+    /// The plane's REAL picker and shelf, read under the redesign (AUDIT's 21:27Z: pin the pages from the columns themselves, so the
+    /// next change of their shape shows here): the shelf's two instructions its card's description and foot on every page, its nine
+    /// moves in two pages with every pair together, Apply, Next Page and Cancel the column; the colour picker on one page.
+    /// </summary>
+    [Test]
+    public void ThePlanesShelfAndColourPickerStandInTheirPagesWithEveryPairTogether()
+    {
+        var was = RoomDesign.Enabled;
+        try
+        {
+            RoomDesign.Enabled = true;
+            var draft = new AgentShelfDraft();
+            draft.Begin(new AgentShelfPose(new System.Numerics.Vector3(0f, 1.15f, 1.2f), 0f), new System.Numerics.Vector3(0f, 1.6f, 0f));
+            var frame = new AgentShelfColumn(new FakeMenuHost(), draft, _ => { }, () => { }, () => { }, () => { }).Frame!;
+            var bar = RoomBar.OfFrame(frame, VoiceStage.Idle, RoomForm.Full)!;
+            Assert.That(bar.GeneralPart.Pages, Is.EqualTo(2), Show(bar));
+            var pages = new List<string[]>();
+            for (var page = 0; page < 2; page++)
+            {
+                Assert.That((bar.Card!.Description?.Text, bar.Card.More?.Text), Is.EqualTo((frame.Lines[0].Words, frame.Lines[1].Words)), "both instructions on page " + (page + 1));
+                Assert.That(bar.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { AgentShelfColumn.Apply, RoomBar.TurnPage, Footer.Close }), Show(bar));
+                pages.Add(bar.Card.List.Select(row => row.Name.Text).ToArray());
+                bar.Turn();
+            }
+            Assert.That(pages, Is.EqualTo(new[]
+            {
+                new[] { "Left", "Right", "Closer", "Farther" },
+                new[] { "Up", "Down", AgentShelfColumn.TurnLeft, AgentShelfColumn.TurnRight, "Find Room Surface" },
+            }));
+
+            var colour = new CharacterColourColumn(new CharacterColourSettings(), new CharacterColourScope("connection", "journal", "task"), () => true, _ => true).Frame!;
+            Assert.That(RoomBar.OfFrame(colour, VoiceStage.Idle, RoomForm.Full)!.GeneralPart.Pages, Is.EqualTo(1));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }

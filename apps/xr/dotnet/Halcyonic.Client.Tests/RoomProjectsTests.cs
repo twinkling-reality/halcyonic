@@ -55,7 +55,18 @@ public sealed class RoomProjectsTests
     [Test]
     public void AnythingElseOnThePlaceStaysTheOlderViews()
     {
-        // Folders to connect beside the projects: the older view draws it until a reader takes folders too.
-        Assert.That(RoomBar.OfFrame(Projects(foldersOpen: true), VoiceStage.Idle)?.Card?.Title?.Text, Is.Not.EqualTo(RoomBar.ProjectsTitle));
+        // Folders to connect beside the projects: the Projects reader declines it (its card lists projects only), so the general
+        // reader draws it, every line among its pages: the projects, and the Folders heading over its folders as rows.
+        var frame = Projects(foldersOpen: true);
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+        Assert.That(bar.Card?.Title?.Text, Is.Not.EqualTo(RoomBar.ProjectsTitle), "not the Projects reader's card");
+        var drawn = new System.Collections.Generic.List<string>();
+        for (var page = 0; page < System.Math.Max(1, bar.GeneralPart.Pages); page++)
+        {
+            drawn.AddRange(bar.Facts?.Select(row => row.Words.Text) ?? Enumerable.Empty<string>());
+            drawn.AddRange(bar.Column.Select(action => action.Words));
+            bar.Turn();
+        }
+        Assert.That(frame.Lines.Select(line => line.Words), Is.SubsetOf(drawn));
     }
 }
