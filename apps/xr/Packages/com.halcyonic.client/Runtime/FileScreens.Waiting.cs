@@ -586,6 +586,16 @@ namespace Halcyonic.Client
                 key: option.ToString(CultureInfo.InvariantCulture), opens: true, control: LineControl.Action, rows: rows)
             : AnswerRow(prompt.Options[option], option.ToString(CultureInfo.InvariantCulture), chosen, rows: rows, multiple: prompt.Multiple);
 
+        /// <summary>
+        /// An answer's row as the question measures it: its label and description as one run of words, so a description too long
+        /// for its rows is cut and opens whole in its side panel, under the redesign as before it; the row itself still draws the
+        /// two apart (<see cref="AnswerRow"/>). Measuring the label alone left a long description with no way to be read whole.
+        /// </summary>
+        public static PageLine OptionMeasured(QuestionPrompt prompt, int option) => WorkspaceText.ReadsAlike(prompt, option)
+            ? OptionRow(prompt, option)
+            : new PageLine(AnswerRuns(prompt.Options[option]), action: Choose, key: option.ToString(CultureInfo.InvariantCulture), choice: true,
+                answerMark: prompt.Multiple ? AnswerMark.Multiple : AnswerMark.Single);
+
         /// <summary>What leads the answers that read alike on their page, Halcyonic's own: the redesign stands these words in its panel and the answers, the agent's, on its band.</summary>
         public const string AlikeLead = "Same Name · Not Selectable · ";
 
