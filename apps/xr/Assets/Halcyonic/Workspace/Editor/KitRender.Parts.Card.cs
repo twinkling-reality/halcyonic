@@ -143,8 +143,8 @@ namespace Halcyonic.XR.Workspace.Editor
         private static IReadOnlyList<AssistantOption> CardModels() => new[]
         {
             new AssistantOption(0, "This Computer's Model", "glimmer-30b-q4", theirs: false, choosable: true),
-            new AssistantOption(1, "muse-wonder-1.0", "On Meta", theirs: true, choosable: true),
-            new AssistantOption(2, "claude-opus-5-5", "Anthropic refused its key", theirs: true, choosable: false),
+            new AssistantOption(1, "muse-wonder-1.0", "On Test Hosted", theirs: true, choosable: true),
+            new AssistantOption(2, "orbit-large-2", "Second Hosted refused its key", theirs: true, choosable: false),
         };
 
         private static RoomCard CardOf(string state)
@@ -175,8 +175,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
                 // The assistant's row under the gauges: on this computer, on a provider's hosted model with a long id, and unable to run.
                 "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, null, CardRowControl("use-model")))!,
-                "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0-preview", "Meta", null, CardRowControl("use-model")))!,
-                "47-card-usage-unavailable" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant(null, null, "Meta refused its key. Give it a new key on this computer.", CardRowControl("use-model")))!,
+                "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0-preview", "Test Hosted", null, CardRowControl("use-model")))!,
+                "47-card-usage-unavailable" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant(null, null, "Test Hosted refused its key. Give it a new key on this computer.", CardRowControl("use-model")))!,
                 // Use Model, the row pressed: the host's list (this computer's model chosen, a hosted one, one whose key was refused),
                 // the card while the computer is asked, and the one review a hosted pick waits on.
                 "47-card-usage-models" => UsageColumn.ModelsCard(CardModels(), new AssistantRow("glimmer-30b-q4", null, null), null, option => CardRowControl("model-" + option.Index)),
@@ -191,7 +191,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         Facts = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewFact>
                         {
                             new Halcyonic.Contracts.ActionReviewFact { Kind = Halcyonic.Contracts.ReviewKind.Words, Value = "muse-wonder-1.0", Theirs = true },
-                            new Halcyonic.Contracts.ActionReviewFact { Kind = Halcyonic.Contracts.ReviewKind.Words, Value = "Meta", Theirs = true },
+                            new Halcyonic.Contracts.ActionReviewFact { Kind = Halcyonic.Contracts.ReviewKind.Words, Value = "Test Hosted", Theirs = true },
                         },
                         Warnings = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewWarning>
                         { new Halcyonic.Contracts.ActionReviewWarning { Code = "paid", Line = "Each request is paid with your key" } },
