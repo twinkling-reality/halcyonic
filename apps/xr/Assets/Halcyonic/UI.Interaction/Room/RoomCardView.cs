@@ -34,6 +34,15 @@ namespace Halcyonic.XR.UI
         /// <summary>The most lines a status's line takes before anything is cut; the product's own words are laid whole within it.</summary>
         public const int StatusLineMost = 20;
 
+        /// <summary>The gap between a byline's bubble and the speaker's name, in dp.</summary>
+        public const float BylineGapDp = 6f;
+
+        /// <summary>
+        /// A description's light: where rows follow it, it is the card's lead and reads a tier above them (the quote over the
+        /// quiet lines, SCREENS's critic 6, 2026-11-13: "nearly the same light grey"); elsewhere the reading tier as before.
+        /// </summary>
+        private static float DescriptionAlpha(RoomCard card) => card.List.Count > 0 ? 0.94f : 0.80f;
+
         /// <summary>The most lines a status's line takes in the column beside its mark; longer, it runs the card's width under it.</summary>
         public const int StatusColumnLines = 3;
         public const float LineTypeDp = 17f;
@@ -347,7 +356,7 @@ namespace Halcyonic.XR.UI
                 if (card.DescriptionPage is int page)
                 {
                     // Paged: four lines a page, broken between lines; the page asked for, or the last there is.
-                    var (label, _) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(0.80f), card.Description, 0f, -down, width, RoomCard.DescriptionPageLines);
+                    var (label, _) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, RoomCard.DescriptionPageLines);
                     label.overflowMode = TextOverflowModes.Page;
                     label.ForceMeshUpdate(true);
                     DescriptionPages = Mathf.Max(1, label.textInfo.pageCount);
@@ -359,7 +368,7 @@ namespace Halcyonic.XR.UI
                 }
                 else
                 {
-                    var (_, tall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(0.80f), card.Description, 0f, -down, width, 4);
+                    var (_, tall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, 4);
                     down += tall;
                 }
             }
@@ -553,7 +562,9 @@ namespace Halcyonic.XR.UI
         /// <summary>Whose words follow: the speech bubble at a row mark's size, bare, and the speaker's name beside it at a note's size, quiet.</summary>
         private float LayByline(RoomCardStatus status, float width, float down)
         {
-            var left = S(RowGlyphDp + RowGapDp);
+            // The bubble close to its speaker's name, nearer than the byline stands to the words under it, so it reads as a
+            // byline and not a chip (SCREENS's critic 6, 2026-11-13).
+            var left = S(RowGlyphDp + BylineGapDp);
             // At a note's size, so the speaker's name never outranks the words it introduces (SCREENS's critic, 2026-11-13).
             var (label, tall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), LineWords.Ours(status.Title), left, -down, width - left, 1);
             var block = Mathf.Max(S(RowGlyphDp), tall);
