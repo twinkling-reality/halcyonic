@@ -32,7 +32,10 @@ namespace Halcyonic.XR.UI
         public const float UnderTitleStatusLineDp = 30f;
 
         /// <summary>The most lines a status's line takes before anything is cut; the product's own words are laid whole within it.</summary>
-        public const int StatusLineMost = 12;
+        public const int StatusLineMost = 20;
+
+        /// <summary>The most lines a status's line takes in the column beside its mark; longer, it runs the card's width under it.</summary>
+        public const int StatusColumnLines = 3;
         public const float LineTypeDp = 17f;
         public const float LineLineDp = 23f;
         public const float HeadDp = 104f;
@@ -512,7 +515,18 @@ namespace Halcyonic.XR.UI
                 // paid model, four sentences under Check First, the lead's 0635Z).
                 var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, StatusLineMost);
                 lineLabel = laidLine.Label;
-                tall += S(2f) + laidLine.Tall;
+                if (laidLine.Tall > StatusColumnLines * S(LineLineDp) + 0.5f)
+                {
+                    // Too long for the column beside the mark (the host's money words under Check First): the title stands centred
+                    // on the mark, and the line runs the card's whole width under both, a paragraph, never a thin column.
+                    var titleDrop = Mathf.Max(0f, (S(StatusMarkDp) - titleTall) / 2f);
+                    titleLabel.transform.localPosition += new Vector3(0f, -titleDrop, 0f);
+                    var head = Mathf.Max(S(StatusMarkDp), titleTall) + S(DescriptionGapDp);
+                    var wide = KitType.Lay(lineLabel, width, StatusLineMost);
+                    lineLabel.transform.localPosition = new Vector3(0f, -(down + head), -RoomType.Units(0.5f));
+                    tall = head + Mathf.Max(wide.Lines, 1) * S(LineLineDp);
+                }
+                else tall += S(2f) + laidLine.Tall;
             }
             var block = Mathf.Max(S(StatusMarkDp), tall);
             // Words shorter than the mark stand centred on it, a title alone too (SCREENS's critic, 2026-11-11).
