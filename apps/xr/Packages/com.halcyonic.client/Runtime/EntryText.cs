@@ -366,7 +366,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>A start whose effect is unknown is never said to have had none.</summary>
-        public const string NotSureItHappened = "It may have happened. Check the stage to see.";
+        public const string NotSureItHappened = "It may have happened. Look for the task in the room to see.";
 
         /// <summary>
         /// How a step of Start task went: sent is not done, and only a completed record confirms.
