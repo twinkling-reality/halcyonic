@@ -324,7 +324,8 @@ namespace Halcyonic.Client
         // new one), and nothing on the computer is deleted or sent (Confirm sends no command).
         // "Erases", not "restarts": Confirm makes a new idea, so what the person typed is gone (a reader, 2026-11-13, could not tell).
         public const string ClearOnceChecked = "Once you have looked, Clear erases your idea here. Nothing on the computer is sent or deleted.";
-        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Your idea here is erased; nothing on the computer is sent or deleted.";
+        // What Confirm WILL do, never said as done before it is pressed (AUDIT's MUST M, 2026-11-13T1941Z).
+        public const string ClearOnlyAfterChecking = "Look first, then Confirm. Confirm erases your idea here; nothing on the computer is sent or deleted.";
         public const string ConfirmClear = "Confirm";
         public const string Cancel = "Cancel";
         public const string Cleared = "Cleared. Start again with your idea.";
