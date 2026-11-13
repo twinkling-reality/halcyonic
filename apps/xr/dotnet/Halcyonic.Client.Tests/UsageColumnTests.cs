@@ -330,14 +330,27 @@ public class UsageColumnTests
     {
         public bool Confirmed { get; set; }
 
+        /// <summary>The step's own command after the confirm: its status, and the host's failure line where it failed.</summary>
+        public string ChooseStatus { get; set; } = "completed";
+        public string? ChooseFailure { get; set; }
+
+        /// <summary>Reads of the step's own command that still say accepted before <see cref="ChooseStatus"/>.</summary>
+        public int ChooseAcceptedReads { get; set; }
+
         public List<string> Asked { get; } = new();
+
+        private static string Command(string id, string type, string status, string? failure) =>
+            "{\"journal_id\":\"journal-1\",\"command\":{\"command_id\":\"" + id + "\",\"command_type\":\"" + type + "\",\"status\":\"" + status
+            + "\",\"project_id\":null,\"workstream_id\":null,\"execution_id\":null,\"issued_at\":\"2026-11-13T00:00:00.000Z\",\"updated_at\":\"2026-11-13T00:00:00.000Z\","
+            + "\"rejection\":null,\"failure\":" + (failure == null ? "null" : "{\"code\":\"invalid_state\",\"message\":\"" + failure + "\",\"effect\":\"none\"}")
+            + ",\"result\":null}}";
 
         private const string Request = """
             {"request":{"request_id":"request-1","journal_id":"journal-1","project_id":null,"workstream_id":null,"execution_id":null,
              "original_text":"Use Model","status":"STATUS","reply":null,"earlier_steps":0,
              "created_at":"2026-11-13T00:00:00.000Z","updated_at":"2026-11-13T00:00:00.000Z",
-             "steps":[{"step_id":"step-1","tool_name":"assistant_model_choose","status":"STEP","command_id":null,"command_status":null,
-               "observation_position":0,"active_turn_id":null,"had_active_turn":false,"observation_after":0,"observed_turn_id":null,
+             "steps":[{"step_id":"step-1","tool_name":"assistant_model_choose","status":"STEP","command_status":null,
+               "observation_position":0,"active_turn_id":null,"had_active_turn":false,"command_id":COMMAND,"observation_after":0,"observed_turn_id":null,
                "runtime_status":null,"summary":"Use test-model-1",
                "proposal":{"command_type":"assistant.model.choose","confirm":{},"review":"review-1","said":[],
                  "what_happens":"The assistant runs on this hosted model, paid with your key, and what each request reads goes to it"}}]}}
@@ -354,7 +367,12 @@ public class UsageColumnTests
                 : path.Contains("/api/actions/choices?list=assistant_models", StringComparison.Ordinal) ? Models
                 : path.EndsWith("/api/workspace/requests/request-1", StringComparison.Ordinal)
                     ? Request.Replace("STATUS", Confirmed ? "responded" : "waiting_for_human", StringComparison.Ordinal)
-                        .Replace("STEP", Confirmed ? "confirmed" : "waiting", StringComparison.Ordinal)
+                        .Replace("STEP", Confirmed ? "running" : "waiting", StringComparison.Ordinal)
+                        .Replace("COMMAND", Confirmed ? "\"choose-1\"" : "null", StringComparison.Ordinal)
+                : path.EndsWith("/api/workspace/commands/choose-1", StringComparison.Ordinal)
+                    ? Command("choose-1", "assistant.model.choose", ChooseAcceptedReads-- > 0 ? "accepted" : ChooseStatus, ChooseFailure)
+                : path.Contains("/api/workspace/commands/", StringComparison.Ordinal)
+                    ? Command(path[(path.LastIndexOf('/') + 1)..], "workspace.request.resume", "completed", null)
                 : null;
             return Task.FromResult(new HttpResponseMessage(body == null ? HttpStatusCode.NotFound : HttpStatusCode.OK)
             { Content = new StringContent(body ?? "{}", Encoding.UTF8, "application/json") });
@@ -414,8 +432,10 @@ public class UsageColumnTests
             // The host's list, in its order.
             usage.Act(UsageColumn.UseModel, null);
             await Until(usage, host, () => usage.Frame!.Card!.List.Count == 3);
-            var list = Bar();
+            var listed = usage.Frame!.WithSections(sections, sections.Count);
+            var list = RoomBar.OfFrame(listed, VoiceStage.Idle)!;
             Assert.That(list.Card!.Title!.Text, Is.EqualTo(AssistantPlace.UseModelTitle));
+            Assert.That(list.Card.List[1].Press!.Frame, Is.SameAs(listed), "a row's press comes from the frame drawn");
             Assert.That(list.Card.List.Select(each => (each.Kind, each.Name.Text, each.Chosen, each.Press != null)), Is.EqualTo(new[]
             {
                 (RoomKind.Computer, "This Computer's Model", true, true),
@@ -448,6 +468,8 @@ public class UsageColumnTests
             await Until(usage, host, () => usage.Frame!.Footer.All.Any(each => each.Prompt.Id == ReviewCard.Confirm));
             var reviewed = Bar();
             Assert.That(reviewed.Card!.Description!.Text, Is.EqualTo("The assistant runs on this hosted model, paid with your key, and what each request reads goes to it"));
+            Assert.That(reviewed.Card.Slots.Select(slot => slot.Value.Text), Is.EqualTo(new[] { "test-model-1" }), "the card names the model pressed");
+            Assert.That(reviewed.Card.Slots[0].Value.AllTheirs, Is.True);
             Assert.That(reviewed.Column.First().Control.Action, Is.EqualTo(ReviewCard.Confirm));
             Assert.That(reviewed.Column.First().Main, Is.True);
             Assert.That(reviewed.Column.Select(action => action.Control.Action), Does.Contain(ReviewCard.Cancel));
@@ -459,20 +481,25 @@ public class UsageColumnTests
             var confirm = (WorkspaceRequestResumeCommand)host.Sent[1];
             Assert.That((confirm.Payload.RequestId, confirm.Payload.Confirm!.StepId, confirm.Payload.Confirm.Review), Is.EqualTo(("request-1", "step-1", "review-1")));
             computer.Confirmed = true;
+            computer.ChooseAcceptedReads = 2;
             host.Ack.SetResult(AckOf(confirm));
 
             // Done: the usage card again, its row read afresh, naming the model now chosen.
             await Until(usage, host, () => AssistantRows(usage.Frame!.Card!).Any(each => each.Kind == RoomKind.Link));
             var after = AssistantRows(usage.Frame!.Card!);
             Assert.That(after.Select(each => (each.Kind, each.Name.Text)), Is.EqualTo(new[] { (RoomKind.Link, "test-model-1") }));
+            // Accepted is not done: the row is read again only after the step's own command says completed.
+            Assert.That(computer.Asked.FindLastIndex(path => path.EndsWith("/api/workspace/agent", StringComparison.Ordinal)),
+                Is.GreaterThan(computer.Asked.FindLastIndex(path => path.EndsWith("/commands/choose-1", StringComparison.Ordinal))));
+            Assert.That(computer.Asked.Count(path => path.EndsWith("/commands/choose-1", StringComparison.Ordinal)), Is.EqualTo(3));
             Assert.That(usage.Frame!.Card!.Gauges.Count, Is.EqualTo(2));
         }
         finally { RoomDesign.Enabled = was; }
     }
 
     /// <summary>
-    /// Use Model is never offered on the recording (it is not the computer's), nor where there is no way to send it; Cancel on
-    /// the review leaves the usage card with nothing confirmed.
+    /// Use Model is never offered where there is no way to send it; Cancel on the review leaves the usage card with nothing
+    /// confirmed and the press's request cancelled.
     /// </summary>
     [Test]
     public async Task UseModelIsOfferedOnlyWhereTheComputerCanBeAskedAndCancelConfirmsNothing()
@@ -505,8 +532,102 @@ public class UsageColumnTests
             await Until(usage, host, () => usage.Frame!.Footer.All.Any(each => each.Prompt.Id == ReviewCard.Cancel));
             usage.Act(ReviewCard.Cancel, null);
             await Until(usage, host, () => usage.Frame!.Card!.Gauges.Count == 2);
-            Assert.That(host.Sent.Count, Is.EqualTo(1), "Cancel sends nothing");
+            Assert.That(host.Sent.Count, Is.EqualTo(2));
+            Assert.That(((WorkspaceRequestCancelCommand)host.Sent[1]).Payload.RequestId, Is.EqualTo("request-1"),
+                "Cancel confirms nothing, and the request the press made is cancelled, so none waits on the person");
             Assert.That(AssistantRows(usage.Frame!.Card!).Single().Kind, Is.EqualTo(RoomKind.Computer));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>To the review of a press of test-model-1, through the column's own reads.</summary>
+    private static async Task<(UsageColumn Usage, FakeMenuHost Host)> Reviewing(UseModelComputer computer, ControlPlaneApi api)
+    {
+        var host = new FakeMenuHost { Clock = Now, Height = MenuPage.Rows(6), Api = api };
+        var usage = new UsageColumn(host, _ => null, new CommandFactory(Samples.Client));
+        await Until(usage, host, () => AssistantRows(usage.Frame!.Card!).Count == 1);
+        usage.Act(UsageColumn.UseModel, null);
+        await Until(usage, host, () => usage.Frame!.Card!.List.Count == 3);
+        host.Ack = new TaskCompletionSource<CommandAckMessage>();
+        usage.Act(UsageColumn.ChooseModel, "1");
+        var press = host.Sent.Single();
+        host.Ack.SetResult(AckOf(press, new CommandView
+        {
+            CommandId = press.CommandId, CommandType = CommandType.WorkspaceRequestSubmit, Status = CommandStatus.Completed,
+            IssuedAt = Samples.Time, UpdatedAt = Samples.Time, Result = new WorkspaceRequestCreatedResult { RequestId = "request-1" },
+        }));
+        await Until(usage, host, () => usage.Frame!.Footer.All.Any(each => each.Prompt.Id == ReviewCard.Confirm));
+        return (usage, host);
+    }
+
+    /// <summary>
+    /// The confirmed step's own command failing (a refused key, say) is not the choice made: the host's list again, its own line
+    /// on the card, the row unchanged; and the recording offers no Use Model at all, as it reads nothing of the computer.
+    /// </summary>
+    [Test]
+    public async Task AChoiceTheHostFailsAfterTheConfirmSaysTheHostsWordsAndTheRecordingOffersNone()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var computer = new UseModelComputer { ChooseStatus = "failed", ChooseFailure = "Test Hosted refused its key. Give it a new key on this computer." };
+            using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", computer);
+            var (usage, host) = await Reviewing(computer, api);
+            host.Ack = new TaskCompletionSource<CommandAckMessage>();
+            usage.Act(ReviewCard.Confirm, null);
+            computer.Confirmed = true;
+            host.Ack.SetResult(AckOf(host.Sent[1]));
+            await Until(usage, host, () => usage.Frame!.Card!.List.Count == 3);
+            Assert.That(usage.Frame!.Card!.Description!.Text, Is.EqualTo("Test Hosted refused its key. Give it a new key on this computer."));
+            Assert.That(usage.Frame.Card.List.Count, Is.EqualTo(3), "the host's list again, to choose another");
+
+            var (recording, _) = Demonstration(null);
+            Assert.That(recording.Frame!.Card?.List.Any(row => row.Press?.Action == UsageColumn.UseModel) ?? false, Is.False);
+            recording.Act(UsageColumn.UseModel, null);
+            Assert.That(recording.Frame!.Footer.All.Any(each => each.Prompt.Id == UsageColumn.Back), Is.False, "a press of it opens nothing");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>
+    /// A confirm the computer has not answered never holds the person: Back leaves for the usage card, the row read again; a
+    /// press the computer refuses at once returns to the list with its words.
+    /// </summary>
+    [Test]
+    public async Task BackLeavesAnUnansweredConfirmAndARefusedPressSaysTheHostsWords()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var computer = new UseModelComputer();
+            using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", computer);
+            var (usage, host) = await Reviewing(computer, api);
+            host.Ack = new TaskCompletionSource<CommandAckMessage>();
+            usage.Act(ReviewCard.Confirm, null);
+            await Until(usage, host, () => false);
+            Assert.That(usage.Frame!.Footer.All.Any(each => each.Prompt.Id == UsageColumn.Back), Is.True, "the way out stands while it waits");
+            usage.Act(UsageColumn.Back, null);
+            await Until(usage, host, () => usage.Frame!.Card!.Gauges.Count == 2);
+            Assert.That(usage.Frame!.Card!.Gauges.Count, Is.EqualTo(2));
+
+            var (refusing, refusingHost) = await Reviewing(computer, api);
+            refusingHost.Ack = new TaskCompletionSource<CommandAckMessage>();
+            refusing.Act(ReviewCard.Confirm, null);
+            var confirm = refusingHost.Sent[1];
+            refusingHost.Ack.SetResult(new CommandAckMessage
+            {
+                CommandId = confirm.CommandId, Disposition = CommandAckDisposition.Accepted,
+                Command = new CommandView
+                {
+                    CommandId = confirm.CommandId, CommandType = CommandType.WorkspaceRequestResume, Status = CommandStatus.Failed,
+                    IssuedAt = Samples.Time, UpdatedAt = Samples.Time,
+                    Failure = new CommandFailure { Code = "invalid_state", Message = "This request no longer waits on you.", Effect = FailureEffect.None },
+                },
+            });
+            await Until(refusing, refusingHost, () => refusing.Frame!.Card!.List.Count == 3);
+            Assert.That(refusing.Frame!.Card!.Description!.Text, Is.EqualTo("This request no longer waits on you."));
         }
         finally { RoomDesign.Enabled = was; }
     }
