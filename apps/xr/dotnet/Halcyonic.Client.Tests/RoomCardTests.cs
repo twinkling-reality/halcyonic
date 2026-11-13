@@ -158,4 +158,14 @@ public sealed class RoomCardTests
         Assert.That(row.Under!.Text, Is.EqualTo("Kite Run"));
         Assert.That(new RoomListRow(RoomKind.Task, LineWords.TheirName("Tail"), under: LineWords.Ours("")).Under, Is.Null);
     }
+
+    [Test]
+    public void A_card_stands_its_status_after_its_description_only_where_its_model_declares_it_and_only_where_it_has_one()
+    {
+        // AUDIT2's 22:37Z: a review's main fact reads first and its Check First warning after it; every other card keeps its state under its name.
+        var warning = new RoomCardStatus("Check First", "It sends the project's files to the provider.", RoomTone.Attention);
+        Assert.That(new RoomCard(LineWords.Ours("Use This Model"), LineWords.Ours("Your account pays for each request."), status: warning, statusAfter: true).StatusAfter, Is.True);
+        Assert.That(new RoomCard(LineWords.Ours("Kite Run"), status: warning).StatusAfter, Is.False, "a thing's state stands under its name by default");
+        Assert.That(new RoomCard(LineWords.Ours("Kite Run"), statusAfter: true).StatusAfter, Is.False, "nothing to move where there is no status");
+    }
 }
