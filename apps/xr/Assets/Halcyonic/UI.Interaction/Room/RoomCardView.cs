@@ -30,6 +30,9 @@ namespace Halcyonic.XR.UI
         /// <summary>A status under a card's own title: a step smaller, so the thing's name stays the card's one title.</summary>
         public const float UnderTitleStatusDp = 24f;
         public const float UnderTitleStatusLineDp = 30f;
+
+        /// <summary>The most lines a status's line takes before anything is cut; the product's own words are laid whole within it.</summary>
+        public const int StatusLineMost = 12;
         public const float LineTypeDp = 17f;
         public const float LineLineDp = 23f;
         public const float HeadDp = 104f;
@@ -505,7 +508,9 @@ namespace Halcyonic.XR.UI
             TextMeshPro? lineLabel = null;
             if (status.Line != null)
             {
-                var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, 3);
+                // The product's own words are never cut: a status line runs as long as it needs (the host's money words before a
+                // paid model, four sentences under Check First, the lead's 0635Z).
+                var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column, StatusLineMost);
                 lineLabel = laidLine.Label;
                 tall += S(2f) + laidLine.Tall;
             }
