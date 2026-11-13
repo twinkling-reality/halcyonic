@@ -1769,9 +1769,12 @@ own activity so no section's source band stands over the result; the understandi
 opens there. The understanding's account of the change follows the files as later parts of the same page (`ChangesAccount`,
 SCREENS, 2026-11-12): what changed, why and how it was built, a part an answer, each the brief answer XR computes
 (`UnderstandingPresenter`, brief depth): its lead line whole as the card's description (the agent's or a model's words
-alone, said to be theirs first by the card's quiet state under its title, the speech bubble, `RoomKind.Says`, and Agent
-Says or Model Says; the room's faces carry no slant, so whose words they are is said, not leaned), the rest as rows each with its kind (a file's mark, the bubble for what the
-agent said, else none, which draws no mark) and how it is known as its quiet note in our words (Agent Says, Model Says,
+alone, said to be theirs first by a byline under the title: a status of `RoomKind.Says`, which `RoomCardView` draws as
+the bare speech bubble and Agent Says or Model Says at a note's size, never a filled tile that reads as a button; the
+room's faces carry no slant, so whose words they are is said, not leaned), the rest as rows each with its kind (a file's mark, the bubble for what the
+agent said, else none, which draws no mark; a list where no row has a mark keeps no room for one and starts at the card's
+left with the title, and a plain row, no kind and no press, is a quiet line at a note's size with a wider gap before its
+note, so the card's own words stay the loudest) and how it is known as its quiet note in our words (Agent Says, Model Says,
 Inferred, Planned), never the product's dotted chips; five rows a part, Next Page the main action to the last part,
 History, Checks and Back where they were. An answer with no lines is no part. The source's own provenance names the
 provider's product, so it is never drawn: the foot says From the Agent's Records (FIELD's words) where every answer
