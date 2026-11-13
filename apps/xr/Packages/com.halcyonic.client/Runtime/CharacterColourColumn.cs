@@ -28,7 +28,7 @@ namespace Halcyonic.Client
             rare: preview ? new Prompt(Cancel, "Cancel", GlazeIcon.Close) : null,
             // Under the redesign the general reader pages the colours, its pager saying the page and the count (SCREENS's 22:01Z critic).
             secondary: !preview && !RoomDesign.Enabled ? new Prompt(Footer.NextPage, Footer.NextPageWords(page, 2), GlazeIcon.Next, PromptKind.NextPage) : null,
-            farRight: new Prompt(preview ? Apply : Preview, preview ? "Apply Colour" : "Preview Colour", GlazeIcon.Change, main: true)),
+            farRight: new Prompt(preview ? Apply : Preview, preview ? "Apply Colour" : "Preview Colour", preview ? GlazeIcon.Approve : GlazeIcon.Next, main: true)),
             lines: preview ? new[] { new PageLine("Look at Task's Character", rows: 2), new PageLine("This Headset Only", tone: LineTone.Secondary),
                 new PageLine(error ?? (chosen == "original" ? "Original Colour" : CharacterColourSettings.Name(chosen))) }
                 : CharacterColourSettings.Choices.Skip(RoomDesign.Enabled ? 0 : page * 3).Take(RoomDesign.Enabled ? CharacterColourSettings.Choices.Count : 3).Select(choice => new PageLine(CharacterColourSettings.Name(choice), fact: choice == settings.Applied(scope) ? "Current" : null,
