@@ -414,34 +414,36 @@ checked. What the system services do with these events, and under which consent,
 not verified. The coordinator accepted the third path on 2026-10-08, with the owner's leave, because
 it goes only to the system service that already receives the Interaction SDK's.
 
-## Testing instructions for judges (for the submission form, 2026-11-04)
+## Testing instructions for judges (for the submission form, 2026-11-13)
 
-Rewritten by JUDGE for the build as the Editor journey walks it on 2026-11-04 (`JudgeKitWalkCheck`,
-main 5a2f699c with Star Catcher bundled): the workspace opens on Projects, the recorded run plays
-first, the labelled demo follows. No brand names. Not yet checked on the headset; step 6 is the one
-the journey could not finish at Larger text (see "The judge path with the kit"). The 2026-10-08 draft
-described characters and a closed bar that this build no longer opens with.
+Rewritten by JUDGE for the release build of main d295e3e28 (the judges' copy, version code 26111302) from what its Editor
+walk draws (`JudgeRoomWalkCheck`, both reading sizes, every moment reached by a drawn control), each screen transcribed
+word for word by a fresh reader, then read twice by fresh critics as a judge who had never seen the product; every label
+and line quoted below matches the screens. The recorded and demo line stands in a band of its own on every recorded and
+demo screen, readable whole at both sizes (a fresh reader, 40 of 40 frames). NOT YET walked on the headset: the release
+copy is with DEVICE for that, with no computer attached. The 2026-11-04 text described the older kit.
 
-> Halcyonic lets you see and direct AI agents building software, from where you sit. This build
-> needs no computer, account or network: it plays recordings on the headset, and nothing you do
-> reaches an agent.
+> This app is a workspace for directing AI coding agents from VR. This build needs no computer, account or network: it
+> plays a recorded run of a real agent at work, then a demo you take part in. A line at the top always says which of the
+> two you are watching, and nothing you press leaves the headset.
 >
-> 1. Sit down and use your hands; no controllers are needed. Pinch to press.
-> 2. The workspace opens in front of you. First it plays a recorded real run, marked Recorded: an
->    agent making a small VR game, Star Catcher, from one sentence. Pinch Star Catcher, then its task,
->    to watch what the agent did under Activity, Changes and Checks.
-> 3. When the run has ended, a demo follows, marked Demo, where you take part. Under Tasks, the task
->    marked Needs You is waiting for you: pinch it.
-> 4. The agent asks a question: pinch an answer, then Review Answers, then Send Answer.
-> 5. It then asks to run a command: pinch Approve, then Confirm.
-> 6. A check fails. Look at Checks, then Activity. Pinch the Instruction box, choose one of the
->    offered instructions, Review Instruction, then Send Instruction. The agent goes again and the
->    checks pass.
-> 7. Workspace, at the foot of the left column, opens Minimize, Usage and Settings (Comfort has
->    Larger Text). Under Projects, New Project talks an idea through with an AI companion.
+> Sit down and use your hands; no controllers are needed. To press a button, point at it and pinch.
 >
-> The demo waits for you at every decision and while anything is open in front of you, and starts
-> again by itself after it ends. Taking the headset off and on picks up where you were.
+> 1. Open Halcyonic. Projects opens in front of you with Star Catcher, a small game made by an agent. The line reads
+>    "Recorded: real agent work, played back here. Nothing here is live."
+> 2. Pinch Star Catcher, then its task, "Make the game". The recorded run plays: you see the agent at work.
+> 3. When its card reads "Make the game" and "Passed", pinch Checks to see the four checks it passed.
+> 4. The demo follows by itself, and the line now reads "Demo: recorded work played on this headset. Nothing here is
+>    live." Under Tasks, pinch the task that needs you: "Add rate limiting to the sign-in endpoint".
+> 5. The agent asks you a question. Pinch an answer, then Review Answers, then Send Answer.
+> 6. It asks to run a command, shown in full. Pinch Approve.
+> 7. A test fails; the line under the card says why. Pinch Choose Instruction, pick one of the two instructions offered,
+>    then pinch Review Instruction, then Send Instruction. (Checks shows 1 failed and 23 passed; Activity brings you back.)
+> 8. The agent fixes it and the tests pass; pinch Checks to see all 24 pass.
+> 9. Afterwards it returns to the recorded run. You can leave at any time from the headset's own menu.
+>
+> What to look for: the agent's work is visible as it happens, every decision waits for you, and nothing is sent until you
+> press it.
 
 ## Consequences
 
