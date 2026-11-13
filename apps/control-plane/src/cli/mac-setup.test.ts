@@ -17,7 +17,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
-import { personalSetupUsed } from '@halcyonic/integration-claude-code';
+import { ClaudeAgentRuntimeAdapter, personalSetupUsed } from '@halcyonic/integration-claude-code';
 import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
 import { ConfigError, loadConfig } from '../config.ts';
 import { loopbackProof, PROOF_CHALLENGE_HEADER, PROOF_HEADER } from '../http/security.ts';
@@ -27,7 +27,7 @@ import { audioOutputFor } from '../preview/audio-output.ts';
 import { launcherProblem } from '../preview/launcher.ts';
 import { BROWSER_FILES, browserManifest, manifestDigest } from '../preview/play.ts';
 import { HostProviders } from '../providers.ts';
-import { AGENT_KEY_READERS, turnedOnByKey } from '../runtimes.ts';
+import { AGENT_KEY_READERS, KEYED_AGENT_APPS, turnedOnByKey } from '../runtimes.ts';
 import {
   readHostSettings,
   SETTINGS_FILE,
@@ -459,11 +459,50 @@ describe('pnpm mac-setup', () => {
     assert.doesNotMatch(output, /No agent app is set up/);
     // What of the person's own set-up a task on a connected folder uses, read from the adapter's declaration.
     const used = personalSetupUsed();
+    // What it can read once working follows the app's own declaration: on this Mac the host's folders are kept out.
+    const holds = KEYED_AGENT_APPS.find(
+      (keyed) => keyed.personalSetup === personalSetupUsed,
+    )?.holdsKeyOutsideSandbox();
+    assert.equal(holds, process.platform !== 'darwin');
+    const reach = holds
+      ? "any file you can, Halcyonic's own folders included"
+      : "any file you can except Halcyonic's own folders";
     assert.ok(
       output.includes(
-        `On a folder you connected, and anywhere while a cloud provider is switched on, a task on Claude Agent uses the ${used.instructions} in your own Claude Code settings folder and ${used.hooksOf.map((name) => `${name}'s`).join(' and ')} hooks there, as their current installers write them, and nothing else of your own settings.`,
+        `On a folder you connected, and anywhere while a cloud provider is switched on, a task on Claude Agent uses the ${used.instructions} in your own Claude Code settings folder and ${used.hooksOf.map((name) => `${name}'s`).join(' and ')} hooks there, as their current installers write them, and nothing else of your own settings. It doesn't start with the ${used.instructions} of the task's own folder or any folder above it, but once it's working it can read ${reach}, and what it reads goes to the service its models run on.`,
       ),
     );
+    // Said from the adapter's declaration: a declaration that sent the folder's instructions would drop the sentence.
+    assert.equal(used.folderInstructionsSent, false);
+    // Where the adapter declares a run outside the sandbox could read the host's folders (no seatbelt), the page
+    // does not promise they are kept out.
+    const declared = t.mock.method(
+      ClaudeAgentRuntimeAdapter,
+      'holdsKeyOutsideSandbox',
+      () => !holds,
+    );
+    await machine.run();
+    assert.ok(
+      text(machine).includes(
+        `once it's working it can read ${holds ? "any file you can except Halcyonic's own folders" : "any file you can, Halcyonic's own folders included"}, and what it reads goes to the service its models run on.`,
+      ),
+    );
+    declared.mock.restore();
+    // A declaration that says the folder's instructions are sent gets no such sentence: the page says it from the
+    // declaration alone, never from which app it is (R2).
+    const claude = KEYED_AGENT_APPS.find((keyed) => keyed.personalSetup === personalSetupUsed);
+    assert.ok(claude !== undefined);
+    const entry = claude as { personalSetup: () => ReturnType<typeof personalSetupUsed> };
+    const sends = t.mock.method(entry, 'personalSetup', () => ({
+      ...used,
+      folderInstructionsSent: true,
+    }));
+    await machine.run();
+    assert.ok(text(machine).includes('and nothing else of your own settings.'));
+    assert.doesNotMatch(text(machine), /doesn't start with the|once it's working/);
+    sends.mock.restore();
+    await machine.run();
+    output = text(machine);
     assert.doesNotMatch(output, /unless your own Claude Code settings/);
     // On the page of a Halcyonic started without it: the key waits for the next start.
     machine.startedWith = [];

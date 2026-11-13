@@ -164,6 +164,7 @@ describe("the person's own Claude Code set-up, as an unconfined run takes it (VR
       instructions: 'CLAUDE.md',
       hooksOf: ['Salidium', 'Seorak'],
       restUsed: false,
+      folderInstructionsSent: false,
     });
     // The file it names is the one read, and a hook of each integration it names passes.
     const config = join(ROOT, 'said');

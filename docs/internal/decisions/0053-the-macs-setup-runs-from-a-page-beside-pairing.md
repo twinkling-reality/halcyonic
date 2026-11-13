@@ -170,5 +170,12 @@ key, and for it to serve any agent app, not one vendor's.
   declares a personal set-up says, in one line read from that declaration (Claude Agent's `personalSetupUsed()`),
   what a task outside the sandbox uses of it ("the CLAUDE.md in your own Claude Code settings folder and Salidium's
   and Seorak's hooks there, as their current installers write them, and nothing else of your own settings"), on a connected folder and, for Claude Agent,
-  anywhere while a cloud provider is switched on. The pay lines no longer add "unless your own Claude Code settings
+  anywhere while a cloud provider is switched on. For Claude Agent the same line goes on (2026-11-13, VRIFY's proof of
+  what reaches the model at start): "It doesn't start with the CLAUDE.md of the task's own folder or any folder above
+  it, but once it's working it can read any file you can except Halcyonic's own folders, and what it reads goes to the
+  service its models run on." The first half is the adapter's declaration (`folderInstructionsSent: false`, from
+  `settingSources: []`). The reach follows the app's `holdsKeyOutsideSandbox()`: on this Mac the light profile
+  denies only the host's own folders; where there is no seatbelt the line says "Halcyonic's own folders included".
+  The service is not called remote, since a gateway on this Mac may serve the model. In a confined app the closed
+  profile holds, and the line does not speak of it. The pay lines no longer add "unless your own Claude Code settings
   sign it in another way", which the settings fix of 1111-b114 made untrue.

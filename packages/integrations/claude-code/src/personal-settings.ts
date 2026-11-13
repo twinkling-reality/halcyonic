@@ -138,6 +138,12 @@ export interface PersonalSetupUse {
   readonly hooksOf: readonly string[];
   /** Whether anything else of the person's settings is used: never. */
   readonly restUsed: false;
+  /**
+   * Whether an instructions file in the task's folder or in a folder above it reaches the model at the start. Claude
+   * Agent's: no, since no settings source is loaded (`settingSources: []`, so no CLAUDE.md is walked up to). The agent
+   * may still read such a file with its own tools once it works. The setup page says it from this alone (R2).
+   */
+  readonly folderInstructionsSent: boolean;
 }
 
 export function personalSetupUsed(): PersonalSetupUse {
@@ -145,6 +151,7 @@ export function personalSetupUsed(): PersonalSetupUse {
     instructions: INSTRUCTIONS_FILE,
     hooksOf: OBSERVERS.map((observer) => observer.name),
     restUsed: false,
+    folderInstructionsSent: false,
   };
 }
 
