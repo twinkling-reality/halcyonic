@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Halcyonic.Client;
 using Halcyonic.XR.Workspace;
@@ -95,9 +96,25 @@ namespace Halcyonic.XR.Room
             // console's right foot that AllowsShelf keeps (the field and the current workspace's clearance)
             // is shown. The Editor's measured search runs the same AgentShelfSearch, so the two never drift.
             var width = GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(1);
-            return AgentShelfSearch.Begin(Draft, eyes, Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg, out _,
-                GetComponent<WorkspaceDirector>()?.ShelfConsole(head.transform.position),
-                distance => ShelfHalfDegrees(width, head.transform.position, distance));
+            var facing = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
+            var console = GetComponent<WorkspaceDirector>()?.ShelfConsole(head.transform.position);
+            float Half(float distance) => ShelfHalfDegrees(width, head.transform.position, distance);
+            if (AgentShelfSearch.Begin(Draft, eyes, facing, out _, console, Half)) return true;
+            // Said once a search that found nothing, with what refused each candidate, so a walk names the check the room failed
+            // (JUDGE's shelf walks, 2026-11-13); the rest were out of the draft's reach.
+            var refused = new Dictionary<string, int>();
+            var tried = 0;
+            foreach (var candidate in AgentShelfSearch.Candidates(eyes, facing, console, Half))
+            {
+                tried++;
+                var why = ShelfRefusedBy(candidate) ?? "out of the draft's reach";
+                refused[why] = refused.TryGetValue(why, out var count) ? count + 1 : 1;
+            }
+            Debug.Log("Halcyonic: no shelf place among " + tried + " tried"
+                + (console is ConsoleExtent near ? " (console " + near.LeftYaw.ToString("0.0") + " to " + near.RightYaw.ToString("0.0") + " across, foot "
+                    + near.BottomElevation.ToString("0.0") + ")" : "") + ": "
+                + string.Join(", ", refused.Select(each => each.Key + " " + each.Value)));
+            return false;
         }
 
         /// <summary>
