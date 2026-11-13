@@ -972,8 +972,11 @@ launch/return, process recreation and current-frame action behavior need separat
     gauges; a read that fails draws no row. The row's press opens the host's list, read afresh each time
     (**`UsageColumn.ModelsCard`**): the place it runs now chosen, Back to the card. A row pressed sends Use Model,
     the request's waiting step is drawn as the one review card (**`ReviewCard`**, built by
-    **`UsageColumn.ReviewOf`** from the step's proposal), and Confirm is one press; once the request ends, the
-    column reads the status again. Cancel confirms nothing. A refusal returns to the list with the host's words.
+    **`UsageColumn.ReviewOf`** from the step's proposal, the model pressed named on it), and Confirm is one press.
+    The choice is made only when the confirmed step's own command says completed (the request's "responded"
+    comes first); then the column reads the status again. Refused or failed at any step, the list stands again
+    with the host's own line. Cancel cancels the press's request and confirms nothing; Back stands while any
+    read waits, and reads slow after ten seconds.
     The press is offered only on the computer's own Usage (never the recording) with a command factory.
     **`RoomBar.Menu`** binds every press on the card to the frame drawn and stands Confirm as the main action.
     The step's proposal does not yet carry the host's confirm words, facts or warnings, so the card shows the

@@ -44,8 +44,8 @@ namespace Halcyonic.Client
         /// <summary>Said where the computer did not take the press and gave no words of its own (unknown stays unknown).</summary>
         public const string NotTaken = "Not Taken";
 
-        /// <summary>How long the column waits between reads of a press's command and request, in seconds.</summary>
-        private const double ReadEvery = 0.25;
+        /// <summary>How long the column waits between reads of a press's command and request, in seconds; after <see cref="Patience"/>, <see cref="ReadSlowly"/>.</summary>
+        private const double ReadEvery = 0.25, Patience = 10, ReadSlowly = 2;
 
         /// <summary>The most usage windows the redesign's card holds (FIELD's two wells); more, and the older view draws the page.</summary>
         private const int CardWindows = 2;
@@ -83,8 +83,15 @@ namespace Halcyonic.Client
         private int reviewPart;
         private double readAt;
 
-        /// <summary>The host's own words where it did not take the press, or <see cref="NotTaken"/>; shown on the list until another press.</summary>
-        private string? refused;
+        /// <summary>The host's own words where it did not take the press (or an agent's, theirs), or <see cref="NotTaken"/>; shown on the list until another press.</summary>
+        private LineWords? refused;
+
+        /// <summary>After the confirm: whether the computer says the confirm itself is done, and the command the confirmed step sent.</summary>
+        private bool confirmDone;
+        private string? chooseId;
+
+        /// <summary>When the stage now waiting began, by <see cref="IMenuHost.Now"/>, for <see cref="Patience"/>.</summary>
+        private double waitingSince;
 
         /// <param name="recorded">The demonstration's limits as if read at a time (<see cref="DemonstrationRecording.UsageLimitsAt"/>), or null where it holds none.</param>
         /// <param name="commands">Makes Use Model's press and its confirm; null where the host has none, and the row then presses nothing.</param>
@@ -176,7 +183,13 @@ namespace Halcyonic.Client
                     return;
                 case Back when stage == Stage.List || stage == Stage.Sent:
                 case ReviewCard.Cancel when stage == Stage.Review:
-                    // Nothing was confirmed: the request waits unconfirmed, and nothing changes where the assistant runs.
+                    // Nothing was confirmed: the request the press made is cancelled, so none waits on the person, and nothing
+                    // changes where the assistant runs.
+                    if (requestId != null && commands != null) host.Submit(commands.CancelRequest(requestId));
+                    Done();
+                    return;
+                case Back when stage == Stage.Confirmed:
+                    // The confirm is sent: leaving does not undo it; the row reads the computer again.
                     Done();
                     return;
                 case OpenLimit when int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && shown != null && index < shown.Rows.Count:
@@ -313,7 +326,7 @@ namespace Halcyonic.Client
             var title = LineWords.Written(LabelText.Plain(AssistantPlace.UseModelTitle));
             if (stage == Stage.Review && review?.Proposal is WorkspaceRequestStepProposal proposal && proposal.Review != null)
             {
-                var shown = ReviewOf(proposal);
+                var shown = ReviewOf(proposal, pressed);
                 var parts = ReviewCard.Parts(shown);
                 reviewPart = Math.Max(0, Math.Min(reviewPart, parts - 1));
                 Prompt? confirm = null, cancel = null, next = null, previous = null;
@@ -348,7 +361,7 @@ namespace Halcyonic.Client
         /// the host offers one (<paramref name="press"/>), so a row it does not shows its reason and presses nothing. For the
         /// column and the kit's renders alike.
         /// </summary>
-        public static RoomCard ModelsCard(IReadOnlyList<AssistantOption> options, AssistantRow here, string? refused, Func<AssistantOption, KitControl?> press)
+        public static RoomCard ModelsCard(IReadOnlyList<AssistantOption> options, AssistantRow here, LineWords? refused, Func<AssistantOption, KitControl?> press)
         {
             var rows = options.Take(RoomCard.ListAPage).Select(option => new RoomListRow(
                 option.Theirs ? RoomKind.Link : RoomKind.Computer,
@@ -357,7 +370,7 @@ namespace Halcyonic.Client
                 chosen: Runs(option, here),
                 under: option.Detail == null ? null : DetailOf(option))).ToList();
             return new RoomCard(LineWords.Written(LabelText.Plain(AssistantPlace.UseModelTitle)),
-                refused == null ? null : LineWords.Written(LabelText.Plain(refused)), list: rows);
+                refused, list: rows);
         }
 
         /// <summary>The row the assistant runs on now: this computer's where it runs here, else the hosted model of that name.</summary>
@@ -373,13 +386,16 @@ namespace Halcyonic.Client
         /// out, its digest carried back by Confirm. The step does not carry the host's own confirm words, facts or warnings
         /// (LOOP, asked 2026-11-13): Confirm says the entry's title.
         /// </summary>
-        public static ActionReview ReviewOf(WorkspaceRequestStepProposal proposal) => new ActionReview
+        /// <param name="pressed">The row pressed, named on the card as the press carried it (its id theirs) until the step carries the host's facts.</param>
+        public static ActionReview ReviewOf(WorkspaceRequestStepProposal proposal, AssistantOption? pressed = null) => new ActionReview
         {
             CommandType = proposal.CommandType,
             Digest = proposal.Review!,
             ConfirmWords = AssistantPlace.UseModelTitle,
             WhatHappens = proposal.WhatHappens,
             Said = proposal.Said,
+            Facts = pressed == null ? new List<ActionReviewFact>()
+                : new List<ActionReviewFact> { new ActionReviewFact { Kind = ReviewKind.Words, Value = pressed.Label, Theirs = pressed.Theirs } },
         };
 
         /// <summary>Opens the host's list, read afresh each time it opens (never cached: the host decides what may be chosen).</summary>
@@ -401,11 +417,12 @@ namespace Halcyonic.Client
             var command = commands.UseModel(option.Index, models.Digest);
             if (host.Submit(command) is not Task<CommandAckMessage> ack)
             {
-                refused = NotTaken;
+                refused = LineWords.Ours(NotTaken);
                 Changed?.Invoke();
                 return;
             }
             pressed = option;
+            waitingSince = host.Now;
             sentId = command.CommandId;
             sending = ack;
             requestId = null;
@@ -429,18 +446,37 @@ namespace Halcyonic.Client
             sentId = command.CommandId;
             sending = ack;
             stage = Stage.Confirmed;
-            readAt = host.Now + ReadEvery;
+            confirmDone = false;
+            chooseId = null;
+            waitingSince = host.Now;
+            readAt = NextRead();
             Changed?.Invoke();
         }
 
-        /// <summary>Back to the list with the host's words, or <see cref="NotTaken"/>, and the list read again.</summary>
-        private void Refused(string? words)
+        /// <summary>Back to the list with the host's own words, or <see cref="NotTaken"/>, and the list read again.</summary>
+        private void Refused(string? hostWords) =>
+            Refused(string.IsNullOrWhiteSpace(hostWords) ? null : LineWords.Written(LabelText.Plain(hostWords!.Trim())));
+
+        private void Refused(LineWords? words)
         {
-            var said = string.IsNullOrWhiteSpace(words) ? NotTaken : words!.Trim();
             OpenList();
-            refused = said;
+            refused = words == null || words.IsEmpty ? LineWords.Ours(NotTaken) : words;
             Changed?.Invoke();
         }
+
+        /// <summary>
+        /// Why a request ended without doing what was pressed: the host's line on its last step, else the request's reply, an
+        /// agent's words and so theirs, else nothing known.
+        /// </summary>
+        private static LineWords? EndedWords(WorkspaceRequestView request, WorkspaceRequestStep? step)
+        {
+            var summary = (step ?? request.Steps.LastOrDefault())?.Summary;
+            if (!string.IsNullOrWhiteSpace(summary)) return LineWords.Written(LabelText.Plain(summary!.Trim()));
+            return string.IsNullOrWhiteSpace(request.Reply?.Text) ? null : LineWords.Theirs(request.Reply!.Text);
+        }
+
+        /// <summary>The next read, soon at first, then slowly once the computer has taken longer than <see cref="Patience"/>.</summary>
+        private double NextRead() => host.Now + (host.Now - waitingSince > Patience ? ReadSlowly : ReadEvery);
 
         /// <summary>Leaves Use Model for the usage card, and reads where the assistant runs again.</summary>
         private void Done()
@@ -452,6 +488,8 @@ namespace Halcyonic.Client
             review = null;
             requestId = null;
             pressed = null;
+            confirmDone = false;
+            chooseId = null;
             if (host.Api is ControlPlaneApi api) agentReading = api.GetWorkspaceAgentAsync(cancel?.Token ?? default);
             Changed?.Invoke();
         }
@@ -476,34 +514,48 @@ namespace Halcyonic.Client
                     Refused(taken?.Command?.Rejection?.Message);
                     return;
                 }
-                if (stage == Stage.Sent && taken.Command is CommandView view) Took(view);
-                readAt = host.Now + ReadEvery;
+                if (taken.Command is CommandView view) Took(view);
+                readAt = NextRead();
             }
             if (host.Api is not ControlPlaneApi api || sending != null) return;
             if (commandReading is Task<WorkspaceCommandResponse> found && found.IsCompleted)
             {
                 commandReading = null;
                 if (found.Status == TaskStatus.RanToCompletion) Took(found.Result.Command);
-                readAt = host.Now + ReadEvery;
+                readAt = NextRead();
             }
             if (requestReading is Task<WorkspaceRequestResponse> read && read.IsCompleted)
             {
                 requestReading = null;
                 if (read.Status == TaskStatus.RanToCompletion) Read(read.Result.Request);
-                readAt = host.Now + ReadEvery;
+                readAt = NextRead();
             }
             if (host.Now < readAt || commandReading != null || requestReading != null) return;
-            if (stage == Stage.Sent && requestId == null && sentId != null) commandReading = api.ReadWorkspaceCommandAsync(sentId, cancel?.Token ?? default);
-            else if ((stage == Stage.Sent || stage == Stage.Confirmed) && requestId != null) requestReading = api.ReadWorkspaceRequestAsync(requestId, cancel?.Token ?? default);
+            var token = cancel?.Token ?? default;
+            if (stage == Stage.Sent && requestId == null && sentId != null) commandReading = api.ReadWorkspaceCommandAsync(sentId, token);
+            else if (stage == Stage.Sent && requestId != null) requestReading = api.ReadWorkspaceRequestAsync(requestId, token);
+            // After the confirm: the confirm itself, then the request for the step's own command, then that command, to its end.
+            else if (stage == Stage.Confirmed && !confirmDone && sentId != null) commandReading = api.ReadWorkspaceCommandAsync(sentId, token);
+            else if (stage == Stage.Confirmed && chooseId != null) commandReading = api.ReadWorkspaceCommandAsync(chooseId, token);
+            else if (stage == Stage.Confirmed && requestId != null) requestReading = api.ReadWorkspaceRequestAsync(requestId, token);
         }
 
-        /// <summary>The press's command as the computer says it: done, its request read next; refused or failed, the host's words.</summary>
+        /// <summary>
+        /// A command as the computer says it: the press's (done, its request read next), the confirm's (done, the step's own
+        /// command looked for next), or the step's own (done: the usage card, its row read afresh). Refused or failed, any of
+        /// them: the host's words. Accepted is never done (a command accepted is not success).
+        /// </summary>
         private void Took(CommandView command)
         {
-            if (command.CommandId != sentId || stage != Stage.Sent) return;
-            if (command.Status == CommandStatus.Completed && command.Result is WorkspaceRequestCreatedResult created) requestId = created.RequestId;
-            else if (command.Status == CommandStatus.Rejected) Refused(command.Rejection?.Message);
-            else if (command.Status == CommandStatus.Failed) Refused(command.Failure?.Message);
+            var mine = stage == Stage.Sent && command.CommandId == sentId
+                || stage == Stage.Confirmed && (command.CommandId == sentId || command.CommandId == chooseId);
+            if (!mine) return;
+            if (command.Status == CommandStatus.Rejected) { Refused(command.Rejection?.Message); return; }
+            if (command.Status == CommandStatus.Failed) { Refused(command.Failure?.Message); return; }
+            if (command.Status != CommandStatus.Completed) return;
+            if (stage == Stage.Sent && command.Result is WorkspaceRequestCreatedResult created) requestId = created.RequestId;
+            else if (stage == Stage.Confirmed && command.CommandId == sentId) confirmDone = true;
+            else if (stage == Stage.Confirmed && command.CommandId == chooseId) Done();
         }
 
         /// <summary>
@@ -522,9 +574,18 @@ namespace Halcyonic.Client
                 stage = Stage.Review;
                 Changed?.Invoke();
             }
-            else if (status == "failed" || status == "stopped" || status == "interrupted") Refused(request.Reply?.Text);
-            else if (stage == Stage.Confirmed && waiting == null && status != "running" && status != "waiting_for_runtime") Done();
-            else if (stage == Stage.Sent && status == "responded") Refused(request.Reply?.Text);
+            else if (stage == Stage.Sent && (status == "failed" || status == "stopped" || status == "interrupted" || status == "responded"))
+                Refused(EndedWords(request, null));
+            else if (stage == Stage.Confirmed)
+            {
+                // The confirmed step: refused or failed, its own line; else the command it sent, followed to its end (Took). The
+                // request saying "responded" is not the choice made: the step's command finishes after it.
+                var step = request.Steps.FirstOrDefault(each => each.StepId == review?.StepId);
+                var said = step?.Status.Type == Newtonsoft.Json.Linq.JTokenType.String ? step.Status.ToString() : null;
+                if (said == "failed" || said == "rejected" || status == "failed" || status == "stopped" || status == "interrupted")
+                    Refused(EndedWords(request, step));
+                else if (step?.CommandId != null) chooseId = step.CommandId;
+            }
         }
 
         /// <summary>What a chosen limit's side panel says: when it was seen, when it resets, and whose account it is.</summary>
