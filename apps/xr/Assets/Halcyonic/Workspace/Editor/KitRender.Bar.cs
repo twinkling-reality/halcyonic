@@ -68,6 +68,17 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>A page of the file with no moment of its own, drawn by the general rule (RoomBar.OfFrame): Checks while its answer is read.</summary>
         private static readonly string[] PageStates = { "37-page" };
 
+        /// <summary>The suffix of a moment played as a recording (<see cref="ReplayedStates"/>).</summary>
+        private const string Replayed = "-replayed";
+
+        /// <summary>
+        /// The moments the judges' path meets while a recording plays (JUDGE's reader, 2026-11-13: the cursor's words, an
+        /// answer and a button stood over the notice), each played as recorded: at work with the cursor, the question with its
+        /// answers in the panel's place, one chosen, the answers' review, the instructions offered and one chosen.
+        /// </summary>
+        private static readonly string[] ReplayedStates =
+            new[] { "36-work", "34-question", "34-question-review", "34-question-confirm", "35-choose", "35-choose-chosen" }.Select(state => state + Replayed).ToArray();
+
         /// <summary>
         /// The workspace as the demonstration plays it, its work recorded on the synthetic agent: the bar carries the product's
         /// line over all it shows, here at work with no panel (the lead, 2026-11-12: the notice where no panel stands).
@@ -79,6 +90,40 @@ namespace Halcyonic.XR.Workspace.Editor
                 c.Synthetic, recorded: true, c.Stale, c.AttentionDetails, c.AttentionNoteRuns, c.AttentionDetailRuns);
             return new WorkspacePresentation(character, workspace.Objective, workspace.Execution, workspace.Runtime, workspace.Actions.ToList(),
                 workspace.Actions.Where(workspace.RequiresConfirmation).ToList(), workspace.Commands, workspace.Activity);
+        }
+
+        /// <summary>
+        /// Every part drawn under <paramref name="root"/> whose drawn bounds cross the notice's <paramref name="plate"/>, as both
+        /// stand in <paramref name="space"/>'s plane (x and y; a touch of less than half a dp is not a crossing): its name.
+        /// </summary>
+        private static IEnumerable<string> NoticeCrossings(Transform root, Transform space, Transform plate)
+        {
+            Rect? Drawn(Renderer part)
+            {
+                var bounds = part.localBounds;
+                if (!part.enabled || bounds.size == Vector3.zero) return null;
+                var to = space.worldToLocalMatrix * part.transform.localToWorldMatrix;
+                var min = new Vector2(float.MaxValue, float.MaxValue);
+                var max = new Vector2(float.MinValue, float.MinValue);
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var at = to.MultiplyPoint3x4(new Vector3((corner & 1) == 0 ? bounds.min.x : bounds.max.x, (corner & 2) == 0 ? bounds.min.y : bounds.max.y, (corner & 4) == 0 ? bounds.min.z : bounds.max.z));
+                    min = Vector2.Min(min, at);
+                    max = Vector2.Max(max, at);
+                }
+                return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+            }
+            Rect? notice = null;
+            foreach (var part in plate.GetComponentsInChildren<Renderer>(false))
+                if (Drawn(part) is Rect drawn) notice = notice is Rect was ? Rect.MinMaxRect(Mathf.Min(was.xMin, drawn.xMin), Mathf.Min(was.yMin, drawn.yMin), Mathf.Max(was.xMax, drawn.xMax), Mathf.Max(was.yMax, drawn.yMax)) : drawn;
+            if (notice is not Rect band) yield break;
+            var touch = RoomType.Units(0.5f);
+            foreach (var part in root.GetComponentsInChildren<Renderer>(false))
+            {
+                if (part.transform.IsChildOf(plate) || Drawn(part) is not Rect drawn) continue;
+                if (drawn.xMin < band.xMax - touch && drawn.xMax > band.xMin + touch && drawn.yMin < band.yMax - touch && drawn.yMax > band.yMin + touch)
+                    yield return part.gameObject.name;
+            }
         }
 
         /// <summary>The workspace with only <paramref name="actions"/> offered, as a recorded run offers none.</summary>
@@ -236,6 +281,9 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static Shot BarShot(string state, Transform root, Vector3 eyes)
         {
+            // A moment as a recording plays it: the same moment, its work recorded, so the notice stands over all it shows.
+            var replayed = state.EndsWith(Replayed, StringComparison.Ordinal);
+            if (replayed) state = state.Substring(0, state.Length - Replayed.Length);
             var asking = AskStates.Contains(state);
             var questioning = QuestionStates.Contains(state);
             var choosing = ChooseStates.Contains(state);
@@ -317,6 +365,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Every other moment of the row is at rest: the run has ended, and its next instruction starts the next one.
                 _ => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed), ShortReport()),
             };
+            if (replayed) workspace = Recorded(workspace);
             if (state == "36-work")
             {
                 // The runtime reports the file it edits: the cursor says so.
@@ -715,6 +764,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(said.GetParsedText().Replace("\n", " ").Contains("Nothing here is live"), "the notice does not say that nothing here is live");
                     Require(shown.Pair || bar.NoticePlate!.transform.localPosition.y > 0f, "with no panel the notice does not stand over the bar");
                 }
+                // Its band is its own (the lead's ruling, 2026-11-13): no part the host draws, the bar's, the band's, the working
+                // field's or the cursor's, crosses it. A line drawn under another part is not said.
+                if (bar.NoticePlate is Halcyonic.XR.UI.RoomSurface plate)
+                    foreach (var crossing in NoticeCrossings(host.transform, bar.transform, plate.transform)) Require(false, crossing + " stands over the notice");
                 if (shown.Pair)
                 {
                     // The panel: DESIGN's translucent tonal material, 440 dp wide, the person's words whole, the sentence in its bar.
