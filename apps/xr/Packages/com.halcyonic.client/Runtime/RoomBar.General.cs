@@ -199,7 +199,8 @@ namespace Halcyonic.Client
             // measure shortens a card as it shortens rows (FIELD's F100: Usage's card narrow passed its footprint at one row a page).
             var perCard = System.Math.Min(RoomCard.ListAPage, rowsAPage);
             var pressPages = carded ? (pressed.Count + perCard - 1) / perCard : 1;
-            var rowPages = carded ? 1 : rows.Count <= 0 ? 1 : (rows.Count + rowsAPage - 1) / rowsAPage;
+            var rowPagesOf = carded ? new List<IReadOnlyList<RoomRow>> { new List<RoomRow>() } : PageRows(rows, form);
+            var rowPages = rowPagesOf.Count;
             var pages = System.Math.Max(System.Math.Max(rowPages, actionPages), pressPages);
             var each = pages > 1 ? roomPaged : room;
             if (ownPager != null)
@@ -211,7 +212,7 @@ namespace Halcyonic.Client
                 pages = System.Math.Max(rowPages, actionPages);
             }
             // Rows that fit one page stand on every page while the actions turn; one plain line is the panel's words on all of them.
-            var oneLine = !carded && rowPages == 1 && field == null && rows.Count == 1 && rows[0].Label == null && rows[0].Lines == null;
+            var oneLine = !carded && rowPages == 1 && field == null && rowPagesOf[0].Count == 1 && rowPagesOf[0][0].Label == null && rowPagesOf[0][0].Lines == null;
             var parts = new List<GeneralPage>();
             for (var page = 0; page < pages; page++)
             {
@@ -229,13 +230,13 @@ namespace Halcyonic.Client
                 parts.Add(ownCard != null ? new GeneralPage(new List<RoomRow>(), column, ownCard)
                     : carded
                     ? new GeneralPage(new List<RoomRow>(), column, CardOf(pressed.Skip(page * perCard).Take(perCard).ToList()))
-                    : new GeneralPage(rowPages == 1 ? (oneLine ? new List<RoomRow>() : rows) : page < rowPages ? rows.Skip(page * rowsAPage).Take(rowsAPage).ToList() : new List<RoomRow>(), column));
+                    : new GeneralPage(rowPages == 1 ? (oneLine ? new List<RoomRow>() : rowPagesOf[0]) : page < rowPages ? rowPagesOf[page] : new List<RoomRow>(), column));
             }
 
             var first = parts[0];
             var shown = first.Rows.ToList();
             // One plain line is the panel's words, as a page of one line always was; more, or any with a label, are rows.
-            if (oneLine) body = rows[0].Words;
+            if (oneLine) body = rowPagesOf[0][0].Words;
             var bar = new RoomBar(field != null ? RoomBarState.Draft : RoomBarState.Page, words: words, body: body, caret: field != null, sentence: sentence,
                 column: first.Column, field: field, band: band, wide: rows.Count == 0 && body.IsEmpty && field == null && ownCard == null && !carded,
                 lines: shown.Count > 0 ? shown.Select(row => row.Words).ToList() : null);
@@ -255,6 +256,54 @@ namespace Halcyonic.Client
             bar.lostPart = lost;
             if (first.Card != null) bar.Card = first.Card;
             return shown.Count > 0 ? bar.WithFacts(shown) : bar;
+        }
+
+        /// <summary>
+        /// The panel's rows in pages (the lead's 2026-11-13T20:15Z: eight lines means eight lines). With the plane's line measure
+        /// (<see cref="RoomForm.LinesOf"/>), a page holds rows to the form's lines (a row's label counted with its words), at most
+        /// its rows a page; a row longer than a page stands in its own parts, each on its own page with the row's label kept,
+        /// nothing cut and nothing taller. Without a measure, the form's rows a page.
+        /// </summary>
+        private static List<IReadOnlyList<RoomRow>> PageRows(IReadOnlyList<RoomRow> rows, RoomForm form)
+        {
+            var pages = new List<IReadOnlyList<RoomRow>>();
+            if (form.LinesOf is not System.Func<LineWords, int> measure)
+            {
+                for (var at = 0; at < rows.Count; at += form.RowsAPage) pages.Add(rows.Skip(at).Take(form.RowsAPage).ToList());
+                if (pages.Count == 0) pages.Add(new List<RoomRow>());
+                return pages;
+            }
+            var budget = form.LinesAPage;
+            var page = new List<RoomRow>();
+            var used = 0;
+            void Close()
+            {
+                if (page.Count == 0) return;
+                pages.Add(page);
+                page = new List<RoomRow>();
+                used = 0;
+            }
+            foreach (var row in rows)
+            {
+                var label = row.Label == null ? 0 : System.Math.Max(1, measure(LineWords.Ours(row.Label)));
+                var lines = row.Lines ?? System.Math.Max(1, measure(row.Words));
+                if (row.Lines == null && label + lines > budget)
+                {
+                    // Longer than a page: its own parts, each on a page of its own, the label kept on every part.
+                    Close();
+                    var each = System.Math.Max(1, budget - label);
+                    for (var from = 0; from < lines; from += each)
+                        pages.Add(new List<RoomRow> { new RoomRow(row.Words, row.Mark, fromLine: from, lines: System.Math.Min(each, lines - from), label: row.Label,
+                            note: from == 0 ? row.Note : null) });
+                    continue;
+                }
+                if (page.Count > 0 && (used + label + lines > budget || page.Count >= form.RowsAPage)) Close();
+                page.Add(row);
+                used += label + lines;
+            }
+            Close();
+            if (pages.Count == 0) pages.Add(new List<RoomRow>());
+            return pages;
         }
 
         /// <summary>The form this bar is read for (<see cref="RoomForm"/>): what the plane will lay it in.</summary>
@@ -338,12 +387,29 @@ namespace Halcyonic.Client
     /// </summary>
     public readonly struct RoomForm
     {
-        public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions)
+        public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions, System.Func<LineWords, int>? linesOf = null, int linesAPage = SpecLines)
         {
             Narrow = narrow;
             RowsAPage = rowsAPage < 1 ? 1 : rowsAPage > RoomRows.APage ? RoomRows.APage : rowsAPage;
             ActionsAPage = actionsAPage < 1 ? 1 : actionsAPage > RoomBar.ColumnMost ? RoomBar.ColumnMost : actionsAPage;
+            LinesOf = linesOf;
+            LinesAPage = linesAPage < 1 ? 1 : linesAPage > SpecLines ? SpecLines : linesAPage;
         }
+
+        /// <summary>The lines a panel holds at most (BUILD-SPEC-v4 1.1; the lead's 20:15Z: eight lines means eight lines).</summary>
+        public const int SpecLines = 8;
+
+        /// <summary>
+        /// The plane's line measure: how many lines words take as the rows will lay them, at the width the bar will be laid (the
+        /// kit's own measure, never a count of characters; XR wires it). Null: the reader pages by rows alone.
+        /// </summary>
+        public System.Func<LineWords, int>? LinesOf { get; }
+
+        /// <summary>The lines a page of the panel holds, one to eight; fewer where the plane measured fewer to keep inside the field.</summary>
+        public int LinesAPage { get; }
+
+        /// <summary>This form with its line measure (the plane's), the rest kept.</summary>
+        public RoomForm Measured(System.Func<LineWords, int> linesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, linesOf, LinesAPage);
 
         /// <summary>The actions a choices column holds at most in all, its main action, ways out and pager among them (BUILD-SPEC-v4 1.1, the lead's 19:41Z).</summary>
         public const int SpecActions = 4;
@@ -360,10 +426,10 @@ namespace Halcyonic.Client
         /// <summary>The general reader's actions a page in all, one to the column's six; four by the spec.</summary>
         public int ActionsAPage { get; }
 
-        /// <summary>This form with one row fewer a page, never fewer than one: the plane's next ask where a page passed the field.</summary>
-        public RoomForm Fewer() => new RoomForm(Narrow, RowsAPage - 1, ActionsAPage);
+        /// <summary>This form with one row and one line fewer a page, never fewer than one: the plane's next ask where a page passed the field.</summary>
+        public RoomForm Fewer() => new RoomForm(Narrow, RowsAPage - 1, ActionsAPage, LinesOf, LinesAPage - 1);
 
         /// <summary>This form with one action fewer a page, never fewer than one: the plane's ask where the column passed the field.</summary>
-        public RoomForm FewerActions() => new RoomForm(Narrow, RowsAPage, ActionsAPage - 1);
+        public RoomForm FewerActions() => new RoomForm(Narrow, RowsAPage, ActionsAPage - 1, LinesOf, LinesAPage);
     }
 }

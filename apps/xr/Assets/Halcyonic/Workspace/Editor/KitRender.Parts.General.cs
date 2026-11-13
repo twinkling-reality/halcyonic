@@ -91,7 +91,6 @@ namespace Halcyonic.XR.Workspace.Editor
                     frame = usage.Frame?.WithSections(sections, sections.Count);
                 }
                 bar = frame == null ? null : RoomBar.OfFrame(frame, VoiceStage.Idle);
-                if (state == "52-general-rows-2") bar?.Turn();
             }
             finally { RoomDesign.Enabled = was; }
             Require(frame != null && bar != null, "the general reader gives the redesign no bar");
@@ -99,29 +98,27 @@ namespace Halcyonic.XR.Workspace.Editor
             var plane = new GameObject("Plane").transform;
             plane.SetParent(root, false);
             var view = RoomBarView.Create(plane);
-            if (narrow)
+            // The kit's own line measure at the width the bar is laid (the lead's 20:15Z: eight lines means eight lines), as the plane
+            // hands it; narrow: the plane's measure loop too, one row and one line fewer a page while the laid bar passes its footprint.
+            var form = new RoomForm(narrow, RoomRows.APage).Measured(words => view.Lines(words, false, narrow));
+            while (true)
             {
-                // The plane's measure, as XR's loop takes it: read narrow, lay, and while the laid bar passes its largest narrow
-                // footprint, read again with one row fewer a page, down to one.
-                var rowsAPage = RoomRows.APage;
-                while (true)
+                RoomDesign.Enabled = true;
+                try
                 {
-                    RoomDesign.Enabled = true;
-                    try
-                    {
-                        bar = RoomBar.OfFrame(frame, VoiceStage.Idle, new RoomForm(true, rowsAPage))!;
-                        if (state == "52-general-rows-2") bar.Turn();
-                    }
-                    finally { RoomDesign.Enabled = was; }
-                    bar.Narrow = true;
-                    view.Show(bar);
-                    view.SettleForRender();
-                    if (!view.PassedLargest || rowsAPage == 1) break;
-                    rowsAPage--;
+                    bar = RoomBar.OfFrame(frame, VoiceStage.Idle, form)!;
+                    // The last page of the long list, every earlier one shown on the way (eight lines a page may make more than two).
+                    if (state == "52-general-rows-2") while (bar.GeneralPart.Page < bar.GeneralPart.Pages - 1) bar.Turn();
                 }
-                Debug.Log("Halcyonic: parts: " + name + ": narrow at " + rowsAPage + " rows a page, " + bar.GeneralPart.Pages + " page" + (bar.GeneralPart.Pages == 1 ? "" : "s")
-                    + (bar.Card != null ? " (" + bar.Card.List.Count + " pressed rows on the first)" : "") + ".");
+                finally { RoomDesign.Enabled = was; }
+                bar.Narrow = narrow;
+                view.Show(bar);
+                view.SettleForRender();
+                if (!narrow || !view.PassedLargest || form.LinesAPage == 1) break;
+                form = form.Fewer();
             }
+            Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : "full") + " at " + form.LinesAPage + " lines a page, " + bar.GeneralPart.Pages + " page"
+                + (bar.GeneralPart.Pages == 1 ? "" : "s") + (bar.Card != null ? " (" + bar.Card.List.Count + " pressed rows on the first)" : "") + ".");
             var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || (state is "52-general-usage" or "52-general-caps" || narrow) && bar.GeneralPart.Pages > 1;
             // The general reader's card holds pressed rows, never the usage card's gauges (which would mean a specific reader took it).
             if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
@@ -159,11 +156,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 expected.AddRange(frame.Lines.Where(line => line.Action != null && line.Fact != null).Select(line => line.Fact!));
             }
 
-            if (!narrow)
-            {
-                view.Show(bar);
-                view.SettleForRender();
-            }
             Require(!view.PassedLargest, "the bar laid past its largest footprint");
             var buttons = view.Column.Where(button => button.gameObject.activeSelf).ToList();
             foreach (var button in buttons)

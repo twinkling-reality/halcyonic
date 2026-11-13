@@ -437,4 +437,51 @@ public class RoomPageTests
         while (bar.GeneralPart.Page < bar.GeneralPart.Pages - 1) bar.Turn();
         Assert.That(bar.Whole, Is.True, "shown, now read");
     }
+
+    /// <summary>
+    /// Eight lines means eight lines (the lead's 2026-11-13T20:15Z): with the plane's line measure the general reader fills a page
+    /// to eight LINES, a row's label counted; a row of forty lines, and an agent's longest unbroken words, stand in their own
+    /// parts, each part keeping the row's label, every line reached once, and no page passes eight lines; the frame counts as read
+    /// only once every part was shown.
+    /// </summary>
+    [Test]
+    public void EightLinesMeansEightLinesAndALongRowStandsInItsOwnPartsWithItsLabel()
+    {
+        int Measure(LineWords words) => System.Math.Max(1, (words.Text.Length + 29) / 30);
+        var form = RoomForm.Full.Measured(Measure);
+        int LinesOn(IReadOnlyList<RoomRow> rows) => rows.Sum(row => (row.Label == null ? 0 : Measure(LineWords.Ours(row.Label))) + (row.Lines ?? Measure(row.Words)));
+
+        var forty = new string('a', 30 * 40 - 1);
+        var agents = new string('b', 30 * 12 - 1);
+        var frame = Frame(new[]
+        {
+            new PageLine("A short line"),
+            new PageLine(LineWords.Ours("Notes"), fact: LineWords.Theirs(forty)),
+            new PageLine(LineWords.Ours("Link"), fact: LineWords.Theirs(agents)),
+        });
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle, form)!;
+        var parts = new Dictionary<string, List<(int From, int Lines)>>();
+        for (var page = 0; page < bar.GeneralPart.Pages; page++)
+        {
+            var rows = (IReadOnlyList<RoomRow>?)bar.Facts ?? new[] { new RoomRow(bar.Body) };
+            Assert.That(LinesOn(rows), Is.LessThanOrEqualTo(RoomForm.SpecLines), "page " + (page + 1) + " passes eight lines");
+            foreach (var row in rows.Where(row => row.Label != null))
+            {
+                if (!parts.ContainsKey(row.Label!)) parts[row.Label!] = new List<(int, int)>();
+                parts[row.Label!].Add((row.FromLine, row.Lines ?? Measure(row.Words)));
+            }
+            if (page < bar.GeneralPart.Pages - 1) Assert.That(bar.Whole, Is.False, "parts still to read");
+            bar.Turn();
+        }
+        foreach (var (label, total) in new[] { ("Notes", 40), ("Link", 12) })
+        {
+            var seen = parts[label];
+            Assert.That(seen.Count, Is.GreaterThan(1), label + " stands in parts, its label on each");
+            Assert.That(seen.Select(part => part.From), Is.EqualTo(seen.Select((part, at) => seen.Take(at).Sum(each => each.Lines))), label + "'s parts follow one another");
+            Assert.That(seen.Sum(part => part.Lines), Is.EqualTo(total), "every line of " + label + " reached once");
+        }
+
+        // Without a measure, rows a page as before.
+        Assert.That(RoomBar.OfFrame(frame, VoiceStage.Idle)!.GeneralPart.Pages, Is.EqualTo(1));
+    }
 }
