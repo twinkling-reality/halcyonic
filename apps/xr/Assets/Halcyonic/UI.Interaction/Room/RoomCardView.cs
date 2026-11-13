@@ -266,6 +266,23 @@ namespace Halcyonic.XR.UI
         /// <summary>Every tile, mark and plate the card shows now, with what it is: for checks.</summary>
         public List<(RoomShape Plate, string What)> Plates { get; } = new List<(RoomShape, string)>();
 
+        private readonly List<int> listLines = new List<int>();
+
+        /// <summary>Each list row's lines as the card last laid it (its label, name, a note under the name, its quieter line), in order.</summary>
+        public IReadOnlyList<int> ListLines => listLines;
+
+        /// <summary>
+        /// The lines <paramref name="row"/> takes laid as a card's list row <paramref name="width"/> wide, by the very path the card
+        /// draws it (its mark's room, its swatch's, its label, name, note and quieter line): one measure for the file that pages a
+        /// question and the reader that lays its answers as rows, so the two never count apart (AUDIT's 2026-11-13T2206Z; the lesson
+        /// of charN's part 2). Lays this view: call it on a view kept for measuring, never on one shown.
+        /// </summary>
+        public int LinesOfListRow(RoomListRow row, float width)
+        {
+            Show(new RoomCard(list: new[] { row }), width);
+            return listLines.Count > 0 ? listLines[0] : 1;
+        }
+
         /// <summary>
         /// Whether the card as last shown stands whole: every label it laid (the title, the line, each slot's value, each
         /// row, each line of reading, the foot line) shows all its words, none cut or ellipsed. XR's host reports a frame
@@ -337,6 +354,7 @@ namespace Halcyonic.XR.UI
             ReadingShown.Clear();
             Plates.Clear();
             Glyphs.Clear();
+            listLines.Clear();
             var down = 0f;
             void Gap(float dp) { if (down > 0f) down += S(dp); }
 
@@ -1182,6 +1200,11 @@ namespace Halcyonic.XR.UI
                 var underGap = row.Name.AllTheirs && row.Under != null && !row.Under.AllTheirs ? S(UnderTheirsGapDp) : S(2f);
                 var noteUnder = stacked && noteLabel != null ? S(2f) + noteTall : 0f;
                 var block = labelTall + labelGap + nameTall + noteUnder + (underLabel != null ? underGap + underTall : 0f);
+                // The row's lines as laid, each part by its own pitch: its label's, its name's, its note's where it stands under the
+                // name (beside it, it shares the name's line), its quieter line's. What a page of eight lines counts (AUDIT's 22:06Z).
+                int LinesOf(float tall, float lineDp) => tall <= 0f ? 0 : Mathf.Max(1, Mathf.RoundToInt(tall / S(lineDp)));
+                listLines.Add(LinesOf(labelTall, RowNoteLineDp) + LinesOf(nameTall, plain && !row.Mono ? RowNoteLineDp : RowNameLineDp)
+                    + (stacked && noteLabel != null ? LinesOf(noteTall, RowNoteLineDp) : 0) + (underLabel != null ? LinesOf(underTall, RowNoteLineDp) : 0));
                 var rowTall = marked ? Mathf.Max(S(RowTileDp), block) : block;
                 var middle = top + rowTall / 2f;
                 if (labelLabel != null) labelLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f), -RoomType.Units(0.5f));

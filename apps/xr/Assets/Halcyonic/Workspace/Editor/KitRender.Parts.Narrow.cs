@@ -224,6 +224,13 @@ namespace Halcyonic.XR.Workspace.Editor
                         "the chosen answers are not filled with their check" + where);
                     Require(!view.Glyphs.Any(each => each.What == "row chevron"), "an answer carries a chevron" + where);
                     Require(view.Plates.Count(each => each.What == "row swatch") == rows.Count(row => row.Swatch != null), "a colour row does not show its colour" + where);
+                    // One measure for the file and the reader (AUDIT's 22:06Z): each row measured alone on a view kept for measuring
+                    // counts the lines the card laid it in.
+                    var measurer = RoomCardView.Create(plane);
+                    var measured = rows.Select(row => measurer.LinesOfListRow(row, width)).ToList();
+                    measurer.gameObject.SetActive(false);
+                    Require(view.ListLines.Count == rows.Count && measured.SequenceEqual(view.ListLines) && measured.All(lines => lines >= 1),
+                        "a row measured alone is not the lines the card laid it in: " + string.Join(",", measured) + " against " + string.Join(",", view.ListLines) + where);
                     Require(!view.Plates.Any(each => each.What.StartsWith("row tile", StringComparison.Ordinal)), "an answer draws its kind's tile under its mark" + where);
                     foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
                     {
