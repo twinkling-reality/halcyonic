@@ -929,7 +929,10 @@ namespace Halcyonic.XR.Workspace
             if (Away || plane.Repositioning || dirty || drag != null || plane.Sliding) return false;
             if (placement != null)
             {
-                if (frame != placementFrame || from != MenuColumn.File || frame == null || frame != placementDrawn
+                // A way out of a placement (its Cancel, Close or page turn, as declared) never waits for the draw, as anywhere (pick A).
+                var wayOut = frame != null && frame.Footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available
+                    && (each.Prompt.Kind == PromptKind.Close || each.Prompt.Kind == PromptKind.Cancel || each.Prompt.Kind == PromptKind.NextPage));
+                if (frame != placementFrame || from != MenuColumn.File || frame == null || (frame != placementDrawn && !wayOut)
                     || !(frame.Footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available)
                         || frame.Lines.Any(line => line.Action == action && line.Key == key && line.Pressable))) return false;
                 placement.Act(action, key);
@@ -955,7 +958,18 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The kit drew the file's frame: the frame's draw, by the same rules as a view's (<see cref="OnDrawn"/>).</summary>
         private void OnKitDrawn(MenuColumn from, MenuFrame frame)
         {
-            if (Away || plane.Repositioning || placement != null) return;
+            if (Away || plane.Repositioning) return;
+            if (placement != null)
+            {
+                // Under the redesign the kit draws a placement's frame (bound since 0e4e2f9d3): the placement learns of it as from a
+                // view, or its Apply, which decides, would wait for a draw that never comes (JUDGE's shelf walk, 2026-11-13).
+                if (from == MenuColumn.File && frame == placementFrame)
+                {
+                    placementDrawn = frame;
+                    placement.Drawn(frame, null);
+                }
+                return;
+            }
             navigator.Drawn(from, frame, null);
         }
 
