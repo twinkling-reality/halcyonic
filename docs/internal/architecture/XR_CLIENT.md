@@ -1769,14 +1769,18 @@ own activity so no section's source band stands over the result; the understandi
 opens there. The understanding's account of the change follows the files as later parts of the same page (`ChangesAccount`,
 SCREENS, 2026-11-12): what changed, why and how it was built, a part an answer, each the brief answer XR computes
 (`UnderstandingPresenter`, brief depth): its lead line whole as the card's description (the agent's or a model's words
-alone, leaning, with a slot of the agent's mark saying Agent Says or Model Says), the rest as rows each with its kind (a file's mark, the agent's for what the agent
-said, else none) and how it is known as its quiet note in our words (Agent Says, Model Says, Inferred, Planned), never
-the product's dotted chips; five rows a part, Next Page the
-main action to the last part, History, Checks and Back where they were. An answer with no lines is no part. The
-source's own provenance names the provider's product, so it is never drawn: the foot carries FIELD's source words where
-given, and nothing otherwise. `RoomResult.FileParts` are the files' parts, `RoomResult.Account` the rest. Tests:
-`RoomResultTests.TheUnderstandingsAccountFollowsTheFilesOnChangesAPartAnAnswer`. Not yet: XR computing the three answers
-while the redesign shows the result's Changes page, and passing them to `RoomResult.Of`; until then no account part stands.
+alone, said to be theirs first by the card's quiet state under its title, the speech bubble, `RoomKind.Says`, and Agent
+Says or Model Says; the room's faces carry no slant, so whose words they are is said, not leaned), the rest as rows each with its kind (a file's mark, the bubble for what the
+agent said, else none, which draws no mark) and how it is known as its quiet note in our words (Agent Says, Model Says,
+Inferred, Planned), never the product's dotted chips; five rows a part, Next Page the main action to the last part,
+History, Checks and Back where they were. An answer with no lines is no part. The source's own provenance names the
+provider's product, so it is never drawn: the foot says From the Agent's Records (FIELD's words) where every answer
+shown was read from the agent app's own records, and nothing for a stand-in's answers. XR reads the understanding while
+the redesign shows the result's Changes page and passes the three briefs at the one `RoomResult.Of` call
+(`FileColumn.Account`). `RoomResult.FileParts` are the files' parts, `RoomResult.Account` the rest. Tests:
+`RoomResultTests.TheUnderstandingsAccountFollowsTheFilesOnChangesAPartAnAnswer`,
+`RoomWorkingTests.TheAccountForTheResultsChangesIsNothingBeforeTheUnderstandingAnswers`; render states
+`66-account-what`, `66-account-why`, `66-account-unsourced` in `KitRender.FileChangeCheck`.
 
 What Cursor, Bolt and Lovable give as the diff and the code view, from the result's Changes. Every row of Changes is
 pressed (`RoomBar.FileRow`: the result action `room-file`, its key the path as the folder names it) where a computer
@@ -3876,9 +3880,7 @@ permission prompt, and whether a ray that leaves the button while pinching ends 
 
 ## Not built yet
 
-In the redesign, the understanding's account of a change (what changed, why, how it was built) on the result's page of
-changed files: SCREENS draws its parts (`ChangesAccount`); XR computing the answers for that page and FIELD's source line
-without the provider's name are not built yet, so no account part stands until they are. Code, diffs, tests and output in the workspace; the Understanding section's full lists (every
+Code, diffs, tests and output in the workspace; the Understanding section's full lists (every
 changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));
