@@ -22,7 +22,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] GeneralBaseStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage", "52-general-caps" };
+        private static readonly string[] GeneralBaseStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage", "52-general-caps", "52-general-colour", "52-general-shelf" };
 
         /// <summary>
         /// Every state twice: as the full bar, and in the kit's narrow form (AUDIT's 17:15Z condition 2, the lead's 17:16Z condition 1),
@@ -33,6 +33,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// narrowest width the plane lays a main screen at for the text size, its pages logged as the worst case in parts.</remarks>
         private static readonly string[] GeneralStates = GeneralBaseStates.Concat(GeneralBaseStates.Select(each => each + "-narrow"))
             .Concat(GeneralBaseStates.Select(each => each + "-floor")).ToArray();
+
+        private static readonly (string, string)[] GeneralShelfPairs = { ("Left", "Right"), ("Closer", "Farther"), ("Up", "Down"), ("Turn Left", "Turn Right") };
 
         private static PartShot GeneralShot(string state, Transform root, Vector3 eyes, string name)
         {
@@ -91,6 +93,22 @@ namespace Halcyonic.XR.Workspace.Editor
                     lines.AddRange(Enumerable.Range(1, 3).Select(n => new PageLine("Answer " + n, action: "answer", key: n.ToString(CultureInfo.InvariantCulture), choice: true,
                         answerMark: AnswerMark.Single).WithUnder(LineWords.Ours("Keeps what the agent made and starts the next step from it."))));
                     frame = new MenuFrame("Settings", new Footer(close), lines: lines);
+                }
+                // A picker's choices and a shelf's moves in the panel (the lead's 21:11Z): the plane's own Character Colour, and the shelf's
+                // nine moves handed in pairs, never split across a page.
+                if (state == "52-general-colour")
+                    frame = new CharacterColourColumn(new CharacterColourSettings(), new CharacterColourScope("render", "journal", "task"), () => true, _ => true).Frame;
+                if (state == "52-general-shelf")
+                {
+                    var moves = new List<PageLine> { new PageLine("Hold Move Shelf to Drag", tone: LineTone.Secondary).WithUnder(LineWords.Ours("Apply for This Session")) };
+                    foreach (var (a, b) in GeneralShelfPairs)
+                    {
+                        moves.Add(new PageLine(a, action: "move", key: a, control: LineControl.Action).WithGroup(a));
+                        moves.Add(new PageLine(b, action: "move", key: b, control: LineControl.Action).WithGroup(a));
+                    }
+                    moves.Add(new PageLine("Find Room Surface", action: "read-room", control: LineControl.Action));
+                    frame = new MenuFrame("Shelf", new Footer(new Prompt(Footer.Close, "Cancel", GlazeIcon.Close, PromptKind.Close),
+                        farRight: new Prompt("apply", "Apply", GlazeIcon.Change, main: true)), lines: moves);
                 }
                 if (state == "52-general-usage")
                 {
@@ -152,7 +170,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : floor ? "floor " + width.ToString("0", CultureInfo.InvariantCulture) + " dp" : "full") + " at " + form.LinesAPage + " lines a page, " + bar.GeneralPart.Pages + " page"
                 + (bar.GeneralPart.Pages == 1 ? "" : "s") + (bar.Card != null ? " (" + bar.Card.List.Count + " pressed rows on the first)" : "") + ".");
             var confirm = state == "52-general-confirm";
-            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || (state is "52-general-usage" or "52-general-caps" || measured || confirm) && bar.GeneralPart.Pages > 1;
+            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" or "52-general-shelf" || (state is "52-general-usage" or "52-general-caps" || measured || confirm) && bar.GeneralPart.Pages > 1;
             // The general reader's card holds pressed rows, never the usage card's gauges (which would mean a specific reader took it).
             if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
@@ -162,7 +180,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 Require(bar.Column.Last().Control.Action == wayOut && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its way out");
                 // Read once every page with something to read was shown: the second page of rows, and at once where only bare actions page.
-                if (!measured && !confirm) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column"), "Whole before every page to read was shown, or not after");
+                if (!measured && !confirm) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column" or "52-general-shelf"), "Whole before every page to read was shown, or not after");
             }
             Require(!bar.LostPart, "the general reader lost a part of the frame (not on screen)");
             if (frame.Side is SidePanel panel)
@@ -178,6 +196,10 @@ namespace Halcyonic.XR.Workspace.Editor
             var drawn = new List<string>();
             var sweep = Read();
             var sweepPages = PagesOf(sweep);
+            var pageOf = new Dictionary<string, int>();
+            if (state is "52-general-colour" or "52-general-shelf")
+                Require(sweep.Card != null && sweep.Card.List.Count > 0 && sweep.Column.All(action => action.Control.Place != KitPlace.Choice && action.Control.Action != "move"),
+                    "the picker's lines do not stand in the panel as the card's pressed rows");
             for (var page = 0; page < sweepPages; page++)
             {
                 var at = "page " + (page + 1) + " of " + sweepPages + ": ";
@@ -208,10 +230,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(onPage.Any(said => Words(said).Contains(Words(action.Words))) && (action.Detail == null || onPage.Any(said => Words(said).Contains(Words(action.Detail)))),
                         at + "the action \"" + action.Words + "\" is not drawn whole with its detail");
                 drawn.AddRange(onPage);
+                foreach (var row in sweep.Card?.List ?? (IReadOnlyList<RoomListRow>)Array.Empty<RoomListRow>()) pageOf[row.Name.Text] = page;
                 Debug.Log("Halcyonic: parts: " + name + ": " + at + "drew " + string.Join(" | ", onPage.Select(Words)) + ".");
                 if (sweepPages > 1) sweep.Turn();
             }
             Require(sweep.Whole, "every page was shown and the frame is still not read");
+            if (state == "52-general-shelf")
+                foreach (var (a, b) in GeneralShelfPairs)
+                    Require(pageOf.TryGetValue(a, out var at) && pageOf.TryGetValue(b, out var beside) && at == beside, "\"" + a + "\" and \"" + b + "\" stand on two pages");
             Require(sweep.GeneralPart.Page == 0, "the pager does not come back to the first page");
             var expected = new List<string>();
             if (frame.Side is SidePanel side)
