@@ -145,8 +145,41 @@ public class FileScreensTests
         var failed = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, Intelligence.ExecutionId, null, loading: false, error: "Connection refused",
             Intelligence.At(Answers.Now), Intelligence.Utc, depth: AnswerDepth.Brief);
         var frame = Screen(new FileScreen { Section = FileSection.Changes, WhatChanged = new FileAnswer(failed, failed) });
-        Assert.That(frame.Lines.Single().Words, Does.Contain("Connection refused"));
+        // What is missing, then why, each a line of its own (AUDIT's MUST N, 2026-11-13).
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Understanding Unreadable", "Connection refused" }));
         Assert.That(frame.Source, Is.Null);
+    }
+
+    /// <summary>
+    /// Checks where neither source has an answer: what is missing, why, and the measurement's own state on its page, each
+    /// part a line of its own in the product's words, none naming a source product or carrying the host's message, and
+    /// no line joining facts on a dot or a comma (the lead's ruling and AUDIT's MUST N, 2026-11-13).
+    /// </summary>
+    [Test]
+    public void ChecksWithNoAnswerGivesWhatIsMissingAndWhyAsLinesApart()
+    {
+        var screen = new FileScreen { Section = FileSection.Checks };
+        var none = Intelligence.Failure("unavailable", "runtime_not_observed", "Salidium does not observe sessions of this runtime; run salidium consumer create.");
+        var measured = Intelligence.Failure("unavailable", "not_running", "Seorak is not running.");
+        screen.Checked = new FileAnswer(Answers.Checked(none, measured), Answers.Checked(none, measured));
+        var first = Screen(screen, room: AnswerRoom.Unlimited);
+        Assert.That(first.Lines.Select(line => line.Words).Take(2), Is.EqualTo(new[] { "Conclusions Unavailable", "Agent App Not Followed" }));
+        Assert.That(first.Lines[0].Opens, Is.True, "what is missing opens the full answer, which holds the measurement");
+        var words = new List<string>();
+        for (var page = 0; page < 4; page++)
+        {
+            var frame = Screen(screen, room: AnswerRoom.Unlimited);
+            words.AddRange(frame.Lines.Select(line => line.Words));
+            if (frame.Side != null) words.AddRange(frame.Side.Lines.Select(line => line.Words));
+            screen.NextPage();
+        }
+        Assert.That(words, Has.Some.EqualTo("Measurement Unavailable"));
+        foreach (var said in words)
+        {
+            Assert.That(said, Does.Not.Contain("Salidium").IgnoreCase.And.Not.Contain("Seorak").IgnoreCase.And.Not.Contain("consumer create"), said);
+            Assert.That(said, Does.Not.Contain(" · "), said);
+        }
+        Assert.That(first.Lines.Take(2).Any(line => line.Words.Contains(", ")), Is.False, "no facts strung on a comma");
     }
 
     [Test]
@@ -220,8 +253,10 @@ public class FileScreensTests
                 false, null, Intelligence.Live(Intelligence.Evaluation(ControlPlaneApiTests.Available), "2026-09-26T18:01:00.000Z"), false,
                 null, Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc, depth: depth);
         var screen = new FileScreen { Section = FileSection.Checks, Checked = new FileAnswer(Checked(AnswerDepth.Brief), Checked(AnswerDepth.Full)) };
-        var why = Screen(screen, room: AnswerRoom.Unlimited).Lines.Single();
-        Assert.That((why.Words, why.Opens, why.Key), Is.EqualTo(("Conclusions Unavailable, Agent App Not Followed", true, FileScreens.ChecksKey)));
+        // What is missing opens the full answer; why stands apart under it (AUDIT's MUST N, 2026-11-13).
+        var lines = Screen(screen, room: AnswerRoom.Unlimited).Lines;
+        Assert.That((lines[0].Words, lines[0].Opens, lines[0].Key), Is.EqualTo(("Conclusions Unavailable", true, FileScreens.ChecksKey)));
+        Assert.That((lines[1].Words, lines[1].Action), Is.EqualTo(("Agent App Not Followed", (string?)null)));
         screen.Chosen = FileScreens.ChecksKey;
         var sources = new List<string?>();
         var side = Screen(screen, room: AnswerRoom.Unlimited).Side!;

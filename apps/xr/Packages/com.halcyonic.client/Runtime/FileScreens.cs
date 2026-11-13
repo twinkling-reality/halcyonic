@@ -536,6 +536,11 @@ namespace Halcyonic.Client
                     // Why there is no brief answer; where the full one still holds something, as the evaluation
                     // source's measurement beside an understanding that couldn't be read, it opens it.
                     var opens = answer.Full.Lines.Count > 0;
+                    if (answer.Brief.From is SourceWords { State: not null } missing)
+                    {
+                        lines.AddRange(Apart(missing, Tone(answer.Brief.ProvenanceTone), opens ? key : null, opens && key == screen.Chosen));
+                        continue;
+                    }
                     lines.Add(answer.Brief.ProvenanceRuns.AnyTheirs
                         ? new PageLine(answer.Brief.ProvenanceRuns, tone: Tone(answer.Brief.ProvenanceTone), rows: 3,
                             action: opens ? Open : null, key: opens ? key : null, opens: opens, chosen: opens && key == screen.Chosen)
@@ -555,7 +560,9 @@ namespace Halcyonic.Client
             {
                 // With nothing under it, its source line says why there is none, as the first source's does above.
                 var theirs = below.Count == 0
-                    ? Paged(new[] { new PageLine(IntelligenceText.Plain(from.Text), wordsAreData: true, tone: Tone(from.Tone), rows: 3) }, room.Rows)
+                    ? Paged(from.From is SourceWords { State: not null } none
+                        ? Apart(none, Tone(from.Tone), null, false).ToList()
+                        : new List<PageLine> { new PageLine(IntelligenceText.Plain(from.Text), wordsAreData: true, tone: Tone(from.Tone), rows: 3) }, room.Rows)
                     : Paged(below.Select(line => Line(line, room)).ToList(), WithSource(room).Rows);
                 pages.AddRange(theirs);
                 sources.AddRange(theirs.Select(_ => below.Count == 0 ? ((string?)null, (LineWords?)null) : ((string?)from.Text, (LineWords?)null)));
@@ -576,6 +583,23 @@ namespace Halcyonic.Client
             if (side?.Parts is (int part, int parts) && parts > 1) footer = footer.WithNext(Next(part, parts));
             else if (pages.Count > 1) footer = footer.WithNext(Next(screen.Page, pages.Count));
             return new Page(shown, source, footer, side, sourceIsData: true, sourceRuns: sourceRuns);
+        }
+
+        /// <summary>
+        /// Why a source has nothing, its parts apart (the lead's ruling and AUDIT's MUST N, 2026-11-13): what is missing as the
+        /// page's line, opening the full answer where it holds anything, then why, and this headset's own read, each a line of
+        /// its own in the product's words, never one string of facts. A reader draws them apart, as lines.
+        /// </summary>
+        private static IEnumerable<PageLine> Apart(SourceWords missing, LineTone tone, string? opensKey, bool chosen)
+        {
+            yield return new PageLine(missing.State!, tone: tone, rows: 2, action: opensKey != null ? Open : null, key: opensKey, opens: opensKey != null,
+                chosen: chosen);
+            foreach (var notice in new[] { missing.Why, missing.Status })
+            {
+                if (notice is not Notice said) continue;
+                yield return new PageLine(said.Title, tone: LineTone.Secondary);
+                if (said.Line is { Length: > 0 } line) yield return new PageLine(line, tone: LineTone.Secondary, rows: 2);
+            }
         }
 
         /// <summary>
