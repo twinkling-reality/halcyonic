@@ -281,8 +281,6 @@ async function main(): Promise<void> {
               trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
               installedDir: join(config.dataDir, 'starters'),
             },
-            // Codex confines a starter project's agent here (ADR 0041), when Codex is set up.
-            confinesCodex: config.codexBinary !== null,
             ports: family.previews,
             play: {
               viewerPorts: family.viewers,

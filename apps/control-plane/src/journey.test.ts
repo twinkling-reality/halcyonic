@@ -367,7 +367,6 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         browserProblem: () => null,
         launcher: () => '/fake/bin/halcyonic-disclaim',
         starters: { trackedDir, installedDir },
-        confinesCodex: true,
         play: {
           viewerPorts: [47950, 47959],
         },
@@ -878,7 +877,6 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         browserProblem: () => null,
         launcher: () => '/fake/bin/halcyonic-disclaim',
         starters: { trackedDir, installedDir },
-        confinesCodex: true,
         play: {
           launch: async (): Promise<ChromeRun> => {
             playRuns.started += 1;
@@ -1306,7 +1304,6 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
         browserProblem: () => null,
         launcher: () => '/fake/bin/halcyonic-disclaim',
         starters: { trackedDir: realStartersDir, installedDir },
-        confinesCodex: true,
         play: {
           launch: async (): Promise<ChromeRun> => {
             playRuns.started += 1;

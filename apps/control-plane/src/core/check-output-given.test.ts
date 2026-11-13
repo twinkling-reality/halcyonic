@@ -81,7 +81,6 @@ function plane(t: TestContext, results: CheckResult[]) {
       browserProblem: () => null,
       launcher: () => '/fake/bin/halcyonic-disclaim',
       starters: { trackedDir: '/repo/starters', installedDir: join(dataDir, 'starters') },
-      confinesCodex: true,
       // As the real check does: each step's output in the check's own folder, paths as tsc gives them.
       runCheck: async (options) => {
         mkdirSync(options.cache, { recursive: true });
