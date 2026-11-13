@@ -7,6 +7,7 @@ start from the whole small game at the end of this project's AGENTS.md and chang
 Keep to the main play and its score: leave out title, end and pause screens, menus and best scores.
 Set it in the world from src/worlds.ts that fits the original, and keep its feel.
 If it is not a game, first find from its own code (its routes, its main screen, what its data is) the one thing people open it to do, write in a line or two what it is for and what of it this VR version will carry, then build without waiting.
+If it is not a game, build it in setupScene(world, colour) from src/kit.ts with the app's own page colour, never on the island and never in a world from src/worlds.ts, however well one fits its theme.
 Build that use, working, with the app's own content: what a person sees and what they do with their hands. Its landing or marketing page is not its use, unless the app is nothing else.
 Keep every part of that use: each way it finds things (a search, a filter) and each field of its forms gets a way that works with a hand in VR, as 'An app's use, not a game' in this project's AGENTS.md says, or is named among what this version leaves out.
 If it is not a game, let every list be read to its end, and draw words in the scene no smaller than the kit's type scale, as that section says.

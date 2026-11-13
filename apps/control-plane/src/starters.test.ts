@@ -357,6 +357,12 @@ describe('making a VR version of a project (M1.8c-1)', () => {
       instruction,
       /Put the app's name and one line on what to do on its welcome card\. If it is not a game, put one plain line beside its use, in the scene, on what of the app this version does not carry yet, or that it carries all of it\./,
     );
+    // Run (b3)'s model asked whether a field guide belonged in the seaside world: the words leave no choice (the lead,
+    // 2026-11-13T16:45Z item 3).
+    assert.match(
+      instruction,
+      /If it is not a game, build it in setupScene\(world, colour\) from src\/kit\.ts with the app's own page colour, never on the island and never in a world from src\/worlds\.ts, however well one fits its theme\./,
+    );
     // Run (a4)'s welcome card still named the starter's game keys in an app that is not a game (the lead, 13:31Z).
     assert.match(
       instruction,
