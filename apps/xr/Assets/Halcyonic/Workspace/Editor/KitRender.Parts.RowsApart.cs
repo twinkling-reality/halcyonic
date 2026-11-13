@@ -64,6 +64,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var at = label.transform.localPosition;
                 return Rect.MinMaxRect(at.x + bounds.min.x, at.y + bounds.min.y, at.x + bounds.max.x, at.y + bounds.max.y);
             }
+            var ends = new List<float>();
             bool Crosses(Rect a, Rect b) => a.xMin < b.xMax - slack && a.xMax > b.xMin + slack && a.yMin < b.yMax - slack && a.yMax > b.yMin + slack;
             for (var index = 0; index < rows.Count; index++)
             {
@@ -82,10 +83,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         boxes.Add((part, box));
                     }
                 }
+                var noted = boxes.Where(each => each.Name == "note").Select(each => each.Box).ToList();
+                if (noted.Count > 0) ends.Add(noted[0].xMax);
                 for (var a = 0; a < boxes.Count; a++)
                     for (var b = a + 1; b < boxes.Count; b++)
                         if (Crosses(boxes[a].Box, boxes[b].Box)) failures.Add(what + "'s " + boxes[a].Name + " and " + boxes[b].Name + " stand over each other");
             }
+            // Every note ends on one right edge: the states stand in a column.
+            if (ends.Count > 1 && ends.Max() - ends.Min() > RoomType.Units(1f)) failures.Add("the rows' notes end " + ((ends.Max() - ends.Min()) / RoomType.Units(1f)).ToString("0.0") + " dp apart, not on one edge");
             return failures;
         }
     }
