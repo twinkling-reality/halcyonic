@@ -695,13 +695,14 @@ namespace Halcyonic.Client
         /// The recap's way on: Start Building, or, where it waits on the folder or the run settings, the choice that it waits on
         /// (Choose Folder, Choose Agent App, Choose Model), its page a press away; any other wait is Start Building's reason.
         /// </summary>
-        internal static Prompt WayOn(string? problem) => problem switch
+        internal static Prompt WayOn(string? problem)
         {
-            EntryText.ChooseWhereFilesLive => new Prompt(ChooseAnotherFolder, EntryText.ChooseAnotherFolder, GlazeIcon.Change, main: true, safeInPlace: true),
-            EntryText.ChooseHowItRuns or EntryText.ChooseAgain => new Prompt(MoreOptions, EntryText.ChooseAgentApp, GlazeIcon.Change, main: true, safeInPlace: true),
-            EntryText.FinishChoosing => new Prompt(MoreOptions, EntryText.ChooseModel, GlazeIcon.Change, main: true, safeInPlace: true),
-            _ => new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem, safeInPlace: true),
-        };
+            if (problem == EntryText.ChooseWhereFilesLive) return new Prompt(ChooseAnotherFolder, EntryText.ChooseAnotherFolder, GlazeIcon.Change, main: true, safeInPlace: true);
+            if (problem == EntryText.ChooseHowItRuns || problem == EntryText.ChooseAgain) return new Prompt(MoreOptions, EntryText.ChooseAgentApp, GlazeIcon.Change, main: true, safeInPlace: true);
+            if (problem == EntryText.FinishChoosing) return new Prompt(MoreOptions, EntryText.ChooseModel, GlazeIcon.Change, main: true, safeInPlace: true);
+            // Any other wait is Start Building's own reason, said where it stands.
+            return new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem, safeInPlace: true);
+        }
 
         /// <summary>
         /// The recap as a card (the addendum's A17): the project's name as the title, its first task as the line under it, and
