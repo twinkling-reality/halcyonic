@@ -107,7 +107,8 @@ An app's use, not a game (a guide, a log, a list, a form, a tool):
   previous six, `count` and `first` say where the person is ("7 to 12 of 14"), and `set(list)` shows what a search or
   a filter leaves in the same row. A list you draw yourself pages the same way, `MAX_PAGES` at a time. Give it a Next
   and a Back to press; never cut it with "and N more" and no way there. A card's words that do not fit go on to the
-  next card, never cut off.
+  next card, never cut off: `pages()` does it itself, and for cards you draw, `fitText` from `./kit.js` splits
+  the words over the cards they take.
 - Words in the scene are read at a distance: draw them no smaller than `TYPE` from `./kit.js` (font sizes in metres
   for words read 1.6 m away, `TYPE.words` for running words and `TYPE.title` for titles; twice as far, twice as big).
   Measure each line with `measureText` and start the next thing after it, so a title never runs into the words beside

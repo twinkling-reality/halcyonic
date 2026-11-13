@@ -194,7 +194,8 @@ what is not carried yet be said in one line that stays in the scene beside the u
 critic read these words for an imagined recipe box (search, tags, a form with long steps and a photo, a sign-in) and a
 small arcade game: the game path is unharmed; it found that the pages could not show what a filter leaves, that long
 text and files had no rule, that a sign-in form would be rebuilt and faked, and that the welcome card's words leave at
-once in VR. So the pages take `set(list)` and centre a last, partial six, short free words get a keyboard while long
+once in VR. So the pages take `set(list)` and centre a last, partial six, a page's words that do not fit go on to pages of the
+same title after it (AUDIT2 found the pages still cut them with an ellipsis while the words promised otherwise), short free words get a keyboard while long
 text and files are named as left out, an account or a sign-in is never rebuilt, and the line stands in the scene.
 The starter's check measures none of
 these: its words are drawn into canvas textures, not the page, and a cut list has no one shape to find, so the

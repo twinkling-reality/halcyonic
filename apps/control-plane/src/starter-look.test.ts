@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { fitText } from '../../../starters/iwsdk-vr/template/src/page-fit.ts';
 
 // The starter's look as a headset wearer and the laptop camera see it. The template's three.js code runs only in a
 // browser (the repository does not install the starter's dependencies), so its numbers and wiring are read here as
@@ -678,5 +679,37 @@ describe("an app's use comes whole, read to its end and readable (the lead, 2026
     );
     has(/pass all of them/);
     assert.doesNotMatch(agents, /pass up to six/);
+  });
+});
+
+describe("a page's words go on to the next page, never cut off (AUDIT2, 2026-11-13)", () => {
+  // AUDIT2 blocked the words unit: the words promised it while the pages cut a card's words with " ...".
+  // Every character ten units wide: a line of 100 holds ten characters.
+  const measure = (text: string) => text.length * 10;
+
+  test('one long text becomes two pages, the words in order and none lost, paragraphs kept', () => {
+    const text = 'aaaa bbbb cccc dddd\neeee ffff gggg hhhh';
+    const pages = fitText(text, 100, measure, 2, 3);
+    assert.deepEqual(pages, ['aaaa bbbb cccc dddd', 'eeee ffff gggg hhhh']);
+    assert.deepEqual(fitText('aaaa bbbb cccc dddd eeee ffff', 100, measure, 1, 1), [
+      'aaaa bbbb',
+      'cccc dddd',
+      'eeee ffff',
+    ]);
+    // Words that fit stay one page, the very text given.
+    assert.deepEqual(fitText(text, 100, measure, 4, 4), [text]);
+    // A first page with no room for words (its picture takes it) leaves them all to the next.
+    assert.deepEqual(fitText('aaaa bbbb', 100, measure, 0, 4), ['', 'aaaa bbbb']);
+  });
+
+  test('pages() lays out what the words take and draws no ellipsis', () => {
+    const pages = read('src/pages.ts');
+    assert.match(pages, /fitText\(/);
+    assert.doesNotMatch(pages, / \.\.\.`/);
+    assert.doesNotMatch(pages, /stop with an ellipsis/);
+    assert.match(pages, /items = laid\(next\);/);
+    // Cards an agent draws itself split their words the same way.
+    assert.match(read('src/kit.ts'), /export \{ fitText \} from '\.\/page-fit\.js';/);
+    assert.match(read('AGENTS.md'), /for cards you draw, `fitText` from `\.\/kit\.js` splits/);
   });
 });

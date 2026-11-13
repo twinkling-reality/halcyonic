@@ -9,6 +9,7 @@ import {
   type Texture,
 } from 'three';
 import { ambientMotion, gameIsland, gameTime } from './look.js';
+import { fitText, wrapLines } from './page-fit.js';
 
 /** One of the original's own cards, steps or pages: its title, its words and, if it has one, its picture. */
 export interface Page {
@@ -32,13 +33,16 @@ export interface PagesOptions {
 export interface Pages {
   /** The row, already in the scene; move or turn it as a whole if the view needs it. */
   readonly group: Group;
-  /** The row's six flat panels: wrap each in an entity to press it. Panel `i` shows page `first + i`, if there is one. */
+  /** The row's six flat panels: wrap each in an entity to press it. Panel `i` shows page `first + i`, if any. */
   readonly panels: readonly Mesh[];
   /** Brings panel `index` forward and lights it, the others back; on the game's own clock. */
   show(index: number): void;
   /** The list's index of the page the first panel shows: 0, then 6, 12 and on as the row turns. */
   readonly first: number;
-  /** How many pages the list has now, so a person can be told where they are ("7 to 12 of 14"). */
+  /**
+   * How many pages the list takes now, so a person can be told where they are ("7 to 12 of 14"): a page whose words do
+   * not fit goes on to pages of its own title after it, so this can be more than the list's length.
+   */
   readonly count: number;
   /**
    * Lays out the next six pages (`turn(1)`) or the previous six (`turn(-1)`), so a long list is read to its end;
@@ -85,7 +89,7 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
   const group = new Group();
   // Side by side with a 6 cm gap, bent round the person so each faces them.
   const step = (WIDTH + 0.06) / distance;
-  let items = list;
+  let items = laid(list);
   let first = 0;
   const panels = Array.from({ length: MAX_PAGES }, () => {
     const panel = new Mesh(
@@ -160,57 +164,87 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
       return true;
     },
     set(next) {
-      items = next;
+      items = laid(next);
       first = 0;
       lay();
     },
   };
 }
 
+/** The page's canvas size, its margin and its type, as `drawPage` draws and `laid` measures. */
+const MARGIN = 64;
+const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+const TITLE_PX = Math.round(TYPE.title * PIXELS);
+const WORDS_PX = Math.round(TYPE.words * PIXELS);
+const LEADING = Math.round(WORDS_PX * 1.33);
+const CANVAS = { w: Math.round(WIDTH * PIXELS), h: Math.round(HEIGHT * PIXELS) };
+
+/** Where a page's words start below its title (at most two lines), and how many lines of words it holds. */
+function room(context: CanvasRenderingContext2D, title: string, picture: boolean) {
+  context.font = `700 ${TITLE_PX}px ${FONT}`;
+  const titles = wrapLines(title, CANVAS.w - MARGIN * 2, (text) => context.measureText(text).width)
+    .slice(0, 2)
+    .map((each) => each.line);
+  const top = MARGIN + 24 + titles.length * Math.round(TITLE_PX * 1.22) + 18;
+  const pictureHeight = picture ? Math.round(CANVAS.h * 0.36) : 0;
+  const lines = Math.max(0, Math.floor((CANVAS.h - MARGIN - pictureHeight - top) / LEADING));
+  return { titles, top, pictureHeight, lines };
+}
+
+/**
+ * The list as the pages it takes: a page whose words do not fit is followed by pages of the same title holding the
+ * rest, its picture on the first, so nothing is cut off and `turn()` reaches every word.
+ */
+function laid(list: readonly Page[]): Page[] {
+  const context = document.createElement('canvas').getContext('2d');
+  if (context === null) return [...list];
+  return list.flatMap((page) => {
+    const firstRoom = room(context, page.title, page.picture !== undefined).lines;
+    const restRoom = room(context, page.title, false).lines;
+    context.font = `400 ${WORDS_PX}px ${FONT}`;
+    const measure = (text: string) => context.measureText(text).width;
+    const texts = fitText(page.text, CANVAS.w - MARGIN * 2, measure, firstRoom, restRoom);
+    return texts.map((text, index) =>
+      index === 0 ? { ...page, text } : { title: page.title, text },
+    );
+  });
+}
+
 /** One page on a canvas: the accent band, the title, the words wrapped to the page and the picture below them. */
 function drawPage(page: Page, color: string, ink: string, accent: string): CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(WIDTH * PIXELS);
-  canvas.height = Math.round(HEIGHT * PIXELS);
+  canvas.width = CANVAS.w;
+  canvas.height = CANVAS.h;
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 4;
   const context = canvas.getContext('2d');
   if (context === null) return texture;
-  const margin = 64;
-  const font = 'system-ui, -apple-system, "Segoe UI", sans-serif';
   context.fillStyle = color;
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = accent;
   context.fillRect(0, 0, canvas.width, 28);
+  const picture = page.picture?.image as CanvasImageSource | undefined;
+  const fits = room(context, page.title, picture !== undefined);
   context.fillStyle = ink;
   context.textBaseline = 'top';
-  const title = Math.round(TYPE.title * PIXELS);
-  const words = Math.round(TYPE.words * PIXELS);
-  context.font = `700 ${title}px ${font}`;
-  let y = margin + 24;
-  for (const line of wrap(context, page.title, canvas.width - margin * 2).slice(0, 2)) {
-    context.fillText(line, margin, y);
-    y += Math.round(title * 1.22);
-  }
-  y += 18;
-  context.font = `400 ${words}px ${font}`;
-  const picture = page.picture?.image as CanvasImageSource | undefined;
-  // The words take what the picture leaves, and stop with an ellipsis rather than run off the page.
-  const pictureHeight = picture === undefined ? 0 : Math.round(canvas.height * 0.36);
-  const leading = Math.round(words * 1.33);
-  const room = Math.max(0, Math.floor((canvas.height - margin - pictureHeight - y) / leading));
-  const lines = wrap(context, page.text, canvas.width - margin * 2);
-  lines.slice(0, room).forEach((line, index) => {
-    const cut = index === room - 1 && lines.length > room;
-    context.fillText(cut ? `${line.replace(/\s*\S*$/, '')} ...` : line, margin, y + index * leading);
+  context.font = `700 ${TITLE_PX}px ${FONT}`;
+  fits.titles.forEach((line, index) => {
+    context.fillText(line, MARGIN, MARGIN + 24 + index * Math.round(TITLE_PX * 1.22));
   });
+  // The words fit: `laid` gave the page no more than it holds and put the rest on the pages after it.
+  context.font = `400 ${WORDS_PX}px ${FONT}`;
+  wrapLines(page.text, canvas.width - MARGIN * 2, (text) => context.measureText(text).width)
+    .slice(0, fits.lines)
+    .forEach((each, index) => {
+      context.fillText(each.line, MARGIN, fits.top + index * LEADING);
+    });
   if (picture !== undefined) {
     const box = {
-      x: margin,
-      y: canvas.height - margin - pictureHeight,
-      w: canvas.width - margin * 2,
-      h: pictureHeight,
+      x: MARGIN,
+      y: canvas.height - MARGIN - fits.pictureHeight,
+      w: canvas.width - MARGIN * 2,
+      h: fits.pictureHeight,
     };
     const size = sizeOf(picture);
     const scale = Math.min(box.w / size.w, box.h / size.h);
@@ -220,24 +254,6 @@ function drawPage(page: Page, color: string, ink: string, accent: string): Canva
   }
   texture.needsUpdate = true;
   return texture;
-}
-
-/** The words broken into lines no wider than `width`, at the context's current font. */
-function wrap(context: CanvasRenderingContext2D, text: string, width: number): string[] {
-  const lines: string[] = [];
-  for (const paragraph of text.split(/\n+/)) {
-    let line = '';
-    for (const word of paragraph.split(/\s+/).filter((each) => each !== '')) {
-      const next = line === '' ? word : `${line} ${word}`;
-      if (context.measureText(next).width <= width || line === '') line = next;
-      else {
-        lines.push(line);
-        line = word;
-      }
-    }
-    if (line !== '') lines.push(line);
-  }
-  return lines;
 }
 
 /** A picture's own size in pixels, whatever kind of image it is. */
