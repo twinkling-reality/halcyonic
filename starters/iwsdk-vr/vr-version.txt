@@ -1,6 +1,7 @@
 Make a VR version of the web app in {original}.
 Read that folder to understand the app: what you see, what you do, and whether it is a game.
 Do not change anything there.
+Do not put your plan to the person to confirm: build it, and ask only where these words leave a real choice.
 Build it in this project with the Immersive Web SDK, so it works in VR with controllers or hands and on a laptop with a mouse and keyboard.
 If it is a game, build its main play:
 start from the whole small game at the end of this project's AGENTS.md and change it into this one, importing from src/kit.ts.
