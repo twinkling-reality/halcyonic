@@ -78,7 +78,8 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(frame != null && bar != null, "the general reader gives the redesign no bar");
             if (frame == null || bar == null) return shot;
             var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" || state == "52-general-usage" && bar.GeneralPart.Pages > 1;
-            if (state == "52-general-usage") Require(bar.Card == null, "Usage's four windows were taken by a specific reader, not the general one");
+            // The general reader's card holds pressed rows, never the usage card's gauges (which would mean a specific reader took it).
+            if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
             if (paged)
             {
