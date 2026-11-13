@@ -479,6 +479,8 @@ namespace Halcyonic.XR.UI
             // The agent's words still hold a part not shown: the frame is not read yet. (Stop alone does not wait for this:
             // the navigator takes it from the frame as it shows, MenuNavigator.Taking.)
             if (RoomDesign.Enabled && band.Words is { More: true } && bar.Shown is { BandIsRead: true }) return;
+            // A frame its reader could not lay whole (a part cut, a page of its own not yet shown) is not read yet (AUDIT's 3).
+            if (RoomDesign.Enabled && bar.Shown is { Whole: false }) return;
             drawn = binding.Frame;
             Drawn?.Invoke(column, binding.Frame);
         }

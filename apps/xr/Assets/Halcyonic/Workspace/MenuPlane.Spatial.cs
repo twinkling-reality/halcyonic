@@ -127,7 +127,8 @@ namespace Halcyonic.XR.Workspace
         private bool ShowKitWorkspace(MenuFrame? fileFrame, MenuColumn kind, SidePanel? panel, object? fileColumn, IReadOnlyList<CharacterTarget> all,
             Vector3 looking, float? surfaceHeight, (float Yaw, float Elevation) moved, bool immediately)
         {
-            if (!KitWorkspaceHost.Enabled || panel != null || fileFrame == null || ContextBinding == null
+            // Under the redesign a side panel is part of the frame its reader draws (RoomBar.General); the older kit declines it.
+            if (!KitWorkspaceHost.Enabled || panel != null && !RoomDesign.Enabled || fileFrame == null || ContextBinding == null
                 || KitBinding is not KitFileBinding binding || !ReferenceEquals(binding.Frame, fileFrame) || !Kit.Holds(binding))
                 return false;
             var zoom = GlazeText.Scale;
@@ -290,13 +291,29 @@ namespace Halcyonic.XR.Workspace
             Drawn?.Invoke(pendingIndependentKind, view);
         }
 
+        private object? olderViewSaid;
+
+        /// <summary>
+        /// Under the redesign a whole screen drawn by the older view is a fault (the lead, 2026-11-13: the room bar always has a reader):
+        /// said once per frame, by its column alone (no words of the frame are logged), so the walks and the census hear it.
+        /// </summary>
+        private void OlderViewDrawn(MenuFrame? frame)
+        {
+            if (frame == null || ReferenceEquals(olderViewSaid, frame)) return;
+            olderViewSaid = frame;
+            Debug.LogWarning("Halcyonic: older view drew a whole screen under the redesign (" + (frame.Side != null ? "side panel" : "frame")
+                + (KitBinding is KitFileBinding binding && ReferenceEquals(binding.Frame, frame) ? ", the kit did not hold it" : ", no reader bound it") + ").");
+        }
+
         private void ShowIndependentWorkspace(MenuBar menuBar, MenuFrame? menuFrame, MenuFrame? fileFrame, SidePanel? panel,
             object? fileColumn, IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight,
             (float Yaw, float Elevation) moved, bool immediately)
         {
-            // Under the redesign, with nothing beside the menu, the menu's own frame (the Projects place) is the kit's to draw.
-            var kitMenu = fileFrame == null && panel == null && RoomDesign.Enabled;
+            // Under the redesign, with nothing beside the menu, the menu's own frame (Projects, Settings), its side panel included,
+            // is the kit's to draw.
+            var kitMenu = fileFrame == null && RoomDesign.Enabled;
             if (ShowKitWorkspace(kitMenu ? menuFrame : fileFrame, kitMenu ? MenuColumn.Menu : MenuColumn.File, panel, fileColumn, all, looking, surfaceHeight, moved, immediately)) return;
+            if (RoomDesign.Enabled) OlderViewDrawn(kitMenu ? menuFrame : fileFrame);
             Kit.Hide();
             var zoom = GlazeText.Scale;
             var kind = panel != null ? MenuColumn.Side : fileFrame != null ? MenuColumn.File : MenuColumn.Menu;

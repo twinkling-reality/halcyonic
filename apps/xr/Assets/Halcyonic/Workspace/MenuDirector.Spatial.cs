@@ -30,9 +30,14 @@ namespace Halcyonic.XR.Workspace
         private bool ShelfYieldsChooserAtLarger => !RoomDesign.Enabled && TextSize == TextSize.Larger
             && (setup.StageNow().Characters.Any(character => character != null)
                 || navigator.Beside is FileColumn file && (file.HasShowTaskHere || !setup.Presentation.AgentsVisible && CurrentColourSource(out _)));
-        // Under the redesign New Project's steps and the agent's page stand in the workspace too, where FIELD's readers draw
-        // them (RoomBar.Frames); otherwise the older single column drew them and the readers never ran (ON-1 census).
-        private bool SeparateWorkspace => setup.SpatialWorkspace && placement == null && !ShelfYieldsChooserAtLarger
+        // THE ONE RULE (the lead, 2026-11-13): under the redesign every frame a person is shown goes to the kit, whatever stands
+        // beside the menu, wherever the menu is, a local overlay included, at every text size; the room bar always has a reader
+        // for it (a specific one, else the general one, RoomBar.Frames), so no whole screen falls to the older view.
+        private bool SeparateWorkspace => setup.SpatialWorkspace && (RoomDesign.Enabled || OlderSeparateWorkspace);
+
+        // The older view's own list: which columns stand in a workspace of their own beside the menu, and when a local overlay or
+        // the shelf at Larger takes the single column instead.
+        private bool OlderSeparateWorkspace => placement == null && !ShelfYieldsChooserAtLarger
             && (navigator.Beside is FileColumn || navigator.Beside is TaskResultsColumn || navigator.Beside is WorkspaceRequestColumn
                 // Pairing beside the menu too, where its reader (RoomBar.Pairing) draws it (the census of 2026-11-12).
                 || RoomDesign.Enabled && (navigator.Beside is NewProjectFlow || navigator.Beside is AgentColumn || navigator.Beside is PairingColumn)
@@ -133,8 +138,9 @@ namespace Halcyonic.XR.Workspace
                 flow.RecapShownWhole = room ? (recapShownWhole ??= () => plane.Kit.Bar.Card?.LaidWhole == true) : null;
                 flow.ShownBeside = room ? () => navigator.Beside == flow && !navigator.IsCompact : null;
             }
-            // With nothing beside the menu (the Projects place, the launch screen), the menu's own frame is the one a reader takes.
-            var frame = navigator.Beside != null ? navigator.Beside.Frame : menuFrame;
+            // A local overlay's frame while it shows; else, with nothing beside the menu (the Projects place, Settings, the launch
+            // screen), the menu's own frame is the one a reader takes.
+            var frame = placement != null ? placementFrame : navigator.Beside != null ? navigator.Beside.Frame : menuFrame;
             if (!room || frame == null) return null;
             return RoomBar.OfFrame(frame, VoiceStage.Idle) != null ? KitFileBinding.PlainOf(frame) : null;
         }
@@ -379,7 +385,8 @@ namespace Halcyonic.XR.Workspace
 
         private void PrepareSpatialContext(MenuFrame? menuFrame = null)
         {
-            var activeFile = SeparateWorkspace && !navigator.IsCompact ? navigator.Beside as FileColumn : null;
+            // A local overlay stands in the file's place while it shows: its frame is the one drawn, never the file's.
+            var activeFile = SeparateWorkspace && !navigator.IsCompact && placement == null ? navigator.Beside as FileColumn : null;
             plane.ComposerFocused = activeFile?.ActivityContextFrame != null && composerFocus.TryGetValue(activeFile, out var focused) && focused;
             plane.ActivityFrame = plane.ComposerFocused ? null : activeFile?.ActivityContextFrame;
             var choices = State?.Projects.Values.OrderBy(project => project.Name, StringComparer.Ordinal).ThenBy(project => project.ProjectId, StringComparer.Ordinal).ToList()

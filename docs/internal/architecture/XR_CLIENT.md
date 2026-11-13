@@ -3176,6 +3176,15 @@ in order, as before.
   panel and column, the band) by answering in one of the forms `RoomBarState` names, and every action it shows is a
   control of the frame's, so a press raises the frame's own action through the same path as any other. The host takes
   a moment's pair where its column holds no more than six actions (`KitWorkspaceHost.Holds`).
+- **The one rule for whole screens** (the lead, 2026-11-13). Under the redesign every frame a person is shown goes to the
+  kit: `MenuDirector.SeparateWorkspace` is the spatial workspace itself, with no list of columns or places (the list,
+  `OlderSeparateWorkspace`, is the older view's alone), so Settings, Ask beside the menu and every other column reach
+  the readers, and a local overlay (`MenuDirector.OpenLocal`: shelf placement, character colour, the workspace's
+  notices) is bound by its own frame (`placementFrame`) while what it places stands in the room as before. The kit
+  takes a frame with a side panel, and the menu's own frame with one, under the redesign
+  (`MenuPlane.ShowKitWorkspace`). Wherever the older view still draws a whole screen under the redesign, the plane
+  logs one line by the frame's kind alone (`MenuPlane.OlderViewDrawn`), which the walks fail on. A frame is reported
+  drawn, and so read, only while its bar lays it whole (`RoomBar.Whole`, `KitWorkspaceHost.ReportDrawn`).
 - **Frames the binding does not bind.** Where the task's binding has no place for the frame of the column beside the
   menu (a page of the file with no moment of its own, or another column's frame, as New Project's steps), the
   director carries the frame plain (`MenuDirector.PlainBindingOf`, `KitFileBinding.PlainOf`: no control, no task's
