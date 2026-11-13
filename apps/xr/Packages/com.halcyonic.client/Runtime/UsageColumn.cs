@@ -155,8 +155,11 @@ namespace Halcyonic.Client
                 else chosen = null;
                 if (page >= pages) page = 0;
                 var lines = presentation.Rows.Select((row, at) => (row, at)).Skip(page * rows).Take(rows)
-                    .Select(each => new PageLine(each.row.TitleRuns, fact: LineWords.Ours(UsageText.Left(each.row.Left)), action: OpenLimit,
-                        key: each.at.ToString(CultureInfo.InvariantCulture), opens: true, chosen: each.at == chosen))
+                    // The agent's label as the row's words, its window as the row's own label, what is left as its note: apart, never on a dot.
+                    // Given whole as data, the agent's own words with no mark before them, so they start on the content line.
+                    .Select(each => WithWindow(new PageLine(each.row.Label.IsEmpty ? each.row.Title : each.row.Label.Text, wordsAreData: true,
+                        fact: UsageText.Left(each.row.Left), action: OpenLimit,
+                        key: each.at.ToString(CultureInfo.InvariantCulture), opens: true, chosen: each.at == chosen), each.row.Window))
                     .ToList();
                 var footer = new Footer(close, rare: refresh, secondary: compact);
                 // Paging waits while a row is chosen.
@@ -659,10 +662,14 @@ namespace Halcyonic.Client
             }
         }
 
+        private static PageLine WithWindow(PageLine line, string? window) => window == null ? line : line.WithRowLabel(window);
+
         /// <summary>What a chosen limit's side panel says: when it was seen, when it resets, and whose account it is.</summary>
         private SidePanel Side(UsageLeftPresentation presentation, UsageLeftRow row)
         {
             var facts = new List<SideFact>();
+            // The limit's window, Halcyonic's word, as a fact of its own beside the agent's label in the title: never joined on a dot.
+            if (row.Window != null) facts.Add(new SideFact(UsageText.Window, LineWords.Ours(row.Window)));
             // Which agent the reading is for, as Seorak names it, leaning (settled 2026-10-08).
             if (LineWords.Theirs(row.Agent) is { IsEmpty: false } agent) facts.Add(new SideFact(UsageText.AgentApp, agent));
             facts.Add(new SideFact(UsageText.Seen, UsageText.Sentence(row.Seen)));
@@ -693,7 +700,7 @@ namespace Halcyonic.Client
             if (part.Count > 0) parts.Add(part);
             detailParts = parts.Count;
             detailPart = Math.Min(detailPart, detailParts - 1);
-            return new SidePanel(row.TitleRuns, facts: parts[detailPart], source: presentation.Source == null ? null : LineWords.Written(presentation.Source),
+            return new SidePanel(row.Label.IsEmpty ? row.TitleRuns : row.Label, facts: parts[detailPart], source: presentation.Source == null ? null : LineWords.Written(presentation.Source),
                 parts: detailParts > 1 ? (detailPart, detailParts) : ((int, int)?)null);
         }
     }
@@ -713,6 +720,9 @@ namespace Halcyonic.Client
 
         /// <summary>A limit's fact naming the agent app the reading is for (settled 2026-10-08).</summary>
         public const string AgentApp = "Agent App";
+
+        /// <summary>A limit's fact naming its window ("5-Hour Window" or "Weekly"), apart from the agent's label in the title.</summary>
+        public const string Window = "Window";
 
         /// <summary>A limit's Account fact in the demonstration, in place of who it belongs to.</summary>
         public const string PartOfTheRecording = "Part of Recording";
