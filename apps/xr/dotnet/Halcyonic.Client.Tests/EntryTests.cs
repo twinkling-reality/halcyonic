@@ -960,7 +960,7 @@ public class EntryWordsTests
         var unknown = new RuntimeModel { ModelRef = "gateway/y", DisplayName = "Gateway", Served = ModelServed.Unknown };
         var said = new[]
         {
-            EntryText.OptionsLine, EntryText.StartOverClears(true), EntryText.StartOverClears(false), EntryText.NewFolderRule,
+            EntryText.OptionsLine, EntryText.StartOverClears(true), EntryText.StartOverClears(false), EntryText.NewFolderRule, EntryText.PracticeRun, EntryText.PracticeDetail,
             EntryText.Served(ModelServed.Remote), EntryText.Served(ModelServed.Unknown), EntryText.ConfirmElsewhere(remote), EntryText.ConfirmElsewhere(unknown),
             EntryText.ElsewhereDivider(new[] { remote }), EntryText.ElsewhereDivider(new[] { remote, unknown }),
         };
@@ -1025,7 +1025,7 @@ public class EntryWordsTests
         cannotStart.Synthetic = false;
         cannotStart.Capabilities.StartExecution = false;
         // The fifth headset session: "Mock runtime (development fixture)" beside OpenCode was taken for a real one.
-        Assert.That(EntryText.RuntimeName(mock, live: true), Is.EqualTo("Practice · Builds Nothing"));
+        Assert.That(EntryText.RuntimeName(mock, live: true), Is.EqualTo("Practice Run"));
         Assert.That(EntryText.RuntimeName(mock), Does.StartWith("Simulated · "), "the demonstration is unaffected");
         Assert.That(EntryText.RuntimeName(real, live: true), Is.EqualTo("OpenCode 2.0.18"));
         Assert.That(EntryText.RuntimeChoices(new[] { mock, cannotStart, real }).Select(runtime => runtime.RuntimeId),

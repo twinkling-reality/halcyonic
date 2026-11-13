@@ -443,10 +443,10 @@ namespace Halcyonic.Client
         public const string ReviewAfresh = "Not Started · Window Changed · Recheck";
 
         /// <summary>A simulated runtime in a live session, named for what it does, so no one takes it for a real one.</summary>
-        public const string PracticeRun = "Practice · Builds Nothing";
+        public const string PracticeRun = "Practice Run";
 
         /// <summary>Under <see cref="PracticeRun"/> in the choice: what it is, in a few words.</summary>
-        public const string PracticeDetail = "No Agent · No Files";
+        public const string PracticeDetail = "Builds nothing: no agent and no files";
 
         /// <summary>
         /// A runtime as a choice: its name as it arrives, and whether its work is simulated. In a live
