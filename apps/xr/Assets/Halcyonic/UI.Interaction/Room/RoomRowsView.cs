@@ -19,7 +19,9 @@ namespace Halcyonic.XR.UI
         public const int RowLines = 40;
 
         private readonly List<TextMeshPro> labels = new List<TextMeshPro>();
-        private readonly List<Surface> hairlines = new List<Surface>();
+        // Each hairline is a room part, the redesign's own shape, never the older kit's Surface (JUDGE's census, 2026-11-13: a plain
+        // Surface under the rows counted as an older part at launch).
+        private readonly List<RoomShape> hairlines = new List<RoomShape>();
         private readonly List<RoomGlyphView> marks = new List<RoomGlyphView>();
         private readonly List<TextMeshPro> tags = new List<TextMeshPro>();
         private readonly List<TextMeshPro> notes = new List<TextMeshPro>();
@@ -49,7 +51,7 @@ namespace Halcyonic.XR.UI
 
         public RoomGlyphView Mark(int index) => marks[index];
 
-        public Surface Hairline(int index) => hairlines[index];
+        public RoomShape Hairline(int index) => hairlines[index];
 
         /// <summary>The hairline's colour: white at the page's 12 percent, as the alpha a blend in linear light needs over the panel to read as the page's.</summary>
         public static Color HairlineColour => new Color(1f, 1f, 1f, RoomRows.LightAlpha(RoomRows.HairlineAlpha, RoomRows.PanelGround));
@@ -90,7 +92,7 @@ namespace Halcyonic.XR.UI
                 while (labels.Count <= index)
                 {
                     labels.Add(RoomType.Create(transform, "Row", Color.white, order));
-                    hairlines.Add(Surface.Create(transform, "Hairline", order));
+                    hairlines.Add(RoomShape.Create(transform, "Hairline", order));
                     marks.Add(RoomGlyphView.Create(transform, "Mark", order));
                     tags.Add(KitType.Create(transform, "Row label", KitRole.Body, new Color(1f, 1f, 1f, TagAlpha), order, TMPro.TextAlignmentOptions.TopLeft, room: true));
                     notes.Add(KitType.Create(transform, "Row note", KitRole.Body, new Color(1f, 1f, 1f, TagAlpha), order, TMPro.TextAlignmentOptions.TopLeft, room: true));
