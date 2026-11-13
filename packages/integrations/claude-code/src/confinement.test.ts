@@ -486,7 +486,7 @@ describe("a Claude Code launch on a connected folder (VRIFY, 2026-11-13; the lea
     assert.equal(launched.env.KEEP, 'kept');
     assert.ok(!Object.values(launched.env).includes(REAL));
   });
-  test('under the light profile: sandbox-exec around the same command; without a gate (a cloud provider) the environment as it is', () => {
+  test('under the light profile: sandbox-exec around the same command; without a gate (a cloud provider) no Anthropic key or token at all', () => {
     const launched = openLaunch(options, null, CLAUDE_CODE_KEY_GATE, null, '/d/open.sb');
     assert.equal(launched.command, SANDBOX_EXEC);
     assert.deepEqual(launched.args, [
@@ -495,6 +495,10 @@ describe("a Claude Code launch on a connected folder (VRIFY, 2026-11-13; the lea
       '/opt/claude/bin/claude',
       '--session-id=abc',
     ]);
-    assert.equal(launched.env.ANTHROPIC_API_KEY, REAL);
+    // A cloud provider never takes the Anthropic key, so with no gate it is not given (AUDIT3 M1).
+    assert.equal(launched.env.ANTHROPIC_API_KEY, undefined);
+    assert.equal(launched.env.ANTHROPIC_AUTH_TOKEN, undefined);
+    assert.ok(!Object.values(launched.env).includes(REAL));
+    assert.equal(launched.env.KEEP, 'kept');
   });
 });

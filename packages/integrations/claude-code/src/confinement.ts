@@ -154,8 +154,11 @@ export function openLaunch(
   const env: Record<string, string | undefined> = { ...options.env };
   if (gate !== null && runCredential !== null) {
     Object.assign(env, gatedEnvironment(declaration, gate.url, runCredential, env));
-    for (const name of declaration.otherCredentials) delete env[name];
+  } else {
+    // No gate: a cloud provider pays, which never takes the declared key, so the key is not given at all (AUDIT3 M1).
+    delete env[declaration.keyVariable];
   }
+  for (const name of declaration.otherCredentials) delete env[name];
   if (profile === null) return { ...options, env };
   return {
     ...options,

@@ -48,6 +48,8 @@ for (const name of ['home', 'config', 'project', 'tmp', 'halcyonic', 'outside'])
   mkdirSync(join(ROOT, name));
 }
 const PROJECT = join(ROOT, 'project');
+// The adapter reads Claude Code's store in-process, where its CLAUDE_CONFIG_DIR is this process's (as resume.e2e).
+process.env.CLAUDE_CONFIG_DIR = join(ROOT, 'config');
 /** A fake key for the fake API: what the person's key would be, never a real one. */
 const KEY = 'sk-ant-dummy-halcyonic-test';
 
@@ -74,11 +76,45 @@ mkdirSync(PROVING);
 writeFileSync(join(DATA, 'anthropic-api-key'), `${KEY}\n`, { mode: 0o600 });
 writeFileSync(join(PROVING, 'marker.txt'), 'proving-marker-6e3b\n');
 writeFileSync(join(ROOT, 'home', 'marker.txt'), 'home-marker-9a2e\n');
+// A Salidium-shaped observation hook (passed explicitly, b114) that writes which key its environment holds.
+const HOOK_KEYS = join(ROOT, 'hook-keys.txt');
+mkdirSync(join(ROOT, 'salidium', 'hooks'), { recursive: true });
+const RELAY = join(ROOT, 'salidium', 'hooks', 'relay.sh');
+writeFileSync(RELAY, `#!/bin/sh\necho "hook-key=\${ANTHROPIC_API_KEY:-none}" >> ${HOOK_KEYS}\n`, {
+  mode: 0o700,
+});
+writeFileSync(
+  join(ROOT, 'config', 'settings.json'),
+  JSON.stringify({
+    hooks: {
+      UserPromptSubmit: [
+        {
+          hooks: [
+            {
+              type: 'command',
+              command: `SALIDIUM_HOOK=1 '${RELAY}' claude-code UserPromptSubmit retain`,
+            },
+          ],
+        },
+      ],
+    },
+  }),
+);
+
+/** Every file under `folder` holding any 16-character slice of `text` (AUDIT3 M2: Claude Code keeps a key's tail). */
+function filesHoldingSlice(folder: string, text: string): string[] {
+  const slices = new Set<string>();
+  for (let at = 0; at + 16 <= text.length; at += 1) slices.add(text.slice(at, at + 16));
+  return [...slices].flatMap((slice) => filesHolding(folder, slice));
+}
 const COMMAND = [
   // The host's own folders: refused, read, listed or written.
   `cat ${DATA}/anthropic-api-key >> ${RESULTS} 2>&1; echo "data=$?" >> ${RESULTS}`,
   `ls ${DATA} > /dev/null 2>&1; echo "data-list=$?" >> ${RESULTS}`,
   `echo planted > ${DATA}/planted 2>/dev/null; echo "data-write=$?" >> ${RESULTS}`,
+  // A hard link from the data folder into the project, then read through it (AUDIT3 M2).
+  `ln ${DATA}/anthropic-api-key ${PROJECT}/linked 2>/dev/null; echo "link=$?" >> ${RESULTS}`,
+  `cat ${PROJECT}/linked >> ${RESULTS} 2>/dev/null; echo "linked-read=$?" >> ${RESULTS}`,
   `cat ${PROVING}/marker.txt >> ${RESULTS} 2>&1; echo "proving=$?" >> ${RESULTS}`,
   // The person's own home and folder: as before.
   `cat ${ROOT}/home/marker.txt >> ${RESULTS} 2>&1; echo "home=$?" >> ${RESULTS}`,
@@ -244,39 +280,41 @@ test("Claude Code on a connected folder holds no key and reaches none of the hos
     api.server.closeAllConnections();
     api.server.close();
   });
-  const adapter = new ClaudeAgentRuntimeAdapter({
-    directoryPolicy: (path) => ({ ok: true, directory: path }),
-    processRecordFile: join(DATA, 'claude-agent-processes.json'),
-    inheritedEnvironment: {
-      PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
-      HOME: join(ROOT, 'home'),
-      CLAUDE_CONFIG_DIR: join(ROOT, 'config'),
-      TMPDIR: `${join(ROOT, 'tmp')}/`,
-      ANTHROPIC_API_KEY: KEY,
-    },
-    environment: {
-      ANTHROPIC_BASE_URL: base,
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-      DISABLE_AUTOUPDATER: '1',
-      DISABLE_TELEMETRY: '1',
-      DISABLE_ERROR_REPORTING: '1',
-    },
-    pathToClaudeCodeExecutable: BINARY,
-    // This Mac's own managed Claude Code settings are not the test's: none.
-    remainingSettings: async () => ({}),
-    confinement: {
-      dataFolder: DATA,
-      toolFolders: toolFoldersFor(process.execPath),
-      hidden: [DATA],
-      // A connected folder: never confined.
-      forDirectory: () => null,
-      hostFolders: [DATA],
-    },
-  });
+  const makeAdapter = () =>
+    new ClaudeAgentRuntimeAdapter({
+      directoryPolicy: (path) => ({ ok: true, directory: path }),
+      processRecordFile: join(DATA, 'claude-agent-processes.json'),
+      inheritedEnvironment: {
+        PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
+        HOME: join(ROOT, 'home'),
+        CLAUDE_CONFIG_DIR: join(ROOT, 'config'),
+        TMPDIR: `${join(ROOT, 'tmp')}/`,
+        ANTHROPIC_API_KEY: KEY,
+      },
+      environment: {
+        ANTHROPIC_BASE_URL: base,
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+        DISABLE_AUTOUPDATER: '1',
+        DISABLE_TELEMETRY: '1',
+        DISABLE_ERROR_REPORTING: '1',
+      },
+      pathToClaudeCodeExecutable: BINARY,
+      // This Mac's own managed Claude Code settings are not the test's: none.
+      remainingSettings: async () => ({}),
+      confinement: {
+        dataFolder: DATA,
+        toolFolders: toolFoldersFor(process.execPath),
+        hidden: [DATA],
+        // A connected folder: never confined.
+        forDirectory: () => null,
+        hostFolders: [DATA],
+      },
+    });
+  const adapter = makeAdapter();
   t.after(() => adapter.close());
   const observed: RuntimeObservation[] = [];
   const execution = context(1);
-  await adapter.startExecution({
+  const { native_id: sessionId } = await adapter.startExecution({
     execution,
     instruction: 'TOOL first MARKER-OPEN.',
     options: {},
@@ -302,6 +340,17 @@ test("Claude Code on a connected folder holds no key and reaches none of the hos
     90_000,
     () => `the turn to finish; observed ${observed.map((o) => o.type).join(', ')}`,
   );
+  // No slice of the key anywhere in the person's home or Claude Code's configuration (AUDIT3 M2).
+  assert.deepEqual(
+    filesHoldingSlice(join(ROOT, 'home'), KEY),
+    [],
+    'a slice of the key in the home',
+  );
+  assert.deepEqual(
+    filesHoldingSlice(join(ROOT, 'config'), KEY),
+    [],
+    'a slice of the key in the config',
+  );
   // Outside the closed profile, and recorded so: the light profile makes no run confined.
   const started = observed.find((o) => o.type === 'runtime.execution.started');
   assert.equal((started?.payload as { confined?: boolean } | undefined)?.confined, false);
@@ -316,6 +365,9 @@ test("Claude Code on a connected folder holds no key and reaches none of the hos
   assert.match(said, /data-list=1/);
   assert.match(said, /data-write=1/);
   assert.equal(existsSync(join(DATA, 'planted')), false);
+  assert.match(said, /link=1/);
+  assert.match(said, /linked-read=1/);
+  assert.equal(existsSync(join(PROJECT, 'linked')), false);
   assert.match(said, /proving=1/);
   assert.doesNotMatch(said, /proving-marker-6e3b/);
   // It holds this run's credential from the gate, never the key; the gate refuses a request without it.
@@ -336,4 +388,36 @@ test("Claude Code on a connected folder holds no key and reaches none of the hos
   );
   // No file of its folder holds the key.
   assert.deepEqual(filesHolding(PROJECT, KEY), []);
+
+  // A second plane resumes the session: its process too holds a run credential; so does the observers' hook each time.
+  assert.ok(typeof sessionId === 'string', 'no session id');
+  await adapter.close();
+  const second = makeAdapter();
+  t.after(() => second.close());
+  const again: RuntimeObservation[] = [];
+  const next = context(2);
+  await second.reattach({
+    execution: next,
+    native_id: sessionId,
+    options: {},
+    model_ref: null,
+    confined: false,
+    directory: PROJECT,
+    cut_turn: null,
+    last_sequence: null,
+    emit: (observation) => again.push(observation),
+  });
+  await second.sendInstruction({ execution: next, text: 'Hello after restart MARKER-AGAIN.' });
+  await until(
+    () => again.some((o) => o.type === 'runtime.turn.completed'),
+    90_000,
+    () => `the resumed turn to finish; observed ${again.map((o) => o.type).join(', ')}`,
+  );
+  const hooked = readFileSync(HOOK_KEYS, 'utf8').trim().split('\n');
+  assert.ok(hooked.length >= 2, hooked.join(' | '));
+  for (const line of hooked) assert.match(line, /^hook-key=halcyonic-gate-run-[0-9a-f]{64}$/);
+  assert.ok(api.keys.every((each) => each.key === KEY && each.authorization === null));
+  assert.equal(api.direct, 0);
+  assert.deepEqual(filesHoldingSlice(join(ROOT, 'home'), KEY), []);
+  assert.deepEqual(filesHoldingSlice(join(ROOT, 'config'), KEY), []);
 });
