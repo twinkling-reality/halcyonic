@@ -14,7 +14,7 @@ public class PlaneFormTests
     public void AMeasuredFormKeepsItsLineMeasureWhenThePlaneAsksForLessAndTheReaderPagesByIt()
     {
         var calls = 0;
-        var form = RoomForm.Full.Measured(words => { calls++; return 3; });
+        var form = RoomForm.Full.Measured((row, marked) => { calls++; return 3; });
         var frame = new MenuFrame("Settings", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)),
             lines: new[] { new PageLine("One"), new PageLine("Two"), new PageLine("Three") });
         foreach (var asked in new[] { form, form.Fewer(), form.FewerActions(), form.Fewer().Fewer() })
