@@ -66,7 +66,18 @@ folder) and `confined.e2e.test.ts` (a confined app) each put a marker `CLAUDE.md
 start the bundled Claude Code 2.1.283 once in the project against a stand-in Messages API: neither run's requests carry
 the marker. Fail first: with `settingSources: ['project']` the connected-folder run's requests carry it, so the CLI's
 own walk is real and only Halcyonic's launch keeps it out. In a confined app the closed profile refuses reading that
-folder besides. Codex and OpenCode were not run: their pinned binaries are only under the owner's own data folder.
+folder besides.
+
+Codex 0.157.0 and OpenCode 2.0.18, installed by npm at those versions for the test (their binaries' SHA-256 are the
+pins'), each started once in a task's folder against its suite's stand-in provider, with a marker `AGENTS.md` in the
+folder and in the folder above (`codex-runtime.e2e.test.ts`, `opencode-runtime.e2e.test.ts`): neither marker reaches
+the model from either. Codex: every folder from the task's up is marked untrusted (`untrustedFrom`), and Codex loads
+no project instructions for an untrusted folder, inside a git repository too (where its own default walks from the
+repository's root down); fail first, without those marks the folder's own `AGENTS.md` arrives. OpenCode: its launch
+turns off its search for project configuration (which also stops the project `AGENTS.md`), gives it a home of its own,
+and its sandbox reads no folder above; without that switch OpenCode does not start here, so no fail first was shown,
+and the same captured requests hold its instruction, so the capture sees what it sends. So for all three agent apps
+as Halcyonic starts them, no instruction file in or above the folder reaches the model at start.
 
 ## What follows (inference, not a decision)
 
@@ -84,8 +95,8 @@ folder besides. Codex and OpenCode were not run: their pinned binaries are only 
 
 ## Not verified
 
-- Codex and OpenCode at start on this Mac (a run under a file-access trace, or a deny-by-default profile that logs
-  refusals, answers it), and whether each still starts and works with secret shapes and other project roots denied.
+- What each app opens at start beyond what reaches the model (a file-access trace), and whether each still starts and
+  works with secret shapes and other project roots denied.
 - Claude Code's other reads at start (its configuration folder, the Keychain) were not traced; only what reaches the
   model was.
 - Claude Code: whether a git status or `.gitignore` is read at start; whether Manual mode asks for every outside read.
