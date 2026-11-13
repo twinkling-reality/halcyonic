@@ -635,6 +635,12 @@ namespace Halcyonic.XR.UI
         /// <summary>The width the panel's words wrap in: its 440 dp less its padding at each side, which grows with the text.</summary>
         private static float BodyWidth => RoomType.Units(RoomGeometry.PanelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp);
 
+        /// <summary>
+        /// The words' width in the narrow form (<see cref="RoomBar.Narrow"/>): the column's width less the panel's padding, at the
+        /// person's text size, so a reader or a card that measures words measures them at the width they will be laid at.
+        /// </summary>
+        public static float NarrowWordsWidth => RoomType.Units(RoomGeometry.ColumnDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp);
+
         /// <summary>Sets what the panel reads on <paramref name="label"/> as it stands there: a request literal in mono, else words by their runs, as prose.</summary>
         private static void Set(TextMeshPro label, LineWords words, bool mono)
         {
@@ -655,11 +661,11 @@ namespace Halcyonic.XR.UI
         /// mono, else prose): what the file counts a request's or an instruction's rows by while the panel draws its
         /// confirmation, so the file's parts are the panel's own lines, eight a part.
         /// </summary>
-        public int Lines(LineWords words, bool mono)
+        public int Lines(LineWords words, bool mono, bool narrow = false)
         {
             var label = mono ? measureRequest : measureBody;
             Set(label, words, mono);
-            KitType.Lay(label, BodyWidth, 200);
+            KitType.Lay(label, narrow ? NarrowWordsWidth : BodyWidth, 200);
             var lines = Mathf.Max(1, label.textInfo.lineCount);
             // The measure holds no words once it has counted them: it is never drawn, and nothing should read it as shown.
             if (mono) label.text = "";
@@ -733,7 +739,7 @@ namespace Halcyonic.XR.UI
             var inset = RoomType.Scaled(RoomGeometry.SentenceInsetDp);
             var line = RoomType.Scaled(RoomGeometry.LineDp);
 
-            var wordsWidth = narrow ? panelWidth - 2f * pad : BodyWidth;
+            var wordsWidth = narrow ? NarrowWordsWidth : BodyWidth;
             // What the panel reads: a request in mono, exact and literal, or the person's words; under a confirmation the rows
             // the file's part names, of the panel's own lines; a request before its answer at most eight of them. Cut between
             // lines, never inside one.
