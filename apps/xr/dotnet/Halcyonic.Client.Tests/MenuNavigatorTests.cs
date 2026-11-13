@@ -154,6 +154,30 @@ public class MenuNavigatorTests
         Assert.That(menu.Place, Is.EqualTo(MenuPlace.Tasks), "Tasks, when something waits");
     }
 
+    /// <summary>
+    /// One frame object per pass (AUDIT's 20:32Z): a column may build a new frame on every read, so the navigator reads it once a
+    /// change and hands that one object to bind and to draw, the menu's, the column beside and the side panel it carries; it reads
+    /// again only after the column says it changed, never a stale screen.
+    /// </summary>
+    [Test]
+    public void ThePlaneIsHandedOneFrameObjectAPassToBindAndToDraw()
+    {
+        var (menu, _) = Menu();
+        menu.OpenMenu(MenuPlace.Tasks);
+        var beside = new Column("Beside") { Side = new SidePanel("Details", lines: new[] { new PageLine("A fact") }) };
+        menu.ShowBeside(beside, "w1");
+        var (shownMenu, shownBeside) = menu.Frames(Bar);
+        var asked = beside.Asked;
+        var (againMenu, againBeside) = menu.Frames(Bar);
+        Assert.That(againMenu, Is.SameAs(shownMenu), "the menu's frame, one object for the pass");
+        Assert.That(againBeside, Is.SameAs(shownBeside), "the column beside, one object although it builds a new frame each read");
+        Assert.That(againBeside!.Side, Is.SameAs(shownBeside!.Side), "and the side panel it carries");
+        Assert.That(beside.Asked, Is.EqualTo(asked), "the column is not read again within the pass");
+        beside.Change();
+        var (_, changed) = menu.Frames(Bar);
+        Assert.That(changed, Is.Not.SameAs(shownBeside), "read again once the column says it changed: never a stale screen");
+    }
+
     [Test]
     public void APlacesFrameShowsTheMenusPlacesAndChoosingOneIsTheMenus()
     {
