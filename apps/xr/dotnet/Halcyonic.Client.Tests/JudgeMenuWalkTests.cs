@@ -478,10 +478,11 @@ public class JudgeMenuWalkTests
         Assert.That(host.Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Usage)), Is.True);
         (menu, _) = host.Draw();
         Assert.That(menu!.Subject, Is.EqualTo(UsageText.Subject));
-        Assert.That(menu.Lines.Select(line => (line.Words, line.Fact)), Is.EqualTo(new[]
+        // The agent's label, its window as the row's own label, what is left as its note: apart, never on a dot (16a7cd863).
+        Assert.That(menu.Lines.Select(line => (line.Words, line.RowLabel, line.Fact)), Is.EqualTo(new[]
         {
-            ("Practice agent · 5-Hour Window", (string?)"Up to 62% Left"),
-            ("Practice agent · Weekly", (string?)"Up to 79% Left"),
+            ("Practice agent", (string?)"5-Hour Window", (string?)"Up to 62% Left"),
+            ("Practice agent", (string?)"Weekly", (string?)"Up to 79% Left"),
         }));
         Assert.That(menu.Source, Is.EqualTo(UsageLeftPresenter.Recorded));
         Assert.That(menu.Footer[PromptSlot.Rare], Is.Null, "no Refresh in the demonstration");
@@ -520,7 +521,7 @@ public class JudgeMenuWalkTests
             }
             Assert.That(host.Sent.Count, Is.EqualTo(sentBeforeDetails), "inspecting each recorded detail sends nothing");
         }
-        Assert.That(facts.Select(fact => fact.Name), Is.EqualTo(new[] { UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }));
+        Assert.That(facts.Select(fact => fact.Name), Is.EqualTo(new[] { UsageText.Window, UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }));
         Assert.That(facts.Last().Value, Is.EqualTo("Part of Recording"));
         Assert.That(host.Draw().Menu!.Side!.Parts?.Part ?? 0, Is.Zero, "the offered detail pager returns to its first part");
 

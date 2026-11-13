@@ -858,8 +858,8 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(!(label.text ?? "").Contains(prompt.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
                         Require(band.transform.localPosition.y < bar.transform.localPosition.y - bar.Size.y / GlazeText.Scale / 2f + 1e-4f, "the band does not hang under the pair's foot line");
                         var parted = state is "34-question-long" or "34-question-tall" or "34-question-stop";
-                        // Stopping never waits for reading, yet the frame is not reported drawn for it: the navigator takes Stop alone
-                        // from the frame as it shows (MenuNavigator.Taking), and everything else waits for the band's last part.
+                        // Stopping never waits for reading, yet the frame is not reported drawn for it: the navigator takes Stop and the
+                        // ways out from the frame as it shows (MenuNavigator.Taking), and every deciding press waits for the band's last part.
                         var stops = state == "34-question-stop";
                         Require((bar.BandNextButton != null) == parted, parted ? "no way to the band's next part" : "a way to a next part the band does not have");
                         Require((drawnFrames == 0) == parted, parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");

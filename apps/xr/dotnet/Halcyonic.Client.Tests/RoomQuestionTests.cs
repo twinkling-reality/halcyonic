@@ -292,7 +292,7 @@ public class RoomQuestionTests
     }
 
     [Test]
-    public void OnlyStopIsTakenFromAFrameThatIsShownButNotYetReportedDrawn()
+    public void OnlyStopAndTheWaysOutAreTakenFromAFrameThatIsShownButNotYetReportedDrawn()
     {
         var was = RoomDesign.Enabled;
         RoomDesign.Enabled = true;
@@ -311,19 +311,25 @@ public class RoomQuestionTests
             var frame = navigator.Frames(bar).Beside!;
             Assert.That(frame.Footer.All.Select(each => each.Prompt.Id), Does.Contain(FileScreens.Stop).And.Contain(Footer.Close));
 
-            Assert.That(navigator.Act(MenuColumn.File, Footer.Close, null, frame, null), Is.False, "Close waits for the draw");
-            Assert.That(navigator.Beside, Is.SameAs(column));
             Assert.That(navigator.Act(MenuColumn.File, FileScreens.Stop, null, null, null), Is.False, "Stop from no frame");
             Assert.That(navigator.Act(MenuColumn.File, FileScreens.Stop, null, frame, null), Is.True, "Stop never waits for reading");
             Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Interrupt), "and it only asks for its confirmation");
             Assert.That(host.Sent, Is.Empty);
 
-            // The confirmation is a new frame: the old frame's Stop is gone, and its Yes waits for its own draw.
+            // The confirmation is a new frame: the old frame's Stop is gone, and its Yes, which decides, waits for its own draw.
             var confirm = navigator.Frames(bar).Beside!;
             Assert.That(confirm, Is.Not.SameAs(frame));
             Assert.That(navigator.Act(MenuColumn.File, FileScreens.Stop, null, frame, null), Is.False, "a frame no longer shown gives nothing");
             Assert.That(navigator.Act(MenuColumn.File, FileScreens.Yes, null, confirm, null), Is.False, "the confirmation is read before it is answered");
             Assert.That(host.Sent, Is.Empty);
+            // A way out never waits (the lead, 2026-11-13T19:34Z): its Cancel, by its declared kind, is taken undrawn and sends nothing.
+            var cancel = confirm.Footer.All.Single(each => each.Prompt.Kind == PromptKind.Cancel).Prompt.Id;
+            Assert.That(navigator.Act(MenuColumn.File, cancel, null, confirm, null), Is.True, "Cancel never waits for the draw");
+            Assert.That(column.Steering.Armed, Is.Null);
+            Assert.That(host.Sent, Is.Empty);
+            frame = navigator.Frames(bar).Beside!;
+            Assert.That(navigator.Act(MenuColumn.File, FileScreens.Stop, null, frame, null), Is.True);
+            confirm = navigator.Frames(bar).Beside!;
             navigator.Drawn(MenuColumn.File, confirm, null);
             host.Wait(1); column.Tick();
             confirm = navigator.Frames(bar).Beside!;
@@ -340,6 +346,18 @@ public class RoomQuestionTests
             var choice = asked.Lines.First(line => line.Choice && line.Available);
             Assert.That(second.Act(MenuColumn.File, choice.Action!, choice.Key, asked, null), Is.False, "an answer waits for the draw");
             Assert.That(answers.Screen.Question.Draft!.AnswersNow.SelectMany(answer => answer.Chosen), Is.Empty);
+
+            // A person can always leave: the file's Close, by its declared kind, is taken from a frame not reported drawn, where a
+            // frame that could not be laid whole would otherwise hold the person and the recording's holds (AUDIT, 2026-11-13T18:05Z).
+            var leaving = new FileColumn(host, () => new AskingWork(secret).Present(host.Live, host.Submissions), factory, () => null, _ => null, () => "");
+            var third = new MenuNavigator(MenuBar.Places.ToDictionary(place => place, _ => (Func<IMenuColumn>)(() => leaving)));
+            third.ShowBeside(leaving, "w1");
+            var undrawn = third.Frames(bar).Beside!;
+            Assert.That(undrawn.Footer.All.Single(each => each.Prompt.Id == Footer.Close).Prompt.Kind, Is.EqualTo(PromptKind.Close));
+            Assert.That(third.Act(MenuColumn.File, Footer.Close, null, null, null), Is.False, "Close from no frame");
+            third.Moved();
+            Assert.That(third.Act(MenuColumn.File, Footer.Close, null, undrawn, null), Is.True, "Close waits neither for the draw nor for a redraw after a move");
+            Assert.That(third.Beside, Is.Null);
         }
         finally { RoomDesign.Enabled = was; }
     }

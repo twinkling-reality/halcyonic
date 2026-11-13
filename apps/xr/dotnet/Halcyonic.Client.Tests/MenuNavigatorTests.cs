@@ -443,9 +443,10 @@ public class MenuNavigatorTests
         menu.Moved();
         menu.Drawn(MenuColumn.Side, new MenuFrame("Another", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)),
             lines: new[] { new PageLine("A line", action: "open", key: "k", opens: true, chosen: true) }, side: side), side);
-        Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.False, "drawn in another frame's place, it is passed over");
+        Assert.That(menu.Standing(MenuColumn.Side, null, side), Is.Null, "drawn in another frame's place, its draw is passed over");
         Draw(menu, inPlace: true);
-        Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True, "its own Close, either way");
+        Assert.That(menu.Standing(MenuColumn.Side, null, side), Is.Not.Null);
+        Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True, "its own Close, a way out, either way");
         Assert.That(settings.Got.Where(got => got.StartsWith("act")), Is.EqualTo(new[] { "act change ", "act " + Footer.NextPage + " ", "act " + SidePanel.Close + " " }));
     }
 

@@ -485,19 +485,54 @@ namespace Halcyonic.Client
         /// The column a press or a hold of <paramref name="action"/> from <paramref name="from"/> goes to:
         /// only from what was drawn last in its slot and still stands (<see cref="Standing"/>), and from a
         /// side panel only what its footer showed and allows: its own Close, and, standing in its frame's
-        /// place, what it carries of that frame's; null for anything else.
+        /// place, what it carries of that frame's; null for anything else. Stop and every way out are taken from what shows now,
+        /// drawn or not (<see cref="WayOut"/>).
         /// </summary>
         public IMenuColumn? Taking(MenuColumn from, string action, MenuFrame? frame, SidePanel? side)
         {
-            // Stopping is the safe action and never waits for reading (the lead, 2026-11-10): Stop alone is taken from the
+            // Stopping is the safe action and never waits for reading (the lead, 2026-11-10): Stop is taken from the
             // file's frame as it shows now, reported drawn or not. It only asks for its confirmation
-            // (WorkspacePresenter.AlwaysConfirmed); every other press still waits for the draw.
+            // (WorkspacePresenter.AlwaysConfirmed).
             if (from == MenuColumn.File && side == null && action == FileScreens.Stop && !IsCompact && Beside != null && !BesideAside && frame != null
                 && frame == besideFrame) return Beside;
+            if (WayOut(from, action, frame, side) is IMenuColumn leaving) return leaving;
             if (!(Standing(from, frame, side) is IMenuColumn column)) return null;
             if (from == MenuColumn.Side && !Offers(drawnSideFooter, action)) return null;
             return column;
         }
+
+        /// <summary>
+        /// A person can always leave (the lead, 2026-11-13T19:34Z, reversing 2026-11-10's "Close waits for the draw"): a way out
+        /// decides nothing, so it is taken from the frame or side panel as it shows now, reported drawn or not, where a frame that
+        /// could not be laid whole would otherwise hold the person, and the recording's holds with them. A way out is what the
+        /// prompt declares, never its words: a Close, a Cancel or a page turn (<see cref="PromptKind"/>), the side panel's Close
+        /// Details, and a section change. Every press that decides still waits for the draw. Null where the press is no way out
+        /// or does not come from what shows now.
+        /// </summary>
+        private IMenuColumn? WayOut(MenuColumn from, string action, MenuFrame? frame, SidePanel? side)
+        {
+            // Like Stop, a way out stands on what shows, so neither the draw nor a move of the plane holds it.
+            if (IsCompact) return null;
+            switch (from)
+            {
+                case MenuColumn.Menu:
+                    if (!IsOpen || hiddenMenu == Shown || frame == null || frame != menuFrame) return null;
+                    return action == MenuFrame.ChooseSection || Leaves(frame.Footer, action) ? Shown : null;
+                case MenuColumn.File:
+                    if (Beside == null || BesideAside || frame == null || frame != besideFrame) return null;
+                    return action == MenuFrame.ChooseSection || Leaves(frame.Footer, action) ? Beside : null;
+                default:
+                    var front = BesideAside ? menuFrame : besideFrame ?? menuFrame;
+                    if (front == null || side == null || side != front.Side || (frame != null && frame != front)) return null;
+                    if (hiddenMenu == Shown && front == menuFrame) return null;
+                    return Leaves(frame != null ? front.Footer.InPlace(side) : SidePanel.Footer, action) ? (front == besideFrame ? Beside : Shown) : null;
+            }
+        }
+
+        /// <summary>Whether <paramref name="footer"/> offers <paramref name="action"/> now as a way out: a Close, a Cancel or a page turn.</summary>
+        private static bool Leaves(Footer footer, string action) =>
+            footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available
+                && (each.Prompt.Kind == PromptKind.Close || each.Prompt.Kind == PromptKind.Cancel || each.Prompt.Kind == PromptKind.NextPage));
 
         /// <summary>Whether <paramref name="footer"/> offers a prompt <paramref name="action"/>, available now.</summary>
         private static bool Offers(Footer? footer, string action) =>

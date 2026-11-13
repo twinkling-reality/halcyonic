@@ -624,8 +624,9 @@ public class AppearanceSettingsTests
         navigator.Drawn(MenuColumn.Menu, frame, null);
         navigator.Moved();
         Assert.That(navigator.Frames(bar).Menu, Is.SameAs(frame), "colours do not alter content, layout or frame reading evidence");
-        Assert.That(navigator.Act(MenuColumn.Menu, Footer.Close, null, frame, null), Is.False, "old target proof waits for redraw");
+        Assert.That(navigator.Standing(MenuColumn.Menu, frame, null), Is.Null, "old target proof waits for redraw");
         navigator.Drawn(MenuColumn.Menu, frame, null);
+        Assert.That(navigator.Standing(MenuColumn.Menu, frame, null), Is.Not.Null);
         Assert.That(navigator.Act(MenuColumn.Menu, Footer.Close, null, frame, null), Is.True);
     }
 }

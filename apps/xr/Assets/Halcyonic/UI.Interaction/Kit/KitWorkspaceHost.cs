@@ -530,8 +530,8 @@ namespace Halcyonic.XR.UI
             if (binding == null || !Settled || ReferenceEquals(drawn, binding.Frame)) return;
             // With the redesign on, a frame is drawn only where the bar shows it: nothing else of it stands in the room yet.
             if (RoomDesign.Enabled && !bar.gameObject.activeSelf) return;
-            // The agent's words still hold a part not shown: the frame is not read yet. (Stop alone does not wait for this:
-            // the navigator takes it from the frame as it shows, MenuNavigator.Taking.)
+            // The agent's words still hold a part not shown: the frame is not read yet. (Stop and the ways out do not wait for this:
+            // the navigator takes them from the frame as it shows, MenuNavigator.Taking.)
             if (RoomDesign.Enabled && band.Words is { More: true } && bar.Shown is { BandIsRead: true }) return;
             // A frame its reader could not lay whole (a part cut, a page of its own not yet shown), or one the view could not lay whole at
             // the width it had, is not read yet (AUDIT's 3; FIELD's RoomBarView.LaidWhole).

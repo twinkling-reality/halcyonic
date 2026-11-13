@@ -2941,11 +2941,15 @@ in order, as before.
   row to more choices each taking one, so a page never offers more than the column's six actions; more answers stand
   behind the file's More Choices. A prompt longer than the band's three lines is read by parts there (the band's own Next Part · 2 of 3, the
   column's last action and the main one while the file offers no way on), and the host reports the frame drawn only
-  once the band shows its last part, so the file takes the question as read only then. Only Stop skips that wait:
-  stopping is the safe action and never waits for reading, on any screen, so the navigator takes Stop's press from
-  the file's frame as it shows, reported drawn or not (`MenuNavigator.Taking`); the frame is not reported drawn for
-  it, every other action still waits for the last part, and Stop only asks for its confirmation, which is read
-  before its Yes. Writing an answer is the typed draft's moment on the same pair: the panel is the field holding the
+  once the band shows its last part, so the file takes the question as read only then. Stop and the ways out skip
+  that wait: stopping is the safe action and never waits for reading, on any screen, so the navigator takes Stop's
+  press from the file's frame as it shows, reported drawn or not (`MenuNavigator.Taking`), and Stop only asks for its
+  confirmation, which is read before its Yes. A person can always leave, too (the lead, 2026-11-13, reversing
+  2026-11-10's "Close waits for the draw" after a frame that could not be laid whole was never reported drawn, so its
+  Close was refused and the judges' recording, whose holds wait while a file stands open, never went on): a way out
+  decides nothing, so a Close, a Cancel or a page turn, as its prompt declares its kind (`PromptKind`), the side
+  panel's Close Details and a section change are taken from what shows now, drawn or not, and a move of the plane
+  does not hold them either (`MenuNavigator.WayOut`). Every press that decides still waits for the last part. Writing an answer is the typed draft's moment on the same pair: the panel is the field holding the
   answer as written with the caret (a press opens the keyboard again), Use Answer the main action once the file has
   drawn the words, the file's Hold to Talk where it offers one, its way between parts and Cancel, the prompt staying
   on the band (`KitAsk.Writing`). Where two answers read alike and cannot be chosen, the press on one opens the
