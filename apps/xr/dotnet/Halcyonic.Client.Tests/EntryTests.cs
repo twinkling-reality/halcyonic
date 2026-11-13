@@ -538,7 +538,7 @@ public class BuildSequenceTests
         };
         Assert.That(sequence.Advance(With(refused)), Is.Null);
         Assert.That(sequence.Stopped, Is.True);
-        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Refused · Settings Refused · Choose Again"),
+        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("The computer refused the run settings. Choose them again."),
             "by the refusal's code, never the control plane's message");
         Assert.That(sequence.CanRetry, Is.True, "a refused command cannot have run");
         var again = sequence.Retry(Samples.Reviewed(sequence));
@@ -577,7 +577,7 @@ public class BuildSequenceTests
         sequence.Begin(Samples.Reviewed(sequence));
         sequence.AcknowledgementLost(new SessionUnavailableException("Not connected."));
         sequence.Advance(null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Not Sent. Not Connected. Try Again"));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo(EntryText.StepNotSent));
         Assert.That(sequence.Unresolved, Is.Null);
         Assert.That(sequence.Retry(Samples.Reviewed(sequence, "Recipes, renamed"), "Recipes, renamed"), Is.InstanceOf<ProjectCreateCommand>());
     }
@@ -954,17 +954,33 @@ public class EntryWordsTests
     /// (JUDGE's live walk, 2026-11-13T0851Z and 0935Z; the lead's 09:37Z item 3).
     /// </summary>
     /// <summary>
-    /// A step's state is said in sentences, never facts on a dot (AUDIT's MUST, 2026-11-13T1246Z): the start's rows draw it whole as
-    /// their note and the step under way as the bar's sentence, so every reason a refusal or a failure can give comes apart.
+    /// A start's step says how it went in sentences, never facts on a dot or strung on full stops (AUDIT's MUST, 2026-11-13T1258Z): the
+    /// rows draw the state whole as their note and the step under way as the bar's sentence. Every state, every refusal the host can
+    /// give and every failure a step can meet is walked, by its inputs.
     /// </summary>
     [Test]
-    public void AStartsStepStateIsSaidInSentencesNeverOnADot()
+    public void AStartsStepSaysHowItWentInSentencesForEveryStateAndReason()
     {
-        var said = Enum.GetValues(typeof(RejectionCode)).Cast<RejectionCode>()
-            .Select(code => EntryText.Sentences(WorkspaceText.Couldnt("Refused", WorkspaceText.WhyRefused(code))))
-            .Concat(new[] { EntryText.NotSureItHappened, EntryText.Sentences("Not Sent \u00b7 Not Connected \u00b7 Try Again") }).ToList();
-        Assert.That(said, Has.None.Contains("\u00b7"), string.Join(" | ", said.Where(each => each.Contains('\u00b7'))));
-        Assert.That(EntryText.Sentences("Not Sent \u00b7 Not Connected \u00b7 Try Again"), Is.EqualTo("Not Sent. Not Connected. Try Again"));
+        var failures = new string?[]
+        {
+            null, "runtime_unreachable", "runtime_closed", "capability_unimplemented", "runtime_unavailable", "runtime_version_unsupported",
+            "model_unavailable", "execution_unknown_to_runtime", "location_required", "location_missing", "location_not_allowed", "location_exists",
+            "location_not_created", "an_adapters_own_code",
+        };
+        var said = new List<string>();
+        foreach (BuildStepStatus status in Enum.GetValues(typeof(BuildStepStatus)))
+        foreach (BuildStepKind kind in Enum.GetValues(typeof(BuildStepKind)))
+        foreach (var effectUnknown in new[] { false, true })
+        {
+            foreach (var code in Enum.GetValues(typeof(RejectionCode)).Cast<RejectionCode?>().Append(null))
+                said.Add(EntryText.StepStatusOf(status, kind, code, null, effectUnknown));
+            foreach (var failure in failures) said.Add(EntryText.StepStatusOf(status, kind, null, failure, effectUnknown));
+        }
+        var strung = said.Distinct().Where(words => words.Contains('\u00b7') || words.Split(". ").Length > 2 && !words.Contains(' ', StringComparison.Ordinal)).ToList();
+        Assert.That(said.Distinct().Where(words => words.Contains('\u00b7')), Is.Empty, string.Join(" | ", said.Distinct().Where(words => words.Contains('\u00b7'))));
+        // A sentence ends on its stop and begins with a capital; a word list on full stops ("Not Sent. Not Connected.") reads as facts.
+        Assert.That(said.Distinct().Where(words => words.Length > 20 && !words.EndsWith(".", StringComparison.Ordinal)), Is.Empty,
+            "a longer state is a sentence and ends as one: " + string.Join(" | ", said.Distinct().Where(words => words.Length > 20 && !words.EndsWith(".", StringComparison.Ordinal))));
     }
 
     [Test]
