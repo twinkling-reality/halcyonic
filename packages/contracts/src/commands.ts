@@ -216,6 +216,9 @@ export const ProjectShareStopCommand = defineCommand(
  * pull request's title; absent, the host's own (the project's latest task's title, else its name),
  * shown in the review as it will be sent. `review` is the digest of the review the person read, over
  * every value the press sends (ADR 0051); a send whose review no longer matches sends nothing.
+ * `one_change` is Send One Change, offered only by a send refused `holds_secret_in_history`: the files
+ * as they are now, as one change on top of the newest commit of the person's branch that the
+ * repository's own branch holds, the earlier unsent versions left on this computer (ADR 0039, amended).
  */
 export const ProjectSendCommand = defineCommand(
   'project.send',
@@ -225,6 +228,7 @@ export const ProjectSendCommand = defineCommand(
       title: Type.Optional(Text(200)),
       visibility: Type.Optional(RepositoryVisibility),
       repository_name: Type.Optional(RepositoryName),
+      one_change: Type.Optional(Type.Boolean()),
       review: ReviewDigest,
     },
     strict,

@@ -117,6 +117,7 @@ export const COMMAND_FIELDS: Readonly<
     // No list of who can see it yet: a proposal cannot choose it, and private is the default.
     visibility: need('choice', 'Who Can See It', optional),
     repository_name: need('text', 'Repository Name', optional),
+    one_change: need('yes_no', 'Send One Change', optional),
     review,
   },
   'project.publish': {

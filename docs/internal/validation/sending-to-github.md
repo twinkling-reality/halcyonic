@@ -292,6 +292,12 @@ project's `.git/config`) and the lead's 12:52Z and 13:04Z answers.
   to every push, held secret or not, inside the push's 120 s. Not tested: the push's own negotiation failing where the
   check's did not, and the history check refusing after a first send made its repository. Publish's refusal is tested
   (`pages.test.ts`: an earlier publish the remote no longer has, holding a value held since, refuses before Make Public).
+- Send One Change against a real remote: GitHub's `ls-remote --symref` answer for its default branch, the fetch of
+  one branch at the push address, and how the review request reads with a base older than the branch's tip. Proven
+  on the local stand-in only (`github.test.ts`, "Send One Change"): the offer, the base a branch reaches and never
+  one only kept in the store, the remote moved back between review and press, the remote's own branch over the
+  folder's tracking settings, a `.env` kept back, and no offer with today's files holding it or no history in
+  common.
 - A real Pages site: turning Pages on through GitHub's API, its `html_url`, the build GitHub runs, a
   private repository's plan, or a game opened from `github.io` in a headset.
 - A repository whose objects are SHA-256 (read from its config): the bare repository is made to match,

@@ -223,6 +223,56 @@ The lead's choice of 06:17Z (R2: the tool for a review request or a public page 
   opened there (`review_request` false); Publish is refused in words (`no_pages_host`). A new host is a line in
   that table and its tool.
 
+## Amendment, 2026-11-13: Send One Change
+
+The lead's choice of 16:46Z, on TASKS's shape: AUDIT2 passed its words at 16:42Z, and AUDIT3 found it sound at
+16:44Z with conditions D1 to D5.
+
+**When it is offered.** Send refuses a press whose push would carry a held secret in an earlier version that the
+remote does not have (the history check). Where a true base exists, that refusal is `holds_secret_in_history`, and
+the one offer under it is Send One Change. Where there is no true base, it stays `holds_secret` with no offer. The
+history check runs only after the check of the files as they are now, so a secret in today's files is refused first,
+with no offer.
+
+**What it sends.**
+- **The commit.** One new commit of the project's files as they are now. Its one parent is the base. Its files are
+  staged as the person's own branch tracks them, so a file they stopped tracking is not sent again. A file like
+  `.env` is kept as the base has it, so one only the unsent versions added is never sent; the review names it.
+- **The base.** The newest commit of the person's branch that the remote's own branch reaches, fetched at that
+  moment at the push's own address into Halcyonic's own repository (`refs/halcyonic/remote/*`, emptied at each
+  press, with no hooks or tags).
+  - The branch is the remote's: the one with the person's branch's name where the remote lists it, else the
+    remote's default (`ls-remote --symref`). It is never read from the folder's tracking settings or its record
+    of the remote, which its agent can write.
+  - A commit the remote only keeps in its store, reached by no branch, is never the base.
+  - A shallow history, a remote that cannot be asked, or no history in common: no offer.
+- **The push.** As every Send: a new branch, never a force, a review request onto that branch. The history check
+  of the leak fix reads the new commit before the push, with no second reader. A hit there refuses in the fix's own
+  words, never with the offer again.
+
+**Its review and its press.**
+- **The review.** The refused press records the base, the branch, the person's branch and the held secret's name
+  (never its value) in Halcyonic's own repository (`refs/halcyonic/send-base`, `halcyonic-one-change.*`).
+  - The review reads that record and asks the remote nothing.
+  - The base must still be in the person's own history, so the change holds only their own work: nothing of
+    anyone else's is undone.
+- **The press.** It fetches the branch again. If the base is no longer reached by it, nothing is sent
+  (`review_stale`), and the base found now is recorded for the next look (AUDIT3 D1).
+
+**The card.**
+- Its confirm is "Send One Change". It says the files go as one change and that none of the files sent holds the
+  secret, by its name.
+- It warns that the earlier versions still hold it, that the repository gets one change, and that once sent
+  anyone who can read the repository can read it. It names a file kept back.
+- `project.send` gains `one_change`; `SendReview` gains `one_change {secret_name, kept_back}`. No new command.
+
+**At a desk, afterwards.** Pushing the branch with git still sends the earlier versions, and the secret with them.
+Halcyonic never rewrites the person's history. After the change is merged, `git fetch` then
+`git reset origin/<branch>` moves their branch to the remote's and keeps every file on disk; never `--hard`. A
+pull with no pull setting stops on the diverged branches; one that rebases brings the earlier versions back.
+
+**Not verified.** Against a real GitHub (the third run is the owner's yes).
+
 ## Alternatives considered
 
 - **Halcyonic signs in to GitHub itself**, with an OAuth device flow or a GitHub App of its own. It

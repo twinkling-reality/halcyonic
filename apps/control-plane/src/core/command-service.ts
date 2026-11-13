@@ -1973,6 +1973,7 @@ export class CommandService {
             visibility: command.payload.visibility ?? 'private',
             name: command.payload.repository_name,
             made: this.#deps.projection.madeRepository(command.payload.project_id),
+            oneChange: command.payload.one_change === true,
             // Recorded the moment GitHub made it, whatever the push after it does.
             onMade: (made) =>
               this.#deps.recorder.record(

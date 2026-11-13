@@ -738,6 +738,7 @@ describe('the C# bindings', () => {
     'ProjectRemoveFromListPayload.review', // the review a removal carries (ADR 0063)
     'ProjectRestorePayload.review', // the review a restore carries (ADR 0051)
     'ProjectRulesSetPayload.review', // the review turning a project's rules on carries (E5)
+    'ProjectSendPayload.one_change', // Send One Change, offered on a refusal for an earlier version
     'ProjectSendPayload.repository_name', // ADR 0039, amended: the first Send, its title, Make Public
     'ProjectSendPayload.title', // ADR 0039, amended: the first Send, its title, Make Public
     'ProjectSendPayload.visibility', // ADR 0039, amended: the first Send, its title, Make Public
@@ -774,6 +775,7 @@ describe('the C# bindings', () => {
     'RuntimeModel.picture_input', // what the runtime's list says a model takes (A4)
     'RuntimeModel.provider', // the declared provider a runtime reaches a model through, whose key it needs
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
+    'SendReview.one_change', // Send One Change's own facts (ADR 0039, amended)
     'ToolUseSubject.changes', // every file a request would change, whole (ADR 0065)
     'ToolUseSubject.paths', // the places a request names, as structure, absent where they are not known
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
