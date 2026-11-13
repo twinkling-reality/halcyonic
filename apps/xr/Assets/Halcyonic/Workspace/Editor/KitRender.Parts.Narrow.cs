@@ -70,59 +70,74 @@ namespace Halcyonic.XR.Workspace.Editor
             var plane = new GameObject("Plane").transform;
             plane.SetParent(root, false);
             var view = RoomBarView.Create(plane);
-            view.Show(bar);
-            view.SettleForRender();
-            foreach (var button in view.Column.Where(button => button.gameObject.activeSelf))
-            {
-                button.Press.SettleForRender();
-                button.Settle();
-            }
-            Place(plane, eyes, 0f, shot.Elevation);
-
             var unit = RoomType.Units(1f);
             var column = RoomType.Units(RoomGeometry.ColumnDp);
-            var degrees = view.Size / unit / RoomGeometry.DpPerDegree;
-            var buttons = view.Column.Where(button => button.gameObject.activeSelf).ToList();
-            var widest = buttons.Count == 0 ? 0f : buttons.Max(button => button.Size.x);
-            if (narrow)
-            {
-                // As wide as the column, or its widest action where that needs more; the panel standing over the column, never beside.
-                Require(view.Size.x <= Mathf.Max(column, widest) + unit * 0.5f, "the narrow bar stands " + (view.Size.x / unit).ToString("0.0") + " dp wide, wider than the column's "
-                    + (column / unit).ToString("0") + " dp and its widest action's " + (widest / unit).ToString("0.0"));
-                Require(Mathf.Abs(view.PanelRight - (-view.Size.x / 2f + column)) < unit * 0.5f, "the narrow panel is not the column's width");
-                var columnTop = buttons.Count == 0 ? view.Foot : buttons.Max(button => button.transform.localPosition.y + button.Size.y / 2f);
-                Require(buttons.All(button => button.transform.localPosition.x - button.Size.x / 2f >= -view.Size.x / 2f - unit * 0.5f), "an action stands left of the narrow bar");
-                Require(view.Size.y > columnTop - view.Foot + unit, "the panel does not stand over the column");
-            }
-            else Require(view.Size.x > column + RoomType.Units(RoomGeometry.PanelDp), "the ordinary bar is not the pair's width");
-
-            Require(!view.PassedLargest, "the bar laid past its largest footprint: " + (view.Size / unit).ToString("0") + " dp against "
-                + (RoomBarView.LargestAt(view.LaidPanelDp) / unit).ToString("0"));
-            if (state == "57-destructive-confirm")
-            {
-                var yes = buttons.FirstOrDefault(button => button.Words.text.Contains("Forget Computer"));
-                var red = Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.DestructiveChipColour);
-                Require(yes != null && Mathf.Abs(yes.ChipColour.x - red.r) < 0.02f && Mathf.Abs(yes.ChipColour.y - red.g) < 0.02f && Mathf.Abs(yes.ChipColour.z - red.b) < 0.02f,
-                    "the destructive Yes is not drawn in the destructive red: " + (yes == null ? "no Yes" : yes.ChipColour.ToString()));
-            }
-            var drawn = new List<string>();
-            foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
-            {
-                label.ForceMeshUpdate(true);
-                var said = label.GetParsedText();
-                if (said.Trim().Length == 0) continue;
-                drawn.Add(said);
-                Require(!label.isTextOverflowing && !said.Contains("…"), "\"" + said + "\" is cut");
-                Require(!said.Contains(KitMomentWords.Dot.Trim()), "\"" + said + "\" joins facts on a dot");
-            }
             string Words(string text) => string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-            // What the reader gave: the frame's lines and the actions the bar stands (a confirmation's one way out is Cancel, never Close too).
-            var expected = frame.Lines.Select(line => line.Words).Concat(bar.Column.Select(action => action.Words)).ToList();
+            // Every page the reader made, as the plane turns it (its column holds four actions a page, the spec's cap): each page
+            // measured on its own, and the frame's lines and actions met across them. The render keeps the first page.
+            var drawn = new List<string>();
+            var expected = frame.Lines.Select(line => line.Words).ToList();
+            var pages = bar.GeneralPart.Pages;
+            var degrees = Vector2.zero;
+            for (var page = pages - 1; page >= 0; page--)
+            {
+                if (pages > 1) bar.Turn();
+                var at = bar.GeneralPart.Page;
+                view.Show(bar);
+                view.SettleForRender();
+                foreach (var button in view.Column.Where(button => button.gameObject.activeSelf))
+                {
+                    button.Press.SettleForRender();
+                    button.Settle();
+                }
+                if (at == 0) Place(plane, eyes, 0f, shot.Elevation);
+                var where = pages > 1 ? " on page " + (at + 1) + " of " + pages : "";
+
+                var buttons = view.Column.Where(button => button.gameObject.activeSelf).ToList();
+                var widest = buttons.Count == 0 ? 0f : buttons.Max(button => button.Size.x);
+                if (narrow)
+                {
+                    // As wide as the column, or its widest action where that needs more; the panel standing over the column, never beside.
+                    Require(view.Size.x <= Mathf.Max(column, widest) + unit * 0.5f, "the narrow bar stands " + (view.Size.x / unit).ToString("0.0") + " dp wide" + where + ", wider than the column's "
+                        + (column / unit).ToString("0") + " dp and its widest action's " + (widest / unit).ToString("0.0"));
+                    Require(Mathf.Abs(view.PanelRight - (-view.Size.x / 2f + column)) < unit * 0.5f, "the narrow panel is not the column's width" + where);
+                    var columnTop = buttons.Count == 0 ? view.Foot : buttons.Max(button => button.transform.localPosition.y + button.Size.y / 2f);
+                    Require(buttons.All(button => button.transform.localPosition.x - button.Size.x / 2f >= -view.Size.x / 2f - unit * 0.5f), "an action stands left of the narrow bar" + where);
+                    Require(view.Size.y > columnTop - view.Foot + unit, "the panel does not stand over the column" + where);
+                }
+                else Require(view.Size.x > column + RoomType.Units(RoomGeometry.PanelDp), "the ordinary bar is not the pair's width" + where);
+
+                Require(!view.PassedLargest, "the bar laid past its largest footprint" + where + ": " + (view.Size / unit).ToString("0") + " dp against "
+                    + (RoomBarView.LargestAt(view.LaidPanelDp) / unit).ToString("0"));
+                if (state == "57-destructive-confirm" && buttons.FirstOrDefault(button => button.Words.text.Contains("Forget Computer")) is RoomButton yes)
+                {
+                    var red = Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.DestructiveChipColour);
+                    Require(Mathf.Abs(yes.ChipColour.x - red.r) < 0.02f && Mathf.Abs(yes.ChipColour.y - red.g) < 0.02f && Mathf.Abs(yes.ChipColour.z - red.b) < 0.02f,
+                        "the destructive Yes is not drawn in the destructive red: " + yes.ChipColour);
+                }
+                var here = new List<string>();
+                foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
+                {
+                    label.ForceMeshUpdate(true);
+                    var said = label.GetParsedText();
+                    if (said.Trim().Length == 0) continue;
+                    here.Add(said);
+                    Require(!label.isTextOverflowing && !said.Contains("…"), "\"" + said + "\" is cut" + where);
+                    Require(!said.Contains(KitMomentWords.Dot.Trim()), "\"" + said + "\" joins facts on a dot" + where);
+                }
+                // What the reader gave on this page: the actions it stands (a confirmation's one way out is Cancel, never Close too).
+                foreach (var words in bar.Column.Select(action => action.Words))
+                    Require(here.Any(said => Words(said).Contains(Words(words))), "\"" + words + "\" is not drawn whole" + where + ": " + string.Join(" | ", here.Select(Words)));
+                drawn.AddRange(here);
+                if (at == 0) degrees = view.Size / unit / RoomGeometry.DpPerDegree;
+            }
+            Require(state != "57-destructive-confirm" || drawn.Any(said => said.Contains("Forget Computer")), "the destructive Yes is not drawn");
             foreach (var words in expected)
-                Require(drawn.Any(said => Words(said).Contains(Words(words))), "\"" + words + "\" is not drawn whole: " + string.Join(" | ", drawn.Select(Words)));
+                Require(drawn.Any(said => Words(said).Contains(Words(words))), "\"" + words + "\" is not drawn whole on any page: " + string.Join(" | ", drawn.Select(Words)));
             Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : "ordinary") + " bar "
                 + degrees.x.ToString("0.0", CultureInfo.InvariantCulture) + " by " + degrees.y.ToString("0.0", CultureInfo.InvariantCulture)
-                + " degrees at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + "; drawn: " + string.Join(" | ", drawn.Select(Words)) + ".");
+                + " degrees at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + " in " + pages + (pages == 1 ? " page" : " pages")
+                + "; drawn: " + string.Join(" | ", drawn.Select(Words)) + ".");
             return shot;
         }
 
