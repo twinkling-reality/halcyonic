@@ -23,7 +23,8 @@ namespace Halcyonic.XR.Workspace.Editor
     {
         private static readonly string[] WidthStates = { "59-width-table", "60-envelope-caps" };
 
-        private static readonly float[] TableWidthsDp = { 440f, 400f, 360f, 320f, 280f, 240f };
+        // The plane's own steps (PlaneWidth, XR's rule), never a copy, so the table and the plane cannot drift apart.
+        private static float[] TableWidthsDp => PlaneWidth.Steps;
 
         private static PartShot WidthShot(string state, Transform root, Vector3 eyes, string name)
         {
@@ -71,6 +72,7 @@ namespace Halcyonic.XR.Workspace.Editor
             plane.SetParent(root, false);
             var view = RoomBarView.Create(plane);
             var floor = (float?)null;
+            var broken = false;
             var size = GlazeText.Scale > 1.001f ? "Larger" : "Standard";
             foreach (var width in TableWidthsDp)
             {
@@ -96,7 +98,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         {
                             RoomBar? bar;
                             RoomDesign.Enabled = true;
-                            try { bar = RoomBar.OfFrame(frame, VoiceStage.Idle, new RoomForm(width < RoomGeometry.PanelDp, rows)); }
+                            // Laid as the plane lays a width (PlaneWidthRule): the full form at that panel width, never the narrow one.
+                            try { bar = RoomBar.OfFrame(frame, VoiceStage.Idle, new RoomForm(false, rows, panelDp: width)); }
                             finally { RoomDesign.Enabled = was; }
                             if (bar == null) break;
                             bar.PanelWidthDp = width;
@@ -112,12 +115,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     cells.Add(screen + " " + (whole ? parts + (parts == 1 ? " part" : " parts") : "NOT WHOLE (" + (view.FirstCut ?? "largest") + ")")
                         + (screen is "rows" or "usage" ? " at " + rows + " rows a page" : ""));
                 }
-                if (allFit) floor = width;
+                // The floor is the narrowest width with every wider one fitting too: a width that fits under one that does not is no floor.
+                if (allFit && !broken) floor = width;
+                if (!allFit) broken = true;
                 Debug.Log("Halcyonic: width table: " + size + " " + width.ToString("0", CultureInfo.InvariantCulture) + " dp (" + (width / RoomGeometry.DpPerDegree).ToString("0.0", CultureInfo.InvariantCulture)
                     + " degrees): " + string.Join("; ", cells) + (allFit ? "; ALL FIT" : "") + ".");
             }
             Debug.Log("Halcyonic: width table: " + size + " floor " + (floor is float f ? f.ToString("0", CultureInfo.InvariantCulture) + " dp (" + (f / RoomGeometry.DpPerDegree).ToString("0.0", CultureInfo.InvariantCulture) + " degrees)" : "NONE") + ".");
             Require(floor != null, "no width lays every screen whole in three parts or fewer");
+            // The plane lays nothing under its floor (PlaneWidth.FloorDp): the floor measured here is that one, or the plane and the kit disagree.
+            var planeFloor = PlaneWidth.FloorDp(GlazeText.Scale);
+            Require(floor is float measuredFloor && Mathf.Abs(measuredFloor - planeFloor) < 0.5f, "the measured " + size + " floor, "
+                + (floor is float floorSaid ? floorSaid.ToString("0", CultureInfo.InvariantCulture) + " dp" : "none") + ", is not the plane's " + planeFloor.ToString("0", CultureInfo.InvariantCulture) + " dp (PlaneWidth)");
             // The render shows the recap at DESIGN's width; every measured bar is laid again so the state's own checks read it.
             RoomBar? shown;
             RoomDesign.Enabled = true;
@@ -177,7 +186,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 RoomBar? bar;
                 RoomDesign.Enabled = true;
-                try { bar = RoomBar.OfFrame(capsFrame, VoiceStage.Idle, new RoomForm(width < RoomGeometry.PanelDp, RoomRows.APage)); }
+                try { bar = RoomBar.OfFrame(capsFrame, VoiceStage.Idle, new RoomForm(false, RoomRows.APage, panelDp: width)); }
                 finally { RoomDesign.Enabled = was; }
                 Require(bar != null, "no reader takes the caps frame " + capsFrame.Subject);
                 if (bar == null) continue;
