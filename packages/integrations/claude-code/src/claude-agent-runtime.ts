@@ -362,6 +362,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
    */
   async listModels(): Promise<readonly RuntimeModel[]> {
     if (this.#closed) throw closedError();
+    this.#refuseHostTemp();
     // The same rule as a run's: no settings file, and no other credential left in the managed tier.
     const remaining = this.#checkRemainingSettings();
     if (remaining !== undefined) await remaining;
@@ -444,7 +445,10 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     const scope = this.#scopeFor(cwd);
     const gate = scope.folder === null ? null : await this.#apiGate();
     if (scope.folder !== null) prepareConfinedFolder(scope.folder);
-    if (scope.folder === null) this.#refuseHostFolder(cwd);
+    if (scope.folder === null) {
+      this.#refuseHostFolder(cwd);
+      this.#refuseHostTemp();
+    }
     const found = scope.folder === null ? this.#personal() : null;
     const personal = found instanceof Promise ? await found : found;
     const openGate = scope.folder === null && this.#openThroughGate ? await this.#openGate() : null;
@@ -568,7 +572,10 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
     }
     const gate = scope.folder === null ? null : await this.#apiGate();
-    if (scope.folder === null) this.#refuseHostFolder(cwd);
+    if (scope.folder === null) {
+      this.#refuseHostFolder(cwd);
+      this.#refuseHostTemp();
+    }
     const found = scope.folder === null ? this.#personal() : null;
     const personal = found instanceof Promise ? await found : found;
     const openGate = scope.folder === null && this.#openThroughGate ? await this.#openGate() : null;
@@ -719,6 +726,24 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (this.#hostFolders === null) return null;
     this.#hostProfile ??= writeHostFoldersProfile(this.#hostProfilePath, this.#hostFolders);
     return this.#hostProfile;
+  }
+
+  /**
+   * Refuses outside the closed profile when this host's temporary folder is one of its own folders (VRIFY,
+   * 2026-11-13, seen on the proving plane): the light profile keeps every Claude Code process out of it, so the
+   * process could not open its own working or temporary folder and would only exit; said in words instead.
+   */
+  #refuseHostTemp(): void {
+    if (this.#hostFolders === null) return;
+    for (const temp of [this.#environment.TMPDIR, tmpdir()]) {
+      if (temp === undefined || temp === '') continue;
+      if (withinHostFolders(temp, this.#hostFolders)) {
+        throw new RuntimeActionError(
+          'runtime_unavailable',
+          `Claude Agent can't run here: this Halcyonic's temporary folder ${temp} is inside one of Halcyonic's own folders, which no agent app reaches. Start Halcyonic with TMPDIR set to a folder outside them.`,
+        );
+      }
+    }
   }
 
   /** Refuses a folder outside the closed profile that is, or is inside, one of the host's own. */

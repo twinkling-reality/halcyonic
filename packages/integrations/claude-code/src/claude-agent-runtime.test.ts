@@ -2086,3 +2086,30 @@ describe("Claude Agent outside the closed profile, kept out of the host's own fo
     assert.equal(runs.length, 0, 'a query was started');
   });
 });
+
+describe("Claude Agent whose temporary folder is one of the host's own (VRIFY, 2026-11-13, the proving plane)", () => {
+  test('refuses to list or start in words, instead of a Claude Code that cannot open its own folder', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const host = join(WORKDIR, `host-${randomUUID()}`);
+    const { adapter, start, runs } = setup({
+      inheritedEnvironment: { ...INHERITED, TMPDIR: `${join(host, 'tmp')}/` },
+      confinement: {
+        dataFolder: host,
+        toolFolders: [],
+        forDirectory: () => null,
+        hostFolders: [host],
+      },
+    });
+    const words = (error: unknown) => {
+      assert.ok(error instanceof RuntimeActionError);
+      assert.equal(error.code, 'runtime_unavailable');
+      assert.match(error.message, /temporary folder .* is inside one of Halcyonic's own folders/);
+      assert.match(error.message, /TMPDIR/);
+      return true;
+    };
+    await assert.rejects(adapter.listModels(), words);
+    await assert.rejects(start(), words);
+    assert.equal(runs.length, 0, 'a query was started');
+  });
+});

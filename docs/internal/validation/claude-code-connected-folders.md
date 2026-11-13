@@ -22,6 +22,13 @@ folders, the key's file and the journal among them. The lead's 18:21Z step 3, bo
   taken away: the network, the person's home and tools, their own folder, Salidium's and Seorak's homes. A start in
   one of those folders is refused in words. macOS only; elsewhere there is no seatbelt.
 - The record stays `confined: false`: the light profile is not the closed one.
+- A host whose own temporary folder is one of those folders (the proving plane's was `~/.halcyonic-proving/tmp`):
+  every Claude Code process outside the closed profile would be refused its own working and temporary folder and
+  exit with code 1 ("Claude Code could not list its models: Claude Code process exited with code 1", seen
+  2026-11-13 on the proving plane and reproduced with the adapter). The adapter now refuses a listing, a start or a
+  resume there in words: "this Halcyonic's temporary folder ... is inside one of Halcyonic's own folders, which no
+  agent app reaches. Start Halcyonic with TMPDIR set to a folder outside them." (`claude-agent-runtime.test.ts`,
+  failing first.)
 - The adapter declares the result for the key's card (`ClaudeAgentRuntimeAdapter.holdsKeyOutsideSandbox()`: false on
   this Mac), so the card stops saying a task on a connected folder holds the key, by itself.
 
