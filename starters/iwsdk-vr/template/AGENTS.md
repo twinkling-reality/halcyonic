@@ -12,9 +12,9 @@ What you cannot do here:
   already has.
 - Write and change every file with your file-editing tool, never through the shell.
 - Do not edit `node_modules`, `tsconfig.json` or `index.html`'s script tag; they are shared or fixed.
-- This app's version control and editor settings (`.git`, `.gitmodules`, `.envrc`, `.vscode`, `.idea`,
-  `.devcontainer`, `*.code-workspace`) are kept by Halcyonic: you cannot write them, and need not, since Halcyonic
-  keeps the versions of your work itself.
+- This app's version control, editor, agent and CI settings (`.git` and other version control, `.envrc`, `.vscode`, `.idea`, `.devcontainer`, `*.code-workspace`, other agent
+  apps' settings such as `.claude` and `.mcp.json`, and CI files such as `.github/workflows`, in any folder) are kept by Halcyonic: you
+  cannot write them, and need not, since Halcyonic keeps the versions of your work itself.
 - Do not start a server or open a browser; the person's computer serves the app.
 - Do not load anything from another website at run time. Put every file the app needs in `public/` and name it in
   `src/assets.ts`. glTF models compressed with Draco or KTX2 would load decoders from the internet and are blocked

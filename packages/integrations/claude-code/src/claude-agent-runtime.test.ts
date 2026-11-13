@@ -2328,11 +2328,14 @@ describe('a confined session never writes what Halcyonic keeps, and says so (the
       ['NotebookEdit', { notebook_path: '.idea/x.ipynb' }],
       ['Write', { file_path: 'garden.code-workspace' }],
       ['Write', { file_path: 'src/../.gitmodules' }],
+      // At any depth too (AUDIT3 17:32Z, the lead 17:33Z).
+      ['Write', { file_path: 'src/.vscode/kept.json' }],
+      ['Edit', { file_path: 'lib/.git/config' }],
+      ['Write', { file_path: 'deep/.claude/settings.json' }],
     ] as const)
       assert.equal(keptPath(folder, tool, input), true, `${tool} ${JSON.stringify(input)}`);
     for (const [tool, input] of [
       ['Write', { file_path: 'src/index.ts' }],
-      ['Write', { file_path: 'src/.vscode/kept.json' }],
       ['Read', { file_path: '.git/config' }],
       ['Bash', { command: 'git config core.pager x' }],
       ['Write', { file_path: '/Users/someone/dev/other/.git/config' }],

@@ -377,44 +377,108 @@ const CODEX_BASE = `(version 1)
 
 /**
  * What in a project's own folder runs later outside any sandbox without the person choosing to run anything, so a
- * confined run never writes it (AUDIT3, 2026-11-13): the project's own git data (its config and hooks run in the
- * person's git, their editor's and Halcyonic's send), and the files an editor or a shell runs when the folder is
- * opened. Each is a folder (`subpath`) or a file at the project's top level (`literal`), or, for workspace files, any
- * name ending in `.code-workspace` at the top level. The host's own answer to an approval asks for these too.
+ * confined run never writes it (AUDIT3, 2026-11-13): git data (its config and hooks run in the person's git, their
+ * editor's and Halcyonic's send), and the files an editor or a shell runs when a folder is opened. One list, refused
+ * at ANY depth and in any case, since a person can open any folder inside the project and the Mac's disk folds case
+ * (AUDIT3 17:32Z, the lead 17:33Z): each folder name (a folder or a file of that name, and all under it), each file
+ * name, and any name ending in a suffix. The host's own answer to an approval asks for these too.
  */
 export const RUNS_LATER = {
-  folders: ['.git', '.vscode', '.idea', '.devcontainer'],
-  files: ['.envrc', '.gitmodules'],
+  /** A folder (or a file of that name) and all under it; a name with a slash is that folder inside another. */
+  folders: [
+    // Version control, run by the person's git, their editor's and Halcyonic's send.
+    '.git',
+    '.hg',
+    '.svn',
+    '.jj',
+    // Run by a shell on entering the folder.
+    '.mise',
+    // Opened by an editor.
+    '.vscode',
+    '.idea',
+    '.devcontainer',
+    '.zed',
+    '.fleet',
+    '.nova',
+    // Opened by the person's other agent apps, unconfined.
+    '.claude',
+    '.cursor',
+    '.windsurf',
+    '.opencode',
+    '.codex',
+    // Run on the host's CI with the repository's secrets once the project is sent.
+    '.github/workflows',
+    '.github/actions',
+    '.circleci',
+    '.buildkite',
+    '.woodpecker',
+  ],
+  files: [
+    '.gitmodules',
+    '.envrc',
+    '.autoenv.zsh',
+    '.autoenv_leave.zsh',
+    'mise.toml',
+    '.mise.toml',
+    'mise.local.toml',
+    '.mise.local.toml',
+    '.devcontainer.json',
+    '.mcp.json',
+    'opencode.json',
+    'opencode.jsonc',
+    '.gitlab-ci.yml',
+    'azure-pipelines.yml',
+    'bitbucket-pipelines.yml',
+    'Jenkinsfile',
+    '.drone.yml',
+    '.woodpecker.yml',
+  ],
   suffixes: ['.code-workspace'],
 } as const;
 
-/** Whether `relativePath`, a path inside a project relative to it, is one of `RUNS_LATER`. */
+/** Whether `relativePath`, a path inside a project relative to it, is or is under one of `RUNS_LATER`, in any case. */
 export function runsLater(relativePath: string): boolean {
-  const parts = relativePath.split('/').filter((part) => part !== '' && part !== '.');
-  const top = parts[0];
-  if (top === undefined) return false;
-  if ((RUNS_LATER.folders as readonly string[]).includes(top)) return true;
+  const parts = relativePath
+    .toLowerCase()
+    .split('/')
+    .filter((part) => part !== '' && part !== '.');
+  const last = parts.at(-1);
+  if (last === undefined) return false;
+  const inside = (folder: string) => {
+    const names = folder.toLowerCase().split('/');
+    return parts.some((_, at) => names.every((name, i) => parts[at + i] === name));
+  };
+  if (RUNS_LATER.folders.some(inside)) return true;
   return (
-    parts.length === 1 &&
-    ((RUNS_LATER.files as readonly string[]).includes(top) ||
-      RUNS_LATER.suffixes.some((suffix) => top.endsWith(suffix)))
+    RUNS_LATER.files.some((name) => name.toLowerCase() === last) ||
+    RUNS_LATER.suffixes.some((suffix) => last.endsWith(suffix))
   );
 }
 
-/** Seatbelt rules refusing every write to `RUNS_LATER` in `project`. */
+/** Seatbelt rules refusing every write to `RUNS_LATER` in `project`, at any depth, every letter in either case. */
 export function runsLaterUnder(project: string): string {
   const root = resolved(project);
   if (/["\n\r]/.test(root))
     throw new Error(`a folder Halcyonic cannot name in its profile: ${root}`);
-  const literal = root.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&');
-  const quote = (path: string) => JSON.stringify(path);
+  const under = `^${root.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&')}/(.*/)?`;
   return [
-    ...RUNS_LATER.folders.map((name) => `(subpath ${quote(`${root}/${name}`)})`),
-    ...RUNS_LATER.files.map((name) => `(literal ${quote(`${root}/${name}`)})`),
-    ...RUNS_LATER.suffixes.map(
-      (suffix) => `(regex #"^${literal}/[^/]*${suffix.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&')}$")`,
-    ),
-  ].join(' ');
+    ...RUNS_LATER.folders.map((name) => `${under}${anyCase(name)}(/|$)`),
+    ...RUNS_LATER.files.map((name) => `${under}${anyCase(name)}$`),
+    ...RUNS_LATER.suffixes.map((suffix) => `${under}[^/]*${anyCase(suffix)}$`),
+  ]
+    .map((pattern) => `(regex #"${pattern}")`)
+    .join(' ');
+}
+
+/** `text` quoted for a Seatbelt regex, each letter matching either case. */
+function anyCase(text: string): string {
+  return [...text]
+    .map((c) =>
+      /[a-zA-Z]/.test(c)
+        ? `[${c.toLowerCase()}${c.toUpperCase()}]`
+        : c.replace(/[.^$*+?()[\]{}|\\]/, '\\$&'),
+    )
+    .join('');
 }
 
 /**
@@ -432,7 +496,9 @@ export function secretsUnder(path: string): string {
   const word = (text: string) =>
     [...text]
       .map((c) =>
-        /[a-z]/.test(c) ? `[${c}${c.toUpperCase()}]` : c.replace(/[.^$*+?()[\]{}|\\]/, '\\$&'),
+        /[a-zA-Z]/.test(c)
+          ? `[${c.toLowerCase()}${c.toUpperCase()}]`
+          : c.replace(/[.^$*+?()[\]{}|\\]/, '\\$&'),
       )
       .join('');
   const any = (words: readonly string[]) => `(${words.map(word).join('|')})`;

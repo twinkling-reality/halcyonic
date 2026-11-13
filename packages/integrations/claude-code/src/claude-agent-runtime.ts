@@ -2088,7 +2088,7 @@ function approvalRequest(
 
 /** What a confined agent is told when it tries to write a file Halcyonic keeps (`RUNS_LATER`). */
 export const KEPT_BY_HALCYONIC =
-  "This app's version control and editor settings (.git, .gitmodules, .envrc, .vscode, .idea, .devcontainer, *.code-workspace) are kept by Halcyonic and cannot be written here. Leave them as they are and go on with the app: Halcyonic keeps the versions of your work itself.";
+  "This app's version control, editor, agent and CI settings (.git and other version control, .envrc, .vscode, .idea, .devcontainer, *.code-workspace, other agent apps' settings such as .claude and .mcp.json, and CI files such as .github/workflows, in any folder) are kept by Halcyonic and cannot be written here. Leave them as they are and go on with the app: Halcyonic keeps the versions of your work itself.";
 
 /** Whether a file tool's input writes one of `RUNS_LATER` in `folder`, as the SDK's tool schemas name the file. */
 export function keptPath(
