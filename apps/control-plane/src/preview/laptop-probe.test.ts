@@ -226,10 +226,14 @@ describe("the check's laptop step (M1.8b)", () => {
       JSON.stringify({ counts: { mouse: 1 }, targets: [] }),
       JSON.stringify({ counts, targets: [{ x: 'a', y: 1 }] }),
       JSON.stringify({ counts, targets: [{ x: 5000, y: 1 }] }),
-      JSON.stringify({ counts, targets: Array.from({ length: 33 }, () => AT) }),
     ]) {
       assert.equal(parseReport(bad), null, String(bad).slice(0, 60));
     }
+    // More targets than the step presses is not a broken report: the first 32 are kept (run (a4), 2026-11-13).
+    const many = parseReport(
+      JSON.stringify({ counts, targets: Array.from({ length: 40 }, () => AT) }),
+    );
+    assert.equal(many?.targets.length, 32);
   });
 
   test('the screen changed only above its share, with the control at most its own', () => {

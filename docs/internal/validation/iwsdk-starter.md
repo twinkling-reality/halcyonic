@@ -138,6 +138,11 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - **Laptop ready:** the layer reports the mouse reached, the project's `src/play-input.ts` and
   `src/play-input-core.ts` are byte for byte the template's, and the screen is observed changed. The first two are
   what the page says; only the last is the host's own, and only it may be worded as checked by the computer.
+- **When it cannot tell (2026-11-13, runs (a4) and (b3) on hosted models):** a hook that never answered in its time,
+  or answered with no target to press (an app whose presses go another way than the starter's targets), is not a
+  failure of the app. The check records why in its `unknown` ("could not read the app's input layer", "found nothing
+  it can press") and Play on Laptop's refusal says the check couldn't tell, never that the game does not work. A hook
+  listing more targets than the step presses keeps its first 32 instead of being dropped whole, as (a4)'s likely was.
 - **VR-entry step:** a second load with a stand-in `navigator.xr` installed before the page's scripts, reporting
   through a binding with a random name that it takes into its closure and deletes from the global object. The starter's
   World offers `immersive-vr` as it loads (`xr.offer: 'always'`), so offered means the game kept that; it is offered

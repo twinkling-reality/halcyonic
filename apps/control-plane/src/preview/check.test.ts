@@ -20,6 +20,7 @@ import {
   type CheckStep,
   DRAWN_EDGES,
   drawnFrom,
+  laptopUnknown,
   OWN_DRAWN,
   type OwnReference,
   type PageFindings,
@@ -611,5 +612,32 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     });
     assert.equal(result.vr?.offered, 'not_offered', JSON.stringify(result.vr));
     assert.equal(result.ready, false);
+  });
+});
+
+describe('the laptop step that could not tell (run (a4), 2026-11-13)', () => {
+  test('says why it does not know, and never that the app does not work', () => {
+    const step = {
+      layer: 'starter' as const,
+      targets: 0,
+      key: 'unknown' as const,
+      screen_changed: null,
+      ready: false,
+    };
+    assert.match(
+      laptopUnknown({ ...step, mouse: 'unknown' }) ?? '',
+      /could not read the app's input layer/,
+    );
+    assert.match(
+      laptopUnknown({ ...step, mouse: 'no_target' }) ?? '',
+      /found nothing it can press/,
+    );
+    assert.equal(laptopUnknown({ ...step, targets: 1, mouse: 'not_reached' }), null);
+    assert.equal(laptopUnknown({ ...step, targets: 1, mouse: 'reached', ready: true }), null);
+    for (const said of [
+      laptopUnknown({ ...step, mouse: 'unknown' }),
+      laptopUnknown({ ...step, mouse: 'no_target' }),
+    ])
+      assert.ok((said ?? '').length <= 300, 'fits the findings');
   });
 });

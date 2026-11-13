@@ -79,9 +79,10 @@ export function parseReport(value: unknown): HookReport | null {
     if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > 1e6) return null;
     read[source] = n;
   }
-  if (targets.length > MAX_TARGETS) return null;
   const points: { x: number; y: number }[] = [];
-  for (const target of targets) {
+  // An app with more targets than the step presses is not a broken report: the first ones are kept (run (a4)'s guide
+  // of species cards likely had more than 32, and its whole report was dropped as if the layer never answered).
+  for (const target of targets.slice(0, MAX_TARGETS)) {
     const { x, y } = (target ?? {}) as { x?: unknown; y?: unknown };
     const inside = (n: unknown): n is number =>
       typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 4096;
