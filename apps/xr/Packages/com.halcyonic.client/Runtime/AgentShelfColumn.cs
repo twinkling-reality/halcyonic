@@ -67,7 +67,7 @@ namespace Halcyonic.Client
                         : new PageLine(Directions[index], action: Move, key: Directions[index], control: LineControl.Action).WithGroup("pair-" + index / 2));
                 return frame = new MenuFrame(subject, new Footer(new Prompt(Footer.Close, "Cancel", GlazeIcon.Close, PromptKind.Close),
                     secondary: pages > 1 ? new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage) : null,
-                    farRight: new Prompt(Apply, "Apply", GlazeIcon.Approve, main: true)), lines: lines, subjectIsData: taskTitle != null).Focus();
+                    farRight: new Prompt(Apply, "Apply", GlazeIcon.Change, main: true)), lines: lines, subjectIsData: taskTitle != null).Focus();
             }
         }
         public void Act(string id, string? key)
