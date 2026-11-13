@@ -299,15 +299,19 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw();
                     Thread.Sleep(TimeSpan.FromSeconds(0.45));
                     Draw();
-                    if (Drawn(action, key) is RoomButton button)
+                    // The drawn control: a column button, else a row of the panel's card that carries the press (a described answer
+                    // stands as a card row since 7e101f1ab, SCREENS 23:03Z), pressed the same way a person presses either.
+                    var drawnPress = Drawn(action, key)?.Press ?? (plane.KitShows ? plane.Kit.Bar.Card?.RowTargets
+                        .Where(row => row.Control.Action == action && row.Control.Key == key).Select(row => row.Press).FirstOrDefault() : null);
+                    if (drawnPress != null)
                     {
                         // A press counts only where the column took it (XR 18:16Z, AUDIT 18:16Z): where the navigator would not take it from
                         // the frame shown and nothing changed after it (nothing sent, opened, closed or turned), it is said and not counted.
                         var column = Opened() != null ? MenuColumn.File : MenuColumn.Menu;
                         var refused = navigator.Taking(column, action, director.Plane.Showing(column), null) == null;
                         var before = (sent.Count, navigator.Shown, navigator.Beside, Opened()?.Screen.Section, Opened()?.Frame?.Side);
-                        button.Press.SettleForRender();
-                        button.Press.PressForRender(990);
+                        drawnPress.SettleForRender();
+                        drawnPress.PressForRender(990);
                         Draw();
                         if (refused && before == (sent.Count, navigator.Shown, navigator.Beside, Opened()?.Screen.Section, Opened()?.Frame?.Side))
                         {
