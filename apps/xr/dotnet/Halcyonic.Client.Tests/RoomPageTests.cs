@@ -448,7 +448,7 @@ public class RoomPageTests
     public void EightLinesMeansEightLinesAndALongRowStandsInItsOwnPartsWithItsLabel()
     {
         int Measure(LineWords words) => System.Math.Max(1, (words.Text.Length + 29) / 30);
-        var form = RoomForm.Full.Measured(Measure);
+        var form = RoomForm.Full.Measured((words, indented) => Measure(words));
         int LinesOn(IReadOnlyList<RoomRow> rows) => rows.Sum(row => (row.Label == null ? 0 : Measure(LineWords.Ours(row.Label))) + (row.Lines ?? Measure(row.Words)));
 
         var forty = new string('a', 30 * 40 - 1);
@@ -483,5 +483,33 @@ public class RoomPageTests
 
         // Without a measure, rows a page as before.
         Assert.That(RoomBar.OfFrame(frame, VoiceStage.Idle)!.GeneralPart.Pages, Is.EqualTo(1));
+    }
+
+    /// <summary>
+    /// A marked page lays its rows' words a mark's indent narrower (AUDIT's 20:20Z MUST): the general reader measures a frame's rows
+    /// indented wherever any of them carries a mark. It lays no mark of its own (marks are a start's steps', a specific reader's),
+    /// so its pages are measured, and laid, at the full words width; the measure is asked so, and no page passes eight lines.
+    /// </summary>
+    [Test]
+    public void TheGeneralReaderMeasuresRowsAtTheWidthTheyAreLaid()
+    {
+        var asked = new List<bool>();
+        int Measure(LineWords words, bool indented)
+        {
+            asked.Add(indented);
+            return System.Math.Max(1, (words.Text.Length + (indented ? 27 : 29)) / (indented ? 28 : 30));
+        }
+        var row = new string('c', 60);
+        var frame = Frame(new[] { new PageLine("Checks") }.Concat(Enumerable.Range(1, 6).Select(n => new PageLine(LineWords.Theirs(row)))).ToList());
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle, RoomForm.Full.Measured(Measure))!;
+        Assert.That(asked.Count, Is.GreaterThan(0));
+        Assert.That(asked.All(indented => !indented), Is.True, "no mark on the general reader's rows, so none is measured indented");
+        for (var page = 0; page < bar.GeneralPart.Pages; page++)
+        {
+            var rows = (IReadOnlyList<RoomRow>?)bar.Facts ?? new[] { new RoomRow(bar.Body) };
+            Assert.That(RoomRows.Marked(rows), Is.False);
+            Assert.That(rows.Sum(each => each.Lines ?? Measure(each.Words, false)), Is.LessThanOrEqualTo(RoomForm.SpecLines), "page " + (page + 1));
+            bar.Turn();
+        }
     }
 }

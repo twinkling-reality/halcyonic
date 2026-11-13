@@ -267,13 +267,16 @@ namespace Halcyonic.Client
         private static List<IReadOnlyList<RoomRow>> PageRows(IReadOnlyList<RoomRow> rows, RoomForm form)
         {
             var pages = new List<IReadOnlyList<RoomRow>>();
-            if (form.LinesOf is not System.Func<LineWords, int> measure)
+            if (form.LinesOf is not System.Func<LineWords, bool, int> measure)
             {
                 for (var at = 0; at < rows.Count; at += form.RowsAPage) pages.Add(rows.Skip(at).Take(form.RowsAPage).ToList());
                 if (pages.Count == 0) pages.Add(new List<RoomRow>());
                 return pages;
             }
             var budget = form.LinesAPage;
+            // A page indents every row's words where any of its rows carries a mark (RoomRows.Marked): measured at the indented width
+            // wherever the frame holds a marked row, so a row is never counted at a width wider than it is laid (AUDIT's 20:20Z MUST).
+            var indented = RoomRows.Marked(rows);
             var page = new List<RoomRow>();
             var used = 0;
             void Close()
@@ -285,8 +288,8 @@ namespace Halcyonic.Client
             }
             foreach (var row in rows)
             {
-                var label = row.Label == null ? 0 : System.Math.Max(1, measure(LineWords.Ours(row.Label)));
-                var lines = row.Lines ?? System.Math.Max(1, measure(row.Words));
+                var label = row.Label == null ? 0 : System.Math.Max(1, measure(LineWords.Ours(row.Label), indented));
+                var lines = row.Lines ?? System.Math.Max(1, measure(row.Words, indented));
                 if (row.Lines == null && label + lines > budget)
                 {
                     // Longer than a page: its own parts, each on a page of its own, the label kept on every part.
@@ -387,7 +390,7 @@ namespace Halcyonic.Client
     /// </summary>
     public readonly struct RoomForm
     {
-        public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions, System.Func<LineWords, int>? linesOf = null, int linesAPage = SpecLines)
+        public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions, System.Func<LineWords, bool, int>? linesOf = null, int linesAPage = SpecLines)
         {
             Narrow = narrow;
             RowsAPage = rowsAPage < 1 ? 1 : rowsAPage > RoomRows.APage ? RoomRows.APage : rowsAPage;
@@ -400,16 +403,17 @@ namespace Halcyonic.Client
         public const int SpecLines = 8;
 
         /// <summary>
-        /// The plane's line measure: how many lines words take as the rows will lay them, at the width the bar will be laid (the
-        /// kit's own measure, never a count of characters; XR wires it). Null: the reader pages by rows alone.
+        /// The plane's line measure: how many lines words take as the rows will lay them, at the width the bar will be laid, and
+        /// when the second argument is true at that width less a mark's indent (RoomRows.IndentDp), as a marked page lays its rows
+        /// (the kit's own measure, never a count of characters; XR wires it). Null: the reader pages by rows alone.
         /// </summary>
-        public System.Func<LineWords, int>? LinesOf { get; }
+        public System.Func<LineWords, bool, int>? LinesOf { get; }
 
         /// <summary>The lines a page of the panel holds, one to eight; fewer where the plane measured fewer to keep inside the field.</summary>
         public int LinesAPage { get; }
 
         /// <summary>This form with its line measure (the plane's), the rest kept.</summary>
-        public RoomForm Measured(System.Func<LineWords, int> linesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, linesOf, LinesAPage);
+        public RoomForm Measured(System.Func<LineWords, bool, int> linesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, linesOf, LinesAPage);
 
         /// <summary>The actions a choices column holds at most in all, its main action, ways out and pager among them (BUILD-SPEC-v4 1.1, the lead's 19:41Z).</summary>
         public const int SpecActions = 4;
