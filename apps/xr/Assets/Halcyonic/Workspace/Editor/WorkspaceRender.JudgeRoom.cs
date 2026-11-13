@@ -702,8 +702,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (task == null) return;
 
                     Journey("answer an approval", "1: one key");
-                    if (Until(() => Current(task.WorkstreamId)?.PendingApprovals.Count > 0, "the live task's approval", 60)
-                        && Current(task.WorkstreamId) is ExecutionView asking)
+                    // A real agent may finish without asking: the wait ends at its result too.
+                    if (Until(() => Current(task.WorkstreamId) is ExecutionView each && (each.PendingApprovals.Count > 0 || each.Status == ExecutionStatus.Completed), "the live task's approval", on.TurnSeconds)
+                        && Current(task.WorkstreamId) is ExecutionView asking && asking.PendingApprovals.Count > 0)
                     {
                         // The way to the waiting request is what the screen draws (its main action, a row naming the task): the
                         // walk opens the request itself only where nothing drawn reaches it, and says so.
@@ -714,7 +715,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     EndJourney();
 
                     Journey("read the result", "0: it prints");
-                    if (Until(() => Current(task.WorkstreamId)?.Status == ExecutionStatus.Completed, "the live task's result", 90))
+                    if (Until(() => Current(task.WorkstreamId)?.Status == ExecutionStatus.Completed, "the live task's result", on.TurnSeconds))
                     {
                         Fresh();
                         Moment("live result");
@@ -748,6 +749,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     else journeyWays.Add("nothing drawn to keep it (Add to Project not offered)");
                     EndJourney();
+                    if (on.ThroughKeep) return;
                     // Give the next instruction at rest, typed and picked from the ready-made ones (lead, 12:04Z); said needs a
                     // microphone, which a batch Editor has none of, so it is listed by what is drawn and not run.
                     int Instructions() => sent.OfType<ExecutionSendInstructionCommand>().Count();
@@ -756,7 +758,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var told = Instructions();
                     if (!DriveUntil(() => Instructions() > told, "instruct typed", on.NextInstruction, 6)) journeyWays.Add("nothing drawn sent it");
                     EndJourney();
-                    Until(() => Current(task.WorkstreamId)?.Status == ExecutionStatus.Completed, "the instructed turn's end", 90);
+                    Until(() => Current(task.WorkstreamId)?.Status == ExecutionStatus.Completed, "the instructed turn's end", on.TurnSeconds);
                     Fresh();
                     Journey("give the next instruction, picked", "1 typed + 1: a desk has no ready-made ones");
                     told = Instructions();
@@ -943,8 +945,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 Directory.CreateDirectory(folder);
                 foreach (var old in Directory.GetFiles(folder)) File.Delete(old);
                 var moments = new List<string> { "moment\tdrawn by\tdots | older cut | overlaps\tcoverage\tredesign drew\tolder parts drew\tactions drawn\treached by\tfailures" };
+                // A real agent's turn is longer than the mock's: HALCYONIC_LIVE_TURN_SECONDS, and HALCYONIC_LIVE_THROUGH=keep ends
+                // the walk once Keep is tried, for a model window that holds one turn.
                 var live = new LiveWalk(uri!, File.ReadAllText(Path.GetFullPath(tokenFile)).Trim(),
-                    Environment.GetEnvironmentVariable("HALCYONIC_LIVE_IDEA") ?? "A page that says hello and counts my visits");
+                    Environment.GetEnvironmentVariable("HALCYONIC_LIVE_IDEA") ?? "A page that says hello and counts my visits")
+                {
+                    TurnSeconds = double.TryParse(Environment.GetEnvironmentVariable("HALCYONIC_LIVE_TURN_SECONDS"), out var turn) && turn > 0 ? turn : 90,
+                    ThroughKeep = Environment.GetEnvironmentVariable("HALCYONIC_LIVE_THROUGH") == "keep",
+                };
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 ViewField.Current = FieldChecks.Quest3S;
                 var context = SynchronizationContext.Current;
@@ -974,6 +982,12 @@ namespace Halcyonic.XR.Workspace.Editor
 
             /// <summary>The words the walk types as the next instruction at rest.</summary>
             public string NextInstruction => "Add a button that resets the count";
+
+            /// <summary>How long the walk waits for an agent's turn to end.</summary>
+            public double TurnSeconds { get; set; } = 90;
+
+            /// <summary>Whether the walk ends once Keep is tried, before the next instruction.</summary>
+            public bool ThroughKeep { get; set; }
 
             public List<string> Presses { get; } = new List<string>();
         }
