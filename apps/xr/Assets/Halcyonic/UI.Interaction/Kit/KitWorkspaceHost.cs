@@ -97,6 +97,12 @@ namespace Halcyonic.XR.UI
         /// <summary>What the plane stands at its slot and scales to its distance and the text size.</summary>
         public Transform Part => transform;
 
+        /// <summary>
+        /// The form the plane lays the bar in, decided by the plane before any reader measures (its rule: the widest form that clears
+        /// every shelf in the field, held between events): every bar this host makes, and every Holds, is read for it.
+        /// </summary>
+        public RoomForm Form { get; set; } = RoomForm.Full;
+
         /// <summary>Its extent as laid out, in units of the plane's distance at the standard text size.</summary>
         public Vector2 Size { get; private set; }
 
@@ -208,24 +214,24 @@ namespace Halcyonic.XR.UI
         {
             // A frame with no binding of its own stands only in the redesign, where a reader takes it and its column has room.
             if (binding.Plain)
-                return RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is { Pair: true } page && page.Column.Count <= RoomBarView.ColumnMost;
+                return RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart(), form: Form) is { Pair: true } page && page.Column.Count <= RoomBarView.ColumnMost;
             var model = binding.Model;
             // The redesign's panel holds every approval and every instruction under confirmation, read part by part, eight of
             // its own lines a part: but only where the file counted what is read by the panel's lines (RoomBarView.Lines), so
             // the file's parts are the panel's. Where it counted otherwise, the file draws the frame itself.
             // A question's page the redesign reads, with no more actions than its column holds; any other stays the file's own.
             if (RoomDesign.Enabled && model.Ask != null)
-                return RoomBar.Of(binding, Voice(), AwaitingStart()) is { State: RoomBarState.Question } asking && asking.Column.Count <= RoomBarView.ColumnMost;
+                return RoomBar.Of(binding, Voice(), AwaitingStart(), form: Form) is { State: RoomBarState.Question } asking && asking.Column.Count <= RoomBarView.ColumnMost;
             // A moment outside the task's loop that draws the pair (the offered instructions, and any in RoomBar.Moments), likewise.
-            if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is { FromMoment: true, Pair: true } moment)
+            if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart(), form: Form) is { FromMoment: true, Pair: true } moment)
                 return moment.Column.Count <= RoomBarView.ColumnMost;
             // At work, and Stop's confirmation: nothing of either is measured, so the redesign always holds them.
             if (RoomDesign.Enabled && model.Stops != null) return true;
-            if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart()) is RoomBar standing
+            if (RoomDesign.Enabled && RoomBar.Of(binding, Voice(), AwaitingStart(), form: Form) is RoomBar standing
                 && (standing.Working || standing.Result && standing.Column.Count <= RoomBarView.ColumnMost)) return true;
             if (RoomDesign.Enabled && (model.Instruction != null || model.Need != null))
             {
-                var read = RoomBar.Of(binding, Voice(), AwaitingStart());
+                var read = RoomBar.Of(binding, Voice(), AwaitingStart(), form: Form);
                 return read.Rows is not int rows || bar.Lines(read.Body, read.Mono) == rows;
             }
             // Under the redesign the old kit is never asked what it holds (ON-1): the redesign draws what reaches here (the row at
@@ -233,7 +239,7 @@ namespace Halcyonic.XR.UI
             // that the file has not cut in parts of them: one it cut stands part by part, the column turning them.
             if (RoomDesign.Enabled)
                 return model.Draft.Length == 0 || bar.Lines(LineWords.Theirs(model.Draft), false) <= RoomBar.RequestLines
-                    || RoomBar.Of(binding, Voice(), AwaitingStart()) is { State: RoomBarState.Draft, Part: PageLine part } && part.Rows <= RoomBar.RequestLines;
+                    || RoomBar.Of(binding, Voice(), AwaitingStart(), form: Form) is { State: RoomBarState.Draft, Part: PageLine part } && part.Rows <= RoomBar.RequestLines;
             if (model.Draft.Length > 0 && RowsOf(model.Draft) > ComposerRows) return false;
             if (model.Need?.Request is string request && RowsAt(request, SlateInner() - 2f * KitType.Scaled(1f)) > 8) return false;
             var shown = this.binding;
@@ -310,7 +316,7 @@ namespace Halcyonic.XR.UI
             var zoom = GlazeText.Scale;
             bar.transform.localScale = Vector3.one / zoom;
             bar.transform.localPosition = Vector3.zero;
-            var room = RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork());
+            var room = RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), Form);
             // The general reader's pages turned for this very frame stay turned; another frame starts on its first page.
             if (turned is { } kept && ReferenceEquals(kept.Frame, binding.Frame)) { for (var turn = 0; turn < kept.Turns && room.Turn(); turn++) { } }
             else turned = null;

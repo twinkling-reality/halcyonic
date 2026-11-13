@@ -398,9 +398,12 @@ namespace Halcyonic.Client
         /// What the connection says the work it shows is (Recorded or Demo while a recording plays; null while live): the fact a plain frame,
         /// which carries no task's marks, takes its notice from.
         /// </param>
-        public static RoomBar Of(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart, WorkMarkKind? shown = null)
+        /// <param name="form">The form the plane will lay the bar in (the plane's rule, 2026-11-13): every reader measures for it; full by default.</param>
+        public static RoomBar Of(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart, WorkMarkKind? shown = null, RoomForm? form = null)
         {
-            var bar = OfBinding(binding, voice, sentAwaitingStart);
+            var bar = OfBinding(binding, voice, sentAwaitingStart, form ?? RoomForm.Full);
+            // The form decided before any reader measured, never set after: the view lays it as the bar says.
+            bar.Narrow = (form ?? RoomForm.Full).Narrow;
             // The lead's honesty rule (2026-11-12), one rule for every frame the bar shows: wherever the work shown is recorded or the
             // demonstration, the bar carries the product's own line whole over all it shows: by the task's own mark where the frame is a task's,
             // else by what the connection says it shows; live work, a practice run included, carries none.
@@ -410,10 +413,10 @@ namespace Halcyonic.Client
             return bar;
         }
 
-        private static RoomBar OfBinding(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart)
+        private static RoomBar OfBinding(KitFileBinding binding, VoiceStage voice, bool sentAwaitingStart, RoomForm form)
         {
-            // A frame the task's binding does not bind is read off the frame itself (RoomBar.Frames).
-            if (binding.Plain) return OfFrame(binding.Frame, voice) ?? new RoomBar(RoomBarState.Hidden);
+            // A frame the task's binding does not bind is read off the frame itself (RoomBar.Frames), for the form it will be laid in.
+            if (binding.Plain) return OfFrame(binding.Frame, voice, form) ?? new RoomBar(RoomBarState.Hidden);
             var tasks = Tasks(binding, voice, sentAwaitingStart);
             // What waits on the person, and what was sent, always stands: no moment is asked over an approval, a question,
             // a confirmation or Sent (AUDIT, 2026-11-10).

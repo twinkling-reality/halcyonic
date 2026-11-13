@@ -143,7 +143,8 @@ namespace Halcyonic.XR.Workspace
             // screen), the menu's own frame is the one a reader takes.
             var frame = placement != null ? placementFrame : navigator.Beside != null ? navigator.Beside.Frame : menuFrame;
             if (!room || frame == null) return null;
-            return RoomBar.OfFrame(frame, VoiceStage.Idle) != null ? KitFileBinding.PlainOf(frame) : null;
+            // Asked for the form the plane will lay it in, as the kit will read it.
+            return RoomBar.OfFrame(frame, VoiceStage.Idle, plane.Kit.Form) != null ? KitFileBinding.PlainOf(frame) : null;
         }
 
         /// <summary>
