@@ -311,9 +311,6 @@ namespace Halcyonic.XR.UI
                 else if (bar.Working) LayWork(bar);
                 else if (bar.Row.Count > 0) LayRow(bar, 0f);
                 else LayAlone(bar);
-                // With no panel (at work, the row, the words alone) the notice stands over the bar's own top, centred.
-                var noticeWidth = RoomType.Units(RoomGeometry.PanelDp);
-                LayNotice(bar, new Vector2(-noticeWidth / 2f, Size.y / 2f), noticeWidth, centred: true);
                 if (!bar.Working)
                 {
                     // With no pair the foot line is still DESIGN's, over the row's feet.
@@ -321,6 +318,60 @@ namespace Halcyonic.XR.UI
                     PanelRight = -(RoomType.Units(RoomGeometry.PanelDp) + RoomType.Units(RoomGeometry.PairGapDp) + RoomType.Units(RoomGeometry.ColumnDp)) / 2f + RoomType.Units(RoomGeometry.PanelDp);
                 }
             }
+            StandNotice(bar);
+        }
+
+        /// <summary>
+        /// The notice keeps a band of its own that no part is ever laid over, at every text size (the lead's ruling, 2026-11-13,
+        /// on JUDGE's reader: answers, a button and the cursor's words stood over it). Laid last, it stands over the top of all the
+        /// bar has drawn, and at work over the whole of the working field the host draws round the panel's place, where the cursor
+        /// goes; its left is the panel's where a panel stands, else it is centred on the panel's place.
+        /// </summary>
+        private void StandNotice(RoomBar bar)
+        {
+            var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
+            var place = PanelRight - panelWidth;
+            if (bar.Notice == null)
+            {
+                LayNotice(bar, new Vector2(place, 0f), panelWidth);
+                return;
+            }
+            var top = DrawnTop();
+            if (bar.Working) top = Mathf.Max(top, Foot + FieldTop);
+            LayNotice(bar, new Vector2(place, top), panelWidth, centred: !panel.gameObject.activeSelf);
+        }
+
+        /// <summary>
+        /// How far over the foot line the working field the host draws at work reaches, in this view's units: its inner part the
+        /// panel's width and <see cref="RoomGeometry.FieldTallDp"/> tall, standing on the foot line, drawn with its spill round it.
+        /// </summary>
+        public static float FieldTop
+        {
+            get
+            {
+                var inner = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomGeometry.FieldTallDp));
+                return inner.y / 2f + RoomField.Around(inner).y / 2f;
+            }
+        }
+
+        /// <summary>The top of everything this view draws but the notice, in its own units, from what each part draws.</summary>
+        private float DrawnTop()
+        {
+            var top = Size.y / 2f;
+            var into = transform.worldToLocalMatrix;
+            foreach (var part in GetComponentsInChildren<Renderer>(false))
+            {
+                if (!part.enabled || (notice != null && part.transform.IsChildOf(notice.transform))) continue;
+                var bounds = part.localBounds;
+                if (bounds.size == Vector3.zero) continue;
+                var to = into * part.transform.localToWorldMatrix;
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var at = new Vector3((corner & 1) == 0 ? bounds.min.x : bounds.max.x, (corner & 2) == 0 ? bounds.min.y : bounds.max.y, (corner & 4) == 0 ? bounds.min.z : bounds.max.z);
+                    top = Mathf.Max(top, to.MultiplyPoint3x4(at).y);
+                }
+            }
+            return top;
         }
 
         /// <summary>
@@ -749,7 +800,6 @@ namespace Halcyonic.XR.UI
 
             panel.InnerBar = barHeight > 0f ? ((panelHeight - inset - barHeight) / unit, barHeight / unit, inset / unit) : ((float, float, float)?)null;
             panel.transform.localPosition = new Vector3(left + panelWidth / 2f, foot + panelHeight / 2f, 0f);
-            LayNotice(bar, new Vector2(left, foot + panelHeight), panelWidth);
             // A card that is the way in rings its panel in its hue, on the panel's own corner.
             panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
             if (!bar.Wide) panel.Draw(new Vector2(panelWidth, panelHeight));
