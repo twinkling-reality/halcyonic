@@ -368,14 +368,21 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// Where the largest bar laid with its panel <paramref name="widthDp"/> wide would stand, in degrees from the eyes toward where the
-        /// plane faces: the width about the plane's heading, from its foot line up (FIELD's measured record, RoomBarView.LargestAt, in
-        /// DESIGN units), the foot where the person's drag left it.
+        /// Where the plane laid with its panel <paramref name="widthDp"/> wide would stand at its largest, in degrees from the eyes toward
+        /// where it faces: the bar from its foot line up (FIELD's measured record, RoomBarView.LargestAt, in DESIGN units) and the band
+        /// under it at its tallest, about the plane's heading, where the person's drag left them.
         /// </summary>
         private AngularExtent LargestExtent(float widthDp)
         {
             var largest = RoomBarView.LargestAt(widthDp);
-            return AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
+            var bar = AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
+            // With what the plane draws below it: the band, its ground at its tallest (RoomWords; JUDGE's charR, AUDIT's 22:29Z), the
+            // same width at every panel width, hanging from its own pitch moved by the person's drag as the bar's foot is.
+            var drag = Direction.Elevation - Placed.Elevation;
+            var bandHalf = RoomWords.WidthDp / 2f / RoomGeometry.DpPerDegree;
+            var bandTop = RoomWords.TopPitch + drag;
+            var bandBottom = bandTop - RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale) / RoomGeometry.DpPerDegree;
+            return new AngularExtent(Mathf.Min(bar.Left, -bandHalf), Mathf.Max(bar.Right, bandHalf), Mathf.Min(bar.Bottom, bandBottom), Mathf.Max(bar.Top, bandTop));
         }
 
         /// <summary>
