@@ -268,7 +268,7 @@ public class FolderRefusalTests
         var step = sequence.StoppedAt!;
         Assert.That(step.Refusal, Is.EqualTo(RejectionCode.LocationRequired));
         Assert.That(EntryText.AboutFolder(step), Is.True);
-        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Refused · No Folder · Choose Folder"),
+        Assert.That(EntryText.StepStatus(step), Is.EqualTo("No folder is chosen. Choose one."),
             "the next action comes from the code, not the message");
 
         var bind = sequence.Retry(Samples.Reviewed(sequence, folder: Folder("recipes")), folder: Folder("recipes"));
@@ -284,7 +284,7 @@ public class FolderRefusalTests
         var sequence = new BuildSequence(Draft(), Commands, "Recipes", Folder("recipes"));
         var create = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(Refused(create, RejectionCode.LocationExists, "There is already a folder named recipes.")));
-        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Does.Contain("Use It"));
+        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Does.Contain("Use it"));
         var existing = new ExistingFolderChoice { Root = "/Users/person/Projects", FolderName = "recipes" };
         var use = (ProjectCreateCommand)sequence.Retry(Samples.Reviewed(sequence, folder: existing), folder: existing);
         Assert.That(use.Payload.Location, Is.InstanceOf<ExistingFolderChoice>());
@@ -321,16 +321,16 @@ public class FolderRefusalTests
             Assert.That(EntryText.StepStatus(step), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode"), effect.ToString());
             if (effect == FailureEffect.None)
             {
-                Assert.That(EntryText.StepStatus(step), Is.EqualTo("Failed · Agent App Unreachable · Check App and Retry"),
+                Assert.That(EntryText.StepStatus(step), Is.EqualTo("The agent app stopped answering. Check it, then try again."),
                     "a cause every adapter shares is said by its code, and with no task running, the way on is the computer");
             }
         }
         // A step's way on is what New project offers, never adding the task again from inside it (2026-10-07).
         foreach (var (code, words) in new[]
         {
-            ("runtime_unavailable", "Failed · Agent App Unavailable · Check Setup and Retry"),
-            ("runtime_version_unsupported", "Failed · Version Unsupported · Change Agent App"),
-            ("capability_unimplemented", "Failed · Unsupported · Change Agent App"),
+            ("runtime_unavailable", "The agent app isn't available. Check its setup, then try again."),
+            ("runtime_version_unsupported", "This version of the agent app isn't supported. Change the agent app."),
+            ("capability_unimplemented", "The agent app can't do this. Change the agent app."),
         })
         {
             var sequence = new BuildSequence(Draft("p1"), Commands, null);
@@ -360,7 +360,7 @@ public class FolderRefusalTests
         var sequence = new BuildSequence(Draft("p1"), Commands, null);
         var workstream = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(Refused(workstream, RejectionCode.InvalidState, "Not now‮.")));
-        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("Refused · Not Possible Now · See Activity"));
+        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("That isn't possible right now. Check the stage."));
         Assert.That(EntryText.AboutFolder(sequence.StoppedAt!), Is.False);
     }
 

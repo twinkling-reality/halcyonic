@@ -366,38 +366,80 @@ namespace Halcyonic.Client
         };
 
         /// <summary>A start whose effect is unknown is never said to have had none.</summary>
-        public const string NotSureItHappened = "Effect Unconfirmed. Check Stage";
+        public const string NotSureItHappened = "It may have happened. Check the stage to see.";
 
         /// <summary>
         /// How a step of Start task went: sent is not done, and only a completed record confirms.
         /// A refusal says why and what to do from its code, and so does a failure about a folder; never the
         /// control plane's or an agent app's message (<see cref="WorkspaceText.WhyRefused"/>).
         /// </summary>
-        public static string StepStatus(BuildStep step) => Sentences(StepWords(step));
+        public static string StepStatus(BuildStep step) => StepStatusOf(step.Status, step.Kind, step.Refusal, step.Failure, step.EffectUnknown);
 
-        /// <summary>
-        /// A step's state as sentences, never facts on a dot (JUDGE's 1203Z item 5, AUDIT's MUST, 2026-11-13): the state is the row's
-        /// note and the step under way the bar's sentence, both drawn whole, so each part a reason joins on a dot becomes its own sentence.
-        /// </summary>
-        public static string Sentences(string words) => words.Replace(" \u00b7 ", ". ");
-
-        private static string StepWords(BuildStep step) => step.Status switch
+        /// <summary>A step's state from its parts, as <see cref="StepStatus"/> says it (public so every state and reason can be walked).</summary>
+        public static string StepStatusOf(BuildStepStatus status, BuildStepKind kind, RejectionCode? refusal, string? failure, bool effectUnknown) => status switch
         {
             BuildStepStatus.NotYet => "Not Sent",
             // Sent is not done: the step waits on whoever answers it, said plainly, never on a dot (FIELD and JUDGE, 2026-11-13: the
             // step under way is the bar's sentence, which is heard whole).
-            BuildStepStatus.Waiting => step.Kind == BuildStepKind.StartWork ? "Waiting on Agent" : "Waiting on Computer",
+            BuildStepStatus.Waiting => kind == BuildStepKind.StartWork ? "Waiting on Agent" : "Waiting on Computer",
             BuildStepStatus.Confirmed => "Confirmed",
             // One sentence for a revoked pairing, alone, within the step's two rows (settled by the coordinator, 2026-10-07).
-            BuildStepStatus.Refused when step.Refusal == RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
-            BuildStepStatus.Refused => WorkspaceText.Couldnt("Refused", WorkspaceText.WhyRefused(step.Refusal)),
+            BuildStepStatus.Refused when refusal == RejectionCode.DeviceRevoked => "This headset's pairing was revoked. Forget this computer, then pair again.",
+            // A refused or failed step says what stopped it and the way on in a sentence of New Project's own (AUDIT's MUST, 2026-11-13T1258Z):
+            // the shared reasons (WorkspaceText) are other flows' and stay theirs. The row's cross says it stopped.
+            BuildStepStatus.Refused => StepRefused(refusal) ?? StepRefusedOther,
             // A failure that may have had an effect is never put in words that say nothing happened.
-            BuildStepStatus.Failed when step.EffectUnknown => NotSureItHappened,
-            BuildStepStatus.Failed => WorkspaceText.Couldnt("Failed", (FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged),
+            BuildStepStatus.Failed when effectUnknown => NotSureItHappened,
+            BuildStepStatus.Failed => StepFolder(refusal, failure) ?? StepFailed(failure) ?? StepFailedOther,
             BuildStepStatus.Unknown => NotSureItHappened,
-            BuildStepStatus.NotSent => "Not Sent · Not Connected · Try Again",
+            BuildStepStatus.NotSent => StepNotSent,
             _ => NotSureItHappened,
         };
+
+        /// <summary>A step the host refused for a reason it gives: what stopped it, then the way on, as New Project says it.</summary>
+        private static string? StepRefused(RejectionCode? refusal)
+        {
+            if (StepFolder(refusal, null) is string folder) return folder;
+            if (refusal == RejectionCode.ProjectNotFound) return "The project is no longer there. Choose another.";
+            if (refusal == RejectionCode.WorkstreamNotFound) return "The task is no longer there.";
+            if (refusal == RejectionCode.RuntimeNotFound) return "The agent app isn't available. Set it up on the computer, then try again.";
+            if (refusal == RejectionCode.ModelRequired) return "It needs a model. Choose one in More Options.";
+            if (refusal == RejectionCode.InvalidRuntimeOptions) return "The computer refused the run settings. Choose them again.";
+            if (refusal == RejectionCode.CapabilityUnsupported) return "The agent app can't do this. Change the agent app.";
+            if (refusal == RejectionCode.InvalidState) return "That isn't possible right now. Check the stage.";
+            return null;
+        }
+
+        /// <summary>A step refused for a reason New Project has no words for: that it was refused, and that nothing changed.</summary>
+        public const string StepRefusedOther = "The computer refused this, and nothing changed. Check the stage.";
+
+        /// <summary>A step stopped over its folder, from the host's refusal or a failure's code.</summary>
+        private static string? StepFolder(RejectionCode? refusal, string? failure)
+        {
+            if (refusal == RejectionCode.LocationRequired || failure == "location_required") return "No folder is chosen. Choose one.";
+            if (refusal == RejectionCode.LocationMissing || failure == "location_missing") return "The folder can't be used. Choose another, or fix it on the computer.";
+            if (refusal == RejectionCode.LocationNotAllowed || failure == "location_not_allowed") return "That folder isn't allowed. Choose one from the list.";
+            if (refusal == RejectionCode.LocationExists || failure == "location_exists") return "A folder with that name is already there. Use it, or rename.";
+            if (failure == "location_not_created") return "The folder wasn't made, and nothing changed. Choose another.";
+            return null;
+        }
+
+        /// <summary>A step that failed with no effect, from a code every agent app's adapter shares.</summary>
+        private static string? StepFailed(string? failure)
+        {
+            if (failure == "runtime_unreachable" || failure == "runtime_closed") return "The agent app stopped answering. Check it, then try again.";
+            if (failure == "capability_unimplemented") return "The agent app can't do this. Change the agent app.";
+            if (failure == "runtime_unavailable") return "The agent app isn't available. Check its setup, then try again.";
+            if (failure == "runtime_version_unsupported") return "This version of the agent app isn't supported. Change the agent app.";
+            if (failure == "model_unavailable") return "It needs a model. Choose one in More Options.";
+            return null;
+        }
+
+        /// <summary>A step that failed with no effect and no cause a person can act on.</summary>
+        public const string StepFailedOther = "It failed, and nothing changed. Try again.";
+
+        /// <summary>A step not sent because this headset is not connected.</summary>
+        public const string StepNotSent = "It wasn't sent: this headset isn't connected. Try again.";
 
         /// <summary>Where a model runs, which decides where the person's code and instructions go.</summary>
         public static string Served(ModelServed served) => served switch
