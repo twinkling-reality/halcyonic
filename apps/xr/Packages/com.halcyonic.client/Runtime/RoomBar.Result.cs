@@ -63,6 +63,9 @@ namespace Halcyonic.Client
                         : new RoomCard(changes.Title, changes.Description, changes.Head, changes.Status, changes.Slots, changes.Steps, changes.TrackAt, changes.TrackOf,
                             changes.List.Skip(result.Part * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList(), changes.Gauges, changes.More);
                     if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
+                    // Keep in two presses (JUDGE's live walk, 2026-11-13T0935Z, the lead's 09:37Z item 2): the work is kept from where it is
+                    // read, Add to Project here and its review's one press, never Back first; it leads once nothing more is left to read.
+                    if (result.Add?.State == RoomAddState.Ready) column.Add(Own(RoomResult.ShowAdd, RoomAdd.AddToProject, main: column.Count == 0, GlazeIcon.Next));
                     // DEVICE's History, Changes' second action (lead, 2026-11-11): the versions the computer kept, and Restore.
                     column.Add(Own(RoomResult.ShowHistory, HistoryText.Title, main: false, GlazeIcon.Next));
                     // The result's other page one press away, as tabs are at a desk: every page of a result is reached by a drawn control.
