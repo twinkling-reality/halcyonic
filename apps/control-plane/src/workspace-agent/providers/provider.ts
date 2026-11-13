@@ -21,8 +21,27 @@ export type ProtocolReply =
       }[];
       /** The model the response says served it, which may differ from the one asked for. */
       readonly model: string;
+      /** The tokens the provider says the turn read and wrote, as its reply gives them; null where it gives none. */
+      readonly usage: TurnUsage | null;
     }
-  | { readonly kind: 'failed'; readonly code: string; readonly message: string };
+  | {
+      readonly kind: 'failed';
+      readonly code: string;
+      readonly message: string;
+      /** The provider's counts where its reply came and gave them, since a failed turn is billed too. */
+      readonly usage?: TurnUsage | null;
+    };
+
+/** A provider's own count of one turn's tokens: what was read (cached reads among them, where it says) and written. */
+export interface TurnUsage {
+  readonly input_tokens: number;
+  readonly output_tokens: number;
+  readonly cached_input_tokens: number | null;
+}
+
+/** A count only if it is one: a whole number, not negative; null otherwise, never a guess. */
+export const count = (value: unknown): number | null =>
+  Number.isSafeInteger(value) && (value as number) >= 0 ? (value as number) : null;
 
 export interface ProtocolCall {
   readonly provider: HostedProvider;

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { WorkspaceAgentStatus } from '@halcyonic/contracts';
 import { type HostedProvider, upstreamProblem } from '@halcyonic/runtime-core';
+import type { Logger } from '../../logger.ts';
 import {
   TOOL_MODEL_BOUNDS,
   type ToolCall,
@@ -50,6 +51,7 @@ export class HostedWorkspaceModel {
   readonly #keys: KeyLookup;
   readonly #upstream: string;
   readonly #bounds: ToolModelBounds;
+  readonly #logger: Logger | null;
   /**
    * The digest of the stored key the provider refused, since this process read it: that key is never sent again,
    * so a refused key spends nothing more (the lead's D2). A new key stored in its place is tried.
@@ -63,8 +65,11 @@ export class HostedWorkspaceModel {
     /** For proofs on this Mac only: `upstreamProblem` still refuses anything but https or loopback. */
     upstream?: string | null;
     bounds?: Partial<ToolModelBounds>;
+    /** Where each hosted turn's token counts are written: counts, the provider's id and the model, nothing else. */
+    logger?: Logger;
   }) {
     this.provider = options.provider;
+    this.#logger = options.logger ?? null;
     this.#protocol = options.protocol;
     this.#keys = options.keys;
     this.#upstream = options.upstream ?? options.provider.upstream;
@@ -134,6 +139,21 @@ export class HostedWorkspaceModel {
       if (!('upstream' in call)) return failure(call.code, call.message);
       const reply = await this.#protocol.turn(call, captured.messages, captured.tools);
       if (controller.signal.aborted) return ended();
+      // What the turn cost, in the provider's own counts, whatever its end: the model asked for (one the provider
+      // declares, never the reply's own string) and the outcome's code; never a word of the request, the reply or the key.
+      const usage = reply.usage ?? null;
+      if (reply.kind === 'reply' || usage !== null)
+        this.#logger?.info(
+          {
+            provider: this.provider.id,
+            model: call.model,
+            outcome: reply.kind === 'reply' ? 'answered' : reply.code,
+            input_tokens: usage?.input_tokens ?? null,
+            output_tokens: usage?.output_tokens ?? null,
+            cached_input_tokens: usage?.cached_input_tokens ?? null,
+          },
+          'hosted assistant turn',
+        );
       if (reply.kind === 'failed') {
         this.#heard(reply.code, call.key);
         return failure(reply.code, reply.message);

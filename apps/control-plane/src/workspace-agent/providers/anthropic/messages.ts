@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ToolMessage } from '../../ollama.ts';
 import {
+  count,
   KEY_REFUSED,
   type Protocol,
   type ProtocolCall,
@@ -78,9 +79,24 @@ export const anthropicMessages: Protocol = {
       const failure = failed(error);
       return { kind: 'failed', code: failure.code, message: failure.message };
     }
+    // The provider's own counts, billed whatever the turn's end: input_tokens leaves out the cache's reads and writes,
+    // which it lists apart, so all three are what was read.
+    const read = count(response.usage?.input_tokens);
+    const cached = count(response.usage?.cache_read_input_tokens);
+    const writes = count(response.usage?.cache_creation_input_tokens);
+    const written = count(response.usage?.output_tokens);
+    const usage =
+      read === null || written === null
+        ? null
+        : {
+            input_tokens: read + (cached ?? 0) + (writes ?? 0),
+            output_tokens: written,
+            cached_input_tokens: cached,
+          };
     if (response.stop_reason === 'refusal')
       return {
         kind: 'failed',
+        usage,
         code: 'model_refused',
         message: `${call.provider.name} declined this request.`,
       };
@@ -90,12 +106,14 @@ export const anthropicMessages: Protocol = {
     )
       return {
         kind: 'failed',
+        usage,
         code: 'context_limit',
         message: 'The model reached its context or response limit.',
       };
     if (response.stop_reason !== 'end_turn' && response.stop_reason !== 'tool_use')
       return {
         kind: 'failed',
+        usage,
         code: 'model_response',
         message: `${call.provider.name} did not return a complete valid response.`,
       };
@@ -108,11 +126,12 @@ export const anthropicMessages: Protocol = {
       else if (block.type !== 'thinking' && block.type !== 'redacted_thinking')
         return {
           kind: 'failed',
+          usage,
           code: 'model_response',
           message: `${call.provider.name} did not return a complete valid response.`,
         };
     }
-    return { kind: 'reply', content: text.join('\n').trim(), calls, model: response.model };
+    return { kind: 'reply', content: text.join('\n').trim(), calls, model: response.model, usage };
   },
 };
 

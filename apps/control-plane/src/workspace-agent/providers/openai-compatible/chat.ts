@@ -1,5 +1,6 @@
 import type { ToolDefinition, ToolMessage } from '../../ollama.ts';
 import {
+  count,
   KEY_REFUSED,
   type Protocol,
   type ProtocolCall,
@@ -44,30 +45,49 @@ export const openAiChat: Protocol = {
     const body = response.body as {
       model?: unknown;
       choices?: { finish_reason?: unknown; message?: Record<string, unknown> }[];
+      usage?: {
+        prompt_tokens?: unknown;
+        completion_tokens?: unknown;
+        prompt_tokens_details?: { cached_tokens?: unknown };
+      };
     };
+    // The provider's own counts in this shape's usage (prompt_tokens includes any cached ones), billed whatever
+    // the turn's end.
+    const read = count(body.usage?.prompt_tokens);
+    const written = count(body.usage?.completion_tokens);
+    const usage =
+      read === null || written === null
+        ? null
+        : {
+            input_tokens: read,
+            output_tokens: written,
+            cached_input_tokens: count(body.usage?.prompt_tokens_details?.cached_tokens),
+          };
     const choice =
       Array.isArray(body.choices) && body.choices.length === 1 ? body.choices[0] : null;
     const message = choice?.message;
     if (!choice || !message || message.role !== 'assistant' || typeof body.model !== 'string')
-      return { kind: 'failed', ...invalid(call) };
+      return { kind: 'failed', ...invalid(call), usage };
     // A refusal may come as its own finish reason or as the message's `refusal` text, never relayed.
     const refused = typeof message.refusal === 'string' && message.refusal !== '';
     if (choice.finish_reason === 'content_filter' || refused)
       return {
         kind: 'failed',
+        usage,
         code: 'model_refused',
         message: `${call.provider.name} declined this request.`,
       };
     if (choice.finish_reason === 'length')
       return {
         kind: 'failed',
+        usage,
         code: 'context_limit',
         message: 'The model reached its context or response limit.',
       };
     if (choice.finish_reason !== 'stop' && choice.finish_reason !== 'tool_calls')
-      return { kind: 'failed', ...invalid(call) };
+      return { kind: 'failed', ...invalid(call), usage };
     const content = message.content ?? '';
-    if (typeof content !== 'string') return { kind: 'failed', ...invalid(call) };
+    if (typeof content !== 'string') return { kind: 'failed', ...invalid(call), usage };
     const calls: { id: string | null; name: string; arguments: unknown }[] = [];
     for (const entry of (message.tool_calls as unknown[] | undefined) ?? []) {
       const tool = entry as {
@@ -76,13 +96,13 @@ export const openAiChat: Protocol = {
         function?: { name?: unknown; arguments?: unknown };
       };
       if (tool.type !== 'function' || typeof tool.function?.name !== 'string')
-        return { kind: 'failed', ...invalid(call) };
+        return { kind: 'failed', ...invalid(call), usage };
       let args: unknown;
       try {
         args =
           typeof tool.function.arguments === 'string' ? JSON.parse(tool.function.arguments) : null;
       } catch {
-        return { kind: 'failed', ...invalid(call) };
+        return { kind: 'failed', ...invalid(call), usage };
       }
       calls.push({
         id: typeof tool.id === 'string' ? tool.id : null,
@@ -90,7 +110,7 @@ export const openAiChat: Protocol = {
         arguments: args,
       });
     }
-    return { kind: 'reply', content: content.trim(), calls, model: body.model };
+    return { kind: 'reply', content: content.trim(), calls, model: body.model, usage };
   },
 };
 

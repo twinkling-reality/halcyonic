@@ -38,7 +38,7 @@ const SOURCES: readonly Source[] = [
       !path.endsWith('.test.ts') &&
       !path.includes('/testing/') &&
       !path.includes('/node_modules/'),
-    call: /\b(?:log|logger)\.(?:trace|debug|info|warn|error|fatal)\s*\(|\bconsole\.(?:log|info|warn|error|debug|trace)\s*\(|\bprocess\.stderr\.write\s*\(/g,
+    call: /\b(?:log|logger)\??\.(?:trace|debug|info|warn|error|fatal)\s*\(|\bconsole\.(?:log|info|warn|error|debug|trace)\s*\(|\bprocess\.stderr\.write\s*\(/g,
   },
   {
     kind: 'cs',
@@ -60,6 +60,11 @@ const SOURCES: readonly Source[] = [
  */
 const REVIEWED: readonly { readonly file: string; readonly args: string; readonly why: string }[] =
   [
+    {
+      file: 'apps/control-plane/src/workspace-agent/providers/hosted-model.ts',
+      args: '{ provider: this.provider.id, model: call.model, outcome: reply.kind === "" ? "" : reply.code, input_tokens: usage?.input_tokens ?? null, output_tokens: usage?.output_tokens ?? null, cached_input_tokens: usage?.cached_input_tokens ?? null, }, "" ,',
+      why: "a hosted assistant turn's cost: the declared provider's id, the declared model asked for (never the reply's own string), the outcome's code (the host's own, such as model_refused) and the provider's token counts; no word of the request, the reply or the key",
+    },
     {
       file: 'apps/control-plane/src/core/command-service.ts',
       args: '{ command_id: command.command_id, command_type: command.command_type, rejection: admission.rejection.code, }, "" ,',
