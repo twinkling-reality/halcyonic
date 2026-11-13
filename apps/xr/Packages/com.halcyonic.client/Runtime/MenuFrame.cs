@@ -252,6 +252,19 @@ namespace Halcyonic.Client
             return this;
         }
 
+        /// <summary>
+        /// The group the line is handed in (the lead's 2026-11-13T21:11Z: things a person uses together stay on one page): consecutive
+        /// lines with one group never stand on two pages, Left beside Right; null for a line of its own.
+        /// </summary>
+        public string? Group { get; private set; }
+
+        /// <summary>This line, handed in <paramref name="group"/> with the lines beside it that carry the same (<see cref="Group"/>).</summary>
+        public PageLine WithGroup(string group)
+        {
+            Group = string.IsNullOrWhiteSpace(group) ? null : group;
+            return this;
+        }
+
         /// <summary>This line, saying it is about <paramref name="kind"/> (<see cref="Kind"/>).</summary>
         public PageLine Marked(RoomKind kind)
         {

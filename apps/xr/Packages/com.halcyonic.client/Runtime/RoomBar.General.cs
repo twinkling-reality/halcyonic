@@ -26,10 +26,15 @@ namespace Halcyonic.Client
         /// row's words under the line's own as the label (a value is never a note, so it wraps whole). A line cut in parts is
         /// the row of its part. A line of outside words or a claim stands on the band; a second one is a row, theirs.</item>
         /// <item>An input line is the kit's field, its words and the caret.</item>
-        /// <item>A line that acts is an action of the column, an answer with its mark, its fact or its quieter line as the
-        /// button's detail. One that cannot act now is a row of its own, never dropped, and the frame's reason says why.</item>
-        /// <item>The column: the main prompt first, then the lines that act, the other prompts (a held one keeps its hold),
-        /// the sections reached, and the ways out last. The frame's reason is the sentence.</item>
+        /// <item>The lines that act stand in the panel as a card's pressed rows (the lead's 2026-11-13T21:11Z): a choice with its
+        /// mark and chosen state, a value the note, a quieter line under it, a label above, five a page or fewer where measured; the
+        /// card's title is where the person is, the one other stating line its description and that line's quieter line its foot.
+        /// A frame that states more keeps its rows, and its lines that act stand in the column, a value or a quieter line the
+        /// button's detail. Lines handed in one group (<see cref="PageLine.Group"/>) never stand on two pages, on either path; where
+        /// a group cannot stand whole in the column the frame takes the card after all, its stating rows unpressed rows first. One
+        /// that cannot act now is a row of its own, never dropped, and the frame's reason says why.</item>
+        /// <item>The column: the main prompt first, then the frame's other prompts (a held one keeps its hold), the sections
+        /// reached, and the ways out last, four in all a page. The frame's reason is the sentence.</item>
         /// </list>
         /// Where the rows pass a page or the actions pass the column, it pages them itself (<see cref="Turn"/>), the main action
         /// and the ways out on every page, and holds <see cref="Whole"/> only once every page was shown. While a side panel stands,
@@ -43,8 +48,10 @@ namespace Halcyonic.Client
             KitControl? field = null;
             var body = LineWords.None;
             var acting = new List<RoomAction>();
-            // Lines that act AND carry a value or a quieter line: the card's pressed rows, so no part is lost on a button (AUDIT's 17:56Z).
-            var pressed = new List<RoomListRow>();
+            // The lines that act, in the frame's order, each with its own control: the card's pressed rows, or the column's buttons.
+            var lineActs = new List<(PageLine Line, KitControl Control)>();
+            // A stating row's quieter line, by the row's place in rows: a row of its own under it, or the card's foot under its description.
+            var unders = new Dictionary<int, LineWords>();
             var lost = false;
             LineWords? words = null;
             // The panel's first row is its title (where am I), kept with the row after it when they page.
@@ -59,7 +66,11 @@ namespace Halcyonic.Client
                 rows.Add(new RoomRow(side.SubjectRuns));
                 titled = true;
                 foreach (var fact in side.Facts) rows.Add(new RoomRow(fact.ValueRuns, label: fact.Name));
-                foreach (var line in side.Lines) rows.Add(Stating(line));
+                foreach (var line in side.Lines)
+                {
+                    rows.Add(Stating(line));
+                    if (line.Under != null) unders[rows.Count - 1] = line.Under;
+                }
                 if (side.SourceRuns is LineWords source) rows.Add(new RoomRow(source));
             }
             else
@@ -91,17 +102,7 @@ namespace Halcyonic.Client
                             continue;
                         }
                         var place = line.Choice ? KitPlace.Choice : KitPlace.Step;
-                        var control = new KitControl(place, frame, line.Action, line.Key, line.Words, line.Icon, true, null, false, line.Chosen, line.AnswerMark);
-                        var value = line.FactRuns?.Text ?? line.Fact;
-                        if (!line.Choice && (value != null || line.Under != null || line.RowLabel != null))
-                        {
-                            // A pressed row: its label above, its words the name, its value the note, its quieter line under it.
-                            pressed.Add(new RoomListRow(line.Kind, line.Runs, value, press: control, chosen: line.Chosen, under: line.Under, label: line.RowLabel));
-                            continue;
-                        }
-                        // An answer's description is its button's detail, never dropped (gen-n8's caps drew "Answer 1" and nothing of what it keeps).
-                        acting.Add(new RoomAction(control, main: false, icon: line.Choice ? (GlazeIcon?)null : line.Icon ?? GlazeIcon.Next, mark: line.AnswerMark,
-                            chosen: line.Chosen, detail: line.Under?.Text));
+                        lineActs.Add((line, new KitControl(place, frame, line.Action, line.Key, line.Words, line.Icon, true, null, false, line.Chosen, line.AnswerMark)));
                         continue;
                     }
                     // Outside words, however the frame marks them: one on the band, any more as rows of their own.
@@ -110,7 +111,11 @@ namespace Halcyonic.Client
                         band = line.Words;
                         continue;
                     }
-                    if (!line.Runs.IsEmpty) rows.Add(Stating(line));
+                    if (!line.Runs.IsEmpty)
+                    {
+                        rows.Add(Stating(line));
+                        if (line.Under != null) unders[rows.Count - 1] = line.Under;
+                    }
                 }
             }
 
@@ -156,39 +161,19 @@ namespace Halcyonic.Client
             // the panel in place of the page's lines, which say the same for the older view, and the line that opens the full answer
             // goes with them, since the card shows the summary whole; the frame's own Next Page pages those lines, so it goes too. The
             // column pages as every column does (the lead's 19:47Z: Checks with an answer had seven actions and fell to the older view).
-            var ownCard = frame.Side == null && pressed.Count == 0 ? frame.Card : null;
+            // A line carries words to read on a button (a value, a quieter line, a label): only a card's row holds them all.
+            bool Valued(PageLine line) => !line.Choice && ((line.FactRuns?.Text ?? line.Fact) != null || line.Under != null || line.RowLabel != null);
+            var ownCard = frame.Side == null && !lineActs.Any(each => Valued(each.Line)) ? frame.Card : null;
             if (ownCard != null)
             {
-                acting.Clear();
+                lineActs.Clear();
                 rows.Clear();
+                unders.Clear();
                 others.RemoveAll(action => frame.Footer.All.Any(each => each.Prompt.Kind == PromptKind.NextPage && each.Prompt.Id == action.Control.Action));
                 ownPager = null;
             }
-            // Pressed rows make the panel a card: its title the first row's words (where am I), the one other line that states its
-            // description, the pressed rows its list five a page. A frame that states more than one other line keeps them as rows,
-            // and its pressed rows become the column's buttons with their value as the detail; their quieter line is then lost, so
-            // the bar is not whole.
-            RoomCard CardOf(IReadOnlyList<RoomListRow> list) => new RoomCard(rows.Count > 0 ? rows[0].Words : frame.SubjectRuns, rows.Skip(1).Select(row => row.Words).FirstOrDefault(), list: list);
-            var carded = pressed.Count > 0 && rows.Count <= 2 && rows.All(row => row.Label == null && row.Lines == null);
-            if (pressed.Count > 0 && !carded)
-                foreach (var row in pressed)
-                {
-                    acting.Add(new RoomAction(row.Press!, main: false, icon: GlazeIcon.Next, chosen: row.Chosen, detail: row.Note));
-                    if (row.Under != null || row.Label != null) lost = true;
-                }
-            var turning = new List<RoomAction>();
-            turning.AddRange(acting);
-            turning.AddRange(others);
-            turning.AddRange(sections);
-
-            // The frame's reason is the sentence. A confirmation (a setting's, or one no specific reader took) is drawn as the frame gives
-            // it, every row whole and its Yes behind the lock (AUDIT's 16:45Z (ii)).
-            sentence = frame.Reason;
-            if (rows.Count == 0 && band == null && turning.Count == 0 && main == null && leaving.Count == 0 && field == null)
-            {
-                // Nothing in it: it says what it is, never a blank bar.
-                rows.Add(new RoomRow(frame.SubjectRuns));
-            }
+            // The frame's own pager holds the pager's place on every page (the reader's Next Page before the last, the frame's own on it).
+            if (ownPager != null) others.Remove(ownPager);
 
             // Its own pages (AUDIT's MUST I): rows a page at a time, and the actions that turn a column's room at a time, the main action
             // first and the ways out last on every page, with the pager between; nothing is dropped. A frame with its own parts never
@@ -200,25 +185,120 @@ namespace Halcyonic.Client
             // stands on each page so none is out of reach.
             var room = System.Math.Max(1, System.Math.Min(form.ActionsAPage, ColumnMost) - fixedCount);
             var roomPaged = System.Math.Max(1, System.Math.Min(form.ActionsAPage, ColumnMost) - fixedCount - 1);
-            var actionPages = turning.Count <= room ? 1 : (turning.Count + roomPaged - 1) / roomPaged;
-            // Rows a page by the form it will be laid in (the plane measures it and asks again with fewer where a page passes the field).
-            var rowsAPage = form.RowsAPage;
-            // A card's pressed rows page by the form too (five at most, fewer where the plane measured fewer rows a page), so the plane's
-            // measure shortens a card as it shortens rows (FIELD's F100: Usage's card narrow passed its footprint at one row a page).
-            var perCard = System.Math.Min(RoomCard.ListAPage, rowsAPage);
-            var pressPages = carded ? (pressed.Count + perCard - 1) / perCard : 1;
-            var rowPagesOf = carded ? new List<IReadOnlyList<RoomRow>> { new List<RoomRow>() } : PageRows(rows, form, titled);
-            var rowPages = rowPagesOf.Count;
-            var pages = System.Math.Max(System.Math.Max(rowPages, actionPages), pressPages);
-            var each = pages > 1 ? roomPaged : room;
-            if (ownPager != null)
+
+            // The lines that act stand in the PANEL as the card's pressed rows (the lead's 2026-11-13T21:11Z: a picker of three colours
+            // paged one a page, a shelf's nine moves one a page): a choice with its mark and its chosen state, a value the note, a
+            // quieter line under it, a label above; the column keeps the frame's own prompts under the four in all. Lines handed in one
+            // group (PageLine.Group) stand on one page together, Left beside Right, on every path.
+            var groups = new List<List<int>>();
+            for (var at = 0; at < lineActs.Count; at++)
             {
-                // The frame's own pager holds the pager's place on every page: the reader's Next Page before the last, the frame's own on it.
-                turning.Remove(ownPager);
-                each = roomPaged;
-                actionPages = turning.Count <= each ? 1 : (turning.Count + each - 1) / each;
-                pages = System.Math.Max(rowPages, actionPages);
+                var group = lineActs[at].Line.Group;
+                if (at > 0 && group != null && group == lineActs[at - 1].Line.Group) groups[groups.Count - 1].Add(at);
+                else groups.Add(new List<int> { at });
             }
+            // The card holds a title and one description (its quieter line the card's foot). A frame that states more keeps its rows,
+            // and its lines that act stand in the column, its pages breaking only between groups; where a group cannot stand whole
+            // beside the main action, the ways out and the pager, the frame takes the card after all, its stating rows the card's
+            // unpressed rows before the pressed ones (AUDIT's 21:14Z: no group split on any path).
+            var cardable = rows.Count <= 2 && rows.All(row => row.Label == null && row.Lines == null) && unders.Keys.All(at => at == 1);
+            var forced = !cardable && lineActs.Count + others.Count + sections.Count > room && groups.Any(group => group.Count > roomPaged);
+            var carded = lineActs.Count > 0 && (cardable || forced);
+            var cardUnits = new List<List<RoomListRow>>();
+            var groupOf = new Dictionary<RoomAction, int>();
+            if (carded)
+            {
+                if (forced)
+                    for (var at = 1; at < rows.Count; at++)
+                        cardUnits.Add(new List<RoomListRow> { new RoomListRow(RoomKind.None, rows[at].Words, label: rows[at].Label, under: unders.TryGetValue(at, out var under) ? under : null) });
+                foreach (var group in groups)
+                    cardUnits.Add(group.Select(at => lineActs[at]).Select(each => new RoomListRow(each.Line.Kind, each.Line.Runs, each.Line.FactRuns?.Text ?? each.Line.Fact,
+                        press: each.Control, chosen: each.Line.Chosen, under: each.Line.Under, label: each.Line.RowLabel,
+                        mark: each.Line.Choice ? (each.Line.AnswerMark == AnswerMark.None ? AnswerMark.Single : each.Line.AnswerMark) : AnswerMark.None)).ToList());
+            }
+            else
+                for (var index = 0; index < groups.Count; index++)
+                    foreach (var at in groups[index])
+                    {
+                        var (line, control) = lineActs[at];
+                        var value = line.FactRuns?.Text ?? line.Fact;
+                        // On a button: an answer's description, or a value (its quieter line too where it has no value), its detail;
+                        // where it carries two of them, or a label, a part is lost and the bar is not whole.
+                        var action = Valued(line)
+                            ? new RoomAction(control, main: false, icon: GlazeIcon.Next, chosen: line.Chosen, detail: value ?? line.Under?.Text)
+                            : new RoomAction(control, main: false, icon: line.Choice ? (GlazeIcon?)null : line.Icon ?? GlazeIcon.Next, mark: line.AnswerMark,
+                                chosen: line.Chosen, detail: line.Under?.Text);
+                        if (Valued(line) && (value != null && line.Under != null || line.RowLabel != null)) lost = true;
+                        acting.Add(action);
+                        groupOf[action] = index;
+                    }
+            RoomCard CardOf(IReadOnlyList<RoomListRow> list) => new RoomCard(rows.Count > 0 ? rows[0].Words : frame.SubjectRuns,
+                cardable && rows.Count > 1 ? rows[1].Words : null, list: list, more: cardable && unders.TryGetValue(1, out var foot) ? foot : null);
+            var turning = new List<RoomAction>();
+            turning.AddRange(acting);
+            turning.AddRange(others);
+            turning.AddRange(sections);
+
+            // The frame's reason is the sentence. A confirmation (a setting's, or one no specific reader took) is drawn as the frame gives
+            // it, every row whole and its Yes behind the lock (AUDIT's 16:45Z (ii)).
+            sentence = frame.Reason;
+            if (rows.Count == 0 && band == null && turning.Count == 0 && main == null && leaving.Count == 0 && field == null && !carded)
+            {
+                // Nothing in it: it says what it is, never a blank bar.
+                rows.Add(new RoomRow(frame.SubjectRuns));
+            }
+
+            // Units laid a page at a time, never split across a page break unless one is longer than a whole page.
+            List<List<T>> Pack<T>(IReadOnlyList<List<T>> units, int capacity)
+            {
+                var packed = new List<List<T>>();
+                var page = new List<T>();
+                foreach (var unit in units)
+                {
+                    if (page.Count > 0 && page.Count + unit.Count > capacity)
+                    {
+                        packed.Add(page);
+                        page = new List<T>();
+                    }
+                    foreach (var item in unit)
+                    {
+                        if (page.Count == capacity)
+                        {
+                            packed.Add(page);
+                            page = new List<T>();
+                        }
+                        page.Add(item);
+                    }
+                }
+                if (page.Count > 0 || packed.Count == 0) packed.Add(page);
+                return packed;
+            }
+            // The column's turning actions in units: a group of the frame's lines together, every other action alone.
+            var turnUnits = new List<List<RoomAction>>();
+            foreach (var action in turning)
+            {
+                if (turnUnits.Count > 0 && groupOf.TryGetValue(action, out var group) && groupOf.TryGetValue(turnUnits[^1][0], out var before) && before == group)
+                    turnUnits[^1].Add(action);
+                else turnUnits.Add(new List<RoomAction> { action });
+            }
+            // Rows a page by the form it will be laid in (the plane measures it and asks again with fewer where a page passes the field).
+            // A card's rows page by the form too (five at most, fewer where the plane measured fewer rows a page), so the plane's
+            // measure shortens a card as it shortens rows (FIELD's F100: Usage's card narrow passed its footprint at one row a page).
+            var perCard = System.Math.Min(RoomCard.ListAPage, form.RowsAPage);
+            var cardPages = carded ? Pack(cardUnits, perCard) : new List<List<RoomListRow>> { new List<RoomListRow>() };
+            var pressPages = cardPages.Count;
+            // A stating row's quieter line stands as a row of its own under it, never dropped (AUDIT's 21:14Z: the plain rows lost it).
+            var laidRows = new List<RoomRow>();
+            for (var at = 0; at < rows.Count; at++)
+            {
+                laidRows.Add(rows[at]);
+                if (unders.TryGetValue(at, out var under)) laidRows.Add(new RoomRow(under));
+            }
+            var rowPagesOf = carded ? new List<IReadOnlyList<RoomRow>> { new List<RoomRow>() } : PageRows(laidRows, form, titled);
+            var rowPages = rowPagesOf.Count;
+            var contentPages = System.Math.Max(rowPages, pressPages);
+            var turnPages = ownPager == null && contentPages == 1 && turning.Count <= room ? new List<List<RoomAction>> { turning } : Pack(turnUnits, roomPaged);
+            var pages = System.Math.Max(contentPages, turnPages.Count);
             // Rows that fit one page stand on every page while the actions turn; one plain line is the panel's words on all of them.
             // A confirmation's Yes stands only once every line of what it does was shown (gen-n8, 2026-11-13: narrow at the larger
             // size drew Forget Computer beside the title alone, what forgetting does on the next page); Cancel stands on every page.
@@ -230,7 +310,7 @@ namespace Halcyonic.Client
             {
                 var column = new List<RoomAction>();
                 if (main != null && (!confirming || page >= contentLast)) column.Add(main);
-                column.AddRange(turning.Skip(page * each).Take(each));
+                if (page < turnPages.Count) column.AddRange(turnPages[page]);
                 if (pages > 1 || ownPager != null)
                 {
                     var last = page == pages - 1;
@@ -241,7 +321,7 @@ namespace Halcyonic.Client
                 column.AddRange(leaving);
                 parts.Add(ownCard != null ? new GeneralPage(new List<RoomRow>(), column, ownCard)
                     : carded
-                    ? new GeneralPage(new List<RoomRow>(), column, CardOf(pressed.Skip(page * perCard).Take(perCard).ToList()))
+                    ? new GeneralPage(new List<RoomRow>(), column, CardOf(page < cardPages.Count ? cardPages[page] : new List<RoomListRow>()))
                     : new GeneralPage(rowPages == 1 ? (oneLine ? new List<RoomRow>() : rowPagesOf[0]) : page < rowPages ? rowPagesOf[page] : new List<RoomRow>(), column));
             }
 
@@ -260,7 +340,10 @@ namespace Halcyonic.Client
             // description, a value) on a page makes that page one to be shown; a bare action (a move, a section, Next) does not.
             var toRead = new HashSet<int> { 0 };
             for (var page = 0; page < parts.Count; page++)
-                if ((ownCard == null && carded) || (!carded && ownCard == null && rowPages > 1 && page < rowPages)
+                // A card's page holds words to read where a row states (no press) or carries more than its name (a note, a quieter line,
+                // a label); a page of bare moves or choices is turned, never read, so it holds nothing back (JUDGE's 20:08Z shelf walk).
+                if ((ownCard == null && carded && page < cardPages.Count && cardPages[page].Any(row => row.Press == null || row.Note != null || row.Under != null || row.Label != null))
+                    || (!carded && ownCard == null && rowPages > 1 && page < rowPages)
                     || parts[page].Column.Any(action => action.Detail != null && action.Control.Action != TurnPage))
                     toRead.Add(page);
             bar.readPages = toRead;
