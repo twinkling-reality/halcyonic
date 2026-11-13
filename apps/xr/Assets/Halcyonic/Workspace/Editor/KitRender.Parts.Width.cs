@@ -82,10 +82,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     var rows = RoomRows.APage;
                     if (screen == "review")
                     {
-                        // A review is read in parts of eight of the panel's own lines, cut between lines.
-                        var lines = frame.Lines.Sum(line => view.LinesAt(line.Runs, false, width));
-                        parts = Mathf.CeilToInt(lines / (float)RoomBar.RequestLines);
-                        whole = true;
+                        // A review is read in parts of eight of the panel's own lines, as the flow cuts it: each item, its label over its
+                        // value, measured at this width, then paginated by the review itself.
+                        var itemLines = review.Items.Select(item => view.LinesAt(LineWords.Ours(item.Label), false, width) + view.LinesAt(item.ValueRuns, false, width)).ToList();
+                        review.Paginate(itemLines, RoomBar.RequestLines);
+                        parts = review.PageCount;
+                        whole = parts > 0;
                     }
                     else
                     {

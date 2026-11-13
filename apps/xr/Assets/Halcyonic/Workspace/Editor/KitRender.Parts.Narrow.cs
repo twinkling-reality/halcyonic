@@ -116,7 +116,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!said.Contains(KitMomentWords.Dot.Trim()), "\"" + said + "\" joins facts on a dot");
             }
             string Words(string text) => string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-            var expected = frame.Lines.Select(line => line.Words).Concat(frame.Footer.All.Select(each => each.Prompt.Words)).ToList();
+            // What the reader gave: the frame's lines and the actions the bar stands (a confirmation's one way out is Cancel, never Close too).
+            var expected = frame.Lines.Select(line => line.Words).Concat(bar.Column.Select(action => action.Words)).ToList();
             foreach (var words in expected)
                 Require(drawn.Any(said => Words(said).Contains(Words(words))), "\"" + words + "\" is not drawn whole: " + string.Join(" | ", drawn.Select(Words)));
             Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : "ordinary") + " bar "

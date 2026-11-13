@@ -1089,18 +1089,27 @@ namespace Halcyonic.XR.UI
                     _ => (White(RowTileAlpha), White(0.85f), White(NoteAlpha)),
                 };
                 if (row.Chosen) (ground, ink) = (Rgb(Accent, 0.24f), Rgb(AccentNote));
-                // The note at the right first, so the name knows how far it may run.
-                var noteWidth = 0f;
-                TextMeshPro? noteLabel = null;
-                if (row.Note != null)
-                {
-                    (noteLabel, _) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.Ours(row.Note), 0f, 0f, width / 2f, 1);
-                    noteWidth = RoomCursor.WordsWidth(noteLabel, 0f);
-                }
                 // A row picked from carries a chevron at its right, the note before it, and takes a press across its whole width.
                 var picked = row.Press != null;
                 var chevronRoom = picked ? S(ChevronDp + ChevronGapDp) : 0f;
                 var nameLeft = marked ? S(RowTileDp + RowGapDp) : 0f;
+                // Where the card is laid narrower than the panel's own words (the plane's narrower widths, the lead's 2026-11-13T1807Z
+                // ruling), the note stands on a line of its own under the name, the row's whole width, so neither is ever cut: at fifteen
+                // degrees a one-word name beside its note ("Appeara…") and a note held to half the width ("Up to 60…") were (F100).
+                var stacked = row.Note != null && width < RoomType.Units(RoomGeometry.PanelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp) - RoomType.Units(1f);
+                // The note at the right first, so the name knows how far it may run.
+                var noteWidth = 0f;
+                var noteTall = 0f;
+                TextMeshPro? noteLabel = null;
+                if (row.Note != null)
+                {
+                    if (stacked) (noteLabel, noteTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.Ours(row.Note), nameLeft, 0f, width - nameLeft - chevronRoom, 3);
+                    else
+                    {
+                        (noteLabel, _) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.Ours(row.Note), 0f, 0f, width / 2f, 1);
+                        noteWidth = RoomCursor.WordsWidth(noteLabel, 0f);
+                    }
+                }
                 // A plain row's note keeps a wider gap: its words wrap to the note's side, where one gap read as a single run
                 // ("All checked after the last change Inferred", SCREENS's critic, 2026-11-13).
                 var noteGap = plain ? 3f * S(RowGapDp) : S(RowGapDp);
@@ -1138,14 +1147,17 @@ namespace Halcyonic.XR.UI
                 var labelGap = labelLabel != null ? S(2f) : 0f;
                 // Under someone's words, our line stands a small gap apart, so it never reads as them still talking (critic 8).
                 var underGap = row.Name.AllTheirs && row.Under != null && !row.Under.AllTheirs ? S(UnderTheirsGapDp) : S(2f);
-                var block = labelTall + labelGap + nameTall + (underLabel != null ? underGap + underTall : 0f);
+                var noteUnder = stacked && noteLabel != null ? S(2f) + noteTall : 0f;
+                var block = labelTall + labelGap + nameTall + noteUnder + (underLabel != null ? underGap + underTall : 0f);
                 var rowTall = marked ? Mathf.Max(S(RowTileDp), block) : block;
                 var middle = top + rowTall / 2f;
                 if (labelLabel != null) labelLabel.transform.localPosition = new Vector3(nameLeft, -(middle - block / 2f), -RoomType.Units(0.5f));
                 var nameTop = middle - block / 2f + labelTall + labelGap;
                 nameLabel.transform.localPosition = new Vector3(nameLeft, -nameTop, -RoomType.Units(0.5f));
-                if (underLabel != null) underLabel.transform.localPosition = new Vector3(nameLeft, -(nameTop + nameTall + underGap), -RoomType.Units(0.5f));
-                if (noteLabel != null) noteLabel.transform.localPosition = new Vector3(width - chevronRoom - noteWidth, -(middle - S(RowNoteLineDp) / 2f), -RoomType.Units(0.5f));
+                if (underLabel != null) underLabel.transform.localPosition = new Vector3(nameLeft, -(nameTop + nameTall + noteUnder + underGap), -RoomType.Units(0.5f));
+                if (noteLabel != null)
+                    noteLabel.transform.localPosition = stacked ? new Vector3(nameLeft, -(nameTop + nameTall + S(2f)), -RoomType.Units(0.5f))
+                        : new Vector3(width - chevronRoom - noteWidth, -(middle - S(RowNoteLineDp) / 2f), -RoomType.Units(0.5f));
                 if (picked)
                 {
                     Glyph(RoomGlyph.Chevron, ChevronDp, White(0.55f), new Vector2(width - S(ChevronDp) / 2f, -middle), "row chevron");
