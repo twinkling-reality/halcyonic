@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -176,6 +176,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The assistant's row under the gauges: on this computer, on a provider's hosted model with a long id, and unable to run.
                 "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, null, CardRowControl("use-model")))!,
                 "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0", "Tidewater", null, CardRowControl("use-model")))!,
+                // A model id longer than the row: one line, its end cut with its ellipsis, never broken at a hyphen.
+                "47-card-usage-long-id" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0-preview-extended-context", "Tidewater", null, CardRowControl("use-model")))!,
                 "47-card-usage-unavailable" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant(null, null, "Tidewater refused its key. Give it a new key on this computer.", CardRowControl("use-model")))!,
                 // Use Model, the row pressed: the host's list (this computer's model chosen, a hosted one, one whose key was refused),
                 // the card while the computer is asked, and the one review a hosted pick waits on.

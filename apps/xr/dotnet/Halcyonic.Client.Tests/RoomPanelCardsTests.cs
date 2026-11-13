@@ -161,6 +161,7 @@ public sealed class RoomPanelCardsTests
         Assert.That((row.Kind, row.Name.Text, row.Name.AllTheirs, row.Mono), Is.EqualTo((RoomKind.Computer, "glimmer-30b-q4", true, false)), "the model, as its maker names it, where it runs its tile");
         Assert.That(row.Under!.Text, Is.EqualTo("Assistant on " + CaptureNames.Host), "what the row is, and where the model runs");
         Assert.That(row.Press, Is.SameAs(choose), "the row presses to the host's Use Model");
+        Assert.That(row.Excerpt, Is.True, "a model's id may stand cut on its one line: the list and the review name it whole");
         Assert.That(here.Gauges.Count, Is.EqualTo(1));
 
         var hosted = RoomPanelCards.Usage(rows, RoomPanelCards.Assistant("muse-wonder-1.0", "Meta", null, choose))!.List.Single();

@@ -161,7 +161,7 @@ namespace Halcyonic.Client
                     under: string.IsNullOrWhiteSpace(reason) ? null : LineWords.Ours(reason!.Trim()));
             var hosted = !string.IsNullOrWhiteSpace(provider);
             var where = hosted ? LineWords.Ours(AssistantWords + " Hosted by ") + LineWords.TheirName(provider!.Trim()) : LineWords.Ours(AssistantWords + " on " + CaptureNames.Host);
-            return new RoomListRow(hosted ? RoomKind.Link : RoomKind.Computer, LineWords.TheirName(model!.Trim()), press: press, under: where);
+            return new RoomListRow(hosted ? RoomKind.Link : RoomKind.Computer, LineWords.TheirName(model!.Trim()), press: press, under: where, excerpt: true);
         }
     }
 }
