@@ -24,6 +24,7 @@ import { HostStarters, templateDigest } from '../starters.ts';
 import {
   type CheckOptions,
   type CheckResult,
+  listenersOf,
   MAX_EXCEPTION_CHARS,
   MAX_EXCEPTIONS,
   type OwnReference,
@@ -209,6 +210,7 @@ export class HostPreviews {
     this.#checking.add(projectId);
     const cause = causedBy(command.command_id);
     let port: number | null = null;
+    const lost = new Set<number>();
     try {
       // The new check replaces the latest: a preview of the old one stops first.
       if (this.#running.has(projectId)) await this.#stop(projectId, 'new_check', cause);
@@ -241,6 +243,14 @@ export class HostPreviews {
         project: folder,
         cache,
         port,
+        anotherPort: async (gone) => {
+          lost.add(gone);
+          this.#ports.delete(gone);
+          port = null;
+          if (this.#closed) throw new Error('the host is closing');
+          port = await this.#takePort(lost);
+          return port;
+        },
         reference,
         onServer: (pid) =>
           this.#writeRecord(projectId, { pid, copy: join(cache, 'dist') }, 'check'),
@@ -298,14 +308,36 @@ export class HostPreviews {
     if (this.#starting.has(projectId) || this.#running.has(projectId))
       throw new Error('a preview of this project is already running');
     this.#starting.add(projectId);
-    let port: number | null = null;
+    // A port found free can be taken by another process before the server listens there (another
+    // Halcyonic on this Mac, another app): then the next free port of the range is tried, each at
+    // most once, rather than failing a start that was not at fault. With none left, it fails.
+    const lost = new Set<number>();
+    let last: PortLost | null = null;
+    let endedOnce = false;
     try {
-      port = await this.#takePort();
-      return await this.#start(projectId, port, causedBy(command.command_id));
-    } catch (error) {
-      // Nothing started, so nothing holds the port.
-      if (port !== null) this.#ports.delete(port);
-      throw error;
+      for (;;) {
+        // With every port lost, the last loss is what the start ends on.
+        const port = await this.#takePort(lost).catch((error: unknown) => {
+          throw last === null
+            ? error
+            : new Error(`${last.message}, and no other preview port is free`, { cause: last });
+        });
+        try {
+          return await this.#start(projectId, port, causedBy(command.command_id));
+        } catch (error) {
+          // Nothing started, so nothing of this host holds the port.
+          this.#ports.delete(port);
+          if (!(error instanceof PortLost)) throw error;
+          // A server that ended before serving met its port held for a moment, or cannot serve at
+          // all: it is tried on one more port, never more, and then its own failure is the start's.
+          if (error.how === 'ended') {
+            if (endedOnce) throw error.cause;
+            endedOnce = true;
+          }
+          last = error;
+          lost.add(port);
+        }
+      }
     } finally {
       this.#starting.delete(projectId);
     }
@@ -398,11 +430,18 @@ export class HostPreviews {
       await this.#writeRecord(projectId, { pid: child.pid, port, check_id: check.check_id });
       const serves = await servesCopy(child, port, join(cache, 'dist'), 30_000);
       if (!serves || this.#closed || child.exitCode !== null || child.signalCode !== null)
-        throw new Error('the preview server did not serve the checked copy');
+        throw new NotServed();
     } catch (error) {
+      // Vite ends before it serves when its port is held, even for a moment (strictPort).
+      const endedItself = child.exitCode !== null || child.signalCode !== null;
       running.stopping = true;
       await stopChild(child);
       await this.#removeRecord(projectId);
+      if (!this.#closed && error instanceof NotServed) {
+        // Its own server stopped, anything still listening on the port is another process's.
+        const held = (await listenersOf(port)).length > 0;
+        if (held || endedItself) throw new PortLost(port, held ? 'held' : 'ended', error);
+      }
       throw error;
     }
     // No await from here to the record: the exit listener cannot run in between.
@@ -539,13 +578,22 @@ export class HostPreviews {
       const applied = starters.apply(starterId, project);
       if (!applied.ok || applied.template !== template || applied.lockfile !== lockfile)
         return null;
-      const port = await this.#takePort();
+      let port: number | null = await this.#takePort();
+      const lost = new Set<number>();
       try {
         const result = await (this.#deps.runCheck ?? runCheck)({
           ...common,
           project,
           cache: join(work, 'cache'),
           port,
+          anotherPort: async (gone) => {
+            lost.add(gone);
+            this.#ports.delete(gone);
+            port = null;
+            if (this.#closed) throw new Error('the host is closing');
+            port = await this.#takePort(lost);
+            return port;
+          },
           reference: { kind: 'making' },
           onServer: (pid) =>
             this.#writeRecord(projectId, { pid, copy: join(work, 'cache', 'dist') }, 'reference'),
@@ -556,7 +604,7 @@ export class HostPreviews {
         if (result.page?.exception_count !== 0) return null;
         return await readFile(frame.file);
       } finally {
-        this.#ports.delete(port);
+        if (port !== null) this.#ports.delete(port);
         await this.#removeRecord(projectId, 'reference');
       }
     });
@@ -640,13 +688,14 @@ export class HostPreviews {
    * Takes the first port of the range that no check or preview of this host holds and that the
    * system lets it listen on now. Each port is reserved before it is tried, synchronously, so two
    * takes never share one; one another process holds is passed over. Another process can still
-   * take the port between this try and the server's own listen; the start then fails, since it
-   * records a preview only once its own server answers there.
+   * take the port between this try and the server's own listen; the check or the start then takes
+   * the next free one, passing over those `skip` names, since each records only what its own
+   * server answers there.
    */
-  async #takePort(): Promise<number> {
+  async #takePort(skip: ReadonlySet<number> = new Set()): Promise<number> {
     const [first, last] = this.#deps.ports ?? [PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST];
     for (let port = first; port <= last; port += 1) {
-      if (this.#ports.has(port)) continue;
+      if (this.#ports.has(port) || skip.has(port)) continue;
       this.#ports.add(port);
       if (await listenable(port)) return port;
       this.#ports.delete(port);
@@ -782,6 +831,32 @@ const PLAY_END: Record<PreviewStopReason, PlayEnd> = {
   server_exited: 'preview_stopped',
   host_restarted: 'host_stopped',
 };
+
+/** The preview server did not serve the checked copy on its port. */
+class NotServed extends Error {
+  constructor() {
+    super('the preview server did not serve the checked copy');
+  }
+}
+
+/**
+ * The preview server did not serve because of its port: another process listens there (`held`), or
+ * the server ended before serving, as Vite does when its port is held even for a moment (`ended`).
+ */
+class PortLost extends Error {
+  readonly how: 'held' | 'ended';
+  override readonly cause: NotServed;
+  constructor(port: number, how: 'held' | 'ended', cause: NotServed) {
+    super(
+      how === 'held'
+        ? `${cause.message} on port ${port}: another process listens there`
+        : `${cause.message} on port ${port}: it ended before serving`,
+      { cause },
+    );
+    this.how = how;
+    this.cause = cause;
+  }
+}
 
 /** Whether a server can listen on 127.0.0.1:`port` now: it listens, then closes at once. */
 function listenable(port: number): Promise<boolean> {
