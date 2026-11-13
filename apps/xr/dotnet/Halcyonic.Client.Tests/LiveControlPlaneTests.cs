@@ -199,13 +199,13 @@ public class LiveControlPlaneTests
         foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
         {
             Assert.That(UnderstandingPresenter.Present(prompt, executionId, read, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc).Provenance,
-                Is.EqualTo("Salidium · Conclusions Unavailable · Agent App Not Followed"));
+                Is.EqualTo("Conclusions Unavailable, Agent App Not Followed"));
         }
         var measured = await reader.ReadEvaluationAsync(executionId, CancellationToken.None);
         var checkedSection = CheckedPresenter.Present(executionId, read, false, null, measured, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc);
-        Assert.That(checkedSection.Provenance, Is.EqualTo("Salidium · Conclusions Unavailable · Agent App Not Followed"));
+        Assert.That(checkedSection.Provenance, Is.EqualTo("Conclusions Unavailable, Agent App Not Followed"));
         Assert.That(checkedSection.Lines.Select(line => line.Text),
-            Is.EqualTo(new[] { "Seorak · Measurement Unavailable · Agent App Not Followed" }));
+            Is.EqualTo(new[] { "Measurement Unavailable, Agent App Not Followed" }));
 
         var position = session.State.Position;
         connections.Last().Abort();

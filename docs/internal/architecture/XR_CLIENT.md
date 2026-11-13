@@ -1431,15 +1431,19 @@ launch/return, process recreation and current-frame action behavior need separat
     passed. A value the source does not have reads as unknown, pending or "known once it ends",
     never as zero.
 
-  A provenance line is the only place that names Salidium or Seorak ("From Salidium 0.6.1, 2
-  minutes ago", "From Seorak, read just now"); a synthetic source's says "Simulated explanation",
-  "Simulated checks" or "Simulated measurement" instead
+  A provenance line says where an answer came from in the product's own words, in every build:
+  "Explanation, 2 min ago", "Measurement, Read 1 min ago". No screen names a sibling product: the
+  provider's id and the version it names for itself stay data in the records and are never drawn
+  (the lead's ruling, 2026-11-13; `tooling/sibling-names.test.ts` fails on any drawable literal that
+  names one). A synthetic source's says "Simulated Explanation", "Simulated Checks" or "Simulated
+  Measurement" instead
   ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)),
   and a recorded answer says when it was recorded, with its relative times and staleness judged as
-  of then. Where there is no answer, the provenance line still names the source, then says why in
-  words: "From Salidium · No understanding yet", "Understanding unavailable", "unreadable" or "not
-  allowed", with the control plane's reason, such as "No answer in time. Press Refresh in a
-  moment." Every
+  of then. Where there is no answer, the provenance line says what is missing and why, by the
+  reason's code and never the host's message: "Conclusions Unavailable, Agent App Not Followed".
+  The model hands the parts apart (`SourceWords`: the source, what is missing, why, when, and this
+  headset's own read), and a slot of one string takes them as one phrase on commas, as `Notice`
+  does, never joined on a dot. Every
   claim keeps the source's own epistemic class as its tag (observed, reported, inferred, planned,
   explained), never upgraded, and someone's words, every statement (the agent's, a subagent's or an
   unknown author's) and every remaining item said to be the agent's, are always reported, leaning and
@@ -2017,7 +2021,7 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   to a finished turn with the workspace offering exactly the admissible actions, history over REST
   matching what arrived live, understanding and evaluation answering that their providers do not
   observe the mock runtime, read through `IIntelligenceReader` and said in the sections' words
-  ("From Salidium · Understanding unavailable: it doesn't follow tasks this agent app runs."), resuming
+  ("Conclusions Unavailable, Agent App Not Followed"), resuming
   after a dropped connection without a snapshot, an approval
   and then an instruction steered from the workspace to results the runtime confirmed, and an
   execution in flight shown as stale during a control plane crash and as `unknown` after the

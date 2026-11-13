@@ -79,7 +79,7 @@ namespace Halcyonic.Client
         /// </summary>
         public bool Failed { get; }
 
-        /// <summary>Where the rows come from, Seorak or a stand-in that simulates it, while there are rows: the only words that name Seorak.</summary>
+        /// <summary>Where the rows come from, the measurement or a stand-in that simulates it, while there are rows, in the product's own words.</summary>
         public string? Source { get; }
     }
 
@@ -113,8 +113,11 @@ namespace Halcyonic.Client
         public const string Incomplete = "Some Limits Unread";
         public const string Unidentified = "Account Unknown · Any Account on Computer";
 
-        public static string FromSeorak => IntelligenceText.FromSeorak + " · Provider Reported";
-        public static string Simulated => "Simulated · Not " + IntelligenceText.FromSeorak;
+        /// <summary>Where the rows come from, in the product's own words: a source product's name is never drawn.</summary>
+        public static string FromSource => new SourceWords(IntelligenceText.Measurement, when: "Provider Reported").Text;
+
+        /// <summary>Where a stand-in's rows come from: simulated, and said so.</summary>
+        public const string Simulated = "Simulated Measurement";
 
         private const string NoReadingSinceReset = "No Reading Since Reset";
 
@@ -176,7 +179,7 @@ namespace Halcyonic.Client
             return rows.Count == 0
                 ? Quiet(NoReadingSinceReset)
                 : new UsageLeftPresentation(rows, (complete ? "" : Incomplete + " · ") + (recorded ? PartOfTheRecording : Unidentified),
-                    source: recorded ? Recorded : synthetic ? Simulated : FromSeorak);
+                    source: recorded ? Recorded : synthetic ? Simulated : FromSource);
         }
 
         /// <summary>"today at 15:18" in the person's zone, or "6 Oct at 09:00" on another day, so a time never reads as today when it is not.</summary>

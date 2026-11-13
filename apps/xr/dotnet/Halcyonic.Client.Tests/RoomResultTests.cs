@@ -765,7 +765,7 @@ public class RoomResultTests
     public void TheUnderstandingsAccountFollowsTheFilesOnChangesAPartAnAnswer()
     {
         SectionPresentation Brief(params SectionLine[] lines) =>
-            new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1 · 09:00", SectionTone.Secondary, lines, simulated: false,
+            new SectionPresentation(SectionKind.Understanding, "Explanation, 09:00", SectionTone.Secondary, lines, simulated: false,
                 provenanceRuns: LineWords.Ours("From Salidium ") + LineWords.Theirs("0.6.1"));
         SectionLine Line(string tag, string words) => new SectionLine(tag, words, SectionTone.Normal);
         var what = Brief(Line("observed", "3 files changed: 1 new, 2 edited"), Line("inferred", "A check ran after every file's last change"));

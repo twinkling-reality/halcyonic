@@ -8,7 +8,9 @@ namespace Halcyonic.Client.Tests;
 
 /// <summary>
 /// The development build's capture extra for footage free of product names (lead 11-04): under it the headset draws a
-/// generic agent app, model, host and sibling source wherever it would draw theirs; without it, the real names.
+/// generic agent app, model and host wherever it would draw theirs; without it, the real names. Where an understanding or a
+/// measurement came from is said in the product's own words in every build, with the extra or without it
+/// (SiblingNamesTests).
 /// </summary>
 [TestFixture, NonParallelizable]
 public class CaptureNamesTests
@@ -29,9 +31,6 @@ public class CaptureNamesTests
         Assert.That(EntryText.RuntimeName(runtime), Is.EqualTo(CaptureNames.Agent), "Create's agent apps");
         Assert.That(KitMomentWords.ThisMac, Is.EqualTo("This Computer"), "the Host chip");
         Assert.That(KitMomentWords.YourComputer, Is.EqualTo("Observed on This Computer"));
-        Assert.That(IntelligenceText.FromSalidium, Is.EqualTo("Explanation"), "Understand and the evidence doors");
-        Assert.That(IntelligenceText.FromSeorak, Is.EqualTo("Measurement"), "Checks");
-        Assert.That(UsageLeftPresenter.FromSeorak, Is.EqualTo("Measurement · Provider Reported"), "Usage");
 
         var words = Words(state, work, execution);
         foreach (var name in new[] { "Codex", "qwen", "Mac", "Salidium", "Seorak" })
@@ -48,8 +47,6 @@ public class CaptureNamesTests
         Assert.That(KitPresenter.AgentOf(runtime, execution), Is.EqualTo("Codex"));
         Assert.That(KitPresenter.AgentOf(runtime, execution, "qwen3.6:35b-a3b-nvfp4"), Does.StartWith("qwen3.6"));
         Assert.That(KitMomentWords.ThisMac, Is.EqualTo("This Mac"));
-        Assert.That(IntelligenceText.FromSalidium, Is.EqualTo("Salidium"));
-        Assert.That(IntelligenceText.FromSeorak, Is.EqualTo("Seorak"));
         Assert.That(Words(state, work, execution), Does.Contain("Codex"));
     }
 

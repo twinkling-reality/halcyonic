@@ -58,7 +58,7 @@ public class UsageLeftTests
     public void SaysWhereTheReadingsComeFromAndThatTheAccountIsNotIdentified()
     {
         var glance = Present(Available);
-        Assert.That(glance.Source, Is.EqualTo("Seorak · Provider Reported"));
+        Assert.That(glance.Source, Is.EqualTo("Measurement, Provider Reported"));
         Assert.That(glance.Note, Is.EqualTo("Account Unknown · Any Account on Computer"));
     }
 
@@ -85,7 +85,7 @@ public class UsageLeftTests
     public void SaysSimulatedForAStandInsReadings()
     {
         var glance = Present(Available.Replace("\"synthetic\": false", "\"synthetic\": true"));
-        Assert.That(glance.Source, Is.EqualTo("Simulated · Not Seorak"));
+        Assert.That(glance.Source, Is.EqualTo("Simulated Measurement"));
     }
 
     [Test]
@@ -235,7 +235,7 @@ public class UsageLeftScreensTests
         Assert.That(model.Title, Is.EqualTo("Usage Left"));
         Assert.That(model.Movable, Is.False);
         Assert.That(model.Tabs, Is.Empty, "Close stands in the header of a panel that stays put with no tabs");
-        Assert.That(model.Context, Is.EqualTo("Simulated · Not Seorak"), "every page says where the windows come from");
+        Assert.That(model.Context, Is.EqualTo("Simulated Measurement"), "every page says where the windows come from");
         Assert.That(model.PartsNote, Is.EqualTo(presentation.Note), "every page says what is unknown");
         Assert.That(model.Rows.Select(row => row.Title), Is.EqualTo(new[]
         {

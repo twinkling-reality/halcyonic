@@ -414,7 +414,7 @@ public class JudgeMenuWalkTests
             (_, frame) = host.Draw();
         }
         Assert.That(frame!.Lines[0].Words, Does.StartWith("Tests failed").And.Contains("1 failed, 23 passed"));
-        Assert.That(frame.Source, Does.StartWith("Simulated Checks · Recorded "));
+        Assert.That(frame.Source, Does.StartWith("Simulated Checks, Recorded "));
         // Under the redesign the same page is a card (FIELD's parts note): the outcome its title, simulated and when its line,
         // the run's own summary on the foot line, whole; nothing joined on a dot.
         Assert.That(frame.Card, Is.Not.Null, "the simulated checks carry their card");

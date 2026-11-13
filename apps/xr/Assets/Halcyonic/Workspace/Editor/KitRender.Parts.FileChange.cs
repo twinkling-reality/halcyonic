@@ -56,7 +56,7 @@ namespace Halcyonic.XR.Workspace.Editor
             LineWords Name(string name) => LineWords.TheirName(name);
             // The unsourced state is a stand-in's answers: they come from no agent app's records, so the foot names none.
             var standIn = state == "66-account-unsourced";
-            SectionPresentation Answer(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1", SectionTone.Secondary, lines, simulated: standIn);
+            SectionPresentation Answer(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "Explanation, 2 min ago", SectionTone.Secondary, lines, simulated: standIn);
             var what = Answer(
                 Line("observed", Ours("4 files changed: 1 new, 3 edited")),
                 Line("inferred", Ours("A check ran after every file's last change")));

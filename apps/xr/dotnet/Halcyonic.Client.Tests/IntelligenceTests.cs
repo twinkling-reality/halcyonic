@@ -564,7 +564,7 @@ public class IntelligenceFeedTests
             Result = new UnavailableEvaluation { Reason = new ErrorInfo { Code = "not_running", Message = Leak } },
         }, now, recorded: false);
         var line = EvaluationPresenter.Measurement(unavailable, false, null, now, Intelligence.Utc).Single().Text;
-        Assert.That(line, Is.EqualTo("Seorak · Measurement Unavailable · Not Running, start it on your computer"));
+        Assert.That(line, Is.EqualTo("Measurement Unavailable, Not Running, start it on your computer"));
     }
 }
 
@@ -721,12 +721,12 @@ public class DemonstrationReadsTests
         var understanding = await reads.ReadUnderstandingAsync(execution.ExecutionId, CancellationToken.None);
         Assert.That(understanding.Recorded, Is.True);
         var section = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
-        Assert.That(section.Provenance, Does.StartWith("Simulated Explanation · Recorded 09:00:0"));
+        Assert.That(section.Provenance, Does.StartWith("Simulated Explanation, Recorded 09:00:0"));
         Assert.That(section.Lines[0].Text, Is.EqualTo("2 files changed: 2 new"));
         var evaluation = await reads.ReadEvaluationAsync(execution.ExecutionId, CancellationToken.None);
         var measured = CheckedPresenter.Present(execution.ExecutionId, understanding, false, null, evaluation, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
         var source = measured.Lines.Single(line => line.Source);
-        Assert.That(source.Text, Does.StartWith("Simulated Measurement · Recorded"));
+        Assert.That(source.Text, Does.StartWith("Simulated Measurement, Recorded"));
         Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("Not Measured"), "the outcome waits for the turn to end");
         Assert.That(measured.Lines.Last().Text, Does.StartWith("Unavailable · Not Yet Computed"), "the outcome's own statement about itself");
 
