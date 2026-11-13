@@ -181,7 +181,8 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 Require(bar.Column.Last().Control.Action == wayOut && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its way out");
                 // Read once every page with something to read was shown: the second page of rows, and at once where only bare actions page.
-                if (!measured && !confirm) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column" or "52-general-shelf"), "Whole before every page to read was shown, or not after");
+                // Usage at the larger size pages itself two rows a page, so the reader's second page only turns actions (gen-n11).
+                if (!measured && !confirm) Require(bar.Whole == (state is "52-general-rows-2" or "52-general-column" or "52-general-shelf" || state == "52-general-usage" && GlazeText.Scale > 1.0001f), "Whole before every page to read was shown, or not after");
             }
             Require(!bar.LostPart, "the general reader lost a part of the frame (not on screen)");
             if (frame.Side is SidePanel panel)

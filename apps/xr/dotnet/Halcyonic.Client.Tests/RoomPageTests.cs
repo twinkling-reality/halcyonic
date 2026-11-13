@@ -703,4 +703,25 @@ public class RoomPageTests
         }
         finally { RoomDesign.Enabled = was; }
     }
+
+    /// <summary>
+    /// A card whose rows fit one page stands on EVERY page while only the column's actions turn (gen-n11: Usage at the larger
+    /// size, the frame paging itself two rows a page, drew its card empty on the reader's second page), as rows that fit one
+    /// page do; those pages hold nothing to read, so the frame is whole at once.
+    /// </summary>
+    [Test]
+    public void ACardThatFitsOnePageStandsOnEveryPageWhileTheActionsTurn()
+    {
+        var sections = Enumerable.Range(1, 6).Select(n => new FrameSection("place-" + n, "Place " + n)).ToList();
+        var frame = Frame(Enumerable.Range(1, 3).Select(n => new PageLine("Colour " + n, action: "choose", key: n.ToString(), choice: true, answerMark: AnswerMark.Single)).ToList(),
+            sections: new[] { new FrameSection("here", "Here", chosen: true) }.Concat(sections).ToList());
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+        Assert.That(bar.GeneralPart.Pages, Is.GreaterThan(1), Show(bar));
+        Assert.That(bar.Whole, Is.True, "pages that only turn actions hide nothing");
+        for (var page = 0; page < bar.GeneralPart.Pages; page++)
+        {
+            Assert.That(bar.Card!.List.Select(row => row.Name.Text), Is.EqualTo(new[] { "Colour 1", "Colour 2", "Colour 3" }), "the card on page " + (page + 1));
+            bar.Turn();
+        }
+    }
 }

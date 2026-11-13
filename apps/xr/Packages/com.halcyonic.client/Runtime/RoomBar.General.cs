@@ -330,7 +330,8 @@ namespace Halcyonic.Client
                 column.AddRange(leaving);
                 parts.Add(ownCard != null ? new GeneralPage(new List<RoomRow>(), column, ownCard)
                     : carded
-                    ? new GeneralPage(new List<RoomRow>(), column, CardOf(page < cardPages.Count ? cardPages[page] : new List<RoomListRow>()))
+                    // A card that fits one page stands on every page while the actions turn, as rows that fit one page do (gen-n11).
+                    ? new GeneralPage(new List<RoomRow>(), column, CardOf(cardPages.Count == 1 ? cardPages[0] : page < cardPages.Count ? cardPages[page] : new List<RoomListRow>()))
                     : new GeneralPage(rowPages == 1 ? (oneLine ? new List<RoomRow>() : rowPagesOf[0]) : page < rowPages ? rowPagesOf[page] : new List<RoomRow>(), column));
             }
 
