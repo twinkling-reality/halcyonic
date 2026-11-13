@@ -216,6 +216,9 @@ namespace Halcyonic.Client
         private CancellationTokenSource? startersCancellation;
         private int startersPage;
         private LocationsResponse? locations;
+
+        /// <summary>The folder taken for the person (<see cref="DefaultFolder"/>), followed while it stays the one chosen; null once they choose their own.</summary>
+        private ProjectFolder? defaultedFolder;
         private string? locationsProblem;
         private Task<LocationsResponse>? locationsRead;
         private CancellationTokenSource? locationsCancellation;
@@ -354,8 +357,9 @@ namespace Halcyonic.Client
             ChooseKeptRuntime();
             PreselectRuntime();
             ReadCompanion();
-            // A kept folder's place is read again before it shows, since labels change with the places.
-            if (idea.Folder != null && locationsRead == null) ReadFolders();
+            // A kept folder's place is read again before it shows, since labels change with the places; a new project's places
+            // are read too, so its folder can be taken for it the moment its idea is in (the lead's 09:37Z, JUDGE's finding).
+            if ((idea.Folder != null || idea.ExistingProjectId == null) && locationsRead == null) ReadFolders();
             if (starters == null && startersRead == null) ReadStarters();
             confirmingStartOver = false;
             fact = null;
@@ -994,6 +998,7 @@ namespace Halcyonic.Client
             }
             RestoreDrafts();
             var changed = PollCompanion() | PollModels() | PollFolders() | PollStarters() | AdvanceBuild();
+            changed |= DefaultFolder();
             // The lead's first journey (2026-11-12): once started, the task's own file opens where the person is, so what it asks,
             // an approval first, is there to answer in one press. Only while New Project shows, once a start, and where the redesign draws it.
             if (IsOpen && ReviewForRoom && ShownBeside?.Invoke() == true && sequence is { Started: true, WorkstreamId: string started } && !ReferenceEquals(openedStarted, sequence))
@@ -1673,8 +1678,65 @@ namespace Halcyonic.Client
             else if (read.IsFaulted) draft.ModelReadFailed(connected: true);
             else draft.SetModels(read.Result);
             ChooseKeptModel();
+            PreselectModel();
             return true;
         }
+
+        /// <summary>
+        /// The model taken for the person where the rule says so (<see cref="Preselection"/>, the lead's 09:37Z): the one last used
+        /// with this agent app on this computer, a hosted one included since the person chose it before, else the only one that
+        /// runs on this computer. A hosted model is never taken otherwise. Shown chosen on the recap and changeable there.
+        /// </summary>
+        private void PreselectModel()
+        {
+            if (draft.Model != null || draft.Runtime is not RuntimeDescriptor runtime || draft.Models.Count == 0) return;
+            var used = (host.State?.Workstreams.Values.Select(task => host.State.CurrentExecution(task)) ?? Enumerable.Empty<ExecutionView?>())
+                .OfType<ExecutionView>()
+                .Where(run => run.Runtime.RuntimeId == runtime.RuntimeId && run.ModelRef != null)
+                .OrderByDescending(run => run.StartedAt ?? run.CreatedAt, StringComparer.Ordinal)
+                .Select(run => draft.Models.FirstOrDefault(model => model.ModelRef == run.ModelRef))
+                .OfType<RuntimeModel>();
+            var here = draft.Models.Where(NewWorkDraft.RunsHere).ToList();
+            var model = used.FirstOrDefault() ?? Preselection.Pick(here, Enumerable.Empty<RuntimeModel>(), Enumerable.Empty<RuntimeModel>());
+            if (model != null) draft.ChooseModel(model);
+        }
+
+        /// <summary>
+        /// A new project's folder taken for the person (the lead's 09:37Z, from JUDGE's finding of 14 presses): a NEW folder named
+        /// from the idea (<see cref="ProjectFolder.SuggestName"/>, a free name: "-2" and on where one is taken), in the place the
+        /// computer offers, else the one the newest project lives in, as one phrase on the recap ("New kite-run in Projects") and
+        /// changeable there. It follows a renamed idea while it stays the one taken; a folder the person chose is never replaced.
+        /// True where it changed.
+        /// </summary>
+        private bool DefaultFolder()
+        {
+            if (!Live || locations == null || idea is not ProjectIdea current || current.ExistingProjectId != null || current.Name.Length == 0) return false;
+            if (current.Folder != null && !Same(current.Folder, defaultedFolder)) return false;
+            var roots = locations.Roots.Where(root => root.Status == LocationRootStatus.Available).ToList();
+            var used = (host.State?.Projects.Values ?? Enumerable.Empty<ProjectView>())
+                .Where(project => project.Location != null)
+                .OrderByDescending(project => project.CreatedAt, StringComparer.Ordinal)
+                .Select(project => roots.FirstOrDefault(root => Inside(project.Location!.Path, root.Path)))
+                .OfType<LocationRoot>();
+            if (Preselection.Pick(roots, Enumerable.Empty<LocationRoot>(), used) is not LocationRoot place) return false;
+            var named = ProjectFolder.SuggestName(current.Name);
+            var free = Enumerable.Range(1, 9).Select(index => index == 1 ? named : named + "-" + index)
+                .FirstOrDefault(name => ProjectFolder.IsValidNewName(name) && place.Folders.All(folder => !string.Equals(folder.Name, name, StringComparison.OrdinalIgnoreCase)));
+            if (free == null || ProjectFolder.New(place, free) is not ProjectFolder taken) return false;
+            if (Same(current.Folder, taken)) return false;
+            current.ChooseFolder(taken);
+            defaultedFolder = taken;
+            review = null;
+            return true;
+        }
+
+        /// <summary>The same folder choice: its place, its name, new or not, and its starter.</summary>
+        private static bool Same(ProjectFolder? one, ProjectFolder? other) =>
+            one != null && other != null && one.RootPath == other.RootPath && one.FolderName == other.FolderName && one.IsNew == other.IsNew && one.StarterId == other.StarterId;
+
+        /// <summary>A path in a place, or the place itself.</summary>
+        private static bool Inside(string path, string root) =>
+            string.Equals(path, root, StringComparison.Ordinal) || path.StartsWith(root.TrimEnd('/') + "/", StringComparison.Ordinal);
 
         // ---------------------------------------------------------------------------------------------
         // Build: the review, the commands its Yes confirmed, and a start whose outcome is unknown.
