@@ -80,7 +80,7 @@ namespace Halcyonic.Client
         public const string NoFolders = "No Folders Allowed · Allow on Computer · Try Again";
         public const string FoldersCut = "First 200 Folders Only";
         public const string NewFolderPrompt = "New Folder Name";
-        public const string NewFolderRule = "Up to 64 · Letters, Digits, Dots, Dashes, Underscores · Letter or Digit First";
+        public const string NewFolderRule = "Up to 64 letters, digits, dots, dashes or underscores, starting with a letter or digit";
         public const string UseThatFolder = "Use Folder";
         public const string ChooseAnotherFolder = "Choose Folder";
         public const string RebindWarning = "Later Tasks Use New Folder · Running Tasks Keep Theirs";
@@ -206,7 +206,7 @@ namespace Halcyonic.Client
         /// <summary>The step stopped over its folder, so choosing another is the next action.</summary>
         public static bool AboutFolder(BuildStep step) => !step.EffectUnknown && FolderProblem(step.Refusal, step.Failure) != null;
 
-        public const string OptionsLine = "Choose Agent App · Then Model";
+        public const string OptionsLine = "Choose an agent app, then its model";
         public const string NoRuntimes = "No Agent App Available · Set Up on Computer";
         public const string ChangeAgentApp = "Change Agent App";
         public const string ListsModels = "Model · Your Choice";
@@ -268,8 +268,8 @@ namespace Halcyonic.Client
         /// and a folder chosen in place of the project's. The agent app and model are the draft's, kept.
         /// </summary>
         public static string StartOverClears(bool forTask) => forTask
-            ? "Clears · Idea · Answers · First Task · Folder Change · Keeps · Project · Run Settings"
-            : "Clears · Idea · Answers · Name · First Task · Folder · Keeps · Run Settings";
+            ? "Clears the idea, answers, first task and folder change. Keeps the project and run settings."
+            : "Clears the idea, answers, name, first task and folder. Keeps the run settings.";
 
         /// <summary>
         /// New project's row at the end of a page that needs more than one, on page <paramref name="page"/>
@@ -389,9 +389,15 @@ namespace Halcyonic.Client
         public static string Served(ModelServed served) => served switch
         {
             ModelServed.ThisMac => "On Your Computer",
-            ModelServed.Remote => "Remote Service · Code and Instructions Leave",
-            _ => "Location Unknown · Code May Leave",
+            ModelServed.Remote => RemoteLeaves,
+            _ => UnknownMayLeave,
         };
+
+        /// <summary>Where a remote model runs, and what that means for the person's code, as a sentence (JUDGE, 2026-11-13T0851Z: never on a dot).</summary>
+        public const string RemoteLeaves = "Runs on a remote service: your code and instructions leave this computer";
+
+        /// <summary>A model or an agent app whose model runs where Halcyonic cannot tell.</summary>
+        public const string UnknownMayLeave = "Where it runs is unknown: your code may leave this computer";
 
         /// <summary>
         /// The line between a runtime's models on this Mac and the rest, which take a second press:
@@ -399,11 +405,11 @@ namespace Halcyonic.Client
         /// </summary>
         public static string ElsewhereDivider(IEnumerable<RuntimeModel> elsewhere) =>
             elsewhere.All(model => model.Served == ModelServed.Remote)
-                ? "Remote Service · Code and Instructions Leave"
-                : "May Not Run Locally · Code May Leave";
+                ? "These run on a remote service: your code and instructions leave this computer"
+                : "These may not run on this computer: your code may leave it";
 
         /// <summary>The first press on a model that runs elsewhere, under its name: what choosing it means, and how.</summary>
-        public static string ConfirmElsewhere(RuntimeModel model) => Served(model.Served) + " · Press Again to Use";
+        public static string ConfirmElsewhere(RuntimeModel model) => Served(model.Served) + ". Press again to use it.";
 
         /// <summary>Where a model runs, in a model's row.</summary>
         public static string ServedShort(ModelServed served) => served switch
@@ -498,18 +504,21 @@ namespace Halcyonic.Client
         {
             var runtime = draft.Runtime;
             if (runtime == null) return ChooseHowItRuns;
-            if (runtime.Synthetic) return "Practice · No Agent · No Files";
-            if (runtime.ModelChoice != ModelChoice.Listed) return "Location Unknown · Code May Leave";
+            if (runtime.Synthetic) return "A practice run: no agent and no files";
+            if (runtime.ModelChoice != ModelChoice.Listed) return UnknownMayLeave;
             var model = draft.Model;
             if (model == null) return FinishChoosing;
-            if (draft.ModelPreselected) return "Chosen for You · Change in More Options";
+            if (draft.ModelPreselected) return ModelChosenForYou;
             return model.Served switch
             {
                 ModelServed.ThisMac => "Runs on Your Computer",
-                ModelServed.Remote => "Remote Service · Code and Instructions Leave",
-                _ => "Location Unknown · Code May Leave",
+                ModelServed.Remote => RemoteLeaves,
+                _ => UnknownMayLeave,
             };
         }
+
+        /// <summary>A model taken for the person, said so, and where to change it.</summary>
+        public const string ModelChosenForYou = "Chosen for you. Change it in More Options.";
 
         private static string Count(int value) => value.ToString(CultureInfo.InvariantCulture);
     }

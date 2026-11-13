@@ -353,7 +353,7 @@ namespace Halcyonic.XR.UI.Editor
                 ButtonRole.Filter, on: true);
             Add("a filter hidden", new PanelRow { Title = "Recipe tracker", Detail = "Hidden · 1 waiting", DetailTone = GlazeTone.Attention, Filter = true, Action = "toggle" },
                 ButtonRole.Filter);
-            Add("a fact", new PanelRow { Overline = EntryText.HowItRuns, Title = "On " + HostText.Your, Detail = "Chosen for You · Change in More Options", DetailLines = 2,
+            Add("a fact", new PanelRow { Overline = EntryText.HowItRuns, Title = "On " + HostText.Your, Detail = EntryText.ModelChosenForYou, DetailLines = 2,
                 End = EntryText.MoreOptions, Action = "options" }, ButtonRole.Choice);
             Add("an unavailable choice", new PanelRow { Title = "Code", Detail = "Not on " + HostText.Your + " right now", Available = false, Action = "choose" }, ButtonRole.Choice, available: false);
             Add("a step and how it went", new PanelRow { Title = "Create Project", Detail = "Confirmed", DetailTone = GlazeTone.Success }, ButtonRole.Choice, still: true);
