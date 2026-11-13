@@ -674,7 +674,10 @@ namespace Halcyonic.Client
             var suggested = idea.NameSuggested || idea.TaskSuggested;
             var proposal = suggested ? idea.Companion?.Proposal : null;
             var lines = new List<PageLine>();
-            if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 2));
+            // A start that may have run holds Start Building: the card says so in the page's own sentence, and its way on, See What
+            // Happened, is the main action (a reader, 2026-11-13: no lit button and nothing naming the wait read as a dead end).
+            if (notice == null && EntryText.IsPreviousRequest(problem)) notice = problem;
+            if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 3));
             else if (proposal != null) lines.Add(new PageLine(EntryScreens.Proposed(proposal), rows: 2));
             else if (EntryScreens.Moves(idea, currentFolder)) lines.Add(new PageLine(EntryText.RebindWarning, tone: LineTone.Secondary, rows: 2));
             // Each fact's label given apart from its words, never joined on a dot (JUDGE's 1203Z item 6; FIELD's RoomRow label).
@@ -705,6 +708,8 @@ namespace Halcyonic.Client
             if (problem == EntryText.ChooseWhereFilesLive) return new Prompt(ChooseAnotherFolder, EntryText.ChooseAnotherFolder, GlazeIcon.Change, main: true, safeInPlace: true);
             if (problem == EntryText.ChooseHowItRuns || problem == EntryText.ChooseAgain) return new Prompt(MoreOptions, EntryText.ChooseAgentApp, GlazeIcon.Change, main: true, safeInPlace: true);
             if (problem == EntryText.FinishChoosing) return new Prompt(MoreOptions, EntryText.ChooseModel, GlazeIcon.Change, main: true, safeInPlace: true);
+            // A start that may have run: the page that says what is known and how to clear it, one press away.
+            if (EntryText.IsPreviousRequest(problem)) return new Prompt(CheckFirst, EntryText.CheckFirst, GlazeIcon.Next, main: true, safeInPlace: true);
             // Any other wait is Start Building's own reason, said where it stands.
             return new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem, safeInPlace: true);
         }
@@ -1250,8 +1255,24 @@ namespace Halcyonic.Client
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
             var subject = Subject(idea);
-            return new MenuFrame(subject, footer, sections: Sections(NewProjectStep.Build, idea, startReached: true),
+            var frame = new MenuFrame(subject, footer, sections: Sections(NewProjectStep.Build, idea, startReached: true),
                 lines: lines);
+            return RoomDesign.Enabled ? frame.WithCard(UnresolvedCard(idea, record, armed, said, kind)) : frame;
+        }
+
+        /// <summary>
+        /// The unknown start's page under the redesign as a card, as the start's own card is (a reader, 2026-11-13: the page had no
+        /// title, no project, and its state sat last like a footnote): the project as its title, Start Unconfirmed over the step's
+        /// sentence as its status, and what the computer recorded and what Clear does as its words. The reference stays in the
+        /// page's lines for the older view; a person has nothing to do with it here.
+        /// </summary>
+        public static RoomCard UnresolvedCard(ProjectIdea idea, CommandView? record, bool armed, string? said, BuildStepKind? kind)
+        {
+            var title = idea.Name.Length > 0 ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet);
+            var words = EntryText.Recorded(record?.Status) + " " + (armed ? EntryText.ClearOnlyAfterChecking : EntryText.ClearOnceChecked)
+                + (said != null ? " " + said : "");
+            return new RoomCard(title, LineWords.Ours(words), RoomCardHead.Project,
+                new RoomCardStatus(EntryText.PreviousRequestTitle, EntryText.PreviousRequest(kind), RoomTone.Quiet));
         }
 
         /// <summary>A build step's colour: confirmed is good, refused or failed a problem, and waiting or unknown secondary, its words saying which.</summary>

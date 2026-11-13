@@ -146,8 +146,11 @@ namespace Halcyonic.Client
                 // A start whose outcome is unknown: its lines as rows under what it is, Clear and its Confirm.
                 var title = plain.FirstOrDefault()?.Words;
                 var facts = plain.Skip(1).Select(line => new RoomRow(line.Runs)).ToList();
-                if (yes != null) return Rows(RoomBarState.Confirm, facts, title, Confirming());
-                return Rows(RoomBarState.Choose, facts, why ?? title, Column(withClose: true, Offered(NewProjectScreens.Clear)));
+                // Where the page gives its card (the project, Start Unconfirmed and the step's sentence), the card stands in the rows' place.
+                var unknown = yes != null ? Rows(RoomBarState.Confirm, facts, frame.Card != null ? null : title, Confirming())
+                    : Rows(RoomBarState.Choose, facts, frame.Card != null ? why : why ?? title, Column(withClose: true, Offered(NewProjectScreens.Clear)));
+                if (frame.Card != null) unknown.Card = frame.Card;
+                return unknown;
             }
 
             if (chosen == Key(NewProjectStep.Recap))

@@ -114,7 +114,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     expected.Add(EntryText.PreviousRequest(kind));
                     expected.Add(EntryText.Recorded(CommandStatus.Failed));
                     expected.Add(armed ? EntryText.ClearOnlyAfterChecking : EntryText.ClearOnceChecked);
-                    expected.Add(EntryText.Reference(task.CommandId));
+                    // The card's title and state stand at its head (a reader, 2026-11-13); the reference is no longer drawn.
+                    controls.Add("Kite Run");
+                    controls.Add(EntryText.PreviousRequestTitle);
+                    controls.Add(armed ? EntryText.ConfirmClear : EntryText.Clear);
                 }
                 else if (state == "49-start-recap-unknown")
                 {
@@ -122,6 +125,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var reason = EntryText.PreviousRequest(kind);
                     frame = NewProjectScreens.Recap(idea, draft, null, true, null, reason, buildReached: true, startOverProblem: reason);
                     expected.Add(reason);
+                    controls.Add(EntryText.CheckFirst);
                 }
                 else
                 {
