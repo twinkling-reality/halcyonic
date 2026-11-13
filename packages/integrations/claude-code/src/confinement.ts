@@ -17,6 +17,8 @@ import {
   confinedProfile,
   confinementKey,
   gatedEnvironment,
+  type HostFoldersScope,
+  hostFoldersDeniedProfile,
   type KeyGateDeclaration,
   SANDBOX_EXEC,
 } from '@halcyonic/seatbelt';
@@ -38,6 +40,12 @@ export interface ClaudeConfinementOptions {
    * writes: a starter's shared dependencies, the original a VR version is made from.
    */
   readonly forDirectory: (directory: string) => Pick<Confinement, 'readable' | 'originals'> | null;
+  /**
+   * The host's own folders, which no agent process reaches even outside the closed profile (the lead's 18:21Z step
+   * 3b): its data folder, the task copies' folder; every `.halcyonic*` folder of the person's home besides. Absent,
+   * a start outside the closed profile runs as before, with no profile.
+   */
+  readonly hostFolders?: readonly string[];
 }
 
 /** One confined folder's own place: its home, Claude Code's configuration in it, and temporary folder. */
@@ -128,6 +136,41 @@ export function confinedLaunch(
     args: ['-f', profile, options.command, ...options.args],
     env,
   };
+}
+
+/**
+ * A launch outside the closed profile (VRIFY, 2026-11-13; the lead's 18:21Z step 3): through the key gate where
+ * there is one, so the process holds this run's credential and the gate's address, never the person's key; and
+ * under the light profile where the host names its folders, so the process and everything it runs never read or
+ * write them. The person's own HOME, configuration and network stay as they are.
+ */
+export function openLaunch(
+  options: SpawnOptions,
+  gate: { readonly url: string } | null,
+  declaration: KeyGateDeclaration,
+  runCredential: string | null,
+  profile: string | null,
+): SpawnOptions {
+  const env: Record<string, string | undefined> = { ...options.env };
+  if (gate !== null && runCredential !== null) {
+    Object.assign(env, gatedEnvironment(declaration, gate.url, runCredential, env));
+    for (const name of declaration.otherCredentials) delete env[name];
+  }
+  if (profile === null) return { ...options, env };
+  return {
+    ...options,
+    command: SANDBOX_EXEC,
+    args: ['-f', profile, options.command, ...options.args],
+    env,
+  };
+}
+
+/** Writes the light profile for `scope` at `path` whole, replacing any older one at once. */
+export function writeHostFoldersProfile(path: string, scope: HostFoldersScope): string {
+  const draft = `${path}.${process.pid}.${randomUUID()}`;
+  writeFileSync(draft, hostFoldersDeniedProfile(scope), { mode: 0o600, flag: 'wx' });
+  renameSync(draft, path);
+  return path;
 }
 
 /**

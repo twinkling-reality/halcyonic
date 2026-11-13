@@ -7,6 +7,9 @@ else and revoked when the run's process ends (AUDIT3's finding, 2026-11-12: a ga
 caller would let any process on the Mac, or a web page through a rebound address, spend it). So a run inside
 is recorded confined, and what it makes can be checked, played, published and shared like any other run's.
 
+Since 2026-11-13 a Claude Code on a connected folder, outside the profile, reaches its API through the same gate with
+a run credential of its own: [claude-code-connected-folders.md](claude-code-connected-folders.md).
+
 ## What the official documentation says (read 2026-11-12)
 
 - Claude Code is pointed at another API address with `ANTHROPIC_BASE_URL`: "Override the API endpoint to route

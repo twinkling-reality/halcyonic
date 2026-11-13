@@ -97,6 +97,11 @@ in words, the agent's quoted text and the person's words within the request's bo
 Meta's (key in `meta-api-key`, sent as a Bearer token; Standard-mode models only) and Anthropic's (key in
 `anthropic-api-key`, sent as `x-api-key`).
 
+On a folder the person connected, Claude Code runs outside the closed profile but holds no key (since 2026-11-13): it
+reaches its API through the key gate with a run credential of its own, and a light seatbelt profile keeps it and its
+commands out of the host's own folders (the data folder with the keys, the task copies, every `.halcyonic*` home)
+([claude-code-connected-folders.md](../validation/claude-code-connected-folders.md)).
+
 Claude Code loads no settings file (`settingSources: []`, since 2026-11-12), for each task and for listing models:
 a settings `env` could add a credential that outranks the stored key. Outside the closed profile the person's own
 `CLAUDE.md` and Salidium's and Seorak's hooks are passed explicitly, so they observe the session, and a managed

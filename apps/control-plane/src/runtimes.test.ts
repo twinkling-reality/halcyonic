@@ -1099,7 +1099,13 @@ describe("Claude Code's confinement (ADR 0048, BOX-4)", () => {
       readable: ['/d/starters/web-game'],
       originals: ['/p/game'],
     });
-    // Anywhere else, Claude Code runs as before, with the person's own settings and hooks.
+    // Anywhere else, Claude Code runs outside the closed profile.
     assert.equal(confinement.forDirectory('/Users/someone/dev/their-repo'), null);
+    // And never reaches the host's own folders there: the data folder, and the task copies' where named.
+    assert.deepEqual(confinement.hostFolders, ['/d']);
+    assert.deepEqual(claudeConfinement({ dataDir: '/d', tasksDir: '/t' }).hostFolders, [
+      '/d',
+      '/t',
+    ]);
   });
 });
