@@ -1513,9 +1513,30 @@ namespace Halcyonic.XR.Workspace.Editor
                     var body = standing.View.Body.GetComponentsInChildren<MeshFilter>(false)
                         .Where(filter => filter.sharedMesh != null && filter.GetComponent<Renderer>() is Renderer shown && shown.enabled)
                         .SelectMany(filter => filter.sharedMesh.vertices.Select(vertex => filter.transform.TransformPoint(vertex))).ToList();
+                    // Inside the field facing the workspace, or with the head turned toward the character (the lead's 18:07Z and 19:34Z pick B,
+                    // AUDIT's 20:36Z and 20:38Z): up to thirty degrees is a place; past it, as far as clears, a place said in a line; only
+                    // where no turn short of facing aside (ninety degrees) brings it into the field is it a finding: behind the person.
                     if (body.Count > 0)
-                        foreach (var outside in GlazeChecks.InsideField("the character on the stage", body, eyes, plane.WorkspaceCentre, 0f, field))
-                            yield return "the stage: " + outside;
+                    {
+                        var ahead = plane.WorkspaceCentre - eyes;
+                        var toCharacter = standing.BodyPosition - eyes;
+                        var side = Mathf.Sign(Vector3.SignedAngle(new Vector3(ahead.x, 0f, ahead.z), new Vector3(toCharacter.x, 0f, toCharacter.z), Vector3.up));
+                        List<string>? least = null;
+                        foreach (var turn in new[] { 0f, 10f, 20f, 30f, 40f, 50f, 60f, 70f, 80f, 90f })
+                        {
+                            var toward = eyes + Quaternion.Euler(0f, side * turn, 0f) * ahead;
+                            var outside = GlazeChecks.InsideField("the character on the stage (the head turned " + turn.ToString("0") + " degrees)", body, eyes, toward, 0f, field).ToList();
+                            if (outside.Count == 0)
+                            {
+                                if (turn > 30f) Debug.Log("Halcyonic: judge room: the character on the stage is seen with the head turned " + turn.ToString("0") + " degrees, past thirty");
+                                least = null;
+                                break;
+                            }
+                            least ??= outside;
+                        }
+                        if (least != null)
+                            foreach (var outside in least) yield return "the stage: " + outside + " (and with any turn of the head up to ninety degrees toward it: behind the person)";
+                    }
                 }
             }
         }
