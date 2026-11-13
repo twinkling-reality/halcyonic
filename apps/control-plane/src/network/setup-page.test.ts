@@ -132,6 +132,8 @@ function setup(
     secrets?: PageSecrets;
     /** The data folder the page says, where it is not the usual one. */
     dataFolder?: string;
+    /** Whether a new page opens once Halcyonic is running again (Start Halcyonic.command). */
+    reopensPage?: boolean;
     /** A folder of provider declarations and the readers of their keys; main.ts passes the host's own list. */
     providers?: { readonly dir: string; readonly readers: readonly KeyReader[] };
   } = {},
@@ -161,6 +163,7 @@ function setup(
       appliedAtStart: applied(),
       appliedNow: applied,
       canRestart: options.canRestart ?? true,
+      ...(options.reopensPage === undefined ? {} : { reopensPage: options.reopensPage }),
       tasksThatPause: () => options.tasks ?? [],
       restart: () => {
         restarts.count += 1;
@@ -1148,6 +1151,16 @@ describe('the setup view on the pairing page', () => {
       script,
       /This Halcyonic keeps its data in \$\{folder\}, not in the usual ~\/\.halcyonic\./,
     );
+  });
+
+  test('a restart says whether a new page opens after it, and after a restart it saw, the page says Halcyonic is running again, calmly', async (t) => {
+    assert.equal(
+      (await setup(t).view.state()).reopens_page,
+      false,
+      'the login agent and the proving plane open none',
+    );
+    assert.equal((await setup(t, { reopensPage: true }).view.state()).reopens_page, true);
+    // The page's words for each phase are tested in setup-page-said.test.ts, run as the page runs them.
   });
 
   test('without a declared key the page offers no key at all', async (t) => {

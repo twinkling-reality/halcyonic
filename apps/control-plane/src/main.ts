@@ -533,6 +533,8 @@ async function main(): Promise<void> {
                 ),
               ),
               canRestart: process.argv.includes('--restartable'),
+              // Only Start Halcyonic.command opens a new page when Halcyonic is running again.
+              reopensPage: process.argv.includes('--open-pairing-page'),
               // What is shared now, for Copy and Stop beside the steps (ADR 0054).
               shared: () =>
                 controlPlane.projection.projects().flatMap((project) => {

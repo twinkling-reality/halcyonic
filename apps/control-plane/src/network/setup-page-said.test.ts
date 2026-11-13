@@ -9,6 +9,8 @@ import { createContext, runInContext } from 'node:vm';
  */
 function setupScript(): {
   saidParts: (lines: string[]) => { text: string; kind: 'line' | 'quiet' | 'command' }[];
+  restartView: (phase: string, reopens: boolean, usual: boolean) => string[];
+  refusalMeans: (restartSeen: boolean, body: string) => string;
 } {
   const element = () => ({
     addEventListener: () => undefined,
@@ -26,9 +28,17 @@ function setupScript(): {
     navigator: {},
   });
   runInContext(readFileSync(new URL('./setup-page/setup.js', import.meta.url), 'utf8'), context);
-  const inPage = (context as { saidParts: (lines: string[]) => unknown }).saidParts;
-  // Its answer is made in the page's own context: brought over as plain data to compare.
-  return { saidParts: (lines) => JSON.parse(JSON.stringify(inPage(lines))) };
+  const page = context as unknown as Record<string, (...args: unknown[]) => unknown>;
+  // Its answers are made in the page's own context: brought over as plain data to compare.
+  const plain =
+    (name: string) =>
+    (...args: unknown[]) =>
+      JSON.parse(JSON.stringify((page[name] as (...a: unknown[]) => unknown)(...args)));
+  return {
+    saidParts: plain('saidParts') as never,
+    restartView: plain('restartView') as never,
+    refusalMeans: plain('refusalMeans') as never,
+  };
 }
 
 describe("the setup page's reading of what setup said (AUDIT2, 2026-11-11)", () => {
@@ -92,5 +102,60 @@ describe("the setup page's reading of what setup said (AUDIT2, 2026-11-11)", () 
       { text: 'qwen3.5:9b', kind: 'quiet' },
       { text: 'muse-glimmer:30b-mlx', kind: 'quiet' },
     ]);
+  });
+});
+
+describe("the setup page's words around a Restart to Apply (the owner, 2026-11-13T04:04Z)", () => {
+  test("after a restart the page saw, its own page server's refusal means Halcyonic is running again; anything else is the closed page", () => {
+    const { refusalMeans } = setupScript();
+    const closed = 'This page has closed. Open pairing again on this computer.';
+    assert.equal(refusalMeans(true, closed), 'started');
+    assert.equal(refusalMeans(true, `${closed}\n`), 'started');
+    assert.equal(
+      refusalMeans(false, closed),
+      'closed',
+      'a page that saw no restart is the closed page, red',
+    );
+    assert.equal(
+      refusalMeans(true, 'Forbidden'),
+      'closed',
+      'another server on the port is not taken for Halcyonic',
+    );
+    assert.equal(refusalMeans(true, ''), 'closed');
+  });
+
+  test('each phase is said calmly where it went right, and plainly where it may not have; the way back is named on the usual folder', () => {
+    const { restartView } = setupScript();
+    assert.deepEqual(restartView('restarting', false, true), [
+      'working',
+      'hourglass',
+      'Restarting',
+      'When Halcyonic is running again, run pnpm pair in Terminal to open it again.',
+    ]);
+    assert.deepEqual(
+      restartView('restarting', false, false)[3],
+      'When Halcyonic is running again, open this page again the way you opened it.',
+    );
+    assert.deepEqual(
+      restartView('restarting', true, true)[3],
+      'A new page opens by itself when Halcyonic is running again.',
+    );
+    assert.deepEqual(restartView('started', false, true), [
+      'good',
+      'tick',
+      'Started Again',
+      'Halcyonic is running again with your changes. Run pnpm pair in Terminal to open it again.',
+    ]);
+    assert.deepEqual(
+      restartView('started', false, false)[3],
+      'Halcyonic is running again with your changes. Open this page again the way you opened it.',
+    );
+    assert.deepEqual(
+      restartView('started', true, true)[3],
+      'Halcyonic is running again with your changes, and opens a new page by itself. Once that page is open, you can close this one.',
+    );
+    const notBack = restartView('not_back', false, true);
+    assert.deepEqual(notBack.slice(0, 3), ['bad', 'alert', 'Not Back Yet']);
+    assert.match(notBack[3] as string, /may not have started again/);
   });
 });
