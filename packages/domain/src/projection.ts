@@ -54,6 +54,7 @@ import { fitQuestion, TOOL_RESULT_RECENT } from '@halcyonic/contracts';
 import { deriveAttention } from './attention.ts';
 import { DeviceRegistry, type DeviceRegistryState } from './devices.ts';
 import {
+  addTurnUsage,
   createExecutionState,
   deriveExecutionStatus,
   type ExecutionState,
@@ -253,9 +254,9 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * a first send of Halcyonic's made (ADR 0039, amended). 18: a world's description is format 2 and only
  * `project.world.read` gives it (ADR 0049). 19: a request's prepared commands hold proposals and presses beside
  * instructions (ADR 0060); each raised past the base's again at the rebase. 20: where the person chose the assistant
- * to run (`assistantModel`, ADR 0030, 2026-11-12).
+ * to run (`assistantModel`, ADR 0030, 2026-11-12). 21: what each execution's reported turns used (`usage`).
  */
-export const PROJECTION_STATE_FORMAT = 20;
+export const PROJECTION_STATE_FORMAT = 21;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -2124,6 +2125,7 @@ export class Projection {
       case 'runtime.connection.restored':
       case 'runtime.model.used':
       case 'runtime.plan.left':
+      case 'runtime.usage.reported':
         this.#applyRuntime(event, changes, notes);
         return;
       default: {
@@ -2463,6 +2465,9 @@ export class Projection {
         break;
       case 'runtime.plan.left':
         execution.planLeft = true;
+        break;
+      case 'runtime.usage.reported':
+        execution.usage = addTurnUsage(execution.usage ?? null, event.payload);
         break;
       default: {
         const unhandled: never = event;

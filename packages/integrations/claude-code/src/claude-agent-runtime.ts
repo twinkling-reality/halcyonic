@@ -78,6 +78,7 @@ import {
   refuseOtherCredentials,
 } from './personal-settings.ts';
 import { ProcessGuard, type StaleProcess } from './process-guard.ts';
+import { NOTHING_YET, nextTotals, type ResultTotals, totalsOf, turnUsage } from './usage.ts';
 
 /**
  * What the adapter implements on the verified Agent SDK surface. How the CLI treats a message
@@ -291,6 +292,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       reports_tool_results: false,
       // A session's transcript outlives its process, and `resume` continues it (restart-reattach.md).
       resumes_after_restart: true,
+      // Each result's per-model counts and Claude Code's own cost estimate, cumulative for the query,
+      // so a turn's usage is the difference (agent-usage.md, SDK 0.3.283's types).
+      reports_usage: true,
       // Its own plan mode, which `system/init` reports back; every write still asks, as on every Claude
       // Code start (agent-plan-modes.md, the bundled 2.1.283's run on a fake host).
       offers_plan: true,
@@ -1050,6 +1054,11 @@ class ClaudeSession {
   #model: string | null = null;
   #modelReports = 0;
   /**
+   * What the query reported it used so far, as of the latest result: nothing for a session this
+   * process started, unknown (null) for a re-attached one until its first result (agent-usage.md).
+   */
+  #usageTotals: ResultTotals | null;
+  /**
    * What every native event id starts with: the session id, and for a re-attached session also a
    * mark of this attachment, since the journal keeps every id the session's earlier runs used.
    */
@@ -1088,6 +1097,7 @@ class ClaudeSession {
     this.#clock = clock;
     this.#eventPrefix = reattached ? `${id}:${randomUUID()}` : id;
     this.#sequenced = !reattached;
+    this.#usageTotals = reattached ? null : NOTHING_YET;
     // A re-attached session was confirmed by its first run; its start is not reported again.
     if (reattached) this.#nativeId = id;
   }
@@ -1611,10 +1621,23 @@ class ClaudeSession {
    */
   #finishTurn(result: SDKResultMessage): void {
     const turn = this.#turn;
+    const totals = totalsOf(result);
+    const usage = turnUsage(this.#usageTotals, totals);
+    // Every result moves the running totals on, a turn's or not, so the next turn's difference holds.
+    this.#usageTotals = nextTotals(this.#usageTotals, totals);
     if (turn === null) return;
     this.#turn = null;
     this.#activeTools.clear();
     this.#withdrawQuestions();
+    // Claude Code's own counts and estimate, so a claim: reported, at the turn's end, where known.
+    if (usage !== null) {
+      this.#emit(
+        'runtime.usage.reported',
+        { turn_id: turn.id, ...usage, counted: 'differenced' },
+        reported(`result.${result.subtype}`),
+        `${result.uuid}:usage`,
+      );
+    }
     const provenance = observed(`result.${result.subtype}`);
     const succeeded = result.subtype === 'success' && !result.is_error;
     const aborted =

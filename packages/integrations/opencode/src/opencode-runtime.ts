@@ -624,6 +624,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // A session outlives its server in that folder's store, and a new server continues it by its
       // id (restart-reattach.md; ADR 0046).
       resumes_after_restart: true,
+      // Each step's tokens and OpenCode's own estimate, summed per turn where every step was seen
+      // (agent-usage.md; the captured streams carry them).
+      reports_usage: true,
       // Each session's own command environment, set before its first prompt, takes the project's
       // secrets: no server restarts for them (ADR 0057, project-secrets.md).
       secret_environment: true,

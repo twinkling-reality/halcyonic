@@ -48,6 +48,8 @@ export interface FakeProviderRequest {
 export interface FakeProviderOptions {
   readonly slowChunkMs?: number;
   readonly slowChunks?: number;
+  /** The Responses API usage every completed response reports, in place of the default. */
+  readonly usage?: Readonly<Record<string, unknown>>;
 }
 
 type Plan =
@@ -169,7 +171,7 @@ export async function startFakeProvider(options: FakeProviderOptions = {}): Prom
           status: 'completed',
           model,
           output: [item],
-          usage: USAGE,
+          usage: options.usage ?? USAGE,
         },
       });
       res.end();

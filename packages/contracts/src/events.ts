@@ -71,7 +71,14 @@ import {
   WorkspaceRequestStep,
   WorkspaceRequestView,
 } from './requests.ts';
-import { ApprovalLevel, ModelRef, RuntimeRef } from './runtime.ts';
+import {
+  ApprovalLevel,
+  ModelRef,
+  RuntimeRef,
+  UsageCounted,
+  UsageEstimate,
+  UsageTokens,
+} from './runtime.ts';
 import { SecretName, SecretNames } from './secrets.ts';
 import { StarterId } from './starters.ts';
 import { ToolResult } from './tool-results.ts';
@@ -1179,6 +1186,17 @@ export const RUNTIME_EVENT_PAYLOADS = {
    * as a start that was not a plan would, at the level it started with.
    */
   'runtime.plan.left': Type.Object({}, strict),
+  /**
+   * What one turn used, as the runtime counts it, emitted at most once, at the turn's end, by an
+   * adapter whose descriptor declares `reports_usage`; none where the adapter knows nothing of the
+   * turn's use, as for a turn it did not see whole. Its provenance is `reported`: the counts are the
+   * runtime's and its provider's, never measured by the host. `cost` is the runtime's own estimate,
+   * or null where it gives none.
+   */
+  'runtime.usage.reported': Type.Object(
+    { ...TurnRef, tokens: UsageTokens, cost: Nullable(UsageEstimate), counted: UsageCounted },
+    strict,
+  ),
 } as const;
 
 export type RuntimeEventType = keyof typeof RUNTIME_EVENT_PAYLOADS;
@@ -1243,6 +1261,10 @@ export const RuntimeConnectionRestored = runtimeEvent(
 );
 export const RuntimeModelUsed = runtimeEvent('runtime.model.used', P['runtime.model.used']);
 export const RuntimePlanLeft = runtimeEvent('runtime.plan.left', P['runtime.plan.left']);
+export const RuntimeUsageReported = runtimeEvent(
+  'runtime.usage.reported',
+  P['runtime.usage.reported'],
+);
 
 export const EVENT_VARIANTS = [
   ProjectCreated,
@@ -1327,6 +1349,7 @@ export const EVENT_VARIANTS = [
   RuntimeConnectionRestored,
   RuntimeModelUsed,
   RuntimePlanLeft,
+  RuntimeUsageReported,
 ] as const;
 
 export const EventEnvelope = Type.Union([...EVENT_VARIANTS]);

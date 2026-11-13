@@ -426,6 +426,40 @@ function watchdogsOf(parent: number): number[] {
 
 describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
   test(
+    "a turn's usage is Codex's own count, its input without the cache's reads and its output with the reasoning",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, start } = await harness(t, {
+        provider: {
+          usage: {
+            input_tokens: 100,
+            input_tokens_details: { cached_tokens: 40 },
+            output_tokens: 10,
+            output_tokens_details: { reasoning_tokens: 3 },
+            total_tokens: 110,
+          },
+        },
+      });
+      assert.equal(runtime.descriptor.reports_usage, true);
+      const execution = await start('Hello from the Halcyonic end to end test.');
+      await execution.next('runtime.turn.completed');
+      const usage = execution.observations.filter(
+        (observation) => observation.type === 'runtime.usage.reported',
+      );
+      assert.equal(usage.length, 1);
+      assert.deepEqual(usage[0]?.payload, {
+        turn_id: turnId(
+          execution.observations.find((item) => item.type === 'runtime.turn.started'),
+        ),
+        tokens: { input: 60, cache_read: 40, cache_write: 0, output: 10, reasoning: 3 },
+        cost: null,
+        counted: 'differenced',
+      });
+      assert.equal(usage[0]?.provenance.epistemic, 'reported');
+      assertValidObservations(execution.observations, execution.context);
+    },
+  );
+  test(
     'a turn runs to completion on a server launched for it, tagged as Halcyonic',
     SLOW_TEST,
     async (t) => {

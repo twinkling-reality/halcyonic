@@ -7,6 +7,7 @@ import type {
   ExecutionId,
   ProjectId,
   StoredEvent,
+  UsageTokens,
 } from '@halcyonic/contracts';
 import { fitQuestion, QUESTION_TEXT_LIMIT, questionTextLength } from '@halcyonic/contracts';
 import { Projection } from './projection.ts';
@@ -253,6 +254,107 @@ describe('execution status is derived from observed facts', () => {
     assert.equal(view()?.model_ref, 'ollama/qwen3.8:27b-nvfp4');
     apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
     assert.equal(view()?.model_ref, 'ollama/qwen3.8:27b-nvfp4', 'the model outlives the turn');
+  });
+
+  test("each turn's reported usage is summed, and a part any turn left unknown stays unknown", () => {
+    const { b, apply, execution, scope, projection, status } = setup();
+    apply(execution.event);
+    const view = () => projection.execution(execution.executionId);
+    apply(b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'native-1' }));
+    apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    assert.equal(view()?.usage, undefined, 'no usage before a turn reports one, never zero');
+    apply(
+      b.runtimeEvent(scope, 'runtime.usage.reported', {
+        turn_id: 't1',
+        tokens: { input: 10, cache_read: 200, cache_write: 40, output: 30, reasoning: 5 },
+        cost: { estimated_usd: 0.25, prices: 'list' },
+        counted: 'given',
+      }),
+      b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }),
+    );
+    assert.equal(status(), 'completed', 'a usage report changes no status');
+    assert.deepEqual(view()?.usage, {
+      turns: 1,
+      tokens: { input: 10, cache_read: 200, cache_write: 40, output: 30, reasoning: 5 },
+      cost: { estimated_usd: 0.25, prices: 'list' },
+    });
+    apply(
+      b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't2' }),
+      b.runtimeEvent(scope, 'runtime.usage.reported', {
+        turn_id: 't2',
+        tokens: { input: 7, cache_read: 300, cache_write: 0, output: 12, reasoning: null },
+        cost: { estimated_usd: 0.5, prices: 'list' },
+        counted: 'given',
+      }),
+    );
+    assert.deepEqual(view()?.usage, {
+      turns: 2,
+      tokens: { input: 17, cache_read: 500, cache_write: 40, output: 42, reasoning: null },
+      cost: { estimated_usd: 0.75, prices: 'list' },
+    });
+    apply(
+      b.runtimeEvent(scope, 'runtime.usage.reported', {
+        turn_id: 't3',
+        tokens: { input: 1, cache_read: 1, cache_write: 1, output: 1, reasoning: 1 },
+        cost: { estimated_usd: 0.1, prices: 'managed' },
+        counted: 'given',
+      }),
+    );
+    assert.equal(view()?.usage?.cost, null, 'estimates by different prices are not added');
+    assert.equal(view()?.usage?.tokens.reasoning, null, 'unknown once stays unknown');
+    apply(
+      b.runtimeEvent(scope, 'runtime.usage.reported', {
+        turn_id: 't4',
+        tokens: { input: 1, cache_read: 1, cache_write: 1, output: 1, reasoning: 1 },
+        cost: { estimated_usd: 0.1, prices: 'managed' },
+        counted: 'given',
+      }),
+    );
+    assert.equal(view()?.usage?.cost, null, 'a sum that lost a turn is never resumed');
+    assert.equal(view()?.usage?.turns, 4);
+  });
+
+  test('a turn that used nothing costs nothing, so it never voids the estimate', () => {
+    const { b, apply, execution, scope, projection } = setup();
+    apply(execution.event);
+    const view = () => projection.execution(execution.executionId);
+    const nothing = { input: 0, cache_read: 0, cache_write: 0, output: 0, reasoning: 0 };
+    const some = { input: 5, cache_read: 0, cache_write: 0, output: 2, reasoning: 0 };
+    const report = (turn: string, tokens: UsageTokens, cost: number | null) =>
+      b.runtimeEvent(scope, 'runtime.usage.reported', {
+        turn_id: turn,
+        tokens,
+        cost: cost === null ? null : { estimated_usd: cost, prices: 'list' },
+        counted: 'given',
+      });
+    // A first turn stopped before any request, with no estimate of its own.
+    apply(report('t1', nothing, null));
+    assert.equal(view()?.usage?.cost, null);
+    apply(report('t2', some, 0.25), report('t3', nothing, null), report('t4', some, 0.5));
+    assert.deepEqual(view()?.usage?.cost, { estimated_usd: 0.75, prices: 'list' });
+    assert.equal(view()?.usage?.turns, 4);
+    apply(report('t5', { ...some, output: null }, null));
+    assert.equal(view()?.usage?.cost, null, 'a turn whose use is not all known still voids it');
+  });
+
+  test("a summed estimate past the contract's bound is unknown, so the view keeps to its schema", () => {
+    const { b, apply, execution, scope, projection } = setup();
+    apply(execution.event);
+    const some = { input: 5, cache_read: 0, cache_write: 0, output: 2, reasoning: 0 };
+    const report = (turn: string, usd: number) =>
+      b.runtimeEvent(scope, 'runtime.usage.reported', {
+        turn_id: turn,
+        tokens: some,
+        cost: { estimated_usd: usd, prices: 'list' },
+        counted: 'given',
+      });
+    apply(report('t1', 600_000));
+    assert.deepEqual(projection.execution(execution.executionId)?.usage?.cost, {
+      estimated_usd: 600_000,
+      prices: 'list',
+    });
+    apply(report('t2', 600_000));
+    assert.equal(projection.execution(execution.executionId)?.usage?.cost, null);
   });
 
   test('lost contact makes the execution unknown until the runtime reports again', () => {

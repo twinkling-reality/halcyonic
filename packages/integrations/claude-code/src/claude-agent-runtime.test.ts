@@ -781,6 +781,7 @@ describe('observing a turn', () => {
       'runtime.tool.completed',
       'runtime.tool.started',
       'runtime.tool.completed',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
     const message = observed[3];
@@ -799,7 +800,7 @@ describe('observing a turn', () => {
       title: '/repo/src/checkout.ts',
     });
     assert.deepEqual(observed[7]?.payload, { tool_call_id: 'toolu_2', outcome: 'failed' });
-    assert.deepEqual(observed[8]?.payload, { turn_id: scripted.delivered[0]?.uuid });
+    assert.deepEqual(observed[9]?.payload, { turn_id: scripted.delivered[0]?.uuid });
 
     assertContractValid(observed);
     assert.deepEqual(
@@ -810,7 +811,10 @@ describe('observing a turn', () => {
     assert.equal(new Set(ids).size, ids.length);
     assert.ok(ids.every((id) => id?.startsWith(`${sessionId}:`)));
     for (const observation of observed) {
-      const epistemic = observation.type === 'runtime.agent_message' ? 'reported' : 'observed';
+      const claim =
+        observation.type === 'runtime.agent_message' ||
+        observation.type === 'runtime.usage.reported';
+      const epistemic = claim ? 'reported' : 'observed';
       assert.equal(observation.provenance.epistemic, epistemic);
     }
   });
@@ -894,6 +898,58 @@ describe('observing a turn', () => {
     );
   });
 
+  test("each turn reports what it used, the difference of the query's running totals", async () => {
+    const { adapter, startConfirmed, observed } = setup();
+    assert.equal(adapter.descriptor.reports_usage, true);
+    const scripted = await startConfirmed();
+    const totals = (input: number, output: number, cost: number) => ({
+      total_cost_usd: cost,
+      modelUsage: {
+        main: {
+          inputTokens: input,
+          outputTokens: output,
+          thinkingTokens: 0,
+          cacheReadInputTokens: 1000,
+          cacheCreationInputTokens: 200,
+          webSearchRequests: 0,
+          costUSD: cost,
+          contextWindow: 200_000,
+          maxOutputTokens: 32_000,
+          costBasis: 'list' as const,
+        },
+      },
+    });
+    scripted.emit(success(scripted.sessionId, totals(40, 10, 0.5)));
+    await settle();
+    const sending = adapter.sendInstruction({ execution, text: 'Again.' });
+    await settle();
+    scripted.emit(init(scripted.sessionId));
+    await sending;
+    scripted.emit(success(scripted.sessionId, totals(70, 25, 0.75)));
+    await settle();
+    const reports = observed.filter((observation) => observation.type === 'runtime.usage.reported');
+    assert.deepEqual(
+      reports.map((report) => report.payload),
+      [
+        {
+          turn_id: reports[0]?.payload.turn_id,
+          tokens: { input: 40, cache_read: 1000, cache_write: 200, output: 10, reasoning: 0 },
+          cost: { estimated_usd: 0.5, prices: 'list' },
+          counted: 'differenced',
+        },
+        {
+          turn_id: reports[1]?.payload.turn_id,
+          tokens: { input: 30, cache_read: 0, cache_write: 0, output: 15, reasoning: 0 },
+          cost: { estimated_usd: 0.25, prices: 'list' },
+          counted: 'differenced',
+        },
+      ],
+    );
+    assert.notEqual(reports[0]?.payload.turn_id, reports[1]?.payload.turn_id);
+    assert.ok(reports.every((report) => report.provenance.epistemic === 'reported'));
+    assertContractValid(observed);
+  });
+
   test('a turn Claude Code begins by itself is observed without a turn id', async () => {
     const { startConfirmed, observed, types } = setup();
     const scripted = await startConfirmed();
@@ -903,9 +959,11 @@ describe('observing a turn', () => {
       success(scripted.sessionId),
     );
     await settle();
-    assert.deepEqual(types().slice(-3), [
+    assert.deepEqual(types().slice(-5), [
+      'runtime.usage.reported',
       'runtime.turn.completed',
       'runtime.turn.started',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
     assert.deepEqual(observed.at(-1)?.payload, { turn_id: null });
@@ -1278,12 +1336,13 @@ describe('questions', () => {
     await settle();
     scripted.emit(success(scripted.sessionId));
     await settle();
-    assert.deepEqual(types().slice(-3), [
+    assert.deepEqual(types().slice(-4), [
       'runtime.question.asked',
       'runtime.question.resolved',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
-    assert.deepEqual(observed.at(-2)?.payload, { question_id: 'req-bg', outcome: 'dismissed' });
+    assert.deepEqual(observed.at(-3)?.payload, { question_id: 'req-bg', outcome: 'dismissed' });
     assert.equal((await decision)?.behavior, 'deny');
   });
 
@@ -1659,6 +1718,47 @@ describe('re-attaching after a restart (ADR 0046)', () => {
     resumed.emit(success(SESSION));
     await settle();
     assert.equal(types().at(-1), 'runtime.turn.completed');
+    assertContractValid(observed);
+  });
+
+  test("a re-attached session's first turn reports no usage, since its result may carry earlier runs, and the next its own", async () => {
+    const { adapter, run, observed } = setup({ sessionInfo: found() });
+    await reattach(adapter, observed, { cut_turn: null });
+    const totals = (input: number, cost: number) => ({
+      total_cost_usd: cost,
+      modelUsage: {
+        main: {
+          inputTokens: input,
+          outputTokens: 10,
+          thinkingTokens: 0,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+          webSearchRequests: 0,
+          costUSD: cost,
+          contextWindow: 200_000,
+          maxOutputTokens: 32_000,
+          costBasis: 'list' as const,
+        },
+      },
+    });
+    const turn = async (text: string, result: ReturnType<typeof totals>) => {
+      const sending = adapter.sendInstruction({ execution, text });
+      await settle();
+      run().emit(init(SESSION));
+      await sending;
+      run().emit(success(SESSION, result));
+      await settle();
+    };
+    // The resumed transcript's total already holds the earlier runs' 500 tokens.
+    await turn('Carry on.', totals(540, 2));
+    const reports = () =>
+      observed.flatMap((o) => (o.type === 'runtime.usage.reported' ? [o.payload] : []));
+    assert.deepEqual(reports(), [], 'never the whole running total');
+    await turn('And again.', totals(560, 2.25));
+    assert.deepEqual(
+      reports().map(({ tokens, cost, counted }) => ({ input: tokens.input, cost, counted })),
+      [{ input: 20, cost: { estimated_usd: 0.25, prices: 'list' }, counted: 'differenced' }],
+    );
     assertContractValid(observed);
   });
 

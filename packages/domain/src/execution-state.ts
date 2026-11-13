@@ -6,6 +6,7 @@ import type {
   ErrorInfo,
   ExecutionId,
   ExecutionStatus,
+  ExecutionUsage,
   ExecutionView,
   ProjectId,
   QuestionView,
@@ -15,8 +16,11 @@ import type {
   TestRunView,
   Timestamp,
   ToolActivityView,
+  UsageEstimate,
+  UsageTokens,
   WorkstreamId,
 } from '@halcyonic/contracts';
+import { USAGE_USD_MAX } from '@halcyonic/contracts';
 import { shownQuestions } from './questions.ts';
 
 export type TurnOutcome = 'completed' | 'failed' | 'interrupted';
@@ -82,6 +86,8 @@ export interface ExecutionState {
   autoFixDriven: boolean;
   /** The person's instructions waiting for the turn to end, oldest first (ADR 0056). */
   queued: QueuedInstructionView[];
+  /** What its reported turns used (`runtime.usage.reported`); null until one is reported. */
+  usage: ExecutionUsage | null;
 }
 
 export function createExecutionState(init: {
@@ -120,7 +126,51 @@ export function createExecutionState(init: {
     autoFix: null,
     autoFixDriven: false,
     queued: [],
+    usage: null,
   };
+}
+
+const TOKEN_PARTS = ['input', 'cache_read', 'cache_write', 'output', 'reasoning'] as const;
+
+/** Whether every token part is a counted 0: nothing was used, so no price could make it cost. */
+function usedNothing(tokens: UsageTokens): boolean {
+  return TOKEN_PARTS.every((part) => tokens[part] === 0);
+}
+
+/**
+ * Adds one turn's reported usage to what an execution's turns used before: each token part is
+ * summed, and stays null once any turn left it null; the cost is summed while every turn gave one
+ * by the same prices, and null from the first that did not. A stretch that used nothing at all, every
+ * part a counted 0, costs nothing whatever its estimate says, so it never voids the cost. A sum
+ * past `USAGE_USD_MAX` is unknown, so the view keeps to its contract. Unknown never becomes a number.
+ */
+export function addTurnUsage(
+  before: ExecutionUsage | null,
+  turn: { readonly tokens: UsageTokens; readonly cost: UsageEstimate | null },
+): ExecutionUsage {
+  if (before === null)
+    return { turns: 1, tokens: { ...turn.tokens }, cost: turn.cost && { ...turn.cost } };
+  const tokens = { ...before.tokens };
+  for (const part of TOKEN_PARTS) {
+    const was = before.tokens[part];
+    const now = turn.tokens[part];
+    tokens[part] = was === null || now === null ? null : was + now;
+  }
+  const cost =
+    turn.cost === null && usedNothing(turn.tokens)
+      ? before.cost && { ...before.cost }
+      : before.cost === null && usedNothing(before.tokens)
+        ? turn.cost && { ...turn.cost }
+        : before.cost !== null &&
+            turn.cost !== null &&
+            before.cost.prices === turn.cost.prices &&
+            before.cost.estimated_usd + turn.cost.estimated_usd <= USAGE_USD_MAX
+          ? {
+              estimated_usd: before.cost.estimated_usd + turn.cost.estimated_usd,
+              prices: before.cost.prices,
+            }
+          : null;
+  return { turns: before.turns + 1, tokens, cost };
 }
 
 /**
@@ -205,6 +255,8 @@ export function toExecutionView(
     ...((state.queued ?? []).length > 0 && {
       queued_instructions: state.queued.map((queued) => ({ ...queued })),
     }),
+    // A state from before usage was recorded has none.
+    ...(state.usage != null && { usage: structuredClone(state.usage) }),
     created_at: state.createdAt,
     started_at: state.startedAt,
     updated_at: state.updatedAt,

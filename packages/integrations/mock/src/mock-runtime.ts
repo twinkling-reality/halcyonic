@@ -110,6 +110,11 @@ export interface MockRuntimeOptions {
    * taken and dropped. Off unless given, so the recorded demonstration's runtimes take none.
    */
   readonly takesPictures?: boolean;
+  /**
+   * Whether it declares `reports_usage`, for scenarios that report each turn's usage, synthetic like
+   * the rest of it. Off unless given, so the recorded demonstration's runtimes report none.
+   */
+  readonly reportsUsage?: boolean;
   readonly clock?: Clock;
   readonly scheduler?: Scheduler;
 }
@@ -150,6 +155,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       reports_tool_results: false,
       ...(options.offersNeverAsk === true && { offers_never_ask: true }),
       ...(options.takesPictures === true && { takes_pictures: true }),
+      ...(options.reportsUsage === true && { reports_usage: true }),
     };
     if (this.#models.length > 0) this.listModels = async () => this.#models;
   }
@@ -224,6 +230,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       this.#clock,
       this.#scheduler,
       new Map((scenario.instructions ?? []).map(({ text, steps }) => [text, steps])),
+      this.descriptor.reports_usage === true,
     );
     this.#sessions.set(request.execution.execution_id, session);
     session.begin(
@@ -297,6 +304,8 @@ class MockSession {
   #turnCount = 0;
   #turn: ActiveTurn | null = null;
   #unreachable = false;
+  /** Whether the runtime declares `reports_usage`; a scenario's usage is played only then. */
+  readonly #reportsUsage: boolean;
 
   constructor(
     nativeId: string,
@@ -304,8 +313,10 @@ class MockSession {
     clock: Clock,
     scheduler: Scheduler,
     instructions: ReadonlyMap<string, readonly ScenarioStep[]>,
+    reportsUsage = false,
   ) {
     this.nativeId = nativeId;
+    this.#reportsUsage = reportsUsage;
     this.#emitObservation = emit;
     this.#clock = clock;
     this.#scheduler = scheduler;
@@ -497,6 +508,11 @@ class MockSession {
       case 'runtime.test_run.completed':
         this.#emit(emission.type, emission.payload);
         return false;
+      case 'runtime.usage.reported':
+        // Never a capability it does not declare.
+        if (this.#reportsUsage)
+          this.#emit(emission.type, { turn_id: turn.id, ...emission.payload });
+        return false;
       default: {
         const unhandled: never = emission;
         throw new Error(`unhandled scenario emission ${JSON.stringify(unhandled)}`);
@@ -512,9 +528,9 @@ class MockSession {
       occurred_at: this.#clock.now().toISOString(),
       native_event_id: `${this.nativeId}:${this.#sequence}`,
       sequence: this.#sequence,
-      // Agent text is a claim; everything else is the mock's own (synthetic) state.
+      // Agent text and usage are claims; everything else is the mock's own (synthetic) state.
       provenance:
-        type === 'runtime.agent_message'
+        type === 'runtime.agent_message' || type === 'runtime.usage.reported'
           ? { epistemic: 'reported', native_type: `mock/${type}` }
           : { epistemic: 'observed', native_type: `mock/${type}` },
     } as RuntimeObservation;

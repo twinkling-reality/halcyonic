@@ -258,3 +258,10 @@ None of these reads is a runtime capability, a journal event or a source of Work
     command against the pinned version: true when an approved command can run outside any sandbox,
     false only when every approved command still runs inside one. Leave it absent otherwise; absent
     is unknown, and a client never shows it as staying inside.
+13. Declare `reports_usage` only once the runtime's own types and a run of the pinned version show
+    where its counts come from, and report a turn's `runtime.usage.reported` from them alone: map
+    the runtime's parts onto the contract's, which never overlap, leave a part null where it is not
+    given, and report nothing for a turn the adapter did not see whole (a resumed session's first
+    turn, a stream with a gap). Give a cost only where the runtime estimates one, by the kind of
+    prices it names; never compute one. Claude Code, OpenCode and Codex declare it
+    ([agent-usage.md](../validation/agent-usage.md)).

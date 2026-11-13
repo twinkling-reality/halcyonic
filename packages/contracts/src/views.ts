@@ -27,7 +27,14 @@ import {
 } from './primitives.ts';
 import { ProjectRulesOn } from './project-reads.ts';
 import { QuestionPrompts } from './questions.ts';
-import { ApprovalLevel, ModelRef, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
+import {
+  ApprovalLevel,
+  ModelRef,
+  RuntimeDescriptor,
+  RuntimeRef,
+  UsageEstimate,
+  UsageTokens,
+} from './runtime.ts';
 import { SecretNames } from './secrets.ts';
 import { StarterId } from './starters.ts';
 import { CommandStatus, ExecutionStatus, WorkstreamStatus } from './statuses.ts';
@@ -291,6 +298,24 @@ export const QueuedInstructionView = Type.Object(
 );
 export type QueuedInstructionView = Static<typeof QueuedInstructionView>;
 
+/**
+ * What an execution's turns used, as its runtime reported them (`runtime.usage.reported`): `turns`
+ * counts the turns reported, `tokens` sums each part over them, null where any of them left it null,
+ * and `cost` sums the runtime's own estimates, null unless every turn reported gave one by the same
+ * prices, a turn that used nothing at all (every part a counted 0) aside. A turn the runtime did
+ * not report is in none of it, so `turns` below the execution's `turn_count` means some of its use
+ * is not counted here.
+ */
+export const ExecutionUsage = Type.Object(
+  {
+    turns: Type.Integer({ minimum: 1 }),
+    tokens: UsageTokens,
+    cost: Nullable(UsageEstimate),
+  },
+  strict,
+);
+export type ExecutionUsage = Static<typeof ExecutionUsage>;
+
 export const ExecutionView = Type.Object(
   {
     execution_id: ExecutionId,
@@ -348,6 +373,11 @@ export const ExecutionView = Type.Object(
     active_test_run: Nullable(TestRunView),
     last_test_run: Nullable(TestRunResultView),
     turn_count: Type.Integer({ minimum: 0 }),
+    /**
+     * What its turns used, as the runtime reported them; absent until a turn's usage is reported,
+     * which never reads as nothing used.
+     */
+    usage: Type.Optional(ExecutionUsage),
     /**
      * The project's failed check sent back to this agent on its own (ADR 0044): the latest chain,
      * under way or ended. Absent where none was ever recorded.

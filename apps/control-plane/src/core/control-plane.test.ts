@@ -12,7 +12,7 @@ import type {
   RuntimeId,
   WorkstreamId,
 } from '@halcyonic/contracts';
-import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
+import { MockRuntimeAdapter, parseScenario } from '@halcyonic/integration-mock';
 import {
   type ObservationSink,
   type ReattachRequest,
@@ -167,6 +167,64 @@ describe('command lifecycle', () => {
     assert.equal(levelOf(quiet), 'never_ask');
     // A start that chose nothing asks, as before, and the runtime says so.
     assert.equal(levelOf(asking), 'ask');
+    await controlPlane.close();
+  });
+
+  test("a turn's usage, as the runtime counts it, is journaled as reported and summed on the execution", async () => {
+    const tokens = { input: 12, cache_read: 300, cache_write: 40, output: 30, reasoning: null };
+    const used = parseScenario(
+      {
+        format: 1,
+        id: 'used',
+        description: 'Reports what its one turn used.',
+        steps: [
+          {
+            after_ms: 10,
+            emit: {
+              type: 'runtime.usage.reported',
+              payload: {
+                tokens,
+                cost: { estimated_usd: 0.02, prices: 'catalog' },
+                counted: 'given',
+              },
+            },
+          },
+          { after_ms: 10, emit: { type: 'runtime.turn.completed', payload: {} } },
+        ],
+      },
+      'used.json',
+    );
+    const harness = createTestControlPlane({
+      adapters: (time) => [
+        new MockRuntimeAdapter({
+          scenarios: new Map([...SCENARIOS, ['used', used]]),
+          clock: time,
+          scheduler: time,
+          reportsUsage: true,
+        }),
+      ],
+    });
+    const { controlPlane, commands, time, journal } = harness;
+    const workstreamId = await createWorkstream(harness);
+    const start = commands.startExecution(workstreamId, { ...FEATURE, scenario: 'used' });
+    assert.equal(controlPlane.commands.submit(start, 'internal').disposition, 'accepted');
+    await time.runUntilIdle();
+    const reported = [...journal.readAll()]
+      .map(({ event }) => event)
+      .filter((event) => event.event_type === 'runtime.usage.reported');
+    assert.equal(reported.length, 1);
+    assert.equal(reported[0]?.provenance.epistemic, 'reported');
+    const [execution] = controlPlane.projection.executions();
+    assert.deepEqual(execution?.usage, {
+      turns: 1,
+      tokens,
+      cost: { estimated_usd: 0.02, prices: 'catalog' },
+    });
+    assert.equal(
+      controlPlane.snapshot().runtimes.find((runtime) => runtime.runtime_id === 'mock')
+        ?.reports_usage,
+      true,
+    );
     await controlPlane.close();
   });
 

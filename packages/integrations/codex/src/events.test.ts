@@ -122,12 +122,66 @@ function types(observations: readonly RuntimeObservation[]) {
 }
 
 describe('Codex 0.157.0 event mapping', () => {
+  test("a turn's tokens are how far the thread's total moved, and a total that fell says nothing", () => {
+    const state = createThreadState();
+    const total = (input: number, cached: number, output: number) => ({
+      totalTokens: input + output,
+      inputTokens: input,
+      cachedInputTokens: cached,
+      cacheWriteInputTokens: 0,
+      outputTokens: output,
+      reasoningOutputTokens: 0,
+    });
+    const send = (method: string, params: unknown) =>
+      observe(state, { kind: 'notification', method, params, emittedAtMs: null }, NOW).observations;
+    const turn = (id: string, ...totals: ReturnType<typeof total>[]) => [
+      ...send('turn/started', { threadId: 't', turn: { id } }),
+      ...totals.flatMap((each) =>
+        send('thread/tokenUsage/updated', {
+          threadId: 't',
+          turnId: id,
+          tokenUsage: { total: each },
+        }),
+      ),
+      ...send('turn/completed', { threadId: 't', turn: { id, status: 'completed' } }),
+    ];
+    const used = (observations: RuntimeObservation[]) =>
+      observations.flatMap((item) =>
+        item.type === 'runtime.usage.reported' ? [item.payload.tokens] : [],
+      );
+    // Two updates in one turn: the turn is the whole move, never their sum.
+    assert.deepEqual(used(turn('a', total(100, 40, 10), total(150, 60, 20))), [
+      { input: 90, cache_read: 60, cache_write: 0, output: 20, reasoning: 0 },
+    ]);
+    assert.deepEqual(used(turn('b', total(170, 60, 25))), [
+      { input: 20, cache_read: 0, cache_write: 0, output: 5, reasoning: 0 },
+    ]);
+    assert.deepEqual(used(turn('c', total(10, 0, 1))), [], 'a total that fell reports nothing');
+    assert.deepEqual(used(turn('d', total(200, 60, 30))), [], 'nor the turn after it');
+    assert.deepEqual(used(turn('e', total(210, 60, 31))), [
+      { input: 10, cache_read: 0, cache_write: 0, output: 1, reasoning: 0 },
+    ]);
+    assert.deepEqual(used(turn('f')), [], 'a turn with no total reports nothing');
+    const resumed = createThreadState(true, null, true);
+    assert.equal(resumed.usageTotal, null, "a resumed thread's start is unknown until it reports");
+  });
+
   test('a simple turn starts, reports the agent text and completes', () => {
     const { observations, state } = only(replay('simple-turn.jsonl'), '28e1');
     const turn = '01a0e0ad-9402-7c83-9ef9-7e74390bc326';
     assert.deepEqual(summary(observations), [
       { type: 'runtime.turn.started', payload: { turn_id: turn } },
       { type: 'runtime.agent_message', payload: { text: 'Fake reply #2: acknowledged.' } },
+      // How far the thread's total moved in the turn, Codex's counts of the fake provider's reply.
+      {
+        type: 'runtime.usage.reported',
+        payload: {
+          turn_id: turn,
+          tokens: { input: 12, cache_read: 0, cache_write: 0, output: 6, reasoning: 0 },
+          cost: null,
+          counted: 'differenced',
+        },
+      },
       { type: 'runtime.turn.completed', payload: { turn_id: turn } },
     ]);
     assert.deepEqual(
@@ -135,7 +189,8 @@ describe('Codex 0.157.0 event mapping', () => {
       [
         [`${turn}:turn/started`, 1, '2026-09-27T02:24:27.204Z'],
         [`${turn}:msg_fake_2:item/completed`, 2, '2026-09-27T02:24:27.248Z'],
-        [`${turn}:turn/completed`, 3, '2026-09-27T02:24:27.256Z'],
+        [`${turn}:turn/usage`, 3, '2026-09-27T02:24:27.256Z'],
+        [`${turn}:turn/completed`, 4, '2026-09-27T02:24:27.256Z'],
       ],
     );
     assert.deepEqual(
@@ -143,6 +198,7 @@ describe('Codex 0.157.0 event mapping', () => {
       [
         { epistemic: 'observed', native_type: 'codex/turn/started' },
         { epistemic: 'reported', native_type: 'codex/item/completed' },
+        { epistemic: 'reported', native_type: 'codex/turn/completed' },
         { epistemic: 'observed', native_type: 'codex/turn/completed' },
       ],
     );
@@ -162,7 +218,7 @@ describe('Codex 0.157.0 event mapping', () => {
           item.type === 'runtime.approval.requested' &&
           item.payload.approval_id === approval.approvalId,
       );
-    assert.deepEqual(summary(observations.slice(at(accepted) - 1, at(accepted) + 6)), [
+    assert.deepEqual(summary(observations.slice(at(accepted) - 1, at(accepted) + 7)), [
       {
         type: 'runtime.tool.started',
         payload: {
@@ -220,16 +276,26 @@ describe('Codex 0.157.0 event mapping', () => {
         },
       },
       {
+        type: 'runtime.usage.reported',
+        payload: {
+          turn_id: '01a0e0b1-5f29-75d1-9709-3e7a68e1cc4f',
+          tokens: { input: 24, cache_read: 0, cache_write: 0, output: 12, reasoning: 0 },
+          cost: null,
+          counted: 'differenced',
+        },
+      },
+      {
         type: 'runtime.turn.completed',
         payload: { turn_id: '01a0e0b1-5f29-75d1-9709-3e7a68e1cc4f' },
       },
     ]);
     // Declined: the command never ran, and Codex told the model so.
-    assert.deepEqual(types(observations.slice(at(declined) + 1, at(declined) + 6)), [
+    assert.deepEqual(types(observations.slice(at(declined) + 1, at(declined) + 7)), [
       'runtime.approval.resolved',
       'runtime.tool.result',
       'runtime.tool.completed',
       'runtime.agent_message',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
     const deniedAt = observations[at(declined) + 1];
@@ -241,9 +307,10 @@ describe('Codex 0.157.0 event mapping', () => {
     assert.equal(failed?.type === 'runtime.tool.completed' && failed.payload.outcome, 'failed');
     // Cancelled by Codex's own decision, not a person's: no resolution is reported, the turn is
     // interrupted and the approval is gone.
-    assert.deepEqual(types(observations.slice(at(cancelled) + 1, at(cancelled) + 4)), [
+    assert.deepEqual(types(observations.slice(at(cancelled) + 1, at(cancelled) + 5)), [
       'runtime.tool.result',
       'runtime.tool.completed',
+      'runtime.usage.reported',
       'runtime.turn.interrupted',
     ]);
     // A file change approval is summarized from the item's changes, not the model's reason.
@@ -272,6 +339,7 @@ describe('Codex 0.157.0 event mapping', () => {
       'runtime.tool.result',
       'runtime.tool.completed',
       'runtime.agent_message',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
   });
@@ -280,12 +348,13 @@ describe('Codex 0.157.0 event mapping', () => {
     const threads = replay('interrupts.jsonl');
     const running = only(threads, '1902');
     assert.deepEqual(types(running.observations), [
-      // During a slow model stream.
+      // During a slow model stream: no total came before the interrupt, so no usage is said.
       'runtime.turn.started',
       'runtime.turn.interrupted',
       // While a command runs: it keeps running, so it is not reported completed.
       'runtime.turn.started',
       'runtime.tool.started',
+      'runtime.usage.reported',
       'runtime.turn.interrupted',
       // A file change applied without approval.
       'runtime.turn.started',
@@ -293,6 +362,7 @@ describe('Codex 0.157.0 event mapping', () => {
       'runtime.tool.result',
       'runtime.tool.completed',
       'runtime.agent_message',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
     assert.deepEqual([...running.state.tools], ['call_fake_23']);
@@ -303,6 +373,7 @@ describe('Codex 0.157.0 event mapping', () => {
       'runtime.turn.started',
       'runtime.tool.started',
       'runtime.approval.requested',
+      'runtime.usage.reported',
       'runtime.turn.interrupted',
     ]);
     assert.equal(pending.state.approvals.size, 0);
@@ -374,10 +445,11 @@ describe('Codex 0.157.0 event mapping', () => {
     killed.observations.push(...settled.observations);
     // The resumed thread takes a new turn at rest.
     replay('restart.jsonl', threads);
-    assert.deepEqual(types(killed.observations).slice(-4), [
+    assert.deepEqual(types(killed.observations).slice(-5), [
       'runtime.turn.interrupted',
       'runtime.turn.started',
       'runtime.agent_message',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
   });

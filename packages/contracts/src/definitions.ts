@@ -254,6 +254,10 @@ import {
   RuntimeDescriptor,
   RuntimeModel,
   RuntimeRef,
+  UsageCounted,
+  UsageEstimate,
+  UsagePrices,
+  UsageTokens,
 } from './runtime.ts';
 import { ProjectSecretSetRequest, SecretName, SecretNames, SecretValue } from './secrets.ts';
 import { StartersResponse, StarterView } from './starters.ts';
@@ -291,6 +295,7 @@ import {
   CommandView,
   EntityChanges,
   ExecutionStatus,
+  ExecutionUsage,
   ExecutionView,
   JournalInfo,
   ProjectOwnCheckRunView,
@@ -387,6 +392,11 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ApprovalLevel,
   ModelServed,
   ModelToolCalling,
+  UsageTokens,
+  UsagePrices,
+  UsageEstimate,
+  UsageCounted,
+  ExecutionUsage,
   JournalInfo,
   Attention,
   AttentionReason,

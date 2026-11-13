@@ -22,7 +22,8 @@ function emission<const T extends keyof typeof RUNTIME_EVENT_PAYLOADS>(type: T) 
  * What a scenario may describe happening inside a turn. The mock itself emits the execution
  * start, each turn start, approval requests and resolutions, questions and their resolution, and
  * connection loss, so scenarios
- * cannot contradict the mock's own lifecycle. Turn endings omit `turn_id`; the mock fills it in.
+ * cannot contradict the mock's own lifecycle. Turn endings and a turn's usage omit `turn_id`; the
+ * mock fills it in.
  */
 const Emission = Type.Union([
   Type.Object(
@@ -41,6 +42,13 @@ const Emission = Type.Union([
   emission('runtime.tool.completed'),
   emission('runtime.test_run.started'),
   emission('runtime.test_run.completed'),
+  Type.Object(
+    {
+      type: Type.Literal('runtime.usage.reported'),
+      payload: Type.Omit(RUNTIME_EVENT_PAYLOADS['runtime.usage.reported'], ['turn_id']),
+    },
+    strict,
+  ),
 ]);
 
 const EmitStep = Type.Object({ after_ms: Delay, emit: Emission }, strict);

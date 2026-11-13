@@ -126,6 +126,12 @@ function checkEventSemantics(event: EventEnvelope): ValidationIssue[] {
   if (event.event_type === 'runtime.agent_message' && event.provenance.epistemic !== 'reported') {
     issues.push({ path: '/provenance/epistemic', message: 'agent text must be "reported"' });
   }
+  if (event.event_type === 'runtime.usage.reported' && event.provenance.epistemic !== 'reported') {
+    issues.push({
+      path: '/provenance/epistemic',
+      message: 'usage a runtime counts must be "reported"',
+    });
+  }
   if (
     (event.event_type === 'project.world.observed' || event.event_type === 'project.world.read') &&
     (event.payload.description === null) === (event.payload.refused === null)

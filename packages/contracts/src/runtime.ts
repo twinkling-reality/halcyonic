@@ -117,10 +117,79 @@ export const RuntimeDescriptor = Type.Object(
      * can be instructed at rest; at most `QUEUED_INSTRUCTIONS_MAX` wait. Absent means not held.
      */
     holds_instructions: Type.Optional(Type.Boolean()),
+    /**
+     * True when the adapter reports what each turn used, as the runtime counts it, in a
+     * `runtime.usage.reported` at the turn's end. Declared for a runtime only once its own types or
+     * a runtime test show where the counts come from (agent-usage.md); absent means it reports none,
+     * which is never read as nothing used.
+     */
+    reports_usage: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
 export type RuntimeDescriptor = Static<typeof RuntimeDescriptor>;
+
+const TokenCount = Nullable(Type.Integer({ minimum: 0 }));
+
+/**
+ * Tokens as the runtime counts them, in parts that never overlap, so they add up to what was read
+ * and written. Each part is null where the runtime gives none, never a guess: `input` the input
+ * neither read from nor written to the provider's cache, `cache_read` the input read from it,
+ * `cache_write` the input written to it, `output` everything the model wrote, its reasoning
+ * included, and `reasoning` the part of `output` spent reasoning.
+ */
+export const UsageTokens = Type.Object(
+  {
+    input: TokenCount,
+    cache_read: TokenCount,
+    cache_write: TokenCount,
+    output: TokenCount,
+    reasoning: TokenCount,
+  },
+  { additionalProperties: false },
+);
+export type UsageTokens = Static<typeof UsageTokens>;
+
+/**
+ * Whose prices a runtime's own estimate uses: `list` the agent app's built-in list prices,
+ * `managed` the rates the person's organisation set in the app, `catalog` a public price catalog the
+ * app fetches. An app with no price for the model gives no estimate here, never a guess.
+ */
+export const UsagePrices = Type.Union([
+  Type.Literal('list'),
+  Type.Literal('managed'),
+  Type.Literal('catalog'),
+]);
+export type UsagePrices = Static<typeof UsagePrices>;
+
+/** The most money one estimate may hold, in US dollars; a sum past it is unknown, never cut. */
+export const USAGE_USD_MAX = 1_000_000;
+
+/**
+ * Money the runtime itself estimates for what was used, in US dollars, by `prices`: never a
+ * provider's bill and never priced by the host.
+ */
+export const UsageEstimate = Type.Object(
+  {
+    estimated_usd: Type.Number({ minimum: 0, maximum: USAGE_USD_MAX }),
+    prices: UsagePrices,
+  },
+  { additionalProperties: false },
+);
+export type UsageEstimate = Static<typeof UsageEstimate>;
+
+/**
+ * How the adapter has a turn's figures from what the runtime gives: `given` as the runtime gives
+ * them for the turn, `summed` as the sum of the runtime's figures for the turn's steps, `differenced`
+ * as the move of the runtime's running total over the turn. Each is the runtime's own count; this
+ * says whose arithmetic made it one turn's.
+ */
+export const UsageCounted = Type.Union([
+  Type.Literal('given'),
+  Type.Literal('summed'),
+  Type.Literal('differenced'),
+]);
+export type UsageCounted = Static<typeof UsageCounted>;
 
 /**
  * A model as the runtime that lists it names it. Opaque: the adapter chooses it, and a client

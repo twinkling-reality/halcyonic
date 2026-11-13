@@ -12230,6 +12230,154 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "runtime.usage.reported"
+            },
+            "source": {
+              "$ref": "#/$defs/RuntimeSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "turn_id",
+                "tokens",
+                "cost",
+                "counted"
+              ],
+              "properties": {
+                "turn_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "tokens": {
+                  "$ref": "#/$defs/UsageTokens"
+                },
+                "cost": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/UsageEstimate"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "counted": {
+                  "$ref": "#/$defs/UsageCounted"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       ]
     },
@@ -14964,6 +15112,9 @@
         },
         "holds_instructions": {
           "type": "boolean"
+        },
+        "reports_usage": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -15100,6 +15251,152 @@
           "const": "unknown"
         }
       ]
+    },
+    "UsageTokens": {
+      "type": "object",
+      "required": [
+        "input",
+        "cache_read",
+        "cache_write",
+        "output",
+        "reasoning"
+      ],
+      "properties": {
+        "input": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cache_read": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cache_write": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reasoning": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "UsagePrices": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "list"
+        },
+        {
+          "type": "string",
+          "const": "managed"
+        },
+        {
+          "type": "string",
+          "const": "catalog"
+        }
+      ]
+    },
+    "UsageEstimate": {
+      "type": "object",
+      "required": [
+        "estimated_usd",
+        "prices"
+      ],
+      "properties": {
+        "estimated_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "prices": {
+          "$ref": "#/$defs/UsagePrices"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UsageCounted": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "given"
+        },
+        {
+          "type": "string",
+          "const": "summed"
+        },
+        {
+          "type": "string",
+          "const": "differenced"
+        }
+      ]
+    },
+    "ExecutionUsage": {
+      "type": "object",
+      "required": [
+        "turns",
+        "tokens",
+        "cost"
+      ],
+      "properties": {
+        "turns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tokens": {
+          "$ref": "#/$defs/UsageTokens"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UsageEstimate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "JournalInfo": {
       "type": "object",
@@ -19386,6 +19683,9 @@
         "turn_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "usage": {
+          "$ref": "#/$defs/ExecutionUsage"
         },
         "auto_fix": {
           "$ref": "#/$defs/AutoFixView"
