@@ -58,6 +58,10 @@ namespace Halcyonic.Client
             }
             else
             {
+                // Where am I (the lead, 16:46Z; the critic, 17:49Z: Settings and paged lists had no title): the frame's subject stands
+                // as the panel's first row, unless its first line already says it or the frame is a task's or a project's, whose
+                // name the room already stands on its plate.
+                if (frame.IdentityKind == null && frame.Lines.FirstOrDefault()?.Words != frame.Subject) rows.Add(new RoomRow(frame.SubjectRuns));
                 foreach (var line in frame.Lines)
                 {
                     if (line.Control == LineControl.Input)
@@ -79,7 +83,7 @@ namespace Halcyonic.Client
                         var place = line.Choice ? KitPlace.Choice : KitPlace.Step;
                         var control = new KitControl(place, frame, line.Action, line.Key, line.Words, line.Icon, true, null, false, line.Chosen, line.AnswerMark);
                         acting.Add(new RoomAction(control, main: false, icon: line.Choice ? (GlazeIcon?)null : line.Icon ?? GlazeIcon.Next, mark: line.AnswerMark,
-                            chosen: line.Chosen, detail: line.FactRuns?.Text ?? line.Fact ?? line.Under?.Text));
+                            chosen: line.Chosen, detail: line.RowLabel ?? line.FactRuns?.Text ?? line.Fact ?? line.Under?.Text));
                         continue;
                     }
                     // Outside words, however the frame marks them: one on the band, any more as rows of their own.
@@ -112,6 +116,10 @@ namespace Halcyonic.Client
                 else if (leaves) leaving.Add(action);
                 else others.Add(action);
             }
+            // A confirmation's one way out is its Cancel, last (the critic, 17:49Z: Close and Cancel side by side made a person wonder
+            // whether they differ at the moment they must not guess).
+            if (frame.Footer.All.Any(each => each.Prompt.Kind == PromptKind.Yes) && leaving.Any(action => action.Control.Place == KitPlace.Cancel))
+                leaving.RemoveAll(action => action.Control.Place == KitPlace.Close);
             if (frame.Side != null)
             {
                 // The side panel's own Close is its one way out; the page's Close comes back with the page.
@@ -172,7 +180,7 @@ namespace Halcyonic.Client
                     var last = page == pages - 1;
                     if (last && ownPager != null) column.Add(ownPager);
                     else column.Add(new RoomAction(new KitControl(KitPlace.Step, frame, TurnPage, null, Footer.NextPageWords(page, pages), GlazeIcon.Next, true, null, false),
-                        main: false, icon: GlazeIcon.Next, detail: last ? null : (page + 2) + " of " + pages));
+                        main: false, icon: GlazeIcon.Next, detail: FileChangeText.PageOf(page, pages)));
                 }
                 column.AddRange(leaving);
                 parts.Add(new GeneralPage(page < rowPages ? rows.Skip(page * rowsAPage).Take(rowsAPage).ToList() : new List<RoomRow>(), column));
@@ -187,7 +195,7 @@ namespace Halcyonic.Client
                 shown.Clear();
             }
             var bar = new RoomBar(field != null ? RoomBarState.Draft : RoomBarState.Page, words: words, body: body, caret: field != null, sentence: sentence,
-                column: first.Column, field: field, band: band, wide: shown.Count == 0 && body.IsEmpty && field == null && pages == 1,
+                column: first.Column, field: field, band: band, wide: rows.Count == 0 && body.IsEmpty && field == null,
                 lines: shown.Count > 0 ? shown.Select(row => row.Words).ToList() : null);
             bar.generalPages = pages > 1 ? parts : null;
             bar.Whole = pages == 1;

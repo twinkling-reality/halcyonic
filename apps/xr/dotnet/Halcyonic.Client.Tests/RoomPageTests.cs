@@ -72,7 +72,7 @@ public class RoomPageTests
             new PageLine("Light", action: "answer", key: "0", choice: true, chosen: true, answerMark: AnswerMark.Single),
         }, footer, new[] { new FrameSection("idea", "Your Idea", chosen: true), new FrameSection("questions", "Questions"), new FrameSection("build", "Build", reached: false) });
         var page = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
-        Assert.That(page.Lines!.Select(line => line.Text), Is.EqualTo(new[] { "Your Idea", "Fixed Questions" }), "Halcyonic's lines, each its own");
+        Assert.That(page.Lines!.Select(line => line.Text), Is.EqualTo(new[] { "New Project", "Your Idea", "Fixed Questions" }), "where am I first, then Halcyonic's lines, each its own");
         Assert.That(page.Band, Is.EqualTo("A game where balloons pop for points"), "the outside words stand on the band, never in the panel");
         Assert.That(page.Body.Text, Does.Not.Contain("balloons"));
         Assert.That(page.Sentence, Is.EqualTo("Describe First Task"), "why the main action waits");
@@ -93,7 +93,7 @@ public class RoomPageTests
 
         // With nothing of Halcyonic's to say there is no panel: the actions take its place.
         var bare = RoomBar.OfFrame(Frame(new[] { new PageLine("Continue", action: "continue") }), VoiceStage.Idle)!;
-        Assert.That((bare.Wide, bare.Body.IsEmpty, bare.Column.Count), Is.EqualTo((true, true, 2)));
+        Assert.That((bare.Wide, bare.Body.Text, bare.Column.Count), Is.EqualTo((false, "New Project", 2)), "where am I, then the actions");
     }
 
     /// <summary>
@@ -122,15 +122,15 @@ public class RoomPageTests
 
         // A text cut in parts is the row of its part, never paged again by the reader.
         var part = Of(Frame(new[] { new PageLine("A long text", fromRow: 8, rows: 8) }));
-        Assert.That(part.Facts!.Select(row => (row.Words.Text, row.FromLine, row.Lines)), Is.EqualTo(new[] { ("A long text", 8, (int?)8) }));
+        Assert.That(part.Facts!.Select(row => (row.Words.Text, row.FromLine, row.Lines)), Is.EqualTo(new[] { ("New Project", 0, (int?)null), ("A long text", 8, (int?)8) }));
 
         // A fact beside a line: the line its label, the fact its words, apart.
         var fact = Of(Frame(new[] { Words("Settings"), new PageLine("Tests", fact: "12 Passed") }));
-        Assert.That(fact.Facts!.Select(row => (row.Label, row.Words.Text)), Is.EqualTo(new[] { ((string?)null, "Settings"), ("Tests", "12 Passed") }));
+        Assert.That(fact.Facts!.Select(row => (row.Label, row.Words.Text)), Is.EqualTo(new[] { ((string?)null, "New Project"), (null, "Settings"), ("Tests", "12 Passed") }));
 
         // A line that cannot act now is a row, never dropped; one that can, with a fact, is an action with the fact as its detail.
         var dark = Of(Frame(new[] { new PageLine("Dark", action: "answer", available: false), new PageLine("Text Size", fact: "Larger", action: "open", opens: true) }));
-        Assert.That(dark.Body.Text, Is.EqualTo("Dark"));
+        Assert.That(dark.Facts!.Select(row => row.Words.Text), Is.EqualTo(new[] { "New Project", "Dark" }));
         Assert.That(dark.Column.Select(action => (action.Control.Action, action.Words, action.Detail)), Is.EqualTo(new[] { ("open", "Text Size", (string?)"Larger"), (Footer.Close, "Close", null) }));
 
         // A held prompt keeps its hold.
@@ -139,14 +139,14 @@ public class RoomPageTests
 
         // Two lines of outside words: the first on the band, the second a row of its own, theirs.
         var two = Of(Frame(new[] { new PageLine("first", wordsAreData: true), new PageLine("second", wordsAreData: true) }));
-        Assert.That((two.Band, two.Body.Text), Is.EqualTo(("first", "second")));
+        Assert.That((two.Band, two.Facts!.Select(row => row.Words.Text)), Is.EqualTo(("first", new[] { "New Project", "second" })));
 
         // Nothing at all still says what it is, never a blank bar.
         Assert.That(Of(Frame(new PageLine[0], new Footer())).Body.Text, Is.EqualTo("New Project"));
 
         // Lines of Halcyonic's own are rows, never joined on a dot.
         var lines = Of(Frame(new[] { Words("Your Idea"), Words("Fixed Questions") }));
-        Assert.That((lines.Body.IsEmpty, lines.Facts!.Select(row => row.Words.Text)), Is.EqualTo((true, new[] { "Your Idea", "Fixed Questions" })));
+        Assert.That((lines.Body.IsEmpty, lines.Facts!.Select(row => row.Words.Text)), Is.EqualTo((true, new[] { "New Project", "Your Idea", "Fixed Questions" })));
         Assert.That(lines.Body.Text + string.Join("", lines.Facts!.Select(row => row.Words.Text)), Does.Not.Contain(KitMomentWords.Dot.Trim()));
 
         Assert.That(lines.Whole, Is.True);
@@ -155,15 +155,17 @@ public class RoomPageTests
         var asked = Footer.Confirm(new Footer(Close, farRight: new Prompt("go", "Go", GlazeIcon.Next)), PromptSlot.FarRight,
             new Prompt("yes", "Forget Computer", GlazeIcon.Next, PromptKind.Yes), new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel));
         var confirming = Of(Frame(new[] { Words("This headset stops reaching the computer until it is paired again.") }, asked));
-        Assert.That((confirming.Body.Text, confirming.Column[0].Control.Action, confirming.Column[0].Locks, confirming.Whole),
+        Assert.That((confirming.Facts!.Last().Words.Text, confirming.Column[0].Control.Action, confirming.Column[0].Locks, confirming.Whole),
             Is.EqualTo(("This headset stops reaching the computer until it is paired again.", "yes", true, true)));
+        Assert.That(confirming.Column.Select(action => action.Control.Place), Is.EqualTo(new[] { KitPlace.Yes, KitPlace.Cancel }),
+            "a confirmation's one way out is Cancel, last; never Close beside it (the critic, 17:49Z)");
 
         // An agent's claim is outside words whoever spells it.
         Assert.That(RoomBar.OfFrame(Frame(new[] { new PageLine("All tests pass", chip: "Agent says", claim: true) }), VoiceStage.Idle)!.Band, Is.EqualTo("All tests pass"));
         Assert.That(RoomBar.OfFrame(Frame(new[] { new PageLine(LineWords.Theirs("Pop the balloons")) }), VoiceStage.Idle)!.Band, Is.EqualTo("Pop the balloons"));
         // A name from outside inside Halcyonic's own sentence stays in the panel, as a file's name does in Changes.
         var mixed = RoomBar.OfFrame(Frame(new[] { new PageLine(LineWords.Ours("Folder · ") + LineWords.TheirName("balloon-pop")) }), VoiceStage.Idle)!;
-        Assert.That((mixed.Band, mixed.Body.Text), Is.EqualTo(((string?)null, "Folder · balloon-pop")));
+        Assert.That((mixed.Band, mixed.Facts!.Last().Words.Text), Is.EqualTo(((string?)null, "Folder · balloon-pop")));
     }
 
     /// <summary>
@@ -206,10 +208,10 @@ public class RoomPageTests
         var nine = RoomBar.OfFrame(Frame(Enumerable.Range(1, RoomRows.APage + 1).Select(n => new PageLine("Line " + n)).ToList()), VoiceStage.Idle)!;
         Assert.That((nine.Facts!.Count, nine.Whole, nine.GeneralPart), Is.EqualTo((RoomRows.APage, false, (0, 2))));
         Assert.That(nine.Column.Select(action => (action.Control.Action, action.Words, action.Detail)),
-            Is.EqualTo(new[] { (RoomBar.TurnPage, "Next Page", (string?)"2 of 2"), (Footer.Close, "Close", null) }));
+            Is.EqualTo(new[] { (RoomBar.TurnPage, "Next Page", (string?)"Page 1 of 2"), (Footer.Close, "Close", null) }));
         Assert.That(nine.Turn(), Is.True);
-        Assert.That((nine.Facts!.Select(row => row.Words.Text), nine.Whole), Is.EqualTo((new[] { "Line 9" }, true)), "row nine reached by a press, and now every page was seen");
-        Assert.That(nine.Column.Select(action => action.Words), Is.EqualTo(new[] { "First Page", "Close" }));
+        Assert.That((nine.Facts!.Select(row => row.Words.Text), nine.Whole), Is.EqualTo((new[] { "Line 8", "Line 9" }, true)), "row nine reached by a press, and now every page was seen");
+        Assert.That(nine.Column.Select(action => (action.Words, action.Detail)), Is.EqualTo(new[] { ("First Page", (string?)"Page 2 of 2"), ("Close", null) }), "the pager says where you are");
 
         var eight = RoomBar.OfFrame(Frame(Enumerable.Range(1, 8).Select(n => new PageLine("Do " + n, action: "do", key: n.ToString())).ToList()), VoiceStage.Idle)!;
         var keys = new List<string?>();
@@ -266,7 +268,7 @@ public class RoomPageTests
         Assert.That(narrow.Whole, Is.False, "two of three pages seen");
         narrow.Turn();
         seen.AddRange(narrow.Facts!.Select(row => row.Words.Text));
-        Assert.That((narrow.Whole, seen), Is.EqualTo((true, Enumerable.Range(1, 7).Select(n => "Line " + n))), "every row reached, read once every page was shown");
+        Assert.That((narrow.Whole, seen), Is.EqualTo((true, new[] { "New Project" }.Concat(Enumerable.Range(1, 7).Select(n => "Line " + n)))), "every row reached, read once every page was shown");
 
         Assert.That((new RoomForm(true, 0).RowsAPage, new RoomForm(false, 99).RowsAPage, new RoomForm(true, 2).Fewer().Fewer().RowsAPage), Is.EqualTo((1, RoomRows.APage, 1)),
             "one to eight rows a page; the plane's fewer never reaches nought");
