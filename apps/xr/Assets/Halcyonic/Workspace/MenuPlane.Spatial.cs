@@ -381,7 +381,10 @@ namespace Halcyonic.XR.Workspace
         private AngularExtent LargestExtent(float widthDp)
         {
             var largest = RoomBarView.LargestAt(widthDp);
-            return AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
+            var bar = AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
+            // With the little a bar draws under its foot line (its lowest core and a halo's feather), held to the kit's stated measure
+            // (FIELD's RoomBarView.MostUnderFootDp, which PartsCheck fails past).
+            return new AngularExtent(bar.Left, bar.Right, bar.Bottom - RoomBarView.MostUnderFootDp / RoomGeometry.DpPerDegree, bar.Top);
         }
 
         /// <summary>
