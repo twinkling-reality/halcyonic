@@ -584,6 +584,16 @@ namespace Halcyonic.Client
 
         public string Words { get; }
 
+        /// <summary>The prompt's second part, given apart from its words and drawn under them (a pager's count, "2 of 7"); null for none.</summary>
+        public LineWords? Under { get; private set; }
+
+        /// <summary>This prompt with <paramref name="under"/> as its second part (<see cref="Under"/>); none where empty.</summary>
+        public Prompt WithUnder(LineWords? under)
+        {
+            Under = under == null || under.IsEmpty ? null : under;
+            return this;
+        }
+
         public GlazeIcon Icon { get; }
 
         public PromptKind Kind { get; }

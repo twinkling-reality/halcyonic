@@ -255,6 +255,12 @@ namespace Halcyonic.Client
         /// <summary>A pager's count, given apart from its words: "2 of 7".</summary>
         public static string PartOf(int part, int parts) => Count(part) + " of " + Count(parts);
 
+        /// <summary>A row to part <paramref name="part"/> as this design draws it: under the redesign "Next Part" alone, its count apart (<see cref="NextPartCount"/>).</summary>
+        public static string NextPartShown(int part, int parts) => RoomDesign.Enabled ? NextPartLabel : NextPart(part, parts);
+
+        /// <summary>That row's count, given apart under the redesign ("2 of 7"); none in the older view, whose words hold it.</summary>
+        public static LineWords? NextPartCount(int part, int parts) => RoomDesign.Enabled ? LineWords.Ours(PartOf(part, parts)) : null;
+
         /// <summary>
         /// What starting over clears, as Start over's side panel on New project's recap and its
         /// confirmation both say: for a new project its idea, answers, name, first task and folder; for a

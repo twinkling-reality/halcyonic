@@ -21,6 +21,17 @@ namespace Halcyonic.Client
         public const string RequestKey = "request";
         public const string QuestionKey = "question";
 
+        /// <summary>
+        /// A part's pager as this design draws it: under the redesign the action alone ("Next Part", "First Part"), its count given
+        /// apart (<see cref="NextPartCount"/>; JUDGE's dot list, 2026-11-13T1203Z, item 2); the older view's whole words.
+        /// </summary>
+        public static string NextPartShown(int part, int parts) => !RoomDesign.Enabled ? NextPartWords(part, parts)
+            : part + 1 < parts ? EntryText.NextPartLabel : "First Part";
+
+        /// <summary>The pager's count given apart from its words under the redesign ("2 of 7"); none in the older view, whose words hold it.</summary>
+        public static LineWords? NextPartCount(int part, int parts) => !RoomDesign.Enabled ? null
+            : LineWords.Ours(part + 1 < parts ? EntryText.PartOf(part + 2, parts) : EntryText.PartOf(1, parts));
+
         /// <summary>The words on a part's last row: the next part, or from the last back to the first, as a list's pager goes.</summary>
         public static string NextPartWords(int part, int parts) => part + 1 < parts
             ? "Next Part · " + (part + 2).ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture)
@@ -179,7 +190,7 @@ namespace Halcyonic.Client
             var parts = measured ? screen.RequestParts : 1;
             var part = measured ? screen.RequestPart : 0;
             var lines = new List<PageLine> { RequestLine(steering, request, perPart, part * perPart) };
-            if (parts > 1) lines.Add(new PageLine(NextPartWords(part, parts), action: NextPart, key: RequestKey));
+            if (parts > 1) lines.Add(new PageLine(NextPartShown(part, parts), action: NextPart, key: RequestKey).WithUnder(NextPartCount(part, parts)));
             lines.Add(new PageLine(Asks(steering, workspace, parts), tone: LineTone.Secondary, rows: 2));
             // Approve's Yes, and an instruction's, only once all of it has shown: until the layout
             // measured it and the person reached its last part, there is none to press. Deny's shows at
@@ -371,8 +382,8 @@ namespace Halcyonic.Client
             if (question.ExplainingAmbiguity)
             {
                 var escape = question.AmbiguityPart + 1 < question.AmbiguityParts
-                    ? new Prompt(NextAmbiguityPart, NextPartWords(question.AmbiguityPart, question.AmbiguityParts), GlazeIcon.Next, main: true,
-                        available: available, reason: QuestionForwardReason(workspace, screen))
+                    ? new Prompt(NextAmbiguityPart, NextPartShown(question.AmbiguityPart, question.AmbiguityParts), GlazeIcon.Next, main: true,
+                        available: available, reason: QuestionForwardReason(workspace, screen)).WithUnder(NextPartCount(question.AmbiguityPart, question.AmbiguityParts))
                     : workspace.Actions.Contains(WorkspaceAction.Interrupt)
                         ? new Prompt(Stop, "Stop Task", GlazeIcon.Stop, main: true, available: available, reason: QuestionForwardReason(workspace, screen)) : null;
                 return new Footer(CloseFile, rare: new Prompt(BackAmbiguity, "Back", GlazeIcon.Back), farRight: escape);
@@ -382,7 +393,8 @@ namespace Halcyonic.Client
                 var reason = question.WhyUseWaits(false);
                 var reading = question.InputReading;
                 var next = reading && question.InputPart < question.InputParts - 1
-                    ? new Prompt(NextInputPart, NextPartWords(question.InputPart, question.InputParts), GlazeIcon.Next, main: true, available: available, reason: question.InputPageRead ? null : "Read This Part")
+                    ? new Prompt(NextInputPart, NextPartShown(question.InputPart, question.InputParts), GlazeIcon.Next, main: true, available: available, reason: question.InputPageRead ? null : "Read This Part")
+                        .WithUnder(NextPartCount(question.InputPart, question.InputParts))
                     : new Prompt(UseInput, "Use Answer", GlazeIcon.Approve, main: true, available: available, reason: reason);
                 return new Footer(new Prompt(CancelInput, "Cancel", GlazeIcon.Close, PromptKind.Close),
                     rare: reading && question.InputPart > 0 ? new Prompt(PreviousInputPart, "Previous Part", GlazeIcon.Back) : null,
@@ -396,8 +408,8 @@ namespace Halcyonic.Client
             if (question.Reviewing)
             {
                 if (question.Page < question.Pages - 1)
-                    forward = new Prompt(MoreAnswers, NextPartWords(question.Page, question.Pages), GlazeIcon.Next, main: true,
-                        available: available, reason: question.ReviewPageRead ? null : "Read This Part");
+                    forward = new Prompt(MoreAnswers, NextPartShown(question.Page, question.Pages), GlazeIcon.Next, main: true,
+                        available: available, reason: question.ReviewPageRead ? null : "Read This Part").WithUnder(NextPartCount(question.Page, question.Pages));
                 else
                 {
                     var reason = WhySendWaits(screen);
@@ -406,8 +418,10 @@ namespace Halcyonic.Client
                 }
             }
             else if (question.QuestionPart is int part)
-                forward = new Prompt(NextPart, part + 1 < question.QuestionParts(question.Prompt) ? NextPartWords(part, question.QuestionParts(question.Prompt)) : "See Answers",
-                    GlazeIcon.Next, main: true, available: available, reason: question.QuestionPartRead ? null : "Read This Part");
+                forward = part + 1 < question.QuestionParts(question.Prompt)
+                    ? new Prompt(NextPart, NextPartShown(part, question.QuestionParts(question.Prompt)), GlazeIcon.Next, main: true, available: available,
+                        reason: question.QuestionPartRead ? null : "Read This Part").WithUnder(NextPartCount(part, question.QuestionParts(question.Prompt)))
+                    : new Prompt(NextPart, "See Answers", GlazeIcon.Next, main: true, available: available, reason: question.QuestionPartRead ? null : "Read This Part");
             else
             {
                 var reason = WhyNextWaits(question);
