@@ -116,4 +116,16 @@ public class RoomWordsTests
             last = alpha;
         }
     }
+
+    [Test]
+    public void TheBandReachesUnderTheFootLineToItsTopAndThenItsTallestPart()
+    {
+        // JUDGE's charR: the band hangs under the bar's foot line and the footprint must hold it. Its top is fixed by pitch; its
+        // tallest part is three lines with their room, scaled at the larger text size.
+        var top = (RoomGeometry.FeetPitch - RoomWords.TopPitch) * RoomGeometry.DpPerDegree;
+        Assert.That(RoomWords.UnderFootMostDp(), Is.EqualTo(top + RoomWords.HeightDp(RoomWords.LinesAPart)).Within(0.001f));
+        Assert.That(RoomWords.UnderFootMostDp(1.15f), Is.EqualTo(top + RoomWords.HeightDp(RoomWords.LinesAPart, 1.15f)).Within(0.001f));
+        Assert.That(top, Is.GreaterThan(0f), "the band hangs under the foot line");
+        Assert.That(RoomWords.UnderFootMostDp(1.15f), Is.GreaterThan(RoomWords.UnderFootMostDp()), "the larger text reaches further down");
+    }
 }

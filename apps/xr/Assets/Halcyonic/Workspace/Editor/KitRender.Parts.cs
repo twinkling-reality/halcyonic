@@ -410,6 +410,9 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(Mathf.Abs(band.Size.x - RoomWords.WidthDp * unit) < Tolerance && Mathf.Abs(band.Size.y - height) < Tolerance,
                 "the band is " + (band.Size.x / unit).ToString("0.0") + " by " + (band.Size.y / unit).ToString("0.0") + " dp, not 880 by " + (height / unit).ToString("0.0"));
             Require(Mathf.Abs(band.Height - height) < Tolerance, "the ground is drawn " + (band.Height / unit).ToString("0.0") + " dp tall");
+            // The footprint holds the band at its tallest (RoomWords.UnderFootMostDp, JUDGE's charR): no part ever stands taller.
+            Require(band.Size.y <= RoomWords.HeightDp(RoomWords.LinesAPart, scale) * unit + Tolerance,
+                "the band stands " + (band.Size.y / unit).ToString("0.0") + " dp tall, past the footprint's " + RoomWords.HeightDp(RoomWords.LinesAPart, scale).ToString("0.0"));
 
             // Motion at the fixed time: the ground and each line where the formulas put them.
             var groundExpected = arriving ? RoomMotion.BandArrives(ArrivingSeconds) : 1f;

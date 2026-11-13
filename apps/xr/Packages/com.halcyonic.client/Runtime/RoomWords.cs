@@ -86,6 +86,14 @@ namespace Halcyonic.Client
         public static float HeightDp(int lines, float textScale = 1f) => (2f * PadDp + Math.Max(0, lines) * RoomGeometry.LineDp) * textScale;
 
         /// <summary>
+        /// How far the band reaches under the pair's foot line at its tallest, in dp at <paramref name="textScale"/>: from the foot
+        /// line down to its top (<see cref="TopPitch"/>, where it always hangs) and then a part's three lines with their room. It
+        /// stands <see cref="WidthDp"/> wide, centred under the pair. What the plane's footprint holds under the bar, so a shelf
+        /// never stands under the band (JUDGE's charR, 2026-11-13T2228Z: the bar's record alone missed it).
+        /// </summary>
+        public static float UnderFootMostDp(float textScale = 1f) => (RoomGeometry.FeetPitch - TopPitch) * RoomGeometry.DpPerDegree + HeightDp(LinesAPart, textScale);
+
+        /// <summary>
         /// What someone else wrote, ready for a label that reads no markup: each of the text's own lines by the one rule for
         /// outside text (<see cref="LabelText.ForTextMeshPro"/>: exactly what it says, white space as one space, a backslash
         /// shown as itself), the text's own line breaks kept, and lines of nothing left out so a part never spends a line on air.
