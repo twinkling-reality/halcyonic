@@ -343,4 +343,21 @@ public class RoomPageTests
             Is.EqualTo(((string?)"5-Hour Window", "Ember App", (string?)"Up to 60% Left", "Seen 2 minutes ago.", true, false, false)),
             "all four parts of a limit on its row: the window above, the app, the amount, seen and resets under; nothing lost");
     }
+
+    /// <summary>A card's pressed rows page by the form's rows a page too, so the plane's measure can shorten a card (FIELD's F100).</summary>
+    [Test]
+    public void ACardsPressedRowsPageByTheFormsRowsAPage()
+    {
+        var frame = Frame(Enumerable.Range(1, 4).Select(n => new PageLine("Setting " + n, fact: "On", action: "open", key: n.ToString(), opens: true)).ToList());
+        Assert.That(RoomBar.OfFrame(frame, VoiceStage.Idle)!.Card!.List.Count, Is.EqualTo(4), "four on one card at full form");
+        var two = RoomBar.OfFrame(frame, VoiceStage.Idle, new RoomForm(narrow: true, rowsAPage: 2))!;
+        var keys = new List<string?>();
+        for (var page = 0; page < two.GeneralPart.Pages; page++)
+        {
+            Assert.That(two.Card!.List.Count, Is.LessThanOrEqualTo(2));
+            keys.AddRange(two.Card.List.Select(row => row.Press!.Key));
+            two.Turn();
+        }
+        Assert.That((two.GeneralPart.Pages, keys), Is.EqualTo((2, new[] { "1", "2", "3", "4" })));
+    }
 }

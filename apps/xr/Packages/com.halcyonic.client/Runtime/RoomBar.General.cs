@@ -180,7 +180,10 @@ namespace Halcyonic.Client
             var actionPages = turning.Count <= room ? 1 : (turning.Count + room - 2) / (room - 1);
             // Rows a page by the form it will be laid in (the plane measures it and asks again with fewer where a page passes the field).
             var rowsAPage = form.RowsAPage;
-            var pressPages = carded ? (pressed.Count + RoomCard.ListAPage - 1) / RoomCard.ListAPage : 1;
+            // A card's pressed rows page by the form too (five at most, fewer where the plane measured fewer rows a page), so the plane's
+            // measure shortens a card as it shortens rows (FIELD's F100: Usage's card narrow passed its footprint at one row a page).
+            var perCard = System.Math.Min(RoomCard.ListAPage, rowsAPage);
+            var pressPages = carded ? (pressed.Count + perCard - 1) / perCard : 1;
             var rowPages = carded ? 1 : rows.Count <= 0 ? 1 : (rows.Count + rowsAPage - 1) / rowsAPage;
             var pages = System.Math.Max(System.Math.Max(rowPages, actionPages), pressPages);
             var each = pages > 1 ? room - 1 : room;
@@ -207,7 +210,7 @@ namespace Halcyonic.Client
                 }
                 column.AddRange(leaving);
                 parts.Add(carded
-                    ? new GeneralPage(new List<RoomRow>(), column, CardOf(pressed.Skip(page * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList()))
+                    ? new GeneralPage(new List<RoomRow>(), column, CardOf(pressed.Skip(page * perCard).Take(perCard).ToList()))
                     : new GeneralPage(page < rowPages ? rows.Skip(page * rowsAPage).Take(rowsAPage).ToList() : new List<RoomRow>(), column));
             }
 
