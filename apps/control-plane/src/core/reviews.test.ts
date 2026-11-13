@@ -483,7 +483,7 @@ test("Send One Change's one review says what goes, that none of it holds the sec
   assert.equal(built.review.confirm_words, 'Send One Change');
   assert.equal(
     built.review.what_happens,
-    "Sends the project's files as they are now to owner/garden, as one change. None of the files sent holds MY_SERVICE_KEY.",
+    "Sends the project's files as they are now to owner/garden, as one change. The files sent were checked: none holds MY_SERVICE_KEY.",
   );
   assert.deepEqual(
     built.review.facts.map((fact) =>
@@ -503,7 +503,7 @@ test("Send One Change's one review says what goes, that none of it holds the sec
     },
     {
       code: 'one_change',
-      line: 'The repository gets one change, not your earlier versions one by one.',
+      line: 'The earlier versions are not sent; the repository gets one change.',
     },
     {
       code: 'stays_sent',

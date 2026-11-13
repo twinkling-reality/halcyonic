@@ -280,8 +280,8 @@ export async function buildReview(
           digest: send.review,
           confirm_words: 'Send One Change',
           what_happens: fits(
-            `Sends the project's files as they are now to ${repository}, as one change. None of the files sent holds ${secret}.`,
-            `Sends the project's files as they are now, as one change. None of the files sent holds ${secret}.`,
+            `Sends the project's files as they are now to ${repository}, as one change. The files sent were checked: none holds ${secret}.`,
+            `Sends the project's files as they are now, as one change. The files sent were checked: none holds ${secret}.`,
           ),
           facts: [
             { kind: 'repository', value: `${send.remote.host}/${repository}`, theirs: true },
@@ -301,7 +301,7 @@ export async function buildReview(
             },
             {
               code: 'one_change',
-              line: 'The repository gets one change, not your earlier versions one by one.',
+              line: 'The earlier versions are not sent; the repository gets one change.',
             },
             {
               code: 'stays_sent',

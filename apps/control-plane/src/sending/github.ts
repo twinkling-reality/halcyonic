@@ -198,25 +198,32 @@ export class GitHubSender {
     if (send.one_change !== undefined) {
       // Send One Change goes only on a base the remote's branch reaches as fetched at this press, never
       // one it merely acknowledged or one fetched at an earlier press (AUDIT3 D1).
-      const found = await this.#oneChangeBase(repository, remote, from);
-      const reached =
-        found !== null &&
-        found.target === send.branch &&
-        (
-          await this.#run(this.#deps.git, [
-            '--git-dir',
+      // One search at a time per repository: each empties and fills the same refs and record (AUDIT3's SHOULD).
+      const secret = send.one_change.secret_name;
+      const reviewed = send.base_commit;
+      const reached = await this.#oneAtATime(repository, async () => {
+        const found = await this.#oneChangeBase(repository, remote, from);
+        const ok =
+          found !== null &&
+          found.target === send.branch &&
+          (
+            await this.#run(this.#deps.git, [
+              '--git-dir',
+              repository,
+              'merge-base',
+              '--is-ancestor',
+              reviewed,
+              `refs/halcyonic/remote/${send.branch}`,
+            ])
+          ).code === 0;
+        if (!ok)
+          await this.#recordOneChange(
             repository,
-            'merge-base',
-            '--is-ancestor',
-            send.base_commit,
-            `refs/halcyonic/remote/${send.branch}`,
-          ])
-        ).code === 0;
+            found === null ? null : { ...found, from, secret },
+          );
+        return ok;
+      });
       if (!reached) {
-        await this.#recordOneChange(
-          repository,
-          found === null ? null : { ...found, from, secret: send.one_change.secret_name },
-        );
         return refuse(
           'review_stale',
           `${send.remote.path} changed since this was shown, so nothing was sent. Look at it again.`,
@@ -251,11 +258,12 @@ export class GitHubSender {
       // Only an earlier version, never what is here now, and never on Send One Change's own commit, which is
       // refused in the fix's own words (AUDIT3 D3): offered where a true base is found, recorded for its review.
       if (send.one_change !== undefined || history.inHistory === undefined) return history;
-      const found = await this.#oneChangeBase(repository, remote, from);
-      await this.#recordOneChange(
-        repository,
-        found === null ? null : { ...found, from, secret: history.inHistory },
-      );
+      const secret = history.inHistory;
+      const found = await this.#oneAtATime(repository, async () => {
+        const base = await this.#oneChangeBase(repository, remote, from);
+        await this.#recordOneChange(repository, base === null ? null : { ...base, from, secret });
+        return base;
+      });
       // The refusal names the one offer under it (AUDIT2 W4); with no true base it keeps its own words.
       return found === null
         ? history
@@ -761,6 +769,19 @@ export class GitHubSender {
     );
     if (base === '' || !target || !from || !secret) return null;
     return { base, target, from, secret };
+  }
+
+  /** Send One Change's searches, one at a time per repository: each empties and fills the same refs and record. */
+  readonly #searching = new Map<string, Promise<unknown>>();
+
+  #oneAtATime<T>(repository: string, search: () => Promise<T>): Promise<T> {
+    const before = this.#searching.get(repository) ?? Promise.resolve();
+    const run = before.then(search, search);
+    this.#searching.set(
+      repository,
+      run.catch(() => null),
+    );
+    return run;
   }
 
   /** One address lookup at a time per repository: each writes the same remote of Halcyonic's own. */
