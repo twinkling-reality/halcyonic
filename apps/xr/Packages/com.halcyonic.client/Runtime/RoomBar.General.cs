@@ -54,6 +54,8 @@ namespace Halcyonic.Client
             var unders = new Dictionary<int, LineWords>();
             // Stating rows a frame marks as headings (PageLine.AsHeading: by kind, never by words): they head the rows under them.
             var headings = new HashSet<int>();
+            // The frame's own order of its stating rows and its lines that act, so a card that holds both keeps it (a heading over what it heads).
+            var order = new List<(bool Acting, int At)>();
             var lost = false;
             LineWords? words = null;
             // The panel's first row is its title (where am I), kept with the row after it when they page.
@@ -101,10 +103,12 @@ namespace Halcyonic.Client
                         {
                             // An action that cannot act now stands as a row, never dropped; why it waits is the frame's reason, the sentence.
                             rows.Add(new RoomRow(line.Runs, label: line.Under?.Text));
+                            order.Add((false, rows.Count - 1));
                             continue;
                         }
                         var place = line.Choice ? KitPlace.Choice : KitPlace.Step;
                         lineActs.Add((line, new KitControl(place, frame, line.Action, line.Key, line.Words, line.Icon, true, null, false, line.Chosen, line.AnswerMark)));
+                        order.Add((true, lineActs.Count - 1));
                         continue;
                     }
                     // Outside words, however the frame marks them: one on the band, any more as rows of their own.
@@ -116,6 +120,7 @@ namespace Halcyonic.Client
                     if (!line.Runs.IsEmpty)
                     {
                         rows.Add(Stating(line));
+                        order.Add((false, rows.Count - 1));
                         if (line.Under != null) unders[rows.Count - 1] = line.Under;
                         if (line.Heading) headings.Add(rows.Count - 1);
                     }
@@ -194,11 +199,13 @@ namespace Halcyonic.Client
             // quieter line under it, a label above; the column keeps the frame's own prompts under the four in all. Lines handed in one
             // group (PageLine.Group) stand on one page together, Left beside Right, on every path.
             var groups = new List<List<int>>();
+            var groupAt = new Dictionary<int, int>();
             for (var at = 0; at < lineActs.Count; at++)
             {
                 var group = lineActs[at].Line.Group;
                 if (at > 0 && group != null && group == lineActs[at - 1].Line.Group) groups[groups.Count - 1].Add(at);
                 else groups.Add(new List<int> { at });
+                groupAt[at] = groups.Count - 1;
             }
             // The card holds a title, one description and a foot: the description's quieter line, or a second line that states. A frame
             // that marks a heading keeps its rows (a heading stands over the lines it heads: never a card's description over other
@@ -211,19 +218,31 @@ namespace Halcyonic.Client
                 && headings.Count == 0 && (rows.Count <= 2 || rows.Count == 3 && unders.Count == 0);
             LineWords? description = cardable && rows.Count >= 2 ? rows[1].Words : null;
             LineWords? foot = !cardable ? null : unders.TryGetValue(1, out var under1) ? under1 : rows.Count == 3 ? rows[2].Words : null;
-            var forced = !cardable && lineActs.Count + others.Count + sections.Count > room && groups.Any(group => group.Count > roomPaged);
+            // A line that carries words to read (an answer's description, a value, a label) is a choice the person reads before pressing:
+            // it stands in the panel at the panel's width, never on a button in the column, whose width never changes with its words (the
+            // lead's 2026-11-13T22:04Z: a described answer made the column as wide as the panel).
+            var carriesWords = lineActs.Any(each => Valued(each.Line) || each.Line.Under != null);
+            var forced = !cardable && lineActs.Count > 0
+                && (carriesWords || lineActs.Count + others.Count + sections.Count > room && groups.Any(group => group.Count > roomPaged));
             var carded = lineActs.Count > 0 && (cardable || forced);
             var cardUnits = new List<List<RoomListRow>>();
             var groupOf = new Dictionary<RoomAction, int>();
             if (carded)
             {
+                List<RoomListRow> Pressed(List<int> group) => group.Select(at => lineActs[at]).Select(each => new RoomListRow(each.Line.Kind, each.Line.Runs,
+                    each.Line.FactRuns?.Text ?? each.Line.Fact, press: each.Control, chosen: each.Line.Chosen, under: each.Line.Under, label: each.Line.RowLabel,
+                    mark: each.Line.Choice ? (each.Line.AnswerMark == AnswerMark.None ? AnswerMark.Single : each.Line.AnswerMark) : AnswerMark.None)).ToList();
                 if (forced)
-                    for (var at = 1; at < rows.Count; at++)
-                        cardUnits.Add(new List<RoomListRow> { new RoomListRow(RoomKind.None, rows[at].Words, label: rows[at].Label, under: unders.TryGetValue(at, out var under) ? under : null) });
-                foreach (var group in groups)
-                    cardUnits.Add(group.Select(at => lineActs[at]).Select(each => new RoomListRow(each.Line.Kind, each.Line.Runs, each.Line.FactRuns?.Text ?? each.Line.Fact,
-                        press: each.Control, chosen: each.Line.Chosen, under: each.Line.Under, label: each.Line.RowLabel,
-                        mark: each.Line.Choice ? (each.Line.AnswerMark == AnswerMark.None ? AnswerMark.Single : each.Line.AnswerMark) : AnswerMark.None)).ToList());
+                {
+                    // In the frame's own order: each stating row unpressed, each group of lines that act together.
+                    var laid = new HashSet<int>();
+                    foreach (var (actsHere, at) in order)
+                    {
+                        if (!actsHere) cardUnits.Add(new List<RoomListRow> { new RoomListRow(RoomKind.None, rows[at].Words, label: rows[at].Label, under: unders.TryGetValue(at, out var under) ? under : null) });
+                        else if (laid.Add(groupAt[at])) cardUnits.Add(Pressed(groups[groupAt[at]]));
+                    }
+                }
+                else foreach (var group in groups) cardUnits.Add(Pressed(group));
             }
             else
                 for (var index = 0; index < groups.Count; index++)
@@ -258,25 +277,32 @@ namespace Halcyonic.Client
             }
 
             // Units laid a page at a time, never split across a page break unless one is longer than a whole page.
-            List<List<T>> Pack<T>(IReadOnlyList<List<T>> units, int capacity)
+            // Where a weight is given, a page holds at most its budget of lines too.
+            List<List<T>> Pack<T>(IReadOnlyList<List<T>> units, int capacity, System.Func<T, int>? weight = null, int budget = int.MaxValue)
             {
                 var packed = new List<List<T>>();
                 var page = new List<T>();
+                var used = 0;
                 foreach (var unit in units)
                 {
-                    if (page.Count > 0 && page.Count + unit.Count > capacity)
+                    var unitWeight = weight == null ? 0 : unit.Sum(weight);
+                    if (page.Count > 0 && (page.Count + unit.Count > capacity || used + unitWeight > budget))
                     {
                         packed.Add(page);
                         page = new List<T>();
+                        used = 0;
                     }
                     foreach (var item in unit)
                     {
-                        if (page.Count == capacity)
+                        var itemWeight = weight?.Invoke(item) ?? 0;
+                        if (page.Count == capacity || page.Count > 0 && used + itemWeight > budget && unit.Count > 1)
                         {
                             packed.Add(page);
                             page = new List<T>();
+                            used = 0;
                         }
                         page.Add(item);
+                        used += itemWeight;
                     }
                 }
                 if (page.Count > 0 || packed.Count == 0) packed.Add(page);
@@ -294,7 +320,19 @@ namespace Halcyonic.Client
             // A card's rows page by the form too (five at most, fewer where the plane measured fewer rows a page), so the plane's
             // measure shortens a card as it shortens rows (FIELD's F100: Usage's card narrow passed its footprint at one row a page).
             var perCard = System.Math.Min(RoomCard.ListAPage, form.RowsAPage);
-            var cardPages = carded ? Pack(cardUnits, perCard) : new List<List<RoomListRow>> { new List<RoomListRow>() };
+            // And by the plane's LINE measure where it gives one (eight lines a page, the card's title, description and foot among them on
+            // every page), so a card of long answers pages as rows do (the lead's 22:04Z: under the eight lines a page).
+            int RowWeight(RoomListRow row) => form.ListLinesOf is System.Func<RoomListRow, int> listed ? System.Math.Max(1, listed(row))
+                : form.LinesOf is System.Func<RoomRow, bool, int> lines
+                ? System.Math.Max(1, lines(new RoomRow(row.Name, label: row.Label, note: row.Note), false)) + (row.Under is LineWords under ? System.Math.Max(1, lines(new RoomRow(under), false)) : 0)
+                : 0;
+            var cardHead = form.LinesOf is System.Func<RoomRow, bool, int> headLines
+                ? new[] { rows.Count > 0 ? rows[0].Words : frame.SubjectRuns, description, foot }.Where(words => words != null).Sum(words => System.Math.Max(1, headLines(new RoomRow(words!), false)))
+                : 0;
+            var cardPages = carded
+                ? Pack(cardUnits, perCard, form.LinesOf != null || form.ListLinesOf != null ? RowWeight : null,
+                    form.LinesOf != null || form.ListLinesOf != null ? System.Math.Max(1, form.LinesAPage - cardHead) : int.MaxValue)
+                : new List<List<RoomListRow>> { new List<RoomListRow>() };
             var pressPages = cardPages.Count;
             // A stating row's quieter line stands as a row of its own under it, never dropped (AUDIT's 21:14Z: the plain rows lost it).
             var laidRows = new List<RoomRow>();
@@ -521,8 +559,9 @@ namespace Halcyonic.Client
     public readonly struct RoomForm
     {
         public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions, System.Func<RoomRow, bool, int>? linesOf = null, int linesAPage = SpecLines,
-            float panelDp = RoomGeometry.PanelDp)
+            float panelDp = RoomGeometry.PanelDp, System.Func<RoomListRow, int>? listLinesOf = null)
         {
+            ListLinesOf = listLinesOf;
             Narrow = narrow;
             PanelDp = panelDp > RoomGeometry.PanelDp ? RoomGeometry.PanelDp : panelDp < PlaneWidth.NarrowestDp ? PlaneWidth.NarrowestDp : panelDp;
             RowsAPage = rowsAPage < 1 ? 1 : rowsAPage > RoomRows.APage ? RoomRows.APage : rowsAPage;
@@ -541,11 +580,21 @@ namespace Halcyonic.Client
         /// </summary>
         public System.Func<RoomRow, bool, int>? LinesOf { get; }
 
+        /// <summary>
+        /// The plane's line measure of a card's list row as the card draws it (its mark, label, name, note and quieter line, at the
+        /// panel's width; AUDIT's 2026-11-13T22:06Z: one measure for the file and the card); null where the plane gives none, and the
+        /// reader then counts the row by <see cref="LinesOf"/>.
+        /// </summary>
+        public System.Func<RoomListRow, int>? ListLinesOf { get; }
+
+        /// <summary>This form with the plane's measure of a card's list row, the rest kept.</summary>
+        public RoomForm MeasuredList(System.Func<RoomListRow, int> listLinesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, LinesOf, LinesAPage, PanelDp, listLinesOf);
+
         /// <summary>The lines a page of the panel holds, one to eight; fewer where the plane measured fewer to keep inside the field.</summary>
         public int LinesAPage { get; }
 
         /// <summary>This form with its line measure (the plane's), the rest kept.</summary>
-        public RoomForm Measured(System.Func<RoomRow, bool, int> linesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, linesOf, LinesAPage, PanelDp);
+        public RoomForm Measured(System.Func<RoomRow, bool, int> linesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, linesOf, LinesAPage, PanelDp, ListLinesOf);
 
         /// <summary>
         /// The width the plane lays the panel at, in dp, the column beside it (the lead's 18:07Z: a width, not two forms): the full 440
@@ -554,7 +603,7 @@ namespace Halcyonic.Client
         public float PanelDp { get; }
 
         /// <summary>This form with its panel laid <paramref name="panelDp"/> wide, the rest kept.</summary>
-        public RoomForm AtWidth(float panelDp) => new RoomForm(Narrow, RowsAPage, ActionsAPage, LinesOf, LinesAPage, panelDp);
+        public RoomForm AtWidth(float panelDp) => new RoomForm(Narrow, RowsAPage, ActionsAPage, LinesOf, LinesAPage, panelDp, ListLinesOf);
 
         /// <summary>The actions a choices column holds at most in all, its main action, ways out and pager among them (BUILD-SPEC-v4 1.1, the lead's 19:41Z).</summary>
         public const int SpecActions = 4;
@@ -572,9 +621,9 @@ namespace Halcyonic.Client
         public int ActionsAPage { get; }
 
         /// <summary>This form with one row and one line fewer a page, never fewer than one: the plane's next ask where a page passed the field.</summary>
-        public RoomForm Fewer() => new RoomForm(Narrow, RowsAPage - 1, ActionsAPage, LinesOf, LinesAPage - 1, PanelDp);
+        public RoomForm Fewer() => new RoomForm(Narrow, RowsAPage - 1, ActionsAPage, LinesOf, LinesAPage - 1, PanelDp, ListLinesOf);
 
         /// <summary>This form with one action fewer a page, never fewer than one: the plane's ask where the column passed the field.</summary>
-        public RoomForm FewerActions() => new RoomForm(Narrow, RowsAPage, ActionsAPage - 1, LinesOf, LinesAPage, PanelDp);
+        public RoomForm FewerActions() => new RoomForm(Narrow, RowsAPage, ActionsAPage - 1, LinesOf, LinesAPage, PanelDp, ListLinesOf);
     }
 }

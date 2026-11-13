@@ -443,16 +443,26 @@ public class RoomPageTests
         while (bar.GeneralPart.Page < bar.GeneralPart.Pages - 1) bar.Turn();
         Assert.That(bar.Whole, Is.True, "shown, now read");
 
-        // An answer's description is never dropped (gen-n8's caps: "Answer 1" drawn, what it keeps nowhere): under its name on its
-        // row in the card, and as its button's detail where a frame that states more keeps its answers in the column.
+        // An answer's description is never dropped (gen-n8's caps: "Answer 1" drawn, what it keeps nowhere), and never on a button: under
+        // its name on its row in the panel, also where the frame states more (the lead's 22:04Z: the column never widens with its words).
         var choices = Enumerable.Range(1, 3).Select(n => new PageLine("Answer " + n, action: "answer", key: n.ToString(), choice: true, answerMark: AnswerMark.Single)
             .WithUnder(LineWords.Ours("Keeps answer " + n + "."))).ToList();
         var asked = RoomBar.OfFrame(Frame(choices), VoiceStage.Idle)!;
         Assert.That(asked.Card!.List.Select(row => row.Under?.Text), Is.EqualTo(new[] { "Keeps answer 1.", "Keeps answer 2.", "Keeps answer 3." }), Show(asked));
         Assert.That(asked.LostPart, Is.False);
         var stated = RoomBar.OfFrame(Frame(Stating(choices)), VoiceStage.Idle)!;
-        Assert.That(stated.Column.Where(action => action.Control.Action == "answer").Select(action => action.Detail),
-            Is.EqualTo(new[] { "Keeps answer 1.", "Keeps answer 2.", "Keeps answer 3." }), Show(stated));
+        Assert.That(stated.Column.Any(action => action.Control.Action == "answer"), Is.False, "no described answer in the column: " + Show(stated));
+        var listed = new List<RoomListRow>();
+        for (var page = 0; page < stated.GeneralPart.Pages; page++)
+        {
+            listed.AddRange(stated.Card!.List);
+            stated.Turn();
+        }
+        Assert.That(listed.Select(row => (row.Name.Text, row.Press != null, row.Under?.Text)), Is.EqualTo(new[]
+        {
+            ("Note 1", false, (string?)null), ("Note 2", false, null), ("Note 3", false, null),
+            ("Answer 1", true, "Keeps answer 1."), ("Answer 2", true, "Keeps answer 2."), ("Answer 3", true, "Keeps answer 3."),
+        }), "the frame's own order: its stating lines unpressed, then its answers with their descriptions");
         Assert.That(stated.LostPart, Is.False);
     }
 
@@ -723,5 +733,29 @@ public class RoomPageTests
             Assert.That(bar.Card!.List.Select(row => row.Name.Text), Is.EqualTo(new[] { "Colour 1", "Colour 2", "Colour 3" }), "the card on page " + (page + 1));
             bar.Turn();
         }
+    }
+
+    /// <summary>
+    /// Described answers stand in the panel under the eight lines a page (the lead's 22:04Z): a card of them pages by the plane's
+    /// measure of a list row as the card draws it (AUDIT's 22:06Z), the card's title counted on every page, so no page passes eight
+    /// lines and every answer is reached once; the column holds none of them.
+    /// </summary>
+    [Test]
+    public void DescribedAnswersStandInThePanelUnderTheEightLinesAPage()
+    {
+        var form = RoomForm.Full.Measured((row, _) => 1).MeasuredList(row => 1 + (row.Under == null ? 0 : 2));
+        var answers = Enumerable.Range(1, 7).Select(n => new PageLine("Answer " + n, action: "answer", key: n.ToString(), choice: true, answerMark: AnswerMark.Single)
+            .WithUnder(LineWords.Ours("What answer " + n + " keeps, in a sentence long enough to wrap twice."))).ToList();
+        var bar = RoomBar.OfFrame(Frame(answers), VoiceStage.Idle, form)!;
+        var reached = new List<string>();
+        for (var page = 0; page < bar.GeneralPart.Pages; page++)
+        {
+            Assert.That(1 + bar.Card!.List.Sum(row => 1 + (row.Under == null ? 0 : 2)), Is.LessThanOrEqualTo(RoomForm.SpecLines), "page " + (page + 1) + " passes eight lines");
+            Assert.That(bar.Column.Any(action => action.Control.Action == "answer"), Is.False, Show(bar));
+            reached.AddRange(bar.Card.List.Select(row => row.Name.Text));
+            bar.Turn();
+        }
+        Assert.That(reached, Is.EqualTo(Enumerable.Range(1, 7).Select(n => "Answer " + n)));
+        Assert.That(bar.GeneralPart.Pages, Is.EqualTo(4), "two described answers a page beside the title");
     }
 }

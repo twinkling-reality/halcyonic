@@ -56,17 +56,22 @@ public sealed class RoomProjectsTests
     public void AnythingElseOnThePlaceStaysTheOlderViews()
     {
         // Folders to connect beside the projects: the Projects reader declines it (its card lists projects only), so the general
-        // reader draws it, every line among its pages: the projects, and the Folders heading over its folders as rows.
+        // reader draws it, every line among its pages, in the frame's order: the projects (their summaries make them choices read
+        // in the panel, the lead's 22:04Z), then the Folders heading over its folders, unpressed. Its card is titled by the
+        // frame's subject too, so it is told from the Projects reader's by holding the folders.
         var frame = Projects(foldersOpen: true);
         var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
-        Assert.That(bar.Card?.Title?.Text, Is.Not.EqualTo(RoomBar.ProjectsTitle), "not the Projects reader's card");
         var drawn = new System.Collections.Generic.List<string>();
+        var unpressed = new System.Collections.Generic.List<string>();
         for (var page = 0; page < System.Math.Max(1, bar.GeneralPart.Pages); page++)
         {
             drawn.AddRange(bar.Facts?.Select(row => row.Words.Text) ?? Enumerable.Empty<string>());
+            drawn.AddRange(bar.Card?.List.Select(row => row.Name.Text) ?? Enumerable.Empty<string>());
+            unpressed.AddRange(bar.Card?.List.Where(row => row.Press == null).Select(row => row.Name.Text) ?? Enumerable.Empty<string>());
             drawn.AddRange(bar.Column.Select(action => action.Words));
             bar.Turn();
         }
         Assert.That(frame.Lines.Select(line => line.Words), Is.SubsetOf(drawn));
+        Assert.That(unpressed.Distinct(), Is.EqualTo(frame.Lines.Where(line => line.Action == null).Select(line => line.Words)), "the folders, not the Projects reader's card (a card that fits one page stands on each)");
     }
 }
