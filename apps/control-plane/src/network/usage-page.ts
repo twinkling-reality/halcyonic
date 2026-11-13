@@ -116,10 +116,13 @@ export const USAGE_WORDS = {
     output: 'Output',
     reasoning: 'Thinking (in Output)',
   },
-  /** The limit's state, in the words the host already says it in (command-service's refusals). */
+  /**
+   * The limit's state. Waiting is a task re-attached after a restart whose spend so far is not known: it waits for the
+   * person to give a limit that counts from now (ADR 0062), so the word says what the person must do.
+   */
   limit: {
     reached: 'At Its Limit',
-    waiting: 'Cost Before Restart Not Known',
+    waiting: 'Needs a New Limit',
   },
   assistant: "Your requests to the assistant on a hosted model aren't counted here.",
 } as const;

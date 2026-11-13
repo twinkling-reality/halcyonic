@@ -257,8 +257,8 @@ test('money: under a cent never reads $0.00, and a limit says its state in the h
     card?.tasks.map((row) => [row.limit?.value, row.limit?.notes]),
     [
       ['$1.00', []],
-      ['$0.50', [USAGE_WORDS.limit.reached]],
-      ['$2.00', [USAGE_WORDS.limit.waiting]],
+      ['$0.50', ['At Its Limit']],
+      ['$2.00', ['Needs a New Limit']],
     ],
   );
 });
