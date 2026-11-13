@@ -13,6 +13,38 @@ export interface Model {
   ): Promise<ToolTurnResult>;
 }
 
+/**
+ * What a hosted model costs the person, in the host's words, read by the list's rows and the one review alike (the
+ * lead's ruling on 1111-b123, 2026-11-13: a person who has never heard of an API key knows before the press that it
+ * costs money). The provider is named by its declaration. The price is not known here, so none is guessed.
+ */
+export const HOSTED_COST = {
+  detail: (provider: string) => `On ${provider}, Costs Money`,
+  whatHappens: (provider: string) =>
+    `From now on the assistant answers on this model, and ${provider} charges you money for each request.`,
+  warnings: (provider: string) => [
+    {
+      code: 'costs_money',
+      line: `You pay for it on your own ${provider} account, through the access key from that account you added on this computer`,
+    },
+    {
+      code: 'price_unknown',
+      line: 'Halcyonic does not know the price, so it cannot say how much a request costs or show a total yet',
+    },
+    {
+      code: 'sent_to_provider',
+      line: `Your requests, and what the assistant reads from your projects to answer them, are sent to ${provider}`,
+    },
+    {
+      code: 'free_here',
+      line: "This Computer's Model is free: nobody charges you for its requests",
+    },
+  ],
+  /** This computer's own model, the one nobody charges for. */
+  localWhatHappens:
+    "From now on the assistant answers on this computer's model, which is free, and nothing it reads leaves this computer.",
+} as const;
+
 const unavailable = (code: string, message: string): WorkspaceAgentStatus => ({
   availability: 'unavailable',
   reason: { code, message },
@@ -89,7 +121,7 @@ export class AssistantModel implements Model {
         rows.push({
           model: { provider_id: hosted.provider.id, model },
           label: model,
-          detail: 'message' in key ? key.message : `On ${hosted.provider.name}`,
+          detail: 'message' in key ? key.message : HOSTED_COST.detail(hosted.provider.name),
           theirs: true,
           usable: key.kind === 'stored',
         });

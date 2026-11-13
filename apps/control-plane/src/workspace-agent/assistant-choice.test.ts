@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
-  type ActionReview,
+  ActionReview,
   type CommandId,
   compileValidator,
   type HereScope,
@@ -16,7 +16,7 @@ import type { HostedProvider } from '@halcyonic/runtime-core';
 import { createUuidV7Generator } from '../ids.ts';
 import { HostProviders } from '../providers.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
-import type { Model } from './assistant-model.ts';
+import { HOSTED_COST, type Model } from './assistant-model.ts';
 import type { ToolTurnResult } from './ollama.ts';
 import { assistantModel } from './providers/assistant.ts';
 import { KEY_REFUSED, type Protocol } from './providers/provider.ts';
@@ -172,7 +172,7 @@ test('a stored key offers its models and moves nothing until the person presses 
     list?.rows.map((row) => [row.label, row.detail, row.actions]),
     [
       ["This Computer's Model", 'local-model:tag', ['assistant.model.choose']],
-      ['test-model-1', 'On Test Hosted', ['assistant.model.choose']],
+      ['test-model-1', 'On Test Hosted, Costs Money', ['assistant.model.choose']],
     ],
   );
   // Nothing chosen: the request runs on this computer, and the stored key spends nothing.
@@ -344,9 +344,56 @@ test("a press on a hosted row waits on the host's own card: its button, the mode
     { kind: 'words', value: 'test-model-1', theirs: true },
     { kind: 'words', value: 'Test Hosted', theirs: true },
   ]);
+  // The money first, in plain words, before the press: on whose account, that the price is not known, what is sent,
+  // and what stays free (the lead's ruling on 1111-b123).
+  assert.equal(
+    step?.proposal?.what_happens,
+    'From now on the assistant answers on this model, and Test Hosted charges you money for each request.',
+  );
   assert.deepEqual(step?.proposal?.warnings, [
-    { code: 'paid', line: 'Each request is paid with your key' },
+    {
+      code: 'costs_money',
+      line: 'You pay for it on your own Test Hosted account, through the access key from that account you added on this computer',
+    },
+    {
+      code: 'price_unknown',
+      line: 'Halcyonic does not know the price, so it cannot say how much a request costs or show a total yet',
+    },
+    {
+      code: 'sent_to_provider',
+      line: 'Your requests, and what the assistant reads from your projects to answer them, are sent to Test Hosted',
+    },
+    {
+      code: 'free_here',
+      line: "This Computer's Model is free: nobody charges you for its requests",
+    },
   ]);
+});
+
+test("the cost words fit the review's and the list's own contracts for the longest name a declaration may give", () => {
+  const longest = 'W'.repeat(80);
+  const review = compileValidator(ActionReview);
+  const words: ActionReview = {
+    command_type: 'assistant.model.choose',
+    digest: 'a'.repeat(64),
+    confirm_words: 'Use This Model',
+    what_happens: HOSTED_COST.whatHappens(longest),
+    facts: [],
+    items: [],
+    items_total: 0,
+    warnings: HOSTED_COST.warnings(longest),
+    said: [],
+  };
+  assert.ok(review(words).ok);
+  assert.ok(review({ ...words, what_happens: HOSTED_COST.localWhatHappens, warnings: [] }).ok);
+  assert.ok([...HOSTED_COST.detail(longest)].length <= 400);
+  // Unknown stays unknown: no price, estimate or reassurance about size is ever said.
+  const said = [
+    HOSTED_COST.whatHappens('P'),
+    ...HOSTED_COST.warnings('P').map((each) => each.line),
+  ].join(' ');
+  assert.doesNotMatch(said, /\$|\d|small|cheap|estimate|about/i);
+  assert.match(said, /charges you money/);
 });
 
 test("a review holding more than a proposal may carry is fitted to the proposal's own contract", () => {

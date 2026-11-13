@@ -19,6 +19,7 @@ import { COMMAND_FIELDS } from '@halcyonic/domain';
 import type { HostedProvider } from '@halcyonic/runtime-core';
 import { declarationProblem } from '../providers.ts';
 import { sendTitle } from '../sending/github.ts';
+import { HOSTED_COST } from '../workspace-agent/assistant-model.ts';
 import type { ControlPlane } from './control-plane.ts';
 import { readRules, rulesReview } from './project-rules.ts';
 import { locationReview, reviewDigest } from './review.ts';
@@ -500,33 +501,29 @@ export async function buildReview(
         warnings: [],
       });
     case 'assistant.model.choose': {
-      // Where the assistant will run, read before the one press (the lead's D1, 2026-11-12): a hosted model is paid
-      // with the person's key, and what each request reads goes to its provider.
+      // Where the assistant will run, read before the one press (the lead's D1, 2026-11-12), in HOSTED_COST's words:
+      // a hosted model costs money on the person's own account, and what each request reads goes to its provider.
       const chosen = command.payload.model;
+      // The provider by the name it declares, as the person knows it; its id only where none is declared now.
+      const provider =
+        chosen === null
+          ? null
+          : (controlPlane.providers?.byId(chosen.provider_id)?.name ?? chosen.provider_id);
       return review({
         digest: reviewDigest('assistant.model.choose', {}, { model: chosen }),
         confirm_words: chosen === null ? "Use This Computer's Model" : 'Use This Model',
         what_happens:
-          chosen === null
-            ? "The assistant runs on this computer's model, and nothing it reads leaves this computer"
-            : 'The assistant runs on this hosted model, paid with your key, and what each request reads goes to it',
+          provider === null ? HOSTED_COST.localWhatHappens : HOSTED_COST.whatHappens(provider),
         facts:
-          chosen === null
+          chosen === null || provider === null
             ? []
             : [
                 { kind: 'words', value: chosen.model, theirs: true },
-                // The provider by the name it declares, as the person knows it; its id only where none is declared now.
-                {
-                  kind: 'words',
-                  value:
-                    controlPlane.providers?.byId(chosen.provider_id)?.name ?? chosen.provider_id,
-                  theirs: true,
-                },
+                { kind: 'words', value: provider, theirs: true },
               ],
         items: [],
         items_total: 0,
-        warnings:
-          chosen === null ? [] : [{ code: 'paid', line: 'Each request is paid with your key' }],
+        warnings: provider === null ? [] : HOSTED_COST.warnings(provider),
       });
     }
     default:

@@ -593,7 +593,7 @@ test('with keys stored for two providers and nothing chosen, this computer runs 
         'The stored key can be read by other users, so it is not used.',
         false,
       ]),
-      ...first.models.map((model) => [model, `On ${first.name}`, true]),
+      ...first.models.map((model) => [model, `On ${first.name}, Costs Money`, true]),
     ],
   );
   assert.equal(a.seen.length + b.seen.length, 0, 'offering reads no network');
@@ -734,7 +734,7 @@ test('a third provider is one declaration file: offered, chosen and run by the a
     (await model.options()).map((option) => [option.label, option.detail, option.usable]),
     [
       ["This Computer's Model", 'local-model:tag', true],
-      ['test-model-1', 'On Third Hosted', true],
+      ['test-model-1', 'On Third Hosted, Costs Money', true],
     ],
   );
   chosen = { provider_id: 'third', model: 'test-model-1' };
