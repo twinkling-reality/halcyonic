@@ -82,7 +82,7 @@ public class FileScreensTests
         Assert.That(frame.Lines.Select(line => (line.Words, line.Chip)).Take(3), Is.EqualTo(new[]
         {
             ("4 files changed: 4 edited", (string?)null),
-            ("1 file not checked after the last change", "Inferred"),
+            ("1 file had no check after the last change", "Inferred"),
             ("I will add an idempotency key in ChargeService so a retried charge returns the first one.", SectionLine.AgentChip),
         }));
         var openers = frame.Lines.Where(line => line.Opens).ToList();

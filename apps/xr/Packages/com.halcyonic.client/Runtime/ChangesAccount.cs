@@ -9,7 +9,7 @@ namespace Halcyonic.Client
     /// 2026-11-12T1115Z and 1256Z): after the files, what changed, why and how it was built, each the brief answer XR
     /// computes from the understanding (<see cref="UnderstandingPresenter"/>, <see cref="AnswerDepth.Brief"/>), a part a
     /// card: the answer's lead line its description, whole, the agent's or a model's words alone, said to be theirs first, as
-    /// the card's state under its title (the speech bubble, RoomKind.Says, and Agent Says or Model Says; FIELD's 17:34Z; the
+    /// the card's state under its title (the speech bubble, RoomKind.Says, and Agent Says or Model's Explanation; FIELD's 17:34Z; the
     /// critic, 2026-11-13: a slot beneath the words read as a button and came after them); the rest as rows,
     /// each with its kind and how it is known as its quiet note in our words (the product's chips join facts on a dot, so
     /// they are never drawn here). The files stay first and nothing the page offers moves behind it. An answer with no lines
@@ -35,7 +35,8 @@ namespace Halcyonic.Client
         /// <summary>A subagent's words, and words whose author the source does not know: said so, never given to the agent.</summary>
         public const string SubagentSays = "Subagent Says";
         public const string AuthorUnknown = "Author Unknown";
-        public const string ModelSays = "Model Says";
+        /// <summary>A model's words are its explanation, written, never said, and never taken for the agent's (critic 9).</summary>
+        public const string ModelSays = "Model's Explanation";
         public const string Inferred = "Inferred";
         public const string Planned = "Planned";
 
@@ -69,7 +70,9 @@ namespace Halcyonic.Client
                 List<(SectionLine Line, LineWords? Under)> rows;
                 if (full != null && full.Lines.Count > 0)
                 {
-                    rows = Rows(full.Lines);
+                    // How It's Built begins with how the work does it (critic 9: it began with why, repeating the Why card), the
+                    // other steps after it, then the evidence, as the explanation gives them.
+                    rows = Rows(prompt == UnderstandPrompt.HowBuilt ? HowFirst(full.Lines) : full.Lines);
                     // The lead is said once: where the full lines hold it, it stands in its own place among them (the latest
                     // reason with its files, the how under its step), never again as the description.
                     if (leads && rows.Any(row => row.Line.Text == lead.Text)) leads = false;
@@ -169,7 +172,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The card's state saying whose a lead's words are, under the title and before them: the speech bubble and who said them
-        /// (Agent Says, Subagent Says, Author Unknown) or Model Says, quiet; none for our own or observed words.
+        /// (Agent Says, Subagent Says, Author Unknown) or Model's Explanation, quiet; none for our own or observed words.
         /// </summary>
         public static RoomCardStatus? WhoSaid(SectionLine line) => line.Evidence switch
         {
@@ -190,6 +193,25 @@ namespace Halcyonic.Client
                 who != null && KindOf(row.Line) == RoomKind.Says ? RoomKind.None : KindOf(row.Line), row.Line.Runs,
                 Named(row.Line) ? null : NoteOf(row.Line), under: who?.Title == ModelSays ? UnderstandingPresenter.Currency(row.Under) : row.Under)).ToList();
             return new RoomCard(LineWords.Ours(TitleOf(prompt)), lead?.Runs, status: who, list: rows, more: Source);
+        }
+
+        /// <summary>The explanation's steps with its How step first, each step whole (its heading and every line to the next heading).</summary>
+        private static IReadOnlyList<SectionLine> HowFirst(IReadOnlyList<SectionLine> lines)
+        {
+            var steps = new List<List<SectionLine>>();
+            foreach (var line in lines)
+            {
+                if (line.StartsPage || steps.Count == 0) steps.Add(new List<SectionLine>());
+                steps[steps.Count - 1].Add(line);
+            }
+            var how = steps.FindIndex(step => step[0].StartsPage && step[0].Text == UnderstandingPresenter.HowStep);
+            if (how > 0)
+            {
+                var first = steps[how];
+                steps.RemoveAt(how);
+                steps.Insert(0, first);
+            }
+            return steps.SelectMany(step => step).ToList();
         }
 
         /// <summary>

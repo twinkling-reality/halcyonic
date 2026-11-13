@@ -59,7 +59,7 @@ namespace Halcyonic.XR.Workspace.Editor
             SectionPresentation Answer(params SectionLine[] lines) => new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1", SectionTone.Secondary, lines, simulated: standIn);
             var what = Answer(
                 Line("observed", Ours("3 files changed: 1 new, 2 edited")),
-                Line("inferred", Ours("All checked after the last change")));
+                Line("inferred", Ours("A check ran after every file's last change")));
             var agents = Reason("I split the tail into six segments so it moves like cloth, not a stick.", SectionLine.AgentChip);
             var subagents = Reason("I matched the tail's colour to the sail so the kite reads as one thing from below.", SectionLine.SubagentChip);
             var why = Answer(subagents, Line("", Ours("And 1 more reason it gave")));
@@ -76,8 +76,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var howFull = Answer(
                 Heading("What it is about"), Note(), Model("", "A kite whose tail moves like cloth in the wind."),
                 Heading(UnderstandingPresenter.WhyStep), Note(), Model("", "A stiff tail read as a stick in the first test."), Model("1. ", "Split the tail."), Model("2. ", "Match its colour to the sail."),
-                Heading("How"), Note(), how, Model("Starts at ", "TailSegments.cs"), Model("1. ", "Each segment follows the one ahead."), Model("2. ", "The delay grows toward the end."),
-                Heading("The evidence"), Line("observed", Ours("3 files changed: 1 new, 2 edited")), Line("inferred", Ours("All checked after the last change")));
+                Heading(UnderstandingPresenter.HowStep), Note(), how, Model("Starts at ", "TailSegments.cs"), Model("1. ", "Each segment follows the one ahead."), Model("2. ", "The delay grows toward the end."),
+                Heading("The evidence"), Line("observed", Ours("3 files changed: 1 new, 2 edited")), Line("inferred", Ours("A check ran after every file's last change")));
             var account = new ChangesAccount(what, why, howBuilt, whyFull, howFull);
             // A part a speaker and a step: what changed; the agent's reason; the subagent's; then How It's Built's steps, the Why
             // step (numbered) and the How step (its words, where it starts, its steps), each under its heading.
