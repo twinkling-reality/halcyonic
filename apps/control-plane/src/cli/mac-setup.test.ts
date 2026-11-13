@@ -1419,7 +1419,7 @@ describe('pnpm mac-setup', () => {
     assert.match(said, /npm ci --prefix "\$HOME\/\.halcyonic\/starters\/iwsdk-vr"/);
     assert.match(said, /--ignore-scripts/);
     assert.match(said, /--registry https:\/\/registry\.npmjs\.org\//);
-    assert.match(said, /--userconfig \/dev\/null --globalconfig \/dev\/null/);
+    assert.match(said, /--userconfig "\$\(mktemp\)" --globalconfig "\$\(mktemp\)"/);
     assert.match(said, /starters\/iwsdk-vr\/package-lock\.json/);
     assert.equal(
       existsSync(join(machine.dataDir, 'starters', 'iwsdk-vr', 'installed.json')),

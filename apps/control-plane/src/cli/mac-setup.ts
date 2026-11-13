@@ -1217,7 +1217,7 @@ class MacSetup {
     for (const command of [
       `mkdir -p ${at(folder)}`,
       `cp ${at(join(TRACKED_STARTERS, VR_STARTER, 'package.json'))} ${at(lock)} ${at(folder)}`,
-      `npm ci --prefix ${at(folder)} --ignore-scripts --no-audit --no-fund --userconfig /dev/null --globalconfig /dev/null --cache "$(mktemp -d)" --registry https://registry.npmjs.org/`,
+      `npm ci --prefix ${at(folder)} --ignore-scripts --no-audit --no-fund --userconfig "$(mktemp)" --globalconfig "$(mktemp)" --cache "$(mktemp -d)" --registry https://registry.npmjs.org/`,
       'pnpm mac-setup starter',
     ])
       io.print(`     ${command}`);

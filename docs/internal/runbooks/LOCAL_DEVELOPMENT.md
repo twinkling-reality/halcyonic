@@ -350,7 +350,7 @@ nothing else is in it: no package the lockfile doesn't list, and no link but npm
 ```bash
 mkdir -p "$HOME/.halcyonic/starters/iwsdk-vr"
 cp starters/iwsdk-vr/package.json starters/iwsdk-vr/package-lock.json "$HOME/.halcyonic/starters/iwsdk-vr"
-npm ci --prefix "$HOME/.halcyonic/starters/iwsdk-vr" --ignore-scripts --no-audit --no-fund --userconfig /dev/null --globalconfig /dev/null --cache "$(mktemp -d)" --registry https://registry.npmjs.org/
+npm ci --prefix "$HOME/.halcyonic/starters/iwsdk-vr" --ignore-scripts --no-audit --no-fund --userconfig "$(mktemp)" --globalconfig "$(mktemp)" --cache "$(mktemp -d)" --registry https://registry.npmjs.org/
 pnpm mac-setup starter
 ```
 
