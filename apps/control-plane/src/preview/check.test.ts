@@ -12,6 +12,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { type AddressInfo, createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { after, before, describe, type TestContext, test } from 'node:test';
@@ -100,6 +101,15 @@ const STARTER = process.env.HALCYONIC_TEST_STARTER ?? '';
 const BROWSER = process.env.HALCYONIC_TEST_BROWSER ?? '';
 const BROWSER_SHA256 = process.env.HALCYONIC_TEST_BROWSER_SHA256 ?? '';
 const PORT = Number(process.env.HALCYONIC_TEST_CHECK_PORT ?? '47886');
+/** A port the system lets a server listen on now. */
+const freePort = () =>
+  new Promise<number>((resolve) => {
+    const probe = createServer();
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address() as AddressInfo;
+      probe.close(() => resolve(port));
+    });
+  });
 const SKIP =
   STARTER === '' || BROWSER === '' || BROWSER_SHA256 === ''
     ? 'HALCYONIC_TEST_STARTER, HALCYONIC_TEST_BROWSER and HALCYONIC_TEST_BROWSER_SHA256 are not set'
@@ -307,6 +317,42 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     const copy = builtCopy(result.cache);
     assert.ok(!copy.includes(marker), 'the marker is in the built copy');
     assert.ok(!copy.includes(Buffer.from(marker).toString('base64')), 'the marker is inlined');
+  });
+
+  test("a port another process took before the check's server listened is left for another the host gives, and the check passes there", {
+    timeout: 180_000,
+  }, async (t) => {
+    // Another Halcyonic on this Mac took the port the host found free, while the check built its copy.
+    const foreign = createServer();
+    await new Promise<void>((resolve) => foreign.listen(PORT, '127.0.0.1', resolve));
+    t.after(() => foreign.close());
+    const given: number[] = [];
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-check-')));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const project = join(root, 'project');
+    cpSync(template, project, { recursive: true });
+    symlinkSync(join(STARTER, 'node_modules'), join(project, 'node_modules'));
+    addToIndex(
+      project,
+      "import { BoxGeometry, Mesh, MeshStandardMaterial } from 'three';",
+      'world.createTransformEntity(new Mesh(new BoxGeometry(0.6, 0.6, 0.6), new MeshStandardMaterial({ color: 0xff8800 })).translateX(-2).translateY(1.3).translateZ(-3.9));',
+    );
+    const result = await runCheck({
+      ...options(project, join(root, 'cache')),
+      reference,
+      anotherPort: async (taken) => {
+        given.push(taken);
+        return await freePort();
+      },
+    });
+    // The one taken first; another only where the port given was itself taken before the server listened.
+    assert.equal(given[0], PORT, 'another port asked for, in place of the one taken');
+    assert.equal(result.unknown, null);
+    assert.equal(result.passed, true, JSON.stringify(result.page?.edges));
+    // With no other port to take, the check says its copy was not served, and does not pass.
+    const refused = await runCheck({ ...options(project, join(root, 'cache-2')), reference });
+    assert.equal(refused.unknown, 'The built copy was not served.');
+    assert.equal(refused.passed, false);
   });
 
   test('an uncaught exception in the page is caught and fails the check', {

@@ -101,6 +101,14 @@ export interface CheckOptions {
   readonly profiles: string | null;
   /** A free loopback port for the built copy. */
   readonly port: number;
+  /**
+   * A free port in place of one the check's server did not serve on because of the port: another
+   * process listens there (another Halcyonic on this Mac), or the server ended before serving, as
+   * Vite does when its port is held even for a moment; a server that ends so is given one more
+   * port, never more. The copy is then served there instead. It rejects once no port is left;
+   * then, or when it is absent, the check reads that its copy was not served.
+   */
+  readonly anotherPort?: (lost: number) => Promise<number>;
   /** How long the twin step may take by the wall clock; `TWIN_STEP_MS` unless a test shortens it. */
   readonly twinStepMs?: number;
   /** What the project's own picture is compared with (DRAWN). */
@@ -311,38 +319,59 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
       ...steps,
     };
   }
-  const server = spawn(
-    SANDBOX_EXEC,
-    sandboxed([
-      vite,
-      'preview',
-      '--configLoader',
-      'native',
-      '--config',
-      config,
-      '--outDir',
-      join(cache, 'dist'),
-    ]),
-    { env, cwd: cache, stdio: 'ignore' },
-  );
+  const serverOn = (on: number) =>
+    spawn(
+      SANDBOX_EXEC,
+      sandboxed([
+        vite,
+        'preview',
+        '--configLoader',
+        'native',
+        '--config',
+        config,
+        '--outDir',
+        join(cache, 'dist'),
+      ]),
+      { env: { ...env, HALCYONIC_PREVIEW_PORT: String(on) }, cwd: cache, stdio: 'ignore' },
+    );
+  // The port was found free before the build, and another process can take it before the server
+  // listens there. Once its own server is stopped, that process still listens there; or the server
+  // ended before serving (strictPort), which a broken server does too, so that is tried once more.
+  let served = port;
+  let server = serverOn(served);
+  let endedOnce = false;
   try {
-    if (server.pid !== undefined) await options.onServer?.(server.pid);
-    if (!(await servesCopy(server, port, join(cache, 'dist'), 30_000))) {
-      return {
-        tsc,
-        build,
-        page: null,
-        unknown: 'The built copy was not served.',
-        passed: false,
-        ...steps,
-      };
+    for (;;) {
+      if (server.pid !== undefined) await options.onServer?.(server.pid);
+      if (await servesCopy(server, served, join(cache, 'dist'), 30_000)) break;
+      const endedItself = server.exitCode !== null || server.signalCode !== null;
+      await stopProcess(server);
+      const held = (await listenersOf(served)).length > 0;
+      const lost = held || (endedItself && !endedOnce);
+      if (!held && endedItself) endedOnce = true;
+      const next =
+        lost && options.anotherPort !== undefined
+          ? await options.anotherPort(served).catch(() => null)
+          : null;
+      if (next === null) {
+        return {
+          tsc,
+          build,
+          page: null,
+          unknown: 'The built copy was not served.',
+          passed: false,
+          ...steps,
+        };
+      }
+      served = next;
+      server = serverOn(served);
     }
     const opened = await openPage(
       options.chrome,
       options.launcher ?? null,
       options.home,
       join(cache, 'chrome'),
-      port,
+      served,
       cache,
       layer,
     );
@@ -377,7 +406,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
           launcher: options.launcher ?? null,
           home: options.home,
           folder: join(cache, `chrome-twin-${loads}`),
-          port,
+          port: served,
         });
         // Past the step's time, the Chrome stops at once, whatever the load is waiting on.
         const stop = () => void run.stop();
@@ -385,7 +414,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
         try {
           if (signal.aborted) throw new Error('the twin step ran out of time');
           const first = loads === 1;
-          const loaded = await twinLoad(run, `http://127.0.0.1:${port}/?check`, target, signal);
+          const loaded = await twinLoad(run, `http://127.0.0.1:${served}/?check`, target, signal);
           if (first && target === null) kept.still = loaded.end;
           return loaded;
         } finally {
@@ -402,7 +431,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
     }
     // Only a picture to compare, or to make the reference from, is worth a load.
     const wanted = options.reference.kind === 'compared' || options.reference.kind === 'making';
-    const frame = wanted ? (kept.still ?? (await ownPicture(options))) : null;
+    const frame = wanted ? (kept.still ?? (await ownPicture({ ...options, port: served }))) : null;
     const own = await ownFrom(frame, options.reference, cache);
     const page: PageFindings = {
       ...opened.page,
@@ -545,7 +574,7 @@ export async function servesCopy(
 }
 
 /** The pids listening on 127.0.0.1:port, by lsof; none when nothing listens. */
-function listenersOf(port: number): Promise<number[]> {
+export function listenersOf(port: number): Promise<number[]> {
   return new Promise((resolve) => {
     execFile(
       '/usr/sbin/lsof',

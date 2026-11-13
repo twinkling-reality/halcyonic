@@ -109,6 +109,40 @@ interface PlaneOptions {
   readonly secrets?: () => readonly { readonly what: string; readonly value: string }[];
   /** Runs inside every check once its copy is built, where the real check serves it. */
   readonly during?: (options: CheckOptions) => Promise<void>;
+  /** The host's preview ports; by default the product's own range. */
+  readonly ports?: readonly [number, number];
+}
+
+/** Whether a server can listen on 127.0.0.1:`port` now. */
+const listenableNow = (port: number) =>
+  new Promise<boolean>((resolve) => {
+    const probe = createServer();
+    probe.once('error', () => resolve(false));
+    probe.listen({ port, host: '127.0.0.1', exclusive: true }, () =>
+      probe.close(() => resolve(true)),
+    );
+  });
+
+/** How many port blocks this run has taken; each `freeRange` takes the next. */
+let blocks = 0;
+
+/**
+ * `count` ports in a row (ten at most), each free now, outside the product's range and below the
+ * ephemeral one macOS gives by default (49152 on), so a test counting its servers or holding its
+ * ports does not meet the ports a Halcyonic previews on, or a port a listen on port 0 is given.
+ * Each call takes the next block of ten from 20000, starting at a block of this process's own, so
+ * runs side by side are spread over the blocks, not kept apart. Free, not reserved.
+ */
+async function freeRange(count: number): Promise<readonly [number, number]> {
+  assert.ok(count <= 10, 'a block holds ten ports');
+  for (;;) {
+    const first = 20_000 + ((process.pid * 97 + blocks) % 2_000) * 10;
+    blocks += 1;
+    let free = true;
+    for (let port = first; port < first + count && free; port += 1)
+      free = await listenableNow(port);
+    if (free) return [first, first + count - 1];
+  }
 }
 
 /** The starter's own picture the stand-in check makes (DRAWN). */
@@ -151,6 +185,7 @@ function plane(
     reference = 'made',
     secrets,
     during,
+    ports,
   }: PlaneOptions = {},
 ) {
   const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-previews-')));
@@ -180,6 +215,7 @@ function plane(
       },
       confinesCodex: true,
       ...(play === undefined ? {} : { play }),
+      ...(ports === undefined ? {} : { ports }),
       runCheck: async (options) => {
         checked.push(options);
         if (checked.length > 1 && hold !== undefined) await hold;
@@ -784,6 +820,52 @@ describe("the host's checks and previews (ADR 0037)", () => {
     assert.ok(!journaled.includes(token.slice(0, 8)), 'nothing of the token');
   });
 
+  test('a port another process takes between the free-port probe and the server binding it is left for the next free one, and the preview starts', async (t) => {
+    // Another process (here this test's own) binds the port the preview found free, just before its server does: the
+    // server cannot serve there, and the start tries the next free port rather than failing (two planes on one Mac).
+    const foreign: ReturnType<typeof createServer>[] = [];
+    t.after(() => {
+      for (const server of foreign) server.close();
+    });
+    let calls = 0;
+    let takenPort = 0;
+    const { submit, done, types, controlPlane, projectId } = plane(t, {
+      ports: await freeRange(3),
+      serve: (args) => {
+        calls += 1;
+        if (calls === 1) {
+          const port = Number(args.env.HALCYONIC_PREVIEW_PORT);
+          takenPort = port;
+          const server = createServer((_, res) => res.end('not the checked copy'));
+          server.once('error', () => undefined);
+          server.listen(port, '127.0.0.1');
+          foreign.push(server);
+        }
+        return serving(args);
+      },
+    });
+    await done(submit('project.check').command.command_id);
+    const started = await done(submit('project.preview.start').command.command_id);
+    assert.equal(started?.status, 'completed', JSON.stringify(started));
+    assert.equal(calls, 2, 'one more server, on the next free port');
+    assert.notEqual(controlPlane.projection.preview(projectId)?.port, takenPort);
+    assert.equal(types().filter((type) => type === 'project.preview.started').length, 1);
+  });
+
+  test('a check whose port another process took is given the next free one, and the taken one is not given again', async (t) => {
+    const given: number[] = [];
+    const { submit, done } = plane(t, {
+      during: async (options) => {
+        given.push(options.port);
+        given.push(await (options.anotherPort?.(options.port) ?? Promise.resolve(options.port)));
+      },
+    });
+    const checked = await done(submit('project.check').command.command_id);
+    assert.equal(checked?.status, 'completed', JSON.stringify(checked));
+    assert.equal(given.length, 2);
+    assert.notEqual(given[1], given[0]);
+  });
+
   test('a new check stops the preview of the old one first', async (t) => {
     const { submit, done, types } = plane(t);
     await done(submit('project.check').command.command_id);
@@ -801,7 +883,9 @@ describe("the host's checks and previews (ADR 0037)", () => {
   });
 
   test('at a restart, a recorded preview is recorded stopped, and a pid is signalled only if it still serves that copy', async (t) => {
-    const { controlPlane, submit, done, types, projectId, dataDir, served } = plane(t);
+    const { controlPlane, submit, done, types, projectId, dataDir, served } = plane(t, {
+      ports: await freeRange(3),
+    });
     await done(submit('project.check').command.command_id);
     await done(submit('project.preview.start').command.command_id);
     assert.ok(served.length === 1);
@@ -864,27 +948,37 @@ describe("the host's checks and previews (ADR 0037)", () => {
     await done(second.command.command_id);
   });
 
-  test('a server that exits at once is never recorded started, and the command fails', async (t) => {
-    const { controlPlane, submit, done, types, projectId, dataDir } = plane(t, {
+  test('a server that exits at once is never recorded started, is tried on one more port only, and the command fails', async (t) => {
+    const { controlPlane, submit, done, types, projectId, dataDir, served } = plane(t, {
+      ports: await freeRange(3),
       serve: () => spawn('/usr/bin/false', [], { stdio: 'ignore' }),
     });
     await done(submit('project.check').command.command_id);
     const started = await done(submit('project.preview.start').command.command_id);
     assert.equal(started?.status, 'failed');
+    // Its port may have been held for a moment, so one more; a server that cannot serve ends so on every port.
+    assert.equal(served.length, 2);
     assert.equal(controlPlane.projection.preview(projectId), undefined);
     assert.ok(!existsSync(join(dataDir, 'previews', `${projectId}.json`)));
     assert.ok(!types().some((type) => type.startsWith('project.preview.')));
   });
 
-  test('a port another process answers fails the start, even with the same bytes, and the server is stopped', async (t) => {
-    const other = createServer((_, res) => res.end(body));
+  test('a port another process answers is never recorded, even with the same bytes: each port is tried once, the servers stopped, and the start fails', async (t) => {
+    const others: ReturnType<typeof createServer>[] = [];
     let body = '';
-    t.after(() => other.close());
-    const { controlPlane, submit, done, types, projectId, children, checked } = plane(t, {
-      // Another process takes the port after the host found it free, and answers there; the
+    t.after(() => {
+      for (const other of others) other.close();
+    });
+    const range = await freeRange(3);
+    const { controlPlane, submit, done, types, projectId, children, checked, served } = plane(t, {
+      ports: range,
+      // Another process takes each port after the host found it free, and answers there; the
       // server itself is alive but never serving, as Vite is for a moment before strictPort exits.
       serve: (args) => {
+        const other = createServer((_, res) => res.end(body));
+        other.once('error', () => undefined);
         other.listen(Number(args.env.HALCYONIC_PREVIEW_PORT), '127.0.0.1');
+        others.push(other);
         return spawn('/bin/sleep', ['30'], { stdio: 'ignore' });
       },
     });
@@ -892,39 +986,49 @@ describe("the host's checks and previews (ADR 0037)", () => {
     body = `<title>${checked[0]?.cache}</title>`;
     const started = await done(submit('project.preview.start').command.command_id);
     assert.equal(started?.status, 'failed');
+    // Each port of its range once, as found free, and no other.
+    const tried = served.map((args) => Number(args.env.HALCYONIC_PREVIEW_PORT));
+    assert.deepEqual(tried, [range[0], range[0] + 1, range[1]]);
     assert.equal(controlPlane.projection.preview(projectId), undefined);
     assert.ok(!types().some((type) => type.startsWith('project.preview.')));
     assert.equal(alive(children), 0);
   });
 
   test('a port the system already holds is skipped: the preview takes the next free one, and the holder is left alone', async (t) => {
+    // A range of its own, its first port held here: in the product's, a run beside this one could
+    // hold the first and let it go again before the start.
+    let first = 0;
+    let last = 0;
     const holder = createServer((_, res) => res.end('another program'));
-    // Held here, or already by another process: either way the host must not take it.
-    await new Promise<void>((resolve) => {
-      holder.once('error', () => resolve());
-      holder.listen(PREVIEW_PORT_FIRST, '127.0.0.1', () => resolve());
-    });
+    // A range whose first port this test holds: another found free, should another process take it first.
+    while (!holder.listening) {
+      [first, last] = await freeRange(3);
+      await new Promise<void>((resolve) => {
+        holder.once('error', () => resolve());
+        holder.listen(first, '127.0.0.1', () => resolve());
+      });
+    }
     t.after(() => holder.close());
-    const { controlPlane, submit, done, projectId } = plane(t);
+    const { controlPlane, submit, done, projectId } = plane(t, { ports: [first, last] });
     await done(submit('project.check').command.command_id);
     const started = await done(submit('project.preview.start').command.command_id);
     assert.equal(started?.status, 'completed', JSON.stringify(started));
     const port = controlPlane.projection.preview(projectId)?.port ?? 0;
-    assert.ok(port > PREVIEW_PORT_FIRST && port <= PREVIEW_PORT_LAST, String(port));
-    if (holder.listening) {
-      const answer = await fetch(`http://127.0.0.1:${PREVIEW_PORT_FIRST}/`);
-      assert.equal(await answer.text(), 'another program');
-    }
+    assert.ok(port > first && port <= last, String(port));
+    const answer = await fetch(`http://127.0.0.1:${first}/`);
+    assert.equal(await answer.text(), 'another program');
   });
 
   test('with every port of the range held, a start fails, nothing is spawned and nothing is recorded', async (t) => {
-    const { submit, done, types, children } = plane(t);
+    // A range of its own: holding the product's would fail the previews of every run beside this one.
+    const [first, last] = await freeRange(3);
+    const { submit, done, types, children } = plane(t, { ports: [first, last] });
     await done(submit('project.check').command.command_id);
     const holders: ReturnType<typeof createServer>[] = [];
     t.after(() => {
       for (const holder of holders) if (holder.listening) holder.close();
     });
-    for (let port = PREVIEW_PORT_FIRST; port <= PREVIEW_PORT_LAST; port += 1) {
+    for (let port = first; port <= last; port += 1) {
       const holder = createServer();
       await new Promise<void>((resolve) => {
         holder.once('error', () => resolve());
@@ -939,7 +1043,7 @@ describe("the host's checks and previews (ADR 0037)", () => {
   });
 
   test('two starts at once: one preview, on one port, and close() leaves no server running', async (t) => {
-    const { controlPlane, submit, done, types, children } = plane(t);
+    const { controlPlane, submit, done, types, children } = plane(t, { ports: await freeRange(3) });
     await done(submit('project.check').command.command_id);
     const first = submit('project.preview.start');
     const second = submit('project.preview.start');
