@@ -59,7 +59,8 @@ namespace Halcyonic.Client
                 .Select(item => new RoomListRow(ReviewKinds.Mark(item.Kind), Words(item.Name, item.Theirs), item.Note, mono: ReviewKinds.Mono(item.Kind))).ToList();
             var warnings = CommandReview.Warnings(review);
             RoomCardStatus? status = warnings.Count == 0 ? (RoomCardStatus?)null
-                : new RoomCardStatus(RoomReview.CheckTitle, string.Join(". ", warnings.Select(each => each.Line.Trim().TrimEnd('.'))), RoomTone.Attention, RoomKind.Failed);
+                : new RoomCardStatus(RoomReview.CheckTitle, string.Join(". ", warnings.Select(each => each.Line.Trim().TrimEnd('.'))) + (warnings.Count > 1 ? "." : ""),
+                    RoomTone.Attention, RoomKind.Failed);
             return new RoomCard(Host(title), review.WhatHappens.Trim().Length > 0 ? Host(review.WhatHappens) : null, status: status, slots: slots, list: rows,
                 more: Foot(review, at, parts));
         }
