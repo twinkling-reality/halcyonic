@@ -957,12 +957,12 @@ namespace Halcyonic.XR.UI
             Foot = foot;
             PanelRight = left + panelWidth;
             Size = new Vector2(total, height);
-            var most = narrow ? LargestNarrow : Largest;
-            var passed = total > most.x + unit * 0.5f || height > most.y + unit * 0.5f;
+            var largest = narrow ? LargestNarrow : Largest;
+            var passed = total > largest.x + unit * 0.5f || height > largest.y + unit * 0.5f;
             if (passed && !PassedLargest)
                 Debug.LogWarning("Halcyonic: the bar laid past its largest footprint (" + (narrow ? "narrow" : "full") + "), "
                     + (total / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " by " + (height / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
-                    + " dp against " + (most.x / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " by " + (most.y / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + ".");
+                    + " dp against " + (largest.x / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " by " + (largest.y / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + ".");
             PassedLargest = passed;
             Narrow = narrow;
         }
