@@ -15398,6 +15398,39 @@
       },
       "additionalProperties": false
     },
+    "ProjectUsage": {
+      "type": "object",
+      "required": [
+        "turns",
+        "turns_ended",
+        "tokens",
+        "cost"
+      ],
+      "properties": {
+        "turns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "turns_ended": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tokens": {
+          "$ref": "#/$defs/UsageTokens"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UsageEstimate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "JournalInfo": {
       "type": "object",
       "required": [
@@ -16046,6 +16079,9 @@
         },
         "published": {
           "$ref": "#/$defs/ProjectPublishedView"
+        },
+        "usage": {
+          "$ref": "#/$defs/ProjectUsage"
         },
         "secrets": {
           "$ref": "#/$defs/SecretNames"

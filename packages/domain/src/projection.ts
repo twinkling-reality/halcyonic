@@ -59,6 +59,7 @@ import {
   deriveExecutionStatus,
   type ExecutionState,
   endTurn,
+  projectUsage,
   toExecutionView,
 } from './execution-state.ts';
 import { fixSteps } from './fix-steps.ts';
@@ -2477,6 +2478,21 @@ export class Projection {
       }
     }
     this.#touchExecution(execution, event.ingested_at, changes);
+    // The project's usage reads its runs' reports and, once one reported, their ended turns too.
+    const ended =
+      event.event_type === 'runtime.turn.completed' ||
+      event.event_type === 'runtime.turn.failed' ||
+      event.event_type === 'runtime.turn.interrupted';
+    if (
+      this.#projects.has(execution.projectId) &&
+      (event.event_type === 'runtime.usage.reported' ||
+        (ended &&
+          (this.#executionsByProject.get(execution.projectId) ?? []).some(
+            (each) => each.usage != null,
+          )))
+    ) {
+      changes.projects.add(execution.projectId);
+    }
   }
 
   #touchExecution(execution: ExecutionState, at: Timestamp, changes: ChangeSet): void {
@@ -2544,6 +2560,8 @@ export class Projection {
     }
     const published = this.#published.get(state.projectId);
     if (published !== undefined) view.published = { ...published };
+    const usage = projectUsage(this.#executionsByProject.get(state.projectId) ?? []);
+    if (usage !== null) view.usage = usage;
     const secrets = this.#secrets.get(state.projectId);
     if (secrets !== undefined) view.secrets = [...secrets];
     const share = this.#shares.get(state.projectId);
