@@ -5,6 +5,8 @@ import {
   CLAUDE_AGENT_RUNTIME_ID,
   ClaudeAgentRuntimeAdapter,
   type ClaudeConfinementOptions,
+  type PersonalSetupUse,
+  personalSetupUsed,
 } from '@halcyonic/integration-claude-code';
 import {
   CodexRuntimeAdapter,
@@ -54,11 +56,14 @@ export const KEYED_AGENT_APPS: readonly {
   readonly reader: KeyReader;
   /** Whether its runs can go outside Halcyonic's sandbox, as its adapter's class declares, whether or not it runs now. */
   readonly runsOutsideSandbox: () => boolean;
+  /** What of the person's own set-up for it a task outside the sandbox uses, as its adapter declares; null for none. */
+  readonly personalSetup: (() => PersonalSetupUse) | null;
 }[] = [
   {
     runtimeId: CLAUDE_AGENT_RUNTIME_ID,
     reader: CLAUDE_AGENT_READER,
     runsOutsideSandbox: () => ClaudeAgentRuntimeAdapter.runsOutsideSandbox(),
+    personalSetup: personalSetupUsed,
   },
 ];
 

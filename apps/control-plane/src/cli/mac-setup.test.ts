@@ -17,6 +17,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
+import { personalSetupUsed } from '@halcyonic/integration-claude-code';
 import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
 import { ConfigError, loadConfig } from '../config.ts';
 import { loopbackProof, PROOF_CHALLENGE_HEADER, PROOF_HEADER } from '../http/security.ts';
@@ -403,7 +404,7 @@ describe('pnpm mac-setup', () => {
       assert.doesNotMatch(output, /won't start/);
       assert.match(
         output,
-        /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment, unless your own Claude Code settings sign it in another way\./,
+        /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment\./,
       );
       machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '', ANTHROPIC_API_KEY: '' };
     }
@@ -436,11 +437,11 @@ describe('pnpm mac-setup', () => {
     assert.doesNotMatch(output, /won't start/);
     assert.match(
       output,
-      /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for through your Amazon Bedrock account, set in Halcyonic's environment, unless your own Claude Code settings sign it in another way\./,
+      /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for through your Amazon Bedrock account, set in Halcyonic's environment\./,
     );
     assert.match(
       output,
-      /Its models run on a remote service, Amazon Bedrock: nothing starts on one without its second press, and a task on one is paid for through your Amazon Bedrock account, unless your own Claude Code settings sign it in another way\./,
+      /Its models run on a remote service, Amazon Bedrock: nothing starts on one without its second press, and a task on one is paid for through your Amazon Bedrock account\./,
     );
     machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '', CLAUDE_CODE_USE_BEDROCK: '' };
     // In Terminal, with a key stored: on from the next start, whatever runs now, and counted as an agent app.
@@ -449,13 +450,21 @@ describe('pnpm mac-setup', () => {
     output = text(machine);
     assert.match(
       output,
-      /Claude Agent is on from Halcyonic's next start, with your key stored on this computer\. Every task on it is paid for with that key, unless your own Claude Code settings sign it in another way\./,
+      /Claude Agent is on from Halcyonic's next start, with your key stored on this computer\. Every task on it is paid for with that key\./,
     );
     assert.match(
       output,
       /Claude Agent is on from Halcyonic's next start\. Its models run on a remote service/,
     );
     assert.doesNotMatch(output, /No agent app is set up/);
+    // What of the person's own set-up a task on a connected folder uses, read from the adapter's declaration.
+    const used = personalSetupUsed();
+    assert.ok(
+      output.includes(
+        `On a folder you connected, and anywhere while a cloud provider is switched on, a task on Claude Agent uses the ${used.instructions} in your own Claude Code settings folder and ${used.hooksOf.map((name) => `${name}'s`).join(' and ')} hooks there, as their current installers write them, and nothing else of your own settings.`,
+      ),
+    );
+    assert.doesNotMatch(output, /unless your own Claude Code settings/);
     // On the page of a Halcyonic started without it: the key waits for the next start.
     machine.startedWith = [];
     await machine.run();
@@ -483,7 +492,7 @@ describe('pnpm mac-setup', () => {
     output = text(machine);
     assert.match(
       output,
-      /Claude Agent is on\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment, not the stored key, unless your own Claude Code settings sign it in another way\./,
+      /Claude Agent is on\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment, not the stored key\./,
     );
     assert.doesNotMatch(output, /with your key stored on this computer/);
     machine.env = { ...machine.env, ANTHROPIC_API_KEY: '' };
