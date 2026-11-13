@@ -420,6 +420,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (live == null && fallback.Line != null && plane.KitShows && plane.Kit.Bar.NoticeWords is TMP_Text noticeWords
                         && plane.Kit.Bar.NoticePlate is Halcyonic.XR.UI.RoomSurface noticePlate)
                         found.AddRange(NoticeCovered(root, camera, noticeWords, noticePlate.transform).Select(part => "the recording's line is covered by " + part));
+                    // No text joined on a dot anywhere a person reads (the owner, 2026-11-11; lead, 04:22Z): each one named.
+                    foreach (var text in root.GetComponentsInChildren<TMP_Text>(false))
+                    {
+                        if (!text.enabled || text.GetComponent<Renderer>() is Renderer hidden && !hidden.enabled) continue;
+                        var read = text.GetParsedText().Replace("\n", " ");
+                        if (read.Contains("\u00b7")) found.Add("a text joined on a dot: " + (OwnerOf(text.transform) ?? "?") + "/" + text.name + " \"" + read + "\"");
+                    }
                     if (live == null && director.VoiceOffered) found.Add("voice is offered with no computer");
                     if (live == null && plane.KitShows && plane.Kit.Bar.Talk.gameObject.activeInHierarchy) found.Add("Hold to Talk is drawn with no computer");
                     found.AddRange(RoomBrands(root));
