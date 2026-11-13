@@ -172,6 +172,51 @@ items_total, warnings }`, with one reader per command type for its facts.
   So the client draws the host's card from the step alone. The fields are optional: a proposal recorded before them
   has only `what_happens` and `said`.
 
+## A start is one review (2026-11-13, the recap is the review)
+
+New Project, and New Task in a project, start an agent working with one press on one host review, never a card the
+client builds (R6). The press is `workspace.request.submit` with `act` `{ command_type: execution.start, values,
+lists }` where no task is bound. CORE's `prepareStart` (`apps/control-plane/src/core/start.ts`) prepares the whole
+start before anything is made:
+- **Values by the commands' own fields:** `name` and `location` for a new project, `instruction`, `runtime_id`,
+  `model_ref`, `approval_level`, `plan` and `spending_cap_usd` for the run. No id is ever a value. The task's title
+  and goal are the host's, made from the instruction. A new project may also take `starter`, a row of the `starters`
+  list (each starter set up on this computer, no default): it goes into the new folder project.create makes
+  (`new_from_starter`), is refused for an existing folder, and is said in what happens and the folder fact.
+- **An absent value is the list's `default`** (the choices route), so the press can carry the idea alone. A list with
+  no default, where the start needs one, refuses it and names the list in the step's `needs_choice`.
+- **One step holds the commands:** `project.create` (a new project only), `workstream.create` and
+  `execution.start`, each through the one preparation (`CommandService.prepareInStart`, bound to the scope it will
+  stand in, its lists read where the person read them). The run's start is the step's `proposed_command`; the
+  others ride in `proposed_before`. An id a later command needs from an earlier one's result is the host's
+  placeholder (`START_PROJECT`, `START_TASK`), filled at the press from what was made.
+- **What the runtime alone refuses is refused now** (`startOptionsRefusal`, the adapter's options, a folder the app
+  needs), so the press does not stop part way on what could be known before it.
+- **The review:** `confirm_words` "Start Building"; `what_happens` saying it makes the project and its new folder
+  where it does; four facts, kinds `agent` (the app with its model, one fact), `place` (this computer, or the
+  provider by its declared name), `folder` and `level` (what the start requests; a confirmed level differs only on
+  the result); warnings by the route the run takes: free on this computer, paid on the person's own provider account
+  through a key they added, or any cost on the app's own account, the price unknown, and what leaves the computer;
+  reaching beyond its folder and a spending limit where they hold. Each is one short line with no product name, read
+  by a fresh reader at the larger text size. A run that never asks says so first among the warnings too, in words of
+  its own, since the level fact alone was misread. `said` holds the name
+  and the instruction whole. The digest covers every command held and all of it.
+- **The press:** the review is made again from what is held and must give the digest shown (`review_stale` before,
+  "nothing was made" after). Then the commands run in order, in one turn, under the person's principal, each through
+  the whole admission; the step's `made` names what each made. A stop part way says what was made and what was not,
+  never "nothing changed". One press runs at a time; a press on a step that no longer waits is refused, so a project
+  is never made twice.
+- **A project taken off the list (ADR 0063):** a start in its scope is refused before anything is prepared, and a
+  New Project on its folder says "Brings back <name>", by the project's own name, never that it makes one; the press
+  brings that project back and starts the task in it.
+- **The level says what the run will really ask (with the no-ask unit):** "Asks Only Outside Task Folder" where the
+  host answers a confined app's own work (a kind it answers for, kept inside the sandbox, in a starter's project:
+  `answersOwnWork` and `ControlPlane.answersOwnWorkIn`, the same facts the host's answers read); "Asks First" for any
+  other run that asks; "Works Without Asking" where it never asks. Whether it asks at all is the adapter's to say where
+  its runtime can run at another level than the one asked for (`RuntimeAdapter.levelAt`, the same confinement choice
+  and policy its start makes): Codex on a starter's confined project asks nothing (ADR 0041), so its card says "Works
+  Without Asking" whatever was asked for.
+
 ## Alternatives considered
 
 - **One assistant tool per command:** a contract change per feature, a third copy of each feature, and a model
@@ -192,6 +237,10 @@ items_total, warnings }`, with one reader per command type for its facts.
     `places`. The view gains `places`. `workspace.request.resume` gains `confirm`. The projection keeps a proposal's
     command in the same map as an instruction, so its saved state keeps its shape and format.
   - CORE: the list's view and route, the declarations, and the review.
+  - CORE (2026-11-13, a start is one review): `ReviewKind` gains `agent`, `place` and `level`;
+    `WorkspaceRequestStep` gains `made` and `needs_choice`; `step_recorded` gains `proposed_before`;
+    `ChoicesResponse` gains `default`; `ChoicesQuery` gains `runtime` and `runtimes`. The projection keeps a start's
+    earlier commands beside its run's (state format 23).
 - **After a restart**, a waiting proposal is still in the journal. Its owner's Confirm is admitted, since it is their
   own press re-checked by its digest. Any further model step needs Resume, as before.
 - **Revisit** if the local model picks the wrong entry often (measured in the first window after this lands), or if a

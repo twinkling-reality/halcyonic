@@ -1188,3 +1188,46 @@ describe("Claude Code's confinement (ADR 0048, BOX-4)", () => {
     ]);
   });
 });
+
+describe('the level a Codex start will really run at, from the same confinement its start gets (the recap is the review)', () => {
+  test("a starter's project asks nothing (ADR 0041), a new folder from a starter too, any other confined folder asks first", {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    const root = mkdtempSync(join(tmpdir(), 'halcyonic-codex-level-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const garden = join(root, 'garden');
+    const plain = join(root, 'plain');
+    const { confinement } = codexConfinement(
+      {
+        dataDir: join(root, 'data'),
+        starterOf: (directory) => (directory === garden ? 'iwsdk-vr' : null),
+      },
+      process.execPath,
+    );
+    const codex = new CodexRuntimeAdapter({
+      binaryPath: '/nonexistent/codex',
+      codexHome: join(root, 'codex-home'),
+      serverRecordFile: join(root, 'server.json'),
+      directoryPolicy: createDirectoryPolicy([root]),
+      ...(confinement === undefined ? {} : { confinement }),
+    });
+    t.after(() => codex.close());
+    const at = (directory: string, starter_project = false, approval_level?: 'ask' | 'never_ask') =>
+      codex.levelAt({
+        directory,
+        starter_project,
+        options: {},
+        model_ref: null,
+        ...(approval_level === undefined ? {} : { approval_level }),
+      });
+    assert.equal(
+      at(garden),
+      'never_ask',
+      "a starter's project: it asks nothing, whatever was asked for",
+    );
+    assert.equal(at(garden, false, 'ask'), 'never_ask');
+    assert.equal(at(join(root, 'new-app'), true), 'never_ask', 'a new folder begun from a starter');
+    assert.equal(at(plain), 'ask', "a confined folder not a starter's asks before every command");
+    assert.equal(at(plain, false, 'never_ask'), 'never_ask');
+  });
+});

@@ -1228,6 +1228,19 @@ export function removalRefusal(
   return null;
 }
 
+/**
+ * What the runtime alone refuses of a start, before its task exists (the recap is the review, 2026-11-13): its
+ * capabilities and the options chosen, the same checks the whole admission makes, so a start's press is not stopped
+ * part way by what could be known before it. Null where none refuses.
+ */
+export function startOptionsRefusal(
+  runtime: RuntimeDescriptor,
+  command: Extract<CommandEnvelope, { command_type: 'execution.start' }>,
+): { readonly code: RejectionCode; readonly message: string } | null {
+  const refused = startRefusal(runtime, command, NO_SCOPE);
+  return refused === undefined || refused.admitted ? null : refused.rejection;
+}
+
 /** What refuses a start on the chosen runtime: its capabilities and the options the person chose. */
 function startRefusal(
   runtime: RuntimeDescriptor,

@@ -145,6 +145,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "decisions")] Decisions,
         [global::System.Runtime.Serialization.EnumMember(Value = "questions")] Questions,
         [global::System.Runtime.Serialization.EnumMember(Value = "assistant_models")] AssistantModels,
+        [global::System.Runtime.Serialization.EnumMember(Value = "starters")] Starters,
     }
 
     public sealed class HereNeed
@@ -277,6 +278,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "approval")] Approval,
         [global::System.Runtime.Serialization.EnumMember(Value = "decision")] Decision,
         [global::System.Runtime.Serialization.EnumMember(Value = "question")] Question,
+        [global::System.Runtime.Serialization.EnumMember(Value = "starter")] Starter,
     }
 
     public sealed class ChoiceRow
@@ -319,6 +321,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("total", Required = global::Newtonsoft.Json.Required.Always)]
         public long Total { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("default", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Default { get; set; }
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -335,6 +340,9 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "version")] Version,
         [global::System.Runtime.Serialization.EnumMember(Value = "script")] Script,
         [global::System.Runtime.Serialization.EnumMember(Value = "words")] Words,
+        [global::System.Runtime.Serialization.EnumMember(Value = "agent")] Agent,
+        [global::System.Runtime.Serialization.EnumMember(Value = "place")] Place,
+        [global::System.Runtime.Serialization.EnumMember(Value = "level")] Level,
         [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
     }
 
@@ -6122,6 +6130,12 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("place", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public long? Place { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("made", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public HereScope? Made { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("needs_choice", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public ChoiceList? NeedsChoice { get; set; }
     }
 
     public sealed class WorkspaceRequestView
@@ -6206,6 +6220,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("proposed_command", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public CommandEnvelope? ProposedCommand { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("proposed_before", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<CommandEnvelope>? ProposedBefore { get; set; }
     }
 
     public sealed class RuntimeExecutionStartedPayload

@@ -202,8 +202,16 @@ client                                   server
   - A scope whose ids do not hold together lists nothing; ids that are not ids are refused with 400. A client reads
     it again once the journal passes `position`.
   - `GET /api/actions/choices?list=&<the scope's ids>` answers `ChoicesResponse` `{scope, list, position, digest,
-    rows, total}`: one of the host's lists, at most 32 rows, each `{index, kind, label, detail, theirs, actions}`,
-    and never the id a row stands for. A row of `versions`, `secrets`, `queued_instructions`, `approvals`,
+    rows, total, default}`: one of the host's lists, at most 32 rows, each `{index, kind, label, detail, theirs,
+    actions}`, and never the id a row stands for. `default` is the row the host takes where the person names none,
+    from its own facts, or null (2026-11-13, the recap is the review): `runtimes`, of the rows offering a start, only
+    the real agent apps (the descriptor's declared `synthetic` tells the practice run apart, never a name), exactly
+    one taken, with more the app of the newest real run in the scope's project, then anywhere; `models`, read for
+    one app with `&runtime=<its row's index>&runtimes=<that list's digest>` (that app's models alone, with their own
+    digest; a changed `runtimes` list answers 409 `choices_changed`), exactly one taken, with more the model of the
+    newest real run of that app; `folders`, the first new folder; every other list none, `starters` (each
+    starter set up on this computer, by its title, for a new project's new folder) among them. A practice or simulated
+    run never seeds a default. A row of `versions`, `secrets`, `queued_instructions`, `approvals`,
     `runtimes` or `catalog` names only the commands the whole admission takes it for, the host's checks included
     (an agent not kept to one folder starts no task that works in its own copy); a refusal about another need, such
     as a model still to choose, is not the row's. A row left with none says why in `detail`, the admission's words.

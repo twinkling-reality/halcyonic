@@ -96,6 +96,14 @@ test('GET /api/actions/choices answers a list by index, its digest, and no id (A
     assert.equal(row.kind, 'model');
     assert.ok(row.detail !== null, 'each model names its runtime');
   }
+  // One app's models, by its row and the apps list's digest as read: a number in the query, the list unchanged.
+  const own = await get(`?list=models&runtime=0&runtimes=${body.digest}`);
+  assert.equal(own.status, 200);
+  assert.ok('default' in ((await own.json()) as ChoicesResponse));
+  assert.equal((await get(`?list=models&runtime=0&runtimes=${'f'.repeat(64)}`)).status, 409);
+  assert.equal((await get(`?list=models&runtime=zero&runtimes=${body.digest}`)).status, 400);
+  assert.equal((await get('?list=models&runtime=0')).status, 400, 'runtime comes with runtimes');
+  assert.equal((await get(`?list=folders&runtime=0&runtimes=${body.digest}`)).status, 400);
   // A list this host cannot read by index yet, or one this place does not have.
   assert.equal((await get('?list=catalog')).status, 404);
   assert.equal((await get('?list=versions')).status, 404, 'all work has no versions');

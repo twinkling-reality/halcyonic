@@ -142,6 +142,10 @@
         {
           "type": "string",
           "const": "assistant_models"
+        },
+        {
+          "type": "string",
+          "const": "starters"
         }
       ]
     },
@@ -257,6 +261,10 @@
         {
           "type": "string",
           "const": "question"
+        },
+        {
+          "type": "string",
+          "const": "starter"
         }
       ]
     },
@@ -280,6 +288,14 @@
         },
         "list": {
           "$ref": "#/$defs/ChoiceList"
+        },
+        "runtime": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "runtimes": {
+          "$ref": "#/$defs/ReviewDigest"
         }
       },
       "additionalProperties": false
@@ -292,7 +308,8 @@
         "position",
         "digest",
         "rows",
-        "total"
+        "total",
+        "default"
       ],
       "properties": {
         "scope": {
@@ -318,6 +335,17 @@
         "total": {
           "type": "integer",
           "minimum": 0
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -773,6 +801,18 @@
         {
           "type": "string",
           "const": "words"
+        },
+        {
+          "type": "string",
+          "const": "agent"
+        },
+        {
+          "type": "string",
+          "const": "place"
+        },
+        {
+          "type": "string",
+          "const": "level"
         },
         {
           "type": "string",
@@ -1397,6 +1437,12 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 15
+        },
+        "made": {
+          "$ref": "#/$defs/HereScope"
+        },
+        "needs_choice": {
+          "$ref": "#/$defs/ChoiceList"
         }
       },
       "additionalProperties": false
@@ -10491,6 +10537,13 @@
                 },
                 "proposed_command": {
                   "$ref": "#/$defs/CommandEnvelope"
+                },
+                "proposed_before": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/CommandEnvelope"
+                  },
+                  "maxItems": 2
                 }
               },
               "additionalProperties": false

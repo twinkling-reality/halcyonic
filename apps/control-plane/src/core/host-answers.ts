@@ -59,6 +59,15 @@ export interface HostAnswersDeps {
 }
 
 /** The host's answer to one request, or null when it reaches the person. */
+/**
+ * Whether the host answers a confined app's own work for a runtime of this kind: the same table `judgeRequest` reads,
+ * so a start says no more about what its run will ask than the host will do (the recap is the review, AUDIT2's line
+ * with the no-ask unit). Codex is not in it: a confined Codex run asks as before.
+ */
+export function answersOwnWork(runtimeKind: string): boolean {
+  return Object.hasOwn(ANSWERABLE, runtimeKind);
+}
+
 export type HostJudgement = {
   readonly because: HostApprovalReason;
   readonly paths: ApprovalPath[];

@@ -226,6 +226,7 @@ export class ControlPlane {
   #autoCheckScheduled = false;
   readonly #autoFix: AutoFix | null;
   readonly #hostAnswers: HostAnswers | null;
+  readonly #confinedReads: NonNullable<ControlPlaneOptions['confinedReads']> | null;
   readonly #hostDenials: HostDenials;
   #closed = false;
   readonly #closeWaitMs: number;
@@ -460,6 +461,7 @@ export class ControlPlane {
             live: this.journal.info.origin === 'live',
           });
     this.#autoFix?.attach();
+    this.#confinedReads = options.confinedReads ?? null;
     this.#hostAnswers =
       options.confinedReads === undefined
         ? null
@@ -794,6 +796,15 @@ export class ControlPlane {
       commands: this.projection.listedCommands(this.#snapshotFinishedCommands),
       runtimes: this.registry.descriptors(),
     };
+  }
+
+  /**
+   * Whether the host answers a confined app's own work in `directory` (a starter's project, ADR 0041 and the no-ask
+   * rule), or, with `starter` true, in a new folder begun from a starter; false where this host answers none.
+   */
+  answersOwnWorkIn(directory: string | null, starter = false): boolean {
+    if (this.#hostAnswers === null || this.#confinedReads === null) return false;
+    return starter || (directory !== null && this.#confinedReads(directory) !== null);
   }
 
   async close(): Promise<void> {

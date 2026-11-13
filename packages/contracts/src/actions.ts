@@ -57,6 +57,8 @@ export const ChoiceList = Type.Union([
   Type.Literal('questions'),
   /** Where the assistant may run: this computer's model, then each declared hosted model with its key stored. */
   Type.Literal('assistant_models'),
+  /** The starters a new project's new folder may begin from, each set up on this computer (ADR 0037). */
+  Type.Literal('starters'),
 ]);
 export type ChoiceList = Static<typeof ChoiceList>;
 
@@ -159,6 +161,7 @@ export const ChoiceRowKind = Type.Union([
   Type.Literal('approval'),
   Type.Literal('decision'),
   Type.Literal('question'),
+  Type.Literal('starter'),
 ]);
 export type ChoiceRowKind = Static<typeof ChoiceRowKind>;
 
@@ -187,6 +190,12 @@ export const ChoicesQuery = Type.Object(
     workstream_id: Type.Optional(WorkstreamId),
     execution_id: Type.Optional(ExecutionId),
     list: ChoiceList,
+    /**
+     * For `models` only, with `runtimes`: the models of the agent app at this index of the `runtimes` list alone, with
+     * their own digest. `runtimes` is that list's digest as read; a list that changed since is refused.
+     */
+    runtime: Type.Optional(Type.Integer({ minimum: 0, maximum: 255 })),
+    runtimes: Type.Optional(ReviewDigest),
   },
   strict,
 );
@@ -204,6 +213,11 @@ export const ChoicesResponse = Type.Object(
     digest: ReviewDigest,
     rows: Type.Array(ChoiceRow, { maxItems: 32 }),
     total: Type.Integer({ minimum: 0 }),
+    /**
+     * The row the host takes when the person names none, by its index, from the host's own facts (a real agent app
+     * ready, the model last used with that app, a new folder in the first place offered); null where none qualifies.
+     */
+    default: Nullable(Type.Integer({ minimum: 0 })),
   },
   strict,
 );
@@ -222,6 +236,12 @@ export const ReviewKind = Type.Union([
   Type.Literal('version'),
   Type.Literal('script'),
   Type.Literal('words'),
+  /** A start's agent app, with the model it runs where one is chosen (one fact: both change on one page). */
+  Type.Literal('agent'),
+  /** Where a start's model runs: this computer, or a provider by the name it declares. */
+  Type.Literal('place'),
+  /** What a started agent may do without asking, as the start requests it. */
+  Type.Literal('level'),
   Type.Literal('unknown'),
 ]);
 export type ReviewKind = Static<typeof ReviewKind>;

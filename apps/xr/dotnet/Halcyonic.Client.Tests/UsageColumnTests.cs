@@ -387,7 +387,7 @@ public class UsageColumnTests
     }
 
     private const string Models = """
-        {"scope":{"project_id":null,"workstream_id":null,"execution_id":null},"list":"assistant_models","position":3,"digest":"digest-1","total":3,
+        {"scope":{"project_id":null,"workstream_id":null,"execution_id":null},"list":"assistant_models","position":3,"digest":"digest-1","total":3,"default":null,
          "rows":[{"index":0,"kind":"model","label":"This Computer's Model","detail":"local-model:tag","theirs":false,"actions":["assistant.model.choose"]},
                  {"index":1,"kind":"model","label":"test-model-1","detail":"On Test Hosted","theirs":true,"actions":["assistant.model.choose"]},
                  {"index":2,"kind":"model","label":"test-model-2","detail":"Other Hosted refused its key. Give it a new key on this computer.","theirs":true,"actions":[]}]}

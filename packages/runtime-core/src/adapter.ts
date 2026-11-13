@@ -346,6 +346,20 @@ export interface RuntimeAdapter {
    * restart, before its next action. Absent: every session this process started stays held.
    */
   hosts?(executionId: string): boolean;
+  /**
+   * What a start with these bounds will really run at, as its recorded level will say (ADR 0043), before anything
+   * starts: the same confinement choice and policy its start makes. An adapter whose runtime can run at another level
+   * than the one asked for (one that asks nothing on a starter's confined project, ADR 0041) says so here; absent, the level
+   * asked for is the level run at. `starter_project` says the folder will be a starter's project where it does not
+   * exist yet (a new folder begun from a starter). Null where the bounds do not hold.
+   */
+  levelAt?(request: {
+    readonly directory: string;
+    readonly starter_project: boolean;
+    readonly options: RuntimeOptions;
+    readonly model_ref: string | null;
+    readonly approval_level?: ApprovalLevel;
+  }): ApprovalLevel | null;
   /** Releases native resources. Observations stop after this resolves. */
   close(): Promise<void>;
 }
