@@ -725,13 +725,15 @@ namespace Halcyonic.XR.UI
             HidePlate();
             levelRoot.gameObject.SetActive(false);
             var unit = RoomType.Units(1f);
-            var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
+            // The narrow form (RoomBar.Narrow): the panel as wide as the column, standing over it.
+            var narrow = bar.Narrow && !bar.Wide;
+            var panelWidth = RoomType.Units(narrow ? RoomGeometry.ColumnDp : RoomGeometry.PanelDp);
             // Larger text scales every length inside the panel, its padding too; the panel's width stays (DESIGN's units).
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
             var inset = RoomType.Scaled(RoomGeometry.SentenceInsetDp);
             var line = RoomType.Scaled(RoomGeometry.LineDp);
 
-            var wordsWidth = BodyWidth;
+            var wordsWidth = narrow ? panelWidth - 2f * pad : BodyWidth;
             // What the panel reads: a request in mono, exact and literal, or the person's words; under a confirmation the rows
             // the file's part names, of the panel's own lines; a request before its answer at most eight of them. Cut between
             // lines, never inside one.
@@ -811,13 +813,16 @@ namespace Halcyonic.XR.UI
             var columnHeight = places == 0 ? 0f : rises[0] + Mathf.Max(target, cores[0].y) / 2f;
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
             var total = bar.Wide ? Mathf.Max(panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp), widest)
+                : narrow ? Mathf.Max(panelWidth, widest)
                 : panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
-            var height = Mathf.Max(panelHeight, columnHeight);
+            // Narrow: the column on the foot line, the panel over it a pair's gap up; else side by side on the one foot line.
+            var under = narrow && places > 0 ? columnHeight + gap : 0f;
+            var height = narrow ? panelHeight + under : Mathf.Max(panelHeight, columnHeight);
             var foot = -height / 2f;
             var left = -total / 2f;
 
             panel.InnerBar = barHeight > 0f ? ((panelHeight - inset - barHeight) / unit, barHeight / unit, inset / unit) : ((float, float, float)?)null;
-            panel.transform.localPosition = new Vector3(left + panelWidth / 2f, foot + panelHeight / 2f, 0f);
+            panel.transform.localPosition = new Vector3(left + panelWidth / 2f, foot + under + panelHeight / 2f, 0f);
             // A card that is the way in rings its panel in its hue, on the panel's own corner.
             panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
             if (!bar.Wide) panel.Draw(new Vector2(panelWidth, panelHeight));
@@ -855,7 +860,7 @@ namespace Halcyonic.XR.UI
                 field.Available = true;
             }
 
-            var columnLeft = bar.Wide ? left : left + panelWidth + gap;
+            var columnLeft = bar.Wide || narrow ? left : left + panelWidth + gap;
             RoomButton? locks = null;
             for (var index = 0; index < column.Count; index++)
             {

@@ -215,6 +215,14 @@ namespace Halcyonic.Client
         public bool Wide { get; }
 
         /// <summary>
+        /// The narrow form, wherever only it clears a shelf or a character inside the field (the lead's 2026-11-13T1711Z and 1716Z
+        /// rulings: the plane lays the widest form that clears them): the panel takes the column's own width and stands above the
+        /// column, nothing beside it, so the room a shelf needs comes from the plane at every text size. Set by the plane on the bar
+        /// it hands the kit; the words and actions are the frame's own. A reader that measures words must know it before measuring.
+        /// </summary>
+        public bool Narrow { get; set; }
+
+        /// <summary>
         /// The rows the file counted for what is read under a confirmation (<see cref="Body"/>, whole), where it has measured
         /// it: the panel draws the confirmation only where it wraps the same words to as many, so its parts are the file's.
         /// </summary>
