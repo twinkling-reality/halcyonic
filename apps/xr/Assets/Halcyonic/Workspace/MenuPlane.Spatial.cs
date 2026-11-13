@@ -291,22 +291,23 @@ namespace Halcyonic.XR.Workspace
             Drawn?.Invoke(pendingIndependentKind, view);
         }
 
-        private readonly PlaneFormRule formRule = new PlaneFormRule();
+        private readonly PlaneWidthRule widthRule = new PlaneWidthRule();
         private (float Scale, string Shelf, int Characters, int Yaw, int Pitch, bool Placing)? formSituation;
 
-        /// <summary>The plane's form now, held between events (the lead's 2026-11-13T17:16Z ruling).</summary>
-        public PlaneForm Form => formRule.Form;
+        /// <summary>The plane's panel width now, in dp, held between events (the lead's 2026-11-13T17:16Z and 19:34Z rulings).</summary>
+        public float WidthDp => widthRule.WidthDp;
 
         /// <summary>
         /// Decides the plane's form again, only where the situation changed by an event: the text size, the placed shelf, the characters
         /// coming or going, or the plane placed or moved by the person (to the degree). A character moving on its shelf is no event: the
-        /// shelf's envelope already holds the room it moves in. The widest form that clears the shelf inside the field wins; the kit is
-        /// told before any reader measures, and each change is said once with its cause.
+        /// shelf's envelope already holds the room it moves in. The widest measured width at or above the floor that clears the shelf
+        /// inside the field wins (PlaneWidthRule); the kit is told before any reader measures, and each change is said once with its cause.
         /// </summary>
-        /// <param name="placing">A local overlay places something in the room now (<see cref="IPlacesInRoom"/>): the narrow form meanwhile.</param>
+        /// <param name="placing">A local overlay places something in the room now (<see cref="IPlacesInRoom"/>): the floor's width meanwhile.</param>
         public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false)
         {
             if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; return; }
+            var floor = PlaneWidth.FloorDp(GlazeText.Scale);
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
             var now = (GlazeText.Scale, shelfKey, characters, Mathf.RoundToInt(Direction.Yaw), Mathf.RoundToInt(Direction.Elevation), placing);
             if (formSituation is { } was && was == now) return;
@@ -316,35 +317,34 @@ namespace Halcyonic.XR.Workspace
                 : before.Characters != characters ? PlaneFormEvent.CharactersChanged
                 : PlaneFormEvent.PlaneMoved;
             formSituation = now;
-            if (formRule.Reconsider(happened, form => !(placing && form == PlaneForm.Full) && FormClears(form, shelf, viewer)))
-                Debug.Log("Halcyonic: the plane lays its " + (formRule.Form == PlaneForm.Narrow ? "narrow" : "full") + " form (" + happened + ").");
-            Kit.Form = new RoomForm(formRule.Form == PlaneForm.Narrow, RoomRows.APage);
+            if (widthRule.Reconsider(happened, width => !(placing && width > floor + 0.5f) && WidthClears(width, shelf, viewer), floor))
+                Debug.Log("Halcyonic: the plane lays its panel " + widthRule.WidthDp.ToString("0") + " dp wide (" + happened + ").");
+            Kit.Form = RoomForm.Full.AtWidth(widthRule.WidthDp);
         }
 
         /// <summary>
-        /// Where the largest bar of <paramref name="form"/> would stand, in degrees from the eyes toward where the plane faces: the
-        /// width about the plane's heading, from its foot line up (RoomBarView.Largest and LargestNarrow, in DESIGN units, never scaled by the
-        /// text size), the foot where the person's drag left it.
+        /// Where the largest bar laid with its panel <paramref name="widthDp"/> wide would stand, in degrees from the eyes toward where the
+        /// plane faces: the width about the plane's heading, from its foot line up (FIELD's measured record, RoomBarView.LargestAt, in
+        /// DESIGN units), the foot where the person's drag left it.
         /// </summary>
-        private AngularExtent LargestExtent(PlaneForm form)
+        private AngularExtent LargestExtent(float widthDp)
         {
-            var largest = form == PlaneForm.Narrow ? RoomBarView.LargestNarrow : RoomBarView.Largest;
+            var largest = RoomBarView.LargestAt(widthDp);
             return AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
         }
 
         /// <summary>
-        /// What a shelf being placed keeps clear of (the lead's GO of 2026-11-13T19:34Z; AUDIT's 20:24Z): the narrow form's largest bar,
-        /// the plane as it stands while a shelf is placed (IPlacesInRoom). The plane takes its full form again only where that clears
-        /// every shelf (PlaneFormRule), and a placed shelf the plane later meets stands aside (ShelfAside), so placing always finds a
-        /// place in the field. The shelf search and its Apply ask the same extent, so a place offered is a place kept. The width rule
-        /// replaces the two forms with the measured footprint at the plane's width.
+        /// What a shelf being placed keeps clear of (the lead's GO of 2026-11-13T19:34Z; AUDIT's 20:24Z): the largest bar at the floor's
+        /// width, the plane as it stands while a shelf is placed (IPlacesInRoom). The plane widens again only where that clears every
+        /// shelf (PlaneWidthRule), and a placed shelf the plane later meets stands aside (ShelfAside), so placing always finds a place.
+        /// The shelf search and its Apply ask the same extent, so a place offered is a place kept.
         /// </summary>
-        private AngularExtent KeepOutExtent() => LargestExtent(PlaneForm.Narrow);
+        private AngularExtent KeepOutExtent() => LargestExtent(PlaneWidth.FloorDp(GlazeText.Scale));
 
-        /// <summary>Whether <paramref name="form"/>'s largest bar stands inside the field and clear of the shelf by the clearance kept between things.</summary>
-        private bool FormClears(PlaneForm form, Vector3[]? shelf, Vector3 viewer)
+        /// <summary>Whether the largest bar at <paramref name="widthDp"/> stands inside the field and clear of the shelf by the clearance kept between things.</summary>
+        private bool WidthClears(float widthDp, Vector3[]? shelf, Vector3 viewer)
         {
-            var plane = LargestExtent(form);
+            var plane = LargestExtent(widthDp);
             var measured = ViewField.Current ?? MenuPage.Quest3S;
             var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
                 measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);

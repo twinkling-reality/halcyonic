@@ -27,26 +27,45 @@ public class PlaneFormTests
         }
     }
 
+    /// <summary>
+    /// The width rule (the lead's 18:07Z and 19:34Z): the widest measured step at or above the floor that clears; the floor where none
+    /// does, the room yielding; never under the floor, whatever clears there.
+    /// </summary>
     [Test]
-    public void TheFullPlaneStandsWhereItClearsAndTheNarrowOneWhereOnlyItDoes()
+    public void ThePlaneTakesTheWidestStepThatClearsNeverUnderTheFloor()
     {
-        var rule = new PlaneFormRule();
-        Assert.That(rule.Reconsider(PlaneFormEvent.PlaneMoved, _ => true), Is.False, "full clears: full, as it was");
-        Assert.That(rule.Form, Is.EqualTo(PlaneForm.Full));
-        Assert.That(rule.Reconsider(PlaneFormEvent.ShelfChanged, form => form == PlaneForm.Narrow), Is.True);
-        Assert.That((rule.Form, rule.Cause), Is.EqualTo((PlaneForm.Narrow, (PlaneFormEvent?)PlaneFormEvent.ShelfChanged)));
-        Assert.That(rule.Reconsider(PlaneFormEvent.TextSizeChanged, _ => false), Is.False, "neither clears: narrow all the same");
-        Assert.That(rule.Reconsider(PlaneFormEvent.CharactersChanged, _ => true), Is.True, "the shelf gone: full again");
-        Assert.That((rule.Form, rule.Cause), Is.EqualTo((PlaneForm.Full, (PlaneFormEvent?)PlaneFormEvent.CharactersChanged)));
+        var rule = new PlaneWidthRule();
+        var floor = PlaneWidth.FloorDp(1f);
+        Assert.That(rule.Reconsider(PlaneFormEvent.PlaneMoved, _ => true, floor), Is.False, "the full width clears: as it was");
+        Assert.That(rule.WidthDp, Is.EqualTo(RoomGeometry.PanelDp));
+        Assert.That(rule.Reconsider(PlaneFormEvent.ShelfChanged, width => width <= 400f, floor), Is.True);
+        Assert.That((rule.WidthDp, rule.Cause), Is.EqualTo((400f, (PlaneFormEvent?)PlaneFormEvent.ShelfChanged)), "the widest that clears");
+        Assert.That(rule.Reconsider(PlaneFormEvent.ShelfChanged, width => width <= 280f, floor), Is.True);
+        Assert.That(rule.WidthDp, Is.EqualTo(floor), "only under the floor clears: the floor, the room yields");
+        Assert.That(rule.Reconsider(PlaneFormEvent.TextSizeChanged, _ => false, PlaneWidth.FloorDp(Comfort.LargerTextScale)), Is.True);
+        Assert.That(rule.WidthDp, Is.EqualTo(PlaneWidth.LargerFloorDp), "nothing clears at Larger: its own floor");
+        Assert.That(rule.Reconsider(PlaneFormEvent.CharactersChanged, _ => true, PlaneWidth.FloorDp(Comfort.LargerTextScale)), Is.True);
+        Assert.That((rule.WidthDp, rule.Cause), Is.EqualTo((RoomGeometry.PanelDp, (PlaneFormEvent?)PlaneFormEvent.CharactersChanged)));
+    }
+
+    /// <summary>The floors are FIELD's measured ones (59-width-table, F106, 2026-11-13T20:53Z), and every step the rule takes is measured.</summary>
+    [Test]
+    public void TheFloorsAreTheMeasuredOnesAndEveryStepIsInTheRecord()
+    {
+        Assert.That((PlaneWidth.StandardFloorDp, PlaneWidth.LargerFloorDp), Is.EqualTo((360f, 400f)), "F106: the recap card whole at and above these");
+        Assert.That(PlaneWidth.Steps, Is.EqualTo(new[] { 440f, 400f, 360f, 320f, 280f, 240f }), "the widths FIELD's envelope records");
+        Assert.That(PlaneWidth.Steps, Does.Contain(PlaneWidth.StandardFloorDp).And.Contain(PlaneWidth.LargerFloorDp));
+        Assert.That(new RoomForm(false, 8, panelDp: 100f).PanelDp, Is.EqualTo(PlaneWidth.NarrowestDp), "never laid under the narrowest measured");
+        Assert.That(RoomForm.Full.AtWidth(360f).Fewer().FewerActions().PanelDp, Is.EqualTo(360f), "the width kept as the plane asks for less");
     }
 
     [Test]
-    public void TheFormIsHeldBetweenEventsWhateverTheCharactersDo()
+    public void TheWidthIsHeldBetweenEventsWhateverTheCharactersDo()
     {
-        var rule = new PlaneFormRule();
-        rule.Reconsider(PlaneFormEvent.ShelfChanged, form => form == PlaneForm.Narrow);
-        // A character wandering is no event: nothing asks the rule again, so the form read a moment ago is the form now.
-        Assert.That(rule.Form, Is.EqualTo(PlaneForm.Narrow));
+        var rule = new PlaneWidthRule();
+        rule.Reconsider(PlaneFormEvent.ShelfChanged, width => width <= 360f, PlaneWidth.FloorDp(1f));
+        // A character wandering is no event: nothing asks the rule again, so the width read a moment ago is the width now.
+        Assert.That(rule.WidthDp, Is.EqualTo(360f));
         Assert.That(System.Enum.GetNames(typeof(PlaneFormEvent)), Does.Not.Contain("CharacterMoved"));
     }
 }

@@ -104,13 +104,13 @@ namespace Halcyonic.XR.UI
         /// <remarks>
         /// Set, it carries the bar's own row measure at the width it will lay the panel (the lead's 20:15Z: eight lines means eight
         /// lines), so the general reader pages to eight lines as the kit lays each row, its label, words and note, a mark's indent
-        /// where its page carries one, never by a count of characters: the column's width in the narrow form, else the panel's
-        /// (RoomBarView.RowLines, FIELD's 89002804f; AUDIT's 20:20Z).
+        /// where its page carries one, never by a count of characters: the column's width in the narrow form, else the panel's at the
+        /// plane's width (RoomForm.PanelDp; RoomBarView.RowLines, FIELD's 89002804f; AUDIT's 20:20Z).
         /// </remarks>
         public RoomForm Form
         {
             get => form;
-            set => form = value.Measured((row, marked) => bar.RowLines(row, marked, value.Narrow ? RoomGeometry.ColumnDp : RoomGeometry.PanelDp));
+            set => form = value.Measured((row, marked) => bar.RowLines(row, marked, value.Narrow ? RoomGeometry.ColumnDp : value.PanelDp));
         }
 
         private RoomForm form = RoomForm.Full;

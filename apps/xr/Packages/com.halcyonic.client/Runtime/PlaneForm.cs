@@ -3,11 +3,27 @@ using System;
 
 namespace Halcyonic.Client
 {
-    /// <summary>The plane's two forms under the redesign: the pair side by side, or the narrow bar, its panel above its column.</summary>
-    public enum PlaneForm
+    /// <summary>
+    /// The plane's widths under the redesign (the lead's 18:07Z: a width, not two forms): the panel laid at one of FIELD's measured
+    /// steps, the column beside it, never under the floor of the text size, where the recap card stops laying whole (FIELD's
+    /// 59-width-table, F106, 2026-11-13T20:53Z: Standard 360 dp, Larger 400 dp).
+    /// </summary>
+    public static class PlaneWidth
     {
-        Full,
-        Narrow,
+        /// <summary>The panel widths the kit's envelope is measured at (FIELD's record), widest first, in dp.</summary>
+        public static readonly float[] Steps = { RoomGeometry.PanelDp, 400f, 360f, 320f, 280f, 240f };
+
+        /// <summary>The narrowest step measured.</summary>
+        public const float NarrowestDp = 240f;
+
+        /// <summary>The floor at the standard text size: every main screen whole at and above it (F106).</summary>
+        public const float StandardFloorDp = 360f;
+
+        /// <summary>The floor at the larger text size (F106).</summary>
+        public const float LargerFloorDp = 400f;
+
+        /// <summary>The floor at a text size of <paramref name="textScale"/> (1 standard, <see cref="Comfort.LargerTextScale"/> larger).</summary>
+        public static float FloorDp(float textScale) => textScale > 1.0001f ? LargerFloorDp : StandardFloorDp;
     }
 
     /// <summary>What made the plane decide its form again: only what a person does or what the room changes, never a frame.</summary>
@@ -64,29 +80,36 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// The plane's form, held (the lead's ruling of 2026-11-13T17:16Z): the widest form that clears every shelf's envelope inside the
-    /// field, decided again only on a <see cref="PlaneFormEvent"/>, never because a character moved, so the plane never changes form
-    /// while a person reads. The full form wherever it clears; the narrow form where only it clears; and where neither clears, the
-    /// narrow one all the same, the shelf search having refused to place anything under it.
+    /// The plane's width, held (the lead's rulings of 2026-11-13T17:16Z and 19:34Z): the widest of <see cref="PlaneWidth.Steps"/> at
+    /// or above the floor whose largest footprint clears every shelf inside the field, decided again only on a
+    /// <see cref="PlaneFormEvent"/>, never because a character moved, so the plane never changes width while a person reads. Where
+    /// even the floor does not clear, the floor all the same: the room yields (a shelf stands aside, characters keep out), never the
+    /// plane, and under the floor nothing is laid.
     /// </summary>
-    public sealed class PlaneFormRule
+    public sealed class PlaneWidthRule
     {
-        /// <summary>The form held now.</summary>
-        public PlaneForm Form { get; private set; } = PlaneForm.Full;
+        /// <summary>The panel width held now, in dp.</summary>
+        public float WidthDp { get; private set; } = RoomGeometry.PanelDp;
 
-        /// <summary>The event that last changed the form, for the log line that says each change and its cause.</summary>
+        /// <summary>The event that last changed the width, for the log line that says each change and its cause.</summary>
         public PlaneFormEvent? Cause { get; private set; }
 
         /// <summary>
-        /// Decides the form again for <paramref name="happened"/>: <paramref name="clears"/> says whether a form, laid where the plane
-        /// stands, clears every shelf's envelope inside the field. True where the form changed.
+        /// Decides the width again for <paramref name="happened"/>: <paramref name="clears"/> says whether the plane's largest footprint
+        /// at a width, laid where the plane stands, clears every shelf inside the field; <paramref name="floorDp"/> is the text size's
+        /// floor. True where the width changed.
         /// </summary>
-        public bool Reconsider(PlaneFormEvent happened, Func<PlaneForm, bool> clears)
+        public bool Reconsider(PlaneFormEvent happened, Func<float, bool> clears, float floorDp)
         {
             if (clears == null) throw new ArgumentNullException(nameof(clears));
-            var next = clears(PlaneForm.Full) ? PlaneForm.Full : PlaneForm.Narrow;
-            if (next == Form) return false;
-            Form = next;
+            var next = floorDp;
+            foreach (var step in PlaneWidth.Steps)
+            {
+                if (step < floorDp - 0.5f) break;
+                if (clears(step)) { next = step; break; }
+            }
+            if (Math.Abs(next - WidthDp) < 0.5f) return false;
+            WidthDp = next;
             Cause = happened;
             return true;
         }

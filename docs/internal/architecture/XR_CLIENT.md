@@ -3192,18 +3192,25 @@ in order, as before.
   (`MenuPlane.ShowKitWorkspace`). Where the Editor stands the kit aside to walk the older views (`KitWorkspaceHost.Enabled` false, never in a player), the older list holds. Wherever the older view still draws a whole screen under the redesign, the plane
   logs one line by the frame's kind alone (`MenuPlane.OlderViewDrawn`), which the walks fail on. A frame is reported
   drawn, and so read, only while its bar lays it whole (`RoomBar.Whole`, `KitWorkspaceHost.ReportDrawn`).
-- **The plane's form** (the lead, 2026-11-13T17:11Z and 17:16Z). The plane never stands over a shelf: it lays the widest form
-  that clears the placed shelf's envelope inside the Quest 3S field (`PlaneFormRule`, `MenuPlane.ConsiderForm`): the full pair
-  where that clears, else the narrow bar (FIELD's `RoomBarView` narrow lay, its panel over its column), the same rule at both
-  sizes. The form is decided again only on an event (the text size, the shelf placed or moved, a character coming or going, the
-  plane placed or moved, a placing overlay opening or closing), never because a character moves, since the envelope
-  (`CharacterStage.WriteShelfCorners`) already holds the room it moves in; each change logs one line with its cause. While an
-  overlay places something in the room (`IPlacesInRoom`: the agent shelf, a character's colour) the plane stands narrow. The
-  form reaches the kit before any reader measures (`KitWorkspaceHost.Form`, into `RoomBar.Of` and `RoomBar.OfFrame` as
-  `RoomForm`); where what the bar lays does not stand whole, or passes its largest footprint, the kit asks the reader again for
-  one row fewer a page, down to one, and says so at one, the frame never reported drawn. The shelf search keeps clear of the
-  held form's largest bar (`RoomBarView.Largest` or `LargestNarrow`, from its foot line) under the redesign, never the older
-  view's widest column.
+- **The plane's width** (the lead, 2026-11-13T17:16Z, 18:07Z and 19:34Z: the plane is for reading, a width, not two forms). The
+  plane never stands over a shelf and is never too narrow to read: it lays its panel at the widest of FIELD's measured widths (440,
+  400, 360, 320, 280 and 240 dp, `PlaneWidth.Steps`) at or above the floor of the text size whose largest footprint clears the
+  placed shelf inside the Quest 3S field (`PlaneWidthRule`, `MenuPlane.ConsiderForm`), the column beside it. The floor is
+  measured (FIELD's 59-width-table, F106: 360 dp at Standard, 400 dp at Larger, where New Project's recap card stops laying
+  whole; `PlaneWidth.StandardFloorDp`, `LargerFloorDp`), and under it nothing is laid. Where even the floor does not clear,
+  the room yields, never the plane: a new shelf is offered the nearest place that clears, inside the field first, then a turn
+  of the head up to thirty degrees past its side, then out to the person's side, never behind them, each turn logged once
+  (`RoomPlacement.BeginPreview`, `AgentShelfSearch` with `widestTurn`); a placed shelf the plane later meets stands aside
+  along its own arc (`ShelfAside`). The width is decided again only on an event (the text size, the shelf placed or moved, a
+  character coming or going, the plane placed or moved, a placing overlay opening or closing), never because a character
+  moves, since the envelope (`CharacterStage.WriteShelfCorners`) already holds the room it moves in; each change logs one line
+  with its cause. While an overlay places something in the room (`IPlacesInRoom`: the agent shelf, a character's colour) the
+  plane stands at the floor's width. The width reaches the kit before any reader measures (`KitWorkspaceHost.Form`, as
+  `RoomForm.PanelDp` into `RoomBar.Of`, which lays the bar's panel that wide), with the kit's own row measure at that width,
+  so the general reader pages to eight lines as the bar lays them; where what the bar lays still does not stand whole, or
+  passes its measured footprint (`RoomBarView.LargestAt`), the kit asks the reader for one row fewer a page, down to one, and
+  says so at one. The shelf search and its Apply keep clear of the same extent, the floor's largest footprint
+  (`MenuPlane.KeepOutExtent`), and of the room's screen, never the bar laid the moment before placing.
 - **Frames the binding does not bind.** Where the task's binding has no place for the frame of the column beside the
   menu (a page of the file with no moment of its own, or another column's frame, as New Project's steps), the
   director carries the frame plain (`MenuDirector.PlainBindingOf`, `KitFileBinding.PlainOf`: no control, no task's

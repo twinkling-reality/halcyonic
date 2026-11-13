@@ -394,9 +394,11 @@ namespace Halcyonic.Client
     /// </summary>
     public readonly struct RoomForm
     {
-        public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions, System.Func<RoomRow, bool, int>? linesOf = null, int linesAPage = SpecLines)
+        public RoomForm(bool narrow, int rowsAPage, int actionsAPage = SpecActions, System.Func<RoomRow, bool, int>? linesOf = null, int linesAPage = SpecLines,
+            float panelDp = RoomGeometry.PanelDp)
         {
             Narrow = narrow;
+            PanelDp = panelDp > RoomGeometry.PanelDp ? RoomGeometry.PanelDp : panelDp < PlaneWidth.NarrowestDp ? PlaneWidth.NarrowestDp : panelDp;
             RowsAPage = rowsAPage < 1 ? 1 : rowsAPage > RoomRows.APage ? RoomRows.APage : rowsAPage;
             ActionsAPage = actionsAPage < 1 ? 1 : actionsAPage > RoomBar.ColumnMost ? RoomBar.ColumnMost : actionsAPage;
             LinesOf = linesOf;
@@ -417,7 +419,16 @@ namespace Halcyonic.Client
         public int LinesAPage { get; }
 
         /// <summary>This form with its line measure (the plane's), the rest kept.</summary>
-        public RoomForm Measured(System.Func<RoomRow, bool, int> linesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, linesOf, LinesAPage);
+        public RoomForm Measured(System.Func<RoomRow, bool, int> linesOf) => new RoomForm(Narrow, RowsAPage, ActionsAPage, linesOf, LinesAPage, PanelDp);
+
+        /// <summary>
+        /// The width the plane lays the panel at, in dp, the column beside it (the lead's 18:07Z: a width, not two forms): the full 440
+        /// where the room has room, never under the floor of the text size (<see cref="PlaneWidth"/>).
+        /// </summary>
+        public float PanelDp { get; }
+
+        /// <summary>This form with its panel laid <paramref name="panelDp"/> wide, the rest kept.</summary>
+        public RoomForm AtWidth(float panelDp) => new RoomForm(Narrow, RowsAPage, ActionsAPage, LinesOf, LinesAPage, panelDp);
 
         /// <summary>The actions a choices column holds at most in all, its main action, ways out and pager among them (BUILD-SPEC-v4 1.1, the lead's 19:41Z).</summary>
         public const int SpecActions = 4;
@@ -435,9 +446,9 @@ namespace Halcyonic.Client
         public int ActionsAPage { get; }
 
         /// <summary>This form with one row and one line fewer a page, never fewer than one: the plane's next ask where a page passed the field.</summary>
-        public RoomForm Fewer() => new RoomForm(Narrow, RowsAPage - 1, ActionsAPage, LinesOf, LinesAPage - 1);
+        public RoomForm Fewer() => new RoomForm(Narrow, RowsAPage - 1, ActionsAPage, LinesOf, LinesAPage - 1, PanelDp);
 
         /// <summary>This form with one action fewer a page, never fewer than one: the plane's ask where the column passed the field.</summary>
-        public RoomForm FewerActions() => new RoomForm(Narrow, RowsAPage, ActionsAPage - 1, LinesOf, LinesAPage);
+        public RoomForm FewerActions() => new RoomForm(Narrow, RowsAPage, ActionsAPage - 1, LinesOf, LinesAPage, PanelDp);
     }
 }

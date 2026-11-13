@@ -411,6 +411,8 @@ namespace Halcyonic.Client
             var bar = OfBinding(binding, voice, sentAwaitingStart, form ?? RoomForm.Full);
             // The form decided before any reader measured, never set after: the view lays it as the bar says.
             bar.Narrow = (form ?? RoomForm.Full).Narrow;
+            // The plane's width (PlaneWidth): the panel laid narrower than the full 440 where the room has less, the column beside it.
+            if ((form ?? RoomForm.Full).PanelDp < RoomGeometry.PanelDp) bar.PanelWidthDp = (form ?? RoomForm.Full).PanelDp;
             // The lead's honesty rule (2026-11-12), one rule for every frame the bar shows: wherever the work shown is recorded or the
             // demonstration, the bar carries the product's own line whole over all it shows: by the task's own mark where the frame is a task's,
             // else by what the connection says it shows; live work, a practice run included, carries none.
