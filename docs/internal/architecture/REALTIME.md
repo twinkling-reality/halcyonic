@@ -215,7 +215,10 @@ client                                   server
     `credential_refused` since this host read its credentials, the hosted models (`served: remote`) of the same
     declared provider (`RuntimeModel.provider`; where the runtime names none, all its hosted models) are shown with
     no action and the detail says the key was refused, while another provider's and its models on this Mac stay
-    offered; a refusal from before that is unknown, so they are offered and the detail says it), and `own_check_scripts` (each script by name with its command
+    offered; a refusal from before that is unknown, so they are offered and the detail says it. A model that names
+    its provider is also asked of the provider itself before any start, by the same no-spend metadata read the
+    assistant makes (`KeyChecks`, kept ten minutes per key): a refusal shows at once, and a key the provider takes
+    settles a refusal from before), and `own_check_scripts` (each script by name with its command
     as read now; the choice carries the command's digest), and `folders` (first a new folder in each available root,
     then the roots' folders no project uses, newest change first; a used folder is never offered, and New Project's
     new folder takes its name from the project's, made folder-safe by the host as

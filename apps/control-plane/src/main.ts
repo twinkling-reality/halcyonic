@@ -55,7 +55,7 @@ import { audioOutputFor, outputInTree } from './preview/audio-output.ts';
 import { launcherFor } from './preview/launcher.ts';
 import { installBrowser } from './preview/play.ts';
 import { isPinnedTunnel, TUNNEL_PIN } from './preview/share.ts';
-import { HostProviders } from './providers.ts';
+import { HostProviders, KeyChecks } from './providers.ts';
 import {
   AGENT_KEY_READERS,
   createRuntimeAdapters,
@@ -79,7 +79,7 @@ import { WhisperEngine } from './speech/whisper.ts';
 import { HostStarters, originalFolderOf, originalRefusal } from './starters.ts';
 import { OllamaWorkspaceModel } from './workspace-agent/ollama.ts';
 import { assistantModel } from './workspace-agent/providers/assistant.ts';
-import { ASSISTANT_READER } from './workspace-agent/providers/index.ts';
+import { ASSISTANT_READER, PROTOCOLS } from './workspace-agent/providers/index.ts';
 import { WorkspaceRequests } from './workspace-agent/requests.ts';
 
 async function main(): Promise<void> {
@@ -252,6 +252,8 @@ async function main(): Promise<void> {
     catalogLinks: catalog,
     // Read once as the plane starts: a declaration that does not hold stops the start (ADR 0061).
     providers,
+    // The model rows ask each provider whether it takes its stored key, the assistant's own no-spend check.
+    keyChecks: new KeyChecks({ providers, protocols: PROTOCOLS }),
     starters: new HostStarters({
       trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
       installedDir: join(config.dataDir, 'starters'),

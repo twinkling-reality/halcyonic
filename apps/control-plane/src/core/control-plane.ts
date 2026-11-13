@@ -29,7 +29,7 @@ import { attachWorldReader, type WorldReader } from '../observer/world-reader.ts
 import { OwnChecks, type OwnChecksDeps } from '../own-check/own-check.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import { ProjectShares, type ProjectSharesDeps } from '../preview/share.ts';
-import type { HostProviders } from '../providers.ts';
+import type { HostProviders, KeyChecks } from '../providers.ts';
 import { SecretStore } from '../secrets/store.ts';
 import { GitHubSender, type GitHubSenderDeps } from '../sending/github.ts';
 import type { HostStarters } from '../starters.ts';
@@ -105,6 +105,8 @@ export interface ControlPlaneOptions {
   readonly catalogLinks?: CatalogLinks;
   /** The host's one list of declared hosted providers (ADR 0061); absent, none is declared. */
   readonly providers?: HostProviders;
+  /** Each declared provider's no-spend key check, for the model rows (ADR 0061). */
+  readonly keyChecks?: KeyChecks;
   /**
    * The host's checks and previews of projects made from a starter (ADR 0037). Absent, checks are
    * off and `project.check` and `project.preview.*` are refused.
@@ -412,6 +414,7 @@ export class ControlPlane {
       files: this.files,
       catalogLinks: options.catalogLinks ?? null,
       ...(options.providers === undefined ? {} : { providers: options.providers }),
+      ...(options.keyChecks === undefined ? {} : { keyChecks: options.keyChecks }),
       previews: this.previews,
       ownChecks: this.ownChecks,
       ollamaUnload: this.ollamaUnload,

@@ -115,7 +115,7 @@ const ROWS_ADMITTED: ReadonlySet<ChoiceList> = new Set([
  */
 const ANOTHER_NEED: ReadonlySet<RejectionCode> = new Set(['model_required']);
 
-import type { HostProviders } from '../providers.ts';
+import type { HostProviders, KeyChecks } from '../providers.ts';
 import { type Preparation, type Prepared, prepareCommand, REQUIRED } from './prepare.ts';
 import { readRules, rulesReview, withRules } from './project-rules.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
@@ -192,6 +192,8 @@ export interface CommandServiceDeps {
   readonly catalogLinks?: CatalogLinks | null;
   /** The host's one list of declared hosted providers (ADR 0061), for the names the model rows say. */
   readonly providers?: HostProviders;
+  /** Each declared provider's no-spend key check (ADR 0061); absent, a key is not asked of its provider. */
+  readonly keyChecks?: KeyChecks;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1); none by default. */
   readonly ollamaUnload?: OllamaUnloader | null;
   /** Re-attaches what an earlier control plane started (ADR 0046); none for a fixture journal. */
@@ -803,6 +805,7 @@ export class CommandService {
         ),
       credential: (runtimeId) => this.#credential(runtimeId),
       providerName: (id) => this.#deps.providers?.byId(id)?.name ?? null,
+      keyCheck: (id) => this.#deps.keyChecks?.state(id) ?? Promise.resolve('unknown'),
       assistantModels: async () => (this.#assistantModels ? this.#assistantModels() : null),
       catalog: async () => {
         const read = this.#deps.catalogLinks?.read;
