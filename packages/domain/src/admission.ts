@@ -1230,7 +1230,7 @@ export function removalRefusal(
   if (busy !== null)
     // A task has a Stop; a command still under way has none, and its name is not a person's word.
     return busy.kind === 'task'
-      ? `${busy.sentence} Stop it, then remove the project.`
+      ? `${busy.sentence} ${busy.waiting === true ? 'Answer it or stop it' : 'Stop it'}, then remove the project.`
       : 'Something in this project is still under way. Wait for it to finish, then remove the project.';
   if (project.share !== undefined) return 'This game is shared now. Stop sharing it first.';
   if (project.mac_play !== undefined) return 'This game is playing on the Mac now. Stop it first.';
@@ -1480,10 +1480,21 @@ function untilFree(status: ExecutionStatus): string {
  * still under way, which has none (AUDIT2 S1, 2026-11-13).
  */
 function busyWords(
-  busy: { readonly kind: 'task' | 'command'; readonly sentence: string },
+  busy: {
+    readonly kind: 'task' | 'command';
+    readonly sentence: string;
+    readonly waiting?: boolean;
+  },
   forTask: string,
 ): string {
-  return `${busy.sentence} ${busy.kind === 'task' ? forTask : 'Try again once it has finished.'}`;
+  // A task waiting for the person does not stop by itself: answer it or stop it (AUDIT2 N1).
+  const next =
+    busy.kind === 'command'
+      ? 'Try again once it has finished.'
+      : busy.waiting === true
+        ? 'Answer it or stop it, then try again.'
+        : forTask;
+  return `${busy.sentence} ${next}`;
 }
 
 /**

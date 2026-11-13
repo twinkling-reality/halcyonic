@@ -243,6 +243,15 @@ function stoppedByRestart(code: string | undefined): boolean {
 export const TOOL_RESULT_HISTORY = 256;
 
 /** A busy task's status in words, for the busy rule's refusals (core audit 2026-11-03). */
+/** A person's task title as a refusal names it: whole up to 60 characters, else cut at a word with an ellipsis. */
+function clipTitle(title: string): string {
+  const one = title.replace(/\s+/g, ' ').trim();
+  if (one.length <= 60) return one;
+  const cut = one.slice(0, 60);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > 20 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
+
 const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
   starting: 'starting',
   running: 'running',
@@ -1364,19 +1373,28 @@ export class Projection {
     projectId: string,
     except?: string,
     requests = true,
-  ): { readonly kind: 'task' | 'command'; readonly sentence: string } | null {
+  ): {
+    readonly kind: 'task' | 'command';
+    readonly sentence: string;
+    /** A task waiting for the person, which does not stop by itself (AUDIT2 N1). */
+    readonly waiting?: boolean;
+  } | null {
     for (const state of this.#executionsByProject.get(projectId as ProjectId) ?? []) {
       const status = deriveExecutionStatus(state);
-      const title = this.#workstreams.get(state.workstreamId)?.title ?? 'A task';
+      // The person's own title, which can run to 200 characters, never buries the sentence (AUDIT2 N2): it
+      // follows "The task", unquoted as every outside word is, cut at a word past 60 characters.
+      const named =
+        `The task ${clipTitle(this.#workstreams.get(state.workstreamId)?.title ?? '')}`.trimEnd();
       if (ACTIVE_STATUSES.has(status))
         return {
           kind: 'task',
-          sentence: `${title} is ${BUSY_WORDS[status]} in this project, so this was not done.`,
+          sentence: `${named} is ${BUSY_WORDS[status]} in this project, so this was not done.`,
+          waiting: status === 'waiting_for_human',
         };
       if (status === 'unknown' && !stoppedByRestart(state.unknownReason?.code))
         return {
           kind: 'task',
-          sentence: `${title} may still be running in this project (its state is unknown), so this was not done.`,
+          sentence: `${named} may still be running in this project (its state is unknown), so this was not done.`,
         };
     }
     for (const command of this.#pendingCommands) {
