@@ -45,6 +45,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The most each text size and panel width laid in this run, in dp (<see cref="Halcyonic.XR.UI.KitEnvelope"/>).</summary>
         private static readonly Dictionary<(float, float), Vector2> measuredEnvelope = new Dictionary<(float, float), Vector2>();
 
+        /// <summary>The most any bar drew under its foot line in this run, in dp: logged beside the envelope, held to RoomBarView.MostUnderFootDp.</summary>
+        private static float mostSpill;
+
         private static void RunParts(bool exitWhenDone)
         {
             var failures = new List<string>();
@@ -90,6 +93,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var measured = measuredEnvelope.Select(each => new Halcyonic.XR.UI.KitEnvelope.Entry { scale = each.Key.Item1, panelDp = each.Key.Item2, widthDp = Mathf.Ceil(each.Value.x), heightDp = Mathf.Ceil(each.Value.y) }).ToList();
             foreach (var entry in measured.OrderBy(entry => entry.scale).ThenByDescending(entry => entry.panelDp))
                 Debug.Log("Halcyonic: parts: kit envelope measured: scale " + entry.scale.ToString("0.00") + ", panel " + entry.panelDp.ToString("0") + " dp: " + entry.widthDp.ToString("0") + " by " + entry.heightDp.ToString("0") + " dp.");
+            Debug.Log("Halcyonic: parts: the most a bar drew under its foot line: " + mostSpill.ToString("0.0") + " dp (the kit holds " + Halcyonic.XR.UI.RoomBarView.MostUnderFootDp.ToString("0") + ").");
             if (measured.Count > 0)
             {
                 var folder = System.IO.Path.Combine(Application.dataPath, "..", "Builds", "PartsRenders");
@@ -97,6 +101,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 System.IO.File.WriteAllText(System.IO.Path.Combine(folder, "kit-envelope-measured.json"), Halcyonic.XR.UI.KitEnvelope.ToJson(measured));
             }
             measuredEnvelope.Clear();
+            mostSpill = 0f;
             foreach (var failure in failures) Debug.LogError("Halcyonic: parts: " + failure);
             if (failures.Count == 0 && narrowed)
                 Debug.LogWarning("Halcyonic: parts: narrowed by HALCYONIC_KIT_ONLY=" + only + " (iteration only; exits 2 so a narrowed run is never a full gate pass).");
@@ -266,15 +271,43 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     // What the kit lays, recorded for the envelope (the lead's 2026-11-13T1936Z: measured, never typed).
                     var key = (Mathf.Round(GlazeText.Scale * 100f) / 100f, Mathf.Round(laid.LaidPanelDp));
-                    var dp = laid.Size / unitDp;
+                    // Every part the bar DRAWS, not only the box it lays (AUDIT's 2026-11-13T2303Z MUST 1: a button's halo and chip at the
+                    // column's edge stood 0.6 degrees past the box in JUDGE's charT): the union of its renderers' bounds in its own frame,
+                    // centred on the heading as the plane's footprint is, from the foot line up; what spills under the foot line is held
+                    // to the kit's own RoomBarView.MostUnderFootDp, which the plane's footprint takes under the bar.
+                    var drawnLeft = 0f;
+                    var drawnRight = 0f;
+                    var drawnTop = laid.Foot;
+                    var drawnBottom = laid.Foot;
+                    foreach (var shown in laid.GetComponentsInChildren<Renderer>(false).Where(each => each.enabled && each.gameObject.activeInHierarchy))
+                    {
+                        var b = shown.bounds;
+                        foreach (var corner in new[] { new Vector3(b.min.x, b.min.y, b.min.z), new Vector3(b.max.x, b.max.y, b.max.z), new Vector3(b.min.x, b.max.y, b.min.z), new Vector3(b.max.x, b.min.y, b.max.z) })
+                        {
+                            var at = laid.transform.InverseTransformPoint(corner);
+                            drawnLeft = Mathf.Min(drawnLeft, at.x);
+                            drawnRight = Mathf.Max(drawnRight, at.x);
+                            drawnTop = Mathf.Max(drawnTop, at.y);
+                            drawnBottom = Mathf.Min(drawnBottom, at.y);
+                        }
+                    }
+                    var dp = Vector2.Max(laid.Size, new Vector2(2f * Mathf.Max(-drawnLeft, drawnRight), drawnTop - laid.Foot)) / unitDp;
+                    var spill = (laid.Foot - drawnBottom) / unitDp;
+                    if (spill > Halcyonic.XR.UI.RoomBarView.MostUnderFootDp + 0.5f)
+                        failures.Add(name + ": the bar draws " + spill.ToString("0.0") + " dp under its foot line, past the kit's " + Halcyonic.XR.UI.RoomBarView.MostUnderFootDp.ToString("0") + " dp");
+                    mostSpill = Mathf.Max(mostSpill, spill);
                     measuredEnvelope[key] = measuredEnvelope.TryGetValue(key, out var was) ? Vector2.Max(was, dp) : dp;
                     if (laid.PassedLargest)
                         failures.Add(name + ": the bar laid past its recorded envelope, " + dp.x.ToString("0") + " by " + dp.y.ToString("0") + " dp with a panel "
                             + laid.LaidPanelDp.ToString("0") + " dp wide against " + (Halcyonic.XR.UI.RoomBarView.LargestAt(laid.LaidPanelDp) / unitDp).ToString("0"));
                     // What a person can see (the lead's 2026-11-13T1941Z ruling): standing on the foot line, its top within the Quest 3S
                     // field's up less the margin, its half width within the field's side, the head level. Sizes are at a metre, so angles are atans.
-                    var top = Mathf.Atan(laid.Size.y) * Mathf.Rad2Deg + RoomGeometry.FeetPitch;
-                    var half = Mathf.Atan(laid.Size.x / 2f) * Mathf.Rad2Deg;
+                    var top = Mathf.Atan(dp.y * unitDp) * Mathf.Rad2Deg + RoomGeometry.FeetPitch;
+                    var half = Mathf.Atan(dp.x * unitDp / 2f) * Mathf.Rad2Deg;
+                    // What it draws stands within the committed record too, not only the box it lays (AUDIT's 23:03Z).
+                    var recorded = Halcyonic.XR.UI.RoomBarView.LargestAt(laid.LaidPanelDp) / unitDp;
+                    if (dp.x > recorded.x + 0.5f || dp.y > recorded.y + 0.5f)
+                        failures.Add(name + ": the bar draws past its recorded envelope, " + dp.x.ToString("0") + " by " + dp.y.ToString("0") + " dp against " + recorded.ToString("0"));
                     var field = MenuPage.Quest3S;
                     if (top > (float)field.Up - ViewField.EdgeMarginDegrees || half > (float)Math.Min(field.Left, field.Right) - ViewField.EdgeMarginDegrees)
                         failures.Add(name + ": the bar stands past the field, its top " + top.ToString("0.0") + " degrees up and " + half.ToString("0.0") + " each side");

@@ -184,6 +184,13 @@ namespace Halcyonic.XR.UI
             .FirstOrDefault(each => each.Key.gameObject.activeInHierarchy && each.Value.Action == action && (key == null || each.Value.Key == key)).Key;
 
         /// <summary>
+        /// The most a bar draws under its foot line, in dp: the lowest action's core reaches 6.4 dp under it and its halo feathers
+        /// past that. The plane's footprint takes this much under the bar's foot as well as the record above it (AUDIT's
+        /// 2026-11-13T2303Z MUST 1: the footprint reasoned is the footprint drawn); PartsCheck fails any bar drawing past it.
+        /// </summary>
+        public const float MostUnderFootDp = 20f;
+
+        /// <summary>
         /// The press of a shown card row that raises <paramref name="action"/> (and <paramref name="key"/> where given): an answer
         /// or a move laid as the panel's card row (the lead's 2026-11-13T21:11Z and 22:04Z), pressed as a person presses it, as
         /// <see cref="Button"/> finds a column's. Null where the card shows no such row (SCREENS's 2026-11-13T2303Z, for the walks).
