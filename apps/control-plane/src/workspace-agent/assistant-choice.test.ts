@@ -343,26 +343,35 @@ test("a press on a hosted row waits on the host's own card: its button, the mode
   // The model named in the line itself, so no unlabelled box stands beside it (FIELD's reader on 1111-b123).
   assert.deepEqual(step?.proposal?.facts, []);
   // The money first, in plain words, before the press: on whose account, that the price is not known, what is sent,
-  // and what stays free (the lead's ruling on 1111-b123), short (the reader on b130).
+  // and what stays free (the lead's ruling on 1111-b123), each said once and short (the owner's report of 2026-11-13).
   assert.equal(
     step?.proposal?.what_happens,
-    'From now on the assistant answers on test-model-1, and Test Hosted charges you money for each request.',
+    'From now on the assistant answers on test-model-1, and each request costs money on your own Test Hosted account.',
   );
   assert.deepEqual(step?.proposal?.warnings, [
-    {
-      code: 'costs_money',
-      line: 'Each request is charged to your own Test Hosted account, through the access key you added',
-    },
-    {
-      code: 'price_unknown',
-      line: 'Halcyonic does not know the price, and cannot show a total yet',
-    },
+    { code: 'price_unknown', line: 'The price is not known, so no cost or total is shown' },
     {
       code: 'sent_to_provider',
-      line: 'Your requests, and what the assistant reads to answer them, are sent to Test Hosted',
+      line: 'Your requests, and what the assistant reads in your projects, go to Test Hosted',
     },
-    { code: 'free_here', line: "This Computer's Model is free" },
+    { code: 'free_here', line: "This Computer's Model stays free" },
   ]);
+});
+
+test('the cost review reads at a glance: few short lines, who pays said once', () => {
+  // The owner's report of 2026-11-13: the review was tall at the larger text size and said the cost in one long
+  // paragraph. So the whole review stays under fifty-five words, and no warning runs past one short line.
+  const warnings = HOSTED_COST.warnings('Meta');
+  const said = [
+    HOSTED_COST.whatHappens('Meta', 'muse-wonder-1.0'),
+    ...warnings.map((each) => each.line),
+  ];
+  const words = said.join(' ').split(/\s+/).length;
+  assert.ok(words <= 55, `${words} words`);
+  assert.ok(warnings.length <= 3, `${warnings.length} warnings`);
+  for (const each of warnings) assert.ok(each.line.length <= 80, each.line);
+  // Who pays is said in one place only.
+  assert.equal(said.filter((line) => /account/.test(line)).length, 1);
 });
 
 test("the cost words fit the review's and the list's own contracts for the longest name a declaration may give", () => {
@@ -392,7 +401,7 @@ test("the cost words fit the review's and the list's own contracts for the longe
     ...HOSTED_COST.warnings('P').map((each) => each.line),
   ].join(' ');
   assert.doesNotMatch(said, /\$|\d|small|cheap|estimate|about/i);
-  assert.match(said, /charges you money/);
+  assert.match(said, /costs money on your own P account/);
 });
 
 test("a review holding more than a proposal may carry is fitted to the proposal's own contract", () => {
