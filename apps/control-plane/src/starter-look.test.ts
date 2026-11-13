@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import {
+  inView,
+  PAGES_DISTANCE,
+  PAGES_EYE,
+  segmentPixels,
+  VIEW_CAMERA,
+  wordedMeshes,
+  wordsOn,
+} from '../../../starters/iwsdk-vr/template/src/legible.ts';
 import { fitText } from '../../../starters/iwsdk-vr/template/src/page-fit.ts';
 
 // The starter's look as a headset wearer and the laptop camera see it. The template's three.js code runs only in a
@@ -723,5 +732,133 @@ describe("a page's words go on to the next page, never cut off (AUDIT2, 2026-11-
     // Cards an agent draws itself split their words the same way.
     assert.match(read('src/kit.ts'), /export \{ fitText \} from '\.\/page-fit\.js';/);
     assert.match(read('AGENTS.md'), /for cards you draw, `fitText` from `\.\/kit\.js` splits/);
+  });
+});
+
+describe('what Make VR Version builds reads on a laptop, and the kit says what it draws (VRIFY, 2026-11-13)', () => {
+  // The laptop camera of iwsdk.config.json stands behind the player for a game; a view's pages, 1.6 m from the person,
+  // were seen from 3.8 m by it, and their words came to about 6 CSS pixels at the check's 1280 by 800.
+  const VIEW = { width: 1280, height: 800 } as const;
+  /** IWSDK 1.0.1's field of view when the config names none (`cameraFov` in its world initializer). */
+  const DEFAULT_FOV = 50;
+  type V = readonly [number, number, number];
+  const sub = (a: V, b: V): V => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const dot = (a: V, b: V) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a: V, b: V): V => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+  const unit = (a: V): V => {
+    const n = Math.hypot(...a);
+    return [a[0] / n, a[1] / n, a[2] / n];
+  };
+  /** A point in normalized device coordinates, as three.js projects it through a camera at `pose` (z left out). */
+  const project = (pose: Pose, point: V) => {
+    const forward = unit(sub(pose.lookAt as V, pose.position as V));
+    const right = unit(cross(forward, [0, 1, 0]));
+    const up = cross(right, forward);
+    const v = sub(point, pose.position as V);
+    const depth = dot(v, forward);
+    const tan = Math.tan(((DEFAULT_FOV / 2) * Math.PI) / 180);
+    return {
+      x: dot(v, right) / (depth * tan * (VIEW.width / VIEW.height)),
+      y: dot(v, up) / (depth * tan),
+      z: depth > 0 ? 0 : 2,
+    };
+  };
+  /** How high words `height` metres tall at `at` stand on the laptop's screen, as the kit's hook measures them. */
+  const wordPixels = (pose: Pose, at: V, height: number) => {
+    const foot = project(pose, at);
+    assert.ok(inView(foot), `in view: ${JSON.stringify(foot)}`);
+    return segmentPixels(foot.y, project(pose, [at[0], at[1] + height, at[2]]).y, VIEW.height);
+  };
+  const words = () =>
+    Number(read('src/pages.ts').match(/TYPE = \{ title: [\d.]+, words: ([\d.]+) \}/)?.[1]);
+  const middlePage: V = [0, PAGES_EYE, -PAGES_DISTANCE];
+  /** The camera a view is seen from on a laptop: the one setupScene places, else the config's. */
+  const viewCamera = (): Pose => {
+    const look = read('src/look.ts');
+    const body = look.slice(look.indexOf('export function setupScene('));
+    const placed =
+      body.includes('world.camera.position.set(...VIEW_CAMERA.position);') &&
+      body.includes('world.camera.lookAt(...VIEW_CAMERA.lookAt);');
+    return placed ? VIEW_CAMERA : laptopCamera();
+  };
+
+  test("the config names no field of view, so IWSDK's 50 degrees is the laptop's", () => {
+    const config = JSON.parse(read('iwsdk.config.json')) as { world: { render: { fov?: number } } };
+    assert.equal(config.world.render.fov, undefined);
+  });
+
+  test("a view's pages, seen from the game's camera behind the player, read under 10 px: the cause", () => {
+    const px = wordPixels(laptopCamera(), middlePage, words());
+    assert.ok(px < 7 && px > 5, `about 6 px: ${px}`);
+  });
+
+  test("a view is seen on a laptop from the person's own place, so the words of the pages read at 10 px and over", () => {
+    assert.deepEqual(VIEW_CAMERA, {
+      position: [0, 1.6, 0],
+      lookAt: [0, PAGES_EYE, -PAGES_DISTANCE],
+    });
+    const px = wordPixels(viewCamera(), middlePage, words());
+    assert.ok(px >= 10, `${px} px`);
+    // Each page in view reads as well: the arc stands round the person, so the side pages are no farther.
+    const step = (0.64 + 0.06) / PAGES_DISTANCE;
+    for (const angle of [-step / 2, step / 2]) {
+      const at: V = [
+        Math.sin(angle) * PAGES_DISTANCE,
+        PAGES_EYE,
+        -Math.cos(angle) * PAGES_DISTANCE,
+      ];
+      assert.ok(wordPixels(viewCamera(), at, words()) >= 10, String(angle));
+    }
+  });
+
+  test("setupScene places the laptop camera after the config's; setupLook keeps the camera", () => {
+    const look = read('src/look.ts');
+    const scene = look.slice(look.indexOf('export function setupScene('));
+    assert.match(scene, /world\.camera\.position\.set\(\.\.\.VIEW_CAMERA\.position\);/);
+    assert.match(scene, /world\.camera\.lookAt\(\.\.\.VIEW_CAMERA\.lookAt\);/);
+    const game = look.slice(
+      look.indexOf('export function setupLook('),
+      look.indexOf('export function setupScene('),
+    );
+    assert.doesNotMatch(game, /world\.camera/);
+    // The game's camera stays the config's, just behind the player.
+    assert.deepEqual(laptopCamera(), { position: [0, 1.85, 2.2], lookAt: [0, 0.8, -1.8] });
+  });
+
+  test('the pages stand where the camera looks, and each panel says its words are TYPE.words high', () => {
+    const pages = read('src/pages.ts');
+    assert.match(pages, /const EYE = PAGES_EYE;/);
+    assert.match(pages, /const distance = options\.distance \?\? PAGES_DISTANCE;/);
+    assert.match(pages, /wordsOn\(panel, TYPE\.words\);/);
+    // The score sign's label: 54 px on its 512 px canvas, 1.2 m wide.
+    const decor = read('src/decor.ts');
+    assert.match(decor, /context\.font = `700 54px \$\{font\}`;/);
+    assert.match(decor, /canvas\.width = 512;/);
+    assert.match(decor, /new PlaneGeometry\(1\.2, 0\.6\)/);
+    assert.match(decor, /wordsOn\(face, \(54 \* 1\.2\) \/ 512\);/);
+  });
+
+  test('the registry keeps what the kit drew, and needs no SDK', () => {
+    assert.doesNotMatch(read('src/legible.ts'), /^import /m);
+    const mesh = {};
+    wordsOn(mesh, 0.026);
+    assert.equal(wordedMeshes().get(mesh), 0.026);
+    assert.equal(inView({ x: 0, y: 0, z: 0.5 }), true);
+    assert.equal(inView({ x: 1.01, y: 0, z: 0.5 }), false);
+    assert.equal(inView({ x: 0, y: 0, z: 1.5 }), false, 'behind the camera');
+    assert.equal(segmentPixels(-0.01, 0.01, 800), 8);
+  });
+
+  test("the check hook reports the words' heights through the laptop camera", () => {
+    const layer = read('src/play-input.ts');
+    assert.match(layer, /readings: \(\) => readings\(w\),/);
+    assert.match(layer, /for \(const \[mesh, height\] of wordedMeshes\(\)\)/);
+    assert.match(layer, /if \(!inView\(foot\)\) continue;/);
+    assert.match(layer, /\.project\(w\.camera\)/);
+    assert.match(layer, /return \{ texts \};/);
   });
 });

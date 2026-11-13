@@ -246,3 +246,35 @@ but too small to read. The product's laptop check said ready on (a5): it presses
 measures neither the size of the words nor how much of the view the app fills. So the record "at or above the kit's
 type scale" of the run before is the critic's reading of the code's sizes, not of what a person sees at a laptop's
 distance.
+
+## The reading floor (2026-11-13)
+
+The product's laptop check now measures whether a person can read what Make VR Version built, instead of saying
+ready over words a few pixels high. Its one floor, at the check's 1280 by 800 CSS pixels: the kit's smallest running
+words at least 10 CSS pixels high (their font's em height, as the starter's `TYPE.words` projects through the laptop
+camera). Set by a fresh reader, a vision model shown pictures at their native size, not a person, copying the words of
+18 renders of the kit's own page with the words at 6 to 16 pixels: exact at 10 and above in every sample, 99% at 8,
+94% at 6.
+
+How much of the view the app fills is recorded as information and gates nothing. The same kind of reader judged 15
+renders of the starter's pages from 1.6 to 3.8 m (usable as is at 32.5% filled and above, a strain at 18%, unusable
+below), but the measure behind those numbers proved fragile: white cards on a white page undercount, since only their
+words differ from the background, and a bounding box is stretched by specks. So no fill floor was set.
+
+The cause of the small words: the starter's laptop camera stands behind the player for a game (`iwsdk.config.json`, at
+1.85 m height and 2.2 m behind the origin), about 3.8 m from pages laid out 1.6 m in front of the person, so their
+`TYPE.words` came to about 6 pixels. A view (`setupScene`) is now seen on a laptop from the person's own place, eye
+height at the origin, looking at the middle of the pages' arc, where the same words stand about 14 pixels high; a game
+keeps its camera, and the headset's view is unchanged.
+
+What it measures and what it does not: the words' heights are what the kit reports through the page's check hook for
+the meshes it drew words on (the pages and the score sign), counted only when the kit's files are the template's own;
+words an app draws itself are not measured, and the person's line says so. Only a measured failure holds the laptop
+step back; a reading that cannot be measured (no kit text in view, or the kit's own files changed) is said as not
+known, apart from whether the app plays, but never clears a failure measured on an earlier check of the project. The
+fill share is the host's own reading of the picture: the share of pixels differing by more than 16 in any channel
+from the picture's most common colour, null when that colour covers less than a quarter of the picture.
+
+A laptop at another size or zoom reads differently: the floors hold for the check's 1280 by 800 view only. The
+end-to-end tests of the reading (a view's pages from the person's place, the same pages from a game's camera) are
+written but were not run against a real Chrome render in this change.

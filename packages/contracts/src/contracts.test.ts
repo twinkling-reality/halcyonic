@@ -28,6 +28,7 @@ import {
   parseCommandEnvelope,
   parseEventEnvelope,
   QuestionPrompts,
+  READING_FLOOR_PX,
   RUNTIME_EVENT_TYPES,
   RuntimeCapabilities,
   RuntimeDescriptor,
@@ -702,6 +703,7 @@ describe('the C# bindings', () => {
     'CheckFindings.refusals', // what a starter's check refuses, as its starter.json declares it (VRIFY, 2026-11-12)
     'CheckFindings.vr', // M1.8b
     'CheckLaptop.exceptions_during', // M1.8g
+    'CheckLaptop.reading', // whether a person can read the app on a laptop (VRIFY, 2026-11-13)
     'CheckLaptop.response_seen', // M1.8g
     'CheckLaptop.response_unknown', // why a twin read was unknown (M1.8g-b)
     'CheckPage.own', // a check page's own pixels against the starter's (DRAWN)
@@ -1142,6 +1144,70 @@ describe("a check's laptop step says why a twin read was unknown (M1.8g-b)", () 
     assert.equal(validate(laptop).ok, true);
     assert.equal(validate({ ...laptop, response_unknown: null }).ok, true);
     assert.equal(validate({ ...laptop, response_unknown: 'flaky' }).ok, false);
+  });
+});
+
+describe("a check's laptop step says whether a person can read the app on a laptop (VRIFY, 2026-11-13)", () => {
+  const validate = compileValidator(CheckLaptop);
+  const laptop = {
+    layer: 'starter',
+    targets: 1,
+    mouse: 'reached',
+    key: 'reached',
+    screen_changed: true,
+    ready: false,
+  };
+  const reading = {
+    state: 'measured',
+    smallest_px: 6,
+    measured: 12,
+    fill_share: 0.18,
+    floor_px: READING_FLOOR_PX,
+    last_measured_px: null,
+    words: 'The words are too small to read on a laptop',
+    detail: '6 px high; at least 10 needed',
+  };
+  test('measured, not known or changed, holding a failure last measured or not; absent on earlier checks', () => {
+    assert.equal(validate(laptop).ok, true);
+    assert.equal(validate({ ...laptop, reading }).ok, true);
+    for (const state of ['measured', 'unknown', 'changed'])
+      assert.equal(validate({ ...laptop, reading: { ...reading, state } }).ok, true, state);
+    const unknown = {
+      ...reading,
+      state: 'unknown',
+      smallest_px: null,
+      measured: 0,
+      fill_share: null,
+      detail: null,
+    };
+    assert.equal(validate({ ...laptop, reading: unknown }).ok, true);
+    assert.equal(validate({ ...laptop, reading: { ...unknown, last_measured_px: 6 } }).ok, true);
+  });
+  test('nothing else: no other state, no share past the whole, no empty words, no extra member', () => {
+    for (const bad of [
+      { ...reading, state: 'guessed' },
+      { ...reading, fill: 'measured' },
+      { ...reading, floor_fill: 0.32 },
+      { ...reading, last_measured_px: -1 },
+      { ...reading, fill_share: 1.2 },
+      { ...reading, smallest_px: -1 },
+      { ...reading, measured: 65 },
+      { ...reading, words: '' },
+      { ...reading, words: 'x'.repeat(201) },
+      { ...reading, passed: true },
+    ])
+      assert.equal(
+        validate({ ...laptop, reading: bad }).ok,
+        false,
+        JSON.stringify(bad).slice(0, 80),
+      );
+    const { words: _words, ...wordless } = reading;
+    assert.equal(validate({ ...laptop, reading: wordless }).ok, false);
+    const { last_measured_px: _held, ...unheld } = reading;
+    assert.equal(validate({ ...laptop, reading: unheld }).ok, false);
+  });
+  test('the one floor is 10 px words', () => {
+    assert.equal(READING_FLOOR_PX, 10);
   });
 });
 

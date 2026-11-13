@@ -81,6 +81,20 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   scan cannot tell the starter's untouched scene from a chosen world (`setupLook(world)` and
   `setupLook(world, 'meadow')` read alike), so it would refuse a fitting choice. `failed_steps` names no
   step for a refusal; clients say a fixing try in their own general words.
+- A second trigger, under the same cap (VRIFY, 2026-11-13): a check whose laptop reading is a measured failure
+  (`CheckLaptop.reading`: the kit's words measured under 10 CSS pixels at 1280 by 800) goes back to its agent too,
+  whether the check passed or not. A later check that cannot measure them (a kit file changed, no kit text in view)
+  is not a fix: it carries the project's last measured reading while that was under the floor (`last_measured_px`),
+  so the chain goes on to its cap rather than ending `passed`, and only a later measured reading at or over the floor
+  clears it. How much of the view the app fills is recorded as information and triggers nothing. It counts against the same two
+  tries per chain as a failed check, never a counter of its own: a type error fixed on the first try and words too small
+  on the second end the chain at the cap. The try's text opens with the host's words for a check that passed but does
+  not read on a laptop (or the failed check's, when it also failed), then the numbers and what to change, which may name
+  the kit's parts (the pages, the laptop camera, `TYPE` in `src/pages.ts`) since an agent reads it, never a person.
+  `failed_steps` names it `reading`. A reading merely not known, with no failure measured before it, is not sent: no
+  agent is known to have made it so. The real run of 2026-11-13 found the cause: the check said a VR
+  version was ready on a laptop while its words stood about 6 pixels high
+  ([vrify-real-projects.md](../validation/vrify-real-projects.md), "The reading floor").
 - On wherever checks are; `ControlPlaneOptions.autoFix: false` turns it off.
 
 ## Alternatives considered

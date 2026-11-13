@@ -1257,6 +1257,53 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       return result.admitted ? '' : result.rejection.message;
     };
     assert.match(refusal(), /didn't see the game work/);
+    // A game that works but does not read on a laptop is told so, plainly, the numbers second (VRIFY, 2026-11-13).
+    record(first, {
+      laptop: {
+        ...laptopReady.laptop,
+        reading: {
+          state: 'measured',
+          smallest_px: 6,
+          measured: 3,
+          fill_share: null,
+          floor_px: 10,
+          last_measured_px: null,
+          words: 'The words are too small to read on a laptop',
+          detail: '6 px high; at least 10 needed',
+        },
+        ready: false,
+      },
+    });
+    assert.equal(
+      refusal(),
+      'The words are too small to read on a laptop (6 px high; at least 10 needed).',
+    );
+    // Measured under, then changed: still refused, saying the last measurement and why (AUDIT3).
+    const held = {
+      state: 'changed',
+      smallest_px: null,
+      measured: 0,
+      fill_share: null,
+      floor_px: 10,
+      last_measured_px: 6,
+      words:
+        "The words were too small to read on a laptop when last measured (6 px high; at least 10 needed), and can no longer be measured: the app's own kit files changed",
+      detail: null,
+    };
+    record(first, { laptop: { ...laptopReady.laptop, reading: held, ready: false } });
+    assert.equal(refusal(), `${held.words}.`);
+    assert.doesNotMatch(refusal(), /ready/i);
+    // A reading not known holds nothing back, and a refusal for another reason never says ready (the lead, AUDIT2).
+    const notKnown = {
+      ...held,
+      last_measured_px: null,
+      words: 'Not known whether it reads on a laptop: no kit text could be measured',
+    };
+    record(first, {
+      laptop: { ...laptopReady.laptop, mouse: 'not_reached', reading: notKnown, ready: false },
+    });
+    assert.match(refusal(), /didn't see the game work/);
+    assert.doesNotMatch(refusal(), /ready/i);
     // Where the check could not tell, it says so, never that the game does not work (run (a4), 2026-11-13).
     for (const mouse of ['unknown', 'no_target']) {
       record(first, { laptop: { ...laptopReady.laptop, mouse, targets: 0, ready: false } });
@@ -1274,6 +1321,13 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       b.controlPlane('project.preview.started', scope, { check_id: first as never, port: 47930 }),
     );
     assert.equal(opens(), true);
+    // Never measured, not known: it plays, and whether it reads is said apart (the lead, 22:40Z).
+    record(first, {
+      ...laptopReady,
+      laptop: { ...laptopReady.laptop, reading: { ...notKnown, state: 'unknown' }, ready: true },
+    });
+    assert.equal(opens(), true);
+    record(first, laptopReady);
     assert.equal(
       admitCommand(command('project.open_on_mac'), projection, catalog()).admitted &&
         'low_consequence',

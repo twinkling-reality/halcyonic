@@ -18585,6 +18585,9 @@
           "type": "integer",
           "minimum": 0
         },
+        "reading": {
+          "$ref": "#/$defs/CheckReading"
+        },
         "ready": {
           "type": "boolean"
         }
@@ -18759,6 +18762,93 @@
             "additionalProperties": false
           },
           "maxItems": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "CheckReading": {
+      "type": "object",
+      "required": [
+        "state",
+        "smallest_px",
+        "measured",
+        "fill_share",
+        "floor_px",
+        "last_measured_px",
+        "words",
+        "detail"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "measured",
+            "unknown",
+            "changed"
+          ]
+        },
+        "smallest_px": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "measured": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "fill_share": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "floor_px": {
+          "type": "number",
+          "minimum": 0
+        },
+        "last_measured_px": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "words": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -19132,6 +19222,10 @@
               {
                 "type": "string",
                 "const": "own_check"
+              },
+              {
+                "type": "string",
+                "const": "reading"
               }
             ]
           },

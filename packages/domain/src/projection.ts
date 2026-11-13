@@ -9,6 +9,7 @@ import type {
   CheckId,
   CheckpointId,
   CheckpointView,
+  CheckReading,
   CommandEnvelope,
   CommandFailure,
   CommandId,
@@ -1293,6 +1294,21 @@ export class Projection {
         };
   }
 
+  /**
+   * The laptop reading of the project's latest check that measured one (VRIFY, AUDIT3, 2026-11-13), or null when none
+   * did: read from the checks already kept, so a later check that cannot measure carries a failure it cannot clear.
+   */
+  lastMeasuredReading(projectId: string): CheckReading | null {
+    let last: { position: number; reading: CheckReading } | null = null;
+    for (const state of this.#checksById.get(projectId as ProjectId)?.values() ?? []) {
+      const reading = state.findings.laptop?.reading;
+      if (reading?.state !== 'measured') continue;
+      if (last === null || state.position > last.position)
+        last = { position: state.position, reading };
+    }
+    return last?.reading ?? null;
+  }
+
   /** The project's running preview, or undefined when none runs. */
   preview(projectId: string): ProjectPreview | undefined {
     const running = this.#previews.get(projectId as ProjectId);
@@ -1941,7 +1957,7 @@ export class Projection {
         // A project's own check (ADR 0055), while it is the latest run the projection keeps.
         const ownLatest = this.#ownChecks.get(event.project_id)?.latest;
         const ownRun = ownLatest?.checkId === check_id ? ownLatest : undefined;
-        const failed: ('typecheck' | 'build' | 'page' | 'own_check')[] | undefined =
+        const failed: ('typecheck' | 'build' | 'page' | 'reading' | 'own_check')[] | undefined =
           ownRun !== undefined
             ? ownRun.findings.passed
               ? []

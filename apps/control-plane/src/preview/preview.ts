@@ -252,6 +252,8 @@ export class HostPreviews {
         reference,
         onServer: (pid) =>
           this.#writeRecord(projectId, { pid, copy: join(cache, 'dist') }, 'check'),
+        // A reading this check cannot measure never clears one measured under the floor (VRIFY, AUDIT3).
+        lastReading: this.#deps.projection.lastMeasuredReading(projectId),
       });
       // What the starter refuses beyond building and drawing, found in the folder checked: a VR
       // version's share picture of its original, where the starter declares it (VRIFY, 2026-11-12).

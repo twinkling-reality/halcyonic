@@ -67,6 +67,37 @@ export const CheckPage = Type.Object(
 );
 export type CheckPage = Static<typeof CheckPage>;
 
+/** The smallest words a person reads on a laptop's 1280 by 800 view, in CSS pixels (validation/vrify-real-projects.md). */
+export const READING_FLOOR_PX = 10;
+
+/**
+ * Whether a person can read the app on a laptop (VRIFY, 2026-11-13). The words' heights are what the starter's kit
+ * reports through the page's check hook (`reported`): each mesh the kit drew words on that the laptop camera sees, its
+ * smallest words projected to CSS pixels; words the app drew itself are not measured. `state` is `measured`, `unknown`
+ * (no hook answer, or no text the kit drew in view) or `changed` (a kit file that feeds the reading differs from the
+ * starter's, so the page's report is not the kit's own). `smallest_px` is the smallest of the `measured` texts, null
+ * unless measured. `fill_share` is information only, observed in the host from the laptop picture's pixels (the share
+ * that differ from its most common colour), null where the picture could not be read or has no one background colour;
+ * it gates nothing. `last_measured_px`, on a reading not measured, is the smallest words of the project's last measured
+ * reading when that one was under the floor: a reading never improves by becoming unmeasurable. `words` is the
+ * person's line, plain; `detail` its numbers, second. Never changes whether the check passed; the laptop step is held
+ * back only by a measured failure: `smallest_px` under `floor_px`, or a `last_measured_px` still held.
+ */
+export const CheckReading = Type.Object(
+  {
+    state: Type.Enum(['measured', 'unknown', 'changed']),
+    smallest_px: Nullable(Type.Number({ minimum: 0, maximum: 4096 })),
+    measured: Type.Integer({ minimum: 0, maximum: 64 }),
+    fill_share: Nullable(Type.Number({ minimum: 0, maximum: 1 })),
+    floor_px: Type.Number({ minimum: 0 }),
+    last_measured_px: Nullable(Type.Number({ minimum: 0, maximum: 4096 })),
+    words: Text(200),
+    detail: Nullable(Text(200)),
+  },
+  strict,
+);
+export type CheckReading = Static<typeof CheckReading>;
+
 /**
  * The laptop step (M1.8b): the check's own mouse presses and keys, sent to the page. `mouse` and `key`
  * are what the page's input layer reports (`reported`); `screen_changed` is observed in the host from
@@ -78,9 +109,10 @@ export type CheckPage = Static<typeof CheckPage>;
  * (`press_differs_before`), a seen press loaded again ended otherwise (`repeat_differs`), the step ran
  * out of its time or the page stopped reaching frames (`out_of_time`), or a load could not be made or
  * compared (`failed`); absent when not unknown. `exceptions_during` counts uncaught exceptions while
- * the step acted. `ready` needs
- * the starter's own layer and either the mouse reported reached with the screen observed changed, or
- * a response seen against the twin.
+ * the step acted. `reading` says whether a person can read the app on a laptop (`CheckReading`); absent on
+ * checks recorded before it. `ready` needs the starter's own layer and either the mouse reported reached
+ * with the screen observed changed, or a response seen against the twin; and, where `reading` is present,
+ * no measured failure of the reading.
  */
 export const CheckLaptop = Type.Object(
   {
@@ -102,6 +134,7 @@ export const CheckLaptop = Type.Object(
       ),
     ),
     exceptions_during: Type.Optional(Type.Integer({ minimum: 0 })),
+    reading: Type.Optional(CheckReading),
     ready: Type.Boolean(),
   },
   strict,
@@ -369,6 +402,8 @@ export const AutoFixView = Type.Object(
           Type.Literal('page'),
           /** A project's own check (ADR 0055): one of its chosen scripts failed. */
           Type.Literal('own_check'),
+          /** The check passed or not, its laptop reading was measured under the floor (`CheckReading`, VRIFY 2026-11-13). */
+          Type.Literal('reading'),
         ]),
         { maxItems: 4 },
       ),

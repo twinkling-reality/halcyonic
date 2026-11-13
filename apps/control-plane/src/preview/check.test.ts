@@ -16,6 +16,8 @@ import { type AddressInfo, createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { after, before, describe, type TestContext, test } from 'node:test';
+import { readingFix } from '@halcyonic/domain';
+import { checkWords } from '../workspace-agent/fact-words.ts';
 import {
   type CheckStep,
   DRAWN_EDGES,
@@ -28,6 +30,7 @@ import {
   runCheck,
   summarizeExceptions,
 } from './check.ts';
+import { readingOf } from './laptop-probe.ts';
 import { installLauncher, launcherFor } from './launcher.ts';
 import { browserBinary, browserProblem } from './play.ts';
 
@@ -159,11 +162,23 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     profiles: existsSync(join(STARTER, 'input-profiles')) ? join(STARTER, 'input-profiles') : null,
     port: PORT,
   });
-  const check = async (t: TestContext, change: (project: string) => void, twinStepMs?: number) => {
+  /** A check of the template changed by `change`; with `kit`, of a kit changed for the test, the template it is compared with too. */
+  const check = async (
+    t: TestContext,
+    change: (project: string) => void,
+    twinStepMs?: number,
+    kit?: (template: string) => void,
+  ) => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-check-')));
     t.after(() => rmSync(root, { recursive: true, force: true }));
+    let source = template;
+    if (kit !== undefined) {
+      source = join(root, 'template');
+      cpSync(template, source, { recursive: true });
+      kit(source);
+    }
     const project = join(root, 'project');
-    cpSync(template, project, { recursive: true });
+    cpSync(source, project, { recursive: true });
     symlinkSync(join(STARTER, 'node_modules'), join(project, 'node_modules'));
     change(project);
     const cache = join(root, 'cache');
@@ -175,7 +190,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       project,
       starter: STARTER,
       hostSource: host,
-      template,
+      template: source,
       cache,
       profiles: existsSync(join(STARTER, 'input-profiles'))
         ? join(STARTER, 'input-profiles')
@@ -209,11 +224,14 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     );
   };
 
-  /** A box the layer listens to; a click makes it bigger and blue, which the host can see. */
+  /**
+   * A box the layer listens to; a click makes it bigger and blue, which the host can see. The kit's score sign stands
+   * on the tier, so the game has words the laptop reading measures (VRIFY, 2026-11-13).
+   */
   const BOX_IMPORTS =
-    "import { BoxGeometry, Mesh, MeshStandardMaterial } from 'three';\nimport { onSelect } from './play-input.js';";
+    "import { BoxGeometry, Mesh, MeshStandardMaterial } from 'three';\nimport { onSelect } from './play-input.js';\nimport { scoreSign } from './decor.js';";
   const BOX =
-    'const box = new Mesh(new BoxGeometry(0.9, 0.9, 0.9), new MeshStandardMaterial({ color: 0xff8800 })); box.position.set(-2, 1.3, -3.9); onSelect(world.createTransformEntity(box), () => { box.scale.setScalar(2.5); box.material.color.set(0x2266ff); });';
+    "scoreSign('Score'); const box = new Mesh(new BoxGeometry(0.9, 0.9, 0.9), new MeshStandardMaterial({ color: 0xff8800 })); box.position.set(-2, 1.3, -3.9); onSelect(world.createTransformEntity(box), () => { box.scale.setScalar(2.5); box.material.color.set(0x2266ff); });";
   const config = (project: string, offer: string) => {
     const file = join(project, 'iwsdk.config.json');
     writeFileSync(
@@ -430,25 +448,31 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
   test('a box the game listens to: the mouse reaches it, the host sees the screen change, VR is offered, ready (M1.8b)', {
     timeout: 240_000,
   }, async (t) => {
-    const result = await check(t, (project) => {
-      addToIndex(project, BOX_IMPORTS, BOX);
+    const result = await check(
+      t,
+      (project) => addToIndex(project, BOX_IMPORTS, BOX),
+      undefined,
       // Since U3 the starter's scenery moves by itself, so one load cannot tell a press's change from it and the twin
       // replay sees the press instead (M1.8g's case). Held at its pose at time 0, the scenery stands still and this
       // case covers the single-load path: a still control pair, then the screen changed by the press. The movers still
-      // run each frame, so the look still shows its canvas.
-      const look = join(project, 'src', 'look.ts');
-      const moving = 'for (const move of movers) move(time);';
-      assert.ok(
-        readFileSync(look, 'utf8').includes(moving),
-        'the look moves its scenery in one loop',
-      );
-      writeFileSync(
-        look,
-        readFileSync(look, 'utf8').replace(moving, 'for (const move of movers) move(0);'),
-      );
-    });
+      // run each frame, so the look still shows its canvas. look.ts feeds the laptop reading, so the kit the project
+      // is compared with is held the same way.
+      (kit) => {
+        const look = join(kit, 'src', 'look.ts');
+        const moving = 'for (const move of movers) move(time);';
+        assert.ok(
+          readFileSync(look, 'utf8').includes(moving),
+          'the look moves its scenery in one loop',
+        );
+        writeFileSync(
+          look,
+          readFileSync(look, 'utf8').replace(moving, 'for (const move of movers) move(0);'),
+        );
+      },
+    );
     assert.equal(result.passed, true, JSON.stringify(result.page));
-    assert.deepEqual(result.laptop, {
+    const { reading, ...laptop } = result.laptop ?? {};
+    assert.deepEqual(laptop, {
       layer: 'starter',
       targets: 1,
       mouse: 'reached',
@@ -457,6 +481,9 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       exceptions_during: 0,
       ready: true,
     });
+    // The score sign's label, measured through the game's own laptop camera.
+    assert.equal(reading?.state, 'measured', JSON.stringify(reading));
+    assert.ok((reading?.smallest_px ?? 0) >= 10, JSON.stringify(reading));
     assert.deepEqual(result.vr, {
       offered: 'offered',
       how: 'offer_session',
@@ -464,6 +491,47 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       ready: true,
     });
     assert.equal(result.ready, true);
+  });
+
+  /** Six pressable pages from the kit, as Make VR Version lays out an app's cards, after `setup` in index.ts. */
+  const pagesAfter = (project: string, setup: string) => {
+    const index = join(project, 'src', 'index.ts');
+    const text = readFileSync(index, 'utf8');
+    const standing = 'setupLook(world);\n  decorate(gameIsland());';
+    assert.ok(text.includes(standing), 'index.ts sets up the look and the decor');
+    writeFileSync(
+      index,
+      `import { setupScene } from './look.js';\nimport { pages } from './pages.js';\nimport { onSelect } from './play-input.js';\n${text.replace(
+        standing,
+        `${setup}\n  const book = pages(Array.from({ length: 6 }, (_, i) => ({ title: \`Step \${i + 1}\`, text: 'Words a person reads on the page, a few lines of them, wrapped to its width.' })));\n  book.panels.forEach((panel, i) => onSelect(world.createTransformEntity(panel), () => book.show(i)));`,
+      )}`,
+    );
+  };
+
+  test("a view's pages are read from the person's own place: the words reach the floor on a laptop (VRIFY, 2026-11-13)", {
+    timeout: 240_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      pagesAfter(project, "setupScene(world, '#1d2733');"),
+    );
+    const reading = result.laptop?.reading;
+    assert.equal(reading?.state, 'measured', JSON.stringify(reading));
+    assert.ok((reading?.smallest_px ?? 0) >= 10, JSON.stringify(reading));
+    assert.equal(result.laptop?.ready, true, JSON.stringify(result.laptop));
+  });
+
+  test("the same pages from a game's camera behind the player read about 6 px: not ready on a laptop, the check still passed (VRIFY, 2026-11-13)", {
+    timeout: 240_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      pagesAfter(project, 'setupLook(world);\n  decorate(gameIsland());'),
+    );
+    const reading = result.laptop?.reading;
+    assert.equal(reading?.state, 'measured', JSON.stringify(reading));
+    assert.ok((reading?.smallest_px ?? 99) < 10, JSON.stringify(reading));
+    assert.equal(reading?.words, 'The words are too small to read on a laptop');
+    assert.equal(result.laptop?.ready, false);
+    assert.equal(result.passed, true, JSON.stringify(result.page));
   });
 
   test('a game that changed the input layer is not ready on a laptop, whatever it reports (M1.8b)', {
@@ -639,5 +707,93 @@ describe('the laptop step that could not tell (run (a4), 2026-11-13)', () => {
       laptopUnknown({ ...step, mouse: 'no_target' }),
     ])
       assert.ok((said ?? '').length <= 300, 'fits the findings');
+  });
+
+  const pressed = {
+    layer: 'starter' as const,
+    targets: 1,
+    mouse: 'reached' as const,
+    key: 'reached' as const,
+    screen_changed: true,
+    ready: true,
+  };
+
+  test('says when whether it reads on a laptop is not known, plainly, apart from whether it plays (VRIFY, the lead 22:40Z)', () => {
+    assert.equal(
+      laptopUnknown({ ...pressed, reading: readingOf('starter', { texts: [] }, null) }),
+      'Not known whether it reads on a laptop: no kit text could be measured.',
+    );
+    assert.equal(
+      laptopUnknown({ ...pressed, reading: readingOf('changed', { texts: [12] }, null) }),
+      "Not known whether it reads on a laptop: the app's own kit files changed.",
+    );
+    const held = laptopUnknown({
+      ...pressed,
+      ready: false,
+      reading: readingOf('changed', null, null, readingOf('starter', { texts: [6] }, null)),
+    });
+    assert.equal(
+      held,
+      "The words were too small to read on a laptop when last measured (6 px high; at least 10 needed), and can no longer be measured: the app's own kit files changed.",
+    );
+    assert.ok((held ?? '').length <= 300, 'fits the findings');
+    // A measured reading, too small or not, is a finding, not something the check could not tell.
+    assert.equal(
+      laptopUnknown({ ...pressed, reading: readingOf('starter', { texts: [6] }, null) }),
+      null,
+    );
+    assert.equal(
+      laptopUnknown({ ...pressed, reading: readingOf('starter', { texts: [12] }, null) }),
+      null,
+    );
+    // No word of the kit's names reaches a person.
+    for (const texts of [[], [6], [12]])
+      for (const files of ['starter', 'changed'] as const) {
+        const reading = readingOf(
+          files,
+          { texts },
+          null,
+          readingOf('starter', { texts: [6] }, null),
+        );
+        assert.doesNotMatch(
+          `${reading.words} ${reading.detail ?? ''}`,
+          /TYPE|camera|pages\.ts|legible/,
+        );
+      }
+  });
+
+  test('never "ready" over a reading not known: not in the reading, the laptop line, the check\'s words or the agent\'s (AUDIT2)', () => {
+    const measured6 = readingOf('starter', { texts: [6] }, null);
+    const notKnown = [
+      readingOf('starter', { texts: [] }, null),
+      readingOf('starter', null, null),
+      readingOf('changed', { texts: [12] }, null),
+      readingOf('missing', null, null),
+      readingOf('changed', { texts: [12] }, null, measured6),
+      readingOf('starter', { texts: [] }, null, measured6),
+    ];
+    for (const reading of notKnown) {
+      const laptop = { ...pressed, reading };
+      const findings = {
+        tsc: { exit: 0, seconds: 1 },
+        build: { exit: 0, seconds: 1 },
+        page: null,
+        unknown: laptopUnknown(laptop),
+        passed: true,
+        reads_confined: true,
+        laptop,
+      };
+      const said = [
+        reading.words,
+        reading.detail ?? '',
+        laptopUnknown(laptop) ?? '',
+        checkWords(
+          { state: 'passed', unknown: findings.unknown, files_since_check: 'current' },
+          new Date('2026-11-13T23:00:00Z'),
+        ),
+        readingFix(findings) ?? '',
+      ];
+      for (const words of said) assert.doesNotMatch(words, /ready/i, words);
+    }
   });
 });

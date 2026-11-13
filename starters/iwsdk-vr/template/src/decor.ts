@@ -29,6 +29,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { wordsOn } from './legible.js';
 import { ambientMotion, contactShadow, currentWorld, gameIsland, gameTime, ISLAND_CENTRE, TIER } from './look.js';
 import { ambient, confettiPiece, flap, flight, juice, pulse, sway } from './motion.js';
 import { type PaletteName, palette, toyMaterial } from './palette.js';
@@ -796,6 +797,8 @@ export function scoreSign(label = 'Score'): { show(value: number | string): void
   const face = new Mesh(new PlaneGeometry(1.2, 0.6), faceMaterial);
   // 2 cm proud of the frame: the template's near plane of 1 mm leaves about 2 mm of depth precision 6 m away.
   face.position.z = 0.05;
+  // Its smaller words, the label's 54 px on a 512 px canvas 1.2 m wide, for the computer's check of a laptop's view.
+  wordsOn(face, (54 * 1.2) / 512);
   board.add(face);
   sign.add(board);
   sign.add(contactShadow(0.6));
