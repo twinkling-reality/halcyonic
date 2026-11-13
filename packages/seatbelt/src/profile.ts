@@ -376,6 +376,48 @@ const CODEX_BASE = `(version 1)
 (allow file-read* (subpath "/Applications"))`;
 
 /**
+ * What in a project's own folder runs later outside any sandbox without the person choosing to run anything, so a
+ * confined run never writes it (AUDIT3, 2026-11-13): the project's own git data (its config and hooks run in the
+ * person's git, their editor's and Halcyonic's send), and the files an editor or a shell runs when the folder is
+ * opened. Each is a folder (`subpath`) or a file at the project's top level (`literal`), or, for workspace files, any
+ * name ending in `.code-workspace` at the top level. The host's own answer to an approval asks for these too.
+ */
+export const RUNS_LATER = {
+  folders: ['.git', '.vscode', '.idea', '.devcontainer'],
+  files: ['.envrc', '.gitmodules'],
+  suffixes: ['.code-workspace'],
+} as const;
+
+/** Whether `relativePath`, a path inside a project relative to it, is one of `RUNS_LATER`. */
+export function runsLater(relativePath: string): boolean {
+  const parts = relativePath.split('/').filter((part) => part !== '' && part !== '.');
+  const top = parts[0];
+  if (top === undefined) return false;
+  if ((RUNS_LATER.folders as readonly string[]).includes(top)) return true;
+  return (
+    parts.length === 1 &&
+    ((RUNS_LATER.files as readonly string[]).includes(top) ||
+      RUNS_LATER.suffixes.some((suffix) => top.endsWith(suffix)))
+  );
+}
+
+/** Seatbelt rules refusing every write to `RUNS_LATER` in `project`. */
+export function runsLaterUnder(project: string): string {
+  const root = resolved(project);
+  if (/["\n\r]/.test(root))
+    throw new Error(`a folder Halcyonic cannot name in its profile: ${root}`);
+  const literal = root.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&');
+  const quote = (path: string) => JSON.stringify(path);
+  return [
+    ...RUNS_LATER.folders.map((name) => `(subpath ${quote(`${root}/${name}`)})`),
+    ...RUNS_LATER.files.map((name) => `(literal ${quote(`${root}/${name}`)})`),
+    ...RUNS_LATER.suffixes.map(
+      (suffix) => `(regex #"^${literal}/[^/]*${suffix.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&')}$")`,
+    ),
+  ].join(' ');
+}
+
+/**
  * Seatbelt rules for the version control and secret-shaped files anywhere under an original's
  * folder (M1.8c-1): `.git`, `.env*`, keys and certificates' private parts, SSH keys, package and
  * network credentials, and files named credentials or secrets. Written case-insensitively, as the
@@ -588,6 +630,9 @@ export function confinedProfile(scope: ConfinedScope): string {
                 `(allow file-read-metadata file-test-existence ${each('literal', between(hidden, own))})`,
               ]),
         ]),
+    // What in the project runs later outside any sandbox, never written: its git data and the files an editor or a
+    // shell runs when the folder is opened (AUDIT3, 2026-11-13).
+    `(deny file-write* ${runsLaterUnder(scope.project)})`,
     // Every other project inside this one, last, so no allowance above reopens it (AUDIT BOX-3 F1).
     ...((scope.inner ?? []).length === 0
       ? []
