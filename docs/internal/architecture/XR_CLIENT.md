@@ -971,7 +971,8 @@ launch/return, process recreation and current-frame action behavior need separat
   - **`UsageColumn`** draws it under the redesign. It reads the status beside the limits, and the row stands under the
     gauges; a read that fails draws no row. The row's press opens the host's list, read afresh each time
     (**`UsageColumn.ModelsCard`**): the place it runs now chosen with the note "In Use", a row the host offers
-    nothing on marked as failed in the bad tone, Back to the card. A row pressed sends Use Model; while the
+    nothing on marked as failed in the bad tone, a hosted model's id that presses on one line, its end cut with its
+    ellipsis where it does not fit (never broken at a hyphen; the review names it whole), Back to the card. A row pressed sends Use Model; while the
     computer is asked, the card names the row pressed (**`UsageColumn.AskingCard`**). The request's waiting
     step is drawn as the one review card (**`ReviewCard`**, built by **`UsageColumn.ReviewOf`** from the host's
     own words on the step: its confirm words, facts and warnings, a warning standing "Check First"; an older

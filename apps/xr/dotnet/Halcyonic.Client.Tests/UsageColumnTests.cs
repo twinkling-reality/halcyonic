@@ -450,6 +450,8 @@ public class UsageColumnTests
                 (RoomKind.Failed, "test-model-2", false, false),
             }));
             Assert.That(list.Card.List.Select(each => each.Note), Is.EqualTo(new[] { UsageColumn.InUse, null, null }), "the row in use says so");
+            Assert.That(list.Card.List.Select(each => each.Excerpt), Is.EqualTo(new[] { false, true, false }),
+                "a hosted id that presses stands on one line, cut with its ellipsis; our own words and a row that presses nothing never are");
             Assert.That(list.Card.List[2].Tone, Is.EqualTo(RoomTone.Bad), "a row the host offers nothing on reads as unusable");
             Assert.That(list.Card.List[2].Under!.Text, Is.EqualTo("Other Hosted refused its key. Give it a new key on this computer."));
             Assert.That(list.Column.Select(action => action.Control.Action), Does.Contain(UsageColumn.Back));
