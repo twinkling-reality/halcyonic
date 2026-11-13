@@ -222,4 +222,26 @@ public class RoomPageTests
         }
         Assert.That(keys, Is.EqualTo(Enumerable.Range(1, 8).Select(n => n.ToString())), "every action reached, none dropped");
     }
+
+    /// <summary>
+    /// The busiest column a footer gives (a confirmation: its Yes, Cancel and Close) still pages the frame's other actions, the
+    /// pager between, and loses none (AUDIT's SHOULD, 16:56Z; the reader also never divides by a room of nought).
+    /// </summary>
+    [Test]
+    public void TheBusiestFooterStillPagesEveryOtherAction()
+    {
+        var footer = Footer.Confirm(new Footer(Close, farRight: new Prompt("go", "Go", GlazeIcon.Next)), PromptSlot.FarRight,
+            new Prompt("yes", "Confirm", GlazeIcon.Next, PromptKind.Yes), new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel));
+        var bar = RoomBar.OfFrame(Frame(Enumerable.Range(1, 5).Select(n => new PageLine("Do " + n, action: "do", key: n.ToString())).ToList(), footer), VoiceStage.Idle)!;
+        Assert.That(bar.GeneralPart.Pages, Is.GreaterThan(1));
+        var keys = new List<string?>();
+        for (var page = 0; page < bar.GeneralPart.Pages; page++)
+        {
+            Assert.That((bar.Column[0].Control.Action, bar.Column[0].Locks), Is.EqualTo(("yes", true)), "the Yes first, behind its lock, on every page");
+            Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(RoomBar.ColumnMost));
+            keys.AddRange(bar.Column.Where(action => action.Control.Action == "do").Select(action => action.Control.Key));
+            bar.Turn();
+        }
+        Assert.That(keys, Is.EqualTo(new[] { "1", "2", "3", "4", "5" }));
+    }
 }

@@ -137,7 +137,9 @@ namespace Halcyonic.Client
             // first and the ways out last on every page, with the pager between; nothing is dropped. A frame with its own parts never
             // reaches here with more than a page, since its parts page it.
             var fixedCount = (main != null ? 1 : 0) + leaving.Count;
-            var room = ColumnMost - fixedCount;
+            // At least one turning action and the pager a page, however many ways out a frame gives (AUDIT's SHOULD, 16:56Z): such a
+            // frame's column may then pass six, which the kit lays rather than lose an action.
+            var room = System.Math.Max(2, ColumnMost - fixedCount);
             var actionPages = turning.Count <= room ? 1 : (turning.Count + room - 2) / (room - 1);
             var pages = System.Math.Max(RoomRows.Pages(rows.Count), actionPages);
             var each = pages > 1 ? room - 1 : room;
