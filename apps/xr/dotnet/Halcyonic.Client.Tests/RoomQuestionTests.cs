@@ -85,6 +85,13 @@ public class RoomQuestionTests
             Assert.That(described.Frame.Lines.Select(line => line.Words), Has.None.EqualTo("More Choices"));
             var (_, _, plain) = Asking(Seven("question-plain", described: false));
             Assert.That(plain.Frame!.Lines.Count(line => line.Choice), Is.LessThan(7), "plain answers paged by the column's places");
+            // A mixed question (every agent app's options may come with or without a description): one part all the same, one pager.
+            var mixed = Seven("question-mixed", described: true);
+            mixed.Prompts.Insert(0, new QuestionPrompt { Key = "q-plain", Header = "Pages", Text = "Which pages?", Multiple = false, FreeText = false, Secret = false,
+                Options = Enumerable.Range(1, 7).Select(index => new QuestionOption { Label = "Page " + index }).ToList() });
+            var (_, _, both) = Asking(mixed);
+            Assert.That(both.Frame!.Lines.Count(line => line.Choice), Is.EqualTo(7), "the plain prompt too, in one part");
+            Assert.That(both.Frame.Lines.Select(line => line.Words), Has.None.EqualTo("More Choices"));
         }
         finally { RoomDesign.Enabled = was; }
     }

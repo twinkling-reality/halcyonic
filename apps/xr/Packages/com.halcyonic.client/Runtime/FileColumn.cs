@@ -1170,22 +1170,23 @@ namespace Halcyonic.Client
                 UnderstandingPresenter.Present(prompt, understanding, clock, host.Zone, AnswerRoom.Unlimited, AnswerDepth.Full));
 
         /// <summary>
-        /// The agent's question measured as the view wraps it at the file's and the side panel's widths:
-        /// every prompt and every answer, and the typed answers and the person's answers as they read now.
-        /// </summary>
-        /// <summary>
-        /// The redesign's budget for <paramref name="asked"/>: where every prompt with answers carries an answer with a description, the
+        /// The redesign's budget for <paramref name="asked"/>: where ANY prompt carries an answer with a description, the question's
         /// answers stand in the panel's card, which pages them itself by the kit's own line count (the lead's 22:04Z; SCREENS's and XR's
-        /// one pager, 22:21Z), so the file hands each prompt's answers in ONE part (its answers, the row to write one, none to more);
+        /// one pager, 22:21Z; AUDIT's 22:24Z: a mixed question too, since every agent app's options may come with or without one), so the
+        /// file hands each prompt's answers in ONE part (its answers, the row to write one, none to more) and there is one pager;
         /// otherwise the answers stand in the column and the file pages them by <paramref name="places"/> as before.
         /// </summary>
         private static PageBudget OnePartWhereDescribed(QuestionDraft asked, PageBudget places)
         {
             var withAnswers = asked.Prompts.Where(prompt => prompt.Options.Count > 0).ToList();
-            if (withAnswers.Count == 0 || !withAnswers.All(prompt => prompt.Options.Any(option => FileScreens.DescriptionRuns(option) != null))) return places;
+            if (!withAnswers.Any(prompt => prompt.Options.Any(option => FileScreens.DescriptionRuns(option) != null))) return places;
             return new ChoiceBudget(withAnswers.Max(prompt => prompt.Options.Count) + 2);
         }
 
+        /// <summary>
+        /// The agent's question measured as the view wraps it at the file's and the side panel's widths:
+        /// every prompt and every answer, and the typed answers and the person's answers as they read now.
+        /// </summary>
         private void ReadQuestion(QuestionDraft asked, PageBudget page, bool whole = false)
         {
             const float File = Glaze.Menu.FileColumnDegrees;
