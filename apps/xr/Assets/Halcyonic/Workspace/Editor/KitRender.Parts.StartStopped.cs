@@ -123,7 +123,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     // The recap while that start's outcome is unknown: Start Building waits, and says why in the page's own sentence.
                     var reason = EntryText.PreviousRequest(kind);
-                    frame = NewProjectScreens.Recap(idea, draft, null, true, null, reason, buildReached: true, startOverProblem: reason);
+                    frame = NewProjectScreens.Recap(idea, draft, null, true, null, reason, buildReached: true, startOverProblem: reason, startUnknown: true);
                     expected.Add(reason);
                     controls.Add(EntryText.CheckFirst);
                 }

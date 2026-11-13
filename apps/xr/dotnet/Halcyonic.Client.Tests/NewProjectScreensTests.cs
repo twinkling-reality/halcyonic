@@ -417,12 +417,14 @@ public class NewProjectRecapTests
             var idea = Proposed();
             var reason = EntryText.PreviousRequest(BuildStepKind.CreateProject);
             Assert.That(reason, Does.Contain("Start Building waits"), "the sentence names what waits");
-            var recap = NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: reason, buildReached: true, startOverProblem: reason);
+            var recap = NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: reason, buildReached: true, startOverProblem: reason, startUnknown: true);
             var main = recap.Footer[PromptSlot.FarRight]!;
             Assert.That((main.Id, main.Words, main.Available, main.Main), Is.EqualTo((NewProjectScreens.CheckFirst, EntryText.CheckFirst, true, true)), "its way on, lit");
             Assert.That(recap.Lines[0].Words, Is.EqualTo(reason), "the card says why Start Building waits");
             Assert.That(NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: EntryText.ChooseWhereFilesLive).Footer[PromptSlot.FarRight]!.Id,
                 Is.Not.EqualTo(NewProjectScreens.CheckFirst), "any other wait keeps its own way on");
+            Assert.That(NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: reason).Footer[PromptSlot.FarRight]!.Id,
+                Is.EqualTo(NewProjectScreens.StartBuilding), "decided by the flow's fact that a start may have run, never by the reason's words (R3)");
 
             var page = NewProjectScreens.Unresolved(idea, "c-1", new CommandView { CommandId = "c-1", Status = CommandStatus.Failed }, armed: false, live: true,
                 kind: BuildStepKind.CreateProject);
