@@ -1800,9 +1800,16 @@ export class Projection {
           );
           return;
         }
-        // Kept pending for admission until the runtime resolves it; never shown as a card.
+        // Kept pending for admission until the runtime resolves it; never shown as a card. A request too long for a
+        // person is the host's to approve here, under the closed profile, since no person reads it (AUDIT3 M1).
         execution.hostAnswered ??= new Set();
         execution.hostAnswered.add(event.payload.approval_id);
+        const answered = execution.pendingApprovals.get(event.payload.approval_id);
+        if (answered !== undefined && !answered.approvable)
+          execution.pendingApprovals.set(event.payload.approval_id, {
+            ...answered,
+            approvable: true,
+          });
         execution.approvals = {
           wentAhead: (execution.approvals?.wentAhead ?? 0) + 1,
           asked: Math.max(0, (execution.approvals?.asked ?? 1) - 1),

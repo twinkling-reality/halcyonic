@@ -14,7 +14,7 @@ import { runsLater } from '@halcyonic/seatbelt';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
 import type { CommandService } from './command-service.ts';
-import { type Cause, controlPlaneDraft } from './drafts.ts';
+import { type Cause, controlPlaneDraft, SUMMARY_LIMIT } from './drafts.ts';
 import type { EventPublisher } from './publisher.ts';
 import type { Recorder } from './recorder.ts';
 
@@ -166,28 +166,62 @@ export class HostAnswers {
     this.#unsubscribe = null;
   }
 
-  #on(event: EventEnvelope): void {
-    if (this.#closed || event.event_type !== 'runtime.approval.requested') return;
+  /**
+   * Whether the host will answer this request itself (`#judge`): a confined app's own work. HostDenials asks first, so
+   * the two never both act on one request (AUDIT3 M1, 2026-11-13).
+   */
+  wouldAnswer(event: EventEnvelope): boolean {
+    return !this.#closed && this.#deps.live && this.#judgeOnce(event) !== null;
+  }
+
+  /** Each request judged once and the result kept, so the denial's question and the answer act on one judgement. */
+  readonly #judged = new Map<string, HostJudgement | null>();
+
+  #judgeOnce(event: EventEnvelope): HostJudgement | null {
+    const known = this.#judged.get(event.event_id);
+    if (known !== undefined) return known;
+    const judgement = this.#judge(event);
+    this.#judged.set(event.event_id, judgement);
+    // Both listeners ask within the same publish; nothing older is needed.
+    if (this.#judged.size > 64) {
+      const oldest = this.#judged.keys().next().value;
+      if (oldest !== undefined) this.#judged.delete(oldest);
+    }
+    return judgement;
+  }
+
+  /**
+   * The host's judgement of a request, or null. A request too long for a person to approve is judged as its agent app
+   * reported it (`too_long.reported_complete`): in a confined copy no person approves, the profile holds the step.
+   */
+  #judge(event: EventEnvelope): HostJudgement | null {
+    if (event.event_type !== 'runtime.approval.requested') return null;
     const executionId = event.execution_id;
-    if (executionId === null) return;
+    if (executionId === null) return null;
     const { projection } = this.#deps;
-    if (!projection.executionConfined(executionId)) return;
+    if (!projection.executionConfined(executionId)) return null;
     const view = projection.execution(executionId);
-    if (view === undefined || view.directory === null) return;
+    if (view === undefined || view.directory === null) return null;
     const reads = this.#deps.confinedReads(view.directory);
-    if (reads === null) return;
-    const { approval_id: approvalId, subject, complete } = event.payload;
-    const judgement = judgeRequest(
+    if (reads === null) return null;
+    const { subject, complete, too_long: tooLong } = event.payload;
+    return judgeRequest(
       {
         runtimeKind: view.runtime.kind,
         toolName: subject.tool_name,
         paths: subject.paths,
-        complete,
+        complete: complete || tooLong?.reported_complete === true,
       },
       view.directory,
       reads,
     );
+  }
+
+  #on(event: EventEnvelope): void {
+    if (this.#closed || event.event_type !== 'runtime.approval.requested') return;
+    const judgement = this.#judgeOnce(event);
     if (judgement === null) return;
+    const approvalId = event.payload.approval_id;
     // After the request is projected, so the answer finds it pending.
     queueMicrotask(() => {
       if (this.#closed) return;
@@ -195,14 +229,15 @@ export class HostAnswers {
         this.#answer(event, approvalId, judgement);
       } catch {
         // Not the error itself: it can hold the paths judged. The request stays a card for the person.
-        this.#deps.logger.error({ execution_id: executionId }, 'host answer failed');
+        this.#deps.logger.error({ execution_id: event.execution_id }, 'host answer failed');
       }
     });
   }
 
   #answer(event: EventEnvelope, approvalId: string, judgement: HostJudgement): void {
     const executionId = event.execution_id;
-    if (executionId === null) return;
+    if (executionId === null || event.event_type !== 'runtime.approval.requested') return;
+    const tooLong = event.payload.too_long;
     const pending = this.#deps.projection
       .execution(executionId)
       ?.pending_approvals.some((each) => each.approval_id === approvalId);
@@ -220,7 +255,14 @@ export class HostAnswers {
       controlPlaneDraft(
         'execution.approval.answered_by_host',
         scope as never,
-        { approval_id: approvalId, because: judgement.because, paths: judgement.paths },
+        {
+          approval_id: approvalId,
+          because: judgement.because,
+          paths: judgement.paths,
+          // Longer than the record keeps: its first part is recorded, the whole is the project's own copy.
+          ...(tooLong !== undefined &&
+            tooLong.length > SUMMARY_LIMIT && { cut: { length: tooLong.length } }),
+        },
         this.#now(),
         cause,
       ),

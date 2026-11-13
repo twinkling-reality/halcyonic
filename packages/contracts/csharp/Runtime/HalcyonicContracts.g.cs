@@ -4695,6 +4695,12 @@ namespace Halcyonic.Contracts
         public ExecutionApprovalAnsweredByHostPayloadPathsItemAccess Access { get; set; }
     }
 
+    public sealed class ExecutionApprovalAnsweredByHostPayloadCut
+    {
+        [global::Newtonsoft.Json.JsonProperty("length", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Length { get; set; }
+    }
+
     public sealed class ExecutionApprovalAnsweredByHostPayload
     {
         [global::Newtonsoft.Json.JsonProperty("approval_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -4705,6 +4711,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<ExecutionApprovalAnsweredByHostPayloadPathsItem> Paths { get; set; } = new global::System.Collections.Generic.List<ExecutionApprovalAnsweredByHostPayloadPathsItem>();
+
+        [global::Newtonsoft.Json.JsonProperty("cut", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public ExecutionApprovalAnsweredByHostPayloadCut? Cut { get; set; }
     }
 
     public sealed class ExecutionApprovalHostAnswerWithdrawnPayload
@@ -6176,6 +6185,9 @@ namespace Halcyonic.Contracts
     {
         [global::Newtonsoft.Json.JsonProperty("length", Required = global::Newtonsoft.Json.Required.Always)]
         public long Length { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("reported_complete", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool ReportedComplete { get; set; }
     }
 
     public sealed class RuntimeApprovalRequestedPayload

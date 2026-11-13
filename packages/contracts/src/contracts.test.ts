@@ -707,6 +707,7 @@ describe('the C# bindings', () => {
     'CheckPage.own', // a check page's own pixels against the starter's (DRAWN)
     'CheckpointView.turn_id', // the turn an after_turn version follows (History)
     'Evaluation.activity', // Seorak's activity of a session
+    'ExecutionApprovalAnsweredByHostPayload.cut', // a confined answer longer than the record keeps (M1)
     'ExecutionCreatedPayload.secret_names', // the project secrets a start gave (ADR 0057)
     'ExecutionSendInstructionPayload.attachments', // pictures with the words (A4)
     'ExecutionSendInstructionPayload.leave_plan', // carrying a plan out (PLAN 4a)

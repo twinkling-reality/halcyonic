@@ -161,8 +161,10 @@ function withoutCredentials(
         ? { ...payload, reason: withinLimit(redaction.errorText(payload.reason)) }
         : payload;
     case 'runtime.approval.requested': {
-      const subject = payload.subject as { summary?: unknown } | undefined;
-      if (typeof subject?.summary !== 'string') return payload;
+      // `too_long` is the host's own fact, never an adapter's: whatever the observation carried is dropped here.
+      const { too_long: _adapters, ...given } = payload;
+      const subject = given.subject as { summary?: unknown } | undefined;
+      if (typeof subject?.summary !== 'string') return given;
       // What a card does not draw is drawn as its escape, so what is shown is what runs (AUDIT3 L1).
       const held = visible(redaction.held(subject.summary));
       const summary = fitted(held, SUMMARY_LIMIT);
@@ -171,10 +173,10 @@ function withoutCredentials(
       const length = [...held].length;
       const tooLong = length > APPROVABLE_LIMIT;
       return {
-        ...payload,
+        ...given,
         subject: { ...subject, summary },
-        complete: payload.complete === true && summary === held && !tooLong,
-        ...(tooLong && { too_long: { length } }),
+        complete: given.complete === true && summary === held && !tooLong,
+        ...(tooLong && { too_long: { length, reported_complete: given.complete === true } }),
       };
     }
     case 'runtime.question.asked':

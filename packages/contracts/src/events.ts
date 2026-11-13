@@ -970,6 +970,11 @@ export const ExecutionApprovalAnsweredByHost = executionEvent(
       approval_id: NativeId,
       because: HostApprovalReason,
       paths: Type.Array(ApprovalPath, { maxItems: 8 }),
+      /**
+       * Set where the request was longer than the record keeps (32000): the record holds its first part, and the
+       * whole, `length` characters, is the project's own copy (the file itself and its checkpoint). AUDIT3 M1.
+       */
+      cut: Type.Optional(Type.Object({ length: Type.Integer({ minimum: 0 }) }, strict)),
     },
     strict,
   ),
@@ -1204,10 +1209,20 @@ export const RUNTIME_EVENT_PAYLOADS = {
       complete: Type.Boolean(),
       /**
        * Set by the control plane when the request is longer than a person can be shown whole and approve
-       * (`length`, its characters after credentials were taken out): it is never approvable, and the host
-       * denies it at once (`execution.approval.denied_by_host`). Absent otherwise.
+       * (`length`, its characters after credentials were taken out): a person can never approve it, and the
+       * host denies it at once (`execution.approval.denied_by_host`), unless it is a confined app's own work
+       * the host answers itself under the closed profile (ADR 0064), which no person approves. Absent otherwise.
        */
-      too_long: Type.Optional(Type.Object({ length: Type.Integer({ minimum: 0 }) }, strict)),
+      too_long: Type.Optional(
+        Type.Object(
+          {
+            length: Type.Integer({ minimum: 0 }),
+            /** The agent app's own word that the request is whole, before the control plane fitted it. */
+            reported_complete: Type.Boolean(),
+          },
+          strict,
+        ),
+      ),
     },
     strict,
   ),
