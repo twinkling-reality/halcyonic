@@ -111,8 +111,8 @@ namespace Halcyonic.Client
             if (changes.Files.Count == 0) return lines;
             var unverified = understanding.Verification.UnverifiedFiles.Count;
             lines.Add(unverified == 0
-                ? new SectionLine("inferred", "All checked after the last change", SectionTone.Normal)
-                : new SectionLine("inferred", IntelligenceText.Plural(unverified, "file") + " not checked after the last change", SectionTone.Normal));
+                ? new SectionLine("inferred", EveryFileChecked, SectionTone.Normal)
+                : new SectionLine("inferred", IntelligenceText.Plural(unverified, "file") + NoCheckAfter, SectionTone.Normal));
             return lines;
         }
 
@@ -304,7 +304,7 @@ namespace Halcyonic.Client
             var how = new List<SectionLine> { Claim("", content.How.Summary) };
             if (content.How.Root != null) how.Add(Claim("Starts at ", content.How.Root, rows: 1));
             how.AddRange(Numbered(content.How.Steps));
-            Step("How", null, how);
+            Step(HowStep, null, how);
 
             var change = content.ApproachChange;
             if (change != null)
@@ -341,6 +341,16 @@ namespace Halcyonic.Client
 
         /// <summary>The step that says why the work was needed; never plain "Why", which is the account's own Why card (critic 8).</summary>
         public const string WhyStep = "Why it was needed";
+
+        /// <summary>The step that says how the work does it; never a bare "How", which read as a leftover placeholder (critic 9).</summary>
+        public const string HowStep = "How it works";
+
+        /// <summary>
+        /// Whether a check ran after the changes, said by what ran (critic 9: "All checked" left "checked how?"); the source infers
+        /// it from when each check ran, so its note says Inferred.
+        /// </summary>
+        public const string EveryFileChecked = "A check ran after every file's last change";
+        public const string NoCheckAfter = " had no check after the last change";
 
         /// <summary>The explanation's content when there is a flow to step through, else null.</summary>
         private static UnderstandingExplanationContent? Flow(UnderstandingExplanation explanation) =>
@@ -538,7 +548,7 @@ namespace Halcyonic.Client
             var by = files.Select(file => file.Coverage.By).FirstOrDefault(value => value != null);
             var said = unverified.Count == 0
                 ? Ours("Every changed file was checked after its last change") + (Theirs(by) is { IsEmpty: false } who ? Ours(", by ") + who : LineWords.None)
-                : Ours(IntelligenceText.Plural(unverified.Count, "file") + " not checked after the last change: ") + NamesRuns(unverified);
+                : Ours(IntelligenceText.Plural(unverified.Count, "file") + NoCheckAfter + ": ") + NamesRuns(unverified);
             // Coverage is always the source's inference.
             return new SectionLine("inferred", said.Text, SectionTone.Normal, said: said);
         }

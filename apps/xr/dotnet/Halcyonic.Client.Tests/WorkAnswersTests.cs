@@ -159,7 +159,7 @@ public class WhatChangedTests
             ("observed", "Edited: ChargeService.test.ts (+6 −0)"),
             ("observed", "Edited: RetryWorker.ts (+8 −2)"),
             ("observed", "Edited: ChargeService.ts (+24 −3)"),
-            ("inferred", "1 file not checked after the last change: refunds.ts"),
+            ("inferred", "1 file had no check after the last change: refunds.ts"),
             ("planned", "Planned · Not Done · Document refund behaviour for support"),
         }));
         Assert.That(section.Lines.Any(line => line.Tone == SectionTone.Claim), Is.False, "nothing here is anyone's claim");
@@ -300,7 +300,7 @@ public class WhatChangedTests
             "Edited: f1.ts (+1 −0)",
             "Edited: f2.ts (+2 −0)",
             "And 4 more files",
-            "1 file not checked after the last change: refunds.ts",
+            "1 file had no check after the last change: refunds.ts",
         }), "the count, as many files as fit, how many more, and whether a check ran after them; nothing past the room");
         var roomy = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, Intelligence.ExecutionId,
             Intelligence.Live(Intelligence.Understanding(json), "2026-09-20T16:21:30.000Z"), false, null, Intelligence.At(Answers.Now), Intelligence.Utc,
@@ -379,10 +379,10 @@ public class HowBuiltTests
                 "1. “Two charges for one order”", "2. “The card is billed twice”" },
             new[] { "Why it was needed, part by part", "Explained by a model from the latest evidence", "“Checkout request”", "1. “Times out, then retries”", "2. “Creates a charge”" },
             new[] { "Why it was needed, part by part", "Explained by a model from the latest evidence", "“Retry worker”", "1. “Picks the same order up”", "2. “Creates another charge”" },
-            new[] { "How", "Explained by a model from the latest evidence", "“One idempotency key per order, sent with every charge.”", "Starts at “ChargeService.ts”",
+            new[] { "How it works", "Explained by a model from the latest evidence", "“One idempotency key per order, sent with every charge.”", "Starts at “ChargeService.ts”",
                 "1. “Derive a key per order”" },
-            new[] { "How", "Explained by a model from the latest evidence", "2. “Send it with the charge”", "3. “The worker reuses it”" },
-            new[] { "The evidence", "4 files changed: 4 edited", "1 file not checked after the last change: refunds.ts",
+            new[] { "How it works", "Explained by a model from the latest evidence", "2. “Send it with the charge”", "3. “The worker reuses it”" },
+            new[] { "The evidence", "4 files changed: 4 edited", "1 file had no check after the last change: refunds.ts",
                 "Tests passed at 15:40: 118/118 tests passed (vitest)" },
         }), "a step too long for a page goes on to the next under its heading again");
         Assert.That(pages.Take(6).Select(page => page.Lines[0].Tone), Has.All.EqualTo(SectionTone.Secondary));
@@ -460,7 +460,7 @@ public class HowBuiltTests
                 ("", why),
                 ("", "The evidence"),
                 ("observed", "4 files changed: 4 edited"),
-                ("inferred", "1 file not checked after the last change: refunds.ts"),
+                ("inferred", "1 file had no check after the last change: refunds.ts"),
                 ("observed", "Tests passed at 15:40: 118/118 tests passed (vitest)"),
             }), status);
         }
@@ -675,7 +675,7 @@ public class CheckedTests
         {
             ("observed", "Tests passed at 15:40: 118/118 tests passed (vitest)", false, false),
             ("", "Then refunds.ts changed, so it no longer covers it", true, false),
-            ("inferred", "1 file not checked after the last change: refunds.ts", false, false),
+            ("inferred", "1 file had no check after the last change: refunds.ts", false, false),
             ("observed", "2 items need attention: Recursive force delete; 1 file changed since the last passing check", false, false),
             ("reported", "Agent · Reported · All tests pass. The staging key ghp_[GITHUB_TOKEN#1] was never used by the fix.", false, false),
             ("", "Seorak · Read 1 min ago", false, true),
@@ -917,7 +917,7 @@ public class BriefAnswersTests
         Assert.That(Answers.Pairs(Brief(UnderstandPrompt.WhatChanged, Intelligence.Verified).Lines), Is.EqualTo(new[]
         {
             ("observed", "4 files changed: 4 edited"),
-            ("inferred", "1 file not checked after the last change"),
+            ("inferred", "1 file had no check after the last change"),
         }), "the count, and whether a check ran after: never blended into one sentence");
 
         var why = Brief(UnderstandPrompt.WhyChanged, Intelligence.Verified);
@@ -980,7 +980,7 @@ public class BriefAnswersTests
 
         var allChecked = Intelligence.Edit(Intelligence.Verified, response =>
             Intelligence.UnderstandingOf(response)["verification"]!["unverified_files"] = new JArray());
-        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhatChanged, allChecked))[1], Is.EqualTo("All checked after the last change"));
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhatChanged, allChecked))[1], Is.EqualTo("A check ran after every file's last change"));
 
         var noRuns = Intelligence.Edit(Intelligence.Verified, response =>
         {
@@ -1014,7 +1014,7 @@ public class EvidenceTests
         Assert.That(Classes(Brief(UnderstandPrompt.WhatChanged, Intelligence.Verified)), Is.EqualTo(new[]
         {
             (Evidence.Observed, (string?)null, "4 files changed: 4 edited"),
-            (Evidence.Inferred, "Inferred", "1 file not checked after the last change"),
+            (Evidence.Inferred, "Inferred", "1 file had no check after the last change"),
         }));
         Assert.That(Classes(Brief(UnderstandPrompt.WhyChanged, Intelligence.Verified)), Is.EqualTo(new[]
         {

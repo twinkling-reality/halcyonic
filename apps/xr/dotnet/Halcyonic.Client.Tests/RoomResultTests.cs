@@ -686,13 +686,13 @@ public class RoomResultTests
         var built = new ChangesAccount(null, null, How(AnswerDepth.Brief), null, How(AnswerDepth.Full));
         var steps = Enumerable.Range(0, built.Parts).Select(built.Card).ToList();
         var stepRows = steps.SelectMany(card => card.List).ToList();
-        // Under the Model Says byline the note says only how current the step is (critic 8: it repeated the byline).
+        // Under the Model's Explanation byline the note says only how current the step is (critic 8: it repeated the byline).
         var current = UnderstandingPresenter.Currency(LineWords.Ours(UnderstandingPresenter.ExplainedUpToDate))!.Text;
         Assert.That(current, Is.EqualTo("Written from the latest evidence"));
         Assert.That(stepRows.Select(row => row.Under?.Text), Has.None.EqualTo(UnderstandingPresenter.ExplainedUpToDate), "never a model named twice");
         Assert.That(stepRows.Where(row => row.Under?.Text == current).Select(row => row.Name.Text),
-            Is.EqualTo(new[] { "What it is about", "Why it was needed", "Why it was needed, part by part", "Why it was needed, part by part", "How", "How" }),
-            "every step, its note under its heading; How takes two parts and heads both");
+            Is.EqualTo(new[] { UnderstandingPresenter.HowStep, UnderstandingPresenter.HowStep, "What it is about", "Why it was needed", "Why it was needed, part by part", "Why it was needed, part by part" }),
+            "every step, its note under its heading; how it works first (critic 9), taking two parts and heading both");
         Assert.That(stepRows.Count(row => row.Name.Text == How(AnswerDepth.Brief).Lines[0].Runs.Text), Is.EqualTo(1), "the how said once, in its step");
         Assert.That((steps[0].Description, steps.Select(card => card.Status?.Title)),
             Is.EqualTo(((LineWords?)null, steps.Select(card => card.List[0].Name.Text == "The evidence" ? null : (string?)ChangesAccount.ModelSays))),
@@ -737,7 +737,7 @@ public class RoomResultTests
             new SectionPresentation(SectionKind.Understanding, "From Salidium 0.6.1 · 09:00", SectionTone.Secondary, lines, simulated: false,
                 provenanceRuns: LineWords.Ours("From Salidium ") + LineWords.Theirs("0.6.1"));
         SectionLine Line(string tag, string words) => new SectionLine(tag, words, SectionTone.Normal);
-        var what = Brief(Line("observed", "3 files changed: 1 new, 2 edited"), Line("inferred", "All checked after the last change"));
+        var what = Brief(Line("observed", "3 files changed: 1 new, 2 edited"), Line("inferred", "A check ran after every file's last change"));
         var why = Brief(new[] { new SectionLine("reported", "I split the tail.", SectionTone.Claim, rows: 2, said: LineWords.Theirs("I split the tail.")) }
             .Concat(Enumerable.Range(1, 6).Select(index => Line("reported", "Reason " + index))).ToArray());
         var none = Brief();
@@ -754,7 +754,7 @@ public class RoomResultTests
         RoomCard Part(int part) => Bar(new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Changes, part: part, account: account)).Card!;
         var whatPart = Part(1);
         Assert.That((whatPart.Title!.Text, whatPart.Description!.Text), Is.EqualTo((ChangesAccount.WhatChangedTitle, "3 files changed: 1 new, 2 edited")), "the lead whole, as observed");
-        Assert.That(whatPart.List.Select(row => (row.Kind, row.Name.Text, row.Note)), Is.EqualTo(new[] { (RoomKind.None, "All checked after the last change", (string?)ChangesAccount.Inferred) }));
+        Assert.That(whatPart.List.Select(row => (row.Kind, row.Name.Text, row.Note)), Is.EqualTo(new[] { (RoomKind.None, "A check ran after every file's last change", (string?)ChangesAccount.Inferred) }));
         Assert.That(whatPart.More!.Text, Is.EqualTo(ChangesAccount.FromTasksRecords), "FIELD's source words at the foot");
 
         var whyPart = Part(2);

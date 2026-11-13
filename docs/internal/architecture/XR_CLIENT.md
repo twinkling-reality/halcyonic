@@ -1771,11 +1771,11 @@ opens there. The understanding's account of the change follows the files as late
 SCREENS, 2026-11-12): what changed, why and how it was built, a part an answer, each the brief answer XR computes
 (`UnderstandingPresenter`, brief depth): its lead line whole as the card's description (the agent's or a model's words
 alone, said to be theirs first by a byline under the title: a status of `RoomKind.Says`, which `RoomCardView` draws as
-the bare speech bubble and who said them at a note's size (Agent Says, Subagent Says or Author Unknown by the presenter's chip, never the agent by default, or Model Says), never a filled tile that reads as a button; the
+the bare speech bubble and who said them at a note's size (Agent Says, Subagent Says or Author Unknown by the presenter's chip, never the agent by default, or Model's Explanation), never a filled tile that reads as a button; the
 room's faces carry no slant, so whose words they are is said, not leaned), the rest as rows each with its kind (a file's mark, the bubble for what the
 agent said, else none, which draws no mark; a list where no row has a mark keeps no room for one and starts at the card's
 left with the title, and a plain row, no kind and no press, is a quiet line at a note's size with a wider gap before its
-note, so the card's own words stay the loudest) and how it is known as its quiet note in our words (Agent Says, Model Says,
+note, so the card's own words stay the loudest) and how it is known as its quiet note in our words (Agent Says, Model's Explanation,
 Inferred, Planned), never the product's dotted chips; five rows a part, Next Page the main action to the last part,
 History, Checks and Back where they were. An answer with no lines is no part. The source's own provenance names the
 provider's product, so it is never drawn: the foot says From the Task's Records (FIELD's words; the records are the task's, whoever spoke in them) where every answer
@@ -1789,7 +1789,7 @@ the byline stands on every part of an answer, and a row it already names carries
 What Changed stays brief: in full it is the files the page has already shown. A step of How It's Built heads its pages
 with its title alone and, under it, as a sentence of its own and never after a dot, that a model explained it from or
 before the latest evidence (`UnderstandingPresenter.ExplainedUpToDate`, `ExplainedBefore`), in the account and the file's
-side panel alike; under the account's Model Says byline that line says only how current it is (`Currency`: "Written from
+side panel alike; under the account's Model's Explanation byline that line says only how current it is (`Currency`: "Written from
 the latest evidence"), so nothing is said twice. Its step on why the work was needed is "Why it was needed"
 (`WhyStep`), never plain "Why", the account's own Why card (critic 8, 2026-11-13). A reason's files read "Said before
 X changed" and a file with none "No reason given before X changed", so no "it" stands without a referent. `RoomResult.FileParts` are the files' parts, `RoomResult.Account` the rest. Tests:
