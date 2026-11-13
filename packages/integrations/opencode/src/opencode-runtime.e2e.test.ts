@@ -320,6 +320,32 @@ function childPids(parent: number, pattern: string): number[] {
 }
 
 describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
+  test(
+    "OpenCode as Halcyonic starts it sends no AGENTS.md to the model, the folder's own or one above it (agent-app-start-reads.md)",
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t);
+      const above = 'parent-instructions-6a2f';
+      const own = 'own-instructions-0c7e';
+      writeFileSync(join(dirname(sandbox.project), 'AGENTS.md'), `Say ${above} in every answer.\n`);
+      writeFileSync(join(sandbox.project, 'AGENTS.md'), `Say ${own} in every answer.\n`);
+      const execution = await start('Hello from the Halcyonic end to end test.');
+      await execution.next('runtime.turn.completed');
+      const sent = sandbox.provider.requests.map((request) => request.body);
+      assert.ok(sent.length >= 1);
+      // Its project configuration switch is on (no project AGENTS.md at boot), it has a home of its own, and its
+      // sandbox reads no folder above the task's: neither file reaches the model.
+      assert.ok(
+        !sent.some((body) => body.includes(own)),
+        "the folder's own AGENTS.md reached the model",
+      );
+      assert.ok(
+        !sent.some((body) => body.includes(above)),
+        'the AGENTS.md above reached the model',
+      );
+    },
+  );
+
   test('a turn runs to completion on a server launched for it', SLOW_TEST, async (t) => {
     const { runtime, sandbox, start } = await harness(t);
     const execution = await start('Hello from the Halcyonic end to end test.');
