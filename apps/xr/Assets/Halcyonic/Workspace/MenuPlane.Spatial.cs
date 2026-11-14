@@ -349,6 +349,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>How a placing's wait for its shelf ended, for the width line it leads to: the draws since it ended, and whether a shelf was coming.</summary>
         private (int Draws, bool Coming)? waited;
 
+        /// <summary>Whether a shelf was said to be coming at any draw of the wait now running (AUDIT's 01:29Z: the line's words stay true).</summary>
+        private bool waitedComing;
+
         /// <summary>The draws the plane has decided its width on, one a draw, in the player and the Editor's walks alike.</summary>
         private int considered;
         private (float Scale, string Shelf, int Characters, int Yaw, int Pitch, bool Placing)? formSituation;
@@ -403,8 +406,10 @@ namespace Halcyonic.XR.Workspace
                 // never end the wait (JUDGE's charU: Apply's first draw laid 440 with no shelf, then 360 once it stood): only the text
                 // size is another change.
                 var otherChange = !Mathf.Approximately(placed.Scale, now.Item1);
+                waitedComing |= shelfComing;
                 if (PlaneWidthRule.AwaitsPlacedShelf(true, false, shelf != null, otherChange, considered - placingEndedFrame, shelfComing)) return;
-                waited = (considered - placingEndedFrame, shelfComing);
+                waited = (considered - placingEndedFrame, waitedComing);
+                waitedComing = false;
             }
             placingEndedFrame = -1;
             PlaneFormEvent happened = formSituation is not { } before ? PlaneFormEvent.PlaneMoved
@@ -416,7 +421,8 @@ namespace Halcyonic.XR.Workspace
             if (widthRule.Reconsider(happened, width => !(placing && width > floor + 0.5f) && WidthClears(width, shelf, viewer), floor))
                 Debug.Log("Halcyonic: the plane lays its panel " + widthRule.WidthDp.ToString("0") + " dp wide (" + happened + (placing ? ", placing" : "")
                     + (shelf == null ? ", no shelf" : "")
-                    + (waited is var (draws, coming) ? ", after the placing's end by " + draws + " draws, " + (coming ? "a shelf coming" : "none coming") : "") + ").");
+                    + (waited is var (draws, coming) ? ", after the placing's end by " + draws + " draws, "
+                        + (shelf != null ? (coming ? "the shelf it waited for standing" : "a shelf standing") : coming ? "the shelf it waited for not come" : "none coming") : "") + ").");
             waited = null;
             Kit.Form = RoomForm.Full.AtWidth(widthRule.WidthDp);
         }
@@ -483,8 +489,15 @@ namespace Halcyonic.XR.Workspace
         private AngularExtent BandExtent()
         {
             var (half, top, bottom) = BandOnPlane();
-            return OnPlane(-half, half, bottom, top);
+            var band = OnPlane(-half, half, bottom, top);
+            // Rounded OUT by a tenth of a degree each way, the walks' own resolution (AUDIT's 01:29Z: the reasoned shape contains the
+            // drawn one, never an edge inside it by any amount): the Ground plate is measured by its renderer's bounds, an axis-aligned
+            // box round a tilted plate, which reaches a hair past the plate itself (JUDGE's charY at Larger: drawn top -21.8, reasoned -21.9).
+            return new AngularExtent(band.Left - BandRoundOutDegrees, band.Right + BandRoundOutDegrees, band.Bottom - BandRoundOutDegrees, band.Top + BandRoundOutDegrees);
         }
+
+        /// <summary>How far the reasoned band is rounded out each way, in degrees: the walks' measure of a tenth.</summary>
+        private const float BandRoundOutDegrees = 0.1f;
 
         /// <summary>
         /// The extent in degrees, about the plane's heading, of a rectangle on the plane given in the plane's units from the kit's origin
