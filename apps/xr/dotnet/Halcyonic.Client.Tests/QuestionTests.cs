@@ -99,7 +99,8 @@ public class QuestionTests
         Assert.That(workspace.Actions, Does.Contain(WorkspaceAction.Answer).And.Contain(WorkspaceAction.Interrupt));
         Assert.That(WorkspaceText.QuestionLead(workspace), Is.Empty, "the answer line already names one question");
         Assert.That(WorkspaceText.PromptHeading(work.Question, 0), Is.EqualTo("Question 1 of 2 · Colour scheme"));
-        Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[0]), Is.EqualTo("Choose One · Or Write"));
+        // One phrase, never two facts on a dot (AUDIT2's 2026-11-14T05:36Z words).
+        Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[0]), Is.EqualTo("Choose One or Write"));
         Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[1]), Is.EqualTo("Choose Any"));
         Assert.That(WorkspaceText.Label(WorkspaceAction.Answer), Is.EqualTo("Send Answer"));
     }
@@ -127,7 +128,7 @@ public class QuestionTests
         draft.Choose(1, "Sign in");
         draft.Choose(1, "Orders");
         draft.Choose(1, "Orders");
-        Assert.That(draft.Type(1, "Billing"), Is.EqualTo("Offered Answers Only · Choose One"));
+        Assert.That(draft.Type(1, "Billing"), Is.EqualTo("Offered Answers Only"), "one plain line, never two facts on a dot (AUDIT2's 05:36Z)");
         Assert.Throws<ArgumentException>(() => draft.Choose(1, "Billing"), "only labels offered");
         draft.Choose(0, "Dark");
         draft.ShownWhole(0);

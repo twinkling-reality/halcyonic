@@ -395,7 +395,7 @@ public class WorkspaceScreensTests
         }));
         Assert.That((model.Columns, model.Rows[0].TitleLines, model.Rows[0].TitleIsData), Is.EqualTo((2, WorkspaceScreens.QuestionLines, true)));
         Assert.That(model.Rows.Skip(1).All(row => row.Action == WorkspaceScreens.Choose && row.TitleLines == 2), Is.True);
-        Assert.That((model.PartsHeading, model.PartsNote), Is.EqualTo(("Question 1 of 2 · Colour scheme", "Choose One · Or Write")));
+        Assert.That((model.PartsHeading, model.PartsNote), Is.EqualTo(("Question 1 of 2 · Colour scheme", "Choose One or Write")));
         Assert.That((model.Parts, model.PartsCaption), Is.EqualTo(((0, 4), "1 of 4")));
 
         draft.Choose(0, "Dark");

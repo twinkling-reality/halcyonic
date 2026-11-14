@@ -176,8 +176,9 @@ namespace Halcyonic.Client
         {
             var offers = prompt.Options.Count > 0;
             if (!offers) return prompt.FreeText ? "Write Answer" : "No Answers Offered";
-            if (prompt.Multiple) return prompt.FreeText ? "Choose Any · Or Write" : "Choose Any";
-            return prompt.FreeText ? "Choose One · Or Write" : "Choose One";
+            // One phrase, never two facts on a dot (AUDIT2's 2026-11-14T05:36Z words).
+            if (prompt.Multiple) return prompt.FreeText ? "Choose Any or Write" : "Choose Any";
+            return prompt.FreeText ? "Choose One or Write" : "Choose One";
         }
 
         /// <summary>The typed answer's button: what it says before and after typing.</summary>

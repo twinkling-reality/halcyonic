@@ -123,7 +123,8 @@ namespace Halcyonic.Client
         /// <summary>Validate an editor buffer without applying it to the saved answer.</summary>
         public string? TextProblem(int prompt, string? text, bool stopOnPage = false)
         {
-            if (!Prompts[prompt].FreeText) return "Offered Answers Only · Choose One";
+            // One plain line, never two facts on a dot (AUDIT2's 2026-11-14T05:36Z words).
+            if (!Prompts[prompt].FreeText) return "Offered Answers Only";
             var trimmed = text?.Trim();
             if (string.IsNullOrEmpty(trimmed)) return null;
             if (!IsWhole(trimmed!)) return "Unsendable Character · Type Again";
