@@ -47,6 +47,9 @@ Input, both ways:
   needs an input `play-input.ts` does not have, add it there, for both ways.
 
 Make it fun to look at:
+- Where it happens is one choice, made once in `src/index.ts`: an island world from `src/worlds.ts` with
+  `setupLook` for a game, or a place from `src/places.ts` with `setupScene` for music and light, as "Music and light,
+  not a game" below says. Never both.
 - Set the game in a world of its own. A new game starts in the meadow, the same island, sky and decor every other
   game starts with, so pick the world in `src/worlds.ts` that fits the game and name it in `src/index.ts`, for
   example `setupLook(world, 'night')`:
@@ -182,6 +185,56 @@ A view from another app, not a game:
   the `time` your system's `update(delta, time)` is given.
 - No score sign, critters or confetti unless the original has them. Name the app on its welcome card, with one line
   on what to press, as for a game.
+
+Music and light, not a game (a piece that plays itself, a concert of light, a place to listen in):
+- Its place is from `src/places.ts`, never an island: in `src/index.ts` call `setupScene(world, '#010103')` from
+  `./kit.js` instead of `setupLook` and `decorate`, add `darkHall()`'s `group` to the group `setupScene` returns, and
+  pass the hall's `move` to `ambientMotion`. Put the same colour in `index.html`'s `background`. Move the welcome card
+  out of the middle of the view: `welcome-panel`'s `position` in `public/scenes/main.iwsdk.scene.json` to
+  `[-1.25, 1.4, -1.5]`.
+- Its music is made in the browser, with no file and no network: `playScore(score, ambientMotion, options)` plays a
+  score on the piano, the bell or the pad (`voice: 'piano'`, or one per part, `voice: (part) => (part === 0 ? 'pad' :
+  'bell')`), starting from its first note at the person's first press (entering VR is one). The scores are in
+  `src/pieces.ts`: `pieces.prelude` (Bach) and `pieces.gymnopedie` (Satie), both in the public domain; `join([a, b],
+  4)` plays them one after the other and `loop: true` for ever. A piece of your own is a list of notes, `{ at, length,
+  pitch, loud, part }` in beats, `pitch('C4')` for a key. Never type in a tune still in copyright: no song, no film or
+  game theme, nothing from a recording, a MIDI file or an arrangement.
+- Light lands with its sound only when it reads the player's time: place everything that moves with the music from
+  `player.now()` each frame, and `player.each(behind, ahead, visit)` gives each note due or still held with its start
+  and end in those same seconds. Never a timer of your own, and never `gameTime()` for it.
+- Light is glow, never a full-screen effect: `glows(count, options)` draws soft shapes (bars, dots, discs) as one draw
+  call, `sparks()` rise and fade, `lightKeys(low, high)` is a keyboard of light, and `fallingNotes(player, keys)`
+  brings the score's notes down a lane onto it, the keys, flares and sparks included. Each is written afresh every
+  frame and makes nothing new in it. Keep the place dark behind them: light adds up where it overlaps.
+- A whole piano of light that plays itself, to start from:
+
+```ts
+import { World } from '@iwsdk/core';
+import { Group } from 'three';
+import projectOptions from 'virtual:iwsdk-project';
+import { ambientMotion, darkHall, fallingNotes, join, lightKeys, pieces, playScore, range, setupPlayInput, setupScene } from './kit.js';
+import { PanelSystem } from './panel.js';
+
+World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
+  const { root } = setupScene(world, '#010103');
+  world.camera.position.set(0, 1.32, 0.5);
+  world.camera.lookAt(0, 1.02, -2.2);
+  const hall = darkHall();
+  root.add(hall.group);
+  ambientMotion(hall.move);
+  const programme = join([pieces.prelude, pieces.gymnopedie], 4);
+  const player = playScore(programme, ambientMotion, { loop: true, gap: 4, lead: 4 });
+  const [low, high] = range([programme]);
+  const keys = lightKeys(low - 2, high + 2);
+  const keyboard = new Group();
+  keyboard.position.set(0, 0.86, -0.42);
+  keyboard.add(keys.group);
+  root.add(keyboard);
+  ambientMotion(fallingNotes(player, keys, { height: 0.86 }).move);
+  setupPlayInput(world);
+  world.registerSystem(PanelSystem);
+});
+```
 
 Keep changes small, one idea at a time, and keep the app running after each one.
 
