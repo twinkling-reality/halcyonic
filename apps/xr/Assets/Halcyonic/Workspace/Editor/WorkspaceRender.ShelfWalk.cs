@@ -313,7 +313,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         return Mathf.Atan2(toward.y, Mathf.Max(new Vector2(toward.x, toward.z).magnitude, 1e-4f)) * Mathf.Rad2Deg;
                     }
                     var kitNow = plane.Kit;
-                    Debug.Log("Halcyonic: shelf walk: page open, as drawn: the bar's foot line " + GlazeChecks.Degrees(Elevation(kitNow.transform.TransformPoint(0f, kitNow.FootLine, 0f)))
+                    // The bar as drawn, every redesign part but the band's and the shelf's as one (AUDIT, 2026-11-14T01:02Z), beside the plane's
+                    // reasoned bar.
+                    var barDrawn = GlazeChecks.Of("the bar", eyes, root.GetComponentsInChildren<Renderer>(false)
+                        .Where(renderer => renderer.enabled && !renderer.transform.IsChildOf(stage.Shelf) && !renderer.transform.IsChildOf(kitNow.Band.transform)
+                            && OwnerOf(renderer.transform)?.StartsWith("Room", StringComparison.Ordinal) == true));
+                    Debug.Log("Halcyonic: shelf walk: page open, as drawn: " + barDrawn + "; the bar's foot line " + GlazeChecks.Degrees(Elevation(kitNow.transform.TransformPoint(0f, kitNow.FootLine, 0f)))
                         + " up, the band's laid place " + GlazeChecks.Degrees(Elevation(kitNow.Band.transform.position)) + " up, " + (kitNow.Band.Words != null ? "words on the band" : "no words on the band")
                         + "; the band's parts: " + string.Join("; ", drawn.Where(part => part.ToString().Contains("RoomBand")).Select(part => part.ToString())));
                 }
