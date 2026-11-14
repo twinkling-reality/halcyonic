@@ -346,6 +346,7 @@ namespace Halcyonic.Client
             var body = LineWords.None;
             string? sentence = null;
             IReadOnlyList<LineWords>? lines = null;
+            string[]? captionFacts = null;
             if (sending) body = LineWords.Ours(WorkspaceText.Sent);
             else if (ask.Body.Count > 0)
             {
@@ -356,11 +357,23 @@ namespace Halcyonic.Client
                 sentence = ask.Asks;
             }
             else if (ask.Confirming && ask.Asks != null) body = LineWords.Ours(ask.Asks);
-            else if (ask.Several && ask.Caption != null) body = LineWords.Ours(ask.Caption);
+            else if (ask.Several && ask.Caption != null)
+            {
+                // Which question this is and how many may be chosen, each its own line, never joined on a dot (FIELD's 03:32Z
+                // KitRender.Check); the choices' count, where the file gives one, stays the file's pager's own.
+                captionFacts = ask.Caption.Split(new[] { KitMomentWords.Dot }, System.StringSplitOptions.RemoveEmptyEntries);
+                body = LineWords.Ours(ask.Caption);
+                if (captionFacts.Length > 1) lines = captionFacts.Select(fact => LineWords.Ours(fact)).ToList();
+            }
             // Where the way on waits and a panel stands, its sentence bar says why, in the file's words.
             if (!sending && !ask.Confirming && !body.IsEmpty && binding[KitPlace.Forward] is { Available: false, Reason: string why }) sentence = why;
             // The described answers' card stands in the panel's place, what the panel would say (which question this is) its title.
-            var card = listed.Count > 0 && !sending ? new RoomCard(body.IsEmpty ? null : body, list: listed) : null;
+            // A caption stands apart on it: the question's number the title, how many may be chosen under it.
+            var card = listed.Count > 0 && !sending
+                ? captionFacts is { Length: > 0 } facts
+                    ? new RoomCard(LineWords.Ours(facts[0]), facts.Length > 1 ? LineWords.Ours(facts[1]) : null, list: listed)
+                    : new RoomCard(body.IsEmpty ? null : body, list: listed)
+                : null;
             var asking = new RoomBar(RoomBarState.Question, body: card != null ? LineWords.None : body, sentence: sentence, column: sending ? None : column, waits: sending,
                 band: ask.Prompt, wide: body.IsEmpty && card == null, lines: card != null ? null : lines);
             if (card == null) return asking;
@@ -369,7 +382,7 @@ namespace Halcyonic.Client
             // one part): eight lines a page by the plane's measure of a list row, its title counted on every page; the general reader's
             // own pager before the ways out, Write Answer and the way on on every page; every page holds descriptions to read, so the
             // bar is whole, and the press that sends held, only once every page was shown. Choosing a row acts at once (it sends nothing).
-            var pages = PackCard(listed.Select(row => new List<RoomListRow> { row }).ToList(), form, card.Title);
+            var pages = PackCard(listed.Select(row => new List<RoomListRow> { row }).ToList(), form, card.Title, card.Description);
             if (pages.Count == 1) return asking;
             var wayOut = column.FindIndex(action => action.Control.Place is KitPlace.Back or KitPlace.Cancel or KitPlace.Stop or KitPlace.Close);
             var parts = new List<GeneralPage>();

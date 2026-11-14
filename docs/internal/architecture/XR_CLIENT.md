@@ -2806,12 +2806,14 @@ host's `own_sources_not_set_up` its own), and the companion's failures (`Compani
 `companion_failed` is "No Reply"; a local error the client cannot name has its own code and is "Reason Unknown"). An action's
 two parts are given apart, never one string joined on a dot (JUDGE's dot list, 2026-11-13; FIELD's `RoomAction.Detail`): a
 question's answer under the redesign is its label as the row's words and its description as the row's `PageLine.Under`
-(`FileScreens.AnswerRow`), which `KitControl.Under` carries; where any answer of the page carries a description, the question
+(`FileScreens.AnswerRow`), which `KitControl.Under` carries, and a chosen answer cut there opens beside the page with its label as
+the side panel's title and its description as the words (`FileScreens.SideAnswerLine`); where any answer of the page carries a description, the question
 reader (`RoomBar.Asking`) lays every answer of the page as a pressed row of the panel's card (its mark, its words as the agent wrote
-them, its description under it, at the panel's width; the panel's words, which question this is, the card's title), and the column keeps
+them, its description under it, at the panel's width; the panel's words apart, never on a dot: which question this is the card's
+title, how many may be chosen its description, the choices' count the file's pager's own), and the column keeps
 the prompts and never an answer (the lead's ruling of 2026-11-13T22:04Z: the column never widens with an agent's words); the file
 hands a described prompt's answers in one part and the card pages itself (`RoomBar.PackCard`, the plane's measure of a list row, eight
-lines a page, its title counted), the general reader's pager before the ways out, Write Answer and the way on on every page, the bar
+lines a page, its title and description counted), the general reader's pager before the ways out, Write Answer and the way on on every page, the bar
 whole and its send held only once every page was shown (one pager, the kit's count: XR's and AUDIT's 22:21Z); plain short
 answers stay in the column where the whole column (answers and every way the file offers on the page) fits four in all (the lead's
 ruling of 2026-11-14T00:24Z: the spec's four, one number for every reader and for the recorded envelope), else they stand on the card too (a question handed in one part may give a plain prompt seven answers: never a column past it, never a

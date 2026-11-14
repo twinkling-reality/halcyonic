@@ -1099,6 +1099,11 @@ public class FileColumnTests
             column.Act(FileScreens.Choose, "0");
             Assert.That(column.Screen.Question.SideOption, Is.EqualTo(0), "cut, its words open beside the page");
             Assert.That(FileScreens.AnswerRow(new QuestionOption { Label = "Short", Description = CutAnswer }, "0").Words, Is.EqualTo("Short"), "the row keeps them apart");
+            // So does the panel beside it, never joined on a dot (FIELD's 03:32Z KitRender.Check: "Follow the Headset ·" ended a line):
+            // the answer's label its title, its description the words read whole.
+            var side = column.Frame!.Side!;
+            Assert.That((side.SubjectRuns.Text, side.Lines.Single().Runs.Text), Is.EqualTo(("Short", CutAnswer)));
+            Assert.That(side.SubjectRuns.Text + side.Lines.Single().Runs.Text, Does.Not.Contain("·"));
         }
         finally { RoomDesign.Enabled = was; }
     }
@@ -2708,11 +2713,11 @@ public class FileColumnTests
                 new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!, VoiceStage.Idle, false);
             void Press(RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
 
-            // The first of two: which it is is the card's title, the computer's own; the prompt on the band; its described answers the
-            // card's rows (the lead's 22:04Z).
+            // The first of two: which it is is the card's title, the computer's own, how many may be chosen under it, never joined on a
+            // dot (FIELD's 03:32Z); the prompt on the band; its described answers the card's rows (the lead's 22:04Z).
             var first = Bar();
-            Assert.That((first.State, first.Wide, first.Card?.Title?.Text, first.Band), Is.EqualTo((RoomBarState.Question, false, "Question 1 of 2 · Choose One",
-                (string?)"Which colour scheme should the dashboard use?")));
+            Assert.That((first.State, first.Wide, first.Card?.Title?.Text, first.Card?.Description?.Text, first.Band), Is.EqualTo((RoomBarState.Question, false, "Question 1 of 2",
+                (string?)"Choose One", (string?)"Which colour scheme should the dashboard use?")));
             Assert.That(first.Card!.List.Select(row => row.Mark), Is.All.EqualTo(AnswerMark.Single));
             Draw(host, column);
             var dark = first.Card.List.Single(row => row.Name.Text == "Dark").Press!;
@@ -2723,7 +2728,7 @@ public class FileColumnTests
             // The second, any number to choose: the box marks. Three answers with Back and the way on pass four in all (the lead's
             // 2026-11-14T00:24Z), so they stand on the card, its title which question this is.
             var second = Bar();
-            Assert.That((second.Card?.Title?.Text, second.Band), Is.EqualTo(("Question 2 of 2 · Choose Any", (string?)"Which pages should change?")));
+            Assert.That((second.Card?.Title?.Text, second.Card?.Description?.Text, second.Band), Is.EqualTo(("Question 2 of 2", (string?)"Choose Any", (string?)"Which pages should change?")));
             Assert.That(second.Card!.List.Select(row => (row.Name.Text, row.Mark, row.Chosen)), Is.EqualTo(new[]
             {
                 ("Sign in", AnswerMark.Multiple, false), ("Orders", AnswerMark.Multiple, false), ("Settings", AnswerMark.Multiple, false),

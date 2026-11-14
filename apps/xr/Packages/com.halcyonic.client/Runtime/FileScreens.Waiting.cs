@@ -500,7 +500,9 @@ namespace Halcyonic.Client
                 // where they don't fit; the footer's Next page turns them, in Hold to talk's place.
                 var perPart = question.SidePartRows;
                 var parts = question.SideParts;
-                side = new SidePanel(NameRuns(draft.Question, prompt),
+                // Under the redesign an answer with a description stands apart there: its label the title, its description the words.
+                var described = RoomDesign.Enabled && open < asked.Options.Count && DescriptionRuns(asked.Options[open]) != null;
+                side = new SidePanel(described ? LineWords.TheirName(LabelText.Name(asked.Options[open].Label)) : NameRuns(draft.Question, prompt),
                     lines: new[] { SideAnswerLine(open < asked.Options.Count ? asked.Options[open] : null, draft.Typed(prompt), perPart, question.SidePart * perPart) },
                     source: LineWords.Written(source), parts: parts > 1 ? (question.SidePart, parts) : ((int, int)?)null);
                 if (parts > 1 && footer[PromptSlot.FarRight] is Prompt main && main.Main)
@@ -517,7 +519,8 @@ namespace Halcyonic.Client
         /// Halcyonic's quote mark, or the person's typed words, leaning as the person's own words.
         /// </summary>
         public static PageLine SideAnswerLine(QuestionOption? option, string? typed, int rows = 1, int? fromRow = null) => option != null
-            ? new PageLine(AnswerRuns(option), rows: rows, fromRow: fromRow)
+            // Under the redesign its description alone, the label standing as the panel's title, never joined on a dot.
+            ? new PageLine(RoomDesign.Enabled && DescriptionRuns(option) is LineWords described ? described : AnswerRuns(option), rows: rows, fromRow: fromRow)
             : new PageLine(LineWords.TheirName(typed), rows: rows, fromRow: fromRow);
 
         /// <summary>An answer as its row shows it: the agent's label and description, all outside text, leaning beside Halcyonic's quote mark.</summary>

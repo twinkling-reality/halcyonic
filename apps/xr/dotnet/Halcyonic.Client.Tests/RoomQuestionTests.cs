@@ -522,6 +522,41 @@ public class RoomQuestionTests
     }
 
     /// <summary>
+    /// Which question this is stands apart on the described answers' card, never joined on a dot (FIELD's 03:32Z KitRender.Check:
+    /// "Question 2 of 2 ·" ended a line): the number its title, how many may be chosen under it; the choices' count is the pager's own.
+    /// </summary>
+    [Test]
+    public void SeveralQuestionsCardSaysWhichQuestionAndHowManyApartNeverOnADot()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var question = new QuestionView
+            {
+                QuestionId = "two", Answerable = true, AskedAt = Samples.Time,
+                Prompts = new List<QuestionPrompt>
+                {
+                    new() { Key = "q0", Header = "Scene", Text = "Which scene should the game open on?", Multiple = true, FreeText = false, Secret = false,
+                        Options = new List<QuestionOption> { new() { Label = "Beach", Description = "Sand and waves" }, new() { Label = "Forest", Description = "Tall trees" } } },
+                    new() { Key = "q1", Header = "Sound", Text = "Should it play music?", Multiple = false, FreeText = false, Secret = false,
+                        Options = new List<QuestionOption> { new() { Label = "Yes" }, new() { Label = "No" } } },
+                },
+            };
+            var host = new FileMenuHost();
+            var work = new AskingWork(question);
+            var column = Column(host, () => work.Present());
+            Draw(host, column);
+            var bar = RoomBar.Of(KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
+                new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!, VoiceStage.Idle, false);
+            Assert.That(bar.Card, Is.Not.Null, Show(bar));
+            Assert.That((bar.Card!.Title?.Text, bar.Card.Description?.Text), Is.EqualTo(("Question 1 of 2", (string?)"Choose Any")), Show(bar));
+            Assert.That(bar.Card.Title!.Text + (bar.Card.Description?.Text ?? "") + bar.Card.List.Aggregate("", (said, row) => said + row.Name.Text), Does.Not.Contain("·"));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    /// <summary>
     /// The mixed question (XR's 22:26Z: descriptions are optional in every agent app, so one prompt may be plain and another described;
     /// the file then hands the whole question in one part): the plain prompt's seven answers would pass the kit's column, so they
     /// stand on the card too, never a column past it and never a second pager (no More Choices beside the card's Next Page).
