@@ -217,6 +217,21 @@ public class MenuNavigatorTests
     }
 
     [Test]
+    public void NothingIsTakenFromAFrameHandedOutWhileThePlaneWasFoldedNotEvenAWayOut()
+    {
+        var (menu, _) = Menu();
+        var file = new Column("File");
+        menu.ShowBeside(file, "w1");
+        menu.DrawnFolded = true;
+        var (_, unseen) = menu.Frames(Bar);
+        Assert.That(menu.Act(MenuColumn.File, Footer.Close, null, unseen, null), Is.False, "folded away, the person never saw it");
+        menu.DrawnFolded = false;
+        var (_, seen) = menu.Frames(Bar);
+        Assert.That(menu.Act(MenuColumn.File, Footer.Close, null, seen, null), Is.True, "shown again, its Close is a way out, drawn or not");
+        Assert.That(file.Got.Where(got => got.StartsWith("act")), Is.EqualTo(new[] { "act " + Footer.Close + " " }));
+    }
+
+    [Test]
     public void AColumnLearnsOfADrawOnlyForTheVeryFrameItGave()
     {
         var (menu, places) = Menu();

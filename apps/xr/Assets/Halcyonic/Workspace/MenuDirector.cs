@@ -835,6 +835,7 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             plane.gameObject.SetActive(!FocusGuard.Folded);
+            navigator.DrawnFolded = FocusGuard.Folded;
             dirty = false;
             var bar = shownBar != null && Same(setup.Bar(navigator.Place), shownBar) ? shownBar : setup.Bar(navigator.Place);
             shownBar = bar;

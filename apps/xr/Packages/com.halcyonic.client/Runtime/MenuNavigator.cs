@@ -490,6 +490,9 @@ namespace Halcyonic.Client
         /// </summary>
         public IMenuColumn? Taking(MenuColumn from, string action, MenuFrame? frame, SidePanel? side)
         {
+            // Folded away, the person was elsewhere: what the last draw handed out was never seen, so nothing is taken from it, a way
+            // out or Stop included, until a draw shows it (the director's fold check: a press on a frame drawn while folded).
+            if (DrawnFolded) return null;
             // Stopping is the safe action and never waits for reading (the lead, 2026-11-10): Stop is taken from the
             // file's frame as it shows now, reported drawn or not. It only asks for its confirmation
             // (WorkspacePresenter.AlwaysConfirmed).
@@ -500,6 +503,12 @@ namespace Halcyonic.Client
             if (from == MenuColumn.Side && !Offers(drawnSideFooter, action)) return null;
             return column;
         }
+
+        /// <summary>
+        /// Whether the last draw was made with the plane folded away (another window kept focus): what it handed out was never
+        /// seen, so no press is taken until a draw shows the plane again. The host sets it as it draws.
+        /// </summary>
+        public bool DrawnFolded { get; set; }
 
         /// <summary>
         /// A person can always leave (the lead, 2026-11-13T19:34Z, reversing 2026-11-10's "Close waits for the draw"): a way out
