@@ -42,7 +42,8 @@
   after it where that frame itself came late (43 ms in the run whose longest frame was 121 ms).
 - **Seeing a note coming, with the head level:** the keys stand 1.1 m from the person and 1.0 m up, 25 to 29 degrees
   below eye level; a note falls 1.7 m straight down above its key in 2.8 s, and in a Quest 3S's level field (96 by 90
-  degrees, less 1.5 at each edge) all of its fall is in view: the field's top edge stands 1.70 m above the key. It is
+  degrees, less 1.5 at each edge) all of its fall is in view for an eye 1.62 m up: the field's top edge stands 1.70 m
+  above the key (about 1.64 m for an eye 1.60 m up, so the fall's first few centimetres sit just above it). It is
   drawn at a quarter of its full brightness or more, as the eye sees it, for its last 1.2 m, 2.0 s. The keyboard spans
   about 89 degrees across, inside the field's 93.
 - **Room for the person:** the keys' front edge is 1.1 m from them all round; nothing is drawn nearer than about
