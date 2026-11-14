@@ -147,6 +147,7 @@ namespace Halcyonic.XR.Workspace
             if (Kit.View.Spine.Switch.ConfirmedCompact) Kit.ShowConfirmed(false, immediately: true);
             KitOwner = ContextBinding;
             Composition = new PlaneComposition(new[] { new PlaneColumn(Kit.Size.x, Kit.Size.y) }, zoom);
+            HoldHang(Composition.Size, zoom);
             Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
             if (RoomDesign.Enabled)
             {
@@ -154,15 +155,7 @@ namespace Halcyonic.XR.Workspace
                 // the way they look, tipped so the line the pair stands on is at DESIGN's pitch, the pair growing upward from it
                 // and the row and the band hanging under it. The person's own move still turns it from there.
                 var footed = new PanelDirection(Placed.Yaw, RoomGeometry.FeetPitch - SpatialKit.DegreesTo(Kit.FootLine * zoom), true, false);
-                // The bar's box (Kit.Size, since the foot is anchored) and, as a box of its own, the band hanging under its foot at its
-                // tallest, so a body never stands under either (the lead's 00:24Z; FIELD's 590ad3b10), never their bounding box.
-                var hangs = RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale);
-                var bandPitch = RoomGeometry.FeetPitch - (KitWorkspaceHost.BandUnderDp + hangs / 2f) / RoomGeometry.DpPerDegree;
-                var distance = Composition.Size.Distance;
-                var band = new PanelSize(distance, RoomType.Units(RoomWords.WidthDp) / 2f * distance, RoomType.Units(hangs) / 2f * distance);
-                var clears = WorkspacePlacement.Clears(footed, bodies, Composition.Size)
-                    && WorkspacePlacement.Clears(new PanelDirection(footed.Yaw, bandPitch, true, false), bodies, band);
-                Placed = new PanelDirection(footed.Yaw, footed.Elevation, clears, false);
+                Placed = new PanelDirection(footed.Yaw, footed.Elevation, ClearsBodies(footed, bodies, Composition.Size), false);
             }
             Moved = moved; Direction = MenuDrag.Turned(Placed, moved);
             shown.Clear(); shown.Add((kind, record));
@@ -300,6 +293,39 @@ namespace Halcyonic.XR.Workspace
         }
 
         private readonly PlaneWidthRule widthRule = new PlaneWidthRule();
+
+        /// <summary>
+        /// While the redesign's kit composition stands: the size it was built with, the band's own box hanging under the anchored bar at
+        /// its tallest, and how far under the plane's middle it hangs, in degrees; null otherwise.
+        /// </summary>
+        private (PanelSize For, PanelSize Band, float Below)? hang;
+
+        /// <summary>
+        /// Whether a plane of <paramref name="size"/> at <paramref name="at"/> clears <paramref name="bodies"/>: the band hanging under the
+        /// redesign's anchored bar as a box of its own wherever <paramref name="size"/> is the kit's composition (AUDIT's 00:27Z: every
+        /// clearance holds the band), the bare box elsewhere (the older views, which hang nothing).
+        /// </summary>
+        private bool ClearsBodies(PanelDirection at, IReadOnlyList<BodyInView> bodies, PanelSize size) =>
+            hang is { } h && h.For.Equals(size) ? WorkspacePlacement.ClearsWithHang(at, bodies, size, h.Band, h.Below) : WorkspacePlacement.Clears(at, bodies, size);
+
+        /// <summary>
+        /// Holds what hangs under the anchored bar (the band at its tallest) for a plane of <paramref name="size"/>, its own box beside the
+        /// bar's for every clearance (AUDIT's 00:27Z), centred under the plane's middle by the gap and half its height, less the foot line.
+        /// </summary>
+        private void HoldHang(PanelSize size, float zoom)
+        {
+            var hangs = RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale);
+            hang = (size, new PanelSize(size.Distance, RoomType.Units(RoomWords.WidthDp) / 2f * size.Distance, RoomType.Units(hangs) / 2f * size.Distance),
+                (KitWorkspaceHost.BandUnderDp + hangs / 2f) / RoomGeometry.DpPerDegree - SpatialKit.DegreesTo(Kit.FootLine * zoom));
+        }
+
+        /// <summary>The band's corners for a field test of the composition: none where nothing hangs.</summary>
+        private IEnumerable<(float X, float Y)> HangCorners(PanelSize size)
+        {
+            if (hang is not { } h || !h.For.Equals(size)) yield break;
+            var below = Mathf.Tan(h.Below * Mathf.Deg2Rad) * size.Distance;
+            for (var x = -1; x <= 1; x += 2) for (var y = -1; y <= 1; y += 2) yield return (h.Band.HalfWidth * x, -below + h.Band.HalfHeight * y);
+        }
 
         /// <summary>The draw a placing ended on (<see cref="considered"/>), while the plane waits for the shelf it placed; -1 otherwise.</summary>
         private int placingEndedFrame = -1;

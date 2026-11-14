@@ -271,6 +271,15 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// Whether a plane at <paramref name="at"/> clears <paramref name="bodies"/> with what hangs under it: its own box
+        /// (<paramref name="size"/>) and, as a box of its own, <paramref name="hang"/> centred <paramref name="hangBelowDegrees"/>
+        /// under <paramref name="at"/>'s middle (the band under the redesign's anchored bar, the lead's 2026-11-14T00:24Z), never their
+        /// bounding box, so the air beside the bar stays free and nothing stands under either.
+        /// </summary>
+        public static bool ClearsWithHang(PanelDirection at, IReadOnlyList<BodyInView> bodies, PanelSize size, PanelSize hang, float hangBelowDegrees) =>
+            Clears(at, bodies, size) && Clears(new PanelDirection(at.Yaw, at.Elevation - hangBelowDegrees, at.Clear, at.Above), bodies, hang);
+
+        /// <summary>
         /// Whether a panel of <paramref name="size"/> centred at <paramref name="at"/> clears every body
         /// it passes in front of, as <see cref="Place"/> keeps them: wholly under its label, by the label's
         /// clearance where the label stands, or wholly above its body. A panel moved by hand stays where

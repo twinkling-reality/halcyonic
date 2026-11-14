@@ -574,6 +574,8 @@ namespace Halcyonic.XR.Workspace
                 }
                 var standing = kitCompact ? Kit.Size : bar.Size;
                 var barSize = new PanelSize(PlaneComposition.Distance, standing.x * zoom / 2f * PlaneComposition.Distance, standing.y * zoom / 2f * PlaneComposition.Distance);
+                // The kit's compact bar is the anchored bar too: the band may hang under it, held as its own box (AUDIT's 00:27Z).
+                if (kitCompact && RoomDesign.Enabled) HoldHang(barSize, zoom);
                 Placed = PlaceWorkspace(all, looking, surfaceHeight, barSize);
                 Moved = offset;
                 Direction = MenuDrag.Turned(Placed, Moved);
@@ -894,7 +896,7 @@ namespace Halcyonic.XR.Workspace
         private PanelDirection PlaceWorkspace(IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, PanelSize size)
         {
             var direction = RecoveryDirection(looking);
-            return new PanelDirection(direction.Yaw, direction.Elevation, WorkspacePlacement.Clears(direction, bodies, size), false);
+            return new PanelDirection(direction.Yaw, direction.Elevation, ClearsBodies(direction, bodies, size), false);
         }
 
         private static PanelDirection RecoveryDirection(Vector3 looking) => new PanelDirection(
@@ -911,9 +913,13 @@ namespace Halcyonic.XR.Workspace
             var head = Quaternion.Inverse(Quaternion.LookRotation(looking, Vector3.up));
             var center = PlaneLayout.PointOf(viewer, at, 0, 0);
             var field = ViewField.Current ?? MenuPage.Quest3S;
-            for (var x = -1; x <= 1; x += 2) for (var y = -1; y <= 1; y += 2)
+            // The composition's corners and, under the redesign, the band's hanging under it (AUDIT's 00:27Z).
+            var corners = new List<(float X, float Y)>();
+            for (var x = -1; x <= 1; x += 2) for (var y = -1; y <= 1; y += 2) corners.Add((Composition.Size.HalfWidth * x, Composition.Size.HalfHeight * y));
+            corners.AddRange(HangCorners(Composition.Size));
+            foreach (var (cx, cy) in corners)
             {
-                var point = head * (center + rotation * new Vector3(Composition.Size.HalfWidth * x, Composition.Size.HalfHeight * y, 0) - viewer);
+                var point = head * (center + rotation * new Vector3(cx, cy, 0) - viewer);
                 if (point.z <= 0 || !field.Shows(Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
                     Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg)) return false;
             }
@@ -921,7 +927,7 @@ namespace Halcyonic.XR.Workspace
             foreach (var character in characters)
                 if (character != null && character.View != null && character.gameObject.activeInHierarchy)
                     seen.Add((WorkspaceLayout.InView(character, viewer), LabelOutline(character.View), character == fileOf));
-            if (!WorkspacePlacement.Clears(at, seen.Select(item => item.Body).ToList(), Composition.Size)) return false;
+            if (!ClearsBodies(at, seen.Select(item => item.Body).ToList(), Composition.Size)) return false;
             return !(LineAt(Composition, at, viewer, seen, includeOwn: true) is (Vector3 from, Vector3 to)) || !CrossesAt(from, to, viewer, seen, includeOwn: true);
         }
 
@@ -989,7 +995,7 @@ namespace Halcyonic.XR.Workspace
             if (at.Elevation > WorkspacePlacement.HighestDegrees + 1e-3f || at.Elevation < Mathf.Min(floor, WorkspacePlacement.HighestDegrees) - 1e-3f) return false;
             if (!MenuPage.Inside(composition, at, field)) return false;
 
-            if (!WorkspacePlacement.Clears(at, bodies, composition.Size)) return false;
+            if (!ClearsBodies(at, bodies, composition.Size)) return false;
             return !(LineAt(composition, at) is (Vector3 from, Vector3 to)) || !Crosses(from, to);
         }
 
