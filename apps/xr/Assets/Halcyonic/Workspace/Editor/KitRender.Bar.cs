@@ -762,8 +762,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     // The page's own line in the panel and nothing else; its prompt, the file's other sections and Close in the column, each the frame's own.
                     Require(binding.Plain && shown.FromMoment, "the page is not read by the general rule");
                     Require(bar.Body.GetParsedText() == FileScreens.StillReading(FileSection.Checks) && shown.Band == null && shown.Sentence == null, "the panel reads \"" + bar.Body.GetParsedText() + "\"");
-                    Require(shown.Column.Count == 5 && shown.Column[0].Control.Action == FileScreens.Refresh && shown.Column[4].Control.Action == Footer.Close
-                        && shown.Column.Count(action => action.Place == KitPlace.Section) == 3 && !shown.Column.Any(action => action.Main), "the column holds " + string.Join(", ", shown.Column.Select(action => action.Words)));
+                    // Four in all (the lead's 2026-11-14T00:24Z): Refresh first and Close last on every page, the sections between, and where
+                    // they do not all fit the reader's own Next Page turns to the rest.
+                    var sections = shown.Column.Count(action => action.Place == KitPlace.Section);
+                    var turns = shown.Column.Any(action => action.Control.Action == RoomBar.TurnPage);
+                    Require(shown.Column.Count <= RoomForm.Full.ActionsAPage && shown.Column[0].Control.Action == FileScreens.Refresh
+                        && shown.Column[^1].Control.Action == Footer.Close && sections >= 1 && (sections == 3 || turns) && !shown.Column.Any(action => action.Main),
+                        "the column holds " + string.Join(", ", shown.Column.Select(action => action.Words)));
                     Require(shown.Column.All(action => ReferenceEquals(action.Control.Frame, frame)), "an action is not the frame's own");
                 }
                 if (state == "36-stop-confirm")
@@ -1010,6 +1015,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     // Talk Again is held, not pressed: it starts the hold, as Hold to Talk does.
                     if (bar.ControlOf(button) is not KitControl control || control.Place == KitPlace.Talk) continue;
+                    // The reader's own Next Page turns its page in the bar; it is never the file's to take.
+                    if (control.Action == RoomBar.TurnPage) continue;
                     button.Press.PressForRender(press++);
                     // Confirm behind its lock takes no press: nothing is confirmed by the press that answered.
                     if (ReferenceEquals(bar.Locking, button))
