@@ -217,6 +217,7 @@ import { PanelSystem } from './panel.js';
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
   const { root } = setupScene(world, '#010103');
+  // Frames the keys and the lane on a laptop; keep setupScene's camera for anything a person must read.
   world.camera.position.set(0, 1.32, 0.5);
   world.camera.lookAt(0, 1.02, -2.2);
   const hall = darkHall();
