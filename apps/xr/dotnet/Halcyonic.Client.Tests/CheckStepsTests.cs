@@ -82,9 +82,12 @@ public class CheckStepsTests
         "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Press Check to try again.";
 
     /// <summary>The passing check with its page's own look not known, as the host records it (VRIFY's f1ffe578c).</summary>
-    private static string Verdict(bool passed, string? verdict, string drawn = "true") =>
-        Passing.Replace("\"drawn\":true", "\"drawn\":" + drawn).Replace("\"passed\":true", "\"passed\":" + (passed ? "true" : "false"))
-            .TrimEnd('}') + (verdict == null ? "" : ",\"verdict\":\"" + verdict + "\"") + "}";
+    private static string Verdict(bool passed, string? verdict, string drawn = "true")
+    {
+        var findings = Passing.Replace("\"drawn\":true", "\"drawn\":" + drawn).Replace("\"passed\":true", "\"passed\":" + (passed ? "true" : "false"));
+        // Only the findings' own closing brace gives way to the verdict; the one before it closes vr.
+        return verdict == null ? findings : findings.Substring(0, findings.Length - 1) + ",\"verdict\":\"" + verdict + "\"}";
+    }
 
     [Test]
     public void ANotKnownVerdictIsPartlyCheckedAndServedAsTheHostServesIt()
