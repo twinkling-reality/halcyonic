@@ -486,11 +486,11 @@ export function lightKeys(
         const into = landing(key);
         const c = hue.get(key.midi) as Color;
         // Dark glass needs more light to be seen lit: a black key's glow is stronger, and its front face lights too.
-        const gain = key.black ? 1.8 : 1;
+        const gain = key.black ? 3 : 1;
         heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.016, 0.016, c, 0.35 * gain * amount);
         const mid = key.length / 2;
         face.place(x + ox * mid, y + 0.001, z + oz * mid, tx, 0, tz, ox, 0, oz, key.width * 0.8, key.length * 0.96, c, 0.2 * gain * amount);
-        if (key.black) face.place(x - ox * 0.001, y - depth / 2, z - oz * 0.001, tx, 0, tz, 0, 1, 0, key.width * 0.8, depth * 0.8, c, 0.3 * amount);
+        if (key.black) face.place(x - ox * 0.001, y - depth / 2, z - oz * 0.001, tx, 0, tz, 0, 1, 0, key.width * 0.8, depth, c, 0.6 * amount);
       }
       heat.end();
       face.end();
@@ -640,13 +640,11 @@ export function fallingNotes(
     // Each answer comes as the note sounds and is gone within about a second, so it is seen to answer that note.
     const strength = 0.2 * (0.4 + note.loud) * Math.exp(-since * 2.2) * Math.min(1, since / 0.05);
     const c = tinted(note);
-    // Where its key points, then round each side and behind, each turned by the note's own pitch, so no view of the
-    // hall repeats another.
-    for (let k = 0; k < 4; k++) {
-      const turn = ((((note.pitch * 31 * (k + 1)) % 17) / 17) * 0.8 - 0.4) * (k === 0 ? 0 : 1);
-      const b = a + (k * Math.PI) / 2 + turn;
-      echoes.add(Math.sin(b) * far, 1.2 + 2.5 * up + k * 0.3, -Math.cos(b) * far, 0.05, 0.05, c, strength);
-    }
+    // Where its key points, and a second answer somewhere round the whole hall, its bearing taken from the moment the
+    // note sounds (a golden-ratio step round the circle), so the hall's light never falls into one pattern.
+    echoes.add(Math.sin(a) * far, 1.2 + 2.5 * up, -Math.cos(a) * far, 0.05, 0.05, c, strength);
+    const b = (((start * 0.6180339887) % 1) + 1) % 1 * Math.PI * 2;
+    echoes.add(Math.sin(b) * far, 1.4 + 2.5 * up, -Math.cos(b) * far, 0.05, 0.05, c, strength);
   };
   return {
     group,
