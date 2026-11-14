@@ -2589,11 +2589,11 @@ public class NewProjectFlowTests
         Assert.That(bar.Card!.Press!.Action, Is.EqualTo(NewProjectScreens.ReadRecap), "the card is the way to the words whole");
         Press(flow, NewProjectScreens.ReadRecap, null);
         var reading = flow.Frame!;
+        Assert.That(reading.SubjectRuns.Text, Is.EqualTo(flow.Idea!.Name), "the card opened: its own title, the project's name, as the page's title");
         Assert.That(reading.Lines.Select(line => (line.Words, line.Fact)), Is.EqualTo(new (string, string?)[]
         {
-            (NewProjectScreens.ProjectRowLabel, flow.Idea!.Name),
             (NewProjectScreens.FirstTaskRowLabel, flow.Idea!.FirstTask),
-        }), "the person's own words as labelled facts, so the reader lays them as rows, never the band");
+        }), "then the first task as a labelled fact, so the reader lays it as rows, never the band; the name never twice");
         Assert.That(RoomBar.NewProject(reading, VoiceStage.Idle), Is.Null, "no steps: the general reader lays it");
         Assert.That(reading.Footer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { NewProjectScreens.BackToRecap }), "Back, and nothing else");
         Press(flow, NewProjectScreens.BackToRecap, null);

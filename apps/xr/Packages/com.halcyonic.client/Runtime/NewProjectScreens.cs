@@ -787,17 +787,17 @@ namespace Halcyonic.Client
         /// <param name="draft">How it runs: where its runtime offers never ask, the two levels stand first, as answers, the one the start will use marked.</param>
         /// <param name="startFrom">SCREENS's Start From (A16, <see cref="StarterChoice"/>): it stands after the first task, where offered.</param>
         /// <summary>
-        /// The person's own words on the recap, read whole (the lead's 2026-11-14T01:19Z: a title cut at three lines, or a long first
-        /// task, is one press away whole): the name and the first task as labelled facts under the recap's own labels, so the general
-        /// reader lays each as rows, never the agent's band, and pages a long one with its label kept (SCREENS's 01:20Z shape). It has
-        /// no steps, so the general reader lays it; Back returns to the recap.
+        /// The person's own words on the recap, read whole (the lead's 2026-11-14T01:19Z and 02:04Z: a name cut at three lines, or a first
+        /// task cut at its lines, is one press away whole): the recap card opened (AUDIT2's and SCREENS's 02:03Z), its own title, the
+        /// project's name, as the page's title row whole, then the first task as a labelled fact under the recap's own label, so the
+        /// general reader lays it as rows, never the agent's band, and pages it with its label kept. The name never stands twice. It
+        /// has no steps, so the general reader lays it; Back returns to the recap.
         /// </summary>
         public static MenuFrame RecapWords(ProjectIdea idea)
         {
             var lines = new List<PageLine>();
-            if (idea.Name.Length > 0) lines.Add(new PageLine(LineWords.Ours(ProjectRowLabel), fact: LineWords.TheirName(idea.Name)));
             if (idea.FirstTask.Length > 0) lines.Add(new PageLine(LineWords.Ours(FirstTaskRowLabel), fact: LineWords.TheirName(idea.FirstTask)));
-            return new MenuFrame(Subject(idea), new Footer(new Prompt(BackToRecap, EntryText.Back, GlazeIcon.Back, PromptKind.Close)), lines: lines);
+            return new MenuFrame(RecapTitle(idea), new Footer(new Prompt(BackToRecap, EntryText.Back, GlazeIcon.Back, PromptKind.Close)), lines: lines);
         }
 
         public static MenuFrame RecapChange(ProjectIdea idea, bool startReached, bool confirmingStartOver, string? startOverProblem, bool words, NewWorkDraft? draft = null,
