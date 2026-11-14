@@ -75,8 +75,10 @@ namespace Halcyonic.XR.Workspace.Editor
             // The plane's own lines: a row not laid whole, a bar past its footprint, a part lost, the older view, and each form change.
             var heard = new List<string>();
             var widths = new List<string>();
+            string? reasons = null;
             Application.LogCallback listen = (message, _, _) =>
             {
+                if (message.StartsWith("Halcyonic: the plane reasons", StringComparison.Ordinal)) lock (widths) reasons = message;
                 if (message.StartsWith("Halcyonic: the bar did not lay whole", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the bar laid past its largest footprint", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the general reader lost a part", StringComparison.Ordinal)
@@ -318,6 +320,36 @@ namespace Halcyonic.XR.Workspace.Editor
                     var barDrawn = GlazeChecks.Of("the bar", eyes, root.GetComponentsInChildren<Renderer>(false)
                         .Where(renderer => renderer.enabled && !renderer.transform.IsChildOf(stage.Shelf) && !renderer.transform.IsChildOf(kitNow.Band.transform)
                             && OwnerOf(renderer.transform)?.StartsWith("Room", StringComparison.Ordinal) == true));
+                    // Reasoned equals drawn (XR and AUDIT, 2026-11-14T01:06Z): nothing the bar or the band draws stands outside the shape the plane
+                    // reasons for it by more than a tenth of a degree, and the band's top is where the plane reasons it. The reasoned shapes are
+                    // the largest the plane keeps clear (the bar's largest footprint, the band at its tallest), so a part drawn smaller is not a fault.
+                    var bandDrawn = GlazeChecks.Of("the band", eyes, kitNow.Band.GetComponentsInChildren<Renderer>(false).Where(renderer => renderer.enabled));
+                    string? said;
+                    lock (widths) said = reasons;
+                    var shapes = said == null ? null : System.Text.RegularExpressions.Regex.Match(said,
+                        @"the bar \((-?[\d.]+) to (-?[\d.]+) across, (-?[\d.]+) to (-?[\d.]+) up\) and the band \((-?[\d.]+) to (-?[\d.]+) across, (-?[\d.]+) to (-?[\d.]+) up\)");
+                    if (shapes == null || !shapes.Success) Debug.Log("Halcyonic: shelf walk: page open: the plane said no reasoned bar and band to set beside the drawn ones");
+                    else
+                    {
+                        float At(int group) => float.Parse(shapes.Groups[group].Value, System.Globalization.CultureInfo.InvariantCulture);
+                        void Within(GlazeChecks.Extent drawnPart, float left, float right, float bottom, float top, string what)
+                        {
+                            if (drawnPart.IsEmpty) return;
+                            var past = Mathf.Max(Mathf.Max(left - drawnPart.Left, drawnPart.Right - right), Mathf.Max(bottom - drawnPart.Bottom, drawnPart.Top - top));
+                            if (past > 0.1f) failures.Add("page open: " + drawnPart + " draws " + GlazeChecks.Degrees(past) + " degrees past " + what + " as the plane reasons it ("
+                                + GlazeChecks.Degrees(left) + " to " + GlazeChecks.Degrees(right) + " across, " + GlazeChecks.Degrees(bottom) + " to " + GlazeChecks.Degrees(top) + " up)");
+                            else Debug.Log("Halcyonic: shelf walk: page open: " + drawnPart + " stands within " + what + " as the plane reasons it, reserving "
+                                + GlazeChecks.Degrees(drawnPart.Left - left) + " left, " + GlazeChecks.Degrees(right - drawnPart.Right) + " right, "
+                                + GlazeChecks.Degrees(drawnPart.Bottom - bottom) + " below and " + GlazeChecks.Degrees(top - drawnPart.Top) + " above what it draws");
+                        }
+                        Within(barDrawn, At(1), At(2), At(3), At(4), "the bar");
+                        if (kitNow.Band.Words != null)
+                        {
+                            Within(bandDrawn, At(5), At(6), At(7), At(8), "the band");
+                            if (!bandDrawn.IsEmpty && Mathf.Abs(bandDrawn.Top - At(8)) > 0.1f)
+                                failures.Add("page open: the band's drawn top stands " + GlazeChecks.Degrees(bandDrawn.Top - At(8)) + " degrees from its top as the plane reasons it");
+                        }
+                    }
                     Debug.Log("Halcyonic: shelf walk: page open, as drawn: " + barDrawn + "; the bar's foot line " + GlazeChecks.Degrees(Elevation(kitNow.transform.TransformPoint(0f, kitNow.FootLine, 0f)))
                         + " up, the band's laid place " + GlazeChecks.Degrees(Elevation(kitNow.Band.transform.position)) + " up, " + (kitNow.Band.Words != null ? "words on the band" : "no words on the band")
                         + "; the band's parts: " + string.Join("; ", drawn.Where(part => part.ToString().Contains("RoomBand")).Select(part => part.ToString())));
