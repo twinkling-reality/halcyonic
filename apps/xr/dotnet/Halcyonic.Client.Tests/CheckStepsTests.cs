@@ -131,18 +131,19 @@ public class CheckStepsTests
     }
 
     /// <summary>
-    /// AUDIT3's point 2: a headset built before the verdict, handed a not-known page, cannot read it. Its contract read
-    /// drawn as a required boolean, so null is a JSON error, and the realtime protocol stayed at the same version, so the
-    /// welcome does not turn it away first: the message holding the check is unreadable, and that headset ends each
-    /// connection with Message Unreadable until both run the same version (RealtimeSession's JsonException ending).
+    /// AUDIT3's point 2: a headset built before the verdict, handed a not-known page, cannot read it: its contract read
+    /// drawn as a required boolean, so null is a JSON error. So the realtime protocol rose with this contract (the lead,
+    /// 04:06Z): such a headset speaks the protocol before it, and the welcome turns it away first, in its own words
+    /// (RealtimeSession: Different Versions), before any message it could not read reaches it.
     /// </summary>
     [Test]
-    public void AHeadsetBuiltBeforeTheVerdictCannotReadANotKnownPageAndSaysItIsUnreadable()
+    public void AHeadsetBuiltBeforeTheVerdictCannotReadANotKnownPageSoTheWelcomeTurnsItAway()
     {
         const string NotKnownPage = "{\"drawn\":null}";
         Assert.That(() => HalcyonicJson.Deserialize<PageBeforeNotKnown>(NotKnownPage), Throws.InstanceOf<Newtonsoft.Json.JsonException>());
         Assert.That(HalcyonicJson.Deserialize<PageBeforeNotKnown>("{\"drawn\":true}").Drawn, Is.True, "a known page it still reads");
-        Assert.That(ConnectionText.Unreadable, Does.StartWith("Message Unreadable"));
+        Assert.That(ContractVersions.RealtimeProtocol, Is.GreaterThan(1), "the protocol a headset before the verdict speaks is turned away");
+        Assert.That(ConnectionText.OtherVersion, Does.StartWith("Different Versions"));
         // This build reads it as not known.
         var page = Findings(Verdict(false, "not_known", "null")).Page!;
         Assert.That(page.Drawn, Is.Null);

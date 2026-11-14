@@ -55,7 +55,7 @@ public class RealtimeSessionTests
         var connection = await server.AcceptAsync();
         var hello = await connection.ReceiveFromClientAsync();
         Assert.That((string?)hello["type"], Is.EqualTo("hello"));
-        Assert.That((int?)hello["protocol"], Is.EqualTo(1));
+        Assert.That((int?)hello["protocol"], Is.EqualTo(ContractVersions.RealtimeProtocol));
         Assert.That((string?)hello["client"]!["name"], Is.EqualTo(Samples.Client.Name));
         Assert.That(hello["resume"]!.Type, Is.EqualTo(Newtonsoft.Json.Linq.JTokenType.Null));
         Assert.That(connection.AccessToken, Is.EqualTo("test-token"));
