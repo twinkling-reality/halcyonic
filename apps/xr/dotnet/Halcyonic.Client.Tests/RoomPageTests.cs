@@ -814,5 +814,14 @@ public class RoomPageTests
         var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
         Assert.That(bar.Facts!.Count(row => row.Words.Text == name), Is.EqualTo(1), "the name once, under its label");
         Assert.That(bar.Facts![0].Label, Is.EqualTo("Project"));
+
+        // Any line's value, not only the first's (the recap's page is titled by the first task, its second fact).
+        var task = "Make the kite climb faster when the person leans forward, and let the tail ripple.";
+        var byTask = RoomBar.OfFrame(new MenuFrame(LineWords.TheirName(task), new Footer(Close), lines: new[]
+        {
+            new PageLine(LineWords.Ours("Project"), fact: LineWords.TheirName(name)),
+            new PageLine(LineWords.Ours("First Task"), fact: LineWords.TheirName(task)),
+        }), VoiceStage.Idle)!;
+        Assert.That(byTask.Facts!.Count(row => row.Words.Text == task), Is.EqualTo(1), "the task once, under its label");
     }
 }
