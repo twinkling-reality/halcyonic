@@ -342,3 +342,241 @@ describe('a request the journal cannot record is denied by the host, never left 
     assert.doesNotMatch(NOT_RECORDED_WORDS, /Halcyonic|shorter|simpler|again/);
   });
 });
+
+describe('a question the journal cannot record ends its turn, asked once (ADR 0065, AUDIT3 F1)', () => {
+  /** An id only the agent chose, so a log that held it would show it. */
+  const SECRET_ID = 'q-words-of-the-agent';
+  const PROMPT = {
+    key: 'k',
+    header: null,
+    text: 'Which one?',
+    options: [],
+    multiple: false,
+    free_text: true,
+    secret: false,
+  };
+  /** A question the contract refuses: it carries a field the contract does not have. */
+  const refused = (
+    question_id: unknown,
+    extra: Record<string, unknown> = { asked_by: 'the agent' },
+  ) => ({
+    type: 'runtime.question.asked',
+    payload: { question_id, prompts: [PROMPT], answerable: true, ...extra },
+  });
+  const recordedQuestion = (question_id: string) => ({
+    type: 'runtime.question.asked',
+    payload: { question_id, prompts: [PROMPT], answerable: true },
+  });
+  const turn = (turn_id: string) => ({ type: 'runtime.turn.started', payload: { turn_id } });
+  type Step = { type: string; payload: unknown };
+
+  async function run(steps: Step[], interrupt: 'none' | 'resolves' | 'rejects' = 'resolves') {
+    const { logger, entries } = capturingLogger();
+    const interrupts: string[] = [];
+    const answered: string[] = [];
+    let at = 0;
+    const base = runtime(true);
+    const adapter: RuntimeAdapter = {
+      ...base,
+      descriptor: {
+        ...base.descriptor,
+        capabilities: {
+          ...base.descriptor.capabilities,
+          answer_question: true,
+          interrupt: interrupt !== 'none',
+        },
+      },
+      startExecution: async (request) => {
+        for (const step of [
+          { type: 'runtime.execution.started', payload: { native_id: 'n', confined: true } },
+          ...steps,
+        ])
+          request.emit({
+            ...step,
+            native_event_id: `n:${++at}`,
+            sequence: at,
+            occurred_at: '2026-09-26T10:00:00.000Z',
+            provenance: { epistemic: 'observed', native_type: null },
+          } as unknown as RuntimeObservation);
+        return { native_id: 'n' };
+      },
+      answerQuestion: async (request) => {
+        answered.push(request.question_id);
+      },
+      ...(interrupt !== 'none' && {
+        interrupt: async (request: { execution: ExecutionContext }) => {
+          interrupts.push(request.execution.execution_id);
+          if (interrupt === 'rejects') throw new Error(`refused ${SECRET_ID}`);
+        },
+      }),
+    };
+    const { controlPlane, commands, time } = createTestControlPlane({
+      logger,
+      adapters: () => [adapter],
+    });
+    const project = controlPlane.commands.submit(commands.createProject('Garden'), 'internal');
+    if (project.command?.result?.kind !== 'project_created') throw new Error('no project');
+    const feature = DEMO_WORKSTREAMS[0] as (typeof DEMO_WORKSTREAMS)[number];
+    const created = controlPlane.commands.submit(
+      commands.createWorkstream(project.command.result.project_id, feature),
+      'internal',
+    );
+    if (created.command?.result?.kind !== 'workstream_created') throw new Error('no workstream');
+    const workstreamId = created.command.result.workstream_id;
+    controlPlane.commands.submit(
+      {
+        ...commands.startExecution(workstreamId, feature),
+        payload: {
+          workstream_id: workstreamId,
+          runtime_id: 'app' as RuntimeId,
+          instruction: 'Build it.',
+          options: {},
+          model_ref: null,
+        },
+      },
+      'internal',
+    );
+    await time.runUntilIdle();
+    const events = [...controlPlane.journal.readAll()].map((stored) => stored.event);
+    const execution = events.find((event) => event.event_type === 'execution.created')
+      ?.execution_id as string;
+    const view = controlPlane.projection.execution(execution as ExecutionId);
+    await controlPlane.close();
+    const ended = events.flatMap((event) =>
+      event.event_type === 'execution.question.ended_by_host'
+        ? [{ execution_id: event.execution_id, ...event.payload }]
+        : [],
+    );
+    const logs = entries.filter((entry) => entry.message === 'a question that was not recorded');
+    return { events, ended, interrupts, answered, view, execution, entries, logs };
+  }
+
+  test('the turn interrupted is the one the host routed the question to, never one its payload names (F1.1)', async () => {
+    const { ended, interrupts, execution } = await run([
+      turn('t1'),
+      refused('q1', { execution_id: '01a19000-0000-7000-8000-0000000000e9' }),
+    ]);
+    assert.deepEqual(interrupts, [execution]);
+    assert.deepEqual(ended, [
+      {
+        execution_id: execution,
+        question_id: 'q1',
+        because: 'not_recorded',
+        interrupt_requested: true,
+      },
+    ]);
+  });
+
+  test("a question id the contract's own check refuses is kept nowhere and asks nothing (F1.2)", async () => {
+    const { ended, interrupts, logs, events } = await run([
+      turn('t1'),
+      refused(''),
+      refused('x'.repeat(513)),
+      refused(42),
+      refused(undefined),
+    ]);
+    assert.deepEqual(ended, []);
+    assert.deepEqual(interrupts, []);
+    assert.deepEqual(
+      logs.map((entry) => (entry.context as { outcome: string }).outcome),
+      ['no_valid_id', 'no_valid_id', 'no_valid_id', 'no_valid_id'],
+    );
+    assert.ok(!events.some((event) => event.event_type === 'runtime.question.asked'));
+  });
+
+  test('the host asks at most once in a turn, and again only in a later turn (F1.3)', async () => {
+    const { ended, interrupts } = await run([
+      turn('t1'),
+      refused('q1'),
+      refused('q2'),
+      turn('t2'),
+      refused('q3'),
+    ]);
+    assert.equal(interrupts.length, 2, 'once in t1, once in t2');
+    const byId = Object.fromEntries(ended.map((each) => [each.question_id, each]));
+    assert.equal(ended.length, 3);
+    assert.equal(byId.q1?.interrupt_requested, true);
+    assert.equal(byId.q2?.interrupt_requested, false, 'recorded, never asked a second time');
+    assert.equal(byId.q3?.interrupt_requested, true);
+  });
+
+  test('an ask the agent app refuses is recorded as not requested and never asked again in the turn (F1.3, F1.4)', async () => {
+    const { ended, interrupts, logs } = await run(
+      [turn('t1'), refused('q1'), refused('q2')],
+      'rejects',
+    );
+    assert.equal(interrupts.length, 1);
+    assert.deepEqual(ended.map((each) => [each.question_id, each.interrupt_requested]).sort(), [
+      ['q1', false],
+      ['q2', false],
+    ]);
+    assert.deepEqual(logs.map((entry) => (entry.context as { outcome: string }).outcome).sort(), [
+      'interrupt_already_asked',
+      'interrupt_refused',
+    ]);
+  });
+
+  test("an ask taken never claims the turn ended: only the runtime's own interrupted does (F1.4)", async () => {
+    const { ended, events, view } = await run([turn('t1'), refused('q1')]);
+    assert.equal(ended[0]?.interrupt_requested, true);
+    assert.ok(!events.some((event) => event.event_type === 'runtime.turn.interrupted'));
+    assert.notEqual(view?.status, 'interrupted');
+    const positions = events.map((event) => event.event_type);
+    assert.ok(
+      positions.indexOf('execution.question.ended_by_host') >
+        positions.indexOf('runtime.turn.started'),
+    );
+  });
+
+  test('an agent app that declares no interrupt is recorded as not asked, with nothing invented', async () => {
+    const { ended, interrupts, logs } = await run([turn('t1'), refused('q1')], 'none');
+    assert.deepEqual(interrupts, []);
+    assert.deepEqual(
+      ended.map((each) => each.interrupt_requested),
+      [false],
+    );
+    assert.equal(
+      (logs[0]?.context as { outcome?: string } | undefined)?.outcome,
+      'no_interrupt_declared',
+    );
+  });
+
+  test("logs carry the execution's and runtime's ids and the outcome, never the question's id or words (F1.5)", async () => {
+    const { logs, entries, execution } = await run([turn('t1'), refused(SECRET_ID)], 'rejects');
+    assert.ok(logs.length > 0);
+    for (const entry of logs)
+      assert.deepEqual(Object.keys(entry.context).sort(), [
+        'execution_id',
+        'outcome',
+        'runtime_id',
+      ]);
+    assert.equal(
+      (logs[0]?.context as { execution_id?: string } | undefined)?.execution_id,
+      execution,
+    );
+    const logged = JSON.stringify(entries);
+    assert.ok(!logged.includes(SECRET_ID), logged);
+    assert.ok(!logged.includes('Which one?'), logged);
+  });
+
+  test('no question is answered, resolved or dismissed, and an open one with the same id is left to the person (F1.6)', async () => {
+    const { ended, interrupts, answered, events, view } = await run([
+      turn('t1'),
+      recordedQuestion('open'),
+      refused('open'),
+      refused('q1'),
+    ]);
+    assert.deepEqual(
+      ended.map((each) => each.question_id),
+      ['q1'],
+      'the open one was recorded after all',
+    );
+    assert.equal(interrupts.length, 1);
+    assert.deepEqual(answered, []);
+    assert.ok(!events.some((event) => event.event_type === 'runtime.question.resolved'));
+    assert.deepEqual(
+      view?.pending_questions.map((each) => each.question_id),
+      ['open'],
+    );
+  });
+});

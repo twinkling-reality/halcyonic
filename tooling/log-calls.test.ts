@@ -376,6 +376,11 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       why: "the host's denial of a request not recorded failed: ids is the execution and runtime ids, booleans, and the runtime action's code or the error's name, never its message (ADR 0065)",
     },
     {
+      file: 'apps/control-plane/src/core/host-denials.ts',
+      args: '{ ...ids, outcome }, ""',
+      why: "a question the journal could not record, its turn's end asked: ids is the execution and runtime ids, outcome one of the fixed words of AskOutcome and QuestionOutcome; never the question's id, which the agent chose, or its words (ADR 0065, AUDIT3 F1.5)",
+    },
+    {
       file: 'apps/control-plane/src/core/publisher.ts',
       args: '{ err: error, position: published.position }, ""',
       why: 'an error through errorForLog (http/server.ts): its type, code and frames, never its message',

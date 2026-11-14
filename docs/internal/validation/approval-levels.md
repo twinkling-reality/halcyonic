@@ -118,3 +118,10 @@ runtime.
 - **OpenCode 2.0.18:** its e2e, "a denial with a message fails the tool; 2.0.18 delivers the message nowhere".
 - **Claude Agent SDK 0.3.283:** `sdk.d.ts`, `PermissionResult`'s deny carries `message: string`, the tool result the
   model reads (the same path the confined session's `KEPT_BY_HALCYONIC` uses).
+
+## A refused question's interrupt (2026-11-13, for ADR 0065 point 6)
+
+- **Verified:** unit tests only (`host-denials.test.ts`), with a scripted runtime that declares `interrupt` and one
+  that does not. All three agent apps declare `interrupt` in their descriptors.
+- **Not seen in the app:** Claude Agent, OpenCode and Codex each; no run has had a question the journal refused, so
+  whether each app ends the turn and reports `runtime.turn.interrupted` after this ask is not observed.

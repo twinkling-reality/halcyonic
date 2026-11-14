@@ -1,7 +1,9 @@
 import {
   COMMAND_SCHEMA_VERSION,
   type CommandId,
+  compileValidator,
   type EventEnvelope,
+  NativeId,
   type Timestamp,
 } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
@@ -46,6 +48,9 @@ export interface UnrecordedRequestsDeps {
   readonly logger: Logger;
 }
 
+/** The contract's own check of a native id, so the host keeps no id the journal would refuse. */
+const validNativeId = compileValidator(NativeId);
+
 /**
  * The host's answer to a request its journal could not record (ADR 0065, 2026-11-13): an agent app's approval request
  * the contract refuses is never a card, so the agent would wait on it until its run's bound. For one with an id the
@@ -53,8 +58,8 @@ export interface UnrecordedRequestsDeps {
  * `execution.approval.denied_by_host` because `not_recorded`, then denies it through the agent app itself, not through
  * the command a press sends: admission refuses a decision on a request it never saw. The denial is sent even where its
  * record fails, since a refusal nobody sees still frees the agent and a wait nobody sees does not. A question has no
- * declared way to be declined (`answerQuestion` carries answers only), so one is left as it is. Logs carry ids,
- * codes and counts, never the request's text.
+ * declared way to be declined (`answerQuestion` carries answers only), so its turn is ended instead
+ * (`unrecordedQuestion`). Logs carry ids, codes and counts, never the request's text.
  */
 export function unrecordedRequests(
   deps: UnrecordedRequestsDeps,
@@ -62,7 +67,12 @@ export function unrecordedRequests(
   const { adapter, execution, logger } = deps;
   const runtimeId = adapter.descriptor.runtime_id;
   const ids = { execution_id: execution.execution_id, runtime_id: runtimeId };
+  const question = unrecordedQuestion(deps);
   return (observation) => {
+    if (observation.type === 'runtime.question.asked') {
+      question(observation);
+      return;
+    }
     if (observation.type !== 'runtime.approval.requested') return;
     const approvalId = (observation.payload as { approval_id?: unknown } | null)?.approval_id;
     if (typeof approvalId !== 'string' || approvalId.length === 0 || approvalId.length > 512) {
@@ -126,6 +136,91 @@ export function unrecordedRequests(
             'a request that was not recorded could not be denied',
           ),
       );
+  };
+}
+
+/** What came of the host's ask to end a refused question's turn: a fixed word, the one thing its log says. */
+type AskOutcome =
+  | 'interrupt_requested'
+  | 'interrupt_refused'
+  | 'interrupt_already_asked'
+  | 'no_interrupt_declared';
+
+/** Why a refused question asks nothing: its id is one the contract refuses, or it was recorded after all. */
+type QuestionOutcome = AskOutcome | 'no_valid_id' | 'recorded_after_all';
+
+/**
+ * What becomes of a question the journal could not record (ADR 0065 point 6, AUDIT3 F1): the agent waits on it and no
+ * person can answer it, and no agent app declares a way to decline one, so the host asks the agent app to end its turn
+ * (`interrupt`), at most once in a turn and never again after a refusal, and then records
+ * `execution.question.ended_by_host` with whether the ask was taken. The turn interrupted is always the execution this
+ * sink was made for, never one the refused payload names. Its end is recorded only from the runtime's own
+ * `runtime.turn.interrupted`. No question is answered, resolved or dismissed here, and one the projection holds open
+ * with the same id was recorded after all: it is the person's, and left as it is. A question id the contract would
+ * refuse is kept nowhere. Logs carry the execution's and runtime's ids and the outcome only, never the question's id,
+ * which the agent chose, or its words.
+ */
+function unrecordedQuestion(
+  deps: UnrecordedRequestsDeps,
+): (observation: RuntimeObservation) => void {
+  const { adapter, execution, logger } = deps;
+  const ids = { execution_id: execution.execution_id, runtime_id: adapter.descriptor.runtime_id };
+  const log = (outcome: QuestionOutcome | `${AskOutcome}_not_recorded`) =>
+    logger.warn({ ...ids, outcome }, 'a question that was not recorded');
+  /** The turns (by the projection's count) the host has already asked to end, whatever came of it. */
+  const asked = new Set<number>();
+  const record = (questionId: string, requested: boolean) => {
+    try {
+      deps.recorder.record(
+        controlPlaneDraft(
+          'execution.question.ended_by_host',
+          execution,
+          { question_id: questionId, because: 'not_recorded', interrupt_requested: requested },
+          deps.clock.now().toISOString() as Timestamp,
+          NO_CAUSE,
+        ),
+      );
+      return true;
+    } catch {
+      // Not the error itself: it can hold the question.
+      return false;
+    }
+  };
+  return (observation) => {
+    const given = (observation.payload as { question_id?: unknown } | null)?.question_id;
+    const checked = validNativeId(given);
+    if (!checked.ok) {
+      log('no_valid_id');
+      return;
+    }
+    const questionId = checked.value;
+    const view = deps.projection.execution(execution.execution_id);
+    if (view?.pending_questions.some((each) => each.question_id === questionId) === true) {
+      log('recorded_after_all');
+      return;
+    }
+    const turn = view?.turn_count ?? 0;
+    const interrupt = adapter.interrupt;
+    const declared = adapter.descriptor.capabilities.interrupt === true && interrupt !== undefined;
+    const call = declared && !asked.has(turn);
+    if (call) asked.add(turn);
+    // After the adapter's own emit returns, outside its call. Each on its own, so an ask that never settles holds up
+    // no other question's record.
+    void Promise.resolve().then(async () => {
+      let requested = false;
+      let outcome: AskOutcome = declared ? 'interrupt_already_asked' : 'no_interrupt_declared';
+      if (call && interrupt !== undefined) {
+        try {
+          await interrupt.call(adapter, { execution });
+          requested = true;
+          outcome = 'interrupt_requested';
+        } catch {
+          // Not the error itself: it can quote the agent. Never asked again in this turn.
+          outcome = 'interrupt_refused';
+        }
+      }
+      log(record(questionId, requested) ? outcome : `${outcome}_not_recorded`);
+    });
   };
 }
 
