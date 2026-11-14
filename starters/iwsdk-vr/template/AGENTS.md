@@ -202,40 +202,19 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
 - Light lands with its sound only when it reads the player's time: place everything that moves with the music from
   `player.now()` each frame, and `player.each(behind, ahead, visit)` gives each note due or still held with its start
   and end in those same seconds. Never a timer of your own, and never `gameTime()` for it.
-- Light is glow, never a full-screen effect: `glows(count, options)` draws soft shapes (bars, dots, discs) as one draw
-  call, `sparks()` rise and fade, `lightKeys(low, high)` is a keyboard of light, and `fallingNotes(player, keys)`
-  brings the score's notes down a lane onto it, the keys, flares and sparks included. Each is written afresh every
-  frame and makes nothing new in it. Keep the place dark behind them: light adds up where it overlaps.
-- A whole piano of light that plays itself, to start from:
-
-```ts
-import { World } from '@iwsdk/core';
-import { Group } from 'three';
-import projectOptions from 'virtual:iwsdk-project';
-import { ambientMotion, darkHall, fallingNotes, join, lightKeys, pieces, playScore, range, setupPlayInput, setupScene } from './kit.js';
-import { PanelSystem } from './panel.js';
-
-World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
-  const { root } = setupScene(world, '#010103');
-  // Frames the keys and the lane on a laptop; keep setupScene's camera for anything a person must read.
-  world.camera.position.set(0, 1.32, 0.5);
-  world.camera.lookAt(0, 1.02, -2.2);
-  const hall = darkHall();
-  root.add(hall.group);
-  ambientMotion(hall.move);
-  const programme = join([pieces.prelude, pieces.gymnopedie], 4);
-  const player = playScore(programme, ambientMotion, { loop: true, gap: 4, lead: 4 });
-  const [low, high] = range([programme]);
-  const keys = lightKeys(low - 2, high + 2);
-  const keyboard = new Group();
-  keyboard.position.set(0, 0.86, -0.42);
-  keyboard.add(keys.group);
-  root.add(keyboard);
-  ambientMotion(fallingNotes(player, keys, { height: 0.86 }).move);
-  setupPlayInput(world);
-  world.registerSystem(PanelSystem);
-});
-```
+- Light is glow, never a full-screen effect: `glows(count, options)` draws soft shapes (drops, dots, discs, columns)
+  as one draw call, `sparks()` rise and fade, `lightKeys(low, high, { arc })` is a keyboard of light curving round
+  the person, and `fallingNotes(player, keys)` lets each note fall onto its key from the dark overhead, the keys'
+  light, the rising glow and the sparks included, coloured by where each note lies in the music. Each is written
+  afresh every frame and makes nothing new in it. Keep the place dark behind them: light adds up where it overlaps.
+- For light of your own, the same parts are general: `glows` with `upright: true` keeps each shape vertical however
+  the head tilts (a falling drop, a rising column), `place(...)` lays a shape in any plane (light along a curve, on a
+  sloping surface), `keys.spot(midi)` says where a key is and which way it faces, and `registerColour(midi, low,
+  high)` colours a note by where it lies between two others.
+- Make the light your own: a person stands inside it, all round them, never in front of a screen of it. Never copy
+  the look of a video, a game or an app you know (its layout, its colours, its camera). The person listens: nothing
+  asks them to play, and nothing comes within about 0.7 m of them, so their hands and head never meet the light.
+- Start from the whole small piano of light at the end of this file and change it into the piece asked for.
 
 Keep changes small, one idea at a time, and keep the app running after each one.
 
@@ -391,5 +370,37 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
   world.registerSystem(ViewSystem);
+});
+```
+
+A whole small piano of light, to start a piece of music and light from: a keyboard of light curving round the
+person in a dark hall, and Bach's Prelude and Satie's first Gymnopedie falling onto it note by note.
+
+```ts
+import { World } from '@iwsdk/core';
+import { Group } from 'three';
+import projectOptions from 'virtual:iwsdk-project';
+import { ambientMotion, darkHall, fallingNotes, join, lightKeys, pieces, playScore, range, setupPlayInput, setupScene } from './kit.js';
+import { PanelSystem } from './panel.js';
+
+World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
+  const { root } = setupScene(world, '#010103');
+  // Frames the keys round the person on a laptop; keep setupScene's camera for anything a person must read.
+  world.camera.position.set(0, 1.75, 1.05);
+  world.camera.lookAt(0, 1.15, -0.9);
+  const hall = darkHall();
+  root.add(hall.group);
+  ambientMotion(hall.move);
+  const programme = join([pieces.prelude, pieces.gymnopedie], 4);
+  const player = playScore(programme, ambientMotion, { loop: true, gap: 4, lead: 4 });
+  const [low, high] = range([programme]);
+  const keys = lightKeys(low - 2, high + 2, { arc: 0.72, keyWidth: 0.055 });
+  const keyboard = new Group();
+  keyboard.position.set(0, 0.86, 0);
+  keyboard.add(keys.group);
+  root.add(keyboard);
+  ambientMotion(fallingNotes(player, keys, { height: 0.86 }).move);
+  setupPlayInput(world);
+  world.registerSystem(PanelSystem);
 });
 ```
