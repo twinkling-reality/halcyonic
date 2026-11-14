@@ -86,8 +86,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         if (narrowed && !state.Contains(only!, StringComparison.OrdinalIgnoreCase)) continue;
                         shown++;
+                        // A line the headset had to show plain is drawn, never refused, so the check is what says it, as loudly as the throw did.
+                        var foldsBefore = LineWords.Folds;
                         try { found.AddRange(RenderPart(state, size)); }
                         catch (Exception error) { found.Add(state + " threw " + error); }
+                        if (LineWords.Folds > foldsBefore)
+                            found.Add(state + " (" + size + "): " + (LineWords.Folds - foldsBefore) + " distinct lines from the computer held a character the headset folds, shown plain (LineWords.HostPlain), each counted once however often it was laid.");
                     }
                     if (!narrowed || ShelfWorstState.Contains(only!, StringComparison.OrdinalIgnoreCase))
                     {
