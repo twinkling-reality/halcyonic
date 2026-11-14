@@ -319,8 +319,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     // At rest (no page, or a shelf's placing page): the resting entry, and within the recorded one where there is one.
                     if (!laid.ShowsPage || restingViews.Contains(laid))
                     {
-                        var size = key.Item1;
-                        measuredResting[size] = measuredResting.TryGetValue(size, out var rested) ? (Vector2.Max(rested.Dp, dp), Mathf.Max(rested.PanelDp, laid.LaidPanelDp)) : (dp, laid.LaidPanelDp);
+                        var restScale = key.Item1;
+                        measuredResting[restScale] = measuredResting.TryGetValue(restScale, out var rested) ? (Vector2.Max(rested.Dp, dp), Mathf.Max(rested.PanelDp, laid.LaidPanelDp)) : (dp, laid.LaidPanelDp);
                         if (Halcyonic.XR.UI.KitEnvelope.Resting(GlazeText.Scale) is Vector2 restRecord && (dp.x > restRecord.x + 0.5f || dp.y > restRecord.y + 0.5f))
                             failures.Add(name + ": the bar draws past its recorded resting footprint, " + dp.x.ToString("0") + " by " + dp.y.ToString("0") + " dp against " + restRecord.ToString("0"));
                     }
