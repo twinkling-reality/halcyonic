@@ -58,6 +58,34 @@ namespace Halcyonic.Client
 
         public float Top { get; }
 
+        /// <summary>
+        /// The extent in degrees, about the plane's heading, of a rectangle on a plane centred at <paramref name="direction"/>, given in the
+        /// plane's units (<see cref="PlaneComposition.PointOf"/>) from (<paramref name="originRight"/>, <paramref name="originUp"/>): each
+        /// point through the geometry the plane stands its parts with, read from the eyes. Corners, edge middles and centre: a flat plane's
+        /// highest and lowest points as the eyes see them lie at a corner or at an edge's middle, by which side of the eyes it stands.
+        /// </summary>
+        public static AngularExtent OnPlane(PanelDirection direction, float originRight, float originUp, float left, float right, float bottom, float top)
+        {
+            float leftmost = float.PositiveInfinity, rightmost = float.NegativeInfinity, lowest = float.PositiveInfinity, highest = float.NegativeInfinity;
+            foreach (var x in new[] { left, (left + right) / 2f, right })
+            foreach (var y in new[] { bottom, (bottom + top) / 2f, top })
+            {
+                var (px, py, pz) = PlaneComposition.PointOf(direction, originRight + x, originUp + y);
+                var yaw = Wrap(MathF.Atan2(px, pz) * 180f / MathF.PI - direction.Yaw);
+                var elevation = MathF.Atan2(py, MathF.Sqrt(px * px + pz * pz)) * 180f / MathF.PI;
+                leftmost = MathF.Min(leftmost, yaw); rightmost = MathF.Max(rightmost, yaw); lowest = MathF.Min(lowest, elevation); highest = MathF.Max(highest, elevation);
+            }
+            return new AngularExtent(leftmost, rightmost, lowest, highest);
+        }
+
+        private static float Wrap(float degrees)
+        {
+            var wrapped = degrees % 360f;
+            if (wrapped > 180f) wrapped -= 360f;
+            if (wrapped <= -180f) wrapped += 360f;
+            return wrapped;
+        }
+
         /// <summary>How far apart two extents stand, in degrees: across, down, or diagonally past a corner; at most 0 where they overlap.</summary>
         public float Apart(AngularExtent other)
         {

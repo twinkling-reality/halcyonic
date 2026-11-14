@@ -87,6 +87,28 @@ public class PlaneFormTests
 
 public class AngularExtentTests
 {
+    /// <summary>
+    /// A part reasoned through the plane's own geometry: a point u units up from the plane's middle stands atan(u) above it, and the part
+    /// moves with the person's raising or lowering of the plane (AUDIT's 01:07Z, the drag the removed OfBar test pinned).
+    /// </summary>
+    [Test]
+    public void APartOnThePlaneStandsWhereThePlaneLaysItAndMovesWithThePersonsDrag()
+    {
+        // Narrow, so its top and bottom are where it crosses the plane's own vertical, where a point u units up stands atan(u) above the middle.
+        var level = new PanelDirection(0f, 3f, true, false);
+        var band = AngularExtent.OnPlane(level, 0f, 0f, -1e-4f, 1e-4f, -0.6f, -0.45f);
+        Assert.That(band.Top, Is.EqualTo(3f + MathF.Atan(-0.45f) * 180f / MathF.PI).Within(1e-3f), "atan of its units under the middle");
+        var wide = AngularExtent.OnPlane(level, 0f, 0f, -0.5f, 0.5f, -0.6f, -0.45f);
+        Assert.That(wide.Right, Is.EqualTo(-wide.Left).Within(1e-3f));
+        Assert.That(wide.Top, Is.GreaterThan(band.Top), "below the eyes, a wide part's corners stand higher than its middle");
+        var raised = AngularExtent.OnPlane(new PanelDirection(0f, 8f, true, false), 0f, 0f, -1e-4f, 1e-4f, -0.6f, -0.45f);
+        Assert.That(raised.Top - band.Top, Is.EqualTo(5f).Within(1e-3f), "raised five degrees by the person: the part with it");
+        Assert.That(raised.Bottom - band.Bottom, Is.EqualTo(5f).Within(1e-3f));
+        var turned = AngularExtent.OnPlane(new PanelDirection(30f, 3f, true, false), 0f, 0f, -0.5f, 0.5f, -0.6f, -0.45f);
+        Assert.That(turned.Left, Is.EqualTo(wide.Left).Within(1e-3f), "about the plane's own heading");
+        Assert.That(turned.Right, Is.EqualTo(wide.Right).Within(1e-3f));
+    }
+
     [Test]
     public void TwoExtentsAreApartByTheirGapOrPastACornerAndOverlapIsNoGap()
     {

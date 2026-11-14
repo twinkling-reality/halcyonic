@@ -463,24 +463,14 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// The extent in degrees, about the plane's heading, of a rectangle on the plane given in the plane's units from the kit's origin
-        /// (kit units grown by the text size): each point taken through the geometry the plane stands the kit with (PlaneComposition.PointOf
-        /// about <see cref="Direction"/>, from the kit's part), so a part reasoned here stands where it is drawn (AUDIT's and FIELD's 01:02Z:
-        /// DESIGN's 16 dp a degree is not the plane's; one conversion for every part). Corners, edge middles and centre, since a flat
-        /// plane's highest and lowest points as the eyes see them lie at an edge's middle.
+        /// (kit units grown by the text size), through the geometry the plane stands the kit with (<see cref="AngularExtent.OnPlane"/> about
+        /// <see cref="Direction"/>, the person's drag included, from the kit's part), so a part reasoned here stands where it is drawn
+        /// (AUDIT's and FIELD's 01:02Z: DESIGN's 16 dp a degree is not the plane's; one conversion for every part).
         /// </summary>
         private AngularExtent OnPlane(float left, float right, float bottom, float top)
         {
             var (originRight, originUp) = Kit.ShowsCompact ? (0f, 0f) : (kitPart.Right, kitPart.Up);
-            float leftmost = float.PositiveInfinity, rightmost = float.NegativeInfinity, lowest = float.PositiveInfinity, highest = float.NegativeInfinity;
-            foreach (var x in new[] { left, (left + right) / 2f, right })
-            foreach (var y in new[] { bottom, (bottom + top) / 2f, top })
-            {
-                var (px, py, pz) = PlaneComposition.PointOf(Direction, originRight + x, originUp + y);
-                var yaw = Mathf.DeltaAngle(Direction.Yaw, Mathf.Atan2(px, pz) * Mathf.Rad2Deg);
-                var elevation = Mathf.Atan2(py, Mathf.Sqrt(px * px + pz * pz)) * Mathf.Rad2Deg;
-                leftmost = Mathf.Min(leftmost, yaw); rightmost = Mathf.Max(rightmost, yaw); lowest = Mathf.Min(lowest, elevation); highest = Mathf.Max(highest, elevation);
-            }
-            return new AngularExtent(leftmost, rightmost, lowest, highest);
+            return AngularExtent.OnPlane(Direction, originRight, originUp, left, right, bottom, top);
         }
 
         /// <summary>
