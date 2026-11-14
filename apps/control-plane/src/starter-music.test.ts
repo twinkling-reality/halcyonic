@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { pieces, pitch } from '../../../starters/iwsdk-vr/template/src/pieces.ts';
 import {
@@ -258,4 +259,26 @@ describe('the starter piano tone', () => {
   test('the same key is made the same every time', () => {
     assert.deepEqual(strikeKey('bell', 72, 8000), strikeKey('bell', 72, 8000));
   });
+});
+
+describe('the starter music and light kit keeps to its page', () => {
+  // A tripwire, not a proof: it reads names in the kit's own files, not what the code does. A later change that
+  // reaches the network, keeps something or evaluates code by one of these names fails here, and is read by a person.
+  const kit = ['score.ts', 'pieces.ts', 'tone.ts', 'tone-worker.ts', 'instruments.ts', 'glow.ts', 'places.ts'];
+  const denied =
+    /\b(fetch|XMLHttpRequest|WebSocket|EventSource|importScripts|eval|localStorage|sessionStorage|indexedDB|caches|serviceWorker|sendBeacon|createObjectURL|innerHTML)\b|\bnew Function\b|\bimport\(|document\.cookie|\bBlob\b|https?:\/\//;
+  const found = (text: string) => text.split('\n').filter((line) => denied.test(line));
+
+  test('the scan finds each name it is for in a line that holds one', () => {
+    for (const line of ["await fetch('/x')", 'localStorage.setItem(k, v)', "import('./later.js')", 'new Blob([code])', "const u = 'https://cdn.example/x.js';"])
+      assert.deepEqual(found(line), [line]);
+    assert.deepEqual(found("const sound = new Worker(new URL('./tone-worker.ts', import.meta.url));"), []);
+  });
+
+  for (const file of kit)
+    test(`${file} names no network, storage or evaluated code`, () => {
+      const text = readFileSync(new URL(`../../../starters/iwsdk-vr/template/src/${file}`, import.meta.url), 'utf8');
+      assert.ok(text.length > 200, `${file} is read`);
+      assert.deepEqual(found(text), []);
+    });
 });

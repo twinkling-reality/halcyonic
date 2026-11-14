@@ -51,8 +51,11 @@ export {
   fallingNotes,
   type Glows,
   glows,
+  type KeySpot,
+  landing,
   type LightKeys,
   lightKeys,
+  registerColour,
   type Sparks,
   sparks,
 } from './glow.js';

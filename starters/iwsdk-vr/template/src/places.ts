@@ -1,7 +1,9 @@
 import {
+  AdditiveBlending,
   BackSide,
   CircleGeometry,
   Color,
+  CylinderGeometry,
   Float32BufferAttribute,
   Group,
   Mesh,
@@ -93,19 +95,22 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
     0.003 + random() * 0.005,
   ]);
   const dust = new Color('#8FA6FF');
-  // Haze far off, low over the floor, so the dark has depth and is not a wall: wide soft discs of the tint.
-  const haze = glows(5, { facing: true, halo: 9, round: 1, core: 0 });
-  group.add(haze.object);
-  haze.begin();
-  for (const [x, y, z, strength] of [
-    [0, 1, -45, 0.05],
-    [-18, 0.8, -38, 0.035],
-    [18, 0.8, -38, 0.035],
-    [-34, 0.6, -20, 0.025],
-    [34, 0.6, -20, 0.025],
-  ] as const)
-    haze.add(x, y, z, 0.2, 0.2, tint, strength);
-  haze.end();
+  // Haze far off, low over the floor, so the dark has depth and is not a wall: one soft ring of the tint all round,
+  // brightest a metre up and fading to nothing above and below.
+  const ring = new CylinderGeometry(44, 44, 8, 96, 8, true);
+  const at = ring.getAttribute('position');
+  const glow: number[] = [];
+  for (let i = 0; i < at.count; i++) {
+    const k = Math.max(0, 1 - Math.abs(at.getY(i)) / 4) ** 2 * 0.12;
+    glow.push(tint.r * k, tint.g * k, tint.b * k);
+  }
+  ring.setAttribute('color', new Float32BufferAttribute(glow, 3));
+  const haze = new Mesh(
+    ring,
+    new MeshBasicMaterial({ vertexColors: true, side: BackSide, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false }),
+  );
+  haze.position.y = 1.2;
+  group.add(haze);
   return {
     group,
     horizon,

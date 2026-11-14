@@ -1114,3 +1114,36 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
     assert.match(layer, /return \{ texts \};/);
   });
 });
+
+describe('a whole small piano of light in AGENTS.md, to start a piece of music and light from (SHOW)', () => {
+  // SHOW, 2026-11-14: an agent asked for music and light finds every part, in a place that is not the island.
+  const piano = () => {
+    const agents = read('AGENTS.md');
+    const start = agents.indexOf(
+      '```ts\n',
+      agents.indexOf('A whole small piano of light, to start'),
+    );
+    assert.ok(start > 0, 'AGENTS.md holds a piano example');
+    return agents.slice(start, agents.indexOf('\n```', start + 6));
+  };
+
+  test('it plays a score from the kit onto a keyboard of light in a place, never the island', () => {
+    const example = piano();
+    assert.match(example, /setupScene\(world, '#[0-9a-f]{6}'\);/);
+    assert.doesNotMatch(example, /setupLook|decorate|scoreSign/);
+    assert.match(example, /darkHall\(\)/);
+    assert.match(example, /playScore\(programme, ambientMotion/);
+    assert.match(example, /fallingNotes\(player, keys/);
+  });
+
+  test('it imports only names src/kit.ts gives', () => {
+    const imported = piano().match(/import \{([^}]+)\} from '\.\/kit\.js';/);
+    assert.ok(imported, "the example imports from './kit.js'");
+    const kit = read('src/kit.ts');
+    for (const name of (imported[1] ?? '')
+      .split(',')
+      .map((n) => n.trim())
+      .filter((n) => n !== ''))
+      assert.match(kit, new RegExp(`\\b${name}\\b`), name);
+  });
+});

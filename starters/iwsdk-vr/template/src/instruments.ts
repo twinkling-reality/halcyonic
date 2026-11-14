@@ -91,16 +91,34 @@ function ceiling(context: BaseAudioContext): WaveShaperNode {
 
 let worker: Worker | null | undefined;
 let asked = 0;
-const waiting = new Map<number, (samples: Float32Array<ArrayBuffer>) => void>();
+const waiting = new Map<number, { kind: StruckKind; midi: number; rate: number; resolve: (samples: Float32Array<ArrayBuffer>) => void }>();
 
-/** Makes a struck key's samples: on a worker when the page can start one, otherwise a slice at a time between frames. */
+/** Makes a key's samples on the page itself, a slice at a time between frames, so no frame stalls long. */
+function makeHere(kind: StruckKind, midi: number, rate: number): Promise<Float32Array<ArrayBuffer>> {
+  const { partials, seconds, options } = struck(kind, midi, rate);
+  const { samples, step } = strikeSteps(partials, seconds, rate, options);
+  return new Promise((resolve) => {
+    const more = () => (step(24000) ? resolve(samples) : setTimeout(more, 0));
+    more();
+  });
+}
+
+/** Makes a struck key's samples: on a worker when the page can start one, otherwise on the page between frames. */
 function makeKey(kind: StruckKind, midi: number, rate: number): Promise<Float32Array<ArrayBuffer>> {
   if (worker === undefined) {
     try {
       worker = new Worker(new URL('./tone-worker.ts', import.meta.url), { type: 'module' });
       worker.onmessage = (event: MessageEvent<{ id: number; samples: Float32Array<ArrayBuffer> }>) => {
-        waiting.get(event.data.id)?.(event.data.samples);
+        waiting.get(event.data.id)?.resolve(event.data.samples);
         waiting.delete(event.data.id);
+      };
+      // A worker that cannot run after all: drop it, and make what it was asked for on the page instead.
+      worker.onerror = () => {
+        worker = null;
+        for (const [id, job] of waiting) {
+          waiting.delete(id);
+          void makeHere(job.kind, job.midi, job.rate).then(job.resolve);
+        }
       };
     } catch {
       worker = null;
@@ -110,16 +128,11 @@ function makeKey(kind: StruckKind, midi: number, rate: number): Promise<Float32A
     const id = ++asked;
     const sent = worker;
     return new Promise((resolve) => {
-      waiting.set(id, resolve);
+      waiting.set(id, { kind, midi, rate, resolve });
       sent.postMessage({ id, kind, midi, rate });
     });
   }
-  const { partials, seconds, options } = struck(kind, midi, rate);
-  const { samples, step } = strikeSteps(partials, seconds, rate, options);
-  return new Promise((resolve) => {
-    const more = () => (step(24000) ? resolve(samples) : setTimeout(more, 0));
-    more();
-  });
+  return makeHere(kind, midi, rate);
 }
 
 /**
