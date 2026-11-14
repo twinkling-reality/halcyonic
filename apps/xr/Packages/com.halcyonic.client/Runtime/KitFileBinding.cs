@@ -343,7 +343,7 @@ namespace Halcyonic.Client
                     if (alike >= 0)
                     {
                         band = rest[alike].Words.Substring(FileScreens.AlikeLead.Length);
-                        rest[alike] = new PageLine(FileScreens.AlikeLead.Substring(0, FileScreens.AlikeLead.Length - KitMomentWords.Dot.Length));
+                        rest[alike] = new PageLine(FileScreens.AlikeLine);
                         var captioned = rest.FindIndex(line => line.Words == FileScreens.AlikeCaption);
                         if (captioned >= 0)
                         {

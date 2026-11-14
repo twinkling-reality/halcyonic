@@ -870,7 +870,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (state == "34-question-alike")
                         {
                             Require(prompt.StartsWith("Dark", StringComparison.Ordinal) && prompt.Contains(" / "), "the band does not hold the answers that read alike: \"" + prompt + "\"");
-                            Require(bar.Body.text == LabelText.ForTextMeshPro("Same Name · Not Selectable").Replace(" · ", "\n") && shown.Sentence == FileScreens.AlikeCaption, "the panel holds \"" + bar.Body.text + "\" under \"" + shown.Sentence + "\"");
+                            Require(bar.Body.text == LabelText.ForTextMeshPro(FileScreens.AlikeLine) && shown.Sentence == FileScreens.AlikeCaption, "the panel holds \"" + bar.Body.text + "\" under \"" + shown.Sentence + "\"");
                         }
                         if (state == "34-question-writing")
                         {

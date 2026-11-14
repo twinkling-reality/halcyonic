@@ -611,7 +611,13 @@ namespace Halcyonic.Client
                 answerMark: prompt.Multiple ? AnswerMark.Multiple : AnswerMark.Single);
 
         /// <summary>What leads the answers that read alike on their page, Halcyonic's own: the redesign stands these words in its panel and the answers, the agent's, on its band.</summary>
-        public const string AlikeLead = "Same Name · Not Selectable · ";
+        public const string AlikeLead = AlikeLine + ": ";
+
+        /// <summary>
+        /// The lead as the redesign's panel stands it, alone (the answers on the band): one plain phrase, never two facts on a dot
+        /// (AUDIT2's 2026-11-14T05:45Z words; "none", as three or more may read alike).
+        /// </summary>
+        public const string AlikeLine = "These share a name, so none can be chosen";
 
         /// <summary>The caption over them.</summary>
         public const string AlikeCaption = "Duplicate Choices";

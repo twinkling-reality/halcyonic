@@ -2981,7 +2981,7 @@ in order, as before.
   drawn the words, the file's Hold to Talk where it offers one, its way between parts and Cancel, the prompt staying
   on the band (`KitAsk.Writing`). Where two answers read alike and cannot be chosen, the press on one opens the
   file's page that says why: the answers themselves, the agent's words, stand on the band, the panel holds only the
-  product's words (Same Name · Not Selectable under Duplicate Choices, `FileScreens.AlikeLead` and `AlikeCaption`),
+  product's words ("These share a name, so none can be chosen" under Duplicate Choices, `FileScreens.AlikeLine` and `AlikeCaption`, never two facts on a dot),
   and Back returns. A page offering more than the column's six actions has no place and stays the file's own.
 - **Choose Instruction** (BUILD-SPEC-v4 2.1): where Tell it offers instructions to choose from rather than the
   keyboard (no keyboard, or a recorded run playing its own; `FileColumn.ChoosesInstruction`, `KitWorkModel.Chooses`),

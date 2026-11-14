@@ -167,7 +167,7 @@ A locked control's reason names what to read or do, in 1 to 3 words where it can
 | The question's progress and selection rule | Question 1 of 2 · Choose One; Question 1 of 2 · Choose Any; with pages, · Choices 1 of 2 after them | A disabled Send answer throughout selection |
 | Choice-page position and navigation | Choices 1 of 2; More Choices; First Choices | Paging without a visible current position |
 | Clipped long-question context | Read Question | A hidden target or no way to reread the question |
-| An unavailable choice with a duplicated displayed name | Unavailable · Read Why; explanation title Duplicate Choices; Same Name · Not Selectable · {full conflicting words}; Back; Stop Task when offered | A selectable radio/checkbox on an ambiguous label or a Stop cue where no Stop control is offered |
+| An unavailable choice with a duplicated displayed name | Unavailable · Read Why; explanation title Duplicate Choices; These share a name, so none can be chosen: {full conflicting words}; Back; Stop Task when offered | A selectable radio/checkbox on an ambiguous label or a Stop cue where no Stop control is offered |
 | Empty custom-answer field | Answer with a keyboard; Hold to Talk with voice only | Promising an unavailable keyboard |
 | Send Answer's reason while a long question isn't read to its end, the locked control's own word in the kit | Read Full Question | Open the question to read the rest. |
 | Send Answer's reason while a chosen cut answer or a long typed one isn't read whole | Read Full Answer | |
