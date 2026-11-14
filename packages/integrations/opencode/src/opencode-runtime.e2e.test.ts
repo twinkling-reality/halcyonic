@@ -3035,6 +3035,87 @@ describe("a confined folder's OpenCode server comes to rest (2026-11-13)", { ski
   );
 
   test(
+    'a command the agent left running in the background ends with the folder server at rest (AUDIT3 R3)',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t, {
+        runtime: { restingServerMs: QUIET_MS },
+      });
+      const execution = await start(
+        call('shell', { command: 'sleep 600 > /dev/null 2>&1 & echo $! > sleeper.pid' }),
+      );
+      const asked = await execution.next('runtime.approval.requested');
+      assert.ok(asked.type === 'runtime.approval.requested');
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: asked.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await execution.next('runtime.turn.completed');
+      const sleeper = Number(readFileSync(join(sandbox.project, 'sleeper.pid'), 'utf8').trim());
+      const running = async () => {
+        try {
+          process.kill(sleeper, 0);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      t.after(async () => {
+        if (await running()) process.kill(sleeper, 'SIGKILL');
+      });
+      assert.ok(Number.isInteger(sleeper) && (await running()), 'the background command runs');
+      const { pid } = JSON.parse(readFileSync(recordOf(sandbox), 'utf8')) as { pid: number };
+      assert.ok(
+        await eventually(async () => !(await serverAlive(pid)), 20_000),
+        'the server stopped',
+      );
+      assert.ok(
+        await eventually(async () => !(await running()), 10_000),
+        'the background command ended',
+      );
+    },
+  );
+
+  test(
+    "a command the agent left running in the background ends when the agent app's host closes, too (AUDIT3 B4)",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const execution = await start(
+        call('shell', {
+          command: 'sleep 600 > /dev/null 2>&1 & echo $! > sleeper.pid',
+        }),
+      );
+      const asked = await execution.next('runtime.approval.requested');
+      assert.ok(asked.type === 'runtime.approval.requested');
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: asked.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await execution.next('runtime.turn.completed');
+      const sleeper = Number(readFileSync(join(sandbox.project, 'sleeper.pid'), 'utf8').trim());
+      const running = () => {
+        try {
+          process.kill(sleeper, 0);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      t.after(() => {
+        if (running()) process.kill(sleeper, 'SIGKILL');
+      });
+      assert.ok(Number.isInteger(sleeper) && running(), 'the background command runs');
+      await runtime.close();
+      assert.ok(await eventually(async () => !running(), 10_000), 'the background command ended');
+    },
+  );
+
+  test(
     "an approval still waiting for the person keeps the folder's server: a waiting card is never at rest",
     SLOW_TEST,
     async (t) => {
