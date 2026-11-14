@@ -285,9 +285,16 @@ export function heldMessage(hit: HeldHit, what: 'sent' | 'published' | 'saved' |
     saved: 'no copy was saved',
     shared: 'nothing was shared',
   }[what];
+  // Share and Publish read the game's BUILT files, which the project's code or its build fills: editing a built
+  // file cannot help, since the next check builds it again (TASKS, 2026-11-14).
+  const built = what === 'shared' || what === 'published';
   if (hit.named === true)
-    return `A file's or folder's name holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} here, with the secret's name in place of its value. Rename it in the project's folder, then try again.`;
-  return `${hit.path} holds a secret this Mac keeps (${hit.what}), so ${done}. Take it out of the file, then try again.`;
+    return built
+      ? `A file's or folder's name in the game's built files holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} there, with the secret's name in place of its value. The project's build makes that name: change it in the project, then check the game again.`
+      : `A file's or folder's name holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} here, with the secret's name in place of its value. Rename it in the project's folder, then try again.`;
+  return built
+    ? `${hit.path} in the game's built files holds a secret this Mac keeps (${hit.what}), so ${done}. The project's code or its build puts it there: take it out of the project, then check the game again.`
+    : `${hit.path} holds a secret this Mac keeps (${hit.what}), so ${done}. Take it out of the file, then try again.`;
 }
 
 /**
