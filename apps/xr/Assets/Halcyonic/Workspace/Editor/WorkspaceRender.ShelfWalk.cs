@@ -41,11 +41,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     Directory.CreateDirectory(folder);
                     foreach (var old in Directory.GetFiles(folder)) File.Delete(old);
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    // Shaders compile before they draw (XR's stage mend, 2026-11-14): no stand-in colour reaches a pixel check.
+                    var asyncShadersWere = ShaderUtil.allowAsyncCompilation;
+                    ShaderUtil.allowAsyncCompilation = false;
                     ViewField.Current = FieldChecks.Quest3S;
                     List<string> found;
                     try { found = RenderShelfWalk(folder); }
                     catch (Exception error) { found = new List<string> { "the shelf walk threw " + error.GetBaseException().GetType().Name + ": " + error.GetBaseException().Message }; }
-                    finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                    finally { ShaderUtil.allowAsyncCompilation = asyncShadersWere; ViewField.Current = null; KeepFontAssetsAsCommitted(); }
                     foreach (var failure in found) Debug.LogError("Halcyonic: shelf walk: " + failure);
                     if (found.Count == 0) Debug.Log("Halcyonic: shelf walk: every check passed; " + folder);
                     return found;

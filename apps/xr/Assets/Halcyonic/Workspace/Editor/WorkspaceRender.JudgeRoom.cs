@@ -57,6 +57,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                     var found = new List<string>();
                     var moments = new List<string> { "moment\tdrawn by\tdots | older cut | overlaps\tcoverage\tredesign drew\tolder parts drew\tactions drawn\treached by\tfailures" };
+                    // Shaders compile before they draw (XR's stage mend, 2026-11-14): no stand-in colour reaches a contrast or pixel check.
+                    var asyncShadersWere = ShaderUtil.allowAsyncCompilation;
+                    ShaderUtil.allowAsyncCompilation = false;
                     ViewField.Current = FieldChecks.Quest3S;
                     var context = SynchronizationContext.Current;
                     // As the judge kit walk: the session's acknowledgements continue on the thread pool while the walk holds the Editor's thread.
@@ -64,7 +67,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Halcyonic.XR.UI.JoinedFacts.Listen();
                     try { found.AddRange(RenderRoomWalk(folder, moments, null)); }
                     catch (Exception error) { found.Add("judge room: " + error); }
-                    finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); Halcyonic.XR.UI.JoinedFacts.Stop(); }
+                    finally { ShaderUtil.allowAsyncCompilation = asyncShadersWere; SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); Halcyonic.XR.UI.JoinedFacts.Stop(); }
                     File.WriteAllText(Path.Combine(folder, "moments.tsv"), string.Join("\n", moments) + "\n");
                     foreach (var failure in found) Debug.LogError("Halcyonic: judge room: " + failure);
                     if (found.Count == 0) Debug.Log("Halcyonic: judge room: every check passed; " + (moments.Count - 1) + " moments; " + folder);
@@ -1509,13 +1512,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     Dry = Environment.GetEnvironmentVariable("HALCYONIC_LIVE_DRY") == "1",
                 };
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                // Shaders compile before they draw (XR's stage mend, 2026-11-14): no stand-in colour reaches a contrast or pixel check.
+                var asyncShadersWere = ShaderUtil.allowAsyncCompilation;
+                ShaderUtil.allowAsyncCompilation = false;
                 ViewField.Current = FieldChecks.Quest3S;
                 var context = SynchronizationContext.Current;
                 SynchronizationContext.SetSynchronizationContext(null);
                 Halcyonic.XR.UI.JoinedFacts.Listen();
                 try { failures.AddRange(RenderRoomWalk(folder, moments, live)); }
                 catch (Exception error) { failures.Add("live walk: " + error); }
-                finally { SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); RoomDesign.Enabled = was; if (larger) GlazeText.SetScale(1f); Halcyonic.XR.UI.JoinedFacts.Stop(); }
+                finally { ShaderUtil.allowAsyncCompilation = asyncShadersWere; SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); RoomDesign.Enabled = was; if (larger) GlazeText.SetScale(1f); Halcyonic.XR.UI.JoinedFacts.Stop(); }
                 File.WriteAllText(Path.Combine(folder, "moments.tsv"), string.Join("\n", moments) + "\n");
                 File.WriteAllText(Path.Combine(folder, "presses.tsv"), "journey\theadset\tdesk\tthe way\n" + string.Join("\n", live.Presses) + "\n");
                 foreach (var row in live.Presses) Debug.Log("Halcyonic: live walk: presses: " + row);
