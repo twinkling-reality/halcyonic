@@ -574,8 +574,6 @@ namespace Halcyonic.XR.Workspace
                 }
                 var standing = kitCompact ? Kit.Size : bar.Size;
                 var barSize = new PanelSize(PlaneComposition.Distance, standing.x * zoom / 2f * PlaneComposition.Distance, standing.y * zoom / 2f * PlaneComposition.Distance);
-                // The kit's compact bar is the anchored bar too: the band may hang under it, held as its own box (AUDIT's 00:27Z).
-                if (kitCompact && RoomDesign.Enabled) HoldHang(barSize, zoom);
                 Placed = PlaceWorkspace(all, looking, surfaceHeight, barSize);
                 Moved = offset;
                 Direction = MenuDrag.Turned(Placed, Moved);

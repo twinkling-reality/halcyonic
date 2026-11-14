@@ -147,7 +147,6 @@ namespace Halcyonic.XR.Workspace
             if (Kit.View.Spine.Switch.ConfirmedCompact) Kit.ShowConfirmed(false, immediately: true);
             KitOwner = ContextBinding;
             Composition = new PlaneComposition(new[] { new PlaneColumn(Kit.Size.x, Kit.Size.y) }, zoom);
-            HoldHang(Composition.Size, zoom);
             Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
             if (RoomDesign.Enabled)
             {
@@ -295,36 +294,44 @@ namespace Halcyonic.XR.Workspace
         private readonly PlaneWidthRule widthRule = new PlaneWidthRule();
 
         /// <summary>
-        /// While the redesign's kit composition stands: the size it was built with, the band's own box hanging under the anchored bar at
-        /// its tallest, and how far under the plane's middle it hangs, in degrees; null otherwise.
+        /// Whether the plane stands as the redesign's anchored kit, at its full form or its compact bar, so the band may hang under
+        /// its foot. Read from what is drawn at each clearance, never held from an earlier size (AUDIT's 00:31Z: fail closed), so a
+        /// plane of any size cleared while the kit stands holds the band.
         /// </summary>
-        private (PanelSize For, PanelSize Band, float Below)? hang;
+        private bool Anchored => RoomDesign.Enabled && Kit.gameObject.activeSelf;
 
         /// <summary>
         /// Whether a plane of <paramref name="size"/> at <paramref name="at"/> clears <paramref name="bodies"/>: the band hanging under the
-        /// redesign's anchored bar as a box of its own wherever <paramref name="size"/> is the kit's composition (AUDIT's 00:27Z: every
-        /// clearance holds the band), the bare box elsewhere (the older views, which hang nothing).
+        /// redesign's anchored bar as a box of its own while the kit stands (AUDIT's 00:27Z: every clearance holds the band), the bare
+        /// box elsewhere (the older views, which hang nothing).
         /// </summary>
-        private bool ClearsBodies(PanelDirection at, IReadOnlyList<BodyInView> bodies, PanelSize size) =>
-            hang is { } h && h.For.Equals(size) ? WorkspacePlacement.ClearsWithHang(at, bodies, size, h.Band, h.Below) : WorkspacePlacement.Clears(at, bodies, size);
+        private bool ClearsBodies(PanelDirection at, IReadOnlyList<BodyInView> bodies, PanelSize size)
+        {
+            if (!Anchored) return WorkspacePlacement.Clears(at, bodies, size);
+            var (band, below) = Hang(size);
+            return WorkspacePlacement.ClearsWithHang(at, bodies, size, band, below);
+        }
 
         /// <summary>
-        /// Holds what hangs under the anchored bar (the band at its tallest) for a plane of <paramref name="size"/>, its own box beside the
-        /// bar's for every clearance (AUDIT's 00:27Z), centred under the plane's middle by the gap and half its height, less the foot line.
+        /// What hangs under the anchored bar for a plane of <paramref name="size"/>: the band at its tallest at the text size now, its
+        /// own box beside the bar's, and how far under the plane's middle it hangs, in degrees: the gap and half its height, less the
+        /// foot line. It depends only on the text size and the foot line, so it is computed for each size cleared.
         /// </summary>
-        private void HoldHang(PanelSize size, float zoom)
+        private (PanelSize Band, float Below) Hang(PanelSize size)
         {
-            var hangs = RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale);
-            hang = (size, new PanelSize(size.Distance, RoomType.Units(RoomWords.WidthDp) / 2f * size.Distance, RoomType.Units(hangs) / 2f * size.Distance),
+            var zoom = GlazeText.Scale;
+            var hangs = RoomWords.HeightDp(RoomWords.LinesAPart, zoom);
+            return (new PanelSize(size.Distance, RoomType.Units(RoomWords.WidthDp) / 2f * size.Distance, RoomType.Units(hangs) / 2f * size.Distance),
                 (KitWorkspaceHost.BandUnderDp + hangs / 2f) / RoomGeometry.DpPerDegree - SpatialKit.DegreesTo(Kit.FootLine * zoom));
         }
 
-        /// <summary>The band's corners for a field test of the composition: none where nothing hangs.</summary>
+        /// <summary>The band's corners for a field test of a plane of <paramref name="size"/>: none where nothing hangs.</summary>
         private IEnumerable<(float X, float Y)> HangCorners(PanelSize size)
         {
-            if (hang is not { } h || !h.For.Equals(size)) yield break;
-            var below = Mathf.Tan(h.Below * Mathf.Deg2Rad) * size.Distance;
-            for (var x = -1; x <= 1; x += 2) for (var y = -1; y <= 1; y += 2) yield return (h.Band.HalfWidth * x, -below + h.Band.HalfHeight * y);
+            if (!Anchored) yield break;
+            var (band, below) = Hang(size);
+            var down = Mathf.Tan(below * Mathf.Deg2Rad) * size.Distance;
+            for (var x = -1; x <= 1; x += 2) for (var y = -1; y <= 1; y += 2) yield return (band.HalfWidth * x, -down + band.HalfHeight * y);
         }
 
         /// <summary>The draw a placing ended on (<see cref="considered"/>), while the plane waits for the shelf it placed; -1 otherwise.</summary>
