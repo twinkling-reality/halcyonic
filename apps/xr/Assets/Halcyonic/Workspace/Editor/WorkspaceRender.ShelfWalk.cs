@@ -407,6 +407,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!Press(Footer.Close)) { failures.Add("nothing drawn closes the task's page"); menu.Navigator.CloseBeside(); }
                 Draw();
                 if (menu.Navigator.Beside != null) failures.Add("page closed: Close was pressed and the page stayed");
+                // The held aside lets go at rest, no page on the plane (XR, 2026-11-14T02:50Z: the menu's own page, where Place Agents
+                // stands, keeps the plane open): Close as a person does, three at most, until the host says it rests (read by name, so a tip
+                // without KitWorkspaceHost.Resting still compiles).
+                var restsProperty = typeof(KitWorkspaceHost).GetProperty("Resting");
+                for (var close = 0; close < 3 && restsProperty?.GetValue(plane.Kit) is false; close++)
+                {
+                    if (!Press(Footer.Close)) break;
+                    Draw();
+                }
+                Debug.Log("Halcyonic: shelf walk: page closed, the plane " + (restsProperty == null ? "says nothing of rest" : restsProperty.GetValue(plane.Kit) is true ? "at rest" : "still open"));
                 Travel();
                 Shot("page-closed");
                 var back = Vector3.Distance(stage.Shelf.position, home.position);
