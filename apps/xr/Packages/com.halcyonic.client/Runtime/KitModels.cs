@@ -236,9 +236,10 @@ namespace Halcyonic.Client
         }
 
         public KitAsk(IReadOnlyList<PageLine> lines, bool confirming, string? prompt = null, bool several = false, string? caption = null,
-            IReadOnlyList<PageLine>? body = null, string? asks = null, string? writing = null)
+            IReadOnlyList<PageLine>? body = null, string? asks = null, string? writing = null, string? captionHow = null)
         {
             Writing = writing;
+            CaptionHow = captionHow;
             Heading = LineWords.None;
             Question = "";
             Lines = lines;
@@ -258,6 +259,12 @@ namespace Halcyonic.Client
 
         /// <summary>The page's caption, Halcyonic's: which question of how many and how it is answered, or Your Answers; null for none. Bound for the redesign.</summary>
         public string? Caption { get; }
+
+        /// <summary>
+        /// How the prompt the caption names is answered (Choose One, Choose Any, Write Answer), handed apart from the caption by the page
+        /// itself, so no reader splits a sentence on its dot (AUDIT's 2026-11-14T03:45Z); null where the page gives none.
+        /// </summary>
+        public string? CaptionHow { get; }
 
         /// <summary>The page's lines that are none of its prompt, caption or confirmation's question: the answers about to go, or why it can't be answered. Bound for the redesign.</summary>
         public IReadOnlyList<PageLine> Body { get; } = new PageLine[0];

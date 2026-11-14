@@ -2815,8 +2815,9 @@ question's answer under the redesign is its label as the row's words and its des
 (`FileScreens.AnswerRow`), which `KitControl.Under` carries, and a chosen answer cut there opens beside the page with its label as
 the side panel's title and its description as the words (`FileScreens.SideAnswerLine`); where any answer of the page carries a description, the question
 reader (`RoomBar.Asking`) lays every answer of the page as a pressed row of the panel's card (its mark, its words as the agent wrote
-them, its description under it, at the panel's width; the panel's words apart, never on a dot: which question this is the card's
-title, how many may be chosen its description, the choices' count the file's pager's own), and the column keeps
+them, its description under it, at the panel's width; the panel's words apart, never on a dot, as the page hands them (its caption line the
+question's number with how it is answered under it, `KitAsk.Caption` and `KitAsk.CaptionHow`, so no reader splits a sentence): which
+question this is the card's title, how it is answered its description, the choices' count the file's pager's own), and the column keeps
 the prompts and never an answer (the lead's ruling of 2026-11-13T22:04Z: the column never widens with an agent's words); the file
 hands a described prompt's answers in one part and the card pages itself (`RoomBar.PackCard`, the plane's measure of a list row, eight
 lines a page, its title and description counted), the general reader's pager before the ways out, Write Answer and the way on on every page, the bar

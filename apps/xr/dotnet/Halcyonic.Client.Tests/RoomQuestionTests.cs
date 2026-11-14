@@ -547,8 +547,11 @@ public class RoomQuestionTests
             var work = new AskingWork(question);
             var column = Column(host, () => work.Present());
             Draw(host, column);
-            var bar = RoomBar.Of(KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
-                new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!, VoiceStage.Idle, false);
+            var model = KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
+                new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!;
+            // The two facts come apart from the page itself, never by a reader splitting a sentence on its dot (AUDIT's 03:45Z).
+            Assert.That((model.Model.Ask!.Caption, model.Model.Ask.CaptionHow), Is.EqualTo(("Question 1 of 2", (string?)"Choose Any")));
+            var bar = RoomBar.Of(model, VoiceStage.Idle, false);
             Assert.That(bar.Card, Is.Not.Null, Show(bar));
             Assert.That((bar.Card!.Title?.Text, bar.Card.Description?.Text), Is.EqualTo(("Question 1 of 2", (string?)"Choose Any")), Show(bar));
             Assert.That(bar.Card.Title!.Text + (bar.Card.Description?.Text ?? "") + bar.Card.List.Aggregate("", (said, row) => said + row.Name.Text), Does.Not.Contain("·"));

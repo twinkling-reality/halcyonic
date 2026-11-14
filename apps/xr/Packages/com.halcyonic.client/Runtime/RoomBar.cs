@@ -346,7 +346,6 @@ namespace Halcyonic.Client
             var body = LineWords.None;
             string? sentence = null;
             IReadOnlyList<LineWords>? lines = null;
-            string[]? captionFacts = null;
             if (sending) body = LineWords.Ours(WorkspaceText.Sent);
             else if (ask.Body.Count > 0)
             {
@@ -359,20 +358,18 @@ namespace Halcyonic.Client
             else if (ask.Confirming && ask.Asks != null) body = LineWords.Ours(ask.Asks);
             else if (ask.Several && ask.Caption != null)
             {
-                // Which question this is and how many may be chosen, each its own line, never joined on a dot (FIELD's 03:32Z
-                // KitRender.Check); the choices' count, where the file gives one, stays the file's pager's own.
-                captionFacts = ask.Caption.Split(new[] { KitMomentWords.Dot }, System.StringSplitOptions.RemoveEmptyEntries);
+                // Which question this is and how it is answered, each its own line, never joined on a dot (FIELD's 03:32Z KitRender.Check),
+                // handed apart by the page itself (KitAsk.CaptionHow, AUDIT's 03:45Z: no reader splits a sentence).
                 body = LineWords.Ours(ask.Caption);
-                if (captionFacts.Length > 1) lines = captionFacts.Select(fact => LineWords.Ours(fact)).ToList();
+                if (ask.CaptionHow != null) lines = new[] { body, LineWords.Ours(ask.CaptionHow) };
             }
             // Where the way on waits and a panel stands, its sentence bar says why, in the file's words.
             if (!sending && !ask.Confirming && !body.IsEmpty && binding[KitPlace.Forward] is { Available: false, Reason: string why }) sentence = why;
             // The described answers' card stands in the panel's place, what the panel would say (which question this is) its title.
             // A caption stands apart on it: the question's number the title, how many may be chosen under it.
             var card = listed.Count > 0 && !sending
-                ? captionFacts is { Length: > 0 } facts
-                    ? new RoomCard(LineWords.Ours(facts[0]), facts.Length > 1 ? LineWords.Ours(facts[1]) : null, list: listed)
-                    : new RoomCard(body.IsEmpty ? null : body, list: listed)
+                ? new RoomCard(body.IsEmpty ? null : body, ask.Several && ask.Caption != null && ask.CaptionHow != null && ask.Body.Count == 0 && !ask.Confirming
+                    ? LineWords.Ours(ask.CaptionHow) : null, list: listed)
                 : null;
             var asking = new RoomBar(RoomBarState.Question, body: card != null ? LineWords.None : body, sentence: sentence, column: sending ? None : column, waits: sending,
                 band: ask.Prompt, wide: body.IsEmpty && card == null, lines: card != null ? null : lines);

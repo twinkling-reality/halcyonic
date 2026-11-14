@@ -354,7 +354,7 @@ namespace Halcyonic.Client
                         caption = rest[0];
                         rest.RemoveAt(0);
                     }
-                    ask = new KitAsk(words, ask.Confirming, band, prompts.Count > 1, caption?.Words, rest, asks, writing);
+                    ask = new KitAsk(words, ask.Confirming, band, prompts.Count > 1, caption?.Words, rest, asks, writing, caption?.Under?.Text);
                 }
             }
             else if (armed == WorkspaceAction.Answer) return null;

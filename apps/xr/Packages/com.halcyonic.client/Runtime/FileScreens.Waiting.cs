@@ -467,7 +467,15 @@ namespace Halcyonic.Client
                 };
                 return new Page(partLines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
             }
-            var lines = new List<PageLine> { new PageLine(QuestionCaption(prompt, draft.Prompts.Count, asked, question.Page, question.Pages), tone: LineTone.Secondary, rows: question.CaptionRows(prompt, question.Pages > 1)) };
+            // Under the redesign the caption's facts stand apart, which question this is over how it is answered, never joined on a dot;
+            // the choices' count is the pager's own there. The older page keeps its one line.
+            var lines = new List<PageLine>
+            {
+                RoomDesign.Enabled
+                    ? new PageLine(QuestionNumber(prompt, draft.Prompts.Count), tone: LineTone.Secondary, rows: question.CaptionRows(prompt, question.Pages > 1))
+                        .WithUnder(LineWords.Ours(HowAnswered(asked)))
+                    : new PageLine(QuestionCaption(prompt, draft.Prompts.Count, asked, question.Page, question.Pages), tone: LineTone.Secondary, rows: question.CaptionRows(prompt, question.Pages > 1)),
+            };
             // The question heads its answers where it leaves room for one; a long one by its first row.
             if (question.HeadRows(prompt) > 0)
             {
@@ -572,8 +580,11 @@ namespace Halcyonic.Client
         }
 
         public static string QuestionCaption(int prompt, int prompts, QuestionPrompt asked, int page = 0, int pages = 1) =>
-            QuestionNumber(prompt, prompts) + " · " + (asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose Any" : "Choose One")
+            QuestionNumber(prompt, prompts) + " · " + HowAnswered(asked)
                 + (pages > 1 ? " · Choices " + (page + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture) : "");
+
+        /// <summary>How a prompt is answered, Halcyonic's words: Write Answer where it offers none, else Choose Any or Choose One.</summary>
+        public static string HowAnswered(QuestionPrompt asked) => asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose Any" : "Choose One";
 
         public static string QuestionNumber(int prompt, int prompts) => "Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture) + " of " + prompts.ToString(CultureInfo.InvariantCulture);
 
