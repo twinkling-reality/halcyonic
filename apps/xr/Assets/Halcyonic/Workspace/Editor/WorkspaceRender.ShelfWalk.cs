@@ -299,7 +299,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 CharacterStage.WriteShelfCorners(new Pose(stage.Shelf.position, stage.Shelf.rotation), stage.ShelfWidth, eyes, firstShelf);
                 Debug.Log("Halcyonic: shelf walk: the first shelf placed stands " + ShelfSeen() + ", seen with the head level and facing ahead");
                 if (ViewField.Current is ViewField headLevel)
+                {
                     failures.AddRange(GlazeChecks.InsideField("the first shelf placed, the head level and facing ahead", firstShelf, eyes, eyes + Vector3.forward, 0f, headLevel));
+                    // The ruling's fallback reading, measured beside it (lead, 2026-11-14T02:21Z): every character and its label inside the field,
+                    // only the shelf's empty end allowed past. Said, not failed, until the batch says it landed with the fallback.
+                    var standing = workspace.Targets.Where(target => target.gameObject.activeInHierarchy).SelectMany(target => target.GetComponentsInChildren<Renderer>(false))
+                        .Where(renderer => renderer.enabled).SelectMany(renderer =>
+                        {
+                            var box = renderer.bounds;
+                            return new[] { -1f, 1f }.SelectMany(x => new[] { -1f, 1f }.SelectMany(y => new[] { -1f, 1f }.Select(z => box.center + Vector3.Scale(box.extents, new Vector3(x, y, z)))));
+                        }).ToArray();
+                    if (standing.Length == 0) Debug.Log("Halcyonic: shelf walk: no character stands on the first shelf to hold to the field");
+                    else foreach (var outside in GlazeChecks.InsideField("the first shelf's characters and their labels", standing, eyes, eyes + Vector3.forward, 0f, headLevel))
+                            Debug.Log("Halcyonic: shelf walk: by the fallback reading, " + outside);
+                }
                 else failures.Add("the first shelf placed: no field to hold it to");
 
                 // 2. The task's page opened over it: the shelf stands clear of the plane, its own place kept.
