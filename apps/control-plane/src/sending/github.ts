@@ -22,6 +22,7 @@ import {
   heldIn,
   heldInHistory,
   heldInTree,
+  heldKeptMessage,
   heldMessage,
 } from '../core/held-in-tree.ts';
 import type { HeldSecret } from '../core/redaction.ts';
@@ -273,6 +274,21 @@ export class GitHubSender {
             message: `${history.message} Or send the files as they are now, without the earlier versions, as one change.`,
           };
     }
+    // The whole tree as it goes, whatever the remote says it holds: a file kept as the last commit has it
+    // (a .env, say) is read here too, so a remote that claims a commit it then does not take never decides
+    // whether a held value leaves (the critic of c993a4eac, SHOULD 1).
+    let kept: HeldHit | null;
+    try {
+      kept = await heldInTree(
+        (args, input) => this.#bytes(['--git-dir', repository, ...args], input),
+        tree,
+        this.#deps.held?.() ?? [],
+      );
+    } catch {
+      return refuse('send_failed', "The project's files could not be read, so nothing was sent.");
+    }
+    if (kept !== null)
+      return { ...refuse('holds_secret', heldKeptMessage(kept, send.remote.path)), hit: kept };
     const pushed = await this.#run(
       this.#deps.git,
       [
@@ -1617,10 +1633,38 @@ export class GitHubSender {
       const outside = await this.#outsideLinks(repository, now);
       if (outside === null) return unreadable;
       const keep = (path: string) => held(path) || outside.has(path);
-      const kept: string[] = [];
-      for (const [path, entry] of now) if (!keep(path)) kept.push(entry);
-      for (const [path, entry] of before) if (keep(path)) kept.push(entry);
+      const fromFolder: string[] = [];
+      for (const [path, entry] of now) if (!keep(path)) fromFolder.push(entry);
+      // What is kept as the commit it goes on has it (a file like .env, another project's folder, a link out) is
+      // that commit's, not the folder's: the press's history check reads it with every commit the push carries
+      // beyond what the remote has, in true words, with Send One Change offered where it can be. Read here, it
+      // would refuse with "take it out of the file", which cannot help (TASKS's SHOULD 4, the lead 2026-11-14).
+      const fromCommit: string[] = [];
+      for (const [path, entry] of before) if (keep(path)) fromCommit.push(entry);
       await rm(index, { force: true });
+      const write = async (entries: readonly string[]): Promise<string | null> => {
+        if (
+          entries.length > 0 &&
+          (
+            await this.#run(
+              this.#deps.git,
+              ['--git-dir', repository, 'update-index', '-z', '--index-info'],
+              30_000,
+              bare,
+              `${entries.join('\0')}\0`,
+            )
+          ).code !== 0
+        )
+          return null;
+        const written = await this.#run(
+          this.#deps.git,
+          ['--git-dir', repository, 'write-tree'],
+          30_000,
+          bare,
+        );
+        const id = written.stdout.trim();
+        return written.code === 0 && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(id) ? id : null;
+      };
       if (
         (
           await this.#run(
@@ -1632,33 +1676,17 @@ export class GitHubSender {
         ).code !== 0
       )
         return unreadable;
-      if (
-        kept.length > 0 &&
-        (
-          await this.#run(
-            this.#deps.git,
-            ['--git-dir', repository, 'update-index', '-z', '--index-info'],
-            30_000,
-            bare,
-            `${kept.join('\0')}\0`,
-          )
-        ).code !== 0
-      )
-        return unreadable;
-      const written = await this.#run(
-        this.#deps.git,
-        ['--git-dir', repository, 'write-tree'],
-        30_000,
-        bare,
-      );
-      const tree = written.stdout.trim();
-      if (written.code !== 0 || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(tree)) return unreadable;
-      // Nothing that holds a secret this Mac keeps leaves it: the whole tree, as it would go, is read.
+      const folderTree = await write(fromFolder);
+      if (folderTree === null) return unreadable;
+      const tree = fromCommit.length === 0 ? folderTree : await write(fromCommit);
+      if (tree === null) return unreadable;
+      const kept = [...fromFolder, ...fromCommit];
+      // Nothing from the folder that holds a secret this Mac keeps leaves it: all it gives, as it would go, is read.
       let hit: HeldHit | null;
       try {
         hit = await heldInTree(
           (args, input) => this.#bytes(['--git-dir', repository, ...args], input),
-          tree,
+          folderTree,
           this.#deps.held?.() ?? [],
         );
       } catch {

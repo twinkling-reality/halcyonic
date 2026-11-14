@@ -571,13 +571,19 @@ glance's (`files/glance-access-token`) alike:
 Every key file is read one way (`readKeyFile`, `workspace-agent/providers/keys.ts`): a regular file of its own, never a link, that only the person can read. A link is refused for use, so no key is used that the held secrets, which read regular files only, do not hold.
 
 Send, Publish and Save a Copy read the whole tree that would leave the Mac, or be set aside in Downloads, before
-it goes, and Share reads every file of the built copy it would serve (`heldInFolder`: a link that leads out of the copy is refused by its path, `link_out`, whatever is held (a broken one too, when its own target is absolute or climbs with `..`), since the preview's server would serve what it leads to; a link within it is followed, each real folder once; at most 20,000 files and 512 MB, past which nothing is shared), and each refuses it (`holds_secret`, effect none) when any file holds a secret the host keeps: the very list
+it goes (Send at its press; its review reads what comes from the folder, below), and Share reads every file of the built copy it would serve (`heldInFolder`: a link that leads out of the copy is refused by its path, `link_out`, whatever is held (a broken one too, when its own target is absolute or climbs with `..`), since the preview's server would serve what it leads to; a link within it is followed, each real folder once; at most 20,000 files and 512 MB, past which nothing is shared), and each refuses it (`holds_secret`, effect none) when any file holds a secret the host keeps: the very list
 redaction reads (the access token, each runtime's and service's key, the person's project secrets), whoever
 declared it, so no vendor or name is listed here. The forms searched (`apps/control-plane/src/core/held-in-tree.ts`):
 the value exactly (as a file, an env file or a quoted string holds it), JSON-escaped, URL-encoded, and its base64,
 standard and URL-safe, at each of the three byte alignments it can start at inside a longer base64 text (the groups
 of four holding its bytes alone, eight characters or more). The refusal names the file and which secret, never the
-value. A tree git cannot read is refused too, so nothing leaves unread. Not searched: a value shorter than eight
+value. A tree git cannot read is refused too, so nothing leaves unread. Send's review reads what comes from the folder now;
+a path Send keeps exactly as the commit it goes on has it (a secret-shaped file such as `.env`, another project's
+folder, a link out) is that commit's, so it is read at the press: first by the history check below, which refuses a
+held value in a commit the remote lacks in the history's words, with Send One Change offered where it can be; then the
+whole tree as it goes is read again, whatever the remote says it holds, and a held value in a kept file is refused
+with the true steps (a new value, the old one turned off where it was issued), since taking it out of the folder's
+file cannot help (TASKS, 2026-11-14; a critic's SHOULD on c993a4eac). Not searched: a value shorter than eight
 characters, one split across files or lines, compressed, encrypted, or encoded in any other way (hex, a different
 character set), and a value the host does not hold; nor what an agent's own network access sends while it runs.
 

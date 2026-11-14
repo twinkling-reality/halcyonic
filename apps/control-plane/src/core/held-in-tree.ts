@@ -264,6 +264,19 @@ export async function heldInHistory(
   return { path: hit.found.path, what: hit.what, object: hit.found.object };
 }
 
+/**
+ * What a person reads when a file Send keeps as the branch's last commit has it (a .env, say) holds a held secret,
+ * and the remote may hold that commit already: taking it out of the folder's file cannot help, since that file is not
+ * what is sent, so the true steps are a new value and the old one turned off where it was issued (TASKS, 2026-11-14).
+ */
+export function heldKeptMessage(hit: HeldHit, repository: string): string {
+  const where =
+    hit.named === true
+      ? `A file's or folder's name in the branch's last commit (${hit.path}, with the secret's name in place of its value)`
+      : `The ${hit.path} in the branch's last commit`;
+  return `${where} holds a secret this Mac keeps (${hit.what}), and ${repository} may already have it, so nothing was sent. Make a new ${hit.what} with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. Until the old one is turned off, treat it as exposed.`;
+}
+
 /** What a person reads when a tree holds a held secret: the file and which secret, never the value. */
 export function heldMessage(hit: HeldHit, what: 'sent' | 'published' | 'saved' | 'shared'): string {
   const done = {
