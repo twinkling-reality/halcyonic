@@ -265,7 +265,7 @@ export async function heldInHistory(
 }
 
 /**
- * What a person reads when a file Send keeps as the branch's last commit has it (a .env, say) holds a held secret,
+ * What a person reads when a file Send keeps as the project's last saved version has it (a .env, say) holds a held secret,
  * and the remote may hold that commit already: taking it out of the folder's file cannot help, since that file is not
  * what is sent, so the true steps are a new value and the old one turned off where it was issued (TASKS, 2026-11-14).
  */

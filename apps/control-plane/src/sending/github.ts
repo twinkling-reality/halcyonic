@@ -1347,8 +1347,8 @@ export class GitHubSender {
         oneChange !== null
           ? `Nothing in the project differs from what ${origin.remote.path} already has.`
           : built.outside.length > 0
-            ? "Only links that point outside the project's folder differ from its branch's last commit, and those are never sent."
-            : "Nothing in the project differs from its branch's last commit.",
+            ? "Only links that point outside the project's folder differ from its last saved version, and those are never sent."
+            : 'Nothing in the project differs from its last saved version.',
       );
     const keptBack =
       oneChange === null ? [] : (built.withheld ?? []).filter((path) => secretShapedPath(path));
