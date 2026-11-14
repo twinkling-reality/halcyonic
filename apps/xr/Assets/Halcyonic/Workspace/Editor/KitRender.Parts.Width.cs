@@ -217,6 +217,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 // A width under the floor the plane never lays (PlaneWidth.FloorDp): recorded for the envelope, never judged as seen.
                 if (width < PlaneWidth.FloorDp(GlazeText.Scale) - 0.5f) recordOnly.Add(plane.gameObject);
                 Debug.Log("Halcyonic: parts: " + name + ": caps of " + capsFrame.Subject + " at " + width.ToString("0", CultureInfo.InvariantCulture) + " dp: " + (view.Size / RoomType.Units(1f)).ToString("0") + " dp laid.");
+                // The as-seen floor beside the width table's (the lead's 02:54Z (A)): the smallest word of the caps at every width, under the
+                // floor too, so the floor lowered to the measure is the narrowest width where every screen lays whole AND reads at 14 dp.
+                var seenCaps = Halcyonic.XR.UI.Editor.GlazeChecks.TextSeen(plane.gameObject, eyes);
+                if (seenCaps.Count > 0)
+                    Debug.Log("Halcyonic: parts: " + name + ": caps of " + capsFrame.Subject + " at " + width.ToString("0", CultureInfo.InvariantCulture) + " dp: the smallest word as the eyes see it "
+                        + seenCaps[0].Degrees.ToString("0.000", CultureInfo.InvariantCulture) + " degrees (" + (seenCaps[0].Degrees >= Glaze.MinimumTextDegrees - 0.0005f ? "at or over" : "UNDER") + " the 14 dp floor).");
             }
             // The shipped record covers both sizes and every width the plane can choose.
             foreach (var scale in new[] { 1f, Comfort.LargerTextScale })
