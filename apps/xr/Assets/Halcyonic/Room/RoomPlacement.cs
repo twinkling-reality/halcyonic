@@ -217,7 +217,8 @@ namespace Halcyonic.XR.Room
             var measured = ViewField.Current ?? new ViewField(48, 48, 45, 45);
             var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
                 measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
-            CharacterStage.WriteShelfCorners(pose, GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(1), head.transform.position, shelfCorners);
+            CharacterStage.WriteShelfCorners(pose, GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(1), head.transform.position, shelfCorners,
+                GetComponent<CharacterStage>() != null ? CharacterStage.ShelfPlaces : (int?)null);
             // A turn of the head (turnAside) turns the head, never stretches the field (a field wider than ninety degrees is no
             // field: JUDGE's charN): the corners are seen from the head turned toward the shelf by as much as this pass allows.
             var turned = Quaternion.identity;

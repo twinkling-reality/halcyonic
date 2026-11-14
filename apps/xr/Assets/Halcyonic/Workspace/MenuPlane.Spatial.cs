@@ -373,6 +373,9 @@ namespace Halcyonic.XR.Workspace
             if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; ShelfAsideDegrees = 0f; return; }
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
             ConsiderWidth(shelf, shelfKey, viewer, characters, placing, shelfComing);
+            // The plane at rest, as it reasons it, for the shelf that fits beside it (ruling 1 (a)), to a tenth of a degree.
+            var resting = KeepOutExtent();
+            CharacterStage.PlaneRestHalfDegrees = Mathf.Round(Mathf.Max(-resting.Left, resting.Right) * 10f) / 10f;
             // One move per open (AUDIT's 01:15Z; JUDGE's 01:13Z: a few degrees re-decided at each page moved the room under a reader):
             // the first draw of an open decides the aside for the largest footprint at the width in use, and it holds until the plane
             // rests or closes; only the shelf's own place, the text size or the plane's width changing decides it again, one move per

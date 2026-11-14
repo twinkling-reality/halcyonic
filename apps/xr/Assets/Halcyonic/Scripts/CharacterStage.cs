@@ -100,7 +100,8 @@ namespace Halcyonic.XR
         /// <summary>Conservative occupied shelf, rendered label and animated body envelope shared by placement and actual scene checks.</summary>
         private static CharacterView? shelfMeasure;
         private static int shelfMeasureAt = -1;
-        public static void WriteShelfCorners(Pose pose, float width, Vector3 viewer, Vector3[] corners)
+        /// <param name="places">The shelf's places, where its width is not the natural one for them (<see cref="FittedWidth"/>): its ends' labels stand that far apart.</param>
+        public static void WriteShelfCorners(Pose pose, float width, Vector3 viewer, Vector3[] corners, int? places = null)
         {
             if (corners.Length != 8) throw new System.ArgumentException("Shelf envelope has eight corners.", nameof(corners));
             // A real label model measures font metrics, whole source marks, title wrapping and eye-facing tilt.
@@ -122,7 +123,8 @@ namespace Halcyonic.XR
             }
             var minimum = new Vector3(-width / 2f, 0f, -AgentShelfDraft.Depth / 2f);
             var maximum = new Vector3(width / 2f, 0.5f, AgentShelfDraft.Depth / 2f);
-            var span = Mathf.Max(0f, width - 0.1f - AgentShelfDraft.Spacing * AgentShelfDraft.Scale);
+            var span = places is int count && count > 0 ? Mathf.Max(0f, width - 0.1f - PitchOf(count, width))
+                : Mathf.Max(0f, width - 0.1f - AgentShelfDraft.Spacing * AgentShelfDraft.Scale);
             foreach (var x in new[] { -span / 2f, span / 2f })
             foreach (var marks in new[] { (Synthetic: false, Recorded: true), (Synthetic: true, Recorded: false), (Synthetic: true, Recorded: true) })
             {
@@ -154,7 +156,66 @@ namespace Halcyonic.XR
                 corners[index] = pose.position + pose.rotation * new Vector3(index % 2 == 0 ? minimum.x : maximum.x,
                     index < 4 ? minimum.y : maximum.y, index % 4 < 2 ? minimum.z : maximum.z);
         }
-        public float ShelfWidth => AgentShelfDraft.Width(ShelfPlaces);
+        public float ShelfWidth => FittedWidth(ShelfPlaces);
+
+        /// <summary>How far apart the shelf's places stand, in its own space: its width less its ends shared among its places.</summary>
+        public float ShelfPitch => PitchOf(ShelfPlaces, ShelfWidth);
+
+        /// <summary>The pitch of <paramref name="places"/> on a shelf <paramref name="width"/> wide: the natural Spacing x Scale at its natural width.</summary>
+        public static float PitchOf(int places, float width) => (width - 0.1f) / Mathf.Max(1, places);
+
+        /// <summary>
+        /// The plane at rest, each side of its heading, in degrees, as the plane reasons it through its own geometry (MenuPlane, from
+        /// FIELD's measured resting entry); null before the plane has said. What a shelf beside it fits against.
+        /// </summary>
+        public static float? PlaneRestHalfDegrees { get; set; }
+
+        private static (int Places, int Version, float Rest, float Field, float Width)? fitted;
+
+        /// <summary>
+        /// The width every shelf of <paramref name="places"/> takes (the lead's 2026-11-14T02:21Z ruling 1 (a): the shelf fits the room, one
+        /// width for every shelf): its natural width, or narrower where its envelope (the shelf and its ends' widest labels, as
+        /// <see cref="WriteShelfCorners"/> measures them) would not fit between the plane at rest and the field's edge less its margin,
+        /// with the clearance kept, at the search's nearest distance, where a shelf is widest to the eye. Its places stand closer to
+        /// fit; that they never touch and each label stays whole is the walks' check. Derived from measured numbers, none typed; said
+        /// once per text size in a line the walk reads.
+        /// </summary>
+        public static float FittedWidth(int places)
+        {
+            var natural = AgentShelfDraft.Width(places);
+            if (!RoomDesign.Enabled || PlaneRestHalfDegrees is not float rest) return natural;
+            var measured = ViewField.Current ?? MenuPage.Quest3S;
+            var side = (float)System.Math.Min(measured.Left, measured.Right);
+            if (fitted is { } was && was.Places == places && was.Version == GlazeText.Version && Mathf.Approximately(was.Rest, rest) && Mathf.Approximately(was.Field, side))
+                return was.Width;
+            var fit = side - ViewField.EdgeMarginDegrees - rest - WorkspacePlacement.ClearanceDegrees;
+            var most = 2f * AgentShelfSearch.MinimumDistance * Mathf.Tan(Mathf.Max(1f, fit) * Mathf.Deg2Rad / 2f);
+            var width = natural;
+            if (Envelope(natural, places) > most)
+            {
+                float low = 0.1f, high = natural;
+                for (var step = 0; step < 14; step++)
+                {
+                    var middle = (low + high) / 2f;
+                    if (Envelope(middle, places) > most) high = middle; else low = middle;
+                }
+                width = low;
+            }
+            fitted = (places, GlazeText.Version, rest, side, width);
+            Debug.Log("Halcyonic: the shelf fits " + fit.ToString("0.0") + " degrees wide beside the plane at rest at text size " + GlazeText.Scale.ToString("0.##")
+                + ": laid " + width.ToString("0.000") + " m wide (natural " + natural.ToString("0.000") + "), its places " + PitchOf(places, width).ToString("0.000") + " m apart.");
+            return width;
+        }
+
+        /// <summary>How wide a shelf <paramref name="width"/> wide with <paramref name="places"/> stands with its ends' labels, in metres.</summary>
+        private static float Envelope(float width, int places)
+        {
+            var corners = new Vector3[8];
+            WriteShelfCorners(new Pose(new Vector3(0f, -0.45f, AgentShelfSearch.MinimumDistance), Quaternion.identity), width, Vector3.zero, corners, places);
+            float left = float.PositiveInfinity, right = float.NegativeInfinity;
+            foreach (var corner in corners) { left = Mathf.Min(left, corner.x); right = Mathf.Max(right, corner.x); }
+            return right - left;
+        }
         public bool Visible => presentation.AgentsVisible && onSurface && arc != null && arc.gameObject.activeInHierarchy;
         public void BindPresentation(WorkspacePresentationState state)
         {
@@ -466,7 +527,7 @@ namespace Halcyonic.XR
         }
 
         /// <summary>Where the shelf's place <paramref name="place"/> stands, in the shelf's own space: New Project's first, then the characters'.</summary>
-        public Vector3 PlaceOf(int place) => new Vector3((place - (ShelfPlaces - 1) * 0.5f) * AgentShelfDraft.Spacing * radius, 0f, 0f);
+        public Vector3 PlaceOf(int place) => new Vector3((place - (ShelfPlaces - 1) * 0.5f) * ShelfPitch * radius / AgentShelfDraft.Scale, 0f, 0f);
 
         /// <summary>The shelf as it stands, and the eyes it was placed for: what the shelf's own parts stand on.</summary>
         public Transform Shelf => arc;
@@ -587,7 +648,8 @@ namespace Halcyonic.XR
             // the places after it; beside a window, and on the older shelf, the characters fill it as ever.
             var first = BesideAWindow ? 0 : ShelfPlaces - ShelfCapacity;
             var places = BesideAWindow ? lineup.Capacity : ShelfPlaces;
-            view.transform.localPosition = new Vector3((slot + first - (places - 1) * 0.5f) * AgentShelfDraft.Spacing * radius, 0f, 0f);
+            var pitch = BesideAWindow ? AgentShelfDraft.Spacing * radius : ShelfPitch * radius / AgentShelfDraft.Scale;
+            view.transform.localPosition = new Vector3((slot + first - (places - 1) * 0.5f) * pitch, 0f, 0f);
             view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             view.transform.localScale = Vector3.one * radius;
             view.PlaceShelfLabel(shelfViewer);

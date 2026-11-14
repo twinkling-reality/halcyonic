@@ -201,7 +201,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var shelfCorners = new Vector3[8];
                 if (placement.Preferred is Pose confirmed)
                 {
-                    CharacterStage.WriteShelfCorners(confirmed, stage.ShelfWidth, eyes, shelfCorners);
+                    CharacterStage.WriteShelfCorners(confirmed, stage.ShelfWidth, eyes, shelfCorners, CharacterStage.ShelfPlaces);
                     if (!workspace.ClearsShelf(shelfCorners, eyes)) failures.Add("the actual applied character shelf overlaps the complete current workspace");
                 }
                 Shot("task-placement-applied-selected-character");

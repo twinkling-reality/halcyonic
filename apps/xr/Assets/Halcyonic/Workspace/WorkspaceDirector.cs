@@ -487,7 +487,7 @@ namespace Halcyonic.XR.Workspace
                 shelf = new Vector3[8];
                 // The shelf's own place, never where it stands aside (CharacterStage.OwnShelf), so the plane's width and the aside
                 // turn are decided from the place the person chose and cannot feed each other.
-                CharacterStage.WriteShelfCorners(stage.OwnShelf, stage.ShelfWidth, WorkspaceVisuals.HeadPosition, shelf);
+                CharacterStage.WriteShelfCorners(stage.OwnShelf, stage.ShelfWidth, WorkspaceVisuals.HeadPosition, shelf, CharacterStage.ShelfPlaces);
             }
             var standingStage = stage;
             return new MenuDirector.Stage(WorkspaceVisuals.HeadPosition, head != null ? head.forward : Vector3.forward, standing.ToList(),
