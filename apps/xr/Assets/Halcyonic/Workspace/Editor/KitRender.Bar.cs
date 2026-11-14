@@ -1013,6 +1013,11 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(host.Handle.gameObject.activeSelf && Mathf.Abs(host.Handle.transform.localPosition.x) < 1e-5f
                 && Mathf.Abs(host.Handle.transform.localPosition.y - (host.FootLine - handleDown)) < RoomType.Units(0.5f),
                 "the plane's handle is not centred at its fixed depth under the foot line: " + host.Handle.transform.localPosition);
+            // Its whole hold area stands inside what a person sees at head level (AUDIT's 2026-11-14T01:30Z condition 1): its corners
+            // join the field's corners, at both sizes, whatever the band says.
+            var holdHalf = new Vector2(RoomType.Units(RoomHandle.HoldWidthDp), RoomType.Units(RoomHandle.HoldHeightDp)) / 2f;
+            foreach (var corner in new[] { new Vector3(-holdHalf.x, -holdHalf.y, 0f), new Vector3(holdHalf.x, -holdHalf.y, 0f), new Vector3(-holdHalf.x, holdHalf.y, 0f), new Vector3(holdHalf.x, holdHalf.y, 0f) })
+                shot.Corners.Add(host.Handle.transform.TransformPoint(corner));
             if (host.Band.Words != null && host.Band.Size.y > 0f)
             {
                 var bandBottom = host.Band.transform.localPosition.y - host.Band.Size.y * host.Band.transform.localScale.y;
