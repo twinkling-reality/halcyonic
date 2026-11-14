@@ -109,7 +109,7 @@ describe('sharing a checked game at an address anyone can open (F1)', () => {
           error instanceof ShareRefused &&
           error.code === 'holds_secret' &&
           error.message ===
-            'assets/app.js holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was shared. Take it out of the file, then try again.',
+            "assets/app.js in the game's built files holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was shared. The project's code or its build puts it there: take it out of the project, then check the game again.",
       );
     }
     assert.deepEqual(types(), [], 'nothing shared, nothing recorded');
