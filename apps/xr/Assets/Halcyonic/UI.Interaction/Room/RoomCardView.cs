@@ -763,12 +763,13 @@ namespace Halcyonic.XR.UI
             var words = new List<(KitRole Role, float Dp, float LineDp, Color Colour, LineWords Words, int Lines, float Before)>();
             if (card.Title != null)
             {
-                // A name is never cut: two lines at the title's size, else three a step smaller, else four smaller still (a long
-                // task's name beside its picture at larger text, the gate's 38-result).
-                (float Dp, float Line, int Lines) chosen = (FinalTitleTypeDp, FinalTitleLineDp, 4);
+                // A card's title takes at most THREE lines (the lead's 2026-11-14T01:19Z, one rule for every card): two at the title's
+                // size, else three a step smaller; past that the person's own words show their lead cut at a word. The four-at-22 form
+                // is gone: at its budgets it stood the recap so tall its far words read under 14 dp as the eye sees them (F115).
+                (float Dp, float Line, int Lines) chosen = (LongTitleTypeDp, LongTitleLineDp, 3);
                 // A file's name in the mono face, as the list of changes sets it.
                 var titleRole = card.TitleMono ? KitRole.Mono : KitRole.Title;
-                foreach (var (dp, line, lines) in new[] { (TitleTypeDp, TitleLineDp, 2), (LongTitleTypeDp, LongTitleLineDp, 3) })
+                foreach (var (dp, line, lines) in new[] { (TitleTypeDp, TitleLineDp, 2) })
                 {
                     var (probe, _) = Text(titleRole, dp, line, Color.white, card.Title, left, 0f, column, lines);
                     var fits = !probe.isTextOverflowing;
@@ -784,8 +785,8 @@ namespace Halcyonic.XR.UI
             foreach (var each in words)
             {
                 var (label, height) = Text(each.Role, each.Dp, each.LineDp, each.Colour, each.Words, left, 0f, column, each.Lines);
-                // A name of the person's own words past even four lines (an idea taken as its name) shows its lead cut at a
-                // word, the ellipsis theirs; Halcyonic's own names are never cut.
+                // A name of the person's own words past three lines (an idea taken as its name) shows its lead cut at a word, the
+                // ellipsis theirs; the whole is one press away where the card's model gives one.
                 if (each.Words.AllTheirs) height = Excerpt(label, each.Words, column, each.Lines, each.LineDp);
                 laid.Add((label, height, S(each.Before)));
                 tall += S(each.Before) + height;
