@@ -7,7 +7,7 @@ using NUnit.Framework;
 namespace Halcyonic.Client.Tests;
 
 /// <summary>
-/// No screen names a sibling product, in any build (the lead's ruling, 2026-11-13; LANE-RULES 19): where an understanding
+/// No screen names a sibling product, in any build (XR_CLIENT.md, the provenance paragraph; WORDS.md, "A provenance line"): where an understanding
 /// or a measurement came from is said in the product's own words, with the capture extra or without it, a provider's id
 /// and the version it names for itself stay data, and the host's message for why there is none is never drawn. The
 /// source line hands what is missing and why apart and is drawn as one phrase, never joined on a dot. The tooling guard
