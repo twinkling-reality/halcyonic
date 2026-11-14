@@ -143,6 +143,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 float? surface = null; // A manually placed shelf is not an asserted room floor.
                 // The stage as the director reads it: the drag's checks arrange it beside a window, or on another surface, for a while.
                 var windowNow = false; // The optional shelf does not assert an external app window.
+                Transform? shelfHolder = null;
+                Pose? shelfOwn = null;
                 var surfaceNow = surface;
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
                 var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
@@ -202,7 +204,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     },
                     Demonstration = () => demonstrationPlays,
                     State = () => state,
-                    StageNow = () => new MenuDirector.Stage(eyes, looking, targets, surfaceNow, windowNow),
+                    // The placed shelf as the product's stage hands it (WorkspaceDirector.StageNow): its own place's envelope, and the turn
+                    // about the eyes it stands aside by while the plane is open, so the check's shelf yields to the plane as a person's does.
+                    StageNow = () => new MenuDirector.Stage(eyes, looking, targets, surfaceNow, windowNow, ShelfCornersOf(shelfOwn, eyes),
+                        degrees => TurnShelf(shelfHolder, shelfOwn, eyes, degrees)),
                     CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => true,
@@ -214,6 +219,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (besideWindow)
                 {
                     var shown = ConfirmedDirectorAgent(root.transform, director, eyes, opened, failures, name);
+                    shelfHolder = shown.View.transform.parent;
+                    shelfOwn = new Pose(shelfHolder.position, shelfHolder.rotation);
                     characters.Add(shown);
                     targets.Add(shown.Target);
                     director.StageRefreshedForRender();
@@ -1569,6 +1576,28 @@ namespace Halcyonic.XR.Workspace.Editor
                 FocusGuard.FoldForRender(null);
             }
             return failures;
+        }
+
+        /// <summary>The check's placed shelf's envelope at its own place, as CharacterStage writes it; null where no shelf stands.</summary>
+        private static Vector3[]? ShelfCornersOf(Pose? own, Vector3 eyes)
+        {
+            if (!own.HasValue) return null;
+            var corners = new Vector3[8];
+            CharacterStage.WriteShelfCorners(own.Value, AgentShelfDraft.Width(1), eyes, corners);
+            return corners;
+        }
+
+        /// <summary>
+        /// The check's shelf turned <paramref name="degrees"/> about the eyes' vertical from its own place, its facing turned with it, at
+        /// once (CharacterStage turns it over a moment; a check reads where it ends).
+        /// </summary>
+        private static void TurnShelf(Transform? holder, Pose? own, Vector3 eyes, float degrees)
+        {
+            if (holder == null || !own.HasValue) return;
+            var turn = Quaternion.Euler(0f, degrees, 0f);
+            var at = own.Value.position;
+            var pivot = new Vector3(eyes.x, at.y, eyes.z);
+            holder.SetPositionAndRotation(pivot + turn * (at - pivot), turn * own.Value.rotation);
         }
 
         /// <summary>Journal fixtures retain all work whether zero or one optional agent is shown.</summary>
