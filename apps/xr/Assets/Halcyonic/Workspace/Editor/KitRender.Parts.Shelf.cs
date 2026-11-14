@@ -16,11 +16,15 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The fitted shelf's worst case, a state of its own in PartsCheck (no render: its proof is measured).</summary>
         private const string ShelfWorstState = "60-shelf-worst-case";
 
+        /// <summary>How far two characters may stand into each other, as the eyes see them, and still be said as the fallback: half a degree.</summary>
+        private const float FallbackOverlapDegrees = 0.5f;
+
         /// <summary>
         /// The fitted shelf's worst case (the lead's 2026-11-14T02:21Z ruling 1 (a), AUDIT's 02:23Z and 02:34Z): the width every shelf
         /// takes beside the plane at rest (CharacterStage.FittedWidth, from the rest a real plane reasons through its own geometry), its
         /// places each carrying the widest two-line label the shelf's own measure lays, at the search's nearest and farthest distance.
-        /// It FAILS where any glyph of any label reads under 14 dp as the eyes see it where drawn, its far words included. Characters
+        /// It FAILS where any glyph of any label reads under 14 dp as the eyes see it where drawn, its far words included, and where two
+        /// characters stand inside each other past half a degree (<see cref="FallbackOverlapDegrees"/>, AUDIT's 03:54Z bound). Characters
         /// (their own shell and feature, triangle by triangle, the glow left out) and labels that touch, and labels that are cut, it
         /// measures and SAYS, with the same labels at the shelf's natural pitch beside them: the lead's 02:21Z rule for that case
         /// ('if characters would touch or a label would be cut at that width') is the fallback proof ('every character and its label
@@ -65,6 +69,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         closestLabels = Mathf.Min(closestLabels, labels);
                         closestBodies = Mathf.Min(closestBodies, bodies);
                     }
+                    // The fallback's bound (AUDIT's 03:54Z): characters may touch within half a degree, said; past it they stand inside each
+                    // other, and that fails, so the say is never a check without a limit.
+                    if (closestBodies < -FallbackOverlapDegrees)
+                        failures.Add(size + ": " + ShelfWorstState + " at " + at + ": characters stand inside each other by " + Degrees(-closestBodies)
+                            + " degrees, past the fallback's " + Degrees(FallbackOverlapDegrees) + ".");
                     var natural = LayWorstShelf(root.transform, eyes, distance, places, CharacterStage.PitchOf(places, AgentShelfDraft.Width(places)));
                     var naturalLabels = Enumerable.Range(0, places - 1).Min(place => natural.Labels[place].Apart(natural.Labels[place + 1]));
                     DestroyLaid(natural.Views);
