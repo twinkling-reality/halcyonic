@@ -349,11 +349,11 @@ test("a press on a hosted row waits on the host's own card: its button, the mode
     'From now on the assistant answers on test-model-1, and each request costs money on your own Test Hosted account.',
   );
   assert.deepEqual(step?.proposal?.warnings, [
-    { code: 'price_unknown', line: "Test Hosted sets each request's price; it is not shown here" },
     {
       code: 'sent_to_provider',
       line: 'Your requests, and what the assistant reads in your projects, go to Test Hosted',
     },
+    { code: 'price_unknown', line: "Test Hosted sets each request's price; it is not shown here" },
     { code: 'free_here', line: "To stop paying, choose This Computer's Model, which is free" },
   ]);
 });
