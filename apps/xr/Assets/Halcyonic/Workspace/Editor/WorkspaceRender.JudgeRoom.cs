@@ -537,7 +537,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         // XR 03:20Z: where a turned shelf goes home an open ends; an aside line naming its own cause (a page opened, the shelf's
                         // own place, the text size, the plane's width) is that form event.
                         if (asideLine.StartsWith("Halcyonic: the shelf goes home", StringComparison.Ordinal)) { heldAside = null; formSinceAside = true; continue; }
-                        if (System.Text.RegularExpressions.Regex.IsMatch(asideLine, @"\((a page opened|the shelf's own place changed|the text size changed|the plane's width changed)\)")) formSinceAside = true;
+                        if (System.Text.RegularExpressions.Regex.IsMatch(asideLine, @"\((a page opened|the shelf's own place changed|the text size changed|the plane's width changed|the plane was let go)\)")) formSinceAside = true;
                         var asideNow = System.Text.RegularExpressions.Regex.Match(asideLine, @"aside (\d+) degrees").Groups[1].Value;
                         if (heldAside != null && !formSinceAside)
                             asideFound.Add("the shelf stood aside again (" + heldAside + " then " + asideNow + " degrees) with no form event between: the room moves under a person reading");
