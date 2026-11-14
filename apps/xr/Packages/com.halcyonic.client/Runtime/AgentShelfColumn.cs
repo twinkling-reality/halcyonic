@@ -27,6 +27,9 @@ namespace Halcyonic.Client
         private MenuFrame? drawn;
         private int page;
         private bool ended;
+
+        /// <inheritdoc/>
+        public bool ShelfApplied { get; private set; }
         public AgentShelfColumn(IMenuHost host, AgentShelfDraft draft, Action<string> move, Action apply, Action cancel, Action readRoom, string? taskTitle = null, Func<bool>? taskCurrent = null)
         {
             this.taskTitle = taskTitle; this.taskCurrent = taskCurrent;
@@ -85,6 +88,7 @@ namespace Halcyonic.Client
         {
             if (ended) return;
             ended = true; frame = null; drawn = null; draft.Changed -= Refresh;
+            ShelfApplied = commit;
             if (commit) apply(); else cancel();
             if (notify) Closed?.Invoke();
         }

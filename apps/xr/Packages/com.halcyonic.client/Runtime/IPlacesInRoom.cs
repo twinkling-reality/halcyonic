@@ -9,5 +9,7 @@ namespace Halcyonic.Client
     /// </summary>
     public interface IPlacesInRoom
     {
+        /// <summary>Whether it ended by applying a shelf the stage has yet to stand: the plane waits for that shelf before deciding its width.</summary>
+        bool ShelfApplied { get; }
     }
 }

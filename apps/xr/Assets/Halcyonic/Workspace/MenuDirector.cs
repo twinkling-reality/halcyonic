@@ -852,7 +852,8 @@ namespace Halcyonic.XR.Workspace
             ApplyCharacterColours();
             if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
             // The plane's form, decided before any reader measures and held between events (the lead's 2026-11-13T17:16Z ruling).
-            plane.ConsiderForm(stage.Shelf, stage.Eyes, stage.Characters.Count, placing: placement is IPlacesInRoom, shelfComing: stage.ShelfComing,
+            if (stage.Shelf != null || placement != null) shelfApplied = false;
+            plane.ConsiderForm(stage.Shelf, stage.Eyes, stage.Characters.Count, placing: placement is IPlacesInRoom, shelfComing: stage.ShelfComing || shelfApplied,
                 open: navigator.ShowsAnything && !navigator.IsCompact);
             // The room yields while the plane is open (the lead's 19:34Z GO): the placed shelf stands aside where the plane's footprint
             // meets it, decided with the width on events only, and comes back once the plane shows nothing.
@@ -1185,10 +1186,15 @@ namespace Halcyonic.XR.Workspace
             return true;
         }
 
+        /// <summary>A placing ended by applying a shelf the stage has not stood yet; cleared once the shelf stands or another placing opens.</summary>
+        private bool shelfApplied;
+
         private void LocalChanged() { placementDrawn = null; dirty = true; }
         private void LocalClosed()
         {
             var closing = placement;
+            // A shelf applied is on its way to the stage, which stands it on its own next update: the plane waits for it.
+            shelfApplied = closing is IPlacesInRoom { ShelfApplied: true };
             moveMode = false;
             placement = null;
             placementFrame = null;

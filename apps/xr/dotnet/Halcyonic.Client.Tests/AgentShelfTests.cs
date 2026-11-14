@@ -121,6 +121,7 @@ public class AgentShelfTests
         Assert.That(reads, Is.Zero);
         column.FocusLeft(); column.Act(AgentShelfColumn.Apply, null);
         Assert.That((applied, cancelled), Is.EqualTo((0, 1)));
+        Assert.That(column.ShelfApplied, Is.False, "a placing that ended unapplied brings no shelf for the plane to wait for");
         Assert.That(host.Sent, Is.Empty);
     }
     [Test]
@@ -133,8 +134,10 @@ public class AgentShelfTests
         column.Act(AgentShelfColumn.Apply, null); Assert.That(calls, Is.Zero);
         var current = column.Frame!; column.Drawn(frame, null);
         column.Act(AgentShelfColumn.Apply, null); Assert.That(calls, Is.Zero);
+        Assert.That(column.ShelfApplied, Is.False);
         column.Drawn(current, null); column.Act(AgentShelfColumn.Apply, null);
         Assert.That(calls, Is.EqualTo(1)); Assert.That(draft.Candidate, Is.Null);
+        Assert.That(column.ShelfApplied, Is.True, "Apply brings a shelf the plane waits for before it decides its width");
     }
     [TestCase("apply")]
     [TestCase("expired")]

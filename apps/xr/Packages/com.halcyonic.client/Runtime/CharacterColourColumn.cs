@@ -16,6 +16,9 @@ namespace Halcyonic.Client
         private string chosen;
         private bool preview;
         private bool ended;
+
+        /// <inheritdoc/>
+        public bool ShelfApplied => false;
         private int page;
         private string? error;
         private MenuFrame? frame, drawn;
