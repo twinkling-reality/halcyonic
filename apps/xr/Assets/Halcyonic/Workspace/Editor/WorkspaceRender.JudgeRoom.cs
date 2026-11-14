@@ -92,8 +92,14 @@ namespace Halcyonic.XR.Workspace.Editor
             // 2026-11-13): heard while the walk runs, a failure of the moment it came before.
             var olderHeard = new List<string>();
             var formHeard = new List<string>();
+            // The shelf's aside while the plane is open (AUDIT, 2026-11-14T01:13Z): decided once per opening and only growing, never a
+            // degree or two again with every page under a person reading. A page closed since the last moment starts a new opening.
+            var asideHeard = new List<string>();
+            var pageClosed = false;
+            string? heldAside = null;
             Application.LogCallback heard = (message, _, _) =>
             {
+                if (message.StartsWith("Halcyonic: the shelf stands aside", StringComparison.Ordinal)) lock (asideHeard) asideHeard.Add(message);
                 // And the bar's own warning where it lays past the footprint the shelf search keeps clear of (FIELD, AUDIT 17:25Z).
                 if (message.StartsWith("Halcyonic: older view drew a whole screen", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the bar laid past its largest footprint", StringComparison.Ordinal)
@@ -337,6 +343,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // the page. Where a press of Close shut neither, the walk closes the file and says so: a person would be left with it.
                 void CloseFile()
                 {
+                    pageClosed = true;
                     var open = Opened();
                     var hadSide = open?.Frame?.Side != null;
                     var pressed = Press(Footer.Close);
@@ -515,6 +522,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     lastFoot = footNow;
                 }
+                void AsideHeld(List<string> asideFound)
+                {
+                    List<string> lines;
+                    lock (asideHeard) { lines = asideHeard.ToList(); asideHeard.Clear(); }
+                    var asideDegrees = lines.Select(line => System.Text.RegularExpressions.Regex.Match(line, @"aside (\d+) degrees").Groups[1].Value).ToList();
+                    if (lines.Count > 1)
+                        asideFound.Add("the shelf stood aside " + lines.Count + " times since the last moment (" + string.Join(", ", asideDegrees) + " degrees): the room moves under a person reading");
+                    if (pageClosed) heldAside = null;
+                    if (asideDegrees.Count > 0)
+                    {
+                        var asideNow = asideDegrees.Last();
+                        if (heldAside != null && asideNow != heldAside)
+                            asideFound.Add("the shelf's aside changed from " + heldAside + " to " + asideNow + " degrees while the page stayed open");
+                        heldAside = asideNow;
+                    }
+                    pageClosed = false;
+                }
                 void Moment(string moment, bool expectDrawn = true)
                 {
                     Draw();
@@ -544,6 +568,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     found.AddRange(StageClear(root, eyes, plane, stood));
                     found.AddRange(OutsideItsShelf(eyes, stood, stageParts));
                     FootHeld(found, name);
+                    AsideHeld(found);
                     // No computer: a recording plays, so voice is never offered and Hold to Talk never drawn (ADR 0021, amended).
                     // A recording says what it is wherever it plays (lead, 14:33Z): its own line, in its own words, drawn whole.
                     // The notice is the recording's own line whole, both sentences, word for word (lead, 17:45Z): the product's
