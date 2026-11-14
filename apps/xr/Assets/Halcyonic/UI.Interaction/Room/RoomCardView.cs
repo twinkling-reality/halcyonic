@@ -399,7 +399,7 @@ namespace Halcyonic.XR.UI
                 }
                 else
                 {
-                    var (_, tall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, 4);
+                    var (_, tall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, card.DescriptionMostLines);
                     down += tall;
                 }
             }

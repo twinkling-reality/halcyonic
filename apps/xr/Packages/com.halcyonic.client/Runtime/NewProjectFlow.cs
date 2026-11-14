@@ -1827,7 +1827,7 @@ namespace Halcyonic.Client
         {
             // Nothing is sendable with no agent app chosen: the review is not made then (JUDGE's live-11, 2026-11-12: it threw).
             var whole = ReviewForRoom && current.HasRecap && draft.Runtime != null
-                && RoomLines!(LineWords.TheirName(current.FirstTask)) <= RoomCard.DescriptionPageLines
+                && RoomLines!(LineWords.TheirName(current.FirstTask)) <= NewProjectScreens.RecapFirstTaskLines
                 // Only a folder whose kind the card leaves no doubt of: a new project's new folder, or a project's own folder.
                 && EntryText.FolderFactPartsOf(CurrentFolder(), current.Folder, draft.Runtime?.UsesProjectLocation == true).Kind
                     is FolderFactKind.NewFolder or FolderFactKind.ProjectFolder or FolderFactKind.NotNeeded

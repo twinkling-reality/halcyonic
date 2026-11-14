@@ -112,6 +112,12 @@ namespace Halcyonic.Client
 
     public static class NewProjectScreens
     {
+        /// <summary>
+        /// The most lines the recap's first task stands in on its card (the lead's 2026-11-14T01:19Z ruling 2 (a)): three, so the recap at
+        /// its budgets reads whole as the eye sees it; a longer task goes to the review, which shows it all.
+        /// </summary>
+        public const int RecapFirstTaskLines = 3;
+
         /// <summary>Type my idea: the keyboard, the idea then kept and chosen.</summary>
         public const string TypeIdea = "type-idea";
 
@@ -754,7 +760,8 @@ namespace Halcyonic.Client
                 // The level, or Plan First where the start plans (SCREENS's PlanStart).
                 if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(PlanStart.LevelWords(draft))));
             }
-            return new RoomCard(title, idea.FirstTask.Length > 0 ? LineWords.TheirName(idea.FirstTask) : null, RoomCardHead.Project, slots: slots, more: note);
+            return new RoomCard(title, idea.FirstTask.Length > 0 ? LineWords.TheirName(idea.FirstTask) : null, RoomCardHead.Project, slots: slots, more: note,
+                descriptionMostLines: RecapFirstTaskLines);
         }
 
         /// <summary>

@@ -377,8 +377,9 @@ namespace Halcyonic.Client
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
             IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
             IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false, KitControl? press = null,
-            bool statusAfter = false)
+            bool statusAfter = false, int descriptionMostLines = DescriptionPageLines)
         {
+            DescriptionMostLines = descriptionMostLines < 1 ? 1 : descriptionMostLines > DescriptionPageLines ? DescriptionPageLines : descriptionMostLines;
             Press = press;
             TitleMono = titleMono;
             StatusAfter = statusAfter && status != null;
@@ -435,6 +436,12 @@ namespace Halcyonic.Client
 
         /// <summary>The lines of a description a page holds, where it pages.</summary>
         public const int DescriptionPageLines = 4;
+
+        /// <summary>
+        /// The most lines an unpaged description stands in, at most <see cref="DescriptionPageLines"/>: fewer where the card's model
+        /// says so (New Project's recap, three, the lead's 2026-11-14T01:19Z, so the recap at its budgets reads whole as the eye sees it).
+        /// </summary>
+        public int DescriptionMostLines { get; }
 
         public RoomCardHead Head { get; }
 

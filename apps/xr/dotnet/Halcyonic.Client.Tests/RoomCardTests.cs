@@ -212,4 +212,14 @@ public sealed class RoomCardTests
         Assert.That(new RoomListRow(RoomKind.None, LineWords.Ours("Ember"), swatch: unchecked((int)0xFFE0703A)).Swatch, Is.EqualTo((int?)0xE0703A), "only the colour is kept, never an alpha");
         Assert.That(new RoomListRow(RoomKind.Task, LineWords.Ours("Open")).Swatch, Is.Null);
     }
+
+    [Test]
+    public void A_cards_description_stands_in_at_most_its_models_lines_and_never_more_than_a_page()
+    {
+        // The lead's 2026-11-14T01:19Z ruling 2 (a): the recap's first task stands in three lines; every other card keeps four.
+        Assert.That(new RoomCard(LineWords.Ours("Kite Run"), LineWords.Ours("Make a kite.")).DescriptionMostLines, Is.EqualTo(RoomCard.DescriptionPageLines));
+        Assert.That(new RoomCard(LineWords.Ours("Kite Run"), LineWords.Ours("Make a kite."), descriptionMostLines: NewProjectScreens.RecapFirstTaskLines).DescriptionMostLines, Is.EqualTo(3));
+        Assert.That(new RoomCard(LineWords.Ours("Kite Run"), descriptionMostLines: 9).DescriptionMostLines, Is.EqualTo(RoomCard.DescriptionPageLines), "never more than a page");
+        Assert.That(new RoomCard(LineWords.Ours("Kite Run"), descriptionMostLines: 0).DescriptionMostLines, Is.EqualTo(1));
+    }
 }
