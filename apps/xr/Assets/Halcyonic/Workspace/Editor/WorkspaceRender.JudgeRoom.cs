@@ -482,6 +482,29 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
 
                 var shots = 0;
+                // The bar a person reads never moves when the agent's words arrive on the band or go (lead, 2026-11-14T00:24Z): its
+                // foot line, in the room, from one moment to the next where only the band changed (the bar's own laid size and the
+                // plane's place the same).
+                (bool Band, float BandHeight, Vector2 BarSize, Vector3 Foot, Vector3 Root, Quaternion Turn, string Name)? lastFoot = null;
+                void FootHeld(List<string> footFound, string footShot)
+                {
+                    if (!plane.KitShows) { lastFoot = null; return; }
+                    var footHost = plane.Kit;
+                    var bandWords = footHost.Band.Words != null;
+                    var footNow = (Band: bandWords, BandHeight: bandWords ? footHost.Band.Size.y : 0f, BarSize: footHost.Bar.Size,
+                        Foot: footHost.transform.TransformPoint(0f, footHost.FootLine, 0f), Root: plane.transform.position, Turn: plane.transform.rotation, Name: footShot);
+                    if (lastFoot is { } footWas && (footWas.Band != footNow.Band || Mathf.Abs(footWas.BandHeight - footNow.BandHeight) > 0.0005f)
+                        && Vector2.Distance(footWas.BarSize, footNow.BarSize) < 0.0005f && Vector3.Distance(footWas.Root, footNow.Root) < 0.0005f
+                        && Quaternion.Angle(footWas.Turn, footNow.Turn) < 0.01f)
+                    {
+                        var footCame = footNow.Band ? footWas.Band ? "changed" : "came" : "went";
+                        var footMoved = Vector3.Distance(footWas.Foot, footNow.Foot);
+                        if (footMoved > 0.001f)
+                            footFound.Add("the bar's foot line moved " + (footMoved * 1000f).ToString("0.0") + " mm when the agent's words " + footCame + " (since " + footWas.Name + "): the bar a person reads jumps");
+                        else Debug.Log("Halcyonic: judge room: " + footShot + ": the bar's foot line held when the agent's words " + footCame + " (since " + footWas.Name + ").");
+                    }
+                    lastFoot = footNow;
+                }
                 void Moment(string moment, bool expectDrawn = true)
                 {
                     Draw();
@@ -510,6 +533,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (older.Count > 0) found.Add("older parts draw: " + string.Join(", ", older));
                     found.AddRange(StageClear(root, eyes, plane, stood));
                     found.AddRange(OutsideItsShelf(eyes, stood, stageParts));
+                    FootHeld(found, name);
                     // No computer: a recording plays, so voice is never offered and Hold to Talk never drawn (ADR 0021, amended).
                     // A recording says what it is wherever it plays (lead, 14:33Z): its own line, in its own words, drawn whole.
                     // The notice is the recording's own line whole, both sentences, word for word (lead, 17:45Z): the product's
