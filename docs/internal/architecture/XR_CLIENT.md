@@ -2997,7 +2997,11 @@ in order, as before.
   where that line stands in it (`KitWorkspaceHost.FootLine`): while the redesign draws, the plane no longer centres
   the host where the head pitched but tips so the foot line stands on DESIGN's pitch -17.6
   (`MenuPlane.ShowKitWorkspace`, BUILD-SPEC-v4 1.1), the pair growing upward from it, the row's feet on -23.5 and
-  the band's top on -24.5 under it; the yaw is still the way the person looks, and their own move still turns it.
+  the band's top on -24.5 under it; the yaw is still the way the person looks, and their own move still turns it. The
+  bar never moves for what hangs under it (the lead's 2026-11-14T00:24Z): it stands on the host's middle, so its foot line
+  stays where the plane stood it when the agent's words arrive on the band or go; the host's `Size` is the bar's own box,
+  and what hangs under the foot line, the row or the band and the gap over it, is `KitWorkspaceHost.HangDp`, which the
+  plane's footprint holds under the bar.
   The distances stay today's (the plane at 0.46 m, the characters at 2.4 m). Stop arms the
   file's own confirmation (stopping always asks, `WorkspacePresenter.AlwaysConfirmed`), which the binding now binds for
   the redesign (`KitWorkModel.Stops`): what stopping does in the panel, the file's question in the sentence bar, Confirm

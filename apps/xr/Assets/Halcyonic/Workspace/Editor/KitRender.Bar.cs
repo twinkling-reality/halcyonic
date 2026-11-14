@@ -970,6 +970,16 @@ namespace Halcyonic.XR.Workspace.Editor
             var extent = whole ? host.transform : bar.transform;
             foreach (var corner in new[] { new Vector3(-half.x, -half.y, 0f), new Vector3(half.x, -half.y, 0f), new Vector3(-half.x, half.y, 0f), new Vector3(half.x, half.y, 0f) })
                 shot.Corners.Add(extent.TransformPoint(corner));
+            // The band hangs under the bar's anchored foot line, outside the host's box (the lead's 2026-11-14T00:24Z): its own
+            // corners, from the middle of its top edge, stand inside the field too.
+            if (whole && host.Band.Words != null && host.Band.Size.y > 0f)
+            {
+                var band = host.Band;
+                foreach (var corner in new[] { new Vector3(-band.Size.x / 2f, 0f, 0f), new Vector3(band.Size.x / 2f, 0f, 0f), new Vector3(-band.Size.x / 2f, -band.Size.y, 0f), new Vector3(band.Size.x / 2f, -band.Size.y, 0f) })
+                    shot.Corners.Add(band.transform.TransformPoint(corner));
+            }
+            // The bar a person reads never moves for what hangs under it: it stands on the host's middle.
+            Require(bar.transform.localPosition == Vector3.zero, "the bar moved off the host's middle (" + bar.transform.localPosition + ") for what hangs under it");
             shot.Targets.Add(("the instruction", bar.transform, bar.Presses.ToList()));
             // The one sheen: a 2 s pass with its peak at the middle, then 8 s of rest; none kept still.
             var stillWas = GlazeMotion.Still;

@@ -49,6 +49,13 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public float FootLine { get; private set; }
 
+        /// <summary>
+        /// How far what the redesign draws hangs under its foot line now, in dp: the row a pair stands with, or the band and the gap
+        /// over it, whichever reaches lower; 0 for nothing. The bar never moves for it (the lead's 2026-11-14T00:24Z); the plane's
+        /// footprint holds it under the bar, at most RoomWords.UnderFootMostDp for the band.
+        /// </summary>
+        public float HangDp { get; private set; }
+
         /// <summary>The working field, shown round the panel's place and the character while the agent works (the redesign).</summary>
         public RoomField Field => field;
 
@@ -398,25 +405,26 @@ namespace Halcyonic.XR.UI
                 return;
             }
             var size = bar.Size / zoom;
-            // Under the pair's foot line hang the row, where one stands with the pair, and under that the band.
-            var drop = bar.RowDrop / zoom;
-            if (band.Words != null || drop > 0f)
+            // The bar a person reads never moves (the lead's 2026-11-14T00:24Z, AUDIT's (a)): it stands on the host's middle whatever
+            // hangs under it, so its foot line stays where the plane stood it when the agent's words arrive on the band or go.
+            bar.transform.localPosition = Vector3.zero;
+            // Under the pair's foot line hang the row, where one stands with the pair (inside the bar), and under that the band.
+            HangDp = bar.RowDrop / zoom / RoomType.Units(1f);
+            if (band.Words != null)
             {
-                // The band hangs under the pair's foot line, centred, and grows downward; the whole is centred on the host.
-                // As the instruction, it lays its words at the person's text size and is scaled back by it, so its width stays.
+                // The band hangs BandUnderDp under the pair's foot line, centred, and grows downward. As the instruction, it lays its
+                // words at the person's text size and is scaled back by it, so its width stays.
                 band.transform.localScale = Vector3.one / zoom;
                 var under = RoomType.Units(BandUnderDp) / zoom;
-                var hangs = band.Words != null ? band.Size / zoom : Vector2.zero;
-                var whole = size.y + Mathf.Max(drop, band.Words != null ? under + hangs.y : 0f);
-                bar.transform.localPosition = new Vector3(0f, (whole - size.y) / 2f, 0f);
-                band.transform.localPosition = new Vector3(0f, whole / 2f - size.y - under, 0f);
-                size = new Vector2(Mathf.Max(size.x, hangs.x), whole);
+                band.transform.localPosition = new Vector3(0f, bar.Foot / zoom - under, 0f);
+                HangDp = Mathf.Max(HangDp, (RoomType.Units(BandUnderDp) + band.Size.y) / zoom / RoomType.Units(1f));
             }
-            // A plane's part always has a height and a width: whatever the bar lays, its footprint is at least the row's.
+            // A plane's part always has a height and a width: whatever the bar lays, its footprint is at least the row's. The part is
+            // the bar's own box; what hangs under its foot (HangDp) is the plane's footprint's, never a reason for the bar to move.
             var least = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomButton.HeightDp)) / zoom;
             size = new Vector2(Mathf.Max(size.x, least.x), Mathf.Max(size.y, least.y));
             Size = size;
-            FootLine = bar.transform.localPosition.y + bar.Foot / zoom;
+            FootLine = bar.Foot / zoom;
             TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
             // The working field stands round the panel's place where the bar now stands (a plate or row under it moves it up).
             ShowWork(room, zoom);
