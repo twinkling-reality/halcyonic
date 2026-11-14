@@ -191,7 +191,7 @@ describe("the kit's panels past a laptop's edge or over each other go back the s
     assert.equal(checkVerdict(held), 'failed');
     assert.equal(
       fitFix(held),
-      'A panel of the kit (a row of buttons "Back") reached past the edge of a laptop\'s 1280 by 800 view when last measured. The check can no longer measure it: a starter kit file that places them (src/pages.ts, src/rows.ts, src/look.ts, src/legible.ts or the input layer) differs from the starter\'s own; put it back. Place every row of buttons, tabs, a pager or a keyboard through rows() from ./kit.js, under the pages, and add nothing at a position of your own.',
+      'A panel of the kit (a row of buttons "Back") reached past the edge of a laptop\'s 1280 by 800 view when last measured. The check can no longer measure it: a starter kit file that places them (src/pages.ts, src/rows.ts, src/look.ts, src/legible.ts or the input layer) differs from the starter\'s own; put it back. Split the row into two rows or shorten its words; five rows fit under the pages.',
     );
   });
 

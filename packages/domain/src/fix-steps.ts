@@ -137,7 +137,12 @@ export function fitFix(findings: CheckFindings): string | null {
     failing === 'past_edge'
       ? `reached past the edge of a laptop's 1280 by 800 view`
       : `overlapped another panel at a laptop's 1280 by 800 view`;
-  return `A panel of the kit${which} ${was} when last measured. The check can no longer measure it: ${why}. ${place}`;
+  // A row last measured too wide is told to split, as when it is measured now (AUDIT2 F1).
+  const then =
+    fit.panel_kind === 'row' && failing === 'past_edge'
+      ? 'Split the row into two rows or shorten its words; five rows fit under the pages.'
+      : place;
+  return `A panel of the kit${which} ${was} when last measured. The check can no longer measure it: ${why}. ${then}`;
 }
 
 /** What the laptop step measured an agent can act on, the reading's and the fit's words, or null when neither failed. */
