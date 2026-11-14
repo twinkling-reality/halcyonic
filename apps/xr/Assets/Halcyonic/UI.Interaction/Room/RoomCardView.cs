@@ -549,6 +549,20 @@ namespace Halcyonic.XR.UI
                 }
                 else tall += S(2f) + laidLine.Tall;
             }
+            else if (status.Lines.Count > 0)
+            {
+                // Lines kept apart (RoomCardStatus.Lines): the title centred on the mark, then each line its own short paragraph the
+                // card's whole width under both, a description's gap between them, never joined into one paragraph.
+                var titleDrop = Mathf.Max(0f, (S(StatusMarkDp) - titleTall) / 2f);
+                titleLabel.transform.localPosition += new Vector3(0f, -titleDrop, 0f);
+                var at = Mathf.Max(S(StatusMarkDp), titleTall) + S(DescriptionGapDp);
+                foreach (var each in status.Lines)
+                {
+                    var (_, eachTall) = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(each), 0f, -(down + at), width - S(1f), StatusLineMost);
+                    at += eachTall + S(DescriptionGapDp);
+                }
+                tall = at - S(DescriptionGapDp);
+            }
             var block = Mathf.Max(S(StatusMarkDp), tall);
             // Words shorter than the mark stand centred on it, a title alone too (SCREENS's critic, 2026-11-11).
             var drop = (block - tall) / 2f;

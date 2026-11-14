@@ -168,4 +168,16 @@ public sealed class RoomCardTests
         Assert.That(new RoomCard(LineWords.Ours("Kite Run"), status: warning).StatusAfter, Is.False, "a thing's state stands under its name by default");
         Assert.That(new RoomCard(LineWords.Ours("Kite Run"), statusAfter: true).StatusAfter, Is.False, "nothing to move where there is no status");
     }
+
+    [Test]
+    public void A_status_keeps_its_lines_apart_and_every_line_is_among_the_cards_words()
+    {
+        // SCREENS's and the reader's 2026-11-14T0020Z: a review's warnings each its own line, never joined on a full stop.
+        var status = RoomCardStatus.Apart("Check First", new[] { "Your requests go to Tidewater.", "  ", " Tidewater sets each request's price; it is not shown here. " }, RoomTone.Attention);
+        Assert.That(status.Lines, Is.EqualTo(new[] { "Your requests go to Tidewater.", "Tidewater sets each request's price; it is not shown here." }), "blank lines dropped, each trimmed");
+        Assert.That(status.Line, Is.Null, "never joined into one line");
+        Assert.That(new RoomCardStatus("Turn Finished", "The agent finished its turn.", RoomTone.Good).Lines, Is.Empty);
+        var card = new RoomCard(LineWords.Ours("Use Model"), status: status);
+        Assert.That(card.Words(), Does.Contain("Your requests go to Tidewater.").And.Contain("Tidewater sets each request's price; it is not shown here."));
+    }
 }

@@ -195,7 +195,30 @@ namespace Halcyonic.Client
             Line = line;
             Tone = tone;
             Mark = mark;
+            lines = null;
         }
+
+        private RoomCardStatus(string title, IReadOnlyList<string> lines, RoomTone tone, RoomKind mark)
+        {
+            Title = title;
+            Line = null;
+            Tone = tone;
+            Mark = mark;
+            this.lines = lines;
+        }
+
+        /// <summary>
+        /// A status whose words are several lines kept APART, each its own short paragraph under the title, never joined into one
+        /// (SCREENS's and a fresh reader's 2026-11-14T0020Z: a review's warnings joined on a full stop buried where the data goes).
+        /// Empty or blank lines are dropped; <see cref="Line"/> is then null.
+        /// </summary>
+        public static RoomCardStatus Apart(string title, IEnumerable<string> lines, RoomTone tone, RoomKind mark = RoomKind.None) =>
+            new RoomCardStatus(title, lines.Where(each => !string.IsNullOrWhiteSpace(each)).Select(each => each.Trim()).ToList(), tone, mark);
+
+        private readonly IReadOnlyList<string>? lines;
+
+        /// <summary>The status's lines kept apart (the second constructor); empty for a status of one <see cref="Line"/> or none.</summary>
+        public IReadOnlyList<string> Lines => lines ?? System.Array.Empty<string>();
 
         public RoomKind Mark { get; }
 
@@ -443,6 +466,7 @@ namespace Halcyonic.Client
             {
                 yield return status.Title;
                 if (status.Line != null) yield return status.Line;
+                foreach (var each in status.Lines) yield return each;
             }
             if (Title != null) yield return Title.Text;
             if (Description != null) yield return Description.Text;
