@@ -197,6 +197,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 view.Show(bar);
                 view.SettleForRender();
                 Place(plane, eyes, 0f, shot.Elevation);
+                // A width under the floor the plane never lays (PlaneWidth.FloorDp): recorded for the envelope, never judged as seen.
+                if (width < PlaneWidth.FloorDp(GlazeText.Scale) - 0.5f) recordOnly.Add(plane.gameObject);
                 Debug.Log("Halcyonic: parts: " + name + ": caps of " + capsFrame.Subject + " at " + width.ToString("0", CultureInfo.InvariantCulture) + " dp: " + (view.Size / RoomType.Units(1f)).ToString("0") + " dp laid.");
             }
             // The shipped record covers both sizes and every width the plane can choose.

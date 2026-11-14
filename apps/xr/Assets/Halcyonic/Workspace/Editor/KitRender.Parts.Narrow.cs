@@ -268,7 +268,9 @@ namespace Halcyonic.XR.Workspace.Editor
             plane.SetParent(root, false);
             var width = RoomType.Units(RoomGeometry.PanelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp);
             var view = RoomCardView.Create(plane);
-            view.Show(card, width);
+            // The card laid from its top left, centred on the eyes' axis, so no word is read at a slant (F112: its far words read 84 percent).
+            var tall = view.Show(card, width);
+            view.transform.localPosition = new Vector3(-width / 2f, tall / 2f, 0f);
             Place(plane, eyes, 0f, shot.Elevation);
             Require(view.LaidWhole, "the card does not stand whole");
             var drawn = new List<string>();

@@ -45,6 +45,12 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The most each text size and panel width laid in this run, in dp (<see cref="Halcyonic.XR.UI.KitEnvelope"/>).</summary>
         private static readonly Dictionary<(float, float), Vector2> measuredEnvelope = new Dictionary<(float, float), Vector2>();
 
+        /// <summary>
+        /// Planes a state lays only so the envelope records them (the caps at widths under the floor, which the plane never lays): the
+        /// record takes them, then they are hidden before the text is judged as a person sees it, since no person ever sees them.
+        /// </summary>
+        private static readonly List<GameObject> recordOnly = new List<GameObject>();
+
         /// <summary>The most any bar drew under its foot line in this run, in dp: logged beside the envelope, held to RoomBarView.MostUnderFootDp.</summary>
         private static float mostSpill;
 
@@ -312,6 +318,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (top > (float)field.Up - ViewField.EdgeMarginDegrees || half > (float)Math.Min(field.Left, field.Right) - ViewField.EdgeMarginDegrees)
                         failures.Add(name + ": the bar stands past the field, its top " + top.ToString("0.0") + " degrees up and " + half.ToString("0.0") + " each side");
                 }
+                foreach (var hidden in recordOnly) hidden.SetActive(false);
+                recordOnly.Clear();
                 // Every button's chip, glyph and lock ring inside its own edge (AUDIT, 2026-11-13T1754Z).
                 failures.AddRange(root.GetComponentsInChildren<Halcyonic.XR.UI.RoomButton>(false).Where(button => !button.MarksInside)
                     .Select(button => name + ": a mark of \"" + button.Words.text + "\" stands past its button's edge"));
