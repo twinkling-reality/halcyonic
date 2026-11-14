@@ -1441,4 +1441,41 @@ describe("the host's own denial of a request (ADR 0065)", () => {
       'never the request itself',
     );
   });
+
+  test('a question the journal could not record carries its id, the reason and whether the end was asked, never its words', () => {
+    const ended = (payload: Record<string, unknown>) =>
+      parseEventEnvelope({
+        ...sampleEvent('execution.created'),
+        event_type: 'execution.question.ended_by_host',
+        source: { kind: 'control_plane' },
+        payload,
+      }).ok;
+    assert.equal(
+      ended({ question_id: 'q', because: 'not_recorded', interrupt_requested: true }),
+      true,
+    );
+    assert.equal(
+      ended({ question_id: 'q', because: 'not_recorded', interrupt_requested: false }),
+      true,
+    );
+    assert.equal(
+      ended({ question_id: 'q', because: 'too_long_to_show', interrupt_requested: false }),
+      false,
+    );
+    assert.equal(
+      ended({ question_id: '', because: 'not_recorded', interrupt_requested: false }),
+      false,
+    );
+    assert.equal(ended({ question_id: 'q', because: 'not_recorded' }), false);
+    assert.equal(
+      ended({
+        question_id: 'q',
+        because: 'not_recorded',
+        interrupt_requested: true,
+        text: 'Which one?',
+      }),
+      false,
+      'never the question itself',
+    );
+  });
 });

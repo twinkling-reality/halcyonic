@@ -69,8 +69,15 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    `delivers_denial_message`. A request the projection holds pending after all is left to the person. The denial is
    sent even where its own record fails. Logs carry ids, codes, counts and where the contract refused the request
    (each pointer step that is not a contract field name or an index written `*`), never its text. A question the
-   journal refuses is left as it is: an agent app has no declared way to decline one (`answerQuestion` carries
-   answers only), and none is emulated.
+   journal refuses is never answered or dismissed: an agent app has no declared way to decline one (`answerQuestion`
+   carries answers only), and none is emulated.
+   **A refused question ends its turn instead** (AUDIT3 F1): where the agent app declares `interrupt`, the host asks
+   it, at most once in a turn and never again after a refusal, to interrupt the execution the question was routed to,
+   and records `execution.question.ended_by_host` once the ask settles, `interrupt_requested` true only where the call
+   was taken (false where none is declared or the call failed), never claiming the turn ended, which only the
+   runtime's own `runtime.turn.interrupted` records. A question id the contract refuses, or one the projection holds
+   open, asks nothing; logs carry the execution's and runtime's ids and the outcome only, and this is tested with a
+   scripted runtime, not seen in the app for any of Claude Agent, OpenCode or Codex.
 
 ## Alternatives considered
 

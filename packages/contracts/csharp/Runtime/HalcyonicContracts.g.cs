@@ -4868,6 +4868,18 @@ namespace Halcyonic.Contracts
         public bool Delivered { get; set; }
     }
 
+    public sealed class ExecutionQuestionEndedByHostPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("question_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string QuestionId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("because", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Because { get; set; } = "not_recorded";
+
+        [global::Newtonsoft.Json.JsonProperty("interrupt_requested", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool InterruptRequested { get; set; }
+    }
+
     public sealed class ExecutionStartFailedPayload
     {
         [global::Newtonsoft.Json.JsonProperty("error", Required = global::Newtonsoft.Json.Required.Always)]
@@ -6607,6 +6619,7 @@ namespace Halcyonic.Contracts
                 "execution.approval.answered_by_host" => new ExecutionApprovalAnsweredByHostEvent(),
                 "execution.approval.host_answer_withdrawn" => new ExecutionApprovalHostAnswerWithdrawnEvent(),
                 "execution.approval.denied_by_host" => new ExecutionApprovalDeniedByHostEvent(),
+                "execution.question.ended_by_host" => new ExecutionQuestionEndedByHostEvent(),
                 "execution.start_failed" => new ExecutionStartFailedEvent(),
                 "execution.state_unknown" => new ExecutionStateUnknownEvent(),
                 "command.accepted" => new CommandAcceptedEvent(),
@@ -7105,6 +7118,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionApprovalDeniedByHostPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionQuestionEndedByHostEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.question.ended_by_host";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ExecutionQuestionEndedByHostPayload Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionStartFailedEvent : EventEnvelope

@@ -1051,6 +1051,25 @@ export const ExecutionApprovalDeniedByHost = executionEvent(
   ),
 );
 
+/**
+ * The host asked the agent app to end the turn of a question of this execution the journal could not record
+ * (`not_recorded`), recorded once the ask settled, so no agent waits on a question nobody can see (ADR 0065).
+ * `interrupt_requested` is true only where the agent app declares `interrupt` and took the call; false where it
+ * declares none, refused the call, or the host had already asked in this turn. It never says the turn ended: only
+ * the runtime's own `runtime.turn.interrupted` does. The question is never answered or dismissed by it.
+ */
+export const ExecutionQuestionEndedByHost = executionEvent(
+  'execution.question.ended_by_host',
+  Type.Object(
+    {
+      question_id: NativeId,
+      because: Type.Literal('not_recorded'),
+      interrupt_requested: Type.Boolean(),
+    },
+    strict,
+  ),
+);
+
 /** The adapter reported that the runtime could not start the execution. */
 export const ExecutionStartFailed = executionEvent(
   'execution.start_failed',
@@ -1496,6 +1515,7 @@ export const EVENT_VARIANTS = [
   ExecutionApprovalAnsweredByHost,
   ExecutionApprovalHostAnswerWithdrawn,
   ExecutionApprovalDeniedByHost,
+  ExecutionQuestionEndedByHost,
   ExecutionStartFailed,
   ExecutionStateUnknown,
   CommandAccepted,
