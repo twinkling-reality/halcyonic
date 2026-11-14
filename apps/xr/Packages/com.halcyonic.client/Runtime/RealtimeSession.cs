@@ -64,7 +64,7 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// A resilient connection to the control plane's realtime stream, protocol version 1
+    /// A resilient connection to the control plane's realtime stream, its protocol version (ContractVersions.RealtimeProtocol)
     /// (docs/internal/architecture/REALTIME.md). Networking runs in the background.
     /// <see cref="Pump"/> applies whatever arrived to <see cref="State"/> on the calling thread, so a
     /// game loop calls it once per frame and never shares state across threads.
