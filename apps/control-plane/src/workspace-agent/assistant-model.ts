@@ -24,13 +24,14 @@ export const HOSTED_COST = {
   whatHappens: (provider: string, model: string | null) =>
     `From now on the assistant answers on ${model ?? 'this model'}, and each request costs money on your own ${provider} account.`,
   // Short enough to read at a glance at the larger text size (the owner's report, 2026-11-13: the review was tall and
-  // said the cost in one long paragraph). Who pays is said once, in the line; each warning is one short fact.
+  // said the cost in one long paragraph). Who pays is said once, in the line; each warning is one short fact. What
+  // leaves this computer comes first among them, so a person reading for the cost never misses it (AUDIT2, 2026-11-14).
   warnings: (provider: string) => [
-    { code: 'price_unknown', line: `${provider} sets each request's price; it is not shown here` },
     {
       code: 'sent_to_provider',
       line: `Your requests, and what the assistant reads in your projects, go to ${provider}`,
     },
+    { code: 'price_unknown', line: `${provider} sets each request's price; it is not shown here` },
     { code: 'free_here', line: "To stop paying, choose This Computer's Model, which is free" },
   ],
   /** This computer's own model, the one nobody charges for. */
