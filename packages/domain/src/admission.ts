@@ -345,7 +345,7 @@ function admit(
         return reject(
           scope,
           'invalid_state',
-          busyWords(busy, command.command_type, 'Stop it, then put the files back.'),
+          busyWords(busy, command.command_type, 'Stop it, then press Restore again.'),
         );
       return { admitted: true, policy, scope, runtime: null };
     }
@@ -1546,7 +1546,7 @@ function githubUnderWay(
     );
   return going === undefined
     ? null
-    : `${COMMAND_SAYING[going.command_type].title} in this project is still under way, so ${notDone(press)} Try again once it has finished.`;
+    : `${COMMAND_SAYING[going.command_type].underWay ?? COMMAND_SAYING[going.command_type].title} in this project is still under way, so ${notDone(press)} Try again once it has finished.`;
 }
 
 /** A command for a task as a person would say it, at the start of a refusal. */

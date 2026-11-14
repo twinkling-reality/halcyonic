@@ -316,7 +316,7 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
     assert.deepEqual(again.admitted ? null : again.rejection, {
       code: 'invalid_state',
       message:
-        'Send for Review in this project is still under way, so Send for Review was not done. Try again once it has finished.',
+        'Sending for review in this project is still under way, so Send for Review was not done. Try again once it has finished.',
     });
     // A command under way has no Stop: choosing a check is told to try again, never to stop it (AUDIT2 S1).
     const checking = admitCommand(
@@ -327,7 +327,7 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
     assert.deepEqual(checking.admitted ? null : checking.rejection, {
       code: 'invalid_state',
       message:
-        'Send for Review in this project is still under way, so Choose Check was not done. Try again once it has finished.',
+        'Sending for review in this project is still under way, so Choose Check was not done. Try again once it has finished.',
     });
     for (const [sent, press] of [
       [
@@ -341,7 +341,7 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
         refused.admitted ? null : refused.rejection,
         {
           code: 'invalid_state',
-          message: `Send for Review in this project is still under way, so ${press} was not done. Try again once it has finished.`,
+          message: `Sending for review in this project is still under way, so ${press} was not done. Try again once it has finished.`,
         },
         sent.command_type,
       );

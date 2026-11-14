@@ -272,8 +272,8 @@ export async function heldInHistory(
 export function heldKeptMessage(hit: HeldHit, repository: string): string {
   const where =
     hit.named === true
-      ? `A file's or folder's name in the branch's last commit (${hit.path}, with the secret's name in place of its value)`
-      : `The ${hit.path} in the branch's last commit`;
+      ? `A file's or folder's name saved in the project's last version (${hit.path}, with the secret's name in place of its value)`
+      : `The ${hit.path} saved in the project's last version`;
   return `${where} holds a secret this Mac keeps (${hit.what}), and ${repository} may already have it, so nothing was sent. Make a new ${hit.what} with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. Until the old one is turned off, treat it as exposed.`;
 }
 
@@ -319,12 +319,12 @@ export function heldHistoryMessage(
   }
   const where =
     hit.within === true
-      ? `A name in ${hit.path === '' ? 'the top folder' : `the folder ${hit.path}`} of an earlier version, which ${repository} does not have,`
+      ? `A name in ${hit.path === '' ? 'the top folder' : `the folder ${hit.path}`} of a saved version, which ${repository} does not have,`
       : hit.named === true
-        ? `A file's or folder's name in an earlier version that ${repository} does not have (${hit.path}, with the secret's name in place of its value)`
+        ? `A file's or folder's name in a saved version that ${repository} does not have (${hit.path}, with the secret's name in place of its value)`
         : hit.path === null
           ? `The description saved with an earlier change, which ${repository} does not have,`
-          : `An earlier version of ${hit.path}, which ${repository} does not have,`;
+          : `A saved version of ${hit.path}, which ${repository} does not have,`;
   const developer =
     hit.path === null
       ? 'ask a developer to change that description'

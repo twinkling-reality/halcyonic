@@ -294,7 +294,7 @@ describe('admitting a restore', () => {
     assert.equal(!running.admitted && running.rejection.code, 'invalid_state');
     assert.match(
       !running.admitted ? running.rejection.message : '',
-      /^The task Workstream is running in this project, so Restore was not done\. Stop it, then put the files back\.$/,
+      /^The task Workstream is running in this project, so Restore was not done\. Stop it, then press Restore again\.$/,
     );
     finishTurn();
     assert.equal(admitCommand(restore(saved), projection, RUNTIMES).admitted, true);

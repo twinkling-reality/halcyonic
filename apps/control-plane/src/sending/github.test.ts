@@ -860,7 +860,7 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     assert.equal(pressed.ok ? null : pressed.code, 'holds_secret_in_history');
     assert.equal(
       pressed.ok ? '' : pressed.message,
-      'An earlier version of key.txt, which owner/garden does not have, holds a secret this Mac keeps (MY_SERVICE_KEY), and sending now would send it too, so nothing was sent. To send, make a new MY_SERVICE_KEY with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. The old one is still in that earlier version and goes with it: until it is turned off, treat it as exposed. Or ask a developer to take that old version out. Or send the files as they are now, without the earlier versions, as one change.',
+      'A saved version of key.txt, which owner/garden does not have, holds a secret this Mac keeps (MY_SERVICE_KEY), and sending now would send it too, so nothing was sent. To send, make a new MY_SERVICE_KEY with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. The old one is still in that earlier version and goes with it: until it is turned off, treat it as exposed. Or ask a developer to take that old version out. Or send the files as they are now, without the earlier versions, as one change.',
     );
     assert.equal(git(origin, 'for-each-ref', '--format=%(refname)'), before);
     assert.equal(onRemote(), false);
@@ -964,7 +964,7 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     assert.equal(pressed.ok ? null : pressed.code, 'holds_secret_in_history');
     assert.match(
       pressed.ok ? '' : pressed.message,
-      /^A file's or folder's name in an earlier version that owner\/garden does not have \(note-\[MY_SERVICE_KEY\]\.txt, with the secret's name in place of its value\) holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
+      /^A file's or folder's name in a saved version that owner\/garden does not have \(note-\[MY_SERVICE_KEY\]\.txt, with the secret's name in place of its value\) holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
     );
     assert.equal((pressed.ok ? '' : pressed.message).includes(VALUE), false);
     writeFileSync(join(folder, `now-${VALUE}.txt`), 'x\n');
@@ -985,7 +985,7 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     assert.equal(pressed.ok ? null : pressed.code, 'holds_secret_in_history');
     assert.match(
       pressed.ok ? '' : pressed.message,
-      /^A name in the top folder of an earlier version, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
+      /^A name in the top folder of a saved version, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
     );
     assert.equal((pressed.ok ? '' : pressed.message).includes(VALUE), false);
     assert.equal(onRemote(), false);
@@ -1044,7 +1044,7 @@ describe('Send One Change: the files as they are now, as one change on a base th
     assert.equal(refused.ok ? null : refused.code, 'holds_secret_in_history');
     assert.match(
       refused.ok ? '' : refused.message,
-      /^An earlier version of key\.txt, which owner\/garden does not have/,
+      /^A saved version of key\.txt, which owner\/garden does not have/,
     );
     const head = git(folder, 'rev-parse', 'HEAD');
     const status = git(folder, 'status', '--porcelain');
@@ -1216,7 +1216,7 @@ describe('Send One Change: the files as they are now, as one change on a base th
     assert.equal(refused.ok ? null : refused.code, 'holds_secret_in_history');
     assert.match(
       refused.ok ? '' : refused.message,
-      /^An earlier version of \.env, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
+      /^A saved version of \.env, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
     );
     assert.equal(onRemote(), false);
     const one = await oneReview();
@@ -1246,7 +1246,7 @@ describe('Send One Change: the files as they are now, as one change on a base th
     assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
     assert.equal(
       pressed.ok ? '' : pressed.message,
-      "The .env in the branch's last commit holds a secret this Mac keeps (MY_SERVICE_KEY), and owner/garden may already have it, so nothing was sent. Make a new MY_SERVICE_KEY with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. Until the old one is turned off, treat it as exposed.",
+      "The .env saved in the project's last version holds a secret this Mac keeps (MY_SERVICE_KEY), and owner/garden may already have it, so nothing was sent. Make a new MY_SERVICE_KEY with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. Until the old one is turned off, treat it as exposed.",
     );
     assert.equal(remoteRefs(), refs, 'nothing pushed');
   });

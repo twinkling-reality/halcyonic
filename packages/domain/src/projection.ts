@@ -244,6 +244,11 @@ function stoppedByRestart(code: string | undefined): boolean {
 export const TOOL_RESULT_HISTORY = 256;
 
 /** A busy task's status in words, for the busy rule's refusals (core audit 2026-11-03). */
+/** What is happening while a command is under way, as a person says it, else its button's words (AUDIT2). */
+function underWay(type: keyof typeof COMMAND_SAYING): string {
+  return COMMAND_SAYING[type].underWay ?? COMMAND_SAYING[type].title;
+}
+
 /** A person's task title as a refusal names it: whole up to 60 characters, else cut at a word with an ellipsis. */
 function clipTitle(title: string): string {
   const one = title.replace(/\s+/g, ' ').trim();
@@ -1427,8 +1432,8 @@ export class Projection {
         // The press did nothing, and every caller adds its own next step (AUDIT2, 22:14Z).
         return {
           kind: 'command',
-          sentence: `${COMMAND_SAYING[command.envelope.command_type].title} in this project is still under way, so this was not done.`,
-          busy: `${COMMAND_SAYING[command.envelope.command_type].title} in this project is still under way`,
+          sentence: `${underWay(command.envelope.command_type)} in this project is still under way, so this was not done.`,
+          busy: `${underWay(command.envelope.command_type)} in this project is still under way`,
         };
     }
     return null;
