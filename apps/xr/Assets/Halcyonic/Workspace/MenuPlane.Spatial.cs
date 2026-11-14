@@ -375,8 +375,10 @@ namespace Halcyonic.XR.Workspace
             ConsiderWidth(shelf, shelfKey, viewer, characters, placing, shelfComing);
             // One move per open (AUDIT's 01:15Z; JUDGE's 01:13Z: a few degrees re-decided at each page moved the room under a reader):
             // the first draw of an open decides the aside for the largest footprint at the width in use, and it holds until the plane
-            // rests or closes; only the shelf's own place or the text size changing decides it again. Placing, or no shelf, holds none.
-            var asideKey = (shelfKey, GlazeText.Scale);
+            // rests or closes; only the shelf's own place, the text size or the plane's width changing decides it again, one move per
+            // such event (JUDGE's charBatch3: decided at the placing's floor width, the shelf met the plane once Apply laid it wider).
+            // Placing, or no shelf, holds none.
+            var asideKey = (shelfKey, GlazeText.Scale, widthRule.WidthDp);
             if (!open || placing || shelf == null) { heldAside = 0f; asideDecided = null; }
             else if (asideDecided != asideKey) { heldAside = AsideFor(shelf, viewer, widthRule.WidthDp); asideDecided = asideKey; }
             ShelfAsideDegrees = heldAside;
@@ -384,7 +386,7 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The aside held for this open, and the shelf's place and text size it was decided for; null while none is decided.</summary>
         private float heldAside;
-        private (string Shelf, float Scale)? asideDecided;
+        private (string Shelf, float Scale, float Width)? asideDecided;
 
         private void ConsiderWidth(Vector3[]? shelf, string shelfKey, Vector3 viewer, int characters, bool placing, bool shelfComing)
         {
