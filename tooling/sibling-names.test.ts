@@ -1,7 +1,8 @@
 /**
- * No screen of the product names a sibling product (LANE-RULES 19 for anything a judge sees; the lead's
- * ruling of 2026-11-13 for every build): the headset says where an understanding or a measurement came
- * from in its own words, and a provider's id stays data in its records, never drawn. This guard reads
+ * No screen of the product names a sibling product, in any build (docs/internal/architecture/XR_CLIENT.md,
+ * the provenance paragraph; docs/internal/product/WORDS.md, "A provenance line"): the headset says where
+ * an understanding or a measurement came from in its own words, and a provider's id stays data in its
+ * records, never drawn. This guard reads
  * every string literal the headset's code can draw (the client package's runtime and the app's scripts
  * outside Editor folders; comments are not drawn and are skipped) and fails on any that holds a sibling
  * product's name, or a name this checkout keeps out of the repository where it keeps any. The sibling
