@@ -316,7 +316,7 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
     assert.deepEqual(again.admitted ? null : again.rejection, {
       code: 'invalid_state',
       message:
-        'Send for Review in this project is still under way, so this was not done. Try again once it has finished.',
+        'Send for Review in this project is still under way, so Send for Review was not done. Try again once it has finished.',
     });
     // A command under way has no Stop: choosing a check is told to try again, never to stop it (AUDIT2 S1).
     const checking = admitCommand(
@@ -327,19 +327,21 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
     assert.deepEqual(checking.admitted ? null : checking.rejection, {
       code: 'invalid_state',
       message:
-        'Send for Review in this project is still under way, so this was not done. Try again once it has finished.',
+        'Send for Review in this project is still under way, so Choose Check was not done. Try again once it has finished.',
     });
-    for (const sent of [
-      command('project.unpublish', { project_id: project.projectId, commit: 'c'.repeat(40) }),
-      command('project.make_private', { project_id: project.projectId }),
-    ]) {
+    for (const [sent, press] of [
+      [
+        command('project.unpublish', { project_id: project.projectId, commit: 'c'.repeat(40) }),
+        'Take Down',
+      ],
+      [command('project.make_private', { project_id: project.projectId }), 'Make Private'],
+    ] as const) {
       const refused = admitCommand(sent, projection, RUNTIMES);
       assert.deepEqual(
         refused.admitted ? null : refused.rejection,
         {
           code: 'invalid_state',
-          message:
-            'Send for Review in this project is still under way, so this was not done. Try again once it has finished.',
+          message: `Send for Review in this project is still under way, so ${press} was not done. Try again once it has finished.`,
         },
         sent.command_type,
       );
@@ -379,8 +381,18 @@ describe('admission of a project taken off the list (ADR 0063)', () => {
     assert.deepEqual(choosing.admitted ? null : choosing.rejection, {
       code: 'invalid_state',
       message:
-        'The task Field guide cards with a photo, a range map and a call for… is waiting for you in this project, so this was not done. Answer it or stop it, then try again.',
+        'The task Field guide cards with a photo, a range map and a call for… is waiting for you in this project, so Choose Check was not done. Answer it or stop it, then try again.',
     });
+    // Send too: a task waiting for you does not finish by itself (found beside AUDIT2 S1).
+    const sending = admitCommand(
+      command('project.send', { project_id: project.projectId, review: 'a'.repeat(64) }),
+      projection,
+      RUNTIMES,
+    );
+    assert.equal(
+      sending.admitted ? '' : sending.rejection.message,
+      'The task Field guide cards with a photo, a range map and a call for… is waiting for you in this project, so Send for Review was not done. Answer it or stop it, then try again.',
+    );
     const view = projection.project(project.projectId);
     assert.ok(view !== undefined);
     assert.match(

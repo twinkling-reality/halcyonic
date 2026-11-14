@@ -253,11 +253,16 @@ function admit(
           return reject(
             scope,
             'invalid_state',
-            `${commandInWords(writing.command_type)} in this project is still under way, so this was not done. ${after}`,
+            `${commandInWords(writing.command_type)} in this project is still under way, so ${notDone(command.command_type)} ${after}`,
           );
         // A turn at work may leave a file half written (AUDIT2 S1), as a restore waits for it.
-        const busy = projection.projectBusy(projectId);
-        if (busy !== null) return reject(scope, 'invalid_state', `${busy} ${after}`);
+        const busy = projection.projectBusyReason(projectId);
+        if (busy !== null)
+          return reject(
+            scope,
+            'invalid_state',
+            `${busy.busy}, so ${notDone(command.command_type)} ${busy.waiting === true ? 'Answer it or stop it, then try again.' : after}`,
+          );
       }
       return { admitted: true, policy, scope, runtime: null };
     }
@@ -337,7 +342,11 @@ function admit(
       // Files the runtime is still writing cannot be put back, and a restore must not race a start.
       const busy = projection.projectBusyReason(projectId);
       if (busy !== null)
-        return reject(scope, 'invalid_state', busyWords(busy, 'Stop it, then put the files back.'));
+        return reject(
+          scope,
+          'invalid_state',
+          busyWords(busy, command.command_type, 'Stop it, then put the files back.'),
+        );
       return { admitted: true, policy, scope, runtime: null };
     }
 
@@ -426,7 +435,7 @@ function admit(
           return reject(
             scope,
             'invalid_state',
-            busyWords(busy, 'Check the project once it stops.'),
+            busyWords(busy, command.command_type, 'Check the project once it stops.'),
           );
         return { admitted: true, policy, scope, runtime: null };
       }
@@ -540,7 +549,7 @@ function admit(
       const scope = { ...NO_SCOPE, project_id: projectId };
       if (project.location === null)
         return reject(scope, 'location_required', 'The project has no folder on this computer.');
-      const going = githubUnderWay(projection, projectId, command.command_id);
+      const going = githubUnderWay(projection, projectId, command.command_id, command.command_type);
       if (going !== null) return reject(scope, 'invalid_state', going);
       if (command.command_type === 'project.unpublish') {
         if (project.published === undefined)
@@ -586,7 +595,7 @@ function admit(
       const scope = { ...NO_SCOPE, project_id: projectId };
       if (project.location === null)
         return reject(scope, 'location_required', 'The project has no folder on this computer.');
-      const going = githubUnderWay(projection, projectId, command.command_id);
+      const going = githubUnderWay(projection, projectId, command.command_id, command.command_type);
       if (going !== null) return reject(scope, 'invalid_state', going);
       if (projection.madeRepository(projectId)?.visibility !== 'public')
         return reject(
@@ -1140,7 +1149,7 @@ function admit(
         return reject(
           scope,
           'invalid_state',
-          busyWords(busy, "Choose the project's check once it stops."),
+          busyWords(busy, command.command_type, "Choose the project's check once it stops."),
         );
       return { admitted: true, policy, scope, runtime: null };
     }
@@ -1487,9 +1496,10 @@ function untilFree(status: ExecutionStatus): string {
 function busyWords(
   busy: {
     readonly kind: 'task' | 'command';
-    readonly sentence: string;
+    readonly busy: string;
     readonly waiting?: boolean;
   },
+  press: CommandType,
   forTask: string,
 ): string {
   // A task waiting for the person does not stop by itself: answer it or stop it (AUDIT2 N1).
@@ -1499,7 +1509,12 @@ function busyWords(
       : busy.waiting === true
         ? 'Answer it or stop it, then try again.'
         : forTask;
-  return `${busy.sentence} ${next}`;
+  return `${busy.busy}, so ${notDone(press)} ${next}`;
+}
+
+/** The refused press by its own button: "Restore was not done." (AUDIT2 S1, 22:29Z). */
+function notDone(press: CommandType): string {
+  return `${COMMAND_SAYING[press].title} was not done.`;
 }
 
 /**
@@ -1515,7 +1530,12 @@ const GITHUB_ACTIONS: ReadonlySet<CommandType> = new Set([
   'project.make_private',
 ]);
 
-function githubUnderWay(projection: Projection, projectId: string, self: string): string | null {
+function githubUnderWay(
+  projection: Projection,
+  projectId: string,
+  self: string,
+  press: CommandType,
+): string | null {
   const going = projection
     .pendingCommands()
     .find(
@@ -1526,7 +1546,7 @@ function githubUnderWay(projection: Projection, projectId: string, self: string)
     );
   return going === undefined
     ? null
-    : `${COMMAND_SAYING[going.command_type].title} in this project is still under way, so this was not done. Try again once it has finished.`;
+    : `${COMMAND_SAYING[going.command_type].title} in this project is still under way, so ${notDone(press)} Try again once it has finished.`;
 }
 
 /** A command for a task as a person would say it, at the start of a refusal. */

@@ -1392,6 +1392,8 @@ export class Projection {
   ): {
     readonly kind: 'task' | 'command';
     readonly sentence: string;
+    /** What is busy, without the sentence's end, for a caller that names its own press (AUDIT2 S1, 22:29Z). */
+    readonly busy: string;
     /** A task waiting for the person, which does not stop by itself (AUDIT2 N1). */
     readonly waiting?: boolean;
   } | null {
@@ -1405,12 +1407,14 @@ export class Projection {
         return {
           kind: 'task',
           sentence: `${named} is ${BUSY_WORDS[status]} in this project, so this was not done.`,
+          busy: `${named} is ${BUSY_WORDS[status]} in this project`,
           waiting: status === 'waiting_for_human',
         };
       if (status === 'unknown' && !stoppedByRestart(state.unknownReason?.code))
         return {
           kind: 'task',
           sentence: `${named} may still be running in this project (its state is unknown), so this was not done.`,
+          busy: `${named} may still be running in this project (its state is unknown)`,
         };
     }
     for (const command of this.#pendingCommands) {
@@ -1424,6 +1428,7 @@ export class Projection {
         return {
           kind: 'command',
           sentence: `${COMMAND_SAYING[command.envelope.command_type].title} in this project is still under way, so this was not done.`,
+          busy: `${COMMAND_SAYING[command.envelope.command_type].title} in this project is still under way`,
         };
     }
     return null;
