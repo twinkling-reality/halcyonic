@@ -211,7 +211,11 @@ namespace Halcyonic.XR.UI
         public const int AccentMid = 0x3B8EA6;
         public const int AttentionMid = 0xA37A23;
         public const int AgentOrb = 0x7A6BD6;
-        public const int ProjectTile = 0x3F8FB0;
+        /// <summary>
+        /// The project emblem's tile: a deep, quiet teal, so the one accent stays the main action's (the lead's one-accent ruling; SCREENS's
+        /// 2026-11-14T02:28Z reader: the brighter 0x3F8FB0 pulled the eye nearly as much as Start Task). Its white glyph reads about 8:1 on it.
+        /// </summary>
+        public const int ProjectTile = 0x2E5566;
         public const int TileInk = 0xE8F6FB;
 
         private readonly Dictionary<KitRole, List<TextMeshPro>> texts = new Dictionary<KitRole, List<TextMeshPro>>();
