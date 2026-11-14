@@ -29,6 +29,7 @@ import {
   parseEventEnvelope,
   QuestionPrompts,
   READING_FLOOR_PX,
+  REALTIME_PROTOCOL_VERSION,
   RUNTIME_EVENT_TYPES,
   RuntimeCapabilities,
   RuntimeDescriptor,
@@ -229,7 +230,12 @@ describe('commands and realtime messages', () => {
     assert.ok(issue?.path.startsWith('/payload/options/deep/0/0'));
     const message = parseClientMessage({ type: 'command', command: start({ deep }) });
     assert.match(message.ok ? '' : (message.issues[0]?.path ?? ''), /^\/command\/payload\/options/);
-    const hello = parseClientMessage({ type: 'hello', protocol: 1, client: deep, resume: null });
+    const hello = parseClientMessage({
+      type: 'hello',
+      protocol: REALTIME_PROTOCOL_VERSION,
+      client: deep,
+      resume: null,
+    });
     assert.equal(
       hello.ok ? null : hello.issues[0]?.path,
       '/client/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0',
@@ -273,7 +279,7 @@ describe('commands and realtime messages', () => {
   test('hello and ping parse; unknown message types do not', () => {
     const hello = {
       type: 'hello',
-      protocol: 1,
+      protocol: REALTIME_PROTOCOL_VERSION,
       client: { name: 'xr', version: '0.1.0', device_label: 'Quest 3' },
       resume: null,
     };
