@@ -569,9 +569,9 @@ namespace Halcyonic.Client
                 var answers = new List<RoomAction>();
                 if (binding[KitPlace.Yes] is { Available: true } sure) answers.Add(new RoomAction(sure, main: true, locks: true));
                 if (binding[KitPlace.Cancel] is { Available: true } back) answers.Add(new RoomAction(back, main: false));
-                var cut = stops.IndexOf(KitMomentWords.Dot, System.StringComparison.Ordinal);
-                return cut > 0
-                    ? new RoomBar(RoomBarState.Confirm, body: LineWords.Ours(stops.Substring(cut + KitMomentWords.Dot.Length)), sentence: stops.Substring(0, cut), column: answers)
+                // The two handed apart by the binding (KitWorkModel.StopsDoes), never split here.
+                return model.StopsDoes is string does
+                    ? new RoomBar(RoomBarState.Confirm, body: LineWords.Ours(does), sentence: stops, column: answers)
                     : new RoomBar(RoomBarState.Confirm, body: LineWords.Ours(stops), column: answers);
             }
             if (model.Need is KitNeed need) return Asked(binding, need);

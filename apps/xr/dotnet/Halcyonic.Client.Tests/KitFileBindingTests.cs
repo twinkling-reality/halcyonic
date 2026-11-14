@@ -789,4 +789,26 @@ public class KitFileBindingTests
             Assert.That(binding!.Model.Ask!.Lines.Select(line => line.Words), Is.EqualTo(frame.Lines.Where(line => line.Action == null).Select(line => line.Words)), prompts[0].Text);
         }
     }
+    /// <summary>
+    /// Stop's confirmation hands its question and what stopping does apart, never one line joined on a dot that a reader splits
+    /// (AUDIT's 2026-11-14T05:37Z SHOULD): the question in the sentence bar, what it does in the panel, as an approval's stand.
+    /// </summary>
+    [Test]
+    public void StopsConfirmationHandsItsQuestionAndWhatItDoesApartNeverOnADot()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var steering = Steering();
+            var running = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+            steering.Press(WorkspaceAction.Interrupt, running);
+            var binding = KitFileBinding.Of(Screen(running, steering, new FileScreen { Section = FileSection.Activity }), steering.Armed, running, "", Live, "Storefront", Spine,
+                roomDesign: true)!;
+            Assert.That((binding.Model.Stops, binding.Model.StopsDoes), Is.EqualTo(((string?)WorkspaceText.StopQuestion, (string?)WorkspaceText.StopEffect)));
+            var bar = RoomBar.Of(binding, VoiceStage.Idle, false);
+            Assert.That((bar.State, bar.Sentence, bar.Body.Text), Is.EqualTo((RoomBarState.Confirm, (string?)"Stop Task?", "Stopped Once Agent Confirms")));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }

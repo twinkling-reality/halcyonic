@@ -268,10 +268,18 @@ namespace Halcyonic.Client
             KitNeed? need = null;
             var sending = At(KitPlace.Sending);
             string? stops = null;
+            string? stopsDoes = null;
             if (stopping)
             {
                 if (cancel == null || frame.Lines.LastOrDefault(line => line.Action == null) is not PageLine asks) return null;
                 stops = asks.Words;
+                // Halcyonic's own Stop line, known by its whole words: its question and what stopping does handed apart, so no reader
+                // splits a sentence on its dot (AUDIT's 2026-11-14T05:37Z); any other line is the question alone.
+                if (stops == WorkspaceText.ConfirmationPrompt(WorkspaceAction.Interrupt, null))
+                {
+                    stops = WorkspaceText.StopQuestion;
+                    stopsDoes = WorkspaceText.StopEffect;
+                }
             }
             if (instruction == null && !stopping && (deny != null || approve != null || cancel != null || sending != null) && KitPresenter.NeedOf(workspace) is KitNeed asked)
             {
@@ -366,7 +374,7 @@ namespace Halcyonic.Client
                 send != null && send.Available, send != null ? send.Reason : KitPresenter.WhyNotSendOf(connection), work.Spine, work.SpineFoot,
                 need, ask, work.Notice, work.Avatar, said, selectors != null ? selectors.Environment : work.Environment,
                 selectors != null ? selectors.Agent : work.Agent, selectors?.EnvironmentChangeable ?? false, selectors?.AgentChangeable ?? false, instruction,
-                draftSpoken && draft.Length > 0, chooses, stops,
+                draftSpoken && draft.Length > 0, chooses, stops, stopsDoes: stopsDoes,
                 working: roomDesign && workspace.Execution?.Status is Halcyonic.Contracts.ExecutionStatus.Running or Halcyonic.Contracts.ExecutionStatus.Verifying,
                 step: roomDesign ? RoomWork.Of(workspace.Execution) : null,
                 offersNeverAsk: selectors?.OffersNeverAsk ?? false, neverAsk: selectors?.NeverAsk ?? false,

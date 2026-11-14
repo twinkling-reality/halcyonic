@@ -406,7 +406,7 @@ namespace Halcyonic.Client
             string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
             KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null,
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
-            KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false,
+            KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false, string? stopsDoes = null,
             RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null, RoomResult? result = null,
             Halcyonic.Contracts.AutoFixView? autoFix = null, RoomCard? standing = null)
         {
@@ -417,6 +417,7 @@ namespace Halcyonic.Client
             NeverAsk = neverAsk;
             RunNeverAsk = runNeverAsk;
             Stops = stops;
+            StopsDoes = stopsDoes;
             Working = working;
             Step = step;
             Chooses = chooses;
@@ -470,6 +471,9 @@ namespace Halcyonic.Client
 
         /// <summary>What Stop's confirmation asks, the file's own words, while Stop is armed (the redesign); else null.</summary>
         public string? Stops { get; }
+
+        /// <summary>What stopping does, handed apart from <see cref="Stops"/>, its question, by the binding; null where the file's line is the question alone.</summary>
+        public string? StopsDoes { get; }
 
         /// <summary>Whether the agent or its checks are at work now: the run is running or verifying (the redesign's at work, DESIGN 2.3).</summary>
         public bool Working { get; }

@@ -646,11 +646,17 @@ namespace Halcyonic.Client
         /// The question a deliberate confirmation asks, naming exactly what would be sent. Approving
         /// and denying ask about the request shown whole above the question (<see cref="Request"/>).
         /// </summary>
+        /// <summary>Stop's confirmation, its question, handed apart from what stopping does where the redesign lays them (AUDIT's 2026-11-14T05:37Z).</summary>
+        public const string StopQuestion = "Stop Task?";
+
+        /// <summary>What stopping does, handed apart from <see cref="StopQuestion"/>: the task stops only once its agent app confirms it.</summary>
+        public const string StopEffect = "Stopped Once Agent Confirms";
+
         public static string ConfirmationPrompt(WorkspaceAction action, string? instruction) => action switch
         {
             WorkspaceAction.Approve => "Approve Request?",
             WorkspaceAction.Deny => "Deny Request?",
-            WorkspaceAction.Interrupt => "Stop Task? · Stopped Once Agent Confirms",
+            WorkspaceAction.Interrupt => StopQuestion + " · " + StopEffect,
             WorkspaceAction.Instruct => "Send Instruction? · " + OneLine(instruction ?? ""),
             WorkspaceAction.Answer => "Send Answers?",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
