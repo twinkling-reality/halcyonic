@@ -399,7 +399,10 @@ namespace Halcyonic.XR.UI
                 }
                 else
                 {
-                    var (_, tall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, card.DescriptionMostLines);
+                    var (described, tall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, card.DescriptionMostLines);
+                    // Someone's own words on a card that presses to them whole (the recap's first task, the lead's 2026-11-14T02:04Z):
+                    // their lead cut at a word in the card's lines, counted whole as a row's excerpt is. Our own words are never cut.
+                    if (card.Press != null && card.Description.AllTheirs) tall = Excerpt(described, card.Description, width, card.DescriptionMostLines, DescriptionLineDp);
                     down += tall;
                 }
             }
