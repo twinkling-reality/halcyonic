@@ -20,9 +20,11 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The fitted shelf's worst case (the lead's 2026-11-14T02:21Z ruling 1 (a), AUDIT's 02:23Z and 02:34Z): the width every shelf
         /// takes beside the plane at rest (CharacterStage.FittedWidth, from the rest a real plane reasons through its own geometry), its
         /// places each carrying the widest two-line label the shelf's own measure lays, at the search's nearest and farthest distance.
-        /// Adjacent labels and adjacent characters stand apart by more than zero as the eyes see them, no label is cut, and every word
-        /// of every label reads at or over 14 dp as the eyes see it where it is drawn, its far words included. A witness: the same
-        /// shelf with its places a quarter as far apart must be caught touching.
+        /// It FAILS where adjacent characters (their own shell and feature, triangle by triangle, the glow left out) stand apart by zero
+        /// or less as the eyes see them, or where any glyph of any label reads under 14 dp there, its far words included. Labels that
+        /// touch or are cut it measures and SAYS, with the same labels at the shelf's natural pitch beside them: the lead's 02:21Z rule
+        /// for that case is the fallback proof ('every character and its label inside the field', JUDGE's walk), said with the numbers,
+        /// not a stop. Witnesses: the same shelf with its places a quarter as far apart must be caught, its characters and its labels.
         /// </summary>
         private static List<string> ShelfWorstCase(string size)
         {
@@ -62,10 +64,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         var bodies = laid.Bodies[place].Apart(laid.Bodies[place + 1]);
                         closestLabels = Mathf.Min(closestLabels, labels);
                         closestBodies = Mathf.Min(closestBodies, bodies);
-                        if (labels <= 0f) failures.Add(size + ": " + ShelfWorstState + " at " + at + ": " + laid.Labels[place] + " and " + laid.Labels[place + 1] + " touch, " + Degrees(labels) + " degrees apart");
                         if (bodies <= 0f) failures.Add(size + ": " + ShelfWorstState + " at " + at + ": " + laid.Bodies[place] + " and " + laid.Bodies[place + 1] + " touch, " + Degrees(bodies) + " degrees apart");
                     }
-                    foreach (var cut in laid.Cut) failures.Add(size + ": " + ShelfWorstState + " at " + at + ": " + cut + " is cut");
+                    var natural = LayWorstShelf(root.transform, eyes, distance, places, CharacterStage.PitchOf(places, AgentShelfDraft.Width(places)));
+                    var naturalLabels = Enumerable.Range(0, places - 1).Min(place => natural.Labels[place].Apart(natural.Labels[place + 1]));
+                    DestroyLaid(natural.Views);
+                    Debug.Log("Halcyonic: parts: " + ShelfWorstState + " at " + size + ", " + at + ": " + (closestLabels > 0f && laid.Cut.Count == 0
+                        ? "THE TOUCH PROOF: every label apart and whole."
+                        : "THE FALLBACK PROOF (the lead's 02:21Z): labels " + (closestLabels > 0f ? "apart" : "touch, " + Degrees(closestLabels) + " degrees apart")
+                            + " (" + Degrees(naturalLabels) + " at the natural width), " + laid.Cut.Count + " cut: " + (laid.Cut.Count == 0 ? "none" : string.Join("; ", laid.Cut)) + "."));
                     if (laid.Smallest.Degrees < Glaze.MinimumTextDegrees - 0.0005f)
                         failures.Add(size + ": " + ShelfWorstState + " at " + at + ": " + laid.Smallest.Name + " is " + laid.Smallest.Degrees.ToString("0.000", CultureInfo.InvariantCulture)
                             + " degrees as the eyes see it where drawn, under 14 dp, " + Glaze.MinimumTextDegrees.ToString("0.000", CultureInfo.InvariantCulture) + ".");
@@ -77,7 +84,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The witness: a quarter of the pitch must be caught touching, or the check above proves nothing.
                 var witness = LayWorstShelf(root.transform, eyes, AgentShelfSearch.MinimumDistance, places, pitch / 4f);
                 if (!Enumerable.Range(0, places - 1).Any(place => witness.Labels[place].Apart(witness.Labels[place + 1]) <= 0f))
-                    failures.Add(size + ": " + ShelfWorstState + ": the touch check accepted labels a quarter as far apart");
+                    failures.Add(size + ": " + ShelfWorstState + ": the touch measure accepted labels a quarter as far apart");
+                if (!Enumerable.Range(0, places - 1).Any(place => witness.Bodies[place].Apart(witness.Bodies[place + 1]) <= 0f))
+                    failures.Add(size + ": " + ShelfWorstState + ": the touch check accepted characters a quarter as far apart");
                 DestroyLaid(witness.Views);
             }
             finally
@@ -118,7 +127,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 views.Add(view);
                 var label = view.Label.transform;
                 labels.Add(GlazeChecks.Of("label " + place, eyes, label.GetComponentsInChildren<Renderer>(false)));
-                bodies.Add(GlazeChecks.Of("character " + place, eyes, view.GetComponentsInChildren<Renderer>(false).Where(renderer => !renderer.transform.IsChildOf(label))));
+                // The character itself: its shell and feature, triangle by triangle; the halo is a glow four times the body, never its edge.
+                bodies.Add(GlazeChecks.MeshOutline("character " + place, eyes, view.GetComponentsInChildren<Renderer>(false)
+                    .Where(renderer => !renderer.transform.IsChildOf(label) && renderer.name is "Shell" or "Feature")));
                 foreach (var text in label.GetComponentsInChildren<TMP_Text>(false))
                 {
                     if (string.IsNullOrEmpty(text.text) || GlazeIcons.IsIcon(text)) continue;
