@@ -97,9 +97,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var asideHeard = new List<string>();
             var pageClosed = false;
             string? heldAside = null;
+            var formSinceAside = true;
             Application.LogCallback heard = (message, _, _) =>
             {
-                if (message.StartsWith("Halcyonic: the shelf stands aside", StringComparison.Ordinal)) lock (asideHeard) asideHeard.Add(message);
+                if (message.StartsWith("Halcyonic: the shelf stands aside", StringComparison.Ordinal)
+                    || message.StartsWith("Halcyonic: the plane lays its", StringComparison.Ordinal)) lock (asideHeard) asideHeard.Add(message);
                 // And the bar's own warning where it lays past the footprint the shelf search keeps clear of (FIELD, AUDIT 17:25Z).
                 if (message.StartsWith("Halcyonic: older view drew a whole screen", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the bar laid past its largest footprint", StringComparison.Ordinal)
@@ -524,18 +526,21 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 void AsideHeld(List<string> asideFound)
                 {
+                    // One move per form event, only growing (AUDIT, 2026-11-14T03:17Z): two aside lines with no width line (the plane's form
+                    // events) between them fail, and an aside that shrinks within one open fails. A page the walk closed starts a new open.
                     List<string> lines;
                     lock (asideHeard) { lines = asideHeard.ToList(); asideHeard.Clear(); }
-                    var asideDegrees = lines.Select(line => System.Text.RegularExpressions.Regex.Match(line, @"aside (\d+) degrees").Groups[1].Value).ToList();
-                    if (lines.Count > 1)
-                        asideFound.Add("the shelf stood aside " + lines.Count + " times since the last moment (" + string.Join(", ", asideDegrees) + " degrees): the room moves under a person reading");
-                    if (pageClosed) heldAside = null;
-                    if (asideDegrees.Count > 0)
+                    if (pageClosed) { heldAside = null; formSinceAside = true; }
+                    foreach (var asideLine in lines)
                     {
-                        var asideNow = asideDegrees.Last();
-                        if (heldAside != null && asideNow != heldAside)
-                            asideFound.Add("the shelf's aside changed from " + heldAside + " to " + asideNow + " degrees while the page stayed open");
+                        if (asideLine.StartsWith("Halcyonic: the plane lays its", StringComparison.Ordinal)) { formSinceAside = true; continue; }
+                        var asideNow = System.Text.RegularExpressions.Regex.Match(asideLine, @"aside (\d+) degrees").Groups[1].Value;
+                        if (heldAside != null && !formSinceAside)
+                            asideFound.Add("the shelf stood aside again (" + heldAside + " then " + asideNow + " degrees) with no form event between: the room moves under a person reading");
+                        else if (heldAside != null && int.TryParse(heldAside, out var asideWas) && int.TryParse(asideNow, out var asideIs) && asideIs < asideWas)
+                            asideFound.Add("the shelf's aside shrank from " + heldAside + " to " + asideNow + " degrees within one open");
                         heldAside = asideNow;
+                        formSinceAside = false;
                     }
                     pageClosed = false;
                 }
