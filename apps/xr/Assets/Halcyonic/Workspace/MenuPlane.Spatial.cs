@@ -364,11 +364,28 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         /// <param name="placing">A local overlay places something in the room now (<see cref="IPlacesInRoom"/>): the floor's width meanwhile.</param>
         /// <param name="shelfComing">The room applied a shelf the stage has not stood yet: a placing that just ended waits for it.</param>
-        public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false, bool shelfComing = false)
+        /// <param name="open">A page stands open on the plane (not at rest, not compact): what a shelf stands aside for.</param>
+        public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false, bool shelfComing = false, bool open = true)
         {
             if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; ShelfAsideDegrees = 0f; return; }
-            var floor = PlaneWidth.FloorDp(GlazeText.Scale);
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
+            ConsiderWidth(shelf, shelfKey, viewer, characters, placing, shelfComing);
+            // One move per open (AUDIT's 01:15Z; JUDGE's 01:13Z: a few degrees re-decided at each page moved the room under a reader):
+            // the first draw of an open decides the aside for the largest footprint at the width in use, and it holds until the plane
+            // rests or closes; only the shelf's own place or the text size changing decides it again. Placing, or no shelf, holds none.
+            var asideKey = (shelfKey, GlazeText.Scale);
+            if (!open || placing || shelf == null) { heldAside = 0f; asideDecided = null; }
+            else if (asideDecided != asideKey) { heldAside = AsideFor(shelf, viewer, widthRule.WidthDp); asideDecided = asideKey; }
+            ShelfAsideDegrees = heldAside;
+        }
+
+        /// <summary>The aside held for this open, and the shelf's place and text size it was decided for; null while none is decided.</summary>
+        private float heldAside;
+        private (string Shelf, float Scale)? asideDecided;
+
+        private void ConsiderWidth(Vector3[]? shelf, string shelfKey, Vector3 viewer, int characters, bool placing, bool shelfComing)
+        {
+            var floor = PlaneWidth.FloorDp(GlazeText.Scale);
             var now = (GlazeText.Scale, shelfKey, characters, Mathf.RoundToInt(Direction.Yaw), Mathf.RoundToInt(Direction.Elevation), placing);
             // Counted in draws, never Time.frameCount, which the Editor's walks do not advance (JUDGE's charT: a cancel never ended).
             considered++;
@@ -402,7 +419,6 @@ namespace Halcyonic.XR.Workspace
                     + (waited is var (draws, coming) ? ", after the placing's end by " + draws + " draws, " + (coming ? "a shelf coming" : "none coming") : "") + ").");
             waited = null;
             Kit.Form = RoomForm.Full.AtWidth(widthRule.WidthDp);
-            ShelfAsideDegrees = placing || shelf == null ? 0f : AsideFor(shelf, viewer, widthRule.WidthDp);
         }
 
         /// <summary>

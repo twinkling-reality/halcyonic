@@ -852,7 +852,8 @@ namespace Halcyonic.XR.Workspace
             ApplyCharacterColours();
             if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
             // The plane's form, decided before any reader measures and held between events (the lead's 2026-11-13T17:16Z ruling).
-            plane.ConsiderForm(stage.Shelf, stage.Eyes, stage.Characters.Count, placing: placement is IPlacesInRoom, shelfComing: stage.ShelfComing);
+            plane.ConsiderForm(stage.Shelf, stage.Eyes, stage.Characters.Count, placing: placement is IPlacesInRoom, shelfComing: stage.ShelfComing,
+                open: navigator.ShowsAnything && !navigator.IsCompact);
             // The room yields while the plane is open (the lead's 19:34Z GO): the placed shelf stands aside where the plane's footprint
             // meets it, decided with the width on events only, and comes back once the plane shows nothing.
             stage.StandAside?.Invoke(navigator.ShowsAnything && !navigator.IsCompact ? plane.ShelfAsideDegrees : 0f);
