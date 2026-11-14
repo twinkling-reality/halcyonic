@@ -2,44 +2,51 @@ import { execFile } from 'node:child_process';
 import { sep } from 'node:path';
 
 /**
- * A confined server's leftover commands (AUDIT3's method, 2026-11-14 00:26Z): what an agent started in the background
- * keeps running after its shell exits, re-parented to launchd and in a process group of its own, so the server's stop
- * never reaches it. They end with the server, by themselves, on every stop path. A process is ended only when ALL of
- * these hold, each read again just before TERM and before KILL (same pid, same start time):
- * 1. it is this user's; 2. its working folder is the server's folder or inside it; 3. it started after the server
- * launched; 4. its parent is launchd (an orphan, left when its shell exited: Halcyonic's own confined preview and play
+ * A sandboxed run's leftover commands (AUDIT3's method, 2026-11-14 00:26Z): what an agent started in the background
+ * can keep running after its shell exits, re-parented to launchd, where the agent app's own stop never reaches it
+ * (what each app leaves: SECURITY.md). Each adapter calls this once its server or session has stopped, by any path. A
+ * process is ended only when ALL of these hold, each read again just before TERM and before KILL (same pid, same
+ * start time):
+ * 1. it is this user's; 2. its working folder is the run's folder or inside it; 3. it started after the run's server
+ * or session launched; 4. its parent is launchd (an orphan, left when its shell exited: Halcyonic's own confined preview and play
  * servers are the control plane's children and are never ended by this); 5. its environment cannot be read, which
  * macOS does for a sandboxed process (a terminal, a dev server and most editors a person runs are not sandboxed, and
  * the other four must hold too).
  * Nothing of any process is kept or logged. What escapes, the closed profile still holds: a process that leaves the
- * folder, or one not yet orphaned when the server stops (one more sweep a few seconds later catches that).
+ * folder, or one not yet orphaned when the run stops (one more sweep a few seconds later catches that).
  */
 export interface LeftoverScope {
-  /** The server's folder, as its real path. */
+  /** The run's folder, as its real path. */
   readonly folder: string;
-  /** When the server launched, in ms since the epoch. */
+  /** When the run's server or session launched, in ms since the epoch. */
   readonly launchedAtMs: number;
 }
 
 /** Runs a system tool and gives its standard output, or null where it failed. */
 export type Run = (file: string, args: readonly string[]) => Promise<string | null>;
 
-const run: Run = (file, args) =>
-  new Promise((resolve) => {
-    execFile(
-      file,
-      [...args],
-      {
-        encoding: 'utf8',
-        maxBuffer: 8 * 1024 * 1024,
-        env: { LC_ALL: 'C', PATH: '/usr/bin:/bin:/usr/sbin' },
-      },
-      (error, stdout) => resolve(error !== null && stdout === '' ? null : stdout),
-    );
-  });
-
 const LSOF = '/usr/sbin/lsof';
 const PS = '/bin/ps';
+
+/**
+ * The sweep's one way to run a process (AUDIT3 A2): lsof or ps by absolute path, no shell, a fixed PATH and LC_ALL=C.
+ * Any other file is refused, unrun.
+ */
+export const runListedTool: Run = (file, args) =>
+  file !== LSOF && file !== PS
+    ? Promise.resolve(null)
+    : new Promise((resolve) => {
+        execFile(
+          file,
+          [...args],
+          {
+            encoding: 'utf8',
+            maxBuffer: 8 * 1024 * 1024,
+            env: { LC_ALL: 'C', PATH: '/usr/bin:/bin:/usr/sbin' },
+          },
+          (error, stdout) => resolve(error !== null && stdout === '' ? null : stdout),
+        );
+      });
 /** A start time read to the second: one a second before the launch still counts as after it. */
 const START_SLACK_MS = 1000;
 /** Between TERM and KILL, and before the second sweep. */
@@ -89,7 +96,7 @@ async function hidden(pid: number, exec: Run): Promise<boolean> {
   return withEnvironment.trim() === plain.trim();
 }
 
-/** Whether `pid` is a leftover of the server now: in its folder, started after it, orphaned, its environment hidden. */
+/** Whether `pid` is a leftover of the run now: in its folder, started after it, orphaned, its environment hidden. */
 async function leftover(
   pid: number,
   scope: LeftoverScope,
@@ -143,8 +150,8 @@ async function sweep(
 }
 
 /**
- * Ends the server's leftover commands, after the server: one sweep now, and one more after a few seconds for a
- * command whose shell had not yet exited when the server stopped. Gives how many were ended (a count, for the log).
+ * Ends the run's leftover commands, once it has stopped: one sweep now, and one more after a few seconds for a
+ * command whose shell had not yet exited when the run stopped. Gives how many were ended (a count, for the log).
  */
 export async function endLeftovers(
   scope: LeftoverScope,
@@ -154,7 +161,7 @@ export async function endLeftovers(
     readonly wait?: (ms: number) => Promise<void>;
   } = {},
 ): Promise<number> {
-  const exec = options.exec ?? run;
+  const exec = options.exec ?? runListedTool;
   const signal = options.signal ?? ((pid, name) => process.kill(pid, name));
   const wait = options.wait ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const first = await sweep(scope, exec, signal, wait);

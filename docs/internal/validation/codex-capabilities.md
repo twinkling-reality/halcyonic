@@ -478,3 +478,18 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   that reason. The here-document test reads its steps from a file in the project; a pinned test runs the N=2
   command and fails if Codex starts keeping the early line.
 - **Not verified:** whether the cut is always exactly at the wait; a real model's turns; `thread/read` after the turn.
+
+## What a command leaves running (2026-11-14)
+
+- **Question:** does a command the model leaves in the background outlive its turn and the server?
+- **Environment:** this Mac, the pinned 0.157.0 binary, the scripted fake provider; confined and plain projects.
+- **Found:** Codex ends a command's whole process group when the command ends: `cmd &`, `nohup cmd &` and a double fork
+  `(cmd &)` had all ended by the turn's end, confined and plain. A process that starts a session of its own (`setsid`, as
+  tmux and screen do) kept running after the turn and after the adapter's close, confined and plain. Its environment is
+  hidden on a plain project too (Codex's own sandbox). The sweep (`packages/seatbelt/src/leftovers.ts`), run after the
+  close, ended it in both, and nothing else.
+- **Change:** once a server has stopped, by any path, the adapter sweeps each folder a thread ran in on it, counting what
+  started after that server's launch. The end to end tests pin both halves: a plain `&` ends with its command, by Codex;
+  a new session ends with the server (it fails with the sweep taken out).
+- **Not verified:** an approved command that ran outside Codex's sandbox (its environment is readable, so the sweep ends
+  nothing of it); a real model's turns.

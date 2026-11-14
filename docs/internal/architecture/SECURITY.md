@@ -342,19 +342,28 @@ another folder's; a model
 on this Mac, through the gate, which passes on only the model list, a model's details and chat with
 a model that runs here, refusing pull, push and every other request, so nothing leaves the Mac
 through Ollama; and the server's own API, whose password is readable from inside (below).
-A command an agent leaves running in the background (a dev server, a watcher) outlives its shell: OpenCode runs each
-shell command in a process group of its own, so the child is re-parented to launchd and the server's stop never reached
-it. Since 2026-11-14 the adapter ends such leftovers itself, after the server, on every stop path (a rest, the
-adapter's close, a lost connection, an exited server), with one more sweep a few seconds later
-(`packages/integrations/opencode/src/leftovers.ts`, AUDIT3's method). A process is ended only when all of these hold,
-re-read before TERM and again before KILL: it is this user's, its working folder is in the server's folder, it started
-after the server launched, its parent is launchd, and its environment cannot be read, which macOS does for a
-sandboxed process; a terminal, a dev server and most editors a person runs are not sandboxed, and the other four
-conditions must hold too. Halcyonic's own confined preview and play servers are the control plane's children and are
-never ended by it. Not guaranteed: a leftover that moved out of the folder, or that was not yet orphaned at the second
-sweep, keeps running inside the profile until the Mac restarts; and a process of the person's own started with an
-empty environment (`env -i`) also reads as sandboxed, so one that is orphaned in the folder after the launch would be
-ended with the leftovers.
+A command an agent leaves running in the background (a dev server, a watcher) can outlive its shell, and each agent
+app differs in what its own stop reaches, as seen on the pinned versions. OpenCode runs each shell command in a process
+group of its own, so a child started with `&` is re-parented to launchd and the server's stop never reaches it. Codex
+0.157.0 ends a command's whole process group when the command ends, so `&`, `nohup` and a double fork end with it; only
+a process that starts a session of its own (`setsid`, as tmux and screen do) outlives the turn and the server. Claude
+Code leaves even a plain `&` running after its turn and after its own end. What an agent started in the background in
+a sandboxed run ends with its session, in any folder: in the headset a person can neither see nor stop a process an
+agent left. A run outside the sandbox cannot be told apart from the person's own processes, so what it leaves keeps
+running (an approved Codex command outside its own sandbox, say). Since 2026-11-14 each adapter ends such leftovers
+itself once the server or session has stopped, by any path (for OpenCode a rest too), with one more sweep a few
+seconds later (`packages/seatbelt/src/leftovers.ts`, AUDIT3's method): OpenCode for each confined folder's server,
+Codex for each folder its server ran a thread in, Claude Code for each session once it has ended for good, never
+between the processes of a relaunch. A process is ended only when all of these hold, re-read before TERM and again
+before KILL: it is this user's, its working folder is the run's folder or inside it, it started after the run's server
+or session launched, its parent is launchd, and its environment cannot be read, which macOS does for a sandboxed
+process (Halcyonic's profile, a connected folder's lighter one, and Codex's own sandbox); a terminal, a dev server and
+most editors a person runs are not sandboxed, and the other four conditions must hold too. Halcyonic's own confined
+preview and play servers are the control plane's children and are never ended by it. Not guaranteed: a command that
+left the folder, or one not yet orphaned at the second sweep, keeps running inside the profile until the Mac restarts;
+what a run left before Halcyonic itself last stopped is not counted, since the sweep counts only what started after the
+current launch; and a person's process started with an empty environment (`env -i`) also reads as sandboxed, so one
+that is orphaned in the folder after the launch would be ended with the leftovers.
 An approved command that needs the network, or a local port it opens itself, fails; the person runs
 those ([opencode-sandbox.md](../validation/opencode-sandbox.md)). Outside the sandbox, as on other
 platforms, a saved "always" outruns the ask, below. The server's password, passed in

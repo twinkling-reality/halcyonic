@@ -71,6 +71,20 @@ store without changing this process's environment. That store holds one folder's
 looks for `projects/<any>/<session id>.jsonl` there and takes the first entry's `cwd`. In the e2e test a second
 adapter re-attached the session from it and the next instruction resumed it with the first turn in its history.
 
+## What a command leaves running (2026-11-14)
+
+- **Question:** does a command a confined Claude Code run leaves in the background outlive its turn and the session?
+- **Environment:** this Mac, the agent SDK's bundled Claude Code (0.3.283), the fake Messages API of
+  `confined.e2e.test.ts`, inside Halcyonic's profile.
+- **Found:** `sleep 600 > /dev/null 2>&1 &` and a process that starts a session of its own (`setsid`) both kept running
+  after the turn and after the adapter's close, orphaned (parent launchd) with their environment hidden. The sweep
+  (`packages/seatbelt/src/leftovers.ts`), run after the close, ended each, and nothing else.
+- **Change:** a session ends its folder's leftovers once it has ended for good, counting what started after its first
+  launch; never between the processes of a relaunch, whose next process's own background commands run orphaned
+  already. Confined or not (the lead, 02:25Z): under a connected folder's lighter profile the agent's commands read as
+  sandboxed too (AUDIT3, 02:06Z), and a person's own process there does not.
+  `confined.e2e.test.ts` pins both halves (the command outlives the turn; it ends with the session).
+
 ## Not verified
 
 - The real API host through the gate, with real TLS trust inside the profile (the system's roots, through

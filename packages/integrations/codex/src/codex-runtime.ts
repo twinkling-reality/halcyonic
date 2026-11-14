@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { chmod, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
@@ -35,6 +35,7 @@ import {
   confinedHomeEnvironment,
   confinedProfile,
   confinementKey,
+  endLeftovers,
   type GatedProvider,
   startProviderGate,
   TOOL_PREFIXES,
@@ -238,6 +239,15 @@ const BIND_ANY =
 /** Every turn on a confined server runs without Codex's own sandbox, inside Halcyonic's. */
 const EXTERNAL_SANDBOX = { type: 'externalSandbox', networkAccess: 'restricted' } as const;
 
+/** A folder as lsof names a process's working folder: its real path, or as given where that cannot be read. */
+function realFolder(folder: string): string {
+  try {
+    return realpathSync(folder);
+  } catch {
+    return folder;
+  }
+}
+
 /** A launched server as the adapter uses it. */
 interface Connection {
   readonly server: CodexServer;
@@ -245,6 +255,10 @@ interface Connection {
   /** Aborted when the adapter stops using the server: it exited, was given up or closed. */
   readonly halted: AbortController;
   readonly launchedAt: number;
+  /** Every project folder a thread ran in on this server, as its real path: what its sweep looks in. */
+  readonly folders: Set<string>;
+  /** The sweep of what this server's commands left running, once it has stopped (`endLeftovers`). */
+  swept: Promise<void> | null;
   /** Launched to replace a server that exited unexpectedly. */
   readonly relaunch: boolean;
   /** The provider ids (`halcyonic_<id>`) this server reaches through a key gate, each with its gate's address. */
@@ -546,6 +560,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       recovering: null,
       lost: false,
     };
+    connection.folders.add(realFolder(local.cwd));
     this.#threads.set(request.execution.execution_id, thread);
     this.#byThreadId.set(threadId, thread);
     thread.state.sequence += 1;
@@ -636,6 +651,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     // Numbered on from the journal, which drops what is not after its last.
     thread.state.sequence = request.last_sequence ?? 0;
     thread.state.activeTurnId = request.cut_turn?.turn_id ?? null;
+    connection.folders.add(realFolder(local.cwd));
     this.#threads.set(executionId, thread);
     this.#byThreadId.set(request.native_id, thread);
     try {
@@ -870,13 +886,13 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   async #shutDown(): Promise<void> {
-    const stopping: CodexServer[] = [];
+    const stopping: Connection[] = [];
     const slots = [this.#open, ...this.#confined.values()];
     const halt = () => {
       for (const slot of slots) {
         const connection = slot.current;
         if (connection === null) continue;
-        stopping.push(connection.server);
+        stopping.push(connection);
         this.#halt(connection);
       }
     };
@@ -884,7 +900,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     await Promise.all(slots.map((slot) => slot.launching?.catch(() => undefined)));
     halt();
     for (const thread of this.#threads.values()) this.#dropConfirmations(thread, closedError());
-    await Promise.all(stopping.map((server) => server.stop()));
+    await Promise.all(stopping.map((connection) => connection.server.stop()));
+    // What their commands left running ends with them (SECURITY.md); close returns once it has.
+    await Promise.all(stopping.map((connection) => this.#sweep(connection)));
     // Each confined server's temporary folder goes with it; one left behind is made anew at its
     // project's next launch.
     const homes = join(dirname(this.#home), CONFINED_HOMES);
@@ -1344,6 +1362,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       slot,
       halted: new AbortController(),
       launchedAt: Date.now(),
+      folders: new Set(slot.confinement === null ? [] : [realFolder(slot.confinement.project)]),
+      swept: null,
       relaunch,
       gated: new Map(gatedEntries.map((entry) => [entry.codexId, entry.url])),
     };
@@ -1365,7 +1385,10 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
     slot.current = connection;
     const launched = connection;
-    void server.exited.then((status) => this.#onExit(launched, status));
+    void server.exited.then((status) => {
+      this.#onExit(launched, status);
+      void this.#sweep(launched);
+    });
     return connection;
   }
 
@@ -1535,6 +1558,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   async #resume(thread: HostedThread, connection: Connection, reason: string): Promise<void> {
     if (this.#closing !== null || thread.lost) return;
     thread.connection = connection;
+    connection.folders.add(realFolder(thread.options.cwd));
     const lost = (detail: string) =>
       this.#lose(thread, `${reason} After it was started again, ${detail}`);
     try {
@@ -1588,6 +1612,23 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   #halt(connection: Connection): void {
     connection.halted.abort();
     if (connection.slot.current === connection) connection.slot.current = null;
+  }
+
+  /**
+   * Once a server has stopped, by any path: ends what its commands left running in each folder it worked in. Codex
+   * ends a command's process group itself; only a command that started a session of its own outlives it
+   * (validation/codex-capabilities.md). Once per server; never throws; nothing of any process is logged.
+   */
+  #sweep(connection: Connection): Promise<void> {
+    connection.swept ??= (async () => {
+      await connection.server.exited.catch(() => undefined);
+      await Promise.all(
+        [...connection.folders].map((folder) =>
+          endLeftovers({ folder, launchedAtMs: connection.launchedAt }).catch(() => 0),
+        ),
+      );
+    })();
+    return connection.swept;
   }
 
   // Threads ------------------------------------------------------------------------------------

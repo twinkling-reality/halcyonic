@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import {
@@ -59,8 +59,10 @@ import {
 } from '@halcyonic/runtime-core';
 import {
   type ApiGate,
+  endLeftovers,
   type HostFoldersScope,
   type KeyGateDeclaration,
+  type LeftoverScope,
   runsLater,
   startKeyGate,
   withinHostFolders,
@@ -118,6 +120,11 @@ export interface ClaudeAgentRuntimeOptions {
    * folder before a session starts there.
    */
   readonly directoryPolicy: DirectoryPolicy;
+  /**
+   * Ends what a session's commands left running once the session has ended for good (`endLeftovers`, the default;
+   * SECURITY.md). A test that launches no process gives one that records.
+   */
+  readonly endLeftovers?: (scope: LeftoverScope) => Promise<number>;
   /**
    * File listing the Claude Code processes this adapter launched while they run, so that a later
    * start can stop any that outlived a crash. Use one file per runtime instance.
@@ -238,6 +245,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
   readonly #environment: Readonly<Record<string, string>>;
   readonly #directoryPolicy: DirectoryPolicy;
+  readonly #endLeftovers: (scope: LeftoverScope) => Promise<number>;
   readonly #executable: string | undefined;
   readonly #clock: Clock;
   readonly #query: QueryFunction;
@@ -268,6 +276,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     this.#hostProfilePath = `${options.processRecordFile}.open.sb`;
     this.#modelHost = modelHost(this.#environment);
     this.#directoryPolicy = options.directoryPolicy;
+    this.#endLeftovers = options.endLeftovers ?? endLeftovers;
     this.#executable = options.pathToClaudeCodeExecutable;
     this.#clock = options.clock ?? systemClock;
     this.#query = options.query ?? query;
@@ -484,6 +493,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       this.#planSwitchWaitMs,
     );
     session.workIn(cwd);
+    // Confined or not: in a headset nobody can see or stop what an agent left running (the lead, 02:25Z).
+    session.endLeftoversWith(this.#endLeftovers);
     if (scope.folder !== null) session.keep(cwd);
     this.#sessions.set(executionId, session);
     const bounds: StartOptions = {
@@ -621,6 +632,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       this.#planSwitchWaitMs,
     );
     session.workIn(cwd);
+    // Confined or not: in a headset nobody can see or stop what an agent left running (the lead, 02:25Z).
+    session.endLeftoversWith(this.#endLeftovers);
     if (scope.folder !== null) session.keep(cwd);
     const bounds: StartOptions = {
       ...parsed.value,
@@ -1094,6 +1107,15 @@ const WITHDRAWN_MESSAGE =
   'The question was withdrawn: the person stopped the work in Halcyonic before answering it.';
 
 /** One Claude Code session: one SDK query, fed one user message per turn. */
+/** A folder as lsof names a process's working folder: its real path, or as given where that cannot be read. */
+function realFolder(folder: string): string {
+  try {
+    return realpathSync(folder);
+  } catch {
+    return folder;
+  }
+}
+
 class ClaudeSession {
   /** The session id Halcyonic chose and passed as `--session-id`. */
   readonly id: string;
@@ -1150,6 +1172,10 @@ class ClaudeSession {
   readonly #record: { readonly confined: boolean; readonly unconfined_reason?: string };
   #kept: string | null = null;
   #cwd: string | null = null;
+  /** What ends the session's commands' leftovers once it has ended for good. */
+  #leftovers: ((scope: LeftoverScope) => Promise<number>) | null = null;
+  /** When the session's first Claude Code process launched, in ms since the epoch (a leftover started after it). */
+  #launchedAtMs: number | null = null;
 
   constructor(
     id: string,
@@ -1184,6 +1210,15 @@ class ClaudeSession {
   /** The task's folder, where a file tool's relative path lands (a Write's change says whether the file is new). */
   workIn(folder: string): void {
     this.#cwd = folder;
+  }
+
+  /**
+   * A session's commands can leave a process running after their shell exits, and Claude Code's own end does not
+   * reach it (validation/claude-code-sandbox.md): once the session has ended for good, `end` ends those in its folder
+   * that started after its first launch, by the sweep's five conditions (a person's own process is not sandboxed).
+   */
+  endLeftoversWith(end: (scope: LeftoverScope) => Promise<number>): void {
+    this.#leftovers = end;
   }
 
   /**
@@ -1566,6 +1601,7 @@ class ClaudeSession {
   }
 
   async #consume(handle: QueryHandle): Promise<void> {
+    this.#launchedAtMs ??= Date.now();
     let failure: unknown;
     try {
       for await (const message of handle) {
@@ -1575,6 +1611,12 @@ class ClaudeSession {
       failure = error;
     }
     if (this.#state === 'open' && !this.#relaunching) this.#lose(failure);
+    // Never between the processes of a relaunch: the next one's own background commands run orphaned already.
+    if (this.#relaunching || this.#leftovers === null || this.#cwd === null) return;
+    await this.#leftovers({
+      folder: realFolder(this.#cwd),
+      launchedAtMs: this.#launchedAtMs,
+    }).catch(() => 0);
   }
 
   #handle(message: SDKMessage): void {
