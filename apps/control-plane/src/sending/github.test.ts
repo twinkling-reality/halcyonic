@@ -1200,6 +1200,57 @@ describe('Send One Change: the files as they are now, as one change on a base th
     assert.equal(after.ok ? null : after.code, 'one_change_unavailable');
   });
 
+  test('a .env holding one, committed and still at the branch tip, is left to the press, which offers Send One Change; it goes without it (TASKS SHOULD 4)', async () => {
+    commitFile('.env', `KEY=${VALUE}\n`);
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    // The review reads what comes from the folder now; .env is the last commit's, kept as it has it.
+    const reviewed = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    const refused = await sender({ held: HELD }).send(
+      PROJECT,
+      folder,
+      [],
+      'Lanterns',
+      reviewed.send.review,
+    );
+    assert.equal(refused.ok ? null : refused.code, 'holds_secret_in_history');
+    assert.match(
+      refused.ok ? '' : refused.message,
+      /^An earlier version of \.env, which owner\/garden does not have, holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
+    );
+    assert.equal(onRemote(), false);
+    const one = await oneReview();
+    assert.ok(one.ok, one.ok ? '' : one.message);
+    assert.deepEqual(one.send.one_change?.kept_back.paths, ['.env']);
+    const sent = await onePress(one.send.review);
+    assert.ok(sent.ok, sent.ok ? '' : sent.message);
+    assert.throws(() => git(origin, 'cat-file', '-e', `${sent.commit}:.env`));
+    assert.equal(onRemote(), false, 'the secret never left');
+  });
+
+  test('a .env the remote may already have, holding one held since, is still read at the press, whatever the remote says, and refused with true steps (TASKS SHOULD 4; critic of c993a4eac)', async () => {
+    commitFile('.env', `KEY=${VALUE}\n`);
+    git(folder, 'push', '-q', 'origin', 'main');
+    const refs = remoteRefs();
+    // The review reads only what comes from the folder now, so it shows the send.
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const reviewed = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    const pressed = await sender({ held: HELD }).send(
+      PROJECT,
+      folder,
+      [],
+      'Lanterns',
+      reviewed.send.review,
+    );
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.equal(
+      pressed.ok ? '' : pressed.message,
+      "The .env in the branch's last commit holds a secret this Mac keeps (MY_SERVICE_KEY), and owner/garden may already have it, so nothing was sent. Make a new MY_SERVICE_KEY with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. Until the old one is turned off, treat it as exposed.",
+    );
+    assert.equal(remoteRefs(), refs, 'nothing pushed');
+  });
+
   test('never offered where the files as they are now hold one, nor with no history in common, nor before a refused send', async () => {
     const none = await oneReview();
     assert.equal(none.ok ? null : none.code, 'one_change_unavailable');
