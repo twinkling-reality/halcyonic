@@ -489,9 +489,11 @@ namespace Halcyonic.XR.UI
             cardFace.transform.localPosition = new Vector3(width / 2f, -tall / 2f, -RoomType.Units(0.1f));
             cardFaceSize = size;
             // One hue on the card: the way in takes its status's own tone where it has one (a request that needs the person is
-            // the attention amber its mark already wears), the accent where it has none (the critic, 2026-11-12: amber and cyan).
+            // the attention amber its mark already wears), and a quiet neutral light where it has none, never the accent: the one
+            // accent is the main action's (the owner's 2026-11-10 rule; AUDIT2's 2026-11-14T01:28Z on the recap's card beside Start
+            // Task). Its chevron says it opens.
             cardFaceHue = card.Status is RoomCardStatus said && said.Tone == RoomTone.Attention ? Attention
-                : card.Status is RoomCardStatus good && good.Tone == RoomTone.Good ? GoodFill : Accent;
+                : card.Status is RoomCardStatus good && good.Tone == RoomTone.Good ? GoodFill : ChosenAtRest;
             cardFaceLit = null;
             PaintCardFace();
             // The way on at the words' right edge, the panel's pad from its ring as the text is from the left, a capital's stem in weight.
