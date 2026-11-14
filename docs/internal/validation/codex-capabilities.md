@@ -478,6 +478,19 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   that reason. The here-document test reads its steps from a file in the project; a pinned test runs the N=2
   command and fails if Codex starts keeping the early line.
 - **Not verified:** whether the cut is always exactly at the wait; a real model's turns; `thread/read` after the turn.
+- **On the wire (2026-11-14, Codex 0.157.0):** Codex's own stdout, every byte the adapter read, for
+  `echo early=1; sleep 2; echo late=1`: `late=1` once in an `item/commandExecution/outputDelta` and once in
+  `item/completed`'s `aggregatedOutput` (`durationMs` 1867), and `early=1` as output nowhere. So Codex never sends the
+  start; the adapter loses nothing, and `source_cut` stays the honest mark.
+- **What is lost is what printed before the wait ended, and only that:** in three traced runs of the whole e2e file
+  (load 44 to 128) a git command of 9 to 19 s kept all 899 characters, as it printed nothing before the wait, and a
+  `cat` that reported `durationMs` 1 kept its whole output. So `durationMs` above 0 marks some whole outputs as cut:
+  the safe direction, as decided.
+- **The end to end tests:** a command whose output a test reads to prove a security fact writes that output to a
+  file in the project as well (`probe`, through `tee`), and the test reads the file, so no probe passes or fails on
+  what Codex kept; the tool result is held only to what it claims (whole: it holds the file's text; not whole: it says
+  why). Three tests had failed so in whole-file runs (the here-document test, then the key gate's and the temporary
+  folder's); alone, even at load 196, they passed.
 
 ## What a command leaves running (2026-11-14)
 
