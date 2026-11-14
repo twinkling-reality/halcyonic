@@ -89,6 +89,11 @@ export interface CommandSaying {
   readonly confirm: ConfirmKind;
   /** The command that undoes it, for a command confirmed with an Undo. */
   readonly undo?: CommandType;
+  /**
+   * What is happening while it is under way, as a person says it ("Sending for review"), where its button's
+   * words would read as a name; a refusal behind it says this, else the title (AUDIT2, 2026-11-14).
+   */
+  readonly underWay?: string;
 }
 
 export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
@@ -119,6 +124,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   },
   'project.restore': {
     title: 'Restore',
+    underWay: 'Putting files back',
     description:
       "Put every file of the project's folder back as one of its saved versions holds it.",
     sayable: true,
@@ -126,12 +132,14 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   },
   'project.check': {
     title: 'Check',
+    underWay: 'A check',
     description: 'Check the project now: build it and try it, or run the check it was given.',
     sayable: true,
     confirm: 'none',
   },
   'project.own_check.choose': {
     title: 'Choose Check',
+    underWay: 'Choosing a check',
     description: "Choose which of the project's own commands are its check.",
     sayable: true,
     confirm: 'review',
@@ -163,6 +171,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   },
   'project.save_copy': {
     title: 'Save a Copy',
+    underWay: 'Saving a copy',
     description: "Save a copy of the project's files as a zip in this computer's Downloads folder.",
     sayable: true,
     confirm: 'none',
@@ -193,6 +202,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   },
   'project.send': {
     title: 'Send for Review',
+    underWay: 'Sending for review',
     description:
       "Send the project's work to the person's own repository as a new branch for review.",
     sayable: true,
@@ -200,6 +210,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   },
   'project.publish': {
     title: 'Publish',
+    underWay: 'Publishing',
     description:
       "Publish the project's last passed check as a public page under the person's own account.",
     sayable: true,
@@ -207,12 +218,14 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   },
   'project.unpublish': {
     title: 'Take Down',
+    underWay: 'Taking the game down',
     description: "Take the project's published page down.",
     sayable: true,
     confirm: 'none',
   },
   'project.make_private': {
     title: 'Make Private',
+    underWay: 'Making the repository private',
     description:
       'Make the repository Halcyonic made for the project and made public private again.',
     sayable: true,
@@ -247,6 +260,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   },
   'workstream.add_to_project': {
     title: 'Add to Project',
+    underWay: 'Adding to the project',
     description: "Add what a task changed in its own copy to the project's folder.",
     sayable: true,
     confirm: 'review',
@@ -260,6 +274,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   },
   'execution.start': {
     title: 'Start',
+    underWay: 'A start',
     description: "Start a task's agent on an instruction.",
     sayable: true,
     confirm: 'none',
