@@ -436,6 +436,61 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
+        /// Everything a renderer under <paramref name="views"/> draws with, by its path: whether it draws, where, its material and
+        /// shader, every shader property its block or material holds, and a label's words, colour and size; and the stage's
+        /// global light and noise. Numbers in round-trip form, so any change at all shows.
+        /// </summary>
+        private static SortedDictionary<string, string> DrawnValues(IEnumerable<CharacterView> views)
+        {
+            var values = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            values["global light"] = Shader.GetGlobalVector("_HalcyonicKeyLight").ToString("R");
+            values["global noise"] = (Shader.GetGlobalTexture("_HalcyonicNoise")?.GetInstanceID() ?? 0).ToString(CultureInfo.InvariantCulture);
+            var block = new MaterialPropertyBlock();
+            var index = 0;
+            foreach (var view in views)
+            {
+                var root = view.transform;
+                string PathOf(Transform each)
+                {
+                    var parts = new List<string>();
+                    for (var at = each; at != null && at != root; at = at.parent) parts.Add(at.name);
+                    parts.Add(root.name + "#" + index);
+                    parts.Reverse();
+                    return string.Join("/", parts);
+                }
+                foreach (var renderer in view.GetComponentsInChildren<Renderer>(true))
+                {
+                    var key = PathOf(renderer.transform) + " (" + renderer.GetType().Name + ")";
+                    var material = renderer.sharedMaterial;
+                    values[key + " drawn"] = renderer.enabled + " " + renderer.gameObject.activeInHierarchy + " " + renderer.localToWorldMatrix.ToString("R")
+                        + " " + renderer.bounds.ToString("R") + " material " + (material != null ? material.GetInstanceID() : 0) + " shader " + material?.shader?.name;
+                    if (material == null || material.shader == null) continue;
+                    renderer.GetPropertyBlock(block);
+                    var shader = material.shader;
+                    for (var property = 0; property < shader.GetPropertyCount(); property++)
+                    {
+                        var propertyName = shader.GetPropertyName(property);
+                        var value = shader.GetPropertyType(property) switch
+                        {
+                            UnityEngine.Rendering.ShaderPropertyType.Color => block.HasColor(propertyName) ? "block " + block.GetColor(propertyName).ToString("R") : material.GetColor(propertyName).ToString("R"),
+                            UnityEngine.Rendering.ShaderPropertyType.Vector => block.HasVector(propertyName) ? "block " + block.GetVector(propertyName).ToString("R") : material.GetVector(propertyName).ToString("R"),
+                            UnityEngine.Rendering.ShaderPropertyType.Float or UnityEngine.Rendering.ShaderPropertyType.Range =>
+                                block.HasFloat(propertyName) ? "block " + block.GetFloat(propertyName).ToString("R", CultureInfo.InvariantCulture) : material.GetFloat(propertyName).ToString("R", CultureInfo.InvariantCulture),
+                            UnityEngine.Rendering.ShaderPropertyType.Texture => (block.HasTexture(propertyName) ? "block " + block.GetTexture(propertyName)?.GetInstanceID() : "" + material.GetTexture(propertyName)?.GetInstanceID()),
+                            _ => "",
+                        };
+                        values[key + " " + propertyName] = value;
+                    }
+                }
+                foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(true))
+                    values[PathOf(label.transform) + " (text)"] = label.isActiveAndEnabled + " \"" + label.text + "\" " + label.color.ToString("R") + " " + label.alpha.ToString("R", CultureInfo.InvariantCulture)
+                        + " " + label.fontSize.ToString("R", CultureInfo.InvariantCulture);
+                index++;
+            }
+            return values;
+        }
+
+        /// <summary>
         /// Keep things still (ADR 0027) on the stage: stepped at the headset's rate for three seconds to stand at rest,
         /// then a second more, every character is the same picture, its pose, its surface's flow, its sweep ring and
         /// Waiting for you's halo all standing; let move again, the same second changes the picture, so the check
@@ -461,6 +516,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 GlazeMotion.Still = true;
                 Frames(216);
                 var valuesBefore = CharacterFrameValues(characters.Select(each => each.View));
+                var drawnBefore = DrawnValues(characters.Select(each => each.View));
                 first = WorkspaceRender.Render(camera, texture);
                 File.WriteAllBytes(Path.Combine(folder, name + "-kept-still-before.png"), first.EncodeToPNG());
                 Frames(72);
@@ -468,6 +524,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 SaveCharacterFrameDifferences(folder, name, valuesBefore, CharacterFrameValues(characters.Select(each => each.View)));
                 File.WriteAllBytes(Path.Combine(folder, name + "-kept-still.png"), second.EncodeToPNG());
                 var (changed, largest) = WorkspaceRender.Compare(first, second, all);
+                // What each renderer under the characters drew with, labels and badges included, so a still failure names what moved
+                // (AUDIT's 06:08Z: b167's 62 pixels sat at the characters' edges, none of them a shader's stand-in).
+                var drawnAfter = DrawnValues(characters.Select(each => each.View));
+                var drawnMoved = drawnBefore.Where(pair => !drawnAfter.TryGetValue(pair.Key, out var now) || now != pair.Value).Select(pair => pair.Key)
+                    .Concat(drawnAfter.Keys.Where(key => !drawnBefore.ContainsKey(key))).Distinct().ToList();
+                Debug.Log("Halcyonic: stage render " + name + ": kept still, " + drawnMoved.Count + " drawn values of " + drawnBefore.Count + " differ between the two renders.");
+                foreach (var key in drawnMoved.Take(40))
+                    Debug.Log("Halcyonic: stage render " + name + ": kept still, drawn value " + key + ": "
+                        + (drawnBefore.TryGetValue(key, out var was) ? was : "absent") + " -> " + (drawnAfter.TryGetValue(key, out var now) ? now : "absent"));
                 if (changed > 0)
                 {
                     failures.Add(name + ": under Keep things still, " + changed + " pixels of the stage changed in a second, by up to "
