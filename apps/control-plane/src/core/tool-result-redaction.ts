@@ -32,7 +32,9 @@ export function normalizedToolResult(source: ToolResult, redaction: Redaction): 
       ...body,
       text: clean.value,
       complete: body.complete && clean.complete,
-      truncation: clean.complete ? body.truncation : 'body_bound',
+      // An agent app's own cut outranks our shortening: what is missing from the start was never given to us.
+      truncation:
+        clean.complete || body.truncation === 'source_cut' ? body.truncation : 'body_bound',
     };
   };
   if (result.kind === 'command') result.output = cleanBody(result.output);

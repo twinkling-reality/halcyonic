@@ -36,6 +36,29 @@ test('whole admitted field is redacted before its boundary; unknown credentials 
     'source field is not mutated',
   );
 });
+test("an agent app's own cut stays the reason, whether or not the host shortens the text too", () => {
+  const cut = (text: string): ToolResult => {
+    const result = command(text);
+    if (result.kind === 'command')
+      result.output = {
+        text,
+        availability: 'available',
+        complete: false,
+        truncation: 'source_cut',
+      };
+    return result;
+  };
+  for (const [text, kept] of [
+    ['late=1\n', 7],
+    ['x'.repeat(5000), 4096],
+  ] as const) {
+    const result = normalizedToolResult(cut(text), redaction());
+    assert.equal(result.kind === 'command' && result.output.truncation, 'source_cut');
+    assert.equal(result.kind === 'command' && result.output.complete, false);
+    assert.equal(result.kind === 'command' && Array.from(result.output.text ?? '').length, kept);
+    assert.equal(toolResultProblem(result), null);
+  }
+});
 test('Unicode bounds count codepoints and UTF8 bytes, and oversized sources are omitted whole', () => {
   const result = normalizedToolResult(command('😀'.repeat(5000)), redaction());
   assert.equal(result.kind === 'command' && Array.from(result.output.text ?? '').length, 4096);

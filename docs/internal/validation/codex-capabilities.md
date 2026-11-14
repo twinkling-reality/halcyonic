@@ -457,3 +457,24 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   write refusal taken out of the profile, the tests of the linked home fail (a mutation run).
 - **Not verified:** a real model's turns with the change; other macOS versions; a command that outlives its server.
   Codex stops the commands it started; one that left their session would keep the profile and could race a launch.
+
+## A command's early output (2026-11-14)
+
+- **Question:** why did the here-document test fail three times in whole-file runs with its command's output cut
+  from the front (none of it, then only `plain=1`, then only the last three lines), exit 0 each time?
+- **Environment:** this Mac (macOS 26.7), the pinned 0.157.0 binary, the scripted fake provider, no model; every
+  `item/*` notification traced.
+- **Found:** when a command outlives the startup wait of Codex's unified exec (item `source: "unifiedExecStartup"`),
+  what it printed before that point is in neither `item/completed`'s `aggregatedOutput` nor any
+  `item/commandExecution/outputDelta`. The model's own tool result has it all. `echo early=1; echo also=1; sleep N;
+  echo late=1` gave, for N=0, `durationMs` 0 and the whole output; for N=1, `durationMs` 868 and `late=1` alone; for
+  N=4, `durationMs` 3883 and `late=1` alone. In each case the model got all three lines. No `functionCallOutput`
+  item comes on the stable surface. The here-document script's slow step is node's start under load.
+- **`durationMs`:** 0 for every command that ended inside the wait (all of them in four traced whole-file runs, whole
+  output each time), above 0 only for those that outlived it. Inference from these runs: above 0 means the start
+  may be missing, not that it is.
+- **Change:** the adapter keeps such a command's text but marks it `complete: false` with truncation `source_cut`
+  (INTEGRATIONS.md), and so does a command with no duration unless it was declined. The host's shortening keeps
+  that reason. The here-document test reads its steps from a file in the project; a pinned test runs the N=2
+  command and fails if Codex starts keeping the early line.
+- **Not verified:** whether the cut is always exactly at the wait; a real model's turns; `thread/read` after the turn.

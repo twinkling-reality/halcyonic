@@ -1765,6 +1765,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "scope")] Scope,
         [global::System.Runtime.Serialization.EnumMember(Value = "absent")] Absent,
         [global::System.Runtime.Serialization.EnumMember(Value = "malformed")] Malformed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "source_cut")] SourceCut,
     }
 
     public sealed class ToolResultBody

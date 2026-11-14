@@ -33,6 +33,10 @@ export const ToolResultBody = Type.Object(
       Type.Literal('malformed'),
     ]),
     complete: Type.Boolean(),
+    /**
+     * Why the body is not whole. `source_cut`: the agent app itself may have left out part of the output it reported
+     * (declared per app from what was seen, INTEGRATIONS.md); the text kept is what it gave.
+     */
     truncation: Type.Union([
       Type.Literal('none'),
       Type.Literal('body_bound'),
@@ -41,6 +45,7 @@ export const ToolResultBody = Type.Object(
       Type.Literal('scope'),
       Type.Literal('absent'),
       Type.Literal('malformed'),
+      Type.Literal('source_cut'),
     ]),
   },
   strict,

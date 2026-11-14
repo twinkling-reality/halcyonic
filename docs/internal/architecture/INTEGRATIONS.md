@@ -7,7 +7,10 @@ support, independent of `reports_tool_activity`, model choice and connection hea
 an empty history; false means unsupported, and absent legacy declarations are unknown. A missing
 registered adapter is unavailable; accepted journal evidence remains readable. Codex 0.157.0
 declares true for final command/file-change notifications; OpenCode, Claude Code and the mock
-declare false and receive no emulated results.
+declare false and receive no emulated results. Codex 0.157.0 leaves out what a command printed before
+it outlived its startup wait, so the adapter never calls such an output whole: a command whose
+`durationMs` is above 0 keeps its text with `complete: false` and truncation `source_cut`
+([record](../validation/codex-capabilities.md)). No other app declares `source_cut` until it is seen.
 
 The optional `approval_may_leave_sandbox` declaration says whether approving a command can let it
 run outside any sandbox, with the person's own access
