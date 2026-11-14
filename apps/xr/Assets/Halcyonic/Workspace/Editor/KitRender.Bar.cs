@@ -768,22 +768,27 @@ namespace Halcyonic.XR.Workspace.Editor
                     // The page's own line in the panel and nothing else; its prompt, the file's other sections and Close in the column, each the frame's own.
                     Require(binding.Plain && shown.FromMoment, "the page is not read by the general rule");
                     Require(bar.Body.GetParsedText() == FileScreens.StillReading(FileSection.Checks) && shown.Band == null && shown.Sentence == null, "the panel reads \"" + bar.Body.GetParsedText() + "\"");
-                    // Four in all (the lead's 2026-11-14T00:24Z), as strong as the check it replaces (AUDIT's 03:35Z): on EVERY page of the
-                    // reader, at most four, Refresh first and Close last, none main; across the pages, the file's three sections each once.
-                    // The reader's pages are turned all the way round, so it stands again on its first.
-                    var sectionsSeen = new List<string>();
+                    // Four in all (the lead's 2026-11-14T00:24Z), as strong as the check it replaces (AUDIT's 03:35Z), by the reader's own rule:
+                    // on EVERY page at most four, none main, Close last, and the page turn where there is more than one page; the file's
+                    // own actions packed across the pages, so Refresh stands first on the first page and it and the three sections each
+                    // stand exactly once across them (F122: the reader never repeats a packed action). Turned all the way round, it
+                    // stands again on its first.
+                    var packedSeen = new List<string>();
                     var readerPages = shown.GeneralPart.Pages;
                     for (var page = 0; page < readerPages; page++)
                     {
                         var column = shown.Column;
-                        Require(column.Count <= RoomForm.Full.ActionsAPage && column.Count >= 2 && column[0].Control.Action == FileScreens.Refresh
-                            && column[^1].Control.Action == Footer.Close && !column.Any(action => action.Main),
+                        Require(column.Count <= RoomForm.Full.ActionsAPage && column.Count >= 2 && column[^1].Control.Action == Footer.Close
+                            && !column.Any(action => action.Main) && (page > 0 || column[0].Control.Action == FileScreens.Refresh)
+                            && (readerPages == 1 || column.Count(action => action.Control.Action == RoomBar.TurnPage) == 1),
                             "page " + (page + 1) + " of the column holds " + string.Join(", ", column.Select(action => action.Words)));
-                        sectionsSeen.AddRange(column.Where(action => action.Place == KitPlace.Section).Select(action => action.Control.Key ?? action.Words));
+                        packedSeen.AddRange(column.Where(action => action.Place == KitPlace.Section || action.Control.Action == FileScreens.Refresh)
+                            .Select(action => action.Control.Key ?? action.Words));
                         if (readerPages > 1) shown.Turn();
                     }
-                    Require(sectionsSeen.Count == 3 && sectionsSeen.Distinct().Count() == 3, "the file's three sections do not each stand once across the pages: "
-                        + string.Join(", ", sectionsSeen));
+                    Require(packedSeen.Count == 4 && packedSeen.Distinct().Count() == 4, "Refresh and the file's three sections do not each stand once across the pages: "
+                        + string.Join(", ", packedSeen));
+                    Require(shown.Column.Count > 0 && shown.Column[0].Control.Action == FileScreens.Refresh, "turned all the way round, the reader does not stand on its first page");
                     Require(shown.Column.All(action => ReferenceEquals(action.Control.Frame, frame)), "an action is not the frame's own");
                 }
                 if (state == "36-stop-confirm")
