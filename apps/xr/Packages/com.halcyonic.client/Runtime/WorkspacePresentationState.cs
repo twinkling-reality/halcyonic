@@ -698,7 +698,10 @@ namespace Halcyonic.Client
             if (project.Check is ProjectViewCheck hostCheck)
             {
                 var checkedAt = ParseTime(hostCheck.RecordedAt);
-                lastCheck = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: hostCheck.Findings.Passed, checkedAt, CheckSteps.Of(hostCheck.Findings));
+                // A check whose verdict is not known is Partly Checked, never failed (VRIFY, AUDIT2's words): the host's finding under it.
+                lastCheck = CheckSteps.PartlyChecked(hostCheck.Findings)
+                    ? KitMoment.PartlyCheckedHost(KitCheckScope.Builds, hostCheck.Findings.Unknown, checkedAt, CheckSteps.Of(hostCheck.Findings))
+                    : KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: hostCheck.Findings.Passed, checkedAt, CheckSteps.Of(hostCheck.Findings));
             }
             else if (execution?.LastTestRun is TestRunResultView agentTest)
             {

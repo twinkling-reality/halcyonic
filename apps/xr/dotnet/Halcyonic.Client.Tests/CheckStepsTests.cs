@@ -77,4 +77,70 @@ public class CheckStepsTests
         }));
         Assert.That(KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, at: null).Steps, Is.Empty, "a check still running has none");
     }
+
+    private const string NotKnownFinding =
+        "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Press Check to try again.";
+
+    /// <summary>The passing check with its page's own look not known, as the host records it (VRIFY's f1ffe578c).</summary>
+    private static string Verdict(bool passed, string? verdict, string drawn = "true") =>
+        Passing.Replace("\"drawn\":true", "\"drawn\":" + drawn).Replace("\"passed\":true", "\"passed\":" + (passed ? "true" : "false"))
+            .TrimEnd('}') + (verdict == null ? "" : ",\"verdict\":\"" + verdict + "\"") + "}";
+
+    [Test]
+    public void ANotKnownVerdictIsPartlyCheckedAndServedAsTheHostServesIt()
+    {
+        var partly = Findings(Verdict(false, "not_known", "null"));
+        Assert.That((CheckSteps.PartlyChecked(partly), CheckSteps.Servable(partly)), Is.EqualTo((true, true)), "served as the host's checkServable serves it");
+        var passed = Findings(Verdict(true, "passed"));
+        Assert.That((CheckSteps.PartlyChecked(passed), CheckSteps.Servable(passed)), Is.EqualTo((false, true)));
+        var failed = Findings(Verdict(false, "failed", "false"));
+        Assert.That((CheckSteps.PartlyChecked(failed), CheckSteps.Servable(failed)), Is.EqualTo((false, false)), "a failure stays a failure, whatever else is not known");
+        // A check recorded before the verdict reads by passed alone, as the host's does.
+        var olderFailed = Findings(Verdict(false, null, "null"));
+        Assert.That((CheckSteps.PartlyChecked(olderFailed), CheckSteps.Servable(olderFailed)), Is.EqualTo((false, false)));
+        var olderPassed = Findings(Verdict(true, null));
+        Assert.That((CheckSteps.PartlyChecked(olderPassed), CheckSteps.Servable(olderPassed)), Is.EqualTo((false, true)));
+    }
+
+    [Test]
+    public void APartlyCheckedMomentSaysItsLabelItsLineAndTheHostsFindingNeverFailed()
+    {
+        var findings = Findings(Verdict(false, "not_known", "null").Replace("\"unknown\":null", "\"unknown\":\"" + NotKnownFinding + "\""));
+        var moment = KitMoment.PartlyCheckedHost(KitCheckScope.Builds, findings.Unknown, at: null, steps: CheckSteps.Of(findings));
+        Assert.That(moment.Title!.Text, Is.EqualTo("Partly Checked"));
+        Assert.That(moment.Meta.Select(line => line.Text), Is.EqualTo(new[] { "What was checked passed; one thing could not be checked." }));
+        Assert.That(moment.Fact, Is.EqualTo(NotKnownFinding), "the host's finding under its line");
+        Assert.That((moment.Passed, moment.PartlyChecked, moment.Tone), Is.EqualTo(((bool?)null, true, KitMomentTone.Neutral)),
+            "never passed and never the failure's tone");
+        Assert.That(moment.Kind, Is.EqualTo(KitMomentKind.HostCheck));
+        Assert.That(moment.Actions, Is.EqualTo(new[] { KitMomentAction.SeeTheOutput }));
+        Assert.That(moment.Steps.Single(step => step.Step == CheckStepKind.PageDrawn).Result, Is.EqualTo(CheckStepResult.Unknown));
+        Assert.That(KitMoment.PartlyCheckedHost(KitCheckScope.Builds, null, at: null).Fact, Is.Null, "no finding, no line for it");
+        Assert.That(KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: false, at: null).PartlyChecked, Is.False);
+    }
+
+    /// <summary>The page as a build before f1ffe578c read it: drawn a plain boolean, always required.</summary>
+    private sealed class PageBeforeNotKnown
+    {
+        [Newtonsoft.Json.JsonProperty("drawn", Required = Newtonsoft.Json.Required.Always)]
+        public bool Drawn { get; set; }
+    }
+
+    /// <summary>
+    /// AUDIT3's point 2: a headset built before the verdict, handed a not-known page, cannot read it. Its contract read
+    /// drawn as a required boolean, so null is a JSON error, and the realtime protocol stayed at the same version, so the
+    /// welcome does not turn it away first: the message holding the check is unreadable, and that headset ends each
+    /// connection with Message Unreadable until both run the same version (RealtimeSession's JsonException ending).
+    /// </summary>
+    [Test]
+    public void AHeadsetBuiltBeforeTheVerdictCannotReadANotKnownPageAndSaysItIsUnreadable()
+    {
+        const string NotKnownPage = "{\"drawn\":null}";
+        Assert.That(() => HalcyonicJson.Deserialize<PageBeforeNotKnown>(NotKnownPage), Throws.InstanceOf<Newtonsoft.Json.JsonException>());
+        Assert.That(HalcyonicJson.Deserialize<PageBeforeNotKnown>("{\"drawn\":true}").Drawn, Is.True, "a known page it still reads");
+        Assert.That(ConnectionText.Unreadable, Does.StartWith("Message Unreadable"));
+        // This build reads it as not known.
+        var page = Findings(Verdict(false, "not_known", "null")).Page!;
+        Assert.That(page.Drawn, Is.Null);
+    }
 }

@@ -98,7 +98,7 @@ namespace Halcyonic.Client
             if (check == null) return PlayOnLaptop.NoCheck;
             if (check.Files == ProjectViewCheckFiles.Changed) return PlayOnLaptop.FilesChanged;
             if (check.Files != ProjectViewCheckFiles.Current) return PlayOnLaptop.FilesUnknown;
-            if (!check.Findings.Passed) return PlayOnLaptop.CheckNotPassed;
+            if (!CheckSteps.Servable(check.Findings)) return PlayOnLaptop.CheckNotPassed;
             if (check.Findings.Laptop?.Ready != true) return PlayOnLaptop.NotReadyOnLaptop;
             if (!check.Findings.ReadsConfined) return PlayOnLaptop.NotConfined;
             if (PreviewOfLatestCheck(project) == null) return PlayOnLaptop.NoPreviewOfCheck;

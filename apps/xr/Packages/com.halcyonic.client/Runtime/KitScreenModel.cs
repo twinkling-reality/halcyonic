@@ -111,10 +111,11 @@ namespace Halcyonic.Client
         public KitScreenAction Primary => IsVr ? KitScreenAction.ChangeIt : KitScreenAction.MakeAVrVersion;
 
         /// <summary>
-        /// Try it stands only after a passed check of the computer's own, with a route to try it, while no turn runs, and with
-        /// no change the computer saw after that check: the build would serve files nobody checked.
+        /// Try it stands only after a passed check of the computer's own, or one Partly Checked, which the host serves too, with a
+        /// route to try it, while no turn runs, and with no change the computer saw after that check: the build would serve files
+        /// nobody checked.
         /// </summary>
-        public bool CanTry => TryRoute && !Working && LastCheck is KitMoment check && check.Kind == KitMomentKind.HostCheck && check.Passed == true
+        public bool CanTry => TryRoute && !Working && LastCheck is KitMoment check && check.Kind == KitMomentKind.HostCheck && (check.Passed == true || check.PartlyChecked)
             && (NewestChangeAt is not DateTimeOffset changed || check.At is DateTimeOffset checkedAt && changed <= checkedAt);
 
         /// <summary>Every action of the bar in its order: the primary, the other, Try it where it may stand, then the doors.</summary>

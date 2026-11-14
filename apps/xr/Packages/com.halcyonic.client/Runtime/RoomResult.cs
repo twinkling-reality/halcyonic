@@ -109,8 +109,10 @@ namespace Halcyonic.Client
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null, FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null,
-            bool readsFiles = false, ChangesAccount? account = null)
+            bool readsFiles = false, ChangesAccount? account = null, bool partlyChecked = false, string? finding = null)
         {
+            PartlyChecked = partlyChecked && passed == null;
+            Finding = PartlyChecked ? finding : null;
             ReadsFiles = readsFiles;
             Account = page == RoomResultPage.Changes && account is { Parts: > 0 } ? account : null;
             Waiting = waiting;
@@ -192,6 +194,12 @@ namespace Halcyonic.Client
         /// <summary>The computer's own last check of the project: passed, failed, or null where it ran none or its outcome is unknown.</summary>
         public bool? Passed { get; }
 
+        /// <summary>The computer's own last check was Partly Checked: its verdict not known, so it neither passed nor failed (<see cref="CheckSteps.PartlyChecked"/>).</summary>
+        public bool PartlyChecked { get; }
+
+        /// <summary>The host's own finding of a Partly Checked check, where it gave one; null on every other result.</summary>
+        public string? Finding { get; }
+
         /// <summary>The last turn of the task's run the computer observed, or null where none arrived.</summary>
         public ObservedTurn? Observed { get; }
 
@@ -213,7 +221,7 @@ namespace Halcyonic.Client
         public string? CheckLine => Passed is bool passed ? KitMomentWords.CheckTitle(KitCheckScope.Builds, ended: true, passed) : null;
 
         /// <summary>Whether the computer has anything to say of the task at rest.</summary>
-        public bool Any => Observed != null || Passed != null || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null || Share != null
+        public bool Any => Observed != null || Passed != null || PartlyChecked || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null || Share != null
             || Start is { IsPlan: true } or { NotConfined: true };
 
         /// <summary>The page's rows: an observed file a row, or a step of the check a row; none on the result itself.</summary>
@@ -317,7 +325,7 @@ namespace Halcyonic.Client
                 // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
                 canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null),
                 places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file, start: start, waiting: waiting,
-                readsFiles: way is { Target: not null, Demonstration: false }, account: account);
+                readsFiles: way is { Target: not null, Demonstration: false }, account: account, partlyChecked: check?.PartlyChecked == true, finding: check?.Fact);
         }
     }
 

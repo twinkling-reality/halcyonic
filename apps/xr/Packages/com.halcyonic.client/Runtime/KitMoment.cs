@@ -195,6 +195,12 @@ namespace Halcyonic.Client
         /// <summary>A check's outcome where its exit was seen; null otherwise.</summary>
         public bool? Passed { get; }
 
+        /// <summary>
+        /// A check of the computer's own whose verdict is not known (<see cref="CheckSteps.PartlyChecked"/>): it never passed
+        /// (<see cref="Passed"/> is null) and never failed, and its build may still be tried, as the host serves it.
+        /// </summary>
+        public bool PartlyChecked { get; private set; }
+
         public KitCheckScope? Scope { get; }
 
         /// <summary>A host check's steps, each with its result (<see cref="CheckSteps"/>); none for any other moment or a check still running.</summary>
@@ -275,6 +281,22 @@ namespace Halcyonic.Client
                 LineWords.Ours(KitMomentWords.Check(scope, ended, passed)), null, NoLines, tone, actions, at, null, passed, scope)
                 .Parts(LineWords.Ours(KitMomentWords.CheckTitle(scope, ended, passed)), new[] { LineWords.Ours(KitMomentWords.CheckOutcome(scope, ended, passed)) })
                 .WithSteps(steps);
+        }
+
+        /// <summary>
+        /// A check the computer ran whose verdict is not known (VRIFY, AUDIT2's words): everything it saw passed, and only
+        /// whether the page draws its own look could not be found out. Partly Checked with its line, then the host's own
+        /// finding where it gave one; never the failure's tone, never passed.
+        /// </summary>
+        public static KitMoment PartlyCheckedHost(KitCheckScope scope, string? finding, DateTimeOffset? at, IReadOnlyList<CheckStepOutcome>? steps = null)
+        {
+            var moment = new KitMoment(KitMomentKind.HostCheck, KitProvenance.Observed, KitMomentWords.YourComputer,
+                LineWords.Ours(KitMomentWords.PartlyChecked), string.IsNullOrWhiteSpace(finding) ? null : finding, NoLines, KitMomentTone.Neutral,
+                new[] { KitMomentAction.SeeTheOutput }, at, null, null, scope)
+                .Parts(LineWords.Ours(KitMomentWords.PartlyChecked), new[] { LineWords.Ours(KitMomentWords.PartlyCheckedLine) })
+                .WithSteps(steps);
+            moment.PartlyChecked = true;
+            return moment;
         }
 
         /// <summary>A command <paramref name="runtime"/> says it ran and the outcome it reports: its words, no colour.</summary>
@@ -415,6 +437,10 @@ namespace Halcyonic.Client
         public const string AgentNote = "Agent Note";
 
         public const string CheckReported = "Check Reported";
+
+        /// <summary>A check whose verdict is not known, and its line under it (AUDIT2's words, the host's PARTLY_CHECKED).</summary>
+        public const string PartlyChecked = "Partly Checked";
+        public const string PartlyCheckedLine = "What was checked passed; one thing could not be checked.";
 
         public const string NotInStarter = "Not in Starter";
 

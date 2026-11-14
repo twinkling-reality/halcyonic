@@ -102,6 +102,13 @@ public class ProjectPlayFactsTests
         Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(files: "changed"), Preview(files: "changed"))), Is.EqualTo(PlayOnLaptop.FilesChanged));
         Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(files: "unknown"), Preview(files: "unknown"))), Is.EqualTo(PlayOnLaptop.FilesUnknown));
         Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(passed: false), Preview())), Is.EqualTo(PlayOnLaptop.CheckNotPassed));
+        // A check whose verdict is not known is played as the host serves it (VRIFY); a failed verdict is not.
+        var partly = Check(passed: false);
+        partly["findings"]!["verdict"] = "not_known";
+        Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(partly, Preview())), Is.EqualTo(PlayOnLaptop.Offered));
+        var failed = Check(passed: false);
+        failed["findings"]!["verdict"] = "failed";
+        Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(failed, Preview())), Is.EqualTo(PlayOnLaptop.CheckNotPassed));
         Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(laptopReady: false), Preview())), Is.EqualTo(PlayOnLaptop.NotReadyOnLaptop));
         Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(laptopReady: null), Preview())), Is.EqualTo(PlayOnLaptop.NotReadyOnLaptop), "a laptop step not recorded is not ready");
         Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(readsConfined: false), Preview())), Is.EqualTo(PlayOnLaptop.NotConfined));

@@ -114,6 +114,26 @@ public sealed class RoomPanelCardsTests
     }
 
     [Test]
+    public void A_partly_checked_check_says_so_with_its_line_and_the_hosts_finding_never_failed()
+    {
+        const string finding = "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Press Check to try again.";
+        var partly = new RoomResult(false, true, true, null, Turn(Observed), Steps(), partlyChecked: true, finding: finding);
+        var checks = RoomPanelCards.Checks(partly);
+        Assert.That((checks.Status!.Value.Title, checks.Status!.Value.Line, checks.Status!.Value.Tone),
+            Is.EqualTo(("Partly Checked", "What was checked passed; one thing could not be checked.", RoomTone.Quiet)), "never Checks Failed, never the bad tone");
+        Assert.That(checks.Description!.Text, Is.EqualTo(finding), "the host's finding under its line");
+        Assert.That(checks.AnyDot, Is.False);
+        var card = RoomPanelCards.Result(partly, Task)!;
+        var slot = card.Slots.First();
+        Assert.That((slot.Kind, slot.Value.Text), Is.EqualTo((RoomKind.None, "Partly Checked")), "neither the check nor the cross");
+        // A result whose check passed or failed is never partly checked, whatever is asked of it.
+        var failed = new RoomResult(false, true, false, false, Turn(Observed), Steps(buildFails: true), partlyChecked: true, finding: finding);
+        Assert.That((failed.PartlyChecked, failed.Finding), Is.EqualTo((false, (string?)null)));
+        Assert.That(RoomPanelCards.Checks(failed).Status!.Value.Title, Is.EqualTo(RoomPanelCards.ChecksFailed));
+        Assert.That(RoomPanelCards.Checks(failed).Description, Is.Null);
+    }
+
+    [Test]
     public void Checks_name_the_outcome_and_lay_the_steps_dim_once_the_run_ended()
     {
         var passing = RoomPanelCards.Checks(new RoomResult(false, true, false, true, Turn(Observed), Steps()));
