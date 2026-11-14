@@ -56,6 +56,13 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public float HangDp { get; private set; }
 
+        /// <summary>
+        /// Whether the redesign shows no page now (the bar hidden, or its row alone: RoomBarView.ShowsPage false), set as the host
+        /// lays. The plane's two form events read it, "a page opened" and "back to rest" (AUDIT's and XR's 2026-11-14T01:15Z); a
+        /// shelf's placing page is a page here, and the plane, which knows it is placing, counts it as rest itself.
+        /// </summary>
+        public bool Resting => !bar.gameObject.activeSelf || !bar.ShowsPage;
+
         /// <summary>The working field, shown round the panel's place and the character while the agent works (the redesign).</summary>
         public RoomField Field => field;
 

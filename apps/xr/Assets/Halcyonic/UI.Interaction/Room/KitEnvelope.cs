@@ -24,6 +24,12 @@ namespace Halcyonic.XR.UI
             public float panelDp;
             public float widthDp;
             public float heightDp;
+
+            /// <summary>
+            /// The plane at REST (the lead's 2026-11-14T01:13Z ruling 1): the most a bar draws with no page open, a shelf's placing
+            /// page counting as rest (XR's 01:15Z), at this size; panelDp is then the width it was laid at. Never read by Most.
+            /// </summary>
+            public bool resting;
         }
 
         [Serializable]
@@ -55,11 +61,21 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public static Vector2? Most(float scale, float panelDp)
         {
-            var atSize = Entries.Where(entry => Mathf.Abs(entry.scale - scale) < 0.01f).ToList();
+            var atSize = Entries.Where(entry => !entry.resting && Mathf.Abs(entry.scale - scale) < 0.01f).ToList();
             if (atSize.Count == 0) return null;
             var atOrAbove = atSize.Where(entry => entry.panelDp >= panelDp - 0.5f).OrderBy(entry => entry.panelDp).FirstOrDefault()
                 ?? atSize.OrderByDescending(entry => entry.panelDp).First();
             return new Vector2(atOrAbove.widthDp, atOrAbove.heightDp);
+        }
+
+        /// <summary>
+        /// The most drawn at REST at text scale <paramref name="scale"/>, in dp (see <see cref="Entry.resting"/>); null where no resting
+        /// entry is recorded at that size (the caller then falls back to the largest, as RoomBarView.RestingAt does).
+        /// </summary>
+        public static Vector2? Resting(float scale)
+        {
+            var entry = Entries.Where(each => each.resting && Mathf.Abs(each.scale - scale) < 0.01f).OrderByDescending(each => each.heightDp).FirstOrDefault();
+            return entry == null ? (Vector2?)null : new Vector2(entry.widthDp, entry.heightDp);
         }
 
         /// <summary>The record as JSON, from measured entries: what a run writes beside its renders for a person to commit.</summary>

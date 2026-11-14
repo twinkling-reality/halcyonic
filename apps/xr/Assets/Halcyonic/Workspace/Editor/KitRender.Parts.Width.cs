@@ -181,7 +181,17 @@ namespace Halcyonic.XR.Workspace.Editor
             finally { RoomDesign.Enabled = was; }
             // The shelf's placing frame too (XR, 2026-11-13T2027Z: it laid wider than the record while placing): the frame the plane shows
             // while a shelf is placed, at every width, so the record holds what placing lays.
-            var shelf = NarrowFrame("56-narrow-shelf");
+            // The shelf's placing page in the shape the plane hands it (XR's a46dc4651 and 56e6726e2: two instruction lines, the moves in
+            // pairs, Find Room Surface alone; SCREENS's 52-general-shelf), not the older narrow copy: the plane at rest while placing.
+            var placing = new List<PageLine> { new PageLine("Hold Move Shelf to Drag", tone: LineTone.Secondary), new PageLine("Apply for This Session", tone: LineTone.Secondary) };
+            foreach (var (pairLeft, pairRight) in GeneralShelfPairs)
+            {
+                placing.Add(new PageLine(pairLeft, action: "move", key: pairLeft, control: LineControl.Action).WithGroup(pairLeft));
+                placing.Add(new PageLine(pairRight, action: "move", key: pairRight, control: LineControl.Action).WithGroup(pairLeft));
+            }
+            placing.Add(new PageLine("Find Room Surface", action: "read-room", control: LineControl.Action));
+            var shelf = new MenuFrame("Shelf", new Footer(new Prompt(Footer.Close, "Cancel", GlazeIcon.Close, PromptKind.Close),
+                farRight: new Prompt("apply", "Apply", GlazeIcon.Approve, main: true)), lines: placing);
             foreach (var (capsFrame, width) in new[] { frame, recap, shelf }.SelectMany(each => TableWidthsDp.Select(width => (each, width))))
             {
                 RoomBar? bar;
@@ -197,6 +207,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 view.Show(bar);
                 view.SettleForRender();
                 Place(plane, eyes, 0f, shot.Elevation);
+                // The shelf's placing page at the floor's width, where the plane lays it while a shelf is placed: the plane at rest (XR's 01:15Z).
+                if (ReferenceEquals(capsFrame, shelf) && Mathf.Abs(width - PlaneWidth.FloorDp(GlazeText.Scale)) < 0.5f) restingViews.Add(view);
                 // A width under the floor the plane never lays (PlaneWidth.FloorDp): recorded for the envelope, never judged as seen.
                 if (width < PlaneWidth.FloorDp(GlazeText.Scale) - 0.5f) recordOnly.Add(plane.gameObject);
                 Debug.Log("Halcyonic: parts: " + name + ": caps of " + capsFrame.Subject + " at " + width.ToString("0", CultureInfo.InvariantCulture) + " dp: " + (view.Size / RoomType.Units(1f)).ToString("0") + " dp laid.");

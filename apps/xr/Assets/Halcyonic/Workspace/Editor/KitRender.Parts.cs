@@ -51,6 +51,12 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private static readonly List<GameObject> recordOnly = new List<GameObject>();
 
+        /// <summary>Bars a state lays as the plane at rest beyond those showing no page: a shelf's placing page at the floor's width (XR's 01:15Z).</summary>
+        private static readonly HashSet<Halcyonic.XR.UI.RoomBarView> restingViews = new HashSet<Halcyonic.XR.UI.RoomBarView>();
+
+        /// <summary>The most drawn at rest this run, by text size, in dp, with the panel width it was laid at.</summary>
+        private static readonly Dictionary<float, (Vector2 Dp, float PanelDp)> measuredResting = new Dictionary<float, (Vector2, float)>();
+
         /// <summary>The most any bar drew under its foot line in this run, in dp: logged beside the envelope, held to RoomBarView.MostUnderFootDp.</summary>
         private static float mostSpill;
 
@@ -97,6 +103,12 @@ namespace Halcyonic.XR.Workspace.Editor
             // The measured envelope, written beside the renders for a person to commit as Resources/HalcyonicKitEnvelope.json when it
             // changes on purpose; each entry logged.
             var measured = measuredEnvelope.Select(each => new Halcyonic.XR.UI.KitEnvelope.Entry { scale = each.Key.Item1, panelDp = each.Key.Item2, widthDp = Mathf.Ceil(each.Value.x), heightDp = Mathf.Ceil(each.Value.y) }).ToList();
+            foreach (var rest in measuredResting.OrderBy(each => each.Key))
+            {
+                measured.Add(new Halcyonic.XR.UI.KitEnvelope.Entry { scale = rest.Key, panelDp = rest.Value.PanelDp, widthDp = Mathf.Ceil(rest.Value.Dp.x), heightDp = Mathf.Ceil(rest.Value.Dp.y), resting = true });
+                Debug.Log("Halcyonic: parts: kit resting footprint measured: scale " + rest.Key.ToString("0.00") + ": " + Mathf.Ceil(rest.Value.Dp.x).ToString("0") + " by " + Mathf.Ceil(rest.Value.Dp.y).ToString("0") + " dp (laid at a panel " + rest.Value.PanelDp.ToString("0") + " dp wide).");
+            }
+            if (!narrowed && measuredResting.Count < 2) failures.Add("no resting footprint measured at both text sizes (" + measuredResting.Count + "): a shelf's placing page at the floor's width or a bar with no page must lay at each");
             foreach (var entry in measured.OrderBy(entry => entry.scale).ThenByDescending(entry => entry.panelDp))
                 Debug.Log("Halcyonic: parts: kit envelope measured: scale " + entry.scale.ToString("0.00") + ", panel " + entry.panelDp.ToString("0") + " dp: " + entry.widthDp.ToString("0") + " by " + entry.heightDp.ToString("0") + " dp.");
             Debug.Log("Halcyonic: parts: the most a bar drew under its foot line: " + mostSpill.ToString("0.0") + " dp (the kit holds " + Halcyonic.XR.UI.RoomBarView.MostUnderFootDp.ToString("0") + ").");
@@ -107,6 +119,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 System.IO.File.WriteAllText(System.IO.Path.Combine(folder, "kit-envelope-measured.json"), Halcyonic.XR.UI.KitEnvelope.ToJson(measured));
             }
             measuredEnvelope.Clear();
+            measuredResting.Clear();
             mostSpill = 0f;
             foreach (var failure in failures) Debug.LogError("Halcyonic: parts: " + failure);
             if (failures.Count == 0 && narrowed)
@@ -303,6 +316,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add(name + ": the bar draws " + spill.ToString("0.0") + " dp under its foot line, past the kit's " + Halcyonic.XR.UI.RoomBarView.MostUnderFootDp.ToString("0") + " dp");
                     mostSpill = Mathf.Max(mostSpill, spill);
                     measuredEnvelope[key] = measuredEnvelope.TryGetValue(key, out var was) ? Vector2.Max(was, dp) : dp;
+                    // At rest (no page, or a shelf's placing page): the resting entry, and within the recorded one where there is one.
+                    if (!laid.ShowsPage || restingViews.Contains(laid))
+                    {
+                        var size = key.Item1;
+                        measuredResting[size] = measuredResting.TryGetValue(size, out var rested) ? (Vector2.Max(rested.Dp, dp), Mathf.Max(rested.PanelDp, laid.LaidPanelDp)) : (dp, laid.LaidPanelDp);
+                        if (Halcyonic.XR.UI.KitEnvelope.Resting(GlazeText.Scale) is Vector2 restRecord && (dp.x > restRecord.x + 0.5f || dp.y > restRecord.y + 0.5f))
+                            failures.Add(name + ": the bar draws past its recorded resting footprint, " + dp.x.ToString("0") + " by " + dp.y.ToString("0") + " dp against " + restRecord.ToString("0"));
+                    }
                     if (laid.PassedLargest)
                         failures.Add(name + ": the bar laid past its recorded envelope, " + dp.x.ToString("0") + " by " + dp.y.ToString("0") + " dp with a panel "
                             + laid.LaidPanelDp.ToString("0") + " dp wide against " + (Halcyonic.XR.UI.RoomBarView.LargestAt(laid.LaidPanelDp) / unitDp).ToString("0"));
@@ -320,6 +341,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 foreach (var hidden in recordOnly) hidden.SetActive(false);
                 recordOnly.Clear();
+                restingViews.Clear();
                 // Every button's chip, glyph and lock ring inside its own edge (AUDIT, 2026-11-13T1754Z).
                 failures.AddRange(root.GetComponentsInChildren<Halcyonic.XR.UI.RoomButton>(false).Where(button => !button.MarksInside)
                     .Select(button => name + ": a mark of \"" + button.Words.text + "\" stands past its button's edge"));

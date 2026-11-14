@@ -683,6 +683,21 @@ namespace Halcyonic.XR.UI
             return new Vector2(2f * Mathf.Tan(side * Mathf.Deg2Rad), Mathf.Tan(up * Mathf.Deg2Rad) - Mathf.Tan(RoomGeometry.FeetPitch * Mathf.Deg2Rad));
         }
 
+        /// <summary>
+        /// The plane's footprint at REST, in units (the lead's 2026-11-14T01:13Z ruling 1; XR's and AUDIT's 01:15Z): the most a bar
+        /// draws with no page open, a shelf's placing page counting as rest, from the foot line up, centred, halos included, at the
+        /// person's text size (KitEnvelope.Resting); the largest at the floor's width where no resting entry is recorded. What a
+        /// shelf is placed clear of; the band under the foot line is the plane's own to add.
+        /// </summary>
+        public static Vector2 RestingAt()
+        {
+            if (KitEnvelope.Resting(GlazeText.Scale) is Vector2 dp) return new Vector2(RoomType.Units(dp.x), RoomType.Units(dp.y));
+            return LargestAt(PlaneWidth.FloorDp(GlazeText.Scale));
+        }
+
+        /// <summary>Whether the bar last shown is a page (RoomBar.Pair: a panel and its column), not the row at rest.</summary>
+        public bool ShowsPage => shown != null && shown.Pair;
+
         /// <summary>The panel's width, in dp, of the bar last laid: what its envelope is recorded under.</summary>
         public float LaidPanelDp { get; private set; }
 
