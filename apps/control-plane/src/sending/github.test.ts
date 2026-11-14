@@ -1251,6 +1251,51 @@ describe('Send One Change: the files as they are now, as one change on a base th
     assert.equal(remoteRefs(), refs, 'nothing pushed');
   });
 
+  test("another project's folder inside this one, kept as the last version has it, is read at the press whatever the remote holds (the critic's NIT on c993a4eac)", async () => {
+    // Saved and sent before this Mac kept the value: the remote holds it, so only the press's whole read can see it.
+    mkdirSync(join(folder, 'inner'));
+    writeFileSync(join(folder, 'inner', 'key.txt'), `KEY=${VALUE}\n`);
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', 'kept');
+    git(folder, 'push', '-q', 'origin', 'main');
+    const refs = remoteRefs();
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const others = [join(folder, 'inner')];
+    const one = sender({ held: HELD });
+    const reviewed = await one.review(PROJECT, folder, others, 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    const pressed = await one.send(PROJECT, folder, others, 'Lanterns', reviewed.send.review);
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.match(
+      pressed.ok ? '' : pressed.message,
+      /^The inner\/key\.txt saved in the project's last version holds a secret this Mac keeps \(MY_SERVICE_KEY\), and owner\/garden may already have it, so nothing was sent\./,
+    );
+    assert.ok(!(pressed.ok ? '' : pressed.message).includes(VALUE), 'never the value');
+    assert.equal(remoteRefs(), refs, 'nothing pushed');
+  });
+
+  test("a link out of the folder, kept as the last version has it, is read at the press whatever the remote holds (the critic's NIT on c993a4eac)", async () => {
+    // Saved and sent before this Mac kept the value: the remote holds it, so only the press's whole read can see it.
+    symlinkSync(join(root, `outside-${VALUE}`), join(folder, 'away'));
+    git(folder, 'add', '-A');
+    git(folder, 'commit', '-q', '-m', 'kept');
+    git(folder, 'push', '-q', 'origin', 'main');
+    const refs = remoteRefs();
+    writeFileSync(join(folder, 'app.txt'), 'lanterns\n');
+    const others = [] as string[];
+    const one = sender({ held: HELD });
+    const reviewed = await one.review(PROJECT, folder, others, 'Lanterns');
+    assert.ok(reviewed.ok, reviewed.ok ? '' : reviewed.message);
+    const pressed = await one.send(PROJECT, folder, others, 'Lanterns', reviewed.send.review);
+    assert.equal(pressed.ok ? null : pressed.code, 'holds_secret');
+    assert.match(
+      pressed.ok ? '' : pressed.message,
+      /^The away saved in the project's last version holds a secret this Mac keeps \(MY_SERVICE_KEY\), and owner\/garden may already have it, so nothing was sent\./,
+    );
+    assert.ok(!(pressed.ok ? '' : pressed.message).includes(VALUE), 'never the value');
+    assert.equal(remoteRefs(), refs, 'nothing pushed');
+  });
+
   test('never offered where the files as they are now hold one, nor with no history in common, nor before a refused send', async () => {
     const none = await oneReview();
     assert.equal(none.ok ? null : none.code, 'one_change_unavailable');
