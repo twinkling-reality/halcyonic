@@ -224,14 +224,19 @@ export function setupPlayInput(w: World): void {
   dragToLook(w);
   // Only when the person's computer checks the app (it adds ?check): what reached the game, where to click, and how
   // high the kit's words stand on the screen.
+  // Defined once, frozen, neither writable nor configurable, so the app's own code cannot swap in another report
+  // after the kit sets it (AUDIT3); the person's computer reads a hook that is not so as changed.
   if (new URLSearchParams(location.search).has('check')) {
-    Object.assign(globalThis, {
-      __playCheck: {
+    Object.defineProperty(globalThis, '__playCheck', {
+      value: Object.freeze({
         counts: () => counts.snapshot(),
         mode,
         targets: () => targets(w),
         readings: () => readings(w),
-      },
+      }),
+      writable: false,
+      configurable: false,
+      enumerable: false,
     });
   }
 }

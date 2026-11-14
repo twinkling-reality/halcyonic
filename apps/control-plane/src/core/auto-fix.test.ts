@@ -89,7 +89,7 @@ const readAt = (px: number): CheckResult => ({
     mouse: 'reached',
     key: 'reached',
     screen_changed: true,
-    reading: readingOf('starter', { texts: [px] }, null),
+    reading: readingOf('starter', { sealed: true, texts: [px] }, null),
     ready: px >= 10,
   },
   ready: px >= 10,
@@ -584,7 +584,7 @@ describe('a check that passed but does not read on a laptop goes back too, under
       ...READABLE,
       laptop: {
         ...(READABLE.laptop as NonNullable<CheckResult['laptop']>),
-        reading: readingOf('starter', { texts: [] }, null),
+        reading: readingOf('starter', { sealed: true, texts: [] }, null),
         ready: true,
       },
     };

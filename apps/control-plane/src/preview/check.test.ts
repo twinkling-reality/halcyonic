@@ -720,17 +720,28 @@ describe('the laptop step that could not tell (run (a4), 2026-11-13)', () => {
 
   test('says when whether it reads on a laptop is not known, plainly, apart from whether it plays (VRIFY, the lead 22:40Z)', () => {
     assert.equal(
-      laptopUnknown({ ...pressed, reading: readingOf('starter', { texts: [] }, null) }),
+      laptopUnknown({
+        ...pressed,
+        reading: readingOf('starter', { sealed: true, texts: [] }, null),
+      }),
       "Not known whether it reads on a laptop: no text from the app's built-in pages could be measured.",
     );
     assert.equal(
-      laptopUnknown({ ...pressed, reading: readingOf('changed', { texts: [12] }, null) }),
+      laptopUnknown({
+        ...pressed,
+        reading: readingOf('changed', { sealed: true, texts: [12] }, null),
+      }),
       'Not known whether it reads on a laptop: the app changed the files the check reads its words through.',
     );
     const held = laptopUnknown({
       ...pressed,
       ready: false,
-      reading: readingOf('changed', null, null, readingOf('starter', { texts: [6] }, null)),
+      reading: readingOf(
+        'changed',
+        null,
+        null,
+        readingOf('starter', { sealed: true, texts: [6] }, null),
+      ),
     });
     assert.equal(
       held,
@@ -739,11 +750,17 @@ describe('the laptop step that could not tell (run (a4), 2026-11-13)', () => {
     assert.ok((held ?? '').length <= 300, 'fits the findings');
     // A measured reading, too small or not, is a finding, not something the check could not tell.
     assert.equal(
-      laptopUnknown({ ...pressed, reading: readingOf('starter', { texts: [6] }, null) }),
+      laptopUnknown({
+        ...pressed,
+        reading: readingOf('starter', { sealed: true, texts: [6] }, null),
+      }),
       null,
     );
     assert.equal(
-      laptopUnknown({ ...pressed, reading: readingOf('starter', { texts: [12] }, null) }),
+      laptopUnknown({
+        ...pressed,
+        reading: readingOf('starter', { sealed: true, texts: [12] }, null),
+      }),
       null,
     );
     // No word of the kit's names reaches a person.
@@ -751,9 +768,9 @@ describe('the laptop step that could not tell (run (a4), 2026-11-13)', () => {
       for (const files of ['starter', 'changed'] as const) {
         const reading = readingOf(
           files,
-          { texts },
+          { texts, sealed: true },
           null,
-          readingOf('starter', { texts: [6] }, null),
+          readingOf('starter', { sealed: true, texts: [6] }, null),
         );
         assert.doesNotMatch(
           `${reading.words} ${reading.detail ?? ''}`,
@@ -763,14 +780,14 @@ describe('the laptop step that could not tell (run (a4), 2026-11-13)', () => {
   });
 
   test('never "ready" over a reading not known: not in the reading, the laptop line, the check\'s words or the agent\'s (AUDIT2)', () => {
-    const measured6 = readingOf('starter', { texts: [6] }, null);
+    const measured6 = readingOf('starter', { sealed: true, texts: [6] }, null);
     const notKnown = [
-      readingOf('starter', { texts: [] }, null),
+      readingOf('starter', { sealed: true, texts: [] }, null),
       readingOf('starter', null, null),
-      readingOf('changed', { texts: [12] }, null),
+      readingOf('changed', { sealed: true, texts: [12] }, null),
       readingOf('missing', null, null),
-      readingOf('changed', { texts: [12] }, null, measured6),
-      readingOf('starter', { texts: [] }, null, measured6),
+      readingOf('changed', { sealed: true, texts: [12] }, null, measured6),
+      readingOf('starter', { sealed: true, texts: [] }, null, measured6),
     ];
     for (const reading of notKnown) {
       const laptop = { ...pressed, reading };

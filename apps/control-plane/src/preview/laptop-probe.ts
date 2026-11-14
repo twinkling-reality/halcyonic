@@ -60,6 +60,12 @@ type Counts = Record<(typeof SOURCES)[number], number>;
 export interface HookReadings {
   /** Each text the kit drew that the laptop camera sees: its smallest words' height in CSS pixels. */
   readonly texts: readonly number[];
+  /**
+   * Whether the hook stood as the kit sets it (frozen, neither writable nor configurable); otherwise the app's own
+   * code may have replaced it, and the reading is `changed`. Said by the page itself, so it raises the bar and proves
+   * nothing: the reading stays reported (AUDIT3).
+   */
+  readonly sealed: boolean;
 }
 
 /** What the page's input layer reports through its check hook; `reported`, never observed. */
@@ -109,7 +115,10 @@ export const HOOK_EXPRESSION = `(() => {
   try {
     const hook = globalThis.__playCheck;
     if (hook === null || typeof hook !== 'object') return null;
-    const readings = typeof hook.readings === 'function' ? hook.readings() : null;
+    const own = Object.getOwnPropertyDescriptor(globalThis, '__playCheck');
+    const sealed = own !== undefined && own.writable === false && own.configurable === false && Object.isFrozen(hook);
+    const given = typeof hook.readings === 'function' ? hook.readings() : null;
+    const readings = given !== null && typeof given === 'object' ? { ...given, sealed } : given;
     return JSON.stringify({ counts: hook.counts(), targets: hook.targets(), readings });
   } catch {
     return null;
@@ -154,7 +163,7 @@ export function parseReport(value: unknown): HookReport | null {
 /** The hook's readings against a strict shape; anything else is null, so the reading is unknown. */
 export function parseReadings(value: unknown): HookReadings | null {
   if (value === null || typeof value !== 'object') return null;
-  const { texts } = value as { texts?: unknown };
+  const { texts, sealed } = value as { texts?: unknown; sealed?: unknown };
   if (!Array.isArray(texts)) return null;
   const heights: number[] = [];
   for (const text of texts.slice(0, MAX_TEXTS)) {
@@ -162,7 +171,7 @@ export function parseReadings(value: unknown): HookReadings | null {
     if (typeof px !== 'number' || !Number.isFinite(px) || px < 0 || px > 4096) return null;
     heights.push(px);
   }
-  return { texts: heights };
+  return { texts: heights, sealed: sealed === true };
 }
 
 /**
@@ -259,6 +268,8 @@ export function readingOf(
   if (files !== 'starter')
     return notMeasured('changed', 'the app changed the files the check reads its words through');
   if (readings === null) return notMeasured('unknown', 'the app did not say how big its words are');
+  if (!readings.sealed)
+    return notMeasured('changed', 'the app changed how the check reads its words');
   if (readings.texts.length === 0)
     return notMeasured('unknown', "no text from the app's built-in pages could be measured");
   // Cut, never rounded up onto the floor.

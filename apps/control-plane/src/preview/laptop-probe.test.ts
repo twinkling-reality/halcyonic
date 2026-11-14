@@ -15,6 +15,7 @@ import {
   clockScript,
   type Driver,
   fillShare,
+  HOOK_EXPRESSION,
   laptopStep,
   layerState,
   parseReadings,
@@ -68,6 +69,8 @@ function picture(lit: number): Buffer {
 /** What the hook says of the kit's words: heights in CSS pixels. */
 interface Readings {
   texts: { px: number }[];
+  /** Whether the hook stood as the kit sets it; true unless a test says otherwise. */
+  sealed?: boolean;
 }
 
 /** Kit words standing 14 px high: readable. */
@@ -101,7 +104,12 @@ function driver(page: Page) {
         : JSON.stringify({
             counts,
             targets: page.targets ?? [],
-            readings: page.readings === undefined ? READABLE : page.readings,
+            readings:
+              page.readings === null
+                ? null
+                : (({ sealed = true, ...rest }: Readings) => ({ ...rest, sealed }))(
+                    page.readings ?? READABLE,
+                  ),
           }),
     async mouse(type, x, y) {
       actions.push(`${type} ${x},${y}`);
@@ -346,7 +354,7 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     });
   const at = (...px: number[]): Readings => ({ texts: px.map((each) => ({ px: each })) });
   /** A reading measured at `px`, as an earlier check of the project recorded it. */
-  const measuredAt = (px: number) => readingOf('starter', { texts: [px] }, null);
+  const measuredAt = (px: number) => readingOf('starter', { sealed: true, texts: [px] }, null);
 
   test('the one floor is 10 px words, at 1280 by 800', () => {
     assert.equal(READING_FLOOR_PX, 10);
@@ -395,7 +403,7 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     assert.equal(parseReadings({ texts: [{ px: 'big' }] }), null);
     assert.equal(parseReadings({ texts: [{ px: Number.NaN }] }), null);
     assert.equal(parseReadings({ texts: 'many' }), null);
-    assert.deepEqual(parseReadings({ texts: [{ px: 12 }] }), { texts: [12] });
+    assert.deepEqual(parseReadings({ texts: [{ px: 12 }] }), { texts: [12], sealed: false });
     assert.equal(
       parseReadings({ texts: Array.from({ length: 80 }, () => ({ px: 12 })) })?.texts.length,
       64,
@@ -417,6 +425,67 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     );
     assert.equal(changed.ready, true);
     assert.equal((await step(at(40), view(0.6), 'missing')).reading?.state, 'changed');
+  });
+
+  test("a hook not as the kit sets it is changed: the app's own code may have replaced the report (AUDIT3)", async () => {
+    const replaced = await step({ ...at(40), sealed: false });
+    assert.equal(replaced.reading?.state, 'changed');
+    assert.equal(replaced.reading?.smallest_px, null);
+    assert.equal(
+      replaced.reading?.words,
+      'Not known whether it reads on a laptop: the app changed how the check reads its words',
+    );
+    // A failure last measured is still held: replacing the hook never clears it.
+    const held = await step({ ...at(40), sealed: false }, view(0.5), 'starter', measuredAt(6));
+    assert.equal(held.reading?.last_measured_px, 6);
+    assert.equal(held.ready, false);
+    // Read in the host: a report without the page's word that the hook was sealed is not sealed.
+    assert.equal(parseReadings({ texts: [{ px: 40 }] })?.sealed, false);
+    assert.equal(parseReadings({ texts: [{ px: 40 }], sealed: 'yes' })?.sealed, false);
+    assert.equal(parseReadings({ texts: [{ px: 40 }], sealed: true })?.sealed, true);
+  });
+
+  test("the page's own expression tells the kit's sealed hook from one the app put in its place", () => {
+    const hook = {
+      counts: () => ({ mouse: 0, key: 0, trigger: 0, pinch: 0, touch: 0 }),
+      targets: () => [],
+      readings: () => ({ texts: [{ px: 40 }] }),
+    };
+    const read = (setup: (global: Record<string, unknown>) => void) => {
+      const context = createContext({});
+      setup(runInContext('globalThis', context) as Record<string, unknown>);
+      const report = parseReport(runInContext(HOOK_EXPRESSION, context));
+      return report?.readings?.sealed;
+    };
+    // As the kit sets it.
+    assert.equal(
+      read((global) =>
+        Object.defineProperty(global, '__playCheck', {
+          value: Object.freeze({ ...hook }),
+          writable: false,
+          configurable: false,
+        }),
+      ),
+      true,
+    );
+    // Assigned as a plain property, writable: the app could have put it there.
+    assert.equal(
+      read((global) => {
+        global.__playCheck = { ...hook };
+      }),
+      false,
+    );
+    // Not writable but its object open to change.
+    assert.equal(
+      read((global) =>
+        Object.defineProperty(global, '__playCheck', {
+          value: { ...hook },
+          writable: false,
+          configurable: false,
+        }),
+      ),
+      false,
+    );
   });
 
   test('a reading never improves by becoming unmeasurable: a failure last measured is held until a measured pass (AUDIT3)', async () => {
@@ -501,11 +570,11 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
 
   test('the reading never says passed or failed; only a measured failure holds the laptop step back (AUDIT3 R3)', () => {
     assert.equal(readingPasses(undefined), true);
-    const reading = readingOf('starter', { texts: [12] }, view(0.5));
+    const reading = readingOf('starter', { sealed: true, texts: [12] }, view(0.5));
     assert.equal(readingPasses(reading), true);
     assert.equal(readingPasses({ ...reading, smallest_px: 9.99 }), false);
     assert.equal(readingPasses(readingOf('changed', null, null)), true);
-    assert.equal(readingPasses(readingOf('starter', { texts: [] }, null)), true);
+    assert.equal(readingPasses(readingOf('starter', { sealed: true, texts: [] }, null)), true);
     assert.equal(readingPasses(readingOf('changed', null, null, measuredAt(6))), false);
     assert.equal(Object.hasOwn(reading, 'passed'), false);
   });
