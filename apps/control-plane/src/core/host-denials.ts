@@ -1,4 +1,5 @@
 import {
+  ApprovalToolName,
   COMMAND_SCHEMA_VERSION,
   type CommandId,
   compileValidator,
@@ -51,6 +52,21 @@ export interface UnrecordedRequestsDeps {
 /** The contract's own check of a native id, so the host keeps no id the journal would refuse. */
 const validNativeId = compileValidator(NativeId);
 
+/** The contract's own check of a request's tool name, the field `ApprovalSubject` gives it. */
+const validToolName = compileValidator(ApprovalToolName);
+
+/**
+ * The tool a refused request named, where it is one the contract keeps, for the record's display only: never its
+ * input, summary, paths or changes, and nothing decides by it (AUDIT3 F2). Kept as the app gave it, since it is the
+ * app's own report; whatever shows it as words escapes what a card does not draw (`visible`).
+ */
+function refusedToolName(payload: unknown): string | undefined {
+  const subject = (payload as { subject?: unknown } | null)?.subject;
+  const given = (subject as { tool_name?: unknown } | null | undefined)?.tool_name;
+  const checked = validToolName(given);
+  return checked.ok ? checked.value : undefined;
+}
+
 /**
  * The host's answer to a request its journal could not record (ADR 0065, 2026-11-13): an agent app's approval request
  * the contract refuses is never a card, so the agent would wait on it until its run's bound. For one with an id the
@@ -88,13 +104,19 @@ export function unrecordedRequests(
       return;
     }
     const delivered = adapter.descriptor.delivers_denial_message === true;
+    const toolName = refusedToolName(observation.payload);
     let recorded = false;
     try {
       deps.recorder.record(
         controlPlaneDraft(
           'execution.approval.denied_by_host',
           execution,
-          { approval_id: approvalId, because: 'not_recorded', delivered },
+          {
+            approval_id: approvalId,
+            because: 'not_recorded',
+            delivered,
+            ...(toolName !== undefined && { tool_name: toolName }),
+          },
           deps.clock.now().toISOString() as Timestamp,
           NO_CAUSE,
         ),

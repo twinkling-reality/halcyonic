@@ -10,7 +10,7 @@ import type {
 import type { ExecutionContext, RuntimeAdapter, RuntimeObservation } from '@halcyonic/runtime-core';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
-import { APPROVABLE_LIMIT, controlPlaneDraft, NO_CAUSE } from './drafts.ts';
+import { APPROVABLE_LIMIT, controlPlaneDraft, NO_CAUSE, visible } from './drafts.ts';
 import { NOT_RECORDED_WORDS, requestOutcome, tooLongWords } from './host-denials.ts';
 
 /** An agent app that can be sent decisions, declaring whether a denial's words reach its agent. */
@@ -189,7 +189,7 @@ describe('a request the journal cannot record is denied by the host, never left 
   type Sent = { approval_id: string; decision: string; message: string | null };
 
   async function run(
-    requests: { approval_id: string; summary: string; tool?: string }[],
+    requests: { approval_id: string; summary: string; tool?: unknown }[],
     delivers = true,
   ) {
     const { logger, entries } = capturingLogger();
@@ -285,6 +285,7 @@ describe('a request the journal cannot record is denied by the host, never left 
       approval_id: 'bad',
       because: 'not_recorded',
       delivered: true,
+      tool_name: 'Bash',
     });
     assert.deepEqual(sent, [{ approval_id: 'bad', decision: 'deny', message: NOT_RECORDED_WORDS }]);
     assert.deepEqual(view?.pending_approvals, []);
@@ -332,6 +333,42 @@ describe('a request the journal cannot record is denied by the host, never left 
     assert.equal(sent.length, 1, 'refused, so denied');
     const logged = JSON.stringify(entries);
     assert.ok(!logged.includes('notes-of-the-person'), logged);
+  });
+
+  test("the refused request's tool is kept beside it only where the contract's own check keeps it (F2)", async () => {
+    const tools: unknown[] = ['', '   ', 'x'.repeat(129), 42, false, { name: 'Bash' }];
+    const { denied, sent } = await run(
+      tools.map((tool, index) => ({ approval_id: `bad-${index}`, summary: '', tool })),
+    );
+    assert.equal(sent.length, tools.length, 'each still denied');
+    assert.equal(denied.length, tools.length);
+    for (const event of denied) assert.ok(!('tool_name' in event.payload), JSON.stringify(event));
+    const longest = 'x'.repeat(128);
+    const kept = await run([{ approval_id: 'bad', summary: '', tool: longest }]);
+    assert.equal(
+      (kept.denied[0]?.payload as { tool_name?: string } | undefined)?.tool_name,
+      longest,
+    );
+  });
+
+  test('a tool name with what a card does not draw is kept as the app gave it, and the host makes no words of it (F2.1)', async () => {
+    const name = '<alpha=#00>Bash\u202E';
+    // Refused for its empty summary; the name itself is one the contract keeps.
+    const { denied, entries, view } = await run([{ approval_id: 'bad', summary: '', tool: name }]);
+    assert.equal(denied.length, 1);
+    const payload = denied[0]?.payload as Record<string, unknown>;
+    assert.equal(payload.tool_name, name, "kept as given: it is the app's own report");
+    assert.deepEqual(Object.keys(payload).sort(), [
+      'approval_id',
+      'because',
+      'delivered',
+      'tool_name',
+    ]);
+    const logged = JSON.stringify(entries);
+    assert.ok(!logged.includes('alpha=#00'), logged);
+    assert.ok(!JSON.stringify(view).includes('alpha=#00'), 'no view holds words made of it');
+    // Wherever it is shown as words, `visible` writes the override as its escape.
+    assert.equal(visible(name), '<alpha=#00>Bash\\u{202E}');
   });
 
   test('the words say it was not shown and not done, with no advice and no product name', () => {

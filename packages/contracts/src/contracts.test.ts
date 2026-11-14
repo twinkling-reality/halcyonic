@@ -711,6 +711,7 @@ describe('the C# bindings', () => {
     'Evaluation.activity', // Seorak's activity of a session
     'ExecutionApprovalAnsweredByHostPayload.cut', // a confined answer longer than the record keeps (M1)
     'ExecutionApprovalDeniedByHostPayload.length', // a too-long request's length; absent for one not recorded (ADR 0065)
+    'ExecutionApprovalDeniedByHostPayload.tool_name', // a request not recorded: its tool, for display only (F2)
     'ExecutionCreatedPayload.secret_names', // the project secrets a start gave (ADR 0057)
     'ExecutionSendInstructionPayload.attachments', // pictures with the words (A4)
     'ExecutionSendInstructionPayload.leave_plan', // carrying a plan out (PLAN 4a)
@@ -1440,6 +1441,18 @@ describe("the host's own denial of a request (ADR 0065)", () => {
       false,
       'never the request itself',
     );
+  });
+
+  test("one the journal could not record may carry its tool's name, as the request's own field bounds it", () => {
+    const named = (tool_name: unknown) =>
+      denial({ approval_id: 'a', because: 'not_recorded', delivered: true, tool_name });
+    assert.equal(named('Bash'), true);
+    assert.equal(named('x'.repeat(128)), true);
+    assert.equal(named('<alpha=#00>Bash\u202E'), true, "the app's own report, as given");
+    assert.equal(named(''), false);
+    assert.equal(named('   '), false);
+    assert.equal(named('x'.repeat(129)), false);
+    assert.equal(named(42), false);
   });
 
   test('a question the journal could not record carries its id, the reason and whether the end was asked, never its words', () => {

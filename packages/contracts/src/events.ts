@@ -1029,13 +1029,18 @@ export const ExecutionApprovalHostAnswerWithdrawn = executionEvent(
   Type.Object({ approval_id: NativeId }, strict),
 );
 
+/** The name an agent app gives the tool a request would run (`ApprovalSubject.tool_name`), as it gives it. */
+export const ApprovalToolName = Text(128);
+
 /**
  * The host denied a request of this execution itself, recorded before the denial is sent: a request longer than a
  * person can be shown whole (`too_long_to_show`, with its length), for every run, so no card that can only be denied
  * is left waiting; or a request the journal could not record (`not_recorded`, with no length: the request itself
  * was never kept), denied through the agent's app at once, so no agent waits on a request nobody can see (ADR 0065).
  * `delivered` is whether the agent app declares that a denial's words reach its agent (`delivers_denial_message`):
- * where false, the words are recorded and shown, and the agent was never told them.
+ * where false, the words are recorded and shown, and the agent was never told them. `tool_name`, for `not_recorded`
+ * only, is the tool the refused request named, where it is one the contract keeps (`ApprovalToolName`): the agent
+ * app's own report, for display only, which nothing decides by; never the tool's input, summary, paths or changes.
  */
 export const ExecutionApprovalDeniedByHost = executionEvent(
   'execution.approval.denied_by_host',
@@ -1046,6 +1051,8 @@ export const ExecutionApprovalDeniedByHost = executionEvent(
       /** The request's length, for `too_long_to_show`; absent for `not_recorded`. */
       length: Type.Optional(Type.Integer({ minimum: 0 })),
       delivered: Type.Boolean(),
+      /** The refused request's tool, as its app named it, for `not_recorded`; absent where it was not one kept. */
+      tool_name: Type.Optional(ApprovalToolName),
     },
     strict,
   ),
@@ -1222,7 +1229,7 @@ export const ApprovalSubject = Type.Union([
   Type.Object(
     {
       kind: Type.Literal('tool_use'),
-      tool_name: Text(128),
+      tool_name: ApprovalToolName,
       /** Whole up to 32000 characters, the bound an agent's message has; cut beyond it (never approvable then). */
       summary: Text(32000),
       /**

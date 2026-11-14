@@ -8736,6 +8736,12 @@
                 },
                 "delivered": {
                   "type": "boolean"
+                },
+                "tool_name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S"
                 }
               },
               "additionalProperties": false
