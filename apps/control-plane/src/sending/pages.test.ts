@@ -541,7 +541,7 @@ describe('a built copy holding a secret the host keeps is never published (the l
     assert.equal(reviewed.ok ? null : reviewed.code, 'holds_secret');
     assert.equal(
       reviewed.ok ? '' : reviewed.message,
-      "assets/app.js in the game's built files holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was published. The project's code or its build puts it there: take it out of the project, then check the game again.",
+      "assets/app.js in the game's built files holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was published. Each check makes that file again from the project, so changing it will not help: take the secret out of the project, then press Check again.",
     );
     const plain = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
     assert.ok(plain.ok);
