@@ -71,6 +71,20 @@
       "panelDp": 240.0,
       "widthDp": 565.0,
       "heightDp": 1005.0
+    },
+    {
+      "scale": 1.0,
+      "panelDp": 360.0,
+      "widthDp": 620.0,
+      "heightDp": 381.0,
+      "resting": true
+    },
+    {
+      "scale": 1.149999976158142,
+      "panelDp": 400.0,
+      "widthDp": 660.0,
+      "heightDp": 437.0,
+      "resting": true
     }
   ]
 }
