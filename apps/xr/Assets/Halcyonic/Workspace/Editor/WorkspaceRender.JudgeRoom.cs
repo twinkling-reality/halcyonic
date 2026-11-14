@@ -801,7 +801,18 @@ namespace Halcyonic.XR.Workspace.Editor
                         {
                             reachedBy += (reachedBy.Length > 0 ? ", then " : "") + "pressed " + FileScreens.Open + "/" + opening.Key;
                             Fresh();
-                            if (Opened()?.Frame?.Side == null) failures.Add("judge room: " + FileScreens.Open + "/" + opening.Key + " opened no side panel");
+                            if (Opened()?.Frame?.Side == null)
+                            {
+                                // Say what stood instead, so the cause is read from the run: the product lays a side panel only from an
+                                // opening line on the page showing (FileScreens: "A side panel only from a line on the page showing").
+                                var column = Opened();
+                                var lines = column?.Frame?.Lines ?? Array.Empty<PageLine>();
+                                Debug.Log("Halcyonic: judge room: after " + FileScreens.Open + "/" + opening.Key + ": the column " + (column == null ? "is gone" : "shows "
+                                    + column.Screen.Section + " page " + (column.Screen.Page + 1) + " of " + column.Screen.Pages + ", chosen '" + column.Screen.Chosen + "'; "
+                                    + lines.Count(line => line.Opens) + " opening lines on it (" + string.Join(", ", lines.Where(line => line.Opens)
+                                        .Select(line => line.Key + (line.Chosen ? " chosen" : ""))) + ")"));
+                                failures.Add("judge room: " + FileScreens.Open + "/" + opening.Key + " opened no side panel");
+                            }
                             Moment("room side panel");
                         }
                         else Debug.Log("Halcyonic: judge room: no line of the task's Changes or Checks opens an answer beside it: the side panel is not reached here");
