@@ -170,7 +170,7 @@ namespace Halcyonic.XR
         /// </summary>
         public static float? PlaneRestHalfDegrees { get; set; }
 
-        private static (int Places, int Version, float Rest, float Field, float Width)? fitted;
+        private static (int Places, int Version, float RestHalf, float Field, float Width)? fitted;
 
         /// <summary>
         /// The width every shelf of <paramref name="places"/> takes (the lead's 2026-11-14T02:21Z ruling 1 (a): the shelf fits the room, one
@@ -186,7 +186,7 @@ namespace Halcyonic.XR
             if (!RoomDesign.Enabled || PlaneRestHalfDegrees is not float rest) return natural;
             var measured = ViewField.Current ?? MenuPage.Quest3S;
             var side = (float)System.Math.Min(measured.Left, measured.Right);
-            if (fitted is { } was && was.Places == places && was.Version == GlazeText.Version && Mathf.Approximately(was.Rest, rest) && Mathf.Approximately(was.Field, side))
+            if (fitted is { } was && was.Places == places && was.Version == GlazeText.Version && Mathf.Approximately(was.RestHalf, rest) && Mathf.Approximately(was.Field, side))
                 return was.Width;
             var fit = side - ViewField.EdgeMarginDegrees - rest - WorkspacePlacement.ClearanceDegrees;
             var most = 2f * AgentShelfSearch.MinimumDistance * Mathf.Tan(Mathf.Max(1f, fit) * Mathf.Deg2Rad / 2f);
