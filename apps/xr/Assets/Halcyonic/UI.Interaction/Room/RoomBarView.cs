@@ -187,8 +187,9 @@ namespace Halcyonic.XR.UI
         /// The most a bar draws under its foot line, in dp: the lowest action's core reaches 6.4 dp under it and its halo feathers
         /// past that. The plane's footprint takes this much under the bar's foot as well as the record above it (AUDIT's
         /// 2026-11-13T2303Z MUST 1: the footprint reasoned is the footprint drawn); PartsCheck fails any bar drawing past it.
+        /// Measured: 21.0 dp at the standard size and 22.2 at the larger (F113, 2026-11-14), so 24.
         /// </summary>
-        public const float MostUnderFootDp = 20f;
+        public const float MostUnderFootDp = 24f;
 
         /// <summary>
         /// The press of a shown card row that raises <paramref name="action"/> (and <paramref name="key"/> where given): an answer
