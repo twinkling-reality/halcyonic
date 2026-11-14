@@ -82,6 +82,10 @@ describe('Send to GitHub through the control plane (ADR 0039, amended)', {
     const { server, stand, projectId, review } = await serve(t, 'sends');
     const nothing = await review();
     assert.equal(nothing.availability === 'unavailable' && nothing.reason.code, 'nothing_to_send');
+    assert.equal(
+      nothing.availability === 'unavailable' && nothing.reason.message,
+      'Nothing in the project differs from its last saved version.',
+    );
     writeFileSync(join(stand.folder, 'app.txt'), 'lanterns\n');
     const read = await review();
     assert.ok(read.availability === 'available');
