@@ -1,5 +1,6 @@
 import { type EventEnvelope, RUNTIME_EVENT_TYPES } from '@halcyonic/contracts';
 import type { ControlPlane } from '../core/control-plane.ts';
+import { checkStateOf } from './fact-words.ts';
 
 /** The most file paths the evidence lists; totals still count every file. */
 export const EVIDENCE_FILES = 12;
@@ -118,7 +119,7 @@ export function taskEvidence(plane: ControlPlane, executionId: string, outside: 
       check === undefined || findings === undefined
         ? { state: 'not_checked' }
         : {
-            state: findings.passed ? 'passed' : 'failed',
+            state: checkStateOf(findings),
             type_check: step(findings.tsc.exit),
             build: step(findings.build.exit),
             page:

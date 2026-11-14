@@ -2029,14 +2029,22 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("edges_at_10s", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public long? EdgesAt10s { get; set; }
 
-        [global::Newtonsoft.Json.JsonProperty("drawn", Required = global::Newtonsoft.Json.Required.Always)]
-        public bool Drawn { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("drawn", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public bool? Drawn { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("own", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public CheckOwn? Own { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("pictures", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<CheckPagePicturesItem> Pictures { get; set; } = new global::System.Collections.Generic.List<CheckPagePicturesItem>();
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum CheckFindingsVerdict
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "passed")] Passed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_known")] NotKnown,
     }
 
     public sealed class CheckReading
@@ -2169,6 +2177,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("passed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Passed { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("verdict", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public CheckFindingsVerdict? Verdict { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("reads_confined", Required = global::Newtonsoft.Json.Required.Always)]
         public bool ReadsConfined { get; set; }

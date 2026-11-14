@@ -24,7 +24,9 @@ import {
   drawnFrom,
   laptopUnknown,
   OWN_DRAWN,
+  OWN_LOOK_NOT_KNOWN,
   type OwnReference,
+  ownUnknown,
   type PageFindings,
   passes,
   runCheck,
@@ -55,6 +57,7 @@ describe('the check of a project from a starter (ADR 0037)', () => {
     assert.ok(!passes(ok, ok, null), 'a page that was not opened is not a pass');
     assert.ok(!passes(ok, ok, page({ exception_count: 1 })));
     assert.ok(!passes(ok, ok, page({ drawn: false })));
+    assert.equal(passes(ok, ok, page({ drawn: null })), false, 'drawn not known is never a pass');
   });
 
   test('something is drawn when either picture has more sharp edges than the threshold; nothing is assumed', () => {
@@ -81,9 +84,24 @@ describe('the check of a project from a starter (ADR 0037)', () => {
     // Another template than the tracked one: the edges alone, as before DRAWN.
     assert.ok(drawnFrom(56_000, 56_000, own(null, 'other_template')));
     assert.ok(!drawnFrom(DRAWN_EDGES, 0, own(null, 'other_template')));
-    // No starter's picture to compare with: never drawn.
-    assert.ok(!drawnFrom(56_000, 56_000, own(null, 'unavailable')));
-    assert.ok(!drawnFrom(56_000, 56_000, own(0.5, 'unavailable')));
+    // No starter's picture to compare with: not known, never false, since that is the product's failure, never the
+    // app's (VRIFY, 2026-11-13); edges that say nothing is drawn still fail it, whatever the reference.
+    assert.equal(drawnFrom(56_000, 56_000, own(null, 'unavailable')), null);
+    assert.equal(drawnFrom(56_000, 56_000, own(0.5, 'unavailable')), null);
+    assert.equal(drawnFrom(DRAWN_EDGES, 0, own(null, 'unavailable')), false);
+    assert.equal(drawnFrom(0, null, own(null, 'unavailable')), false);
+  });
+
+  test("the finding where the starter's picture could not be made is the host's own sentence, never the app as the cause (VRIFY)", () => {
+    assert.equal(
+      OWN_LOOK_NOT_KNOWN,
+      "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Press Check to try again.",
+    );
+    assert.doesNotMatch(OWN_LOOK_NOT_KNOWN, /fail/i);
+    // The finding is that sentence alone: the reason, even the host's own, never a browser's or a build's message (C7).
+    const why = 'Error: net::ERR_TIMED_OUT at http://127.0.0.1/';
+    const own = { share: null, reference: 'unavailable', frame: null } as const;
+    assert.equal(ownUnknown(own, { kind: 'unavailable', why }), OWN_LOOK_NOT_KNOWN);
   });
 
   test('reports at most five distinct exceptions, each its first two lines, whole for the control plane to redact and then cut (P1b)', () => {

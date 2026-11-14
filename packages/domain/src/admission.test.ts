@@ -1222,6 +1222,75 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     assert.equal(projection.preview(scope.project_id), undefined);
   });
 
+  test('a check whose only unknown is its own look is served and played; a failed one never is, sharing and publishing still need a pass (VRIFY, 2026-11-13)', () => {
+    const { b, projection, scope, command } = setupStarter(true);
+    const refusal = (type: Parameters<typeof command>[0]) => {
+      const result = admitCommand(command(type), projection, catalog());
+      return result.admitted ? null : result.rejection.message;
+    };
+    const laptop = {
+      layer: 'starter',
+      targets: 1,
+      mouse: 'reached',
+      key: 'reached',
+      screen_changed: true,
+      ready: true,
+    };
+    const page = {
+      exceptions: [],
+      exception_count: 0,
+      console_errors: 0,
+      canvases: 1,
+      edges_at_3s: 56_000,
+      edges_at_10s: 56_000,
+      drawn: null,
+      own: { share: null, reference: 'unavailable' },
+      pictures: [],
+    };
+    const record = (checkId: string, extra: Record<string, unknown>) =>
+      projection.apply(
+        b.controlPlane('project.check.recorded', scope, {
+          check_id: checkId as never,
+          findings: { ...findings(false), page, laptop, ready: false, ...extra } as never,
+        }),
+      );
+    const notKnown = b.id();
+    record(notKnown, { verdict: 'not_known' });
+    assert.equal(refusal('project.preview.start'), null, 'its preview starts');
+    projection.apply(
+      b.controlPlane('project.preview.started', scope, {
+        check_id: notKnown as never,
+        port: 47930,
+      }),
+    );
+    assert.equal(refusal('project.open_on_mac'), null, 'Play on Laptop refuses nothing for it');
+    assert.match(refusal('project.share.start') ?? '', /Only a passed check can be shared/);
+    assert.match(refusal('project.publish') ?? '', /Only a passed check can be published/);
+    projection.apply(
+      b.controlPlane('project.preview.stopped', scope, {
+        check_id: notKnown as never,
+        reason: 'asked',
+      }),
+    );
+    // An exception beside the same unknown is a failure the check saw: refused, as before.
+    const failed = b.id();
+    record(failed, {
+      verdict: 'failed',
+      page: { ...page, exceptions: ['Uncaught TypeError'], exception_count: 1 },
+    });
+    assert.match(
+      refusal('project.preview.start') ?? '',
+      /Only the copy of a passed check is served/,
+    );
+    // A check recorded before the verdict reads by passed alone.
+    const older = b.id();
+    record(older, {});
+    assert.match(
+      refusal('project.preview.start') ?? '',
+      /Only the copy of a passed check is served/,
+    );
+  });
+
   test('a game plays on the Mac only from a passed, laptop-ready, confined check its preview serves, once at a time (P-A)', () => {
     const { b, projection, scope, command } = setupStarter(true);
     const opens = () => {

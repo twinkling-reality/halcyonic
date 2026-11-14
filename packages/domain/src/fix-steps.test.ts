@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { CheckFindings, CheckReading } from '@halcyonic/contracts';
-import { fixSteps, readingFix, readingPasses, readingUnder } from './fix-steps.ts';
+import {
+  checkServable,
+  checkVerdict,
+  fixSteps,
+  readingFix,
+  readingPasses,
+  readingUnder,
+} from './fix-steps.ts';
 
 /** A check that passed: its page drew, nothing threw, and its laptop step read `reading`. */
 function passed(reading?: CheckReading): CheckFindings {
@@ -91,5 +98,63 @@ describe("the laptop reading goes back to its agent, a check's second trigger (A
       "Words are drawn 6 px high at a laptop's 1280 by 800 view; a person reads at least 10 px. Bring the pages nearer the laptop camera or make the words larger (TYPE in src/pages.ts), so the laptop reads as the headset does.",
     );
     assert.equal(readingFix(passed(measured(12))), null);
+  });
+});
+
+describe("a check's whole answer beside passed (VRIFY, 2026-11-13: a reference the product could not make is never the app's failure)", () => {
+  /** Everything seen passed; the starter's own picture could not be made, so whether it draws its own look is not known. */
+  const unmade = (reading?: CheckReading): CheckFindings => {
+    const seen = passed(reading);
+    return {
+      ...seen,
+      page:
+        seen.page === null
+          ? null
+          : { ...seen.page, drawn: null, own: { share: null, reference: 'unavailable' } },
+      passed: false,
+    };
+  };
+
+  test('only the own look not known reads not_known, never passed, and serves', () => {
+    assert.equal(checkVerdict(unmade()), 'not_known');
+    assert.equal(unmade().passed, false, 'passed keeps its meaning');
+    assert.equal(checkServable({ ...unmade(), verdict: 'not_known' }), true);
+    assert.equal(checkVerdict(passed()), 'passed');
+    assert.equal(checkVerdict(passed(measured(14))), 'passed');
+  });
+
+  test('any failure the check measured or saw wins over what is not known (C1)', () => {
+    const page = unmade().page;
+    assert.ok(page !== null);
+    const failures: CheckFindings[] = [
+      { ...unmade(), page: { ...page, exceptions: ['Uncaught TypeError'], exception_count: 1 } },
+      { ...unmade(), tsc: { exit: 2, seconds: 1 } },
+      { ...unmade(), build: { exit: null, seconds: 180 } },
+      { ...unmade(), page: { ...page, edges_at_3s: 0, edges_at_10s: 0, drawn: false } },
+      { ...unmade(), page: null },
+      unmade(measured(6)),
+      {
+        ...unmade(),
+        refusals: [
+          {
+            kind: 'original_share_image',
+            words: 'Make your own share picture.',
+            file: 'public/og.png',
+          },
+        ],
+      },
+    ];
+    for (const findings of failures) {
+      assert.equal(checkVerdict(findings), 'failed', JSON.stringify(findings));
+      assert.equal(checkServable({ ...findings, verdict: checkVerdict(findings) }), false);
+    }
+    // The laptop reading measured under its floor fails the whole answer, even where everything else passed.
+    assert.equal(checkVerdict(passed(measured(6))), 'failed');
+    assert.equal(passed(measured(6)).passed, true, 'passed keeps its meaning');
+  });
+
+  test('a check recorded before the verdict is served by passed alone', () => {
+    assert.equal(checkServable(passed()), true);
+    assert.equal(checkServable(unmade()), false);
   });
 });

@@ -63,7 +63,11 @@ export type OwnReference =
   | { readonly kind: 'compared'; readonly png: Buffer }
   /** The project began from another template than the tracked one: its edges alone, as before. */
   | { readonly kind: 'other_template' }
-  /** No starter's picture could be made: never drawn. */
+  /**
+   * No starter's picture could be made, the product's failure, never the app's: whether the page draws its own look is
+   * not known (`drawn` null where its edges say something is drawn). `why` is the host's own words, never a browser's
+   * or a build's message.
+   */
   | { readonly kind: 'unavailable'; readonly why: string }
   /** This check makes the starter's picture: the page's own is taken and compared with nothing. */
   | { readonly kind: 'making' };
@@ -71,6 +75,22 @@ export type OwnReference =
 /** How long the page is watched, and when the two pictures are taken. */
 export const PAGE_MS = 10_000;
 export const EARLY_MS = 3_000;
+
+/**
+ * The finding where the starter's own picture could not be made (VRIFY, AUDIT2's words): the host's own, never a
+ * browser's or a build's message, and never the app as the cause.
+ */
+export const OWN_LOOK_NOT_KNOWN =
+  "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Press Check to try again.";
+
+/**
+ * A check's state where its verdict is `not_known` (AUDIT2's words): its label, and its line, with the finding's sentence
+ * under it. Never "failed", never the app as the cause.
+ */
+export const PARTLY_CHECKED = {
+  label: 'Partly Checked',
+  line: 'What was checked passed; one thing could not be checked.',
+} as const;
 
 /** How many exception texts a check's finding holds. */
 export const MAX_EXCEPTIONS = 5;
@@ -147,8 +167,11 @@ export interface PageFindings {
   readonly console_errors: number;
   readonly canvases: number;
   readonly edges: { readonly at_3s: number | null; readonly at_10s: number | null };
-  /** Something is drawn in view, and of the project's own; never that the game works. */
-  readonly drawn: boolean;
+  /**
+   * Something is drawn in view, and of the project's own; never that the game works. Null when that is not known: its
+   * edges say something is drawn and the starter's own picture to compare it with could not be made.
+   */
+  readonly drawn: boolean | null;
   /** The page's own picture against the starter's (DRAWN), as `CheckOwn` records it. */
   readonly own: {
     readonly share: number | null;
@@ -166,7 +189,7 @@ export interface CheckResult {
   readonly page: PageFindings | null;
   /** What could not be found out, in a few words, or null. */
   readonly unknown: string | null;
-  /** Type check 0, build 0, no uncaught exception, something drawn. */
+  /** Type check 0, build 0, no uncaught exception, something drawn (`drawn` true, never null). */
   readonly passed: boolean;
   /** The laptop step (M1.8b), or null when the page was not opened. */
   readonly laptop: CheckLaptop | null;
@@ -181,7 +204,11 @@ export interface CheckResult {
 /** Whether a check passed: each of its findings, none assumed. */
 export function passes(tsc: CheckStep, build: CheckStep, page: PageFindings | null): boolean {
   return (
-    tsc.exit === 0 && build.exit === 0 && page !== null && page.exception_count === 0 && page.drawn
+    tsc.exit === 0 &&
+    build.exit === 0 &&
+    page !== null &&
+    page.exception_count === 0 &&
+    page.drawn === true
   );
 }
 
@@ -204,17 +231,25 @@ export function summarizeExceptions(texts: readonly string[]): string[] {
 /**
  * Whether the page is drawn (DRAWN): the edge counts of the two pictures say something is drawn, and
  * its own picture differs from the starter's in more than `OWN_DRAWN` of the pixels outside the
- * card's corner. A project from another template is read by its edges alone; with no starter's
- * picture to compare with, it is never drawn.
+ * card's corner. A project from another template is read by its edges alone. With no starter's
+ * picture to compare with, whether it draws its own is not known (null): a reference the product could
+ * not make is the product's failure, never the app's. Edges that say nothing is drawn are a failure
+ * the check measured, whatever the reference.
  */
 export function drawnFrom(
   at3s: number | null,
   at10s: number | null,
   own: Pick<PageFindings['own'], 'share' | 'reference'>,
-): boolean {
+): boolean | null {
   if (Math.max(at3s ?? 0, at10s ?? 0) <= DRAWN_EDGES) return false;
-  if (own.reference === 'other_template') return true;
-  return own.reference === 'compared' && own.share !== null && own.share > OWN_DRAWN;
+  switch (own.reference) {
+    case 'other_template':
+      return true;
+    case 'unavailable':
+      return null;
+    case 'compared':
+      return own.share !== null && own.share > OWN_DRAWN;
+  }
 }
 
 /**
@@ -542,9 +577,9 @@ export function laptopUnknown(laptop: CheckLaptop): string | null {
 }
 
 /** What a check could not find out about the page's own pixels, or null. */
-function ownUnknown(own: PageFindings['own'], reference: OwnReference): string | null {
-  if (reference.kind === 'unavailable')
-    return `The starter's own picture could not be made (${reference.why}), so whether the game draws anything of its own is unknown.`;
+export function ownUnknown(own: PageFindings['own'], reference: OwnReference): string | null {
+  // The host's own sentence alone: `why` stays the host's, and the finding never names the app as the cause (C7).
+  if (reference.kind === 'unavailable') return OWN_LOOK_NOT_KNOWN;
   if (reference.kind === 'compared' && own.share === null)
     return "The game's own picture could not be taken, so whether it draws anything of its own is unknown.";
   return null;

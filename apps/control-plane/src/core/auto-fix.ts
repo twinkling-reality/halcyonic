@@ -308,6 +308,14 @@ export class AutoFix {
       for (const id of executions) if (this.#fixing(id)) this.#end(id, 'passed', check.check_id);
       return;
     }
+    // A check whose only unknown is whether the page draws its own look, since the starter's picture could not be made,
+    // is the product's failure, never the agent's (VRIFY, 2026-11-13): no try is sent or counted, and no chain begins. A
+    // chain under way ends with the tries it made, as one whose check gave nothing to act on.
+    if (check.findings.verdict === 'not_known') {
+      for (const id of executions)
+        if (this.#fixing(id)) this.#end(id, 'nothing_to_send', check.check_id);
+      return;
+    }
     if (executions.length !== 1) {
       // Never guess whose change failed the check.
       for (const id of executions) this.#end(id, 'several_tasks', check.check_id);

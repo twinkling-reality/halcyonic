@@ -27,7 +27,8 @@ export const CheckStep = Type.Object(
  * outside the welcome card's corner that differ (`share`, null when either picture could not be
  * taken). `reference` says whether the two were compared, the project began from another template than
  * the tracked one (`other_template`: then `drawn` reads the edges alone), or the starter's own picture
- * could not be made (`unavailable`: then `drawn` is false).
+ * could not be made (`unavailable`: then `drawn` is null, not known, where the edges say something
+ * is drawn, and false where they do not).
  */
 export const CheckOwn = Type.Object(
   {
@@ -41,8 +42,10 @@ export type CheckOwn = Static<typeof CheckOwn>;
 /**
  * What the page did in the check's headless browser in 10 seconds. `drawn` means something is drawn
  * in view of the laptop camera (sharp edges in a picture at 3 s or 10 s) and, since DRAWN, something
- * of the project's own (`own`), never that the game works. `own` is absent on checks recorded before
- * it, which reads as not compared.
+ * of the project's own (`own`), never that the game works; null when that is not known, since the
+ * starter's own picture to compare it with could not be made (a reference the product could not make
+ * is the product's failure, never the app's). `own` is absent on checks recorded before it, which
+ * reads as not compared.
  */
 export const CheckPage = Type.Object(
   {
@@ -53,7 +56,7 @@ export const CheckPage = Type.Object(
     canvases: Type.Integer({ minimum: 0 }),
     edges_at_3s: Nullable(Type.Integer({ minimum: 0 })),
     edges_at_10s: Nullable(Type.Integer({ minimum: 0 })),
-    drawn: Type.Boolean(),
+    drawn: Nullable(Type.Boolean()),
     own: Type.Optional(CheckOwn),
     /** The pictures the host kept, by their SHA-256; the images stay on the computer. */
     pictures: Type.Array(
@@ -227,6 +230,12 @@ export type CheckRefusal = Static<typeof CheckRefusal>;
  * check's browser ran as its own process for macOS privacy permissions, so it had none of the app
  * that started Halcyonic, and false when it ran without that separation (the host's launcher for it
  * missing or changed); absent on checks recorded before it, which reads as not known.
+ * `verdict` is the check's whole answer beside `passed`: `failed` on any failure it measured or
+ * saw (a type check or build that did not exit 0, a page not opened, an uncaught exception, nothing
+ * drawn by its edges or of its own, a refusal, the laptop reading measured under its floor), whatever
+ * else is not known; `not_known` where everything seen passed and only whether the page draws its own
+ * look could not be found out (`page.drawn` null); `passed` only for a whole seen pass. Absent on
+ * checks recorded before it, which read by `passed` alone.
  */
 export const CheckFindings = Type.Object(
   {
@@ -236,6 +245,9 @@ export const CheckFindings = Type.Object(
     /** What could not be found out, in a few words, or null. */
     unknown: Nullable(Text(300)),
     passed: Type.Boolean(),
+    verdict: Type.Optional(
+      Type.Union([Type.Literal('passed'), Type.Literal('failed'), Type.Literal('not_known')]),
+    ),
     reads_confined: Type.Boolean(),
     laptop: Type.Optional(Nullable(CheckLaptop)),
     vr: Type.Optional(Nullable(CheckVr)),

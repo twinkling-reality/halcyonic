@@ -701,6 +701,7 @@ describe('the C# bindings', () => {
     'CheckFindings.own_permissions', // whether a check's browser had permissions of its own (S1)
     'CheckFindings.ready', // M1.8b
     'CheckFindings.refusals', // what a starter's check refuses, as its starter.json declares it (VRIFY, 2026-11-12)
+    'CheckFindings.verdict', // the check's whole answer beside passed; absent on earlier checks (VRIFY, 2026-11-13)
     'CheckFindings.vr', // M1.8b
     'CheckLaptop.exceptions_during', // M1.8g
     'CheckLaptop.reading', // whether a person can read the app on a laptop (VRIFY, 2026-11-13)
@@ -1229,6 +1230,39 @@ describe("whether a check's browser had permissions of its own (S1)", () => {
     assert.equal(validate({ ...findings, own_permissions: false }).ok, true);
     assert.equal(validate({ ...findings, own_permissions: null }).ok, false);
     assert.equal(validate({ ...findings, own_permissions: 'yes' }).ok, false);
+  });
+});
+
+describe("a check's verdict beside passed, and a drawn not known (VRIFY, 2026-11-13)", () => {
+  const validate = compileValidator(CheckFindings);
+  const page = {
+    exceptions: [],
+    exception_count: 0,
+    console_errors: 0,
+    canvases: 1,
+    edges_at_3s: 56_000,
+    edges_at_10s: 56_000,
+    drawn: null,
+    own: { share: null, reference: 'unavailable' },
+    pictures: [],
+  };
+  const findings = {
+    tsc: { exit: 0, seconds: 1 },
+    build: { exit: 0, seconds: 2 },
+    page,
+    unknown: null,
+    passed: false,
+    reads_confined: true,
+  };
+  test('passed, failed or not_known, or absent on earlier checks; drawn true, false or null; nothing else', () => {
+    assert.equal(validate(findings).ok, true, JSON.stringify(validate(findings)));
+    for (const verdict of ['passed', 'failed', 'not_known'])
+      assert.equal(validate({ ...findings, verdict }).ok, true, verdict);
+    assert.equal(validate({ ...findings, verdict: null }).ok, false);
+    assert.equal(validate({ ...findings, verdict: 'unknown' }).ok, false);
+    for (const drawn of [true, false])
+      assert.equal(validate({ ...findings, page: { ...page, drawn } }).ok, true);
+    assert.equal(validate({ ...findings, page: { ...page, drawn: 'unknown' } }).ok, false);
   });
 });
 

@@ -13,7 +13,7 @@ import {
   type ProjectId,
   type WorkstreamId,
 } from '@halcyonic/contracts';
-import type { Projection } from '@halcyonic/domain';
+import { checkServable, checkVerdict, type Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import { type Cause, causedBy, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import type { Recorder } from '../core/recorder.ts';
@@ -267,8 +267,10 @@ export class HostPreviews {
         result,
         chrome === null ? null : launcher !== null,
       );
-      const findings: CheckFindings =
+      const refused: CheckFindings =
         refusals.length === 0 ? observed : { ...observed, passed: false, ready: false, refusals };
+      // The whole answer beside `passed`: a reference the product could not make is never the app's failure (VRIFY).
+      const findings: CheckFindings = { ...refused, verdict: checkVerdict(refused) };
       this.#deps.recorder.record(
         controlPlaneDraft(
           'project.check.recorded',
@@ -353,7 +355,7 @@ export class HostPreviews {
     if (
       check === undefined ||
       check.files !== 'current' ||
-      !check.findings.passed ||
+      !checkServable(check.findings) ||
       project?.starter == null
     ) {
       throw new Error('no passed check to serve');
@@ -552,7 +554,11 @@ export class HostPreviews {
    * What the project's own picture is compared with (DRAWN): the pristine starter's picture under the
    * key of everything that shapes it, made from the tracked template, by a check of its own in a folder
    * of the host's, the first time it is needed. A project begun from another template is not compared;
-   * when none can be made, the check is told why and the page is not drawn.
+   * when none can be made, whether the page draws its own look is not known, never that it does not: a
+   * reference the product could not make is the product's failure, never the app's (VRIFY, 2026-11-13).
+   * A making whose picture could not be taken in time, or whose page did not load, is made once more in
+   * the same check, by the same check with the same profile, browser and folders; a starter that does not
+   * type check, build or load without an exception is a fault of its own and is not made again.
    */
   async #reference(
     projectId: ProjectId,
@@ -573,46 +579,85 @@ export class HostPreviews {
     if (lockfile === null || host === null)
       return { kind: 'unavailable', why: "the starter's packages or host files could not be read" };
     const key = referenceKey({ template, lockfile, host, browser: browser.sha256 });
+    // Why none was made, in the host's own words, for the log alone: never a browser's or a build's message.
+    let why = "the starter's own picture could not be taken";
     const made = this.#references.get(starterId, key, async (work) => {
       const project = join(work, 'project');
       const applied = starters.apply(starterId, project);
-      if (!applied.ok || applied.template !== template || applied.lockfile !== lockfile)
+      if (!applied.ok || applied.template !== template || applied.lockfile !== lockfile) {
+        why = "the starter's template could not be applied";
         return null;
-      let port: number | null = await this.#takePort();
-      const lost = new Set<number>();
-      try {
-        const result = await (this.#deps.runCheck ?? runCheck)({
-          ...common,
-          project,
-          cache: join(work, 'cache'),
-          port,
-          anotherPort: async (gone) => {
-            lost.add(gone);
-            this.#ports.delete(gone);
-            port = null;
-            if (this.#closed) throw new Error('the host is closing');
-            port = await this.#takePort(lost);
-            return port;
-          },
-          reference: { kind: 'making' },
-          onServer: (pid) =>
-            this.#writeRecord(projectId, { pid, copy: join(work, 'cache', 'dist') }, 'reference'),
-        });
-        // A starter that does not build, throws, or gives no picture of its own makes none.
-        const frame = result.page?.own.frame ?? null;
-        if (frame === null || result.tsc.exit !== 0 || result.build.exit !== 0) return null;
-        if (result.page?.exception_count !== 0) return null;
-        return await readFile(frame.file);
-      } finally {
-        if (port !== null) this.#ports.delete(port);
-        await this.#removeRecord(projectId, 'reference');
       }
+      const first = await this.#makeReference(projectId, common, project, work);
+      if (first.kind === 'made') return first.png;
+      if (first.kind === 'fault' || this.#closed) {
+        why = first.why;
+        return null;
+      }
+      // One more making, and only one, where the first could not take its picture in time or load the page.
+      const again = await this.#makeReference(projectId, common, project, work);
+      if (again.kind === 'made') return again.png;
+      why = again.why;
+      return null;
     });
     // A folder that cannot be written reads as no picture, never as a failed check command.
     const png = await made.catch(() => null);
-    return png === null
-      ? { kind: 'unavailable', why: "the starter's own picture could not be taken" }
-      : { kind: 'compared', png };
+    if (png === null) {
+      this.#deps.logger.info({ why }, "a starter's own picture was not made");
+      return { kind: 'unavailable', why };
+    }
+    return { kind: 'compared', png };
+  }
+
+  /**
+   * One making of the starter's own picture from the applied template in `work`, by the check itself with its own
+   * profile, browser and folders: the picture, a fault of the starter's own (it does not type check, build, or load
+   * without an exception), or a picture that could not be taken in time or a page that did not load, which may be made
+   * again.
+   */
+  async #makeReference(
+    projectId: ProjectId,
+    common: Omit<CheckOptions, 'project' | 'cache' | 'port' | 'reference' | 'onServer'>,
+    project: string,
+    work: string,
+  ): Promise<
+    | { readonly kind: 'made'; readonly png: Buffer }
+    | { readonly kind: 'fault' | 'not_taken'; readonly why: string }
+  > {
+    let port: number | null = await this.#takePort();
+    const lost = new Set<number>();
+    try {
+      const result = await (this.#deps.runCheck ?? runCheck)({
+        ...common,
+        project,
+        cache: join(work, 'cache'),
+        port,
+        anotherPort: async (gone) => {
+          lost.add(gone);
+          this.#ports.delete(gone);
+          port = null;
+          if (this.#closed) throw new Error('the host is closing');
+          port = await this.#takePort(lost);
+          return port;
+        },
+        reference: { kind: 'making' },
+        onServer: (pid) =>
+          this.#writeRecord(projectId, { pid, copy: join(work, 'cache', 'dist') }, 'reference'),
+      });
+      // A starter that does not type check or build, or throws, is a fault of its own: never made again.
+      if (result.tsc.exit !== 0 || result.build.exit !== 0)
+        return { kind: 'fault', why: 'the starter itself did not type check or build' };
+      if (result.page !== null && result.page.exception_count !== 0)
+        return { kind: 'fault', why: "the starter's own page stopped on an error" };
+      // No page, or no picture of its own: its load or its picture ran out of time, or the page did not load.
+      const frame = result.page?.own.frame ?? null;
+      if (frame === null)
+        return { kind: 'not_taken', why: "the starter's own picture could not be taken" };
+      return { kind: 'made', png: await readFile(frame.file) };
+    } finally {
+      if (port !== null) this.#ports.delete(port);
+      await this.#removeRecord(projectId, 'reference');
+    }
   }
 
   /** The folder of the project a VR version was made from, or null for any other project. */
@@ -762,7 +807,8 @@ export class HostPreviews {
       check === undefined ||
       check.files !== 'current' ||
       folder === undefined ||
-      check.findings.passed
+      check.findings.passed ||
+      check.findings.verdict === 'not_known'
     )
       return null;
     const cache = this.#cache(projectId, check.check_id);

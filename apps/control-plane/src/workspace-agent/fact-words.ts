@@ -4,6 +4,17 @@
  * from the host's codes to words, so there is no field name or code for the model to repeat; the facts themselves
  * stay as they are for every other reader.
  */
+import type { CheckFindings } from '@halcyonic/contracts';
+import { OWN_LOOK_NOT_KNOWN, PARTLY_CHECKED } from '../preview/check.ts';
+
+/**
+ * A starter's check's state as the model reads it: `not_known` where everything seen passed and only whether the page
+ * draws its own look could not be found out, never failed (VRIFY, 2026-11-13); else passed or failed by `passed`.
+ */
+export function checkStateOf(findings: CheckFindings): 'passed' | 'failed' | 'not_known' {
+  if (findings.verdict === 'not_known') return 'not_known';
+  return findings.passed ? 'passed' : 'failed';
+}
 
 /** A task's status in words: a turn that ended is not work that is done. */
 export function statusWords(status: string): string {
@@ -61,25 +72,35 @@ interface CheckFacts {
   readonly state: string;
   readonly type_check?: string;
   readonly build?: string;
-  readonly page?: { readonly errors: number; readonly showed_its_own_picture: boolean } | null;
+  readonly page?: {
+    readonly errors: number;
+    /** Null when it is not known (the starter's picture to compare it with could not be made). */
+    readonly showed_its_own_picture: boolean | null;
+  } | null;
   readonly unknown?: unknown;
   readonly files_since_check?: string;
   readonly recorded_at?: string;
 }
 
-/** The computer's check in sentences: what passed, what failed, whether the files changed since, and when. */
+/**
+ * The computer's check in sentences: what passed, what failed, whether the files changed since, and when. A check whose
+ * own look is not known is Partly Checked, its line and the finding's sentence under it, never failed.
+ */
 export function checkWords(check: CheckFacts, now: Date): string {
   if (check.state === 'not_checked') return 'The computer has not checked these files.';
+  const notKnown = check.state === 'not_known';
   const parts = [
     check.type_check === undefined ? null : `the type check ${stepWords(check.type_check)}`,
     check.build === undefined ? null : `the build ${stepWords(check.build)}`,
     check.page === undefined || check.page === null
       ? 'the page was not opened'
       : check.page.errors === 0
-        ? `the page opened with no errors${check.page.showed_its_own_picture ? ' and drew the scene' : ' but drew nothing'}`
-        : `the page showed ${plural(check.page.errors, 'error')}${check.page.showed_its_own_picture ? '' : ' and drew nothing'}`,
+        ? `the page opened with no errors${check.page.showed_its_own_picture === true ? ' and drew the scene' : check.page.showed_its_own_picture === false ? ' but drew nothing' : ''}`
+        : `the page showed ${plural(check.page.errors, 'error')}${check.page.showed_its_own_picture === false ? ' and drew nothing' : ''}`,
   ].filter((part): part is string => part !== null);
-  const head = `The computer's check ${check.state === 'passed' ? 'passed' : 'failed'}${parts.length ? `: ${parts.join(', ')}` : ''}.`;
+  const head = notKnown
+    ? `The computer's check: ${PARTLY_CHECKED.label}. ${PARTLY_CHECKED.line} ${OWN_LOOK_NOT_KNOWN}${parts.length ? ` In it ${parts.join(', ')}.` : ''}`
+    : `The computer's check ${check.state === 'passed' ? 'passed' : 'failed'}${parts.length ? `: ${parts.join(', ')}` : ''}.`;
   const since =
     check.files_since_check === 'current'
       ? ' The files have not changed since.'
@@ -90,7 +111,8 @@ export function checkWords(check: CheckFacts, now: Date): string {
           : ' Whether the files changed since is not known.';
   const when =
     check.recorded_at === undefined ? '' : ` It ran ${agoWords(check.recorded_at, now)}.`;
-  const unknown = check.unknown ? ' Part of it could not tell; its words are quoted below.' : '';
+  const unknown =
+    check.unknown && !notKnown ? ' Part of it could not tell; its words are quoted below.' : '';
   return head + since + when + unknown;
 }
 

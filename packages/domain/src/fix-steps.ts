@@ -81,3 +81,38 @@ export function readingFix(findings: CheckFindings): string | null {
       : 'no text drawn with the kit (pages() or the score sign) was in view';
   return `Words were drawn ${px} px high at a laptop's 1280 by 800 view when last measured; a person reads at least ${reading.floor_px} px. The check can no longer measure them: ${why}. ${change}`;
 }
+
+export type CheckVerdict = NonNullable<CheckFindings['verdict']>;
+
+/**
+ * A starter's check's whole answer, recorded beside `passed` (VRIFY, 2026-11-13): a reference the product could not make
+ * is the product's failure, never the app's. `failed` on any failure the check measured or saw, whatever else is not
+ * known: a type check or build that did not exit 0, a page not opened, an uncaught exception, nothing drawn by its
+ * edges or of its own, a refusal of its starter, or the laptop reading measured under its floor. `not_known` where
+ * nothing failed and only whether the page draws its own look is not known (`drawn` null). `passed` only for a whole
+ * seen pass.
+ */
+export function checkVerdict(findings: CheckFindings): CheckVerdict {
+  const page = findings.page;
+  if (
+    findings.tsc.exit !== 0 ||
+    findings.build.exit !== 0 ||
+    page === null ||
+    page.exception_count > 0 ||
+    page.drawn === false ||
+    (findings.refusals?.length ?? 0) > 0 ||
+    readingUnder(findings) !== null
+  )
+    return 'failed';
+  if (page.drawn === null) return 'not_known';
+  return findings.passed ? 'passed' : 'failed';
+}
+
+/**
+ * Whether a check's built copy may be served and played on this computer: a pass, or a check whose only unknown is
+ * whether the page draws its own look (`not_known`), which refuses nothing by itself. Sharing and publishing still
+ * read `passed` alone.
+ */
+export function checkServable(findings: CheckFindings): boolean {
+  return findings.passed || findings.verdict === 'not_known';
+}
