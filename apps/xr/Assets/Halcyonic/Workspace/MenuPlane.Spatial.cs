@@ -373,9 +373,9 @@ namespace Halcyonic.XR.Workspace
             if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; ShelfAsideDegrees = 0f; return; }
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
             ConsiderWidth(shelf, shelfKey, viewer, characters, placing, shelfComing);
-            // The plane at rest, for the shelf that fits beside it (ruling 1 (a)): one number a text size (AUDIT's 02:41Z: one width for
-            // every shelf, never read at wherever the plane stands now).
-            CharacterStage.PlaneRestHalfDegrees = RestHalfDegrees();
+            // The plane at rest, for the shelf that fits beside it (ruling 1 (a)): one number a text size, asked by the stage as it fits
+            // (AUDIT's 02:41Z: one width for every shelf, never read at wherever the plane stands now).
+            CharacterStage.PlaneRestHalfDegrees ??= RestHalfDegrees;
             // One move per open (AUDIT's 01:15Z; JUDGE's 01:13Z: a few degrees re-decided at each page moved the room under a reader):
             // the first draw of an open decides the aside for the largest footprint at the width in use, and it holds until the plane
             // rests or closes; only the shelf's own place, the text size or the plane's width changing decides it again, one move per
@@ -396,7 +396,7 @@ namespace Halcyonic.XR.Workspace
         /// footprint's top, in twentieths), so it never reads less than the plane at rest can reach. Derived once a text size and held,
         /// so every shelf beside the plane takes one width (AUDIT's 02:41Z).
         /// </summary>
-        private float RestHalfDegrees()
+        private static float RestHalfDegrees()
         {
             if (restHalfHeld is { } held && Mathf.Approximately(held.Scale, GlazeText.Scale)) return held.Degrees;
             var resting = RoomBarView.RestingAt();
@@ -415,7 +415,7 @@ namespace Halcyonic.XR.Workspace
             return degrees;
         }
 
-        private (float Scale, float Degrees)? restHalfHeld;
+        private static (float Scale, float Degrees)? restHalfHeld;
 
         /// <summary>The aside held for this open, and the shelf's place and text size it was decided for; null while none is decided.</summary>
         private float heldAside;

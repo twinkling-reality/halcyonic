@@ -165,10 +165,11 @@ namespace Halcyonic.XR
         public static float PitchOf(int places, float width) => (width - 0.1f) / Mathf.Max(1, places);
 
         /// <summary>
-        /// The plane at rest, each side of its heading, in degrees, as the plane reasons it through its own geometry (MenuPlane, from
-        /// FIELD's measured resting entry); null before the plane has said. What a shelf beside it fits against.
+        /// The plane at rest, each side of its heading, in degrees, at the text size now, as the plane reasons it through its own geometry
+        /// (MenuPlane, from FIELD's measured resting entry); null before a plane is made. Asked at the moment a shelf is fitted, so a text
+        /// size changed is fitted at its own rest, never the last size's (JUDGE's landing walk: two fit numbers at Larger).
         /// </summary>
-        public static float? PlaneRestHalfDegrees { get; set; }
+        public static System.Func<float>? PlaneRestHalfDegrees { get; set; }
 
         private static (int Places, int Version, float RestHalf, float Field, float Width)? fitted;
 
@@ -183,7 +184,8 @@ namespace Halcyonic.XR
         public static float FittedWidth(int places)
         {
             var natural = AgentShelfDraft.Width(places);
-            if (!RoomDesign.Enabled || PlaneRestHalfDegrees is not float rest) return natural;
+            if (!RoomDesign.Enabled || PlaneRestHalfDegrees is not System.Func<float> restOf) return natural;
+            var rest = restOf();
             var measured = ViewField.Current ?? MenuPage.Quest3S;
             var side = (float)System.Math.Min(measured.Left, measured.Right);
             if (fitted is { } was && was.Places == places && was.Version == GlazeText.Version && Mathf.Approximately(was.RestHalf, rest) && Mathf.Approximately(was.Field, side))
