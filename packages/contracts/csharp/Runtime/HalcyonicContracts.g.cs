@@ -4866,6 +4866,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("delivered", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Delivered { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("tool_name", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? ToolName { get; set; }
     }
 
     public sealed class ExecutionQuestionEndedByHostPayload

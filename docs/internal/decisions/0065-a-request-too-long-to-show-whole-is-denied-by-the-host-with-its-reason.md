@@ -66,7 +66,10 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    because `not_recorded` (no length: the request was never kept), then denies it through the agent app itself, not
    through the command a press sends, which admission would refuse for a request it never saw. The agent's words are
    only "This request could not be shown to a person, so it was not done." `delivered` follows
-   `delivers_denial_message`. A request the projection holds pending after all is left to the person. The denial is
+   `delivers_denial_message`. The record keeps the refused request's `tool_name` beside it only where the contract's own
+   check of that field passes (AUDIT3 F2): the app's own report, as given, for display only, which nothing decides by
+   (`tooling/denied-tool-name.test.ts`), never the tool's input, summary, paths or changes; whatever shows it as words
+   escapes it with `visible`, and nothing does yet. A request the projection holds pending after all is left to the person. The denial is
    sent even where its own record fails. Logs carry ids, codes, counts and where the contract refused the request
    (each pointer step that is not a contract field name or an index written `*`), never its text. A question the
    journal refuses is never answered or dismissed: an agent app has no declared way to decline one (`answerQuestion`
