@@ -787,7 +787,10 @@ namespace Halcyonic.XR.UI
             Set(label, words, mono);
             KitType.Lay(label, RoomType.Units(panelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp), 400);
             var lines = Mathf.Max(1, label.textInfo.lineCount);
+            // The measure holds no words once it has counted them, as Lines below: never drawn, and nothing reads it as shown
+            // (F120: the spatial kit read its last words as the bar's, at 2.52 to 1).
             if (mono) label.text = "";
+            else GlazeRuns.Of(label).Set(LineWords.None);
             return lines;
         }
 
