@@ -6,7 +6,7 @@
  * - moveAxis(): which way to move, { x: right, y: forward }, from W A S D or the arrows, or the left thumbstick.
  * - pressed('jump') and pressed('action'): true in the frame the button goes down (Space and E, or A and B).
  * - mode(): 'laptop' or 'vr'.
- * On a laptop, dragging on empty space turns the view.
+ * On a laptop, dragging on empty space turns the view, and H shows the welcome card again (helpPressed()).
  */
 import {
   createSystem,
@@ -58,6 +58,9 @@ interface TouchTarget {
 }
 
 const ACTION = 'play.action';
+/** The laptop's key for the welcome card: it shows the card again (`src/panel.ts`). */
+const HELP = 'play.help';
+export const HELP_KEY = 'KeyH';
 const selects = new Map<Entity, Target>();
 const touches = new Map<Entity, TouchTarget>();
 const counts = new Counts();
@@ -110,6 +113,15 @@ export function moveAxis(): { x: number; y: number } {
 /** True in the frame the button goes down. */
 export function pressed(name: ButtonName): boolean {
   return world().input.actions.getButtonDown(name === 'jump' ? InputActions.LocomotionJump : ACTION);
+}
+
+/**
+ * True in the frame H goes down on a laptop, read through the same bindings as every other key, never a listener of
+ * its own; always false in a headset, and before `setupPlayInput`.
+ */
+export function helpPressed(): boolean {
+  if (current === null || mode() !== 'laptop') return false;
+  return current.input.actions.getButtonDown(HELP);
 }
 
 const here = new Vector3();
@@ -318,6 +330,7 @@ export function setupPlayInput(w: World): void {
   w.input.actions.enableDefaultBindings('browser-first-person');
   w.input.actions.addBindings([
     { source: 'keyboard', action: ACTION, kind: 'button', code: BUTTONS.action.key },
+    { source: 'keyboard', action: HELP, kind: 'button', code: HELP_KEY },
     { source: 'xrGamepad', action: ACTION, kind: 'button', handedness: 'right', button: InputComponent.B_Button },
   ]);
   w.registerSystem(PlayInputSystem);

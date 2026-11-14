@@ -100,7 +100,9 @@ Make it fun to look at:
   or any object between that camera and them as words a person cannot read.
 - Name the game on its welcome card, `public/ui/welcome.uikitml`: its name in `card-title` and one short line on how
   to play in `card-line`, with nothing else on the card; put the same name in `index.html`'s `<title>`. The card's
-  words go by themselves after a few seconds (`src/panel.ts`); leave that as it is.
+  words go by themselves after a few seconds (`src/panel.ts`), and on a laptop H shows them again; leave that as it
+  is. Rewrite the card's laptop line (`laptop-help` in `welcome.uikitml`) to the keys and mouse your game really
+  uses, for example "A and D or the arrows to move"; the headset's line stays as it is.
 - Before you finish, delete any scratch or helper files you made, anywhere in the project: no `.py`, `.txt`, `.sh` or
   `.patch` files.
 - Run `npx tsc --noEmit` before ending your turn and fix any type, syntax or module error it reports.

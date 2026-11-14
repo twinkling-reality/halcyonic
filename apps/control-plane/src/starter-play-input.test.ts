@@ -126,12 +126,44 @@ describe("the IWSDK starter's input layer", () => {
     // Game time, so a checked page drops them at the same frame in every load, with or without a press.
     assert.match(panel, /const CARD_SECONDS = 6;/);
     assert.match(panel, /update\(_delta: number, time: number\): void \{/);
-    assert.match(panel, /if \(time < CARD_SECONDS && !immersive\) return;/);
-    // Not on a press or a key: then a press would always seem to change the screen.
-    assert.doesNotMatch(panel, /play-input|pressed\(|onSelect\(|setTimeout|setInterval/);
+    assert.match(panel, /if \(time < this\.#shownUntil && !immersive\) return;/);
+    // Not on a press or a game key: then a press would always seem to change the screen. Only H brings them back.
+    assert.doesNotMatch(panel, /\bpressed\(|onSelect\(|setTimeout|setInterval/);
     const card = read('public/ui/welcome.uikitml');
     assert.match(card, /<Panel id="card" class="panel-root">/);
     assert.match(card, /<div id="card-words" class="panel-content">/);
+  });
+
+  test('on a laptop H shows the card again for another 6 s, said on the card; never in a headset, never by the check (VRIFY U2, 2026-11-14)', () => {
+    const panel = read('src/panel.ts');
+    const layer = read('src/play-input.ts');
+    assert.match(panel, /import \{ helpPressed \} from '\.\/play-input\.js';/);
+    assert.match(
+      panel,
+      /if \(!immersive && !this\.#wordsShown && this\.#showWords !== null && helpPressed\(\)\) \{\s+this\.#wordsShown = true;\s+this\.#shownUntil = time \+ CARD_SECONDS;/,
+    );
+    // Read through the layer's own bindings (AUDIT3), on a laptop only, and never before the layer is set up.
+    assert.match(layer, /\{ source: 'keyboard', action: HELP, kind: 'button', code: HELP_KEY \}/);
+    assert.match(layer, /export const HELP_KEY = 'KeyH';/);
+    assert.match(layer, /if \(current === null \|\| mode\(\) !== 'laptop'\) return false;/);
+    // The check presses only Space and E, so the card never comes back during a check's press.
+    const probe = readFileSync(new URL('./preview/laptop-probe.ts', import.meta.url), 'utf8');
+    assert.match(probe, /key\(code: 'Space' \| 'KeyE'\): Promise<void>;/);
+    assert.doesNotMatch(probe, /KeyH/);
+    // AUDIT2's words, on the laptop only, shown and hidden with the laptop line.
+    const card = read('public/ui/welcome.uikitml');
+    assert.match(
+      card,
+      /<div id="help-again" class="sub-heading laptop-help" style="display: none">Press H to show this again<\/div>/,
+    );
+    assert.match(
+      panel,
+      /laptopHelp\?\.setProperties\(\{ display: laptop \}\);\s+helpAgain\?\.setProperties\(\{ display: laptop \}\);/,
+    );
+    assert.match(
+      read('AGENTS.md'),
+      /Rewrite the card's laptop line \(`laptop-help` in `welcome\.uikitml`\) to the keys and mouse your game really\s+uses, for example "A and D or the arrows to move"; the headset's line stays as it is\./,
+    );
   });
 
   test('the agent is asked for the island, the palette, motion from the time it is given, and a tidy src (GQ1a, GQ1b)', () => {
