@@ -96,8 +96,10 @@ const COMMAND = [
   // A request for another host through the gate as a proxy: refused there.
   `/usr/bin/curl -s --max-time 5 -o /dev/null -w 'via=%{http_code}' http://example.test/ >> ${RESULTS}; echo " via-curl=$?" >> ${RESULTS}`,
 ].join('; ');
+/** A command that leaves a process running after its shell exits, as a dev server started with `&` does. */
+const LEFTOVER = `sleep 600 > /dev/null 2>&1 & echo $! > ${PROJECT}/sleeper.pid`;
 
-/** A Messages API that asks for one Bash call for the prompt marked TOOL, then answers Done. */
+/** A Messages API that asks for one Bash call for the prompt marked TOOL (or LEFTOVER), then answers Done. */
 function fakeApi() {
   const bodies: string[] = [];
   /** The credential headers each request reached the API with. */
@@ -123,7 +125,9 @@ function fakeApi() {
       });
       const body = JSON.parse(raw) as { stream?: boolean; model?: string; messages: unknown[] };
       // The whole request: Claude Code may send the prompt in a block of its own before reminders.
-      const tool = raw.includes('TOOL first') && !raw.includes('tool_result');
+      const leftover = raw.includes('LEFTOVER first');
+      const tool = (raw.includes('TOOL first') || leftover) && !raw.includes('tool_result');
+      const command = leftover ? LEFTOVER : COMMAND;
       const message = {
         id: `msg_${randomUUID()}`,
         type: 'message',
@@ -139,7 +143,7 @@ function fakeApi() {
                 type: 'tool_use',
                 id: `toolu_${randomUUID().slice(0, 8)}`,
                 name: 'Bash',
-                input: { command: COMMAND, description: 'Try the sandbox' },
+                input: { command, description: 'Try the sandbox' },
               },
             ]
           : [{ type: 'text', text: 'Done.' }];
@@ -173,7 +177,7 @@ function fakeApi() {
           index: 0,
           delta: {
             type: 'input_json_delta',
-            partial_json: JSON.stringify({ command: COMMAND, description: 'Try the sandbox' }),
+            partial_json: JSON.stringify({ command, description: 'Try the sandbox' }),
           },
         });
       } else {
@@ -240,6 +244,40 @@ function context(n: number): ExecutionContext {
   };
 }
 
+/** A Claude Agent adapter that confines every folder, its data in `data`, its API at `base` and every proxy at `proxy`. */
+function confinedAdapter(data: string, base: string, proxy: string): ClaudeAgentRuntimeAdapter {
+  return new ClaudeAgentRuntimeAdapter({
+    directoryPolicy: (path) => ({ ok: true, directory: path }),
+    processRecordFile: join(data, 'claude-agent-processes.json'),
+    inheritedEnvironment: {
+      PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
+      HOME: join(ROOT, 'home'),
+      CLAUDE_CONFIG_DIR: join(ROOT, 'config'),
+      TMPDIR: `${join(ROOT, 'tmp')}/`,
+      ANTHROPIC_API_KEY: KEY,
+    },
+    environment: {
+      ANTHROPIC_BASE_URL: base,
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+      DISABLE_AUTOUPDATER: '1',
+      DISABLE_TELEMETRY: '1',
+      DISABLE_ERROR_REPORTING: '1',
+      HTTP_PROXY: proxy,
+      HTTPS_PROXY: proxy,
+      NO_PROXY: '127.0.0.1,localhost,::1',
+    },
+    pathToClaudeCodeExecutable: BINARY,
+    // This Mac's own managed Claude Code settings are not the test's: none.
+    remainingSettings: async () => ({}),
+    confinement: {
+      dataFolder: data,
+      toolFolders: toolFoldersFor(process.execPath),
+      hidden: [data],
+      forDirectory: () => ({ readable: [] }),
+    },
+  });
+}
+
 test("a new app's confined Claude Code runs a command that reaches nothing outside its folder, only through the gate, and is re-attached from its folder's own store", {
   skip: SKIP,
   timeout: 240_000,
@@ -262,37 +300,7 @@ test("a new app's confined Claude Code runs a command that reaches nothing outsi
     }
   });
   const data = join(ROOT, 'halcyonic');
-  const adapter = () =>
-    new ClaudeAgentRuntimeAdapter({
-      directoryPolicy: (path) => ({ ok: true, directory: path }),
-      processRecordFile: join(data, 'claude-agent-processes.json'),
-      inheritedEnvironment: {
-        PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
-        HOME: join(ROOT, 'home'),
-        CLAUDE_CONFIG_DIR: join(ROOT, 'config'),
-        TMPDIR: `${join(ROOT, 'tmp')}/`,
-        ANTHROPIC_API_KEY: KEY,
-      },
-      environment: {
-        ANTHROPIC_BASE_URL: base,
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-        DISABLE_AUTOUPDATER: '1',
-        DISABLE_TELEMETRY: '1',
-        DISABLE_ERROR_REPORTING: '1',
-        HTTP_PROXY: proxy,
-        HTTPS_PROXY: proxy,
-        NO_PROXY: '127.0.0.1,localhost,::1',
-      },
-      pathToClaudeCodeExecutable: BINARY,
-      // This Mac's own managed Claude Code settings are not the test's: none.
-      remainingSettings: async () => ({}),
-      confinement: {
-        dataFolder: data,
-        toolFolders: toolFoldersFor(process.execPath),
-        hidden: [data],
-        forDirectory: () => ({ readable: [] }),
-      },
-    });
+  const adapter = () => confinedAdapter(data, base, proxy);
 
   // What an agent inside could have written into the folder's own configuration on an earlier turn: a
   // hook that marks the project, and an allow rule. Neither may load (AUDIT2 S1).
@@ -433,4 +441,66 @@ test("a new app's confined Claude Code runs a command that reaches nothing outsi
   const resumed = api.bodies.slice(before).find((body) => body.includes('MARKER-TWO'));
   assert.ok(resumed?.includes('MARKER-ONE'), 'the first turn is in the history');
   assert.deepEqual(refusing.egress, []);
+});
+
+test('a command a confined Claude Code run left running in the background ends when its session ends', {
+  skip: SKIP,
+  timeout: 240_000,
+}, async (t) => {
+  const api = fakeApi();
+  const refusing = trap();
+  const base = await listen(api.server);
+  const proxy = await listen(refusing.server);
+  t.after(() => {
+    for (const server of [api.server, refusing.server]) {
+      server.closeAllConnections();
+      server.close();
+    }
+  });
+  const runtime = confinedAdapter(join(ROOT, 'halcyonic'), base, proxy);
+  t.after(() => runtime.close());
+  const observed: RuntimeObservation[] = [];
+  const execution = context(3);
+  await runtime.startExecution({
+    execution,
+    instruction: 'LEFTOVER first.',
+    options: {},
+    model_ref: null,
+    directory: PROJECT,
+    emit: (observation) => observed.push(observation),
+  });
+  await until(
+    () => observed.some((o) => o.type === 'runtime.approval.requested'),
+    60_000,
+    () => `the command to ask; observed ${observed.map((o) => o.type).join(', ')}`,
+  );
+  const asked = observed.find((o) => o.type === 'runtime.approval.requested');
+  assert.ok(asked?.type === 'runtime.approval.requested');
+  await runtime.respondToApproval({
+    execution,
+    approval_id: asked.payload.approval_id,
+    decision: 'approve',
+    message: null,
+  });
+  await until(
+    () => observed.some((o) => o.type === 'runtime.turn.completed'),
+    90_000,
+    () => `the turn to finish; observed ${observed.map((o) => o.type).join(', ')}`,
+  );
+  const sleeper = Number(readFileSync(join(PROJECT, 'sleeper.pid'), 'utf8').trim());
+  const running = () => {
+    try {
+      process.kill(sleeper, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  t.after(() => {
+    if (running()) process.kill(sleeper, 'SIGKILL');
+  });
+  // What the SDK's Claude Code does: the command outlives its turn, orphaned, and Claude Code's own end leaves it.
+  assert.ok(Number.isInteger(sleeper) && running(), 'the background command runs after its turn');
+  await runtime.close();
+  assert.equal(running(), false, 'the background command ended with the session');
 });

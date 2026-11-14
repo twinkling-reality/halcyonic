@@ -2533,6 +2533,54 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
     },
   );
 
+  /** Whether a process of the test's own still runs, and a stop of it however the test ends. */
+  const watch = (t: TestContext, pid: number) => {
+    const running = () => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    t.after(() => {
+      if (running()) process.kill(pid, 'SIGKILL');
+    });
+    return running;
+  };
+  const sleeperOf = (project: string) =>
+    Number(readFileSync(join(project, 'sleeper.pid'), 'utf8').trim());
+
+  test(
+    'a plain background command ends with its command, by Codex itself',
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t, { runtime: confined });
+      const execution = await start('CMD:sleep 600 > /dev/null 2>&1 & echo $! > sleeper.pid');
+      await execution.next('runtime.turn.completed');
+      const running = watch(t, sleeperOf(sandbox.project));
+      // What 0.157.0 does: it ends the command's whole process group when the command ends (nohup and a double fork
+      // too). If this fails, Codex no longer does, and its server's sweep is what ends it.
+      assert.equal(running(), false);
+    },
+  );
+
+  test(
+    "a command that started a session of its own ends when the agent app's host closes",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t, { runtime: confined });
+      // A new session, as tmux or screen make: Codex's end of the command's process group does not reach it.
+      const command = `perl -MPOSIX -e 'if (my $p = fork) { open my $f, ">", "sleeper.pid"; print $f $p; exit } POSIX::setsid(); open STDIN, "<", "/dev/null"; open STDOUT, ">", "/dev/null"; open STDERR, ">", "/dev/null"; exec "sleep", "600"'`;
+      const execution = await start(`CMD_JSON:${JSON.stringify(command)}`);
+      await execution.next('runtime.turn.completed');
+      const running = watch(t, sleeperOf(sandbox.project));
+      assert.equal(running(), true, 'the command outlived its turn');
+      await runtime.close();
+      assert.equal(running(), false, 'the command ended with the server');
+    },
+  );
+
   test(
     'its temporary folder starts empty at every launch and goes with the server, without following a link',
     SLOW_TEST,

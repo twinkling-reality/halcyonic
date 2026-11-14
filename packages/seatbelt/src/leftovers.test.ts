@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { endLeftovers, type LeftoverScope, type Run } from './leftovers.ts';
+import { endLeftovers, type LeftoverScope, type Run, runListedTool } from './leftovers.ts';
 
 const scope: LeftoverScope = {
   folder: '/Users/someone/apps/race-times',
@@ -169,4 +169,16 @@ test('nothing in the folder, or a system that cannot be read: nothing is signall
     0,
   );
   assert.deepEqual(signals, []);
+});
+
+test('the sweep runs only lsof and ps, by absolute path, never a shell or another file (AUDIT3 A2)', async () => {
+  for (const [file, args] of [
+    ['/bin/sh', ['-c', 'echo ran']],
+    ['/usr/bin/env', ['echo', 'ran']],
+    ['ps', ['-p', String(process.pid)]],
+    ['/bin/ps/../sh', ['-c', 'echo ran']],
+  ] as const)
+    assert.equal(await runListedTool(file, args), null, file);
+  const own = await runListedTool('/bin/ps', ['-o', 'pid=', '-p', String(process.pid)]);
+  assert.equal(own?.trim(), String(process.pid));
 });

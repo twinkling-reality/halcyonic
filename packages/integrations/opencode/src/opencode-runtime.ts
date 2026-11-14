@@ -39,7 +39,9 @@ import {
   type Confinement,
   confinedHomeEnvironment,
   confinedProfile,
+  endLeftovers,
   type GatedProvider,
+  type LeftoverScope,
   startProviderGate,
 } from '@halcyonic/seatbelt';
 import { type HttpResponse, type OpenCodeClient, TransportError } from './client.ts';
@@ -59,7 +61,6 @@ import {
   shellRequest,
   toTimestamp,
 } from './events.ts';
-import { endLeftovers, type LeftoverScope } from './leftovers.ts';
 import {
   type ModelRef,
   modelRefOf,

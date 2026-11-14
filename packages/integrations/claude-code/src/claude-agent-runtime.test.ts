@@ -37,6 +37,7 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
+import type { LeftoverScope } from '@halcyonic/seatbelt';
 import {
   ClaudeAgentRuntimeAdapter,
   type ClaudeAgentRuntimeOptions,
@@ -343,8 +344,14 @@ async function settle(): Promise<void> {
 function setup(options: Partial<ClaudeAgentRuntimeOptions> = {}) {
   const time = createVirtualTime(new Date('2026-09-26T10:00:00.000Z'));
   const runs: ScriptedRun[] = [];
+  /** What the adapter asked to sweep for leftovers: scripted queries launch no process, so nothing is ended. */
+  const swept: LeftoverScope[] = [];
   const adapter = new ClaudeAgentRuntimeAdapter({
     directoryPolicy: (path: string) => ({ ok: true, directory: path }),
+    endLeftovers: async (scope) => {
+      swept.push(scope);
+      return 0;
+    },
     // Scripted queries launch no process, so nothing is ever recorded here.
     processRecordFile: join(WORKDIR, `processes-${randomUUID()}.json`),
     inheritedEnvironment: INHERITED,
@@ -384,7 +391,7 @@ function setup(options: Partial<ClaudeAgentRuntimeOptions> = {}) {
     await starting;
     return run();
   };
-  return { adapter, runs, run, observed, start, startConfirmed, types };
+  return { adapter, runs, run, observed, start, startConfirmed, swept, types };
 }
 
 function actionError(code: string, effect?: 'none' | 'unknown') {
@@ -1975,6 +1982,33 @@ describe("a start that asks for Halcyonic's sandbox (ADR 0048, BOX-4)", () => {
     // No settings source at all, inside or out: inside, the agent can write the folder's own configuration
     // (AUDIT2 S1); outside, a settings env could add a credential that outranks the key.
     assert.deepEqual(scripted.options.settingSources, []);
+  });
+
+  test("a session's leftovers are swept once it has ended, in its folder, after its launch, confined or not", async (t) => {
+    const inside = setup({ confinement: confinement(data(t)) });
+    const before = Date.now();
+    const starting = inside.start();
+    for (let i = 0; i < 200 && inside.runs.length === 0; i += 1) await delay(5);
+    const scripted = inside.runs[0];
+    assert.ok(scripted !== undefined, 'no query was started');
+    scripted.emit(init(scripted.sessionId));
+    await starting;
+    assert.equal(inside.swept.length, 0, 'nothing is swept while the session runs');
+    await inside.adapter.close();
+    assert.equal(inside.swept.length, 1);
+    assert.equal(inside.swept[0]?.folder, realpathSync(WORKDIR));
+    const at = inside.swept[0]?.launchedAtMs ?? 0;
+    assert.ok(
+      at >= before && at <= Date.now(),
+      'the sweep counts only what started after the launch',
+    );
+    // A folder that does not ask runs outside Halcyonic's closed sandbox, and is swept the same (the lead, 02:25Z):
+    // a person's own process there is not sandboxed, so the sweep's conditions never match it.
+    const outside = setup({ confinement: confinement(data(t), false) });
+    await outside.startConfirmed();
+    await outside.adapter.close();
+    assert.equal(outside.swept.length, 1);
+    assert.equal(outside.swept[0]?.folder, realpathSync(WORKDIR));
   });
 
   test('on a cloud provider runs as before, recorded not confined with why', async (t) => {

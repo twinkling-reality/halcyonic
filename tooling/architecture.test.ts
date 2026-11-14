@@ -30,9 +30,11 @@ const RULES: Readonly<Record<string, Rule>> = {
   'packages/seatbelt': {
     dependencies: ['@halcyonic/runtime-core'],
     // node:http, node:https and node:net for the key gate alone: the sandbox's one way out, holding the
-    // person's key for every confined agent app (ADR 0048, amended 2026-11-12).
+    // person's key for every confined agent app (ADR 0048, amended 2026-11-12). node:child_process for the
+    // leftovers sweep alone: lsof and ps by absolute path, no shell (SECURITY.md, what a command leaves running).
     imports: [
       '@halcyonic/runtime-core',
+      'node:child_process',
       'node:crypto',
       'node:fs',
       'node:http',
@@ -89,6 +91,14 @@ describe('core package boundaries', () => {
       assert.deepEqual(violations, []);
     });
   }
+
+  // AUDIT3 A1 (2026-11-14): seatbelt runs a process only to end a run's leftovers, from one file.
+  test('packages/seatbelt runs a process only from its leftovers sweep', () => {
+    const running = productionSources(join(ROOT, 'packages/seatbelt/src'))
+      .filter((file) => specifiers(readFileSync(file, 'utf8')).includes('node:child_process'))
+      .map((file) => file.slice(ROOT.length));
+    assert.deepEqual(running, ['packages/seatbelt/src/leftovers.ts']);
+  });
 
   // ADR 0061: no vendor's name in the core. Each declared provider's id and shown name stay out of every core
   // package, read from the declarations themselves, so a third provider is scanned with no edit here; and every
