@@ -803,6 +803,9 @@ public class KitFileBindingTests
             var steering = Steering();
             var running = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
             steering.Press(WorkspaceAction.Interrupt, running);
+            // The older page's one line is built from the same two facts, so the binding's whole-words match can never drift from them
+            // (AUDIT's 2026-11-14T05:45Z SHOULD).
+            Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Interrupt, null), Is.EqualTo(WorkspaceText.StopQuestion + KitMomentWords.Dot + WorkspaceText.StopEffect));
             var binding = KitFileBinding.Of(Screen(running, steering, new FileScreen { Section = FileSection.Activity }), steering.Armed, running, "", Live, "Storefront", Spine,
                 roomDesign: true)!;
             Assert.That((binding.Model.Stops, binding.Model.StopsDoes), Is.EqualTo(((string?)WorkspaceText.StopQuestion, (string?)WorkspaceText.StopEffect)));

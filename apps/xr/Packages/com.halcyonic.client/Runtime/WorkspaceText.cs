@@ -656,7 +656,7 @@ namespace Halcyonic.Client
         {
             WorkspaceAction.Approve => "Approve Request?",
             WorkspaceAction.Deny => "Deny Request?",
-            WorkspaceAction.Interrupt => StopQuestion + " · " + StopEffect,
+            WorkspaceAction.Interrupt => StopQuestion + KitMomentWords.Dot + StopEffect,
             WorkspaceAction.Instruct => "Send Instruction? · " + OneLine(instruction ?? ""),
             WorkspaceAction.Answer => "Send Answers?",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
