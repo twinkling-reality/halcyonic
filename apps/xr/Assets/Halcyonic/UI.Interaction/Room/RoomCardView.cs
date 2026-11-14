@@ -65,6 +65,9 @@ namespace Halcyonic.XR.UI
         public const float DescriptionLineDp = 25f;
         public const float DescriptionGapDp = 6f;
         public const float BlockGapDp = 22f;
+
+        /// <summary>Between a status's lines kept apart (RoomCardStatus.Lines): a paragraph's gap, clearly wider than the lines' own spacing.</summary>
+        public const float LinesApartGapDp = 14f;
         public const float TileGapDp = 16f;
         /// <summary>A well's corner: smaller than the panel's own 20 dp, so a well sits in the panel and never reads as a tile of its own.</summary>
         public const float TileCornerDp = 14f;
@@ -552,16 +555,19 @@ namespace Halcyonic.XR.UI
             else if (status.Lines.Count > 0)
             {
                 // Lines kept apart (RoomCardStatus.Lines): the title centred on the mark, then each line its own short paragraph the
-                // card's whole width under both, a description's gap between them, never joined into one paragraph.
+                // card's whole width under both, never joined into one. Each is a thing the person must read (where their requests go,
+                // the price), so it stands at the description's size and light, not a quieter note's, and a paragraph's gap clearly
+                // wider than a line apart separates them (a fresh reader's 2026-11-14T0100Z: gaps barely wider than the pitch, the
+                // warnings smaller and dimmer than the line above).
                 var titleDrop = Mathf.Max(0f, (S(StatusMarkDp) - titleTall) / 2f);
                 titleLabel.transform.localPosition += new Vector3(0f, -titleDrop, 0f);
                 var at = Mathf.Max(S(StatusMarkDp), titleTall) + S(DescriptionGapDp);
                 foreach (var each in status.Lines)
                 {
-                    var (_, eachTall) = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(each), 0f, -(down + at), width - S(1f), StatusLineMost);
-                    at += eachTall + S(DescriptionGapDp);
+                    var (_, eachTall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), LineWords.Ours(each), 0f, -(down + at), width - S(1f), StatusLineMost);
+                    at += eachTall + S(LinesApartGapDp);
                 }
-                tall = at - S(DescriptionGapDp);
+                tall = at - S(LinesApartGapDp);
             }
             var block = Mathf.Max(S(StatusMarkDp), tall);
             // Words shorter than the mark stand centred on it, a title alone too (SCREENS's critic, 2026-11-11).
