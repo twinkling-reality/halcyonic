@@ -8,8 +8,22 @@ import {
   SRGBColorSpace,
   type Texture,
 } from 'three';
-import { PAGES_DISTANCE, PAGES_EYE, wordsOn } from './legible.js';
-import { ambientMotion, gameIsland, gameTime } from './look.js';
+import {
+  arcSlot,
+  firstOf,
+  HEADSET_PAGES,
+  LAPTOP_PAGES,
+  PAGE_HEIGHT,
+  PAGE_WIDTH,
+  PAGES_DISTANCE,
+  PAGES_EYE,
+  PRESS_FORWARD,
+  PRESS_GROW,
+  pagesAcross,
+  panelOn,
+  wordsOn,
+} from './legible.js';
+import { ambientMotion, gameIsland, gameTime, onHeadset } from './look.js';
 import { fitText, wrapLines } from './page-fit.js';
 
 /** One of the original's own cards, steps or pages: its title, its words and, if it has one, its picture. */
@@ -34,20 +48,25 @@ export interface PagesOptions {
 export interface Pages {
   /** The row, already in the scene; move or turn it as a whole if the view needs it. */
   readonly group: Group;
-  /** The row's six flat panels: wrap each in an entity to press it. Panel `i` shows page `first + i`, if any. */
+  /**
+   * The row's flat panels, `MAX_PAGES` of them: wrap each in an entity to press it. Panel `i` shows page `first + i`, if
+   * any; on a laptop only the first `across` show.
+   */
   readonly panels: readonly Mesh[];
+  /** How many pages it lays out at a time now: six in a headset, three on a laptop. It follows the session. */
+  readonly across: number;
   /** Brings panel `index` forward and lights it, the others back; on the game's own clock. */
   show(index: number): void;
-  /** The list's index of the page the first panel shows: 0, then 6, 12 and on as the row turns. */
+  /** The list's index of the page the first panel shows: 0, then `across`, twice `across` and on as the row turns. */
   readonly first: number;
   /**
-   * How many pages the list takes now, so a person can be told where they are ("7 to 12 of 14"): a page whose words do
+   * How many pages the list takes now, so a person can be told where they are ("4 to 6 of 14"): a page whose words do
    * not fit goes on to pages of its own title after it, so this can be more than the list's length.
    */
   readonly count: number;
   /**
-   * Lays out the next six pages (`turn(1)`) or the previous six (`turn(-1)`), so a long list is read to its end;
-   * give the person a Next and a Back to press. Returns false, changing nothing, past either end.
+   * Lays out the next `across` pages (`turn(1)`) or the previous ones (`turn(-1)`), so a long list is read to its end;
+   * give the person a Next and a Back to press, in a row of `rows()`. Returns false, changing nothing, past either end.
    */
   turn(by: 1 | -1): boolean;
   /** Shows another list in the same row from its first page: what a search or a filter leaves, say. */
@@ -73,25 +92,29 @@ interface Laid {
  */
 export const TYPE = { title: 0.04, words: 0.026 } as const;
 
-/** Each page's size in metres: about a book page, read at arm's length. */
-const WIDTH = 0.64;
-const HEIGHT = 0.8;
+/** Each page's size in metres: about a book page, read at arm's length (`src/legible.ts`, where the check reads it). */
+const WIDTH = PAGE_WIDTH;
+const HEIGHT = PAGE_HEIGHT;
 /** Canvas pixels per metre: 1600, sharp enough to read 3 cm letters in a headset. */
 const PIXELS = 1600;
 /** The panels' centres, at the height a standing person reads at. */
 const EYE = PAGES_EYE;
-/** The most pages laid out at once: more would widen the arc past where a person reads without turning. */
-export const MAX_PAGES = 6;
+/**
+ * The most pages laid out at once, in a headset, and so how many panels the row has: more would widen the arc past
+ * where a person reads without turning. A laptop's view holds `LAPTOP_PAGES`, three; `across` says which now.
+ */
+export const MAX_PAGES = HEADSET_PAGES;
 /** How far the pressed page comes toward the person, and how much bigger it grows. */
-const FORWARD = 0.32;
-const GROW = 0.18;
+const FORWARD = PRESS_FORWARD;
+const GROW = PRESS_GROW;
 
 /**
  * Lays the original's own cards out as readable pages in a shallow arc in front of the person, facing them, each drawn
  * from its title, words and picture on a canvas of its own. Pressing one should answer: call `show(i)` from
  * `onSelect`, and that page comes forward and brightens while the rest step back, on the game's own clock.
- * Six (`MAX_PAGES`) are laid out at a time; `turn(1)` and `turn(-1)` lay out the next and previous six, so pass the
- * whole list, and `set(list)` shows another (what a search or a filter leaves).
+ * As many as the view holds are laid out at a time (`across`: six in a headset, three on a laptop, following the
+ * session); `turn(1)` and `turn(-1)` lay out the next and previous ones, so pass the whole list, and `set(list)` shows
+ * another (what a search or a filter leaves).
  */
 export function pages(list: readonly Page[], options: PagesOptions = {}): Pages {
   const color = options.color ?? '#FFF8EC';
@@ -99,10 +122,9 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
   const accent = options.accent ?? '#E8743B';
   const distance = options.distance ?? PAGES_DISTANCE;
   const group = new Group();
-  // Side by side with a 6 cm gap, bent round the person so each faces them.
-  const step = (WIDTH + 0.06) / distance;
   let items = laid(list);
   let first = 0;
+  let across: number = LAPTOP_PAGES;
   const panels = Array.from({ length: MAX_PAGES }, () => {
     const panel = new Mesh(
       new PlaneGeometry(WIDTH, HEIGHT),
@@ -115,25 +137,34 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
   });
   let chosen = -1;
   let chosenAt = Number.NEGATIVE_INFINITY;
-  /** Draws the six pages from `first` on and centres the ones there are; a panel with no page is hidden. */
+  /** Draws the `across` pages from `first` on and centres the ones there are; a panel with no page is hidden. */
   const lay = () => {
-    const across = Math.max(Math.min(items.length - first, MAX_PAGES), 1);
     chosen = -1;
     chosenAt = Number.NEGATIVE_INFINITY;
     panels.forEach((panel, index) => {
-      const page = items[first + index]?.page;
+      // Side by side with a 6 cm gap, bent round the person so each faces them; past `across`, hidden.
+      const slot = arcSlot(index, first, across, items.length, distance);
+      const page = slot.page === null ? undefined : items[slot.page]?.page;
       const material = panel.material as MeshBasicMaterial;
       material.map?.dispose();
       material.map = page === undefined ? null : drawPage(page, color, ink, accent);
       material.needsUpdate = true;
       panel.visible = page !== undefined;
-      const angle = (index - (across - 1) / 2) * step;
+      // For the computer's check of a laptop's view: where each page stands, and whether it is past the screen's edge.
+      panelOn(panel, { kind: 'page', label: page?.title ?? null, width: WIDTH, height: HEIGHT });
+      const angle = slot.angle;
       panel.position.set(Math.sin(angle) * distance, EYE, -Math.cos(angle) * distance);
       panel.rotation.y = -angle;
       panel.userData.home = panel.position.clone();
     });
   };
-  lay();
+  // Six round the person in a headset, three across a laptop's view; entering or leaving keeps the page the person was
+  // on in view. Called now, which lays the row out.
+  onHeadset((headset) => {
+    across = pagesAcross(headset);
+    first = firstOf(first, across);
+    lay();
+  });
   gameIsland().add(group);
   const bright = new Color('#FFFFFF');
   const dim = new Color('#B8B2A8');
@@ -164,6 +195,9 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
       chosen = index;
       chosenAt = gameTime();
     },
+    get across() {
+      return across;
+    },
     get first() {
       return first;
     },
@@ -171,7 +205,7 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
       return items.length;
     },
     turn(by) {
-      const next = first + by * MAX_PAGES;
+      const next = first + by * across;
       if (next < 0 || next >= items.length) return false;
       first = next;
       lay();

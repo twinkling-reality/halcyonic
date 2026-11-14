@@ -103,18 +103,28 @@ An app's use, not a game (a guide, a log, a list, a form, a tool):
   note). Never fix such a field to a sample value or to now without saying so. Long text to write (steps, an article)
   and files to upload are named among what this version leaves out, or chosen from the app's own (its pictures) and
   said so. An account, a sign-in or a server is never rebuilt, not even its form: name it and carry the use without it.
-- Every list can be read to its end. `pages()` lays out six at a time: `turn(1)` and `turn(-1)` lay out the next and
-  previous six, `count` and `first` say where the person is ("7 to 12 of 14"), and `set(list)` shows what a search or
-  a filter leaves in the same row. A list you draw yourself pages the same way, `MAX_PAGES` at a time. Give it a Next
-  and a Back to press; never cut it with "and N more" and no way there. A card's words that do not fit go on to the
-  next card, never cut off: `pages()` does it itself, and for cards you draw, `fitText` from `./kit.js` splits
-  the words over the cards they take. Map a pressed panel back to your own entry with `book.source(i)`, never
-  `first + i`: a long entry takes more than one page.
+- Every list can be read to its end. `pages()` lays out as many as the view holds (six in the headset, three on a
+  laptop): `turn(1)` and `turn(-1)` turn by that many, and `count` and `first` say where the person is; read them, and
+  `across` for how many stand now, never work it out from six. `set(list)` shows what a search or a filter leaves in
+  the same row. `MAX_PAGES` is the most it lays out, in the headset; a list you draw yourself pages the same way, three
+  at a time on a laptop. Give it a Next and a Back to press; never cut it with "and N more" and no way there.
+  A card's words that do not fit go on to the next card, never cut off: `pages()` does it itself, and
+  for cards you draw, `fitText` from `./kit.js` splits the words over the cards they take.
+  Map a pressed panel back to your own entry with `book.source(i)`, never `first + i`: a long entry takes more than
+  one page.
+- Every row of buttons, tabs, a pager or a keyboard goes through `rows(...)` from `./kit.js`: it places the rows under
+  the pages, spaced by the kit, inside what a laptop shows and clear of a page while it is pressed. Never place a row
+  of your own. The person's computer checks the laptop view at 1280 by 800 and holds it back when part of a panel is
+  off its screen or covers another.
+  Pass every row, top first, each a list of `{ label, onSelect }`:
+  `const bar = rows(world, [[{ label: 'Back', onSelect: () => book.turn(-1) }, { label: 'Next', onSelect: () => book.turn(1) }]])`.
+  `bar.rename(row, i, words)` changes a button's words (where the person is, a letter's case), and `bar.light(row, i)`
+  lights the choice made. Five rows fit.
 - Words in the scene are read at a distance: draw them no smaller than `TYPE` from `./kit.js` (font sizes in metres
   for words read 1.6 m away in the headset, `TYPE.words` for running words and `TYPE.title` for titles; twice as far,
   twice as big). The laptop view must read too: the person's computer checks it at 1280 by 800 and judges whether the
-  kit's words stand at least 10 pixels high there. `setupScene` puts the laptop camera where the person stands, so
-  pages at 1.6 m read on both.
+  kit's words stand at least 10 pixels high there. `setupScene` puts the laptop camera a step behind where the person
+  stands, looking down at the pages and the rows under them, so pages at 1.6 m read on both.
   Measure each line with `measureText` and start the next thing after it, so a title never runs into the words beside
   or below it. The welcome card keeps its own sizes.
 - What this version does not carry yet goes in one plain line that stays in the scene beside the use (the welcome
@@ -152,8 +162,9 @@ A view from another app, not a game:
   subject is the original's own pages: `pages(list, options)` from `./kit.js` draws each as a readable panel in an arc
   1.6 m in front of the person. Read the cards' own words from the original's files (its HTML, Markdown, JSON or the
   component that renders them, never the share image or the landing page's banner) and pass all of them, each
-  `{ title, text, picture }`, in the original's order (six stand at a time; give a Next and a Back that call
-  `book.turn(1)` and `book.turn(-1)`), with `picture` the card's own picture read with
+  `{ title, text, picture }`, in the original's order (six stand at a time in the headset, three on a laptop; give a
+  Next and a Back, in a row of `rows(...)`, that call `book.turn(1)` and `book.turn(-1)`), with `picture` the card's
+  own picture read with
   `AssetManager.getTexture(...)` where it has one. Give `color`, `ink` and `accent` from the original's own styles.
   Make each panel pressable and answer with the page coming forward:
   `book.panels.forEach((panel, i) => onSelect(world.createTransformEntity(panel), () => book.show(i)))`, with

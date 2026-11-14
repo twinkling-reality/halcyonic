@@ -20,9 +20,9 @@ import type {
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import type { CheckOptions, CheckResult } from '../preview/check.ts';
 import { DRAWN_EDGES, drawnFrom, passes } from '../preview/check.ts';
-import { readingOf, readingPasses } from '../preview/laptop-probe.ts';
+import { fitOf, fitPasses, readingOf, readingPasses } from '../preview/laptop-probe.ts';
 import { createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
-import { AUTO_FIX_READING_WORDS, AUTO_FIX_WORDS } from './auto-fix.ts';
+import { AUTO_FIX_FIT_WORDS, AUTO_FIX_READING_WORDS, AUTO_FIX_WORDS } from './auto-fix.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 
 const [FEATURE] = DEMO_WORKSTREAMS as unknown as [(typeof DEMO_WORKSTREAMS)[number]];
@@ -735,6 +735,91 @@ describe('a check that passed but does not read on a laptop goes back too, under
       true,
     );
     assert.equal(fresh.sent().length, 0);
+  });
+});
+
+describe("a check whose kit panels do not fit a laptop's view goes back too, under the same two tries (ADR 0044, VRIFY 2026-11-13)", () => {
+  /** A check that passed and reads, its kit's panels placed at `x` (a page 300 px wide), as the real step measures them. */
+  const fitAt = (
+    x: number,
+    check?: CheckOptions,
+    files: 'starter' | 'changed' = 'starter',
+  ): CheckResult => {
+    const fit = fitOf(
+      files,
+      { panels: [{ kind: 'page', label: 'Lesson 1', x, y: 100, w: 300, h: 400 }], sealed: true },
+      check?.lastFit ?? null,
+    );
+    const laptop = READABLE.laptop as NonNullable<CheckResult['laptop']>;
+    const ready = laptop.ready && fitPasses(fit);
+    return { ...READABLE, laptop: { ...laptop, fit, ready }, ready };
+  };
+  const PAST_EDGE = fitAt(-40);
+  const FITS = fitAt(100);
+
+  test('a page past the edge alone starts a chain, in the host words and the kit panel; it ends once the panels fit', async (t) => {
+    const p = plane(t, [PAST_EDGE, FITS]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the try');
+    assert.equal(
+      p.runtime.given[1],
+      `${AUTO_FIX_FIT_WORDS}\n\nA panel of the kit (a page "Lesson 1") reaches past the edge of a laptop's 1280 by 800 view. Place every row of buttons, tabs, a pager or a keyboard through rows() from ./kit.js, under the pages, and add nothing at a position of your own.`,
+    );
+    assert.deepEqual(p.controlPlane.projection.execution(executionId)?.auto_fix?.failed_steps, [
+      'reading',
+    ]);
+    const latest = p.controlPlane.projection.latestCheck(p.projectId);
+    assert.equal(latest?.findings.verdict, 'failed');
+    assert.equal(latest?.findings.laptop?.ready, false);
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.ended().length === 1, 'the end of the chain');
+    assert.equal(p.ended()[0]?.payload.reason, 'passed');
+    assert.equal(p.ended()[0]?.payload.attempts, 1);
+  });
+
+  test('a failed check and then a misfit share the two tries: one counter for every trigger', async (t) => {
+    const p = plane(t, [FAILED, PAST_EDGE, PAST_EDGE]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the first try, for the type check');
+    assert.ok((p.runtime.given[1] ?? '').startsWith(`${AUTO_FIX_WORDS}\n\n`));
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 2, 'the second try, for the fit');
+    assert.ok((p.runtime.given[2] ?? '').startsWith(`${AUTO_FIX_FIT_WORDS}\n\n`));
+    assert.deepEqual(
+      p.sent().map((event) => [event.payload.attempt, event.payload.cap]),
+      [
+        [1, 2],
+        [2, 2],
+      ],
+    );
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.ended().length === 1, 'the end of the chain');
+    await quiet();
+    assert.equal(p.ended()[0]?.payload.reason, 'cap_reached');
+    assert.equal(p.sent().length, 2, 'no third try, whatever triggered it');
+  });
+
+  test('measured past the edge, then changed: held from the last measured fit the host hands the check, never passed', async (t) => {
+    const p = plane(t, [PAST_EDGE, (check) => fitAt(100, check, 'changed')]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the first try');
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 2, 'the second try: not fixed');
+    const latest = p.controlPlane.projection.latestCheck(p.projectId);
+    assert.equal(latest?.findings.laptop?.fit?.state, 'changed');
+    assert.equal(latest?.findings.laptop?.fit?.last_problem, 'past_edge');
+    assert.equal(latest?.findings.laptop?.ready, false);
+    assert.match(
+      p.runtime.given[2] ?? '',
+      /reached past the edge of a laptop's 1280 by 800 view when last measured/,
+    );
   });
 });
 

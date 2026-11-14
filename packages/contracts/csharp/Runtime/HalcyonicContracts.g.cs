@@ -2074,6 +2074,33 @@ namespace Halcyonic.Contracts
         public string? Detail { get; set; }
     }
 
+    public sealed class CheckFit
+    {
+        [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::Newtonsoft.Json.Linq.JToken State { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("problem", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public global::Newtonsoft.Json.Linq.JToken? Problem { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("last_problem", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public global::Newtonsoft.Json.Linq.JToken? LastProblem { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("measured", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Measured { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("panel_kind", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public global::Newtonsoft.Json.Linq.JToken? PanelKind { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("panel_label", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? PanelLabel { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("words", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Words { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("detail", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Detail { get; set; }
+    }
+
     public sealed class CheckLaptop
     {
         [global::Newtonsoft.Json.JsonProperty("layer", Required = global::Newtonsoft.Json.Required.Always)]
@@ -2102,6 +2129,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("reading", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public CheckReading? Reading { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("fit", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public CheckFit? Fit { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("ready", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Ready { get; set; }

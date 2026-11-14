@@ -20,7 +20,7 @@ import {
   QUEUED_INSTRUCTIONS_MAX,
   WORLD_STARTER_ID,
 } from '@halcyonic/contracts';
-import { checkServable, readingPasses } from './fix-steps.ts';
+import { checkServable, fitPasses, readingPasses } from './fix-steps.ts';
 import { foldersOverlap } from './folders.ts';
 import { COMMAND_POLICY, COMMAND_SAYING } from './policy.ts';
 import type { ExecutionFacts, Projection } from './projection.ts';
@@ -515,6 +515,7 @@ function admit(
           'Only a passed check can be played. Check the game first.',
         );
       const reading = findings.laptop?.reading;
+      const fit = findings.laptop?.fit;
       if (findings.laptop?.ready !== true)
         return reject(
           scope,
@@ -525,7 +526,10 @@ function admit(
             : reading !== undefined && !readingPasses(reading)
               ? // Whether it reads on a laptop, in the check's own plain words, its numbers second (VRIFY, AUDIT2 R2).
                 `${reading.words}${reading.detail === null ? '' : ` (${reading.detail})`}.`
-              : "The check didn't see the game work with a mouse and keyboard.",
+              : fit !== undefined && !fitPasses(fit)
+                ? // Whether its parts fit a laptop's screen, in the host's own words, never the app's labels.
+                  `${fit.words}${fit.detail === null ? '' : ` (${fit.detail})`}.`
+                : "The check didn't see the game work with a mouse and keyboard.",
         );
       if (!findings.reads_confined)
         return reject(

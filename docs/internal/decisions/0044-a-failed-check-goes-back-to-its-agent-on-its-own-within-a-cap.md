@@ -101,6 +101,14 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   agent is known to have made it so. The real run of 2026-11-13 found the cause: the check said a VR
   version was ready on a laptop while its words stood about 6 pixels high
   ([vrify-real-projects.md](../validation/vrify-real-projects.md), "The reading floor").
+- The same trigger, widened (VRIFY, 2026-11-13): a check whose kit panels are a measured misfit at a laptop's 1280 by
+  800 view (`CheckLaptop.fit`: a page or a row of `rows()` more than 2 pixels past an edge, or two of them sharing more
+  than 4 pixels across and down, measured at rest) goes back the same way, under the same two tries and the same
+  `reading` step. A later check that cannot measure them is not a fix: it carries the last measured misfit
+  (`last_problem`) until a measured fit clears it. The try opens with the host's words for a check that passed but does
+  not fit a laptop's screen (the reading's or the failed check's words when those apply too), then names the panel with
+  the app's own label for it and asks for every row of buttons to go through `rows()`; a person's line never carries
+  the app's label. A fit not known (a kit file changed, no panel shown, a report not of the strict shape) is not sent.
 - On wherever checks are; `ControlPlaneOptions.autoFix: false` turns it off.
 
 ## Alternatives considered

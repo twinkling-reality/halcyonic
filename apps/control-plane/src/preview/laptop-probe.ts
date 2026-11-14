@@ -2,12 +2,16 @@ import { createHash, randomBytes } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  type CheckFit,
   type CheckLaptop,
   type CheckReading,
   type CheckVr,
+  FIT_EDGE_PX,
+  FIT_OVERLAP_PX,
+  FIT_VIEW,
   READING_FLOOR_PX,
 } from '@halcyonic/contracts';
-import { readingPasses } from '@halcyonic/domain';
+import { fitPasses, readingPasses } from '@halcyonic/domain';
 import type { ChromeRun, DevToolsPipe } from './chrome.ts';
 import { changedShare, decodePng, type Pixels } from './png.ts';
 import { readNoLink } from './scan.ts';
@@ -28,16 +32,23 @@ export const VR_MS = 10_000;
 const LAYER_FILES = ['play-input.ts', 'play-input-core.ts'] as const;
 /**
  * The kit's files whose code feeds the laptop reading (VRIFY, 2026-11-13): the hook that measures, the registry it
- * reads, the pages and the score sign that register their words, and the look that places a view's laptop camera. One
- * of them changed makes the page's reading not the kit's own (AUDIT3 R1).
+ * reads, the pages, the rows and the score sign that register their words, and the look that places a view's laptop
+ * camera. One of them changed makes the page's reading not the kit's own (AUDIT3 R1).
  */
 export const READING_FILES = [
   ...LAYER_FILES,
   'legible.ts',
   'pages.ts',
+  'rows.ts',
   'decor.ts',
   'look.ts',
 ] as const;
+/**
+ * The kit's files whose code feeds the fit of its panels (VRIFY, 2026-11-13, AUDIT3 K2): the hook that boxes them, the
+ * registry and the sizes it reads, the pages and the rows that place them, and the look that places the laptop camera
+ * and says whether a headset is on. One of them changed makes the page's fit not the kit's own.
+ */
+export const FIT_FILES = [...LAYER_FILES, 'legible.ts', 'pages.ts', 'rows.ts', 'look.ts'] as const;
 /**
  * A pixel is the app's, for the fill share, when any of its channels differs from the picture's most common colour by
  * more than this. The share is information only; it gates nothing (AUDIT3, 2026-11-13).
@@ -48,7 +59,7 @@ export const FILL_CHANNEL = 16;
  * share is null rather than a number measured against a colour that is not the background (a picture sky, a gradient).
  */
 export const BACKGROUND_LEAST = 0.25;
-const MAX_REPORT = 16 * 1024;
+const MAX_REPORT = 64 * 1024;
 const MAX_TARGETS = 32;
 /** The most texts the reading keeps from a report; the first ones are kept, as targets are. */
 const MAX_TEXTS = 64;
@@ -68,12 +79,31 @@ export interface HookReadings {
   readonly sealed: boolean;
 }
 
+/** One panel of the kit on the laptop's screen, as the page reports it: its kind, its label, its box in CSS pixels. */
+export interface HookPanel {
+  readonly kind: 'page' | 'row';
+  readonly label: string | null;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+/** Where the kit's panels stand on the screen, as the page reports them; `reported`. */
+export interface HookPanels {
+  readonly panels: readonly HookPanel[];
+  /** Whether the hook stood as the kit sets it, as for the readings; said by the page, so it proves nothing. */
+  readonly sealed: boolean;
+}
+
 /** What the page's input layer reports through its check hook; `reported`, never observed. */
 export interface HookReport {
   readonly counts: Counts;
   readonly targets: readonly { readonly x: number; readonly y: number }[];
   /** Null when the page gave none, or none of the strict shape. */
   readonly readings: HookReadings | null;
+  /** Null when the page gave none, or none of the strict shape (AUDIT3 K3). */
+  readonly panels: HookPanels | null;
 }
 
 /** Whether the project's input layer is the starter's own, byte for byte. */
@@ -87,6 +117,11 @@ export async function readingFiles(
   template: string,
 ): Promise<CheckLaptop['layer']> {
   return sameAsTemplate(project, template, READING_FILES);
+}
+
+/** Whether every kit file that feeds the fit of its panels is the starter's own, byte for byte (AUDIT3 K2). */
+export async function fitFiles(project: string, template: string): Promise<CheckLaptop['layer']> {
+  return sameAsTemplate(project, template, FIT_FILES);
 }
 
 async function sameAsTemplate(
@@ -119,7 +154,9 @@ export const HOOK_EXPRESSION = `(() => {
     const sealed = own !== undefined && own.writable === false && own.configurable === false && Object.isFrozen(hook);
     const given = typeof hook.readings === 'function' ? hook.readings() : null;
     const readings = given !== null && typeof given === 'object' ? { ...given, sealed } : given;
-    return JSON.stringify({ counts: hook.counts(), targets: hook.targets(), readings });
+    const boxes = typeof hook.panels === 'function' ? hook.panels() : null;
+    const panels = Array.isArray(boxes) ? { panels: boxes, sealed } : null;
+    return JSON.stringify({ counts: hook.counts(), targets: hook.targets(), readings, panels });
   } catch {
     return null;
   }
@@ -135,10 +172,11 @@ export function parseReport(value: unknown): HookReport | null {
     return null;
   }
   if (data === null || typeof data !== 'object') return null;
-  const { counts, targets, readings } = data as {
+  const { counts, targets, readings, panels } = data as {
     counts?: unknown;
     targets?: unknown;
     readings?: unknown;
+    panels?: unknown;
   };
   if (counts === null || typeof counts !== 'object' || !Array.isArray(targets)) return null;
   const read: Partial<Counts> = {};
@@ -157,7 +195,40 @@ export function parseReport(value: unknown): HookReport | null {
     if (!inside(x) || !inside(y)) return null;
     points.push({ x, y });
   }
-  return { counts: read as Counts, targets: points, readings: parseReadings(readings) };
+  return {
+    counts: read as Counts,
+    targets: points,
+    readings: parseReadings(readings),
+    panels: parsePanels(panels),
+  };
+}
+
+/** The most panels a report may give, the farthest a box may reach, and the longest label (AUDIT3 K3). */
+const MAX_PANELS = 64;
+const MAX_REACH = 10_000;
+const MAX_LABEL = 200;
+
+/**
+ * The hook's panels against a strict shape (AUDIT3 K3): at most 64, each a kind of the fixed list, a label of at most
+ * 200 characters or null, and a box of finite numbers within 10,000 pixels either way, its width and height not
+ * negative. Anything else is null, so the fit is unknown, never failed; nothing of it is logged.
+ */
+export function parsePanels(value: unknown): HookPanels | null {
+  if (value === null || typeof value !== 'object') return null;
+  const { panels, sealed } = value as { panels?: unknown; sealed?: unknown };
+  if (!Array.isArray(panels) || panels.length > MAX_PANELS) return null;
+  const read: HookPanel[] = [];
+  const inside = (n: unknown): n is number =>
+    typeof n === 'number' && Number.isFinite(n) && n >= -MAX_REACH && n <= MAX_REACH;
+  for (const panel of panels) {
+    if (panel === null || typeof panel !== 'object') return null;
+    const { kind, label, x, y, w, h } = panel as Record<string, unknown>;
+    if (kind !== 'page' && kind !== 'row') return null;
+    if (label !== null && (typeof label !== 'string' || label.length > MAX_LABEL)) return null;
+    if (!inside(x) || !inside(y) || !inside(w) || !inside(h) || w < 0 || h < 0) return null;
+    read.push({ kind, label, x, y, w, h });
+  }
+  return { panels: read, sealed: sealed === true };
 }
 
 /** The hook's readings against a strict shape; anything else is null, so the reading is unknown. */
@@ -299,7 +370,102 @@ export function readingOf(
 }
 
 /** Whether the reading lets the laptop step be ready: the domain's one rule, which admission reads too. */
-export { readingPasses } from '@halcyonic/domain';
+export { fitPasses, readingPasses } from '@halcyonic/domain';
+
+/** How far a panel reaches past the laptop's view, in CSS pixels; 0 when it ends inside it or exactly at its edge. */
+export function pastEdge(panel: HookPanel): number {
+  return Math.max(
+    0,
+    -panel.x,
+    -panel.y,
+    panel.x + panel.w - FIT_VIEW.width,
+    panel.y + panel.h - FIT_VIEW.height,
+  );
+}
+
+/** The pixels two panels share across and down; 0 either way when they do not meet. */
+export function shared(a: HookPanel, b: HookPanel): { w: number; h: number } {
+  return {
+    w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)),
+    h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)),
+  };
+}
+
+const KIND_WORDS = { page: 'a page', row: 'a row of buttons' } as const;
+
+/**
+ * The fit of the kit's panels on a laptop (VRIFY, 2026-11-13, AUDIT3): where the page reports each page and row of
+ * buttons the kit placed, at rest, boxed at 1280 by 800. A panel more than `FIT_EDGE_PX` past an edge does not fit (Q1),
+ * and two that share more than `FIT_OVERLAP_PX` across and more than that down cover each other (Q2). `files` is whether
+ * the kit's files that feed it are the starter's own; changed or missing, the report is not the kit's, and the fit is
+ * `changed`. A fit not measured holds nothing back by itself, but never clears a failure: where `last`, the project's
+ * last measured fit, had one, it is held until a measured fit without one.
+ */
+export function fitOf(
+  files: CheckLaptop['layer'],
+  report: HookPanels | null,
+  last: CheckFit | null = null,
+): CheckFit {
+  const notMeasured = (state: 'unknown' | 'changed', why: string): CheckFit => {
+    const held = last?.state === 'measured' ? last.problem : null;
+    return {
+      state,
+      problem: null,
+      last_problem: held,
+      measured: 0,
+      panel_kind: held === null ? null : (last?.panel_kind ?? null),
+      panel_label: held === null ? null : (last?.panel_label ?? null),
+      words:
+        held === null
+          ? `Whether every part of the app fits on a laptop's screen is not known: ${why}`
+          : held === 'past_edge'
+            ? `Part of the app did not fit on a laptop's screen when last measured, and can no longer be measured: ${why}`
+            : `Two parts of the app covered each other on a laptop when last measured, and can no longer be measured: ${why}`,
+      detail: null,
+    };
+  };
+  if (files !== 'starter')
+    return notMeasured('changed', 'the app changed the files the check finds its parts through');
+  if (report === null) return notMeasured('unknown', 'the app did not say where its parts are');
+  if (!report.sealed)
+    return notMeasured('changed', 'the app changed how the check finds its parts');
+  const panels = report.panels;
+  if (panels.length === 0)
+    return notMeasured('unknown', "no part of the app's built-in pages or rows could be measured");
+  const measured = { state: 'measured', last_problem: null, measured: panels.length } as const;
+  const off = panels.find((panel) => pastEdge(panel) > FIT_EDGE_PX);
+  if (off !== undefined)
+    return {
+      ...measured,
+      problem: 'past_edge',
+      panel_kind: off.kind,
+      panel_label: off.label,
+      words: "Part of the app does not fit on a laptop's screen",
+      detail: `${KIND_WORDS[off.kind]} reaches ${figure(pastEdge(off))} px past the edge of 1280 by 800`,
+    };
+  for (const [i, a] of panels.entries())
+    for (const b of panels.slice(i + 1)) {
+      const both = shared(a, b);
+      if (both.w > FIT_OVERLAP_PX && both.h > FIT_OVERLAP_PX)
+        return {
+          ...measured,
+          problem: 'overlap',
+          panel_kind: a.kind,
+          panel_label: a.label,
+          words: 'Two parts of the app cover each other on a laptop',
+          detail: `${KIND_WORDS[a.kind]} and ${KIND_WORDS[b.kind]} share ${figure(both.w)} by ${figure(both.h)} px`,
+        };
+    }
+  const count = panels.length === 1 ? '1 part' : `${panels.length} parts`;
+  return {
+    ...measured,
+    problem: null,
+    panel_kind: null,
+    panel_label: null,
+    words: `Fits on a laptop's screen where it could measure (${count}); parts the app placed itself were not measured`,
+    detail: null,
+  };
+}
 
 /**
  * Whether the screen changed after a press, from the share of pixels that changed after it and in
@@ -372,6 +538,10 @@ export async function laptopStep(
     readonly picture: Buffer | null;
     /** The project's last measured reading, which a reading that cannot measure never clears. */
     readonly last?: CheckReading | null;
+    /** Whether the kit's files that feed the fit are the starter's own; `files` when not said (a subset of them). */
+    readonly fitFiles?: CheckLaptop['layer'];
+    /** The project's last measured fit, which a fit that cannot measure never clears. */
+    readonly lastFit?: CheckFit | null;
   },
 ): Promise<CheckLaptop> {
   const report = async () => parseReport(await driver.evaluate(HOOK_EXPRESSION).catch(() => null));
@@ -384,15 +554,21 @@ export async function laptopStep(
   }
   // Read before any press, as the app stands at rest: a press may bring a page nearer.
   const reading = readingOf(view.files, first?.readings ?? null, view.picture, view.last ?? null);
-  const finish = (findings: Omit<CheckLaptop, 'layer' | 'ready' | 'reading'>): CheckLaptop => ({
+  // At rest only: the host has pressed nothing yet, and no word of the page's on what is pressed is taken (AUDIT3 K1).
+  const fit = fitOf(view.fitFiles ?? view.files, first?.panels ?? null, view.lastFit ?? null);
+  const finish = (
+    findings: Omit<CheckLaptop, 'layer' | 'ready' | 'reading' | 'fit'>,
+  ): CheckLaptop => ({
     layer,
     ...findings,
     reading,
+    fit,
     ready:
       layer === 'starter' &&
       findings.mouse === 'reached' &&
       findings.screen_changed === true &&
-      readingPasses(reading),
+      readingPasses(reading) &&
+      fitPasses(fit),
   });
   if (first === null)
     return finish({ targets: 0, mouse: 'unknown', key: 'unknown', screen_changed: null });

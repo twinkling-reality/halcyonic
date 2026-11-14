@@ -1,4 +1,4 @@
-import { createSystem, type World } from '@iwsdk/core';
+import { createSystem, VisibilityState, type World } from '@iwsdk/core';
 import {
   BackSide,
   CanvasTexture,
@@ -86,6 +86,31 @@ function deform<G extends BufferGeometry>(geometry: G): G {
 
 let shadowTexture: CanvasTexture | null = null;
 let built: Group | null = null;
+/** The world `setupLook` or `setupScene` was given, for the kit's layouts that follow the headset session. */
+let session: World | null = null;
+
+/** Whether the person is in the headset now: false on a laptop, and before `setupLook` or `setupScene`. */
+export function inHeadset(): boolean {
+  return session !== null && session.visibilityState.value !== VisibilityState.NonImmersive;
+}
+
+/**
+ * Calls `fn` now and each time the person enters or leaves the headset, with whether they are in it: how the kit's
+ * `pages()` lays out six round the person in a headset and three across a laptop's view.
+ */
+export function onHeadset(fn: (headset: boolean) => void): void {
+  if (session === null) {
+    fn(false);
+    return;
+  }
+  let was: boolean | null = null;
+  session.visibilityState.subscribe((state) => {
+    const now = state !== VisibilityState.NonImmersive;
+    if (now === was) return;
+    was = now;
+    fn(now);
+  });
+}
 let current: WorldLook = worlds.meadow;
 
 /** The world `setupLook` was given (`src/worlds.ts`): the meadow until a game picks its own. */
@@ -482,6 +507,7 @@ function hills(colours: readonly [string, string]): Mesh {
  */
 export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow'): { island: Group } {
   current = typeof setting === 'string' ? (worlds[setting] ?? worlds.meadow) : setting;
+  session = world;
   const look = current;
   const renderer = world.renderer;
   // No tone mapping: ACES turns yellows to mustard and washes out greens; keep colours true.
@@ -560,11 +586,12 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
  * the world's own frame.
  */
 export function setupScene(world: World, background = '#000000'): { root: Group } {
-  // On a laptop the view is seen from the person's own place, as the headset sees it, not from the game's camera behind
-  // them in iwsdk.config.json: World.create placed that one before this runs, and a VR session sets its own pose and
-  // puts this one back when it ends.
+  // On a laptop the view is seen from a step behind the person's own place, looking down at the pages and the rows
+  // under them (`VIEW_CAMERA`), not from the game's camera behind them in iwsdk.config.json: World.create placed that
+  // one before this runs, and a VR session sets its own pose and puts this one back when it ends.
   world.camera.position.set(...VIEW_CAMERA.position);
   world.camera.lookAt(...VIEW_CAMERA.lookAt);
+  session = world;
   const renderer = world.renderer;
   renderer.toneMapping = NoToneMapping;
   world.scene.environment = null;

@@ -698,6 +698,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'play-input.ts',
       // VRIFY: the relief table a view of land is raised with.
       'relief.ts',
+      // VRIFY: an app's rows of buttons, placed by the kit under the pages, inside a laptop's view (2026-11-13).
+      'rows.ts',
       'sound.ts',
       'vite-env.d.ts',
       'worlds.ts',

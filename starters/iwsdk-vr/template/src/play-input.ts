@@ -20,7 +20,14 @@ import {
   type World,
 } from '@iwsdk/core';
 import { type Object3D, Vector3 } from 'three';
-import { inView, segmentPixels, wordedMeshes } from './legible.js';
+import {
+  inView,
+  kitPanels,
+  type ScreenBox,
+  screenBox,
+  segmentPixels,
+  wordedMeshes,
+} from './legible.js';
 import {
   BUTTONS,
   type ButtonName,
@@ -212,6 +219,44 @@ function readings(w: World): { texts: { px: number }[] } {
   return { texts };
 }
 
+const corner = new Vector3();
+/** The most panels and the longest label the hook reports; the person's computer reads no more. */
+const MAX_PANELS = 64;
+const MAX_LABEL = 80;
+
+/**
+ * Where each panel of the kit stands on the laptop's screen, in CSS pixels, for the computer's check of the app: each
+ * page and row of buttons the kit placed that is shown, its four corners projected through the camera as it stands,
+ * boxed. Read before any press, so at rest. Panels the app placed itself are not here.
+ */
+function panels(
+  w: World,
+): ({ kind: 'page' | 'row'; label: string | null } & ScreenBox)[] {
+  const rect = w.renderer.domElement.getBoundingClientRect();
+  const found: ({ kind: 'page' | 'row'; label: string | null } & ScreenBox)[] = [];
+  for (const [held, panel] of kitPanels()) {
+    if (found.length >= MAX_PANELS) break;
+    const object = held as Object3D;
+    if (!shown(object) || object.parent === null) continue;
+    object.updateWorldMatrix(true, false);
+    const corners = [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ].map(([sx = 0, sy = 0]) => {
+      object.localToWorld(corner.set((sx * panel.width) / 2, (sy * panel.height) / 2, 0)).project(w.camera);
+      return { x: corner.x, y: corner.y, z: corner.z };
+    });
+    found.push({
+      kind: panel.kind,
+      label: panel.label === null ? null : panel.label.slice(0, MAX_LABEL),
+      ...screenBox(corners, rect.left, rect.top, rect.width, rect.height),
+    });
+  }
+  return found;
+}
+
 /** Call once, in src/index.ts, before registering the game's systems. */
 export function setupPlayInput(w: World): void {
   current = w;
@@ -222,8 +267,8 @@ export function setupPlayInput(w: World): void {
   ]);
   w.registerSystem(PlayInputSystem);
   dragToLook(w);
-  // Only when the person's computer checks the app (it adds ?check): what reached the game, where to click, and how
-  // high the kit's words stand on the screen.
+  // Only when the person's computer checks the app (it adds ?check): what reached the game, where to click, how high
+  // the kit's words stand on the screen, and where the kit's panels stand on it.
   // Defined once, frozen, neither writable nor configurable, so the app's own code cannot swap in another report
   // after the kit sets it (AUDIT3); the person's computer reads a hook that is not so as changed.
   if (new URLSearchParams(location.search).has('check')) {
@@ -233,6 +278,7 @@ export function setupPlayInput(w: World): void {
         mode,
         targets: () => targets(w),
         readings: () => readings(w),
+        panels: () => panels(w),
       }),
       writable: false,
       configurable: false,

@@ -2,10 +2,29 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import {
+  arcSlot,
+  FAR_OFF,
+  firstOf,
+  HEADSET_PAGES,
   inView,
+  kitPanels,
+  LAPTOP_PAGES,
+  PAGE_HEIGHT,
+  PAGE_WIDTH,
   PAGES_DISTANCE,
   PAGES_EYE,
+  PRESS_FORWARD,
+  PRESS_GROW,
+  pagesAcross,
+  panelOn,
+  ROW_GAP,
+  ROW_HEIGHT,
+  ROWS_FACE,
+  ROWS_TOP,
+  screenBox,
   segmentPixels,
+  VIEW_AIM,
+  VIEW_BACK,
   VIEW_CAMERA,
   wordedMeshes,
   wordsOn,
@@ -618,10 +637,15 @@ describe("a web page's own cards come into VR as pages of their own (VRIFY unit 
 
   test('the kit lays out at most six pages at a time, so the arc stays readable (AUDIT pages SHOULD), and turns to the rest', () => {
     const pages = read('src/pages.ts');
-    assert.match(pages, /export const MAX_PAGES = 6;/);
+    assert.equal(HEADSET_PAGES, 6);
+    assert.match(pages, /export const MAX_PAGES = HEADSET_PAGES;/);
     assert.match(pages, /const panels = Array\.from\(\{ length: MAX_PAGES \}/);
-    assert.match(pages, /const page = items\[first \+ index\]\?\.page;/);
-    assert.match(read('AGENTS.md'), /six stand at a time/);
+    assert.match(pages, /const slot = arcSlot\(index, first, across, items\.length, distance\);/);
+    assert.match(
+      pages,
+      /const page = slot\.page === null \? undefined : items\[slot\.page\]\?\.page;/,
+    );
+    assert.match(read('AGENTS.md'), /six stand at a time in the headset, three on a laptop/);
   });
 
   test('the kit gives pages, and the agent is told when a web page becomes pages and how to press one', () => {
@@ -648,12 +672,16 @@ describe("an app's use comes whole, read to its end and readable (the lead, 2026
     // A search or a filter shows what it leaves in the same row; a hidden panel takes no press.
     assert.match(pages, /set\(list: readonly Page\[\]\): void;/);
     assert.match(pages, /panel\.scale\.setScalar\(panel\.visible \? 1 \+ GROW \* near : 0\)/);
-    // The last, partial six stand centred.
-    assert.match(
-      pages,
-      /const across = Math\.max\(Math\.min\(items\.length - first, MAX_PAGES\), 1\);/,
+    // The last, partial group stands centred, and the row turns by as many as stand at a time.
+    assert.deepEqual(
+      [0, 1, 2].map((index) => arcSlot(index, 12, 6, 14, PAGES_DISTANCE)),
+      [
+        { page: 12, angle: -(PAGE_WIDTH + 0.06) / PAGES_DISTANCE / 2 },
+        { page: 13, angle: (PAGE_WIDTH + 0.06) / PAGES_DISTANCE / 2 },
+        { page: null, angle: (1.5 * (PAGE_WIDTH + 0.06)) / PAGES_DISTANCE },
+      ],
     );
-    assert.match(pages, /const next = first \+ by \* MAX_PAGES;/);
+    assert.match(pages, /const next = first \+ by \* across;/);
     // The pages draw on that scale, never sizes of their own.
     assert.match(pages, /Math\.round\(TYPE\.title \* PIXELS\)/);
     assert.match(pages, /Math\.round\(TYPE\.words \* PIXELS\)/);
@@ -796,23 +824,247 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
     assert.ok(px < 7 && px > 5, `about 6 px: ${px}`);
   });
 
-  test("a view is seen on a laptop from the person's own place, so the words of the pages read at 10 px and over", () => {
+  test("a view is seen on a laptop from a step behind the person's place, so the words of the pages read at 10 px and over (K4)", () => {
     assert.deepEqual(VIEW_CAMERA, {
-      position: [0, 1.6, 0],
-      lookAt: [0, PAGES_EYE, -PAGES_DISTANCE],
+      position: [0, 1.6, VIEW_BACK],
+      lookAt: [0, VIEW_AIM, -PAGES_DISTANCE],
     });
+    assert.deepEqual([VIEW_BACK, VIEW_AIM], [0.4, 1.2]);
     const px = wordPixels(viewCamera(), middlePage, words());
-    assert.ok(px >= 10, `${px} px`);
-    // Each page in view reads as well: the arc stands round the person, so the side pages are no farther.
-    const step = (0.64 + 0.06) / PAGES_DISTANCE;
-    for (const angle of [-step / 2, step / 2]) {
-      const at: V = [
-        Math.sin(angle) * PAGES_DISTANCE,
-        PAGES_EYE,
-        -Math.cos(angle) * PAGES_DISTANCE,
-      ];
-      assert.ok(wordPixels(viewCamera(), at, words()) >= 10, String(angle));
+    assert.ok(px >= 10 && px < 12, `${px} px`);
+    // Each page a laptop shows reads as well, the farthest from the camera the smallest, and the rows' words too.
+    for (const count of [1, 2, 3])
+      for (let index = 0; index < count; index += 1) {
+        const { angle } = arcSlot(index, 0, LAPTOP_PAGES, count, PAGES_DISTANCE);
+        const at: V = [
+          Math.sin(angle) * PAGES_DISTANCE,
+          PAGES_EYE,
+          -Math.cos(angle) * PAGES_DISTANCE,
+        ];
+        assert.ok(wordPixels(viewCamera(), at, words()) >= 10, `${count}: ${angle}`);
+      }
+    for (let row = 0; row < 5; row += 1) {
+      const { centre, up } = rowAt(row);
+      const foot = project(viewCamera(), centre);
+      const head = project(viewCamera(), [
+        centre[0],
+        centre[1] + up[1] * 0.04,
+        centre[2] + up[2] * 0.04,
+      ]);
+      const label = segmentPixels(foot.y, head.y, VIEW.height);
+      assert.ok(label >= 10, `row ${row}: ${label} px`);
     }
+    assert.match(read('src/rows.ts'), /const LABEL_PX = Math\.round\(TYPE\.title \* PIXELS\);/);
+    assert.match(read('src/rows.ts'), /wordsOn\(mesh, TYPE\.title\);/);
+  });
+
+  /** Row `row` of `rows()`: its centre, at the pages' distance, and its own up, tipped back to face the person's eye. */
+  const rowAt = (row: number): { centre: V; up: V } => {
+    const y = ROWS_TOP - ROW_HEIGHT / 2 - row * (ROW_HEIGHT + ROW_GAP);
+    const tilt = Math.atan2(ROWS_FACE - y, PAGES_DISTANCE);
+    return { centre: [0, y, -PAGES_DISTANCE], up: [0, Math.cos(tilt), -Math.sin(tilt)] };
+  };
+  /** The box on the 1280 by 800 screen round corners at `centre`, `w` by `h` metres along `right` and `up`. */
+  const boxAt = (centre: V, right: V, up: V, w: number, h: number) =>
+    screenBox(
+      [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ].map(([sx = 0, sy = 0]) =>
+        project(viewCamera(), [
+          centre[0] + (right[0] * sx * w) / 2 + (up[0] * sy * h) / 2,
+          centre[1] + (right[1] * sx * w) / 2 + (up[1] * sy * h) / 2,
+          centre[2] + (right[2] * sx * w) / 2 + (up[2] * sy * h) / 2,
+        ]),
+      ),
+      0,
+      0,
+      VIEW.width,
+      VIEW.height,
+    );
+  /** Page `index` of a row of `count` on a laptop, at rest or pressed: nearer by `PRESS_FORWARD` and bigger. */
+  const pageBox = (index: number, count: number, pressed: boolean) => {
+    const { angle } = arcSlot(index, 0, LAPTOP_PAGES, count, PAGES_DISTANCE);
+    const near = pressed ? PRESS_FORWARD : 0;
+    const scale = pressed ? 1 + PRESS_GROW : 1;
+    const centre: V = [
+      Math.sin(angle) * (PAGES_DISTANCE - near),
+      PAGES_EYE,
+      -Math.cos(angle) * (PAGES_DISTANCE - near),
+    ];
+    return boxAt(
+      centre,
+      [Math.cos(angle), 0, Math.sin(angle)],
+      [0, 1, 0],
+      PAGE_WIDTH * scale,
+      PAGE_HEIGHT * scale,
+    );
+  };
+  /** Inside the view, as the check reads it: no more than 2 px past any edge. */
+  const inside = (box: { x: number; y: number; w: number; h: number }) =>
+    box.x >= -2 &&
+    box.y >= -2 &&
+    box.x + box.w <= VIEW.width + 2 &&
+    box.y + box.h <= VIEW.height + 2;
+  /** A keyboard's row of ten letters at the narrowest button: about as wide as an app's rows come. */
+  const KEYS_WIDE = 10 * 0.1 + 9 * 0.02;
+
+  test("the starter's pages, a pressed page and five rows under them sit inside the laptop's 1280 by 800 view", () => {
+    for (const count of [1, 2, 3])
+      for (let index = 0; index < count; index += 1) {
+        assert.ok(inside(pageBox(index, count, false)), `page ${index} of ${count}`);
+        assert.ok(inside(pageBox(index, count, true)), `pressed page ${index} of ${count}`);
+      }
+    // The three at rest stand clear of each other, as the check's 4 px reads it.
+    for (const [a, b] of [
+      [0, 1],
+      [1, 2],
+    ] as const)
+      assert.ok(
+        pageBox(a, 3, false).x + pageBox(a, 3, false).w < pageBox(b, 3, false).x,
+        `${a} ${b}`,
+      );
+    // The rows: under a pressed page's reach, clear of each other, and inside the view, five of them, a keyboard wide.
+    const reach = Math.max(
+      ...[0, 1, 2].map((index) => pageBox(index, 3, true).y + pageBox(index, 3, true).h),
+    );
+    let above = reach;
+    for (let row = 0; row < 5; row += 1) {
+      const { centre, up } = rowAt(row);
+      const box = boxAt(centre, [1, 0, 0], up, KEYS_WIDE, ROW_HEIGHT);
+      assert.ok(inside(box), `row ${row}: ${JSON.stringify(box)}`);
+      assert.ok(box.y > above + 4, `row ${row} clear of what is above it: ${box.y} after ${above}`);
+      above = box.y + box.h;
+    }
+    // A sixth row would go past the bottom: the kit says five fit.
+    const { centre, up } = rowAt(5);
+    assert.equal(inside(boxAt(centre, [1, 0, 0], up, KEYS_WIDE, ROW_HEIGHT)), false);
+    assert.match(read('AGENTS.md'), /Five rows fit\./);
+  });
+
+  test("from the old camera, at the person's own place, the side pages already reached past the edge: the cause", () => {
+    const old: Pose = { position: [0, 1.6, 0], lookAt: [0, PAGES_EYE, -PAGES_DISTANCE] };
+    const { angle } = arcSlot(0, 0, 3, 3, PAGES_DISTANCE);
+    const corner = project(old, [
+      Math.sin(angle) * PAGES_DISTANCE - Math.cos(angle) * (PAGE_WIDTH / 2),
+      PAGES_EYE + PAGE_HEIGHT / 2,
+      -Math.cos(angle) * PAGES_DISTANCE - Math.sin(angle) * (PAGE_WIDTH / 2),
+    ]);
+    const px = ((corner.x + 1) / 2) * VIEW.width;
+    assert.ok(px < -2, `${px} px`);
+    // And six of them, as it laid out, reach far past both edges.
+    assert.ok(Math.abs(arcSlot(0, 0, 6, 6, PAGES_DISTANCE).angle) > (40 * Math.PI) / 180);
+  });
+
+  test('six pages on a laptop show three, in a headset six; the row turns by as many and keeps the page in view', () => {
+    assert.deepEqual([pagesAcross(false), pagesAcross(true)], [LAPTOP_PAGES, HEADSET_PAGES]);
+    assert.deepEqual([LAPTOP_PAGES, HEADSET_PAGES], [3, 6]);
+    const shows = (headset: boolean) =>
+      Array.from(
+        { length: HEADSET_PAGES },
+        (_, index) => arcSlot(index, 0, pagesAcross(headset), 6, PAGES_DISTANCE).page,
+      );
+    assert.deepEqual(shows(false), [0, 1, 2, null, null, null]);
+    assert.deepEqual(shows(true), [0, 1, 2, 3, 4, 5]);
+    // Leaving the headset on pages 6 to 11 stands the laptop's three at 6; entering on 9 stands the six at 6.
+    assert.equal(firstOf(6, 3), 6);
+    assert.equal(firstOf(9, 6), 6);
+    assert.equal(firstOf(4, 3), 3);
+    const pages = read('src/pages.ts');
+    assert.match(
+      pages,
+      /onHeadset\(\(headset\) => \{\n\s+across = pagesAcross\(headset\);\n\s+first = firstOf\(first, across\);\n\s+lay\(\);/,
+    );
+    assert.match(pages, /get across\(\) \{\n\s+return across;/);
+    // The session is the SDK's own: the world's visibility, as mode() reads it, followed on entering and leaving.
+    const look = read('src/look.ts');
+    assert.match(look, /session\.visibilityState\.subscribe\(/);
+    assert.match(look, /state !== VisibilityState\.NonImmersive/);
+    assert.match(look.slice(look.indexOf('export function setupScene(')), /session = world;/);
+  });
+
+  test('each kit panel says where it stands, and the hook boxes them, sealed with the rest (K5)', () => {
+    const pages = read('src/pages.ts');
+    assert.match(
+      pages,
+      /panelOn\(panel, \{ kind: 'page', label: page\?\.title \?\? null, width: WIDTH, height: HEIGHT \}\);/,
+    );
+    assert.match(pages, /const WIDTH = PAGE_WIDTH;/);
+    assert.match(pages, /const FORWARD = PRESS_FORWARD;/);
+    assert.match(pages, /const GROW = PRESS_GROW;/);
+    const rows = read('src/rows.ts');
+    assert.match(
+      rows,
+      /panelOn\(anchor, \{ kind: 'row', label: words\[0\] \?\? null, width: whole, height: ROW_HEIGHT \}\);/,
+    );
+    assert.match(
+      rows,
+      /onSelect\(world\.createTransformEntity\(mesh\), \(\) => button\.onSelect\(\)\);/,
+    );
+    assert.match(rows, /const tilt = -Math\.atan2\(ROWS_FACE - y, PAGES_DISTANCE\);/);
+    assert.doesNotMatch(rows, /setTimeout|setInterval|Date\.now|performance\.now|addEventListener/);
+    assert.match(
+      read('src/kit.ts'),
+      /\nexport \{ type Button, type Rows, type RowsOptions, rows \} from '\.\/rows\.js';\n$/,
+    );
+    const layer = read('src/play-input.ts');
+    const hook = layer.slice(layer.indexOf("Object.defineProperty(globalThis, '__playCheck'"));
+    assert.match(
+      hook,
+      /^[\s\S]*?readings: \(\) => readings\(w\),\n\s+panels: \(\) => panels\(w\),\n\s+\}\),\n\s+writable: false,\n\s+configurable: false,/,
+    );
+    assert.match(layer, /for \(const \[held, panel\] of kitPanels\(\)\)/);
+    assert.match(layer, /screenBox\(corners, rect\.left, rect\.top, rect\.width, rect\.height\)/);
+    const registered = {};
+    panelOn(registered, { kind: 'row', label: 'Back', width: 1, height: 0.08 });
+    assert.deepEqual(kitPanels().get(registered), {
+      kind: 'row',
+      label: 'Back',
+      width: 1,
+      height: 0.08,
+    });
+  });
+
+  test('a box round a panel the camera cannot see whole is far off the screen, never drawn through it', () => {
+    const at = (x: number, y: number, z = 0) => ({ x, y, z });
+    assert.deepEqual(screenBox([at(-1, 1), at(1, 1), at(1, -1), at(-1, -1)], 0, 0, 1280, 800), {
+      x: 0,
+      y: 0,
+      w: 1280,
+      h: 800,
+    });
+    assert.deepEqual(screenBox([at(0, 0), at(0.5, 0, 1.5)], 0, 0, 1280, 800), {
+      x: -FAR_OFF,
+      y: -FAR_OFF,
+      w: FAR_OFF,
+      h: FAR_OFF,
+    });
+    const huge = screenBox([at(-100, 0), at(100, 0)], 0, 0, 1280, 800);
+    assert.ok(huge.x === -FAR_OFF && huge.w === FAR_OFF, JSON.stringify(huge));
+  });
+
+  test('the agent places every row through rows() and is told the laptop view is checked', () => {
+    const agents = read('AGENTS.md').replace(/\s+/g, ' ');
+    assert.ok(
+      agents.includes(
+        "- Every row of buttons, tabs, a pager or a keyboard goes through `rows(...)` from `./kit.js`: it places the rows under the pages, spaced by the kit, inside what a laptop shows and clear of a page while it is pressed. Never place a row of your own. The person's computer checks the laptop view at 1280 by 800 and holds it back when part of a panel is off its screen or covers another.",
+      ),
+    );
+    assert.ok(
+      agents.includes(
+        '`pages()` lays out as many as the view holds (six in the headset, three on a laptop): `turn(1)` and `turn(-1)` turn by that many, and `count` and `first` say where the person is; read them',
+      ),
+    );
+    assert.ok(agents.includes('never work it out from six'));
+    assert.ok(agents.includes('`MAX_PAGES` is the most it lays out, in the headset'));
+    assert.doesNotMatch(agents, /`MAX_PAGES` at a time|lays out six at a time|7 to 12 of 14/);
+    // The rows' place comes after the pages' list, as the lead asked.
+    assert.ok(
+      agents.indexOf('- Every row of buttons') >
+        agents.indexOf('- Every list can be read to its end'),
+    );
   });
 
   test("setupScene places the laptop camera after the config's; setupLook keeps the camera", () => {

@@ -278,3 +278,16 @@ from the picture's most common colour, null when that colour covers less than a 
 A laptop at another size or zoom reads differently: the floors hold for the check's 1280 by 800 view only. The
 end-to-end tests of the reading (a view's pages from the person's place, the same pages from a game's camera) are
 written but were not run against a real Chrome render in this change.
+
+## The kit's panels fit the laptop view (2026-11-13)
+
+The laptop check also measures whether the kit's own panels fit a 1280 by 800 view: each page of `pages()` and each row
+of buttons placed through `rows()`, boxed on the screen by the kit's sealed check hook at rest, before any press. A
+panel more than 2 pixels past an edge does not fit, and two panels sharing more than 4 pixels across and down cover
+each other; either holds the laptop step back until a later measurement fits. From the person's own place the old
+aim already put the side pages' top corners about 6 pixels past the edge, and no aim from there held three pages, a
+pressed page and rows at once, so a view's laptop camera now stands 0.4 m behind the person looking at 1.2 m on the
+pages' plane, where the kit's smallest words come to about 11 pixels (arithmetic in the starter's projection tests).
+What it does not measure: text the app draws itself, panels the app places itself without `rows()`, a pressed page
+(measured at rest only) and any view but 1280 by 800; and the fit was computed from the kit's geometry, not yet seen in
+a real headless render.

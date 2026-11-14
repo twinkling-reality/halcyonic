@@ -6,7 +6,14 @@ import { PassThrough } from 'node:stream';
 import { describe, test } from 'node:test';
 import { createContext, runInContext } from 'node:vm';
 import { deflateSync } from 'node:zlib';
-import { type CheckReading, READING_FLOOR_PX } from '@halcyonic/contracts';
+import {
+  type CheckFit,
+  type CheckReading,
+  FIT_EDGE_PX,
+  FIT_OVERLAP_PX,
+  FIT_VIEW,
+  READING_FLOOR_PX,
+} from '@halcyonic/contracts';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
 import {
   acceptCall,
@@ -14,10 +21,16 @@ import {
   CHANGED_AFTER,
   clockScript,
   type Driver,
+  FIT_FILES,
   fillShare,
+  fitFiles,
+  fitOf,
+  fitPasses,
   HOOK_EXPRESSION,
+  type HookPanel,
   laptopStep,
   layerState,
+  parsePanels,
   parseReadings,
   parseReport,
   READING_FILES,
@@ -89,6 +102,8 @@ interface Page {
   changes?: number;
   /** Pixels that change on their own between any two pictures. */
   moving?: number;
+  /** Where the hook says the kit's panels stand; sealed unless it says otherwise; absent when not given. */
+  panels?: { panels: unknown[]; sealed?: boolean } | null;
 }
 
 /** A page standing in for Chrome: what the hook reports and what each picture shows. */
@@ -110,6 +125,10 @@ function driver(page: Page) {
                 : (({ sealed = true, ...rest }: Readings) => ({ ...rest, sealed }))(
                     page.readings ?? READABLE,
                   ),
+            panels:
+              page.panels === undefined || page.panels === null
+                ? page.panels
+                : { ...page.panels, sealed: page.panels.sealed ?? true },
           }),
     async mouse(type, x, y) {
       actions.push(`${type} ${x},${y}`);
@@ -155,6 +174,7 @@ describe("the check's laptop step (M1.8b)", () => {
           'Readable on a laptop where it could measure (1 text); text the app drew itself was not measured',
         detail: 'smallest words 14 px high',
       },
+      fit: fitOf('starter', null),
       ready: true,
     });
     assert.deepEqual(actions, [
@@ -212,6 +232,7 @@ describe("the check's laptop step (M1.8b)", () => {
       key: 'unknown',
       screen_changed: null,
       reading: readingOf('starter', null, null),
+      fit: fitOf('starter', null),
       ready: false,
     });
   });
@@ -264,12 +285,13 @@ describe("the check's laptop step (M1.8b)", () => {
   test("the hook's report is read in the host against a strict shape", () => {
     const counts = { mouse: 1, key: 0, trigger: 0, pinch: 0, touch: 0 };
     const ok = parseReport(JSON.stringify({ counts, targets: [AT] }));
-    assert.deepEqual(ok, { counts, targets: [AT], readings: null });
+    assert.deepEqual(ok, { counts, targets: [AT], readings: null, panels: null });
     for (const bad of [
       null,
       42,
       'not json',
-      JSON.stringify({ counts, targets: [AT] }).padEnd(17_000, ' '),
+      // Past the most the host reads, 64 KiB: room for 64 panels, their labels and the words' heights.
+      JSON.stringify({ counts, targets: [AT] }).padEnd(66_000, ' '),
       JSON.stringify({ counts: { ...counts, mouse: -1 }, targets: [] }),
       JSON.stringify({ counts: { ...counts, mouse: 1.5 }, targets: [] }),
       JSON.stringify({ counts: { mouse: 1 }, targets: [] }),
@@ -519,6 +541,7 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
       'pages.ts',
       'play-input-core.ts',
       'play-input.ts',
+      'rows.ts',
     ]);
     const template = new URL('../../../../starters/iwsdk-vr/template/', import.meta.url).pathname;
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-reading-')));
@@ -526,7 +549,7 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     const project = join(root, 'project');
     cpSync(join(template, 'src'), join(project, 'src'), { recursive: true });
     assert.equal(await readingFiles(project, template), 'starter');
-    for (const file of ['legible.ts', 'pages.ts', 'decor.ts', 'look.ts']) {
+    for (const file of ['legible.ts', 'pages.ts', 'rows.ts', 'decor.ts', 'look.ts']) {
       writeFileSync(join(project, 'src', file), '// changed\n', { flag: 'a' });
       assert.equal(await readingFiles(project, template), 'changed', file);
       // The input layer alone is still the starter's: only the reading is not the kit's own.
@@ -577,6 +600,269 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     assert.equal(readingPasses(readingOf('starter', { sealed: true, texts: [] }, null)), true);
     assert.equal(readingPasses(readingOf('changed', null, null, measuredAt(6))), false);
     assert.equal(Object.hasOwn(reading, 'passed'), false);
+  });
+});
+
+describe("the kit's panels fit a laptop's 1280 by 800 view and stay clear of each other (VRIFY, AUDIT3, 2026-11-13)", () => {
+  /** A panel of the kit at `x`, `y`, `w` by `h` CSS pixels. */
+  const box = (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    kind: 'page' | 'row' = 'page',
+  ): HookPanel => ({
+    kind,
+    label: kind === 'page' ? 'Lesson 1' : 'Back',
+    x,
+    y,
+    w,
+    h,
+  });
+  /** The starter's own three pages and a row under them, as the camera of `setupScene` boxes them (about). */
+  const STARTER = [
+    box(131, 94, 347, 404),
+    box(496, 114, 288, 347),
+    box(802, 94, 347, 404),
+    box(560, 603, 160, 33, 'row'),
+  ];
+  /** A laptop step on a page that presses and answers, its hook placing `panels`, with the files and the last fit. */
+  const step = (
+    panels: Page['panels'],
+    fitFiles: 'starter' | 'changed' | 'missing' = 'starter',
+    lastFit: CheckFit | null = null,
+  ) =>
+    laptopStep(
+      driver({ targets: [AT], changes: MANY, ...(panels === undefined ? {} : { panels }) }).fake,
+      'starter',
+      {
+        ...KIT,
+        fitFiles,
+        lastFit,
+      },
+    );
+  const placed = (...panels: HookPanel[]) => ({ panels });
+  /** A fit measured with `panels`, as an earlier check of the project recorded it. */
+  const measured = (...panels: HookPanel[]) => fitOf('starter', { panels, sealed: true });
+
+  test('the view is 1280 by 800, 2 px past an edge is allowed and 4 px into another panel', () => {
+    assert.deepEqual(FIT_VIEW, { width: 1280, height: 800 });
+    assert.equal(FIT_EDGE_PX, 2);
+    assert.equal(FIT_OVERLAP_PX, 4);
+  });
+
+  test("the starter's own pages and rows fit: ready, in the host's words, and the pass says what it did not measure", async () => {
+    const fits = await step(placed(...STARTER));
+    assert.equal(fits.fit?.state, 'measured');
+    assert.equal(fits.fit?.problem, null);
+    assert.equal(fits.fit?.measured, 4);
+    assert.equal(
+      fits.fit?.words,
+      "Fits on a laptop's screen where it could measure (4 parts); parts the app placed itself were not measured",
+    );
+    assert.equal(fits.ready, true);
+    assert.equal(fitPasses(fits.fit), true);
+  });
+
+  test('more than 2 px of a panel past any edge does not fit (Q1); 2 px, or ending exactly at the edge, does', async () => {
+    for (const [x, y, w, h] of [
+      [-3, 100, 200, 200],
+      [100, -3, 200, 200],
+      [1083, 100, 200, 200],
+      [100, 603, 200, 200],
+    ] as const) {
+      const off = await step(placed(box(x, y, w, h)));
+      assert.equal(off.fit?.state, 'measured');
+      assert.equal(off.fit?.problem, 'past_edge', `${x},${y}`);
+      assert.equal(off.fit?.words, "Part of the app does not fit on a laptop's screen");
+      assert.equal(off.fit?.detail, 'a page reaches 3 px past the edge of 1280 by 800');
+      assert.equal(off.fit?.panel_kind, 'page');
+      assert.equal(off.fit?.panel_label, 'Lesson 1');
+      assert.equal(off.ready, false, 'as a press that never reached the layer');
+    }
+    for (const [x, y, w, h] of [
+      [-2, -2, 200, 200],
+      [1082, 602, 200, 200],
+      [0, 0, 1280, 800],
+    ] as const)
+      assert.equal((await step(placed(box(x, y, w, h)))).ready, true, `${x},${y},${w},${h}`);
+    // Never rounded down into the allowance.
+    assert.equal((await step(placed(box(-2.01, 0, 100, 100)))).fit?.problem, 'past_edge');
+  });
+
+  test('two panels sharing more than 4 px across and more than 4 px down cover each other (Q2)', async () => {
+    const over = await step(placed(box(100, 100, 200, 200), box(295, 295, 100, 30, 'row')));
+    assert.equal(over.fit?.problem, 'overlap');
+    assert.equal(over.fit?.words, 'Two parts of the app cover each other on a laptop');
+    assert.equal(over.fit?.detail, 'a page and a row of buttons share 5 by 5 px');
+    assert.equal(over.ready, false);
+    // 4 by 10 and 10 by 4 are not covering: neighbouring pages may touch.
+    assert.equal((await step(placed(box(100, 100, 200, 200), box(296, 100, 100, 10)))).ready, true);
+    assert.equal((await step(placed(box(100, 100, 200, 200), box(100, 296, 10, 100)))).ready, true);
+    assert.equal(
+      (await step(placed(box(100, 100, 200, 200), box(300, 100, 200, 200)))).ready,
+      true,
+    );
+    // Off the screen is found first.
+    assert.equal(
+      (await step(placed(box(100, 100, 200, 200), box(150, 150, 50, 50), box(-50, 0, 10, 10)))).fit
+        ?.problem,
+      'past_edge',
+    );
+  });
+
+  test('nothing registered, or no word from the hook, is not known and holds nothing back', async () => {
+    const none = await step(placed());
+    assert.equal(none.fit?.state, 'unknown');
+    assert.equal(
+      none.fit?.words,
+      "Whether every part of the app fits on a laptop's screen is not known: no part of the app's built-in pages or rows could be measured",
+    );
+    assert.equal(none.ready, true);
+    const silent = await step(undefined);
+    assert.equal(silent.fit?.state, 'unknown');
+    assert.equal(
+      silent.fit?.words,
+      "Whether every part of the app fits on a laptop's screen is not known: the app did not say where its parts are",
+    );
+    assert.equal(silent.ready, true);
+  });
+
+  test('a report not of the strict shape is not known, never failed, and keeps the rest of the report (K3)', async () => {
+    const good = box(-500, -500, 50, 50);
+    for (const bad of [
+      [{ ...good, kind: 'card' }],
+      [{ ...good, label: 'x'.repeat(201) }],
+      [{ ...good, label: 7 }],
+      [{ ...good, x: Number.NaN }],
+      [{ ...good, x: 10_001 }],
+      [{ ...good, y: -10_001 }],
+      [{ ...good, w: -1 }],
+      [{ ...good, h: 'tall' }],
+      [null],
+      Array.from({ length: 65 }, () => box(0, 0, 10, 10)),
+    ]) {
+      const read = await step({ panels: bad });
+      assert.equal(read.fit?.state, 'unknown', JSON.stringify(bad).slice(0, 80));
+      assert.equal(read.fit?.problem, null);
+      assert.equal(read.mouse, 'reached', 'the presses are still read');
+      assert.equal(read.ready, true);
+    }
+    assert.equal(parsePanels({ panels: 'many' }), null);
+    assert.equal(parsePanels(null), null);
+    assert.equal(parsePanels({ panels: [{ ...good, label: 'x'.repeat(200) }] })?.panels.length, 1);
+    assert.equal(
+      parsePanels({ panels: Array.from({ length: 64 }, () => good) })?.panels.length,
+      64,
+    );
+    assert.deepEqual(parsePanels({ panels: [{ ...good, label: null }] }), {
+      panels: [{ ...good, label: null }],
+      sealed: false,
+    });
+    assert.equal(parsePanels({ panels: [good], sealed: true })?.sealed, true);
+  });
+
+  test('a changed kit file, or a hook not as the kit sets it, is changed and refuses nothing (K2)', async () => {
+    const changed = await step(placed(box(-500, 0, 100, 100)), 'changed');
+    assert.equal(changed.fit?.state, 'changed');
+    assert.equal(changed.fit?.problem, null, 'the page said it, and the page is not the kit');
+    assert.equal(
+      changed.fit?.words,
+      "Whether every part of the app fits on a laptop's screen is not known: the app changed the files the check finds its parts through",
+    );
+    assert.equal(changed.ready, true);
+    assert.equal((await step(placed(box(-500, 0, 100, 100)), 'missing')).fit?.state, 'changed');
+    const replaced = await step({ panels: [box(-500, 0, 100, 100)], sealed: false });
+    assert.equal(replaced.fit?.state, 'changed');
+    assert.equal(
+      replaced.fit?.words,
+      "Whether every part of the app fits on a laptop's screen is not known: the app changed how the check finds its parts",
+    );
+    assert.equal(replaced.ready, true);
+  });
+
+  test("every kit file that feeds the panels is compared with the template's (K2)", async (t) => {
+    assert.deepEqual([...FIT_FILES].sort(), [
+      'legible.ts',
+      'look.ts',
+      'pages.ts',
+      'play-input-core.ts',
+      'play-input.ts',
+      'rows.ts',
+    ]);
+    const template = new URL('../../../../starters/iwsdk-vr/template/', import.meta.url).pathname;
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-fit-')));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const project = join(root, 'project');
+    cpSync(join(template, 'src'), join(project, 'src'), { recursive: true });
+    assert.equal(await fitFiles(project, template), 'starter');
+    for (const file of FIT_FILES) {
+      writeFileSync(join(project, 'src', file), '// changed\n', { flag: 'a' });
+      assert.equal(await fitFiles(project, template), 'changed', file);
+      cpSync(join(template, 'src', file), join(project, 'src', file));
+    }
+    // The score sign places no panel: a changed decor.ts leaves the fit the kit's own.
+    writeFileSync(join(project, 'src', 'decor.ts'), '// changed\n', { flag: 'a' });
+    assert.equal(await fitFiles(project, template), 'starter');
+    rmSync(join(project, 'src', 'rows.ts'));
+    assert.equal(await fitFiles(project, template), 'missing');
+  });
+
+  test('a fit never improves by becoming unmeasurable: a measured failure is held until a measured pass', async () => {
+    const off = measured(box(-10, 0, 100, 100));
+    const held = await step(placed(), 'changed', off);
+    assert.equal(held.fit?.state, 'changed');
+    assert.equal(held.fit?.last_problem, 'past_edge');
+    assert.equal(held.fit?.panel_kind, 'page');
+    assert.equal(held.fit?.panel_label, 'Lesson 1');
+    assert.equal(
+      held.fit?.words,
+      "Part of the app did not fit on a laptop's screen when last measured, and can no longer be measured: the app changed the files the check finds its parts through",
+    );
+    assert.equal(held.ready, false);
+    assert.equal(fitPasses(held.fit), false);
+    const covered = await step(
+      undefined,
+      'starter',
+      measured(box(0, 0, 100, 100), box(50, 50, 100, 100)),
+    );
+    assert.equal(covered.fit?.last_problem, 'overlap');
+    assert.equal(
+      covered.fit?.words,
+      'Two parts of the app covered each other on a laptop when last measured, and can no longer be measured: the app did not say where its parts are',
+    );
+    assert.equal(covered.ready, false);
+    // Measured again and fitting: cleared.
+    const cleared = await step(placed(...STARTER), 'starter', off);
+    assert.equal(cleared.fit?.last_problem, null);
+    assert.equal(cleared.ready, true);
+    // Last measured fitting, now not known: nothing held.
+    const fine = await step(placed(), 'changed', measured(...STARTER));
+    assert.equal(fine.fit?.last_problem, null);
+    assert.equal(fine.ready, true);
+  });
+
+  test("the page's own expression passes the kit's panels with whether its hook is sealed", () => {
+    const hook = {
+      counts: () => ({ mouse: 0, key: 0, trigger: 0, pinch: 0, touch: 0 }),
+      targets: () => [],
+      readings: () => ({ texts: [] }),
+      panels: () => [box(10, 10, 100, 100)],
+    };
+    const read = (sealed: boolean) => {
+      const context = createContext({});
+      const global = runInContext('globalThis', context) as Record<string, unknown>;
+      if (sealed)
+        Object.defineProperty(global, '__playCheck', {
+          value: Object.freeze({ ...hook }),
+          writable: false,
+          configurable: false,
+        });
+      else global.__playCheck = { ...hook };
+      return parseReport(runInContext(HOOK_EXPRESSION, context))?.panels;
+    };
+    assert.deepEqual(read(true), { panels: [box(10, 10, 100, 100)], sealed: true });
+    assert.equal(read(false)?.sealed, false);
   });
 });
 
