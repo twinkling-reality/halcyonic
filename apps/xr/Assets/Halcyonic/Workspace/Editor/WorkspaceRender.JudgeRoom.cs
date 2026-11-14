@@ -101,7 +101,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Application.LogCallback heard = (message, _, _) =>
             {
                 if (message.StartsWith("Halcyonic: the shelf stands aside", StringComparison.Ordinal)
-                    || message.StartsWith("Halcyonic: the plane lays its", StringComparison.Ordinal)) lock (asideHeard) asideHeard.Add(message);
+                    || message.StartsWith("Halcyonic: the shelf goes home", StringComparison.Ordinal) || message.StartsWith("Halcyonic: the plane lays its", StringComparison.Ordinal)) lock (asideHeard) asideHeard.Add(message);
                 // And the bar's own warning where it lays past the footprint the shelf search keeps clear of (FIELD, AUDIT 17:25Z).
                 if (message.StartsWith("Halcyonic: older view drew a whole screen", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the bar laid past its largest footprint", StringComparison.Ordinal)
@@ -534,6 +534,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var asideLine in lines)
                     {
                         if (asideLine.StartsWith("Halcyonic: the plane lays its", StringComparison.Ordinal)) { formSinceAside = true; continue; }
+                        // XR 03:20Z: where a turned shelf goes home an open ends; an aside line naming its own cause (a page opened, the shelf's
+                        // own place, the text size, the plane's width) is that form event.
+                        if (asideLine.StartsWith("Halcyonic: the shelf goes home", StringComparison.Ordinal)) { heldAside = null; formSinceAside = true; continue; }
+                        if (System.Text.RegularExpressions.Regex.IsMatch(asideLine, @"\((a page opened|the shelf's own place changed|the text size changed|the plane's width changed)\)")) formSinceAside = true;
                         var asideNow = System.Text.RegularExpressions.Regex.Match(asideLine, @"aside (\d+) degrees").Groups[1].Value;
                         if (heldAside != null && !formSinceAside)
                             asideFound.Add("the shelf stood aside again (" + heldAside + " then " + asideNow + " degrees) with no form event between: the room moves under a person reading");
