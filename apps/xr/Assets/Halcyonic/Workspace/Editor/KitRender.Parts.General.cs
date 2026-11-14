@@ -22,7 +22,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] GeneralBaseStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage", "52-general-caps", "52-general-colour", "52-general-shelf" };
+        private static readonly string[] GeneralBaseStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage", "52-general-caps", "52-general-colour", "52-general-shelf", "52-general-recap-words" };
 
         /// <summary>
         /// Every state twice: as the full bar, and in the kit's narrow form (AUDIT's 17:15Z condition 2, the lead's 17:16Z condition 1),
@@ -112,6 +112,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     frame = new MenuFrame("Shelf", new Footer(new Prompt(Footer.Close, "Cancel", GlazeIcon.Close, PromptKind.Close),
                         farRight: new Prompt("apply", "Apply", GlazeIcon.Change, main: true)), lines: moves);
                 }
+                // A person's own long words read whole (the lead's 2026-11-14T01:19Z next unit, the recap's name and idea): handed as
+                // labelled facts, each a row under its label, a long one in parts with its label kept, Back on every page. Synthetic words.
+                if (state == "52-general-recap-words")
+                {
+                    const string name = "A kite game where the wind changes every round and the tail grows with each loop";
+                    var task = string.Join(" ", Enumerable.Repeat("Make the kite climb faster when the person leans forward, and let the tail ripple.", 5));
+                    frame = new MenuFrame(LineWords.TheirName(name), new Footer(new Prompt(Footer.Close, "Back to Recap", GlazeIcon.Back, PromptKind.Close)),
+                        lines: new[] { new PageLine(LineWords.Ours("Project Name"), fact: LineWords.TheirName(name)), new PageLine(LineWords.Ours("First Task"), fact: LineWords.TheirName(task)) });
+                }
                 if (state == "52-general-usage")
                 {
                     var limits = JsonConvert.DeserializeObject<UsageLimitsResponse>(GeneralUsageLimits, HalcyonicJson.Strict) as AvailableUsageLimits;
@@ -172,7 +181,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : floor ? "floor " + width.ToString("0", CultureInfo.InvariantCulture) + " dp" : "full") + " at " + form.LinesAPage + " lines a page, " + bar.GeneralPart.Pages + " page"
                 + (bar.GeneralPart.Pages == 1 ? "" : "s") + (bar.Card != null ? " (" + bar.Card.List.Count + " pressed rows on the first)" : "") + ".");
             var confirm = state == "52-general-confirm";
-            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" or "52-general-shelf" || (state is "52-general-usage" or "52-general-caps" || measured || confirm) && bar.GeneralPart.Pages > 1;
+            var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" or "52-general-shelf" or "52-general-recap-words" || (state is "52-general-usage" or "52-general-caps" || measured || confirm) && bar.GeneralPart.Pages > 1;
             // The general reader's card holds pressed rows, never the usage card's gauges (which would mean a specific reader took it).
             if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
