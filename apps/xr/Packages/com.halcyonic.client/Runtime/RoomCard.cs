@@ -406,6 +406,10 @@ namespace Halcyonic.Client
         /// </summary>
         public KitControl? Press { get; }
 
+        /// <summary>This card with <paramref name="slots"/> in place of its own, every other part kept (AUDIT's 02:11Z: no caller rebuilds a card by hand).</summary>
+        public RoomCard WithSlots(IReadOnlyList<RoomSlot> slots) => new RoomCard(Title, Description, Head, Status, slots, Steps, TrackAt, TrackOf, List, Gauges, More, Code,
+            Reading, DescriptionPage, TitleMono, Press, DescriptionMostLines);
+
         /// <summary>This card, its face now the way in to <paramref name="press"/> (a card built before the frame its press is of).</summary>
         public RoomCard WithPress(KitControl press) => new RoomCard(Title, Description, Head, Status, Slots, Steps, TrackAt, TrackOf, List, Gauges, More, Code,
             Reading, DescriptionPage, TitleMono, press, DescriptionMostLines);

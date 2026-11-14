@@ -3363,6 +3363,9 @@ public class NewProjectFlowTests
             var card = flow.Frame!.Card!;
             var slots = card.Slots.Select(slot => (slot.Kind, slot.Value.Text)).ToList();
             Assert.That(slots[slots.FindIndex(slot => slot.Kind == RoomKind.Folder) + 1], Is.EqualTo((RoomKind.Starter, "A World of Your Own")), "the starter after the folder it fills");
+            Assert.That((card.DescriptionMostLines, RoomBar.NewProject(flow.Frame!, VoiceStage.Idle)!.Card!.DescriptionMostLines),
+                Is.EqualTo((NewProjectScreens.RecapFirstTaskLines, NewProjectScreens.RecapFirstTaskLines)),
+                "with a starter chosen, the recap and its pressed card keep the first task to three lines (AUDIT's 02:11Z)");
             Assert.That(card.AnyDot, Is.False);
 
             // The review names it before its Confirm, and the start sends it.

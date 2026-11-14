@@ -102,7 +102,7 @@ namespace Halcyonic.Client
             // After the folder, which it fills: the folder's slot first where there is one.
             var at = slots.FindIndex(slot => slot.Kind == RoomKind.Folder);
             slots.Insert(at < 0 ? 0 : at + 1, new RoomSlot(RoomKind.Starter, Title(starter)));
-            return new RoomCard(card.Title, card.Description, card.Head, card.Status, slots, card.Steps, card.TrackAt, card.TrackOf, card.List, card.Gauges, card.More);
+            return card.WithSlots(slots);
         }
     }
 }
