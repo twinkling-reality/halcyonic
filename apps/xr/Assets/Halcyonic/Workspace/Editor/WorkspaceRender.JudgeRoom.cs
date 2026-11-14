@@ -1073,6 +1073,55 @@ namespace Halcyonic.XR.Workspace.Editor
                     var from = DateTime.UtcNow;
                     while (DateTime.UtcNow - from < TimeSpan.FromSeconds(3)) { Draw(); Thread.Sleep(250); }
                 }
+                // The recap's words read whole (lead, 2026-11-14T02:04Z): the person's own idea, cut at a word on the recap's card, is one
+                // press away whole in the general reader, paged, and Back returns to the recap. Read once per walk, before Start Building,
+                // and not counted in the journey's presses (it is a person's choice to read, not a step to start).
+                var recapRead = false;
+                static bool WordsInOrder(string wanted, string read)
+                {
+                    var want = Regex.Split(wanted.ToLowerInvariant(), @"\W+").Where(word => word.Length > 0).ToList();
+                    var at = 0;
+                    foreach (var word in Regex.Split(read.ToLowerInvariant(), @"\W+")) if (at < want.Count && word == want[at]) at++;
+                    return at == want.Count;
+                }
+                bool Tap(string action)
+                {
+                    if (Drawn(action, null) is not RoomButton drawnTap) return false;
+                    drawnTap.Press.SettleForRender();
+                    drawnTap.Press.PressForRender(992);
+                    Draw();
+                    return true;
+                }
+                string DrawnWords() => string.Join(" ", root.GetComponentsInChildren<TMP_Text>(false)
+                    .Where(text => text.enabled && OwnerOf(text.transform)?.StartsWith("Room", StringComparison.Ordinal) == true).Select(text => text.GetParsedText().Replace("\n", " ")));
+                void ReadTheRecap(string idea)
+                {
+                    if (!plane.KitShows || plane.Kit.Bar.Card is not RoomCardView recapCard) { failures.Add("live walk: the recap shows no card to read the person's words from"); return; }
+                    var shown = string.Join(" ", recapCard.GetComponentsInChildren<TMP_Text>(false).Where(text => text.enabled).Select(text => text.GetParsedText().Replace("\n", " ")));
+                    var recapCut = !WordsInOrder(idea, shown);
+                    var cardFields = BindingFlags.NonPublic | BindingFlags.Instance;
+                    var recapPress = typeof(RoomCardView).GetField("cardPress", cardFields)?.GetValue(recapCard) as KitPress;
+                    var recapControl = typeof(RoomCardView).GetField("cardControl", cardFields)?.GetValue(recapCard) as KitControl;
+                    Debug.Log("Halcyonic: live walk: the recap shows the person's idea " + (recapCut ? "cut" : "whole") + (recapControl == null ? ", its card pressing to nothing" : ", its card pressing to " + recapControl.Action));
+                    if (recapPress == null || recapControl == null || !recapPress.gameObject.activeInHierarchy || recapControl.Action != "read-recap")
+                    {
+                        if (recapCut) failures.Add("live walk: the recap cuts the person's own idea and nothing drawn on it opens the words whole");
+                        return;
+                    }
+                    var counted = presses;
+                    recapPress.SettleForRender();
+                    recapPress.PressForRender(991);
+                    Draw();
+                    var readWhole = DrawnWords();
+                    for (var recapTurn = 0; recapTurn < 6 && !WordsInOrder(idea, readWhole) && Tap(RoomBar.TurnPage); recapTurn++) readWhole += " " + DrawnWords();
+                    if (WordsInOrder(idea, readWhole)) Debug.Log("Halcyonic: live walk: the recap's press shows the person's idea whole");
+                    else failures.Add("live walk: the recap's press did not show the person's idea whole (\"" + idea + "\" not read in order on its pages)");
+                    if (!Tap("back-to-recap") && !Press("back-to-recap")) failures.Add("live walk: nothing drawn goes back to the recap from its words");
+                    Fresh();
+                    if (!(MainDrawn() is RoomButton recapAgain && ActionOf(recapAgain) == NewProjectScreens.StartBuilding))
+                        failures.Add("live walk: back from the recap's words, its Start Building is not drawn");
+                    presses = counted;
+                }
                 bool DriveUntil(Func<bool> goal, string label, string words, int steps = 12)
                 {
                     var wrote = false;
@@ -1123,6 +1172,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             tried.Remove(NewProjectScreens.ChangeRecap);
                             continue;
                         }
+                        if (!recapRead && MainDrawn() is RoomButton atRecap && ActionOf(atRecap) == NewProjectScreens.StartBuilding) { recapRead = true; ReadTheRecap(words); }
                         if (MainDrawn() is RoomButton main) { PressDrawn(main, "pressed main"); continue; }
                         if (PressFrameMain()) continue;
                         // No main action to take: the next drawn control this journey has not pressed, as a person tries what
