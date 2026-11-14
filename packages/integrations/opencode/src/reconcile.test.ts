@@ -331,6 +331,22 @@ describe('reconciling a session after the event stream reconnected', () => {
     );
   });
 
+  test('a call that started while the stream was down is reported before the approval it waits on', () => {
+    const observations = settled(
+      createSessionState(),
+      snapshot({
+        permissions: [{ id: 'per_3', action: 'shell', resources: ['echo hi'], command: null }],
+        toolStatus: new Map([['call_shell', 'running']]),
+        toolNames: new Map([['call_shell', 'shell']]),
+      }),
+    );
+    assert.deepEqual(types(observations), [
+      'runtime.turn.started',
+      'runtime.tool.started',
+      'runtime.approval.requested',
+    ]);
+  });
+
   test('a question asked while disconnected is learned from the pending forms', () => {
     const state = running();
     const form = {

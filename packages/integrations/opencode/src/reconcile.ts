@@ -190,6 +190,24 @@ export function reconcileSession(
     return settled(observations);
   }
 
+  // A call that started while the stream was down is reported now, or it would run unseen; before any approval
+  // read back, since a call starts before the permission it waits on (an approval reported first put its tool's
+  // start after it: CORE, 2026-11-14, OpenCode's reconnect test under load).
+  if (snapshot.running) {
+    for (const [id, status] of snapshot.toolStatus) {
+      const name = snapshot.toolNames.get(id);
+      if ((status !== 'streaming' && status !== 'running') || name === undefined) continue;
+      if (state.tools.has(id)) continue;
+      state.tools.add(id);
+      observations.push(
+        observation(
+          'runtime.tool.started',
+          { tool_call_id: id, tool_name: name.slice(0, 128), title: null },
+          at(null, MESSAGE_LIST),
+        ),
+      );
+    }
+  }
   const pending = new Set(snapshot.permissions.map((permission) => permission.id));
   for (const id of [...state.approvals]) {
     if (pending.has(id)) continue;
@@ -251,22 +269,6 @@ export function reconcileSession(
         at(null, FORM_LIST),
       ),
     );
-  }
-  // A call that started while the stream was down is reported now, or it would run unseen.
-  if (snapshot.running) {
-    for (const [id, status] of snapshot.toolStatus) {
-      const name = snapshot.toolNames.get(id);
-      if ((status !== 'streaming' && status !== 'running') || name === undefined) continue;
-      if (state.tools.has(id)) continue;
-      state.tools.add(id);
-      observations.push(
-        observation(
-          'runtime.tool.started',
-          { tool_call_id: id, tool_name: name.slice(0, 128), title: null },
-          at(null, MESSAGE_LIST),
-        ),
-      );
-    }
   }
   for (const id of [...state.tools]) {
     const status = snapshot.toolStatus.get(id);
