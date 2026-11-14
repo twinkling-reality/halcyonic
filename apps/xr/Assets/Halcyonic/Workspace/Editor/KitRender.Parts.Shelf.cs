@@ -39,11 +39,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 var places = CharacterStage.ShelfPlaces;
                 CharacterStage.PlaneRestHalfDegrees = null;
                 plane.ConsiderForm(null, eyes, places, open: false);
-                if (CharacterStage.PlaneRestHalfDegrees is not float rest)
+                if (CharacterStage.PlaneRestHalfDegrees is not Func<float> restOf)
                 {
                     failures.Add(size + ": " + ShelfWorstState + ": the plane at rest said no half-width, so no shelf width was fitted");
                     return failures;
                 }
+                var rest = restOf();
                 var width = CharacterStage.FittedWidth(places);
                 var pitch = CharacterStage.PitchOf(places, width);
                 Debug.Log("Halcyonic: parts: " + ShelfWorstState + " at " + size + ": the plane at rest " + rest.ToString("0.0", CultureInfo.InvariantCulture)
