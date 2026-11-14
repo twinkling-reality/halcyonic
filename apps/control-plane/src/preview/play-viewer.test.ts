@@ -67,7 +67,12 @@ function standIn() {
 async function signIn(viewer: PlayViewer): Promise<string> {
   const link = new URL(viewer.link);
   const answer = await get(viewer.port, `${link.pathname}${link.search}`);
-  assert.equal(answer.status, 303);
+  assert.equal(answer.status, 200);
+  assert.match(
+    answer.body,
+    /http-equiv="refresh" content="0;url=\/"/,
+    'a page that goes on by itself, never a redirect',
+  );
   const cookie = String(answer.headers['set-cookie']).split(';')[0] ?? '';
   return cookie;
 }
@@ -105,8 +110,10 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
       assert.equal((await get(viewer.port, '/')).status, 403, 'no page before the code');
       now += 60_000;
       const first = await get(viewer.port, `/${link.search}`);
-      assert.equal(first.status, 303);
-      assert.equal(first.headers.location, '/');
+      // A page that goes on to '/' by itself, never a redirect (a redirect would keep a hand-over's cross-site navigation).
+      assert.equal(first.status, 200);
+      assert.equal(first.headers.location, undefined);
+      assert.match(first.body, /http-equiv="refresh" content="0;url=\/"/);
       const cookie = String(first.headers['set-cookie']);
       assert.match(cookie, new RegExp(`^halcyonic_play_${viewer.port}=[0-9a-f]{64}; `));
       assert.match(cookie, /; HttpOnly/);
@@ -201,15 +208,22 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
         'no code, nothing opens from another site',
       );
       const traded = await get(viewer.port, `${link.pathname}${link.search}`, navigate);
-      assert.equal(traded.status, 303, 'the code, navigated to, is traded once');
+      assert.equal(traded.status, 200, 'the code, navigated to, is traded once');
+      // Followed as a browser does: the page's own refresh to '/' is same-origin and carries the cookie. A redirect
+      // would have kept the hand-over's cross-site navigation, and '/' would be refused (AUDIT3's B1).
+      assert.match(traded.body, /http-equiv="refresh" content="0;url=\/"/);
       const cookie = String(traded.headers['set-cookie']).split(';')[0] ?? '';
+      const refresh = {
+        cookie,
+        'sec-fetch-site': 'same-origin',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-dest': 'document',
+      };
+      assert.equal((await get(viewer.port, '/', refresh)).status, 200);
       assert.equal(
-        (await get(viewer.port, '/', { cookie, 'sec-fetch-site': 'cross-site' })).status,
+        (await get(viewer.port, '/', { ...refresh, 'sec-fetch-site': 'cross-site' })).status,
         403,
-      );
-      assert.equal(
-        (await get(viewer.port, '/', { cookie, 'sec-fetch-site': 'same-origin' })).status,
-        200,
+        'with the cookie but from another site, still refused',
       );
     } finally {
       await viewer.close();
