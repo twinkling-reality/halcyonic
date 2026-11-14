@@ -171,24 +171,28 @@ public class ReviewCardTests
     }
 
     /// <summary>
-    /// A host's warning holding a character the headset folds (a no-break space, a tab) reaches the card in the
-    /// plain form the card's own words take, as its title and what happens already do, so the view never refuses it and the panel
-    /// never freezes on it (SCREENS's 04:56Z render: LineWords.Ours threw on the host's no-break joins; the lead's 04:57Z).
+    /// A host's warning, title or line of what happens holding a character the headset folds (a no-break space, a tab) reaches the
+    /// card as the host sent it, and the view's one counted path (LineWords.HostPlain) shows it plain and counts each fold, so a check
+    /// still fails on it (SCREENS's 04:56Z render: LineWords.Ours threw on the host's no-break joins; the lead's 04:57Z; AUDIT's 05:22Z:
+    /// one place folds, counts and records).
     /// </summary>
     [Test]
-    public void AHostsWarningWithACharacterTheHeadsetFoldsReachesTheCardPlain()
+    public void AHostsWordsWithACharacterTheHeadsetFoldsReachTheCardAsSentAndAreShownPlainAndCounted()
     {
-        var review = Review(CommandType.ProjectPublish, "Publish", "Your checked game goes online at a lasting address",
-            warnings: new[]
-            {
-                new ActionReviewWarning { Code = "free_here", Line = "To stop paying, choose This Computer's Model, which is free" },
-                new ActionReviewWarning { Code = "public", Line = "Anyone with its address\tcan play it,  even when private" },
-            });
-        var lines = ReviewCard.Card(review, "Publish").Status!.Value.Lines;
-        Assert.That(lines, Is.EqualTo(new[]
-        {
-            "To stop paying, choose This Computer's Model, which is free", "Anyone with its address can play it,  even when private",
-        }), "a folded character a plain space; plain spaces as the host wrote them");
-        foreach (var line in lines) Assert.That(() => LineWords.Ours(line), Throws.Nothing, "the view lays every status line as the card's own words");
+        var joined = "To stop paying, choose This\u00a0Computer's\u00a0Model, which is free";
+        var tabbed = "Anyone with its address\tcan play it,  even when private";
+        var review = Review(CommandType.ProjectPublish, "Publish", "Your checked game goes\u00a0online",
+            warnings: new[] { new ActionReviewWarning { Code = "free_here", Line = joined }, new ActionReviewWarning { Code = "public", Line = tabbed } });
+        var before = LineWords.Folds;
+        var card = ReviewCard.Card(review, "Publish");
+        Assert.That(card.Description!.Text, Is.EqualTo("Your checked game goes online"), "the card's own host line folded through the counted path");
+        Assert.That(LineWords.Folds - before, Is.EqualTo(1), "that fold counted");
+        var lines = card.Status!.Value.Lines;
+        Assert.That(lines, Is.EqualTo(new[] { joined, tabbed }), "the warnings reach the card as the host sent them; the view folds them");
+        Assert.That(() => LineWords.Ours(joined), Throws.ArgumentException, "as Halcyonic's own words they would be refused");
+        var shown = lines.Select(LineWords.HostPlain).Select(words => words.Text).ToList();
+        Assert.That(shown, Is.EqualTo(new[] { "To stop paying, choose This Computer's Model, which is free", "Anyone with its address can play it,  even when private" }),
+            "shown plain: a folded character a plain space, plain spaces as the host wrote them");
+        Assert.That(LineWords.Folds - before, Is.EqualTo(3), "each fold counted, so the kit check fails on it");
     }
 }

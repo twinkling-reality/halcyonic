@@ -61,9 +61,9 @@ namespace Halcyonic.Client
             RoomCardStatus? status = warnings.Count == 0 ? (RoomCardStatus?)null
                 // Each warning its own line, in the host's order, never joined into one paragraph (a fresh reader, 2026-11-14T00:20Z: the joined
                 // warnings buried that the person's requests leave this computer).
-                // In the plain form, as the title and what happens take it: a character the headset folds never reaches the view
-                // as the card's own words, where it would refuse them and freeze the panel (SCREENS's 04:56Z, the lead's 04:57Z).
-                : RoomCardStatus.Apart(RoomReview.CheckTitle, warnings.Select(each => LabelText.Plain(each.Line)), RoomTone.Attention, RoomKind.Failed);
+                // As the host sent them: the view lays each through LineWords.HostPlain, the one place a character the headset folds is
+                // shown plain, counted and said by its kind, so a check still fails on it (AUDIT's 05:21Z: one counted path).
+                : RoomCardStatus.Apart(RoomReview.CheckTitle, warnings.Select(each => each.Line), RoomTone.Attention, RoomKind.Failed);
             // What happens first, the warnings after (AUDIT2's 2026-11-13T22:37Z), except where a warning is a consent the press gives:
             // then it stands under the name, read before the press (AUDIT2's 22:38Z).
             var after = status != null && !warnings.Any(each => ConsentFirst.Contains(each.Code));
@@ -108,7 +108,8 @@ namespace Halcyonic.Client
             LineWords? words = null;
             foreach (var each in said)
             {
-                var one = LineWords.Ours((words == null ? "" : " ") + LabelText.Plain(each.Label) + ":") + LineWords.Shown(NewWorkReview.Safe(each.Words));
+                // The host's label through the one counted path a host line takes, never folded quietly here.
+                var one = LineWords.HostPlain((words == null ? "" : " ") + each.Label + ":") + LineWords.Shown(NewWorkReview.Safe(each.Words));
                 words = words == null ? one : words + one;
             }
             return words;
@@ -127,8 +128,11 @@ namespace Halcyonic.Client
         /// <summary>A fact's value or an item's name: someone's own name shown exactly, as what the command acts on; else the host's words.</summary>
         private static LineWords Words(string text, bool theirs) => theirs ? LineWords.Shown(NewWorkReview.Safe(text)) : Host(text);
 
-        /// <summary>The host's own words (a title, its line of what happens, a fact it names): upright, by the rule every label is shown by.</summary>
-        private static LineWords Host(string text) => LineWords.Written(LabelText.Plain(text));
+        /// <summary>
+        /// The host's own words (a title, its line of what happens, a fact it names): upright, through the one counted path a host
+        /// line takes (<see cref="LineWords.HostPlain"/>), so a character the headset folds is shown plain and counted, never refused.
+        /// </summary>
+        private static LineWords Host(string text) => string.IsNullOrEmpty(text) ? LineWords.None : LineWords.HostPlain(text);
     }
 
     /// <summary>An action of the review card: its id, its words, and whether it is the main one.</summary>
