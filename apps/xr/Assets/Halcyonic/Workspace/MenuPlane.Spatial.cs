@@ -319,19 +319,28 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private (PanelSize Band, float Below) Hang(PanelSize size)
         {
+            var (half, top, bottom) = BandOnPlane();
+            // A point the plane lays u units up from its middle stands atan(u) above it: the same geometry the kit is stood with.
+            return (new PanelSize(size.Distance, half * size.Distance, (top - bottom) / 2f * size.Distance), -SpatialKit.DegreesTo((top + bottom) / 2f));
+        }
+
+        /// <summary>
+        /// The band at its tallest in the plane's units from the kit's origin (kit units grown by the text size): its half width, and its
+        /// top and bottom, BandUnderDp under the foot line and down by its tallest, as the host hangs it (FIELD's anchor).
+        /// </summary>
+        private (float Half, float Top, float Bottom) BandOnPlane()
+        {
             var zoom = GlazeText.Scale;
-            var hangs = RoomWords.HeightDp(RoomWords.LinesAPart, zoom);
-            return (new PanelSize(size.Distance, RoomType.Units(RoomWords.WidthDp) / 2f * size.Distance, RoomType.Units(hangs) / 2f * size.Distance),
-                (KitWorkspaceHost.BandUnderDp + hangs / 2f) / RoomGeometry.DpPerDegree - SpatialKit.DegreesTo(Kit.FootLine * zoom));
+            var top = Kit.FootLine * zoom - RoomType.Units(KitWorkspaceHost.BandUnderDp);
+            return (RoomType.Units(RoomWords.WidthDp) / 2f, top, top - RoomType.Units(RoomWords.HeightDp(RoomWords.LinesAPart, zoom)));
         }
 
         /// <summary>The band's corners for a field test of a plane of <paramref name="size"/>: none where nothing hangs.</summary>
         private IEnumerable<(float X, float Y)> HangCorners(PanelSize size)
         {
             if (!Anchored) yield break;
-            var (band, below) = Hang(size);
-            var down = Mathf.Tan(below * Mathf.Deg2Rad) * size.Distance;
-            for (var x = -1; x <= 1; x += 2) for (var y = -1; y <= 1; y += 2) yield return (band.HalfWidth * x, -down + band.HalfHeight * y);
+            var (half, top, bottom) = BandOnPlane();
+            for (var x = -1; x <= 1; x += 2) foreach (var y in new[] { top, bottom }) yield return (half * x * size.Distance, y * size.Distance);
         }
 
         /// <summary>The draw a placing ended on (<see cref="considered"/>), while the plane waits for the shelf it placed; -1 otherwise.</summary>
@@ -351,7 +360,8 @@ namespace Halcyonic.XR.Workspace
         /// inside the field wins (PlaneWidthRule); the kit is told before any reader measures, and each change is said once with its cause.
         /// </summary>
         /// <param name="placing">A local overlay places something in the room now (<see cref="IPlacesInRoom"/>): the floor's width meanwhile.</param>
-        public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false)
+        /// <param name="shelfComing">The room applied a shelf the stage has not stood yet: a placing that just ended waits for it.</param>
+        public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false, bool shelfComing = false)
         {
             if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; ShelfAsideDegrees = 0f; return; }
             var floor = PlaneWidth.FloorDp(GlazeText.Scale);
@@ -370,7 +380,7 @@ namespace Halcyonic.XR.Workspace
                 // never end the wait (JUDGE's charU: Apply's first draw laid 440 with no shelf, then 360 once it stood): only the text
                 // size is another change.
                 var otherChange = !Mathf.Approximately(placed.Scale, now.Item1);
-                if (PlaneWidthRule.AwaitsPlacedShelf(true, false, shelf != null, otherChange, considered - placingEndedFrame)) return;
+                if (PlaneWidthRule.AwaitsPlacedShelf(true, false, shelf != null, otherChange, considered - placingEndedFrame, shelfComing)) return;
             }
             placingEndedFrame = -1;
             PlaneFormEvent happened = formSituation is not { } before ? PlaneFormEvent.PlaneMoved
@@ -428,29 +438,49 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// Where the bar laid with its panel <paramref name="widthDp"/> wide would stand at its largest, in degrees from the eyes toward
-        /// where it faces: from its foot line up (FIELD's measured record, RoomBarView.LargestAt, in DESIGN units), about the plane's
-        /// heading, where the person's drag left it. The band under it is its own part (<see cref="BandExtent"/>).
+        /// where it faces: from its foot line up (FIELD's measured record, RoomBarView.LargestAt), about the plane's heading, where the
+        /// person's drag left it, through the plane's own geometry (<see cref="OnPlane"/>). The band under it is its own part (<see cref="BandExtent"/>).
         /// </summary>
         private AngularExtent LargestExtent(float widthDp)
         {
+            // From its foot line up, with the little a bar draws under it (its lowest core and a halo's feather), held to the kit's stated
+            // measure (FIELD's RoomBarView.MostUnderFootDp, which PartsCheck fails past), about the host's middle, as the plane lays it.
             var largest = RoomBarView.LargestAt(widthDp);
-            var bar = AngularExtent.OfBar(largest.x, largest.y, RoomGeometry.FeetPitch, Placed.Elevation, Direction.Elevation);
-            // With the little a bar draws under its foot line (its lowest core and a halo's feather), held to the kit's stated measure
-            // (FIELD's RoomBarView.MostUnderFootDp, which PartsCheck fails past).
-            return new AngularExtent(bar.Left, bar.Right, bar.Bottom - RoomBarView.MostUnderFootDp / RoomGeometry.DpPerDegree, bar.Top);
+            var foot = Kit.FootLine * GlazeText.Scale;
+            return OnPlane(-largest.x / 2f, largest.x / 2f, foot - RoomType.Units(RoomBarView.MostUnderFootDp), foot + largest.y);
         }
 
         /// <summary>
         /// Where the band under the bar stands at its tallest (RoomWords; JUDGE's charR, AUDIT's 22:29Z), about the plane's heading: the
-        /// same at every panel width, hanging from its own pitch moved by the person's drag as the bar's foot is. A part of its own
-        /// beside the bar's (AUDIT's 22:34Z), never their bounding box, so the air beside the bar stays a place a shelf may stand.
+        /// same at every panel width, hanging under the bar's foot as the host hangs it, so it moves with the person's drag as the foot does.
+        /// A part of its own beside the bar's (AUDIT's 22:34Z), never their bounding box, so the air beside the bar stays a place a shelf may stand.
         /// </summary>
         private AngularExtent BandExtent()
         {
-            var drag = Direction.Elevation - Placed.Elevation;
-            var half = RoomWords.WidthDp / 2f / RoomGeometry.DpPerDegree;
-            var top = RoomWords.TopPitch + drag;
-            return new AngularExtent(-half, half, top - RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale) / RoomGeometry.DpPerDegree, top);
+            var (half, top, bottom) = BandOnPlane();
+            return OnPlane(-half, half, bottom, top);
+        }
+
+        /// <summary>
+        /// The extent in degrees, about the plane's heading, of a rectangle on the plane given in the plane's units from the kit's origin
+        /// (kit units grown by the text size): each point taken through the geometry the plane stands the kit with (PlaneComposition.PointOf
+        /// about <see cref="Direction"/>, from the kit's part), so a part reasoned here stands where it is drawn (AUDIT's and FIELD's 01:02Z:
+        /// DESIGN's 16 dp a degree is not the plane's; one conversion for every part). Corners, edge middles and centre, since a flat
+        /// plane's highest and lowest points as the eyes see them lie at an edge's middle.
+        /// </summary>
+        private AngularExtent OnPlane(float left, float right, float bottom, float top)
+        {
+            var (originRight, originUp) = Kit.ShowsCompact ? (0f, 0f) : (kitPart.Right, kitPart.Up);
+            float leftmost = float.PositiveInfinity, rightmost = float.NegativeInfinity, lowest = float.PositiveInfinity, highest = float.NegativeInfinity;
+            foreach (var x in new[] { left, (left + right) / 2f, right })
+            foreach (var y in new[] { bottom, (bottom + top) / 2f, top })
+            {
+                var (px, py, pz) = PlaneComposition.PointOf(Direction, originRight + x, originUp + y);
+                var yaw = Mathf.DeltaAngle(Direction.Yaw, Mathf.Atan2(px, pz) * Mathf.Rad2Deg);
+                var elevation = Mathf.Atan2(py, Mathf.Sqrt(px * px + pz * pz)) * Mathf.Rad2Deg;
+                leftmost = Mathf.Min(leftmost, yaw); rightmost = Mathf.Max(rightmost, yaw); lowest = Mathf.Min(lowest, elevation); highest = Mathf.Max(highest, elevation);
+            }
+            return new AngularExtent(leftmost, rightmost, lowest, highest);
         }
 
         /// <summary>

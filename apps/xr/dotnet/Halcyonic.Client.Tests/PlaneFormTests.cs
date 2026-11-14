@@ -68,6 +68,10 @@ public class PlaneFormTests
         Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, true, false, 0), Is.False, "the shelf stands: decide now, once");
         Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, otherChange: true, 0), Is.False, "the text size changed: decide now");
         Assert.That(PlaneWidthRule.AwaitsPlacedShelf(false, false, false, false, 0), Is.False, "no placing ended");
+        Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, false, PlaneWidthRule.PlacedShelfFrames, shelfComing: true), Is.True,
+            "the room applied a shelf the stage has not stood yet: wait past the plane's own draws");
+        Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, false, PlaneWidthRule.ComingShelfFrames, shelfComing: true), Is.False,
+            "never longer than its bound");
     }
 
     [Test]
@@ -83,18 +87,6 @@ public class PlaneFormTests
 
 public class AngularExtentTests
 {
-    /// <summary>The largest bar stands from its foot line up, and moves with the person's own raising or lowering of the plane.</summary>
-    [Test]
-    public void TheLargestBarStandsFromItsFootLineMovedByThePersonsDrag()
-    {
-        var level = AngularExtent.OfBar(0.8f, 0.2f, footPitch: -17.6f, placedPitch: -25f, standingPitch: -25f);
-        Assert.That(level.Bottom, Is.EqualTo(-17.6f).Within(1e-4f));
-        Assert.That(level.Top - level.Bottom, Is.EqualTo(MathF.Atan(0.2f) * 180f / MathF.PI).Within(1e-4f));
-        Assert.That(level.Right, Is.EqualTo(-level.Left).Within(1e-4f));
-        var raised = AngularExtent.OfBar(0.8f, 0.2f, footPitch: -17.6f, placedPitch: -25f, standingPitch: -20f);
-        Assert.That(raised.Bottom, Is.EqualTo(-12.6f).Within(1e-4f), "raised five degrees by the person: its foot with it");
-    }
-
     [Test]
     public void TwoExtentsAreApartByTheirGapOrPastACornerAndOverlapIsNoGap()
     {

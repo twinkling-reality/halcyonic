@@ -58,18 +58,6 @@ namespace Halcyonic.Client
 
         public float Top { get; }
 
-        /// <summary>
-        /// Where a bar of <paramref name="widthUnits"/> by <paramref name="heightUnits"/> (metres at 1 m, DESIGN units) stands: centred on
-        /// the heading, from its foot line up; the foot at <paramref name="footPitch"/>, moved by as much as the person raised or lowered
-        /// the plane (<paramref name="standingPitch"/> against <paramref name="placedPitch"/>).
-        /// </summary>
-        public static AngularExtent OfBar(float widthUnits, float heightUnits, float footPitch, float placedPitch, float standingPitch)
-        {
-            var half = MathF.Atan(widthUnits / 2f) * 180f / MathF.PI;
-            var foot = footPitch + (standingPitch - placedPitch);
-            return new AngularExtent(-half, half, foot, foot + MathF.Atan(heightUnits) * 180f / MathF.PI);
-        }
-
         /// <summary>How far apart two extents stand, in degrees: across, down, or diagonally past a corner; at most 0 where they overlap.</summary>
         public float Apart(AngularExtent other)
         {
@@ -95,10 +83,19 @@ namespace Halcyonic.Client
         /// Whether the plane waits before deciding again (JUDGE's charR; AUDIT's 22:30Z): only where placing just ended, no shelf
         /// stands yet, the text size did not change (the plane returning and the shelf's characters arriving come with the placing's
         /// end, so the host never counts them), and no more than <see cref="PlacedShelfFrames"/>
-        /// frames have passed; so a placed shelf changes the width once, and a cancelled placing, or any real change, is decided at once.
+        /// frames have passed (<see cref="ComingShelfFrames"/> where <paramref name="shelfComing"/>: the room applied a shelf the stage has
+        /// not stood yet); so a placed shelf changes the width once, and a cancelled placing, or any real change, is decided at once.
         /// </summary>
-        public static bool AwaitsPlacedShelf(bool wasPlacing, bool placing, bool shelfStands, bool otherChange, int framesSincePlacingEnded) =>
-            wasPlacing && !placing && !shelfStands && !otherChange && framesSincePlacingEnded < PlacedShelfFrames;
+        public static bool AwaitsPlacedShelf(bool wasPlacing, bool placing, bool shelfStands, bool otherChange, int framesSincePlacingEnded,
+            bool shelfComing = false) =>
+            wasPlacing && !placing && !shelfStands && !otherChange && framesSincePlacingEnded < (shelfComing ? ComingShelfFrames : PlacedShelfFrames);
+
+        /// <summary>
+        /// The draws a placing that just ended waits where the room says a shelf was applied that the stage has not stood yet: the stage
+        /// stands it on its own next update, which may come after several of the plane's draws (JUDGE's charV: Apply laid 440 with no shelf,
+        /// then 360). Bounded all the same, so a shelf the stage never stands cannot hold the plane.
+        /// </summary>
+        public const int ComingShelfFrames = 30;
 
         /// <summary>The panel width held now, in dp.</summary>
         public float WidthDp { get; private set; } = RoomGeometry.PanelDp;

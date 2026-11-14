@@ -28,8 +28,9 @@ namespace Halcyonic.XR.Workspace
         public readonly struct Stage
         {
             public Stage(Vector3 eyes, Vector3 looking, IReadOnlyList<CharacterTarget> characters, float? surfaceHeight, bool besideWindow,
-                Vector3[]? shelf = null, Action<float>? standAside = null)
+                Vector3[]? shelf = null, Action<float>? standAside = null, bool shelfComing = false)
             {
+                ShelfComing = shelfComing;
                 Shelf = shelf;
                 StandAside = standAside;
                 Eyes = eyes;
@@ -38,6 +39,9 @@ namespace Halcyonic.XR.Workspace
                 SurfaceHeight = surfaceHeight;
                 BesideWindow = besideWindow;
             }
+
+            /// <summary>The room applied a shelf the stage has not stood yet (it stands it on its own next update).</summary>
+            public bool ShelfComing { get; }
 
             /// <summary>Turns the placed shelf aside about the eyes by so many degrees while the plane is open, 0 to bring it back (view placement only).</summary>
             public Action<float>? StandAside { get; }
@@ -848,7 +852,7 @@ namespace Halcyonic.XR.Workspace
             ApplyCharacterColours();
             if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
             // The plane's form, decided before any reader measures and held between events (the lead's 2026-11-13T17:16Z ruling).
-            plane.ConsiderForm(stage.Shelf, stage.Eyes, stage.Characters.Count, placing: placement is IPlacesInRoom);
+            plane.ConsiderForm(stage.Shelf, stage.Eyes, stage.Characters.Count, placing: placement is IPlacesInRoom, shelfComing: stage.ShelfComing);
             // The room yields while the plane is open (the lead's 19:34Z GO): the placed shelf stands aside where the plane's footprint
             // meets it, decided with the width on events only, and comes back once the plane shows nothing.
             stage.StandAside?.Invoke(navigator.ShowsAnything && !navigator.IsCompact ? plane.ShelfAsideDegrees : 0f);

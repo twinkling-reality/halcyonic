@@ -492,7 +492,8 @@ namespace Halcyonic.XR.Workspace
             var standingStage = stage;
             return new MenuDirector.Stage(WorkspaceVisuals.HeadPosition, head != null ? head.forward : Vector3.forward, standing.ToList(),
                 stage != null && stage.Visible && Room?.Status.OnSurface == true ? stage.SurfaceHeight : null, false, shelf,
-                degrees => { if (standingStage != null) standingStage.ShelfTurnDegrees = degrees; });
+                degrees => { if (standingStage != null) standingStage.ShelfTurnDegrees = degrees; },
+                shelfComing: shelf == null && Room?.ShelfPlaced == true && Presentation.AgentsVisible);
         }
 
         private bool SomethingWaits() =>
