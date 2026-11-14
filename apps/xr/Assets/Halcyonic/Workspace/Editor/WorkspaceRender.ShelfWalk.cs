@@ -271,6 +271,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     Debug.Log("Halcyonic: shelf walk: placing, the plane stands " + GlazeChecks.Degrees(planeSeen.Left) + " to " + GlazeChecks.Degrees(planeSeen.Right)
                         + " across; the field leaves " + GlazeChecks.Degrees((float)(planeSeen.Left + seenField.Left)) + " degrees free on the left and "
                         + GlazeChecks.Degrees((float)(seenField.Right - planeSeen.Right)) + " on the right");
+                // What the product's own shelf search keeps clear of at this moment (the lead's 2026-11-14T07:12Z ruling 1): the
+                // console it asks the plane for, from where the plane faces, and how far the plane stands, so the colour journey's
+                // fixture can be held to what a person meets.
+                var flatToPlane = plane.transform.position - eyes;
+                flatToPlane.y = 0f;
+                if (plane.ConsoleExtentFrom(eyes) is ConsoleExtent keptClear)
+                    Debug.Log("Halcyonic: shelf walk: placing at text size " + GlazeText.Scale.ToString("0.##") + ", the search keeps clear of the console "
+                        + GlazeChecks.Degrees(Mathf.DeltaAngle(plane.Direction.Yaw, keptClear.LeftYaw)) + " to " + GlazeChecks.Degrees(Mathf.DeltaAngle(plane.Direction.Yaw, keptClear.RightYaw))
+                        + " across from where the plane faces, foot " + GlazeChecks.Degrees(keptClear.BottomElevation) + " up; the plane stands "
+                        + flatToPlane.magnitude.ToString("0.00") + " m from the eyes across the floor, at " + plane.transform.position.ToString("F3")
+                        + ", facing " + GlazeChecks.Degrees(plane.Direction.Yaw) + " degrees at " + GlazeChecks.Degrees(plane.Direction.Elevation) + " up");
+                else Debug.Log("Halcyonic: shelf walk: placing, the plane gives no console to keep clear of");
                 if (placement.Preview == null) failures.Add("Place Agents offered no place for the shelf in the field (the room must yield, never refuse for the text size)");
                 // One placing, one width (AUDIT, 2026-11-14T01:01Z): from the placing's start to its Apply the panel keeps the floor's
                 // width, so at most one width line, never the panel widening and narrowing under the person while they place.
