@@ -388,11 +388,70 @@ namespace Halcyonic.XR.Workspace.Editor
                 menu.OpenFile(work.Workstream.WorkstreamId);
                 Draw();
                 Travel();
+                // The plane's handle (FIELD's RoomHandle, the lead's ruling 3), read by name so a tip without it still compiles: its pointer
+                // target, the point a hand takes hold of, and its hold area's corners for the field check (AUDIT, 01:30Z).
+                Component? Handle() => typeof(KitWorkspaceHost).GetProperty("Handle")?.GetValue(plane.Kit) is Component drawnHandle
+                    && drawnHandle.gameObject.activeInHierarchy ? drawnHandle : null;
+                void HandleInField(string when)
+                {
+                    if (Handle() is not Component held || held.GetType().GetProperty("Target")?.GetValue(held) is not PointerTarget holdArea) return;
+                    var area = new[] { new Vector2(-0.5f, -0.5f), new Vector2(0.5f, -0.5f), new Vector2(-0.5f, 0.5f), new Vector2(0.5f, 0.5f) }
+                        .Select(corner => holdArea.transform.TransformPoint(new Vector3(corner.x * holdArea.Size.x, corner.y * holdArea.Size.y, 0f))).ToArray();
+                    if (ViewField.Current is ViewField handleField)
+                        failures.AddRange(GlazeChecks.InsideField("the plane's handle, its hold area, " + when, area, eyes, eyes + Vector3.forward, 0f, handleField));
+                }
+                HandleInField("at rest");
+                // Where the plane stands as the eyes see it, from its kit's middle: a drag moves the plane's place, whatever field holds it.
+                (float Yaw, float Up) PlaneSeen()
+                {
+                    var toward = plane.Kit.transform.position - eyes;
+                    return (Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg, Mathf.Atan2(toward.y, Mathf.Max(new Vector2(toward.x, toward.z).magnitude, 1e-4f)) * Mathf.Rad2Deg);
+                }
+                const int HandPointer = 735;
                 void DragBy(float degrees, string when)
                 {
                     var grab = plane.Kit.transform.position;
                     var side = Vector3.Cross(Vector3.up, grab - eyes).normalized;
                     lock (widths) reasons = null;
+                    // By the handle as a person takes it where one is drawn: pointed, pressed at its hold point, moved, let go.
+                    if (Handle() is Component handleNow && handleNow.GetType().GetProperty("Target")?.GetValue(handleNow) is PointerTarget handleTarget
+                        && handleNow.GetType().GetProperty("HoldPoint")?.GetValue(handleNow) is Vector3 holdAt)
+                    {
+                        handleNow.GetType().GetMethod("SettleForRender")?.Invoke(handleNow, null);
+                        var before = PlaneSeen();
+                        var toward = Quaternion.AngleAxis(-degrees, Vector3.Cross(Vector3.up, holdAt - eyes).normalized) * (holdAt - eyes);
+                        handleTarget.PointerForRender(HandPointer, Oculus.Interaction.PointerEventType.Hover, holdAt);
+                        handleTarget.PointerForRender(HandPointer, Oculus.Interaction.PointerEventType.Select, holdAt);
+                        Draw();
+                        for (var step = 1; step <= 4; step++)
+                        {
+                            handleTarget.PointerForRender(HandPointer, Oculus.Interaction.PointerEventType.Move, eyes + Vector3.Slerp(holdAt - eyes, toward, step / 4f));
+                            Draw();
+                        }
+                        handleTarget.PointerForRender(HandPointer, Oculus.Interaction.PointerEventType.Unselect, eyes + toward);
+                        handleTarget.PointerForRender(HandPointer, Oculus.Interaction.PointerEventType.Unhover, eyes + toward);
+                        Draw();
+                        Travel();
+                        var moved = PlaneSeen().Up - before.Up;
+                        if (Mathf.Abs(moved) < 0.5f) { failures.Add(when + ": taken by its handle and dragged, the plane did not move (" + moved.ToString("0.0") + " degrees)"); return; }
+                        Debug.Log("Halcyonic: shelf walk: " + when + ": by its handle, the plane moved " + moved.ToString("0.0") + " degrees up");
+                        // Where it is let go is its place (ruling 3): a head turned 30 degrees and back leaves it there.
+                        var letGo = PlaneSeen();
+                        var head = Camera.main;
+                        if (head != null)
+                        {
+                            var facing = head.transform.rotation;
+                            head.transform.rotation = Quaternion.Euler(0f, 30f, 0f) * facing;
+                            Travel();
+                            head.transform.rotation = facing;
+                            Travel();
+                            if (Mathf.Abs(Mathf.DeltaAngle(PlaneSeen().Yaw, letGo.Yaw)) > 0.5f || Mathf.Abs(PlaneSeen().Up - letGo.Up) > 0.5f)
+                                failures.Add(when + ": a head turned 30 degrees and back moved the plane from where it was let go");
+                        }
+                        ReasonedAgainstDrawn(when);
+                        HandleInField(when);
+                        return;
+                    }
                     menu.MatureCompactMoveForRender(grab);
                     // The redesign draws no handle yet (lead, 2026-11-14T01:26Z, ruling 3: a handle is being built, and the batch does not
                     // wait for it): said, not failed, while no handle is drawn; once a part named for a handle stands on the plane, a hold
