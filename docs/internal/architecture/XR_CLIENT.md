@@ -3008,6 +3008,11 @@ in order, as before.
   stays where the plane stood it when the agent's words arrive on the band or go; the host's `Size` is the bar's own box,
   and what hangs under the foot line, the row or the band and the gap over it, is `KitWorkspaceHost.HangDp`, which the
   plane's footprint holds under the bar.
+  The plane moves by hand (the lead's 2026-11-14T01:26Z): a drawn handle (`RoomHandle`, `KitWorkspaceHost.Handle`), a short
+  light pill centred under the band at its tallest, at a fixed depth under the foot line (`KitWorkspaceHost.HandleUnderFootDp`),
+  so it never moves while a person reads and never meets the row or the band; pointed it brightens and widens, held it
+  stands whole and a touch smaller; its hold area is Meta's hand target tall; it drags through `PointerTarget.EnableDrag`,
+  and the plane wires it to MenuDrag.
   The distances stay today's (the plane at 0.46 m, the characters at 2.4 m). Stop arms the
   file's own confirmation (stopping always asks, `WorkspacePresenter.AlwaysConfirmed`), which the binding now binds for
   the redesign (`KitWorkModel.Stops`): what stopping does in the panel, the file's question in the sentence bar, Confirm

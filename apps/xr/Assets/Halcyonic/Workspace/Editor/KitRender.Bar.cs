@@ -1007,6 +1007,18 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             // The bar a person reads never moves for what hangs under it: it stands on the host's middle.
             Require(bar.transform.localPosition == Vector3.zero, "the bar moved off the host's middle (" + bar.transform.localPosition + ") for what hangs under it");
+            // The plane's handle (the lead's ruling 3): centred at its fixed depth under the foot line whatever the band says, under the
+            // band at its tallest, the hold area Meta's target tall, so it never moves while a person reads and never meets the band.
+            var handleDown = RoomType.Units(KitWorkspaceHost.HandleUnderFootDp(GlazeText.Scale) - RoomHandle.HoldHeightDp / 2f) / GlazeText.Scale;
+            Require(host.Handle.gameObject.activeSelf && Mathf.Abs(host.Handle.transform.localPosition.x) < 1e-5f
+                && Mathf.Abs(host.Handle.transform.localPosition.y - (host.FootLine - handleDown)) < RoomType.Units(0.5f),
+                "the plane's handle is not centred at its fixed depth under the foot line: " + host.Handle.transform.localPosition);
+            if (host.Band.Words != null && host.Band.Size.y > 0f)
+            {
+                var bandBottom = host.Band.transform.localPosition.y - host.Band.Size.y * host.Band.transform.localScale.y;
+                Require(host.Handle.transform.localPosition.y + RoomType.Units(RoomHandle.HoldHeightDp / 2f) / GlazeText.Scale <= bandBottom + RoomType.Units(0.5f),
+                    "the plane's handle meets the band");
+            }
             shot.Targets.Add(("the instruction", bar.transform, bar.Presses.ToList()));
             // The one sheen: a 2 s pass with its peak at the middle, then 8 s of rest; none kept still.
             var stillWas = GlazeMotion.Still;

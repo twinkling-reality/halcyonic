@@ -35,9 +35,20 @@ namespace Halcyonic.XR.UI
         private KitPresenceView presence = null!;
         private RoomBarView bar = null!;
         private RoomBand band = null!;
+        private RoomHandle handle = null!;
 
         /// <summary>The band of the agent's own words low in the view (DESIGN 1.6): a question's prompt while the redesign draws it.</summary>
         public RoomBand Band => band;
+
+        /// <summary>The plane's handle (RoomHandle, the lead's 2026-11-14T01:26Z ruling 3): what a person takes to move the plane; the plane wires its drag.</summary>
+        public RoomHandle Handle => handle;
+
+        /// <summary>
+        /// How far the handle's hold area reaches under the foot line, in dp at the person's text size: under the band at its tallest
+        /// (RoomWords.UnderFootMostDp), a gap, then the hold area. A fixed depth whatever the band says, so the handle never moves while
+        /// a person reads; the plane's footprint holds it under the bar, as it holds the band.
+        /// </summary>
+        public static float HandleUnderFootDp(float textScale) => RoomWords.UnderFootMostDp(textScale) + RoomHandle.GapDp + RoomHandle.HoldHeightDp;
 
         private RoomField field = null!;
         private RoomCursor cursor = null!;
@@ -215,6 +226,7 @@ namespace Halcyonic.XR.UI
             host.bar.TalkPressed += host.OnTalkPressed;
             host.bar.TalkReleased += host.OnTalkReleased;
             host.band = RoomBand.Create(go.transform);
+            host.handle = RoomHandle.Create(go.transform);
             host.field = RoomField.Create(go.transform);
             host.cursor = RoomCursor.Create(go.transform);
             host.bar.BandNextPressed += host.OnBandNext;
@@ -408,6 +420,7 @@ namespace Halcyonic.XR.UI
                 var rest = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomButton.HeightDp)) / zoom;
                 Size = rest;
                 FootLine = -rest.y / 2f + RoomType.Units(RoomBarView.RowFeetDp) / zoom;
+                PlaceHandle(zoom);
                 TextBands = new[] { new TextBand(-rest.x / 2f, rest.x / 2f, -rest.y / 2f, rest.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
                 return;
             }
@@ -432,10 +445,23 @@ namespace Halcyonic.XR.UI
             size = new Vector2(Mathf.Max(size.x, least.x), Mathf.Max(size.y, least.y));
             Size = size;
             FootLine = bar.Foot / zoom;
+            PlaceHandle(zoom);
             TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
             // The working field stands round the panel's place where the bar now stands (a plate or row under it moves it up).
             ShowWork(room, zoom);
             foreach (var press in bar.Presses) press.Accepting = () => Accepting();
+        }
+
+        /// <summary>
+        /// Stands the handle centred under the foot line at its fixed depth (HandleUnderFootDp, its hold area's middle), laid at the
+        /// person's text size and scaled back by it as the band is, so it stays the same size in the room.
+        /// </summary>
+        private void PlaceHandle(float zoom)
+        {
+            handle.gameObject.SetActive(RoomDesign.Enabled);
+            handle.transform.localScale = Vector3.one / zoom;
+            var down = RoomType.Units(HandleUnderFootDp(GlazeText.Scale) - RoomHandle.HoldHeightDp / 2f) / zoom;
+            handle.transform.localPosition = new Vector3(0f, FootLine - down, -RoomType.Units(0.02f) / zoom);
         }
 
         /// <summary>
