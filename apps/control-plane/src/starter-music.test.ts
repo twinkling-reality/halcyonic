@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { pieces, pitch } from '../../../starters/iwsdk-vr/template/src/pieces.ts';
 import {
-  centre,
   eachHeard,
   isBlack,
   join,
@@ -147,15 +146,6 @@ describe('the starter score: when each note sounds', () => {
       [0.45, 1],
       [3.45, 4],
     ]);
-  });
-
-  test('the middle of what scores play is the mean of their pitches, middle C for none', () => {
-    assert.equal(centre([tiny]), (60 + 64 + 67) / 3);
-    assert.equal(
-      centre([tiny, { ...tiny, notes: [{ at: 0, length: 1, pitch: 72, loud: 0.5, part: 0 }] }]),
-      (60 + 64 + 67 + 72) / 4,
-    );
-    assert.equal(centre([]), 60);
   });
 
   test('note names and black keys are read as a keyboard has them', () => {
