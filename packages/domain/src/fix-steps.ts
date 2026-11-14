@@ -1,4 +1,4 @@
-import type { CheckFindings, CheckReading } from '@halcyonic/contracts';
+import type { CheckFindings, CheckFit, CheckReading } from '@halcyonic/contracts';
 
 /**
  * Sharp edges at or under which a check's page counts as having shown nothing at all, as the check's
@@ -13,8 +13,9 @@ export type FixStep = 'typecheck' | 'build' | 'page' | 'reading';
  * sending and the fix view's `failed_steps` read: the type check or the build when it exited other than
  * 0 (one stopped at its limit gives no lines to send), and the page when it threw or showed nothing at
  * all. A page that shows only the starter's own scene is a game not made yet, not a fault, and is not
- * one of them. And the laptop reading when it was measured under a floor (`readingUnder`), whether the check
- * passed or not: the second trigger of ADR 0044, under the same cap.
+ * one of them. And the laptop reading when it was measured under a floor (`readingUnder`) or the kit's panels were
+ * measured not fitting a laptop's view (`fitUnder`), whether the check passed or not: the second trigger of ADR 0044,
+ * under the same cap, named `reading` for both.
  */
 export function fixSteps(findings: CheckFindings): FixStep[] {
   const steps: FixStep[] = [];
@@ -27,7 +28,7 @@ export function fixSteps(findings: CheckFindings): FixStep[] {
       Math.max(page.edges_at_3s ?? 0, page.edges_at_10s ?? 0) <= BLANK_PAGE_EDGES)
   )
     steps.push('page');
-  if (readingUnder(findings) !== null) steps.push('reading');
+  if (readingUnder(findings) !== null || fitUnder(findings) !== null) steps.push('reading');
   return steps;
 }
 
@@ -82,13 +83,71 @@ export function readingFix(findings: CheckFindings): string | null {
   return `Words were drawn ${px} px high at a laptop's 1280 by 800 view when last measured; a person reads at least ${reading.floor_px} px. The check can no longer measure them: ${why}. ${change}`;
 }
 
+/**
+ * Whether the kit's panels let the laptop step be ready (VRIFY, 2026-11-13), as the reading does: only a measured
+ * failure holds it back, a panel past a laptop's edge or two covering each other, measured now or, on a fit that could
+ * not be measured, last measured and still held (`last_problem`). A fit not known holds nothing back by itself, and
+ * neither does one absent on a check recorded before it.
+ */
+export function fitPasses(fit: CheckFit | undefined): boolean {
+  return fitFailure(fit) === null;
+}
+
+/** The fit's failure, measured now or last measured and still held, or null. */
+function fitFailure(fit: CheckFit | undefined): CheckFit['problem'] {
+  if (fit === undefined) return null;
+  return fit.state === 'measured' ? fit.problem : fit.last_problem;
+}
+
+/** The kit's panels' fit when it is a measured failure, the one case an agent can act on, as `readingUnder` says. */
+export function fitUnder(findings: CheckFindings): CheckFit | null {
+  const fit = findings.laptop?.fit;
+  return fitFailure(fit) === null ? null : (fit ?? null);
+}
+
+/**
+ * The fit in words for the agent: which of the kit's panels, with the app's own label for it, and what to change. Null
+ * when the fit gives an agent nothing to act on.
+ */
+export function fitFix(findings: CheckFindings): string | null {
+  const fit = fitUnder(findings);
+  const failing = fitFailure(fit ?? undefined);
+  if (fit === null || failing === null) return null;
+  const which =
+    fit.panel_kind === null
+      ? ''
+      : ` (${fit.panel_kind === 'page' ? 'a page' : 'a row of buttons'}${fit.panel_label === null || fit.panel_label === '' ? '' : ` "${fit.panel_label}"`})`;
+  const place =
+    'Place every row of buttons, tabs, a pager or a keyboard through rows() from ./kit.js, under the pages, and add nothing at a position of your own.';
+  if (fit.state === 'measured')
+    return failing === 'past_edge'
+      ? `A panel of the kit${which} reaches past the edge of a laptop's 1280 by 800 view. ${place}`
+      : `A panel of the kit${which} overlaps another panel at a laptop's 1280 by 800 view. ${place}`;
+  const why =
+    fit.state === 'changed'
+      ? "a starter kit file that places them (src/pages.ts, src/rows.ts, src/look.ts, src/legible.ts or the input layer) differs from the starter's own; put it back"
+      : 'no panel placed with the kit (pages() or rows()) was in view';
+  const was =
+    failing === 'past_edge'
+      ? `reached past the edge of a laptop's 1280 by 800 view`
+      : `overlapped another panel at a laptop's 1280 by 800 view`;
+  return `A panel of the kit${which} ${was} when last measured. The check can no longer measure it: ${why}. ${place}`;
+}
+
+/** What the laptop step measured an agent can act on, the reading's and the fit's words, or null when neither failed. */
+export function laptopFix(findings: CheckFindings): string | null {
+  const parts = [readingFix(findings), fitFix(findings)].filter((part) => part !== null);
+  return parts.length === 0 ? null : parts.join('\n\n');
+}
+
 export type CheckVerdict = NonNullable<CheckFindings['verdict']>;
 
 /**
  * A starter's check's whole answer, recorded beside `passed` (VRIFY, 2026-11-13): a reference the product could not make
  * is the product's failure, never the app's. `failed` on any failure the check measured or saw, whatever else is not
  * known: a type check or build that did not exit 0, a page not opened, an uncaught exception, nothing drawn by its
- * edges or of its own, a refusal of its starter, or the laptop reading measured under its floor. `not_known` where
+ * edges or of its own, a refusal of its starter, the laptop reading measured under its floor, or the kit's panels
+ * measured past a laptop's edge or over each other. `not_known` where
  * nothing failed and only whether the page draws its own look is not known (`drawn` null). `passed` only for a whole
  * seen pass.
  */
@@ -101,7 +160,8 @@ export function checkVerdict(findings: CheckFindings): CheckVerdict {
     page.exception_count > 0 ||
     page.drawn === false ||
     (findings.refusals?.length ?? 0) > 0 ||
-    readingUnder(findings) !== null
+    readingUnder(findings) !== null ||
+    fitUnder(findings) !== null
   )
     return 'failed';
   if (page.drawn === null) return 'not_known';

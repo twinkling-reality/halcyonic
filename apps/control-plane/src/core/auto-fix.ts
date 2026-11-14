@@ -10,9 +10,11 @@ import {
   type Timestamp,
 } from '@halcyonic/contracts';
 import {
+  fitFix,
   fixSteps,
   folderInUse,
   foldersOverlap,
+  laptopFix,
   type Projection,
   readingFix,
 } from '@halcyonic/domain';
@@ -40,6 +42,9 @@ export const AUTO_FIX_WORDS =
 /** The host's words for a check that passed but does not read on a laptop (ADR 0044's second trigger). */
 export const AUTO_FIX_READING_WORDS =
   '[Sent by your computer on its own, not by the person] Your computer checked this project after your last turn: it builds and runs, but a person cannot read it on a laptop. Fix what it found, change nothing else, then end your turn.';
+/** The host's words for a check that passed and reads, but part of it does not fit a laptop's view (the same trigger). */
+export const AUTO_FIX_FIT_WORDS =
+  "[Sent by your computer on its own, not by the person] Your computer checked this project after your last turn: it builds and runs, but part of it does not fit a laptop's screen. Fix what it found, change nothing else, then end your turn.";
 
 type ProjectCheck = NonNullable<ReturnType<Projection['latestCheck']>>;
 
@@ -303,8 +308,9 @@ export class AutoFix {
       for (const id of executions) this.#end(id, 'check_unavailable', null);
       return;
     }
-    // A check that passed but does not read on a laptop goes back too, under the same cap (ADR 0044, VRIFY 2026-11-13).
-    if (check.findings.passed && readingFix(check.findings) === null) {
+    // A check that passed but does not read or fit on a laptop goes back too, under the same cap (ADR 0044, VRIFY
+    // 2026-11-13).
+    if (check.findings.passed && laptopFix(check.findings) === null) {
       for (const id of executions) if (this.#fixing(id)) this.#end(id, 'passed', check.check_id);
       return;
     }
@@ -474,13 +480,18 @@ export class AutoFix {
       refusals.length === 0
         ? ''
         : `\n\nThe check refused it:\n${refusals.map((each) => `- ${each.words} (${each.file})`).join('\n')}`;
-    // The laptop reading under its floors, in words that may name the kit's parts (AUDIT3 R4).
-    const reading = steps.includes('reading') ? readingFix(check.findings) : null;
+    // The laptop reading under its floors and the kit's panels that do not fit, in words that may name the kit's parts
+    // (AUDIT3 R4).
+    const reading = steps.includes('reading') ? laptopFix(check.findings) : null;
     const readingPart = reading === null ? '' : `\n\n${reading}`;
     const codeSteps = steps.includes('typecheck') || steps.includes('build');
     if (!(codeSteps && lines) && pagePart === '' && refusedPart === '' && readingPart === '')
       return null;
-    const head = check.findings.passed ? AUTO_FIX_READING_WORDS : AUTO_FIX_WORDS;
+    const head = !check.findings.passed
+      ? AUTO_FIX_WORDS
+      : readingFix(check.findings) === null && fitFix(check.findings) !== null
+        ? AUTO_FIX_FIT_WORDS
+        : AUTO_FIX_READING_WORDS;
     return head + pagePart + refusedPart + readingPart;
   }
 

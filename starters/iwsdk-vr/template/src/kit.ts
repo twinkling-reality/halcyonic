@@ -34,3 +34,4 @@ export { type WorldLook, type WorldName, worlds } from './worlds.js';
 export { fitText } from './page-fit.js';
 export { type Page, type Pages, type PagesOptions, MAX_PAGES, pages, TYPE } from './pages.js';
 export { type HeightEncoding, type HeightGrid, type ReliefOptions, relief } from './relief.js';
+export { type Button, type Rows, type RowsOptions, rows } from './rows.js';

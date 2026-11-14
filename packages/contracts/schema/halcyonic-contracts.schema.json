@@ -18659,6 +18659,105 @@
       },
       "additionalProperties": false
     },
+    "CheckFit": {
+      "type": "object",
+      "required": [
+        "state",
+        "problem",
+        "last_problem",
+        "measured",
+        "panel_kind",
+        "panel_label",
+        "words",
+        "detail"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "measured",
+            "unknown",
+            "changed"
+          ]
+        },
+        "problem": {
+          "anyOf": [
+            {
+              "enum": [
+                "past_edge",
+                "overlap"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_problem": {
+          "anyOf": [
+            {
+              "enum": [
+                "past_edge",
+                "overlap"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "measured": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "panel_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "page",
+                "row"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "panel_label": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "words": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "CheckLaptop": {
       "type": "object",
       "required": [
@@ -18739,6 +18838,9 @@
         },
         "reading": {
           "$ref": "#/$defs/CheckReading"
+        },
+        "fit": {
+          "$ref": "#/$defs/CheckFit"
         },
         "ready": {
           "type": "boolean"

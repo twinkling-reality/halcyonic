@@ -4,9 +4,18 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { get } from 'node:http';
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { CheckLaptop, CheckNotes, CheckReading, CheckVr } from '@halcyonic/contracts';
+import type {
+  CheckFit,
+  CheckLaptop,
+  CheckNotes,
+  CheckReading,
+  CheckVr,
+} from '@halcyonic/contracts';
 import { launchChrome } from './chrome.ts';
 import {
+  fitFiles,
+  fitOf,
+  fitPasses,
   laptopStep,
   layerState,
   pipeDriver,
@@ -146,6 +155,11 @@ export interface CheckOptions {
    * a failure it measured under the floor, never clears it.
    */
   readonly lastReading?: CheckReading | null;
+  /**
+   * The project's last measured fit of the kit's panels (VRIFY, 2026-11-13), or null: a fit this check cannot measure
+   * keeps a failure it measured, never clears it.
+   */
+  readonly lastFit?: CheckFit | null;
 }
 
 export interface CheckStep {
@@ -289,6 +303,8 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
   const layer = await layerState(project, options.template);
   // Whether the kit that measures the laptop reading is the starter's own (VRIFY, AUDIT3 R1).
   const reading = await readingFiles(project, options.template);
+  // And whether the kit that places its panels is (AUDIT3 K2).
+  const fitted = await fitFiles(project, options.template);
   const steps = {
     notes,
     laptop: null,
@@ -419,8 +435,8 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
       served,
       cache,
       layer,
-      reading,
-      options.lastReading ?? null,
+      { reading, fit: fitted },
+      { reading: options.lastReading ?? null, fit: options.lastFit ?? null },
     );
     if (opened === null) {
       return {
@@ -473,8 +489,11 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
         ...laptop,
         response_seen: verdict.seen,
         ...(verdict.unknown === null ? {} : { response_unknown: verdict.unknown }),
-        // The reading holds the step back either way (R3), as a press that never reached the layer does.
-        ready: readingPasses(laptop.reading) && (laptop.ready || verdict.seen === true),
+        // The reading and the fit hold the step back either way (R3), as a press that never reached the layer does.
+        ready:
+          readingPasses(laptop.reading) &&
+          fitPasses(laptop.fit) &&
+          (laptop.ready || verdict.seen === true),
       };
     }
     // Only a picture to compare, or to make the reference from, is worth a load.
@@ -573,6 +592,9 @@ export function laptopUnknown(laptop: CheckLaptop): string | null {
   const reading = laptop.reading;
   if (reading !== undefined && reading.state !== 'measured')
     return `${reading.words}.${reading.detail === null ? '' : ` (${reading.detail})`}`;
+  // Whether the kit's panels fit a laptop's view, the same way.
+  const fit = laptop.fit;
+  if (fit !== undefined && fit.state !== 'measured') return `${fit.words}.`;
   return null;
 }
 
@@ -707,8 +729,8 @@ async function openPage(
   port: number,
   cache: string,
   layer: CheckLaptop['layer'],
-  reading: CheckLaptop['layer'],
-  lastReading: CheckReading | null,
+  files: { readonly reading: CheckLaptop['layer']; readonly fit: CheckLaptop['layer'] },
+  last: { readonly reading: CheckReading | null; readonly fit: CheckFit | null },
 ): Promise<
   | { page: Omit<PageFindings, 'drawn' | 'own'>; laptop: CheckLaptop; vr: CheckVr | null }
   | string
@@ -786,9 +808,11 @@ async function openPage(
     const thrownBefore = exceptionCount;
     // The fill share, information only, is read from the picture at 10 s, before the step acts.
     const stepped = await laptopStep(pipeDriver(devtools, session), layer, {
-      files: reading,
+      files: files.reading,
       picture: late.bytes,
-      last: lastReading,
+      last: last.reading,
+      fitFiles: files.fit,
+      lastFit: last.fit,
     }).catch(
       (): CheckLaptop => ({
         layer,
@@ -796,7 +820,8 @@ async function openPage(
         mouse: 'unknown',
         key: 'unknown',
         screen_changed: null,
-        reading: readingOf(reading, null, null, lastReading),
+        reading: readingOf(files.reading, null, null, last.reading),
+        fit: fitOf(files.fit, null, last.fit),
         ready: false,
       }),
     );

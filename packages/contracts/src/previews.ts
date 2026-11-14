@@ -101,6 +101,42 @@ export const CheckReading = Type.Object(
 );
 export type CheckReading = Static<typeof CheckReading>;
 
+/** The laptop view the fit is measured at, in CSS pixels, and how far past its edge or into another panel is allowed. */
+export const FIT_VIEW = { width: 1280, height: 800 } as const;
+/** A panel more than this many pixels past an edge does not fit; one ending exactly at the edge does. */
+export const FIT_EDGE_PX = 2;
+/** Two panels cover each other when they share more than this many pixels across and more than this many down. */
+export const FIT_OVERLAP_PX = 4;
+
+/**
+ * Whether the kit's own panels fit a laptop's 1280 by 800 view and stay clear of each other (VRIFY, 2026-11-13). Where
+ * they stand is what the starter's kit reports through the page's check hook (`reported`): each page and each row of
+ * buttons it placed, boxed on the screen at rest, before any press; panels the app placed itself and text it drew
+ * itself are not measured. `state` is `measured`, `unknown` (no hook answer of the strict shape, or no kit panel shown)
+ * or `changed` (a kit file that feeds it differs from the starter's, or the hook is not as the kit sets it).
+ * `problem`, when measured, is the first failure found: a panel more than `FIT_EDGE_PX` past an edge (`past_edge`) or
+ * two panels sharing more than `FIT_OVERLAP_PX` both ways (`overlap`); null when every panel fits. `last_problem`, on a
+ * fit not measured, is the project's last measured fit's problem while it had one: a fit never improves by becoming
+ * unmeasurable. `panel_kind` and `panel_label` name the panel the problem is about (a page's title or a row's first
+ * button's words, the app's own text), for the agent's try only, never a person's line; null when there is none.
+ * `words` is the person's line, the host's own; `detail` its numbers. Never changes whether the check passed; the laptop
+ * step is held back only by a measured failure: a `problem`, or a `last_problem` still held.
+ */
+export const CheckFit = Type.Object(
+  {
+    state: Type.Enum(['measured', 'unknown', 'changed']),
+    problem: Nullable(Type.Enum(['past_edge', 'overlap'])),
+    last_problem: Nullable(Type.Enum(['past_edge', 'overlap'])),
+    measured: Type.Integer({ minimum: 0, maximum: 64 }),
+    panel_kind: Nullable(Type.Enum(['page', 'row'])),
+    panel_label: Nullable(Text(200)),
+    words: Text(200),
+    detail: Nullable(Text(200)),
+  },
+  strict,
+);
+export type CheckFit = Static<typeof CheckFit>;
+
 /**
  * The laptop step (M1.8b): the check's own mouse presses and keys, sent to the page. `mouse` and `key`
  * are what the page's input layer reports (`reported`); `screen_changed` is observed in the host from
@@ -113,9 +149,10 @@ export type CheckReading = Static<typeof CheckReading>;
  * out of its time or the page stopped reaching frames (`out_of_time`), or a load could not be made or
  * compared (`failed`); absent when not unknown. `exceptions_during` counts uncaught exceptions while
  * the step acted. `reading` says whether a person can read the app on a laptop (`CheckReading`); absent on
- * checks recorded before it. `ready` needs the starter's own layer and either the mouse reported reached
- * with the screen observed changed, or a response seen against the twin; and, where `reading` is present,
- * no measured failure of the reading.
+ * checks recorded before it. `fit` says whether the kit's panels fit a laptop's view and stay clear of each other
+ * (`CheckFit`); absent on checks recorded before it. `ready` needs the starter's own layer and either the mouse
+ * reported reached with the screen observed changed, or a response seen against the twin; and, where `reading` or
+ * `fit` is present, no measured failure of it.
  */
 export const CheckLaptop = Type.Object(
   {
@@ -138,6 +175,7 @@ export const CheckLaptop = Type.Object(
     ),
     exceptions_during: Type.Optional(Type.Integer({ minimum: 0 })),
     reading: Type.Optional(CheckReading),
+    fit: Type.Optional(CheckFit),
     ready: Type.Boolean(),
   },
   strict,
@@ -414,7 +452,10 @@ export const AutoFixView = Type.Object(
           Type.Literal('page'),
           /** A project's own check (ADR 0055): one of its chosen scripts failed. */
           Type.Literal('own_check'),
-          /** The check passed or not, its laptop reading was measured under the floor (`CheckReading`, VRIFY 2026-11-13). */
+          /**
+           * The check passed or not, its laptop reading was measured under the floor (`CheckReading`), or the kit's panels
+           * measured past a laptop's edge or over each other (`CheckFit`) (VRIFY 2026-11-13).
+           */
           Type.Literal('reading'),
         ]),
         { maxItems: 4 },

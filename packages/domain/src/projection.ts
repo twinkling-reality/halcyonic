@@ -6,6 +6,7 @@ import type {
   ChangedFiles,
   CheckFilesState,
   CheckFindings,
+  CheckFit,
   CheckId,
   CheckpointId,
   CheckpointView,
@@ -1312,6 +1313,20 @@ export class Projection {
         last = { position: state.position, reading };
     }
     return last?.reading ?? null;
+  }
+
+  /**
+   * The kit's panels' fit of the project's latest check that measured one (VRIFY, 2026-11-13), or null when none did: a
+   * later check that cannot measure carries a failure it cannot clear, as the reading does.
+   */
+  lastMeasuredFit(projectId: string): CheckFit | null {
+    let last: { position: number; fit: CheckFit } | null = null;
+    for (const state of this.#checksById.get(projectId as ProjectId)?.values() ?? []) {
+      const fit = state.findings.laptop?.fit;
+      if (fit?.state !== 'measured') continue;
+      if (last === null || state.position > last.position) last = { position: state.position, fit };
+    }
+    return last?.fit ?? null;
   }
 
   /** The project's running preview, or undefined when none runs. */

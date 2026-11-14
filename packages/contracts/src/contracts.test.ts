@@ -710,6 +710,7 @@ describe('the C# bindings', () => {
     'CheckFindings.verdict', // the check's whole answer beside passed; absent on earlier checks (VRIFY, 2026-11-13)
     'CheckFindings.vr', // M1.8b
     'CheckLaptop.exceptions_during', // M1.8g
+    'CheckLaptop.fit', // whether the kit's panels fit a laptop's view (VRIFY, 2026-11-13)
     'CheckLaptop.reading', // whether a person can read the app on a laptop (VRIFY, 2026-11-13)
     'CheckLaptop.response_seen', // M1.8g
     'CheckLaptop.response_unknown', // why a twin read was unknown (M1.8g-b)

@@ -1362,6 +1362,36 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     record(first, { laptop: { ...laptopReady.laptop, reading: held, ready: false } });
     assert.equal(refusal(), `${held.words}.`);
     assert.doesNotMatch(refusal(), /ready/i);
+    // A game that works and reads but whose kit panels do not fit a laptop's view is told so in the host's words, never
+    // the app's labels (VRIFY, 2026-11-13).
+    const misfit = {
+      state: 'measured',
+      problem: 'past_edge',
+      last_problem: null,
+      measured: 4,
+      panel_kind: 'page',
+      panel_label: 'Lesson 1',
+      words: "Part of the app does not fit on a laptop's screen",
+      detail: 'a page reaches 27 px past the edge of 1280 by 800',
+    };
+    record(first, { laptop: { ...laptopReady.laptop, fit: misfit, ready: false } });
+    assert.equal(
+      refusal(),
+      "Part of the app does not fit on a laptop's screen (a page reaches 27 px past the edge of 1280 by 800).",
+    );
+    assert.doesNotMatch(refusal(), /Lesson 1/);
+    const fitHeld = {
+      ...misfit,
+      state: 'changed',
+      problem: null,
+      last_problem: 'overlap',
+      measured: 0,
+      words:
+        'Two parts of the app covered each other on a laptop when last measured, and can no longer be measured: the app changed the files the check finds its parts through',
+      detail: null,
+    };
+    record(first, { laptop: { ...laptopReady.laptop, fit: fitHeld, ready: false } });
+    assert.equal(refusal(), `${fitHeld.words}.`);
     // A reading not known holds nothing back, and a refusal for another reason never says ready (the lead, AUDIT2).
     const notKnown = {
       ...held,
