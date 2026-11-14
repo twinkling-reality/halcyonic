@@ -93,7 +93,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Whether the plane waits before deciding again (JUDGE's charR; AUDIT's 22:30Z): only where placing just ended, no shelf
-        /// stands yet, nothing else changed (the text size, the plane, the characters), and no more than <see cref="PlacedShelfFrames"/>
+        /// stands yet, the text size did not change (the plane returning and the shelf's characters arriving come with the placing's
+        /// end, so the host never counts them), and no more than <see cref="PlacedShelfFrames"/>
         /// frames have passed; so a placed shelf changes the width once, and a cancelled placing, or any real change, is decided at once.
         /// </summary>
         public static bool AwaitsPlacedShelf(bool wasPlacing, bool placing, bool shelfStands, bool otherChange, int framesSincePlacingEnded) =>

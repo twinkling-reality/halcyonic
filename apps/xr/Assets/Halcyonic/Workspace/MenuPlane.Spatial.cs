@@ -366,8 +366,10 @@ namespace Halcyonic.XR.Workspace
             if (formSituation is { } placed && placed.Placing && !placing)
             {
                 if (placingEndedFrame < 0) placingEndedFrame = considered;
-                var otherChange = !Mathf.Approximately(placed.Scale, now.Item1) || placed.Characters != characters
-                    || placed.Yaw != now.Item4 || placed.Pitch != now.Item5;
+                // The plane returning from its placing form and the shelf's characters arriving come with the placing's end, so they
+                // never end the wait (JUDGE's charU: Apply's first draw laid 440 with no shelf, then 360 once it stood): only the text
+                // size is another change.
+                var otherChange = !Mathf.Approximately(placed.Scale, now.Item1);
                 if (PlaneWidthRule.AwaitsPlacedShelf(true, false, shelf != null, otherChange, considered - placingEndedFrame)) return;
             }
             placingEndedFrame = -1;
@@ -405,14 +407,24 @@ namespace Halcyonic.XR.Workspace
                 var elevation = Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg;
                 left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
             }
-            var aside = ShelfAside.For((left + right) / 2f, (right - left) / 2f, bottom, top, new[] { LargestExtent(widthDp), BandExtent() }, Direction.Yaw,
+            var (bar, band) = (LargestExtent(widthDp), BandExtent());
+            var aside = ShelfAside.For((left + right) / 2f, (right - left) / 2f, bottom, top, new[] { bar, band }, Direction.Yaw,
                 Direction.Yaw, AgentShelfSearch.SideDegrees);
+            // What the plane reasons, about its heading, for a walk to hold beside what is drawn (AUDIT's 00:43Z: the shelf's extent the
+            // plane uses against its drawn bounds).
+            var shelfNow = new AngularExtent(left - Direction.Yaw, right - Direction.Yaw, bottom, top);
+            Debug.Log("Halcyonic: the plane reasons the shelf " + Span(shelfNow) + ", the bar " + Span(bar) + " and the band " + Span(band) + "; the shelf is "
+                + shelfNow.Apart(bar).ToString("0.0") + " degrees from the bar and " + shelfNow.Apart(band).ToString("0.0") + " from the band.");
             if (!aside.Clears) Debug.Log("Halcyonic: no turn out to the person's side clears the plane for the shelf; it stays in its own place.");
             else if (!Mathf.Approximately(aside.Moved, 0f))
                 Debug.Log("Halcyonic: the shelf stands aside " + Mathf.Abs(aside.Moved).ToString("0") + " degrees while the plane is open"
                     + (aside.PastThirty ? ", past thirty, as far as clears." : "."));
             return aside.Clears ? aside.Moved : 0f;
         }
+
+        /// <summary>An extent as a walk's log reads it: across, then up, in degrees.</summary>
+        private static string Span(AngularExtent extent) =>
+            "(" + extent.Left.ToString("0.0") + " to " + extent.Right.ToString("0.0") + " across, " + extent.Bottom.ToString("0.0") + " to " + extent.Top.ToString("0.0") + " up)";
 
         /// <summary>
         /// Where the bar laid with its panel <paramref name="widthDp"/> wide would stand at its largest, in degrees from the eyes toward

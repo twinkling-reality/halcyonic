@@ -55,6 +55,21 @@ public class ShelfAsideTests
         Assert.That(Math.Abs(under.Yaw), Is.GreaterThanOrEqualTo(27.5f + WorkspacePlacement.ClearanceDegrees + 3f - 1f), "past the band's side");
     }
 
+    /// <summary>
+    /// JUDGE's charU numbers at page open (AUDIT's 00:43Z): a shelf whose foot meets the band's top, or stands half a degree into it,
+    /// where they overlap across, is not clear, and stands aside.
+    /// </summary>
+    [TestCase(-21.8f)]
+    [TestCase(-22.3f)]
+    public void AShelfWhoseFootMeetsTheBandsTopStandsAside(float foot)
+    {
+        var parts = new[] { new AngularExtent(-14f, 14f, -17.6f, 10f), new AngularExtent(-27f, 27f, -25.9f, -21.8f) };
+        var (left, right) = (20.7f, 48.6f);
+        var aside = ShelfAside.For((left + right) / 2f, (right - left) / 2f, foot, 1.8f, parts, 0f, 0f, 90f);
+        Assert.That(aside.Clears, Is.True);
+        Assert.That(aside.Moved, Is.GreaterThan(0f), "away from the plane's middle, out of the band's reach");
+    }
+
     [Test]
     public void NothingIsEverPutPastTheFieldsEdgeAShelfThatCannotClearInsideItStaysAndIsAFinding()
     {
