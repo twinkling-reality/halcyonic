@@ -232,7 +232,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 controlsType.GetMethod("PlaceAgents", BindingFlags.Public | BindingFlags.Instance)!.Invoke(controls, null);
                 Draw();
                 bool decidesWidth;
-                lock (widths) decidesWidth = widths.Count > 0;
+                string? lastWidth;
+                lock (widths) { decidesWidth = widths.Count > 0; lastWidth = widths.LastOrDefault(); }
                 if (Press(Footer.Close))
                 {
                     lock (widths) widths.Clear();
@@ -240,10 +241,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw();
                     lock (widths)
                     {
-                        // Only where the plane decides a width at all (a tip with the plane's width rule says so while placing).
+                        // Only where the plane decides a width at all (a tip with the plane's width rule says so while placing). Where the
+                        // width it last laid was not a placing's (its line names no ", placing"), the plane already stands as it does with the
+                        // placing over, so no new line is owed (charU, 2026-11-14).
                         if (!decidesWidth) Debug.Log("Halcyonic: shelf walk: the plane says no width while placing here: the cancelled placing's width is not measured");
-                        else if (widths.Count == 0) failures.Add("a cancelled placing: no width line within two draws of its Close (the plane waits for another change)");
-                        else Debug.Log("Halcyonic: shelf walk: a cancelled placing, then: " + widths[0]);
+                        else if (widths.Count > 0) Debug.Log("Halcyonic: shelf walk: a cancelled placing, then: " + widths[0]);
+                        else if (lastWidth != null && lastWidth.Contains(", placing")) failures.Add("a cancelled placing: no width line within two draws of its Close, the last laid a placing's: " + lastWidth);
+                        else Debug.Log("Halcyonic: shelf walk: a cancelled placing: the plane already stood as with no placing: " + lastWidth);
                     }
                 }
                 else failures.Add("nothing drawn closes the shelf's placing");
