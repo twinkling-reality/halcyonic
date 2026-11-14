@@ -1,4 +1,3 @@
-import { execFile } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { chmod, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -296,10 +295,14 @@ async function main(): Promise<void> {
               audible: (pid) => outputInTree(audioOutputFor(config.dataDir), pid),
               // The viewer's one-time link opens in the Mac's default browser: the page there is
               // Halcyonic's viewer only; the game itself runs in the contained browser.
+              // Its one-time code never goes into a process's arguments, where every process on the
+              // Mac could read and spend it first (CARBON A1-1): it is handed over as the pairing page's is.
               openViewer: (link) => {
-                execFile('/usr/bin/open', [link], (error) => {
-                  if (error !== null) app.log.warn('the viewer of a play could not be opened');
-                });
+                try {
+                  openLinkPrivately(config.dataDir, link);
+                } catch {
+                  app.log.warn('the viewer of a play could not be opened');
+                }
               },
             },
           },

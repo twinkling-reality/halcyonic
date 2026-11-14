@@ -177,6 +177,45 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
     }
   });
 
+  test("the link's code comes from the hand-over file as another site's top-level navigation, and nothing else may", async () => {
+    // CARBON A1-1: the code is handed over in a file (open-link.ts), never in open's arguments, and a file's origin
+    // counts as another site. Only the trade of a code, as a page the person navigates to, may come so.
+    const viewer = await PlayViewer.open(standIn().play, { ports: await freePorts() });
+    try {
+      const link = new URL(viewer.link);
+      const navigate = {
+        'sec-fetch-site': 'cross-site',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-dest': 'document',
+      };
+      for (const headers of [
+        { ...navigate, 'sec-fetch-mode': 'cors' },
+        { ...navigate, 'sec-fetch-dest': 'iframe' },
+      ]) {
+        const answer = await get(viewer.port, `${link.pathname}${link.search}`, headers);
+        assert.equal(answer.status, 403, JSON.stringify(headers));
+      }
+      assert.equal(
+        (await get(viewer.port, '/', navigate)).status,
+        403,
+        'no code, nothing opens from another site',
+      );
+      const traded = await get(viewer.port, `${link.pathname}${link.search}`, navigate);
+      assert.equal(traded.status, 303, 'the code, navigated to, is traded once');
+      const cookie = String(traded.headers['set-cookie']).split(';')[0] ?? '';
+      assert.equal(
+        (await get(viewer.port, '/', { cookie, 'sec-fetch-site': 'cross-site' })).status,
+        403,
+      );
+      assert.equal(
+        (await get(viewer.port, '/', { cookie, 'sec-fetch-site': 'same-origin' })).status,
+        200,
+      );
+    } finally {
+      await viewer.close();
+    }
+  });
+
   test('another name for it, a page of another port, or a request a page started elsewhere are refused, with the cookie', async () => {
     const viewer = await PlayViewer.open(standIn().play, { ports: await freePorts() });
     try {
