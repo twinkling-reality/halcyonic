@@ -18,6 +18,14 @@ import { VIEWER_PORT_FIRST, VIEWER_PORT_LAST } from '../config.ts';
 /** The viewers' ports beside 47800 (`portFamily` moves them with a plane on another port). */
 export { VIEWER_PORT_FIRST, VIEWER_PORT_LAST };
 
+/**
+ * The answer to a link's code: the cookie, and a page that goes on to the viewer by itself, as the pairing page does
+ * (AUDIT3, 2026-11-14). Not a redirect: a redirect keeps the navigation the hand-over file started, from another site,
+ * so '/' would be asked for as cross-site, without the cookie, and refused; this page's own navigation is same-origin.
+ */
+const GO_ON =
+  '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/"><title>Play</title>\n';
+
 /** How long the code in a viewer's link can be used. */
 export const VIEWER_CODE_MS = 60_000;
 
@@ -257,7 +265,8 @@ export class PlayViewer {
         'set-cookie',
         `${this.#cookieName}=${this.#session}; HttpOnly; SameSite=Strict; Path=/`,
       )
-      .redirect('/', 303);
+      .type('text/html; charset=utf-8')
+      .send(GO_ON);
   }
 
   #hasSession(request: FastifyRequest): boolean {

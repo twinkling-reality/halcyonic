@@ -395,7 +395,8 @@ describe('the host runs, streams, feeds and stops a play (P-A)', () => {
       redirect: 'manual',
       headers: { 'sec-fetch-site': 'none' },
     });
-    assert.equal(signedIn.status, 303);
+    // The trade answers with a page that goes on to '/' by itself (never a redirect).
+    assert.equal(signedIn.status, 200);
     const cookie = (signedIn.headers.get('set-cookie') ?? '').split(';')[0] ?? '';
     const socket = new WebSocket(`ws://127.0.0.1:${port}/stream`, {
       headers: { cookie, origin: `http://127.0.0.1:${port}` },
