@@ -397,12 +397,14 @@ public class LineWordsTests
             var tabbed = "Runs\ta check " + Guid.NewGuid().ToString("N").Substring(0, 6);
             Assert.That(LineWords.HostPlain(tabbed).Text, Does.StartWith("Runs a check "));
             Assert.That(LineWords.Folds - before, Is.EqualTo(2), "each folded line counted, so a check fails on it");
+            // Laid again, as a later state or the other text size lays it: counted again, so each state's check fails, said once.
+            var again = LineWords.Folds;
             LineWords.HostPlain(joined);
-            Assert.That((LineWords.Folds - before, said.Count), Is.EqualTo((2, 2)), "a line laid again is never counted or said twice");
+            Assert.That((LineWords.Folds - again, said.Count), Is.EqualTo((1, 2)), "a line laid again counts for the state that laid it, the log says it once");
             Assert.That(said, Is.EqualTo(new[] { "no_break_space", "tab" }), "said by its kind alone");
             Assert.That(said.Any(kind => kind.Contains("Free") || kind.Contains("Tier")), Is.False, "never the words");
             var clean = LineWords.HostPlain("Every check the computer ran passed");
-            Assert.That((clean.Text, LineWords.Folds - before), Is.EqualTo(("Every check the computer ran passed", 2)), "a plain line is laid as it is, nothing counted");
+            Assert.That((clean.Text, LineWords.Folds - again), Is.EqualTo(("Every check the computer ran passed", 1)), "a plain line is laid as it is, nothing counted");
         }
         finally
         {

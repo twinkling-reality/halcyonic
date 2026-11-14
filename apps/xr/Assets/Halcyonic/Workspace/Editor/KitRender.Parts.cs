@@ -91,7 +91,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         try { found.AddRange(RenderPart(state, size)); }
                         catch (Exception error) { found.Add(state + " threw " + error); }
                         if (LineWords.Folds > foldsBefore)
-                            found.Add(state + " (" + size + "): " + (LineWords.Folds - foldsBefore) + " distinct lines from the computer held a character the headset folds, shown plain (LineWords.HostPlain), each counted once however often it was laid.");
+                            found.Add(state + " (" + size + "): " + (LineWords.Folds - foldsBefore) + " folds: a line from the computer held a character the headset folds and was shown plain (LineWords.HostPlain).");
                     }
                     if (!narrowed || ShelfWorstState.Contains(only!, StringComparison.OrdinalIgnoreCase))
                     {

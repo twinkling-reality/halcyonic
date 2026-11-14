@@ -66,27 +66,24 @@ namespace Halcyonic.Client
         /// <summary>
         /// The host's own words, laid upright as Halcyonic's: as <see cref="Ours"/>, except that a character the headset folds
         /// (a no-break space, a tab, a control character) is shown as <see cref="LabelText.Plain"/> shows it instead of refused,
-        /// so a person's card never stops drawing because a host sentence held one. Each folded line is counted once in
-        /// <see cref="Folds"/> and said once through <see cref="Folded"/> by its kind alone, never the words, however often its
-        /// card is laid again (AUDIT's 05:34Z: the kit lays a frame more than once as it measures), so a log sees it and a check
-        /// still fails on it.
+        /// so a person's card never stops drawing because a host sentence held one. Every fold is counted in <see cref="Folds"/>,
+        /// so a check that reads the count round one state fails that state whatever an earlier state folded; each folded line
+        /// is said once through <see cref="Folded"/> by its kind alone, never the words, however often its card is laid again,
+        /// so the device log says it once (AUDIT's 05:34Z and 05:35Z).
         /// </summary>
         public static LineWords HostPlain(string words)
         {
             if (words == null) throw new ArgumentNullException(nameof(words));
             var plain = LabelText.Plain(words);
             if (plain == words.Trim(' ')) return Ours(words);
+            System.Threading.Interlocked.Increment(ref folds);
             bool first;
             lock (foldedLines) first = foldedLines.Add(words.GetHashCode());
-            if (first)
-            {
-                System.Threading.Interlocked.Increment(ref folds);
-                Folded?.Invoke(FoldKind(words));
-            }
+            if (first) Folded?.Invoke(FoldKind(words));
             return Ours(plain);
         }
 
-        /// <summary>How many distinct host lines <see cref="HostPlain"/> has shown plain since the app started.</summary>
+        /// <summary>How many times <see cref="HostPlain"/> has shown a host line plain since the app started: every fold, every lay.</summary>
         public static int Folds => System.Threading.Volatile.Read(ref folds);
 
         /// <summary>Said once for each host line <see cref="HostPlain"/> showed plain: the kind of the first character it folded, never the words.</summary>
@@ -94,7 +91,7 @@ namespace Halcyonic.Client
 
         private static int folds;
 
-        /// <summary>The folded lines already counted, by their hash in this process alone, never their words.</summary>
+        /// <summary>The folded lines already said, by their hash in this process alone, never their words: what the log says once.</summary>
         private static readonly HashSet<int> foldedLines = new HashSet<int>();
 
         private static string FoldKind(string words)
