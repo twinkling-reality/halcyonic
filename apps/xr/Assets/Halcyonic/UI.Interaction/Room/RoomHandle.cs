@@ -11,6 +11,9 @@ namespace Halcyonic.XR.UI
     /// target tall. It drags by <see cref="PointerTarget.EnableDrag"/>, the same target the older views' Move used, so the plane
     /// wires it through MenuDrag as it stands (XR's half): <see cref="Target"/>'s Dragged, Selected and Released.
     /// </summary>
+    /// <summary>How the plane's handle looks: at rest, pointed at, or held.</summary>
+    public enum RoomHandleLook { Rest, Pointed, Held }
+
     public sealed class RoomHandle : MonoBehaviour
     {
         /// <summary>The pill's length and height at rest, in dp.</summary>
@@ -55,8 +58,8 @@ namespace Halcyonic.XR.UI
         /// <summary>Whether a hand holds it now.</summary>
         public bool Held => target.HeldPoint != null;
 
-        /// <summary>For renders, which have no hands: the look to show in place of the one its state gives (rest, pointed, held), or null.</summary>
-        public string? LookForRender { get; set; }
+        /// <summary>For renders, which have no hands: the look to show in place of the one its state gives, or null.</summary>
+        public RoomHandleLook? LookForRender { get; set; }
 
         public static RoomHandle Create(Transform parent, int order = KitType.Order.ControlWords)
         {
@@ -80,12 +83,13 @@ namespace Halcyonic.XR.UI
 
         private void Paint(bool immediately)
         {
-            var look = LookForRender ?? (Held ? "held" : target.Hovered ? "pointed" : "rest");
+            var look = LookForRender ?? (Held ? RoomHandleLook.Held : target.Hovered ? RoomHandleLook.Pointed : RoomHandleLook.Rest);
             var (alpha, width) = look switch
             {
-                "held" => (HeldAlpha, 1f - HeldShrink),
-                "pointed" => (PointedAlpha, 1f + PointedGrow),
-                _ => (RestAlpha, 1f),
+                RoomHandleLook.Held => (HeldAlpha, 1f - HeldShrink),
+                RoomHandleLook.Pointed => (PointedAlpha, 1f + PointedGrow),
+                RoomHandleLook.Rest => (RestAlpha, 1f),
+                _ => throw new System.ArgumentOutOfRangeException(nameof(look), look, "a handle look the kit does not draw"),
             };
             var step = immediately ? 1f : Mathf.Clamp01(EaseRate * Time.unscaledDeltaTime);
             alphaNow = Mathf.Lerp(alphaNow, alpha, step);
