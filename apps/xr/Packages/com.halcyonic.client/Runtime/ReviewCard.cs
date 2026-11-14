@@ -59,8 +59,9 @@ namespace Halcyonic.Client
                 .Select(item => new RoomListRow(ReviewKinds.Mark(item.Kind), Words(item.Name, item.Theirs), item.Note, mono: ReviewKinds.Mono(item.Kind))).ToList();
             var warnings = CommandReview.Warnings(review);
             RoomCardStatus? status = warnings.Count == 0 ? (RoomCardStatus?)null
-                : new RoomCardStatus(RoomReview.CheckTitle, string.Join(". ", warnings.Select(each => each.Line.Trim().TrimEnd('.'))) + (warnings.Count > 1 ? "." : ""),
-                    RoomTone.Attention, RoomKind.Failed);
+                // Each warning its own line, in the host's order, never joined into one paragraph (a fresh reader, 2026-11-14T00:20Z: the joined
+                // warnings buried that the person's requests leave this computer).
+                : RoomCardStatus.Apart(RoomReview.CheckTitle, warnings.Select(each => each.Line), RoomTone.Attention, RoomKind.Failed);
             // What happens first, the warnings after (AUDIT2's 2026-11-13T22:37Z), except where a warning is a consent the press gives:
             // then it stands under the name, read before the press (AUDIT2's 22:38Z).
             var after = status != null && !warnings.Any(each => ConsentFirst.Contains(each.Code));

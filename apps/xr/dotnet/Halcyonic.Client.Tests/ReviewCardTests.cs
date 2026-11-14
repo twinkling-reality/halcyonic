@@ -124,7 +124,7 @@ public class ReviewCardTests
                 new ActionReviewWarning { Code = "blank", Line = " " },
             });
         var card = ReviewCard.Card(review, "Publish");
-        Assert.That((card.Status!.Value.Title, card.Status.Value.Line, card.Status.Value.Tone),
+        Assert.That((card.Status!.Value.Title, card.Status.Value.Lines.Single(), card.Status.Value.Tone),
             Is.EqualTo(("Check First", "Anyone with its address can play it, even when its repository is private", RoomTone.Attention)));
         Assert.That((card.List.Count, card.Slots.Count, card.More), Is.EqualTo((0, 0, (LineWords?)null)));
         Assert.That(ReviewCard.Actions(review).Select(action => action.Words), Is.EqualTo(new[] { "Publish", "Cancel" }));
@@ -148,5 +148,25 @@ public class ReviewCardTests
             Assert.That(ReviewCard.Card(asked, "Review").StatusAfter, Is.False, consent + " keeps the warning first");
         }
         Assert.That(ReviewCard.Card(Review(CommandType.ProjectSend, "Send", "Something happens"), "Review").StatusAfter, Is.False, "no warning, no status to move");
+    }
+
+    /// <summary>
+    /// A review's warnings stand APART, each its own line in the host's order, never joined into one paragraph (a fresh reader,
+    /// 2026-11-14T00:20Z: the Use Model card's joined warnings buried that the person's requests leave this computer; AUDIT2 and LINK).
+    /// </summary>
+    [Test]
+    public void AReviewsWarningsStandApartInTheHostsOrder()
+    {
+        ActionReviewWarning Warn(string code, string line) => new() { Code = code, Line = line };
+        var warnings = new[]
+        {
+            Warn("sent_to_provider", "Your requests, and what the assistant reads in your projects, go to Tidewater"),
+            Warn("price_unknown", "Tidewater sets each request's price; it is not shown here"),
+            Warn("free_here", "To stop paying, choose This Computer's Model, which is free"),
+        };
+        var card = ReviewCard.Card(Review(CommandType.AssistantModelChoose, "Use Model", "From now on the assistant answers on a paid model", warnings: warnings), "Use Model");
+        Assert.That(card.Status!.Value.Lines, Is.EqualTo(warnings.Select(each => each.Line)), "each warning its own line, the host's order");
+        Assert.That(card.Status.Value.Line, Is.Null, "never one joined paragraph");
+        Assert.That(card.Words().Count(words => warnings.Any(each => words == each.Line)), Is.EqualTo(3));
     }
 }
