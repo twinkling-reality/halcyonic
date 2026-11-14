@@ -1086,6 +1086,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 bool Tap(string action)
                 {
+                    // As Press: the page settles a moment before a person's press reaches it.
+                    Draw();
+                    Thread.Sleep(TimeSpan.FromSeconds(0.45));
+                    Draw();
                     if (Drawn(action, null) is not RoomButton drawnTap) return false;
                     drawnTap.Press.SettleForRender();
                     drawnTap.Press.PressForRender(992);
