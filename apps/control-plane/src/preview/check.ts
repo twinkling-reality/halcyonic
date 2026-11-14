@@ -81,7 +81,7 @@ export const EARLY_MS = 3_000;
  * browser's or a build's message, and never the app as the cause.
  */
 export const OWN_LOOK_NOT_KNOWN =
-  "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Checking the project again may make it.";
+  "The app's own look is not known: the starter's picture to compare with could not be made. Checking again may make it.";
 
 /**
  * A check's state where its verdict is `not_known` (AUDIT2's words): its label, and its line, with the finding's sentence
