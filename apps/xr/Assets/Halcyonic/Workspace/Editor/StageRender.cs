@@ -527,12 +527,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 // What each renderer under the characters drew with, labels and badges included, so a still failure names what moved
                 // (AUDIT's 06:08Z: b167's 62 pixels sat at the characters' edges, none of them a shader's stand-in).
                 var drawnAfter = DrawnValues(characters.Select(each => each.View));
-                var drawnMoved = drawnBefore.Where(pair => !drawnAfter.TryGetValue(pair.Key, out var now) || now != pair.Value).Select(pair => pair.Key)
+                var drawnMoved = drawnBefore.Where(pair => !drawnAfter.TryGetValue(pair.Key, out var current) || current != pair.Value).Select(pair => pair.Key)
                     .Concat(drawnAfter.Keys.Where(key => !drawnBefore.ContainsKey(key))).Distinct().ToList();
                 Debug.Log("Halcyonic: stage render " + name + ": kept still, " + drawnMoved.Count + " drawn values of " + drawnBefore.Count + " differ between the two renders.");
                 foreach (var key in drawnMoved.Take(40))
                     Debug.Log("Halcyonic: stage render " + name + ": kept still, drawn value " + key + ": "
-                        + (drawnBefore.TryGetValue(key, out var was) ? was : "absent") + " -> " + (drawnAfter.TryGetValue(key, out var now) ? now : "absent"));
+                        + (drawnBefore.TryGetValue(key, out var drawnWas) ? drawnWas : "absent") + " -> " + (drawnAfter.TryGetValue(key, out var drawnNow) ? drawnNow : "absent"));
                 if (changed > 0)
                 {
                     failures.Add(name + ": under Keep things still, " + changed + " pixels of the stage changed in a second, by up to "
