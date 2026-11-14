@@ -77,7 +77,7 @@ test('a check whose own look is not known is Partly Checked, its line and the fi
   );
   assert.equal(
     said,
-    "The computer's check: Partly Checked. What was checked passed; one thing could not be checked. Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Press Check to try again. The type check passed, the build passed and the page opened with no errors. The files have not changed since.",
+    "The computer's check: Partly Checked. What was checked passed; one thing could not be checked. Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Checking the project again may make it. The type check passed, the build passed and the page opened with no errors. The files have not changed since.",
   );
   assert.deepEqual(PARTLY_CHECKED, {
     label: 'Partly Checked',
