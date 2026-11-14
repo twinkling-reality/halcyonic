@@ -4850,6 +4850,7 @@ namespace Halcyonic.Contracts
     public enum ExecutionApprovalDeniedByHostPayloadBecause
     {
         [global::System.Runtime.Serialization.EnumMember(Value = "too_long_to_show")] TooLongToShow,
+        [global::System.Runtime.Serialization.EnumMember(Value = "not_recorded")] NotRecorded,
     }
 
     public sealed class ExecutionApprovalDeniedByHostPayload
@@ -4860,8 +4861,8 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("because", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionApprovalDeniedByHostPayloadBecause Because { get; set; }
 
-        [global::Newtonsoft.Json.JsonProperty("length", Required = global::Newtonsoft.Json.Required.Always)]
-        public long Length { get; set; }
+        [global::Newtonsoft.Json.JsonProperty("length", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public long? Length { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("delivered", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Delivered { get; set; }

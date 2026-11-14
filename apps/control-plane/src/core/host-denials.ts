@@ -5,11 +5,17 @@ import {
   type Timestamp,
 } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
-import type { Clock } from '@halcyonic/runtime-core';
+import {
+  type Clock,
+  type ExecutionContext,
+  RuntimeActionError,
+  type RuntimeAdapter,
+  type RuntimeObservation,
+} from '@halcyonic/runtime-core';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
 import type { CommandService } from './command-service.ts';
-import { APPROVABLE_LIMIT, type Cause, controlPlaneDraft } from './drafts.ts';
+import { APPROVABLE_LIMIT, type Cause, controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 import type { EventPublisher } from './publisher.ts';
 import type { Recorder } from './recorder.ts';
 
@@ -22,6 +28,105 @@ const CLIENT = { name: 'halcyonic-control-plane', version: null, device_label: n
  */
 export function tooLongWords(length: number): string {
   return `This request is ${length} characters long, and a person can be shown at most ${APPROVABLE_LIMIT} whole, so it was not done.`;
+}
+
+/**
+ * What the agent is told, where its app carries a denial's words, when its request could not be recorded: that no
+ * person saw it and it was not done, with no advice and never the request's own text (the words reviewer, 2026-11-13).
+ */
+export const NOT_RECORDED_WORDS =
+  'This request could not be shown to a person, so it was not done.';
+
+export interface UnrecordedRequestsDeps {
+  readonly recorder: Recorder;
+  readonly projection: Projection;
+  readonly adapter: RuntimeAdapter;
+  readonly execution: ExecutionContext;
+  readonly clock: Clock;
+  readonly logger: Logger;
+}
+
+/**
+ * The host's answer to a request its journal could not record (ADR 0065, 2026-11-13): an agent app's approval request
+ * the contract refuses is never a card, so the agent would wait on it until its run's bound. For one with an id the
+ * agent app can be answered by, and that the projection does not hold pending, the host records
+ * `execution.approval.denied_by_host` because `not_recorded`, then denies it through the agent app itself, not through
+ * the command a press sends: admission refuses a decision on a request it never saw. The denial is sent even where its
+ * record fails, since a refusal nobody sees still frees the agent and a wait nobody sees does not. A question has no
+ * declared way to be declined (`answerQuestion` carries answers only), so one is left as it is. Logs carry ids,
+ * codes and counts, never the request's text.
+ */
+export function unrecordedRequests(
+  deps: UnrecordedRequestsDeps,
+): (observation: RuntimeObservation) => void {
+  const { adapter, execution, logger } = deps;
+  const runtimeId = adapter.descriptor.runtime_id;
+  const ids = { execution_id: execution.execution_id, runtime_id: runtimeId };
+  return (observation) => {
+    if (observation.type !== 'runtime.approval.requested') return;
+    const approvalId = (observation.payload as { approval_id?: unknown } | null)?.approval_id;
+    if (typeof approvalId !== 'string' || approvalId.length === 0 || approvalId.length > 512) {
+      logger.error(ids, 'an unrecorded request has no id it can be denied by');
+      return;
+    }
+    // Recorded after all, as when a later step of the write failed: the person decides it.
+    const view = deps.projection.execution(execution.execution_id);
+    if (view?.pending_approvals.some((each) => each.approval_id === approvalId) === true) return;
+    const respond = adapter.respondToApproval;
+    if (adapter.descriptor.capabilities.respond_to_approval !== true || respond === undefined) {
+      logger.error(ids, 'an unrecorded request could not be denied: its app takes no decisions');
+      return;
+    }
+    const delivered = adapter.descriptor.delivers_denial_message === true;
+    let recorded = false;
+    try {
+      deps.recorder.record(
+        controlPlaneDraft(
+          'execution.approval.denied_by_host',
+          execution,
+          { approval_id: approvalId, because: 'not_recorded', delivered },
+          deps.clock.now().toISOString() as Timestamp,
+          NO_CAUSE,
+        ),
+      );
+      recorded = true;
+    } catch {
+      // Not the error itself: it can hold the request.
+    }
+    // After the adapter's own emit returns, outside its call.
+    void Promise.resolve()
+      .then(() =>
+        respond.call(adapter, {
+          execution,
+          approval_id: approvalId,
+          decision: 'deny',
+          message: NOT_RECORDED_WORDS,
+        }),
+      )
+      .then(
+        () =>
+          logger.warn(
+            { ...ids, recorded, delivered, outcome: 'denied' },
+            'denied a request that was not recorded',
+          ),
+        (error: unknown) =>
+          logger.error(
+            {
+              ...ids,
+              recorded,
+              delivered,
+              outcome: 'failed',
+              code:
+                error instanceof RuntimeActionError
+                  ? error.code
+                  : error instanceof Error
+                    ? error.name
+                    : typeof error,
+            },
+            'a request that was not recorded could not be denied',
+          ),
+      );
+  };
 }
 
 /** What happens to a request: the host answers it, the host denies it for length, or a person decides. */

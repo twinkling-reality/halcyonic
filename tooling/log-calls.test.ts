@@ -362,8 +362,18 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
     },
     {
       file: 'apps/control-plane/src/core/drafts.ts',
-      args: '{ err: error, execution_id: execution.execution_id, runtime_id: runtimeId, observation_type: observation.type, }, "" ,',
-      why: "an error through errorForLog (http/server.ts): its type, code and frames, never its message; the journal's refusal of an adapter's observation",
+      args: '{ execution_id: execution.execution_id, runtime_id: runtimeId, observation_type: observation.type, error: error instanceof Error ? error.name : typeof error, ...((typeof code === "" || typeof code === "" ) && { code }), ...(paths !== undefined && { paths }), }, "" ,',
+      why: "the journal's refusal of an adapter's observation: ids, the observation's type, the error's name and its code where it has one (a string or number the error's own class sets), and issuePaths, each JSON pointer step that is a contract field name or an index, any other step written *; never an issue's words or the error's message, which can quote the request (ADR 0065)",
+    },
+    {
+      file: 'apps/control-plane/src/core/host-denials.ts',
+      args: '{ ...ids, recorded, delivered, outcome: "" }, "" ,',
+      why: 'a request the journal could not record, denied by the host: ids is the execution and runtime ids, the rest booleans and a fixed outcome word (ADR 0065)',
+    },
+    {
+      file: 'apps/control-plane/src/core/host-denials.ts',
+      args: '{ ...ids, recorded, delivered, outcome: "" , code: error instanceof RuntimeActionError ? error.code : error instanceof Error ? error.name : typeof error, }, "" ,',
+      why: "the host's denial of a request not recorded failed: ids is the execution and runtime ids, booleans, and the runtime action's code or the error's name, never its message (ADR 0065)",
     },
     {
       file: 'apps/control-plane/src/core/publisher.ts',
