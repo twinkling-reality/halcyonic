@@ -16,11 +16,17 @@ namespace Halcyonic.Client
         /// <summary>The narrowest step measured.</summary>
         public const float NarrowestDp = 240f;
 
-        /// <summary>The floor at the standard text size: every main screen whole at and above it (F106).</summary>
+        /// <summary>
+        /// The floor at the standard text size, by both of its measures (F124, 2026-11-14): every main screen lays whole down to 280 dp,
+        /// but the recap at every budget reads under 14 dp as the eyes see it below 360 dp, so 360.
+        /// </summary>
         public const float StandardFloorDp = 360f;
 
-        /// <summary>The floor at the larger text size (F106).</summary>
-        public const float LargerFloorDp = 400f;
+        /// <summary>
+        /// The floor at the larger text size, by both of its measures (F124, the lead's 2026-11-14T02:54Z (A)): every main screen lays whole
+        /// down to 320 dp, and every word reads at 14 dp as the eyes see it down to 240 dp, so 320 (it was 400, F106).
+        /// </summary>
+        public const float LargerFloorDp = 320f;
 
         /// <summary>The floor at a text size of <paramref name="textScale"/> (1 standard, <see cref="Comfort.LargerTextScale"/> larger).</summary>
         public static float FloorDp(float textScale) => textScale > 1.0001f ? LargerFloorDp : StandardFloorDp;
