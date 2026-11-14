@@ -389,13 +389,16 @@ public class LineWordsTests
         try
         {
             var before = LineWords.Folds;
-            const string joined = "Shared on the Free\u00A0Tier";
+            var joined = "Shared on the Free\u00A0Tier " + Guid.NewGuid().ToString("N").Substring(0, 6);
             Assert.That(() => LineWords.Ours(joined), Throws.ArgumentException, "Halcyonic's own words still refuse it, so a constant of ours stays loud");
             var shown = LineWords.HostPlain(joined);
-            Assert.That(shown.Text, Is.EqualTo("Shared on the Free Tier"), "the folded character shown as LabelText.Plain shows it");
+            Assert.That(shown.Text, Does.StartWith("Shared on the Free Tier "), "the folded character shown as LabelText.Plain shows it");
             Assert.That(shown.Runs.All(run => !run.Theirs), Is.True, "still upright, as the host's own line");
-            Assert.That(LineWords.HostPlain("Runs\ta check").Text, Is.EqualTo("Runs a check"));
+            var tabbed = "Runs\ta check " + Guid.NewGuid().ToString("N").Substring(0, 6);
+            Assert.That(LineWords.HostPlain(tabbed).Text, Does.StartWith("Runs a check "));
             Assert.That(LineWords.Folds - before, Is.EqualTo(2), "each folded line counted, so a check fails on it");
+            LineWords.HostPlain(joined);
+            Assert.That((LineWords.Folds - before, said.Count), Is.EqualTo((2, 2)), "a line laid again is never counted or said twice");
             Assert.That(said, Is.EqualTo(new[] { "no_break_space", "tab" }), "said by its kind alone");
             Assert.That(said.Any(kind => kind.Contains("Free") || kind.Contains("Tier")), Is.False, "never the words");
             var clean = LineWords.HostPlain("Every check the computer ran passed");

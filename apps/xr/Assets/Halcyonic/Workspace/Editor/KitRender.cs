@@ -80,7 +80,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         try { found.AddRange(RenderState(state, size)); }
                         catch (Exception error) { found.Add(state + " threw " + error); }
                         if (LineWords.Folds > foldsBefore)
-                            found.Add(state + " (" + size + "): " + (LineWords.Folds - foldsBefore) + " lines from the computer held a character the headset folds, shown plain (LineWords.HostPlain).");
+                            found.Add(state + " (" + size + "): " + (LineWords.Folds - foldsBefore) + " distinct lines from the computer held a character the headset folds, shown plain (LineWords.HostPlain), each counted once however often it was laid.");
                     }
                     if (shown == 0) found.Add("HALCYONIC_KIT_ONLY=" + only + " matched no state");
                     return found;
