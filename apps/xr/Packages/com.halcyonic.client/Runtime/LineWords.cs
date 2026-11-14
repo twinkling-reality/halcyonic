@@ -64,6 +64,43 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// The host's own words, laid upright as Halcyonic's: as <see cref="Ours"/>, except that a character the headset folds
+        /// (a no-break space, a tab, a control character) is shown as <see cref="LabelText.Plain"/> shows it instead of refused,
+        /// so a person's card never stops drawing because a host sentence held one. Each fold is counted in
+        /// <see cref="Folds"/> and said through <see cref="Folded"/> by its kind alone, never the words, so a log sees it and a
+        /// check still fails on it.
+        /// </summary>
+        public static LineWords HostPlain(string words)
+        {
+            if (words == null) throw new ArgumentNullException(nameof(words));
+            var plain = LabelText.Plain(words);
+            if (plain == words.Trim(' ')) return Ours(words);
+            System.Threading.Interlocked.Increment(ref folds);
+            Folded?.Invoke(FoldKind(words));
+            return Ours(plain);
+        }
+
+        /// <summary>How many host lines <see cref="HostPlain"/> has shown plain since the app started.</summary>
+        public static int Folds => System.Threading.Volatile.Read(ref folds);
+
+        /// <summary>Said once for each host line <see cref="HostPlain"/> showed plain: the kind of the first character it folded, never the words.</summary>
+        public static event Action<string>? Folded;
+
+        private static int folds;
+
+        private static string FoldKind(string words)
+        {
+            foreach (var unit in words)
+            {
+                if (unit == '\u00A0') return "no_break_space";
+                if (unit == '\t') return "tab";
+                if (unit == '\n' || unit == '\r') return "line_break";
+                if (char.IsControl(unit)) return "control";
+            }
+            return "other";
+        }
+
+        /// <summary>
         /// A line's words given whole as a string, upright as Halcyonic's own,
         /// already shown by the line's builder through <see cref="LabelText"/>'s rule (<see cref="AsShown"/>).
         /// </summary>

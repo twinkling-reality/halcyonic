@@ -163,7 +163,7 @@ namespace Halcyonic.Client
         {
             if (string.IsNullOrWhiteSpace(model))
                 return new RoomListRow(RoomKind.Failed, LineWords.Ours(AssistantUnavailable), tone: RoomTone.Bad, press: press,
-                    under: string.IsNullOrWhiteSpace(reason) ? null : LineWords.Ours(reason!.Trim()));
+                    under: string.IsNullOrWhiteSpace(reason) ? null : LineWords.HostPlain(reason!.Trim()));
             var hosted = !string.IsNullOrWhiteSpace(provider);
             var where = hosted ? LineWords.Ours(AssistantWords + " Hosted by ") + LineWords.TheirName(provider!.Trim()) : LineWords.Ours(AssistantWords + " on " + CaptureNames.Host);
             return new RoomListRow(hosted ? RoomKind.Link : RoomKind.Computer, LineWords.TheirName(model!.Trim()), press: press, under: where, excerpt: true);

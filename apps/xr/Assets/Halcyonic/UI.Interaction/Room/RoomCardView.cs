@@ -573,7 +573,7 @@ namespace Halcyonic.XR.UI
             // in the reading face, so the name stays the heavier of the two.
             var titleRole = under && card.TitleMono ? KitRole.Body : KitRole.Title;
             var (titleLabel, titleTall) = Text(titleRole, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
-                LineWords.Ours(status.Title), left, -down, column, 2);
+                LineWords.HostPlain(status.Title), left, -down, column, 2);
             // A state is never cut (JUDGE's live walk at Larger: "Turn Finished" cut beside the mark on the narrow form): a step
             // smaller on three lines beside the mark, else under the mark across the card's whole width at its own size.
             var stacked = false;
@@ -587,7 +587,7 @@ namespace Halcyonic.XR.UI
                 }
                 Unlay(titleLabel);
                 (titleLabel, titleTall) = Text(titleRole, under ? FinalTitleTypeDp : UnderTitleStatusDp, under ? FinalTitleLineDp : UnderTitleStatusLineDp, Color.white,
-                    LineWords.Ours(status.Title), left, -down, column, 3);
+                    LineWords.HostPlain(status.Title), left, -down, column, 3);
                 if (titleLabel.isTextOverflowing)
                 {
                     Unlay(titleLabel);
@@ -595,7 +595,7 @@ namespace Halcyonic.XR.UI
                     left = 0f;
                     column = width;
                     (titleLabel, titleTall) = Text(titleRole, under ? UnderTitleStatusDp : StatusTitleDp, under ? UnderTitleStatusLineDp : StatusTitleLineDp, Color.white,
-                        LineWords.Ours(status.Title), 0f, -(down + S(StatusMarkDp) + S(DescriptionGapDp)), width, 3);
+                        LineWords.HostPlain(status.Title), 0f, -(down + S(StatusMarkDp) + S(DescriptionGapDp)), width, 3);
                 }
             }
             var tall = stacked ? S(StatusMarkDp) + S(DescriptionGapDp) + titleTall : titleTall;
@@ -605,7 +605,7 @@ namespace Halcyonic.XR.UI
                 // The product's own words are never cut: a status line runs as long as it needs (the host's money words before a
                 // paid model, four sentences under Check First, the lead's 0635Z).
                 // Laid a dp inside its room, so a glyph's ink at the end of a wrapped line never passes the card's edge.
-                var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.Ours(status.Line), left, -(down + tall + S(2f)), column - S(1f), StatusLineMost);
+                var laidLine = Text(KitRole.Body, LineTypeDp, LineLineDp, White(NoteAlpha), LineWords.HostPlain(status.Line), left, -(down + tall + S(2f)), column - S(1f), StatusLineMost);
                 lineLabel = laidLine.Label;
                 if (!stacked && laidLine.Tall > StatusColumnLines * S(LineLineDp) + 0.5f)
                 {
@@ -637,7 +637,7 @@ namespace Halcyonic.XR.UI
                 var at = (stacked ? tall : Mathf.Max(S(StatusMarkDp), titleTall)) + S(DescriptionGapDp);
                 foreach (var each in status.Lines)
                 {
-                    var (_, eachTall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), LineWords.Ours(each), 0f, -(down + at), width - S(1f), StatusLineMost);
+                    var (_, eachTall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), LineWords.HostPlain(each), 0f, -(down + at), width - S(1f), StatusLineMost);
                     at += eachTall + S(LinesApartGapDp);
                 }
                 tall = at - S(LinesApartGapDp);
@@ -673,7 +673,7 @@ namespace Halcyonic.XR.UI
             // At a note's size, so the speaker's name never outranks the words it introduces (SCREENS's critic, 2026-11-13).
             // Whose words follow stands clearly over them, so a change of speaker between parts registers (critic 8): the note's
             // size, the name's light.
-            var (label, tall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, Color.white, LineWords.Ours(status.Title), left, -down, width - left, 1);
+            var (label, tall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, Color.white, LineWords.HostPlain(status.Title), left, -down, width - left, 1);
             var block = Mathf.Max(S(RowGlyphDp), tall);
             var drop = (block - tall) / 2f;
             if (drop > 0f) label.transform.localPosition += new Vector3(0f, -drop, 0f);
@@ -860,7 +860,7 @@ namespace Halcyonic.XR.UI
             foreach (var gauge in gauges)
             {
                 if (gauge.Note == null) { notes.Add(null); continue; }
-                var (note, _) = Text(KitRole.Body, GaugeResetDp, GaugeResetLineDp, White(NoteAlpha), LineWords.Ours(gauge.Note), 0f, 0f, RoomType.Units(2000f), 1);
+                var (note, _) = Text(KitRole.Body, GaugeResetDp, GaugeResetLineDp, White(NoteAlpha), LineWords.HostPlain(gauge.Note), 0f, 0f, RoomType.Units(2000f), 1);
                 notes.Add(note);
                 noteWidth = Mathf.Max(noteWidth, RoomCursor.WordsWidth(note, 0f));
             }
@@ -1078,7 +1078,7 @@ namespace Halcyonic.XR.UI
             for (var index = 0; index < steps.Count; index++)
             {
                 var (label, tall) = Text(KitRole.Label, StepNameDp, StepNameLineDp, steps[index].Tone == RoomTone.Skipped ? White(NoteAlpha) : White(0.90f),
-                    steps[index].Words ?? LineWords.Ours(steps[index].Name ?? ""), 0f, 0f, width, 1, TextAlignmentOptions.Top);
+                    steps[index].Words ?? LineWords.HostPlain(steps[index].Name ?? ""), 0f, 0f, width, 1, TextAlignmentOptions.Top);
                 labels[index] = label;
                 widths[index] = Mathf.Max(S(StepDp), RoomCursor.WordsWidth(label, 0f));
                 tallest = Mathf.Max(tallest, tall);
@@ -1184,10 +1184,10 @@ namespace Halcyonic.XR.UI
                 TextMeshPro? noteLabel = null;
                 if (row.Note != null)
                 {
-                    if (stacked) (noteLabel, noteTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.Ours(row.Note), nameLeft, 0f, width - nameLeft - chevronRoom, 3);
+                    if (stacked) (noteLabel, noteTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.HostPlain(row.Note), nameLeft, 0f, width - nameLeft - chevronRoom, 3);
                     else
                     {
-                        (noteLabel, _) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.Ours(row.Note), 0f, 0f, width / 2f, 1);
+                        (noteLabel, _) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.HostPlain(row.Note), 0f, 0f, width / 2f, 1);
                         noteWidth = RoomCursor.WordsWidth(noteLabel, 0f);
                     }
                 }
@@ -1224,7 +1224,7 @@ namespace Halcyonic.XR.UI
                 if (row.Label != null)
                 {
                     JoinedFacts.Given(row.Label);
-                    (labelLabel, labelTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), LineWords.Ours(row.Label), nameLeft, 0f, nameWidth, 2);
+                    (labelLabel, labelTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), LineWords.HostPlain(row.Label), nameLeft, 0f, nameWidth, 2);
                 }
                 var labelGap = labelLabel != null ? S(2f) : 0f;
                 // Under someone's words, our line stands a small gap apart, so it never reads as them still talking (critic 8).

@@ -379,4 +379,31 @@ public class LineWordsTests
         Assert.That(text, Is.EqualTo("New kite-run in Projects"), "the room's faces: one space, never two");
         Assert.That(text.Substring(theirs[0].Start, theirs[0].End - theirs[0].Start), Is.EqualTo("kite-run"), "the run's edges still on its words");
     }
+
+    [Test]
+    public void AHostLineHoldingACharacterTheHeadsetFoldsIsShownPlainCountedAndSaidByItsKindNeverRefused()
+    {
+        var said = new List<string>();
+        void Say(string kind) => said.Add(kind);
+        LineWords.Folded += Say;
+        try
+        {
+            var before = LineWords.Folds;
+            const string joined = "Shared on the Free\u00A0Tier";
+            Assert.That(() => LineWords.Ours(joined), Throws.ArgumentException, "Halcyonic's own words still refuse it, so a constant of ours stays loud");
+            var shown = LineWords.HostPlain(joined);
+            Assert.That(shown.Text, Is.EqualTo("Shared on the Free Tier"), "the folded character shown as LabelText.Plain shows it");
+            Assert.That(shown.Runs.All(run => !run.Theirs), Is.True, "still upright, as the host's own line");
+            Assert.That(LineWords.HostPlain("Runs\ta check").Text, Is.EqualTo("Runs a check"));
+            Assert.That(LineWords.Folds - before, Is.EqualTo(2), "each folded line counted, so a check fails on it");
+            Assert.That(said, Is.EqualTo(new[] { "no_break_space", "tab" }), "said by its kind alone");
+            Assert.That(said.Any(kind => kind.Contains("Free") || kind.Contains("Tier")), Is.False, "never the words");
+            var clean = LineWords.HostPlain("Every check the computer ran passed");
+            Assert.That((clean.Text, LineWords.Folds - before), Is.EqualTo(("Every check the computer ran passed", 2)), "a plain line is laid as it is, nothing counted");
+        }
+        finally
+        {
+            LineWords.Folded -= Say;
+        }
+    }
 }

@@ -329,7 +329,13 @@ launch/return, process recreation and current-frame action behavior need separat
   (`Written`) or outside text a builder has already shown by a rule of its own (`Shown`), is refused, line by line, where
   `LabelText.Plain` would change it, as Halcyonic's own runs are (AUDIT's X1, 2026-11-03); the review before Start building
   takes names as they came as unspelled runs (`Unspelled`), which `ForTextMeshPro` refuses until the review has spelled
-  them, so raw text never reaches a label.
+  them, so raw text never reaches a label. The host's own lines a card shows (a status's title and line and its lines
+  apart, a row's note and label, a gauge's note, a step's name, the assistant's reason) take `HostPlain` instead: a
+  character the headset folds (a no-break space, a tab) is shown as `LabelText.Plain` shows it rather than refused,
+  since a refusal threw inside the panel's draw and, in a release build, froze the panel with no word to the person
+  (2026-11-14). Each such line is counted (`LineWords.Folds`) and said by its kind alone, never its words (`Folded`,
+  which the app writes to the device log), and KitRender.Check fails any state that folded one, so the check stays as
+  loud as the throw was. Halcyonic's own constants still go through `Ours` and still refuse.
 - **`CommandSubmissions`** keeps this client's own view of each command it sent (sending, not
   sent, outcome unknown, acknowledged) until the control plane's record of it arrives in the
   projection. From then on only that record speaks, so a result reads as done only after the

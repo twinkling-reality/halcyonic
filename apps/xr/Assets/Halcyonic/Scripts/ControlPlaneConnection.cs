@@ -73,6 +73,20 @@ namespace Halcyonic.XR
         /// </summary>
         public bool Reading { get; set; }
 
+        /// <summary>
+        /// Says in the device log each line from the computer that the headset showed plain (<see cref="LineWords.HostPlain"/>),
+        /// by the kind of character it folded alone, never its words; once per line, from the first scene on.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void SayFoldedLines()
+        {
+            LineWords.Folded -= SayFolded;
+            LineWords.Folded += SayFolded;
+        }
+
+        private static void SayFolded(string kind) =>
+            Debug.LogWarning("Halcyonic: a line from the computer held a character the headset folds (" + kind + "); it is shown plain");
+
         private void OnEnable()
         {
             var client = new ClientInfo
