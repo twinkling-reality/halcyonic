@@ -769,7 +769,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(binding.Plain && shown.FromMoment, "the page is not read by the general rule");
                     Require(bar.Body.GetParsedText() == FileScreens.StillReading(FileSection.Checks) && shown.Band == null && shown.Sentence == null, "the panel reads \"" + bar.Body.GetParsedText() + "\"");
                     // Four in all (the lead's 2026-11-14T00:24Z), as strong as the check it replaces (AUDIT's 03:35Z), by the reader's own rule:
-                    // on EVERY page at most four, none main, Close last, and the page turn where there is more than one page; the file's
+                    // on EVERY page at most four, none main, Close last, every action the frame's own, and the page turn exactly once where
+                    // there is more than one page and never on one page alone (AUDIT's 04:56Z rule); the file's
                     // own actions packed across the pages, so Refresh stands first on the first page and it and the three sections each
                     // stand exactly once across them (F122: the reader never repeats a packed action). Turned all the way round, it
                     // stands again on its first.
@@ -780,7 +781,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         var column = shown.Column;
                         Require(column.Count <= RoomForm.Full.ActionsAPage && column.Count >= 2 && column[^1].Control.Action == Footer.Close
                             && !column.Any(action => action.Main) && (page > 0 || column[0].Control.Action == FileScreens.Refresh)
-                            && (readerPages == 1 || column.Count(action => action.Control.Action == RoomBar.TurnPage) == 1),
+                            && column.Count(action => action.Control.Action == RoomBar.TurnPage) == (readerPages > 1 ? 1 : 0)
+                            && column.All(action => ReferenceEquals(action.Control.Frame, frame)),
                             "page " + (page + 1) + " of the column holds " + string.Join(", ", column.Select(action => action.Words)));
                         packedSeen.AddRange(column.Where(action => action.Place == KitPlace.Section || action.Control.Action == FileScreens.Refresh)
                             .Select(action => action.Control.Key ?? action.Words));
