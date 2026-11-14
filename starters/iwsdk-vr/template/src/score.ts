@@ -171,15 +171,3 @@ export function join(scores: readonly Score[], gap = 3): Score {
     pedal,
   };
 }
-
-/** The middle of what scores play: the mean of their notes' pitches, for an app to centre a keyboard on. */
-export function centre(scores: readonly Score[]): number {
-  let sum = 0;
-  let count = 0;
-  for (const score of scores)
-    for (const note of score.notes) {
-      sum += note.pitch;
-      count += 1;
-    }
-  return count === 0 ? 60 : sum / count;
-}

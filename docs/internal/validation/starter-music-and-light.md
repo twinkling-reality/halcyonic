@@ -38,21 +38,24 @@
   instruments use a soft clip instead, which adds no delay.
 - **Light and sound together:** the light reads the player's time, the audio clock less the output's delay
   (`getOutputTimestamp`). Over about 73 notes in each of three views at 60 frames a second, each note's light first
-  landed a median 6 to 8 ms after its heard time, and at most 15 to 22 ms: within one frame, or the one after it
-  where that frame itself came late (the longest frame gap in those runs was 29 to 36 ms).
-- **Seeing a note coming:** a note falls 1.7 m in 2.8 s, from just above head height, and is drawn at a quarter of its
-  full brightness or more, as the eye sees it, for its last 1.2 m, 2.0 s. With the head pitched 30 degrees down at the
-  keys and a 90 degree field of view, a note is in view for its last 0.97 m above a key, 1.6 s before it lands.
-- **Room for the person:** the keys' front edge is 0.8 m from them all round; nothing is drawn nearer than about
-  0.72 m (sparks drifting in from the keys), and nothing above them. Nothing asks them to play.
-- **Cost:** 15 draw calls (19 with the welcome card) and about 10,000 triangles; the light's own work per frame under
+  landed a median 8 to 9 ms after its heard time, and at most 17 to 18 ms in most runs: within one frame, or the one
+  after it where that frame itself came late (43 ms in the run whose longest frame was 121 ms).
+- **Seeing a note coming, with the head level:** the keys stand 1.1 m from the person and 1.0 m up, 25 to 29 degrees
+  below eye level; a note falls 1.7 m straight down above its key in 2.8 s, and in a Quest 3S's level field (96 by 90
+  degrees, less 1.5 at each edge) all of its fall is in view: the field's top edge stands 1.70 m above the key. It is
+  drawn at a quarter of its full brightness or more, as the eye sees it, for its last 1.2 m, 2.0 s. The keyboard spans
+  about 89 degrees across, inside the field's 93.
+- **Room for the person:** the keys' front edge is 1.1 m from them all round; nothing is drawn nearer than about
+  1.0 m (sparks drifting in from the keys), and nothing above them. Nothing asks them to play, and nothing stands on
+  a key before its note arrives.
+- **Cost:** 16 draw calls (20 with the welcome card) and about 10,000 triangles; the light's own work per frame under
   0.1 ms at the 95th percentile on this Mac, and 1.2 ms with the CPU slowed six times.
 - **Start:** the keys are made from their partials on a worker, off the page's thread, opening keys first: 40 keys
   in 0.73 s on this Mac; a worker that fails makes them on the page instead. The room is made in slices between
-  frames, the music starting dry until it is ready. With the CPU slowed six times, sound began 0.21 s after the press
-  and the first note was heard 1.21 s after it; the longest frame took 104 ms as sound started (235 ms before the
-  room was sliced), the others held 16.7 ms (median, 18.3 ms at the 95th percentile). On this Mac unslowed the
-  longest frame was 41 ms.
+  frames, the music starting dry until it is ready. With the CPU slowed six times, sound began 0.25 s after the press
+  and the first note was heard 1.26 s after it; frames held 16.7 ms (median, 18.6 ms at the 95th percentile), the
+  longest 149 ms. Unslowed on this Mac, while other work ran beside it, the 95th percentile was 17.3 to 17.5 ms and
+  the longest frame of each run 35 to 121 ms; which of those are this page's own is not known.
 
 ## What is not known
 
