@@ -355,7 +355,7 @@ export interface LightKeys {
 export function lightKeys(
   low: number,
   high: number,
-  options: { keyWidth?: number; arc?: number; idle?: Color } = {},
+  options: { keyWidth?: number; arc?: number; idle?: Color; dark?: Color } = {},
 ): LightKeys {
   let first = Math.floor(low);
   while (isBlack(first)) first -= 1;
@@ -369,7 +369,7 @@ export function lightKeys(
   const blackLength = whiteLength * 0.62;
   const depth = 0.018;
   const raised = depth * 1.1;
-  const idle = options.idle ?? new Color('#0D1222');
+  const idle = options.idle ?? new Color('#080B16');
   const blackIdle = idle.clone().multiplyScalar(0.4);
   const arc = options.arc;
   // Along the keyboard, then round the arc: a key at distance s from the middle stands at angle s / arc.
@@ -425,12 +425,13 @@ export function lightKeys(
   };
   const whiteKeys = spots.filter((spot) => !spot.black);
   const blackKeys = spots.filter((spot) => spot.black);
-  // The glass fades into the dark toward both ends of the keyboard, so it has no cut end.
+  // The glass fades into the place's own dark (`dark`) toward both ends of the keyboard, so it has no cut end.
+  const dark = options.dark ?? new Color('#04060E');
   const ends = (key: KeySpot) => {
     const i = spots.indexOf(key);
-    return 0.25 + 0.75 * Math.min(1, Math.min(i, spots.length - 1 - i) / 8);
+    return Math.min(1, Math.min(i, spots.length - 1 - i) / 12) ** 1.5;
   };
-  const tone = new Map(spots.map((key) => [key.midi, (key.black ? blackIdle : idle).clone().multiplyScalar(ends(key))]));
+  const tone = new Map(spots.map((key) => [key.midi, dark.clone().lerp(key.black ? blackIdle : idle, ends(key))]));
   const white = make(whiteKeys, idle);
   const black = make(blackKeys, blackIdle);
   // A played key's light: a soft round heat where the note lands, hottest at its middle, and a soft glow along a
@@ -481,7 +482,7 @@ export function lightKeys(
           const into = landing(key);
           // A soft round heat where the note landed, hottest at its middle.
           heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.01, 0.01, c, 0.35 * amount);
-          if (!key.black) front.place(x - ox * 0.003, -depth * 0.55, z - oz * 0.003, tx, 0, tz, 0, 1, 0, key.width * 0.7, 0.008, c, 0.5 * amount);
+          if (!key.black) front.place(x - ox * 0.003, -depth * 0.55, z - oz * 0.003, tx, 0, tz, 0, 1, 0, key.width * 0.7, 0.0005, c, 0.5 * amount);
         }
       }
       front.end();
@@ -498,10 +499,10 @@ export interface FallingNotes {
   move(time: number): void;
 }
 
-/** A colour for a key by where it lies between `low` and `high`: deep blue, then sea green, then rose. */
+/** A colour for a key by where it lies between `low` and `high`: deep blue, then sea blue and violet, then rose. */
 export function registerColour(midi: number, low: number, high: number, into = new Color()): Color {
   const t = Math.min(1, Math.max(0, (midi - low) / Math.max(1, high - low)));
-  const stops = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#4FC9A8'), new Color('#E06AB8')];
+  const stops = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0'), new Color('#E06AB8')];
   const at = t * (stops.length - 1);
   const k = Math.min(stops.length - 2, Math.floor(at));
   return into.copy(stops[k] as Color).lerp(stops[k + 1] as Color, at - k);
@@ -513,17 +514,16 @@ export function registerColour(midi: number, low: number, high: number, into = n
  * (`player.now()`); the key lights where it lands and stays lit while the note is held, light blooms up from it, and
  * a few sparks rise. Each note's light is coloured by where it lies in the music, low to high (`colour` to choose
  * another). `seconds` is how long a note is seen falling,
- * `fall` how far, in metres; `height` is how high the keys stand over the floor, where their light lies.
+ * `fall` how far, in metres.
  * Built inside `keys.group`, so place that group.
  */
 export function fallingNotes(
   player: Player,
   keys: LightKeys,
-  options: { colour?: (midi: number) => Color; seconds?: number; fall?: number; height?: number } = {},
+  options: { colour?: (midi: number) => Color; seconds?: number; fall?: number } = {},
 ): FallingNotes {
   const fall = options.fall ?? 3.4;
   const speed = fall / (options.seconds ?? 6);
-  const height = options.height ?? 0.86;
   // The colours span the music itself, its lowest note to its highest.
   let low = Number.POSITIVE_INFINITY;
   let high = Number.NEGATIVE_INFINITY;
@@ -536,15 +536,14 @@ export function fallingNotes(
     colours.set(spot.midi, options.colour?.(spot.midi) ?? registerColour(spot.midi, low, high));
   const group = new Group();
   keys.group.add(group);
-  // Each drop brightest at its foot, its tail tapering up into the dark.
-  const drops = glows(600, { upright: true, halo: 0.035, round: 1, whiten: 0.1, ramp: 0.2 });
+  // Each drop a small hot head at its foot and a tail tapering up into the dark, both drawn over the key it lands on.
+  const drops = glows(600, { upright: true, halo: 0.03, round: 1, whiten: 0.1, ramp: 0.05, over: true });
+  const heads = glows(600, { facing: true, halo: 0.025, round: 1, whiten: 0.4, over: true });
   // A column of light rising from a struck key: a line with only a halo, fading to nothing at its top.
   const blooms = glows(160, { upright: true, halo: 0.035, round: 1, core: 0, ramp: 0 });
   const flares = glows(160, { facing: true, halo: 0.12, round: 1, whiten: 0.2 });
   const motes = sparks(700);
-  // On the floor inside the arc: each played key's light, lying toward the person, as on dark glass.
-  const floor = glows(160, { halo: 0.2, round: 0.05, core: 0.6 });
-  group.add(drops.object, blooms.object, flares.object, motes.object, floor.object);
+  group.add(drops.object, heads.object, blooms.object, flares.object, motes.object);
   let last = Number.NaN;
   let previous = Number.NaN;
   let now = 0;
@@ -563,7 +562,8 @@ export function fallingNotes(
       // Out of the dark overhead, brightest as it lands; faded as the eye sees it, then made linear.
       const up = (from + to) / 2 / fall;
       const seen = (1 - up) ** 1.4 * Math.min(1, (1 - up) / 0.3);
-      drops.add(lx, spot.y + 0.004 + (from + to) / 2, lz, spot.width * 0.3, to - from, colour, 0.85 * seen ** 2.2);
+      drops.add(lx, spot.y + 0.004 + (from + to) / 2, lz, spot.width * 0.22, to - from, colour, 0.55 * seen ** 2.2);
+      heads.add(lx, spot.y + 0.006 + from, lz, 0.01, 0.01, colour, 0.9 * seen ** 2.2);
     }
     if (now >= start && now < end) {
       const since = now - start;
@@ -574,9 +574,6 @@ export function fallingNotes(
       // Light blooms up from the key where it landed, rising and fading.
       const rise = 0.06 + since * 0.35;
       blooms.add(lx, spot.y + rise / 2, lz, 0.002, rise, colour, 0.2 * Math.exp(-since * 2.5));
-      const fx = spot.x - spot.ox * 0.25;
-      const fz = spot.z - spot.oz * 0.25;
-      floor.place(fx, -height + 0.005, fz, spot.tx, 0, spot.tz, -spot.ox, 0, -spot.oz, spot.width * 0.8, 0.4, colour, 0.06 * amount);
     }
     // A few sparks where each note lands, on the frame it lands.
     if (!Number.isNaN(previous) && start > previous && start <= now)
@@ -595,15 +592,15 @@ export function fallingNotes(
       last = time;
       keys.begin();
       drops.begin();
+      heads.begin();
       blooms.begin();
       flares.begin();
-      floor.begin();
       player.each(0.2, fall / speed, draw);
       keys.end();
       drops.end();
+      heads.end();
       blooms.end();
       flares.end();
-      floor.end();
       motes.update(delta);
       previous = now;
     },

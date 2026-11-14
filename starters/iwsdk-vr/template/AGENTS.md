@@ -212,8 +212,9 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   sloping surface), `keys.spot(midi)` says where a key is and which way it faces, and `registerColour(midi, low,
   high)` colours a note by where it lies between two others.
 - Make the light your own: a person stands inside it, all round them, never in front of a screen of it. Never copy
-  the look of a video, a game or an app you know (its layout, its colours, its camera). The person listens: nothing
-  asks them to play, and nothing comes within about 0.7 m of them, so their hands and head never meet the light.
+  the look of a video, a game or an app you know (its layout, its colours, its camera). For a piece that plays
+  itself, the person listens: nothing asks them to play. Keep any light about 0.7 m from the person, so their hands
+  and head never meet it.
 - Start from the whole small piano of light at the end of this file and change it into the piece asked for.
 
 Keep changes small, one idea at a time, and keep the app running after each one.
@@ -399,7 +400,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   keyboard.position.set(0, 0.86, 0);
   keyboard.add(keys.group);
   root.add(keyboard);
-  ambientMotion(fallingNotes(player, keys, { height: 0.86 }).move);
+  ambientMotion(fallingNotes(player, keys).move);
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
 });

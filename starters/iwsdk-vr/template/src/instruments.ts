@@ -33,47 +33,55 @@ export type VoiceName = 'piano' | 'bell' | 'pad';
 export interface Music {
   readonly context: BaseAudioContext;
   readonly voices: Readonly<Record<VoiceName, Voice>>;
-}
-
-/** A fixed sequence of noise, so every load sounds the same. */
-function noise(length: number, seed: number): Float32Array<ArrayBuffer> {
-  const samples = new Float32Array(length);
-  let state = seed;
-  for (let i = 0; i < length; i++) {
-    state = (state * 16807) % 2147483647;
-    samples[i] = (state / 2147483647) * 2 - 1;
-  }
-  return samples;
+  /** Resolves once the room is made; until then the music plays dry. */
+  readonly roomReady: Promise<void>;
 }
 
 /**
  * A room made in code: a stereo impulse of early reflections and a tail of about two seconds whose highs die first,
- * as a quiet hall's do.
+ * as a quiet hall's do. Made a slice at a time between frames, so the press that starts the music never stalls a frame
+ * on it: the music starts dry and the room comes in when it is ready, a moment later.
  */
-function roomImpulse(context: BaseAudioContext): AudioBuffer {
+function fillRoom(context: BaseAudioContext, room: ConvolverNode): Promise<void> {
   const rate = context.sampleRate;
   const seconds = 2.4;
   const length = Math.floor(rate * seconds);
   const impulse = context.createBuffer(2, length, rate);
-  for (let channel = 0; channel < 2; channel++) {
-    const data = impulse.getChannelData(channel);
-    const hiss = noise(length, 7 + channel * 101);
-    let low = 0;
-    const delay = Math.floor(0.016 * rate);
-    for (let i = delay; i < length; i++) {
-      const t = (i - delay) / rate;
-      // Darker as it goes: a lowpass that closes from wide open to about 2 kHz over the tail.
-      const close = Math.min(0.92, 0.15 + t * 0.55);
-      low = low * close + (hiss[i] as number) * (1 - close);
-      data[i] = low * Math.exp((-6.9 * t) / 2.0) * (1 + 2.5 * (1 - close));
-    }
-    // Early reflections from walls at different distances, a little different in each ear.
-    [0.011, 0.019, 0.027, 0.034, 0.047, 0.058, 0.071].forEach((at, k) => {
-      const i = Math.floor((at + channel * 0.0023 * (k % 3)) * rate);
-      if (i < length) data[i] = (data[i] as number) + (k % 2 === 0 ? 0.6 : -0.5) / (1 + k * 0.6);
-    });
-  }
-  return impulse;
+  const delay = Math.floor(0.016 * rate);
+  let channel = 0;
+  let i = delay;
+  let low = 0;
+  let state = 7;
+  return new Promise((resolve) => {
+    const more = () => {
+      const data = impulse.getChannelData(channel);
+      const to = Math.min(length, i + 24000);
+      for (; i < to; i++) {
+        const t = (i - delay) / rate;
+        state = (state * 16807) % 2147483647;
+        // Darker as it goes: a lowpass that closes from wide open to about 2 kHz over the tail.
+        const close = Math.min(0.92, 0.15 + t * 0.55);
+        low = low * close + ((state / 2147483647) * 2 - 1) * (1 - close);
+        data[i] = low * Math.exp((-6.9 * t) / 2.0) * (1 + 2.5 * (1 - close));
+      }
+      if (i < length) return void setTimeout(more, 0);
+      // Early reflections from walls at different distances, a little different in each ear.
+      [0.011, 0.019, 0.027, 0.034, 0.047, 0.058, 0.071].forEach((at, k) => {
+        const j = Math.floor((at + channel * 0.0023 * (k % 3)) * rate);
+        if (j < length) data[j] = (data[j] as number) + (k % 2 === 0 ? 0.6 : -0.5) / (1 + k * 0.6);
+      });
+      channel += 1;
+      if (channel < 2) {
+        i = delay;
+        low = 0;
+        state = 7 + channel * 101;
+        return void setTimeout(more, 0);
+      }
+      room.buffer = impulse;
+      resolve();
+    };
+    more();
+  });
 }
 
 /** A soft ceiling: straight up to 0.7, then curving gently to 1, so many keys at once never clip, with no delay. */
@@ -281,7 +289,7 @@ export function createMusic(context: BaseAudioContext, destination: AudioNode = 
   const send = context.createGain();
   send.gain.value = 0.3;
   const room = context.createConvolver();
-  room.buffer = roomImpulse(context);
+  const roomReady = fillRoom(context, room);
   const master = context.createGain();
   master.gain.value = 2.2;
   const top = ceiling(context);
@@ -299,7 +307,7 @@ export function createMusic(context: BaseAudioContext, destination: AudioNode = 
     undamped: 89,
   });
   const bell = struckVoice(context, bus, 'bell', { level: 0.22, bright: 30, damp: () => 1.2, undamped: 0 });
-  return { context, voices: { piano, bell, pad: padVoice(context, bus) } };
+  return { context, voices: { piano, bell, pad: padVoice(context, bus) }, roomReady };
 }
 
 let shared: Music | null = null;
@@ -510,6 +518,7 @@ export async function renderScore(
   const seconds = options.seconds ?? roundSeconds(score, 0) + 3;
   const offline = new OfflineAudioContext(2, Math.ceil(seconds * rate), rate);
   const music = createMusic(offline);
+  await music.roomReady;
   const voiceOf = (part: number): VoiceName | null =>
     typeof options.voice === 'function' ? options.voice(part) : (options.voice ?? 'piano');
   for (const [name, list] of keysInOrder(score, voiceOf)) await music.voices[name].prepare(list);
