@@ -3211,7 +3211,8 @@ in order, as before.
 - **The plane's width** (the lead, 2026-11-13T17:16Z, 18:07Z and 19:34Z: the plane is for reading, a width, not two forms). The
   plane never stands over a shelf and is never too narrow to read: it lays its panel at the widest of FIELD's measured widths (440,
   400, 360, 320, 280 and 240 dp, `PlaneWidth.Steps`) at or above the floor of the text size whose largest footprint stands
-  inside the Quest 3S field and whose resting footprint, band included, clears the placed shelf (`PlaneWidthRule`,
+  inside the Quest 3S field and which keeps clear of the placed shelf, band included: the floor by its resting footprint, a
+  width above it by the largest it lays, so the plane never widens into a shelf it has just placed (`PlaneWidthRule`,
   `MenuPlane.ConsiderForm`), the column beside it. The floor is
   measured (FIELD's 59-width-table, F106: 360 dp at Standard, 400 dp at Larger, where New Project's recap card stops laying
   whole; `PlaneWidth.StandardFloorDp`, `LargerFloorDp`), and under it nothing is laid. Where even the floor does not clear,

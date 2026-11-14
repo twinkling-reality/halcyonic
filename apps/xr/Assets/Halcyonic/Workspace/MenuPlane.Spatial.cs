@@ -530,8 +530,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Whether the largest bar at <paramref name="widthDp"/> stands inside the field and clear of the shelf by the clearance kept between things.</summary>
         private bool WidthClears(float widthDp, Vector3[]? shelf, Vector3 viewer)
         {
-            // Any page laid at this width stands inside the field; a shelf is kept clear of the plane at rest, band included, as it
-            // was placed (ruling (b)): a page taller than rest makes it stand aside, never the plane narrower.
+            // Any page laid at this width stands inside the field, and the plane at this width keeps clear of a placed shelf, band
+            // included (ruling (b)); a page taller than that makes the shelf stand aside, never the plane narrower.
             var plane = LargestExtent(widthDp);
             var measured = ViewField.Current ?? MenuPage.Quest3S;
             var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
@@ -547,7 +547,10 @@ namespace Halcyonic.XR.Workspace
                 left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
             }
             var placed = new AngularExtent(left, right, bottom, top);
-            return KeepOutExtent().Apart(placed) >= WorkspacePlacement.ClearanceDegrees && BandExtent().Apart(placed) >= WorkspacePlacement.ClearanceDegrees;
+            // The floor is tested at rest, as the shelf was placed; a width above it by the largest it lays there, a measured bound, until
+            // the resting footprint is recorded at each width (AUDIT's 02:20Z MUST: the plane widened into the shelf it had just placed).
+            var bar = widthDp > PlaneWidth.FloorDp(GlazeText.Scale) + 0.5f ? plane : KeepOutExtent();
+            return bar.Apart(placed) >= WorkspacePlacement.ClearanceDegrees && BandExtent().Apart(placed) >= WorkspacePlacement.ClearanceDegrees;
         }
 
         private object? olderViewSaid;
