@@ -484,7 +484,7 @@ public class UsageColumnTests
             Assert.That(reviewed.Card!.Description!.Text, Is.EqualTo("From now on the assistant answers on test-model-1, and each request costs money on your own Test Hosted account."));
             // The host's own words, as the step carries them: the model named in its line, its warnings as Check First, its button.
             Assert.That(reviewed.Card.Slots, Is.Empty, "the line names the model; no fact box stands for it");
-            Assert.That(reviewed.Card.Status?.Line, Does.Contain("Test Hosted sets each request's price; it is not shown here"));
+            Assert.That(reviewed.Card.Status?.Lines, Does.Contain("Test Hosted sets each request's price; it is not shown here"), "the price its own line, apart from the others");
             Assert.That(reviewed.Column.First().Control.Words, Is.EqualTo("Use This Model"));
             Assert.That(reviewed.Column.First().Control.Action, Is.EqualTo(ReviewCard.Confirm));
             Assert.That(reviewed.Column.First().Main, Is.True);

@@ -4717,7 +4717,8 @@ presence, contextual moment cards and the on-demand project screen:
   words, a line of what happens, at most four facts, what it touches with the host's count of it all, and what to check
   first), every word the host's. The card never reads which command it reviews: kinds map to the kit's marks through one
   table (`ReviewKinds`, every member of `ReviewKind` listed; a kind with no glyph of its own has no mark, and a name a person types is set in mono). The entry's title
-  from the list of what can be done heads it, the line under it; "Check First" (attention) follows the line of what happens
+  from the list of what can be done heads it, the line under it; "Check First" (attention), its warnings each a line of its own in the
+  host's order, never joined (`RoomCardStatus.Apart`; a fresh reader, 2026-11-14T00:20Z: joined, they buried what leaves the computer), follows the line of what happens
   (`RoomCard.StatusAfter`, AUDIT2's 2026-11-13T22:37Z: the Use Model card read its warning first and its main fact last), except
   where a warning is a consent the press gives (`ReviewCard.ConsentFirst`: never asks, reaches past its folder, cannot be undone,
   history left, becomes public, replaces what was published, costs money or its cost not known: the money said before the press),
