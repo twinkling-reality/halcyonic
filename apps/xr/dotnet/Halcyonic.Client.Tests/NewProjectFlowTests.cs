@@ -2755,20 +2755,24 @@ public class NewProjectFlowTests
         finally { RoomDesign.Enabled = was; }
     }
 
-    /// <summary>The one press sends only what the card shows whole: a first task past the description's lines opens the review, which shows the rest.</summary>
+    /// <summary>
+    /// A first task past the card's lines stands cut at a word on the recap's card, which presses to it whole (the lead's
+    /// 2026-11-14T02:04Z), so the recap is the review at any length: its one press sends it, with no paging review between
+    /// (JUDGE's and AUDIT's 02:24Z/02:26Z: a four-line idea met twelve presses and rows joined on a dot).
+    /// </summary>
     [Test]
-    public void A_first_task_longer_than_the_card_shows_opens_the_review_and_sends_nothing() => InTheRedesign(() =>
+    public void A_first_task_longer_than_the_card_shows_stays_on_the_recap_pressing_whole_and_its_one_press_sends_it() => InTheRedesign(() =>
     {
         var host = new Host();
         var flow = RoomRecapped(host, roomLines: words => Math.Max(1, (words.Text.Length + 23) / 24));
         flow.Idea!.Rewrite(string.Join(" ", Enumerable.Repeat("A page of race times for my running club, newest first.", 3)));
-        // The recap drawn showed the shorter words: the first press draws the recap again; on it the task is cut.
+        // The recap drawn showed the shorter words: the first press draws the recap again, its card cut and pressing whole.
         Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        Assert.That(RoomBar.NewProject(flow.Frame!, VoiceStage.Idle)!.Card!.Press!.Action, Is.EqualTo(NewProjectScreens.ReadRecap), "the whole task one press away");
         Press(flow, NewProjectScreens.StartBuilding, null);
-        Assert.That(host.Sent, Is.Empty, "cut on the card, so not sent by its one press");
+        Assert.That(host.Sent, Has.Count.EqualTo(1), "sent by its one press, with no review between");
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build));
-        Assert.That(flow.Review, Is.Not.Null, "the review shows the whole request");
     });
 
     /// <summary>The one press never skips what the review warns of: a first task naming something to run on the Mac opens the review.</summary>

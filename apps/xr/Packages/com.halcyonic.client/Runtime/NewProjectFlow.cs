@@ -1839,8 +1839,10 @@ namespace Halcyonic.Client
         private MenuFrame RecapBuilt(ProjectIdea current, MenuFrame recap)
         {
             // Nothing is sendable with no agent app chosen: the review is not made then (JUDGE's live-11, 2026-11-12: it threw).
+            // A first task longer than the card's lines stands cut at a word on the recap's card, which presses to it whole (the lead's
+            // 2026-11-14T02:04Z), so the recap is the review at any length: no paging of a long task's parts to reach the start, and none
+            // of the older review's rows (JUDGE's 02:24Z: twelve presses and rows joined on a dot for a four-line idea).
             var whole = ReviewForRoom && current.HasRecap && draft.Runtime != null
-                && RoomLines!(LineWords.TheirName(current.FirstTask)) <= NewProjectScreens.RecapFirstTaskLines
                 // Only a folder whose kind the card leaves no doubt of: a new project's new folder, or a project's own folder.
                 && EntryText.FolderFactPartsOf(CurrentFolder(), current.Folder, draft.Runtime?.UsesProjectLocation == true).Kind
                     is FolderFactKind.NewFolder or FolderFactKind.ProjectFolder or FolderFactKind.NotNeeded
