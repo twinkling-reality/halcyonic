@@ -882,7 +882,7 @@ namespace Halcyonic.XR.Workspace
             if (RoomDesign.Enabled && KitWorkspaceHost.Enabled)
             {
                 var placed = new AngularExtent(shelf.Left, shelf.Right, shelf.Bottom, shelf.Top);
-                // The bar at the floor and the band under it, each its own part (AUDIT's 22:34Z).
+                // The plane at rest and the band under it, each its own part (AUDIT's 22:34Z; the lead's 01:13Z ruling 1).
                 if (KeepOutExtent().Apart(placed) < WorkspacePlacement.ClearanceDegrees || BandExtent().Apart(placed) < WorkspacePlacement.ClearanceDegrees) return false;
                 // The keep-out stands for the plane, so the bar laid this moment does not bind as well (placing lays it narrow as it
                 // opens); nor does the footprint retained from before a local overlay. The room's screen does.

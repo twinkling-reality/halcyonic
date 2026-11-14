@@ -3210,14 +3210,17 @@ in order, as before.
   drawn, and so read, only while its bar lays it whole (`RoomBar.Whole`, `KitWorkspaceHost.ReportDrawn`).
 - **The plane's width** (the lead, 2026-11-13T17:16Z, 18:07Z and 19:34Z: the plane is for reading, a width, not two forms). The
   plane never stands over a shelf and is never too narrow to read: it lays its panel at the widest of FIELD's measured widths (440,
-  400, 360, 320, 280 and 240 dp, `PlaneWidth.Steps`) at or above the floor of the text size whose largest footprint clears the
-  placed shelf inside the Quest 3S field (`PlaneWidthRule`, `MenuPlane.ConsiderForm`), the column beside it. The floor is
+  400, 360, 320, 280 and 240 dp, `PlaneWidth.Steps`) at or above the floor of the text size whose largest footprint stands
+  inside the Quest 3S field and whose resting footprint, band included, clears the placed shelf (`PlaneWidthRule`,
+  `MenuPlane.ConsiderForm`), the column beside it. The floor is
   measured (FIELD's 59-width-table, F106: 360 dp at Standard, 400 dp at Larger, where New Project's recap card stops laying
   whole; `PlaneWidth.StandardFloorDp`, `LargerFloorDp`), and under it nothing is laid. Where even the floor does not clear,
   the room yields, never the plane: a new shelf is offered the nearest place that clears, inside the field first, then a turn
   of the head up to thirty degrees past its side, then out to the person's side, never behind them, each turn logged once
-  (`RoomPlacement.BeginPreview`, `AgentShelfSearch` with `widestTurn`); a placed shelf the plane later meets stands aside
-  along its own arc while the plane is open, thirty degrees first and as far as clears out to the person's side, seen to travel
+  (`RoomPlacement.BeginPreview`, `AgentShelfSearch` with `widestTurn`); a placed shelf a page taller than rest meets stands aside
+  along its own arc while that page is open, decided once per open for the largest footprint at the width in use and held
+  until the plane rests or closes, so the room never moves while a person reads (the lead's 2026-11-14T01:13Z ruling 1),
+  thirty degrees first and as far as clears out to the person's side, seen to travel
   there and back (`ShelfAside`, `MenuPlane.ShelfAsideDegrees`, `CharacterStage.ShelfTurnDegrees`), view placement only: its own
   place is never rewritten, the plane decides from that place (`CharacterStage.OwnShelf`), and nothing is journaled. The width is decided again only on an event (the text size, the shelf placed or moved, a
   character coming or going, the plane placed or moved, a placing overlay opening or closing), never because a character
@@ -3227,8 +3230,12 @@ in order, as before.
   `RoomForm.PanelDp` into `RoomBar.Of`, which lays the bar's panel that wide), with the kit's own row measure at that width,
   so the general reader pages to eight lines as the bar lays them; where what the bar lays still does not stand whole, or
   passes its measured footprint (`RoomBarView.LargestAt`), the kit asks the reader for one row fewer a page, down to one, and
-  says so at one. The shelf search and its Apply keep clear of the same extent, the floor's largest footprint
-  (`MenuPlane.KeepOutExtent`), and of the room's screen, never the bar laid the moment before placing.
+  says so at one. The shelf search and its Apply keep clear of the same extent, the plane at rest (FIELD's measured
+  `RoomBarView.RestingAt`, a shelf's placing page counting as rest) and the band under it at its tallest
+  (`MenuPlane.KeepOutExtent`, `BandExtent`), and of the room's screen, never the bar laid the moment before placing, so a
+  person's first shelf stands where they look (the lead's 2026-11-14T01:13Z ruling 1). Every part is reasoned through the
+  geometry the plane lays the kit with (`AngularExtent.OnPlane` about the plane's direction, the person's drag included), so
+  what the plane reasons is where it is drawn.
 - **Frames the binding does not bind.** Where the task's binding has no place for the frame of the column beside the
   menu (a page of the file with no moment of its own, or another column's frame, as New Project's steps), the
   director carries the frame plain (`MenuDirector.PlainBindingOf`, `KitFileBinding.PlainOf`: no control, no task's

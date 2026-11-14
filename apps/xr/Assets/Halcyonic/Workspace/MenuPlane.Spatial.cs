@@ -499,16 +499,24 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// What a shelf being placed keeps clear of (the lead's GO of 2026-11-13T19:34Z; AUDIT's 20:24Z): the largest bar at the floor's
-        /// width, the plane as it stands while a shelf is placed (IPlacesInRoom). The plane widens again only where that clears every
-        /// shelf (PlaneWidthRule), and a placed shelf the plane later meets stands aside (ShelfAside), so placing always finds a place.
-        /// The shelf search and its Apply ask the same extent, so a place offered is a place kept.
+        /// What a shelf is placed clear of (the lead's 2026-11-14T01:13Z ruling 1, (b)): the plane AT REST, the most a bar draws with no
+        /// page open or with a shelf's placing page (FIELD's measured RoomBarView.RestingAt, the largest at the floor's width where none is
+        /// recorded), from the foot line up with its spill under it, through the plane's own geometry; the band under it is its own
+        /// part (<see cref="BandExtent"/>). A page taller than rest makes a shelf in its way stand aside, once per open
+        /// (<see cref="ConsiderForm"/>). The shelf search and its Apply ask the same extent, so a place offered is a place kept.
         /// </summary>
-        private AngularExtent KeepOutExtent() => LargestExtent(PlaneWidth.FloorDp(GlazeText.Scale));
+        private AngularExtent KeepOutExtent()
+        {
+            var resting = RoomBarView.RestingAt();
+            var foot = Kit.FootLine * GlazeText.Scale;
+            return OnPlane(-resting.x / 2f, resting.x / 2f, foot - RoomType.Units(RoomBarView.MostUnderFootDp), foot + resting.y);
+        }
 
         /// <summary>Whether the largest bar at <paramref name="widthDp"/> stands inside the field and clear of the shelf by the clearance kept between things.</summary>
         private bool WidthClears(float widthDp, Vector3[]? shelf, Vector3 viewer)
         {
+            // Any page laid at this width stands inside the field; a shelf is kept clear of the plane at rest, band included, as it
+            // was placed (ruling (b)): a page taller than rest makes it stand aside, never the plane narrower.
             var plane = LargestExtent(widthDp);
             var measured = ViewField.Current ?? MenuPage.Quest3S;
             var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
@@ -523,7 +531,8 @@ namespace Halcyonic.XR.Workspace
                 var elevation = Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg;
                 left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
             }
-            return plane.Apart(new AngularExtent(left, right, bottom, top)) >= WorkspacePlacement.ClearanceDegrees;
+            var placed = new AngularExtent(left, right, bottom, top);
+            return KeepOutExtent().Apart(placed) >= WorkspacePlacement.ClearanceDegrees && BandExtent().Apart(placed) >= WorkspacePlacement.ClearanceDegrees;
         }
 
         private object? olderViewSaid;
