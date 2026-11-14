@@ -346,6 +346,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The draw a placing ended on (<see cref="considered"/>), while the plane waits for the shelf it placed; -1 otherwise.</summary>
         private int placingEndedFrame = -1;
 
+        /// <summary>How a placing's wait for its shelf ended, for the width line it leads to: the draws since it ended, and whether a shelf was coming.</summary>
+        private (int Draws, bool Coming)? waited;
+
         /// <summary>The draws the plane has decided its width on, one a draw, in the player and the Editor's walks alike.</summary>
         private int considered;
         private (float Scale, string Shelf, int Characters, int Yaw, int Pitch, bool Placing)? formSituation;
@@ -381,6 +384,7 @@ namespace Halcyonic.XR.Workspace
                 // size is another change.
                 var otherChange = !Mathf.Approximately(placed.Scale, now.Item1);
                 if (PlaneWidthRule.AwaitsPlacedShelf(true, false, shelf != null, otherChange, considered - placingEndedFrame, shelfComing)) return;
+                waited = (considered - placingEndedFrame, shelfComing);
             }
             placingEndedFrame = -1;
             PlaneFormEvent happened = formSituation is not { } before ? PlaneFormEvent.PlaneMoved
@@ -391,7 +395,9 @@ namespace Halcyonic.XR.Workspace
             formSituation = now;
             if (widthRule.Reconsider(happened, width => !(placing && width > floor + 0.5f) && WidthClears(width, shelf, viewer), floor))
                 Debug.Log("Halcyonic: the plane lays its panel " + widthRule.WidthDp.ToString("0") + " dp wide (" + happened + (placing ? ", placing" : "")
-                    + (shelf == null ? ", no shelf" : "") + ").");
+                    + (shelf == null ? ", no shelf" : "")
+                    + (waited is var (draws, coming) ? ", after the placing's end by " + draws + " draws, " + (coming ? "a shelf coming" : "none coming") : "") + ").");
+            waited = null;
             Kit.Form = RoomForm.Full.AtWidth(widthRule.WidthDp);
             ShelfAsideDegrees = placing || shelf == null ? 0f : AsideFor(shelf, viewer, widthRule.WidthDp);
         }
