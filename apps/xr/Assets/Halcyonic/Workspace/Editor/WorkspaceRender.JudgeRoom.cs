@@ -491,6 +491,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (!plane.KitShows) { lastFoot = null; return; }
                     var footHost = plane.Kit;
                     var bandWords = footHost.Band.Words != null;
+                    // Within the moment too, since a recording rarely changes only the band between two moments (charU): where words stand on
+                    // the band or a row hangs, the bar stands where the host lays it with nothing hanging, at the host's own origin.
+                    if (bandWords || footHost.Bar.RowDrop > 0f)
+                    {
+                        var barPlace = footHost.Bar.transform.localPosition.magnitude * footHost.transform.lossyScale.y;
+                        if (barPlace > 0.001f)
+                            footFound.Add("the bar stands " + (barPlace * 1000f).ToString("0.0") + " mm from its place because " + (bandWords ? "the agent's words stand on the band" : "a row hangs")
+                                + ": the bar a person reads moves when they come or go");
+                        else Debug.Log("Halcyonic: judge room: " + footShot + ": the bar stands in its place with " + (bandWords ? "the agent's words on the band." : "a row hanging."));
+                    }
                     var footNow = (Band: bandWords, BandHeight: bandWords ? footHost.Band.Size.y : 0f, BarSize: footHost.Bar.Size,
                         Foot: footHost.transform.TransformPoint(0f, footHost.FootLine, 0f), Root: plane.transform.position, Turn: plane.transform.rotation, Name: footShot);
                     if (lastFoot is { } footWas && (footWas.Band != footNow.Band || Mathf.Abs(footWas.BandHeight - footNow.BandHeight) > 0.0005f)
