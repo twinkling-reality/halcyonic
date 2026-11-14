@@ -138,7 +138,26 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Fit the explicit optional body beside the selected task, not the wider project chooser.
                 Draw(); director.OpenFile(ResultsTask); Draw();
                 var beforePlacement = failures.Count;
-                var agent = ConfirmedDirectorAgent(root.transform, director, eyes, Present().Character, failures, "colour");
+                // The shelf is placed as a person places it (the lead's 2026-11-14T07:12Z ruling 1; JUDGE's readE5, XR's and AUDIT's
+                // 07:32Z): under the redesign with the kit, so the plane's console and ClearsShelf are the product's keep-out at rest
+                // (17.9 degrees either side at Larger), never the older view's widest file column (31.8) that no person meets. The
+                // colour panel itself is still the file's own view, with the kit aside, as before.
+                var designWas = RoomDesign.Enabled; var kitWas = KitWorkspaceHost.Enabled;
+                RoomDesign.Enabled = true; KitWorkspaceHost.Enabled = true;
+                (CharacterView View, CharacterTarget Target) agent;
+                try
+                {
+                    if (director.Plane.ConsoleExtentFrom(eyes) is ConsoleExtent keptClear)
+                        Debug.Log("Halcyonic: colour: placing at text size " + GlazeText.Scale.ToString("0.##") + ", the search keeps clear of the console "
+                            + GlazeChecks.Degrees(Mathf.DeltaAngle(director.Plane.Direction.Yaw, keptClear.LeftYaw)) + " to "
+                            + GlazeChecks.Degrees(Mathf.DeltaAngle(director.Plane.Direction.Yaw, keptClear.RightYaw)) + " across from where the plane faces, foot "
+                            + GlazeChecks.Degrees(keptClear.BottomElevation) + " up; clearance " + GlazeChecks.Degrees(WorkspacePlacement.ClearanceDegrees) + " degrees");
+                    agent = ConfirmedDirectorAgent(root.transform, director, eyes, Present().Character, failures, "colour");
+                }
+                finally { RoomDesign.Enabled = designWas; KitWorkspaceHost.Enabled = kitWas; }
+                var placedExtent = GlazeChecks.Of("the colour shelf", eyes, agent.View.transform.parent.GetComponentsInChildren<Renderer>(false));
+                Debug.Log("Halcyonic: colour: the shelf placed stands " + GlazeChecks.Degrees(placedExtent.Left) + " to " + GlazeChecks.Degrees(placedExtent.Right)
+                    + " across, " + GlazeChecks.Degrees(placedExtent.Bottom) + " to " + GlazeChecks.Degrees(placedExtent.Top) + " up, inside the field");
                 // The shared helper emits a diagnostic fallback after failure. It is never valid proof.
                 if (failures.Count != beforePlacement) return failures;
                 targets.Add(agent.Target); characters.Add(agent); presentation.SetAgentsEnabled(true);
