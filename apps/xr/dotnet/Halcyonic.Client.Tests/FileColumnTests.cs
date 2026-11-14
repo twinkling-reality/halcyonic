@@ -2193,7 +2193,7 @@ public class FileColumnTests
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
         {
             "The old table is in the way. What should I do with its data?",
-            "Duplicate Answers · Not Answerable Here · Stop Task",
+            "Its answers share a name, so it can't be answered here; stopping the task withdraws it",
             WorkspaceText.AgentWaits,
         }), "what it asks, why, and that it waits, as for a secret");
         Assert.That(frame.Lines.Any(line => line.Action == FileScreens.Choose || line.Action == FileScreens.TypeAnswer), Is.False);

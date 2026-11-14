@@ -220,9 +220,10 @@ public class QuestionTests
         Assert.That(outcome.Command, Is.Null);
     }
 
-    [TestCase(true, false, "Secret Requested · Not Sendable Here · Stop Task")]
-    [TestCase(false, true, "Question Too Long · Not Answerable Here · Stop Task")]
-    [TestCase(false, false, "Not Answerable Here · Stop Task")]
+    // One sentence each, never two facts on a dot, stopping named as a deed that withdraws the question (AUDIT2's 2026-11-14T05:52Z).
+    [TestCase(true, false, "It asks for a secret, which can't be sent from here; stopping the task withdraws it")]
+    [TestCase(false, true, "It is too long to show whole, so it can't be answered here; stopping the task withdraws it")]
+    [TestCase(false, false, "It can't be answered here; stopping the task withdraws it")]
     public void AQuestionHalcyonicCannotAnswerShowsTheWayOn(bool secret, bool cut, string words)
     {
         var question = AskingWork.Scripted();

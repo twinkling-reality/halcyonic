@@ -190,13 +190,15 @@ namespace Halcyonic.Client
         /// </summary>
         public static string CannotAnswer(QuestionView question)
         {
-            if (question.Prompts.Any(prompt => prompt.Secret)) return "Secret Requested · Not Sendable Here · Stop Task";
+            // One sentence each, never two facts on a dot; "it" is the question, and stopping is named as the deed that withdraws it,
+            // never as a button (AUDIT2's 2026-11-14T05:52Z words).
+            if (question.Prompts.Any(prompt => prompt.Secret)) return "It asks for a secret, which can't be sent from here; stopping the task withdraws it";
             if (!question.Prompts.All(HasAWayToAnswer)) return SameAnswersTwice;
             if (question.Prompts.Any(prompt => IsCut(prompt.Header) || IsCut(prompt.Text) || prompt.Options.Any(option => IsCut(option.Label) || IsCut(option.Description))))
             {
-                return "Question Too Long · Not Answerable Here · Stop Task";
+                return "It is too long to show whole, so it can't be answered here; stopping the task withdraws it";
             }
-            return "Not Answerable Here · Stop Task";
+            return "It can't be answered here; stopping the task withdraws it";
         }
 
         /// <summary>
@@ -287,7 +289,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Why a question with a prompt whose answers read alike and no other way to answer can't be answered here (settled by the coordinator, 2026-10-04).</summary>
-        public const string SameAnswersTwice = "Duplicate Answers · Not Answerable Here · Stop Task";
+        public const string SameAnswersTwice = "Its answers share a name, so it can't be answered here; stopping the task withdraws it";
 
         /// <summary>The agent waits while nobody can answer here: said under a question Halcyonic cannot answer.</summary>
         public const string AgentWaits = "Awaiting Answer";
