@@ -1003,21 +1003,28 @@ namespace Halcyonic.XR.Workspace
             // than where the stage placed it if that is lower, nor into a surface under the characters.
             var floor = Mathf.Min(WorkspacePlacement.Lowest(composition.Size, field), Placed.Elevation);
             if (surfaceDrop is float drop) floor = Mathf.Max(floor, WorkspacePlacement.LowestAboveSurface(composition.Size, drop));
-            if (at.Elevation > WorkspacePlacement.HighestDegrees + 1e-3f || at.Elevation < Mathf.Min(floor, WorkspacePlacement.HighestDegrees) - 1e-3f) return false;
-            if (!MenuPage.Inside(composition, at, field)) return false;
+            if (at.Elevation > WorkspacePlacement.HighestDegrees + 1e-3f || at.Elevation < Mathf.Min(floor, WorkspacePlacement.HighestDegrees) - 1e-3f) return Held("its height band");
+            if (!MenuPage.Inside(composition, at, field)) return Held("the field");
             // Under the redesign the handle hangs past the composition's box: its whole hold area stays where a hand can take it
             // (AUDIT's 01:30Z condition 1, FIELD's c002582eb), and the plane is never let go over a shelf (the lead's 01:26Z).
             if (Anchored)
             {
                 var (half, handleTop, handleBottom) = HandleOnPlane();
                 var (originRight, originUp) = KitOrigin;
-                if (!MenuPage.Inside(composition, at, field, originRight - half, originRight + half, originUp + handleBottom, originUp + handleTop)) return false;
-                if (!ClearsShelfAt(at)) return false;
+                if (!MenuPage.Inside(composition, at, field, originRight - half, originRight + half, originUp + handleBottom, originUp + handleTop)) return Held("the handle's reach");
+                if (!ClearsShelfAt(at)) return Held("the shelf");
             }
 
-            if (!ClearsBodies(at, bodies, composition.Size)) return false;
-            return !(LineAt(composition, at) is (Vector3 from, Vector3 to)) || !Crosses(from, to);
+            if (!ClearsBodies(at, bodies, composition.Size)) return Held("a character");
+            if (LineAt(composition, at) is (Vector3 from, Vector3 to) && Crosses(from, to)) return Held("the light line");
+            HeldBy = null;
+            return true;
         }
+
+        /// <summary>Which of the plane's own rules last refused a place (AUDIT's 02:09Z: the walk reads which rule held a drag); null where it allowed it.</summary>
+        public string? HeldBy { get; private set; }
+
+        private bool Held(string rule) { HeldBy = rule; return false; }
 
         /// <summary>The light line as it would run with <paramref name="composition"/> centred at <paramref name="at"/>, as <see cref="UpdateLightLine"/> draws it; null with none.</summary>
         private (Vector3 From, Vector3 To)? LineAt(PlaneComposition composition, PanelDirection at, Vector3? viewer = null,

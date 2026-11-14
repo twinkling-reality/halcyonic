@@ -1350,6 +1350,9 @@ namespace Halcyonic.XR.Workspace
         private void EndDrag()
         {
             if (drag == null) return;
+            // Where the last step was held short, which rule held it (AUDIT's 02:09Z MUST), once, in a line the walk reads.
+            if (drag.Refused is string rule)
+                Debug.Log("Halcyonic: the drag stopped short where " + (rule == "the plane's own" && plane.HeldBy is string own ? own : rule) + " held it.");
             drag = null;
             // Let go where the person left it: the shelf's aside is decided once again for that place (AUDIT's 01:30Z condition 3).
             plane.LetGo();
