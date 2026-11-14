@@ -762,13 +762,22 @@ namespace Halcyonic.XR.Workspace.Editor
                     // The page's own line in the panel and nothing else; its prompt, the file's other sections and Close in the column, each the frame's own.
                     Require(binding.Plain && shown.FromMoment, "the page is not read by the general rule");
                     Require(bar.Body.GetParsedText() == FileScreens.StillReading(FileSection.Checks) && shown.Band == null && shown.Sentence == null, "the panel reads \"" + bar.Body.GetParsedText() + "\"");
-                    // Four in all (the lead's 2026-11-14T00:24Z): Refresh first and Close last on every page, the sections between, and where
-                    // they do not all fit the reader's own Next Page turns to the rest.
-                    var sections = shown.Column.Count(action => action.Place == KitPlace.Section);
-                    var turns = shown.Column.Any(action => action.Control.Action == RoomBar.TurnPage);
-                    Require(shown.Column.Count <= RoomForm.Full.ActionsAPage && shown.Column[0].Control.Action == FileScreens.Refresh
-                        && shown.Column[^1].Control.Action == Footer.Close && sections >= 1 && (sections == 3 || turns) && !shown.Column.Any(action => action.Main),
-                        "the column holds " + string.Join(", ", shown.Column.Select(action => action.Words)));
+                    // Four in all (the lead's 2026-11-14T00:24Z), as strong as the check it replaces (AUDIT's 03:35Z): on EVERY page of the
+                    // reader, at most four, Refresh first and Close last, none main; across the pages, the file's three sections each once.
+                    // The reader's pages are turned all the way round, so it stands again on its first.
+                    var sectionsSeen = new List<string>();
+                    var readerPages = shown.GeneralPart.Pages;
+                    for (var page = 0; page < readerPages; page++)
+                    {
+                        var column = shown.Column;
+                        Require(column.Count <= RoomForm.Full.ActionsAPage && column.Count >= 2 && column[0].Control.Action == FileScreens.Refresh
+                            && column[^1].Control.Action == Footer.Close && !column.Any(action => action.Main),
+                            "page " + (page + 1) + " of the column holds " + string.Join(", ", column.Select(action => action.Words)));
+                        sectionsSeen.AddRange(column.Where(action => action.Place == KitPlace.Section).Select(action => action.Control.Key ?? action.Words));
+                        if (readerPages > 1) shown.Turn();
+                    }
+                    Require(sectionsSeen.Count == 3 && sectionsSeen.Distinct().Count() == 3, "the file's three sections do not each stand once across the pages: "
+                        + string.Join(", ", sectionsSeen));
                     Require(shown.Column.All(action => ReferenceEquals(action.Control.Frame, frame)), "an action is not the frame's own");
                 }
                 if (state == "36-stop-confirm")
@@ -1011,18 +1020,44 @@ namespace Halcyonic.XR.Workspace.Editor
                     expectedActions.Add(field.Action);
                 }
                 var press = 503;
-                foreach (var button in bar.Column.Where(button => button.gameObject.activeSelf).ToList())
+                // Every page of the general reader is swept (AUDIT's 03:35Z): its actions pressed on each, the reader's own Next Page
+                // turning to the next (it turns the bar; it is never the file's to take), Close pressed once, last.
+                var swept = new List<RoomButton>();
+                RoomButton? closing = null;
+                var pagesOf = bar.Shown?.GeneralPart.Pages ?? 1;
+                for (var page = 0; page < pagesOf; page++)
+                {
+                    var onPage = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
+                    var turner = onPage.FirstOrDefault(button => bar.ControlOf(button) is KitControl turnControl && turnControl.Action == RoomBar.TurnPage);
+                    foreach (var button in onPage)
+                    {
+                        if (button == turner) continue;
+                        if (bar.ControlOf(button) is KitControl closeControl && closeControl.Action == Footer.Close && pagesOf > 1) { closing = button; continue; }
+                        swept.Add(button);
+                    }
+                    if (page == pagesOf - 1 || turner == null) break;
+                    var was = bar.Shown?.GeneralPart.Page;
+                    // This page's own presses first, then the turn.
+                    foreach (var button in swept.Where(button => onPage.Contains(button)).ToList()) SweepPress(button);
+                    swept.RemoveAll(button => onPage.Contains(button));
+                    host.SettleForRender();
+                    turner.Press.PressForRender(press++);
+                    host.SettleForRender();
+                    foreach (var settling in bar.Presses) settling.SettleForRender();
+                    if (bar.Shown?.GeneralPart.Page == was) { failures.Add(state + ": the reader's Next Page did not turn its page"); break; }
+                }
+                if (closing != null) swept.Add(closing);
+                foreach (var button in swept) SweepPress(button);
+                void SweepPress(RoomButton button)
                 {
                     // Talk Again is held, not pressed: it starts the hold, as Hold to Talk does.
-                    if (bar.ControlOf(button) is not KitControl control || control.Place == KitPlace.Talk) continue;
-                    // The reader's own Next Page turns its page in the bar; it is never the file's to take.
-                    if (control.Action == RoomBar.TurnPage) continue;
+                    if (bar.ControlOf(button) is not KitControl control || control.Place == KitPlace.Talk) return;
                     button.Press.PressForRender(press++);
                     // Confirm behind its lock takes no press: nothing is confirmed by the press that answered.
                     if (ReferenceEquals(bar.Locking, button))
                     {
                         if (acted.Contains(control.Action)) failures.Add(state + ": Confirm took a press behind its lock");
-                        continue;
+                        return;
                     }
                     expectedActions.Add(control.Action);
                 }
