@@ -399,7 +399,7 @@ namespace Halcyonic.XR.Workspace
         private float RestHalfDegrees()
         {
             if (restHalfHeld is { } held && Mathf.Approximately(held.Scale, GlazeText.Scale)) return held.Degrees;
-            var resting = RestingUnits();
+            var resting = RoomBarView.RestingAt();
             var under = RoomType.Units(RoomBarView.MostUnderFootDp);
             var widest = 0f;
             for (var step = 0; step <= 20; step++)
