@@ -3218,8 +3218,10 @@ in order, as before.
   inside the Quest 3S field and which keeps clear of the placed shelf, band included: the floor by its resting footprint, a
   width above it by the largest it lays, so the plane never widens into a shelf it has just placed (`PlaneWidthRule`,
   `MenuPlane.ConsiderForm`), the column beside it. The floor is
-  measured (FIELD's 59-width-table, F106: 360 dp at Standard, 400 dp at Larger, where New Project's recap card stops laying
-  whole; `PlaneWidth.StandardFloorDp`, `LargerFloorDp`), and under it nothing is laid. Where even the floor does not clear,
+  measured (FIELD's 59-width-table, F106: 360 dp at Standard, 400 dp at Larger, where New Project's recap card stopped laying
+  whole; `PlaneWidth.StandardFloorDp`, `LargerFloorDp`), and under it nothing is laid. Since the recap cuts its first task at
+  three lines (F119), every screen lays whole down to 280 and 320 dp; the floor stays 360 and 400 for this batch (the lead's
+  2026-11-14T02:54Z): the check fails when a screen needs more than the floor and logs the lower measure as room to narrow. Where even the floor does not clear,
   the room yields, never the plane: a new shelf is offered the nearest place that clears, inside the field first, then a turn
   of the head up to thirty degrees past its side, then out to the person's side, never behind them, each turn logged once
   (`RoomPlacement.BeginPreview`, `AgentShelfSearch` with `widestTurn`); a placed shelf a page taller than rest meets stands aside

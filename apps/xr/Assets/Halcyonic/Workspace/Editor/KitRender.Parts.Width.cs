@@ -123,10 +123,15 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             Debug.Log("Halcyonic: width table: " + size + " floor " + (floor is float f ? f.ToString("0", CultureInfo.InvariantCulture) + " dp (" + (f / RoomGeometry.DpPerDegree).ToString("0.0", CultureInfo.InvariantCulture) + " degrees)" : "NONE") + ".");
             Require(floor != null, "no width lays every screen whole in three parts or fewer");
-            // The plane lays nothing under its floor (PlaneWidth.FloorDp): the floor measured here is that one, or the plane and the kit disagree.
+            // The plane lays nothing under its floor (PlaneWidth.FloorDp): no screen may need MORE than it, or a person meets a screen cut at
+            // the floor. A lower measure is room to narrow, logged, not failed, for this batch only (the lead's 2026-11-14T02:54Z (B)): the next
+            // batch lowers the floor to the measure, walks it whole, and holds this check EQUAL again.
             var planeFloor = PlaneWidth.FloorDp(GlazeText.Scale);
-            Require(floor is float measuredFloor && Mathf.Abs(measuredFloor - planeFloor) < 0.5f, "the measured " + size + " floor, "
-                + (floor is float floorSaid ? floorSaid.ToString("0", CultureInfo.InvariantCulture) + " dp" : "none") + ", is not the plane's " + planeFloor.ToString("0", CultureInfo.InvariantCulture) + " dp (PlaneWidth)");
+            Require(floor is float measuredFloor && measuredFloor <= planeFloor + 0.5f, "the measured " + size + " floor, "
+                + (floor is float floorSaid ? floorSaid.ToString("0", CultureInfo.InvariantCulture) + " dp" : "none") + ", is above the plane's " + planeFloor.ToString("0", CultureInfo.InvariantCulture) + " dp (PlaneWidth): a screen is cut at the floor");
+            if (floor is float lower && lower < planeFloor - 0.5f)
+                Debug.Log("Halcyonic: width table: " + size + ": room to narrow: every screen lays whole down to " + lower.ToString("0", CultureInfo.InvariantCulture)
+                    + " dp, under the plane's " + planeFloor.ToString("0", CultureInfo.InvariantCulture) + " dp floor (the next batch lowers the floor to it).");
             // The render shows the recap at DESIGN's width; every measured bar is laid again so the state's own checks read it.
             RoomBar? shown;
             RoomDesign.Enabled = true;
