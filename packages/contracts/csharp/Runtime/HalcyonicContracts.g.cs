@@ -17,7 +17,7 @@ namespace Halcyonic.Contracts
     {
         public const int EventSchema = 1;
         public const int CommandSchema = 1;
-        public const int RealtimeProtocol = 1;
+        public const int RealtimeProtocol = 2;
         public const int PairingProtocol = 1;
     }
 
@@ -7497,7 +7497,7 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "welcome";
 
         [global::Newtonsoft.Json.JsonProperty("protocol", Required = global::Newtonsoft.Json.Required.Always)]
-        public long Protocol { get; set; } = 1;
+        public long Protocol { get; set; } = 2;
 
         [global::Newtonsoft.Json.JsonProperty("journal", Required = global::Newtonsoft.Json.Required.Always)]
         public JournalInfo Journal { get; set; } = default!;
@@ -7630,7 +7630,7 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "hello";
 
         [global::Newtonsoft.Json.JsonProperty("protocol", Required = global::Newtonsoft.Json.Required.Always)]
-        public long Protocol { get; set; } = 1;
+        public long Protocol { get; set; } = 2;
 
         [global::Newtonsoft.Json.JsonProperty("client", Required = global::Newtonsoft.Json.Required.Always)]
         public ClientInfo Client { get; set; } = default!;

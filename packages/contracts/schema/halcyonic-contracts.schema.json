@@ -6,7 +6,7 @@
   "x-halcyonic-versions": {
     "event_schema": 1,
     "command_schema": 1,
-    "realtime_protocol": 1,
+    "realtime_protocol": 2,
     "pairing_protocol": 1
   },
   "$defs": {
@@ -21407,7 +21407,7 @@
             },
             "protocol": {
               "type": "number",
-              "const": 1
+              "const": 2
             },
             "client": {
               "$ref": "#/$defs/ClientInfo"
@@ -21490,7 +21490,7 @@
             },
             "protocol": {
               "type": "number",
-              "const": 1
+              "const": 2
             },
             "journal": {
               "$ref": "#/$defs/JournalInfo"

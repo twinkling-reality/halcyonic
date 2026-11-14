@@ -18,6 +18,7 @@ import type {
   RuntimeId,
   UnderstandingResult,
 } from '@halcyonic/contracts';
+import { REALTIME_PROTOCOL_VERSION } from '@halcyonic/contracts';
 import { RealtimeClient } from '../client/realtime-client.ts';
 import { MODEL_LIST_TIMEOUT_MS } from '../core/runtime-models.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
@@ -480,7 +481,12 @@ describe('the network listener', () => {
       headers: bearer(paired.credential),
       pin: paired.certificateSha256,
     });
-    socket.sendJson({ type: 'hello', protocol: 1, client: TEST_CLIENT, resume: null });
+    socket.sendJson({
+      type: 'hello',
+      protocol: REALTIME_PROTOCOL_VERSION,
+      client: TEST_CLIENT,
+      resume: null,
+    });
     const overWebSocket = server.commands.createProject('Over the realtime stream');
     socket.sendJson({ type: 'command', command: overWebSocket });
     await socket.waitFor((text) => text.includes('"command_ack"'));
@@ -511,7 +517,12 @@ describe('the network listener', () => {
       headers: bearer(paired.credential),
       pin: paired.certificateSha256,
     });
-    socket.sendJson({ type: 'hello', protocol: 1, client: TEST_CLIENT, resume: null });
+    socket.sendJson({
+      type: 'hello',
+      protocol: REALTIME_PROTOCOL_VERSION,
+      client: TEST_CLIENT,
+      resume: null,
+    });
     await socket.waitFor((text) => text.includes('"welcome"'));
     const listed = await loopback<{ connected: string[] }>(server, 'GET', '/api/devices');
     assert.deepEqual(listed.body.connected, [paired.deviceId]);
@@ -809,7 +820,12 @@ describe('what revocation stops, and how long the listener waits', () => {
       hostile: true,
     });
     t.after(() => socket.destroy());
-    socket.sendJson({ type: 'hello', protocol: 1, client: TEST_CLIENT, resume: null });
+    socket.sendJson({
+      type: 'hello',
+      protocol: REALTIME_PROTOCOL_VERSION,
+      client: TEST_CLIENT,
+      resume: null,
+    });
     await socket.waitFor((text) => text.includes('"welcome"'));
 
     const revokedAt = Date.now();
@@ -936,7 +952,12 @@ describe('what revocation stops, and how long the listener waits', () => {
         headers: bearer(paired.credential),
         pin: paired.certificateSha256,
       });
-      socket.sendJson({ type: 'hello', protocol: 1, client: TEST_CLIENT, resume: null });
+      socket.sendJson({
+        type: 'hello',
+        protocol: REALTIME_PROTOCOL_VERSION,
+        client: TEST_CLIENT,
+        resume: null,
+      });
       return socket;
     };
     const held: TlsWebSocket[] = [];
