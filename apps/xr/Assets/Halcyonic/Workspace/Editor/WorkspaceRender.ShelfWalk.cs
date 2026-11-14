@@ -324,10 +324,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         return Mathf.Atan2(toward.y, Mathf.Max(new Vector2(toward.x, toward.z).magnitude, 1e-4f)) * Mathf.Rad2Deg;
                     }
                     var kitNow = plane.Kit;
-                    // The bar as drawn, every redesign part but the band's and the shelf's as one (AUDIT, 2026-11-14T01:02Z), beside the plane's
-                    // reasoned bar.
+                    // The bar as drawn, every redesign part but the band's, the handle's (reasoned as a part of its own) and the shelf's as one
+                    // (AUDIT, 2026-11-14T01:02Z), beside the plane's reasoned bar.
+                    var barHandle = Handle();
                     var barDrawn = GlazeChecks.Of("the bar", eyes, root.GetComponentsInChildren<Renderer>(false)
                         .Where(renderer => renderer.enabled && !renderer.transform.IsChildOf(stage.Shelf) && !renderer.transform.IsChildOf(kitNow.Band.transform)
+                            && (barHandle == null || !renderer.transform.IsChildOf(barHandle.transform))
                             && OwnerOf(renderer.transform)?.StartsWith("Room", StringComparison.Ordinal) == true));
                     // Reasoned equals drawn (XR and AUDIT, 2026-11-14T01:06Z): nothing the bar or the band draws stands outside the shape the plane
                     // reasons for it by more than a tenth of a degree, and the band's top is where the plane reasons it. The reasoned shapes are
@@ -355,8 +357,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (kitNow.Band.Words != null)
                         {
                             Within(bandDrawn, At(5), At(6), At(7), At(8), "the band");
-                            if (!bandDrawn.IsEmpty && Mathf.Abs(bandDrawn.Top - At(8)) > 0.1f)
-                                failures.Add(when + ": the band's drawn top stands " + GlazeChecks.Degrees(bandDrawn.Top - At(8)) + " degrees from its top as the plane reasons it");
+                            // Containment holds the drawn top under the reasoned one (above); the reasoned top is rounded out a tenth by design
+                            // (XR's BandRoundOutDegrees, 01:36Z), so it may stand up to two tenths above what is drawn, never more.
+                            if (!bandDrawn.IsEmpty && At(8) - bandDrawn.Top > 0.2f)
+                                failures.Add(when + ": the band's top as the plane reasons it stands " + GlazeChecks.Degrees(At(8) - bandDrawn.Top) + " degrees above its drawn top");
                         }
                     }
                     Debug.Log("Halcyonic: shelf walk: " + when + ", as drawn: " + barDrawn + "; the bar's foot line " + GlazeChecks.Degrees(Elevation(kitNow.transform.TransformPoint(0f, kitNow.FootLine, 0f)))
