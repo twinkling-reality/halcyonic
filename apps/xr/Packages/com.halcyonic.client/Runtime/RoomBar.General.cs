@@ -82,7 +82,9 @@ namespace Halcyonic.Client
                 // Where am I (the lead, 16:46Z; the critic, 17:49Z: Settings and paged lists had no title): the frame's subject stands
                 // as the panel's first row, unless its first line already says it or the frame is a task's or a project's, whose
                 // name the room already stands on its plate.
-                if (frame.IdentityKind == null && frame.Lines.FirstOrDefault()?.Words != frame.Subject)
+                // Nor where its first line's value already says it (the recap's reading page: a long name never stands twice).
+                if (frame.IdentityKind == null && frame.Lines.FirstOrDefault()?.Words != frame.Subject
+                    && (frame.Lines.FirstOrDefault()?.FactRuns?.Text ?? frame.Lines.FirstOrDefault()?.Fact) != frame.Subject)
                 {
                     rows.Add(new RoomRow(frame.SubjectRuns));
                     titled = true;

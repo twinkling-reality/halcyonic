@@ -797,4 +797,22 @@ public class RoomPageTests
             "every line of both reached once, each part under its label");
         Assert.That(bar.Whole, Is.True, "read once every page was shown");
     }
+
+    /// <summary>
+    /// Where the first line's value already says the frame's subject (the recap's reading page: its subject the person's name, its
+    /// first fact the same name under 'Project'), the subject is not laid again as a title row, so a long name never stands twice.
+    /// </summary>
+    [Test]
+    public void ASubjectAlreadyGivenAsTheFirstLinesValueIsNotLaidTwice()
+    {
+        var name = "A kite game where the wind changes every round and the tail grows with each loop";
+        var frame = new MenuFrame(LineWords.TheirName(name), new Footer(Close), lines: new[]
+        {
+            new PageLine(LineWords.Ours("Project"), fact: LineWords.TheirName(name)),
+            new PageLine(LineWords.Ours("First Task"), fact: LineWords.TheirName("Make the kite climb faster.")),
+        });
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+        Assert.That(bar.Facts!.Count(row => row.Words.Text == name), Is.EqualTo(1), "the name once, under its label");
+        Assert.That(bar.Facts![0].Label, Is.EqualTo("Project"));
+    }
 }
