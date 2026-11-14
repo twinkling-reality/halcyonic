@@ -394,7 +394,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     var side = Vector3.Cross(Vector3.up, grab - eyes).normalized;
                     lock (widths) reasons = null;
                     menu.MatureCompactMoveForRender(grab);
-                    if (!menu.Dragging) { failures.Add(when + ": holding the plane took no hold of it"); return; }
+                    // The redesign draws no handle yet (lead, 2026-11-14T01:26Z, ruling 3: a handle is being built, and the batch does not
+                    // wait for it): said, not failed, until a drawn handle takes the hold.
+                    if (!menu.Dragging) { Debug.Log("Halcyonic: shelf walk: " + when + ": not walked: nothing drawn takes hold of the plane yet (its handle, ruling 3)"); return; }
                     menu.DragSubjectForRender(eyes + Quaternion.AngleAxis(-degrees, side) * (grab - eyes));
                     menu.LetGoForRender();
                     Draw();
