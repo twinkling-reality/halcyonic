@@ -50,6 +50,11 @@ Make it fun to look at:
 - Where it happens is one choice, made once in `src/index.ts`: an island world from `src/worlds.ts` with
   `setupLook` for a game, or a place from `src/places.ts` with `setupScene` for music and light, as "Music and light,
   not a game" below says. Never both.
+- Anything asked to glow, in any app (pads, buttons, lanterns, eyes, a sign), glows by light from `src/glow.ts`: a
+  matte or plain coloured material never glows, however bright its colour. Add `glows(count, { facing: true })`'s
+  `object` to the scene and each frame `begin()`, `add(x, y, z, width, height, colour, strength)` for each thing, and
+  `end()`; raise its strength while it is pressed or sounding. `playNow('bell', midi, seconds, loud)` plays one note
+  at a press, `pitch('C4')` for its key.
 - Set the game in a world of its own. A new game starts in the meadow, the same island, sky and decor every other
   game starts with, so pick the world in `src/worlds.ts` that fits the game and name it in `src/index.ts`, for
   example `setupLook(world, 'night')`:
