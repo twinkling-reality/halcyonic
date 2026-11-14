@@ -514,7 +514,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (state == "31-bar-confirm-part" && screen.RequestParts < 2) shot.Failures.Add("the long instruction is one part of " + screen.RequestRows + " lines");
                 armedWords = request;
             }
-            var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
+            // A question's page laid as the redesign lays it, as the headset always does: each answer's label and description apart
+            // (FileScreens.AnswerRow, KitControl.Under), never the older page's words joined on a dot (SCREENS, FIELD's 03:32Z Check).
+            var designBefore = RoomDesign.Enabled;
+            if (questioning) RoomDesign.Enabled = true;
+            MenuFrame frame;
+            try { frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4)); }
+            finally { RoomDesign.Enabled = designBefore; }
             var binding = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Open ? screen.Instruction.Words : "", new ConnectionStatus(ConnectionPhase.Live),
                 SelectedProject, ProductionSpine(workspace), new KitRowModel("workspace", LineWords.Ours("Move Workspace"), GlazeIcon.Move), roomDesign: true,
                 draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows, chooses: choosing,
