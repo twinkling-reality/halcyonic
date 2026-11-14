@@ -92,3 +92,5 @@ re-attaches one this process started when its runtime no longer hosts it, with t
 (the recorded level, plan and confinement, the spending allowance left, the project's secrets). A session that
 cannot be found again is lost as after a restart: the action fails having done nothing, said plainly.
 Nothing on screen changes; the next instruction after the quiet time takes a few seconds longer.
+For OpenCode, what the task's commands left running in the background ends with the server too, by the adapter's own
+sweep, except what SECURITY.md lists as not guaranteed ("A command an agent leaves running").

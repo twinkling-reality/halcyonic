@@ -59,6 +59,7 @@ import {
   shellRequest,
   toTimestamp,
 } from './events.ts';
+import { endLeftovers, type LeftoverScope } from './leftovers.ts';
 import {
   type ModelRef,
   modelRefOf,
@@ -518,6 +519,8 @@ interface Slot {
 interface Connection {
   readonly slot: Slot;
   readonly server: OpenCodeServer;
+  /** What a confined folder's server leaves running is ended with it (`endLeftovers`); null for any other server. */
+  readonly leftovers: LeftoverScope | null;
   /**
    * When the models of the server's own location were first asked for, by `Date.now()`. OpenCode
    * loads a location on its first request, and its list settles moments later.
@@ -1257,8 +1260,15 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       stopping.map(async (connection) => {
         await connection.server.stop();
         await connection.gone;
+        await this.#endLeftovers(connection);
       }),
     );
+  }
+
+  /** Ends what a confined folder's server left running, after the server (every stop path, AUDIT3's B4). */
+  async #endLeftovers(connection: Connection): Promise<void> {
+    if (connection.leftovers === null) return;
+    await endLeftovers(connection.leftovers).catch(() => 0);
   }
 
   // Server lifecycle ---------------------------------------------------------------------------
@@ -1440,6 +1450,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   async #launch(slot: Slot): Promise<Connection> {
+    const launchedAtMs = Date.now();
     try {
       await stopStale(slot.recordFile);
     } catch (error) {
@@ -1512,6 +1523,10 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       slot,
       server,
       commands: sandboxed?.commands ?? this.#environment,
+      leftovers:
+        sandboxed === null || sandboxed === undefined || slot.folder === null
+          ? null
+          : { folder: realpathSync(slot.folder), launchedAtMs },
       listingSince: null,
       gated: new Set(hosted.map((each) => each.provider.id)),
       halted: new AbortController(),
@@ -1555,6 +1570,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       connection,
       `The OpenCode server exited unexpectedly (${describeExit(status)}). This execution can no longer be observed or controlled.`,
     );
+    void this.#endLeftovers(connection);
   }
 
   /** Stops using a server: no more events, no more reconnection, actions refused. */
@@ -1572,6 +1588,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#halt(connection);
     this.#loseAll(connection, `${reason} The OpenCode server was stopped.`);
     await connection.server.stop();
+    await this.#endLeftovers(connection);
   }
 
   // Event stream -------------------------------------------------------------------------------
@@ -2103,6 +2120,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#halt(connection);
     await connection.server.stop();
     await connection.gone;
+    await this.#endLeftovers(connection);
   }
 
   /**
