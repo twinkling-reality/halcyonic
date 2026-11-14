@@ -307,8 +307,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add("page open: " + shelf + " is " + GlazeChecks.Degrees(near.Apart(shelf)) + " degrees from " + near + ", under a degree: the shelf stands under the plane");
                 // Beside the plane's own "the plane reasons" line (XR, 2026-11-14T00:59Z): the bar's foot line and the band's place as drawn,
                 // each as the eyes see it, so the part the plane reasons apart from what it draws can be named.
-                if (plane.KitShows)
+                void ReasonedAgainstDrawn(string when)
                 {
+                    if (!plane.KitShows) return;
                     float Elevation(Vector3 point)
                     {
                         var toward = point - eyes;
@@ -328,7 +329,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     lock (widths) said = reasons;
                     var shapes = said == null ? null : System.Text.RegularExpressions.Regex.Match(said,
                         @"the bar \((-?[\d.]+) to (-?[\d.]+) across, (-?[\d.]+) to (-?[\d.]+) up\) and the band \((-?[\d.]+) to (-?[\d.]+) across, (-?[\d.]+) to (-?[\d.]+) up\)");
-                    if (shapes == null || !shapes.Success) Debug.Log("Halcyonic: shelf walk: page open: the plane said no reasoned bar and band to set beside the drawn ones");
+                    if (shapes == null || !shapes.Success) Debug.Log("Halcyonic: shelf walk: " + when + ": the plane said no reasoned bar and band to set beside the drawn ones");
                     else
                     {
                         float At(int group) => float.Parse(shapes.Groups[group].Value, System.Globalization.CultureInfo.InvariantCulture);
@@ -336,9 +337,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         {
                             if (drawnPart.IsEmpty) return;
                             var past = Mathf.Max(Mathf.Max(left - drawnPart.Left, drawnPart.Right - right), Mathf.Max(bottom - drawnPart.Bottom, drawnPart.Top - top));
-                            if (past > 0.1f) failures.Add("page open: " + drawnPart + " draws " + GlazeChecks.Degrees(past) + " degrees past " + what + " as the plane reasons it ("
+                            if (past > 0.1f) failures.Add(when + ": " + drawnPart + " draws " + GlazeChecks.Degrees(past) + " degrees past " + what + " as the plane reasons it ("
                                 + GlazeChecks.Degrees(left) + " to " + GlazeChecks.Degrees(right) + " across, " + GlazeChecks.Degrees(bottom) + " to " + GlazeChecks.Degrees(top) + " up)");
-                            else Debug.Log("Halcyonic: shelf walk: page open: " + drawnPart + " stands within " + what + " as the plane reasons it, reserving "
+                            else Debug.Log("Halcyonic: shelf walk: " + when + ": " + drawnPart + " stands within " + what + " as the plane reasons it, reserving "
                                 + GlazeChecks.Degrees(drawnPart.Left - left) + " left, " + GlazeChecks.Degrees(right - drawnPart.Right) + " right, "
                                 + GlazeChecks.Degrees(drawnPart.Bottom - bottom) + " below and " + GlazeChecks.Degrees(top - drawnPart.Top) + " above what it draws");
                         }
@@ -347,13 +348,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         {
                             Within(bandDrawn, At(5), At(6), At(7), At(8), "the band");
                             if (!bandDrawn.IsEmpty && Mathf.Abs(bandDrawn.Top - At(8)) > 0.1f)
-                                failures.Add("page open: the band's drawn top stands " + GlazeChecks.Degrees(bandDrawn.Top - At(8)) + " degrees from its top as the plane reasons it");
+                                failures.Add(when + ": the band's drawn top stands " + GlazeChecks.Degrees(bandDrawn.Top - At(8)) + " degrees from its top as the plane reasons it");
                         }
                     }
-                    Debug.Log("Halcyonic: shelf walk: page open, as drawn: " + barDrawn + "; the bar's foot line " + GlazeChecks.Degrees(Elevation(kitNow.transform.TransformPoint(0f, kitNow.FootLine, 0f)))
+                    Debug.Log("Halcyonic: shelf walk: " + when + ", as drawn: " + barDrawn + "; the bar's foot line " + GlazeChecks.Degrees(Elevation(kitNow.transform.TransformPoint(0f, kitNow.FootLine, 0f)))
                         + " up, the band's laid place " + GlazeChecks.Degrees(Elevation(kitNow.Band.transform.position)) + " up, " + (kitNow.Band.Words != null ? "words on the band" : "no words on the band")
-                        + "; the band's parts: " + string.Join("; ", drawn.Where(part => part.ToString().Contains("RoomBand")).Select(part => part.ToString())));
+                        + "; the band's parts: " + string.Join("; ", kitNow.Band.GetComponentsInChildren<Renderer>(false).Where(renderer => renderer.enabled)
+                            .Select(renderer => GlazeChecks.Of(OwnerOf(renderer.transform) + "/" + renderer.name, eyes, new[] { renderer }).ToString())));
                 }
+                ReasonedAgainstDrawn("page open");
                 var envelope = new Vector3[8];
                 CharacterStage.WriteShelfCorners(new Pose(stage.Shelf.position, stage.Shelf.rotation), stage.ShelfWidth, eyes, envelope);
                 if (!workspace.ClearsShelf(envelope, eyes)) failures.Add("page open: the product's own ClearsShelf says the plane stands over the shelf");
@@ -371,6 +374,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 var back = Vector3.Distance(stage.Shelf.position, home.position);
                 if (back > 0.01f || Quaternion.Angle(stage.Shelf.rotation, home.rotation) > 0.5f)
                     failures.Add("page closed: the shelf did not come back to its place (" + back.ToString("0.000") + " m away)");
+
+                // 4. The person's drag (AUDIT and XR, 2026-11-14T01:07Z): the page open again, the plane held by the director's own hold and
+                // raised four degrees, then lowered eight, and after each the drawn bar and band held to the shapes the plane reasons for them.
+                menu.OpenFile(work.Workstream.WorkstreamId);
+                Draw();
+                Travel();
+                void DragBy(float degrees, string when)
+                {
+                    var grab = plane.Kit.transform.position;
+                    var side = Vector3.Cross(Vector3.up, grab - eyes).normalized;
+                    lock (widths) reasons = null;
+                    menu.MatureCompactMoveForRender(grab);
+                    if (!menu.Dragging) { failures.Add(when + ": holding the plane took no hold of it"); return; }
+                    menu.DragSubjectForRender(eyes + Quaternion.AngleAxis(-degrees, side) * (grab - eyes));
+                    menu.LetGoForRender();
+                    Draw();
+                    Travel();
+                    ReasonedAgainstDrawn(when);
+                }
+                DragBy(4f, "dragged up 4 degrees");
+                DragBy(-8f, "dragged down 8 degrees");
             }
             finally
             {
