@@ -42,7 +42,7 @@ export type CheckOwn = Static<typeof CheckOwn>;
 /**
  * What the page did in the check's headless browser in 10 seconds. `drawn` means something is drawn
  * in view of the laptop camera (sharp edges in a picture at 3 s or 10 s) and, since DRAWN, something
- * of the project's own (`own`), never that the game works; null when that is not known, since the
+ * of the project's own (`own`), never that the game works; `drawn` is null when that is not known, since the
  * starter's own picture to compare it with could not be made (a reference the product could not make
  * is the product's failure, never the app's). `own` is absent on checks recorded before it, which
  * reads as not compared.
