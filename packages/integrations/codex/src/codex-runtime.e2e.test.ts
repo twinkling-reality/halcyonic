@@ -996,6 +996,61 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
   );
 
   test(
+    'an empty file deleted and one added outside the workspace are asked with their empty text as content, approved, and done',
+    SLOW_TEST,
+    async (t) => {
+      // Codex's own change for an add or a delete is the file's whole content (ADR 0065), so an empty file's is "":
+      // recorded as it is, the person can answer it and the turn ends, never a request nobody can see.
+      const { runtime, sandbox, start } = await harness(t);
+      const answer = async (execution: Awaited<ReturnType<typeof start>>) => {
+        const requested = await execution.next('runtime.approval.requested');
+        assert.ok(requested.type === 'runtime.approval.requested');
+        await runtime.respondToApproval({
+          execution: execution.context,
+          approval_id: approvalId(requested),
+          decision: 'approve',
+          message: null,
+        });
+        await execution.next('runtime.turn.completed');
+        assertValidObservations(execution.observations, execution.context);
+        return requested.payload.subject;
+      };
+      const change = (path: string, kind: 'add' | 'delete') => ({
+        path,
+        real_path: null,
+        to_path: null,
+        kind,
+        shape: 'content',
+        before: kind === 'delete' ? '' : null,
+        after: kind === 'add' ? '' : null,
+        every: false,
+        cell: null,
+      });
+
+      const removed = `${sandbox.root}/empty-removed.txt`;
+      await writeFile(removed, '');
+      const deleting = await start(
+        `PATCH_JSON:${JSON.stringify(`*** Begin Patch\n*** Delete File: ${removed}\n*** End Patch\n`)}`,
+      );
+      const deleted = await answer(deleting);
+      assert.deepEqual(deleted.kind === 'tool_use' ? deleted.changes : null, [
+        change(removed, 'delete'),
+      ]);
+      assert.equal(existsSync(removed), false, 'the empty file is still there');
+
+      const made = `${sandbox.root}/empty-added.txt`;
+      const adding = await start(
+        `PATCH_JSON:${JSON.stringify(`*** Begin Patch\n*** Add File: ${made}\n*** End Patch\n`)}`,
+      );
+      const addedFile = await answer(adding);
+      assert.deepEqual(addedFile.kind === 'tool_use' ? addedFile.changes : null, [
+        change(made, 'add'),
+      ]);
+      assert.equal(readFileSync(made, 'utf8'), '');
+    },
+  );
+
+  test(
     'an interrupt stops a slow model stream, and a second finds no running turn',
     SLOW_TEST,
     async (t) => {

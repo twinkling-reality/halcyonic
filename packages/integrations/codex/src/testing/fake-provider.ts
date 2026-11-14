@@ -11,6 +11,8 @@ import type { AddressInfo } from 'node:net';
  * - last item a tool output: a short text quoting the output;
  * - `FAIL`: `response.failed`;
  * - `PATCH_ADD:<file>`: an `apply_patch` call adding `<file>`;
+ * - `PATCH_JSON:<JSON string>`: an `apply_patch` call with the decoded string as its whole patch, for a
+ *   change no other directive makes (an empty file added, a file deleted);
  * - `CMD_ESC:<command>`: an `exec_command` call asking to run outside the sandbox, which needs
  *   approval under the `on-request` policy;
  * - `CMD:<command>`: a plain `exec_command` call;
@@ -285,6 +287,14 @@ function plan(input: readonly InputItem[], tools: readonly Tool[], n: number): P
   }
   const user = lastUserText(input);
   if (user.includes('FAIL')) return { kind: 'failed' };
+  const whole = /PATCH_JSON:("(?:[^"\\]|\\.)*")/.exec(user)?.[1];
+  if (whole !== undefined) {
+    const body: unknown = JSON.parse(whole);
+    if (typeof body !== 'string') return { kind: 'text', text: 'PATCH_JSON holds no string.' };
+    return tools.some((tool) => tool.name === 'apply_patch' && tool.type === 'custom')
+      ? { kind: 'custom_tool_call', name: 'apply_patch', input: body }
+      : { kind: 'text', text: 'No apply_patch tool was offered.' };
+  }
   const patch = /PATCH_ADD:(\S+)/.exec(user);
   if (patch !== null) {
     const body = `*** Begin Patch\n*** Add File: ${patch[1]}\n+${PATCH_CONTENT}\n*** End Patch\n`;
