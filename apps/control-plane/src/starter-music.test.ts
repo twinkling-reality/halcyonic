@@ -284,7 +284,7 @@ describe('the starter music and light kit keeps to its page', () => {
     'places.ts',
   ];
   const denied =
-    /\b(fetch|XMLHttpRequest|WebSocket|EventSource|importScripts|eval|localStorage|sessionStorage|indexedDB|caches|serviceWorker|sendBeacon|createObjectURL|innerHTML)\b|\bnew Function\b|\bimport\(|document\.cookie|\bBlob\b|https?:\/\//;
+    /\b(fetch|XMLHttpRequest|WebSocket|EventSource|importScripts|eval|localStorage|sessionStorage|indexedDB|caches|serviceWorker|sendBeacon|createObjectURL|innerHTML|WebAssembly|RTCPeerConnection|location)\b|\bFunction\(|window\.open|\bimport\(|document\.cookie|\bBlob\b|https?:\/\//;
   const found = (text: string) => text.split('\n').filter((line) => denied.test(line));
 
   test('the scan finds each name it is for in a line that holds one', () => {
@@ -294,6 +294,11 @@ describe('the starter music and light kit keeps to its page', () => {
       "import('./later.js')",
       'new Blob([code])',
       "const u = 'https://cdn.example/x.js';",
+      'const run = Function(text);',
+      'await WebAssembly.instantiate(bytes);',
+      'new RTCPeerConnection();',
+      "window.open('/elsewhere');",
+      "location.href = '/elsewhere';",
     ])
       assert.deepEqual(found(line), [line]);
     assert.deepEqual(

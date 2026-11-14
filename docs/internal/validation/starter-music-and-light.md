@@ -40,18 +40,19 @@
   (`getOutputTimestamp`). Over about 73 notes in each of three views at 60 frames a second, each note's light first
   landed a median 6 to 8 ms after its heard time, and at most 15 to 22 ms: within one frame, or the one after it
   where that frame itself came late (the longest frame gap in those runs was 29 to 36 ms).
-- **Seeing a note coming:** a note falls 3.4 m in 6 s out of the dark overhead and is drawn at a quarter of its full
-  brightness or more, as the eye sees it, for its last 2.5 m, 4.4 s. With the head pitched 30 degrees down at the
-  keys and a 90 degree field of view, a note is in view for its last 0.96 m above a key, 1.7 s before it lands.
-- **Room for the person:** the keys' front edge is 0.72 m from them all round; nothing is drawn nearer than about
-  0.65 m (sparks drifting in from the keys), and nothing above them. Nothing asks them to play.
-- **Cost:** 16 draw calls (20 with the welcome card) and about 8,600 triangles; the light's own work per frame under
+- **Seeing a note coming:** a note falls 1.7 m in 2.8 s, from just above head height, and is drawn at a quarter of its
+  full brightness or more, as the eye sees it, for its last 1.2 m, 2.0 s. With the head pitched 30 degrees down at the
+  keys and a 90 degree field of view, a note is in view for its last 0.97 m above a key, 1.6 s before it lands.
+- **Room for the person:** the keys' front edge is 0.8 m from them all round; nothing is drawn nearer than about
+  0.72 m (sparks drifting in from the keys), and nothing above them. Nothing asks them to play.
+- **Cost:** 15 draw calls (19 with the welcome card) and about 10,000 triangles; the light's own work per frame under
   0.1 ms at the 95th percentile on this Mac, and 1.2 ms with the CPU slowed six times.
 - **Start:** the keys are made from their partials on a worker, off the page's thread, opening keys first: 40 keys
   in 0.73 s on this Mac; a worker that fails makes them on the page instead. The room is made in slices between
-  frames, the music starting dry until it is ready. With the CPU slowed six times, sound began 0.2 s after the press
-  and the first note was heard 1.22 s after it; the longest frame took 114 ms as sound started (235 ms before the
-  room was sliced), the others held 16.6 ms (median, 18.5 ms at the 95th percentile).
+  frames, the music starting dry until it is ready. With the CPU slowed six times, sound began 0.21 s after the press
+  and the first note was heard 1.21 s after it; the longest frame took 104 ms as sound started (235 ms before the
+  room was sliced), the others held 16.7 ms (median, 18.3 ms at the 95th percentile). On this Mac unslowed the
+  longest frame was 41 ms.
 
 ## What is not known
 

@@ -206,8 +206,8 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   as one draw call, `sparks()` rise and fade, `lightKeys(low, high, { arc })` is a keyboard of light curving round
   the person, and `fallingNotes(player, keys)` lets each note fall onto its key from the dark overhead, the keys'
   light, the rising glow and the sparks included, coloured by where each note lies in the music, while the hall far
-  off answers each note in its colour, beside and behind the person. Each is written afresh every frame and makes
-  nothing new in it. Keep the place dark behind them: light adds up where it overlaps.
+  off answers each note in its colour, all round the person. Each is written afresh every frame and makes nothing new
+  in it. Keep the place dark behind them: light adds up where it overlaps.
 - For light of your own, the same parts are general: `glows` with `upright: true` keeps each shape vertical however
   the head tilts (a falling drop, a rising column), `place(...)` lays a shape in any plane (light along a curve, on a
   sloping surface), `keys.spot(midi)` says where a key is and which way it faces, `registerColour(midi, low, high)`
@@ -397,7 +397,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   const programme = join([pieces.prelude, pieces.gymnopedie], 4);
   const player = playScore(programme, ambientMotion, { loop: true, gap: 4, lead: 4 });
   const [low, high] = range([programme]);
-  const keys = lightKeys(low - 2, high + 2, { arc: 0.72, keyWidth: 0.055, centre: centre([programme]) });
+  const keys = lightKeys(low - 2, high + 2, { arc: 0.8, keyWidth: 0.045, centre: centre([programme]) });
   const keyboard = new Group();
   keyboard.position.set(0, 0.86, 0);
   keyboard.add(keys.group);

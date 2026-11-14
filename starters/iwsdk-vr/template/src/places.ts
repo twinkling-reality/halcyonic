@@ -39,7 +39,7 @@ function sky(top: Color, horizon: Color, below: Color, radius: number): Mesh {
   geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
   const mesh = new Mesh(
     geometry,
-    new MeshBasicMaterial({ vertexColors: true, side: BackSide, depthWrite: false, fog: false, toneMapped: false }),
+    new MeshBasicMaterial({ vertexColors: true, side: BackSide, depthWrite: false, fog: false, toneMapped: false, dithering: true }),
   );
   mesh.renderOrder = -1;
   return mesh;
@@ -58,7 +58,7 @@ function floor(centre: Color, edge: Color, radius: number): Mesh {
     colours.push(c.r, c.g, c.b);
   }
   geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
-  return new Mesh(geometry, new MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
+  return new Mesh(geometry, new MeshBasicMaterial({ vertexColors: true, toneMapped: false, dithering: true }));
 }
 
 /** A fixed sequence, so a place is the same on every load. */
@@ -96,20 +96,28 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   ]);
   const dust = new Color('#8FA6FF');
   // Haze far off, low over the floor, so the dark has depth and is not a wall: one soft ring of the tint all round,
-  // rising out of the floor with no edge, brightest a metre and a half up and fading to nothing above.
-  const ring = new CylinderGeometry(44, 44, 8, 96, 16, true);
-  ring.translate(0, 4, 0);
+  // rising softly out of the floor with no edge, brightest three metres up and fading to nothing above.
+  const ring = new CylinderGeometry(44, 44, 12, 96, 24, true);
+  ring.translate(0, 6, 0);
   const at = ring.getAttribute('position');
   const glow: number[] = [];
   for (let i = 0; i < at.count; i++) {
     const y = at.getY(i);
-    const k = (y < 1.5 ? y / 1.5 : Math.max(0, 1 - (y - 1.5) / 6.5) ** 2) * 0.12;
+    const k = (y < 3 ? (y / 3) ** 2 : Math.max(0, 1 - (y - 3) / 9) ** 2) * 0.16;
     glow.push(tint.r * k, tint.g * k, tint.b * k);
   }
   ring.setAttribute('color', new Float32BufferAttribute(glow, 3));
   const haze = new Mesh(
     ring,
-    new MeshBasicMaterial({ vertexColors: true, side: BackSide, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false }),
+    new MeshBasicMaterial({
+      vertexColors: true,
+      side: BackSide,
+      transparent: true,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+      dithering: true,
+    }),
   );
   group.add(haze);
   return {
