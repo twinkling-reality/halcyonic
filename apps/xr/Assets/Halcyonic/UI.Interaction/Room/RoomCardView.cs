@@ -617,9 +617,14 @@ namespace Halcyonic.XR.UI
                 // the price), so it stands at the description's size and light, not a quieter note's, and a paragraph's gap clearly
                 // wider than a line apart separates them (a fresh reader's 2026-11-14T0100Z: gaps barely wider than the pitch, the
                 // warnings smaller and dimmer than the line above).
-                var titleDrop = Mathf.Max(0f, (S(StatusMarkDp) - titleTall) / 2f);
-                titleLabel.transform.localPosition += new Vector3(0f, -titleDrop, 0f);
-                var at = Mathf.Max(S(StatusMarkDp), titleTall) + S(DescriptionGapDp);
+                // A title stacked under the mark (a state too long beside it, never cut) already stands where it is read: the lines
+                // start under it, never over it.
+                if (!stacked)
+                {
+                    var titleDrop = Mathf.Max(0f, (S(StatusMarkDp) - titleTall) / 2f);
+                    titleLabel.transform.localPosition += new Vector3(0f, -titleDrop, 0f);
+                }
+                var at = (stacked ? tall : Mathf.Max(S(StatusMarkDp), titleTall)) + S(DescriptionGapDp);
                 foreach (var each in status.Lines)
                 {
                     var (_, eachTall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), LineWords.Ours(each), 0f, -(down + at), width - S(1f), StatusLineMost);
