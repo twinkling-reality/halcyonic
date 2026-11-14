@@ -807,6 +807,15 @@ export class ControlPlane {
     return starter || (directory !== null && this.#confinedReads(directory) !== null);
   }
 
+  /**
+   * Whether the own work the host answers in `directory` also takes in reads of an original (a VR version's project,
+   * whose original lies outside its folder): then the run asks only for what reaches outside both (AUDIT2's S1 on START).
+   */
+  ownWorkReadsAnOriginal(directory: string | null): boolean {
+    if (directory === null || this.#confinedReads === null) return false;
+    return (this.#confinedReads(directory)?.originals?.length ?? 0) > 0;
+  }
+
   async close(): Promise<void> {
     this.#closed = true;
     this.#autoCheckNeeded.clear();

@@ -211,7 +211,9 @@ start before anything is made:
   brings that project back and starts the task in it.
 - **The level says what the run will really ask (with the no-ask unit):** "Asks Only Outside Task Folder" where the
   host answers a confined app's own work (a kind it answers for, kept inside the sandbox, in a starter's project:
-  `answersOwnWork` and `ControlPlane.answersOwnWorkIn`, the same facts the host's answers read); "Asks First" for any
+  `answersOwnWork` and `ControlPlane.answersOwnWorkIn`, the same facts the host's answers read), and "Asks Only Outside
+  Task Folder and Original" where that project has an original whose reads it answers too (a VR version's,
+  `ControlPlane.ownWorkReadsAnOriginal`; AUDIT2's S1, 2026-11-14); "Asks First" for any
   other run that asks; "Works Without Asking" where it never asks. Whether it asks at all is the adapter's to say where
   its runtime can run at another level than the one asked for (`RuntimeAdapter.levelAt`, the same confinement choice
   and policy its start makes): Codex on a starter's confined project asks nothing (ADR 0041), so its card says "Works

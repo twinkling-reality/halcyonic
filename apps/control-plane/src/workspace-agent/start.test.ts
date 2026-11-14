@@ -25,7 +25,7 @@ import type { Projection } from '@halcyonic/domain';
 import type { RuntimeAdapter } from '@halcyonic/runtime-core';
 import { defaultRow, type HeldRow } from '../core/choices.ts';
 import { removalReview } from '../core/removal.ts';
-import { START_PROJECT } from '../core/start.ts';
+import { ASKS_OUTSIDE_TASK_AND_ORIGINAL, START_PROJECT } from '../core/start.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { createHostLocations } from '../locations.ts';
 import { HostProviders } from '../providers.ts';
@@ -695,6 +695,7 @@ test("the level says what the run will really ask: a confined app's own work goe
     kind?: string;
     outside?: boolean;
     starter?: boolean;
+    original?: boolean;
     levelAt?: () => 'ask' | 'never_ask' | null;
   }) => {
     let folder = '';
@@ -710,7 +711,11 @@ test("the level says what the run will really ask: a confined app's own work goe
       ],
       {
         confinedReads: (directory) =>
-          options.starter === false || directory !== folder ? null : { readable: [] },
+          options.starter === false || directory !== folder
+            ? null
+            : options.original === true
+              ? { readable: [], originals: [join(s.root, 'original')] }
+              : { readable: [] },
       },
     );
     folder = join(s.root, 'kept');
@@ -732,6 +737,8 @@ test("the level says what the run will really ask: a confined app's own work goe
   };
   // A confined app the host answers for, in a starter's project: it asks only for what reaches outside its folder.
   assert.equal(await level({ kind: 'opencode' }), 'Asks Only Outside Task Folder');
+  // In a VR version's project its reads of the original go ahead too, so the level names both (AUDIT2's S1).
+  assert.equal(await level({ kind: 'opencode', original: true }), ASKS_OUTSIDE_TASK_AND_ORIGINAL);
   // Outside the sandbox, or a folder of the person's own: it asks first, as before.
   assert.equal(await level({ kind: 'opencode', outside: true }), 'Asks First');
   assert.equal(await level({ kind: 'opencode', starter: false }), 'Asks First');
