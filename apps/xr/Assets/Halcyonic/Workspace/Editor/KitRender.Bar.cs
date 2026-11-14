@@ -136,7 +136,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// band; a long message; Changes and its second page's way on; Checks passed and failed; and a project with a
         /// check and no observed turn.
         /// </summary>
-        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused", "38-result-play-not-in-build", "38-result-add", "38-add", "38-add-last", "38-conflict" };
+        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-checks-partly", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused", "38-result-play-not-in-build", "38-result-add", "38-add", "38-add-last", "38-conflict" };
 
         /// <summary>The agent's newest message in the result's states, DESIGN's own, synthetic.</summary>
         private const string ResultSays = "I added the golden balloon and removed the old backup file.";
@@ -169,11 +169,15 @@ namespace Halcyonic.XR.Workspace.Editor
             Conflict = conflicted ? new ConflictedFiles { Files = new List<ConflictedFile> { new() { Path = "src/game.ts", Kind = ConflictKind.Text } }, Total = 1 } : null,
         }, working: false);
 
+        /// <summary>The host's finding of a Partly Checked check, at its longest (AUDIT2's words of 04:06Z).</summary>
+        private const string PartlyFinding = "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Checking the game again may make it.";
+
         /// <summary>What the computer knows in each of the result's states, synthetic.</summary>
         private static RoomResult? ResultFor(string state)
         {
             CheckStepOutcome Step(CheckStepKind step, CheckStepResult result) => new CheckStepOutcome(step, result);
             var passing = new[] { Step(CheckStepKind.TypeCheck, CheckStepResult.Passed), Step(CheckStepKind.Build, CheckStepResult.Passed), Step(CheckStepKind.PageDrawn, CheckStepResult.Passed), Step(CheckStepKind.VrOffered, CheckStepResult.Passed) };
+            var partly = new[] { Step(CheckStepKind.TypeCheck, CheckStepResult.Passed), Step(CheckStepKind.Build, CheckStepResult.Passed), Step(CheckStepKind.PageDrawn, CheckStepResult.Unknown), Step(CheckStepKind.VrOffered, CheckStepResult.NotRun) };
             var failing = new[] { Step(CheckStepKind.TypeCheck, CheckStepResult.Passed), Step(CheckStepKind.Build, CheckStepResult.Failed), Step(CheckStepKind.PageDrawn, CheckStepResult.NotRun), Step(CheckStepKind.VrOffered, CheckStepResult.NotRun) };
             return state switch
             {
@@ -182,6 +186,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-changes-long" => new RoomResult(false, true, false, true, ResultTurn(true), passing, RoomResultPage.Changes),
                 "38-checks" => new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, ResultTurn(false), passing, RoomResultPage.Checks),
                 "38-checks-failed" => new RoomResult(false, true, false, false, ResultTurn(false), failing, RoomResultPage.Checks),
+                // A check whose verdict is not known (VRIFY): served, so Try Build stands; AUDIT2's finding, its longest form, under the line.
+                "38-checks-partly" => new RoomResult(false, true, true, null, ResultTurn(false), partly, RoomResultPage.Checks, partlyChecked: true, finding: PartlyFinding),
                 "38-result-stopped" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: false, ResultTurn(false), failing),
                 "38-result-play" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, ResultTurn(false), passing, play: PlayInHeadset.Offered),
                 "38-result-play-refused" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, play: PlayInHeadset.NotConfined),
@@ -294,6 +300,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-changes" => (VoiceStage.Idle, false, RoomBarState.Rest, "Changes: a row a file the computer saw change, and Back, synthetic data"),
                 "38-changes-long" => (VoiceStage.Idle, false, RoomBarState.Rest, "Changes with more than a page: eight rows, Next Page and Back, synthetic data"),
                 "38-checks" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks passed: a row a step of the computer's check, Try Build and Back, synthetic data"),
+                "38-checks-partly" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks partly checked: Partly Checked, its line, the host's finding whole under it, Try Build and Back, synthetic data"),
                 "38-checks-failed" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks failed: the steps the check reached, Write Instruction and Back, synthetic data"),
                 "38-result-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent offers never ask: the agent and its level in the row beside it, synthetic data"),
                 "38-result-stopped" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent's tries at a failed check ran out: that line first, Write Instruction leading, synthetic data"),
@@ -717,16 +724,20 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(shown.Card != null && !shown.Card.AnyDot && shown.Facts == null, "the page is not a card, or joins facts on a dot");
                         if (state is "38-changes" or "38-changes-long")
                             Require(shown.Card!.List.Count == (state == "38-changes-long" ? RoomCard.ListAPage : known.Changes.Count), "the Changes card lists " + shown.Card.List.Count + " files");
-                        if (state is "38-checks" or "38-checks-failed")
+                        if (state is "38-checks" or "38-checks-failed" or "38-checks-partly")
                             Require(shown.Card!.Steps.Count == known.Steps.Count && shown.Card.Steps.Count(step => step.Tone == RoomTone.Bad) == (state == "38-checks-failed" ? 1 : 0),
                                 "the Checks card's steps are not the check's, the failed one marked");
+                        // Partly Checked: its label and line as the status, never the bad tone, the host's finding under it (laid whole by CardWhole).
+                        if (state == "38-checks-partly")
+                            Require(shown.Card!.Status is RoomCardStatus partlyStatus && partlyStatus.Title == KitMomentWords.PartlyChecked && partlyStatus.Line == KitMomentWords.PartlyCheckedLine
+                                && partlyStatus.Tone != RoomTone.Bad && shown.Card.Description?.Text == PartlyFinding, "the Partly Checked card lost its label, its line or the finding");
                         CardWhole();
                         // Back, then the file's own Close last: a task's file always has its way back to Projects (FIELD's parts note).
                         Require(shown.Column.Count >= 2 && shown.Column[shown.Column.Count - 2].Control.Action == RoomResult.Back && shown.Column.Last().Control.Place == KitPlace.Close,
                             "Back and then Close do not stand last");
                         Require(shown.Column[0].Main == (state != "38-changes") && shown.Column[0].Control.Action == state switch
                         {
-                            "38-changes-long" => RoomResult.NextPage, "38-checks" => RoomResult.TryBuild, "38-checks-failed" => FileScreens.TellIt,
+                            "38-changes-long" => RoomResult.NextPage, "38-checks" or "38-checks-partly" => RoomResult.TryBuild, "38-checks-failed" => FileScreens.TellIt,
                             "38-add" or "38-add-last" => RoomResult.AddConfirm, "38-conflict" => RoomResult.Fit,
                             "38-changes" => RoomResult.ShowHistory, _ => RoomResult.Back,
                         }, "the page's first action is " + shown.Column[0].Words);
