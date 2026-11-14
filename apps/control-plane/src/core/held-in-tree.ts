@@ -290,10 +290,10 @@ export function heldMessage(hit: HeldHit, what: 'sent' | 'published' | 'saved' |
   const built = what === 'shared' || what === 'published';
   if (hit.named === true)
     return built
-      ? `A file's or folder's name in the game's built files holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} there, with the secret's name in place of its value. The project's build makes that name: change it in the project, then check the game again.`
+      ? `A file's or folder's name in the game's built files holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} there, with the secret's name in place of its value. The project's build makes that name, so renaming it there will not help: change it in the project, then press Check again.`
       : `A file's or folder's name holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} here, with the secret's name in place of its value. Rename it in the project's folder, then try again.`;
   return built
-    ? `${hit.path} in the game's built files holds a secret this Mac keeps (${hit.what}), so ${done}. The project's code or its build puts it there: take it out of the project, then check the game again.`
+    ? `${hit.path} in the game's built files holds a secret this Mac keeps (${hit.what}), so ${done}. Each check makes that file again from the project, so changing it will not help: take the secret out of the project, then press Check again.`
     : `${hit.path} holds a secret this Mac keeps (${hit.what}), so ${done}. Take it out of the file, then try again.`;
 }
 
