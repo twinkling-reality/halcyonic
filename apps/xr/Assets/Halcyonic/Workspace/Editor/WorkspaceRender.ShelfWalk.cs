@@ -252,6 +252,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 else failures.Add("nothing drawn closes the shelf's placing");
                 // 1. Place Agents, as the room's control offers it, and Apply.
+                lock (widths) widths.Clear();
                 controlsType.GetMethod("PlaceAgents", BindingFlags.Public | BindingFlags.Instance)!.Invoke(controls, null);
                 Draw();
                 Shot("placing");
@@ -264,8 +265,23 @@ namespace Halcyonic.XR.Workspace.Editor
                         + " across; the field leaves " + GlazeChecks.Degrees((float)(planeSeen.Left + seenField.Left)) + " degrees free on the left and "
                         + GlazeChecks.Degrees((float)(seenField.Right - planeSeen.Right)) + " on the right");
                 if (placement.Preview == null) failures.Add("Place Agents offered no place for the shelf in the field (the room must yield, never refuse for the text size)");
+                // One placing, one width (AUDIT, 2026-11-14T01:01Z): from the placing's start to its Apply the panel keeps the floor's
+                // width, so at most one width line, never the panel widening and narrowing under the person while they place.
+                // Its Apply then lays one width, the placed shelf's, never a wider one first while the shelf is not yet staged (charV: 440
+                // within Apply's press, then 360 a draw later).
+                string Widths() => string.Join(" then ", widths.Select(line => line.Replace("Halcyonic: the plane lays its panel ", "")));
+                lock (widths)
+                {
+                    if (widths.Count > 1) failures.Add("a placing laid " + widths.Count + " widths before its Apply: " + Widths());
+                    widths.Clear();
+                }
                 if (!Press(AgentShelfColumn.Apply)) failures.Add("nothing drawn applies the shelf's place");
-                PlacementCall(stage, "LateUpdate"); stage.Refresh(); Draw();
+                PlacementCall(stage, "LateUpdate"); stage.Refresh(); Draw(); Draw();
+                lock (widths)
+                {
+                    if (widths.Count > 1) failures.Add("Apply laid " + widths.Count + " widths: " + Widths());
+                    else Debug.Log("Halcyonic: shelf walk: Apply laid " + (widths.Count == 0 ? "no new width" : Widths()));
+                }
                 if (placement.Preferred is not Pose placed)
                 {
                     failures.Add("Apply placed no shelf");
