@@ -381,14 +381,25 @@ namespace Halcyonic.XR.Workspace
             // rests or closes; only the shelf's own place, the text size or the plane's width changing decides it again, one move per
             // such event (JUDGE's charBatch3: decided at the placing's floor width, the shelf met the plane once Apply laid it wider).
             // Placing, or no shelf, holds none.
-            var asideKey = (shelfKey, GlazeText.Scale, widthRule.WidthDp);
+            // The shelf counts as moved only where a corner moved more than 2 cm (the person's own move), never a centimetre's rounding.
+            if (shelf != null && (asideShelf == null || ShelfMoved(asideShelf, shelf))) { asideShelf = (Vector3[])shelf.Clone(); asideShelfVersion++; }
+            var asideKey = (asideShelfVersion.ToString(), GlazeText.Scale, widthRule.WidthDp);
             // A page open, not the plane at rest (KitWorkspaceHost.Resting: no page, the menu alone): the shelf comes home when the page
             // closes, though the menu still stands (JUDGE's charBatch5 at Larger: held 1 degree aside after the page closed).
-            if (!open || Kit.Resting || placing || shelf == null) { heldAside = 0f; asideDecided = null; }
+            if (!open || Kit.Resting || placing || shelf == null)
+            {
+                // Said once where a turned shelf goes home, so a walk sees where one open ends (JUDGE's 03:18Z).
+                if (!Mathf.Approximately(heldAside, 0f))
+                    Debug.Log("Halcyonic: the shelf goes home: " + (!open ? "the plane closed" : Kit.Resting ? "the plane at rest" : placing ? "placing" : "no shelf") + ".");
+                heldAside = 0f; asideDecided = null;
+            }
             else if (asideDecided != asideKey)
             {
                 // Decided again on a form event, never smaller within one open (AUDIT's 03:17Z): the shelf moves out further or stays.
-                var decided = AsideFor(shelf, viewer, widthRule.WidthDp);
+                var cause = asideDecided is not { } was ? "a page opened"
+                    : was.Shelf != asideKey.Item1 ? "the shelf's own place changed"
+                    : !Mathf.Approximately(was.Scale, GlazeText.Scale) ? "the text size changed" : "the plane's width changed";
+                var decided = AsideFor(shelf, viewer, widthRule.WidthDp, cause);
                 heldAside = asideDecided == null || Mathf.Abs(decided) > Mathf.Abs(heldAside) ? decided : heldAside;
                 asideDecided = asideKey;
             }
@@ -426,6 +437,17 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The aside held for this open, and the shelf's place and text size it was decided for; null while none is decided.</summary>
         private float heldAside;
         private (string Shelf, float Scale, float Width)? asideDecided;
+
+        /// <summary>The shelf's own place the aside was last decided for, and how many times it has moved by the person's hand.</summary>
+        private Vector3[]? asideShelf;
+        private int asideShelfVersion;
+
+        private static bool ShelfMoved(Vector3[] was, Vector3[] now)
+        {
+            if (was.Length != now.Length) return true;
+            for (var index = 0; index < now.Length; index++) if ((was[index] - now[index]).sqrMagnitude > 0.02f * 0.02f) return true;
+            return false;
+        }
 
         private void ConsiderWidth(Vector3[]? shelf, string shelfKey, Vector3 viewer, int characters, bool placing, bool shelfComing)
         {
@@ -479,7 +501,7 @@ namespace Halcyonic.XR.Workspace
         /// its own arc, thirty degrees first and as far as clears out to the person's side, each said once; 0 where none clears (a
         /// finding, said once: the shelf stays, never put behind the person).
         /// </summary>
-        private float AsideFor(Vector3[] shelf, Vector3 viewer, float widthDp)
+        private float AsideFor(Vector3[] shelf, Vector3 viewer, float widthDp, string cause)
         {
             float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity, top = float.NegativeInfinity;
             foreach (var point in shelf)
@@ -500,7 +522,7 @@ namespace Halcyonic.XR.Workspace
             if (!aside.Clears) Debug.Log("Halcyonic: no turn out to the person's side clears the plane for the shelf; it stays in its own place.");
             else if (!Mathf.Approximately(aside.Moved, 0f))
                 Debug.Log("Halcyonic: the shelf stands aside " + Mathf.Abs(aside.Moved).ToString("0") + " degrees while the plane is open"
-                    + (aside.PastThirty ? ", past thirty, as far as clears." : "."));
+                    + (aside.PastThirty ? ", past thirty, as far as clears" : "") + " (" + cause + ").");
             return aside.Clears ? aside.Moved : 0f;
         }
 
