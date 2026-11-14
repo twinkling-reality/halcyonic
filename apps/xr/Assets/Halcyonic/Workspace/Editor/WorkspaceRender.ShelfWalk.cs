@@ -312,6 +312,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (onShelf.Length == 0) Debug.Log("Halcyonic: shelf walk: no character stands on the first shelf to hold to the field");
                     else foreach (var outside in GlazeChecks.InsideField("the first shelf's characters and their labels", onShelf, eyes, eyes + Vector3.forward, 0f, headLevel))
                             Debug.Log("Halcyonic: shelf walk: by the fallback reading, " + outside);
+                    // Checked, not assumed (lead, 02:21Z; XR 02:23Z): the shelf's characters never touch, each as the eyes see it with its label,
+                    // and no label is cut.
+                    var figures = workspace.Targets.Where(target => target.gameObject.activeInHierarchy)
+                        .Select(target => GlazeChecks.Of(OwnerOf(target.transform) ?? target.name, eyes, target.GetComponentsInChildren<Renderer>(false).Where(renderer => renderer.enabled)))
+                        .Where(extent => !extent.IsEmpty).ToList();
+                    for (var one = 0; one < figures.Count; one++)
+                        for (var other = one + 1; other < figures.Count; other++)
+                            if (figures[one].Apart(figures[other]) <= 0f) failures.Add("the first shelf: " + figures[one] + " touches " + figures[other]);
+                    foreach (var label in workspace.Targets.Where(target => target.gameObject.activeInHierarchy).SelectMany(target => target.GetComponentsInChildren<TMPro.TMP_Text>(false)))
+                        if (label.enabled && label.isTextTruncated) failures.Add("the first shelf: a character's label is cut: \"" + label.text + "\"");
+                    Debug.Log("Halcyonic: shelf walk: the first shelf's characters: " + figures.Count + " standing, " + string.Join("; ", figures.Select(figure => figure.ToString())));
                 }
                 else failures.Add("the first shelf placed: no field to hold it to");
 
