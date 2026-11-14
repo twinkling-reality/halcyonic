@@ -373,7 +373,7 @@ export function lightKeys(
   const blackLength = whiteLength * 0.62;
   const depth = 0.018;
   const raised = depth * 1.1;
-  const idle = options.idle ?? new Color('#161C34');
+  const idle = options.idle ?? new Color('#1A2140');
   const blackIdle = idle.clone().multiplyScalar(0.55);
   const arc = options.arc;
   // Along the keyboard, then round the arc: a key at distance s from the middle stands at angle s / arc.
@@ -442,7 +442,7 @@ export function lightKeys(
   // neighbour never cuts it.
   const heat = glows(spots.length, { halo: 0.045, round: 1, whiten: 0.35, over: true });
   // And the key's own face, lit softly from its front, so which key went down is seen.
-  const face = glows(spots.length, { halo: 0.008, round: 0.006, ramp: 0, over: true });
+  const face = glows(spots.length * 2, { halo: 0.008, round: 0.006, ramp: 0.25, over: true });
   const group = new Group();
   group.add(white, black, face.object, heat.object);
   const level = new Map<number, number>();
@@ -489,8 +489,10 @@ export function lightKeys(
         const gain = key.black ? 3 : 1;
         heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.016, 0.016, c, 0.35 * gain * amount);
         const mid = key.length / 2;
-        face.place(x + ox * mid, y + 0.001, z + oz * mid, tx, 0, tz, ox, 0, oz, key.width * 0.8, key.length * 0.96, c, 0.2 * gain * amount);
-        if (key.black) face.place(x - ox * 0.001, y - depth / 2, z - oz * 0.001, tx, 0, tz, 0, 1, 0, key.width * 0.8, depth, c, 0.6 * amount);
+        face.place(x + ox * mid, y + 0.001, z + oz * mid, tx, 0, tz, ox, 0, oz, key.width * 0.85, key.length, c, 0.2 * gain * amount);
+        // Its front face too, carried up over the edge so the top and the front read as one lit key.
+        const front = key.black ? 0.6 : 0.35;
+        face.place(x - ox * 0.001, y - depth / 2 + 0.002, z - oz * 0.001, tx, 0, tz, 0, 1, 0, key.width * 0.85, depth + 0.004, c, front * amount);
       }
       heat.end();
       face.end();
@@ -577,7 +579,8 @@ export function fallingNotes(
   const motes = sparks(700, { over: true });
   // The place answers: each note lights the far dark of the hall in its colour, where its key points, to both sides
   // and behind the person, so the music is all round them.
-  const echoes = glows(480, { facing: true, halo: 6, round: 1, core: 0, over: true });
+  // Each answer stays wholly above the floor (its halo smaller than its height), so the floor never meets it.
+  const echoes = glows(480, { facing: true, halo: 3, round: 1, core: 0, over: true });
   group.add(drops.object, heads.object, blooms.object, flares.object, motes.object, echoes.object);
   let last = Number.NaN;
   let previous = Number.NaN;
@@ -638,13 +641,18 @@ export function fallingNotes(
     const up = (note.pitch - low) / Math.max(1, high - low);
     const far = reach * (0.8 + 0.4 * (((note.pitch * 7) % 11) / 10));
     // Each answer comes as the note sounds and is gone within about a second, so it is seen to answer that note.
-    const strength = 0.2 * (0.4 + note.loud) * Math.exp(-since * 2.2) * Math.min(1, since / 0.05);
+    const strength = 0.3 * (0.4 + note.loud) * Math.exp(-since * 2.2) * Math.min(1, since / 0.05);
     const c = tinted(note);
-    // Where its key points, and a second answer somewhere round the whole hall, its bearing taken from the moment the
-    // note sounds (a golden-ratio step round the circle), so the hall's light never falls into one pattern.
-    echoes.add(Math.sin(a) * far, 1.2 + 2.5 * up, -Math.cos(a) * far, 0.05, 0.05, c, strength);
+    // Where its key points, and three more a third of a turn apart round the whole hall, their bearing taken from the
+    // moment the note sounds (a golden-ratio step round the circle), so the hall is lit as brightly beside and behind
+    // as ahead and its light never falls into one pattern; heights vary with the note and the moment.
+    echoes.add(Math.sin(a) * far, 3.2 + 2 * up, -Math.cos(a) * far, 0.05, 0.05, c, strength);
     const b = (((start * 0.6180339887) % 1) + 1) % 1 * Math.PI * 2;
-    echoes.add(Math.sin(b) * far, 1.4 + 2.5 * up, -Math.cos(b) * far, 0.05, 0.05, c, strength);
+    for (let k = 0; k < 3; k++) {
+      const bk = b + (k * Math.PI * 2) / 3;
+      const rise = 3 + 2.5 * up + 1.5 * ((((start * 7.31 + k * 0.37) % 1) + 1) % 1);
+      echoes.add(Math.sin(bk) * far, rise, -Math.cos(bk) * far, 0.05, 0.05, c, 1.8 * strength);
+    }
   };
   return {
     group,
