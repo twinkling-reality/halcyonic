@@ -382,7 +382,9 @@ namespace Halcyonic.XR.Workspace
             // such event (JUDGE's charBatch3: decided at the placing's floor width, the shelf met the plane once Apply laid it wider).
             // Placing, or no shelf, holds none.
             var asideKey = (shelfKey, GlazeText.Scale, widthRule.WidthDp);
-            if (!open || placing || shelf == null) { heldAside = 0f; asideDecided = null; }
+            // A page open, not the plane at rest (KitWorkspaceHost.Resting: no page, the menu alone): the shelf comes home when the page
+            // closes, though the menu still stands (JUDGE's charBatch5 at Larger: held 1 degree aside after the page closed).
+            if (!open || Kit.Resting || placing || shelf == null) { heldAside = 0f; asideDecided = null; }
             else if (asideDecided != asideKey) { heldAside = AsideFor(shelf, viewer, widthRule.WidthDp); asideDecided = asideKey; }
             ShelfAsideDegrees = heldAside;
         }
