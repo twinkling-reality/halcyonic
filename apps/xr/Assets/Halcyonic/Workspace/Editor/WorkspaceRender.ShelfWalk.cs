@@ -291,6 +291,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 var home = (stage.Shelf.position, stage.Shelf.rotation);
                 Shot("placed");
+                // The first shelf a person places stands where they look (lead, 2026-11-14T01:13Z, ruling 1): whole inside what the field check
+                // says a person sees at head level without turning the head. Its degrees out are said either way.
+                var firstShelf = new Vector3[8];
+                CharacterStage.WriteShelfCorners(new Pose(stage.Shelf.position, stage.Shelf.rotation), stage.ShelfWidth, eyes, firstShelf);
+                Debug.Log("Halcyonic: shelf walk: the first shelf placed stands " + ShelfSeen() + ", seen with the head level and facing ahead");
+                if (ViewField.Current is ViewField headLevel)
+                    failures.AddRange(GlazeChecks.InsideField("the first shelf placed, the head level and facing ahead", firstShelf, eyes, eyes + Vector3.forward, 0f, headLevel));
+                else failures.Add("the first shelf placed: no field to hold it to");
 
                 // 2. The task's page opened over it: the shelf stands clear of the plane, its own place kept.
                 menu.OpenFile(work.Workstream.WorkstreamId);
