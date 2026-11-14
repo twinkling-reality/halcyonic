@@ -201,6 +201,12 @@ namespace Halcyonic.Client
         /// </summary>
         public bool PartlyChecked { get; private set; }
 
+        /// <summary>
+        /// A Partly Checked check's finding, the host's own sentence, where it gave one: carried for the Checks page, which
+        /// lays it whole under the line, never drawn on the moment itself (AUDIT2, 04:06Z); null on every other moment.
+        /// </summary>
+        public string? Finding { get; private set; }
+
         public KitCheckScope? Scope { get; }
 
         /// <summary>A host check's steps, each with its result (<see cref="CheckSteps"/>); none for any other moment or a check still running.</summary>
@@ -285,17 +291,19 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A check the computer ran whose verdict is not known (VRIFY, AUDIT2's words): everything it saw passed, and only
-        /// whether the page draws its own look could not be found out. Partly Checked with its line, then the host's own
-        /// finding where it gave one; never the failure's tone, never passed.
+        /// whether the page draws its own look could not be found out. Partly Checked with its line, which fit beside the
+        /// character; the host's finding is carried for the Checks page (<see cref="Finding"/>), which See The Output opens.
+        /// Never the failure's tone, never passed.
         /// </summary>
         public static KitMoment PartlyCheckedHost(KitCheckScope scope, string? finding, DateTimeOffset? at, IReadOnlyList<CheckStepOutcome>? steps = null)
         {
             var moment = new KitMoment(KitMomentKind.HostCheck, KitProvenance.Observed, KitMomentWords.YourComputer,
-                LineWords.Ours(KitMomentWords.PartlyChecked), string.IsNullOrWhiteSpace(finding) ? null : finding, NoLines, KitMomentTone.Neutral,
+                LineWords.Ours(KitMomentWords.PartlyChecked), null, NoLines, KitMomentTone.Neutral,
                 new[] { KitMomentAction.SeeTheOutput }, at, null, null, scope)
                 .Parts(LineWords.Ours(KitMomentWords.PartlyChecked), new[] { LineWords.Ours(KitMomentWords.PartlyCheckedLine) })
                 .WithSteps(steps);
             moment.PartlyChecked = true;
+            moment.Finding = string.IsNullOrWhiteSpace(finding) ? null : finding;
             return moment;
         }
 

@@ -325,7 +325,7 @@ namespace Halcyonic.Client
                 // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
                 canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null),
                 places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file, start: start, waiting: waiting,
-                readsFiles: way is { Target: not null, Demonstration: false }, account: account, partlyChecked: check?.PartlyChecked == true, finding: check?.Fact);
+                readsFiles: way is { Target: not null, Demonstration: false }, account: account, partlyChecked: check?.PartlyChecked == true, finding: check?.Finding);
         }
     }
 
