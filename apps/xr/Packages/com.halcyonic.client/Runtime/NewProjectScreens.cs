@@ -1150,8 +1150,11 @@ namespace Halcyonic.Client
             if (!room) lines.Add(new PageLine(EntryText.ReviewLine, tone: LineTone.Secondary));
             foreach (var part in review.Parts)
             {
-                // Halcyonic's labels upright, the names and the person's words leaning, as the review spells them.
-                lines.Add(new PageLine(review.Items[part.Item].Runs, rows: part.Lines, fromRow: part.FirstLine));
+                // Halcyonic's labels upright, the names and the person's words leaning, as the review spells them. In the
+                // redesign's rows each label stands apart over its value, never joined on a dot; the older page keeps its line.
+                var item = review.Items[part.Item];
+                var line = new PageLine(room ? item.RowRuns : item.Runs, rows: part.Lines, fromRow: part.FirstLine);
+                lines.Add(room && item.RowLabel is string label ? line.WithRowLabel(label) : line);
             }
             // Only while a later part is there to turn to: never a "Next part" past the last.
             if (review.Paginated && review.Page < review.PageCount - 1)

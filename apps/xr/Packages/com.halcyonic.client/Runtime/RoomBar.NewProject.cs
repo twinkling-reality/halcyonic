@@ -105,7 +105,8 @@ namespace Halcyonic.Client
                     // its part. Until the last part is read the one action on is the flow's own Next Part, and Confirm,
                     // behind its lock, stands only where the flow offers it.
                     var cut = first != EntryText.ReviewLine;
-                    var items = plain.Select(line => cut && line.FromRow is int from ? new RoomRow(line.Runs, fromLine: from, lines: line.Rows) : new RoomRow(line.Runs)).ToList();
+                    var items = plain.Select(line => cut && line.FromRow is int from
+                        ? new RoomRow(line.Runs, fromLine: from, lines: line.Rows, label: line.RowLabel) : new RoomRow(line.Runs, label: line.RowLabel)).ToList();
                     if (frame.Lines.FirstOrDefault(line => line.Action == NewProjectScreens.NextPart && line.Available) is PageLine next)
                     {
                         var reading = new List<RoomAction> { new RoomAction(Line(next).Control, main: true) };

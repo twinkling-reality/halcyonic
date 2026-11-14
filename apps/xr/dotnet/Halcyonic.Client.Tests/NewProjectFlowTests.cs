@@ -3060,19 +3060,21 @@ public class NewProjectFlowTests
         // The first draw by the rows counts for nothing and cuts the review again for them; the next is its first part read.
         Draw(flow, flow.Frame!);
         Draw(flow, flow.Frame!);
-        var whole = flow.Review!.Items.Select(item => Lines(item.Runs)).ToList();
+        var whole = flow.Review!.Items.Select(item => Lines(item.RowRuns)).ToList();
         Assume.That(whole.Sum(), Is.GreaterThan(RoomBar.RequestLines), "the review needs more than one part");
-        var shown = new Dictionary<string, List<(int From, int Lines)>>();
+        // Keyed by label and words: with the labels apart, the project and the task's name may read the same.
+        var shown = new Dictionary<(string?, string), List<(int From, int Lines)>>();
         for (var part = 0; part < 50; part++)
         {
             var frame = flow.Frame!;
             Assert.That(frame.Lines.Select(line => line.Words), Has.None.EqualTo(EntryText.ReviewLine), "a page cut for the rows starts with its first item");
             var bar = Bar(flow);
             Assert.That(bar.State, Is.EqualTo(RoomBarState.Confirm));
-            Assert.That(bar.Facts!.Sum(row => row.Lines!.Value), Is.LessThanOrEqualTo(RoomBar.RequestLines), "a part holds eight of the rows' lines at most");
+            Assert.That(bar.Facts!.Sum(row => row.Lines!.Value + (row.Label == null ? 0 : 1)), Is.LessThanOrEqualTo(RoomBar.RequestLines),
+                "a part holds eight of the rows' lines at most, each label laid apart over its value counted");
             foreach (var row in bar.Facts!)
             {
-                if (!shown.TryGetValue(row.Words.Text, out var parts)) shown[row.Words.Text] = parts = new List<(int, int)>();
+                if (!shown.TryGetValue((row.Label, row.Words.Text), out var parts)) shown[(row.Label, row.Words.Text)] = parts = new List<(int, int)>();
                 parts.Add((row.FromLine, row.Lines!.Value));
             }
             if (flow.Review!.CanConfirm) break;
@@ -3084,14 +3086,55 @@ public class NewProjectFlowTests
         Assert.That(flow.Review!.CanConfirm, Is.True, "every part was read");
         foreach (var item in flow.Review!.Items)
         {
-            var parts = shown[item.Runs.Text];
+            var parts = shown[(item.RowLabel, item.RowRuns.Text)];
             Assert.That(parts.First().From, Is.EqualTo(0));
             for (var index = 1; index < parts.Count; index++)
                 Assert.That(parts[index].From, Is.EqualTo(parts[index - 1].From + parts[index - 1].Lines), "an item's next part starts where the last one ended: no line twice, none left out");
-            Assert.That(parts.Last().From + parts.Last().Lines, Is.EqualTo(Lines(item.Runs)), "every line of \"" + item.Runs.Text + "\" is shown");
+            Assert.That(parts.Last().From + parts.Last().Lines, Is.EqualTo(Lines(item.RowRuns)), "every line of \"" + item.RowRuns.Text + "\" is shown");
         }
         Assert.That(shown.Values.Any(parts => parts.Count > 1), Is.True, "an item longer than what was left of a part is cut at a line's end");
         Assert.That(Bar(flow).Column.Select(action => action.Control.Action), Is.EqualTo(new[] { NewProjectScreens.ConfirmStart, NewProjectScreens.Cancel }));
+        Assert.That(host.Sent, Is.Empty);
+    });
+
+    /// <summary>
+    /// The review in the redesign's rows lays each label apart from its value, never joined on a dot (the owner's 11-11 word,
+    /// JUDGE's 02:24Z long-idea walk): "Project" over the project's name, "First Task" over the task, every part of a cut item
+    /// under its label, and the label's line counted in the part's eight. A warning, words with no value, stands as itself.
+    /// </summary>
+    [Test]
+    public void A_review_in_the_redesigns_rows_lays_each_label_apart_from_its_value_never_on_a_dot() => InTheRedesign(() =>
+    {
+        var host = new Host { VoiceOffered = false };
+        var flow = RoomRecapped(host, string.Join(" ", Enumerable.Repeat("A page of race times for my running club, newest first.", 6)));
+        static int Lines(LineWords words) => Math.Max(1, (words.Text.Length + 23) / 24);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        flow.RoomLines = Lines;
+        Draw(flow, flow.Frame!);
+        Draw(flow, flow.Frame!);
+        var labels = new List<string>();
+        for (var part = 0; part < 50; part++)
+        {
+            var bar = Bar(flow);
+            foreach (var row in bar.Facts!)
+            {
+                Assert.That(row.Words.Text, Does.Not.Contain("·"), "a row's words never carry a label on a dot");
+                Assert.That(row.Label ?? "", Does.Not.Contain("·"), "a label stands alone");
+                if (row.Label != null) labels.Add(row.Label);
+            }
+            Assert.That(bar.Facts!.Sum(row => row.Lines!.Value + (row.Label == null ? 0 : 1)), Is.LessThanOrEqualTo(RoomBar.RequestLines),
+                "a part holds eight lines at most, each label's line counted");
+            if (flow.Review!.CanConfirm) break;
+            host.Now += 1;
+            Press(flow, NewProjectScreens.NextPart, null);
+            Draw(flow, flow.Frame!);
+        }
+        Assert.That(flow.Review!.CanConfirm, Is.True, "every part was read");
+        Assert.That(labels, Does.Contain("Project").And.Contain("Task Name").And.Contain("Agent App").And.Contain("First Task"));
+        Assert.That(labels.Count(label => label == "First Task"), Is.GreaterThan(1), "every part of the cut first task stands under its label");
+        var task = flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.FirstTask);
+        Assert.That((task.Label, task.RowLabel, task.RowRuns.Text), Is.EqualTo((NewWorkReview.FirstTaskLabel, "First Task", task.Value)),
+            "the item keeps its older label for the checks a build makes, and hands the rows its label and value apart");
         Assert.That(host.Sent, Is.Empty);
     });
 

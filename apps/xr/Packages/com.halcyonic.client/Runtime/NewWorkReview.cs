@@ -49,7 +49,18 @@ namespace Halcyonic.Client
             ValueRuns = value;
             Value = value.Text;
             Runs = LineWords.Written(label) + value;
+            // Apart, for the redesign's rows (never a label joined on a dot): the label without its separator over the value;
+            // words with no value, as a warning, stand as themselves.
+            var named = label.TrimEnd(' ', '·');
+            RowLabel = value.IsEmpty || named.Length == 0 ? null : named;
+            RowRuns = RowLabel == null ? Runs : value;
         }
+
+        /// <summary>The label as a row lays it apart from the value, its separator dropped ("First Task"), or null where the item is its words alone.</summary>
+        public string? RowLabel { get; }
+
+        /// <summary>What a row shows under <see cref="RowLabel"/>: the value alone, or the item's words where it has no label apart.</summary>
+        public LineWords RowRuns { get; }
 
         /// <summary>What the item names, apart from its words.</summary>
         public ReviewItemKind Kind { get; }
@@ -258,13 +269,15 @@ namespace Halcyonic.Client
         /// full. An item taller than a page starts on a page of its own and fills whole pages; what
         /// follows it continues under its last part. Items drawn whole before stay read; an item drawn in
         /// part is read again. Shows the first page with a line not yet drawn, or the last page when
-        /// every line has been.
+        /// every line has been. Where <paramref name="headLines"/> is given, each part of an item also holds that item's
+        /// head (a label laid over it), counted in the page's lines; the item's own lines are cut as before.
         /// </summary>
-        public void Paginate(IReadOnlyList<int> itemLines, int pageLines)
+        public void Paginate(IReadOnlyList<int> itemLines, int pageLines, IReadOnlyList<int>? headLines = null)
         {
             if (itemLines == null) throw new ArgumentNullException(nameof(itemLines));
             if (itemLines.Count != items.Count) throw new ArgumentException("Give every item its lines.", nameof(itemLines));
             if (pageLines < 1) throw new ArgumentOutOfRangeException(nameof(pageLines), pageLines, "A page holds at least one line.");
+            if (headLines != null && headLines.Count != items.Count) throw new ArgumentException("Give every item its head.", nameof(headLines));
             // Read whole stays read; read in part can't be mapped onto lines that may wrap elsewhere now.
             var whole = Enumerable.Range(0, items.Count).Select(DrawnWhole).ToList();
             drawn.Clear();
@@ -280,30 +293,33 @@ namespace Halcyonic.Client
             for (var index = 0; index < itemLines.Count; index++)
             {
                 var lines = Math.Max(1, itemLines[index]);
-                if (lines <= pageLines)
+                // A head never takes a whole page: at least one of the item's own lines stands under it.
+                var head = Math.Min(Math.Max(0, headLines?[index] ?? 0), pageLines - 1);
+                if (head + lines <= pageLines)
                 {
-                    if (used + lines > pageLines)
+                    if (used + head + lines > pageLines)
                     {
                         pages.Add(page);
                         page = new List<ReviewPart>();
                         used = 0;
                     }
                     page.Add(new ReviewPart(index, 0, lines, 0));
-                    used += lines;
+                    used += head + lines;
                     continue;
                 }
+                var room = pageLines - head;
                 if (used > 0)
                 {
                     pages.Add(page);
                     page = new List<ReviewPart>();
                     used = 0;
                 }
-                for (var first = 0; first < lines; first += pageLines)
+                for (var first = 0; first < lines; first += room)
                 {
-                    var shown = Math.Min(pageLines, lines - first);
-                    page.Add(new ReviewPart(index, first, shown, first / pageLines));
-                    used = shown;
-                    if (first + pageLines < lines)
+                    var shown = Math.Min(room, lines - first);
+                    page.Add(new ReviewPart(index, first, shown, first / room));
+                    used = head + shown;
+                    if (first + room < lines)
                     {
                         pages.Add(page);
                         page = new List<ReviewPart>();

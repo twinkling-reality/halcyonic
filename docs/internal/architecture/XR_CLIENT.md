@@ -1057,7 +1057,11 @@ launch/return, process recreation and current-frame action behavior need separat
   current layout drawn. Laid out again, as when the text size changes or a banner leaves room, an
   item drawn whole stays read, one drawn in part is read again from its start, and the review
   shows the first page with anything unread; Next part waits until the page showing is drawn and
-  has shown 0.4 s, so a double press never passes one almost unseen. **`NewWorkSubmission`** looks up the command id
+  has shown 0.4 s, so a double press never passes one almost unseen. In the redesign's rows each item's
+  label stands apart over its value (`ReviewItem.RowLabel` over `RowRuns`), never joined on a dot, and
+  every part of a cut item carries its label, its one line counted in the part's eight; a warning, words
+  with no value, stands as itself. The older page keeps its joined line, and a build's checks
+  (`Shows`) still read the older label. **`NewWorkSubmission`** looks up the command id
   in projected state before interpreting an acknowledgement: a completed event still counts when
   its acknowledgement is lost. An unknown acknowledgement keeps the request unresolved until a
   terminal record arrives or the person deliberately clears it after checking the workstreams.

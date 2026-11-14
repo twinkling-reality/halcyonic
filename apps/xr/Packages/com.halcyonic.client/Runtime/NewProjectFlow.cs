@@ -1801,10 +1801,12 @@ namespace Halcyonic.Client
             measuredPartRows = partRows;
             reviewCutForRoom = ReviewForRoom;
             // The same rule by either measure: every item whole or cut at a line's end, a part never holding more lines than
-            // it has room for. The redesign's rows count their own lines, eight a part, as a request's parts are counted.
-            reading.Paginate(ReviewForRoom
-                ? reading.Items.Select(item => Math.Max(1, RoomLines!(item.Runs))).ToList()
-                : reading.Items.Select(item => host.RowsOf(new PageLine(item.Runs), Glaze.Menu.FileColumnDegrees)).ToList(), partRows);
+            // it has room for. The redesign's rows count their own lines, eight a part, as a request's parts are counted: each
+            // value's lines, its label laid apart over it one line more (never joined on a dot).
+            if (ReviewForRoom)
+                reading.Paginate(reading.Items.Select(item => Math.Max(1, RoomLines!(item.RowRuns))).ToList(), partRows,
+                    reading.Items.Select(item => item.RowLabel == null ? 0 : 1).ToList());
+            else reading.Paginate(reading.Items.Select(item => host.RowsOf(new PageLine(item.Runs), Glaze.Menu.FileColumnDegrees)).ToList(), partRows);
         }
 
         /// <summary>
