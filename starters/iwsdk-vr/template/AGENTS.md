@@ -106,8 +106,8 @@ An app's use, not a game (a guide, a log, a list, a form, a tool):
 - Every list can be read to its end. `pages()` lays out as many as the view holds (six in the headset, three on a
   laptop): `turn(1)` and `turn(-1)` turn by that many, and `count` and `first` say where the person is; read them, and
   `across` for how many stand now, never work it out from six. `set(list)` shows what a search or a filter leaves in
-  the same row. `MAX_PAGES` is the most it lays out, in the headset; a list you draw yourself pages the same way, three
-  at a time on a laptop. Give it a Next and a Back to press; never cut it with "and N more" and no way there.
+  the same row. `MAX_PAGES` is the most it lays out, in the headset; draw a list through `pages()`, so it pages right on
+  both. Give it a Next and a Back to press; never cut it with "and N more" and no way there.
   A card's words that do not fit go on to the next card, never cut off: `pages()` does it itself, and
   for cards you draw, `fitText` from `./kit.js` splits the words over the cards they take.
   Map a pressed panel back to your own entry with `book.source(i)`, never `first + i`: a long entry takes more than
@@ -116,6 +116,8 @@ An app's use, not a game (a guide, a log, a list, a form, a tool):
   the pages, spaced by the kit, inside what a laptop shows and clear of a page while it is pressed. Never place a row
   of your own. The person's computer checks the laptop view at 1280 by 800 and holds it back when part of a panel is
   off its screen or covers another.
+  A row is as wide as its buttons' words: twenty one-letter buttons fit a laptop's width, fewer with longer words;
+  split a long row (a keyboard of letters) into two.
   Pass every row, top first, each a list of `{ label, onSelect }`:
   `const bar = rows(world, [[{ label: 'Back', onSelect: () => book.turn(-1) }, { label: 'Next', onSelect: () => book.turn(1) }]])`.
   `bar.rename(row, i, words)` changes a button's words (where the person is, a letter's case), and `bar.light(row, i)`
