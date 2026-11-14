@@ -169,8 +169,11 @@ namespace Halcyonic.XR.Workspace.Editor
             Conflict = conflicted ? new ConflictedFiles { Files = new List<ConflictedFile> { new() { Path = "src/game.ts", Kind = ConflictKind.Text } }, Total = 1 } : null,
         }, working: false);
 
-        /// <summary>The host's finding of a Partly Checked check, at its longest (AUDIT2's words of 04:06Z).</summary>
-        private const string PartlyFinding = "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Checking the game again may make it.";
+        /// <summary>
+        /// The host's finding of a Partly Checked check, at its longest: AUDIT2's sentence of 04:08Z for VRIFY. Once the host's
+        /// sentence lands, this is its text exactly, so the render proves the words the host sends.
+        /// </summary>
+        private const string PartlyFinding = "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Checking the project again may make it.";
 
         /// <summary>What the computer knows in each of the result's states, synthetic.</summary>
         private static RoomResult? ResultFor(string state)
