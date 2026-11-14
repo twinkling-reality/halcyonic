@@ -61,7 +61,9 @@ namespace Halcyonic.Client
             RoomCardStatus? status = warnings.Count == 0 ? (RoomCardStatus?)null
                 // Each warning its own line, in the host's order, never joined into one paragraph (a fresh reader, 2026-11-14T00:20Z: the joined
                 // warnings buried that the person's requests leave this computer).
-                : RoomCardStatus.Apart(RoomReview.CheckTitle, warnings.Select(each => each.Line), RoomTone.Attention, RoomKind.Failed);
+                // In the plain form, as the title and what happens take it: a character the headset folds never reaches the view
+                // as the card's own words, where it would refuse them and freeze the panel (SCREENS's 04:56Z, the lead's 04:57Z).
+                : RoomCardStatus.Apart(RoomReview.CheckTitle, warnings.Select(each => LabelText.Plain(each.Line)), RoomTone.Attention, RoomKind.Failed);
             // What happens first, the warnings after (AUDIT2's 2026-11-13T22:37Z), except where a warning is a consent the press gives:
             // then it stands under the name, read before the press (AUDIT2's 22:38Z).
             var after = status != null && !warnings.Any(each => ConsentFirst.Contains(each.Code));

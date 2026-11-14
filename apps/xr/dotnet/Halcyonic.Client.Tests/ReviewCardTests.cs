@@ -169,4 +169,26 @@ public class ReviewCardTests
         Assert.That(card.Status.Value.Line, Is.Null, "never one joined paragraph");
         Assert.That(card.Words().Count(words => warnings.Any(each => words == each.Line)), Is.EqualTo(3));
     }
+
+    /// <summary>
+    /// A host's warning holding a character the headset folds (a no-break space, a tab) reaches the card in the
+    /// plain form the card's own words take, as its title and what happens already do, so the view never refuses it and the panel
+    /// never freezes on it (SCREENS's 04:56Z render: LineWords.Ours threw on the host's no-break joins; the lead's 04:57Z).
+    /// </summary>
+    [Test]
+    public void AHostsWarningWithACharacterTheHeadsetFoldsReachesTheCardPlain()
+    {
+        var review = Review(CommandType.ProjectPublish, "Publish", "Your checked game goes online at a lasting address",
+            warnings: new[]
+            {
+                new ActionReviewWarning { Code = "free_here", Line = "To stop paying, choose This Computer's Model, which is free" },
+                new ActionReviewWarning { Code = "public", Line = "Anyone with its address\tcan play it,  even when private" },
+            });
+        var lines = ReviewCard.Card(review, "Publish").Status!.Value.Lines;
+        Assert.That(lines, Is.EqualTo(new[]
+        {
+            "To stop paying, choose This Computer's Model, which is free", "Anyone with its address can play it,  even when private",
+        }), "a folded character a plain space; plain spaces as the host wrote them");
+        foreach (var line in lines) Assert.That(() => LineWords.Ours(line), Throws.Nothing, "the view lays every status line as the card's own words");
+    }
 }
