@@ -52,10 +52,20 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorUtility.DisplayDialog("Stage render", failures.Count == 0 ? "Every check passed." : string.Join("\n", failures), "OK");
         }
 
-        /// <summary>The batch entry point: exits with 0 when every check passes, 1 otherwise.</summary>
+        /// <summary>
+        /// The batch entry point: exits with 0 when every check passes, 1 otherwise. Every shader is compiled before it draws:
+        /// while one compiles in the background the Editor draws its stand-in, a flat cyan, so a render taken during the
+        /// compile and one after it differ by that stand-in alone, which the still check read as motion under Keep things
+        /// still (b167's stage journey at Standard, the first pass, 2026-11-14). Nothing on the stage moved.
+        /// </summary>
         public static void Check()
         {
-            var failures = GlazeChecks.AtEachTextSize(Run);
+            var asyncWas = ShaderUtil.allowAsyncCompilation;
+            ShaderUtil.allowAsyncCompilation = false;
+            Debug.Log("Halcyonic: stage render: shaders compile before they draw (asynchronous compilation off for the run).");
+            List<string> failures;
+            try { failures = GlazeChecks.AtEachTextSize(Run); }
+            finally { ShaderUtil.allowAsyncCompilation = asyncWas; }
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
