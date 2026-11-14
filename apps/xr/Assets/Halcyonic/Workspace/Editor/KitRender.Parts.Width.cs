@@ -237,7 +237,16 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             Debug.Log("Halcyonic: parts: " + name + ": every caps word reads at 14 dp as the eyes see it down to " + (seenFloor is float seenAt ? seenAt.ToString("0", CultureInfo.InvariantCulture) + " dp" : "NO width") + ".");
             Require(seenFloor != null, "at no width does every caps word read at 14 dp as the eyes see it");
-            if (measuredLayFloor.TryGetValue(GlazeText.Scale, out var layFloor) && layFloor is float lay && seenFloor is float seen)
+            // A whole run measures the width table first, or the equality would pass unread (AUDIT's 05:41Z MUST); only a run narrowed to
+            // other states may skip it, and says so.
+            var layMeasured = measuredLayFloor.TryGetValue(GlazeText.Scale, out var layFloor) && layFloor != null;
+            if (!layMeasured)
+            {
+                if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HALCYONIC_KIT_ONLY")))
+                    Require(false, "the width table's floor was not measured before the caps, so the floor by both measures was not held equal to the plane's");
+                else Debug.Log("Halcyonic: parts: " + name + ": a narrowed run without the width table: the floor by both measures is not held equal here.");
+            }
+            if (layMeasured && layFloor is float lay && seenFloor is float seen)
             {
                 var byMeasure = Mathf.Max(lay, seen);
                 var plane = PlaneWidth.FloorDp(GlazeText.Scale);
