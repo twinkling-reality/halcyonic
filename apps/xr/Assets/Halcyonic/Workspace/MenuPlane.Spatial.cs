@@ -372,6 +372,9 @@ namespace Halcyonic.XR.Workspace
             var now = (GlazeText.Scale, shelfKey, characters, Mathf.RoundToInt(Direction.Yaw), Mathf.RoundToInt(Direction.Elevation), placing);
             // Counted in draws, never Time.frameCount, which the Editor's walks do not advance (JUDGE's charT: a cancel never ended).
             considered++;
+            // A placing's end is counted from the draw it ended on only while the plane waits for its shelf: placing again, or nothing
+            // placing, clears it, so a placing that ended and came back within its wait never leaves an old count to the next one.
+            if (placing || !(formSituation is { } ending && ending.Placing)) placingEndedFrame = -1;
             if (formSituation is { } was && was == now) return;
             // Placing just ended and the shelf placed is not standing yet (it stands a frame later): wait those frames, or the plane would
             // widen for a room with no shelf and narrow again, two changes for one placing (JUDGE's charR); never longer, and never over
