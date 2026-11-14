@@ -373,9 +373,9 @@ namespace Halcyonic.XR.Workspace
             if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; ShelfAsideDegrees = 0f; return; }
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
             ConsiderWidth(shelf, shelfKey, viewer, characters, placing, shelfComing);
-            // The plane at rest, as it reasons it, for the shelf that fits beside it (ruling 1 (a)), to a tenth of a degree.
-            var resting = KeepOutExtent();
-            CharacterStage.PlaneRestHalfDegrees = Mathf.Round(Mathf.Max(-resting.Left, resting.Right) * 10f) / 10f;
+            // The plane at rest, for the shelf that fits beside it (ruling 1 (a)): one number a text size (AUDIT's 02:41Z: one width for
+            // every shelf, never read at wherever the plane stands now).
+            CharacterStage.PlaneRestHalfDegrees = RestHalfDegrees();
             // One move per open (AUDIT's 01:15Z; JUDGE's 01:13Z: a few degrees re-decided at each page moved the room under a reader):
             // the first draw of an open decides the aside for the largest footprint at the width in use, and it holds until the plane
             // rests or closes; only the shelf's own place, the text size or the plane's width changing decides it again, one move per
@@ -388,6 +388,34 @@ namespace Halcyonic.XR.Workspace
             else if (asideDecided != asideKey) { heldAside = AsideFor(shelf, viewer, widthRule.WidthDp); asideDecided = asideKey; }
             ShelfAsideDegrees = heldAside;
         }
+
+        /// <summary>
+        /// How far the plane at rest reaches each side of its heading, in degrees, at the person's text size: FIELD's measured resting
+        /// footprint through the plane's own geometry, standing as the redesign stands it (its foot line at RoomGeometry.FeetPitch, its
+        /// spill under it), its widest over every place the plane's middle may take above that foot (from the foot itself to the
+        /// footprint's top, in twentieths), so it never reads less than the plane at rest can reach. Derived once a text size and held,
+        /// so every shelf beside the plane takes one width (AUDIT's 02:41Z).
+        /// </summary>
+        private float RestHalfDegrees()
+        {
+            if (restHalfHeld is { } held && Mathf.Approximately(held.Scale, GlazeText.Scale)) return held.Degrees;
+            var resting = RestingUnits();
+            var under = RoomType.Units(RoomBarView.MostUnderFootDp);
+            var widest = 0f;
+            for (var step = 0; step <= 20; step++)
+            {
+                // The plane's middle this far above its foot: a point u units up from the middle stands atan(u) above it.
+                var aboveFoot = resting.y * step / 20f;
+                var middle = new PanelDirection(0f, RoomGeometry.FeetPitch + SpatialKit.DegreesTo(aboveFoot), true, false);
+                var reach = AngularExtent.OnPlane(middle, 0f, 0f, -resting.x / 2f, resting.x / 2f, -aboveFoot - under, resting.y - aboveFoot);
+                widest = Mathf.Max(widest, Mathf.Max(-reach.Left, reach.Right));
+            }
+            var degrees = Mathf.Ceil(widest * 10f) / 10f;
+            restHalfHeld = (GlazeText.Scale, degrees);
+            return degrees;
+        }
+
+        private (float Scale, float Degrees)? restHalfHeld;
 
         /// <summary>The aside held for this open, and the shelf's place and text size it was decided for; null while none is decided.</summary>
         private float heldAside;
