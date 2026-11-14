@@ -393,11 +393,13 @@ namespace Halcyonic.Client
                 var lines = row.Lines ?? (row.Label == null ? whole : System.Math.Max(1, measure(new RoomRow(row.Words, row.Mark, note: row.Note), indented)));
                 var label = row.Label == null ? 0 : System.Math.Max(0, whole - lines);
                 if (row.Lines != null && row.Label != null) label = System.Math.Max(1, measure(new RoomRow(LineWords.Ours(row.Label)), indented));
-                if (titled && pages.Count == 0 && page.Count == 1 && row.Lines == null && used + label + lines > budget
-                    && budget - used - label >= 1)
+                // A row that must be split anyway (longer than any page), or the row after the title (gen-n8), starts on the page with room
+                // for some of it: its first lines fill that page under its label, the rest follow in parts, the last part opening the next
+                // page so the rows after it may share it (a fresh reader, 2026-11-14T02:00Z: the recap's page held the name alone).
+                var keepsWithTitle = titled && pages.Count == 0 && page.Count == 1;
+                if (row.Lines == null && page.Count > 0 && page.Count < form.RowsAPage && used + label + lines > budget && budget - used - label >= 1
+                    && (keepsWithTitle || label + lines > budget))
                 {
-                    // The title keeps with the row after it (gen-n8): that row's first lines beside it, the rest in parts after, the last
-                    // part opening the next page so the rows after it may share it.
                     var beside = budget - used - label;
                     page.Add(new RoomRow(row.Words, row.Mark, fromLine: 0, lines: beside, label: row.Label, note: row.Note));
                     Close();

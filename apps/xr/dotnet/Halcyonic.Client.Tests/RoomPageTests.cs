@@ -824,4 +824,28 @@ public class RoomPageTests
         }), VoiceStage.Idle)!;
         Assert.That(byTask.Facts!.Count(row => row.Words.Text == task), Is.EqualTo(1), "the task once, under its label");
     }
+
+    /// <summary>
+    /// A row too long for any page starts on the page that has room for some of it, never on a fresh page leaving the one before
+    /// near empty (a fresh reader, 2026-11-14T02:00Z: the recap's reading page held the name alone on page 1 of 3): its first lines fill
+    /// that page under its label, the rest follow in parts, and no page passes eight lines.
+    /// </summary>
+    [Test]
+    public void ARowTooLongForAnyPageStartsWhereThereIsRoom()
+    {
+        int Measure(LineWords words) => System.Math.Max(1, (words.Text.Length + 29) / 30);
+        var form = RoomForm.Full.Measured((row, _) => (row.Label == null ? 0 : Measure(LineWords.Ours(row.Label))) + Measure(row.Words));
+        var name = new string('n', 30 * 2 - 1);
+        var task = new string('t', 30 * 11 - 1);
+        var frame = new MenuFrame(LineWords.TheirName(task), new Footer(Close), lines: new[]
+        {
+            new PageLine(LineWords.Ours("Project"), fact: LineWords.TheirName(name)),
+            new PageLine(LineWords.Ours("First Task"), fact: LineWords.TheirName(task)),
+        });
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle, form)!;
+        var first = bar.Facts!;
+        Assert.That(first.Select(row => row.Label), Is.EqualTo(new[] { "Project", "First Task" }), "the long task starts beside the name");
+        Assert.That(first[1].Lines, Is.EqualTo(8 - 3 - 1), "it fills page 1's last lines under its label");
+        Assert.That(bar.GeneralPart.Pages, Is.EqualTo(2), "two pages, not three");
+    }
 }
