@@ -229,6 +229,15 @@ export class PlayViewer {
       if (!this.#hasSession(request)) return 'Open the game again from Halcyonic.';
       return null;
     }
+    // The link's code arrives as a top-level navigation from the hand-over file (open-link.ts), so the code is never
+    // in a process's arguments, and a file's origin counts as another site. Only the trade of a code may come so, as on
+    // the pairing page: without the code, which only Halcyonic holds and gives once, it opens nothing.
+    const exchange =
+      request.url.split('?')[0] === '/' &&
+      typeof (request.query as { code?: unknown }).code === 'string' &&
+      header('sec-fetch-mode') === 'navigate' &&
+      header('sec-fetch-dest') === 'document';
+    if (exchange) return null;
     if (site !== 'none' && site !== 'same-origin') return 'Not from this viewer.';
     return null;
   }
