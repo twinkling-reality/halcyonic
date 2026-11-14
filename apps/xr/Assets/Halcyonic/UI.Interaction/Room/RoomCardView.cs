@@ -66,8 +66,14 @@ namespace Halcyonic.XR.UI
         public const float DescriptionGapDp = 6f;
         public const float BlockGapDp = 22f;
 
-        /// <summary>Between a status's lines kept apart (RoomCardStatus.Lines): a paragraph's gap, clearly wider than the lines' own spacing.</summary>
-        public const float LinesApartGapDp = 14f;
+        /// <summary>
+        /// Between a status's lines kept apart (RoomCardStatus.Lines): a paragraph's gap, still clearly wider than the lines' own leading
+        /// (the reader's 2026-11-14T0100Z), drawn in from 14 for the cards that lay a status apart (the lead's 01:20Z item 2: the height).
+        /// </summary>
+        public const float LinesApartGapDp = 10f;
+
+        /// <summary>A status's line kept apart: the description's size and light (the reader's 01:00Z), on a pitch a dp tighter than the description's.</summary>
+        public const float LinesApartLineDp = 24f;
         public const float TileGapDp = 16f;
         /// <summary>A well's corner: smaller than the panel's own 20 dp, so a well sits in the panel and never reads as a tile of its own.</summary>
         public const float TileCornerDp = 14f;
@@ -637,7 +643,7 @@ namespace Halcyonic.XR.UI
                 var at = (stacked ? tall : Mathf.Max(S(StatusMarkDp), titleTall)) + S(DescriptionGapDp);
                 foreach (var each in status.Lines)
                 {
-                    var (_, eachTall) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), LineWords.HostPlain(each), 0f, -(down + at), width - S(1f), StatusLineMost);
+                    var (_, eachTall) = Text(KitRole.Body, DescriptionTypeDp, LinesApartLineDp, White(DescriptionAlpha(card)), LineWords.HostPlain(each), 0f, -(down + at), width - S(1f), StatusLineMost);
                     at += eachTall + S(LinesApartGapDp);
                 }
                 tall = at - S(LinesApartGapDp);
