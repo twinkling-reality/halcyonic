@@ -2707,7 +2707,6 @@ public class FileColumnTests
             RoomBar Bar() => RoomBar.Of(KitFileBinding.Of(column.Frame!, column.Steering.Armed, column.Now!, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
                 new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!, VoiceStage.Idle, false);
             void Press(RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
-            RoomAction Named(RoomBar bar, string words) => bar.Column.Single(action => action.Words == words);
 
             // The first of two: which it is is the card's title, the computer's own; the prompt on the band; its described answers the
             // card's rows (the lead's 22:04Z).
@@ -2721,16 +2720,19 @@ public class FileColumnTests
             Draw(host, column);
             Press(Bar().Column.Single(action => action.Main));
 
-            // The second, any number to choose: the box marks.
+            // The second, any number to choose: the box marks. Three answers with Back and the way on pass four in all (the lead's
+            // 2026-11-14T00:24Z), so they stand on the card, its title which question this is.
             var second = Bar();
-            Assert.That((second.Body.Text, second.Band), Is.EqualTo(("Question 2 of 2 · Choose Any", (string?)"Which pages should change?")));
-            Assert.That(second.Column.Where(action => action.Mark != AnswerMark.None).Select(action => (action.Words, action.Mark, action.Chosen)), Is.EqualTo(new[]
+            Assert.That((second.Card?.Title?.Text, second.Band), Is.EqualTo(("Question 2 of 2 · Choose Any", (string?)"Which pages should change?")));
+            Assert.That(second.Card!.List.Select(row => (row.Name.Text, row.Mark, row.Chosen)), Is.EqualTo(new[]
             {
                 ("Sign in", AnswerMark.Multiple, false), ("Orders", AnswerMark.Multiple, false), ("Settings", AnswerMark.Multiple, false),
             }));
             Assert.That(second.Column.Any(action => action.Control.Place == KitPlace.Back), Is.True, "the way back to the question before");
+            Assert.That(second.Column.Count, Is.LessThanOrEqualTo(RoomForm.SpecActions), "four in all");
             Draw(host, column);
-            Press(Named(second, "Orders"));
+            var orders = second.Card.List.Single(row => row.Name.Text == "Orders").Press!;
+            column.Act(orders.Action, orders.Key);
             Draw(host, column);
             Press(Bar().Column.Single(action => action.Main));
 

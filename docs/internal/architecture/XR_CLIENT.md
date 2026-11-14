@@ -2809,8 +2809,8 @@ the prompts and never an answer (the lead's ruling of 2026-11-13T22:04Z: the col
 hands a described prompt's answers in one part and the card pages itself (`RoomBar.PackCard`, the plane's measure of a list row, eight
 lines a page, its title counted), the general reader's pager before the ways out, Write Answer and the way on on every page, the bar
 whole and its send held only once every page was shown (one pager, the kit's count: XR's and AUDIT's 22:21Z); plain short
-answers stay in the column where the whole column (answers and every way the file offers on the page) fits the kit's `ColumnMost`,
-else they stand on the card too (a question handed in one part may give a plain prompt seven answers: never a column past it, never a
+answers stay in the column where the whole column (answers and every way the file offers on the page) fits four in all (the lead's
+ruling of 2026-11-14T00:24Z: the spec's four, one number for every reader and for the recorded envelope), else they stand on the card too (a question handed in one part may give a plain prompt seven answers: never a column past it, never a
 second pager); the question still measures the two together (`FileScreens.OptionMeasured`), so a description too long for its rows
 is cut and opens whole in its side panel as before; the band's pager is `RoomWords.Next` ("Next Part") with `RoomWords.NextCount` ("2 of 3") as its detail
 (`RoomBarView.BandNextDetail`); and every other part pager under the redesign, a request's, a question's, its typed answer's,

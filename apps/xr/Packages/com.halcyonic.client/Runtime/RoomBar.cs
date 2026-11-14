@@ -316,14 +316,14 @@ namespace Halcyonic.Client
             // pressed row of the card, its mark, its words as the agent wrote them, its description under it, at the panel's width; the
             // column keeps the prompts and never widens with an agent's words. Plain short answers stay in the column.
             var described = binding.Controls.Any(control => control.Available && control.Place == KitPlace.Choice && control.Under != null);
-            // Plain answers stay in the column only where the whole column fits the kit's column (ColumnMost, the bound the file's own
-            // places keep a plain question's page within; XR's 22:26Z: a question handed in one part may give a plain prompt seven
-            // answers, which then stand in the panel): counted with every way the file offers on the page, a way on that waits for a
-            // choice among them, so choosing never moves the answers between the column and the panel.
+            // Plain answers stay in the column only where the whole column fits FOUR IN ALL (the lead's 2026-11-14T00:24Z: the spec's four,
+            // one number for every reader and for the recorded envelope; past it they stand on the card, as described answers do):
+            // counted with every way the file offers on the page, a way on that waits for a choice among them, so choosing never moves
+            // the answers between the column and the panel.
             var answers = binding.Controls.Count(control => control.Available && control.Place == KitPlace.Choice);
             var ways = binding.Controls.Count(control => control.Available && control.Place == KitPlace.Step)
                 + new[] { KitPlace.Yes, KitPlace.Forward, KitPlace.Back, KitPlace.Cancel, KitPlace.Stop }.Count(place => binding[place] != null);
-            var inPanel = described || answers + ways > ColumnMost;
+            var inPanel = described || answers + ways > System.Math.Min(form.ActionsAPage, ColumnMost);
             var listed = new List<RoomListRow>();
             foreach (var control in binding.Controls.Where(control => control.Available && (control.Place == KitPlace.Choice || control.Place == KitPlace.Step)))
             {

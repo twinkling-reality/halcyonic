@@ -30,7 +30,13 @@ public class RoomQuestionTests
 
     private static void Press(FileColumn column, RoomAction action) => column.Act(action.Control.Action, action.Control.Key);
 
-    private static RoomAction Named(RoomBar bar, string words) => bar.Column.Single(action => action.Words == words);
+    /// <summary>The answers chosen, wherever they stand: the column's buttons, or the card's rows.</summary>
+    private static IEnumerable<string> Chosen(RoomBar bar) => bar.Column.Where(action => action.Chosen).Select(action => action.Words)
+        .Concat(bar.Card?.List.Where(row => row.Press != null && row.Chosen).Select(row => row.Name.Text) ?? Enumerable.Empty<string>());
+
+    /// <summary>The action named <paramref name="words"/>: a column's button, or an answer's row on the card (where the column would pass four in all).</summary>
+    private static RoomAction Named(RoomBar bar, string words) => bar.Column.SingleOrDefault(action => action.Words == words)
+        ?? new RoomAction(bar.Card!.List.Single(row => row.Press != null && row.Name.Text == words).Press!, main: false);
 
     private static QuestionView Two(string id, string first = "Which colour scheme should the dashboard use?") => new()
     {
@@ -114,7 +120,7 @@ public class RoomQuestionTests
             Draw(host, column);
             var first = Bar(column);
             TestContext.Out.WriteLine("q1 after Light then Dark: " + Show(first));
-            Assert.That(first.Column.Where(a => a.Chosen).Select(a => a.Words), Is.EqualTo(new[] { "Dark" }));
+            Assert.That(Chosen(first), Is.EqualTo(new[] { "Dark" }));
             Press(column, first.Column.Single(a => a.Main));
             Draw(host, column);
             column.Act(FileScreens.SendAnswer, null);
@@ -127,7 +133,7 @@ public class RoomQuestionTests
             Draw(host, column);
             var second = Bar(column);
             TestContext.Out.WriteLine("q2 after Orders, Settings, Settings: " + Show(second));
-            Assert.That(second.Column.Where(a => a.Chosen).Select(a => a.Words), Is.EqualTo(new[] { "Orders" }));
+            Assert.That(Chosen(second), Is.EqualTo(new[] { "Orders" }));
             for (var step = 0; step < 6 && host.Sent.Count == 0; step++)
             {
                 var bar = Bar(column);
@@ -216,15 +222,20 @@ public class RoomQuestionTests
             var on = Bar().Column.Single(action => action.Main);
             column.Act(on.Control.Action, on.Control.Key);
             Draw();
-            // The second question, an answer chosen: answers, Write Answer and More Choices share the page's four places; then the way on and Back.
+            // The second question, an answer chosen: its answers would pass four in all beside Write Answer, More Choices, the way on and
+            // Back (the lead's 2026-11-14T00:24Z), so they stand on the card; the file's places still share the page (answers, Write
+            // Answer and More Choices); the column holds the prompts, four in all.
             var second = Bar();
-            column.Act(second.Column[0].Control.Action, second.Column[0].Control.Key);
+            Assert.That(second.Card, Is.Not.Null, Show(second));
+            var pick = second.Card!.List[0].Press!;
+            column.Act(pick.Action, pick.Key);
             Draw();
             var full = Bar();
             var words = full.Column.Select(action => action.Words).ToList();
             Assert.That(words, Does.Contain("Write Answer").And.Contain("More Choices").And.Contain("Back"), string.Join(", ", words));
-            Assert.That(full.Column.Count(action => action.Mark != AnswerMark.None) + 2, Is.EqualTo(RoomBar.ChoicesAPage), "the written answer's row and the row to more choices each take a place");
-            Assert.That(full.Column.Count, Is.LessThanOrEqualTo(6), string.Join(", ", words));
+            Assert.That(full.Card!.List.Count + 2, Is.EqualTo(RoomBar.ChoicesAPage), "the written answer's row and the row to more choices each take a place");
+            Assert.That(full.Column.Any(action => action.Control.Place == KitPlace.Choice), Is.False, string.Join(", ", words));
+            Assert.That(full.Column.Count, Is.LessThanOrEqualTo(RoomForm.SpecActions), string.Join(", ", words));
         }
         finally { RoomDesign.Enabled = was; }
     }
