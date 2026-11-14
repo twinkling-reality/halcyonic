@@ -287,6 +287,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     .Where(extent => !extent.IsEmpty).ToList();
                 foreach (var near in drawn.Where(part => part.Apart(shelf) < GlazeChecks.GapDegrees - 1e-3f).Take(3))
                     failures.Add("page open: " + shelf + " is " + GlazeChecks.Degrees(near.Apart(shelf)) + " degrees from " + near + ", under a degree: the shelf stands under the plane");
+                // Beside the plane's own "the plane reasons" line (XR, 2026-11-14T00:59Z): the bar's foot line and the band's place as drawn,
+                // each as the eyes see it, so the part the plane reasons apart from what it draws can be named.
+                if (plane.KitShows)
+                {
+                    float Elevation(Vector3 point)
+                    {
+                        var toward = point - eyes;
+                        return Mathf.Atan2(toward.y, Mathf.Max(new Vector2(toward.x, toward.z).magnitude, 1e-4f)) * Mathf.Rad2Deg;
+                    }
+                    var kitNow = plane.Kit;
+                    Debug.Log("Halcyonic: shelf walk: page open, as drawn: the bar's foot line " + GlazeChecks.Degrees(Elevation(kitNow.transform.TransformPoint(0f, kitNow.FootLine, 0f)))
+                        + " up, the band's laid place " + GlazeChecks.Degrees(Elevation(kitNow.Band.transform.position)) + " up, " + (kitNow.Band.Words != null ? "words on the band" : "no words on the band")
+                        + "; the band's parts: " + string.Join("; ", drawn.Where(part => part.ToString().Contains("RoomBand")).Select(part => part.ToString())));
+                }
                 var envelope = new Vector3[8];
                 CharacterStage.WriteShelfCorners(new Pose(stage.Shelf.position, stage.Shelf.rotation), stage.ShelfWidth, eyes, envelope);
                 if (!workspace.ClearsShelf(envelope, eyes)) failures.Add("page open: the product's own ClearsShelf says the plane stands over the shelf");
