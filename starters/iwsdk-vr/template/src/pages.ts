@@ -132,7 +132,7 @@ export function pages(list: readonly Page[], options: PagesOptions = {}): Pages 
     );
     group.add(panel);
     // Its running words are `TYPE.words` high in the panel's own metres, for the computer's check of a laptop's view.
-    wordsOn(panel, TYPE.words);
+    wordsOn(panel, TYPE.words, 'page');
     return panel;
   });
   let chosen = -1;

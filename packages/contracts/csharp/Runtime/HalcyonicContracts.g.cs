@@ -2067,6 +2067,15 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("last_measured_px", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public double? LastMeasuredPx { get; set; }
 
+        [global::Newtonsoft.Json.JsonProperty("hidden", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public long? Hidden { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("hidden_kind", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::Newtonsoft.Json.Linq.JToken? HiddenKind { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("last_hidden_kind", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::Newtonsoft.Json.Linq.JToken? LastHiddenKind { get; set; }
+
         [global::Newtonsoft.Json.JsonProperty("words", Required = global::Newtonsoft.Json.Required.Always)]
         public string Words { get; set; } = default!;
 

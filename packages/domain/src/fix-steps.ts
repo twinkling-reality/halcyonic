@@ -39,7 +39,21 @@ export function fixSteps(findings: CheckFindings): FixStep[] {
  * holds nothing back by itself, and neither does one absent on a check recorded before it.
  */
 export function readingPasses(reading: CheckReading | undefined): boolean {
-  return readingFailure(reading) === null;
+  return readingFailure(reading) === null && behindFailure(reading) === null;
+}
+
+/**
+ * The kind of a kit text behind something from the laptop camera (VRIFY, 2026-11-14, AUDIT3: the reading's second
+ * problem kind, under its one held rule): measured now, or on a reading that could not be measured, last measured and
+ * still held (`last_hidden_kind`). Null when none is, and on a reading recorded before it.
+ */
+function behindFailure(
+  reading: CheckReading | undefined,
+): NonNullable<CheckReading['hidden_kind']> | null {
+  if (reading === undefined) return null;
+  if (reading.state === 'measured')
+    return (reading.hidden ?? 0) > 0 ? (reading.hidden_kind ?? 'page') : null;
+  return reading.last_hidden_kind ?? null;
 }
 
 /** The words' height that fails the floor, measured now or last measured and still held, or null. */
@@ -54,22 +68,52 @@ function readingFailure(reading: CheckReading | undefined): number | null {
 
 /**
  * The laptop reading when it is a measured failure, the one case an agent can act on: its words measured under the
- * floor, now or last time with no measurement since. A reading merely not known is not sent: no agent is known to have
+ * floor, or a kit text behind something, now or last time with no measurement since. A reading merely not known is not sent: no agent is known to have
  * made it so.
  */
 export function readingUnder(findings: CheckFindings): CheckReading | null {
   const reading = findings.laptop?.reading;
-  return readingFailure(reading) === null ? null : (reading ?? null);
+  return readingPasses(reading) ? null : (reading ?? null);
 }
 
 /**
  * The reading in words for the agent, which may name the kit's parts a person is never told of: how high the words are
- * drawn, the floor a person reads at, and what to change. Null when the reading gives an agent nothing to act on.
+ * drawn, the floor a person reads at, and what to change; then which kind of kit text is behind something and what to
+ * move, the size first. Null when the reading gives an agent nothing to act on.
  */
 export function readingFix(findings: CheckFindings): string | null {
-  const reading = readingUnder(findings);
-  const failing = readingFailure(reading ?? undefined);
-  if (reading === null || failing === null) return null;
+  const parts = [sizeFix(findings), behindFix(findings)].filter((part) => part !== null);
+  return parts.length === 0 ? null : parts.join('\n\n');
+}
+
+/** What a kit text behind something is called to an agent: its kind, never its words (AUDIT3 H3). */
+const BEHIND_KIND = { page: 'A page', row: 'A row of buttons', sign: 'The score sign' } as const;
+
+/**
+ * A kit text behind something, in words for the agent: its kind, what to move, and why a thing behind the person's
+ * place can be the cover (AUDIT2): the laptop camera stands behind that place. Null when no text is behind anything.
+ */
+function behindFix(findings: CheckFindings): string | null {
+  const reading = findings.laptop?.reading;
+  const kind = behindFailure(reading);
+  if (reading === undefined || kind === null) return null;
+  const what = BEHIND_KIND[kind];
+  const camera =
+    "The laptop camera stands behind the person's place, so something behind where the person stands can still be between it and the words.";
+  if (reading.state === 'measured')
+    return `${what} of the kit is behind something at a laptop's 1280 by 800 view: move it in front, or move what covers it. ${camera}`;
+  const why =
+    reading.state === 'changed'
+      ? "a starter kit file that measures them (src/pages.ts, src/rows.ts, src/decor.ts, src/look.ts, src/legible.ts or the input layer) differs from the starter's own; put it back"
+      : 'no text drawn with the kit (pages(), rows() or the score sign) was in view';
+  return `${what} of the kit was behind something at a laptop's 1280 by 800 view when last measured. The check can no longer measure it: ${why}. Move it in front, or move what covers it. ${camera}`;
+}
+
+/** The words measured under the floor, in words for the agent; null when they are not. */
+function sizeFix(findings: CheckFindings): string | null {
+  const reading = findings.laptop?.reading;
+  const failing = readingFailure(reading);
+  if (reading === undefined || failing === null) return null;
   // Cut to one place, never rounded up onto a floor.
   const px = Math.floor(failing * 10 + 1e-9) / 10;
   const change =

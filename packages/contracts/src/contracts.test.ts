@@ -715,6 +715,9 @@ describe('the C# bindings', () => {
     'CheckLaptop.response_seen', // M1.8g
     'CheckLaptop.response_unknown', // why a twin read was unknown (M1.8g-b)
     'CheckPage.own', // a check page's own pixels against the starter's (DRAWN)
+    'CheckReading.hidden', // how many of the kit's texts are behind something on a laptop (VRIFY, 2026-11-14)
+    'CheckReading.hidden_kind', // the kind of the first text behind something (VRIFY, 2026-11-14)
+    'CheckReading.last_hidden_kind', // that kind held from the last measured reading (VRIFY, 2026-11-14)
     'CheckpointView.turn_id', // the turn an after_turn version follows (History)
     'Evaluation.activity', // Seorak's activity of a session
     'ExecutionApprovalAnsweredByHostPayload.cut', // a confined answer longer than the record keeps (M1)

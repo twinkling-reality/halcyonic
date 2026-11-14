@@ -19,13 +19,16 @@ import {
   VisibilityState,
   type World,
 } from '@iwsdk/core';
-import { type Object3D, Vector3 } from 'three';
+import { Box3, type Mesh, type Object3D, Raycaster, Vector3 } from 'three';
 import {
+  FACE_POINTS,
+  IN_FRONT,
   inView,
   kitPanels,
   type ScreenBox,
   screenBox,
   segmentPixels,
+  type TextKind,
   wordedMeshes,
 } from './legible.js';
 import {
@@ -199,22 +202,74 @@ function shown(object: Object3D): boolean {
   return true;
 }
 
+const ray = new Raycaster();
+const eye = new Vector3();
+const point = new Vector3();
+const face = new Box3();
+const middle = new Vector3();
+const half = new Vector3();
+
+/** Whether `object` is `root` or inside it. */
+function inside(object: Object3D, root: Object3D): boolean {
+  for (let at: Object3D | null = object; at !== null; at = at.parent) if (at === root) return true;
+  return false;
+}
+
+/**
+ * How many of a text's `FACE_POINTS` stand behind something from the laptop camera, 0 to 5: a point is hidden when a
+ * shown mesh other than the text's own is hit more than `IN_FRONT` nearer the camera. A mesh under the camera is a
+ * panel in screen space (the starter's controls card while it shows, which goes), never a cover; and a ray sees
+ * meshes only, so what an app made unhittable or drew in a shader of its own can hide words it does not see.
+ */
+function hiddenPoints(w: World, text: Object3D): number {
+  const geometry = (text as Mesh).geometry;
+  if (geometry === undefined) return 0;
+  geometry.computeBoundingBox();
+  if (geometry.boundingBox === null) return 0;
+  face.copy(geometry.boundingBox);
+  face.getCenter(middle);
+  face.getSize(half).multiplyScalar(0.5);
+  w.camera.getWorldPosition(eye);
+  let hidden = 0;
+  for (const [sx, sy] of FACE_POINTS) {
+    text.localToWorld(point.set(middle.x + sx * half.x, middle.y + sy * half.y, middle.z));
+    const far = point.distanceTo(eye) - IN_FRONT;
+    if (far <= 0) continue;
+    ray.set(eye, point.sub(eye).normalize());
+    ray.near = 0;
+    ray.far = far;
+    const covered = ray
+      .intersectObject(w.scene, true)
+      .some(
+        (hit) =>
+          (hit.object as Mesh).isMesh === true &&
+          shown(hit.object) &&
+          !inside(hit.object, text) &&
+          !inside(hit.object, w.camera),
+      );
+    if (covered) hidden += 1;
+  }
+  return hidden;
+}
+
 /**
  * How high the kit's words stand on the laptop's screen, in CSS pixels, for the computer's check of the app: for each
  * mesh the kit drew words on whose centre the camera sees, the height of its smallest words projected through the
- * camera at the mesh's place. Words the app drew itself are not here.
+ * camera at the mesh's place, its kind, and how many of its five points stand behind something (`hiddenPoints`).
+ * Words the app drew itself are not here.
  */
-function readings(w: World): { texts: { px: number }[] } {
+function readings(w: World): { texts: { px: number; kind: TextKind; hidden: number }[] } {
   const rect = w.renderer.domElement.getBoundingClientRect();
-  const texts: { px: number }[] = [];
-  for (const [mesh, height] of wordedMeshes()) {
+  const texts: { px: number; kind: TextKind; hidden: number }[] = [];
+  w.scene.updateMatrixWorld();
+  for (const [mesh, { height, kind }] of wordedMeshes()) {
     const object = mesh as Object3D;
     if (!shown(object)) continue;
     object.updateWorldMatrix(true, false);
     object.localToWorld(foot.set(0, 0, 0)).project(w.camera);
     if (!inView(foot)) continue;
     object.localToWorld(head.set(0, height, 0)).project(w.camera);
-    texts.push({ px: segmentPixels(foot.y, head.y, rect.height) });
+    texts.push({ px: segmentPixels(foot.y, head.y, rect.height), kind, hidden: hiddenPoints(w, object) });
   }
   return { texts };
 }

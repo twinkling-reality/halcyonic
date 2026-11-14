@@ -291,3 +291,17 @@ pages' plane, where the kit's smallest words come to about 11 pixels (arithmetic
 What it does not measure: text the app draws itself, panels the app places itself without `rows()`, a pressed page
 (measured at rest only) and any view but 1280 by 800; and the fit was computed from the kit's geometry, not yet seen in
 a real headless render.
+
+## Words behind something (2026-11-14)
+
+LOOP's proving sweep (run 01-catch-meta) found the reading said "readable" for a score sign that stood behind a tree:
+the kit projected the words' height through the laptop camera and never asked what stood in front of them. The kit's
+sealed check hook now also casts a ray from the laptop camera to five points on each kit text's face (its centre and
+four corners set in to 60%), and a point is behind something when a shown mesh other than the text's own is hit more
+than 5 mm nearer. A text with more than half its points behind something (3 of 5) fails the reading. Checked in a real
+headless render on 2026-11-14 (the check's opt-in Chrome tests, this lane's pinned chrome-headless-shell): a 1 m box
+between the game's camera and the score sign read `hidden` 1, kind `sign`, not ready, the check still passed; a
+view's three pages, with the starter's controls card over the top left of the screen, read nothing behind anything
+(the card stands under the camera in screen space and is never a cover); a game's pages from its camera still read
+about 6 px. What it does not see: a mesh an app made unhittable, words or covers an app draws in a shader of its own,
+a cover under the camera that is the app's own, and the app's own text, which is not measured at all.

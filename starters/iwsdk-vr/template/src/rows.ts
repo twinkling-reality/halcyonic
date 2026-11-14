@@ -87,7 +87,7 @@ export function rows(world: World, list: readonly (readonly Button[])[], options
       mesh.rotation.x = tilt;
       gameIsland().add(mesh);
       // Its words are `TYPE.title` high in the button's own metres, for the computer's check of a laptop's view.
-      wordsOn(mesh, TYPE.title);
+      wordsOn(mesh, TYPE.title, 'row');
       onSelect(world.createTransformEntity(mesh), () => button.onSelect());
       return mesh;
     });

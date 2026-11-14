@@ -82,13 +82,13 @@ function picture(lit: number): Buffer {
 
 /** What the hook says of the kit's words: heights in CSS pixels. */
 interface Readings {
-  texts: { px: number }[];
+  texts: { px: number; kind: 'page' | 'row' | 'sign'; hidden: number }[];
   /** Whether the hook stood as the kit sets it; true unless a test says otherwise. */
   sealed?: boolean;
 }
 
 /** Kit words standing 14 px high: readable. */
-const READABLE: Readings = { texts: [{ px: 14 }] };
+const READABLE: Readings = { texts: [{ px: 14, kind: 'sign', hidden: 0 }] };
 /** The kit's files are the starter's own; no picture, so no fill share. */
 const KIT = { files: 'starter', picture: null } as const;
 
@@ -171,6 +171,9 @@ describe("the check's laptop step (M1.8b)", () => {
         fill_share: null,
         floor_px: 10,
         last_measured_px: null,
+        hidden: 0,
+        hidden_kind: null,
+        last_hidden_kind: null,
         words:
           'Readable on a laptop where it could measure (1 text); text the app drew itself was not measured',
         detail: 'smallest words 14 px high',
@@ -375,7 +378,9 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
       picture,
       last,
     });
-  const at = (...px: number[]): Readings => ({ texts: px.map((each) => ({ px: each })) });
+  const at = (...px: number[]): Readings => ({
+    texts: px.map((each) => ({ px: each, kind: 'page' as const, hidden: 0 })),
+  });
   /** A reading measured at `px`, as an earlier check of the project recorded it. */
   const measuredAt = (px: number) => readingOf('starter', { sealed: true, texts: [px] }, null);
 
@@ -409,6 +414,94 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     assert.equal((await step(at(9.999))).ready, false);
   });
 
+  /** Texts as the kit reports them: each a height, a kind, and how many of its five points stand behind something. */
+  const seen = (...texts: [number, 'page' | 'row' | 'sign', number][]): Readings => ({
+    texts: texts.map(([px, kind, hidden]) => ({ px, kind, hidden })),
+  });
+
+  test('a text with more than half its points behind something is not readable: not ready, named by its kind (AUDIT3, VRIFY 2026-11-14)', async () => {
+    const behind = await step(seen([18.84, 'sign', 3], [14, 'page', 0]));
+    assert.equal(behind.reading?.state, 'measured');
+    assert.equal(behind.reading?.hidden, 1);
+    assert.equal(behind.reading?.hidden_kind, 'sign');
+    assert.equal(behind.ready, false);
+    assert.equal(behind.reading?.words, "Some of the app's words are behind something on a laptop");
+    assert.equal(behind.reading?.detail, '1 of 2 texts behind something');
+    assert.equal(readingPasses(behind.reading), false);
+    // Two of five is not more than half: a text at the edge of a cover is never failed by rounding.
+    const edge = await step(seen([18.84, 'sign', 2], [14, 'page', 0]));
+    assert.equal(edge.reading?.hidden, 0);
+    assert.equal(edge.reading?.hidden_kind, null);
+    assert.equal(edge.ready, true);
+    assert.match(
+      edge.reading?.words ?? '',
+      /^Readable on a laptop where it could measure \(2 texts\)/,
+    );
+    assert.equal((await step(seen([14, 'row', 5]))).reading?.hidden_kind, 'row');
+  });
+
+  test('words both too small and behind something say both, the size first (AUDIT2)', async () => {
+    const both = await step(seen([6, 'page', 0], [12, 'sign', 4]));
+    assert.equal(both.ready, false);
+    assert.equal(
+      both.reading?.words,
+      'The words are too small to read on a laptop, and some are behind something',
+    );
+    assert.equal(
+      both.reading?.detail,
+      '6 px high; at least 10 needed; 1 of 2 texts behind something',
+    );
+    assert.equal(both.reading?.hidden_kind, 'sign');
+  });
+
+  test('a count of hidden points not a whole number from 0 to 5, or a kind not of the list, is not known, never failed (AUDIT3 H2)', async () => {
+    for (const text of [
+      { px: 14, kind: 'sign', hidden: 6 },
+      { px: 14, kind: 'sign', hidden: -1 },
+      { px: 14, kind: 'sign', hidden: 2.5 },
+      { px: 14, kind: 'sign', hidden: '3' },
+      { px: 14, kind: 'sign' },
+      { px: 14, kind: 'card', hidden: 0 },
+      { px: 14, hidden: 0 },
+    ]) {
+      assert.equal(parseReadings({ texts: [text], sealed: true }), null, JSON.stringify(text));
+      const result = await step({ texts: [text] } as unknown as Readings);
+      assert.equal(result.reading?.state, 'unknown', JSON.stringify(text));
+      assert.equal(result.ready, true, JSON.stringify(text));
+    }
+  });
+
+  test('a text last measured behind something and not measured since is still one: held, until a measured pass (AUDIT3)', async () => {
+    const earlier = (await step(seen([14, 'sign', 3]))).reading ?? null;
+    assert.equal(earlier?.hidden, 1);
+    for (const [readings, files] of [
+      [seen([14, 'sign', 3]), 'changed'],
+      [seen(), 'starter'],
+      [null, 'starter'],
+    ] as const) {
+      const held = await step(readings, view(0.5), files, earlier);
+      assert.notEqual(held.reading?.state, 'measured');
+      assert.equal(held.reading?.last_hidden_kind, 'sign');
+      assert.equal(held.reading?.last_measured_px, null);
+      assert.equal(held.ready, false);
+      assert.match(
+        held.reading?.words ?? '',
+        /^Some of the app's words were behind something on a laptop when last measured, and can no longer be measured: /,
+      );
+    }
+    const small = readingOf('starter', { sealed: true, texts: [6], hidden: ['page'] }, null);
+    const both = await step(seen(), view(0.5), 'starter', small);
+    assert.equal(both.reading?.last_measured_px, 6);
+    assert.equal(both.reading?.last_hidden_kind, 'page');
+    assert.match(
+      both.reading?.words ?? '',
+      /when last measured \(6 px high; at least 10 needed\) and some were behind something; they can no longer be measured: /,
+    );
+    const cleared = await step(seen([14, 'sign', 0]), view(0.5), 'starter', earlier);
+    assert.equal(cleared.reading?.last_hidden_kind, null);
+    assert.equal(cleared.ready, true);
+  });
+
   test('no kit text measured, or no answer about the words, is not known and holds nothing back (the lead, 22:40Z)', async () => {
     const none = await step(at());
     assert.equal(none.reading?.state, 'unknown');
@@ -426,9 +519,15 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     assert.equal(parseReadings({ texts: [{ px: 'big' }] }), null);
     assert.equal(parseReadings({ texts: [{ px: Number.NaN }] }), null);
     assert.equal(parseReadings({ texts: 'many' }), null);
-    assert.deepEqual(parseReadings({ texts: [{ px: 12 }] }), { texts: [12], sealed: false });
+    assert.deepEqual(parseReadings({ texts: [{ px: 12, kind: 'page', hidden: 0 }] }), {
+      texts: [12],
+      hidden: [],
+      sealed: false,
+    });
     assert.equal(
-      parseReadings({ texts: Array.from({ length: 80 }, () => ({ px: 12 })) })?.texts.length,
+      parseReadings({
+        texts: Array.from({ length: 80 }, () => ({ px: 12, kind: 'page', hidden: 0 })),
+      })?.texts.length,
       64,
     );
   });
@@ -463,16 +562,17 @@ describe('whether a person can read the app on a laptop (VRIFY, AUDIT2 and AUDIT
     assert.equal(held.reading?.last_measured_px, 6);
     assert.equal(held.ready, false);
     // Read in the host: a report without the page's word that the hook was sealed is not sealed.
-    assert.equal(parseReadings({ texts: [{ px: 40 }] })?.sealed, false);
-    assert.equal(parseReadings({ texts: [{ px: 40 }], sealed: 'yes' })?.sealed, false);
-    assert.equal(parseReadings({ texts: [{ px: 40 }], sealed: true })?.sealed, true);
+    const text = { px: 40, kind: 'page', hidden: 0 };
+    assert.equal(parseReadings({ texts: [text] })?.sealed, false);
+    assert.equal(parseReadings({ texts: [text], sealed: 'yes' })?.sealed, false);
+    assert.equal(parseReadings({ texts: [text], sealed: true })?.sealed, true);
   });
 
   test("the page's own expression tells the kit's sealed hook from one the app put in its place", () => {
     const hook = {
       counts: () => ({ mouse: 0, key: 0, trigger: 0, pinch: 0, touch: 0 }),
       targets: () => [],
-      readings: () => ({ texts: [{ px: 40 }] }),
+      readings: () => ({ texts: [{ px: 40, kind: 'page', hidden: 0 }] }),
     };
     const read = (setup: (global: Record<string, unknown>) => void) => {
       const context = createContext({});

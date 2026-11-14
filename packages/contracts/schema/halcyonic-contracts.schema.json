@@ -19092,6 +19092,39 @@
             }
           ]
         },
+        "hidden": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "hidden_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "page",
+                "row",
+                "sign"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_hidden_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "page",
+                "row",
+                "sign"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "words": {
           "type": "string",
           "minLength": 1,

@@ -109,6 +109,15 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   not fit a laptop's screen (the reading's or the failed check's words when those apply too), then names the panel with
   the app's own label for it and asks for every row of buttons to go through `rows()`; a person's line never carries
   the app's label. A fit not known (a kit file changed, no panel shown, a report not of the strict shape) is not sent.
+- The reading's second kind (VRIFY, 2026-11-14, from LOOP's sweep: a score sign behind a tree read readable): a kit
+  text with more than half of five points on its face (its centre and four corners set in) behind a shown mesh from
+  the laptop camera is a measured failure of the same reading (`hidden`, `hidden_kind`), under the same trigger, two
+  tries, `reading` step and held rule (`last_hidden_kind` until a measured reading with none behind). The kit casts
+  the rays inside its sealed hook, from the same camera the heights use; the host takes a count from 0 to 5 per text
+  and reads anything else as not known. The try names the text by its kind only (a page, a row of buttons, the score
+  sign), never its words, says to move it or what covers it, and that the laptop camera stands behind the person's
+  place; where its words are also too small, the size is said first. A panel under the camera (the starter's controls
+  card while it shows) never covers, and a ray sees meshes only, so a pass is where it could measure.
 - On wherever checks are; `ControlPlaneOptions.autoFix: false` turns it off.
 
 ## Alternatives considered

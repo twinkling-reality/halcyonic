@@ -489,7 +489,9 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       },
     );
     assert.equal(result.passed, true, JSON.stringify(result.page));
-    const { reading, ...laptop } = result.laptop ?? {};
+    // The fit is not known here: the game places no page or row of the kit's.
+    const { reading, fit, ...laptop } = result.laptop ?? {};
+    assert.equal(fit?.state, 'unknown', JSON.stringify(fit));
     assert.deepEqual(laptop, {
       layer: 'starter',
       targets: 1,
@@ -499,9 +501,10 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       exceptions_during: 0,
       ready: true,
     });
-    // The score sign's label, measured through the game's own laptop camera.
+    // The score sign's label, measured through the game's own laptop camera, and nothing in front of it.
     assert.equal(reading?.state, 'measured', JSON.stringify(reading));
     assert.ok((reading?.smallest_px ?? 0) >= 10, JSON.stringify(reading));
+    assert.equal(reading?.hidden, 0, JSON.stringify(reading));
     assert.deepEqual(result.vr, {
       offered: 'offered',
       how: 'offer_session',
@@ -535,7 +538,28 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     const reading = result.laptop?.reading;
     assert.equal(reading?.state, 'measured', JSON.stringify(reading));
     assert.ok((reading?.smallest_px ?? 0) >= 10, JSON.stringify(reading));
+    // The starter's controls card stands over the top left while it shows: under the camera, it covers nothing.
+    assert.equal(reading?.hidden, 0, JSON.stringify(reading));
     assert.equal(result.laptop?.ready, true, JSON.stringify(result.laptop));
+  });
+
+  test('a box between the laptop camera and the score sign: the sign is behind something, not ready, the check still passed (VRIFY, 2026-11-14)', {
+    timeout: 240_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      addToIndex(
+        project,
+        BOX_IMPORTS,
+        `${BOX} const cover = new Mesh(new BoxGeometry(1, 1, 0.2), new MeshStandardMaterial({ color: 0x228833 })); cover.position.set(0, 1.55, -1); world.createTransformEntity(cover);`,
+      ),
+    );
+    const reading = result.laptop?.reading;
+    assert.equal(reading?.state, 'measured', JSON.stringify(reading));
+    assert.equal(reading?.hidden, 1, JSON.stringify(reading));
+    assert.equal(reading?.hidden_kind, 'sign');
+    assert.equal(reading?.words, "Some of the app's words are behind something on a laptop");
+    assert.equal(result.laptop?.ready, false);
+    assert.equal(result.passed, true, JSON.stringify(result.page));
   });
 
   test("the same pages from a game's camera behind the player read about 6 px: not ready on a laptop, the check still passed (VRIFY, 2026-11-13)", {

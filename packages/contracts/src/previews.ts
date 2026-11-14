@@ -72,6 +72,13 @@ export type CheckPage = Static<typeof CheckPage>;
 
 /** The smallest words a person reads on a laptop's 1280 by 800 view, in CSS pixels (validation/vrify-real-projects.md). */
 export const READING_FLOOR_PX = 10;
+/** The points on a text's face the kit looks through to, and how many of them behind something make it unreadable. */
+export const READING_HIDDEN_POINTS = 5;
+export const READING_HIDDEN_MORE_THAN = 2;
+
+/** What the kit drew words on: a page of `pages()`, a row of buttons of `rows()`, or the score sign. */
+export const CheckTextKind = Type.Enum(['page', 'row', 'sign']);
+export type CheckTextKind = Static<typeof CheckTextKind>;
 
 /**
  * Whether a person can read the app on a laptop (VRIFY, 2026-11-13). The words' heights are what the starter's kit
@@ -84,7 +91,15 @@ export const READING_FLOOR_PX = 10;
  * it gates nothing. `last_measured_px`, on a reading not measured, is the smallest words of the project's last measured
  * reading when that one was under the floor: a reading never improves by becoming unmeasurable. `words` is the
  * person's line, plain; `detail` its numbers, second. Never changes whether the check passed; the laptop step is held
- * back only by a measured failure: `smallest_px` under `floor_px`, or a `last_measured_px` still held.
+ * back only by a measured failure: `smallest_px` under `floor_px`, `hidden` over 0, or a `last_measured_px` or
+ * `last_hidden_kind` still held.
+ *
+ * Words behind something (VRIFY, 2026-11-14, AUDIT3): the kit also reports, for each measured text, how many of five
+ * points on its face (`READING_HIDDEN_POINTS`) stand behind a mesh from the laptop camera. `hidden` is how many measured
+ * texts have more than half of them behind something; `hidden_kind` the kind of the first (a page, a row of buttons,
+ * the score sign), never its words, null when none. `last_hidden_kind`, on a reading not measured, is that kind from
+ * the project's last measured reading while it had one. A ray sees meshes only, so a pass is where it could measure.
+ * The three are absent on a reading recorded before them, which holds nothing back.
  */
 export const CheckReading = Type.Object(
   {
@@ -94,6 +109,9 @@ export const CheckReading = Type.Object(
     fill_share: Nullable(Type.Number({ minimum: 0, maximum: 1 })),
     floor_px: Type.Number({ minimum: 0 }),
     last_measured_px: Nullable(Type.Number({ minimum: 0, maximum: 4096 })),
+    hidden: Type.Optional(Type.Integer({ minimum: 0, maximum: 64 })),
+    hidden_kind: Type.Optional(Nullable(CheckTextKind)),
+    last_hidden_kind: Type.Optional(Nullable(CheckTextKind)),
     words: Text(200),
     detail: Nullable(Text(200)),
   },

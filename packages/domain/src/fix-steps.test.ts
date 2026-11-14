@@ -105,6 +105,63 @@ describe("the laptop reading goes back to its agent, a check's second trigger (A
   });
 });
 
+describe("a kit text behind something goes back the same way, the reading's second kind under its one held rule (AUDIT3, VRIFY 2026-11-14)", () => {
+  const behind = (kind: 'page' | 'row' | 'sign', px = 14): CheckReading => ({
+    ...measured(px),
+    hidden: 1,
+    hidden_kind: kind,
+    last_hidden_kind: null,
+  });
+  const camera =
+    "The laptop camera stands behind the person's place, so something behind where the person stands can still be between it and the words.";
+
+  test('a text measured behind something is a step to fix, fails the verdict and the reading, named by its kind only', () => {
+    assert.deepEqual(fixSteps(passed(behind('sign'))), ['reading']);
+    assert.equal(checkVerdict(passed(behind('sign'))), 'failed');
+    assert.equal(readingPasses(behind('sign')), false);
+    assert.equal(
+      readingFix(passed(behind('sign'))),
+      `The score sign of the kit is behind something at a laptop's 1280 by 800 view: move it in front, or move what covers it. ${camera}`,
+    );
+    assert.match(
+      readingFix(passed(behind('page'))) ?? '',
+      /^A page of the kit is behind something/,
+    );
+    assert.match(
+      readingFix(passed(behind('row'))) ?? '',
+      /^A row of buttons of the kit is behind something/,
+    );
+  });
+
+  test('none behind, or a reading recorded before the count, is nothing to fix', () => {
+    assert.equal(
+      readingPasses({ ...measured(14), hidden: 0, hidden_kind: null, last_hidden_kind: null }),
+      true,
+    );
+    assert.equal(readingPasses(measured(14)), true, 'recorded before the count');
+    assert.equal(readingFix(passed(measured(14))), null);
+  });
+
+  test('held while it cannot be measured, and both kinds said, the size first', () => {
+    const held = {
+      ...notMeasured('changed', null),
+      hidden: 0,
+      hidden_kind: null,
+      last_hidden_kind: 'sign' as const,
+    };
+    assert.equal(readingPasses(held), false);
+    assert.deepEqual(fixSteps(passed(held)), ['reading']);
+    assert.equal(
+      readingFix(passed(held)),
+      `The score sign of the kit was behind something at a laptop's 1280 by 800 view when last measured. The check can no longer measure it: a starter kit file that measures them (src/pages.ts, src/rows.ts, src/decor.ts, src/look.ts, src/legible.ts or the input layer) differs from the starter's own; put it back. Move it in front, or move what covers it. ${camera}`,
+    );
+    const both = passed(behind('page', 6));
+    const fix = readingFix(both) ?? '';
+    assert.match(fix, /^Words are drawn 6 px high/);
+    assert.match(fix, /\n\nA page of the kit is behind something/);
+  });
+});
+
 /** A check that passed and reads at 14 px, its laptop step placing the kit's panels as `fit` says. */
 function placed(fit: CheckFit): CheckFindings {
   const findings = passed(measured(14));

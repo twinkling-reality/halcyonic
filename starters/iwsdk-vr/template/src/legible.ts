@@ -80,17 +80,40 @@ export const VIEW_CAMERA = {
   lookAt: [0, VIEW_AIM, -PAGES_DISTANCE],
 } as const;
 
-const worded = new Map<object, number>();
+/** What the kit drew words on: a page of `pages()`, a button of `rows()`, or the score sign. */
+export type TextKind = 'page' | 'row' | 'sign';
 
-/** Notes that `mesh` carries the kit's words, the smallest `height` metres high in its own frame (the font's em). */
-export function wordsOn(mesh: object, height: number): void {
-  worded.set(mesh, height);
+/** A mesh the kit drew words on: the height of its smallest words in its own metres (the font's em), and its kind. */
+export interface KitText {
+  readonly height: number;
+  readonly kind: TextKind;
 }
 
-/** Every mesh the kit drew words on, with the height of its smallest words. */
-export function wordedMeshes(): ReadonlyMap<object, number> {
+const worded = new Map<object, KitText>();
+
+/** Notes that `mesh` carries the kit's words, the smallest `height` metres high in its own frame, on a `kind`. */
+export function wordsOn(mesh: object, height: number, kind: TextKind): void {
+  worded.set(mesh, { height, kind });
+}
+
+/** Every mesh the kit drew words on, with the height of its smallest words and its kind. */
+export function wordedMeshes(): ReadonlyMap<object, KitText> {
   return worded;
 }
+
+/**
+ * Where on a text's face the check looks for something in front of it: its centre and its four corners set in to 60%
+ * of the way from the centre, as fractions of its half width and half height (AUDIT3, 2026-11-14).
+ */
+export const FACE_POINTS: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [-0.6, -0.6],
+  [0.6, -0.6],
+  [0.6, 0.6],
+  [-0.6, 0.6],
+];
+/** How much nearer the camera than a point of a text a mesh must be to stand in front of it, in metres. */
+export const IN_FRONT = 0.005;
 
 /** A panel of the kit, for the check: a page or a row of buttons, its title or first label, its size in its own metres. */
 export interface KitPanel {

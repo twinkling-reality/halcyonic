@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { READING_HIDDEN_POINTS } from '@halcyonic/contracts';
 import {
   arcSlot,
+  FACE_POINTS,
   FAR_OFF,
   firstOf,
   HEADSET_PAGES,
+  IN_FRONT,
   inView,
   kitPanels,
   LAPTOP_PAGES,
@@ -855,7 +858,7 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
       assert.ok(label >= 10, `row ${row}: ${label} px`);
     }
     assert.match(read('src/rows.ts'), /const LABEL_PX = Math\.round\(TYPE\.title \* PIXELS\);/);
-    assert.match(read('src/rows.ts'), /wordsOn\(mesh, TYPE\.title\);/);
+    assert.match(read('src/rows.ts'), /wordsOn\(mesh, TYPE\.title, 'row'\);/);
   });
 
   /** Row `row` of `rows()`: its centre, at the pages' distance, and its own up, tipped back to face the person's eye. */
@@ -1085,20 +1088,20 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
     const pages = read('src/pages.ts');
     assert.match(pages, /const EYE = PAGES_EYE;/);
     assert.match(pages, /const distance = options\.distance \?\? PAGES_DISTANCE;/);
-    assert.match(pages, /wordsOn\(panel, TYPE\.words\);/);
+    assert.match(pages, /wordsOn\(panel, TYPE\.words, 'page'\);/);
     // The score sign's label: 54 px on its 512 px canvas, 1.2 m wide.
     const decor = read('src/decor.ts');
     assert.match(decor, /context\.font = `700 54px \$\{font\}`;/);
     assert.match(decor, /canvas\.width = 512;/);
     assert.match(decor, /new PlaneGeometry\(1\.2, 0\.6\)/);
-    assert.match(decor, /wordsOn\(face, \(54 \* 1\.2\) \/ 512\);/);
+    assert.match(decor, /wordsOn\(face, \(54 \* 1\.2\) \/ 512, 'sign'\);/);
   });
 
   test('the registry keeps what the kit drew, and needs no SDK', () => {
     assert.doesNotMatch(read('src/legible.ts'), /^import /m);
     const mesh = {};
-    wordsOn(mesh, 0.026);
-    assert.equal(wordedMeshes().get(mesh), 0.026);
+    wordsOn(mesh, 0.026, 'sign');
+    assert.deepEqual(wordedMeshes().get(mesh), { height: 0.026, kind: 'sign' });
     assert.equal(inView({ x: 0, y: 0, z: 0.5 }), true);
     assert.equal(inView({ x: 1.01, y: 0, z: 0.5 }), false);
     assert.equal(inView({ x: 0, y: 0, z: 1.5 }), false, 'behind the camera');
@@ -1108,10 +1111,34 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
   test("the check hook reports the words' heights through the laptop camera", () => {
     const layer = read('src/play-input.ts');
     assert.match(layer, /readings: \(\) => readings\(w\),/);
-    assert.match(layer, /for \(const \[mesh, height\] of wordedMeshes\(\)\)/);
+    assert.match(layer, /for \(const \[mesh, \{ height, kind \}\] of wordedMeshes\(\)\)/);
     assert.match(layer, /if \(!inView\(foot\)\) continue;/);
     assert.match(layer, /\.project\(w\.camera\)/);
     assert.match(layer, /return \{ texts \};/);
+  });
+
+  test('the hook also says how many of five points on each text stand behind something, from the same camera (AUDIT3 H1, H5)', () => {
+    const layer = read('src/play-input.ts');
+    assert.match(layer, /kind, hidden: hiddenPoints\(w, object\) \}/);
+    assert.match(layer, /w\.camera\.getWorldPosition\(eye\);/);
+    assert.match(layer, /for \(const \[sx, sy\] of FACE_POINTS\)/);
+    // Only a shown mesh other than the text's own covers it; a panel under the camera (the controls card) never does.
+    assert.match(
+      layer,
+      /\(hit\.object as Mesh\)\.isMesh === true &&\s+shown\(hit\.object\) &&\s+!inside\(hit\.object, text\) &&\s+!inside\(hit\.object, w\.camera\)/,
+    );
+    assert.equal(
+      FACE_POINTS.length,
+      READING_HIDDEN_POINTS,
+      'the host counts the points the kit casts',
+    );
+    assert.ok(IN_FRONT > 0 && IN_FRONT < 0.02, 'the score sign stands 2 cm proud of its frame');
+    for (const [file, kind] of [
+      ['src/pages.ts', 'page'],
+      ['src/rows.ts', 'row'],
+      ['src/decor.ts', 'sign'],
+    ] as const)
+      assert.match(read(file), new RegExp(`wordsOn\\(.*, '${kind}'\\);`), file);
   });
 });
 

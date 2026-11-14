@@ -5,12 +5,15 @@ import {
   type CheckFit,
   type CheckLaptop,
   type CheckReading,
+  type CheckTextKind,
   type CheckVr,
   compileValidator,
   FIT_EDGE_PX,
   FIT_OVERLAP_PX,
   FIT_VIEW,
   READING_FLOOR_PX,
+  READING_HIDDEN_MORE_THAN,
+  READING_HIDDEN_POINTS,
   Text,
 } from '@halcyonic/contracts';
 import { fitPasses, readingPasses } from '@halcyonic/domain';
@@ -73,6 +76,11 @@ type Counts = Record<(typeof SOURCES)[number], number>;
 export interface HookReadings {
   /** Each text the kit drew that the laptop camera sees: its smallest words' height in CSS pixels. */
   readonly texts: readonly number[];
+  /**
+   * The kind of each of those texts with more than `READING_HIDDEN_MORE_THAN` of its `READING_HIDDEN_POINTS` points
+   * behind something from the laptop camera, in the order reported (VRIFY, 2026-11-14); none when not said.
+   */
+  readonly hidden?: readonly CheckTextKind[];
   /**
    * Whether the hook stood as the kit sets it (frozen, neither writable nor configurable); otherwise the app's own
    * code may have replaced it, and the reading is `changed`. Said by the page itself, so it raises the bar and proves
@@ -239,18 +247,38 @@ export function parsePanels(value: unknown): HookPanels | null {
   return { panels: read, sealed: sealed === true };
 }
 
-/** The hook's readings against a strict shape; anything else is null, so the reading is unknown. */
+const TEXT_KINDS: readonly unknown[] = ['page', 'row', 'sign'] satisfies CheckTextKind[];
+
+/**
+ * The hook's readings against a strict shape: each text a height of at most 4096 CSS pixels, a kind of the fixed list,
+ * and a whole count of its points behind something from 0 to `READING_HIDDEN_POINTS` (AUDIT3 H2). Anything else is
+ * null, so the reading is unknown, never failed.
+ */
 export function parseReadings(value: unknown): HookReadings | null {
   if (value === null || typeof value !== 'object') return null;
   const { texts, sealed } = value as { texts?: unknown; sealed?: unknown };
   if (!Array.isArray(texts)) return null;
   const heights: number[] = [];
+  const hidden: CheckTextKind[] = [];
   for (const text of texts.slice(0, MAX_TEXTS)) {
-    const { px } = (text ?? {}) as { px?: unknown };
+    const {
+      px,
+      kind,
+      hidden: points,
+    } = (text ?? {}) as { px?: unknown; kind?: unknown; hidden?: unknown };
     if (typeof px !== 'number' || !Number.isFinite(px) || px < 0 || px > 4096) return null;
+    if (!TEXT_KINDS.includes(kind)) return null;
+    if (
+      typeof points !== 'number' ||
+      !Number.isInteger(points) ||
+      points < 0 ||
+      points > READING_HIDDEN_POINTS
+    )
+      return null;
     heights.push(px);
+    if (points > READING_HIDDEN_MORE_THAN) hidden.push(kind as CheckTextKind);
   }
-  return { texts: heights, sealed: sealed === true };
+  return { texts: heights, hidden, sealed: sealed === true };
 }
 
 /**
@@ -314,6 +342,8 @@ const NOT_KNOWN = 'Not known whether it reads on a laptop';
  * `files` is whether the kit's files that feed it are the starter's own; changed or missing, the page's report is not
  * the kit's, and the reading is `changed`. A reading not measured holds nothing back by itself, but never clears a
  * failure: where `last`, the project's last measured reading, was under the floor, it is held (AUDIT3, the lead).
+ * Its second kind (VRIFY, 2026-11-14, AUDIT3): a measured text with more than half its points behind something fails
+ * the same reading, said after the size where both fail (AUDIT2), and is held the same way (`last_hidden_kind`).
  */
 export function readingOf(
   files: CheckLaptop['layer'],
@@ -331,16 +361,29 @@ export function readingOf(
       last?.state === 'measured' && last.smallest_px !== null && last.smallest_px < READING_FLOOR_PX
         ? last.smallest_px
         : null;
+    const heldBehind =
+      last?.state === 'measured' && (last.hidden ?? 0) > 0 ? (last.hidden_kind ?? null) : null;
+    const small =
+      held === null
+        ? null
+        : `The words were too small to read on a laptop when last measured (${figure(held)} px high; at least ${READING_FLOOR_PX} needed)`;
     return {
       ...base,
       state,
       smallest_px: null,
       measured: 0,
       last_measured_px: held,
+      hidden: 0,
+      hidden_kind: null,
+      last_hidden_kind: heldBehind,
       words:
-        held === null
+        small === null && heldBehind === null
           ? `${NOT_KNOWN}: ${why}`
-          : `The words were too small to read on a laptop when last measured (${figure(held)} px high; at least ${READING_FLOOR_PX} needed), and can no longer be measured: ${why}`,
+          : small === null
+            ? `Some of the app's words were behind something on a laptop when last measured, and can no longer be measured: ${why}`
+            : heldBehind === null
+              ? `${small}, and can no longer be measured: ${why}`
+              : `${small} and some were behind something; they can no longer be measured: ${why}`,
       detail: null,
     };
   };
@@ -354,18 +397,33 @@ export function readingOf(
   // Cut, never rounded up onto the floor.
   const smallest = cut(Math.min(...readings.texts), 2);
   const measured = readings.texts.length;
+  const behind = readings.hidden ?? [];
   const measuredBase = {
     ...base,
     state: 'measured',
     smallest_px: smallest,
     measured,
     last_measured_px: null,
+    hidden: behind.length,
+    hidden_kind: behind[0] ?? null,
+    last_hidden_kind: null,
   } as const;
+  const covered = `${behind.length} of ${measured} ${measured === 1 ? 'text' : 'texts'} behind something`;
+  // Both are said where both fail, the words' size first, the measure a person meets first (AUDIT2).
   if (smallest < READING_FLOOR_PX)
     return {
       ...measuredBase,
-      words: 'The words are too small to read on a laptop',
-      detail: `${figure(smallest)} px high; at least ${READING_FLOOR_PX} needed`,
+      words:
+        behind.length === 0
+          ? 'The words are too small to read on a laptop'
+          : 'The words are too small to read on a laptop, and some are behind something',
+      detail: `${figure(smallest)} px high; at least ${READING_FLOOR_PX} needed${behind.length === 0 ? '' : `; ${covered}`}`,
+    };
+  if (behind.length > 0)
+    return {
+      ...measuredBase,
+      words: "Some of the app's words are behind something on a laptop",
+      detail: covered,
     };
   const texts = measured === 1 ? '1 text' : `${measured} texts`;
   const fills =
