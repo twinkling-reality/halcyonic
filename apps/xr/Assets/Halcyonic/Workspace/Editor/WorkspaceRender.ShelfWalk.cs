@@ -76,9 +76,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var heard = new List<string>();
             var widths = new List<string>();
             string? reasons = null;
+            string? stoppedShort = null;
             Application.LogCallback listen = (message, _, _) =>
             {
                 if (message.StartsWith("Halcyonic: the plane reasons", StringComparison.Ordinal)) lock (widths) reasons = message;
+                if (message.StartsWith("Halcyonic: the drag stopped short", StringComparison.Ordinal)) lock (widths) stoppedShort = message;
                 if (message.StartsWith("Halcyonic: the bar did not lay whole", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the bar laid past its largest footprint", StringComparison.Ordinal)
                     || message.StartsWith("Halcyonic: the general reader lost a part", StringComparison.Ordinal)
@@ -416,7 +418,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var grab = plane.Kit.transform.position;
                     var side = Vector3.Cross(Vector3.up, grab - eyes).normalized;
-                    lock (widths) reasons = null;
+                    lock (widths) { reasons = null; stoppedShort = null; }
                     // By the handle as a person takes it where one is drawn: pointed, pressed at its hold point, moved, let go.
                     if (Handle() is Component handleNow && handleNow.GetType().GetProperty("Target")?.GetValue(handleNow) is PointerTarget handleTarget
                         && handleNow.GetType().GetProperty("HoldPoint")?.GetValue(handleNow) is Vector3 holdAt)
@@ -437,8 +439,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         Draw();
                         Travel();
                         var moved = PlaneSeen().Up - before.Up;
-                        if (Mathf.Abs(moved) < 0.5f) { failures.Add(when + ": taken by its handle and dragged, the plane did not move (" + moved.ToString("0.0") + " degrees)"); return; }
-                        Debug.Log("Halcyonic: shelf walk: " + when + ": by its handle, the plane moved " + moved.ToString("0.0") + " degrees up");
+                        string? heldShort;
+                        lock (widths) { heldShort = stoppedShort; stoppedShort = null; }
+                        // A drag the plane holds short stops at the furthest place that holds and says which rule held it (AUDIT, 02:09Z;
+                        // XR's 'the drag stopped short where <rule> held it'): moving less than asked with no such line, or not at all, fails.
+                        if (Mathf.Abs(moved) < 0.5f) { failures.Add(when + ": taken by its handle and dragged, the plane did not move (" + moved.ToString("0.0") + " degrees)" + (heldShort == null ? "" : "; " + heldShort)); return; }
+                        if (Mathf.Abs(moved) < Mathf.Abs(degrees) * 0.5f && heldShort == null)
+                            failures.Add(when + ": by its handle the plane moved " + moved.ToString("0.0") + " of " + degrees.ToString("0") + " degrees and nothing said what held it");
+                        Debug.Log("Halcyonic: shelf walk: " + when + ": by its handle, the plane moved " + moved.ToString("0.0") + " degrees up" + (heldShort == null ? "" : "; the plane said: " + heldShort));
                         // Where it is let go is its place (ruling 3): a head turned 30 degrees and back leaves it there.
                         var letGo = PlaneSeen();
                         var head = Camera.main;
