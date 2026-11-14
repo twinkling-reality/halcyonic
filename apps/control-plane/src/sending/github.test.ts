@@ -964,14 +964,14 @@ describe('a commit holding a secret the host keeps is never sent (TASKS, 2026-11
     assert.equal(pressed.ok ? null : pressed.code, 'holds_secret_in_history');
     assert.match(
       pressed.ok ? '' : pressed.message,
-      /^A file's or folder's name in a saved version that owner\/garden does not have \(note-\[MY_SERVICE_KEY\]\.txt, with the secret's name in place of its value\) holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
+      /^A file's or folder's name in a saved version that owner\/garden does not have \(note-\[MY_SERVICE_KEY\]\.txt, where the part in brackets stands for the secret\) holds a secret this Mac keeps \(MY_SERVICE_KEY\)/,
     );
     assert.equal((pressed.ok ? '' : pressed.message).includes(VALUE), false);
     writeFileSync(join(folder, `now-${VALUE}.txt`), 'x\n');
     const shown = await sender({ held: HELD }).review(PROJECT, folder, [], 'Lanterns');
     assert.deepEqual(shown.ok ? null : [shown.code, shown.message], [
       'holds_secret',
-      "A file's or folder's name holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was sent. It is now-[MY_SERVICE_KEY].txt here, with the secret's name in place of its value. Rename it in the project's folder, then try again.",
+      "A file's or folder's name holds a secret this Mac keeps (MY_SERVICE_KEY), so nothing was sent. It is now-[MY_SERVICE_KEY].txt here, where the part in brackets stands for the secret. Rename it in the project's folder, then try again.",
     ]);
   });
 

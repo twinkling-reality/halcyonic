@@ -272,7 +272,7 @@ export async function heldInHistory(
 export function heldKeptMessage(hit: HeldHit, repository: string): string {
   const where =
     hit.named === true
-      ? `A file's or folder's name saved in the project's last version (${hit.path}, with the secret's name in place of its value)`
+      ? `A file's or folder's name saved in the project's last version (${hit.path}, where the part in brackets stands for the secret)`
       : `The ${hit.path} saved in the project's last version`;
   return `${where} holds a secret this Mac keeps (${hit.what}), and ${repository} may already have it, so nothing was sent. Make a new ${hit.what} with the service that gave it to you and turn the old one off there, then store the new one on this Mac and send again. Until the old one is turned off, treat it as exposed.`;
 }
@@ -290,8 +290,8 @@ export function heldMessage(hit: HeldHit, what: 'sent' | 'published' | 'saved' |
   const built = what === 'shared' || what === 'published';
   if (hit.named === true)
     return built
-      ? `A file's or folder's name in the game's built files holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} there, with the secret's name in place of its value. The project's build makes that name, so renaming it there will not help: change it in the project, then press Check again.`
-      : `A file's or folder's name holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} here, with the secret's name in place of its value. Rename it in the project's folder, then try again.`;
+      ? `A file's or folder's name in the game's built files holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} there, where the part in brackets stands for the secret. The project's build makes that name, so renaming it there will not help: change it in the project, then press Check again.`
+      : `A file's or folder's name holds a secret this Mac keeps (${hit.what}), so ${done}. It is ${hit.path} here, where the part in brackets stands for the secret. Rename it in the project's folder, then try again.`;
   return built
     ? `${hit.path} in the game's built files holds a secret this Mac keeps (${hit.what}), so ${done}. Each check makes that file again from the project, so changing it will not help: take the secret out of the project, then press Check again.`
     : `${hit.path} holds a secret this Mac keeps (${hit.what}), so ${done}. Take it out of the file, then try again.`;
@@ -318,7 +318,7 @@ export function heldHistoryMessage(
       hit.within === true
         ? `A name in ${hit.path === '' ? 'the top folder' : `the folder ${hit.path}`} of an earlier publish`
         : hit.named === true
-          ? `A file's or folder's name in an earlier publish (${hit.path}, with the secret's name in place of its value)`
+          ? `A file's or folder's name in an earlier publish (${hit.path}, where the part in brackets stands for the secret)`
           : hit.path === null
             ? 'The description of an earlier publish'
             : `An earlier publish of ${hit.path}`;
@@ -328,7 +328,7 @@ export function heldHistoryMessage(
     hit.within === true
       ? `A name in ${hit.path === '' ? 'the top folder' : `the folder ${hit.path}`} of a saved version, which ${repository} does not have,`
       : hit.named === true
-        ? `A file's or folder's name in a saved version that ${repository} does not have (${hit.path}, with the secret's name in place of its value)`
+        ? `A file's or folder's name in a saved version that ${repository} does not have (${hit.path}, where the part in brackets stands for the secret)`
         : hit.path === null
           ? `The description saved with an earlier change, which ${repository} does not have,`
           : `A saved version of ${hit.path}, which ${repository} does not have,`;
