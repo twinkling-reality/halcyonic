@@ -61,7 +61,8 @@ export class HostProviders {
     const standIn = options.standIn ?? null;
     if (standIn !== null && !onThisMac(standIn))
       throw new ConfigError(
-        `HALCYONIC_ASSISTANT_UPSTREAM must be an address on this Mac (http or https on 127.0.0.1, [::1] or localhost), not ${standIn}.`,
+        // Never the address itself: it may carry a user and password (CARBON A1-5).
+        'HALCYONIC_ASSISTANT_UPSTREAM must be an address on this Mac (http or https on 127.0.0.1, [::1] or localhost).',
       );
     if (standIn !== null && options.personsFolder?.(options.dataDir) === true)
       throw new ConfigError(

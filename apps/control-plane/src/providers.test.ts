@@ -229,6 +229,13 @@ test('with a stand-in on this Mac, every reader of the list reaches it and no re
     () => new HostProviders({ dataDir: data, standIn: 'https://example.com/v1' }),
     /must be an address on this Mac/,
   );
+  // Never the address itself, which may carry a user and password (CARBON A1-5).
+  assert.throws(
+    () => new HostProviders({ dataDir: data, standIn: 'https://user:secret-pass@example.com/v1' }),
+    (error: Error) =>
+      /must be an address on this Mac/.test(error.message) &&
+      !/secret-pass|example\.com/.test(error.message),
+  );
 });
 
 test("a plane on a person's own data folder refuses the stand-in, so a lane's listener never gets a real key (AUDIT3)", (t) => {

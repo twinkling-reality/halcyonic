@@ -347,7 +347,7 @@ export function parseNetwork(
   }
   if (isIP(host) === 0) {
     throw new ConfigError(
-      `HALCYONIC_NETWORK_HOST must be an IP address, such as 0.0.0.0 for every interface, got "${host}".`,
+      'HALCYONIC_NETWORK_HOST must be an IP address, such as 0.0.0.0 for every interface.',
     );
   }
   const port = parseInteger(
@@ -367,7 +367,7 @@ function parseSwitch(name: string, raw: string | undefined, unset = false): bool
   if (raw === undefined || raw === '') return unset;
   if (raw === '0') return false;
   if (raw === '1') return true;
-  throw new ConfigError(`${name} must be 1 or 0, got "${raw}".`);
+  throw new ConfigError(`${name} must be 1 or 0.`);
 }
 
 function parseBrowser(
@@ -400,8 +400,7 @@ function parseBrowser(
     throw new ConfigError(
       `HALCYONIC_BROWSER_SHA256 must be the checked browser's hash, ${pin}, or unset.`,
     );
-  if (!isAbsolute(folder))
-    throw new ConfigError(`HALCYONIC_BROWSER must be an absolute path, got "${folder}".`);
+  if (!isAbsolute(folder)) throw new ConfigError('HALCYONIC_BROWSER must be an absolute path.');
   let isDirectory = false;
   try {
     isDirectory = statSync(folder).isDirectory();
@@ -414,7 +413,7 @@ function parseBrowser(
 
 function parseExecutable(name: string, raw: string | undefined): string | null {
   if (raw === undefined || raw === '') return null;
-  if (!isAbsolute(raw)) throw new ConfigError(`${name} must be an absolute path, got "${raw}".`);
+  if (!isAbsolute(raw)) throw new ConfigError(`${name} must be an absolute path.`);
   let isFile = false;
   try {
     isFile = statSync(raw).isFile();
@@ -464,7 +463,7 @@ export function isLocalOllamaModel(model: unknown): boolean {
  */
 export function readOpenCodeSettings(home: string): OpenCodeSettings {
   const name = 'HALCYONIC_OPENCODE_CONFIG_HOME';
-  if (!isAbsolute(home)) throw new ConfigError(`${name} must be an absolute path, got "${home}".`);
+  if (!isAbsolute(home)) throw new ConfigError(`${name} must be an absolute path.`);
   const folder = join(home, 'opencode');
   const path = join(home, OPENCODE_SETTINGS_PATH);
   for (const directory of [home, folder]) {
@@ -691,7 +690,7 @@ function parseCompanion(env: NodeJS.ProcessEnv): CompanionConfig | null {
     return null;
   }
   if (!OLLAMA_MODEL.test(model)) {
-    throw new ConfigError(`HALCYONIC_COMPANION_MODEL is not an Ollama model name, got "${model}".`);
+    throw new ConfigError('HALCYONIC_COMPANION_MODEL is not an Ollama model name.');
   }
   if (isCloudName(model)) {
     throw new ConfigError(
@@ -768,11 +767,12 @@ function proxied(env: NodeJS.ProcessEnv, address: URL): boolean {
 
 function parseNames(name: string, raw: string | undefined): string[] {
   if (raw === undefined || raw.trim() === '') return [];
-  return raw.split(',').map((entry) => {
+  return raw.split(',').map((entry, index) => {
     const variable = entry.trim();
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(variable)) {
+      // Never the entry itself: a mistyped NAME=value would put the value, a key perhaps, in the log (CARBON A1-5).
       throw new ConfigError(
-        `${name} must list variable names separated by commas, got "${variable}".`,
+        `${name} must list variable names separated by commas; entry ${index + 1} is not one.`,
       );
     }
     return variable;
@@ -789,7 +789,7 @@ function parseNames(name: string, raw: string | undefined): string[] {
 function parseTasksDir(env: NodeJS.ProcessEnv): string {
   const raw = env.HALCYONIC_TASKS_DIR;
   if (raw !== undefined && !isAbsolute(raw))
-    throw new ConfigError(`HALCYONIC_TASKS_DIR must be an absolute path, got "${raw}".`);
+    throw new ConfigError('HALCYONIC_TASKS_DIR must be an absolute path.');
   const data = defaultDataDir(env);
   // Beside the plane's own data folder, never the account's: the owner's ~/.halcyonic keeps
   // ~/.halcyonic-tasks, and a plane on a scratch data folder can never reach a person's copies
@@ -834,10 +834,10 @@ function parseProjectRoots(raw: string | undefined, context: FolderContext): str
   return raw
     .split(delimiter)
     .filter((entry) => entry !== '')
-    .map((entry) => {
+    .map((entry, index) => {
       if (!isAbsolute(entry)) {
         throw new ConfigError(
-          `HALCYONIC_PROJECT_ROOTS entries must be absolute paths, got "${entry}".`,
+          `HALCYONIC_PROJECT_ROOTS entries must be absolute paths; entry ${index + 1} is not.`,
         );
       }
       let isDirectory = false;
@@ -868,7 +868,7 @@ function parseInteger(
   if (raw === undefined || raw === '') return fallback;
   const value = Number(raw);
   if (!Number.isInteger(value) || value < min || value > max) {
-    throw new ConfigError(`${name} must be an integer from ${min} to ${max}, got "${raw}".`);
+    throw new ConfigError(`${name} must be an integer from ${min} to ${max}.`);
   }
   return value;
 }

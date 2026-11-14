@@ -82,6 +82,32 @@ describe('configuration', () => {
     assert.equal(loadConfig({ HALCYONIC_TASK_COPIES: '1' }).taskCopies, true);
     assert.equal(loadConfig({ HALCYONIC_TASK_COPIES: '0' }).taskCopies, false);
     assert.throws(() => loadConfig({ HALCYONIC_TASK_COPIES: 'yes' }), /must be 1 or 0/);
+    // A refusal names the variable and what is wrong, never the value: a mistyped NAME=value keeps the value, a key
+    // perhaps, out of stderr and the log (CARBON A1-5).
+    const refusal = (env: NodeJS.ProcessEnv) => {
+      try {
+        loadConfig(env);
+      } catch (error) {
+        return (error as Error).message;
+      }
+      return '';
+    };
+    const agent = refusal({ HALCYONIC_AGENT_ENV: 'PATH,OPENAI_API_KEY=sk-secret-value-123' });
+    assert.match(
+      agent,
+      /HALCYONIC_AGENT_ENV must list variable names separated by commas; entry 2 is not one/,
+    );
+    assert.doesNotMatch(agent, /sk-secret|OPENAI_API_KEY/);
+    for (const [name, value] of [
+      ['HALCYONIC_TASK_COPIES', 'secret-flag-456'],
+      ['HALCYONIC_PORT', 'secret-port-789'],
+      ['HALCYONIC_TASKS_DIR', 'secret-relative/dir'],
+      ['HALCYONIC_PROJECT_ROOTS', 'secret-relative-root'],
+    ] as const) {
+      const said = refusal({ [name]: value });
+      assert.ok(said.startsWith(name), `${name}: ${said}`);
+      assert.doesNotMatch(said, /secret-/, name);
+    }
     for (const tasks of ['/d/data/tasks', '/d/data', '/d'])
       assert.throws(
         () => loadConfig({ HALCYONIC_DATA_DIR: '/d/data', HALCYONIC_TASKS_DIR: tasks }),
