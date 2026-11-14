@@ -48,11 +48,11 @@ public class PlaneFormTests
         Assert.That((rule.WidthDp, rule.Cause), Is.EqualTo((RoomGeometry.PanelDp, (PlaneFormEvent?)PlaneFormEvent.CharactersChanged)));
     }
 
-    /// <summary>The floors are FIELD's measured ones (59-width-table and the caps as seen, F124, 2026-11-14), and every step the rule takes is measured.</summary>
+    /// <summary>The floors are FIELD's measured ones (59-width-table, F106, 2026-11-13T20:53Z), and every step the rule takes is measured.</summary>
     [Test]
     public void TheFloorsAreTheMeasuredOnesAndEveryStepIsInTheRecord()
     {
-        Assert.That((PlaneWidth.StandardFloorDp, PlaneWidth.LargerFloorDp), Is.EqualTo((360f, 320f)), "F124: every screen whole and every word at 14 dp as seen at and above these");
+        Assert.That((PlaneWidth.StandardFloorDp, PlaneWidth.LargerFloorDp), Is.EqualTo((360f, 400f)), "F106: the recap card whole at and above these");
         Assert.That(PlaneWidth.Steps, Is.EqualTo(new[] { 440f, 400f, 360f, 320f, 280f, 240f }), "the widths FIELD's envelope records");
         Assert.That(PlaneWidth.Steps, Does.Contain(PlaneWidth.StandardFloorDp).And.Contain(PlaneWidth.LargerFloorDp));
         Assert.That(new RoomForm(false, 8, panelDp: 100f).PanelDp, Is.EqualTo(PlaneWidth.NarrowestDp), "never laid under the narrowest measured");

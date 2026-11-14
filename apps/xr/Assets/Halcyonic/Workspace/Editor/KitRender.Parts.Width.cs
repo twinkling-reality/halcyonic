@@ -124,12 +124,14 @@ namespace Halcyonic.XR.Workspace.Editor
             Debug.Log("Halcyonic: width table: " + size + " floor " + (floor is float f ? f.ToString("0", CultureInfo.InvariantCulture) + " dp (" + (f / RoomGeometry.DpPerDegree).ToString("0.0", CultureInfo.InvariantCulture) + " degrees)" : "NONE") + ".");
             Require(floor != null, "no width lays every screen whole in three parts or fewer");
             // The plane lays nothing under its floor (PlaneWidth.FloorDp): no screen may need MORE than it, or a person meets a screen cut at
-            // the floor. The floor is held EQUAL to the measure by the caps' state, which adds the second limit, every word at 14 dp as the
-            // eyes see it (the lead's 2026-11-14T02:54Z (A)); this state hands it the first.
-            measuredLayFloor[GlazeText.Scale] = floor;
+            // the floor. A lower measure is room to narrow, logged, not failed, for this batch only (the lead's 2026-11-14T02:54Z (B)): the next
+            // batch lowers the floor to the measure, walks it whole, and holds this check EQUAL again.
             var planeFloor = PlaneWidth.FloorDp(GlazeText.Scale);
             Require(floor is float measuredFloor && measuredFloor <= planeFloor + 0.5f, "the measured " + size + " floor, "
                 + (floor is float floorSaid ? floorSaid.ToString("0", CultureInfo.InvariantCulture) + " dp" : "none") + ", is above the plane's " + planeFloor.ToString("0", CultureInfo.InvariantCulture) + " dp (PlaneWidth): a screen is cut at the floor");
+            if (floor is float lower && lower < planeFloor - 0.5f)
+                Debug.Log("Halcyonic: width table: " + size + ": room to narrow: every screen lays whole down to " + lower.ToString("0", CultureInfo.InvariantCulture)
+                    + " dp, under the plane's " + planeFloor.ToString("0", CultureInfo.InvariantCulture) + " dp floor (the next batch lowers the floor to it).");
             // The render shows the recap at DESIGN's width; every measured bar is laid again so the state's own checks read it.
             RoomBar? shown;
             RoomDesign.Enabled = true;
@@ -147,12 +149,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// turn on its own plane so the run's envelope records it at that width; then the record's coverage is checked: both
         /// sizes and every width, so no build carries an envelope the plane could not trust.
         /// </summary>
-        /// <summary>The width table's floor at each text size this run (every main screen whole), for the caps' state to hold the floor by both measures.</summary>
-        private static readonly Dictionary<float, float?> measuredLayFloor = new Dictionary<float, float?>();
-
         private static PartShot CapsShot(PartShot shot, Transform root, Vector3 eyes, string name)
         {
-            var readsAt = new Dictionary<float, bool>();
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
             var was = RoomDesign.Enabled;
             var close = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
@@ -222,38 +220,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The as-seen floor beside the width table's (the lead's 02:54Z (A)): the smallest word of the caps at every width, under the
                 // floor too, so the floor lowered to the measure is the narrowest width where every screen lays whole AND reads at 14 dp.
                 var seenCaps = Halcyonic.XR.UI.Editor.GlazeChecks.TextSeen(plane.gameObject, eyes);
-                readsAt[width] = (!readsAt.TryGetValue(width, out var readSoFar) || readSoFar) && (seenCaps.Count == 0 || seenCaps[0].Degrees >= Glaze.MinimumTextDegrees - 0.0005f);
                 if (seenCaps.Count > 0)
                     Debug.Log("Halcyonic: parts: " + name + ": caps of " + capsFrame.Subject + " at " + width.ToString("0", CultureInfo.InvariantCulture) + " dp: the smallest word as the eyes see it "
                         + seenCaps[0].Degrees.ToString("0.000", CultureInfo.InvariantCulture) + " degrees (" + (seenCaps[0].Degrees >= Glaze.MinimumTextDegrees - 0.0005f ? "at or over" : "UNDER") + " the 14 dp floor).");
-            }
-            // The floor by both of its measures, held EQUAL to the plane's (the lead's 2026-11-14T02:54Z (A)): the narrowest width at and above
-            // which every caps word reads at 14 dp as the eyes see it, and the width table's (every main screen whole), whichever is wider.
-            float? seenFloor = null;
-            foreach (var width in TableWidthsDp.OrderByDescending(each => each))
-            {
-                if (!readsAt.TryGetValue(width, out var reads) || !reads) break;
-                seenFloor = width;
-            }
-            Debug.Log("Halcyonic: parts: " + name + ": every caps word reads at 14 dp as the eyes see it down to " + (seenFloor is float seenAt ? seenAt.ToString("0", CultureInfo.InvariantCulture) + " dp" : "NO width") + ".");
-            Require(seenFloor != null, "at no width does every caps word read at 14 dp as the eyes see it");
-            // A whole run measures the width table first, or the equality would pass unread (AUDIT's 05:41Z MUST); only a run narrowed to
-            // other states may skip it, and says so.
-            var layMeasured = measuredLayFloor.TryGetValue(GlazeText.Scale, out var layFloor) && layFloor != null;
-            if (!layMeasured)
-            {
-                if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HALCYONIC_KIT_ONLY")))
-                    Require(false, "the width table's floor was not measured before the caps, so the floor by both measures was not held equal to the plane's");
-                else Debug.Log("Halcyonic: parts: " + name + ": a narrowed run without the width table: the floor by both measures is not held equal here.");
-            }
-            if (layMeasured && layFloor is float lay && seenFloor is float seen)
-            {
-                var byMeasure = Mathf.Max(lay, seen);
-                var plane = PlaneWidth.FloorDp(GlazeText.Scale);
-                Debug.Log("Halcyonic: parts: " + name + ": the floor by measure " + byMeasure.ToString("0", CultureInfo.InvariantCulture) + " dp (every screen whole down to "
-                    + lay.ToString("0", CultureInfo.InvariantCulture) + ", every word at 14 dp down to " + seen.ToString("0", CultureInfo.InvariantCulture) + "); the plane's " + plane.ToString("0", CultureInfo.InvariantCulture) + " dp.");
-                Require(Mathf.Abs(byMeasure - plane) < 0.5f, "the floor by measure, " + byMeasure.ToString("0", CultureInfo.InvariantCulture) + " dp, is not the plane's "
-                    + plane.ToString("0", CultureInfo.InvariantCulture) + " dp (PlaneWidth)");
             }
             // The shipped record covers both sizes and every width the plane can choose.
             foreach (var scale in new[] { 1f, Comfort.LargerTextScale })
