@@ -395,8 +395,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     lock (widths) reasons = null;
                     menu.MatureCompactMoveForRender(grab);
                     // The redesign draws no handle yet (lead, 2026-11-14T01:26Z, ruling 3: a handle is being built, and the batch does not
-                    // wait for it): said, not failed, until a drawn handle takes the hold.
-                    if (!menu.Dragging) { Debug.Log("Halcyonic: shelf walk: " + when + ": not walked: nothing drawn takes hold of the plane yet (its handle, ruling 3)"); return; }
+                    // wait for it): said, not failed, while no handle is drawn; once a part named for a handle stands on the plane, a hold
+                    // that does not take it fails (AUDIT, 01:27Z), keyed on the handle's presence, never on a flag in the walk.
+                    if (!menu.Dragging)
+                    {
+                        var handle = plane.Kit.GetComponentsInChildren<Transform>(false)
+                            .FirstOrDefault(part => part.name.IndexOf("Handle", StringComparison.OrdinalIgnoreCase) >= 0 || OwnerOf(part)?.IndexOf("Handle", StringComparison.OrdinalIgnoreCase) >= 0);
+                        if (handle != null) failures.Add(when + ": the plane's handle (" + PathOf(handle) + ") is drawn and holding it took no hold of the plane");
+                        else Debug.Log("Halcyonic: shelf walk: " + when + ": not walked: nothing drawn takes hold of the plane yet (its handle, ruling 3)");
+                        return;
+                    }
                     menu.DragSubjectForRender(eyes + Quaternion.AngleAxis(-degrees, side) * (grab - eyes));
                     menu.LetGoForRender();
                     Draw();
