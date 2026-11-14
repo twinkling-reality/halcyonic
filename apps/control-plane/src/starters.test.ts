@@ -682,7 +682,11 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'assets.ts',
       'components.ts',
       'decor.ts',
+      // SHOW: light for apps of music and light: soft glows, sparks, a keyboard of light (2026-11-14).
+      'glow.ts',
       'index.ts',
+      // SHOW: a piano, a bell and a pad made in the browser, and a score player on the audio clock (2026-11-14).
+      'instruments.ts',
       'kit.ts',
       // VRIFY: what the kit draws words on, for the check's laptop reading (2026-11-13).
       'legible.ts',
@@ -694,13 +698,22 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'pages.ts',
       'palette.ts',
       'panel.ts',
+      // SHOW: public-domain pieces as note data (2026-11-14).
+      'pieces.ts',
+      // SHOW: places, not islands: a dark hall (2026-11-14).
+      'places.ts',
       'play-input-core.ts',
       'play-input.ts',
       // VRIFY: the relief table a view of land is raised with.
       'relief.ts',
       // VRIFY: an app's rows of buttons, placed by the kit under the pages, inside a laptop's view (2026-11-13).
       'rows.ts',
+      // SHOW: music as data and when each note sounds (2026-11-14).
+      'score.ts',
       'sound.ts',
+      // SHOW: the sound of a struck string or bar, as numbers, and the worker that makes it (2026-11-14).
+      'tone-worker.ts',
+      'tone.ts',
       'vite-env.d.ts',
       'worlds.ts',
     ]);
