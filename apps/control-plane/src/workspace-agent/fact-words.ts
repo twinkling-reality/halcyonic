@@ -99,7 +99,7 @@ export function checkWords(check: CheckFacts, now: Date): string {
         : `the page showed ${plural(check.page.errors, 'error')}${check.page.showed_its_own_picture === false ? ' and drew nothing' : ''}`,
   ].filter((part): part is string => part !== null);
   const head = notKnown
-    ? `The computer's check: ${PARTLY_CHECKED.label}. ${PARTLY_CHECKED.line} ${OWN_LOOK_NOT_KNOWN}${parts.length ? ` In it ${parts.join(', ')}.` : ''}`
+    ? `The computer's check: ${PARTLY_CHECKED.label}. ${PARTLY_CHECKED.line} ${OWN_LOOK_NOT_KNOWN}${parts.length ? ` ${seenParts(parts)}.` : ''}`
     : `The computer's check ${check.state === 'passed' ? 'passed' : 'failed'}${parts.length ? `: ${parts.join(', ')}` : ''}.`;
   const since =
     check.files_since_check === 'current'
@@ -200,4 +200,13 @@ export function looksLikeRecords(
       return 'identifier';
   }
   return null;
+}
+
+/** What was seen, as one sentence: "The type check passed, the build passed and the page opened with no errors". */
+function seenParts(parts: readonly string[]): string {
+  const said =
+    parts.length === 1
+      ? (parts[0] ?? '')
+      : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1) ?? ''}`;
+  return said.charAt(0).toUpperCase() + said.slice(1);
 }
