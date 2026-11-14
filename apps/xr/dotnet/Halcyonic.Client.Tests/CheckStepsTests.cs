@@ -103,19 +103,20 @@ public class CheckStepsTests
     }
 
     [Test]
-    public void APartlyCheckedMomentSaysItsLabelItsLineAndTheHostsFindingNeverFailed()
+    public void APartlyCheckedMomentSaysItsLabelAndItsLineAndCarriesTheHostsFindingNeverFailed()
     {
         var findings = Findings(Verdict(false, "not_known", "null").Replace("\"unknown\":null", "\"unknown\":\"" + NotKnownFinding + "\""));
         var moment = KitMoment.PartlyCheckedHost(KitCheckScope.Builds, findings.Unknown, at: null, steps: CheckSteps.Of(findings));
         Assert.That(moment.Title!.Text, Is.EqualTo("Partly Checked"));
         Assert.That(moment.Meta.Select(line => line.Text), Is.EqualTo(new[] { "What was checked passed; one thing could not be checked." }));
-        Assert.That(moment.Fact, Is.EqualTo(NotKnownFinding), "the host's finding under its line");
+        Assert.That(moment.Fact, Is.Null, "the moment beside the character draws no finding: it would be cut there");
+        Assert.That(moment.Finding, Is.EqualTo(NotKnownFinding), "carried for the Checks page, which lays it whole");
         Assert.That((moment.Passed, moment.PartlyChecked, moment.Tone), Is.EqualTo(((bool?)null, true, KitMomentTone.Neutral)),
             "never passed and never the failure's tone");
         Assert.That(moment.Kind, Is.EqualTo(KitMomentKind.HostCheck));
         Assert.That(moment.Actions, Is.EqualTo(new[] { KitMomentAction.SeeTheOutput }));
         Assert.That(moment.Steps.Single(step => step.Step == CheckStepKind.PageDrawn).Result, Is.EqualTo(CheckStepResult.Unknown));
-        Assert.That(KitMoment.PartlyCheckedHost(KitCheckScope.Builds, null, at: null).Fact, Is.Null, "no finding, no line for it");
+        Assert.That(KitMoment.PartlyCheckedHost(KitCheckScope.Builds, null, at: null).Finding, Is.Null, "no finding, none carried");
         Assert.That(KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: false, at: null).PartlyChecked, Is.False);
     }
 
