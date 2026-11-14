@@ -114,12 +114,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 // A person's own long words read whole (the lead's 2026-11-14T01:19Z next unit): the recap card's press opens XR's own
                 // reading page (NewProjectScreens.RecapWords), the name and the first task as labelled facts under the recap's own labels,
-                // each a row, a long one in parts with its label kept, Back to the recap on every page. Synthetic words.
+                // each a row, a long one in parts with its label kept, Back to the recap on every page. Synthetic words: the recap card's
+                // own project (48-recap-built) with its first task lengthened, so the two renders read as one press.
                 if (state == "52-general-recap-words")
                 {
                     var idea = new ProjectIdea();
-                    idea.UseIdea(string.Join(" ", Enumerable.Repeat("Make the kite climb faster when the person leans forward, and let the tail ripple.", 5)));
-                    idea.Rename("A kite game where the wind changes every round and the tail grows with each loop");
+                    idea.UseIdea("Make a kite that follows my hand, and climbs when I raise it. "
+                        + string.Join(" ", Enumerable.Repeat("Make the kite climb faster when the person leans forward, and let the tail ripple.", 4)));
+                    idea.Rename("Kite Run");
                     frame = NewProjectScreens.RecapWords(idea);
                 }
                 if (state == "52-general-usage")
