@@ -385,7 +385,13 @@ namespace Halcyonic.XR.Workspace
             // A page open, not the plane at rest (KitWorkspaceHost.Resting: no page, the menu alone): the shelf comes home when the page
             // closes, though the menu still stands (JUDGE's charBatch5 at Larger: held 1 degree aside after the page closed).
             if (!open || Kit.Resting || placing || shelf == null) { heldAside = 0f; asideDecided = null; }
-            else if (asideDecided != asideKey) { heldAside = AsideFor(shelf, viewer, widthRule.WidthDp); asideDecided = asideKey; }
+            else if (asideDecided != asideKey)
+            {
+                // Decided again on a form event, never smaller within one open (AUDIT's 03:17Z): the shelf moves out further or stays.
+                var decided = AsideFor(shelf, viewer, widthRule.WidthDp);
+                heldAside = asideDecided == null || Mathf.Abs(decided) > Mathf.Abs(heldAside) ? decided : heldAside;
+                asideDecided = asideKey;
+            }
             ShelfAsideDegrees = heldAside;
         }
 
