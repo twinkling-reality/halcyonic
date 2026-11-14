@@ -371,8 +371,9 @@ namespace Halcyonic.XR
             }
             else if (!Mathf.Approximately(asideNow, asideTarget))
             {
-                // Seen to travel, never to vanish and reappear (the lead's 19:34Z): a steady turn about the eyes to the aside place and back.
-                asideNow = Mathf.MoveTowards(asideNow, asideTarget, ShelfTurnDegreesPerSecond * Time.unscaledDeltaTime);
+                // Seen to travel, never to vanish and reappear (the lead's 19:34Z): a steady turn about the eyes to the aside place and back;
+                // under Keep things still it lands at once, since nothing moves on its own then (the lead's 2026-11-14T06:00Z).
+                asideNow = GlazeMotion.Still ? asideTarget : Mathf.MoveTowards(asideNow, asideTarget, ShelfTurnDegreesPerSecond * Time.unscaledDeltaTime);
                 StandOnSurface(Turned(preferred.Value, asideNow));
             }
             Glide();
@@ -600,7 +601,8 @@ namespace Halcyonic.XR
             {
                 var standing = standings[pair.Key];
                 if (standing.Settled) continue;
-                var progress = Mathf.Clamp01((Time.time - standing.Started) / standing.Duration);
+                // Under Keep things still a character stands in its new place at once, no glide and no pulse (the lead's 2026-11-14T06:00Z).
+                var progress = GlazeMotion.Still ? 1f : Mathf.Clamp01((Time.time - standing.Started) / standing.Duration);
                 var eased = Mathf.SmoothStep(0f, 1f, progress);
                 standing.Angle = progress >= 1f ? standing.To : Mathf.Lerp(standing.From, standing.To, eased);
                 standing.Lift = progress >= 1f ? standing.LiftTo : Mathf.Lerp(standing.LiftFrom, standing.LiftTo, eased);

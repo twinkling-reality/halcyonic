@@ -3251,7 +3251,7 @@ in order, as before.
   along its own arc while that page is open, decided once per open for the largest footprint at the width in use and held
   until the plane rests or closes, so the room never moves while a person reads (the lead's 2026-11-14T01:13Z ruling 1),
   thirty degrees first and as far as clears out to the person's side, seen to travel
-  there and back (`ShelfAside`, `MenuPlane.ShelfAsideDegrees`, `CharacterStage.ShelfTurnDegrees`), view placement only: its own
+  there and back (under Keep things still it lands at once, as a character's glide between places does, the lead's 2026-11-14T06:00Z) (`ShelfAside`, `MenuPlane.ShelfAsideDegrees`, `CharacterStage.ShelfTurnDegrees`), view placement only: its own
   place is never rewritten, the plane decides from that place (`CharacterStage.OwnShelf`), and nothing is journaled. The width is decided again only on an event (the text size, the shelf placed or moved, a
   character coming or going, the plane placed or moved, a placing overlay opening or closing), never because a character
   moves, since the envelope (`CharacterStage.WriteShelfCorners`) already holds the room it moves in; each change logs one line
