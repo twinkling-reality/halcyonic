@@ -208,6 +208,13 @@ public class HeadsetPlayTests
         // The host's facts still decide first: a relay never serves an unconfined or failed check, or a demonstration.
         Assert.That(HeadsetPlay.For(View(Check(readsConfined: false), Preview()), Paired, demonstration: false, relays: true), Is.EqualTo(PlayInHeadset.NotConfined));
         Assert.That(HeadsetPlay.For(View(Check(passed: false), Preview()), Paired, demonstration: false, relays: true), Is.EqualTo(PlayInHeadset.CheckNotPassed));
+        // A check whose verdict is not known is served by the host, so the headset plays it too (VRIFY); a failed verdict is not.
+        var partly = Check(passed: false);
+        partly["findings"]!["verdict"] = "not_known";
+        Assert.That(HeadsetPlay.For(View(partly, Preview()), Paired, demonstration: false, relays: true), Is.EqualTo(PlayInHeadset.Offered));
+        var failed = Check(passed: false);
+        failed["findings"]!["verdict"] = "failed";
+        Assert.That(HeadsetPlay.For(View(failed, Preview()), Paired, demonstration: false, relays: true), Is.EqualTo(PlayInHeadset.CheckNotPassed));
         Assert.That(HeadsetPlay.For(project, Paired, demonstration: true, relays: true), Is.EqualTo(PlayInHeadset.Demonstration));
     }
 

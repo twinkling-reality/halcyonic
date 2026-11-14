@@ -53,6 +53,8 @@ namespace Halcyonic.Client
             if (!result.Any && ended == null) return null;
             var slots = new List<RoomSlot>();
             if (result.Passed is bool passed) slots.Add(new RoomSlot(passed ? RoomKind.Passed : RoomKind.Failed, LineWords.Ours(passed ? Passed : Failed)));
+            // A check whose verdict is not known: said as such, with no mark of passed or failed (VRIFY, AUDIT2's words).
+            else if (result.PartlyChecked) slots.Add(new RoomSlot(RoomKind.None, LineWords.Ours(KitMomentWords.PartlyChecked)));
             if (toAdd is RoomSlot waiting) slots.Add(new RoomSlot(waiting.Kind, waiting.Value, waiting.Mono, waiting.Press ?? changes));
             else if (result.FilesChanged is long count) slots.Add(new RoomSlot(RoomKind.ToAdd, LineWords.Ours(RoomAdd.Files(count)), press: changes));
             // SCREENS's run start (FIELD's 1424Z words): a run the Mac says is not kept to its folder, and a task that is a plan.
@@ -112,9 +114,12 @@ namespace Halcyonic.Client
                 true => new RoomCardStatus(AllPassing, fix?.Reason == AutoFixEndReason.Passed ? RoomBar.FixedLine : "Every check the computer ran passed", RoomTone.Good),
                 false when fixing => new RoomCardStatus(RoomBar.FixingTitle, RoomBar.FixingLine, RoomTone.Working),
                 false => new RoomCardStatus(ChecksFailed, fix?.Reason == AutoFixEndReason.CapReached ? RoomBar.StoppedLine : "The computer's check stopped on a step", RoomTone.Bad),
+                null when result.PartlyChecked => new RoomCardStatus(KitMomentWords.PartlyChecked, KitMomentWords.PartlyCheckedLine, RoomTone.Quiet),
                 _ => (RoomCardStatus?)null,
             };
-            return new RoomCard(status == null ? LineWords.Ours(ChecksTitle) : null, status: status, steps: steps);
+            // Partly Checked: the host's own finding under its line (AUDIT2's order).
+            var finding = result.PartlyChecked && result.Finding is string said ? LineWords.Ours(said) : null;
+            return new RoomCard(status == null ? LineWords.Ours(ChecksTitle) : null, finding, status: status, steps: steps);
         }
 
         /// <summary>

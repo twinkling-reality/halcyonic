@@ -76,5 +76,18 @@ namespace Halcyonic.Client
                 new CheckStepOutcome(CheckStepKind.VrOffered, vr),
             };
         }
+
+        /// <summary>
+        /// Whether the check's verdict is not known (VRIFY, 2026-11-13): everything it saw passed and only whether the page
+        /// draws its own look could not be found out. Such a check never passed, and never failed either; a check recorded
+        /// before the verdict reads by <see cref="CheckFindings.Passed"/> alone.
+        /// </summary>
+        public static bool PartlyChecked(CheckFindings findings) => !findings.Passed && findings.Verdict == CheckFindingsVerdict.NotKnown;
+
+        /// <summary>
+        /// Whether the check's built copy may be served and played, as the host's checkServable says: a pass, or a check whose
+        /// verdict is not known. Sharing and publishing still read <see cref="CheckFindings.Passed"/> alone.
+        /// </summary>
+        public static bool Servable(CheckFindings findings) => findings.Passed || findings.Verdict == CheckFindingsVerdict.NotKnown;
     }
 }

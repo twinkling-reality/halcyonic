@@ -81,7 +81,7 @@ namespace Halcyonic.Client
             var check = project.Check;
             if (check == null) return PlayInHeadset.NoCheck;
             if (check.Files != ProjectViewCheckFiles.Current) return PlayInHeadset.FilesNotChecked;
-            if (!check.Findings.Passed) return PlayInHeadset.CheckNotPassed;
+            if (!CheckSteps.Servable(check.Findings)) return PlayInHeadset.CheckNotPassed;
             if (!check.Findings.ReadsConfined) return PlayInHeadset.NotConfined;
             if (target.Pairing != null && relayPort == null && !relays) return relayBuilt ? PlayInHeadset.NoWayToHeadset : PlayInHeadset.NotInThisBuild;
             if (ProjectPlayFacts.PreviewOfLatestCheck(project) == null) return PlayInHeadset.NoPreviewOfCheck;
