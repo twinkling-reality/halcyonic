@@ -761,4 +761,40 @@ public class RoomPageTests
         Assert.That(reached, Is.EqualTo(Enumerable.Range(1, 7).Select(n => "Answer " + n)));
         Assert.That(bar.GeneralPart.Pages, Is.EqualTo(4), "two described answers a page beside the title");
     }
+
+    /// <summary>
+    /// A person's own long words, read whole (the lead's 2026-11-14T01:19Z next unit: the recap's name and idea one press away, whole,
+    /// in the general reader): handed as labelled facts, each stands as rows with its label kept on every part, the band left to the
+    /// agent, every line of both reached once across the reader's own pages (eight lines a page), the way back on every page, and
+    /// the frame read only once every page was shown.
+    /// </summary>
+    [Test]
+    public void APersonsOwnLongWordsAreReadWholeAcrossPagesWithTheirLabels()
+    {
+        int Measure(LineWords words) => System.Math.Max(1, (words.Text.Length + 29) / 30);
+        var form = RoomForm.Full.Measured((row, _) => (row.Label == null ? 0 : Measure(LineWords.Ours(row.Label))) + Measure(row.Words));
+        var name = "A kite game where the wind changes every round and the tail grows with each loop";
+        var task = string.Join(" ", Enumerable.Repeat("Make the kite climb faster when the person leans forward, and let the tail ripple.", 5));
+        var back = new Prompt(Footer.Close, "Back to Recap", GlazeIcon.Back, PromptKind.Close);
+        var frame = new MenuFrame(LineWords.TheirName(name), new Footer(back), lines: new[]
+        {
+            new PageLine(LineWords.Ours("Project Name"), fact: LineWords.TheirName(name)),
+            new PageLine(LineWords.Ours("First Task"), fact: LineWords.TheirName(task)),
+        });
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle, form)!;
+        Assert.That(bar.Band, Is.Null, "the person's words are rows, never the agent's band");
+        Assert.That(bar.GeneralPart.Pages, Is.GreaterThan(1), "four hundred characters page");
+        var lines = new Dictionary<string, int>();
+        for (var page = 0; page < bar.GeneralPart.Pages; page++)
+        {
+            Assert.That(bar.Column[^1].Control.Action, Is.EqualTo(Footer.Close), "Back to Recap on page " + (page + 1));
+            if (page < bar.GeneralPart.Pages - 1) Assert.That(bar.Whole, Is.False, "not read before the last page (page " + (page + 1) + ")");
+            foreach (var row in bar.Facts!.Where(row => row.Label != null))
+                lines[row.Label!] = (lines.TryGetValue(row.Label!, out var had) ? had : 0) + (row.Lines ?? Measure(row.Words));
+            bar.Turn();
+        }
+        Assert.That(lines, Is.EqualTo(new Dictionary<string, int> { ["Project Name"] = Measure(LineWords.Ours(name)), ["First Task"] = Measure(LineWords.Ours(task)) }),
+            "every line of both reached once, each part under its label");
+        Assert.That(bar.Whole, Is.True, "read once every page was shown");
+    }
 }
