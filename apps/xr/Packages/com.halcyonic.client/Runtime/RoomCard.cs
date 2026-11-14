@@ -426,7 +426,7 @@ namespace Halcyonic.Client
         /// </summary>
         private RoomCard(RoomCard from)
             : this(from.Title, from.Description, from.Head, from.Status, from.Slots, from.Steps, from.TrackAt, from.TrackOf, from.List, from.Gauges, from.More,
-                from.Code, from.Reading, from.DescriptionPage, from.TitleMono, from.Press, from.DescriptionMostLines)
+                from.Code, from.Reading, from.DescriptionPage, from.TitleMono, from.Press, statusAfter: from.StatusAfter, descriptionMostLines: from.DescriptionMostLines)
         {
         }
 

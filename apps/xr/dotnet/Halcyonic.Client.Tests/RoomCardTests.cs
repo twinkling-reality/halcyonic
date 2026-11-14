@@ -223,6 +223,25 @@ public sealed class RoomCardTests
         Assert.That(new RoomCard(LineWords.Ours("Kite Run"), descriptionMostLines: 0).DescriptionMostLines, Is.EqualTo(1));
     }
 
+    /// <summary>
+    /// The review card's status after its description and its warnings each a line apart (LINK's Use Model line) survive every copy
+    /// the headset batch makes (AUDIT's 2026-11-14T03:14Z: a copy built positionally dropped StatusAfter on the replay).
+    /// </summary>
+    [Test]
+    public void A_copied_review_card_keeps_its_status_after_its_description_and_its_lines_apart()
+    {
+        var status = RoomCardStatus.Apart("Check First", new[] { "Your requests go to Tidewater.", "Tidewater sets each request's price; it is not shown here." }, RoomTone.Attention);
+        var card = new RoomCard(LineWords.Ours("Use This Model"), LineWords.Ours("Your account pays for each request."), status: status, statusAfter: true,
+            descriptionMostLines: NewProjectScreens.RecapFirstTaskLines);
+        var press = new KitControl(KitPlace.Route, new MenuFrame("Review", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close))), "read", null, "Read", null, true, null, false);
+        foreach (var copy in new[] { card.WithPress(press), card.WithSlots(new[] { new RoomSlot(RoomKind.Folder, LineWords.Ours("kite-run")) }), card.WithList(card.List) })
+        {
+            Assert.That(copy.StatusAfter, Is.True, "its status still after its description");
+            Assert.That(copy.Status!.Value.Lines, Is.EqualTo(status.Lines), "its warnings still each a line");
+            Assert.That(copy.DescriptionMostLines, Is.EqualTo(NewProjectScreens.RecapFirstTaskLines));
+        }
+    }
+
     [Test]
     public void Every_copy_of_a_card_or_a_row_keeps_every_part_it_does_not_change()
     {
