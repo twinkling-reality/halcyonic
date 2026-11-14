@@ -21,6 +21,12 @@ import { saidIn } from './reviews.ts';
 import { readRuntimeModels } from './runtime-models.ts';
 
 /**
+ * The level for a confined run whose own work the host answers in a project that has an original (a VR version's):
+ * reads of the original go ahead too, so it asks only for what reaches outside both (AUDIT2's S1 on START).
+ */
+export const ASKS_OUTSIDE_TASK_AND_ORIGINAL = 'Asks Only Outside Task Folder and Original';
+
+/**
  * A start (the recap is the review, 2026-11-13): a new project, or a new task in one, and its run, prepared whole
  * before anything is made and shown as one review, then done by one press. Three commands for a new project
  * (`project.create`, `workstream.create`, `execution.start`), two in an existing one, each through its own validator
@@ -388,7 +394,9 @@ export async function startReview(
     : !asks
       ? 'Works Without Asking'
       : ownWorkAnswered
-        ? 'Asks Only Outside Task Folder'
+        ? plane.ownWorkReadsAnOriginal(created === undefined ? workIn : null)
+          ? ASKS_OUTSIDE_TASK_AND_ORIGINAL
+          : 'Asks Only Outside Task Folder'
         : 'Asks First';
   const facts: ActionReview['facts'] = [
     {
