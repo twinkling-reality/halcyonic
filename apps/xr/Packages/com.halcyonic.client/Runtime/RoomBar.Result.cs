@@ -60,8 +60,7 @@ namespace Halcyonic.Client
                     // SCREENS's understanding's account: after the files, a part an answer (what changed, why, how it was built).
                     card = result.Account is ChangesAccount account && result.Part >= result.FileParts ? account.Card(result.Part - result.FileParts)
                         : changes.List.Count <= RoomCard.ListAPage ? changes
-                        : new RoomCard(changes.Title, changes.Description, changes.Head, changes.Status, changes.Slots, changes.Steps, changes.TrackAt, changes.TrackOf,
-                            changes.List.Skip(result.Part * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList(), changes.Gauges, changes.More);
+                        : changes.WithList(changes.List.Skip(result.Part * RoomCard.ListAPage).Take(RoomCard.ListAPage).ToList());
                     if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
                     // Keep in two presses (JUDGE's live walk, 2026-11-13T0935Z, the lead's 09:37Z item 2): the work is kept from where it is
                     // read, Add to Project here and its review's one press, never Back first; it leads once nothing more is left to read.
@@ -110,10 +109,8 @@ namespace Halcyonic.Client
                     // is FIELD's RoomCard.Code once it lands (TODO); the host can draw ShareCodeView from share.Cells till then.
                     var shareCard = share.Card();
                     card = shareCard == null || shareCard.List.Count == 0 ? shareCard
-                        : new RoomCard(shareCard.Title, shareCard.Description, shareCard.Head, shareCard.Status, shareCard.Slots, shareCard.Steps, shareCard.TrackAt,
-                            shareCard.TrackOf, shareCard.List.Zip(share.Ways(), (row, way) => new RoomListRow(row.Kind, row.Name, row.Note, row.Tone, row.Mono,
-                                new KitControl(KitPlace.Step, frame, RoomResult.ShareWayAction, way.ToString(), row.Name.Text, GlazeIcon.Next, true, null, false), label: row.Label)).ToList(),
-                            shareCard.Gauges, shareCard.More);
+                        : shareCard.WithList(shareCard.List.Zip(share.Ways(), (row, way) => row.WithPress(
+                            new KitControl(KitPlace.Step, frame, RoomResult.ShareWayAction, way.ToString(), row.Name.Text, GlazeIcon.Next, true, null, false))).ToList());
                     foreach (var action in share.Actions())
                     {
                         var (id, icon) = action.Kind switch
@@ -233,6 +230,6 @@ namespace Halcyonic.Client
         private static RoomCard Said(RoomCard? card, LineWords task, RoomCardStatus status) => card == null
             ? new RoomCard(task, head: RoomCardHead.Picture, status: status)
             : card.Status != null ? card
-            : new RoomCard(card.Title, card.Description, card.Head, status, card.Slots, card.Steps, card.TrackAt, card.TrackOf, card.List, card.Gauges, card.More);
+            : card.WithStatus(status);
     }
 }

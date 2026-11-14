@@ -19,10 +19,9 @@ namespace Halcyonic.Client
             if (picks.Count != card.List.Count || picks.Any(line => !line.Available)) return null;
             if (picks.Count > 0)
             {
-                var rows = card.List.Select((row, at) => new RoomListRow(row.Kind, row.Name, row.Note, row.Tone, row.Mono,
-                    new KitControl(KitPlace.Choice, frame, PairingColumn.Choose, picks[at].Key, picks[at].Words, GlazeIcon.Next, true, null, false), row.Chosen, label: row.Label)).ToList();
-                card = new RoomCard(card.Title, card.Description, card.Head, card.Status, card.Slots, card.Steps, card.TrackAt, card.TrackOf, rows,
-                    card.Gauges, card.More);
+                var rows = card.List.Select((row, at) => row.WithPress(
+                    new KitControl(KitPlace.Choice, frame, PairingColumn.Choose, picks[at].Key, picks[at].Words, GlazeIcon.Next, true, null, false))).ToList();
+                card = card.WithList(rows);
             }
             RoomAction? main = null;
             var others = new List<RoomAction>();

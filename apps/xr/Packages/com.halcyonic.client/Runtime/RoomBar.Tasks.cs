@@ -50,7 +50,7 @@ namespace Halcyonic.Client
             var shared = states.Select(state => state.Mark).Distinct().Count() == 1 ? states[0].Mark : null;
             if (shared == null)
                 rows = rows.Zip(states, (row, state) => state.Mark == null ? row
-                    : new RoomListRow(row.Kind, row.Name, state.Mark, RoomTone.Quiet, row.Mono, row.Press, row.Chosen)).ToList();
+                    : row.WithNote(state.Mark, RoomTone.Quiet)).ToList();
             var others = new List<RoomAction>();
             var leaving = new List<RoomAction>();
             foreach (var (_, prompt) in frame.Footer.All)

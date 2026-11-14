@@ -290,6 +290,7 @@ namespace Halcyonic.Client
             Press = press;
             Chosen = chosen;
             Under = under == null || under.IsEmpty ? null : under;
+            excerptAsked = excerpt;
             Excerpt = excerpt && press != null && name.AllTheirs;
         }
 
@@ -304,6 +305,19 @@ namespace Halcyonic.Client
 
         /// <summary>The name may show its lead cut at a word (see the constructor); true only for a wholly theirs name on a row that presses.</summary>
         public bool Excerpt { get; }
+
+        private readonly bool excerptAsked;
+
+        /// <summary>
+        /// This row with <paramref name="press"/> in place of its own, every other part kept (its label, quieter line, mark, chosen
+        /// state and swatch): the one copy, so no reader rebuilds a row by hand and drops a part it does not know (AUDIT's 02:11Z).
+        /// </summary>
+        public RoomListRow WithPress(KitControl? press) =>
+            new RoomListRow(Kind, Name, Note, Tone, Mono, press, Chosen, Under, excerptAsked, Label, Mark, Swatch);
+
+        /// <summary>This row with <paramref name="note"/> in <paramref name="tone"/> in place of its own, every other part kept.</summary>
+        public RoomListRow WithNote(string? note, RoomTone tone) =>
+            new RoomListRow(Kind, Name, note, tone, Mono, Press, Chosen, Under, excerptAsked, Label, Mark, Swatch);
 
         public RoomKind Kind { get; }
 
@@ -402,17 +416,31 @@ namespace Halcyonic.Client
         /// <summary>
         /// What a press anywhere on the card raises, where the card itself is the way in (a waiting request where the person
         /// stands opens it: the lead's desk-parity journey, 2026-11-12); null for a card that only says. A card that takes a
-        /// press stands in the moment's one accent, its whole face the target.
+        /// press stands in a quiet face, the one accent staying the main action's (72b3aec1d).
         /// </summary>
-        public KitControl? Press { get; }
+        public KitControl? Press { get; private set; }
 
-        /// <summary>This card with <paramref name="slots"/> in place of its own, every other part kept (AUDIT's 02:11Z: no caller rebuilds a card by hand).</summary>
-        public RoomCard WithSlots(IReadOnlyList<RoomSlot> slots) => new RoomCard(Title, Description, Head, Status, slots, Steps, TrackAt, TrackOf, List, Gauges, More, Code,
-            Reading, DescriptionPage, TitleMono, Press, DescriptionMostLines);
+        /// <summary>
+        /// A copy of <paramref name="from"/>, every part kept (AUDIT's 2026-11-14T02:11Z: hand-built copies dropped the description's
+        /// lines, so a recap with a starter went back to four): what every With below starts from, so no caller rebuilds a card.
+        /// </summary>
+        private RoomCard(RoomCard from)
+            : this(from.Title, from.Description, from.Head, from.Status, from.Slots, from.Steps, from.TrackAt, from.TrackOf, from.List, from.Gauges, from.More,
+                from.Code, from.Reading, from.DescriptionPage, from.TitleMono, from.Press, from.DescriptionMostLines)
+        {
+        }
 
-        /// <summary>This card, its face now the way in to <paramref name="press"/> (a card built before the frame its press is of).</summary>
-        public RoomCard WithPress(KitControl press) => new RoomCard(Title, Description, Head, Status, Slots, Steps, TrackAt, TrackOf, List, Gauges, More, Code,
-            Reading, DescriptionPage, TitleMono, press, DescriptionMostLines);
+        /// <summary>This card, its face now the way in to <paramref name="press"/> (a card built before the frame its press is of), or none.</summary>
+        public RoomCard WithPress(KitControl? press) => new RoomCard(this) { Press = press };
+
+        /// <summary>This card with <paramref name="slots"/> in place of its own, every other part kept.</summary>
+        public RoomCard WithSlots(IReadOnlyList<RoomSlot> slots) => new RoomCard(this) { Slots = slots };
+
+        /// <summary>This card with <paramref name="list"/> in place of its own, every other part kept.</summary>
+        public RoomCard WithList(IReadOnlyList<RoomListRow> list) => new RoomCard(this) { List = list };
+
+        /// <summary>This card with <paramref name="status"/> in place of its own, every other part kept.</summary>
+        public RoomCard WithStatus(RoomCardStatus? status) => new RoomCard(this) { Status = status };
 
         /// <summary>The slots a loadout holds at most: three in a row, or four as two rows of two (a new folder from a starter).</summary>
         public const int MostSlots = 4;
@@ -453,9 +481,9 @@ namespace Halcyonic.Client
 
         public RoomCardHead Head { get; }
 
-        public RoomCardStatus? Status { get; }
+        public RoomCardStatus? Status { get; private set; }
 
-        public IReadOnlyList<RoomSlot> Slots { get; }
+        public IReadOnlyList<RoomSlot> Slots { get; private set; }
 
         /// <summary>
         /// A code to scan, the card's centre: laid under the line and the gauges, over the slots, as wide as the card allows.
@@ -480,7 +508,7 @@ namespace Halcyonic.Client
 
         public int? TrackAt { get; }
 
-        public IReadOnlyList<RoomListRow> List { get; }
+        public IReadOnlyList<RoomListRow> List { get; private set; }
 
         public IReadOnlyList<RoomGauge> Gauges { get; }
 

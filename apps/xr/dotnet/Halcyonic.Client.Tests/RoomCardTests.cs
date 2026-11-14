@@ -222,4 +222,22 @@ public sealed class RoomCardTests
         Assert.That(new RoomCard(LineWords.Ours("Kite Run"), descriptionMostLines: 9).DescriptionMostLines, Is.EqualTo(RoomCard.DescriptionPageLines), "never more than a page");
         Assert.That(new RoomCard(LineWords.Ours("Kite Run"), descriptionMostLines: 0).DescriptionMostLines, Is.EqualTo(1));
     }
+
+    [Test]
+    public void Every_copy_of_a_card_or_a_row_keeps_every_part_it_does_not_change()
+    {
+        // AUDIT's 2026-11-14T02:11Z: a hand-built copy dropped the recap's three lines whenever a starter was chosen.
+        var row = new RoomListRow(RoomKind.None, LineWords.Ours("Sea Glass"), "Now", under: LineWords.Ours("Quiet"), label: "Colour", mark: AnswerMark.Single, swatch: 0x5FB3A5, chosen: true);
+        var card = new RoomCard(LineWords.Ours("Kite Run"), LineWords.TheirName("Make a kite."), RoomCardHead.Project, list: new[] { row }, descriptionMostLines: NewProjectScreens.RecapFirstTaskLines);
+        var press = new KitControl(KitPlace.Route, new MenuFrame("Recap", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close))), "read-recap", null, "Read", null, true, null, false);
+        foreach (var copy in new[] { card.WithPress(press), card.WithSlots(new[] { new RoomSlot(RoomKind.Folder, LineWords.Ours("kite-run")) }), card.WithList(card.List), card.WithStatus(new RoomCardStatus("Ready", null, RoomTone.Good)) })
+        {
+            Assert.That(copy.DescriptionMostLines, Is.EqualTo(NewProjectScreens.RecapFirstTaskLines), "the description's lines kept");
+            Assert.That((copy.Title?.Text, copy.Description?.Text, copy.Head), Is.EqualTo(((string?)"Kite Run", (string?)"Make a kite.", RoomCardHead.Project)));
+        }
+        Assert.That(card.WithPress(press).Press, Is.SameAs(press));
+        var pressed = row.WithPress(press);
+        Assert.That((pressed.Mark, pressed.Swatch, pressed.Label, pressed.Under?.Text, pressed.Chosen, pressed.Note), Is.EqualTo((AnswerMark.Single, (int?)0x5FB3A5, (string?)"Colour", (string?)"Quiet", true, (string?)"Now")));
+        Assert.That(pressed.Press, Is.SameAs(press));
+    }
 }
