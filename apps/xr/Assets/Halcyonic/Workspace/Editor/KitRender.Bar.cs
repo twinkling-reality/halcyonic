@@ -170,10 +170,10 @@ namespace Halcyonic.XR.Workspace.Editor
         }, working: false);
 
         /// <summary>
-        /// The host's finding of a Partly Checked check, at its longest: AUDIT2's sentence of 04:08Z for VRIFY. Once the host's
-        /// sentence lands, this is its text exactly, so the render proves the words the host sends.
+        /// The host's finding of a Partly Checked check (AUDIT2's words of 04:51Z, so it reads whole at Larger): the same text as
+        /// the host's OWN_LOOK_NOT_KNOWN, so the render proves the words the host sends.
         /// </summary>
-        private const string PartlyFinding = "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Checking the project again may make it.";
+        private const string PartlyFinding = "The app's own look is not known: the starter's picture to compare with could not be made. Checking again may make it.";
 
         /// <summary>What the computer knows in each of the result's states, synthetic.</summary>
         private static RoomResult? ResultFor(string state)
