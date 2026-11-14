@@ -20,11 +20,11 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The fitted shelf's worst case (the lead's 2026-11-14T02:21Z ruling 1 (a), AUDIT's 02:23Z and 02:34Z): the width every shelf
         /// takes beside the plane at rest (CharacterStage.FittedWidth, from the rest a real plane reasons through its own geometry), its
         /// places each carrying the widest two-line label the shelf's own measure lays, at the search's nearest and farthest distance.
-        /// It FAILS where adjacent characters (their own shell and feature, triangle by triangle, the glow left out) stand apart by zero
-        /// or less as the eyes see them, or where any glyph of any label reads under 14 dp there, its far words included. Labels that
-        /// touch or are cut it measures and SAYS, with the same labels at the shelf's natural pitch beside them: the lead's 02:21Z rule
-        /// for that case is the fallback proof ('every character and its label inside the field', JUDGE's walk), said with the numbers,
-        /// not a stop. Witnesses: the same shelf with its places a quarter as far apart must be caught, its characters and its labels.
+        /// It FAILS where any glyph of any label reads under 14 dp as the eyes see it where drawn, its far words included. Characters
+        /// (their own shell and feature, triangle by triangle, the glow left out) and labels that touch, and labels that are cut, it
+        /// measures and SAYS, with the same labels at the shelf's natural pitch beside them: the lead's 02:21Z rule for that case
+        /// ('if characters would touch or a label would be cut at that width') is the fallback proof ('every character and its label
+        /// inside the field', JUDGE's walk), said with the numbers, not a stop; the lead accepted it at 03:21Z. Witnesses: the same shelf with its places a quarter as far apart must be caught, its characters and its labels.
         /// </summary>
         private static List<string> ShelfWorstCase(string size)
         {
@@ -64,14 +64,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         var bodies = laid.Bodies[place].Apart(laid.Bodies[place + 1]);
                         closestLabels = Mathf.Min(closestLabels, labels);
                         closestBodies = Mathf.Min(closestBodies, bodies);
-                        if (bodies <= 0f) failures.Add(size + ": " + ShelfWorstState + " at " + at + ": " + laid.Bodies[place] + " and " + laid.Bodies[place + 1] + " touch, " + Degrees(bodies) + " degrees apart");
                     }
                     var natural = LayWorstShelf(root.transform, eyes, distance, places, CharacterStage.PitchOf(places, AgentShelfDraft.Width(places)));
                     var naturalLabels = Enumerable.Range(0, places - 1).Min(place => natural.Labels[place].Apart(natural.Labels[place + 1]));
                     DestroyLaid(natural.Views);
-                    Debug.Log("Halcyonic: parts: " + ShelfWorstState + " at " + size + ", " + at + ": " + (closestLabels > 0f && laid.Cut.Count == 0
-                        ? "THE TOUCH PROOF: every label apart and whole."
-                        : "THE FALLBACK PROOF (the lead's 02:21Z): labels " + (closestLabels > 0f ? "apart" : "touch, " + Degrees(closestLabels) + " degrees apart")
+                    Debug.Log("Halcyonic: parts: " + ShelfWorstState + " at " + size + ", " + at + ": " + (closestLabels > 0f && closestBodies > 0f && laid.Cut.Count == 0
+                        ? "THE TOUCH PROOF: every character and label apart, every label whole."
+                        : "THE FALLBACK PROOF (the lead's 02:21Z): characters " + (closestBodies > 0f ? "apart, " + Degrees(closestBodies) : "touch, " + Degrees(closestBodies)) + " degrees; labels "
+                            + (closestLabels > 0f ? "apart" : "touch, " + Degrees(closestLabels) + " degrees apart")
                             + " (" + Degrees(naturalLabels) + " at the natural width), " + laid.Cut.Count + " cut: " + (laid.Cut.Count == 0 ? "none" : string.Join("; ", laid.Cut)) + "."));
                     if (laid.Smallest.Degrees < Glaze.MinimumTextDegrees - 0.0005f)
                         failures.Add(size + ": " + ShelfWorstState + " at " + at + ": " + laid.Smallest.Name + " is " + laid.Smallest.Degrees.ToString("0.000", CultureInfo.InvariantCulture)
