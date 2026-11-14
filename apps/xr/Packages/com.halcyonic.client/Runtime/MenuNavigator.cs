@@ -506,7 +506,10 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Whether the last draw was made with the plane folded away (another window kept focus): what it handed out was never
-        /// seen, so no press is taken until a draw shows the plane again. The host sets it as it draws.
+        /// seen, so no press is taken until a draw shows the plane again. The host sets it as it draws, so the hold ends on the first
+        /// draw after the fold. Stop is refused too in this window, the one exception to Stop never waiting (the lead's pick A): while
+        /// another window holds focus the plane is hidden and input suspended (FocusGuard), so no press of the person's reaches it,
+        /// and only a stale one could; no other route sends Stop (the voice only dictates words, and waits while input is suspended).
         /// </summary>
         public bool DrawnFolded { get; set; }
 
