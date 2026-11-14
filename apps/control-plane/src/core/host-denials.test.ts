@@ -7,10 +7,11 @@ import type {
   RuntimeId,
   WorkstreamId,
 } from '@halcyonic/contracts';
-import type { RuntimeAdapter } from '@halcyonic/runtime-core';
-import { createTestControlPlane } from '../testing/harness.ts';
+import type { ExecutionContext, RuntimeAdapter, RuntimeObservation } from '@halcyonic/runtime-core';
+import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
+import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
 import { APPROVABLE_LIMIT, controlPlaneDraft, NO_CAUSE } from './drafts.ts';
-import { requestOutcome, tooLongWords } from './host-denials.ts';
+import { NOT_RECORDED_WORDS, requestOutcome, tooLongWords } from './host-denials.ts';
 
 /** An agent app that can be sent decisions, declaring whether a denial's words reach its agent. */
 function runtime(delivers: boolean): RuntimeAdapter {
@@ -179,5 +180,165 @@ describe('one decision for each request (AUDIT3 M1)', () => {
     assert.equal(requestOutcome(request(true), false), 'deny');
     assert.equal(requestOutcome(request(false), false), 'person');
     assert.equal(requestOutcome({ event_type: 'runtime.turn.started' } as never, false), 'person');
+  });
+});
+
+describe('a request the journal cannot record is denied by the host, never left waiting unseen (ADR 0065)', () => {
+  /** Words only the agent's request holds, so a log that held the request would show them. */
+  const ASKED = 'cat ~/notes-of-the-person.txt';
+  type Sent = { approval_id: string; decision: string; message: string | null };
+
+  async function run(
+    requests: { approval_id: string; summary: string; tool?: string }[],
+    delivers = true,
+  ) {
+    const { logger, entries } = capturingLogger();
+    const sent: Sent[] = [];
+    let at = 0;
+    const observe = (type: string, payload: unknown): RuntimeObservation =>
+      ({
+        type,
+        payload,
+        native_event_id: `n:${++at}`,
+        sequence: at,
+        occurred_at: '2026-09-26T10:00:00.000Z',
+        provenance: { epistemic: 'observed', native_type: null },
+      }) as unknown as RuntimeObservation;
+    const adapter: RuntimeAdapter = {
+      ...runtime(delivers),
+      startExecution: async (request) => {
+        request.emit(observe('runtime.execution.started', { native_id: 'n', confined: true }));
+        request.emit(observe('runtime.turn.started', { turn_id: 't1' }));
+        for (const each of requests)
+          request.emit(
+            observe('runtime.approval.requested', {
+              approval_id: each.approval_id,
+              subject: { kind: 'tool_use', tool_name: each.tool ?? 'Bash', summary: each.summary },
+              complete: true,
+            }),
+          );
+        return { native_id: 'n' };
+      },
+      respondToApproval: async (request: {
+        execution: ExecutionContext;
+        approval_id: string;
+        decision: string;
+        message: string | null;
+      }) => {
+        sent.push({
+          approval_id: request.approval_id,
+          decision: request.decision,
+          message: request.message,
+        });
+      },
+    };
+    const harness = createTestControlPlane({ logger, adapters: () => [adapter] });
+    const { controlPlane, commands, time } = harness;
+    const project = controlPlane.commands.submit(commands.createProject('Garden'), 'internal');
+    if (project.command?.result?.kind !== 'project_created') throw new Error('no project');
+    const feature = DEMO_WORKSTREAMS[0] as (typeof DEMO_WORKSTREAMS)[number];
+    const created = controlPlane.commands.submit(
+      commands.createWorkstream(project.command.result.project_id, feature),
+      'internal',
+    );
+    if (created.command?.result?.kind !== 'workstream_created') throw new Error('no workstream');
+    const workstreamId = created.command.result.workstream_id;
+    controlPlane.commands.submit(
+      {
+        ...commands.startExecution(workstreamId, feature),
+        payload: {
+          workstream_id: workstreamId,
+          runtime_id: 'app' as RuntimeId,
+          instruction: 'Build it.',
+          options: {},
+          model_ref: null,
+        },
+      },
+      'internal',
+    );
+    await time.runUntilIdle();
+    const events = [...controlPlane.journal.readAll()].map((stored) => stored.event);
+    const execution = events.find(
+      (event) => event.event_type === 'execution.created',
+    )?.execution_id;
+    const view = execution == null ? undefined : controlPlane.projection.execution(execution);
+    await controlPlane.close();
+    const denied = events.filter(
+      (event) => event.event_type === 'execution.approval.denied_by_host',
+    );
+    return { events, denied, sent, view, entries };
+  }
+
+  test('an approval request the contract refuses is recorded as denied, then denied through the agent app', async () => {
+    // An empty summary, as an agent app's malformed request the journal refuses.
+    const { denied, sent, view, entries, events } = await run([
+      { approval_id: 'bad', summary: '' },
+    ]);
+    assert.ok(
+      !events.some((event) => event.event_type === 'runtime.approval.requested'),
+      'the request itself was never recorded',
+    );
+    assert.equal(denied.length, 1);
+    const first = denied[0];
+    assert.ok(first?.event_type === 'execution.approval.denied_by_host');
+    assert.deepEqual(first.payload, {
+      approval_id: 'bad',
+      because: 'not_recorded',
+      delivered: true,
+    });
+    assert.deepEqual(sent, [{ approval_id: 'bad', decision: 'deny', message: NOT_RECORDED_WORDS }]);
+    assert.deepEqual(view?.pending_approvals, []);
+    assert.ok(entries.some((entry) => entry.message === 'denied a request that was not recorded'));
+    assert.ok(
+      !events.some(
+        (event) =>
+          event.event_type === 'command.accepted' &&
+          event.payload.command.command_type === 'execution.respond_to_approval',
+      ),
+      'not through the command a press sends',
+    );
+  });
+
+  test("where the agent's app carries a denial's words nowhere, the record says it was not told", async () => {
+    const { denied, sent } = await run([{ approval_id: 'bad', summary: '' }], false);
+    const first = denied[0];
+    assert.ok(first?.event_type === 'execution.approval.denied_by_host');
+    assert.equal(first.payload.delivered, false);
+    assert.equal(sent.length, 1);
+  });
+
+  test('a request that is recorded is never denied by the guard: it waits for the person', async () => {
+    const { denied, sent, view } = await run([
+      { approval_id: 'good', summary: ASKED },
+      { approval_id: 'bad', summary: '' },
+    ]);
+    assert.deepEqual(
+      denied.map((event) => (event.payload as { approval_id: string }).approval_id),
+      ['bad'],
+    );
+    assert.deepEqual(
+      sent.map((each) => each.approval_id),
+      ['bad'],
+    );
+    assert.deepEqual(
+      view?.pending_approvals.map((each) => each.approval_id),
+      ['good'],
+    );
+  });
+
+  test("no log line holds the request's text", async () => {
+    // Refused for its empty tool name, with the request's words beside it.
+    const { entries, sent } = await run([{ approval_id: 'bad', summary: ASKED, tool: '' }]);
+    assert.equal(sent.length, 1, 'refused, so denied');
+    const logged = JSON.stringify(entries);
+    assert.ok(!logged.includes('notes-of-the-person'), logged);
+  });
+
+  test('the words say it was not shown and not done, with no advice and no product name', () => {
+    assert.equal(
+      NOT_RECORDED_WORDS,
+      'This request could not be shown to a person, so it was not done.',
+    );
+    assert.doesNotMatch(NOT_RECORDED_WORDS, /Halcyonic|shorter|simpler|again/);
   });
 });

@@ -710,6 +710,7 @@ describe('the C# bindings', () => {
     'CheckpointView.turn_id', // the turn an after_turn version follows (History)
     'Evaluation.activity', // Seorak's activity of a session
     'ExecutionApprovalAnsweredByHostPayload.cut', // a confined answer longer than the record keeps (M1)
+    'ExecutionApprovalDeniedByHostPayload.length', // a too-long request's length; absent for one not recorded (ADR 0065)
     'ExecutionCreatedPayload.secret_names', // the project secrets a start gave (ADR 0057)
     'ExecutionSendInstructionPayload.attachments', // pictures with the words (A4)
     'ExecutionSendInstructionPayload.leave_plan', // carrying a plan out (PLAN 4a)
@@ -1414,5 +1415,30 @@ describe('playing a checked game on the Mac (Play on my laptop, P-A)', () => {
       assert.equal(event('project.mac_play.stopped', { check_id: CHECK, reason }), true, reason);
     assert.equal(event('project.mac_play.stopped', { check_id: CHECK, reason: 'bored' }), false);
     assert.equal(event('project.mac_play.started', { check_id: CHECK, pid: 12 }), false);
+  });
+});
+
+describe("the host's own denial of a request (ADR 0065)", () => {
+  const denial = (payload: Record<string, unknown>) =>
+    parseEventEnvelope({
+      ...sampleEvent('execution.created'),
+      event_type: 'execution.approval.denied_by_host',
+      source: { kind: 'control_plane' },
+      payload,
+    }).ok;
+
+  test('a request too long to show carries its length; one the journal could not record carries none', () => {
+    assert.equal(
+      denial({ approval_id: 'a', because: 'too_long_to_show', length: 5011, delivered: true }),
+      true,
+    );
+    assert.equal(denial({ approval_id: 'a', because: 'not_recorded', delivered: false }), true);
+    assert.equal(denial({ approval_id: 'a', because: 'bored', delivered: false }), false);
+    assert.equal(denial({ approval_id: '', because: 'not_recorded', delivered: false }), false);
+    assert.equal(
+      denial({ approval_id: 'a', because: 'not_recorded', delivered: false, text: 'rm -rf /' }),
+      false,
+      'never the request itself',
+    );
   });
 });

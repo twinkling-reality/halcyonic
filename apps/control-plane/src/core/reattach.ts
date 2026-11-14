@@ -9,6 +9,7 @@ import {
 import type { Logger } from '../logger.ts';
 import { givenSecrets, type SecretStore } from '../secrets/store.ts';
 import { controlPlaneDraft, createObservationSink, NO_CAUSE } from './drafts.ts';
+import { unrecordedRequests } from './host-denials.ts';
 import type { Recorder } from './recorder.ts';
 import { type Redaction, withinLimit } from './redaction.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
@@ -181,6 +182,15 @@ export class Reattacher {
             view.runtime.runtime_id,
             this.#deps.redaction,
             bounds.directory,
+            // As at a start: a request the journal refuses is denied with its reason (ADR 0065).
+            unrecordedRequests({
+              recorder: this.#deps.recorder,
+              projection: this.#deps.projection,
+              adapter,
+              execution,
+              clock: this.#deps.clock,
+              logger: this.#deps.logger,
+            }),
           ),
         }),
         timedOut,

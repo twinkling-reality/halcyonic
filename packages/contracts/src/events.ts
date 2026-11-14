@@ -962,8 +962,10 @@ export const ApprovalChange = Type.Object(
     to_path: Nullable(Text(4096)),
     kind: Type.Union([Type.Literal('add'), Type.Literal('update'), Type.Literal('delete')]),
     shape: Type.Union([Type.Literal('content'), Type.Literal('replace'), Type.Literal('diff')]),
-    before: Nullable(Text(32000)),
-    after: Nullable(Text(32000)),
+    // A change's text is content, not a label: empty (a deletion, an empty file) and white space only (a blank line)
+    // are what it is, and a request the journal refused would be one nobody sees and the agent waits on.
+    before: Nullable(Type.String({ maxLength: 32000 })),
+    after: Nullable(Type.String({ maxLength: 32000 })),
     every: Type.Boolean(),
     /** A notebook cell's edit: which cell, its type, and whether it is replaced, inserted or deleted. */
     cell: Nullable(
@@ -1030,16 +1032,19 @@ export const ExecutionApprovalHostAnswerWithdrawn = executionEvent(
 /**
  * The host denied a request of this execution itself, recorded before the denial is sent: a request longer than a
  * person can be shown whole (`too_long_to_show`, with its length), for every run, so no card that can only be denied
- * is left waiting. `delivered` is whether the agent app declares that a denial's words reach its agent
- * (`delivers_denial_message`): where false, the words are recorded and shown, and the agent was never told them.
+ * is left waiting; or a request the journal could not record (`not_recorded`, with no length: the request itself
+ * was never kept), denied through the agent's app at once, so no agent waits on a request nobody can see (ADR 0065).
+ * `delivered` is whether the agent app declares that a denial's words reach its agent (`delivers_denial_message`):
+ * where false, the words are recorded and shown, and the agent was never told them.
  */
 export const ExecutionApprovalDeniedByHost = executionEvent(
   'execution.approval.denied_by_host',
   Type.Object(
     {
       approval_id: NativeId,
-      because: Type.Union([Type.Literal('too_long_to_show')]),
-      length: Type.Integer({ minimum: 0 }),
+      because: Type.Union([Type.Literal('too_long_to_show'), Type.Literal('not_recorded')]),
+      /** The request's length, for `too_long_to_show`; absent for `not_recorded`. */
+      length: Type.Optional(Type.Integer({ minimum: 0 })),
       delivered: Type.Boolean(),
     },
     strict,

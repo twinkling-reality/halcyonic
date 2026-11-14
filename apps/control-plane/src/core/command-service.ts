@@ -94,6 +94,7 @@ import {
   NO_CAUSE,
 } from './drafts.ts';
 import type { GivenPictures } from './given-pictures.ts';
+import { unrecordedRequests } from './host-denials.ts';
 import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
 import { listPictures, readPictures } from './pictures.ts';
 
@@ -2675,6 +2676,15 @@ export class CommandService {
         runtime.runtime_id,
         this.#deps.redaction,
         directory,
+        // A request the journal refuses is denied with its reason, never left waiting unseen (ADR 0065).
+        unrecordedRequests({
+          recorder,
+          projection: this.#deps.projection,
+          adapter,
+          execution,
+          clock: this.#deps.clock,
+          logger: this.#deps.logger,
+        }),
       );
       // A failed check's first lines go after the person's words, once per check (FX1).
       const checked = this.#checkOutputFor(project_id, workstream_id);

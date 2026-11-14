@@ -59,6 +59,19 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    whatever its length (point 2). The denial's advice to send a long command in parts may now return, in its own
    words change (AUDIT2).
 
+6. **No agent waits on a request nobody can see** (the lead, 2026-11-13, after a real run's Edit with empty change text
+   was refused by the journal and the agent waited an hour). When the journal cannot record an approval request an
+   agent app waits on, whatever the cause, the observation sink tells the host (`createObservationSink`'s
+   `unrecorded`), and the host (`unrecordedRequests`, `host-denials.ts`) records `execution.approval.denied_by_host`
+   because `not_recorded` (no length: the request was never kept), then denies it through the agent app itself, not
+   through the command a press sends, which admission would refuse for a request it never saw. The agent's words are
+   only "This request could not be shown to a person, so it was not done." `delivered` follows
+   `delivers_denial_message`. A request the projection holds pending after all is left to the person. The denial is
+   sent even where its own record fails. Logs carry ids, codes, counts and where the contract refused the request
+   (each pointer step that is not a contract field name or an index written `*`), never its text. A question the
+   journal refuses is left as it is: an agent app has no declared way to decline one (`answerQuestion` carries
+   answers only), and none is emulated.
+
 ## Alternatives considered
 
 - **Raise the approvable bound to 32000 now.** The card's gate exists but no test has paged 30000 characters (about

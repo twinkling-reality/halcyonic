@@ -9,10 +9,14 @@ import {
   type RuntimeId,
   type Timestamp,
 } from '@halcyonic/contracts';
-import type { ExecutionContext, ObservationSink } from '@halcyonic/runtime-core';
+import type {
+  ExecutionContext,
+  ObservationSink,
+  RuntimeObservation,
+} from '@halcyonic/runtime-core';
 import type { Logger } from '../logger.ts';
 import { resolvedPath } from './real-path.ts';
-import type { EventDraft, Recorder } from './recorder.ts';
+import { type EventDraft, InvalidEventError, type Recorder } from './recorder.ts';
 import { fitted, type Redaction, redaction as redactionOf, withinLimit } from './redaction.ts';
 import { normalizedToolResult } from './tool-result-redaction.ts';
 
@@ -62,9 +66,26 @@ export function controlPlaneDraft<T extends ControlPlaneEventType>(
 }
 
 /**
+ * Where a contract issue is, kept for the log: each step of its JSON pointer that is a contract's own field name or an
+ * index, and `*` for any other step, such as a key an agent chose, so no text of the request reaches a log.
+ */
+function issuePaths(error: unknown): string[] | undefined {
+  if (!(error instanceof InvalidEventError)) return undefined;
+  return error.issues.map((issue) =>
+    issue.path
+      .split('/')
+      .map((step) => (/^(?:[a-z][a-z0-9_]{0,63}|\d{1,6})?$/.test(step) ? step : '*'))
+      .join('/'),
+  );
+}
+
+/**
  * Turns an adapter's observations into journaled runtime events for one execution. An invalid
  * observation is an adapter defect: it is logged with its identifiers and dropped, never
- * repaired into something that looks valid.
+ * repaired into something that looks valid. The log holds ids, the observation's type, the
+ * error's name and code and where the contract refused it, never a value: an issue's words or an
+ * error's message can quote what the agent asked. `unrecorded` is then told of it, so the host
+ * can answer a request an agent waits on that nobody can see (ADR 0065).
  */
 export function createObservationSink(
   recorder: Recorder,
@@ -74,6 +95,8 @@ export function createObservationSink(
   redaction: Redaction = redactionOf(),
   /** The task's folder, where a change's relative path lands; the host adds where it really writes (W1). */
   folder: string | null = null,
+  /** Told of every observation that could not be recorded, after it is logged. */
+  unrecorded?: (observation: RuntimeObservation) => void,
 ): ObservationSink {
   return (observation) => {
     try {
@@ -94,15 +117,20 @@ export function createObservationSink(
       } as unknown as EventDraft;
       recorder.record(draft);
     } catch (error) {
+      const code = (error as { code?: unknown } | null)?.code;
+      const paths = issuePaths(error);
       logger.error(
         {
-          err: error,
           execution_id: execution.execution_id,
           runtime_id: runtimeId,
           observation_type: observation.type,
+          error: error instanceof Error ? error.name : typeof error,
+          ...((typeof code === 'string' || typeof code === 'number') && { code }),
+          ...(paths !== undefined && { paths }),
         },
         'runtime observation rejected',
       );
+      unrecorded?.(observation);
     }
   };
 }
