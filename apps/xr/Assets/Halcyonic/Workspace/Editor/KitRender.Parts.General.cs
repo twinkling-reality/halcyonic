@@ -112,14 +112,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     frame = new MenuFrame("Shelf", new Footer(new Prompt(Footer.Close, "Cancel", GlazeIcon.Close, PromptKind.Close),
                         farRight: new Prompt("apply", "Apply", GlazeIcon.Change, main: true)), lines: moves);
                 }
-                // A person's own long words read whole (the lead's 2026-11-14T01:19Z next unit, the recap's name and idea): handed as
-                // labelled facts, each a row under its label, a long one in parts with its label kept, Back on every page. Synthetic words.
+                // A person's own long words read whole (the lead's 2026-11-14T01:19Z next unit): the recap card's press opens XR's own
+                // reading page (NewProjectScreens.RecapWords), the name and the first task as labelled facts under the recap's own labels,
+                // each a row, a long one in parts with its label kept, Back to the recap on every page. Synthetic words.
                 if (state == "52-general-recap-words")
                 {
-                    const string name = "A kite game where the wind changes every round and the tail grows with each loop";
-                    var task = string.Join(" ", Enumerable.Repeat("Make the kite climb faster when the person leans forward, and let the tail ripple.", 5));
-                    frame = new MenuFrame(LineWords.TheirName(name), new Footer(new Prompt(Footer.Close, "Back to Recap", GlazeIcon.Back, PromptKind.Close)),
-                        lines: new[] { new PageLine(LineWords.Ours("Project Name"), fact: LineWords.TheirName(name)), new PageLine(LineWords.Ours("First Task"), fact: LineWords.TheirName(task)) });
+                    var idea = new ProjectIdea();
+                    idea.UseIdea(string.Join(" ", Enumerable.Repeat("Make the kite climb faster when the person leans forward, and let the tail ripple.", 5)));
+                    idea.Rename("A kite game where the wind changes every round and the tail grows with each loop");
+                    frame = NewProjectScreens.RecapWords(idea);
                 }
                 if (state == "52-general-usage")
                 {
@@ -186,7 +187,7 @@ namespace Halcyonic.XR.Workspace.Editor
             if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
             // The way out: a side panel's own Close, a confirmation's Cancel, else the frame's Close.
-            var wayOut = frame.Side != null ? SidePanel.Close : confirm ? "forget-cancel" : Footer.Close;
+            var wayOut = frame.Side != null ? SidePanel.Close : confirm ? "forget-cancel" : state == "52-general-recap-words" ? NewProjectScreens.BackToRecap : Footer.Close;
             if (paged)
             {
                 Require(bar.Column.Last().Control.Action == wayOut && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its way out");
