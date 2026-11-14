@@ -138,6 +138,25 @@ const fitNotMeasured = (state: 'unknown' | 'changed', held: CheckFit['problem'])
 });
 
 describe("the kit's panels past a laptop's edge or over each other go back the same way, under the same trigger (VRIFY 2026-11-13)", () => {
+  test('a row past the edge is told to split or shorten, never to use rows() again; a page keeps the place words (AUDIT2 M1)', () => {
+    const row: CheckFit = {
+      ...fitted('past_edge', 'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z'),
+      panel_kind: 'row',
+    };
+    assert.equal(
+      fitFix(placed(row)),
+      'A row of buttons "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z" is wider than a laptop\'s 1280 by 800 view: a row is as wide as its buttons\' words. Split it into two rows or shorten its words; five rows fit under the pages.',
+    );
+    assert.equal(
+      fitFix(placed({ ...row, panel_label: null })),
+      "A row of buttons is wider than a laptop's 1280 by 800 view: a row is as wide as its buttons' words. Split it into two rows or shorten its words; five rows fit under the pages.",
+    );
+    assert.equal(
+      fitFix(placed(fitted('past_edge'))),
+      'A panel of the kit (a page "Lesson 1") reaches past the edge of a laptop\'s 1280 by 800 view. Place every row of buttons, tabs, a pager or a keyboard through rows() from ./kit.js, under the pages, and add nothing at a position of your own.',
+    );
+  });
+
   test('a measured misfit is a step to fix, named reading, and the verdict is failed', () => {
     for (const problem of ['past_edge', 'overlap'] as const) {
       assert.deepEqual(fixSteps(placed(fitted(problem))), ['reading'], problem);

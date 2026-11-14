@@ -7,8 +7,9 @@ import { describe, test } from 'node:test';
 import { createContext, runInContext } from 'node:vm';
 import { deflateSync } from 'node:zlib';
 import {
-  type CheckFit,
+  CheckFit,
   type CheckReading,
+  compileValidator,
   FIT_EDGE_PX,
   FIT_OVERLAP_PX,
   FIT_VIEW,
@@ -644,6 +645,29 @@ describe("the kit's panels fit a laptop's 1280 by 800 view and stay clear of eac
   const placed = (...panels: HookPanel[]) => ({ panels });
   /** A fit measured with `panels`, as an earlier check of the project recorded it. */
   const measured = (...panels: HookPanel[]) => fitOf('starter', { panels, sealed: true });
+
+  test('a blank label is kept as no label, so a check built from it is always one the journal records (AUDIT3 B1)', () => {
+    const valid = compileValidator(CheckFit);
+    for (const label of ['', '   ', '\n\t']) {
+      const read = parsePanels({
+        panels: [{ kind: 'row', label, x: -3, y: 640, w: 200, h: 40 }],
+        sealed: true,
+      });
+      assert.equal(read?.panels[0]?.label, null, JSON.stringify(label));
+      const fit = fitOf('starter', read);
+      assert.equal(fit.problem, 'past_edge');
+      assert.equal(fit.panel_label, null);
+      assert.ok(valid(fit).ok, `the contract takes the fit for label ${JSON.stringify(label)}`);
+    }
+    // A label the contract takes is kept as given.
+    assert.equal(
+      parsePanels({
+        panels: [{ kind: 'row', label: 'Guide', x: 0, y: 640, w: 200, h: 40 }],
+        sealed: true,
+      })?.panels[0]?.label,
+      'Guide',
+    );
+  });
 
   test('the view is 1280 by 800, 2 px past an edge is allowed and 4 px into another panel', () => {
     assert.deepEqual(FIT_VIEW, { width: 1280, height: 800 });

@@ -119,9 +119,15 @@ export function fitFix(findings: CheckFindings): string | null {
       : ` (${fit.panel_kind === 'page' ? 'a page' : 'a row of buttons'}${fit.panel_label === null || fit.panel_label === '' ? '' : ` "${fit.panel_label}"`})`;
   const place =
     'Place every row of buttons, tabs, a pager or a keyboard through rows() from ./kit.js, under the pages, and add nothing at a position of your own.';
+  // A row is made only by rows(), and is as wide as its buttons' words together: one past the edge is too wide, and
+  // telling the agent to use rows() again would spend both tries on what it already did (AUDIT2 M1).
+  const label = fit.panel_label === null || fit.panel_label === '' ? '' : ` "${fit.panel_label}"`;
+  const split = `A row of buttons${label} is wider than a laptop's 1280 by 800 view: a row is as wide as its buttons' words. Split it into two rows or shorten its words; five rows fit under the pages.`;
   if (fit.state === 'measured')
     return failing === 'past_edge'
-      ? `A panel of the kit${which} reaches past the edge of a laptop's 1280 by 800 view. ${place}`
+      ? fit.panel_kind === 'row'
+        ? split
+        : `A panel of the kit${which} reaches past the edge of a laptop's 1280 by 800 view. ${place}`
       : `A panel of the kit${which} overlaps another panel at a laptop's 1280 by 800 view. ${place}`;
   const why =
     fit.state === 'changed'

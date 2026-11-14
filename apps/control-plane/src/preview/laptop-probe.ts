@@ -6,10 +6,12 @@ import {
   type CheckLaptop,
   type CheckReading,
   type CheckVr,
+  compileValidator,
   FIT_EDGE_PX,
   FIT_OVERLAP_PX,
   FIT_VIEW,
   READING_FLOOR_PX,
+  Text,
 } from '@halcyonic/contracts';
 import { fitPasses, readingPasses } from '@halcyonic/domain';
 import type { ChromeRun, DevToolsPipe } from './chrome.ts';
@@ -207,6 +209,12 @@ export function parseReport(value: unknown): HookReport | null {
 const MAX_PANELS = 64;
 const MAX_REACH = 10_000;
 const MAX_LABEL = 200;
+/**
+ * The contract's own check of a panel's label (CheckFit.panel_label, Text(200)): a label it would refuse, empty or
+ * only white space, is kept as no label, so the check a host builds from it is always one the journal records
+ * (AUDIT3 B1).
+ */
+const validLabel = compileValidator(Text(MAX_LABEL));
 
 /**
  * The hook's panels against a strict shape (AUDIT3 K3): at most 64, each a kind of the fixed list, a label of at most
@@ -226,7 +234,7 @@ export function parsePanels(value: unknown): HookPanels | null {
     if (kind !== 'page' && kind !== 'row') return null;
     if (label !== null && (typeof label !== 'string' || label.length > MAX_LABEL)) return null;
     if (!inside(x) || !inside(y) || !inside(w) || !inside(h) || w < 0 || h < 0) return null;
-    read.push({ kind, label, x, y, w, h });
+    read.push({ kind, label: label === null || !validLabel(label).ok ? null : label, x, y, w, h });
   }
   return { panels: read, sealed: sealed === true };
 }
