@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { pieces, pitch } from '../../../starters/iwsdk-vr/template/src/pieces.ts';
 import {
+  centre,
   eachHeard,
   isBlack,
   join,
@@ -148,6 +149,15 @@ describe('the starter score: when each note sounds', () => {
     ]);
   });
 
+  test('the middle of what scores play is the mean of their pitches, middle C for none', () => {
+    assert.equal(centre([tiny]), (60 + 64 + 67) / 3);
+    assert.equal(
+      centre([tiny, { ...tiny, notes: [{ at: 0, length: 1, pitch: 72, loud: 0.5, part: 0 }] }]),
+      (60 + 64 + 67 + 72) / 4,
+    );
+    assert.equal(centre([]), 60);
+  });
+
   test('note names and black keys are read as a keyboard has them', () => {
     assert.equal(pitch('C4'), 60);
     assert.equal(pitch('A4'), 69);
@@ -264,20 +274,40 @@ describe('the starter piano tone', () => {
 describe('the starter music and light kit keeps to its page', () => {
   // A tripwire, not a proof: it reads names in the kit's own files, not what the code does. A later change that
   // reaches the network, keeps something or evaluates code by one of these names fails here, and is read by a person.
-  const kit = ['score.ts', 'pieces.ts', 'tone.ts', 'tone-worker.ts', 'instruments.ts', 'glow.ts', 'places.ts'];
+  const kit = [
+    'score.ts',
+    'pieces.ts',
+    'tone.ts',
+    'tone-worker.ts',
+    'instruments.ts',
+    'glow.ts',
+    'places.ts',
+  ];
   const denied =
     /\b(fetch|XMLHttpRequest|WebSocket|EventSource|importScripts|eval|localStorage|sessionStorage|indexedDB|caches|serviceWorker|sendBeacon|createObjectURL|innerHTML)\b|\bnew Function\b|\bimport\(|document\.cookie|\bBlob\b|https?:\/\//;
   const found = (text: string) => text.split('\n').filter((line) => denied.test(line));
 
   test('the scan finds each name it is for in a line that holds one', () => {
-    for (const line of ["await fetch('/x')", 'localStorage.setItem(k, v)', "import('./later.js')", 'new Blob([code])', "const u = 'https://cdn.example/x.js';"])
+    for (const line of [
+      "await fetch('/x')",
+      'localStorage.setItem(k, v)',
+      "import('./later.js')",
+      'new Blob([code])',
+      "const u = 'https://cdn.example/x.js';",
+    ])
       assert.deepEqual(found(line), [line]);
-    assert.deepEqual(found("const sound = new Worker(new URL('./tone-worker.ts', import.meta.url));"), []);
+    assert.deepEqual(
+      found("const sound = new Worker(new URL('./tone-worker.ts', import.meta.url));"),
+      [],
+    );
   });
 
   for (const file of kit)
     test(`${file} names no network, storage or evaluated code`, () => {
-      const text = readFileSync(new URL(`../../../starters/iwsdk-vr/template/src/${file}`, import.meta.url), 'utf8');
+      const text = readFileSync(
+        new URL(`../../../starters/iwsdk-vr/template/src/${file}`, import.meta.url),
+        'utf8',
+      );
       assert.ok(text.length > 200, `${file} is read`);
       assert.deepEqual(found(text), []);
     });

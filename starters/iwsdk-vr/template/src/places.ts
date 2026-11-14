@@ -82,7 +82,7 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   // The floor fades into the horizon's colour and the sky rises from it, so no line marks where they meet.
   const horizon = tint.clone().multiplyScalar(0.16);
   group.add(sky(black, horizon, horizon, 120));
-  group.add(floor(tint.clone().multiplyScalar(0.1), horizon, 40));
+  group.add(floor(tint.clone().multiplyScalar(0.1), horizon, 60));
   const count = options.motes ?? 160;
   const motes = glows(count, { facing: true, halo: 0.01, round: 1 });
   group.add(motes.object);
@@ -96,12 +96,14 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   ]);
   const dust = new Color('#8FA6FF');
   // Haze far off, low over the floor, so the dark has depth and is not a wall: one soft ring of the tint all round,
-  // brightest a metre up and fading to nothing above and below.
-  const ring = new CylinderGeometry(44, 44, 8, 96, 8, true);
+  // rising out of the floor with no edge, brightest a metre and a half up and fading to nothing above.
+  const ring = new CylinderGeometry(44, 44, 8, 96, 16, true);
+  ring.translate(0, 4, 0);
   const at = ring.getAttribute('position');
   const glow: number[] = [];
   for (let i = 0; i < at.count; i++) {
-    const k = Math.max(0, 1 - Math.abs(at.getY(i)) / 4) ** 2 * 0.12;
+    const y = at.getY(i);
+    const k = (y < 1.5 ? y / 1.5 : Math.max(0, 1 - (y - 1.5) / 6.5) ** 2) * 0.12;
     glow.push(tint.r * k, tint.g * k, tint.b * k);
   }
   ring.setAttribute('color', new Float32BufferAttribute(glow, 3));
@@ -109,7 +111,6 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
     ring,
     new MeshBasicMaterial({ vertexColors: true, side: BackSide, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false }),
   );
-  haze.position.y = 1.2;
   group.add(haze);
   return {
     group,
