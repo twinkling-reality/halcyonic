@@ -45,7 +45,7 @@
   keys and a 90 degree field of view, a note is in view for its last 0.96 m above a key, 1.7 s before it lands.
 - **Room for the person:** the keys' front edge is 0.72 m from them all round; nothing is drawn nearer than about
   0.65 m (sparks drifting in from the keys), and nothing above them. Nothing asks them to play.
-- **Cost:** 15 draw calls (19 with the welcome card) and about 6,800 triangles; the light's own work per frame under
+- **Cost:** 16 draw calls (20 with the welcome card) and about 8,600 triangles; the light's own work per frame under
   0.1 ms at the 95th percentile on this Mac, and 1.2 ms with the CPU slowed six times.
 - **Start:** the keys are made from their partials on a worker, off the page's thread, opening keys first: 40 keys
   in 0.73 s on this Mac; a worker that fails makes them on the page instead. The room is made in slices between
