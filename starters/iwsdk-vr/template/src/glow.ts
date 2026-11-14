@@ -86,7 +86,7 @@ const FRAGMENT = /* glsl */ `
     vec3 light = hot * inside * core * (0.45 + 0.55 * deep) + vColour * glow * 0.5;
     // A ramp, when asked: full at the shape's -y end, falling to the ramp's share at its +y end.
     if (ramp >= 0.0) light *= pow(mix(1.0, pow(ramp, 0.333), clamp(vPoint.y / max(vHalf.y, 1e-4) * 0.5 + 0.5, 0.0, 1.0)), 3.0);
-    if (dot(light, vec3(1.0)) < 0.002) discard;
+    if (dot(light, vec3(1.0)) < 0.0004) discard;
     gl_FragColor = vec4(light, 1.0);
     #include <colorspace_fragment>
     // A little noise below one step of the screen's colour, so soft falloffs never show as rings.
@@ -373,8 +373,8 @@ export function lightKeys(
   const blackLength = whiteLength * 0.62;
   const depth = 0.018;
   const raised = depth * 1.1;
-  const idle = options.idle ?? new Color('#11162A');
-  const blackIdle = idle.clone().multiplyScalar(0.4);
+  const idle = options.idle ?? new Color('#161C34');
+  const blackIdle = idle.clone().multiplyScalar(0.55);
   const arc = options.arc;
   // Along the keyboard, then round the arc: a key at distance s from the middle stands at angle s / arc.
   const at = (s: number, out: number) => {
@@ -485,9 +485,12 @@ export function lightKeys(
         const { x, y, z, tx, tz, ox, oz } = key;
         const into = landing(key);
         const c = hue.get(key.midi) as Color;
-        heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.016, 0.016, c, 0.35 * amount);
+        // Dark glass needs more light to be seen lit: a black key's glow is stronger, and its front face lights too.
+        const gain = key.black ? 1.8 : 1;
+        heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.016, 0.016, c, 0.35 * gain * amount);
         const mid = key.length / 2;
-        face.place(x + ox * mid, y + 0.001, z + oz * mid, tx, 0, tz, ox, 0, oz, key.width * 0.8, key.length * 0.92, c, 0.14 * amount);
+        face.place(x + ox * mid, y + 0.001, z + oz * mid, tx, 0, tz, ox, 0, oz, key.width * 0.8, key.length * 0.96, c, 0.2 * gain * amount);
+        if (key.black) face.place(x - ox * 0.001, y - depth / 2, z - oz * 0.001, tx, 0, tz, 0, 1, 0, key.width * 0.8, depth * 0.8, c, 0.3 * amount);
       }
       heat.end();
       face.end();
@@ -629,17 +632,20 @@ export function fallingNotes(
   const echo = (note: { pitch: number; loud: number }, start: number) => {
     const spot = keys.spot(note.pitch);
     const since = now - start;
-    if (spot === undefined || since < 0 || since > 3) return;
+    if (spot === undefined || since < 0 || since > 2) return;
     const a = Math.atan2(spot.x, -spot.z);
     // Higher notes answer higher up, each key at its own distance, so the hall's light never lines up in a row.
     const up = (note.pitch - low) / Math.max(1, high - low);
     const far = reach * (0.8 + 0.4 * (((note.pitch * 7) % 11) / 10));
-    const strength = 0.2 * (0.4 + note.loud) * Math.exp(-since * 1.1) * Math.min(1, since / 0.15);
+    // Each answer comes as the note sounds and is gone within about a second, so it is seen to answer that note.
+    const strength = 0.2 * (0.4 + note.loud) * Math.exp(-since * 2.2) * Math.min(1, since / 0.05);
     const c = tinted(note);
-    // Where its key points, then a quarter of the way round each side, then behind.
+    // Where its key points, then round each side and behind, each turned by the note's own pitch, so no view of the
+    // hall repeats another.
     for (let k = 0; k < 4; k++) {
-      const b = a + (k * Math.PI) / 2;
-      echoes.add(Math.sin(b) * far, 1.4 + 4 * up + k * 0.4, -Math.cos(b) * far, 0.05, 0.05, c, strength);
+      const turn = ((((note.pitch * 31 * (k + 1)) % 17) / 17) * 0.8 - 0.4) * (k === 0 ? 0 : 1);
+      const b = a + (k * Math.PI) / 2 + turn;
+      echoes.add(Math.sin(b) * far, 1.2 + 2.5 * up + k * 0.3, -Math.cos(b) * far, 0.05, 0.05, c, strength);
     }
   };
   return {
@@ -655,7 +661,7 @@ export function fallingNotes(
       flares.begin();
       player.each(0.2, fall / speed, draw);
       echoes.begin();
-      player.each(3, 0, echo);
+      player.each(2, 0, echo);
       echoes.end();
       keys.end();
       drops.end();
