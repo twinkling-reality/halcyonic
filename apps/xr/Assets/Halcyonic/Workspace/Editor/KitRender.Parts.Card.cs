@@ -283,6 +283,25 @@ namespace Halcyonic.XR.Workspace.Editor
             var slack = unit * 0.05f;
             Require(view.LaidWhole, "the card does not say it stands whole, though it is shown");
             Require((card.Press != null) == (view.CardTarget != null), card.Press != null ? "a card that is the way in takes no press" : "a card that only says takes a press");
+            if (card.Press != null)
+            {
+                // The way in's chevron beside the name's first line (the lead's 2026-11-14T03:21Z (A)): it meets no word as drawn, every
+                // word under the name taking the card's whole width.
+                var chevron = view.Glyphs.Where(each => each.What == "card chevron").Select(each => each.Glyph).FirstOrDefault();
+                Require(chevron != null, "a card that is the way in draws no chevron");
+                if (chevron != null)
+                {
+                    var marks = chevron.GetComponentsInChildren<Renderer>(false).Where(each => each.enabled).Select(each => each.bounds).ToList();
+                    foreach (var label in view.Shown.Where(each => each != null && each.gameObject.activeInHierarchy && !string.IsNullOrEmpty(each.text)))
+                    {
+                        var words = label.GetComponent<Renderer>();
+                        if (words == null || !words.enabled) continue;
+                        var drawn = words.bounds;
+                        Require(!marks.Any(mark => mark.min.x < drawn.max.x && drawn.min.x < mark.max.x && mark.min.y < drawn.max.y && drawn.min.y < mark.max.y),
+                            "the way in's chevron meets the words \"" + label.text + "\"");
+                    }
+                }
+            }
             if (card.DescriptionPage is int asked)
             {
                 var paged = view.PagedDescription;

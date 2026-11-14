@@ -228,6 +228,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The card's own press, where the card is the way in, and the accent face that shows it, felt on hover.</summary>
         private KitPress? cardPress;
+
+        /// <summary>How far down the card the way in's chevron stands: beside the name's first line, or the lead status's mark.</summary>
+        private float? chevronAt;
         private RoomShape? cardFace;
         private Vector2 cardFaceSize;
         private bool? cardFaceLit;
@@ -344,10 +347,14 @@ namespace Halcyonic.XR.UI
         public float Show(RoomCard card, float width)
         {
             gameObject.SetActive(true);
-            // A card that is the way in lays its words a chevron's room narrower, so the chevron stands at the text's own inset
-            // from the edge and never meets a word (the critic, 2026-11-12: it sat 7 px from the ring against a 36 px inset).
+            // A card that is the way in stands its chevron beside its name's first line, at the text's own inset from the edge (the
+            // critic, 2026-11-12: it sat 7 px from the ring against a 36 px inset), so only the name is laid a chevron's room narrower
+            // and never meets it; the person's own words, the slots and the note under it take the card's whole width (the lead's
+            // 2026-11-14T03:21Z (A): the recap at its budgets read under 14 dp at the floor with every word narrowed).
             var full = width;
-            if (card.Press != null) width = Mathf.Max(S(StepDp), full - S(CardChevronDp + RowGapDp));
+            var named = card.Title != null || card.Head != RoomCardHead.None;
+            var beside = card.Press != null ? Mathf.Max(S(StepDp), full - S(CardChevronDp + RowGapDp)) : full;
+            chevronAt = null;
             foreach (var role in new List<KitRole>(textsUsed.Keys)) textsUsed[role] = 0;
             platesUsed = 0;
             glyphsUsed = 0;
@@ -366,13 +373,16 @@ namespace Halcyonic.XR.UI
             void Gap(float dp) { if (down > 0f) down += S(dp); }
 
             // A thing's name first where it has one, its state beneath it (the critic, 2026-11-11: a status over the name read as
-            // a second title); a card with no name leads with its status.
-            var named = card.Title != null || card.Head != RoomCardHead.None;
-            if (!named && card.Status is RoomCardStatus lead) down = LayStatus(lead, card, width, down);
+            // a second title); a card with no name leads with its status, the chevron beside its mark.
+            if (!named && card.Status is RoomCardStatus lead)
+            {
+                down = LayStatus(lead, card, beside, down);
+                chevronAt = S(StatusMarkDp) / 2f;
+            }
             if (named)
             {
                 Gap(BlockGapDp);
-                down = LayHead(card, width, down);
+                down = LayHead(card, beside, down);
                 if (card.Status is RoomCardStatus status && !card.StatusAfter)
                 {
                     Gap(BlockGapDp);
@@ -504,7 +514,7 @@ namespace Halcyonic.XR.UI
             cardFaceLit = null;
             PaintCardFace();
             // The way on at the words' right edge, the panel's pad from its ring as the text is from the left, a capital's stem in weight.
-            Glyph(RoomGlyph.Chevron, CardChevronDp, White(0.90f), new Vector2(width - S(CardChevronDp) / 2f, -tall / 2f), "card chevron", CardChevronStroke);
+            Glyph(RoomGlyph.Chevron, CardChevronDp, White(0.90f), new Vector2(width - S(CardChevronDp) / 2f, -(chevronAt ?? tall / 2f)), "card chevron", CardChevronStroke);
         }
 
         private void PaintCardFace()
@@ -807,6 +817,8 @@ namespace Halcyonic.XR.UI
             }
             var block = headed ? Mathf.Max(S(HeadDp), tall) : tall;
             var y = down + (block - tall) / 2f;
+            // The way in's chevron beside the name's first line, or the head's middle where there is no name.
+            chevronAt = laid.Count > 0 ? y + laid[0].Before + S(words[0].LineDp) / 2f : down + block / 2f;
             foreach (var (label, height, before) in laid)
             {
                 y += before;
