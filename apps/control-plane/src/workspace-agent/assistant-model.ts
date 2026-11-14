@@ -29,7 +29,7 @@ export const HOSTED_COST = {
   warnings: (provider: string) => [
     {
       code: 'sent_to_provider',
-      line: `Your requests, and what the assistant reads in your projects, go to ${provider}`,
+      line: `Your requests and what it reads in your projects leave this computer for ${provider}`,
     },
     { code: 'price_unknown', line: `${provider} sets each request's price; it is not shown here` },
     { code: 'free_here', line: "To stop paying, choose This Computer's Model, which is free" },

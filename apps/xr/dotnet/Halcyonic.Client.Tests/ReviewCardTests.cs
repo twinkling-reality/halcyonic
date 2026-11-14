@@ -160,7 +160,7 @@ public class ReviewCardTests
         ActionReviewWarning Warn(string code, string line) => new() { Code = code, Line = line };
         var warnings = new[]
         {
-            Warn("sent_to_provider", "Your requests, and what the assistant reads in your projects, go to Tidewater"),
+            Warn("sent_to_provider", "Your requests and what it reads in your projects leave this computer for Tidewater"),
             Warn("price_unknown", "Tidewater sets each request's price; it is not shown here"),
             Warn("free_here", "To stop paying, choose This Computer's Model, which is free"),
         };

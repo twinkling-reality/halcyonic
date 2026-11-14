@@ -193,7 +193,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         Facts = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewFact>(),
                         Warnings = new System.Collections.Generic.List<Halcyonic.Contracts.ActionReviewWarning>
                         {
-                            new Halcyonic.Contracts.ActionReviewWarning { Code = "sent_to_provider", Line = "Your requests, and what the assistant reads in your projects, go to Tidewater" },
+                            new Halcyonic.Contracts.ActionReviewWarning { Code = "sent_to_provider", Line = "Your requests and what it reads in your projects leave this computer for Tidewater" },
                             new Halcyonic.Contracts.ActionReviewWarning { Code = "price_unknown", Line = "Tidewater sets each request's price; it is not shown here" },
                             new Halcyonic.Contracts.ActionReviewWarning { Code = "free_here", Line = "To stop paying, choose This Computer's Model, which is free" },
                         },

@@ -235,7 +235,8 @@ What was read and seen is in [hosted-assistant.md](../validation/hosted-assistan
     read by the list's rows and the review alike; 2026-11-13, fresh readers of 1111-b123 and b130). A hosted row reads
     "On <provider>, Paid by You". The review's line names the model and says once that each request costs money on
     the person's own account with the provider (named from its declaration); the model stands as a fact only where
-    the line cannot hold it. Then three short warnings, what leaves this computer first: what is sent to the provider;
+    the line cannot hold it. Then three short warnings, each its own line, what leaves this computer first: that the
+    requests and what it reads in the projects leave this computer for the provider;
     the provider sets each request's price and it is not shown here; to stop paying, choose this computer's model,
     which is free. No price,
     estimate, size or limit is ever said. The whole
