@@ -154,7 +154,15 @@ namespace Halcyonic.XR.Workspace
                 // the way they look, tipped so the line the pair stands on is at DESIGN's pitch, the pair growing upward from it
                 // and the row and the band hanging under it. The person's own move still turns it from there.
                 var footed = new PanelDirection(Placed.Yaw, RoomGeometry.FeetPitch - SpatialKit.DegreesTo(Kit.FootLine * zoom), true, false);
-                Placed = new PanelDirection(footed.Yaw, footed.Elevation, WorkspacePlacement.Clears(footed, bodies, Composition.Size), false);
+                // The bar's box (Kit.Size, since the foot is anchored) and, as a box of its own, the band hanging under its foot at its
+                // tallest, so a body never stands under either (the lead's 00:24Z; FIELD's 590ad3b10), never their bounding box.
+                var hangs = RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale);
+                var bandPitch = RoomGeometry.FeetPitch - (KitWorkspaceHost.BandUnderDp + hangs / 2f) / RoomGeometry.DpPerDegree;
+                var distance = Composition.Size.Distance;
+                var band = new PanelSize(distance, RoomType.Units(RoomWords.WidthDp) / 2f * distance, RoomType.Units(hangs) / 2f * distance);
+                var clears = WorkspacePlacement.Clears(footed, bodies, Composition.Size)
+                    && WorkspacePlacement.Clears(new PanelDirection(footed.Yaw, bandPitch, true, false), bodies, band);
+                Placed = new PanelDirection(footed.Yaw, footed.Elevation, clears, false);
             }
             Moved = moved; Direction = MenuDrag.Turned(Placed, moved);
             shown.Clear(); shown.Add((kind, record));
