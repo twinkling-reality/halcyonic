@@ -65,10 +65,12 @@ public class MenuDragTests
             return moved.Yaw < 5f;
         });
         Assert.That(drag.Follow(3f, -20f), Is.True);
-        Assert.That(drag.Follow(8f, -20f), Is.False, "the light line would cross another character there");
-        Assert.That(drag.Moved.Yaw, Is.EqualTo(3f).Within(1e-4), "it stays where it last was");
-        Assert.That(asked.Count, Is.EqualTo(2));
-        Assert.That(asked[1].Item1, Is.EqualTo(8f).Within(1e-4));
+        // The whole step would cross another character's line: it is asked first, refused, and the plane stops at the furthest
+        // tenth of the step the host takes, short of the line (AUDIT's 02:09Z MUST), never refusing the whole of it.
+        Assert.That(drag.Follow(8f, -20f), Is.True);
+        Assert.That(asked[1].Item1, Is.EqualTo(8f).Within(1e-4), "the whole step asked first");
+        Assert.That(drag.Moved.Yaw, Is.GreaterThan(3f).And.LessThan(5f), "as far as the host takes");
+        Assert.That(drag.Refused, Is.EqualTo("the plane's own"));
     }
 
     [Test]
@@ -107,10 +109,14 @@ public class MenuDragTests
         Assert.That(MenuDrag.WithinReach(new PanelDirection(50f, -25f, true, false), 0f, quest3S), Is.False, "past the field less its margin");
         Assert.That(MenuDrag.WithinReach(new PanelDirection(50f, -25f, true, false), 32f, quest3S), Is.True, "the stage turned aside, its centre 32 degrees right");
         var drag = new MenuDrag(Placed, (0f, 0f), 0f, -20f, MenuAndFile(), Array.Empty<BodyInView>(), field: quest3S, stageYaw: 0f);
-        drag.Follow(100f, -20f);
-        Assert.That(drag.Moved, Is.EqualTo((0f, 0f)), "a sweep a hundred degrees right is not taken");
+        // A sweep a hundred degrees right goes as far as the stage's reach allows, never past it, and says so (AUDIT's 02:09Z MUST).
+        Assert.That(drag.Follow(100f, -20f), Is.True);
+        Assert.That(drag.Moved.Yaw, Is.GreaterThan(0f));
+        Assert.That(MenuDrag.WithinReach(drag.At, 0f, quest3S), Is.True, "it stops inside the reach");
+        Assert.That(drag.Refused, Is.EqualTo("the stage's reach"));
         Assert.That(drag.Follow(30f, -20f), Is.True);
         Assert.That(MenuDrag.WithinReach(drag.At, 0f, quest3S), Is.True);
+        Assert.That(drag.Refused, Is.Null, "followed all the way");
     }
 
     [Test]

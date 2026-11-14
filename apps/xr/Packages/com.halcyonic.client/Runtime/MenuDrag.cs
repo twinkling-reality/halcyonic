@@ -56,21 +56,45 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The held point moved to <paramref name="yaw"/> and <paramref name="elevation"/>, as seen from the
-        /// eyes: the plane follows, unless where it would go leaves the field or stands in front of a body
-        /// or a label. True when it moved.
+        /// eyes: the plane follows, as far toward there as it may go. Where the whole step would leave the field or
+        /// stand in front of a body or a label, it stops at the furthest tenth of the step that holds, never refusing
+        /// the whole step (AUDIT's 2026-11-14T02:09Z MUST: a drag down past the handle's reach stopped dead), and
+        /// <see cref="Refused"/> says which rule held it. True when it moved. Allocates nothing.
         /// </summary>
         public bool Follow(float yaw, float elevation)
         {
             var (toYaw, toElevation) = drag.Follow(yaw, elevation);
             var moved = (WorkspacePlacement.DeltaAngle(placed.Yaw, toYaw), toElevation - placed.Elevation);
             if (moved == Moved) return false;
+            Refused = Holding(moved);
+            if (Refused == null) { Moved = moved; return true; }
+            for (var tenths = 9; tenths > 0; tenths--)
+            {
+                var part = (Moved.Yaw + (moved.Item1 - Moved.Yaw) * tenths / 10f, Moved.Elevation + (moved.Item2 - Moved.Elevation) * tenths / 10f);
+                if (part == Moved) break;
+                if (Holding(part) != null) continue;
+                Moved = part;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The rule that held the plane short of where the hand last went, or null where it followed all the way:
+        /// "a character" (a body or its label), "the field", "the stage's reach", or "the plane's own" (its host's
+        /// judgement: the handle's hold area in the field, the shelf, its light line). Words for the log, not the person.
+        /// </summary>
+        public string? Refused { get; private set; }
+
+        /// <summary>The rule that refuses the plane at <paramref name="moved"/>, or null where it may stand there.</summary>
+        private string? Holding((float Yaw, float Elevation) moved)
+        {
             var to = Turned(placed, moved);
-            if (!WorkspacePlacement.Clears(to, bodies, composition.Size)) return false;
-            if (field is ViewField measured && !MenuPage.Inside(composition, to, measured)) return false;
-            if (field is ViewField seen && stageYaw is float centre && !WithinReach(to, centre, seen)) return false;
-            if (holds != null && !holds(moved)) return false;
-            Moved = moved;
-            return true;
+            if (!WorkspacePlacement.Clears(to, bodies, composition.Size)) return "a character";
+            if (field is ViewField measured && !MenuPage.Inside(composition, to, measured)) return "the field";
+            if (field is ViewField seen && stageYaw is float centre && !WithinReach(to, centre, seen)) return "the stage's reach";
+            if (holds != null && !holds(moved)) return "the plane's own";
+            return null;
         }
 
         /// <summary>
