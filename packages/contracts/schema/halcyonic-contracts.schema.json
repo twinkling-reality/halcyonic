@@ -18600,6 +18600,22 @@
         "passed": {
           "type": "boolean"
         },
+        "verdict": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "passed"
+            },
+            {
+              "type": "string",
+              "const": "failed"
+            },
+            {
+              "type": "string",
+              "const": "not_known"
+            }
+          ]
+        },
         "reads_confined": {
           "type": "boolean"
         },
@@ -18873,7 +18889,14 @@
           ]
         },
         "drawn": {
-          "type": "boolean"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "own": {
           "$ref": "#/$defs/CheckOwn"

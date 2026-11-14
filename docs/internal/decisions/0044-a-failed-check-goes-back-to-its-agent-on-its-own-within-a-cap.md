@@ -34,6 +34,12 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   a game not made yet, not a fault, and is not sent: no one asked this agent to make it. The first
   real run (2026-11-10, Codex 0.157.0 on a local 30B model) found this case: the first try fixed a
   type error, and the check still failed on the starter's own look.
+- Never on a check whose verdict is `not_known` (the lead, 2026-11-13): everything it saw passed
+  and the starter's own picture to compare the page with could not be made, a reference the
+  product could not make, never the agent's fault. No try is sent or counted and no chain begins;
+  a chain under way ends `nothing_to_send` with the tries it made. Any failure the check measured
+  or saw beside it (an exception, nothing drawn by its edges, the laptop reading under its floor)
+  makes the verdict `failed`, and the try goes as before.
 - The try is `execution.send_instruction`, submitted `internal` with a null principal through
   `CommandService`, so admission checks it like any command. Its text is the host's own words,
   marked as sent by the computer and not by the person, then the page's errors, which are already

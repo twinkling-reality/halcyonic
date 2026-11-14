@@ -103,8 +103,12 @@ interface PlaneOptions {
     readonly installedDir: string;
     readonly began: string;
   };
-  /** Whether the stand-in check makes the starter's own picture when asked; by default it does. */
-  readonly reference?: 'made' | 'fails';
+  /**
+   * Whether the stand-in check makes the starter's own picture when asked; by default it does. `fails`: its page never
+   * opens; `times_out_once`: the first making's picture is not taken in time, the next is; `does_not_build`: the
+   * starter's own build fails.
+   */
+  readonly reference?: 'made' | 'fails' | 'times_out_once' | 'does_not_build';
   /** What Halcyonic holds, which nothing journaled may carry. */
   readonly secrets?: () => readonly { readonly what: string; readonly value: string }[];
   /** Runs inside every check once its copy is built, where the real check serves it. */
@@ -191,6 +195,7 @@ function plane(
   const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-previews-')));
   t.after(() => rmSync(dataDir, { recursive: true, force: true }));
   const checked: CheckOptions[] = [];
+  let makings = 0;
   const served: ServeArgs[] = [];
   const children: ChildProcess[] = [];
   const { controlPlane, journal } = createTestControlPlane({
@@ -223,9 +228,18 @@ function plane(
         writeFileSync(join(options.cache, 'dist', 'index.html'), `<title>${options.cache}</title>`);
         await during?.(options);
         if (options.reference.kind !== 'making') return result;
+        makings += 1;
         // Making the starter's own picture (DRAWN): its frame, kept in the check's cache.
+        if (reference === 'does_not_build')
+          return { ...result, build: { exit: 1, seconds: 2 }, page: null, passed: false };
         if (reference === 'fails' || result.page === null)
           return { ...result, page: null, passed: false, unknown: 'Chrome did not open the page.' };
+        if (reference === 'times_out_once' && makings === 1)
+          return {
+            ...result,
+            page: { ...result.page, own: { share: null, reference: 'unavailable', frame: null } },
+            passed: false,
+          };
         const file = join(options.cache, 'own-frame.png');
         writeFileSync(file, FRAME);
         const sha256 = createHash('sha256').update(FRAME).digest('hex');
@@ -535,20 +549,115 @@ describe("the starter's own picture a check compares a project's with (DRAWN)", 
     assert.deepEqual(checked[0]?.reference, { kind: 'other_template' });
   });
 
-  test('one that cannot be made is unavailable, never guessed, and is tried again at the next check', async (t) => {
+  test('one that cannot be made is unavailable, never guessed, made once more in the same check, and tried again at the next check', async (t) => {
     const starters = rooted(t);
     const { submit, done, checked, dataDir } = plane(t, {
       starters: { ...starters, began: starters.template },
       reference: 'fails',
     });
     await done(submit('project.check').command.command_id);
-    assert.equal(checked.length, 2);
-    assert.equal(checked[1]?.reference.kind, 'unavailable');
+    assert.deepEqual(
+      checked.map((options) => options.reference.kind),
+      ['making', 'making', 'unavailable'],
+      'a page that did not load is made once more, never more',
+    );
+    // The second making is the first's own: the same folders, the same browser and launcher, nothing looser.
+    const [first, again] = checked;
+    for (const part of [
+      'project',
+      'cache',
+      'chrome',
+      'launcher',
+      'home',
+      'starter',
+      'node',
+    ] as const)
+      assert.equal(again?.[part], first?.[part], part);
     const references = join(dataDir, 'checks', 'references', 'iwsdk-vr');
     assert.deepEqual(existsSync(references) ? readdirSync(references) : [], [], 'nothing kept');
     await done(submit('project.check').command.command_id);
-    assert.equal(checked.length, 4, 'made again, then the project');
-    assert.equal(checked[2]?.reference.kind, 'making');
+    assert.equal(checked.length, 6, 'made again, at most twice, then the project');
+    assert.equal(checked[3]?.reference.kind, 'making');
+  });
+
+  test('a making whose picture was not taken in time is made once more in the same check, and compared with (C4)', async (t) => {
+    const starters = rooted(t);
+    const { submit, done, checked, dataDir } = plane(t, {
+      starters: { ...starters, began: starters.template },
+      reference: 'times_out_once',
+    });
+    await done(submit('project.check').command.command_id);
+    assert.deepEqual(
+      checked.map((options) => options.reference.kind),
+      ['making', 'making', 'compared'],
+    );
+    const references = join(dataDir, 'checks', 'references', 'iwsdk-vr');
+    const [key] = readdirSync(references);
+    assert.deepEqual(readdirSync(join(references, key ?? '')), ['frame.png'], 'kept once made');
+  });
+
+  test('a starter that does not build is its own fault: made once, never again in that check, and the next check makes it (C4, C5)', async (t) => {
+    const starters = rooted(t);
+    const { submit, done, checked, dataDir } = plane(t, {
+      starters: { ...starters, began: starters.template },
+      reference: 'does_not_build',
+    });
+    await done(submit('project.check').command.command_id);
+    assert.deepEqual(
+      checked.map((options) => options.reference.kind),
+      ['making', 'unavailable'],
+    );
+    const references = join(dataDir, 'checks', 'references', 'iwsdk-vr');
+    assert.deepEqual(
+      existsSync(references) ? readdirSync(references) : [],
+      [],
+      'never kept as failed',
+    );
+    await done(submit('project.check').command.command_id);
+    assert.deepEqual(
+      checked.slice(2).map((options) => options.reference.kind),
+      ['making', 'unavailable'],
+      'not remembered: the next check makes it again',
+    );
+  });
+
+  test('a check whose only unknown is its own look is recorded not known, never failed, and its copy is served (VRIFY, 2026-11-13)', async (t) => {
+    const notKnown: CheckResult = {
+      ...PASSED,
+      page:
+        PASSED.page === null
+          ? null
+          : {
+              ...PASSED.page,
+              drawn: null,
+              own: { share: null, reference: 'unavailable', frame: null },
+            },
+      passed: false,
+      ready: false,
+    };
+    const { controlPlane, submit, done, projectId } = plane(t, { result: notKnown });
+    await done(submit('project.check').command.command_id);
+    const findings = controlPlane.projection.latestCheck(projectId)?.findings;
+    assert.equal(findings?.page?.drawn, null);
+    assert.equal(findings?.passed, false);
+    assert.equal(findings?.verdict, 'not_known');
+    const started = await done(submit('project.preview.start').command.command_id);
+    assert.equal(started?.status, 'completed', JSON.stringify(started));
+    // An exception beside the same unknown is a failure, recorded so, and not served.
+    const thrown: CheckResult = {
+      ...notKnown,
+      page:
+        notKnown.page === null
+          ? null
+          : { ...notKnown.page, exceptions: ['Uncaught Error'], exception_count: 1 },
+    };
+    const other = plane(t, { result: thrown });
+    await other.done(other.submit('project.check').command.command_id);
+    assert.equal(
+      other.controlPlane.projection.latestCheck(other.projectId)?.findings.verdict,
+      'failed',
+    );
+    assert.equal(other.submit('project.preview.start').outcome.disposition, 'rejected');
   });
 
   test('with no tracked template to read, there is none to compare with, and nothing is made', async (t) => {

@@ -19,7 +19,7 @@ import type {
 } from '@halcyonic/runtime-core';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import type { CheckOptions, CheckResult } from '../preview/check.ts';
-import { DRAWN_EDGES } from '../preview/check.ts';
+import { DRAWN_EDGES, drawnFrom, passes } from '../preview/check.ts';
 import { readingOf, readingPasses } from '../preview/laptop-probe.ts';
 import { createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
 import { AUTO_FIX_READING_WORDS, AUTO_FIX_WORDS } from './auto-fix.ts';
@@ -527,6 +527,69 @@ describe('a failed check goes back to its agent on its own, within a cap (ADR 00
     p.changedFiles(executionId, 0);
     await until(() => p.ended().length === 1, 'the end');
     assert.equal(p.ended()[0]?.payload.reason, 'no_change');
+  });
+});
+
+describe("a check whose starter's picture could not be made is never the agent's to fix (VRIFY, 2026-11-13)", () => {
+  /** Everything seen passed; the starter's own picture to compare with could not be made, as the check reads it. */
+  const unmade = (exceptions: string[] = []): CheckResult => {
+    const own = { share: null, reference: 'unavailable' as const, frame: null };
+    const seen = {
+      ...page(56_000),
+      exceptions,
+      exception_count: exceptions.length,
+      own,
+      drawn: drawnFrom(56_000, 56_000, own),
+    };
+    const ok = { exit: 0, seconds: 1 };
+    return {
+      ...UNEXPLAINED,
+      page: seen,
+      unknown: 'Not known whether it draws its own look.',
+      passed: passes(ok, UNEXPLAINED.build, seen),
+    };
+  };
+
+  test('no try is sent or counted and no chain begins; the check is recorded not known, never failed', async (t) => {
+    const p = plane(t, [unmade()]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.checksDone() === 1, 'the check');
+    await quiet();
+    const findings = p.controlPlane.projection.latestCheck(p.projectId)?.findings;
+    assert.equal(findings?.page?.drawn, null, 'drawn is not known, never false');
+    assert.equal(findings?.verdict, 'not_known');
+    assert.equal(findings?.passed, false, 'passed keeps its meaning');
+    assert.equal(p.sent().length, 0);
+    assert.equal(p.ended().length, 0, 'not even a chain that never began is recorded');
+    assert.equal(p.controlPlane.projection.execution(executionId)?.auto_fix, undefined);
+  });
+
+  test('a chain under way ends with the one try it made, and nothing more is sent', async (t) => {
+    const p = plane(t, [FAILED, unmade()]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the first try');
+    await p.time.runUntilIdle();
+    p.changedFiles(executionId);
+    await until(() => p.ended().length === 1, 'the end');
+    await quiet();
+    assert.equal(p.ended()[0]?.payload.reason, 'nothing_to_send');
+    assert.equal(p.ended()[0]?.payload.attempts, 1);
+    assert.equal(p.sent().length, 1);
+  });
+
+  test('an exception beside it is a failure the check saw: recorded failed and sent back as before (C1)', async (t) => {
+    const p = plane(t, [unmade(['Uncaught TypeError: boom'])]);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, 'the try');
+    assert.equal(p.controlPlane.projection.latestCheck(p.projectId)?.findings.verdict, 'failed');
+    assert.equal(
+      p.runtime.given[1],
+      `${AUTO_FIX_WORDS}\n\nThe page stopped on these errors:\n- Uncaught TypeError: boom`,
+    );
+    assert.doesNotMatch(p.runtime.given[1] ?? '', /not known|could not make/i);
   });
 });
 

@@ -55,6 +55,19 @@ public class CheckStepsTests
     }
 
     [Test]
+    public void ThePageStepReadsDrawnTrueFalseAndNotKnownEachItsOwnWay()
+    {
+        CheckStepResult Page(string drawn) => CheckSteps.Of(Findings(Passing.Replace("\"drawn\":true", "\"drawn\":" + drawn)))
+            .Single(step => step.Step == CheckStepKind.PageDrawn).Result;
+        Assert.That(Page("true"), Is.EqualTo(CheckStepResult.Passed));
+        Assert.That(Page("false"), Is.EqualTo(CheckStepResult.Failed));
+        var notKnown = Page("null");
+        Assert.That(notKnown, Is.EqualTo(CheckStepResult.Unknown), "the starter's picture could not be made, so whether it draws its own look is not known");
+        Assert.That(notKnown, Is.Not.EqualTo(CheckStepResult.Passed));
+        Assert.That(notKnown, Is.Not.EqualTo(CheckStepResult.Failed));
+    }
+
+    [Test]
     public void TheHostChecksMomentCarriesItsSteps()
     {
         var moment = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, at: null, steps: CheckSteps.Of(Findings(Passing)));

@@ -45,7 +45,8 @@ namespace Halcyonic.Client
 
     /// <summary>
     /// A host check's steps from its findings, each with its own result rather than the check's one passed or failed: the
-    /// type check and the build by their exits, the page by whether something was drawn (no page, not run), and VR by
+    /// type check and the build by their exits, the page by whether something was drawn (no page, not run; drawn not known,
+    /// since the host could not make the starter's picture to compare it with, unknown, never passed or failed), and VR by
     /// whether the page offered a session (absent on checks recorded before VR was checked, not run). A step that passed
     /// never says the game works (ADR 0037).
     /// </summary>
@@ -55,7 +56,12 @@ namespace Halcyonic.Client
         {
             CheckStepResult Exit(CheckStep step) =>
                 step.Exit == null ? CheckStepResult.StoppedAtLimit : step.Exit == 0 ? CheckStepResult.Passed : CheckStepResult.Failed;
-            var page = findings.Page == null ? CheckStepResult.NotRun : findings.Page.Drawn ? CheckStepResult.Passed : CheckStepResult.Failed;
+            var page = findings.Page == null ? CheckStepResult.NotRun : findings.Page.Drawn switch
+            {
+                true => CheckStepResult.Passed,
+                false => CheckStepResult.Failed,
+                null => CheckStepResult.Unknown,
+            };
             var vr = findings.Vr == null ? CheckStepResult.NotRun : (string?)findings.Vr.Offered switch
             {
                 "offered" => CheckStepResult.Passed,

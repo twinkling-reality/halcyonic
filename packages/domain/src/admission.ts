@@ -20,7 +20,7 @@ import {
   QUEUED_INSTRUCTIONS_MAX,
   WORLD_STARTER_ID,
 } from '@halcyonic/contracts';
-import { readingPasses } from './fix-steps.ts';
+import { checkServable, readingPasses } from './fix-steps.ts';
 import { foldersOverlap } from './folders.ts';
 import { COMMAND_POLICY, COMMAND_SAYING } from './policy.ts';
 import type { ExecutionFacts, Projection } from './projection.ts';
@@ -469,7 +469,8 @@ function admit(
           "The project's files may have changed since its last check. Check the project again first.",
         );
       }
-      if (!check.findings.passed) {
+      // A check whose only unknown is whether the page draws its own look is served too (VRIFY, 2026-11-13).
+      if (!checkServable(check.findings)) {
         return reject(
           scope,
           'invalid_state',
@@ -506,7 +507,8 @@ function admit(
           'invalid_state',
           "The game's files may have changed since its last check. Check the game again first.",
         );
-      if (!findings.passed)
+      // Only a failed check refuses here: one whose own look could not be compared refuses nothing for it (VRIFY).
+      if (!checkServable(findings))
         return reject(
           scope,
           'invalid_state',

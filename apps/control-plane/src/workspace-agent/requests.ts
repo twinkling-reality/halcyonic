@@ -44,7 +44,13 @@ import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
 import { type CommandEntry, sayable } from './actions.ts';
 import { checkOfTask, hostDetails, taskEvidence } from './evidence.ts';
-import { checkWords, looksLikeRecords, statusWords, taskWords } from './fact-words.ts';
+import {
+  checkStateOf,
+  checkWords,
+  looksLikeRecords,
+  statusWords,
+  taskWords,
+} from './fact-words.ts';
 import {
   TOOL_MODEL_BOUNDS,
   type ToolCall,
@@ -1869,8 +1875,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
               ),
               turn_ended: count((run) => run?.status === 'completed'),
               not_started: count((run) => run === undefined),
-              latest_check:
-                check === undefined ? 'not_checked' : check.findings.passed ? 'passed' : 'failed',
+              latest_check: check === undefined ? 'not_checked' : checkStateOf(check.findings),
               sent_back_on_its_own_now: runs.some((run) => run?.auto_fix?.state === 'fixing'),
             };
           }),
@@ -1930,7 +1935,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
             check === undefined
               ? { state: 'not_checked' }
               : {
-                  state: check.findings.passed ? 'passed' : 'failed',
+                  state: checkStateOf(check.findings),
                   files_since_check: check.files,
                   recorded_at: check.recorded_at,
                 },
@@ -3135,9 +3140,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       tasks: counts(projects.map((project) => project.project_id)),
       projects: {
         total: projects.length,
-        checks_failed: projects.filter(
-          (project) => plane.projection.latestCheck(project.project_id)?.findings.passed === false,
-        ).length,
+        checks_failed: projects.filter((project) => {
+          // A check whose only unknown is its own look is not a failed one (VRIFY, 2026-11-13).
+          const findings = plane.projection.latestCheck(project.project_id)?.findings;
+          return findings !== undefined && checkStateOf(findings) === 'failed';
+        }).length,
       },
     };
   }
