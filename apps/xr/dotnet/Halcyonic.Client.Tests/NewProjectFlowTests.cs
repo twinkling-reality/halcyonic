@@ -2587,6 +2587,8 @@ public class NewProjectFlowTests
         var facts = flow.Frame!;
         var bar = RoomBar.NewProject(facts, VoiceStage.Idle)!;
         Assert.That(bar.Card!.Press!.Action, Is.EqualTo(NewProjectScreens.ReadRecap), "the card is the way to the words whole");
+        Assert.That(bar.Card.DescriptionMostLines, Is.EqualTo(facts.Card!.DescriptionMostLines).And.EqualTo(NewProjectScreens.RecapFirstTaskLines),
+            "pressed, the recap keeps its first task to its three lines (FIELD's 02:06Z)");
         Press(flow, NewProjectScreens.ReadRecap, null);
         var reading = flow.Frame!;
         Assert.That(reading.SubjectRuns.Text, Is.EqualTo(flow.Idea!.Name), "the card opened: its own title, the project's name, as the page's title");
