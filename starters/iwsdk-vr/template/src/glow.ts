@@ -487,7 +487,7 @@ export function lightKeys(
         const c = hue.get(key.midi) as Color;
         // Dark glass needs more light to be seen lit: a black key's glow is stronger, and its front face lights too.
         const gain = key.black ? 3 : 1;
-        heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.016, 0.016, c, 0.35 * gain * amount);
+        heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.016, 0.016, c, 0.28 * gain * amount);
         const mid = key.length / 2;
         face.place(x + ox * mid, y + 0.001, z + oz * mid, tx, 0, tz, ox, 0, oz, key.width * 0.85, key.length, c, 0.2 * gain * amount);
         // Its front face too, carried up over the edge so the top and the front read as one lit key.
@@ -612,11 +612,13 @@ export function fallingNotes(
       drops.place(lx + px * mid, spot.y + 0.004 + py * mid, lz + pz * mid, 1, 0, 0, px, py, pz, spot.width * 0.22, to - from, colour, strength);
       heads.add(lx + px * from, spot.y + 0.006 + py * from, lz + pz * from, 0.01, 0.01, colour, 0.9 * seen ** 2.2);
     }
-    if (now >= start && now < end) {
+    if (now >= start && now < end + 0.45) {
       const since = now - start;
       const strike = Math.exp(-since * 5);
-      // Bright at the strike, then only a low glow while the note is held: nothing stands on a key waiting.
-      const amount = 0.2 + 0.8 * strike;
+      // Bright at the strike, then only a low glow while the note is held, and dying away for a moment after it is
+      // let go, so even the shortest note is seen to light its key: nothing stands on a key waiting.
+      const after = now > end ? Math.exp(-(now - end) * 7) : 1;
+      const amount = (0.2 + 0.8 * strike) * after;
       keys.light(note.pitch, colour, amount * (0.65 + 0.35 * note.loud));
       flares.add(lx, spot.y + 0.012, lz, 0.022, 0.022, colour, strike * 0.4);
       // Light blooms up from the key where it landed, rising and fading.
@@ -643,14 +645,17 @@ export function fallingNotes(
     // Each answer comes as the note sounds and is gone within about a second, so it is seen to answer that note.
     const strength = 0.3 * (0.4 + note.loud) * Math.exp(-since * 2.2) * Math.min(1, since / 0.05);
     const c = tinted(note);
-    // Where its key points, and three more a third of a turn apart round the whole hall, their bearing taken from the
-    // moment the note sounds (a golden-ratio step round the circle), so the hall is lit as brightly beside and behind
-    // as ahead and its light never falls into one pattern; heights vary with the note and the moment.
+    // Where its key points, and three more a third of a turn apart round the whole hall, their bearing a hash of the
+    // note's key and the moment it sounds, so the hall is lit as brightly beside and behind as ahead, one note's
+    // answers never step from the last note's by a steady angle (which reads as the hall turning), and its light
+    // never falls into one pattern; heights vary with the note and the moment.
     echoes.add(Math.sin(a) * far, 3.2 + 2 * up, -Math.cos(a) * far, 0.05, 0.05, c, strength);
-    const b = (((start * 0.6180339887) % 1) + 1) % 1 * Math.PI * 2;
+    const h = Math.sin(start * 12.9898 + note.pitch * 78.233) * 43758.5453;
+    const b = (h - Math.floor(h)) * Math.PI * 2;
     for (let k = 0; k < 3; k++) {
       const bk = b + (k * Math.PI * 2) / 3;
-      const rise = 3 + 2.5 * up + 1.5 * ((((start * 7.31 + k * 0.37) % 1) + 1) % 1);
+      const g = Math.sin(start * 39.3467 + k * 11.135 + note.pitch * 3.7) * 24634.6345;
+      const rise = 3 + 2.5 * up + 1.5 * (g - Math.floor(g));
       echoes.add(Math.sin(bk) * far, rise, -Math.cos(bk) * far, 0.05, 0.05, c, 1.8 * strength);
     }
   };
@@ -665,7 +670,7 @@ export function fallingNotes(
       heads.begin();
       blooms.begin();
       flares.begin();
-      player.each(0.2, fall / speed, draw);
+      player.each(0.5, fall / speed, draw);
       echoes.begin();
       player.each(2, 0, echo);
       echoes.end();
