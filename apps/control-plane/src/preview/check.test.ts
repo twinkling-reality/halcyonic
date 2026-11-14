@@ -95,7 +95,7 @@ describe('the check of a project from a starter (ADR 0037)', () => {
   test("the finding where the starter's picture could not be made is the host's own sentence, never the app as the cause (VRIFY)", () => {
     assert.equal(
       OWN_LOOK_NOT_KNOWN,
-      "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Press Check to try again.",
+      "Not known whether it draws its own look: the check could not make the starter's picture to compare it with. Checking the project again may make it.",
     );
     assert.doesNotMatch(OWN_LOOK_NOT_KNOWN, /fail/i);
     // The finding is that sentence alone: the reason, even the host's own, never a browser's or a build's message (C7).
