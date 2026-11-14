@@ -233,10 +233,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 Draw();
                 bool decidesWidth;
                 string? lastWidth;
-                lock (widths) { decidesWidth = widths.Count > 0; lastWidth = widths.LastOrDefault(); }
+                // Cleared before the Close, since its own width is laid within the press's draw (XR, 2026-11-14T00:47Z).
+                lock (widths) { decidesWidth = widths.Count > 0; lastWidth = widths.LastOrDefault(); widths.Clear(); }
                 if (Press(Footer.Close))
                 {
-                    lock (widths) widths.Clear();
                     Draw();
                     Draw();
                     lock (widths)
