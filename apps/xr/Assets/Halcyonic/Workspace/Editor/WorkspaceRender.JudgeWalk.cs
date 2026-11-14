@@ -320,7 +320,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     // Every reading names its window (5-Hour Window or Weekly), its own fact first since 3e642b126 handed it apart from
                     // the agent's label, never on a dot: required in its place, as the four after it are.
-                    if (facts.Select(fact => fact.Name).SequenceEqual(new[] { UsageText.Window, UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }) == false
+                    if (facts.Select(fact => fact.Name).SequenceEqual(UsageText.RecordedEvidence) == false
                         || facts.LastOrDefault()?.Value != UsageText.PartOfTheRecording)
                         failures.Add(name + ": the recorded limit's complete evidence did not retain Window, Agent app, Seen, Resets and Account provenance.");
                 }

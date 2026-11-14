@@ -732,6 +732,12 @@ namespace Halcyonic.Client
         /// <summary>A limit's fact naming its window ("5-Hour Window" or "Weekly"), apart from the agent's label in the title.</summary>
         public const string Window = "Window";
 
+        /// <summary>
+        /// A recorded limit's side panel, its facts in order: the window, the agent app, when it was seen, when it resets, whose account.
+        /// The one list the client test and the landing's walks both read, so neither drifts from the panel (AUDIT's 2026-11-14T06:17Z).
+        /// </summary>
+        public static readonly System.Collections.Generic.IReadOnlyList<string> RecordedEvidence = new[] { Window, AgentApp, Seen, Resets, Account };
+
         /// <summary>A time the reading did not give, in its own place.</summary>
         public const string NotKnown = "not known";
 

@@ -187,7 +187,9 @@ public class UsageColumnTests
             Assert.That(opened.Side!.Subject, Is.EqualTo(line.Words));
             var allFacts = DetailFacts(usage);
             Assert.That(allFacts.Single(fact => fact.Name == UsageText.Account).Value, Is.EqualTo(UsageText.PartOfTheRecording));
-            Assert.That(allFacts.Select(fact => fact.Name), Is.EqualTo(new[] { UsageText.Window, UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }));
+            // The one list the landing's walks read too (UsageText.RecordedEvidence), so the two cannot drift apart again.
+            Assert.That(allFacts.Select(fact => fact.Name), Is.EqualTo(UsageText.RecordedEvidence));
+            Assert.That(UsageText.RecordedEvidence, Is.EqualTo(new[] { "Window", "Agent App", "Seen", "Resets", "Account" }), "the panel's facts in their order, by name");
             Assert.That(usage.Frame!.Lines.Single().Key, Is.EqualTo(line.Key), "detail paging never advances the limit list");
             usage.Act(SidePanel.Close, null);
             usage.Act(Footer.NextPage, null);
