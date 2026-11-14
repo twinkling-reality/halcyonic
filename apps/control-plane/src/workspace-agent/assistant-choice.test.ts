@@ -351,7 +351,7 @@ test("a press on a hosted row waits on the host's own card: its button, the mode
   assert.deepEqual(step?.proposal?.warnings, [
     {
       code: 'sent_to_provider',
-      line: 'Your requests, and what the assistant reads in your projects, go to Test Hosted',
+      line: 'Your requests and what it reads in your projects leave this computer for Test Hosted',
     },
     { code: 'price_unknown', line: "Test Hosted sets each request's price; it is not shown here" },
     { code: 'free_here', line: "To stop paying, choose This Computer's Model, which is free" },

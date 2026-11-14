@@ -357,7 +357,7 @@ public class UsageColumnTests
                "runtime_status":null,"summary":"Use test-model-1",
                "proposal":{"command_type":"assistant.model.choose","confirm":{},"review":"review-1","said":[],
                  "confirm_words":"Use This Model","facts":[],
-                 "warnings":[{"code":"sent_to_provider","line":"Your requests, and what the assistant reads in your projects, go to Test Hosted"},{"code":"price_unknown","line":"Test Hosted sets each request's price; it is not shown here"}],
+                 "warnings":[{"code":"sent_to_provider","line":"Your requests and what it reads in your projects leave this computer for Test Hosted"},{"code":"price_unknown","line":"Test Hosted sets each request's price; it is not shown here"}],
                  "what_happens":"From now on the assistant answers on test-model-1, and each request costs money on your own Test Hosted account."}}]}}
             """;
 
