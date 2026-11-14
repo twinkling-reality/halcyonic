@@ -2465,8 +2465,11 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
     SLOW_TEST,
     async (t) => {
       const { sandbox, start } = await harness(t, { runtime: confined });
-      // zsh writes every here-document and here-string under TMPPREFIX, /tmp/zsh unless it is set.
+      // zsh writes every here-document and here-string under TMPPREFIX, /tmp/zsh unless it is set. Each step's result
+      // goes to a file in the project, not to the command's output: Codex leaves out what a command printed before it
+      // outlived the startup wait, which node's start under load can make this script do.
       const script = [
+        '{',
         "cat > here-document.txt <<'END'",
         'from a here-document',
         'END',
@@ -2478,10 +2481,13 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
         'echo "tmpdir=$TMPDIR"',
         // macOS's own mktemp, given no template, uses the person's temporary folder whatever TMPDIR is.
         'mktemp > /dev/null 2>&1; echo plain=$?',
+        '} > steps.txt 2>&1',
       ].join('\n');
       const execution = await start(`CMD_JSON:${JSON.stringify(script)}`);
       await execution.next('runtime.turn.completed');
-      const output = commandOutput(execution);
+      const steps = join(sandbox.project, 'steps.txt');
+      assert.ok(existsSync(steps), `the script never ran: ${commandOutput(execution)}`);
+      const output = readFileSync(steps, 'utf8');
       assert.doesNotMatch(output, /can't create temp file/);
       for (const step of ['heredoc=0', 'herestring=0', 'mktemp=0', 'own=yes'])
         assert.ok(output.includes(step), `${step} in ${output}`);
@@ -2499,6 +2505,31 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
         readFileSync(join(sandbox.project, 'here-string.txt'), 'utf8'),
         'from-a-here-string\n',
       );
+    },
+  );
+
+  test(
+    'Codex leaves out what a command printed before it outlived the startup wait, so that output is never whole',
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t, { runtime: confined });
+      const execution = await start('CMD:echo early=1; sleep 2; echo late=1');
+      await execution.next('runtime.turn.completed');
+      const result = execution.observations.find(
+        (observation) => observation.type === 'runtime.tool.result',
+      )?.payload;
+      assert.ok(result?.kind === 'command', commandOutput(execution));
+      // What 0.157.0 does: only the line after the wait. If this fails, Codex may keep it all now: see whether the
+      // adapter's "source_cut" is still owed (validation/codex-capabilities.md).
+      assert.equal(result.output.text, 'late=1\n', commandOutput(execution));
+      assert.equal(result.output.complete, false);
+      assert.equal(result.output.truncation, 'source_cut');
+      // The model was given both lines.
+      const input = sandbox.provider.requests.at(-1)?.body?.input;
+      assert.ok(Array.isArray(input));
+      const reply = input.find((item) => isRecord(item) && item.type === 'function_call_output');
+      assert.ok(isRecord(reply));
+      assert.match(String(reply.output), /early=1\nlate=1/);
     },
   );
 

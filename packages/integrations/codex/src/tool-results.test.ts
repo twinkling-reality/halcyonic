@@ -26,6 +26,41 @@ test('only native final fields supply exit and completion; a source over 64KiB i
   );
 });
 
+test("a command that outlived Codex's startup wait is never called whole: Codex leaves out what it printed first", () => {
+  const output = (item: Record<string, unknown>) => {
+    const result = nativeToolResult(
+      { type: 'commandExecution', status: 'completed', exitCode: 0, ...item },
+      'tool',
+      'turn',
+      '/project',
+    );
+    return result?.kind === 'command' ? result.output : null;
+  };
+  // Seen on 0.157.0: `echo early=1; echo also=1; sleep 1; echo late=1` reported only its last line, at 868 ms.
+  assert.deepEqual(output({ aggregatedOutput: 'late=1\n', durationMs: 868 }), {
+    text: 'late=1\n',
+    availability: 'available',
+    complete: false,
+    truncation: 'source_cut',
+  });
+  // Ended inside the wait: reported at 0 ms, whole.
+  assert.deepEqual(output({ aggregatedOutput: 'early=1\nlate=1\n', durationMs: 0 }), {
+    text: 'early=1\nlate=1\n',
+    availability: 'available',
+    complete: true,
+    truncation: 'none',
+  });
+  // No duration says nothing either way, except for a command that was declined and never ran.
+  assert.equal(output({ aggregatedOutput: 'done' })?.truncation, 'source_cut');
+  assert.equal(output({ aggregatedOutput: '', status: 'declined' })?.complete, true);
+  // An output not given, or too large, keeps its own reason.
+  assert.equal(output({ durationMs: 868 })?.truncation, 'absent');
+  assert.equal(
+    output({ aggregatedOutput: 'x'.repeat(65537), durationMs: 868 })?.truncation,
+    'source_limit',
+  );
+});
+
 test('foreign, malformed, traversal and unknown rename paths omit patch content without filesystem access', () => {
   for (const path of [
     'C:/project/file',

@@ -19,6 +19,21 @@ function body(value: unknown): ToolResultBody {
   // Admitted whole native text. The host replaces held values before applying stored body bounds.
   return { text: value, availability: 'available', complete: true, truncation: 'none' };
 }
+/**
+ * A command's output. Codex 0.157.0 leaves out what a command printed before it outlived the startup wait: in neither
+ * `aggregatedOutput` nor any output delta, while the model gets it all. Such a command is the one whose `durationMs` is
+ * above 0 (0 for every command that ended inside the wait), so its text is kept but never called whole
+ * (validation/codex-capabilities.md, "A command's early output", 2026-11-14).
+ */
+function commandBody(item: Record<string, unknown>): ToolResultBody {
+  const output = body(item.aggregatedOutput);
+  // No duration on a command that ran says nothing either way; a declined command never ran.
+  const outlived =
+    typeof item.durationMs === 'number' ? item.durationMs > 0 : item.status !== 'declined';
+  return output.text !== null && outlived
+    ? { ...output, complete: false, truncation: 'source_cut' }
+    : output;
+}
 function path(
   value: unknown,
   directory: string | null,
@@ -72,7 +87,7 @@ export function nativeToolResult(
         Number(item.exitCode) <= 2147483647
           ? Number(item.exitCode)
           : null,
-      output: body(item.aggregatedOutput),
+      output: commandBody(item),
     };
   if (item.type !== 'fileChange' || !Array.isArray(item.changes)) return null;
   const files: ToolResultFile[] = [];

@@ -64,3 +64,10 @@ device presentation still require independent evidence. No terminal stream, new 
 automatic build, installation, launch or retry is introduced.
 
 Validation: [recorded-tool-results.md](../validation/recorded-tool-results.md).
+
+## Amendment, 2026-11-14: an agent app's own cut is named
+
+Where an adapter has seen its agent app leave out part of an output it reports as final, the body
+says so: `complete: false` with truncation `source_cut`, and the text it gave. The host's own
+shortening keeps that reason. Codex 0.157.0 declares it for a command that outlived its startup
+wait (INTEGRATIONS.md); otherwise native producer truncation stays unknown, as above.

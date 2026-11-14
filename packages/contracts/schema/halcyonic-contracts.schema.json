@@ -25612,6 +25612,10 @@
             {
               "type": "string",
               "const": "malformed"
+            },
+            {
+              "type": "string",
+              "const": "source_cut"
             }
           ]
         }
