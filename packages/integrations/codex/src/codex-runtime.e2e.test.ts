@@ -2123,11 +2123,32 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
     },
   });
   /** Runs one command as the model's, on a confined thread, and returns what it printed. */
+  /**
+   * A probe's answer is read whole from a file its command writes in the project, never from the tool result: Codex
+   * 0.157.0 leaves out what a command printed before it outlived its startup wait (validation/codex-capabilities.md,
+   * "A command's early output"), so a security fact must never pass or fail on that, an absence above all. `probe`
+   * wraps a command so its output and errors also go to that file; `probed` reads it, and holds each tool result to
+   * what it claims: whole, it holds the file's text; not whole, it says why (source_cut).
+   */
+  const PROBE = 'probe-answer.txt';
+  const probe = (command: string): string => `{ ${command}\n} 2>&1 | tee ${PROBE}`;
+  const probed = (sandbox: CodexSandbox, execution: Execution): string => {
+    const answer = readFileSync(join(sandbox.project, PROBE), 'utf8');
+    for (const observation of execution.observations) {
+      if (observation.type !== 'runtime.tool.result') continue;
+      const result = observation.payload;
+      if (result.kind !== 'command' || result.output.text === null) continue;
+      if (result.output.complete)
+        assert.ok(result.output.text.includes(answer), result.output.text);
+      else assert.equal(result.output.truncation, 'source_cut', JSON.stringify(result.output));
+    }
+    return answer;
+  };
   const runAsModel = async (t: TestContext, command: string) => {
     const { sandbox, start } = await harness(t, { runtime: confined });
-    const execution = await start(`CMD:${command}`);
+    const execution = await start(`CMD_JSON:${JSON.stringify(probe(command))}`);
     await execution.next('runtime.turn.completed');
-    return { sandbox, output: commandOutput(execution) };
+    return { sandbox, output: probed(sandbox, execution) };
   };
   const commandOutput = (execution: Execution): string =>
     execution.observations
@@ -2139,9 +2160,9 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
     const { sandbox, start } = await harness(t, { runtime: confined });
     const outside = join(sandbox.root, 'outside-secret.txt');
     await writeFile(outside, 'marker-5d2e\n');
-    const execution = await start(`CMD:cat ${outside}`);
+    const execution = await start(`CMD_JSON:${JSON.stringify(probe(`cat ${outside}`))}`);
     await execution.next('runtime.turn.completed');
-    const output = commandOutput(execution);
+    const output = probed(sandbox, execution);
     assert.match(output, /Operation not permitted/);
     assert.doesNotMatch(output, /marker-5d2e/);
   });
@@ -2220,16 +2241,16 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
       assert.equal(hosted.served, 'remote');
       assert.equal(hosted.provider, 'meta');
       // A command on the thread: the gate's credential is not in its environment (AUDIT3's read, B).
+      const asked = probe(
+        'echo gate=${HALCYONIC_GATE_META_TOKEN:-none} openai=${OPENAI_API_KEY:-none}; echo ps-credentials=$(/bin/ps -axeww -o command= 2>/dev/null | grep -c halcyonic-gate-run-)',
+      );
       const execution = await start(
-        'CMD:echo gate=${HALCYONIC_GATE_META_TOKEN:-none} openai=${OPENAI_API_KEY:-none}; echo ps-credentials=$(/bin/ps -axeww -o command= 2>/dev/null | grep -c halcyonic-gate-run-)',
+        `CMD_JSON:${JSON.stringify(asked)}`,
         {},
         'halcyonic_meta/muse-wonder-1.0',
       );
       await execution.next('runtime.turn.completed', 1, 90_000);
-      const output = execution.observations
-        .filter((observation) => observation.type === 'runtime.tool.result')
-        .map((observation) => JSON.stringify(observation.payload))
-        .join('\n');
+      const output = probed(sandbox, execution);
       assert.match(output, /gate=none openai=none/);
       // Nor can it read the server's environment through ps: no process shows a run credential.
       assert.match(output, /ps-credentials=0/);
@@ -2286,10 +2307,10 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
       // As a person's home has one: git stops at a configuration file the profile refuses to it.
       await writeFile(join(sandbox.env.HOME ?? '', '.gitconfig'), '[user]\n\tname = box\n');
       const execution = await start(
-        'CMD:echo "home=$HOME" > box-home.txt; git status --short --branch; echo status=$?; git log --oneline -1; echo log=$?',
+        `CMD_JSON:${JSON.stringify(probe('echo "home=$HOME" > box-home.txt; git status --short --branch; echo status=$?; git log --oneline -1; echo log=$?'))}`,
       );
       await execution.next('runtime.turn.completed');
-      const output = commandOutput(execution);
+      const output = probed(sandbox, execution);
       t.diagnostic(output);
       assert.match(output, /status=0/);
       assert.match(output, /log=0/);
@@ -2655,9 +2676,9 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
         'mkdir -p "$TMPDIR/locked/inner" && touch "$TMPDIR/locked/inner/file"',
         'chmod 555 "$TMPDIR/locked/inner" && chmod 000 "$TMPDIR/locked"; echo locked=$?',
       ].join('\n');
-      const execution = await start(`CMD_JSON:${JSON.stringify(script)}`);
+      const execution = await start(`CMD_JSON:${JSON.stringify(probe(script))}`);
       await execution.next('runtime.turn.completed');
-      const output = commandOutput(execution);
+      const output = probed(sandbox, execution);
       for (const step of ['listed=0', 'linked=0', 'locked=0'])
         assert.ok(output.includes(step), `${step} in ${output}`);
       assert.doesNotMatch(output, /left-by-an-earlier-run/);
@@ -2709,9 +2730,11 @@ describe('Codex 0.157.0 confined to its project (ADR 0041)', {
     await writeFile(join(app, 'Contents', 'MacOS', 'marker'), `#!/bin/sh\ntouch '${marker}'\n`, {
       mode: 0o755,
     });
-    const execution = await start(`CMD:open -g -j ${app}; echo open=$?`);
+    const execution = await start(
+      `CMD_JSON:${JSON.stringify(probe(`open -g -j ${app}; echo open=$?`))}`,
+    );
     await execution.next('runtime.turn.completed');
-    assert.match(commandOutput(execution), /open=1/);
+    assert.match(probed(sandbox, execution), /open=1/);
     await delay(1000);
     assert.ok(!existsSync(marker), 'the app was not opened');
   });
