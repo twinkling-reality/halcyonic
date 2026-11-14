@@ -244,12 +244,14 @@ namespace Halcyonic.Client
         /// Said under a prompt's answers where some read the same, with Stop where the page offers it, as stopping
         /// is the only way to the one meant (settled by the coordinator, 2026-10-07).
         /// </summary>
+        /// <remarks>One sentence for one fact, never two on a dot, Stop named as a deed (AUDIT2's 2026-11-14T05:49Z words).</remarks>
         public static string AlikeCantBeChosen(bool stop) =>
-            "Duplicate Answers · Not Selectable" + (stop ? " · Stop Task" : "");
+            FileScreens.AlikeLine + (stop ? "; stopping the task is the only way past them" : "");
 
         /// <summary>Why words typed or heard weren't taken, as a notice (settled by the coordinator, 2026-10-07).</summary>
+        /// <remarks>One sentence, never two facts on a dot (AUDIT2's 2026-11-14T05:49Z words).</remarks>
         public static string TypedReadsAlike(bool stop) =>
-            "Matches Duplicate Answers · " + (stop ? "Answer Differently or Stop Task" : "Answer Differently");
+            "That matches answers that share a name: answer differently" + (stop ? ", or stop the task" : "");
 
         /// <summary>
         /// The prompt offers two answers whose labels read the same (<see cref="AsShown"/>). An answer names

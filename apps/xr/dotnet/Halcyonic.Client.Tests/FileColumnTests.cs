@@ -2310,7 +2310,7 @@ public class FileColumnTests
         }));
         Assert.That(draft.Problem, Is.EqualTo("Choose or Write First"));
         // Typed or heard alike words are refused; the editor has no Stop action, so its refusal promises none.
-        const string typedAlike = "Matches Duplicate Answers · Answer Differently";
+        const string typedAlike = "That matches answers that share a name: answer differently";
         column.Act(FileScreens.TypeAnswer, "3");
         host.Keyboard!.Value.Done("Yes\t");
         Assert.That((draft.Typed(0), column.Frame!.Footer[PromptSlot.FarRight]!.Reason), Is.EqualTo(((string?)null, typedAlike)), "alike text is not usable and says why beside Use, without promising Stop absent from the editor");
@@ -2319,12 +2319,12 @@ public class FileColumnTests
         column.HoldStarted(FileScreens.SpeakAnswer);
         column.Heard(" Yes");
         Assert.That(draft.Typed(0), Is.Null, "heard alike, the same");
-        Assert.That(draft.Type(0, "Yes", stopOnPage: false), Is.EqualTo("Matches Duplicate Answers · Answer Differently"));
+        Assert.That(draft.Type(0, "Yes", stopOnPage: false), Is.EqualTo("That matches answers that share a name: answer differently"));
         Assert.That(draft.Type(0, "Yes, but keep a copy"), Is.Null, "other words are an answer");
         // Refused more loosely than answers are told apart: speech writes "Yes." for "Yes", and the agent reads words as it likes.
         foreach (var heard in new[] { " Yes.", "yes", "YES!", "Yes ?", "yes,", "Yes \t" })
         {
-            Assert.That(draft.Type(0, heard), Is.EqualTo("Matches Duplicate Answers · Answer Differently"), heard);
+            Assert.That(draft.Type(0, heard), Is.EqualTo("That matches answers that share a name: answer differently"), heard);
         }
         Assert.That(draft.Type(0, "Yes please"), Is.Null, "other words are an answer");
 
@@ -2358,7 +2358,7 @@ public class FileColumnTests
         Draw(other, unstoppable);
         unstoppable.Act(FileScreens.TypeAnswer, "3");
         other.Keyboard!.Value.Done("Yes.");
-        Assert.That(unstoppable.Frame!.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Matches Duplicate Answers · Answer Differently"),
+        Assert.That(unstoppable.Frame!.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("That matches answers that share a name: answer differently"),
             "never Stop where the page offers none");
         Assert.That(unstoppable.Screen.Question.Draft!.Typed(0), Is.Null);
 
@@ -2932,4 +2932,21 @@ public class FileColumnTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    /// <summary>
+    /// The words said where answers share a name, each one sentence and never two facts on a dot (AUDIT2's 2026-11-14T05:49Z), Stop
+    /// named as a deed, never as a button: under the answers, and why typed or heard words that match them were not taken.
+    /// </summary>
+    [Test]
+    public void TheWordsWhereAnswersShareANameAreOneSentenceEachNeverOnADot()
+    {
+        Assert.That(new[] { WorkspaceText.AlikeCantBeChosen(false), WorkspaceText.AlikeCantBeChosen(true), WorkspaceText.TypedReadsAlike(false), WorkspaceText.TypedReadsAlike(true) },
+            Is.EqualTo(new[]
+            {
+                "These share a name, so none can be chosen",
+                "These share a name, so none can be chosen; stopping the task is the only way past them",
+                "That matches answers that share a name: answer differently",
+                "That matches answers that share a name: answer differently, or stop the task",
+            }));
+        Assert.That(WorkspaceText.AlikeCantBeChosen(false), Is.EqualTo(FileScreens.AlikeLine), "one sentence for one fact wherever it shows");
+    }
 }
