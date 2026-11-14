@@ -46,6 +46,29 @@ public class RecordedRunTests
         Assert.That(JudgeWordsTests.Branded(words), Is.Empty);
     }
 
+    /// <summary>
+    /// Every recording the headset bundles speaks the headset's own realtime protocol, so a raised number is recorded
+    /// again in the same change (the recorded run by <c>pnpm judge:record</c>, the demonstration by the fixtures).
+    /// </summary>
+    [Test]
+    public void EveryBundledRecordingSpeaksTheHeadsetsProtocol()
+    {
+        foreach (var name in new[] { "HalcyonicRecordedRun.json", "HalcyonicDemonstration.json" })
+        {
+            var path = Repository.PathTo("apps/xr/Assets/Halcyonic/Resources/" + name);
+            if (!File.Exists(path)) continue;
+            var protocol = JToken.Parse(File.ReadAllText(path))["welcome"]?["protocol"]?.Value<int>();
+            Assert.That(protocol, Is.EqualTo(ContractVersions.RealtimeProtocol), name + " speaks another realtime protocol: record it again");
+        }
+    }
+
+    /// <summary>A recording of another realtime protocol is refused in words, never played as if it were this one.</summary>
+    [Test]
+    public void ARecordingOfAnotherProtocolIsRefusedInWords()
+    {
+        AssertRefused(AsRecordedRun(document => document["welcome"]!["protocol"] = ContractVersions.RealtimeProtocol + 1), "speaks realtime protocol");
+    }
+
     [Test]
     public void ARecordedRunIsReadAsOneAndHoldsNothingSimulated()
     {
