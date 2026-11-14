@@ -324,6 +324,7 @@ namespace Halcyonic.XR.Workspace
             director.plane.SubjectPressed += director.OnSubjectPressed;
             director.plane.SubjectHeld += director.OnSubjectHeld;
             director.plane.SubjectDragged += director.OnSubjectDragged;
+            director.plane.HandleTaken += director.OnHandleTaken;
             director.plane.SubjectLetGo += director.OnSubjectLetGo;
             director.plane.ScreenActed += director.OnScreenActed;
             director.plane.ScreenBarToggled += director.OnScreenBarToggled;
@@ -757,6 +758,14 @@ namespace Halcyonic.XR.Workspace
                 var yaw = Mathf.Atan2(relative.x, relative.z) * Mathf.Rad2Deg;
                 var pitch = Mathf.Atan2(relative.y, new Vector2(relative.x, relative.z).magnitude) * Mathf.Rad2Deg;
                 if (relative.z <= 0 || !field.Shows(yaw, pitch)) outside = true;
+            }
+            // Where the person let go is the plane's place (the lead's 2026-11-14T01:26Z ruling 3): the follow never brings a plane moved by
+            // hand back in front; Settings' Reset Position, or the headset's own recenter, does.
+            if (MovedByHand)
+            {
+                workspaceFollow.Reset(); plane.Repositioning = false;
+                if (wasMoving) { navigator.Moved(); dirty = true; }
+                return;
             }
             var distance = Vector3.Distance(stage.Eyes, plane.WorkspaceCentre);
             outside |= distance < PlaneComposition.Distance * 0.65f || distance > PlaneComposition.Distance * 1.5f;
@@ -1272,6 +1281,22 @@ namespace Halcyonic.XR.Workspace
                 if (setup.StageNow().BesideWindow && OrganizationStanding(from, frame, side)) OpenPlacement();
                 return;
             }
+            BeginDrag(point);
+        }
+
+        /// <summary>
+        /// The plane's handle taken (the lead's 2026-11-14T01:26Z ruling 3): the plane follows the hand at once, one gesture, through the
+        /// same drag as the older Move, held clear of characters and the shelf and inside the field (MenuPlane.Allows).
+        /// </summary>
+        private void OnHandleTaken(Vector3 point)
+        {
+            if (Away || drag != null || placement != null || setup.Presentation.Minimized) return;
+            BeginDrag(point);
+        }
+
+        /// <summary>A drag of the whole plane from <paramref name="point"/>, the plane's own judgement deciding where it may go.</summary>
+        private void BeginDrag(Vector3 point)
+        {
             var composition = plane.Composition ?? (plane.Bar is MenuBarView bar
                 ? new PlaneComposition(new[] { new PlaneColumn(bar.Size.x, bar.Size.y) }, GlazeText.Scale) : null);
             if (composition == null) return;
@@ -1326,6 +1351,8 @@ namespace Halcyonic.XR.Workspace
         {
             if (drag == null) return;
             drag = null;
+            // Let go where the person left it: the shelf's aside is decided once again for that place (AUDIT's 01:30Z condition 3).
+            plane.LetGo();
             ReflowFiles();
             dirty = true;
             // What was pressed under the moving plane is no press, nor a hold, as it settles again.

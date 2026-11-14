@@ -50,6 +50,24 @@ public class MenuPageTests
         }
     }
 
+    /// <summary>
+    /// A part past the composition's box (the redesign's handle under its band) is held to the field as the composition is: its own box
+    /// where the composition's is, and a part hanging far under it passes the field (the lead's 2026-11-14T01:26Z ruling 3).
+    /// </summary>
+    [Test]
+    public void APartHangingPastTheCompositionIsHeldToTheFieldAsTheCompositionIs()
+    {
+        // A short composition, so the field has room under it for a grip.
+        var composition = MenuAndFile(MenuPage.Rows(1), subjectRows: 1);
+        var half = MathF.Atan(composition.Height / 2f) * 180f / MathF.PI;
+        var at = new PanelDirection(0f, -MenuPage.TopDegrees - half, true, false);
+        var (w, h) = (composition.Width / 2f, composition.Height / 2f);
+        Assert.That(MenuPage.Inside(composition, at, MenuPage.Quest3S, -w, w, -h, h), Is.EqualTo(MenuPage.Inside(composition, at, MenuPage.Quest3S)),
+            "the composition's own box, the same answer");
+        Assert.That(MenuPage.Inside(composition, at, MenuPage.Quest3S, -0.1f, 0.1f, -h - 0.05f, -h), Is.True, "a small grip just under it shows");
+        Assert.That(MenuPage.Inside(composition, at, MenuPage.Quest3S, -0.1f, 0.1f, -h - 3f, -h - 2.9f), Is.False, "a grip far under it is past the field");
+    }
+
     [Test]
     public void WhereTheStagePlacesItTheFieldIsHeldTheSameWayWhereverThePersonTurns()
     {

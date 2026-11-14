@@ -3219,6 +3219,14 @@ in order, as before.
   (`MenuPlane.ShowKitWorkspace`). Where the Editor stands the kit aside to walk the older views (`KitWorkspaceHost.Enabled` false, never in a player), the older list holds. Wherever the older view still draws a whole screen under the redesign, the plane
   logs one line by the frame's kind alone (`MenuPlane.OlderViewDrawn`), which the walks fail on. A frame is reported
   drawn, and so read, only while its bar lays it whole (`RoomBar.Whole`, `KitWorkspaceHost.ReportDrawn`).
+- **The plane's handle** (the lead, 2026-11-14T01:26Z, ruling 3: the plane is moved by hand). Under the redesign the kit draws a
+  handle at a fixed depth under the band (`KitWorkspaceHost.Handle`, `RoomHandle`, `HandleUnderFootDp`). Taken, the plane follows
+  the hand at once through the same drag as the older Move (`MenuPlane.HandleTaken`, `MenuDirector.OnHandleTaken`, `BeginDrag`,
+  `MenuDrag`), held clear of characters, of the placed shelf where it stands (`MenuPlane.ClearsShelfAt`) and with the handle's
+  whole hold area inside the field (`MenuPage.Inside` with a rectangle). Let go, it stays where it was left: the follow never brings
+  a plane moved by hand back in front (`MenuDirector.MovedByHand`), Settings' Reset Position does, and the shelf's aside is decided
+  once again for the new place (`MenuPlane.LetGo`). The handle's hold area is part of every keep-out (bodies, shelves, the aside,
+  the field corners), reasoned through the plane's own geometry as the bar and the band are.
 - **The plane's width** (the lead, 2026-11-13T17:16Z, 18:07Z and 19:34Z: the plane is for reading, a width, not two forms). The
   plane never stands over a shelf and is never too narrow to read: it lays its panel at the widest of FIELD's measured widths (440,
   400, 360, 320, 280 and 240 dp, `PlaneWidth.Steps`) at or above the floor of the text size whose largest footprint stands

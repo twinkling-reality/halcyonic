@@ -309,7 +309,11 @@ namespace Halcyonic.XR.Workspace
         {
             if (!Anchored) return WorkspacePlacement.Clears(at, bodies, size);
             var (band, below) = Hang(size);
-            return WorkspacePlacement.ClearsWithHang(at, bodies, size, band, below);
+            if (!WorkspacePlacement.ClearsWithHang(at, bodies, size, band, below)) return false;
+            // The handle under the band, its own box (AUDIT's 01:30Z condition 2: every keep-out holds its hold area).
+            var (handleHalf, handleTop, handleBottom) = HandleOnPlane();
+            var grip = new PanelSize(size.Distance, handleHalf * size.Distance, (handleTop - handleBottom) / 2f * size.Distance);
+            return WorkspacePlacement.Clears(new PanelDirection(at.Yaw, at.Elevation + SpatialKit.DegreesTo((handleTop + handleBottom) / 2f), at.Clear, at.Above), bodies, grip);
         }
 
         /// <summary>
@@ -341,6 +345,8 @@ namespace Halcyonic.XR.Workspace
             if (!Anchored) yield break;
             var (half, top, bottom) = BandOnPlane();
             for (var x = -1; x <= 1; x += 2) foreach (var y in new[] { top, bottom }) yield return (half * x * size.Distance, y * size.Distance);
+            var (handleHalf, handleTop, handleBottom) = HandleOnPlane();
+            for (var x = -1; x <= 1; x += 2) foreach (var y in new[] { handleTop, handleBottom }) yield return (handleHalf * x * size.Distance, y * size.Distance);
         }
 
         /// <summary>The draw a placing ended on (<see cref="considered"/>), while the plane waits for the shelf it placed; -1 otherwise.</summary>
@@ -384,6 +390,7 @@ namespace Halcyonic.XR.Workspace
             // The shelf counts as moved only where a corner moved more than 2 cm (the person's own move), never a centimetre's rounding.
             if (shelf != null && (asideShelf == null || ShelfMoved(asideShelf, shelf))) { asideShelf = (Vector3[])shelf.Clone(); asideShelfVersion++; }
             var asideKey = (asideShelfVersion.ToString(), GlazeText.Scale, widthRule.WidthDp);
+            (heldShelf, heldViewer, heldOpen) = (shelf, viewer, open);
             // A page open, not the plane at rest (KitWorkspaceHost.Resting: no page, the menu alone): the shelf comes home when the page
             // closes, though the menu still stands (JUDGE's charBatch5 at Larger: held 1 degree aside after the page closed).
             if (!open || Kit.Resting || placing || shelf == null)
@@ -396,12 +403,13 @@ namespace Halcyonic.XR.Workspace
             else if (asideDecided != asideKey)
             {
                 // Decided again on a form event, never smaller within one open (AUDIT's 03:17Z): the shelf moves out further or stays.
-                var cause = asideDecided is not { } was ? "a page opened"
+                var cause = asideDecided is not { } was ? (letGoSince ? "the plane was let go" : "a page opened")
                     : was.Shelf != asideKey.Item1 ? "the shelf's own place changed"
                     : !Mathf.Approximately(was.Scale, GlazeText.Scale) ? "the text size changed" : "the plane's width changed";
                 var decided = AsideFor(shelf, viewer, widthRule.WidthDp, cause);
                 heldAside = asideDecided == null || Mathf.Abs(decided) > Mathf.Abs(heldAside) ? decided : heldAside;
                 asideDecided = asideKey;
+                letGoSince = false;
             }
             ShelfAsideDegrees = heldAside;
         }
@@ -433,6 +441,40 @@ namespace Halcyonic.XR.Workspace
         }
 
         private static (float Scale, float Degrees)? restHalfHeld;
+        /// The person let go of the plane where they dragged it (the lead's 2026-11-14T01:26Z ruling 3): the aside is decided once again
+        /// for where it now stands (AUDIT's 01:30Z condition 3), then held as before.
+        /// </summary>
+        public void LetGo() { asideDecided = null; letGoSince = true; }
+
+        /// <summary>The plane was let go since the aside was last decided, so its next decision says so.</summary>
+        private bool letGoSince;
+
+        /// <summary>
+        /// Whether the plane at <paramref name="at"/> keeps clear of the placed shelf where it stands now (its own place turned by the aside
+        /// it holds), the plane's footprint as it is reasoned now: the largest at its width while a page is open, else at rest, the band and
+        /// the handle (the lead's 01:26Z: the plane is never let go over a shelf). True where no shelf stands. Allocates nothing.
+        /// </summary>
+        private bool ClearsShelfAt(PanelDirection at)
+        {
+            if (heldShelf == null || !RoomDesign.Enabled || !KitWorkspaceHost.Enabled) return true;
+            float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity, top = float.NegativeInfinity;
+            for (var index = 0; index < heldShelf.Length; index++)
+            {
+                var offset = heldShelf[index] - heldViewer;
+                var yaw = Mathf.DeltaAngle(at.Yaw, Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg + heldAside);
+                var elevation = Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg;
+                left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
+            }
+            var shelf = new AngularExtent(left, right, bottom, top);
+            var bar = heldOpen ? LargestExtent(widthRule.WidthDp, at) : KeepOutExtent(at);
+            return bar.Apart(shelf) >= WorkspacePlacement.ClearanceDegrees && BandExtent(at).Apart(shelf) >= WorkspacePlacement.ClearanceDegrees
+                && HandleExtent(at).Apart(shelf) >= WorkspacePlacement.ClearanceDegrees;
+        }
+
+        /// <summary>The shelf, the eyes and whether a page stood open, as the plane's form last read them: what a drag keeps clear of.</summary>
+        private Vector3[]? heldShelf;
+        private Vector3 heldViewer;
+        private bool heldOpen;
 
         /// <summary>The aside held for this open, and the shelf's place and text size it was decided for; null while none is decided.</summary>
         private float heldAside;
@@ -512,7 +554,7 @@ namespace Halcyonic.XR.Workspace
                 left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
             }
             var (bar, band) = (LargestExtent(widthDp), BandExtent());
-            var aside = ShelfAside.For((left + right) / 2f, (right - left) / 2f, bottom, top, new[] { bar, band }, Direction.Yaw,
+            var aside = ShelfAside.For((left + right) / 2f, (right - left) / 2f, bottom, top, new[] { bar, band, HandleExtent() }, Direction.Yaw,
                 Direction.Yaw, AgentShelfSearch.SideDegrees);
             // What the plane reasons, about its heading, for a walk to hold beside what is drawn (AUDIT's 00:43Z: the shelf's extent the
             // plane uses against its drawn bounds).
@@ -535,13 +577,13 @@ namespace Halcyonic.XR.Workspace
         /// where it faces: from its foot line up (FIELD's measured record, RoomBarView.LargestAt), about the plane's heading, where the
         /// person's drag left it, through the plane's own geometry (<see cref="OnPlane"/>). The band under it is its own part (<see cref="BandExtent"/>).
         /// </summary>
-        private AngularExtent LargestExtent(float widthDp)
+        private AngularExtent LargestExtent(float widthDp, PanelDirection? at = null)
         {
             // From its foot line up, with the little a bar draws under it (its lowest core and a halo's feather), held to the kit's stated
             // measure (FIELD's RoomBarView.MostUnderFootDp, which PartsCheck fails past), about the host's middle, as the plane lays it.
-            var largest = RoomBarView.LargestAt(widthDp);
+            var largest = LargestUnits(widthDp);
             var foot = Kit.FootLine * GlazeText.Scale;
-            return OnPlane(-largest.x / 2f, largest.x / 2f, foot - RoomType.Units(RoomBarView.MostUnderFootDp), foot + largest.y);
+            return OnPlane(-largest.x / 2f, largest.x / 2f, foot - RoomType.Units(RoomBarView.MostUnderFootDp), foot + largest.y, at);
         }
 
         /// <summary>
@@ -549,10 +591,10 @@ namespace Halcyonic.XR.Workspace
         /// same at every panel width, hanging under the bar's foot as the host hangs it, so it moves with the person's drag as the foot does.
         /// A part of its own beside the bar's (AUDIT's 22:34Z), never their bounding box, so the air beside the bar stays a place a shelf may stand.
         /// </summary>
-        private AngularExtent BandExtent()
+        private AngularExtent BandExtent(PanelDirection? at = null)
         {
             var (half, top, bottom) = BandOnPlane();
-            var band = OnPlane(-half, half, bottom, top);
+            var band = OnPlane(-half, half, bottom, top, at);
             // Rounded OUT by a tenth of a degree each way, the walks' own resolution (AUDIT's 01:29Z: the reasoned shape contains the
             // drawn one, never an edge inside it by any amount): the Ground plate is measured by its renderer's bounds, an axis-aligned
             // box round a tilted plate, which reaches a hair past the plate itself (JUDGE's charY at Larger: drawn top -21.8, reasoned -21.9).
@@ -568,10 +610,51 @@ namespace Halcyonic.XR.Workspace
         /// <see cref="Direction"/>, the person's drag included, from the kit's part), so a part reasoned here stands where it is drawn
         /// (AUDIT's and FIELD's 01:02Z: DESIGN's 16 dp a degree is not the plane's; one conversion for every part).
         /// </summary>
-        private AngularExtent OnPlane(float left, float right, float bottom, float top)
+        private AngularExtent OnPlane(float left, float right, float bottom, float top, PanelDirection? at = null)
         {
-            var (originRight, originUp) = Kit.ShowsCompact ? (0f, 0f) : (kitPart.Right, kitPart.Up);
-            return AngularExtent.OnPlane(Direction, originRight, originUp, left, right, bottom, top);
+            var (originRight, originUp) = KitOrigin;
+            return AngularExtent.OnPlane(at ?? Direction, originRight, originUp, left, right, bottom, top);
+        }
+
+        /// <summary>Where the kit stands on the plane, in the plane's units from its middle: its part, or the middle where it is compact.</summary>
+        private (float Right, float Up) KitOrigin => Kit.ShowsCompact ? (0f, 0f) : (kitPart.Right, kitPart.Up);
+
+        /// <summary>
+        /// The plane's handle in the plane's units from the kit's origin (FIELD's 970f39e9e, the lead's 2026-11-14T01:26Z ruling 3): its
+        /// hold area's half width, top and bottom, at its fixed depth under the foot line (KitWorkspaceHost.HandleUnderFootDp), scaled back
+        /// by the text size as the band is, so it stands the same size in the room.
+        /// </summary>
+        private (float Half, float Top, float Bottom) HandleOnPlane()
+        {
+            var bottom = Kit.FootLine * GlazeText.Scale - RoomType.Units(KitWorkspaceHost.HandleUnderFootDp(GlazeText.Scale));
+            return (RoomType.Units(RoomHandle.HoldWidthDp) / 2f, bottom + RoomType.Units(RoomHandle.HoldHeightDp), bottom);
+        }
+
+        /// <summary>
+        /// FIELD's measured record at a width and at rest, held for the text size and width last asked (the record's lookups allocate,
+        /// and a drag asks every frame it moves: a drag step allocates nothing).
+        /// </summary>
+        private Vector2 LargestUnits(float widthDp)
+        {
+            if (largestHeld is not { } held || !Mathf.Approximately(held.Scale, GlazeText.Scale) || !Mathf.Approximately(held.Width, widthDp))
+                largestHeld = held = (GlazeText.Scale, widthDp, RoomBarView.LargestAt(widthDp));
+            return held.Units;
+        }
+
+        private Vector2 RestingUnits()
+        {
+            if (restingHeld is not { } held || !Mathf.Approximately(held.Scale, GlazeText.Scale)) restingHeld = held = (GlazeText.Scale, RoomBarView.RestingAt());
+            return held.Units;
+        }
+
+        private (float Scale, float Width, Vector2 Units)? largestHeld;
+        private (float Scale, Vector2 Units)? restingHeld;
+
+        /// <summary>The handle's hold area in degrees about the plane's heading, through the plane's own geometry: a part of every keep-out.</summary>
+        private AngularExtent HandleExtent(PanelDirection? at = null)
+        {
+            var (half, top, bottom) = HandleOnPlane();
+            return OnPlane(-half, half, bottom, top, at);
         }
 
         /// <summary>
@@ -581,11 +664,11 @@ namespace Halcyonic.XR.Workspace
         /// part (<see cref="BandExtent"/>). A page taller than rest makes a shelf in its way stand aside, once per open
         /// (<see cref="ConsiderForm"/>). The shelf search and its Apply ask the same extent, so a place offered is a place kept.
         /// </summary>
-        private AngularExtent KeepOutExtent()
+        private AngularExtent KeepOutExtent(PanelDirection? at = null)
         {
-            var resting = RoomBarView.RestingAt();
+            var resting = RestingUnits();
             var foot = Kit.FootLine * GlazeText.Scale;
-            return OnPlane(-resting.x / 2f, resting.x / 2f, foot - RoomType.Units(RoomBarView.MostUnderFootDp), foot + resting.y);
+            return OnPlane(-resting.x / 2f, resting.x / 2f, foot - RoomType.Units(RoomBarView.MostUnderFootDp), foot + resting.y, at);
         }
 
         /// <summary>Whether the largest bar at <paramref name="widthDp"/> stands inside the field and clear of the shelf by the clearance kept between things.</summary>
@@ -598,6 +681,8 @@ namespace Halcyonic.XR.Workspace
             var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
                 measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
             if (!field.Shows(plane.Left, plane.Bottom) || !field.Shows(plane.Right, plane.Top)) return false;
+            var handle = HandleExtent();
+            if (!field.Shows(handle.Left, handle.Bottom) || !field.Shows(handle.Right, handle.Top)) return false;
             if (shelf == null) return true;
             float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity, top = float.NegativeInfinity;
             foreach (var point in shelf)
@@ -611,7 +696,8 @@ namespace Halcyonic.XR.Workspace
             // The floor is tested at rest, as the shelf was placed; a width above it by the largest it lays there, a measured bound, until
             // the resting footprint is recorded at each width (AUDIT's 02:20Z MUST: the plane widened into the shelf it had just placed).
             var bar = widthDp > PlaneWidth.FloorDp(GlazeText.Scale) + 0.5f ? plane : KeepOutExtent();
-            return bar.Apart(placed) >= WorkspacePlacement.ClearanceDegrees && BandExtent().Apart(placed) >= WorkspacePlacement.ClearanceDegrees;
+            return bar.Apart(placed) >= WorkspacePlacement.ClearanceDegrees && BandExtent().Apart(placed) >= WorkspacePlacement.ClearanceDegrees
+                && handle.Apart(placed) >= WorkspacePlacement.ClearanceDegrees;
         }
 
         private object? olderViewSaid;

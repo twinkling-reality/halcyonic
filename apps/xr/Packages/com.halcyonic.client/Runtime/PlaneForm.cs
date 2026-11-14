@@ -67,9 +67,11 @@ namespace Halcyonic.Client
         public static AngularExtent OnPlane(PanelDirection direction, float originRight, float originUp, float left, float right, float bottom, float top)
         {
             float leftmost = float.PositiveInfinity, rightmost = float.NegativeInfinity, lowest = float.PositiveInfinity, highest = float.NegativeInfinity;
-            foreach (var x in new[] { left, (left + right) / 2f, right })
-            foreach (var y in new[] { bottom, (bottom + top) / 2f, top })
+            // Allocating nothing, since a drag asks every frame it moves.
+            for (var point = 0; point < 9; point++)
             {
+                var x = point % 3 == 0 ? left : point % 3 == 1 ? (left + right) / 2f : right;
+                var y = point / 3 == 0 ? bottom : point / 3 == 1 ? (bottom + top) / 2f : top;
                 var (px, py, pz) = PlaneComposition.PointOf(direction, originRight + x, originUp + y);
                 var yaw = Wrap(MathF.Atan2(px, pz) * 180f / MathF.PI - direction.Yaw);
                 var elevation = MathF.Atan2(py, MathF.Sqrt(px * px + pz * pz)) * 180f / MathF.PI;

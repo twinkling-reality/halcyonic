@@ -251,6 +251,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>While a subject is held: the held point moved, to here in the world.</summary>
         public event Action<Vector3>? SubjectDragged;
 
+        /// <summary>The plane's handle taken at a point (the lead's 2026-11-14T01:26Z ruling 3): the director starts the drag at once.</summary>
+        public event Action<Vector3>? HandleTaken;
+
+        /// <summary>Whether the handle takes a hand now: the redesign's kit drawn and settled, nothing moving the plane, input not suspended.</summary>
+        private bool TakesHandle() => RoomDesign.Enabled && !FocusGuard.InputSuspended && !Repositioning && !Sliding && Kit.gameObject.activeSelf;
+
         /// <summary>The subject's press ended, its hold matured or not.</summary>
         public event Action? SubjectLetGo;
         public event Action<MenuColumn, MenuFrame?, SidePanel?>? CompactPressed;
@@ -330,6 +336,12 @@ namespace Halcyonic.XR.Workspace
             plane.Context.PlacePressed += (place, owner) => plane.ContextPlacePressed?.Invoke(place, owner);
             plane.Context.WorkspacePressed += owner => plane.ContextWorkspacePressed?.Invoke(owner);
             plane.CreateKit(go.transform);
+            // The plane's handle (the lead's 2026-11-14T01:26Z ruling 3): taken, the plane follows the hand at once through the same
+            // drag as the older Move; let go, it stays where it was left.
+            var grip = plane.Kit.Handle.Target;
+            grip.Selected += () => { if (plane.TakesHandle()) plane.HandleTaken?.Invoke(grip.HeldPoint ?? plane.Kit.Handle.HoldPoint); };
+            grip.Dragged += point => plane.SubjectDragged?.Invoke(point);
+            grip.Released += _ => plane.SubjectLetGo?.Invoke();
             plane.bar = MenuBarView.Create(go.transform, "Menu, closed");
             plane.bar.Controls.MovePressed += () => plane.MovePressed?.Invoke(MenuColumn.Menu, null, null);
             plane.bar.Controls.PressStarted += () => plane.SubjectPressed?.Invoke(MenuColumn.Menu, null);
@@ -883,7 +895,8 @@ namespace Halcyonic.XR.Workspace
             {
                 var placed = new AngularExtent(shelf.Left, shelf.Right, shelf.Bottom, shelf.Top);
                 // The plane at rest and the band under it, each its own part (AUDIT's 22:34Z; the lead's 01:13Z ruling 1).
-                if (KeepOutExtent().Apart(placed) < WorkspacePlacement.ClearanceDegrees || BandExtent().Apart(placed) < WorkspacePlacement.ClearanceDegrees) return false;
+                if (KeepOutExtent().Apart(placed) < WorkspacePlacement.ClearanceDegrees || BandExtent().Apart(placed) < WorkspacePlacement.ClearanceDegrees
+                    || HandleExtent().Apart(placed) < WorkspacePlacement.ClearanceDegrees) return false;
                 // The keep-out stands for the plane, so the bar laid this moment does not bind as well (placing lays it narrow as it
                 // opens); nor does the footprint retained from before a local overlay. The room's screen does.
                 return Clear(RoomCorners());
@@ -992,6 +1005,15 @@ namespace Halcyonic.XR.Workspace
             if (surfaceDrop is float drop) floor = Mathf.Max(floor, WorkspacePlacement.LowestAboveSurface(composition.Size, drop));
             if (at.Elevation > WorkspacePlacement.HighestDegrees + 1e-3f || at.Elevation < Mathf.Min(floor, WorkspacePlacement.HighestDegrees) - 1e-3f) return false;
             if (!MenuPage.Inside(composition, at, field)) return false;
+            // Under the redesign the handle hangs past the composition's box: its whole hold area stays where a hand can take it
+            // (AUDIT's 01:30Z condition 1, FIELD's c002582eb), and the plane is never let go over a shelf (the lead's 01:26Z).
+            if (Anchored)
+            {
+                var (half, handleTop, handleBottom) = HandleOnPlane();
+                var (originRight, originUp) = KitOrigin;
+                if (!MenuPage.Inside(composition, at, field, originRight - half, originRight + half, originUp + handleBottom, originUp + handleTop)) return false;
+                if (!ClearsShelfAt(at)) return false;
+            }
 
             if (!ClearsBodies(at, bodies, composition.Size)) return false;
             return !(LineAt(composition, at) is (Vector3 from, Vector3 to)) || !Crosses(from, to);

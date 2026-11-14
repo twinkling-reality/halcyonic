@@ -1158,20 +1158,35 @@ namespace Halcyonic.Client
         /// <see cref="WorkspacePlacement.ReadingPitch"/>, as the renders' field check sees it: where the
         /// stage has placed it, against the headset's measured field.
         /// </summary>
-        public static bool Inside(PlaneComposition composition, PanelDirection direction, ViewField field)
+        public static bool Inside(PlaneComposition composition, PanelDirection direction, ViewField field) =>
+            Inside(composition, direction, field, -composition.Width / 2f, composition.Width / 2f, -composition.Height / 2f, composition.Height / 2f, middles: false);
+
+        /// <summary>
+        /// Whether a rectangle on the plane, <paramref name="left"/> to <paramref name="right"/> and <paramref name="bottom"/> to
+        /// <paramref name="top"/> in the plane's units about the composition's centre, stands inside <paramref name="field"/> less its
+        /// margin, seen as <see cref="Inside(PlaneComposition, PanelDirection, ViewField)"/> sees the composition (the head turned to its
+        /// centre and tipped down by its reading pitch): a part drawn past the composition's own box, as the plane's handle under the
+        /// redesign's band (the lead's 2026-11-14T01:26Z ruling 3: reachable at both sizes, wherever the person drags it).
+        /// </summary>
+        public static bool Inside(PlaneComposition composition, PanelDirection direction, ViewField field, float left, float right, float bottom, float top) =>
+            Inside(composition, direction, field, left, right, bottom, top, middles: true);
+
+        /// <param name="middles">Each edge's middle too, where a flat part's highest or lowest point may stand; the composition's own box keeps its corners.</param>
+        private static bool Inside(PlaneComposition composition, PanelDirection direction, ViewField field, float left, float right, float bottom, float top, bool middles)
         {
             const float DegreesPerRadian = 180f / MathF.PI;
             var pitch = WorkspacePlacement.ReadingPitch(composition.Size, direction.Elevation, field) / DegreesPerRadian;
             var yaw = direction.Yaw / DegreesPerRadian;
             var tolerance = ViewField.EdgeMarginDegrees - 0.01;
             var shrunk = new ViewField(field.Left - tolerance, field.Right - tolerance, field.Up - tolerance, field.Down - tolerance);
-            // Each corner, allocating nothing, since a drag asks every frame it moves.
-            for (var corner = 0; corner < 4; corner++)
+            // Each corner and each edge's middle, allocating nothing, since a drag asks every frame it moves.
+            for (var point = 0; point < 9; point++)
             {
-                var right = (corner % 2 == 0 ? -0.5f : 0.5f) * composition.Width;
-                var up = (corner < 2 ? -0.5f : 0.5f) * composition.Height;
+                if (!middles && (point % 3 == 1 || point / 3 == 1)) continue;
+                var atRight = point % 3 == 0 ? left : point % 3 == 1 ? (left + right) / 2f : right;
+                var atUp = point / 3 == 0 ? bottom : point / 3 == 1 ? (bottom + top) / 2f : top;
                 // Seen with the head turned to the centre and tipped down: the point turned back by as much.
-                var (x, y, z) = PlaneComposition.PointOf(direction, right, up);
+                var (x, y, z) = PlaneComposition.PointOf(direction, atRight, atUp);
                 var turnedX = x * MathF.Cos(yaw) - z * MathF.Sin(yaw);
                 var turnedZ = x * MathF.Sin(yaw) + z * MathF.Cos(yaw);
                 var seenY = y * MathF.Cos(pitch) + turnedZ * MathF.Sin(pitch);
