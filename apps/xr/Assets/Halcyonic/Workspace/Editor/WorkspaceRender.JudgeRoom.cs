@@ -1116,6 +1116,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     var recapPress = typeof(RoomCardView).GetField("cardPress", cardFields)?.GetValue(recapCard) as KitPress;
                     var recapControl = typeof(RoomCardView).GetField("cardControl", cardFields)?.GetValue(recapCard) as KitControl;
                     Debug.Log("Halcyonic: live walk: the recap shows the person's idea " + (recapCut ? "cut" : "whole") + (recapControl == null ? ", its card pressing to nothing" : ", its card pressing to " + recapControl.Action));
+                    // What the card reads as drawn, part by part with its lines (the lead, 2026-11-14T03:21Z: what a real recap reads); the walk's
+                    // idea is its own fixture, never a person's.
+                    Debug.Log("Halcyonic: live walk: the recap's card reads: " + string.Join(" | ", recapCard.GetComponentsInChildren<TMP_Text>(false).Where(text => text.enabled && text.GetParsedText().Trim().Length > 0)
+                        .Select(text => text.name + " (" + text.textInfo.lineCount + (text.textInfo.lineCount == 1 ? " line" : " lines") + "): \"" + text.GetParsedText().Replace("\n", " ") + "\"")));
                     if (recapPress == null || recapControl == null || !recapPress.gameObject.activeInHierarchy || recapControl.Action != "read-recap")
                     {
                         if (recapCut) failures.Add("live walk: the recap cuts the person's own idea and nothing drawn on it opens the words whole");
