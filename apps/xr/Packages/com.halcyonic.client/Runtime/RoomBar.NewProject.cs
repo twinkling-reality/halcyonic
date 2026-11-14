@@ -165,7 +165,11 @@ namespace Halcyonic.Client
                     // A wait's reason is the bar's sentence: Start Building held, or Check Last Start standing in its place.
                     var waiting = main is { Available: false } ? why : main?.Id == NewProjectScreens.CheckFirst ? plain.FirstOrDefault()?.Words : null;
                     var recap = Rows(RoomBarState.Choose, facts, waiting, Column(withClose: true, Offered(NewProjectScreens.ChangeRecap)));
-                    if (frame.Card != null) recap.Card = frame.Card;
+                    // The card is the way to the person's own words whole (the lead's 2026-11-14T01:19Z): a name cut at three lines,
+                    // or a long first task, one press away.
+                    if (frame.Card != null)
+                        recap.Card = frame.Card.Title is LineWords titled ? frame.Card.WithPress(new KitControl(KitPlace.Route, frame, NewProjectScreens.ReadRecap, null,
+                            titled.Text, GlazeIcon.Next, available: true, reason: null, holds: false)) : frame.Card;
                     return recap;
                 }
                 if (yes?.Id == NewProjectScreens.ConfirmStartOver)

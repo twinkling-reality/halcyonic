@@ -37,6 +37,9 @@ namespace Halcyonic.Client
 
             /// <summary>SCREENS's choice of what a new folder starts from (A16, <see cref="StarterChoice.Page"/>).</summary>
             StartFrom,
+
+            /// <summary>The person's own name and first task read whole (<see cref="NewProjectScreens.RecapWords"/>).</summary>
+            Read,
         }
 
         private enum BuildPage
@@ -480,6 +483,7 @@ namespace Halcyonic.Client
                         RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot, host.KeyboardOffered),
                         RecapPage.Change when RoomDesign.Enabled => NewProjectScreens.RecapChange(current, reached, confirmingStartOver,
                             Building() || OutcomeUnknown ? problem : null, WordsOffered, LevelOfDraft(), startFrom: StarterChoice.Offered(current, StarterChoice.Ready(starters))),
+                        RecapPage.Read when RoomDesign.Enabled => NewProjectScreens.RecapWords(current),
                         RecapPage.StartFrom when RoomDesign.Enabled => StarterChoice.Page(current, StarterChoice.Ready(starters), startersPage, reached),
                         _ => RecapBuilt(current, WithStarter(current, NewProjectScreens.Recap(current, LevelOfDraft(), CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
                             Building() || OutcomeUnknown ? problem : null, WordsOffered, startUnknown: OutcomeUnknown).Focus())),
@@ -745,6 +749,13 @@ namespace Halcyonic.Client
                     && (key == AgentColumn.Ask || key == AgentColumn.Never || key == PlanStart.Key && PlanStart.Offered(draft.Runtime)):
                     levelChosen = key == AgentColumn.Never;
                     planChosen = key == PlanStart.Key;
+                    Show(NewProjectStep.Recap);
+                    break;
+                // The recap card, pressed: the person's own words read whole; Back returns to the facts.
+                case NewProjectScreens.ReadRecap when RoomDesign.Enabled && step == NewProjectStep.Recap && recapPage == RecapPage.Facts:
+                    Show(NewProjectStep.Recap, page: RecapPage.Read);
+                    break;
+                case NewProjectScreens.BackToRecap when step == NewProjectStep.Recap && recapPage == RecapPage.Read:
                     Show(NewProjectStep.Recap);
                     break;
                 case NewProjectScreens.BackToRecap when step == NewProjectStep.Recap && recapPage == RecapPage.Change:
@@ -1313,6 +1324,8 @@ namespace Halcyonic.Client
         {
             if (id == SidePanel.Close) return frame.Side != null;
             if (id == MenuFrame.ChooseSection) return frame.Sections.Any(section => section.Key == key && section.Reached);
+            // The redesign's recap card is the way in to the person's own words whole: its face, where the recap's facts stand.
+            if (id == NewProjectScreens.ReadRecap) return RoomDesign.Enabled && frame.Card != null && frame.Footer.All.Any(each => each.Prompt.Id == NewProjectScreens.ChangeRecap);
             if (frame.Footer.All.Any(each => each.Prompt.Id == id && each.Prompt.Available)) return true;
             return frame.Lines.Any(line => line.Action == id && line.Key == key && line.Pressable);
         }

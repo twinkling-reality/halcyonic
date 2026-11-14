@@ -406,6 +406,10 @@ namespace Halcyonic.Client
         /// </summary>
         public KitControl? Press { get; }
 
+        /// <summary>This card, its face now the way in to <paramref name="press"/> (a card built before the frame its press is of).</summary>
+        public RoomCard WithPress(KitControl press) => new RoomCard(Title, Description, Head, Status, Slots, Steps, TrackAt, TrackOf, List, Gauges, More, Code,
+            Reading, DescriptionPage, TitleMono, press);
+
         /// <summary>The slots a loadout holds at most: three in a row, or four as two rows of two (a new folder from a starter).</summary>
         public const int MostSlots = 4;
 

@@ -2505,7 +2505,8 @@ public class NewProjectFlowTests
         Assert.That(card.Slots.Select(slot => slot.Kind), Does.Contain(RoomKind.Agent), "the agent is a slot of its own");
         Assert.That(card.AnyDot, Is.False, "no fact joined to another on a dot: " + string.Join(" | ", card.Words()));
         var bar = RoomBar.NewProject(flow.Frame!, VoiceStage.Idle)!;
-        Assert.That(bar.Card, Is.SameAs(card), "the redesign draws the card in the rows' place");
+        Assert.That((bar.Card!.Title, bar.Card.Description, bar.Card.Slots), Is.EqualTo((card.Title, card.Description, card.Slots)),
+            "the redesign draws the card in the rows' place, its face the way to the words whole");
         Assert.That(bar.Column.First().Main, Is.True, "Start Task first, as ever");
         Assert.That(host.Sent, Is.Empty);
     });
@@ -2576,6 +2577,28 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.BackToRecap, null);
         Assert.That(Actions(flow), Is.Empty);
         Assert.That(Ids(flow.Frame!), Does.Contain(NewProjectScreens.ChangeRecap));
+    });
+
+    [Test]
+    public void In_the_redesign_the_recap_cards_press_reads_the_persons_own_words_whole_and_Back_returns_to_the_facts() => InTheRedesign(() =>
+    {
+        var host = new Host();
+        var flow = RoomRecapped(host);
+        var facts = flow.Frame!;
+        var bar = RoomBar.NewProject(facts, VoiceStage.Idle)!;
+        Assert.That(bar.Card!.Press!.Action, Is.EqualTo(NewProjectScreens.ReadRecap), "the card is the way to the words whole");
+        Press(flow, NewProjectScreens.ReadRecap, null);
+        var reading = flow.Frame!;
+        Assert.That(reading.Lines.Select(line => (line.Words, line.Fact)), Is.EqualTo(new (string, string?)[]
+        {
+            (NewProjectScreens.ProjectRowLabel, flow.Idea!.Name),
+            (NewProjectScreens.FirstTaskRowLabel, flow.Idea!.FirstTask),
+        }), "the person's own words as labelled facts, so the reader lays them as rows, never the band");
+        Assert.That(RoomBar.NewProject(reading, VoiceStage.Idle), Is.Null, "no steps: the general reader lays it");
+        Assert.That(reading.Footer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { NewProjectScreens.BackToRecap }), "Back, and nothing else");
+        Press(flow, NewProjectScreens.BackToRecap, null);
+        Assert.That(Ids(flow.Frame!), Does.Contain(NewProjectScreens.ChangeRecap), "back on the facts");
+        Assert.That(host.Sent, Is.Empty);
     });
 
     [Test]
