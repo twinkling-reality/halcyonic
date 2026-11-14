@@ -89,6 +89,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         try { found.AddRange(RenderPart(state, size)); }
                         catch (Exception error) { found.Add(state + " threw " + error); }
                     }
+                    if (!narrowed || ShelfWorstState.Contains(only!, StringComparison.OrdinalIgnoreCase))
+                    {
+                        shown++;
+                        try { found.AddRange(ShelfWorstCase(size)); }
+                        catch (Exception error) { found.Add(ShelfWorstState + " threw " + error); }
+                    }
                     if (shown == 0) found.Add("HALCYONIC_KIT_ONLY=" + only + " matched no state");
                     return found;
                 }));
