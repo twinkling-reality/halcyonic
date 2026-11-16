@@ -167,7 +167,10 @@ namespace Halcyonic.Client
                     // FIELD's Checks card: the outcome as its status, the steps as nodes, the tries' pips on the failed one.
                     card = RoomPanelCards.Checks(result, binding.Model.AutoFix);
                     if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: true, GlazeIcon.OpenNow));
-                    else if (result.Passed == false && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
+                    // A failed check's way to an instruction is the row's own Type where the row stands (AUDIT2's W6: N5's two ways in are
+                    // Hold to Talk and Type, never a third name for the same control); the column offers it only where no row does.
+                    else if (result.Passed == false && instruct != null && !loop.Row.Any(action => action.Place == KitPlace.Field))
+                        column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
                     column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
                     column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
                     break;

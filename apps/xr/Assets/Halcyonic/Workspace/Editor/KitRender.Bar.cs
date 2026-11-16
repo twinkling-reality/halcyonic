@@ -316,7 +316,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-changes-long" => (VoiceStage.Idle, false, RoomBarState.Rest, "Changes with more than a page: eight rows, Next Page and Back, synthetic data"),
                 "38-checks" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks passed: a row a step of the computer's check, Try Build and Back, synthetic data"),
                 "38-checks-partly" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks partly checked: Partly Checked, its line, the host's finding whole under it, Try Build and Back, synthetic data"),
-                "38-checks-failed" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks failed: the steps the check reached, Write Instruction and Back, synthetic data"),
+                "38-checks-failed" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks failed: the steps the check reached, Changes and Back, the instruction the row's Type, synthetic data"),
                 "38-result-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent offers never ask: the agent and its level in the row beside it, synthetic data"),
                 "38-result-stopped" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent's tries at a failed check ran out: that line first, Write Instruction leading, synthetic data"),
                 "38-result-add" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the task's own copy holds work to add: Add to Project leading, synthetic data"),
@@ -563,6 +563,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             host.Accepting = () => true;
             host.WatchOpen = state == "36-work-watch";
+            host.WatchEyes = state == "36-work-watch" ? () => eyes : null;
             host.Voice = () => voice;
             host.AwaitingStart = () => sent;
             var recorded = state == "31-bar-listening" ? RecordedLevel() : null;
@@ -832,9 +833,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         // Back, then the file's own Close last: a task's file always has its way back to Projects (FIELD's parts note).
                         Require(shown.Column.Count >= 2 && shown.Column[shown.Column.Count - 2].Control.Action == RoomResult.Back && shown.Column.Last().Control.Place == KitPlace.Close,
                             "Back and then Close do not stand last");
-                        Require(shown.Column[0].Main == (state != "38-changes") && shown.Column[0].Control.Action == state switch
+                        // A failed check's page leads with nothing of its own: its way to an instruction is the row's Type (AUDIT2's W6).
+                        Require(shown.Column[0].Main == (state is not ("38-changes" or "38-checks-failed")) && shown.Column[0].Control.Action == state switch
                         {
-                            "38-changes-long" => RoomResult.NextPage, "38-checks" or "38-checks-partly" => RoomResult.TryBuild, "38-checks-failed" => FileScreens.TellIt,
+                            "38-changes-long" => RoomResult.NextPage, "38-checks" or "38-checks-partly" => RoomResult.TryBuild, "38-checks-failed" => RoomResult.ShowChanges,
                             "38-add" or "38-add-last" => RoomResult.AddConfirm, "38-conflict" => RoomResult.Fit,
                             "38-changes" => RoomResult.ShowHistory, _ => RoomResult.Back,
                         }, "the page's first action is " + shown.Column[0].Words);
@@ -1081,6 +1083,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var footPitch = Mathf.Atan2(footAt.y, new Vector2(footAt.x, footAt.z).magnitude) * Mathf.Rad2Deg;
             Require(Mathf.Abs(footPitch - RoomGeometry.FeetPitch) < 0.05f, "the foot line stands at pitch " + footPitch.ToString("0.00") + ", not " + RoomGeometry.FeetPitch);
             Stand(shot, host.transform, eyes, new KitCarrier[0], host.Size * GlazeText.Scale);
+            // Watch It Work's arc faces the eyes where the plane now stands, and is measured there.
+            if (state == "36-work-watch") WatchArcChecks(state, host, eyes, Require, Tolerance);
             // What must stand inside the field: the instruction, and with a question the band under it (the host's whole extent).
             var whole = questioning || ResultStates.Contains(state);
             var half = whole ? host.Size / 2f : bar.Size / 2f;
@@ -1233,7 +1237,18 @@ namespace Halcyonic.XR.Workspace.Editor
             var between = (watch.transform.localPosition.y - watch.Core.y / 2f) - (stop.transform.localPosition.y + stop.Core.y / 2f);
             require(between >= KitType.Units(SpatialKit.TargetGapDegrees) - tolerance, "Done Watching stands " + (between / unit).ToString("0.0") + " dp over Stop, closer than a target's gap");
             require(!host.Cursor.gameObject.activeSelf || string.IsNullOrEmpty(host.Cursor.Words), "the agent's cursor still speaks under the arc");
+        }
 
+        /// <summary>
+        /// Watch It Work's arc once the host stands where the plane stands it: every drawn part of it a gap over the bar's top and never
+        /// over the bar (AUDIT's 07:33Z), its two newest files drawn, tipped to face the eyes; its place in degrees said at each size.
+        /// </summary>
+        private static void WatchArcChecks(string state, KitWorkspaceHost host, Vector3 eyes, Action<bool, string> require, float tolerance)
+        {
+            var bar = host.Bar;
+            var unit = RoomType.Units(1f);
+            var watch = bar.Column[0];
+            host.FaceWatch();
             var arc = host.WatchArc;
             require(arc != null && arc.gameObject.activeSelf && arc.Panels.Count(panel => panel.gameObject.activeSelf) == RoomWritingArc.MostShown,
                 "the arc does not stand with its " + RoomWritingArc.MostShown + " newest files");

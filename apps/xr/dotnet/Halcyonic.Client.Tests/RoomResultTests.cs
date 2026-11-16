@@ -167,9 +167,12 @@ public class RoomResultTests
         {
             ("Code Check", RoomTone.Good), ("Builds", RoomTone.Bad), ("Starts and Shows", RoomTone.Good), ("Has VR Mode", RoomTone.Good),
         }));
+        // W6: the way to an instruction is the row's own Type, never a second name for it in the column.
+        Assert.That(failed.Row.Any(action => action.Place == KitPlace.Field), Is.True, "the row holds Type");
         Assert.That(failed.Column.Where(NotClose).Select(action => (action.Words, action.Main, action.Place)),
-            Is.EqualTo(new[] { ("Write Instruction", true, KitPlace.Field), (RoomResult.ChangesWords, false, KitPlace.Step), ("Back", false, KitPlace.Step) }),
-            "the file's own way to an instruction, in the product's words");
+            Is.EqualTo(new[] { (RoomResult.ChangesWords, false, KitPlace.Step), ("Back", false, KitPlace.Step) }),
+            "Changes and Back; the instruction is the row's");
+        Assert.That(failed.Column.Concat(failed.Row).Count(action => action.Place == KitPlace.Field), Is.EqualTo(1), "one control, one name");
         // A step the check never reached has no row.
         var stopped = new RoomResult(true, false, false, false, null, new[]
         {

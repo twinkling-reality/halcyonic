@@ -37,6 +37,7 @@ namespace Halcyonic.XR.Workspace
             watchShown = -1;
             watchClosesAt = null;
             plane.Kit.WatchOpen = true;
+            plane.Kit.WatchEyes = () => plane.Eyes;
             dirty = true;
             return true;
         }
@@ -82,9 +83,13 @@ namespace Halcyonic.XR.Workspace
                 foreach (var path in watch.Due(execution.Writing, now))
                     _ = ReadWatched(api, work.ProjectId, journal.JournalId, watchTask, path, watch);
             }
-            if (watchShown == watchVersion) return;
-            watchShown = watchVersion;
-            plane.Kit.ShowWatch(watch.Arc);
+            if (watchShown != watchVersion)
+            {
+                watchShown = watchVersion;
+                plane.Kit.ShowWatch(watch.Arc);
+            }
+            // The arc keeps facing the eyes as the plane follows the head.
+            plane.Kit.FaceWatch();
         }
 
         /// <summary>One read the model asked for, answered to the model that asked, if it still stands; a refusal for pace is never shown.</summary>

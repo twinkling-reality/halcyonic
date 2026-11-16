@@ -526,7 +526,11 @@ namespace Halcyonic.XR.UI
                 writingArc.gameObject.SetActive(true);
                 var size = writingArc.Show(arc);
                 watchDrawn = size.y > 0f;
-                if (watchDrawn) StandWatch(size);
+                if (watchDrawn)
+                {
+                    watchOverhang = Overhang(writingArc, size);
+                    StandWatch(size);
+                }
             }
             // The field and the cursor give the panel's place to the arc, and take it back when it goes.
             if (watchDrawn != was && bar.Shown is RoomBar room) ShowWork(room, GlazeText.Scale);
@@ -545,7 +549,12 @@ namespace Halcyonic.XR.UI
         private void StandWatch(Vector2 size)
         {
             var gap = RoomType.Units(RoomWritingArc.GapDp);
-            writingArc!.transform.localPosition = new Vector3(0f, bar.Size.y / 2f + gap + size.y, 0f);
+            // The gap is to the arc's drawn edge: its glass reaches past its laid size (by 2 dp as laid, measured once a show).
+            watchFoot = bar.Size.y / 2f + gap + watchOverhang;
+            watchSize = size;
+            writingArc!.transform.localRotation = Quaternion.identity;
+            writingArc.transform.localPosition = new Vector3(0f, watchFoot + size.y, 0f);
+            FaceWatch();
             if (!Mathf.Approximately(watchGapSaid, GlazeText.Scale))
             {
                 watchGapSaid = GlazeText.Scale;
@@ -556,6 +565,49 @@ namespace Halcyonic.XR.UI
         }
 
         private float watchGapSaid;
+        private float watchFoot;
+        private float watchOverhang;
+        private Vector2 watchSize;
+        private readonly List<Renderer> watchParts = new List<Renderer>();
+
+        /// <summary>Where the person's eyes are, in the world, for the arc to face them; null leaves it upright.</summary>
+        public Func<Vector3>? WatchEyes { get; set; }
+
+        /// <summary>
+        /// The arc tipped about its foot to face the eyes (the plane faces them at its own middle, and the arc stands well over it):
+        /// its code read at its size, never foreshortened under the floor (36-work-watch's size check). Its foot stays where it
+        /// stands, a gap over the bar, so tipping never brings it over the bar. Called each frame while it stands; allocates nothing.
+        /// </summary>
+        public void FaceWatch()
+        {
+            if (!watchDrawn || writingArc == null || WatchEyes == null) return;
+            var foot = new Vector3(0f, watchFoot, 0f);
+            var to = bar.transform.InverseTransformPoint(WatchEyes()) - (foot + new Vector3(0f, watchSize.y / 2f, 0f));
+            if (to.sqrMagnitude < 1e-8f) return;
+            var turn = Quaternion.Euler(Mathf.Atan2(to.y, -to.z) * Mathf.Rad2Deg, 0f, 0f);
+            writingArc.transform.localRotation = turn;
+            writingArc.transform.localPosition = foot - turn * new Vector3(0f, -watchSize.y, 0f);
+        }
+
+        /// <summary>How far the arc's drawn parts reach under its laid foot, in its own units: its glass's rim and shade.</summary>
+        private float Overhang(RoomWritingArc arc, Vector2 size)
+        {
+            arc.GetComponentsInChildren(false, watchParts);
+            var into = arc.transform.worldToLocalMatrix;
+            var low = -size.y;
+            foreach (var part in watchParts)
+            {
+                if (!part.enabled) continue;
+                var bounds = part.localBounds;
+                if (bounds.size == Vector3.zero) continue;
+                var to = into * part.transform.localToWorldMatrix;
+                for (var corner = 0; corner < 8; corner++)
+                    low = Mathf.Min(low, to.MultiplyPoint3x4(new Vector3((corner & 1) == 0 ? bounds.min.x : bounds.max.x,
+                        (corner & 2) == 0 ? bounds.min.y : bounds.max.y, (corner & 4) == 0 ? bounds.min.z : bounds.max.z)).y);
+            }
+            watchParts.Clear();
+            return Mathf.Clamp(-size.y - low, 0f, RoomType.Units(8f));
+        }
 
         /// <summary>The turn ended: the panels settle into the result's Changes (FIELD's fold).</summary>
         public void SettleWatch() { if (writingArc != null) writingArc.Settle(); }
