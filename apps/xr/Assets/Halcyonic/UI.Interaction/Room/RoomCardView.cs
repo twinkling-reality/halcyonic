@@ -272,6 +272,19 @@ namespace Halcyonic.XR.UI
         public const float ChevronDp = 18f;
         public const float ChevronGapDp = 10f;
         private RoomCodeView? codeView;
+
+        // The task's still on a picture head, where one is read (TaskStill); hidden otherwise.
+        private RoomPictureView? pictureView;
+        private bool pictureUsed;
+
+        /// <summary>
+        /// The still a picture head draws for a card's <see cref="RoomCard.Still"/>, or null where it is not read yet or cannot be: the
+        /// director's reads (TaskPictures). Unset, every picture head draws its own glyph.
+        /// </summary>
+        public static System.Func<TaskStill, Texture2D?>? Pictures { get; set; }
+
+        /// <summary>The still the picture head draws, or null where it draws its glyph.</summary>
+        public RoomPictureView? PictureShown => pictureUsed ? pictureView : null;
         private bool codeUsed;
         private int platesUsed;
         private int glyphsUsed;
@@ -388,6 +401,7 @@ namespace Halcyonic.XR.UI
             glyphsUsed = 0;
             rowPressesUsed = 0;
             codeUsed = false;
+            pictureUsed = false;
             PagedDescription = null;
             PagedDescriptionLines = 0;
             PagedDescriptionPage = 0;
@@ -957,6 +971,16 @@ namespace Halcyonic.XR.UI
                         Glyph(RoomGlyph.Agent, HeadGlyphDp, Color.white, centre, "agent");
                         break;
                     case RoomCardHead.Picture:
+                        // The photo or video the person gave the task, where its still is read (ADR 0066); else the tile and its glyph.
+                        if (card.Still != null && Pictures?.Invoke(card.Still) is Texture2D still)
+                        {
+                            if (pictureView == null) pictureView = RoomPictureView.Create(transform, "Picture", order - 3);
+                            pictureView.Show(still, side.x, S(14f));
+                            pictureView.transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(0.4f));
+                            pictureUsed = true;
+                            Plate(side, S(14f), new Color(1f, 1f, 1f, 0f), centre, "picture edge", White(0.25f), S(1f), front: true);
+                            break;
+                        }
                         Plate(side, S(14f), White(0.10f), centre, "picture", White(0.25f), S(1f));
                         Glyph(RoomGlyph.Cube, HeadGlyphDp, Rgb(TileInk), centre, "picture");
                         break;
@@ -1727,6 +1751,7 @@ namespace Halcyonic.XR.UI
             for (var index = platesUsed; index < plates.Count; index++) plates[index].gameObject.SetActive(false);
             for (var index = glyphsUsed; index < glyphs.Count; index++) glyphs[index].Hide();
             if (!codeUsed && codeView != null) codeView.Hide();
+            if (!pictureUsed && pictureView != null) pictureView.Hide();
         }
 
         /// <summary>A colour as the page shows it over the panel, its alpha the one a blend in linear light needs to look the same.</summary>

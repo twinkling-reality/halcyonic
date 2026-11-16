@@ -343,6 +343,10 @@ namespace Halcyonic.XR.Workspace
             FocusGuard.Left += director.OnFocusLeft;
             Glaze.PaletteChanged += director.OnPaletteChanged;
             GlazeText.ScaleChanged += director.OnTextScaleChanged;
+            // The stills of photos and videos given to tasks, read once for their cards' picture heads (ADR 0066); a still read lays the card again.
+            director.pictures = new TaskPictures(() => director.Api, () => director.State?.Journal?.JournalId);
+            director.pictures.Changed += () => director.dirty = true;
+            RoomCardView.Pictures = still => director.pictures?.Get(still);
             setup.Presentation.Suspending += director.SuspendWorkspace;
             setup.Presentation.Changed += director.PresentationChanged;
             // New project's flow let go for another session or journal comes off the plane.
@@ -605,6 +609,8 @@ namespace Halcyonic.XR.Workspace
         private void OnDestroy()
         {
             ShareCharacterIdentity(null);
+            RoomCardView.Pictures = null;
+            pictures?.Clear();
             FocusGuard.Left -= OnFocusLeft;
             Glaze.PaletteChanged -= OnPaletteChanged;
             GlazeText.ScaleChanged -= OnTextScaleChanged;
@@ -653,6 +659,8 @@ namespace Halcyonic.XR.Workspace
             navigator.Moved();
             dirty = true;
         }
+
+        private TaskPictures? pictures;
 
         private void Update()
         {

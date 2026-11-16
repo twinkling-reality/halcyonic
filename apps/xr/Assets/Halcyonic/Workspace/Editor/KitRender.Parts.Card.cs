@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-checks-plain", "47-card-fixing", "47-card-usage", "47-card-usage-easing", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-still", "47-card-changes", "47-card-checks", "47-card-checks-plain", "47-card-fixing", "47-card-usage", "47-card-usage-easing", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -162,6 +162,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     slots: new[] { new RoomSlot(RoomKind.Starter, Ours("VR Game")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Don't Ask Me")) }),
                 "47-card-result" => new RoomCard(Theirs("Tail"), Theirs("I added a tail that streams behind the kite."), RoomCardHead.Picture,
                     slots: new[] { new RoomSlot(RoomKind.Passed, Ours("Passed")), new RoomSlot(RoomKind.ToAdd, Ours("4 Files")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")) }),
+                // The same result where the person gave the task a video: its still heads the card (ADR 0066).
+                "47-card-still" => new RoomCard(Theirs("Tail"), Theirs("I added a tail that streams behind the kite."), RoomCardHead.Picture,
+                    slots: new[] { new RoomSlot(RoomKind.Passed, Ours("Passed")), new RoomSlot(RoomKind.ToAdd, Ours("4 Files")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")) })
+                    .WithStill(new TaskStill("synthetic-project", ".halora/media/kite.still.png", TaskMediaKind.Video)),
                 "47-card-changes" => new RoomCard(Ours("Changes"), Ours("What Tail did to the project"), list: tail),
                 "47-card-checks" => new RoomCard(status: new RoomCardStatus("Build Failed", RoomBar.StoppedLineFor(2), RoomTone.Bad), steps: new[]
                 {
@@ -288,7 +292,41 @@ namespace Halcyonic.XR.Workspace.Editor
                 clock += 0.3f;
                 easedAt = 0.3f;
             }
-            var tall = view.Show(card, inner);
+            // A still read: a synthetic picture, wider than tall, as a phone's video frame is, so the head shows it cropped to its middle.
+            var picturesWere = RoomCardView.Pictures;
+            Texture2D? still = null;
+            if (card.Still != null)
+            {
+                still = new Texture2D(64, 36, TextureFormat.RGBA32, false) { name = "Synthetic still", wrapMode = TextureWrapMode.Clamp };
+                for (var y = 0; y < still.height; y++)
+                for (var x = 0; x < still.width; x++)
+                {
+                    var sky = (float)y / still.height;
+                    var ground = y < 12;
+                    still.SetPixel(x, y, ground ? new Color(0.18f, 0.42f + 0.1f * Mathf.Sin(x * 0.3f), 0.22f) : new Color(0.35f + 0.3f * sky, 0.55f + 0.3f * sky, 0.9f));
+                }
+                for (var y = 20; y < 28; y++) for (var x = 28; x < 36; x++) still.SetPixel(x, y, new Color(0.95f, 0.35f, 0.3f));
+                still.Apply(false, false);
+                var given = still;
+                RoomCardView.Pictures = asked => asked.Equals(card.Still) ? given : null;
+            }
+            float tall;
+            try { tall = view.Show(card, inner); }
+            finally { RoomCardView.Pictures = picturesWere; }
+            if (card.Still != null)
+            {
+                var head = view.PictureShown;
+                Require(head != null && head.gameObject.activeSelf && head.Picture == still, "the card's picture head does not draw the task's still");
+                Require(!view.Glyphs.Any(each => each.What == "picture"), "the picture head draws its glyph over the still");
+                Require(view.Plates.Any(each => each.What == "picture edge"), "the still has no edge");
+                if (head != null)
+                {
+                    var crop = RoomPictureView.Crop(64, 36);
+                    Require(Mathf.Abs(crop.x - 36f / 64f) < 1e-4f && Mathf.Abs(crop.y - 1f) < 1e-4f, "the still is not cropped to its middle: " + crop);
+                    Require(Mathf.Abs(head.Side - RoomType.Scaled(RoomCardView.HeadDp)) < unit * 0.05f, "the still is " + (head.Side / unit).ToString("0.0") + " dp, not the head's " + RoomCardView.HeadDp);
+                }
+            }
+            else Require(view.PictureShown == null, "a still stands on a card given none");
             var size = new Vector2(width, tall + 2f * pad);
             if (state == "47-card-usage-easing")
             {
