@@ -94,56 +94,73 @@ namespace Halcyonic.XR.Workspace.Editor
             finally { ViewField.Current = previousField; WorkspaceRender.KeepFontAssetsAsCommitted(); }
         }
 
+        /// <summary>The longest name a walk gives a task (JUDGE's 64 characters), the widest tag a real name draws on the shelf.</summary>
+        private const string LongShelfName = "A page that greets each visitor by name and counts their visits!";
+
         /// <summary>
-        /// The shelf's envelope measures the older label as a stand-in (CharacterStage.WriteShelfCorners) while the redesign draws the
-        /// room's name tag (AUDIT's 13:23Z, (ii) for the film batch): the stand-in holds the tag across only if, at the size in use, the
-        /// widest label the envelope lays is at least as wide as the widest tag, its words at their 260 dp bound with Needs You and the
-        /// picked ring. Both widths logged in metres; a narrower stand-in fails.
+        /// The real condition behind the shelf's envelope (the lead's 16:4xZ): on a full shelf of six, every name a long one (64 characters)
+        /// and every task needing the person, each DRAWN tag (its words and its plate's glass, as JUDGE's walk measures it, never the
+        /// plate's soft shadow) stands clear of its neighbours' tags and of every character's body as the eyes see them. The least gaps
+        /// are logged in degrees; any overlap fails.
         /// </summary>
         private static List<string> StandInHoldsTheTag()
         {
             var failures = new List<string>();
-            var holder = new GameObject("Stand-in and tag widths");
+            var holder = new GameObject("Drawn tags on a full shelf");
             var designWas = RoomDesign.Enabled;
             try
             {
-                var presentation = new CharacterPresentation("width-measure", CharacterStage.WidestStandIn, CharacterActivity.WaitingForHuman,
-                    "Needs You", AttentionLevel.ActionRequired, Array.Empty<string>(), 2, true, true, false);
-                var facing = Quaternion.Euler(0f, 180f, 0f);
-                var viewer = new Vector3(0f, 0.45f, -AgentShelfSearch.MinimumDistance);
-                float WidthOf(IEnumerable<Renderer> renderers)
-                {
-                    var drawn = renderers.Where(each => each.enabled && each.gameObject.activeInHierarchy).Select(each => each.bounds).ToList();
-                    if (drawn.Count == 0) return 0f;
-                    var all = drawn[0];
-                    foreach (var each in drawn.Skip(1)) all.Encapsulate(each);
-                    return all.size.x;
-                }
-                var label = CharacterView.Create(holder.transform, "stand-in");
-                label.transform.SetPositionAndRotation(Vector3.zero, facing);
-                label.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
-                label.Show(presentation);
-                label.PlaceShelfLabel(viewer);
-                WorkspaceRender.ForceMeshes(holder);
-                var standIn = WidthOf(label.Label.GetComponentsInChildren<Renderer>(false));
-                var tagged = CharacterView.Create(holder.transform, "tag");
-                tagged.transform.SetPositionAndRotation(Vector3.right * 2f, facing);
-                tagged.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
-                tagged.Show(presentation);
-                tagged.PlaceShelfLabel(viewer);
                 RoomDesign.Enabled = true;
-                var nameTag = RoomNameTag.On(tagged);
-                nameTag.Picked = true;
+                const int places = 6;
+                var eyes = Vector3.zero;
+                var pose = new Pose(new Vector3(0f, -0.45f, AgentShelfSearch.MinimumDistance), Quaternion.identity);
+                var width = AgentShelfDraft.Width(places);
+                var pitch = CharacterStage.PitchOf(places, width);
+                var views = new List<CharacterView>();
+                for (var index = 0; index < places; index++)
+                {
+                    var view = CharacterView.Create(holder.transform, "shelf-tag-" + index);
+                    var x = -pitch * (places - 1) / 2f + pitch * index;
+                    view.transform.SetPositionAndRotation(pose.position + Vector3.right * x, Quaternion.Euler(0f, 180f, 0f));
+                    view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
+                    var tag = RoomNameTag.On(view);
+                    view.Show(new CharacterPresentation("shelf-tag-" + index, LongShelfName, CharacterActivity.WaitingForHuman, "Needs You",
+                        AttentionLevel.ActionRequired, Array.Empty<string>(), 2, false, false, false));
+                    view.PlaceShelfLabel(eyes);
+                    views.Add(view);
+                }
                 WorkspaceRender.ForceMeshes(holder);
-                var tag = nameTag.Tag;
-                var tagWidth = tag == null ? 0f : WidthOf(tag.GetComponentsInChildren<Renderer>(false));
-                Debug.Log("Halcyonic: agent shelf: at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + ", the envelope's stand-in label is "
-                    + standIn.ToString("0.000", CultureInfo.InvariantCulture) + " m wide and the widest name tag " + tagWidth.ToString("0.000", CultureInfo.InvariantCulture)
-                    + " m; the " + (standIn >= tagWidth ? "stand-in" : "tag") + " is wider.");
-                if (tag == null) failures.Add("the redesign drew no name tag to measure");
-                else if (standIn < tagWidth)
-                    failures.Add("the envelope's stand-in label (" + standIn.ToString("0.000", CultureInfo.InvariantCulture) + " m) is narrower than the widest name tag ("
-                        + tagWidth.ToString("0.000", CultureInfo.InvariantCulture) + " m) at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture));
+                GlazeChecks.Extent Drawn(CharacterView view)
+                {
+                    var tag = view.GetComponent<RoomNameTag>()?.Tag;
+                    var parts = tag == null ? new List<Renderer>() : tag.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
+                        .Concat(tag.GetComponentsInChildren<Halcyonic.XR.UI.RoomSurface>(false).Select(plate => (Renderer)plate.Glass))
+                        .Where(part => part != null && part.enabled).ToList();
+                    return GlazeChecks.Of(view.name + "'s tag", eyes, parts);
+                }
+                var tags = views.Select(Drawn).ToList();
+                var bodies = views.Select(view => GlazeChecks.Of(view.name + "'s body", eyes, view.Body.GetComponentsInChildren<Renderer>(false))).ToList();
+                var leastNeighbour = float.PositiveInfinity;
+                var leastBody = float.PositiveInfinity;
+                for (var index = 0; index < places; index++)
+                {
+                    if (index + 1 < places)
+                    {
+                        var apart = tags[index].Apart(tags[index + 1]);
+                        leastNeighbour = Mathf.Min(leastNeighbour, apart);
+                        if (apart <= 0f) failures.Add("the drawn tags of places " + index + " and " + (index + 1) + " meet, " + GlazeChecks.Degrees(apart) + " degrees apart, at text scale "
+                            + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture));
+                    }
+                    for (var other = 0; other < places; other++)
+                    {
+                        var clear = tags[index].Apart(bodies[other]);
+                        leastBody = Mathf.Min(leastBody, clear);
+                        if (clear <= 0f) failures.Add("place " + index + "'s drawn tag stands over place " + other + "'s character, at text scale "
+                            + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture));
+                    }
+                }
+                Debug.Log("Halcyonic: agent shelf: at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + ", six 64-character tags needing the person: least gap between neighbouring tags "
+                    + GlazeChecks.Degrees(leastNeighbour) + " degrees, least gap from a tag to any character " + GlazeChecks.Degrees(leastBody) + " degrees.");
             }
             finally
             {
