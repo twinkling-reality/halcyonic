@@ -1320,11 +1320,33 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (longer && state != "33-ask-long-part-2") Require(request.textInfo.lineCount == RoomBar.RequestLines, "a long request does not show eight lines of it");
                     }
                     Require(bar.SentenceWaits == (shown.Waits && shown.Sentence != null), "the sentence's sweep does not follow the state under way");
-                    Require((panel.InnerBar != null) == (shown.Sentence != null), "the sentence bar does not follow the sentence");
-                    if (shown.Sentence != null)
+                    if (shown.AsDialog && !questioning)
                     {
-                        Whole(bar.Sentence, "the sentence");
-                        Require(bar.Sentence.text == LabelText.ForTextMeshPro(shown.Sentence).Replace(" · ", "\n"), "the sentence reads \"" + bar.Sentence.text + "\", not \"" + shown.Sentence + "\"");
+                        // The approval as one dialog (FIELD's approval moment): our question (Run Command?) is the dialog's words at its top,
+                        // whole and its largest text, inside the panel; no sentence bar; the command in mono under it (judged above).
+                        var asks = bar.DialogWords;
+                        asks.ForceMeshUpdate(true);
+                        Require(panel.InnerBar == null, "a sentence bar stands in the approval's dialog");
+                        Require(asks.gameObject.activeInHierarchy && !asks.isTextTruncated && asks.text == LabelText.ForTextMeshPro(shown.Sentence!),
+                            "the approval's dialog reads \"" + asks.text + "\" at its top, not \"" + shown.Sentence + "\"");
+                        Require(asks.fontSize >= typeSize * RoomBarView.DialogWordsDp / RoomGeometry.TypeDp - 1e-4f, "the approval's question stands under the dialog's 28 dp");
+                        foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                            if (!ReferenceEquals(label, asks) && label.gameObject.activeInHierarchy && label.text.Length > 0)
+                                Require(label.fontSize <= asks.fontSize + 1e-4f, label.name + " stands larger than the approval's question");
+                        var askLow = panel.transform.InverseTransformPoint(asks.transform.TransformPoint(asks.textBounds.min));
+                        var askHigh = panel.transform.InverseTransformPoint(asks.transform.TransformPoint(asks.textBounds.max));
+                        Require(Mathf.Min(askLow.x, askHigh.x) >= -panel.Size.x / 2f - 1e-3f && Mathf.Max(askLow.x, askHigh.x) <= panel.Size.x / 2f + 1e-3f
+                            && Mathf.Max(askLow.y, askHigh.y) <= panel.Size.y / 2f + 1e-3f && Mathf.Min(askLow.y, askHigh.y) >= -panel.Size.y / 2f - 1e-3f, "the approval's question stands outside its dialog");
+                        if (shown.Mono) Require(bar.Request.transform.position.y < asks.transform.position.y, "the command does not stand under the approval's question");
+                    }
+                    else if (!shown.AsDialog)
+                    {
+                        Require((panel.InnerBar != null) == (shown.Sentence != null), "the sentence bar does not follow the sentence");
+                        if (shown.Sentence != null)
+                        {
+                            Whole(bar.Sentence, "the sentence");
+                            Require(bar.Sentence.text == LabelText.ForTextMeshPro(shown.Sentence).Replace(" · ", "\n"), "the sentence reads \"" + bar.Sentence.text + "\", not \"" + shown.Sentence + "\"");
+                        }
                     }
                     Require(bar.CaretShown == shown.Caret, "the caret does not follow the field");
                     // The column: its actions left-aligned, the main one first, the last one's foot on the panel's foot.
