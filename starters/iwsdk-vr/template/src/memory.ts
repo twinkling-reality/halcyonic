@@ -193,7 +193,7 @@ export interface LandShape {
 /**
  * Long swells of ground running across the wind, `swell` metres high near the person (6; they grow a little toward the
  * horizon, to about 1.6 times at 110 m), `crest` 1 for dunes and 0 for soft hills (0.8), the wind blowing nearly from
- * the low sun's direction `sun` (radians, 0 ahead of the person along -z, positive to their right; 1.25 by default), so
+ * the low sun's direction `sun` (radians, 0 ahead of the person along -z, positive to their right; 0.8 by default), so
  * the crests run across the light: faces lit toward the sun, shadow in their lee. The person stands on the crest of
  * a dune of their own, level at their feet and falling away along the wind, its slope blending by 18 m into the field
  * below them; each swell's height changes along its crest, so no two crests repeat. The same for the same `seed`.
@@ -206,7 +206,7 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
     state = (state * 16807) % 2147483647;
     return state / 2147483647;
   };
-  const wind = (options.sun ?? 1.25) + 0.3;
+  const wind = (options.sun ?? 0.8) + 0.3;
   const wx = Math.sin(wind);
   const wz = -Math.cos(wind);
   const waves = [
@@ -224,7 +224,9 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
       // The person stands on a dune's crest, running across the wind through their feet: level where they stand,
       // falling away gently on the side the wind comes from and steeply on its lee, so they look out over the field.
       const feet = Math.min(1, Math.max(0, (r - 0.5) / 1.2));
-      const fall = along > 0 ? 0.3 * along ** 1.25 : 0.12 * (-along) ** 1.3;
+      // The crest curves round the person like a crescent's, so the line between its lit and shaded sides bends.
+      const bent = along - 0.045 * across * across + 0.6 * Math.sin(across * 0.35);
+      const fall = bent > 0 ? 0.3 * bent ** 1.25 : 0.12 * (-bent) ** 1.3;
       const ridge = -feet * feet * (fall + 0.004 * across * across);
       const blend = Math.min(1, Math.max(0, (r - 5) / 13));
       if (blend === 0) return ridge;

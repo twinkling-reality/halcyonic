@@ -299,7 +299,7 @@ export interface LandColours {
  * the sand falling away along the wind into a field of dunes (`crest` 1, sharp crests) or soft hills (`crest` 0) below
  * them, `swell` metres high near them, rising far off into a hazed line of distant dunes along the horizon. A low sun
  * of the `light`'s colour, warmed, stands over the horizon (`sun` its direction in radians, 0 ahead of the person and
- * positive to their right; 1.25, to the right, by default, so every dune ahead is lit from the side); the sand is warm
+ * positive to their right; 0.8, ahead and to the right, by default, so dunes ahead are lit from the side and the sun's glow stands at the view's edge); the sand is warm
  * on faces turned to it and cool in their lee, with wind ripples and grain near the person; the sky warms low round
  * the sun, with a few soft bands of high cloud. With `grains`, that many grains of sand blowing low (none unless
  * asked); with `stars`, that many stars, on the side of the sky away from the sun (give them only for a place after
@@ -326,7 +326,7 @@ export function openLand(
   const radius = 110;
 
   const random = seeded(options.seed ?? 7);
-  const sunAt = options.sun ?? 1.25;
+  const sunAt = options.sun ?? 0.8;
   const land = landShape({ ...options, sun: sunAt });
   const height = land.height;
   const [wx, wz] = land.wind;
@@ -360,8 +360,8 @@ export function openLand(
     into.copy(near).lerp(far, Math.min(1, (r / radius) ** 0.6));
     // In shade the sand still has the sky's light and a little warmth bounced from the lit slopes round it.
     // Graded as dusk light is: faces toward the sun gold, faces away from it cool blue-violet, lit by the sky.
-    shadow.copy(into).multiplyScalar(0.42).lerp(shadeSky, 0.42);
-    lit.copy(into).lerp(gold, 0.55).multiplyScalar(1.75);
+    shadow.copy(into).multiplyScalar(0.32).lerp(shadeSky, 0.4);
+    lit.copy(into).lerp(gold, 0.55).multiplyScalar(1.9);
     let shade = 0;
     for (let s = 1; s <= 18 && shade < 1; s++) {
       const d = s * 0.7 + s * s * 0.16;
@@ -614,9 +614,6 @@ export function openLand(
     float facingSun = 0.55 + 0.45 * sunAlong;
     outgoingLight *= 1.0 + crisp * 0.26 * face1 * strength1 * facingSun;
     float litFace = crisp > 0.0 ? smoothstep(0.1, 0.5, face1) : 1.0;
-    // Long faint streaks the wind leaves farther off, where single ripples are too fine to draw.
-    float streak = sin(ra * 3.1 + 2.0 * sin(rc * 0.35)) * (1.0 - smoothstep(0.6, 1.6, footprint * 3.1));
-    outgoingLight *= 1.0 + 0.05 * streak * smoothstep(5.0, 14.0, length(p)) * (1.0 - smoothstep(30.0, 60.0, length(p)));
     // The soft ripples from the tile only where the exact ripples below have faded, so no crest is drawn twice.
     outgoingLight *= 1.0 + rippleNear * (1.0 - 0.92 * crisp) * (0.2 * (slope.x * sunAlong + slope.y * sunAcross) + 0.06 * slope.x);
     // Fine grain, only where a grain is still bigger than a pixel.
@@ -663,7 +660,7 @@ export function openLand(
     // The air between the person and the sand: thicker low down and far off, its colour the sky's own at the
     // horizon, warmer and brighter toward the sun, so the land melts into the sky with no edge.
     float sunward = max(0.0, dot(normalize(viewDir.xz), sandSun));
-    float density = 0.006 * exp(-max(vSand.y + 3.0, 0.0) * 0.12) * smoothstep(8.0, 60.0, dist) + 0.0015;
+    float density = 0.005 * exp(-max(vSand.y + 3.0, 0.0) * 0.12) * smoothstep(25.0, 90.0, dist) + 0.0008;
     float thick = 1.0 - exp(-dist * density);
     vec3 airColour = sandFog + sandSheen * (0.06 + 0.5 * sunward * sunward);
     outgoingLight = mix(outgoingLight, airColour, thick);
