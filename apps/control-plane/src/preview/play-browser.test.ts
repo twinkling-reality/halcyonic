@@ -181,7 +181,7 @@ describe('a game played on the Mac through its viewer, with the real browser (P-
     assert.equal(mic.length, 1);
     assert.ok(['mic=NotAllowedError', 'mic=NotSupportedError'].includes(mic[0] ?? ''), mic.join());
     await until(
-      async () => (await text('sound')) === 'No Sound · Silent Game',
+      async () => (await text('sound')) === 'No Sound',
       'the viewer to say the game is silent',
     );
 

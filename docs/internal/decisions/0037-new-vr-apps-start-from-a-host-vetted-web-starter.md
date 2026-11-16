@@ -203,9 +203,9 @@ agent's work in a way that closing a window does not undo.
 ## Amendment, 2026-10-31: the viewer page (P-B)
 
 The viewer's page is Halcyonic's own: the game's frames, a press to start taking keys, and labels in the product's
-voice for its state (Ready, Live, Reconnecting) and for its end (Game Closed, Game Ended · Preview Stopped and the
-others). A reload does not end the game: the host keeps a play for 5 s after its last stream closes, and the page,
-with its cookie, comes back within that time. The page says when a game makes no sound (No Sound · Silent Game) and
+voice for its state (Ready, Live, Reconnecting) and for its end (Game Closed, or Game Ended with its reason, such as Preview Stopped, on a line of its own; since
+2026-11-16 never joined on a dot). A reload does not end the game: the host keeps a play for 5 s after its last stream closes, and the page,
+with its cookie, comes back within that time. The page says when a game makes no sound (No Sound) and
 when it plays sound (Sound On), from the computer's own record of which processes play audio rather than from
 anything the page reports, and says nothing about sound when the computer cannot tell. Since S1 that record is
 CoreAudio's per-process output state, read by a small helper of Halcyonic's for the browser's own processes; Sound On

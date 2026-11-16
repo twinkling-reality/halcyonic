@@ -7,20 +7,21 @@ const HEIGHT = 720;
 const GRACE_MS = 5000;
 const BUTTONS = ['left', 'middle', 'right'];
 
-/** The words for why a game ended, by the host's reason. */
+/** Why a game ended, by the host's reason: a title, and the reason on its own line, never joined on a dot. */
 const ENDED = {
-  closed: 'Game Closed',
-  preview_stopped: 'Game Ended · Preview Stopped',
-  newer_check: 'Game Ended · Newer Check',
-  host_stopped: 'Game Ended · Computer Stopped',
-  failed: 'Game Ended · Browser Failed',
+  closed: { title: 'Game Closed', why: null },
+  preview_stopped: { title: 'Game Ended', why: 'Preview Stopped' },
+  newer_check: { title: 'Game Ended', why: 'Newer Check' },
+  host_stopped: { title: 'Game Ended', why: 'Computer Stopped' },
+  failed: { title: 'Game Ended', why: 'Browser Failed' },
 };
+const LOST = { title: 'Game Closed', why: 'Connection Lost' };
 
 /** The words for the game's sound, as the host observes it on the computer's speakers. */
 const SOUND = {
   playing: 'Sound On',
   quiet: 'Sound Paused',
-  none: 'No Sound · Silent Game',
+  none: 'No Sound',
 };
 
 const status = document.getElementById('status');
@@ -28,6 +29,8 @@ const sound = document.getElementById('sound');
 const screen = document.getElementById('screen');
 const start = document.getElementById('start');
 const ended = document.getElementById('ended');
+const endedTitle = document.getElementById('ended-title');
+const endedWhy = document.getElementById('ended-why');
 
 let socket = null;
 let over = false;
@@ -43,7 +46,9 @@ function say(words, tone) {
 
 function end(words) {
   over = true;
-  ended.textContent = words;
+  endedTitle.textContent = words.title;
+  endedWhy.textContent = words.why ?? '';
+  endedWhy.hidden = words.why === null;
   ended.hidden = false;
   start.hidden = true;
   say('Ended');
@@ -77,7 +82,7 @@ function connect() {
     } catch {
       return;
     }
-    if (message.type === 'ended') end(ENDED[message.reason] ?? 'Game Ended');
+    if (message.type === 'ended') end(ENDED[message.reason] ?? { title: 'Game Ended', why: null });
     if (message.type === 'sound' && SOUND[message.state] !== undefined) {
       sound.textContent = SOUND[message.state];
       sound.hidden = false;
@@ -88,7 +93,7 @@ function connect() {
     socket = null;
     if (lostAt === 0) lostAt = Date.now();
     if (Date.now() - lostAt >= GRACE_MS) {
-      end('Game Closed · Connection Lost');
+      end(LOST);
       return;
     }
     say('Reconnecting', 'waiting');

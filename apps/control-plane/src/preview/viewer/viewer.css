@@ -93,13 +93,22 @@ main {
   position: absolute;
   inset: 0;
   display: grid;
-  place-items: center;
-  margin: 0;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
   background: rgb(29 29 29 / 0.88);
-  font-size: 17px;
+}
+.ended-title {
+  margin: 0;
+  font-size: 22px;
   font-weight: 600;
 }
+.ended-why {
+  margin: 0;
+  color: var(--secondary);
+}
 .ended[hidden],
+.ended-why[hidden],
 .sound[hidden],
 #start[hidden] {
   display: none;
