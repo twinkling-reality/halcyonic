@@ -36,7 +36,9 @@ const VERTEX = /* glsl */ `
   varying vec2 vHalf;
   varying vec3 vColour;
   varying float vNear;
+  varying float vHigh;
   void main() {
+    vHigh = 1e4;
     // How near the water a reflected light is: a light high above it is seen faintly in it.
     vNear = lift > 0.0 ? exp(-max(0.0, instanceMatrix[3].y - level) / lift) : 1.0;
     vec3 x = instanceMatrix[0].xyz;
@@ -57,7 +59,9 @@ const VERTEX = /* glsl */ `
       vec3 along = normalize(mat3(modelMatrix) * y);
       // Its right to the eye's right, so the quad faces the eye and is never culled as a back face.
       vec3 side = normalize(cross(centre - cameraPosition, along) + vec3(1e-5, 0.0, 0.0));
-      at = viewMatrix * vec4(centre + side * vPoint.x + along * vPoint.y, 1.0);
+      vec3 world = centre + side * vPoint.x + along * vPoint.y;
+      vHigh = world.y;
+      at = viewMatrix * vec4(world, 1.0);
     } else if (facing > 0.5) {
       // Always turned to the eye: the centre placed, the quad laid out in view space.
       at = modelViewMatrix * vec4(instanceMatrix[3].xyz, 1.0);
@@ -80,7 +84,9 @@ const FRAGMENT = /* glsl */ `
   uniform float dim;
   uniform float ripple;
   uniform float time;
+  uniform vec2 under;
   varying float vNear;
+  varying float vHigh;
   varying vec2 vPoint;
   varying vec2 vHalf;
   varying vec3 vColour;
@@ -120,6 +126,8 @@ const FRAGMENT = /* glsl */ `
     float fromFoot = clamp(0.5 + 0.5 * vPoint.y / max(vHalf.y + halo, 1e-4), 0.0, 1.0);
     if (fade.x > 0.0) light *= smoothstep(0.0, fade.x, fromFoot);
     if (fade.y > 0.0) light *= smoothstep(0.0, fade.y, 1.0 - fromFoot);
+    // Below a polished floor, when asked: dimmer, as the floor's reflection of it.
+    if (under.y > 0.0) light *= mix(under.y, 1.0, smoothstep(under.x - 0.25, under.x + 0.1, vHigh));
     if (dot(light, vec3(1.0)) < 0.0004) discard;
     gl_FragColor = vec4(light, 1.0);
     #include <colorspace_fragment>
@@ -171,7 +179,9 @@ export interface Glows {
  * far the glow reaches round each shape, `round` its corner radius, both in metres; a shape whose `round` is half its
  * size is a disc; `whiten` makes the core hotter than its colour; `ramp` fades each shape from full at its -y end to
  * that share at its +y end (a drop brightest at its foot); `fade` fades it from nothing at both ends to full that share
- * of its whole length in from each (a shaft of light with no end), or a pair, its -y end's share and its +y end's. With `mirror`, the shapes are also seen reflected in a
+ * of its whole length in from each (a shaft of light with no end), or a pair, its -y end's share and its +y end's;
+ * with `under` (upright shapes), whatever lies below the world height `level` is `strength` as bright: a shaft running
+ * on into a polished floor as its reflection. With `mirror`, the shapes are also seen reflected in a
  * surface at height `level` of the object's frame, `strength` as bright, `stretch` times as tall (water stretches a
  * light's reflection downward) and `narrow` times as wide, fading the higher a shape hangs over it (`lift` metres
  * to fall to a third), broken into `ripple` bands that sway (0 for dark glass, about 9 for a lake at dusk). Add
@@ -189,6 +199,7 @@ export function glows(
     whiten?: number;
     ramp?: number;
     fade?: number | readonly [number, number];
+    under?: { level: number; strength: number };
     mirror?: { level: number; strength?: number; stretch?: number; narrow?: number; lift?: number; ripple?: number };
   } = {},
 ): Glows {
@@ -200,6 +211,7 @@ export function glows(
     whiten: { value: options.whiten ?? 0 },
     dim: { value: dim },
     ramp: { value: options.ramp ?? -1 },
+    under: { value: new Vector2(options.under?.level ?? 0, options.under?.strength ?? 0) },
     fade: { value: typeof options.fade === 'number' ? new Vector2(options.fade, options.fade) : new Vector2(...(options.fade ?? [0, 0])) },
     stretch: { value: stretch },
     narrow: { value: 1 },
@@ -1055,8 +1067,9 @@ export function lightHall(
     const n = Math.round((i / outer) * count) % count;
     return { x: Math.sin(a) * radius * 2.3, z: -Math.cos(a) * radius * 2.3, colour: (homes[n] as (typeof homes)[number]).colour };
   });
-  // Faded toward their tops only: at the floor each meets its own reflection, with no dark line between.
-  const pillars = glows(count + outer, { upright: true, halo: 0.55, round: 0.05, core: 0.18, whiten: 0.3, fade: [0, 0.4], mirror: { level: 0, strength: 0.6, narrow: 1 } });
+  // Each runs on through the polished floor as its own reflection, one light with no join, dimmer below the floor
+  // and fading out under it.
+  const pillars = glows(count + outer, { upright: true, halo: 0.55, round: 0.05, core: 0.18, whiten: 0.3, fade: [0.18, 0.35], under: { level: 0, strength: 0.4 } });
   // A note's light climbing its column: a long soft glow, brightest at its head, its tail fading to nothing, so notes
   // following each other up a column run together as one light, never as stacked bars.
   const climbs = glows(200, { upright: true, halo: 0.18, round: 0.02, core: 0.6, whiten: 0.6, ramp: 0, fade: 0.12, mirror: polish });
@@ -1232,7 +1245,7 @@ export function lightHall(
           const fade = Math.exp(-going * 0.35);
           climbs.place(home.x, y - tail / 2, home.z, 1, 0, 0, 0, -1, 0, 0.05, tail, litColour[i] as Color, 1.5 * (newestLoud[i] as number) * fade * (0.5 + 0.5 * built));
         }
-        pillars.add(home.x, height * 0.7, home.z, 0.14, height * 1.4, shade, 1.4 * strength);
+        pillars.add(home.x, height * 0.55, home.z, 0.14, height * 1.7, shade, 1.4 * strength);
         // The bloom runs up every column at once from its foot into the light overhead.
         if (since >= 0 && since < 2.5) {
           const y = since * 5;
@@ -1241,8 +1254,8 @@ export function lightHall(
         }
       }
       for (const far of detail > 0 ? beyond : []) {
-        const tall = height * 2;
-        pillars.add(far.x, tall / 2, far.z, 0.08, tall, far.colour, 0.9 * rest + 1.2 * bloom);
+        const tall = height * 2.4;
+        pillars.add(far.x, height * 0.8, far.z, 0.08, tall, far.colour, 0.9 * rest + 1.2 * bloom);
       }
       // The bloom's ring runs out across the floor from the person's feet past the columns.
       if (since >= 0 && since < 3) {

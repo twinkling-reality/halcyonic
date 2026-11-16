@@ -115,7 +115,8 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   group.add(sky(black, misted, misted, 120));
   // The haze ring (below) stands 44 m out; the floor carries its low glow on toward the person, with no seam.
   // Polished: it writes no depth, so light mirrored under it (`lightHall`'s columns and the light overhead) shows in it.
-  const ground = floor(tint.clone().multiplyScalar(0.1), horizon, 60, mist, 44);
+  // Lit about as the haze it mirrors, so it reads as a floor all round and never as a dark band under the horizon.
+  const ground = floor(tint.clone().multiplyScalar(0.22), horizon, 60, mist, 44);
   (ground.material as MeshBasicMaterial).depthWrite = false;
   // After the sky (-0.95), before anything standing on it.
   ground.renderOrder = -0.9;
