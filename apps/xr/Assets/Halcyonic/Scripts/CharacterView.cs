@@ -246,6 +246,8 @@ namespace Halcyonic.XR
             if (horizontal.sqrMagnitude < 1e-6f) return;
             labels.rotation = Quaternion.LookRotation(horizontal, Vector3.up);
             labels.localScale = Vector3.one * (away.magnitude / Mathf.Max(transform.lossyScale.x, 0.001f));
+            // On the shelf a name takes at most four lines (AUDIT 2026-11-16 13:16Z), so its envelope holds for every name.
+            label.MostLines = CharacterLabelView.ShelfTitleLines;
             ViewedFrom(Mathf.Atan2(away.y, horizontal.magnitude) * Mathf.Rad2Deg, faceEyes: true);
             var words = shelfWords ??= label.GetComponentsInChildren<TMP_Text>(true);
             foreach (var word in words) word.ForceMeshUpdate(ignoreActiveState: true);

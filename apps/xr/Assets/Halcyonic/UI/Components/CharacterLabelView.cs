@@ -63,6 +63,29 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public const int MostTitleLines = 6;
 
+        /// <summary>
+        /// The most lines a name takes on the shelf, where the shelf's places are shared and its envelope must not move for a name
+        /// (AUDIT 2026-11-16 13:16Z): four, past which the name stops at its last whole word with its tail faded.
+        /// </summary>
+        public const int ShelfTitleLines = 4;
+
+        private int mostLines = MostTitleLines;
+
+        /// <summary>
+        /// The most lines this label's name takes: <see cref="MostTitleLines"/> on the demo stage, <see cref="ShelfTitleLines"/> on the
+        /// shelf, set by the view that stands it.
+        /// </summary>
+        public int MostLines
+        {
+            get => mostLines;
+            set
+            {
+                if (value == mostLines) return;
+                mostLines = Mathf.Max(TitleLines, value);
+                if (shown != null) Layout(shown);
+            }
+        }
+
         private const float SideDegrees = 0.7f;
         private const float TitleGapDegrees = 0f;
         private const float BottomDegrees = 0.5f;
@@ -262,7 +285,7 @@ namespace Halcyonic.XR.UI
             var maxWidth = GlazeTokens.Units(MaxWidthDegrees);
             GlazeText.SetLiteral(title, label.Title);
             var titleTop = top - badgeHeight - GlazeTokens.Units(TitleGapDegrees);
-            var (lines, titleWidth, faded) = LayName(title, maxWidth - 2f * side, TitleLines);
+            var (lines, titleWidth, faded) = LayName(title, maxWidth - 2f * side, TitleLines, mostLines);
             if (faded != titleFaded) { titleFaded = faded; title.ForceMeshUpdate(true); }
             title.transform.localPosition = new Vector3(0f, titleTop, -0.001f);
 
@@ -285,7 +308,7 @@ namespace Halcyonic.XR.UI
                 // so a filmed task's name stands whole (AUDIT's film MUST, 2026-11-16: "A page that says hello an..." cut to
                 // one line at Settings, Usage and Ask); then the marks in a row under it, a little apart.
                 GlazeText.SetLiteral(shortTitle, label.Title);
-                var (shortLines, shortWidth, shortFaded) = LayName(shortTitle, maxWidth - 2f * side, ShortTitleLines);
+                var (shortLines, shortWidth, shortFaded) = LayName(shortTitle, maxWidth - 2f * side, ShortTitleLines, Mathf.Max(ShortTitleLines, mostLines));
                 if (shortFaded != shortTitleFaded) { shortTitleFaded = shortFaded; shortTitle.ForceMeshUpdate(true); }
                 var shortMost = Mathf.Max(ShortTitleLines, shortLines);
                 // No word alone on its last line ("Upgrade the image / pipeline", the reader of 04:48Z): laid a little narrower,
@@ -354,11 +377,11 @@ namespace Halcyonic.XR.UI
         /// on <paramref name="lines"/> lines, or as many more as it needs up to <see cref="MostTitleLines"/>. Past those it stops
         /// at the last whole word that fits, with no ellipsis, and says so, so its tail is faded (11:55Z).
         /// </summary>
-        private static (int Lines, float Width, bool Faded) LayName(TextMeshPro name, float width, int lines)
+        private static (int Lines, float Width, bool Faded) LayName(TextMeshPro name, float width, int lines, int most)
         {
             var (laid, widest) = GlazeText.Lay(name, width, lines);
             // Truncated, not overflowing: a whole last line can overflow its box by its descenders and lose nothing.
-            for (var more = lines + 1; name.isTextTruncated && more <= MostTitleLines; more++)
+            for (var more = lines + 1; name.isTextTruncated && more <= most; more++)
                 (laid, widest) = GlazeText.Lay(name, width, more);
             if (!name.isTextTruncated) return (laid, widest, false);
             // The words that fit whole, to the last word break before where the ellipsis would stand; TextMeshPro's own cut
@@ -369,7 +392,7 @@ namespace Halcyonic.XR.UI
                 if (info.characterInfo[index].character == (char)0x2026) { cut = info.characterInfo[index].index; break; }
             var space = name.text.LastIndexOf(' ', Mathf.Clamp(cut, 0, name.text.Length - 1));
             name.text = name.text.Substring(0, space > 0 ? space : Mathf.Max(1, cut)).TrimEnd();
-            (laid, widest) = GlazeText.Lay(name, width, Mathf.Max(lines, MostTitleLines));
+            (laid, widest) = GlazeText.Lay(name, width, Mathf.Max(lines, most));
             return (laid, widest, true);
         }
 

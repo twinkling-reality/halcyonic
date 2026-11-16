@@ -1062,6 +1062,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add(name + ": confirmed shelf does not contain exactly one supported target.");
                         var characters = new List<(CharacterView View, CharacterTarget Target)> { character };
                         failures.AddRange(CharacterEnvelopes(name, eyes, characters));
+                        if (!features) failures.AddRange(ShelfNamesWhole(name, view, eyes));
                         view.Show(Shown(id, CharacterActivity.Idle));
                         view.PlaceShelfLabel(eyes);
                         Advance(view, 1f);
@@ -1486,6 +1487,43 @@ namespace Halcyonic.XR.Workspace.Editor
                 view.AdvanceForRender(frame);
                 seconds -= frame;
             }
+        }
+
+        /// <summary>
+        /// A name on the shelf takes at most four lines (AUDIT 2026-11-16 13:16Z): the render's fixture names, a name a person gives,
+        /// stand whole, and one over the measure stops at its last whole word with its tail faded, never an ellipsis, named in the log.
+        /// </summary>
+        private static IEnumerable<string> ShelfNamesWhole(string name, CharacterView view, Vector3 eyes)
+        {
+            var failures = new List<string>();
+            foreach (var title in new[]
+            {
+                "Add rate limiting to the sign-in endpoint",
+                "Paginate the order history endpoint for large accounts",
+                "Write the onboarding guide for the payments service webhooks",
+                "Move every payment, refund and payout report from the nightly batch job onto the streaming pipeline, and write the runbook",
+            })
+            {
+                view.Show(new CharacterPresentation(view.WorkstreamId, title, CharacterActivity.WaitingForHuman, CharacterPresenter.LabelOf(CharacterActivity.WaitingForHuman),
+                    AttentionLevel.ActionRequired, new[] { "It wants to use shell: make migrate", "It asks you: Which colour scheme?" }, 2, true, true, false));
+                view.PlaceShelfLabel(eyes);
+                var label = view.Label.Title;
+                label.ForceMeshUpdate(true);
+                var whole = LabelText.ForTextMeshPro(title);
+                var lines = label.textInfo.lineCount;
+                if (lines > CharacterLabelView.ShelfTitleLines || label.isTextTruncated || label.GetParsedText().Contains("…"))
+                    failures.Add(name + ": on the shelf, \"" + title + "\" is drawn on " + lines + " lines, or cut, or with an ellipsis");
+                else if (view.Label.NameFaded)
+                {
+                    var drawn = label.text;
+                    if (!whole.StartsWith(drawn, StringComparison.Ordinal) || drawn.Length >= whole.Length || !char.IsWhiteSpace(whole[drawn.Length]))
+                        failures.Add(name + ": on the shelf, \"" + title + "\" stops at \"" + drawn + "\", not at a word break");
+                    else Debug.Log("Halcyonic: shelf names: \"" + title + "\" is over four lines on the shelf at this size; it stops at \"" + drawn + "\", its tail faded.");
+                }
+                else if (label.text != whole) failures.Add(name + ": on the shelf, \"" + title + "\" shows \"" + label.text + "\"");
+                else Debug.Log("Halcyonic: shelf names: \"" + title + "\" stands whole on " + lines + " lines.");
+            }
+            return failures;
         }
 
         private static CharacterPresentation Shown(string id, CharacterActivity activity, bool stale = false) =>

@@ -3060,6 +3060,10 @@ in order, as before.
   shelf's first place, at the person's left, is New Project, the plus glyph on the tags' line, which opens New Project
   as the menu's own does (`CharacterStage.ShelfCapacity`, `ShelfPlaces`, `PlaceOf`; `RoomNewProjectPlace`, attached by
   `WorkspaceDirector`). The shelf's surface widens to its places. With the redesign off the shelf holds one, as ever.
+  The older label's name (`CharacterLabelView`) stands whole on up to six lines on the demo stage and four on the shelf
+  (`MostTitleLines`, `ShelfTitleLines`, set per view as `MostLines` by `CharacterView.PlaceShelfLabel`), the shelf's
+  envelope measuring the four-line cap so it never moves for a name; past its cap a name stops at its last whole word and
+  its tail fades, never an ellipsis (`NameFaded`; checks `StageRender.Check` and the shelf's `ShelfNamesWhole`).
   No render check builds a real stage, so two at once and New Project's place are not drawn by any check.
 - **The panel's arrival** (BUILD-SPEC-v4 1.5): a new moment's panel rises about a degree as it fades in, its glass and
   its words together, 360 ms, ease out (FIELD's `RoomBarView.ArrivePanel` at the end of the pair's laying,
