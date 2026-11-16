@@ -238,6 +238,7 @@ namespace Halcyonic.Client
             {
                 Result = true,
                 Steps = listed,
+                StepsUsage = listed.Count > 0 ? binding.Model.StepsUsage : null,
                 Facts = facts,
                 Known = result,
                 Card = card,

@@ -632,8 +632,11 @@ namespace Halcyonic.XR.UI
             return Mathf.Clamp(-size.y - low, 0f, RoomType.Units(8f));
         }
 
-        /// <summary>The turn ended: the panels settle into the result's Changes (FIELD's fold).</summary>
-        public void SettleWatch() { if (writingArc != null) writingArc.Settle(); }
+        /// <summary>
+        /// The turn ended: every standing panel folds into its row of the files so far, right to left, one after the other (FIELD's
+        /// FoldAll). Returns the seconds the fold takes, for the view to close once it is done.
+        /// </summary>
+        public float SettleWatch() => writingArc != null ? writingArc.FoldAll() : 0f;
 
         /// <summary>The file column whose task's More page stands, or null: kept by column, so the page stays through the frame's refreshes.</summary>
         private MenuColumn? moreFor;

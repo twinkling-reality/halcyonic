@@ -205,7 +205,8 @@ namespace Halcyonic.Client
         public static KitFileBinding? Of(MenuFrame frame, WorkspaceAction? armed, WorkspacePresentation workspace, string draft, ConnectionStatus connection,
             string projectName, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot = null, KitAvatar? avatar = null,
             KitSelectors? selectors = null, bool roomDesign = false, bool draftSpoken = false, int? requestRows = null, bool chooses = false,
-            int? asking = null, string? writing = null, RoomResult? result = null, IReadOnlyList<TaskStep>? steps = null)
+            int? asking = null, string? writing = null, RoomResult? result = null, IReadOnlyList<TaskStep>? steps = null,
+            TaskUsageFigure? stepsUsage = null)
         {
             if (frame.Side != null) return null;
             // The kit shows an approval's, a denial's or the answers' confirmation, and the redesign an instruction's too; any
@@ -387,7 +388,7 @@ namespace Halcyonic.Client
                 watch: roomDesign && WatchBuild.Offered(workspace.Execution, connection.IsLive
                     && !work.Marks.Any(mark => mark.Kind is WorkMarkKind.Recorded or WorkMarkKind.Demo)),
                 still: roomDesign ? TaskPicture.StillOf(workspace.Execution) : null,
-                steps: roomDesign ? steps : null);
+                steps: roomDesign ? steps : null, stepsUsage: roomDesign ? stepsUsage : null);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);

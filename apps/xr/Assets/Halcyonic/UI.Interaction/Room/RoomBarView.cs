@@ -444,7 +444,7 @@ namespace Halcyonic.XR.UI
             // column; the working field and the cursor give it the place (KitWorkspaceHost.ShowWork).
             var listed = bar.Steps.Count > 0;
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
-            var stepsTall = listed ? LaySteps(bar.Steps, panelWidth - 2f * pad) : 0f;
+            var stepsTall = listed ? LaySteps(bar.Steps, panelWidth - 2f * pad, bar.StepsUsage) : 0f;
             if (!listed) HideSteps();
             var panelHeight = listed ? stepsTall + 2f * pad : 0f;
             var above = Mathf.Max(stops ? columnHeight : 0f, panelHeight);

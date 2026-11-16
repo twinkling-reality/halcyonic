@@ -11,7 +11,7 @@ namespace Halcyonic.XR.Workspace
 {
     public sealed partial class MenuDirector
     {
-        /// <summary>How long the panels take to settle into the result's Changes before the view closes (FIELD's fold, 600 ms, and a beat).</summary>
+        /// <summary>The least time the view stands after the turn ends; it stands longer while FIELD's fold runs (KitWorkspaceHost.SettleWatch).</summary>
         private const double WatchSettleSeconds = 1.2;
 
         private WatchBuild? watch;
@@ -73,9 +73,11 @@ namespace Halcyonic.XR.Workspace
                 if (watchClosesAt == null)
                 {
                     watch.Settle(execution != null ? setup.Observed(execution.ExecutionId).LastOrDefault()?.Files : null);
-                    watchVersion++;
-                    watchClosesAt = now + WatchSettleSeconds;
-                    plane.Kit.SettleWatch();
+                    // The settled arc laid first, then FIELD's fold from it: laid again after, it would stop the fold.
+                    watchShown = ++watchVersion;
+                    plane.Kit.ShowWatch(watch.Arc);
+                    // The view closes once the fold is done, and never sooner than the settle's own beat.
+                    watchClosesAt = now + Math.Max(WatchSettleSeconds, plane.Kit.SettleWatch() + 0.3);
                 }
                 else if (now >= watchClosesAt) { CloseWatch(); return; }
             }

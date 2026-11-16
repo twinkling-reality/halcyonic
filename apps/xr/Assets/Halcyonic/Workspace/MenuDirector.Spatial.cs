@@ -214,13 +214,22 @@ namespace Halcyonic.XR.Workspace
                 requestRows: file.Steering.ToRead(now) is string read && file.Screen.Measured(file.Steering, read) ? file.Screen.RequestRows : (int?)null,
                 chooses: file.ChoosesInstruction,
                 asking: file.Screen.Question.Draft != null && !file.Screen.Question.Reviewing ? file.Screen.Question.Prompt : (int?)null,
-                writing: file.Screen.Question.Writing ? file.Screen.Question.Input : null, result: ResultOf(now, selected), steps: StepsOf(now, selected));
+                writing: file.Screen.Question.Writing ? file.Screen.Question.Input : null, result: ResultOf(now, selected), steps: StepsOf(now, selected),
+                stepsUsage: StepsUsageOf(now));
         }
 
         /// <summary>
         /// For the redesign: the task's steps list (RoomSteps), read from the sources its result reads: the project, the commands under
         /// way, and the last turn the computer observed of its run; empty with no project or no run.
         /// </summary>
+        /// <summary>The usage figure under the steps list, only where the task's agent app reports usage (FIELD's (c), AUDIT2's 08:32Z).</summary>
+        private TaskUsageFigure? StepsUsageOf(WorkspacePresentation now)
+        {
+            if (!RoomDesign.Enabled || now.Runtime?.ReportsUsage != true) return null;
+            var usage = State?.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) == true ? work.Usage : null;
+            return TaskUsage.Tokens(usage, now.Runtime.ReportsUsage);
+        }
+
         private IReadOnlyList<TaskStep> StepsOf(WorkspacePresentation now, string? projectId)
         {
             if (!RoomDesign.Enabled || projectId == null || State?.Projects.TryGetValue(projectId, out var project) != true) return new TaskStep[0];

@@ -259,6 +259,9 @@ namespace Halcyonic.Client
         /// </summary>
         public IReadOnlyList<TaskStep> Steps { get; private set; } = new TaskStep[0];
 
+        /// <summary>The usage figure laid under the steps list (FIELD's (c)), where the agent app reports usage; null otherwise.</summary>
+        public TaskUsageFigure? StepsUsage { get; private set; }
+
         /// <summary>
         /// The result at rest (DESIGN 2.5 to 2.8): the pair stands over the row, holding what the computer knows of the task,
         /// its actions the result's own (<see cref="RoomResult.Actions"/>) beside the file's. The agent's newest message
@@ -563,6 +566,7 @@ namespace Halcyonic.Client
             loop.Step = model.Step;
             // The steps list holds the panel's place at work: the Now step's line says the step, so the field and cursor give way.
             loop.Steps = model.Steps;
+            loop.StepsUsage = model.Steps.Count > 0 ? model.StepsUsage : null;
             if (binding[KitPlace.Stop] is { Available: true } stop) loop.Column = new[] { new RoomAction(stop, main: false) };
             // SCREENS's instructions waiting for this turn to end (RoomBar.Waiting.cs).
             if (model.Result?.Waiting is WaitingInstructions waiting) loop = Waited(loop, waiting, binding.Frame);

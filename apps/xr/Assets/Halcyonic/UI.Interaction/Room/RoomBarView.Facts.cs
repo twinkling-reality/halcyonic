@@ -29,7 +29,7 @@ namespace Halcyonic.XR.UI
             {
                 if (card != null) card.Hide();
                 if (facts != null) facts.Hide();
-                return LaySteps(bar.Steps, width);
+                return LaySteps(bar.Steps, width, bar.StepsUsage);
             }
             HideSteps();
             if (LayCard(bar, width) is float tall)
@@ -105,11 +105,11 @@ namespace Halcyonic.XR.UI
         public RoomStepsView? StepsShown => steps != null && steps.gameObject.activeSelf ? steps : null;
 
         /// <summary>Lays <paramref name="shown"/> <paramref name="width"/> wide on the panel and returns how tall it stands.</summary>
-        private float LaySteps(IReadOnlyList<TaskStep> shown, float width)
+        private float LaySteps(IReadOnlyList<TaskStep> shown, float width, TaskUsageFigure? usage)
         {
             if (steps == null) steps = RoomStepsView.Create(panel.transform, KitType.Order.Words);
             steps.gameObject.SetActive(true);
-            return steps.Show(shown, width);
+            return steps.Show(shown, width, usage);
         }
 
         private void HideSteps()
