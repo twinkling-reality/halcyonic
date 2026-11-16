@@ -662,6 +662,7 @@ namespace Halcyonic.XR.Workspace
             RecoverViews();
             RecoverWorkspace(FollowNow);
             placement?.Tick();
+            TickWatch();
             // The controller's Menu button, and the left hand's palm-up pinch, which Meta gives the app as Start; the Meta button
             // and the dominant hand's gesture stay the system's (docs/internal/validation/xr-menu-input.md).
             if (OVRInput.GetDown(OVRInput.Button.Start)) MenuFromAnywhere();
@@ -965,6 +966,8 @@ namespace Halcyonic.XR.Workspace
             }
             // The agent's page opens beside the file, from the file's frame as drawn, as any press of the file's is taken.
             if (RoomDesign.Enabled && from == MenuColumn.File && side == null && action == AgentColumn.Open) return OpenAgentPage(frame);
+            // Watch It Work, the working bar's own (RoomBar.Watch): its view opens and closes here.
+            if (RoomDesign.Enabled && from == MenuColumn.File && side == null && action == RoomBar.Watch) return ToggleWatch();
             // The result's own actions are none of the file's frame's: taken here, by the frame's own rule.
             if (RoomDesign.Enabled && from == MenuColumn.File && side == null && RoomResult.Actions.Contains(action)) return OnResultActed(action, key, frame);
             // The menu's Compact (A15) clears the room to the characters, only from the menu's frame as drawn that offers it; a

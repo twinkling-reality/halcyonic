@@ -390,7 +390,7 @@ namespace Halcyonic.XR.UI
             var zoom = GlazeText.Scale;
             bar.transform.localScale = Vector3.one / zoom;
             bar.transform.localPosition = Vector3.zero;
-            var room = WithMore(RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), Form));
+            var room = RoomBar.WithWatch(binding, WithMore(RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), Form)), WatchOpen);
             // The general reader's pages turned for this very frame stay turned; another frame starts on its first page.
             if (turned is { } kept && ReferenceEquals(kept.Frame, binding.Frame)) { for (var turn = 0; turn < kept.Turns && room.Turn(); turn++) { } }
             else turned = null;
@@ -407,7 +407,7 @@ namespace Halcyonic.XR.UI
             while (RoomDesign.Enabled && (!bar.LaidWhole || bar.PassedLargest) && asked.RowsAPage > 1)
             {
                 asked = asked.Fewer();
-                room = WithMore(RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), asked));
+                room = RoomBar.WithWatch(binding, WithMore(RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), asked)), WatchOpen);
                 if (turned is { } again && ReferenceEquals(again.Frame, binding.Frame)) { for (var turn = 0; turn < again.Turns && room.Turn(); turn++) { } }
                 bar.Show(room);
             }
@@ -501,6 +501,37 @@ namespace Halcyonic.XR.UI
         /// The general reader's Next Page pressed (RoomBar.TurnPage): its next page, or the first after the last, drawn as the same
         /// bar; the frame counts as drawn again only once every page was shown (RoomBar.Whole, ReportDrawn).
         /// </summary>
+        /// <summary>Whether Watch It Work's view stands open (the director's): the working bar's control then reads Done Watching.</summary>
+        public bool WatchOpen { get; set; }
+
+        private RoomWritingArc? writingArc;
+
+        /// <summary>
+        /// Watch It Work's arc as the model lays it, standing above the bar (never over it), its top middle the bar's; null hides it.
+        /// The gap to the bar is logged once per size, for AUDIT's read of the arc beside the task bar.
+        /// </summary>
+        public void ShowWatch(WritingArc? arc)
+        {
+            if (arc == null) { if (writingArc != null) writingArc.Hide(); return; }
+            if (writingArc == null) writingArc = RoomWritingArc.Create(bar.transform);
+            writingArc.gameObject.SetActive(true);
+            var size = writingArc.Show(arc);
+            var gap = RoomType.Units(RoomWritingArc.GapDp);
+            writingArc.transform.localPosition = new Vector3(0f, bar.Size.y + gap + size.y, 0f);
+            if (!Mathf.Approximately(watchGapSaid, GlazeText.Scale))
+            {
+                watchGapSaid = GlazeText.Scale;
+                Debug.Log("Halcyonic: Watch It Work stands " + (gap / RoomType.Units(1f)).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                    + " dp above the bar, " + (size.x / RoomType.Units(1f)).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " by "
+                    + (size.y / RoomType.Units(1f)).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " dp (" + (GlazeText.Scale > 1.001f ? "Larger" : "Standard") + ").");
+            }
+        }
+
+        private float watchGapSaid;
+
+        /// <summary>The turn ended: the panels settle into the result's Changes (FIELD's fold).</summary>
+        public void SettleWatch() { if (writingArc != null) writingArc.Settle(); }
+
         /// <summary>The file column whose task's More page stands, or null: kept by column, so the page stays through the frame's refreshes.</summary>
         private object? moreFor;
 
