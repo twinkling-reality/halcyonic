@@ -31,9 +31,18 @@ namespace Halcyonic.Client
         private (string Words, int Rows, float Room, TextSize Size, bool Paired, string? Notice, int NoticeRows, float Navigation)? measured;
         public bool Read => Words.Length > 0 && readThrough >= Parts - 1 && !InputFocused;
 
+        /// <summary>
+        /// The new spending limit the person pressed for this draft, in US dollars (<see cref="SpendingLimit"/>), or null for none: only
+        /// ever set by their press on an amount, never preset, and dropped on a close or another task's draft (AUDIT3's S1).
+        /// </summary>
+        public double? NewLimit { get; private set; }
+
+        /// <summary>The person pressed an amount; pressing the chosen one again takes it back.</summary>
+        public void ChooseLimit(double usd) => NewLimit = NewLimit == usd ? (double?)null : usd;
+
         public void Begin(string execution)
         {
-            if (ExecutionId != execution) { Words = ""; Spoken = false; measured = null; Part = 0; readThrough = -1; }
+            if (ExecutionId != execution) { Words = ""; Spoken = false; measured = null; Part = 0; readThrough = -1; NewLimit = null; }
             ExecutionId = execution;
             Open = true;
             Suspend();
@@ -133,6 +142,7 @@ namespace Halcyonic.Client
         {
             Suspend();
             Open = false;
+            NewLimit = null;
             Notice = null;
             ExplainingNotice = false;
             InlineNotice = true;

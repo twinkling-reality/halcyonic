@@ -170,11 +170,16 @@ namespace Halcyonic.Client
         /// <see cref="StartExecution"/> (ADR 0058).
         /// </summary>
         /// <param name="leavePlan">SCREENS's Carry Out Plan: the runtime leaves its plan mode before the turn (VRIFY's leave_plan).</param>
+        /// <param name="spendingCapUsd">
+        /// The new limit the person chose with these words, for a task at its spending limit (<see cref="SpendingLimit"/>): it counts
+        /// from now. Null leaves the field out, as every other instruction does.
+        /// </param>
         public ExecutionSendInstructionCommand SendInstruction(
             string executionId,
             string text,
             IReadOnlyList<string>? pictures = null,
-            bool leavePlan = false) =>
+            bool leavePlan = false,
+            double? spendingCapUsd = null) =>
             Stamp(new ExecutionSendInstructionCommand
             {
                 Payload = new ExecutionSendInstructionPayload
@@ -183,6 +188,7 @@ namespace Halcyonic.Client
                     Text = text,
                     Attachments = AttachmentsOf(pictures),
                     LeavePlan = leavePlan ? true : (bool?)null,
+                    SpendingCapUsd = spendingCapUsd,
                 },
             });
 

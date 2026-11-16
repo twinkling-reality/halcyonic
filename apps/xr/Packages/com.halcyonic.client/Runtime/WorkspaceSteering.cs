@@ -84,6 +84,9 @@ namespace Halcyonic.Client
         /// <summary>The run an armed instruction starts on Yes, where Send starts the task's next run (SWITCH).</summary>
         private RunChoice? armedChoice;
 
+        /// <summary>The new spending limit the armed instruction carries, as the person pressed it; null for none (AUDIT3's S1).</summary>
+        public double? ArmedLimit { get; private set; }
+
         /// <summary>
         /// The person's choice for the task's next run as it stands now (the runtime, the model and the level a start
         /// would use; null where the next instruction starts none), where the steering's owner can say. An armed
@@ -272,11 +275,13 @@ namespace Halcyonic.Client
             if (FileScreens.RequestPending(workspace)) return SteeringOutcome.Explain("Nothing was sent: a request is already under way.");
             if (!draft.Read) return SteeringOutcome.Explain(draft.Words.Length == 0 ? FileScreens.InstructionEmpty : FileScreens.InstructionNotRead);
             if (newRun != null && newRun.ModelRequired && newRun.ModelRef == null) return SteeringOutcome.Explain(ChooseAModel);
+            var limit = newRun == null && SpendingLimit.NeedsNewLimit(workspace.Execution) ? draft.NewLimit : null;
+            if (newRun == null && SpendingLimit.NeedsNewLimit(workspace.Execution) && limit == null) return SteeringOutcome.Explain(SpendingLimit.ChooseAmountFirst);
             StopTyping();
             // The draft shown whole is the review, heard or typed: Send is the one press, and only the command's own policy adds a
             // confirmation (the lead's R1, 2026-11-12; ADR 0021 amended). A mishearing is still never sent unread: Read needs
             // every part of the heard words shown.
-            var result = Typed(draft.Words, workspace, newRun);
+            var result = Typed(draft.Words, workspace, newRun, limit);
             if (result.Step == SteeringStep.Confirm)
             {
                 instructionExecution = draft.ExecutionId;
@@ -286,9 +291,9 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The keyboard closed with this text; an empty text sends nothing.</summary>
-        public SteeringOutcome Typed(string? text, WorkspacePresentation workspace) => Typed(text, workspace, null);
+        public SteeringOutcome Typed(string? text, WorkspacePresentation workspace) => Typed(text, workspace, null, null);
 
-        private SteeringOutcome Typed(string? text, WorkspacePresentation workspace, RunChoice? newRun)
+        private SteeringOutcome Typed(string? text, WorkspacePresentation workspace, RunChoice? newRun, double? limit)
         {
             Typing = false;
             var instruction = text?.Trim() ?? "";
@@ -298,12 +303,15 @@ namespace Halcyonic.Client
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);
             }
+            if (newRun == null && SpendingLimit.NeedsNewLimit(workspace.Execution) && limit == null) return SteeringOutcome.Explain(SpendingLimit.ChooseAmountFirst);
             if (workspace.RequiresConfirmation(WorkspaceAction.Instruct))
             {
                 Arm(WorkspaceAction.Instruct, null, instruction);
+                ArmedLimit = limit;
                 return SteeringOutcome.Of(SteeringStep.Confirm);
             }
-            return SteeringOutcome.Send(newRun != null ? Start(workspace, newRun, instruction) : commands.SendInstruction(workspace.Execution!.ExecutionId, instruction));
+            return SteeringOutcome.Send(newRun != null ? Start(workspace, newRun, instruction)
+                : commands.SendInstruction(workspace.Execution!.ExecutionId, instruction, spendingCapUsd: limit));
         }
 
         /// <summary>The task's next run on <paramref name="choice"/>, with the person's words as its instruction.</summary>
@@ -390,6 +398,7 @@ namespace Halcyonic.Client
             instructionExecution = null;
             interruptExecution = null;
             armedChoice = null;
+            ArmedLimit = null;
             ArmedApprovalId = null;
             ArmedRequest = null;
             Instruction = null;
@@ -474,11 +483,15 @@ namespace Halcyonic.Client
         public IReadOnlyList<string> Prompts() =>
             Armed == null ? Array.Empty<string>() : new[] { WorkspaceText.ReadRequestFirst, Asked() };
 
-        private string Asked() => Heard ? VoiceText.SendHeard(Instruction ?? "") : WorkspaceText.ConfirmationPrompt(Armed!.Value, Instruction);
+        private string Asked() => Heard ? VoiceText.SendHeard(Instruction ?? "")
+            // The amount whole beside the words it goes with, exactly as it is sent (AUDIT3's S2, AUDIT2's words).
+            : Armed == WorkspaceAction.Instruct && ArmedLimit is double limit ? SpendingLimit.Confirm(limit) + "? " + WorkspaceText.OneLine(Instruction ?? "")
+            : WorkspaceText.ConfirmationPrompt(Armed!.Value, Instruction);
 
         private void Arm(WorkspaceAction action, string? approvalId, string? instruction)
         {
             Armings++;
+            ArmedLimit = null;
             Armed = action;
             ArmedApprovalId = approvalId;
             Instruction = instruction;
@@ -527,7 +540,7 @@ namespace Halcyonic.Client
             WorkspaceAction.Approve => commands.RespondToApproval(executionId, approvalId!, ApprovalDecision.Approve),
             WorkspaceAction.Deny => commands.RespondToApproval(executionId, approvalId!, ApprovalDecision.Deny),
             WorkspaceAction.Interrupt => commands.Interrupt(executionId),
-            WorkspaceAction.Instruct => commands.SendInstruction(executionId, instruction!),
+            WorkspaceAction.Instruct => commands.SendInstruction(executionId, instruction!, spendingCapUsd: ArmedLimit),
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 

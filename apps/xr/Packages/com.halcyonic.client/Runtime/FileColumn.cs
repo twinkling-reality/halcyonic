@@ -504,6 +504,10 @@ namespace Halcyonic.Client
                 case FileScreens.PreviousInstructionPart:
                     if (drawnInstructionFrame == Frame && Frame!.Lines.Any(line => line.Action == id)) Screen.Instruction.Previous(host.Clock);
                     break;
+                case FileScreens.ChooseLimit when drawnInstructionFrame == Frame && SpendingLimit.FromKey(key) is double amount:
+                    // Only an amount the person pressed on the drawn composer, and only one offered there (AUDIT3's S1, S2).
+                    Screen.Instruction.ChooseLimit(amount);
+                    break;
                 case FileScreens.SendInstruction:
                     if (drawnInstructionFrame != Frame || !host.Connected || FileScreens.InstructionSendReason(Now, Screen) != null) return;
                     instructionKeyboardSession++;

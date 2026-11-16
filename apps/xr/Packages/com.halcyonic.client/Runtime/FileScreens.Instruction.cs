@@ -40,6 +40,9 @@ namespace Halcyonic.Client
             new PageLine(previous ? "Previous Part" : "Next Part", icon: previous ? GlazeIcon.Back : GlazeIcon.Next,
                 action: previous ? PreviousInstructionPart : NextInstructionPart, control: LineControl.Action, besideNext: besideNext);
 
+        /// <summary>The press on an amount in the composer of a task at its spending limit; its key is <see cref="SpendingLimit.Key"/>.</summary>
+        public const string ChooseLimit = "choose-limit";
+
         public static PageLine ReadResultsLine(int rows = 1) => new PageLine("Read Results", icon: GlazeIcon.Next, action: OpenResults, opens: true, rows: rows);
 
         private static Page InstructionPage(WorkspacePresentation workspace, FileScreen screen)
@@ -65,6 +68,18 @@ namespace Halcyonic.Client
                 lines.Add(InstructionPager(previous: true, besideNext: instruction.PairedPager && instruction.Part + 1 < instruction.Parts));
             if (instruction.Part + 1 < instruction.Parts) lines.Add(InstructionPager());
             if (screen.InstructionResultsOffered) lines.Add(ReadResultsLine(screen.ResultsRows));
+            // A task at its limit, or with its spend not known, carries on only under a new limit the person presses here, with these
+            // words: the amounts, none chosen until pressed, each new money from now (SCREENS's spending-limit unit; AUDIT3's S1 to S4).
+            if (!screen.StartsNewRun && SpendingLimit.NeedsNewLimit(workspace.Execution))
+            {
+                // "Counts from now" stands under the first amount, so it travels with the presses wherever they are drawn, the kit's
+                // composer included, which draws a choice's quieter line and not a heading (AUDIT3's S4).
+                lines.Add(new PageLine(SpendingLimit.SpendUpTo, tone: LineTone.Secondary));
+                foreach (var amount in SpendingLimit.Amounts)
+                    lines.Add(new PageLine(SpendingLimit.More(amount), action: ChooseLimit, key: SpendingLimit.Key(amount), choice: true,
+                        chosen: instruction.NewLimit == amount, answerMark: AnswerMark.Single)
+                        .WithUnder(amount == SpendingLimit.Amounts[0] ? LineWords.Ours(SpendingLimit.CountsFromNow) : null));
+            }
             var reason = InstructionSendReason(workspace, screen);
             return new Page(lines, null, new Footer(new Prompt(screen.InstructionHideOffered ? HideInstruction : CancelInstruction, screen.InstructionHideOffered ? "Hide Composer" : "Cancel", GlazeIcon.Close, PromptKind.Close),
                 rare: screen.InstructionHideOffered ? new Prompt(CancelInstruction, "Discard Draft", GlazeIcon.Close) : null,
@@ -99,7 +114,9 @@ namespace Halcyonic.Client
             if (!instruction.Open || instruction.ExecutionId != workspace.Execution?.ExecutionId) return InstructionChanged;
             if (WhyNoInstruction(workspace) is string why) return why;
             if (instruction.Words.Length == 0) return InstructionEmpty;
-            return !instruction.Read ? InstructionNotRead : null;
+            if (!instruction.Read) return InstructionNotRead;
+            // A task at its limit, or with its spend not known, takes no instruction without a new limit (commands.ts, spending_cap_usd).
+            return SpendingLimit.NeedsNewLimit(workspace.Execution) && instruction.NewLimit == null ? SpendingLimit.ChooseAmountFirst : null;
         }
     }
 }

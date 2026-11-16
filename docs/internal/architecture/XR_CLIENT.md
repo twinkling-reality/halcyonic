@@ -4907,6 +4907,18 @@ presence, contextual moment cards and the on-demand project screen:
   `StarterId`, and `ToContract()` emits `NewFromStarterChoice` (`kind: "new_from_starter"`) so a
   developer or newcomer in VR can scaffold a starter VR project from an idea and rename its folder
   before confirming the build review.
+- **A new spending limit from the composer (SCREENS 2026-11-16, `SpendingLimit`; AUDIT2's words, AUDIT3's S1 to S6)**: a task whose
+  `ExecutionView.spending_cap` is `reached`, or `waiting` with its spend not known after a restart, takes no instruction
+  without a new limit (`execution.send_instruction`'s `spending_cap_usd`, which counts from now). Its composer shows
+  "Spend Up To" over three amounts, "$1 More", "$5 More" and "$10 More", with "Counts from now." under the first. None
+  is chosen until the person presses one; pressing it again takes it back. Send stays locked with "Choose an Amount
+  First" until one is chosen, and the instruction carries exactly that amount (`FileInstruction.NewLimit`,
+  `CommandFactory.SendInstruction`). Where the policy asks for a confirmation, it reads "Send Instruction, Spend Up To
+  $5.00 More?" over the words (`WorkspaceSteering.ArmedLimit`). The amount is dropped on a close or on another task's
+  draft and never carried over; an open limit or none asks for nothing and sends none. `SpendingLimit.Of` says a limit as
+  label and fact: "At Spending Limit" with "Spent $0.30 of $1.00" where the spend is known, "Spending Not Known" with
+  "Limit $1.00" while waiting (never a figure), and "Limit $1.00" for an open one. The assistant never sets a limit
+  (CORE's NEVER_PROPOSED), so this press is the only way to give one.
 - **Instructions waiting for the turn to end, and Drop (CORE's queue, ADR 0056; SCREENS 2026-11-11, `WaitingInstructions`)**:
   `ExecutionView.queued_instructions` lists them oldest first without words; the headset shows the words it sent
   (`CommandSubmissions.InstructionOf`, in memory only, never logged), else the placeholder "Your Instruction". While

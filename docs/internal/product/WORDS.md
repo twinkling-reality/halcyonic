@@ -479,6 +479,11 @@ that draft locally. A spoken draft retains its additional reviewed Confirm after
 including after a keyboard edit. Read Full Instruction explains an unread draft, as the locked Send's own word in the kit; Answer Approval
 First explains approval preemption. A changed execution says Nothing was sent: the task changed..
 
+A task at its spending limit says "At Spending Limit" with "Spent $0.30 of $1.00" where the spend is known; one whose spend is not
+known after a restart says "Spending Not Known" with "Limit $1.00", never a figure; an open limit is "Limit $1.00". Its composer asks
+"Spend Up To" over "$1 More", "$5 More" and "$10 More", with "Counts from now." under the first, none chosen until pressed. Send's
+reason until then is "Choose an Amount First", and the confirm reads "Send Instruction, Spend Up To $5.00 More" (AUDIT2, 2026-11-16).
+
 Next Choices names the preset chooser's body pager, and the model and starter choosers'; from the last page it says First Choices, as it goes back to the first. Back to Choices acknowledges the full notice
 and returns to the preserved selection. Task unavailable is the compact fallback only when the
 retained task is missing and no verified last title is available.

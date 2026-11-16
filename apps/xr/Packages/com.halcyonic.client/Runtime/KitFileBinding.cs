@@ -241,7 +241,7 @@ namespace Halcyonic.Client
                     : roomDesign && composing && (line.Action == FileScreens.NextInstructionPart || line.Action == FileScreens.PreviousInstructionPart) ? KitPlace.Step
                     : line.Action == FileScreens.EditInstruction ? KitPlace.Field : line.Action == Footer.NextPage ? KitPlace.Pager
                     : !composing && RouteActions.Contains(line.Action!) ? KitPlace.Route
-                    : line.Action == FileScreens.Choose || (offering && line.Action == FileScreens.Preset) ? KitPlace.Choice
+                    : line.Action == FileScreens.Choose || line.Action == FileScreens.ChooseLimit || (offering && line.Action == FileScreens.Preset) ? KitPlace.Choice
                     : StepActions.Contains(line.Action!) || (offering && line.Action == FileScreens.NextPresetPage) ? KitPlace.Step : (KitPlace?)null;
                 var several = place is KitPlace.Route or KitPlace.Choice or KitPlace.Step;
                 if (place == null || (!several && controls.Any(control => control.Place == place))) return null;
@@ -415,7 +415,8 @@ namespace Halcyonic.Client
         private static HashSet<string> ShownWords(KitWorkModel model, WorkspacePresentation workspace)
         {
             // The rail says production's words where nothing has been recorded.
-            var shown = new HashSet<string>(System.StringComparer.Ordinal) { FileScreens.YourInstruction, FileScreens.NoActivityYet };
+            // The composer's "Spend Up To" over its amounts: the amounts are its controls and say it as "More" (SpendingLimit).
+            var shown = new HashSet<string>(System.StringComparer.Ordinal) { FileScreens.YourInstruction, FileScreens.NoActivityYet, SpendingLimit.SpendUpTo };
             foreach (var entry in workspace.Activity)
             {
                 shown.Add(entry.Text);

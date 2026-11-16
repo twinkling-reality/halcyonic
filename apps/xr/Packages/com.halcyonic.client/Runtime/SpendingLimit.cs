@@ -1,0 +1,78 @@
+#nullable enable
+using System.Collections.Generic;
+using System.Globalization;
+using Halcyonic.Contracts;
+
+namespace Halcyonic.Client
+{
+    /// <summary>
+    /// A task's spending limit as the headset says it, and the new limit a person may carry on under (SCREENS's spending-limit unit,
+    /// 2026-11-16; AUDIT2's words 23:14Z; AUDIT3's S1 to S6). The host stops a task at its limit (ExecutionView.spending_cap); a task
+    /// whose limit is reached, or whose spend is not known after a restart, takes no instruction without a new one
+    /// (execution.send_instruction's spending_cap_usd), which counts from now. Every amount is the person's own press, never preset.
+    /// </summary>
+    public static class SpendingLimit
+    {
+        /// <summary>The label of a task whose limit is reached.</summary>
+        public const string AtLimit = "At Spending Limit";
+
+        /// <summary>The label of a task re-attached after a restart with its spend not known (CORE's SPEND_NOT_KNOWN): never a figure.</summary>
+        public const string NotKnown = "Spending Not Known";
+
+        /// <summary>The composer's question for a new limit: new money from now, never added to the old limit (AUDIT2, AUDIT3's L3).</summary>
+        public const string SpendUpTo = "Spend Up To";
+
+        /// <summary>Why Send waits in the composer of a task at its limit until an amount is chosen.</summary>
+        public const string ChooseAmountFirst = "Choose an Amount First";
+
+        /// <summary>Said beside the amounts: the new limit is new money from now, never added to the old one (AUDIT3's S4).</summary>
+        public const string CountsFromNow = "Counts from now.";
+
+        /// <summary>An offered amount's key on its press, and back: only an offered amount reads back, so no other value is ever chosen.</summary>
+        public static string Key(double usd) => usd.ToString("0.00", CultureInfo.InvariantCulture);
+
+        /// <summary>The offered amount a press's key names, or null for any other key.</summary>
+        public static double? FromKey(string? key)
+        {
+            foreach (var amount in Amounts) if (Key(amount) == key) return amount;
+            return null;
+        }
+
+        /// <summary>The amounts offered, in US dollars; none is chosen until the person presses one (S1).</summary>
+        public static IReadOnlyList<double> Amounts { get; } = new[] { 1d, 5d, 10d };
+
+        /// <summary>
+        /// Whether a task takes no instruction without a new limit: its limit reached, or its spend not known after a restart. Null, or
+        /// an open limit, is not.
+        /// </summary>
+        public static bool NeedsNewLimit(ExecutionView? execution) =>
+            execution?.SpendingCap?.State is SpendingCapViewState.Reached or SpendingCapViewState.Waiting;
+
+        /// <summary>
+        /// The task's limit as its file says it, label apart from fact: reached "At Spending Limit" with "Spent $0.30 of $1.00" where
+        /// the spend is known, else the limit alone; waiting "Spending Not Known" with "Limit $1.00", never a figure; open, no label and
+        /// "Limit $1.00". Null for a task with no limit.
+        /// </summary>
+        public static (string? Label, string Fact)? Of(ExecutionView? execution)
+        {
+            if (execution?.SpendingCap is not SpendingCapView cap) return null;
+            var limit = "Limit " + Dollars(cap.LimitUsd);
+            return cap.State switch
+            {
+                SpendingCapViewState.Reached => (AtLimit, cap.SpentUsd is double spent ? "Spent " + Dollars(spent) + " of " + Dollars(cap.LimitUsd) : limit),
+                SpendingCapViewState.Waiting => (NotKnown, limit),
+                _ => (null, limit),
+            };
+        }
+
+        /// <summary>An amount whole in dollars and cents, as sent: "$5.00" (S2).</summary>
+        public static string Dollars(double usd) => "$" + usd.ToString("0.00", CultureInfo.InvariantCulture);
+
+        /// <summary>A choice's words: "$5 More", new money from now (AUDIT2).</summary>
+        public static string More(double usd) =>
+            "$" + (usd == System.Math.Floor(usd) ? usd.ToString("0", CultureInfo.InvariantCulture) : usd.ToString("0.00", CultureInfo.InvariantCulture)) + " More";
+
+        /// <summary>The confirm's words for an instruction with its new limit: "Send Instruction, Spend Up To $5.00 More" (AUDIT2).</summary>
+        public static string Confirm(double usd) => "Send Instruction, " + SpendUpTo + " " + Dollars(usd) + " More";
+    }
+}
