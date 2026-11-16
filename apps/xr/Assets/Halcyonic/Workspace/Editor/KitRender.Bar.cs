@@ -736,6 +736,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (state is "38-checks" or "38-checks-failed" or "38-checks-partly")
                             Require(shown.Card!.Steps.Count == known.Steps.Count && shown.Card.Steps.Count(step => step.Tone == RoomTone.Bad) == (state == "38-checks-failed" ? 1 : 0),
                                 "the Checks card's steps are not the check's, the failed one marked");
+                        // The status's line, our own words, never leaves a word alone on its last line (SCREENS's reader 3: "stopped on a / step").
+                        if (shown.Card!.Status?.Line is string statusLine)
+                            foreach (var label in host.Bar.Card!.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                            {
+                                label.ForceMeshUpdate(true);
+                                if (string.Join(" ", label.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries)) == statusLine)
+                                    Require(!RoomCardView.LastLineIsOneWord(label), "the status's line \"" + statusLine + "\" leaves a word alone on its last line");
+                            }
                         // Partly Checked: its label and line as the status, never the bad tone, the host's finding under it (laid whole by CardWhole).
                         if (state == "38-checks-partly")
                             Require(shown.Card!.Status is RoomCardStatus partlyStatus && partlyStatus.Title == KitMomentWords.PartlyChecked && partlyStatus.Line == KitMomentWords.PartlyCheckedLine

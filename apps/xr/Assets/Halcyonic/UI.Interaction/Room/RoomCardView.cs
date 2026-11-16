@@ -1413,10 +1413,43 @@ namespace Halcyonic.XR.UI
             runs.Set(words);
             runs.SetProseMode(true);
             var laid = KitType.Lay(label, width, lines);
+            // No word of ours alone on a paragraph's last line (a widow: SCREENS's reader 3 on 38-checks-failed, "stopped on a / step").
+            if (lines > 1 && laid.Lines >= 2 && words.Runs.All(run => !run.Theirs)) laid = WithoutWidow(label, width, lines, laid);
             label.transform.localPosition = new Vector3(x, y, -RoomType.Units(0.5f));
             Shown.Add(label);
             return (label, Mathf.Max(laid.Lines, 1) * S(lineDp));
         }
+
+        /// <summary>
+        /// Lays our own words a little narrower, a twentieth at a time down to six tenths of <paramref name="width"/>, until their
+        /// last line holds two words, never on more lines than they took and never cut; where no narrower lay does that, the words
+        /// stand as first laid. The person's words and an outside source's are never re-laid: their breaks are theirs.
+        /// </summary>
+        private static (int Lines, float Width, float Height) WithoutWidow(TextMeshPro label, float width, int lines, (int Lines, float Width, float Height) laid)
+        {
+            if (!LastLineIsOneWord(label) || WordCount(label) < 4) return laid;
+            for (var step = 1; step <= 8; step++)
+            {
+                var tried = KitType.Lay(label, width * (1f - 0.05f * step), lines);
+                if (tried.Lines != laid.Lines || label.isTextOverflowing) break;
+                if (!LastLineIsOneWord(label)) return tried;
+            }
+            return KitType.Lay(label, width, lines);
+        }
+
+        /// <summary>Whether the label's last laid line holds a single word.</summary>
+        public static bool LastLineIsOneWord(TMP_Text label)
+        {
+            var info = label.textInfo;
+            if (info.lineCount < 2) return false;
+            var last = info.lineInfo[info.lineCount - 1];
+            for (var index = last.firstCharacterIndex; index <= last.lastVisibleCharacterIndex && index < info.characterCount; index++)
+                if (char.IsWhiteSpace(info.characterInfo[index].character)) return false;
+            return last.lastVisibleCharacterIndex >= last.firstCharacterIndex;
+        }
+
+        private static int WordCount(TMP_Text label) =>
+            label.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Length;
 
         private void Plate(Vector2 size, float radius, Color fill, Vector2 centre, string what, Color edge = default, float edgeWidth = 0f, bool under = false, bool front = false)
         {
