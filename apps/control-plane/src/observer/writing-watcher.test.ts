@@ -136,4 +136,15 @@ describe('the files a running turn changes, as the host sees them (Watch It Work
     await sleep(10);
     assert.equal(own.open(), 0, 'nothing after the close');
   });
+
+  test('a turn that ends while its watch is still starting leaves no watch (AUDIT3 WW1)', async () => {
+    const r = rig();
+    // The end comes before the start has looked at the folder: nothing is watched, then or later.
+    r.send('runtime.turn.started');
+    r.send('runtime.turn.failed');
+    await sleep(40);
+    assert.equal(r.open(), 0);
+    assert.equal(r.watcher.watching, 0);
+    assert.deepEqual(r.recorded, []);
+  });
 });

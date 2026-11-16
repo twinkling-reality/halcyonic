@@ -70,6 +70,8 @@ interface Watch {
 export class WritingWatcher {
   readonly #options: WritingWatcherOptions;
   readonly #watches = new Map<string, Watch>();
+  /** Starts still deciding whether their folder may be watched; a stop meanwhile cancels the start (AUDIT3 WW1). */
+  readonly #starting = new Set<string>();
   #detach: (() => void) | null = null;
 
   constructor(options: WritingWatcherOptions) {
@@ -106,7 +108,10 @@ export class WritingWatcher {
 
   async #start(scope: Watch['scope'], folder: string): Promise<void> {
     this.#stop(scope.execution_id);
-    if (await holdsHostData(folder, this.#options.protect)) return;
+    this.#starting.add(scope.execution_id);
+    const holds = await holdsHostData(folder, this.#options.protect);
+    // A turn that ended while this was decided was stopped meanwhile: no watch outlives it.
+    if (!this.#starting.delete(scope.execution_id) || holds) return;
     const watch: Watch = {
       scope,
       folder,
@@ -173,6 +178,7 @@ export class WritingWatcher {
   }
 
   #stop(executionId: string, flush = true): void {
+    this.#starting.delete(executionId);
     const watch = this.#watches.get(executionId);
     if (watch === undefined) return;
     this.#watches.delete(executionId);
@@ -186,6 +192,7 @@ export class WritingWatcher {
   close(): void {
     this.#detach?.();
     this.#detach = null;
+    this.#starting.clear();
     for (const executionId of [...this.#watches.keys()]) this.#stop(executionId, false);
   }
 }
