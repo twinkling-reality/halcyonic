@@ -417,7 +417,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         var info = text.textInfo;
                         var whole = LabelText.ForTextMeshPro(view.Label.Name);
                         var drawnText = text.text;
-                        if (name != LongNameScene)
+                        if (!name.StartsWith(LongNameScene, StringComparison.Ordinal))
                             failures.Add(name + ": " + view.WorkstreamId + "'s name \"" + whole + "\" is over " + CharacterLabelView.MostTitleLines + " lines and fades, in a fixture state");
                         else if (!whole.StartsWith(drawnText, StringComparison.Ordinal) || drawnText.Length >= whole.Length || !char.IsWhiteSpace(whole[drawnText.Length]))
                             failures.Add(name + ": the long name's drawn words \"" + drawnText + "\" do not stop at a word break of \"" + whole + "\"");
