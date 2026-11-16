@@ -189,7 +189,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var surface = eyes.y - DeskDrop;
                 bannerRoot.position = desk
                     ? new Vector3(0f, surface + CharacterStage.BannerBottomOnSurface(radius, DeskDrop), radius)
-                    : eyes + new Vector3(0f, CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes), radius);
+                    : new Vector3(eyes.x, BannerTopUnderLabels(characters, eyes, radius), eyes.z + radius);
                 bannerRoot.localScale = Vector3.one * radius;
                 var banner = StageBanner.Create(bannerRoot);
                 banner.Show(bannerText, kind, waiting);
@@ -258,7 +258,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var characters = WorkspaceRender.Lineup(arc.transform, eyes, radius, null, (_, slot) => shown[slot]);
                 var bannerRoot = new GameObject("Banner root").transform;
                 bannerRoot.SetParent(arc.transform, false);
-                bannerRoot.position = eyes + new Vector3(0f, CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes), radius);
+                bannerRoot.position = new Vector3(eyes.x, BannerTopUnderLabels(characters, eyes, radius), eyes.z + radius);
                 bannerRoot.localScale = Vector3.one * radius;
                 var banner = StageBanner.Create(bannerRoot);
                 banner.Show("Practice: nothing here runs on " + HostText.Your, BannerKind.Practice, null);
@@ -322,6 +322,23 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
+        /// <summary>
+        /// Where the stage's banner tops out in the world: where the stage puts it, or lower where a long name's label stands
+        /// lower, the banner's gap under the lowest label actually drawn, so a whole name never meets it (AUDIT's 11:49Z: measured,
+        /// not the worst case; short names leave it where it stands).
+        /// </summary>
+        private static float BannerTopUnderLabels(List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, float radius)
+        {
+            var top = eyes.y + CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes);
+            var lowest = float.PositiveInfinity;
+            foreach (var (view, _) in characters)
+                foreach (var drawn in view.Label.GetComponentsInChildren<Renderer>(false))
+                    if (drawn.enabled) lowest = Mathf.Min(lowest, drawn.bounds.min.y);
+            if (float.IsPositiveInfinity(lowest)) return top;
+            var under = lowest - Mathf.Tan(CharacterStage.BannerGapDegrees * Mathf.Deg2Rad) * radius;
+            return Mathf.Min(top, under);
+        }
+
         /// <summary>The interface's rules on the stage as built: apart, large enough, opaque, every state in words.</summary>
         private static IEnumerable<string> Checks(string name, GameObject root, Vector3 eyes, List<(CharacterView View, CharacterTarget Target)> characters,
             StageBanner banner, PeekCardView? peek)
@@ -354,6 +371,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         inWord = !isSpace;
                     }
                     if (lastWords == 1) failures.Add(name + ": the peek's line \"" + shownText + "\" ends on one word alone");
+                }
+            // Every character's name on the stage whole, never ending in an ellipsis (AUDIT's 11:42Z).
+            foreach (var (view, _) in characters)
+                foreach (var text in view.Label.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                {
+                    text.ForceMeshUpdate(true);
+                    if (text.isTextTruncated || text.GetParsedText().Contains("…"))
+                        failures.Add(name + ": " + view.WorkstreamId + "'s label \"" + text.GetParsedText() + "\" is cut");
                 }
             // No two of the peek's drawn texts cross (AUDIT's 11:42Z: "Open to Answer" ran into "1 More Waiting"), each read by its
             // drawn letters' bounds in the peek's own space.

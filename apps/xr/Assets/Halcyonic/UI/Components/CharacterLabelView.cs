@@ -55,6 +55,9 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public const int ShortTitleLines = 3;
 
+        /// <summary>How many lines past its own a task's name may take, on the stage or its own plate, so it stands whole.</summary>
+        public const int MoreTitleLines = 4;
+
         private const float SideDegrees = 0.7f;
         private const float TitleGapDegrees = 0f;
         private const float BottomDegrees = 0.5f;
@@ -241,6 +244,10 @@ namespace Halcyonic.XR.UI
             GlazeText.SetLiteral(title, label.Title);
             var titleTop = top - badgeHeight - GlazeTokens.Units(TitleGapDegrees);
             var (lines, titleWidth) = GlazeText.Lay(title, maxWidth - 2f * side, TitleLines);
+            // A task's name whole, never ending in an ellipsis (AUDIT's 11:42Z on the stage: "Add rate limiting to the..."): it takes
+            // the lines it needs, up to MoreTitleLines past its own.
+            for (var more = TitleLines + 1; (title.isTextTruncated || title.isTextOverflowing) && more <= TitleLines + MoreTitleLines; more++)
+                (lines, titleWidth) = GlazeText.Lay(title, maxWidth - 2f * side, more);
             title.transform.localPosition = new Vector3(0f, titleTop, -0.001f);
 
             while (tags.Count < label.Marks.Count) tags.Add(MarkTag.Create(transform, "Mark " + tags.Count, 1));
@@ -263,17 +270,21 @@ namespace Halcyonic.XR.UI
                 // one line at Settings, Usage and Ask); then the marks in a row under it, a little apart.
                 GlazeText.SetLiteral(shortTitle, label.Title);
                 var (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, ShortTitleLines);
+                // Whole, never ending in an ellipsis: the lines it needs, up to MoreTitleLines past its own (AUDIT's 11:42Z).
+                var shortMost = ShortTitleLines;
+                for (var more = ShortTitleLines + 1; (shortTitle.isTextTruncated || shortTitle.isTextOverflowing) && more <= ShortTitleLines + MoreTitleLines; more++)
+                    (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, shortMost = more);
                 // No word alone on its last line ("Upgrade the image / pipeline", the reader of 04:48Z): laid a little narrower,
                 // never on more lines, never cut; where none holds, as first laid.
                 if (shortLines >= 2 && LastLineIsOneWord(shortTitle))
                 {
                     for (var step = 1; step <= 6; step++)
                     {
-                        var tried = GlazeText.Lay(shortTitle, (maxWidth - 2f * side) * (1f - 0.06f * step), ShortTitleLines);
+                        var tried = GlazeText.Lay(shortTitle, (maxWidth - 2f * side) * (1f - 0.06f * step), shortMost);
                         if (tried.Lines != shortLines || shortTitle.isTextOverflowing) break;
                         if (!LastLineIsOneWord(shortTitle)) { (shortLines, shortWidth) = tried; break; }
                     }
-                    if (LastLineIsOneWord(shortTitle) || shortTitle.isTextOverflowing) (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, ShortTitleLines);
+                    if (LastLineIsOneWord(shortTitle) || shortTitle.isTextOverflowing) (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, shortMost);
                 }
                 var line = GlazeText.LineHeight(shortTitle);
                 var pad = GlazeTokens.Units(ShortTitlePaddingDegrees);

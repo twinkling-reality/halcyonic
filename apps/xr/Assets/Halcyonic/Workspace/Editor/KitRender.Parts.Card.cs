@@ -637,8 +637,32 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     if (count < 10 || Mathf.Abs(oneDp) < 1e-4f) continue;
                     var inkDp = (float)((sum / count - tileScreen.y) / oneDp);
-                    Debug.Log("Halcyonic: parts: " + name + ": " + row.Name.Text + "'s ink stands " + inkDp.ToString("0.0", CultureInfo.InvariantCulture) + " dp from its tile's middle, read in the pixels.");
-                    if (Mathf.Abs(inkDp) > 1.5f) failures.Add(name + ": " + row.Name.Text + "'s letters stand " + inkDp.ToString("0.0") + " dp off its tile's middle, read in the pixels");
+                    // What the letters are moves their ink in their line: "README.md"'s capitals stand about a dp higher than
+                    // "kite.js"'s lowercase on the same line (F211: 1.5 against 0.2 at Larger). That share is taken from the drawn
+                    // glyphs' own boxes, their middles weighted by their size, against the line's middle, so what is judged is only
+                    // where the line stands on its tile.
+                    var info = nameLabel.textInfo;
+                    double glyphSum = 0, glyphWeight = 0;
+                    for (var index = 0; index < info.characterCount; index++)
+                    {
+                        var character = info.characterInfo[index];
+                        if (!character.isVisible) continue;
+                        var weight = Mathf.Max(0f, (character.topLeft.y - character.bottomLeft.y) * (character.topRight.x - character.bottomLeft.x));
+                        glyphSum += (character.topLeft.y + character.bottomLeft.y) / 2f * weight;
+                        glyphWeight += weight;
+                    }
+                    var ownDp = 0f;
+                    if (glyphWeight > 0)
+                    {
+                        var glyphMiddle = camera.WorldToScreenPoint(nameLabel.transform.TransformPoint(new Vector3(0f, (float)(glyphSum / glyphWeight), 0f))).y;
+                        var lineMiddle = camera.WorldToScreenPoint(nameLabel.transform.TransformPoint(new Vector3(0f, -KitType.LinePitch(nameLabel) / 2f, 0f))).y;
+                        ownDp = (glyphMiddle - lineMiddle) / oneDp;
+                    }
+                    var placedDp = inkDp - ownDp;
+                    Debug.Log("Halcyonic: parts: " + name + ": " + row.Name.Text + "'s ink stands " + inkDp.ToString("0.0", CultureInfo.InvariantCulture) + " dp from its tile's middle, read in the pixels, "
+                        + ownDp.ToString("0.0", CultureInfo.InvariantCulture) + " of it its letters' own; its line stands " + placedDp.ToString("0.0", CultureInfo.InvariantCulture) + " dp off.");
+                    if (Mathf.Abs(placedDp) > 1.5f) failures.Add(name + ": " + row.Name.Text + "'s line stands " + placedDp.ToString("0.0") + " dp off its tile's middle, read in the pixels (its ink "
+                        + inkDp.ToString("0.0") + ", its letters' own " + ownDp.ToString("0.0") + ")");
                 }
                 // Every label's words are in the pixels.
                 foreach (var label in view.Shown)
