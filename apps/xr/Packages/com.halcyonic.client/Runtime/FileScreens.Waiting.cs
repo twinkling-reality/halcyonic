@@ -633,14 +633,32 @@ namespace Halcyonic.Client
         /// <summary>The caption over them.</summary>
         public const string AlikeCaption = "Duplicate Choices";
 
-        public static LineWords AmbiguityRuns(QuestionDraft draft, int prompt, int option)
+        /// <summary>
+        /// The answers that read as this one does, each the agent's own label and description handed apart, never joined by
+        /// Halcyonic's words between them (AUDIT2, 2026-11-16 15:46Z): what the read-alike page lays, an entry each.
+        /// </summary>
+        public static IReadOnlyList<(LineWords Label, LineWords? Description)> AlikeAnswers(QuestionDraft draft, int prompt, int option)
         {
             var asked = draft.Prompts[prompt];
             var shown = WorkspaceText.AsShown(asked.Options[option].Label);
-            var matches = asked.Options.Where(each => WorkspaceText.AsShown(each.Label) == shown).ToList();
+            return asked.Options.Where(each => WorkspaceText.AsShown(each.Label) == shown)
+                .Select(each => (LineWords.TheirName(LabelText.Name(each.Label)), DescriptionRuns(each))).ToList();
+        }
+
+        /// <summary>
+        /// The read-alike page's words in one run: the lead, then each answer that reads alike as a pair of lines, its label
+        /// then its description, with no comma or slash of Halcyonic's between the agent's strings (the interim until the band
+        /// lays <see cref="AlikeAnswers"/> as a list).
+        /// </summary>
+        public static LineWords AmbiguityRuns(QuestionDraft draft, int prompt, int option)
+        {
             var words = LineWords.Ours(AlikeLead);
-            for (var index = 0; index < matches.Count; index++)
-                words = words + (index > 0 ? LineWords.Ours(" / ") : LineWords.None) + AnswerRuns(matches[index]);
+            var answers = AlikeAnswers(draft, prompt, option);
+            for (var index = 0; index < answers.Count; index++)
+            {
+                words = words + (index > 0 ? LineWords.Written("\n") : LineWords.None) + answers[index].Label;
+                if (answers[index].Description is LineWords description) words = words + LineWords.Written("\n") + description;
+            }
             return words;
         }
 
