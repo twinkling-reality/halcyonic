@@ -343,7 +343,7 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
       ground?.shade?.(at.x, at.z, 0.5 * eased);
       if (ground !== null) {
         const sand = ground.height(at.x, at.z);
-        ground.castShadow?.(at.x, at.z, body.position.y - sand, body.position.y - sand + height, width, 0.45 * eased);
+        ground.castShadow?.(at.x, at.z, body.position.y - sand, body.position.y - sand + height, width, 0.3 * eased);
       }
     },
   };

@@ -555,7 +555,8 @@ export function openLand(
     castShadow(x, z, bottom, top, width, depth) {
       const run = 1 / Math.tan(lightUp);
       castFrom.set(x, z, width / 2);
-      castBand.set(bottom * run, Math.min(60, top * run), Math.min(1, Math.max(0, depth)));
+      // One shadow, joined to the sand under the thing so it reads as its own, and kept within 10 m.
+      castBand.set(Math.min(bottom * run, 0.3), Math.min(10, top * run), Math.min(1, Math.max(0, depth)));
     },
     move(time) {
       glow.begin();
