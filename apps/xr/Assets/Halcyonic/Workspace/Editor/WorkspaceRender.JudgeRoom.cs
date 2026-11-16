@@ -586,6 +586,24 @@ namespace Halcyonic.XR.Workspace.Editor
                     found.AddRange(StageClear(root, eyes, plane, stood, name));
                     found.AddRange(OutsideItsShelf(eyes, stood, stageParts));
                     FootHeld(found, name);
+                    // Every action the bar draws stands in its own place: no two drawn buttons' words meet, so none is drawn over another and
+                    // left unpressable (AUDIT 13:41Z (a): Back drawn into More's slot on the rest row).
+                    if (plane.KitShows)
+                    {
+                        var words = plane.Kit.Bar.GetComponentsInChildren<RoomButton>(false)
+                            .Select(button => (button, label: button.GetComponentsInChildren<TMP_Text>(false).FirstOrDefault(text => text.GetComponent<Renderer>() is Renderer shown && shown.enabled && !string.IsNullOrWhiteSpace(text.text))))
+                            .Where(each => each.label != null)
+                            .Select(each => (each.button, extent: GlazeChecks.Of(each.label!.text.Trim(), eyes, new[] { each.label!.GetComponent<Renderer>() })))
+                            .Where(each => !each.extent.IsEmpty).ToList();
+                        for (var first = 0; first < words.Count; first++)
+                            for (var second = first + 1; second < words.Count; second++)
+                                if (words[first].extent.Apart(words[second].extent) < 0f)
+                                    found.Add("the bar draws " + words[first].extent.Name + " over " + words[second].extent.Name + ": two actions in one place");
+                        // A result card always keeps its way out: Close stands on it (AUDIT 13:41Z (b): a full column dropped Close).
+                        if (plane.Kit.Bar.Shown is RoomBar result && result.Result && result.State == RoomBarState.Rest
+                            && !plane.Kit.Bar.GetComponentsInChildren<RoomButton>(false).Any(button => plane.Kit.Bar.ControlOf(button)?.Place == KitPlace.Close))
+                            found.Add("the result card draws no Close: the way out is gone");
+                    }
                     // An approval's Approve is its one main action and carries the one accent, and only it on the bar (AUDIT 13:18Z: the
                     // kit render's 33-ask-tool draws it so; the live approval drew it plain, room-06 on 30fea4d72). Read in the chip as
                     // painted, not the flag: the flag stood main while the chip kept a held look (XR 13:24Z, 3d98fc848).
