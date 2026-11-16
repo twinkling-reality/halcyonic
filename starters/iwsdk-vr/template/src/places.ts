@@ -172,14 +172,16 @@ export interface LandColours {
 
 /**
  * Open land to the horizon round the person, in the colours given (a person's own picture's, from
- * `coloursOfPicture` in `src/picture.ts`, or chosen): a sky from `top` overhead to the `horizon`'s glow, warmer low
- * round the sun; long swells of ground running across the wind (`crest` 1 for dunes with a sharp crest, 0 for soft
- * hills; `swell` their height in metres near the person); a low sun of the `light`'s colour, warmed, low over
- * the horizon (`sun` its direction in radians, 0 ahead of the person and positive to their right; 1.25, to the right, by
- * default, so every dune ahead is lit from the side, its warm afterglow at the right of the view), the ground warm on the faces turned to it and cool in their lee;
- * with `grains`, that many grains of sand blowing low (none unless asked); with `stars`, that many first stars, on
- * the side of the sky away from the sun. The person stands on level ground; the swells begin a few metres off. One
- * mesh for the ground, one for the sky.
+ * `coloursOfPicture` in `src/picture.ts`, or chosen). The person stands on the crest of a dune, level at their feet,
+ * the sand falling away along the wind into a field of dunes (`crest` 1, sharp crests) or soft hills (`crest` 0) below
+ * them, `swell` metres high near them, rising far off into a hazed line of distant dunes along the horizon. A low sun
+ * of the `light`'s colour, warmed, stands over the horizon (`sun` its direction in radians, 0 ahead of the person and
+ * positive to their right; 1.25, to the right, by default, so every dune ahead is lit from the side); the sand is warm
+ * on faces turned to it and cool in their lee, with wind ripples and grain near the person; the sky warms low round
+ * the sun, with a few soft bands of high cloud. With `grains`, that many grains of sand blowing low (none unless
+ * asked); with `stars`, that many stars, on the side of the sky away from the sun (give them only for a place after
+ * sunset). `light(...)` and `shade(...)` let something near the sand (a window floating over it) cast its own light
+ * and a soft shade on it. One mesh for the ground, one for the sky.
  */
 export function openLand(
   colours: LandColours,
