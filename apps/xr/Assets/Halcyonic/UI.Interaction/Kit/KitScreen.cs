@@ -86,15 +86,19 @@ namespace Halcyonic.XR.UI
             // Body, not Label: the chip stands toward the screen's corner, where Label would read under the floor (STYLE, Type).
             KitType.Size(facts, KitRole.Body);
             GlazeText.SetLiteral(title, model.Project);
-            GlazeText.SetLiteral(facts, model.Runtime + " · " + model.State);
+            // The runtime over its state, each a line of its own, never joined on a dot (the owner's ban, 2026-11-11; this chip stands
+            // on the room's project screen, which More's Show Project Screen opens). Each part made literal on its own, then joined.
+            GlazeText.SetLiteral(facts, model.Runtime);
+            facts.text += "\n" + LabelText.ForTextMeshPro(model.State);
             var room = width - 2f * inset - 3f * pad;
             var (titleLines, titleWidth, titleHeight) = KitType.Lay(title, room * 0.6f, 1);
-            var (factLines, factWidth, _) = KitType.Lay(facts, room - titleWidth, 1);
-            var chipSize = new Vector2(titleWidth + factWidth + 3f * pad, titleHeight + 2f * pad * 0.6f);
+            var (factLines, factWidth, factHeight) = KitType.Lay(facts, room - titleWidth, 2);
+            var chipSize = new Vector2(titleWidth + factWidth + 3f * pad, Mathf.Max(titleHeight, factHeight) + 2f * pad * 0.6f);
             chip.Draw(chipSize, KitType.Units(SpatialKit.ControlRadiusDegrees), SpatialKit.Carrier);
             chip.transform.localPosition = new Vector3(-width / 2f + inset + chipSize.x / 2f, height / 2f - inset - chipSize.y / 2f, -0.0004f);
-            title.transform.localPosition = new Vector3(-chipSize.x / 2f + pad, titleHeight / 2f, -0.0003f);
-            facts.transform.localPosition = new Vector3(-chipSize.x / 2f + 2f * pad + titleWidth, titleHeight / 2f - (KitType.Em(KitRole.Title) - KitType.Em(KitRole.Body)) * 0.8f, -0.0003f);
+            title.transform.localPosition = new Vector3(-chipSize.x / 2f + pad, chipSize.y / 2f - pad * 0.6f, -0.0003f);
+            // Both stand from the chip's top: the title's line, and beside it the two lines of the runtime and its state.
+            facts.transform.localPosition = new Vector3(-chipSize.x / 2f + 2f * pad + titleWidth, chipSize.y / 2f - pad * 0.6f, -0.0003f);
             // No picture source exists yet: the project's identity stands in its place, the mark above its name.
             KitType.Size(name, KitRole.Display);
             GlazeText.SetLiteral(name, model.Project);
