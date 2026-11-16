@@ -135,7 +135,7 @@ namespace Halcyonic.Client
             return ends.ToArray();
         }
 
-        private static readonly string[] Abbreviations = { "e.g", "i.e", "vs", "cf", "dr", "mr", "mrs", "ms", "st", "approx", "fig", "no" };
+        private static readonly string[] Abbreviations = { "e.g", "i.e", "vs", "cf", "dr", "mr", "mrs", "ms", "approx", "fig" };
 
         /// <summary>Whether the stop at <paramref name="stop"/> closes a short abbreviation rather than a sentence.</summary>
         private static bool Abbreviated(string text, int stop)
@@ -144,6 +144,13 @@ namespace Halcyonic.Client
             while (start > 0 && !char.IsWhiteSpace(text[start - 1]) && text[start - 1] != '(') start--;
             var word = text.Substring(start, stop - start).ToLowerInvariant();
             foreach (var each in Abbreviations) if (word == each) return true;
+            // "No. 5" is a number's abbreviation; "The answer was no." ends a sentence (AUDIT2 2026-11-16 12:50Z).
+            if (word == "no")
+            {
+                var next = stop + 1;
+                while (next < text.Length && text[next] == ' ') next++;
+                return next < text.Length && char.IsDigit(text[next]);
+            }
             return false;
         }
 

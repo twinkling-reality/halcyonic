@@ -89,6 +89,9 @@ public class RoomWordsTests
         Assert.That(RoomWords.SentenceEnds("Some colours, e.g. gold, read well"), Is.Empty, "an abbreviation");
         Assert.That(RoomWords.SentenceEnds("I moved src/game/kite.js and backup/old-game.js, both"), Is.Empty, "a path");
         Assert.That(RoomWords.SentenceEnds("I moved src/game/kite.js. Then I stopped."), Is.EqualTo(new[] { 25, 41 }), "a path that ends a sentence");
+        Assert.That(RoomWords.SentenceEnds("See No. 5 first"), Is.Empty, "a number's abbreviation");
+        Assert.That(RoomWords.SentenceEnds("The answer was no. Then I stopped."), Is.EqualTo(new[] { 18, 34 }), "no ends a sentence");
+        Assert.That(RoomWords.SentenceEnds("It sits on Main st. Then it turns."), Is.EqualTo(new[] { 19, 34 }), "st ends a sentence");
     }
 
     [Test]
