@@ -287,6 +287,9 @@ describe("Seorak's older hook form (before its shell-safe paths), recognised as 
   test("each of the six events in the old form reads true, and passes as Seorak's", () => {
     for (const [event, file] of Object.entries(scripts)) {
       assert.equal(isSeorakOlderHook(old(file), event), true, event);
+      // As the older installer wrote it by default: the bare word node.
+      const bare = `node ${join(install, 'bin', file)}`;
+      assert.equal(isSeorakOlderHook(bare, event), true, `bare node, ${event}`);
       const kept = observationHooks({
         hooks: { [event]: [{ hooks: [{ type: 'command', command: old(file) }] }] },
       });
@@ -297,7 +300,9 @@ describe("Seorak's older hook form (before its shell-safe paths), recognised as 
   test('any change reads false: another script, a relative path, a word more, another package, the wrong event, no node', () => {
     for (const near of [
       old('hook-turn-end.mjs'),
-      `node ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `nodejs ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `/usr/bin/env node ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `${node}$x ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
       `${node} bin/hook-user-prompt.mjs`,
       `${old('hook-user-prompt.mjs')} --flag`,
       `${old('hook-user-prompt.mjs')}; id`,

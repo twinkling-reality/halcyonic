@@ -259,8 +259,8 @@ const PLAIN_PATH = '(/[A-Za-z0-9._/@+-]+)';
 
 /**
  * Seorak's command in its older installer's form (before its shell-safe paths, 2026-07-27: `${runner} ${script}`),
- * recognised only as tightly as the marked form (AUDIT3, 2026-11-16): exactly two words, the absolute path of a
- * runnable `node` and the absolute path of the script Seorak's installer names for that very event, whose real path
+ * recognised only as tightly as the marked form (AUDIT3, 2026-11-16): exactly two words, the bare word `node` or the
+ * absolute path of a runnable `node`, and the absolute path of the script Seorak's installer names for that very event, whose real path
  * lies in the `bin` folder of a package named `seorak`. Anything else, another word, a shell character, a relative
  * path, another script or another package, reads false.
  */
@@ -271,10 +271,15 @@ export function isSeorakOlderHook(
 ): boolean {
   const script = SEORAK_SCRIPTS[event];
   if (script === undefined) return false;
-  const found = new RegExp(`^${PLAIN_PATH} ${PLAIN_PATH}$`).exec(command);
+  // The runner is the bare word `node`, as Seorak's older installer wrote it by default (its DEFAULT_RUNNER), or an
+  // absolute path whose real path is a runnable `node`. A bare `node` resolves on the run's PATH; the run is unconfined
+  // with the person's own rights, so that gives it nothing it lacks (LOOP, 2026-11-16).
+  const found = new RegExp(`^(node|${PLAIN_PATH.slice(1, -1)}) ${PLAIN_PATH}$`).exec(command);
   if (found === null) return false;
-  const node = disk.realpath(found[1] as string);
-  if (node === null || basename(node) !== 'node' || !disk.runnable(node)) return false;
+  if (found[1] !== 'node') {
+    const node = disk.realpath(found[1] as string);
+    if (node === null || basename(node) !== 'node' || !disk.runnable(node)) return false;
+  }
   const real = disk.realpath(found[2] as string);
   if (real === null || basename(real) !== script || basename(dirname(real)) !== 'bin') return false;
   let name: unknown;
