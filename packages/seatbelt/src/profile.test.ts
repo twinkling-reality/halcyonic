@@ -654,8 +654,13 @@ describe("a person's own check that may open ports: loopback, never a port liste
       const closed = confinedProfile(scope);
       assert.doesNotMatch(closed, /localhost:\*/);
       const open = confinedProfile({ ...scope, ownLoopback: { denied: [47957, 5038, 0, 70000] } });
-      const allow = open.indexOf('(allow network-outbound (remote ip "localhost:*"))');
-      const listen = open.indexOf('(allow network-bind network-inbound (local ip "localhost:*"))');
+      const allow = open.indexOf('(allow network-outbound (remote tcp "localhost:*"))');
+      const listen = open.indexOf('(allow network-bind network-inbound (local tcp "localhost:*"))');
+      assert.doesNotMatch(
+        open,
+        /\((?:local|remote) (?:ip|udp) "localhost:\*"\)/,
+        'TCP alone (AUDIT3 L1)',
+      );
       assert.ok(allow > 0 && listen > 0);
       for (const port of [47957, ...OWN_LOOPBACK_ALWAYS_DENIED]) {
         const deny = open.indexOf(`(deny network-outbound (remote ip "localhost:${port}"))`);
@@ -682,6 +687,14 @@ describe("a person's own check that may open ports: loopback, never a port liste
     });
     await new Promise<void>((resolve) => before.listen(0, '127.0.0.1', resolve));
     const port = (before.address() as AddressInfo).port;
+    // A Unix socket of the test's own, outside the run's folders (AUDIT3 L2).
+    const unixFolder = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-unix-')));
+    const unixPath = join(unixFolder, 's');
+    const unix = createServer((socket) => {
+      socket.on('error', () => undefined);
+      socket.end();
+    });
+    await new Promise<void>((resolve) => unix.listen(unixPath, resolve));
     try {
       const probe = [
         'use Socket;',
@@ -691,6 +704,10 @@ describe("a person's own check that may open ports: loopback, never a port liste
         'print "own connect: ", try($own, INADDR_LOOPBACK), "\\n";',
         `print "before connect: ", try(${port}, INADDR_LOOPBACK), "\\n";`,
         'print "outside connect: ", try(80, inet_aton("1.1.1.1")), "\\n";',
+        // UDP to its own UDP socket on loopback stays refused: the choice opens TCP alone (AUDIT3 L1).
+        'socket(U, PF_INET, SOCK_DGRAM, 0); print "udp: ", (bind(U, sockaddr_in(0, INADDR_LOOPBACK)) ? (send(U, "x", 0, getsockname(U)) ? "ok" : "$!") : "$!"), "\\n";',
+        // A Unix socket outside the run's folders stays refused (AUDIT3 L2).
+        `socket(X, PF_UNIX, SOCK_STREAM, 0); print "unix connect: ", (connect(X, sockaddr_un("${unixPath}")) ? "ok" : "$!"), "\\n";`,
       ].join(' ');
       const said = async (profile: string) => {
         const file = join(scope.temp, 'profile.sb');
@@ -708,11 +725,15 @@ describe("a person's own check that may open ports: loopback, never a port liste
       assert.match(open, /own connect: ok/);
       assert.match(open, /before connect: Operation not permitted/);
       assert.match(open, /outside connect: Operation not permitted/);
+      assert.match(open, /udp: Operation not permitted/);
+      assert.match(open, /unix connect: Operation not permitted/);
       // The rule is what refuses it: not denied, the listener that was up before is reached.
       const undenied = await said(confinedProfile({ ...scope, ownLoopback: { denied: [] } }));
       assert.match(undenied, /before connect: ok/);
     } finally {
       before.close();
+      unix.close();
+      rmSync(unixFolder, { recursive: true, force: true });
       cleanup();
     }
   });

@@ -61,7 +61,7 @@ export interface ConfinedScope extends Confinement {
   readonly listenPorts?: readonly number[];
   /**
    * A project's own check that the person let open ports on this computer (ADR 0055, amended 2026-11-16): it may listen
-   * on loopback and connect to loopback, and to none of `denied`, every port listening when the check started and the
+   * on loopback and connect to loopback over TCP alone, UDP and Unix sockets still refused, and to none of `denied`, every port listening when the check started and the
    * fixed set (`OWN_LOOPBACK_ALWAYS_DENIED`). Seatbelt cannot hold a listen to loopback alone: a listen on every
    * interface is allowed and reachable from the network while the check runs, and a service that starts listening after
    * the check started is reachable on loopback. Both are said to the person before they choose it. Absent: no port at all.
@@ -699,12 +699,13 @@ export function confinedProfile(scope: ConfinedScope): string {
     ...(scope.listenPorts ?? []).map(
       (port) => `(allow network-bind network-inbound (local ip "localhost:${port}"))`,
     ),
-    // A person's own check that may open ports: loopback, then every denied port refused after it (later rules win).
+    // A person's own check that may open ports: TCP on loopback, then every denied port refused after it (later rules win).
     ...(scope.ownLoopback === undefined
       ? []
       : [
-          '(allow network-bind network-inbound (local ip "localhost:*"))',
-          '(allow network-outbound (remote ip "localhost:*"))',
+          // TCP alone: UDP and Unix sockets stay refused, and the listeners refused below are read for TCP (AUDIT3 L1).
+          '(allow network-bind network-inbound (local tcp "localhost:*"))',
+          '(allow network-outbound (remote tcp "localhost:*"))',
           ...[...new Set([...OWN_LOOPBACK_ALWAYS_DENIED, ...scope.ownLoopback.denied])]
             .filter((port) => Number.isInteger(port) && port > 0 && port < 65536)
             .sort((x, y) => x - y)

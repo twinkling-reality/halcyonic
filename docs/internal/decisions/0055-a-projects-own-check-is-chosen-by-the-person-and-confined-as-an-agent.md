@@ -192,7 +192,8 @@ The open question above is answered for the check, not for the agent. A person m
 (`open_ports` on `project.own_check.choose`, journaled on `project.own_check.chosen`, shown on the project's own check), so a web
 project's own tests, which start a server on a local port, can pass. Never by default, never chosen by an agent or a lane,
 and never for the agent's own run, whose profile is unchanged.
-- The check's profile then allows a listen on loopback and a connect to loopback (`ownLoopback` in `confinedProfile`), and after
+- The check's profile then allows a listen on loopback and a connect to loopback, over TCP alone, so UDP and Unix sockets stay
+  refused (`ownLoopback` in `confinedProfile`; AUDIT3 L1, L2), and after
   them, since Seatbelt's later rules win, refuses a connect to every port listening when that run starts and to a fixed set
   (`OWN_LOOPBACK_ALWAYS_DENIED`: adb 5037 to 5039, a browser's remote debugging 9222, Seorak's 4317, Ollama 11434, and Halora's
   own 47800 to 47999). The listeners are read fresh for every run from `netstat -anp tcp`, which lists every owner's; where they
@@ -201,7 +202,8 @@ and never for the agent's own run, whose profile is unchanged.
   choose it: a listen on every interface is allowed, so a test server listening on all of them is reachable from the network
   for as long as the check runs; and a service that starts listening on this Mac after the run starts is reachable on loopback.
 - Tests, fail-first: the profile's text (no port without the choice; each refused port after the allow); on this Mac, a run's
-  own listen and connect work, a listener that was up before and the outside network are refused, and with the deny lifted the
+  own listen and connect work, a listener that was up before, the outside network, UDP on loopback and a Unix socket outside the
+  run's folders are refused, and with the deny lifted the
   listener that was up before is reached; through the plane, a check chosen with ports passes such a probe, and the same check
   not chosen, or with the listeners unreadable, gets no port and reads refused.
 - The headset and the Mac's words for the choice and its two gaps are AUDIT2's and the client half's; until they ship, no client
