@@ -27,8 +27,8 @@ public class WorkspaceRecoveryColumnTests
     // request not submitted (21), its reference kept (22), its result pending (32). Each state's line opens whole.
     [TestCase(1, "No Draft")]
     [TestCase(21, "Not Submitted")]
-    [TestCase(22, "Request Reference Kept · Restore to Read Result")]
-    [TestCase(32, "Pending Result · Restore to Check")]
+    [TestCase(22, "A link to the request is kept. Restore to read it.")]
+    [TestCase(32, "The result is pending. Restore to check it.")]
     public void SavedDraftsOpenOnEveryStateOfASavedRequest(int index, string says)
     {
         var column = new WorkspaceRecoveryColumn(new FileMenuHost(), new[] { Case(index) }, _ => false, _ => false);

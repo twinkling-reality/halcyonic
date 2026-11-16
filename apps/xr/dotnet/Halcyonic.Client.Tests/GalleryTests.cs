@@ -227,7 +227,7 @@ public class GalleryTests
             Rule = CatalogLocalSuggestionsItemRule.GithubOriginFullName,
         });
         var item = Build(Halcyonic(), Read(new[] { project })).Items.Single();
-        Assert.That(item.Place.Text, Is.EqualTo("Possible Match · tide-web"));
+        Assert.That(item.Place.Text, Is.EqualTo("Possible Match: tide-web"));
         Assert.That(item.Place.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }), "the folder's name leans");
         Assert.That(item.PlaceInferred, Is.True);
         Assert.That(item.OnYourComputer, Is.False, "a match is never a link");
@@ -314,17 +314,17 @@ public class GalleryTests
         var cases = new (CatalogResponse Response, string Note)[]
         {
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_running", Message = "x" } },
-                "Omnorium · Not Running"),
+                "Omnorium isn't running."),
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_configured", Message = "x" } },
-                "Omnorium · Not Set Up · Set Up on Computer"),
+                "Omnorium isn't set up. Set it up on your computer."),
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_ready", Message = "x" } },
-                "Omnorium · Gathering · Refresh"),
+                "Omnorium is still gathering projects. Refresh."),
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "something_new", Message = "x" } },
-                "Projects Unreadable · Refresh"),
+                "The projects can't be read. Refresh."),
             (new UnauthorizedCatalog { Reason = new ErrorInfo { Code = "unauthorized", Message = "x" } },
-                "Omnorium · Access Refused · Set Up Again"),
+                "Omnorium refused access. Set it up again."),
             (new IncompatibleCatalog { Reason = new ErrorInfo { Code = "unsupported_contract", Message = "x" } },
-                "Omnorium · Version Unsupported"),
+                "This version of Omnorium isn't supported."),
         };
         foreach (var (response, note) in cases)
         {
@@ -381,13 +381,13 @@ public class GalleryTests
     public void TheCatalogSaysHowOldItIs()
     {
         var halcyonic = Halcyonic();
-        Assert.That(Build(halcyonic, Read(Array.Empty<CatalogProject>())).Age, Is.EqualTo("Checked · Today 14:50"));
+        Assert.That(Build(halcyonic, Read(Array.Empty<CatalogProject>())).Age, Is.EqualTo("Checked Today 14:50"));
         Assert.That(
             Build(halcyonic, Read(Array.Empty<CatalogProject>(), checkedAt: "2026-10-27T09:05:00Z")).Age,
-            Is.EqualTo("Checked · 27 Oct 09:05"));
+            Is.EqualTo("Checked 27 Oct 09:05"));
         Assert.That(
             Build(halcyonic, Read(Array.Empty<CatalogProject>(), failed: true)).Age,
-            Is.EqualTo("Refresh Failed · Last · Today 14:50"));
+            Is.EqualTo("The refresh failed. Last checked Today 14:50."));
         Assert.That(Build(halcyonic, Read(Array.Empty<CatalogProject>(), checkedAt: null)).Age, Is.EqualTo("Not Checked"));
     }
 

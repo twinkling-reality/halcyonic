@@ -130,9 +130,9 @@ public class ProjectFolderTests
     public void TheReviewShowsTheFolderAndAMoveInFull()
     {
         var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your computer", "ref", "Objective", folder: "recipes in Projects");
-        Assert.That(review.Items.Select(item => item.Text), Has.Some.EqualTo("Folder · recipes in Projects"));
+        Assert.That(review.Items.Select(item => item.Text), Has.Some.EqualTo("Folder: recipes in Projects"));
         var move = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your computer", "ref", "Objective", folder: "shop in Projects", folderBefore: "none");
-        Assert.That(move.Items.Select(item => item.Text).Take(3), Is.EqualTo(new[] { "Project · Project", "Folder Now · none", "Folder Next · shop in Projects" }));
+        Assert.That(move.Items.Select(item => item.Text).Take(3), Is.EqualTo(new[] { "Project: Project", "Folder Now: none", "Folder Next: shop in Projects" }));
     }
 
     /// <summary>

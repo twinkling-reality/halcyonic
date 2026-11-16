@@ -48,10 +48,10 @@ namespace Halcyonic.Client
             Kind = kind;
             ValueRuns = value;
             Value = value.Text;
-            Runs = LineWords.Written(label) + value;
-            // Apart, for the redesign's rows (never a label joined on a dot): the label without its separator over the value;
-            // words with no value, as a warning, stand as themselves.
-            var named = label.TrimEnd(' ', '·');
+            // Apart, for the redesign's rows (never a label joined on a dot): the label over the value; on one line, as the
+            // older view draws it, "{Label}: {value}". Words with no value, as a warning, stand as themselves.
+            var named = label.TrimEnd(' ', ':');
+            Runs = value.IsEmpty || named.Length == 0 ? LineWords.Written(label) + value : LineWords.Written(named + ": ") + value;
             RowLabel = value.IsEmpty || named.Length == 0 ? null : named;
             RowRuns = RowLabel == null ? Runs : value;
         }
@@ -78,7 +78,7 @@ namespace Halcyonic.Client
         public string Value { get; }
 
         /// <summary>The label and the value, as the panel lays them out.</summary>
-        public string Text => Label + Value;
+        public string Text => Runs.Text;
     }
 
     /// <summary>The lines of one review item that one page shows: all of them, or a stretch of an item taller than a page.</summary>
@@ -155,9 +155,9 @@ namespace Halcyonic.Client
         /// as a code point the way a typed one is.
         /// </param>
         /// <summary>The labels whose values a build checks against what it sends (<see cref="Shows"/>).</summary>
-        public const string ProjectLabel = "Project · ";
-        public const string ModelIdLabel = "Model ID · ";
-        public const string FirstTaskLabel = "First Task · ";
+        public const string ProjectLabel = "Project";
+        public const string ModelIdLabel = "Model ID";
+        public const string FirstTaskLabel = "First Task";
 
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
             string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false)
@@ -191,17 +191,17 @@ namespace Halcyonic.Client
             Add(ProjectLabel, project, ReviewItemKind.Project);
             if (folderBefore != null && folder != null)
             {
-                Add("Folder Now · ", folderBefore, ReviewItemKind.FolderNow);
-                Add("Folder Next · ", folder, ReviewItemKind.Folder);
+                Add("Folder Now", folderBefore, ReviewItemKind.FolderNow);
+                Add("Folder Next", folder, ReviewItemKind.Folder);
             }
-            else if (folder != null) Add("Folder · ", folder, ReviewItemKind.Folder);
+            else if (folder != null) Add("Folder", folder, ReviewItemKind.Folder);
             if (startFrom != null) Add(StarterChoice.ReviewLabel, startFrom, ReviewItemKind.Starter);
-            items.Add(new ReviewItem("Task Name · ", LineWords.Shown(Safe(title) + (titleCut ? "…" : "")), ReviewItemKind.TaskName));
-            Add("Agent App · ", runtime, ReviewItemKind.AgentApp);
-            Add("Model · ", model, ReviewItemKind.Model);
-            if (level is LineWords asks) Add("Level · ", asks, ReviewItemKind.Level);
-            Add("Model Location · ", modelFacts, ReviewItemKind.ModelLocation);
-            if (tools is LineWords uses) Add("Tool Use · ", uses, ReviewItemKind.ModelTools);
+            items.Add(new ReviewItem("Task Name", LineWords.Shown(Safe(title) + (titleCut ? "…" : "")), ReviewItemKind.TaskName));
+            Add("Agent App", runtime, ReviewItemKind.AgentApp);
+            Add("Model", model, ReviewItemKind.Model);
+            if (level is LineWords asks) Add("Level", asks, ReviewItemKind.Level);
+            Add("Model Location", modelFacts, ReviewItemKind.ModelLocation);
+            if (tools is LineWords uses) Add("Tool Use", uses, ReviewItemKind.ModelTools);
             Add(ModelIdLabel, modelRef, ReviewItemKind.ModelId);
             Add(FirstTaskLabel, objective, ReviewItemKind.FirstTask);
             // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).

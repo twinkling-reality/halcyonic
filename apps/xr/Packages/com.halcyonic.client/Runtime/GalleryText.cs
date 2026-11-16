@@ -34,7 +34,7 @@ namespace Halcyonic.Client
         public const string NotLinked = "Not Linked";
 
         /// <summary>Before a folder the computer matched to a catalog project by a rule: inferred, never confirmed.</summary>
-        public const string MaybeOnYourComputer = "Possible Match · ";
+        public const string MaybeOnYourComputer = "Possible Match: ";
 
         /// <summary>
         /// A catalog project's state, as the source names it, in Halcyonic's words and its group. Any
@@ -75,19 +75,19 @@ namespace Halcyonic.Client
         {
             AvailableCatalog _ => null,
             _ when recorded => NotInThisRecording,
-            UnauthorizedCatalog _ => Source + " · Access Refused · Set Up Again",
-            IncompatibleCatalog _ => Source + " · Version Unsupported",
-            UnavailableCatalog { Reason: { Code: "not_running" } } => Source + " · Not Running",
-            UnavailableCatalog { Reason: { Code: "not_configured" } } => Source + " · Not Set Up · Set Up on Computer",
-            UnavailableCatalog { Reason: { Code: "not_ready" } } => Source + " · Gathering · Refresh",
-            _ => "Projects Unreadable · Refresh",
+            UnauthorizedCatalog _ => Source + " refused access. Set it up again.",
+            IncompatibleCatalog _ => "This version of " + Source + " isn't supported.",
+            UnavailableCatalog { Reason: { Code: "not_running" } } => Source + " isn't running.",
+            UnavailableCatalog { Reason: { Code: "not_configured" } } => Source + " isn't set up. Set it up on your computer.",
+            UnavailableCatalog { Reason: { Code: "not_ready" } } => Source + " is still gathering projects. Refresh.",
+            _ => "The projects can't be read. Refresh.",
         };
 
         /// <summary>This headset's own read failed: <paramref name="why"/> is <see cref="IntelligenceText.WhyUnread"/>'s.</summary>
         public static string Unread(string why) => "Projects couldn't be read. " + why;
 
         /// <summary>
-        /// How old the catalog is, by when its source last read the person's repositories: "Checked · Today
+        /// How old the catalog is, by when its source last read the person's repositories: "Checked Today
         /// 14:50", or that the last read failed and when one last worked, so it never reads as live.
         /// </summary>
         public static string Age(AvailableSync sync, DateTimeOffset now, TimeZoneInfo zone)
@@ -96,10 +96,10 @@ namespace Halcyonic.Client
             if (sync.RepositoriesFailed)
             {
                 return at is DateTimeOffset last
-                    ? "Refresh Failed · Last · " + When(last, now, zone)
+                    ? "The refresh failed. Last checked " + When(last, now, zone) + "."
                     : "Refresh Failed";
             }
-            return at is DateTimeOffset checkedAt ? "Checked · " + When(checkedAt, now, zone) : "Not Checked";
+            return at is DateTimeOffset checkedAt ? "Checked " + When(checkedAt, now, zone) : "Not Checked";
         }
 
         /// <summary>"Today 14:50", or "27 Oct 09:05" where that isn't today: a time in the cadence's metadata.</summary>

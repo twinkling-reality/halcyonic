@@ -40,9 +40,9 @@ public class UsageLeftTests
     {
         var glance = Present(Available);
         Assert.That(glance.Failed, Is.False);
-        Assert.That(glance.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Codex · 5-Hour Window", "Codex · Weekly" }));
-        Assert.That(glance.Rows[0].Text, Is.EqualTo("Up to 60% Left · Seen Today 19:08 · Resets Today 21:05"));
-        Assert.That(glance.Rows[1].Text, Is.EqualTo("Up to 39% Left · Seen Today 19:18 · Resets 6 Oct 09:00"),
+        Assert.That(glance.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Codex: 5-Hour Window", "Codex: Weekly" }));
+        Assert.That(glance.Rows[0].Text, Is.EqualTo("Up to 60% left. Seen Today 19:08. Resets Today 21:05."));
+        Assert.That(glance.Rows[1].Text, Is.EqualTo("Up to 39% left. Seen Today 19:18. Resets 6 Oct 09:00."),
             "38.5% rounds up so that at most stays true");
     }
 
@@ -51,7 +51,7 @@ public class UsageLeftTests
     {
         var glance = Present(Available);
         Assert.That(glance.Rows.Select(row => row.Left), Is.EqualTo(new[] { 60, 39 }), "the same rounded-up share as the words");
-        foreach (var row in glance.Rows) Assert.That(row.Text, Does.StartWith("Up to " + row.Left + "% Left"));
+        foreach (var row in glance.Rows) Assert.That(row.Text, Does.StartWith("Up to " + row.Left + "% left"));
     }
 
     [Test]
@@ -59,7 +59,7 @@ public class UsageLeftTests
     {
         var glance = Present(Available);
         Assert.That(glance.Source, Is.EqualTo("Measurement, Provider Reported"));
-        Assert.That(glance.Note, Is.EqualTo("Account Unknown · Any Account on Computer"));
+        Assert.That(glance.Note, Is.EqualTo("The account isn't known. It may be any account on your computer."));
     }
 
     [Test]
@@ -77,7 +77,7 @@ public class UsageLeftTests
     {
         var glance = Present(Available.Replace("\"complete\": true", "\"complete\": false"));
         Assert.That(glance.Rows, Has.Count.EqualTo(2), "only the readings returned, nothing inferred");
-        Assert.That(glance.Note, Is.EqualTo("Some Limits Unread · Account Unknown · Any Account on Computer"));
+        Assert.That(glance.Note, Is.EqualTo("Some Limits Unread. The account isn't known. It may be any account on your computer."));
         Assert.That(Present(Available).Note, Does.Not.Contain("couldn't be read"));
     }
 
@@ -92,7 +92,7 @@ public class UsageLeftTests
     public void DropsAWindowPastItsReset()
     {
         var glance = Present(Available, DateTimeOffset.Parse("2026-09-30T21:05:00Z"));
-        Assert.That(glance.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Codex · Weekly" }));
+        Assert.That(glance.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Codex: Weekly" }));
         var later = Present(Available, DateTimeOffset.Parse("2026-10-06T09:00:01Z"));
         Assert.That(later.Rows, Is.Empty);
         Assert.That(later.Note, Is.EqualTo("No Reading Since Reset"));
@@ -103,7 +103,7 @@ public class UsageLeftTests
     public void ShowsAnotherDaysSightingWithItsDate()
     {
         var glance = Present(Available, DateTimeOffset.Parse("2026-10-01T08:00:00Z"));
-        Assert.That(glance.Rows.Single().Text, Is.EqualTo("Up to 39% Left · Seen 30 Sep 19:18 · Resets 6 Oct 09:00"));
+        Assert.That(glance.Rows.Single().Text, Is.EqualTo("Up to 39% left. Seen 30 Sep 19:18. Resets 6 Oct 09:00."));
     }
 
     [Test]
@@ -113,7 +113,7 @@ public class UsageLeftTests
         var tokyo = TimeZoneInfo.CreateCustomTimeZone("UTC+9", TimeSpan.FromHours(9), "UTC+9", "UTC+9");
         var glance = UsageLeftPresenter.Present(Json.AssertRoundTrips<UsageLimitsResponse>(Available),
             DateTimeOffset.Parse("2026-09-30T23:00:00Z"), tokyo);
-        Assert.That(glance.Rows.Single().Text, Is.EqualTo("Up to 39% Left · Seen Today 04:18 · Resets 6 Oct 18:00"));
+        Assert.That(glance.Rows.Single().Text, Is.EqualTo("Up to 39% left. Seen Today 04:18. Resets 6 Oct 18:00."));
     }
 
     [Test]
@@ -121,7 +121,7 @@ public class UsageLeftTests
     {
         var json = Available.Replace("\"label\": \"Codex\", \"window\": \"weekly\"", "\"label\": \"<b>Agent</b>\", \"window\": \"weekly\"");
         var glance = Present(json);
-        Assert.That(glance.Rows[1].Title, Is.EqualTo(LabelText.Plain("<b>Agent</b>") + " · Weekly"));
+        Assert.That(glance.Rows[1].Title, Is.EqualTo(LabelText.Plain("<b>Agent</b>") + ": Weekly"));
     }
 
     [Test]
@@ -129,7 +129,7 @@ public class UsageLeftTests
     {
         var name = new string('A', 80);
         var glance = Present(Available.Replace("\"label\": \"Codex\", \"window\": \"weekly\"", "\"label\": \"" + name + "\", \"window\": \"weekly\""));
-        Assert.That(glance.Rows[1].Title, Is.EqualTo(IntelligenceText.Truncate(name, UsageLeftPresenter.LabelLimit) + " · Weekly"));
+        Assert.That(glance.Rows[1].Title, Is.EqualTo(IntelligenceText.Truncate(name, UsageLeftPresenter.LabelLimit) + ": Weekly"));
         Assert.That(glance.Rows[1].Title.Length, Is.LessThan(45));
     }
 
@@ -239,8 +239,8 @@ public class UsageLeftScreensTests
         Assert.That(model.PartsNote, Is.EqualTo(presentation.Note), "every page says what is unknown");
         Assert.That(model.Rows.Select(row => row.Title), Is.EqualTo(new[]
         {
-            "Codex · 5-Hour Window", "Up to 60% Left · Seen Today 19:08 · Resets Today 21:05",
-            "Codex · Weekly", "Up to 39% Left · Seen Today 19:18 · Resets 6 Oct 09:00",
+            "Codex: 5-Hour Window", "Up to 60% left. Seen Today 19:08. Resets Today 21:05.",
+            "Codex: Weekly", "Up to 39% left. Seen Today 19:18. Resets 6 Oct 09:00.",
         }));
         Assert.That(model.Rows.All(row => row.Line && !row.Pressable), Is.True, "nothing in the list takes a press");
         Assert.That(model.Rows.Select(row => row.Meter), Is.EqualTo(new float?[] { 0.60f, null, 0.39f, null }), "each meter draws the share its words say");
@@ -294,13 +294,13 @@ public class UsageLeftScreensTests
         var now = DateTimeOffset.Parse("2026-10-02T14:00:00Z", CultureInfo.InvariantCulture);
         var limits = Demonstration.Recording().UsageLimitsAt(now)!;
         var shown = UsageLeftPresenter.Present(limits, now, TimeZoneInfo.Utc, recorded: true);
-        Assert.That(shown.Source, Is.EqualTo("Recorded for Demo · No Account"));
+        Assert.That(shown.Source, Is.EqualTo("Recorded for the demo, no account"));
         Assert.That(shown.Note, Is.EqualTo("Limits Part of Recording"));
-        Assert.That(shown.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Practice agent · 5-Hour Window", "Practice agent · Weekly" }));
+        Assert.That(shown.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Practice agent: 5-Hour Window", "Practice agent: Weekly" }));
         Assert.That(shown.Rows.Select(row => row.Text), Is.EqualTo(new[]
         {
-            "Up to 62% Left · Seen Today 13:58 · Resets Today 16:30",
-            "Up to 79% Left · Seen Today 13:58 · Resets 6 Oct 14:00",
+            "Up to 62% left. Seen Today 13:58. Resets Today 16:30.",
+            "Up to 79% left. Seen Today 13:58. Resets 6 Oct 14:00.",
         }));
         var model = UsageLeftScreens.Screen(shown, reading: false, canRead: true);
         Assert.That(model.Actions.All.Single().Id, Is.EqualTo(UsageLeftScreens.Refresh), "Refresh plays the recording's limits again");

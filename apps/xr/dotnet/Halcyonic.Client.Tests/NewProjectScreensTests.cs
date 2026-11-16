@@ -908,7 +908,7 @@ public class NewProjectStartTests
         var recap = NewProjectScreens.Recap(idea, draft, null, live: true, notice: null, problem: null, chosen: RecapFact.Name);
         Assert.That(recap.Lines.Single(line => line.Words == "Dinners").Action, Is.Null, "no Rename for a made project");
         Assert.That(recap.Side, Is.Null);
-        Assert.That(EntryScreens.ReviewOf(idea, draft, null, live: true).Items[0].Text, Is.EqualTo("Project · Dinners"));
+        Assert.That(EntryScreens.ReviewOf(idea, draft, null, live: true).Items[0].Text, Is.EqualTo("Project: Dinners"));
         Assert.That(draft.Objective, Is.EqualTo(before), "reviewing changes nothing in the draft");
         Assert.That(before, Is.Not.EqualTo(idea.FirstTask));
     }
@@ -922,11 +922,11 @@ public class NewProjectStartTests
         var review = EntryScreens.ReviewOf(idea, Draft(), null, live: true);
         // No model chosen: Halcyonic's own fallback stands upright, so a name copying it, here the project's, leans; the level the
         // start will use follows, Halcyonic's own.
-        Assert.That(review.Items.Single(item => item.Label == "Model · ").Runs.ToString(), Is.EqualTo("Model · App's Choice"));
-        Assert.That(review.Items.Single(item => item.Kind == ReviewItemKind.Level).Runs.ToString(), Is.EqualTo("Level · Ask Me First"), "the level its own row");
-        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ProjectLabel).Runs.ToString(), Is.EqualTo("Project · [App's Choice]"));
-        Assert.That(review.Items.Single(item => item.Label == "Agent App · ").Runs.Runs.Last().Theirs, Is.True, "the agent app's name leans");
-        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ModelIdLabel).Runs.ToString(), Is.EqualTo("Model ID · none"),
+        Assert.That(review.Items.Single(item => item.Label == "Model").Runs.ToString(), Is.EqualTo("Model: App's Choice"));
+        Assert.That(review.Items.Single(item => item.Kind == ReviewItemKind.Level).Runs.ToString(), Is.EqualTo("Level: Ask Me First"), "the level its own row");
+        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ProjectLabel).Runs.ToString(), Is.EqualTo("Project: [App's Choice]"));
+        Assert.That(review.Items.Single(item => item.Label == "Agent App").Runs.Runs.Last().Theirs, Is.True, "the agent app's name leans");
+        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ModelIdLabel).Runs.ToString(), Is.EqualTo("Model ID: none"),
             "no model id: Halcyonic's word, upright, unlike a model whose id is \"none\"");
     }
 

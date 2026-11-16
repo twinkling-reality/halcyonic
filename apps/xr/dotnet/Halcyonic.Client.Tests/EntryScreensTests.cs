@@ -89,18 +89,18 @@ public class EntryScreensTests
         var review = EntryScreens.ReviewOf(moving, draft, current, live: true);
         Assert.That(review.Items.Select(item => item.Text), Is.EqualTo(new[]
         {
-            "Project · Storefront\\u{202E} API",
-            "Folder Now · shop",
-            "Folder Next · New storefront-v2 in Projects",
-            "Task Name · Add a search page.",
-            "Agent App · Local\\u{200B} agent",
+            "Project: Storefront\\u{202E} API",
+            "Folder Now: shop",
+            "Folder Next: New storefront-v2 in Projects",
+            "Task Name: Add a search page.",
+            "Agent App: Local\\u{200B} agent",
             // The level the start will use, after the model (a real runtime; this draft asks).
-            "Model · ollama/qwen",
-            "Level · Ask Me First",
-            "Model Location · On Your Computer",
-            "Tool Use · Uses Tools",
-            "Model ID · ollama/qwen",
-            "First Task · Add a search page.",
+            "Model: ollama/qwen",
+            "Level: Ask Me First",
+            "Model Location: On Your Computer",
+            "Tool Use: Uses Tools",
+            "Model ID: ollama/qwen",
+            "First Task: Add a search page.",
         }), "every name spelled once, by the review");
     }
 

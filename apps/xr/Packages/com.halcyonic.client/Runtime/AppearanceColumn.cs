@@ -53,7 +53,7 @@ namespace Halcyonic.Client
                     return new MenuFrame("Restore Default?", new Footer(close,
                         rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
                         farRight: new Prompt(Restore, "Restore Default", GlazeIcon.ResetPosition, main: true)),
-                        lines: new[] { new PageLine(GlazePalette.Default.Name + " Interface"), new PageLine("Comfort Kept · Space Kept", rows: 2) });
+                        lines: new[] { new PageLine(GlazePalette.Default.Name + " Interface"), new PageLine("Your comfort and space settings are kept.", rows: 2) });
                 }
                 if (!preview)
                 {
@@ -65,10 +65,11 @@ namespace Halcyonic.Client
                 }
                 var footer = new Footer(close, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
                     farRight: new Prompt(Apply, "Apply Theme", GlazeIcon.Change, main: true));
+                // The button says only where it goes, as every pager does (Footer.NextPageWords): a count on it was misread (M2).
                 var examples = Specimen(page).ToList();
-                examples.Add(new PageLine(page == 4 ? "First Examples" : "Next Examples · " + (page + 2) + " of 5",
+                examples.Add(new PageLine(page == 4 ? "First Examples" : "Next Examples",
                     action: Footer.NextPage, opens: true, control: LineControl.Action));
-                return new MenuFrame("Preview · " + chosen.Name, footer, lines: examples);
+                return new MenuFrame("Preview: " + chosen.Name, footer, lines: examples);
             }
         }
 
@@ -97,7 +98,7 @@ namespace Halcyonic.Client
             _ => new[]
             {
                 new PageLine(StateLanguage.WordOf(WorkState.FinishedThisRound), icon: GlazeIcon.FinishedThisRound, tone: LineTone.Good),
-                new PageLine(LineWords.Ours(SectionLine.AgentChip + " · ") + LineWords.Theirs("The example is ready.")),
+                new PageLine(LineWords.Theirs("The example is ready."), chip: SectionLine.AgentChip),
             },
         };
 

@@ -527,7 +527,7 @@ public class JudgeWordsTests
         var words = recording.UsageLimits!.Readings.Select(reading => reading.Label)
             .Concat(shown.Rows.SelectMany(row => new[] { row.Title, row.Text }))
             .Append(shown.Source!).Append(shown.Note).ToList();
-        Assert.That(words, Has.Member("Recorded for Demo · No Account"));
+        Assert.That(words, Has.Member("Recorded for the demo, no account"));
         foreach (var word in words)
         {
             foreach (var brand in Brands.Concat(Tools))

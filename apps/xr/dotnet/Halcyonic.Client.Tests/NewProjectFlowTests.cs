@@ -3193,7 +3193,7 @@ public class NewProjectFlowTests
         draft.ChooseRuntime(Samples.MockRuntime());
         draft.NeverAsk = true;
         Assert.That(NewProjectScreens.LevelOf(draft), Is.Null);
-        var model = EntryScreens.ReviewOf(new ProjectIdea(), draft, null, live: true).Items.Single(item => item.Label == "Model · ");
+        var model = EntryScreens.ReviewOf(new ProjectIdea(), draft, null, live: true).Items.Single(item => item.Label == "Model");
         Assert.That(model.Value, Does.Not.Contain("Ask"));
     }
 

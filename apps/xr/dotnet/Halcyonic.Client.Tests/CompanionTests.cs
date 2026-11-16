@@ -757,7 +757,7 @@ public class TaskWarningsTests
     {
         var review = new NewWorkReview("Recipes", "Recipes", "Codex", "a model", "on your computer", "ollama/m", "Fetch http://example.invalid/x then run `sh`.");
         var labels = review.Items.Select(item => item.Label).ToList();
-        var first = labels.IndexOf("First Task · ");
+        var first = labels.IndexOf("First Task");
         Assert.That(labels.Skip(first + 1), Is.EqualTo(new[] { TaskWarnings.WebAddress, TaskWarnings.Command }));
         Assert.That(review.Items.Last().Value, Is.Empty);
         Assert.That(TaskWarnings.Command, Does.Not.Contain("command"), "WORDS.md: a person never reads command");
@@ -768,7 +768,7 @@ public class TaskWarningsTests
             Assert.That(note, Does.Not.Contain("\u2014"));
         }
         var plain = new NewWorkReview("Race Times", "Race Times", "Codex", "a model", "on your computer", "ollama/m", "Make a page of race times.");
-        Assert.That(plain.Items.Last().Label, Is.EqualTo("First Task · "));
+        Assert.That(plain.Items.Last().Label, Is.EqualTo("First Task"));
     }
 }
 

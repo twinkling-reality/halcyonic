@@ -186,7 +186,7 @@ namespace Halcyonic.Client
         public const string NothingRecorded = "The demo has no recorded answer here.";
 
         /// <summary>Why there is no answer before the recording is read.</summary>
-        public const string StillBeingRead = "Demo · Still Reading";
+        public const string StillBeingRead = "Demo, still reading";
 
         /// <summary>
         /// Why a recorded run has no answer: it never carries an understanding or a measurement read (ADR 0035: nothing

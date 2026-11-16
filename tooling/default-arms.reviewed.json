@@ -97,7 +97,7 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/AppearanceColumn.cs",
-    "answer": "new[] { new PageLine(StateLanguage.WordOf(WorkState.FinishedThisRound), icon: GlazeIcon.FinishedThisRound, tone: LineTone.Good), new PageLine(LineWords.Ours(SectionLine.AgentChip + \" · \") + LineWords.Theirs(\"The example is ready.\")), }",
+    "answer": "new[] { new PageLine(StateLanguage.WordOf(WorkState.FinishedThisRound), icon: GlazeIcon.FinishedThisRound, tone: LineTone.Good), new PageLine(LineWords.Theirs(\"The example is ready.\"), chip: SectionLine.AgentChip), }",
     "count": 1,
     "why": "true: Only page 4 of the five-page theme preview reaches it, and its lines are inert specimens under Preview and Examples; note it puts an Agent Reported chip on example words no agent said."
   },
@@ -157,9 +157,9 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/GalleryText.cs",
-    "answer": "\"Projects Unreadable · Refresh\"",
+    "answer": "\"The projects can't be read. Refresh.\"",
     "count": 1,
-    "why": "generic: Unavailable catalogs with codes other than not_running, not_configured and not_ready reach it, and Projects Unreadable with Refresh is a true generic fallback."
+    "why": "generic: Unavailable catalogs with codes other than not_running, not_configured and not_ready reach it, and saying the projects can't be read, with Refresh, is a true generic fallback."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/GalleryText.cs",
@@ -205,7 +205,7 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/IntelligencePresentation.cs",
-    "answer": "IntelligenceText.Plural(landed.Value, \"Commit\") + \" Landed\"",
+    "answer": "landed.Value.ToString(CultureInfo.InvariantCulture) + \" landed\"",
     "count": 1,
     "why": "true: Only a non-null, non-zero count of landed commits from the evaluation measure reaches it, and it states that count."
   },
@@ -307,7 +307,7 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/TaskResultsColumn.cs",
-    "answer": "\"Changed · \"",
+    "answer": "\"Changed: \"",
     "count": 1,
     "why": "true: Only ToolResultFileKind.Update reaches it, and Changed is true for an updated file."
   },

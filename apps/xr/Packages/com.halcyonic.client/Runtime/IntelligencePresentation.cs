@@ -135,16 +135,16 @@ namespace Halcyonic.Client
         };
 
         /// <summary>The chip beside an agent's own words: who said it, and that it is reported (WORDS.md).</summary>
-        public const string AgentChip = "Agent · Reported";
+        public const string AgentChip = "Reported by Agent";
 
         /// <summary>The chip beside a subagent's own words.</summary>
-        public const string SubagentChip = "Subagent · Reported";
+        public const string SubagentChip = "Reported by Subagent";
 
         /// <summary>The chip beside words whose author the source does not know.</summary>
         public const string AuthorUnknownChip = "Author Unknown";
 
         /// <summary>The chip beside a model's account of the work, after it.</summary>
-        public const string ExplanationChip = "Explanation · Reported";
+        public const string ExplanationChip = "Agent's Explanation";
 
         /// <summary>
         /// Whether a chip attributes an agent's or a subagent's words whole, so the words beside it may
@@ -301,8 +301,10 @@ namespace Halcyonic.Client
             var lines = new List<SectionLine>();
             var verification = evaluation.Verification;
             var lens = verification.Lens;
-            // Each part's name heads its line in a file, where no tag is drawn (settled 2026-10-08): "Checks · ", "Cost · ", "Outcome · ".
-            var checks = LineWords.Written("Checks · ");
+            // Each part's name heads its line in a file, where no tag is drawn (settled 2026-10-08): "Checks: ", "Cost: ", "Outcome: ".
+            // Facts are never strung on a dot (the owner, 2026-11-11): each measured fact is its own labelled line, and a part's
+            // quiet status is said in sentences.
+            var checks = LineWords.Written("Checks: ");
             if (lens == null)
             {
                 lines.Add(new SectionLine("Checks", "No Verification Lens", SectionTone.Secondary, said: checks + LineWords.Written("No Verification Lens")));
@@ -320,15 +322,17 @@ namespace Halcyonic.Client
             lines.Add(Status(verification.Availability, verification.Coverage, verification.Freshness, now, zone));
 
             var cost = evaluation.Cost;
-            var costLead = LineWords.Written("Cost · ");
+            var costLead = LineWords.Written("Cost: ");
             if (cost.EstimatedUsd is double usd)
             {
-                var costRuns = LineWords.Written(Money(usd)) + (LineWords.Theirs(cost.Note) is { IsEmpty: false } note ? LineWords.Written(" · ") + note : LineWords.None);
-                lines.Add(new SectionLine("Cost", costRuns.Text, SectionTone.Normal, said: costLead + costRuns));
+                var money = LineWords.Written(Money(usd));
+                lines.Add(new SectionLine("Cost", money.Text, SectionTone.Normal, said: costLead + money));
+                // The source's own note on the cost, as theirs, on its own line.
+                if (LineWords.Theirs(cost.Note) is { IsEmpty: false } note) lines.Add(new SectionLine("", note.Text, SectionTone.Normal, said: note));
             }
             else
             {
-                lines.Add(new SectionLine("Cost", "Unknown · Unpriced or Not Measured", SectionTone.Secondary, said: costLead + LineWords.Written("Unknown · Unpriced or Not Measured")));
+                lines.Add(new SectionLine("Cost", UnknownCost, SectionTone.Secondary, said: costLead + LineWords.Written(UnknownCost)));
             }
             lines.Add(Status(cost.Availability, cost.Coverage, cost.Freshness, now, zone));
 
@@ -336,18 +340,28 @@ namespace Halcyonic.Client
             var measure = outcome.Measure;
             if (measure == null)
             {
-                lines.Add(new SectionLine("Outcome", IntelligenceText.NothingMeasured, SectionTone.Secondary, said: LineWords.Written("Outcome · " + IntelligenceText.NothingMeasured)));
+                lines.Add(new SectionLine("Outcome", IntelligenceText.NothingMeasured, SectionTone.Secondary, said: LineWords.Written("Outcome: " + IntelligenceText.NothingMeasured)));
             }
             else
             {
-                var outcomeWords = Commits(measure.CommitsLanded) + " · " + Errors(measure, zone) + " · " + End(measure.EndReason);
-                lines.Add(new SectionLine("Outcome", outcomeWords, SectionTone.Normal, said: LineWords.Written("Outcome · " + outcomeWords)));
-                lines.Add(new SectionLine("", Uncommitted(measure.Uncommitted) + " · " + Survival(measure.LineSurvival), SectionTone.Normal,
-                    evidence: Evidence.Measured));
+                foreach (var (label, value) in new[]
+                {
+                    ("Commits", Commits(measure.CommitsLanded)),
+                    ("Tool Errors", Errors(measure, zone)),
+                    ("Ended", End(measure.EndReason)),
+                    ("Uncommitted", Uncommitted(measure.Uncommitted)),
+                    ("Kept After 3 Days", Survival(measure.LineSurvival)),
+                })
+                {
+                    lines.Add(new SectionLine(label, value, SectionTone.Normal, said: LineWords.Written(label + ": " + value), evidence: Evidence.Measured));
+                }
             }
             lines.Add(Status(outcome.Availability, outcome.Coverage, outcome.Freshness, now, zone));
             return lines;
         }
+
+        /// <summary>The cost when no estimate was measured.</summary>
+        public const string UnknownCost = "Unknown. Not priced or not measured.";
 
         /// <summary>One part's own statement about itself: whether it is available, what it covers, and how current it is.</summary>
         public static SectionLine Status(EvaluationAvailability availability, EvaluationCoverage coverage, EvaluationFreshness freshness, DateTimeOffset now, TimeZoneInfo zone)
@@ -358,30 +372,24 @@ namespace Halcyonic.Client
             switch (availability.State)
             {
                 case EvaluationAvailabilityState.Available:
-                    state = "Available";
+                    state = "Available.";
                     break;
                 case EvaluationAvailabilityState.Partial:
-                    state = "Partly Available" + (availability.Reason is EvaluationAvailabilityReason partly ? " · " + Reason(partly) : "");
+                    state = "Partly available" + (availability.Reason is EvaluationAvailabilityReason partly ? ": " + Reason(partly) : "") + ".";
                     break;
                 default:
-                    state = "Unavailable" + (availability.Reason is EvaluationAvailabilityReason reason ? " · " + Reason(reason) : "");
+                    state = "Unavailable" + (availability.Reason is EvaluationAvailabilityReason reason ? ": " + Reason(reason) : "") + ".";
                     break;
             }
-            var covers = coverage.IncludedSessions.ToString(CultureInfo.InvariantCulture) + " of "
-                + IntelligenceText.Plural(coverage.MatchedSessions, "Session");
-            if (coverage.Complete)
-            {
-                covers += " · Complete";
-            }
-            else
-            {
-                covers += " · Incomplete" + (coverage.Omissions.Count == 0 ? "" : " · " + string.Join(", ", coverage.Omissions.Select(Omission)));
-            }
+            var covers = coverage.IncludedSessions.ToString(CultureInfo.InvariantCulture) + " of " + Count(coverage.MatchedSessions, "session")
+                + (coverage.Complete ? ", all included."
+                    : coverage.Omissions.Count == 0 ? ", some left out."
+                    : ", some left out: " + string.Join(", ", coverage.Omissions.Select(Omission)) + ".");
             string current;
             if (IntelligenceText.TryParse(freshness.StaleAt, out var staleAt) && now >= staleAt)
             {
                 // After this instant the part must read as stale, whatever its state said when read.
-                current = "Stale Since " + IntelligenceText.Clock(staleAt, zone, seconds: false);
+                current = "Stale since " + IntelligenceText.Clock(staleAt, zone, seconds: false) + ".";
             }
             else
             {
@@ -392,77 +400,80 @@ namespace Halcyonic.Client
                     _ => "Recomputing",
                 };
                 current += freshness.DataThrough != null && IntelligenceText.TryParse(freshness.DataThrough, out var through)
-                    ? " · Data to " + IntelligenceText.Clock(through, zone, seconds: true)
-                    : " · No Data Yet";
+                    ? ", with data to " + IntelligenceText.Clock(through, zone, seconds: true) + "."
+                    : ", no data yet.";
             }
-            return new SectionLine("", state + " · " + covers + " · " + current, tone, detail: true, evidence: Evidence.Measured);
+            return new SectionLine("", state + " " + covers + " " + current, tone, detail: true, evidence: Evidence.Measured);
         }
 
-        /// <summary>A kind of check as Seorak measured it, Halcyonic's counts first and its label last, leaning (settled 2026-10-08).</summary>
+        /// <summary>"1 run", "3 runs": a count in a sentence, its noun in lower case.</summary>
+        private static string Count(long count, string one) =>
+            count.ToString(CultureInfo.InvariantCulture) + " " + (count == 1 ? one : one + "s");
+
+        /// <summary>A kind of check as Seorak measured it: its label, leaning, then Halcyonic's counts after a colon (AUDIT2, 2026-11-16).</summary>
         private static LineWords KindRuns(EvaluationVerificationKind kind)
         {
             var tally = kind.Passed is long passes && kind.Runs is long count
-                ? passes.ToString(CultureInfo.InvariantCulture) + " of " + count.ToString(CultureInfo.InvariantCulture) + " Passed"
-                : (kind.Passed is long passed ? passed.ToString(CultureInfo.InvariantCulture) + " Passed" : "Passes Unknown")
-                    + " · " + (kind.Runs is long runs ? IntelligenceText.Plural(runs, "Run") : "Runs Unknown");
-            var rate = kind.PassRate is double fraction ? (fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "%" : "No Pass Rate";
-            var counts = LineWords.Written(tally + " · " + rate);
-            return LineWords.Theirs(kind.Label) is { IsEmpty: false } label ? counts + LineWords.Written(" · ") + label : counts;
+                ? passes.ToString(CultureInfo.InvariantCulture) + " of " + count.ToString(CultureInfo.InvariantCulture) + " passed"
+                : (kind.Passed is long passed ? passed.ToString(CultureInfo.InvariantCulture) + " passed" : "Passes unknown")
+                    + ", " + (kind.Runs is long runs ? Count(runs, "run") : "runs unknown");
+            var rate = kind.PassRate is double fraction ? (fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "%" : "no pass rate";
+            var counts = LineWords.Written(tally + ", " + rate);
+            return LineWords.Theirs(kind.Label) is { IsEmpty: false } label ? label + LineWords.Written(": ") + counts : counts;
         }
 
         private static string Commits(long? landed) => landed switch
         {
-            null => "Commits Unknown",
-            0 => "No Commits Landed",
-            _ => IntelligenceText.Plural(landed.Value, "Commit") + " Landed",
+            null => "Unknown",
+            0 => "None landed",
+            _ => landed.Value.ToString(CultureInfo.InvariantCulture) + " landed",
         };
 
         private static string Errors(EvaluationOutcomeMeasure measure, TimeZoneInfo zone)
         {
-            if (!(measure.ErrorCount is long count)) return "Tool Errors Unknown";
-            if (count == 0) return "No Tool Errors";
+            if (!(measure.ErrorCount is long count)) return "Unknown";
+            if (count == 0) return "None";
             var first = measure.FirstErrorAt != null && IntelligenceText.TryParse(measure.FirstErrorAt, out var at)
-                ? " · First at " + IntelligenceText.Clock(at, zone, seconds: false)
+                ? ", the first at " + IntelligenceText.Clock(at, zone, seconds: false)
                 : "";
-            return IntelligenceText.Plural(count, "Tool Error") + first;
+            return count.ToString(CultureInfo.InvariantCulture) + first;
         }
 
         private static string End(EvaluationEndReason? reason) => reason switch
         {
-            null => "End Unknown",
-            EvaluationEndReason.Clear => "Ended · Cleared",
-            EvaluationEndReason.Resume => "Ended · Resumed Elsewhere",
-            EvaluationEndReason.Logout => "Ended · Logged Out",
-            EvaluationEndReason.PromptInputExit => "Ended · Person Exited",
-            EvaluationEndReason.BypassPermissionsDisabled => "Ended · Permission Bypass Off",
-            EvaluationEndReason.Other => "Ended · Other Reason",
-            _ => "Ended · Reason Unnamed",
+            null => "Unknown",
+            EvaluationEndReason.Clear => "Cleared",
+            EvaluationEndReason.Resume => "Resumed elsewhere",
+            EvaluationEndReason.Logout => "Logged out",
+            EvaluationEndReason.PromptInputExit => "The person exited",
+            EvaluationEndReason.BypassPermissionsDisabled => "Permission bypass turned off",
+            EvaluationEndReason.Other => "Another reason",
+            _ => "No reason given",
         };
 
         private static string Uncommitted(EvaluationUncommitted? uncommitted)
         {
-            if (uncommitted == null) return "Uncommitted · Known at End";
-            var text = "Uncommitted · " + IntelligenceText.Plural(uncommitted.FilesTouched, "File") + " · +"
+            if (uncommitted == null) return "Known at the end";
+            var text = Count(uncommitted.FilesTouched, "file") + ", +"
                 + uncommitted.LinesAdded.ToString(CultureInfo.InvariantCulture) + " −" + uncommitted.LinesRemoved.ToString(CultureInfo.InvariantCulture);
             if (uncommitted.GeneratedLinesExcluded > 0)
             {
-                text += " · " + IntelligenceText.Plural(uncommitted.GeneratedLinesExcluded, "Generated Line") + " Apart";
+                text += ", " + Count(uncommitted.GeneratedLinesExcluded, "generated line") + " apart";
             }
             return text;
         }
 
         private static string Survival(EvaluationLineSurvival? survival)
         {
-            if (survival == null) return "3-Day Survival · Pending";
-            var rate = survival.Rate is double fraction ? (fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "%" : "Rate Unknown";
-            var lines = " · " + survival.LinesSurviving.ToString(CultureInfo.InvariantCulture) + " of "
-                + IntelligenceText.Plural(survival.LinesAuthored, "Line");
+            if (survival == null) return "Pending";
+            var rate = survival.Rate is double fraction ? (fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "%" : "Rate unknown";
+            var lines = ", " + survival.LinesSurviving.ToString(CultureInfo.InvariantCulture) + " of " + Count(survival.LinesAuthored, "line");
             return survival.Fate switch
             {
-                EvaluationLineSurvivalFate.Retained => "Kept After 3 Days · " + rate + lines,
-                EvaluationLineSurvivalFate.Overwritten => "Overwritten Within 3 Days" + lines,
-                EvaluationLineSurvivalFate.Unreachable => "Unreachable After 3 Days" + lines,
-                _ => "3-Day Survival Unknown",
+                EvaluationLineSurvivalFate.Retained => rate + lines,
+                EvaluationLineSurvivalFate.Overwritten => "Overwritten within 3 days" + lines,
+                EvaluationLineSurvivalFate.Unreachable => "Unreachable after 3 days" + lines,
+                _ => "Unknown",
             };
         }
 

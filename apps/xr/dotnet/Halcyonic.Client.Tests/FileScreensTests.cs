@@ -267,7 +267,7 @@ public class FileScreensTests
         screen.NextPage();
         var seorak = Screen(screen, room: AnswerRoom.Unlimited);
         Assert.That(seorak.Source, Is.EqualTo("Measurement, Read 1 min ago"));
-        Assert.That(seorak.Lines[0].Words, Does.StartWith("Checks · "), "its checks line under its own source");
+        Assert.That(seorak.Lines[0].Words, Does.StartWith("Checks: "), "its checks line under its own source");
         screen.NextPage();
         screen.Chosen = FileScreens.ChecksKey;
         var opened = Screen(screen, room: AnswerRoom.Unlimited);

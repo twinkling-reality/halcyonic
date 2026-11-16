@@ -79,7 +79,7 @@ public class DemonstrationCatalogTests
                 Assert.That(gallery.SampleLabel, Is.EqualTo("Sample Projects"));
                 Assert.That(gallery.Items, Is.Empty, "the sample is never among real projects");
                 Assert.That(gallery.Note, Is.Null);
-                Assert.That(gallery.Age, Is.EqualTo("Checked · Today 11:56"));
+                Assert.That(gallery.Age, Is.EqualTo("Checked Today 11:56"));
             }
             else
             {

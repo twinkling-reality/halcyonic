@@ -134,7 +134,7 @@ public class AppearanceSettingsTests
         Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Graphite));
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Default));
         Assert.That(saved, Is.Empty);
-        Assert.That(column.Frame!.Subject, Is.EqualTo("Preview · Graphite"));
+        Assert.That(column.Frame!.Subject, Is.EqualTo("Preview: Graphite"));
         Assert.That(column.Frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Apply Theme"));
         column.Act(AppearanceColumn.Apply, null);
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Graphite));
@@ -195,7 +195,7 @@ public class AppearanceSettingsTests
         for (var page = 0; page < 5; page++)
         {
             var frame = column.Frame!;
-            Assert.That(frame.Subject, Does.StartWith("Preview · "));
+            Assert.That(frame.Subject, Does.StartWith("Preview: "));
             found.AddRange(frame.Lines);
             Assert.That(frame.Footer.All.Count(), Is.LessThanOrEqualTo(3));
             Assert.That(frame.Lines.Count, Is.LessThanOrEqualTo(3), "body paging fits the larger text's page");

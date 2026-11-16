@@ -47,17 +47,17 @@ namespace Halcyonic.Client
                             ? LineWords.TheirName(task.Title) : LineWords.Ours("Saved Task View");
                         lines.Add(new PageLine(title, icon: GlazeIcon.Next, action: OpenDraft, key: part.ToString(System.Globalization.CultureInfo.InvariantCulture)));
                         lines.Add(new PageLine((record.Instruction != null && record.Request != null ? "Instruction and Request Drafts" : record.Instruction != null ? "Instruction Draft" : record.Request != null ? "Request Draft" : "View Only")
-                            + (saved?.Invoke(record) == false ? " · Not Saved" : ""), tone: LineTone.Secondary));
+                            + (saved?.Invoke(record) == false ? ". Not saved." : ""), tone: LineTone.Secondary));
                     }
                     return given = new MenuFrame("Saved Drafts", new Footer(close, farRight: records.Count > 1
                         ? new Prompt(Footer.NextPage, Footer.NextPageWords(part, records.Count), GlazeIcon.Next, PromptKind.NextPage) : null), lines: lines).Focus();
                 }
                 var chosen = records[selected];
                 var runs = LineWords.Ours((current(chosen) ? "Current Task and Run" : "Earlier or Unavailable Task and Run")
-                    + (saved?.Invoke(chosen) == false ? " · Not Saved" : ""));
+                    + (saved?.Invoke(chosen) == false ? ". Not saved." : ""));
                 if (chosen.Instruction != null) runs = runs.Then(LineWords.Written("\nInstruction Draft\n")).Then(LineWords.Theirs(chosen.Instruction.Text));
                 if (chosen.Request != null) runs = runs.Then(LineWords.Written("\nRequest Draft\n")).Then(LineWords.Theirs(chosen.Request.Text))
-                    .Then(LineWords.Written(chosen.Request.PendingCommandId != null ? "\nPending Result · Restore to Check" : chosen.Request.RequestId == null ? "\nNot Submitted" : "\nRequest Reference Kept · Restore to Read Result"));
+                    .Then(LineWords.Written(chosen.Request.PendingCommandId != null ? "\nThe result is pending. Restore to check it." : chosen.Request.RequestId == null ? "\nNot Submitted" : "\nA link to the request is kept. Restore to read it."));
                 // A line break leads these words, so they are written line by line (Ours takes one line, and refused them).
                 if (chosen.Instruction == null && chosen.Request == null) runs = runs.Then(LineWords.Written("\nNo Draft"));
                 var rows = Math.Max(1, host.RowsOf(new PageLine(runs, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));

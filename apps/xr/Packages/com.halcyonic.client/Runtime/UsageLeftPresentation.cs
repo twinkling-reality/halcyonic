@@ -104,14 +104,14 @@ namespace Halcyonic.Client
         public const string NotInDemo = "Not in Demo";
 
         /// <summary>Where the demonstration's limits come from, in place of a source's name.</summary>
-        public const string Recorded = "Recorded for Demo · No Account";
+        public const string Recorded = "Recorded for the demo, no account";
 
         /// <summary>Under the demonstration's limits, in place of what is said of an account.</summary>
         public const string PartOfTheRecording = "Limits Part of Recording";
 
         /// <summary>Said when the source read only some limits; a window not shown is unknown, never zero.</summary>
         public const string Incomplete = "Some Limits Unread";
-        public const string Unidentified = "Account Unknown · Any Account on Computer";
+        public const string Unidentified = "The account isn't known. It may be any account on your computer.";
 
         /// <summary>Where the rows come from, in the product's own words: a source product's name is never drawn.</summary>
         public static string FromSource => new SourceWords(IntelligenceText.Measurement, when: "Provider Reported").Text;
@@ -170,15 +170,15 @@ namespace Halcyonic.Client
                 var label = LineWords.TheirName(IntelligenceText.Truncate(IntelligenceText.Plain(CaptureNames.AgentName(reading.Label)), LabelLimit));
                 var window = reading.Window == UsageLimitWindow.Rolling5h ? FiveHourWindow : Weekly;
                 rows.Add(new UsageLeftRow(
-                    label + LineWords.Ours(" · " + window),
-                    "Up to " + left.ToString(CultureInfo.InvariantCulture) + "% Left · Seen " + When(observed, now, zone)
-                        + " · Resets " + When(resets, now, zone),
+                    label + LineWords.Ours(": " + window),
+                    "Up to " + left.ToString(CultureInfo.InvariantCulture) + "% left. Seen " + When(observed, now, zone)
+                        + ". Resets " + When(resets, now, zone) + ".",
                     left, When(observed, now, zone), When(resets, now, zone), CaptureNames.Generic && reading.Agent != null ? CaptureNames.Agent : reading.Agent,
                     label, window));
             }
             return rows.Count == 0
                 ? Quiet(NoReadingSinceReset)
-                : new UsageLeftPresentation(rows, (complete ? "" : Incomplete + " · ") + (recorded ? PartOfTheRecording : Unidentified),
+                : new UsageLeftPresentation(rows, (complete ? "" : Incomplete + ". ") + (recorded ? PartOfTheRecording : Unidentified),
                     source: recorded ? Recorded : synthetic ? Simulated : FromSource);
         }
 

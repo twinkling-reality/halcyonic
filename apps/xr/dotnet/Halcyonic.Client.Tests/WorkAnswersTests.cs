@@ -160,7 +160,7 @@ public class WhatChangedTests
             ("observed", "Edited: RetryWorker.ts (+8 −2)"),
             ("observed", "Edited: ChargeService.ts (+24 −3)"),
             ("inferred", "1 file had no check after the last change: refunds.ts"),
-            ("planned", "Planned · Not Done · Document refund behaviour for support"),
+            ("planned", "Planned, Not Done: Document refund behaviour for support"),
         }));
         Assert.That(section.Lines.Any(line => line.Tone == SectionTone.Claim), Is.False, "nothing here is anyone's claim");
     }
@@ -306,7 +306,7 @@ public class WhatChangedTests
             Intelligence.Live(Intelligence.Understanding(json), "2026-09-20T16:21:30.000Z"), false, null, Intelligence.At(Answers.Now), Intelligence.Utc,
             new AnswerRoom(9));
         Assert.That(Intelligence.Texts(roomy).Count(text => text.StartsWith("Edited", StringComparison.Ordinal)), Is.EqualTo(6));
-        Assert.That(Intelligence.Texts(roomy), Does.Contain("Planned · Not Done · Document refund behaviour for support"), "what is not done yet where there is room");
+        Assert.That(Intelligence.Texts(roomy), Does.Contain("Planned, Not Done: Document refund behaviour for support"), "what is not done yet where there is room");
     }
 }
 
@@ -319,7 +319,7 @@ public class WhyChangedTests
 
         Assert.That(section.Lines.Select(line => (line.Tag, line.Text, line.Tone, line.Detail)), Is.EqualTo(new[]
         {
-            ("reported", "Agent · Reported · I will add an idempotency key in ChargeService so a retried charge returns the first one.", SectionTone.Claim, false),
+            ("reported", "Reported by Agent: I will add an idempotency key in ChargeService so a retried charge returns the first one.", SectionTone.Claim, false),
             ("", "Said before refunds.ts, RetryWorker.ts and ChargeService.ts changed", SectionTone.Secondary, true),
             ("", "No reason given before ChargeService.test.ts changed", SectionTone.Secondary, false),
         }));
@@ -337,9 +337,9 @@ public class WhyChangedTests
         var texts = Intelligence.Texts(Answers.Understand(UnderstandPrompt.WhyChanged, json));
         Assert.That(texts, Is.EqualTo(new[]
         {
-            "Subagent · Reported · First, a subagent changes a.",
+            "Reported by Subagent: First, a subagent changes a.",
             "Said before a.ts changed",
-            "Agent · Reported · Second, I change b.",
+            "Reported by Agent: Second, I change b.",
             "Said before b.ts changed",
         }));
     }
@@ -593,12 +593,12 @@ public class UnderstandingAnswersTests
                 item["status"] = status;
                 item["epistemic"] = "observed";
             });
-            var line = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, json), SectionLine.AgentChip + " · " + lead + " · ");
+            var line = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, json), lead + ": ");
             Assert.That((line.Text, line.Words, line.Chip, line.Tone),
-                Is.EqualTo((SectionLine.AgentChip + " · " + lead + " · Document refund behaviour for support", lead + " · Document refund behaviour for support", SectionLine.AgentChip, SectionTone.Claim)), status);
+                Is.EqualTo((lead + ": Document refund behaviour for support", lead + ": Document refund behaviour for support", SectionLine.AgentChip, SectionTone.Claim)), status);
             // Beside its chip, Halcyonic's lead upright and the agent's words leaning, never quoted (lane V's treatment).
-            Assert.That(line.Runs.ToString(), Is.EqualTo(lead + " · [Document refund behaviour for support]"), status);
-            var statement = Answers.Checked(json, ControlPlaneApiTests.Available).Lines.Single(each => each.Text.StartsWith(SectionLine.AgentChip + " · All tests pass.", StringComparison.Ordinal));
+            Assert.That(line.Runs.ToString(), Is.EqualTo(lead + ": [Document refund behaviour for support]"), status);
+            var statement = Answers.Checked(json, ControlPlaneApiTests.Available).Lines.Single(each => each.Text.StartsWith(SectionLine.AgentChip + ": All tests pass.", StringComparison.Ordinal));
             Assert.That((statement.Tag, statement.Chip), Is.EqualTo(("reported", SectionLine.AgentChip)), "a statement the source tagged observed");
         }
         // Said to be the agent's, whichever source passed it on.
@@ -609,7 +609,7 @@ public class UnderstandingAnswersTests
             item["status"] = "reported";
             item["epistemic"] = "observed";
         });
-        var still = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, passedOn), SectionLine.AgentChip + " · To Do · ");
+        var still = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, passedOn), "To Do: ");
         Assert.That((still.Tag, still.Chip), Is.EqualTo(("reported", SectionLine.AgentChip)));
     }
 
@@ -677,15 +677,19 @@ public class CheckedTests
             ("", "Then refunds.ts changed, so it no longer covers it", true, false),
             ("inferred", "1 file had no check after the last change: refunds.ts", false, false),
             ("observed", "2 items need attention: Recursive force delete; 1 file changed since the last passing check", false, false),
-            ("reported", "Agent · Reported · All tests pass. The staging key ghp_[GITHUB_TOKEN#1] was never used by the fix.", false, false),
+            ("reported", "Reported by Agent: All tests pass. The staging key ghp_[GITHUB_TOKEN#1] was never used by the fix.", false, false),
             ("", "Measurement, Read 1 min ago", false, true),
-            ("Checks", "4 of 5 Passed · 80% · test", false, false),
-            ("", "Available · 1 of 1 Session · Complete · Fresh · Data to 17:58:12", true, false),
-            ("Cost", "About $1.37 · Estimated from token counts at list prices. Not a bill.", false, false),
-            ("", "Available · 1 of 1 Session · Complete · Fresh · Data to 17:58:12", true, false),
-            ("Outcome", "Commits Unknown · No Tool Errors · Ended · Person Exited", false, false),
-            ("", "Uncommitted · Known at End · 3-Day Survival · Pending", false, false),
-            ("", "Partly Available · Not Yet Computed · 0 of 1 Session · Incomplete · Still Computing, Unnamed Gap · Recomputing · No Data Yet", true, false),
+            ("Checks", "test: 4 of 5 passed, 80%", false, false),
+            ("", "Available. 1 of 1 session, all included. Fresh, with data to 17:58:12.", true, false),
+            ("Cost", "About $1.37", false, false),
+            ("", "Estimated from token counts at list prices. Not a bill.", false, false),
+            ("", "Available. 1 of 1 session, all included. Fresh, with data to 17:58:12.", true, false),
+            ("Commits", "Unknown", false, false),
+            ("Tool Errors", "None", false, false),
+            ("Ended", "The person exited", false, false),
+            ("Uncommitted", "Known at the end", false, false),
+            ("Kept After 3 Days", "Pending", false, false),
+            ("", "Partly available: Not Yet Computed. 0 of 1 session, some left out: Still Computing, Unnamed Gap. Recomputing, no data yet.", true, false),
         }));
         Assert.That(Intelligence.Line(section, "Tests passed").Tone, Is.EqualTo(SectionTone.Good));
         Assert.That(Intelligence.Line(section, "Then refunds.ts").Tone, Is.EqualTo(SectionTone.Normal));
@@ -775,7 +779,7 @@ public class CheckedTests
         var section = Answers.Checked(unobserved, ControlPlaneApiTests.Available);
         Assert.That(section.Provenance, Is.EqualTo("Conclusions Unavailable, Agent App Not Followed"));
         Assert.That(section.Lines[0].Text, Is.EqualTo("Measurement, Read 1 min ago"));
-        Assert.That(section.Lines.Count, Is.EqualTo(8), "the measurement stands whole");
+        Assert.That(section.Lines.Count, Is.EqualTo(12), "the measurement stands whole");
 
         var cases = new Dictionary<string, string>
         {
@@ -818,7 +822,7 @@ public class CheckedTests
         var section = Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available, now: "2026-09-26T18:06:00.000Z");
         var statuses = Answers.Measurement(section).Where(line => line.Detail).ToList();
         Assert.That(statuses.Count, Is.EqualTo(3), "one statement per part");
-        Assert.That(statuses.Select(line => line.Text), Has.All.EndWith("Stale Since 18:05"));
+        Assert.That(statuses.Select(line => line.Text), Has.All.EndWith("Stale since 18:05."));
         Assert.That(statuses.Select(line => line.Tone), Has.All.EqualTo(SectionTone.Secondary), "\"stale\" says it in words");
     }
 
@@ -828,7 +832,7 @@ public class CheckedTests
         var section = Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available, now: "2026-11-20T10:00:00.000Z", recorded: true);
         Assert.That(section.Provenance, Is.EqualTo("Explanation, Recorded 16:21:30"));
         Assert.That(section.Lines.Single(line => line.Source).Text, Is.EqualTo("Measurement, Recorded 18:01:00"));
-        Assert.That(Answers.Measurement(section)[1].Text, Does.EndWith("Fresh · Data to 17:58:12"), "not stale on this device's later clock");
+        Assert.That(Answers.Measurement(section)[1].Text, Does.EndWith("Fresh, with data to 17:58:12."), "not stale on this device's later clock");
     }
 
     [Test]
@@ -845,11 +849,11 @@ public class CheckedTests
         var lines = Answers.Measurement(Answers.Checked(Intelligence.Verified, json));
         Assert.That(Answers.Pairs(lines.Where(line => !line.Detail)), Is.EqualTo(new[]
         {
-            ("Checks", "Passes Unknown · Runs Unknown · No Pass Rate · test"),
-            ("Cost", "Unknown · Unpriced or Not Measured"),
+            ("Checks", "test: Passes unknown, runs unknown, no pass rate"),
+            ("Cost", "Unknown. Not priced or not measured."),
             ("Outcome", "Not Measured"),
         }));
-        Assert.That(lines.Last().Text, Does.StartWith("Unavailable · Not Captured"));
+        Assert.That(lines.Last().Text, Does.StartWith("Unavailable: Not Captured."));
 
         var measured = Intelligence.Edit(ControlPlaneApiTests.Available, response =>
         {
@@ -863,9 +867,15 @@ public class CheckedTests
                 "{\"rung\":\"3d\",\"fate\":\"retained\",\"rate\":0.9,\"lines_authored\":40,\"lines_surviving\":36,\"commits_checked\":2}");
         });
         var outcome = Answers.Measurement(Answers.Checked(Intelligence.Verified, measured));
-        Assert.That((outcome[4].Text, outcome[4].Tone),
-            Is.EqualTo(("No Commits Landed · 2 Tool Errors · First at 17:44 · End Unknown", SectionTone.Normal)));
-        Assert.That(outcome[5].Text, Is.EqualTo("Uncommitted · 3 Files · +41 −7 · 120 Generated Lines Apart · Kept After 3 Days · 90% · 36 of 40 Lines"));
+        // Each measured fact is its own labelled line, never strung on a dot.
+        Assert.That(outcome.Skip(5).Take(5).Select(line => (line.Tag, line.Text, line.Tone)), Is.EqualTo(new[]
+        {
+            ("Commits", "None landed", SectionTone.Normal),
+            ("Tool Errors", "2, the first at 17:44", SectionTone.Normal),
+            ("Ended", "Unknown", SectionTone.Normal),
+            ("Uncommitted", "3 files, +41 −7, 120 generated lines apart", SectionTone.Normal),
+            ("Kept After 3 Days", "90%, 36 of 40 lines", SectionTone.Normal),
+        }));
 
         var noLens = Intelligence.Edit(ControlPlaneApiTests.Available, response => Intelligence.EvaluationOf(response)["verification"]!["lens"] = null);
         Assert.That(Answers.Measurement(Answers.Checked(Intelligence.Verified, noLens))[0].Text, Is.EqualTo("No Verification Lens"));
@@ -881,7 +891,7 @@ public class CheckedTests
         {
             var json = Intelligence.Edit(ControlPlaneApiTests.Available, response => Intelligence.EvaluationOf(response)["cost"]!["estimated_usd"] = usd);
             Assert.That(Intelligence.Line(Answers.Checked(Intelligence.Verified, json), amount).Text,
-                Is.EqualTo(amount + " · Estimated from token counts at list prices. Not a bill."));
+                Is.EqualTo(amount));
         }
     }
 
@@ -923,7 +933,7 @@ public class BriefAnswersTests
         var why = Brief(UnderstandPrompt.WhyChanged, Intelligence.Verified);
         Assert.That(Answers.Pairs(why.Lines), Is.EqualTo(new[]
         {
-            ("reported", "Agent · Reported · I will add an idempotency key in ChargeService so a retried charge returns the first one."),
+            ("reported", "Reported by Agent: I will add an idempotency key in ChargeService so a retried charge returns the first one."),
         }));
         Assert.That(why.Lines[0].Tone, Is.EqualTo(SectionTone.Claim));
 
@@ -970,7 +980,7 @@ public class BriefAnswersTests
             Answers.File("a.ts", "[\"update\"]", 1, 0, "2026-09-20T15:40:10.000Z", reason: "Earlier.")) + "]");
         several = Intelligence.Edit(several, response =>
             Intelligence.UnderstandingOf(response)["changes"]!["files"]![1]!["reason"]!["at"] = "2026-09-20T15:38:00.000Z");
-        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, several)), Is.EqualTo(new[] { "Agent · Reported · Later.", "And 1 more reason it gave" }));
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, several)), Is.EqualTo(new[] { "Reported by Agent: Later.", "And 1 more reason it gave" }));
 
         var off = Answers.Explanation(Intelligence.Verified, "disabled");
         Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.HowBuilt, off)), Is.EqualTo(new[] { "Explanations are turned off on your computer, so there's none for this work." }));

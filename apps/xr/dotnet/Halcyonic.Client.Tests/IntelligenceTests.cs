@@ -728,7 +728,7 @@ public class DemonstrationReadsTests
         var source = measured.Lines.Single(line => line.Source);
         Assert.That(source.Text, Does.StartWith("Simulated Measurement, Recorded"));
         Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("Not Measured"), "the outcome waits for the turn to end");
-        Assert.That(measured.Lines.Last().Text, Does.StartWith("Unavailable · Not Yet Computed"), "the outcome's own statement about itself");
+        Assert.That(measured.Lines.Last().Text, Does.StartWith("Unavailable: Not Yet Computed."), "the outcome's own statement about itself");
 
         var approve = Demonstration.AtApproval(DemonstrationAnswerKind.Approve);
         await session.SubmitAsync(new CommandFactory(Samples.Client).RespondToApproval(approve.Answer.ExecutionId, approve.Answer.ApprovalId!, ApprovalDecision.Approve));
@@ -743,7 +743,7 @@ public class DemonstrationReadsTests
         Assert.That(flow.Lines.Select(line => line.Tag), Does.Contain("explained"));
         evaluation = await reads.ReadEvaluationAsync(execution.ExecutionId, CancellationToken.None);
         measured = CheckedPresenter.Present(execution.ExecutionId, understanding, false, null, evaluation, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
-        Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("0 of 1 Passed · 0% · test"));
+        Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("test: 0 of 1 passed, 0%"));
         Assert.That(measured.Lines[0].Text, Does.StartWith("Tests failed at "));
 
         Assert.That(await AssertNothingRecorded(reads, "01a0dcf1-5a80-7000-8000-0000000000e9"), Is.EqualTo(DemonstrationReads.NothingRecorded));

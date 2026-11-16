@@ -15,10 +15,10 @@ namespace Halcyonic.Client
     public sealed class HistoryReads
     {
         /// <summary>What a task's file adds to its time line while its history is being read.</summary>
-        public const string ReadingNote = " · reading earlier activity…";
+        public const string ReadingNote = ", reading earlier activity…";
 
         /// <summary>What a task's file adds to its time line when its history could not be read.</summary>
-        public const string UnavailableNote = " · earlier activity unavailable, reopen to try again";
+        public const string UnavailableNote = ". Earlier activity is unavailable. Reopen to try again.";
 
         private readonly ActivityLog activity;
         private readonly Dictionary<string, int> latest = new Dictionary<string, int>();

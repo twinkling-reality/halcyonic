@@ -820,8 +820,8 @@ public class BuildSequenceTests
         var there = new ProjectLocation { Path = "/Users/person/Projects/recipes", Name = "recipes", Created = true };
         Assert.That(EntryScreens.Moves(idea, there), Is.False, "the project is already where the choice points");
         var again = EntryScreens.ReviewOf(idea, draft, there, live: true);
-        Assert.That(again.Items.Select(item => item.Label), Has.No.Member("Folder Now · ").And.No.Member("Folder Next · "));
-        Assert.That(again.Items.Single(item => item.Label == "Folder · ").Value, Is.EqualTo("recipes"));
+        Assert.That(again.Items.Select(item => item.Label), Has.No.Member("Folder Now").And.No.Member("Folder Next"));
+        Assert.That(again.Items.Single(item => item.Label == "Folder").Value, Is.EqualTo("recipes"));
         Assert.That(again.FolderChoice, Is.Null, "nothing to send about the folder");
         Assert.That(NewProjectScreens.Recap(idea, draft, there, live: true, notice: null, problem: null).Lines[0].Words, Is.EqualTo(EntryText.RecapLine),
             "no warning about a move");
@@ -832,7 +832,7 @@ public class BuildSequenceTests
         moved.ChooseFolder(ProjectFolder.New(root, "recipes-v2"));
         Assert.That(EntryScreens.Moves(moved, there), Is.True);
         var move = EntryScreens.ReviewOf(moved, draft, there, live: true);
-        Assert.That(move.Items.Select(item => item.Label), Has.Member("Folder Now · ").And.Member("Folder Next · "));
+        Assert.That(move.Items.Select(item => item.Label), Has.Member("Folder Now").And.Member("Folder Next"));
         Assert.That(move.SendsFolder(moved.Folder!.ToContract()), Is.True);
     }
 

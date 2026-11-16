@@ -218,14 +218,14 @@ public class LineWordsTests
 
         Assert.That(review.Items.Select(item => item.Text), Is.EqualTo(new[]
         {
-            "Project · Tower\\u{9}Toss\\u{A}Two",
-            "Folder · src\\u{9}games\\u{202E}",
-            "Task Name · Title",
-            "Agent App · Cod\\u{202E}ex",
-            "Model · qwen\\u{9}3",
-            "Model Location · On Your Computer",
-            "Model ID · ref\\u{A}id",
-            "First Task · Make it wobble.",
+            "Project: Tower\\u{9}Toss\\u{A}Two",
+            "Folder: src\\u{9}games\\u{202E}",
+            "Task Name: Title",
+            "Agent App: Cod\\u{202E}ex",
+            "Model: qwen\\u{9}3",
+            "Model Location: On Your Computer",
+            "Model ID: ref\\u{A}id",
+            "First Task: Make it wobble.",
         }));
     }
 
