@@ -280,6 +280,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         button.Draw();
                         WorkspaceRender.ForceMeshes(holder);
                         var clear = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
+                        // The clear turn itself is the same at rest and pointed (AUDIT3 18:44Z): the key is reserved at its widest look.
+                        drift = Mathf.Max(drift, Mathf.Abs(clear - still));
                         turned = RoomNewProjectPlace.Eased(turned, clear, ref speed, 1f / fps);
                         drift = Mathf.Max(drift, Mathf.Abs(turned - still));
                         RoomNewProjectPlace.Turn(place, eyes, turned);
@@ -288,7 +290,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             WorkspaceRender.ForceMeshes(holder);
                             var keyParts = button.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
                                 .Concat(button.Glyph.GetComponentsInChildren<Renderer>(false))
-                                .Concat(button.GetComponentsInChildren<MeshRenderer>(false).Where(part => part.name == "Halo and chip").Cast<Renderer>())
+                                .Append((Renderer)button.Key)
                                 .Where(part => part != null && part.enabled).ToList();
                             foreach (var view in views)
                             {
@@ -437,7 +439,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var parts = newProject == null ? new List<Renderer>() : newProject.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
                         .Concat(newProject.Glyph.GetComponentsInChildren<Renderer>(false))
                         // And its glass key, the soft slab behind its glyph and words, at its drawn quad (AUDIT 18:36Z: the key, not the words, met the tag).
-                        .Concat(newProject.GetComponentsInChildren<MeshRenderer>(false).Where(part => part.name == "Halo and chip").Cast<Renderer>())
+                        .Append((Renderer)newProject.Key)
                         .Where(part => part != null && part.enabled).ToList();
                     if (parts.Count == 0) failures.Add("New Project's place draws no words or glyph beside the shelf page, at text scale " + scale);
                     else
