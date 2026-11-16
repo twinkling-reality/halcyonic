@@ -290,7 +290,7 @@ function morning(): Score {
 
 /**
  * Short openings, for a moment on camera rather than a piece to listen through: `openings.morning` is Morning Mood's
- * first four bars, eight seconds, the most famous dawn there is. Give `lightHall` `{ rise: 8 }` and the hall blooms
+ * first four bars, eight seconds: Grieg's dawn. Give `lightHall` `{ rise: 8 }` and the hall blooms
  * as its last note ends.
  */
 export const openings = { morning: morning() } as const;
