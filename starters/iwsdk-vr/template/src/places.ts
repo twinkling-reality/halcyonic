@@ -376,7 +376,7 @@ export interface LandColours {
  * sunset). `light(...)` and `shade(...)` let something near the sand (a window floating over it) cast its own light
  * and a soft shade on it. It opens from black, lifting over its first second of `move`; its low light and the sun's
  * glow build to a peak about 14 s in while the sun sinks into the valley toward it from about 7 s, the sky deepening
- * from rose to indigo by about 19 s, the sand dimming and a few stars coming out (`peak: false` keeps it all still, its stars only
+ * from rose to indigo by about 19 s, the sand dimming and faint stars coming out (`peak: false` keeps it all still, its stars only
  * those asked for). One mesh for the ground, one for the sky.
  */
 export function openLand(
@@ -860,7 +860,7 @@ export function openLand(
   const grainColour = near.clone().lerp(sunColour, 0.6);
 
   // Stars come out first on the side of the sky away from the sun.
-  // With the peak and no stars asked for, a few come out as the sky darkens after it.
+  // With the peak and no stars asked for, faint ones come out as the sky darkens after it.
   const starCount = options.stars ?? (options.peak !== false ? 140 : 0);
   const stars = glows(Math.max(1, starCount), { facing: true, halo: 0.2, round: 1 });
   group.add(stars.object);
