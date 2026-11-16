@@ -653,22 +653,7 @@ export function lightKeys(
         }),
       ),
     );
-    // Each key's reflection: the same keys and their light, turned over under the glass and added faintly to it.
-    for (const keys of [white, black]) {
-      const seen = (keys.material as ShaderMaterial).clone();
-      seen.uniforms.dim = { value: 0.3 };
-      seen.transparent = true;
-      seen.blending = AdditiveBlending;
-      seen.depthWrite = false;
-      seen.side = DoubleSide;
-      const reflected = new InstancedMesh(keys.geometry, seen, keys.count);
-      reflected.instanceMatrix = keys.instanceMatrix;
-      reflected.count = keys.count;
-      reflected.frustumCulled = false;
-      reflected.scale.y = -1;
-      reflected.position.y = 2 * glass;
-      group.add(reflected);
-    }
+    // The keys' own boxes are not mirrored: seen just under a key, a turned-over box reads as a second box inside it.
   }
   // Each key's light this frame, the last frame's, and its strike's peak: how far a strike's light has spread along
   // its key is read from how far it has faded from that peak, so it needs no clock of its own.
@@ -835,7 +820,8 @@ export function fallingNotes(
   // points, to both sides and behind the person, so the music is all round them: a wide soft band of light in the
   // haze, never a disc hanging in the sky. Upright, so it stays level however the head tilts.
   // Each answer stays wholly above the floor (its halo smaller than its height), so the floor never meets it.
-  const echoes = glows(480, { upright: true, halo: 1.4, round: 0.02, core: 0, over: true });
+  // Rounded fully at their ends, so no band ever shows a cut edge.
+  const echoes = glows(480, { upright: true, halo: 1.4, round: 1, core: 0, over: true });
   group.add(drops.object, heads.object, blooms.object, flares.object, motes.object, echoes.object);
   let last = Number.NaN;
   let previous = Number.NaN;
