@@ -34,7 +34,7 @@ namespace Halcyonic.Client
         public static RoomBar WithMore(KitFileBinding binding, RoomBar bar)
         {
             var atRest = !bar.Pair || bar.Result && bar.Known?.Page == RoomResultPage.Result;
-            if (bar.State != RoomBarState.Rest || !atRest || bar.Working || MoreRoutes(binding).Count == 0) return bar;
+            if (bar.State != RoomBarState.Rest || !atRest || bar.Working || MoreRoutes(binding).Count + bar.Overflow.Count == 0) return bar;
             var more = new RoomAction(new KitControl(KitPlace.Step, binding.Frame, More, null, MoreWords, GlazeIcon.OpensMore, true, null, false),
                 main: false, icon: GlazeIcon.OpensMore);
             var row = bar.Row.ToList();
@@ -48,11 +48,14 @@ namespace Halcyonic.Client
         /// The task's More page in the panel's place (R2): its title the task's name, a row per route the file offers, each opening its
         /// page (the chevron), then Back to the task. Null where the file offers none: the page never stands empty.
         /// </summary>
-        public static RoomBar? MorePage(KitFileBinding binding)
+        public static RoomBar? MorePage(KitFileBinding binding, IReadOnlyList<RoomAction>? overflow = null)
         {
             var routes = MoreRoutes(binding);
-            if (routes.Count == 0) return null;
-            var column = routes.Select(route => new RoomAction(route, main: false, icon: GlazeIcon.Next)).ToList();
+            var behind = overflow ?? new RoomAction[0];
+            if (routes.Count + behind.Count == 0) return null;
+            // A full result's actions its column could not hold come first, as plain actions with their own glyphs (AUDIT's 13:41Z (b)).
+            var column = behind.Select(action => new RoomAction(action.Control, main: false, action.Words, icon: action.Icon))
+                .Concat(routes.Select(route => new RoomAction(route, main: false, icon: GlazeIcon.Next))).ToList();
             column.Add(new RoomAction(new KitControl(KitPlace.Back, binding.Frame, MoreBack, null, BackWords, GlazeIcon.Back, true, null, false),
                 main: false, icon: GlazeIcon.Back));
             // The task's name as the page's title, on a card of its own (AUDIT's 10:39Z: the page stood with no title), so the

@@ -647,7 +647,7 @@ namespace Halcyonic.XR.UI
         {
             if (binding == null) return room;
             // The column is a value: compared by value (a boxed column never equals another box of it, so the page never opened).
-            if (moreFor == column && room.State == RoomBarState.Rest && RoomBar.MorePage(binding) is RoomBar page) return page;
+            if (moreFor == column && room.State == RoomBarState.Rest && RoomBar.MorePage(binding, room.Overflow) is RoomBar page) return page;
             if (moreFor != null && moreFor != column) moreFor = null;
             return RoomBar.WithMore(binding, room);
         }

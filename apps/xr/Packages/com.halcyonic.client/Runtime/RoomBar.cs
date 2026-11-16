@@ -245,6 +245,17 @@ namespace Halcyonic.Client
         public IReadOnlyList<RoomAction> Column { get; private set; }
 
         /// <summary>
+        /// A result's actions its column could not hold beside Close, in their order: the More page lists them first (AUDIT's 13:41Z (b)).
+        /// Empty for every other bar.
+        /// </summary>
+        public IReadOnlyList<RoomAction> Overflow { get; private set; } = new RoomAction[0];
+
+        /// <summary>A result's reading routes and its ways on and back, which keep their places in the column when it is full.</summary>
+        private static bool StaysInColumn(RoomAction action) =>
+            action.Control.Action is RoomResult.ShowChanges or RoomResult.ShowChecks or RoomResult.NextPage or RoomResult.Back
+            || action.Control.Place is KitPlace.Section or KitPlace.Pager or KitPlace.Close or KitPlace.Cancel;
+
+        /// <summary>
         /// At work (DESIGN 2.3): the agent or its checks are working. No panel stands: the working field holds its place,
         /// Stop stands alone in the column, a rest action, and the row stands only where the file still offers an instruction.
         /// </summary>
@@ -528,7 +539,25 @@ namespace Halcyonic.Client
         {
             if (binding[KitPlace.Close] is not { Available: true } close || bar.Column.Concat(bar.Row).Any(action => action.Control.Place is KitPlace.Close or KitPlace.Cancel))
                 return bar;
-            if (bar.Result && bar.Column.Count < ColumnMost) bar.Column = bar.Column.Append(new RoomAction(close, main: false, icon: GlazeIcon.Close)).ToList();
+            if (bar.Result)
+            {
+                // Close always stands, last (AUDIT's 13:41Z (b): a full column once dropped the way out). Where the column cannot hold it
+                // too, its lowest-ranked action that acts goes behind More (Overflow), never Close: a reading route (Changes, Checks) and the
+                // way on stay, the main action stays.
+                var column = bar.Column.ToList();
+                var behind = new List<RoomAction>();
+                while (column.Count >= ColumnMost)
+                {
+                    var at = column.FindLastIndex(action => !action.Main && !StaysInColumn(action));
+                    if (at < 0) at = column.FindLastIndex(action => !action.Main);
+                    if (at < 0) break;
+                    behind.Insert(0, column[at]);
+                    column.RemoveAt(at);
+                }
+                column.Add(new RoomAction(close, main: false, icon: GlazeIcon.Close));
+                bar.Column = column;
+                bar.Overflow = behind;
+            }
             // At rest with nothing to press (a recorded run's result), the bar was hidden: it stands as the row with its way back.
             else if (bar.State == RoomBarState.Hidden && !bar.Working && !bar.Result)
                 return new RoomBar(RoomBarState.Rest, row: new[] { new RoomAction(close, main: false, BackWords, icon: GlazeIcon.Back) });

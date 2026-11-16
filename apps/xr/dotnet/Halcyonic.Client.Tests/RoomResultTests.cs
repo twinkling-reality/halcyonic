@@ -327,6 +327,31 @@ public class RoomResultTests
     }
 
     [Test]
+    public void AFullResultKeepsCloseLastAndPutsItsLowestActingActionBehindMore()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            // Make VR Copy, Try Build, Play in Headset, Share, Changes and Checks fill the column's six (AUDIT's 13:41Z (b)).
+            var full = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, Turn(Observed), Steps(), play: PlayInHeadset.Offered, canShare: true));
+            Assert.That(full.Column.Select(action => action.Control.Action), Is.EqualTo(new[]
+            {
+                RoomResult.MakeVrVersion, RoomResult.TryBuild, RoomResult.PlayInHeadset, RoomResult.ShowChanges, RoomResult.ShowChecks, full.Column[^1].Control.Action,
+            }), Show(full));
+            Assert.That(full.Column.Count, Is.EqualTo(RoomBar.ColumnMost));
+            Assert.That(full.Column[^1].Control.Place, Is.EqualTo(KitPlace.Close), "Close always stands, last");
+            Assert.That(full.Column.Count(action => action.Main), Is.EqualTo(1));
+            Assert.That(full.Overflow.Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.ShowShare }), "Share, the lowest acting action, goes behind More");
+
+            // One fewer fits beside Close: nothing goes behind More.
+            var fits = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, Turn(Observed), Steps(), play: PlayInHeadset.Offered));
+            Assert.That((fits.Column.Count, fits.Overflow.Count, fits.Column[^1].Control.Place), Is.EqualTo((RoomBar.ColumnMost, 0, KitPlace.Close)), Show(fits));
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
     public void TheResultGivesItsFactsApartForACard()
     {
         // A17: the count, the check, each change and each step apart, never joined on a separator.
