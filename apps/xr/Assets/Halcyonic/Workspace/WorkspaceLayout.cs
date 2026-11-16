@@ -110,8 +110,45 @@ namespace Halcyonic.XR.Workspace
             var bottomLevel = Mathf.Max(new Vector2(toBottom.x, toBottom.z).magnitude, 0.01f);
             var lowest = Mathf.Atan2(toBottom.y, bottomLevel) * Mathf.Rad2Deg;
             var halfWidth = Mathf.Atan2(view.LabelHalfWidth * scale, bottomLevel) * Mathf.Rad2Deg;
-            return new BodyInView(Mathf.Atan2(toBody.x, toBody.z) * Mathf.Rad2Deg, elevation, radius,
-                Mathf.Min(lowest, elevation - radius), Mathf.Max(halfWidth, radius));
+            var yaw = Mathf.Atan2(toBody.x, toBody.z) * Mathf.Rad2Deg;
+            // The label as drawn, the older label or the redesign's tag, whichever stands: every corner of its renderers' bounds as the
+            // eyes see them, its edge stroke and a leaning plate's nearer lower corners included, which one half-width at the bottom's
+            // middle misses; under the redesign the older label is hidden and the tag stands instead, which that measure never saw
+            // (FIELD's read of b208's appearance, 2026-11-16). The measure above stands where it reaches further.
+            if (DrawnLabel(view, eyes, yaw) is (float drawnHalf, float drawnLowest))
+            {
+                halfWidth = Mathf.Max(halfWidth, drawnHalf);
+                lowest = Mathf.Min(lowest, drawnLowest);
+            }
+            return new BodyInView(yaw, elevation, radius, Mathf.Min(lowest, elevation - radius), Mathf.Max(halfWidth, radius));
+        }
+
+        private static readonly List<Renderer> Drawn = new();
+
+        /// <summary>
+        /// The label drawn under <paramref name="view"/> as the eyes at <paramref name="eyes"/> see it: how far either side of
+        /// <paramref name="yaw"/> its bounds' corners reach and how low, in degrees; null where nothing stands there. Allocates nothing.
+        /// </summary>
+        private static (float HalfWidth, float Lowest)? DrawnLabel(CharacterView view, Vector3 eyes, float yaw)
+        {
+            if (view.Labels == null) return null;
+            view.Labels.GetComponentsInChildren(false, Drawn);
+            float half = 0f, low = float.PositiveInfinity;
+            foreach (var renderer in Drawn)
+            {
+                if (!renderer.enabled) continue;
+                var bounds = renderer.bounds;
+                if (bounds.size.sqrMagnitude <= 0f) continue;
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var point = new Vector3(corner % 2 == 0 ? bounds.min.x : bounds.max.x, corner < 4 ? bounds.min.y : bounds.max.y,
+                        corner % 4 < 2 ? bounds.min.z : bounds.max.z) - eyes;
+                    half = Mathf.Max(half, Mathf.Abs(Mathf.DeltaAngle(yaw, Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg)));
+                    low = Mathf.Min(low, Mathf.Atan2(point.y, Mathf.Max(new Vector2(point.x, point.z).magnitude, 0.01f)) * Mathf.Rad2Deg);
+                }
+            }
+            Drawn.Clear();
+            return float.IsPositiveInfinity(low) ? null : (half, low);
         }
     }
 }
