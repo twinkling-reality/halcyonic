@@ -1634,6 +1634,26 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
+        /// Lays <paramref name="label"/> at <paramref name="width"/> on at most <paramref name="maxLines"/> lines, with no word alone on its last
+        /// line where it runs four words or more (AUDIT 2026-11-16T15:23Z; JUDGE's judge room at 19:20Z): the measure narrows a twentieth at a
+        /// time, down to six tenths, never onto another line nor cut; where none does, as first laid. The words and any line end in them
+        /// stand as written.
+        /// </summary>
+        public static (int Lines, float Width, float Height) Balanced(TMP_Text label, float width, int maxLines)
+        {
+            var laid = KitType.Lay(label, width, maxLines);
+            if (laid.Lines < 2 || !LastLineIsOneWord(label)
+                || label.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Length < 4) return laid;
+            for (var step = 1; step <= 8; step++)
+            {
+                var tried = KitType.Lay(label, width * (1f - 0.05f * step), maxLines);
+                if (tried.Lines != laid.Lines || label.isTextTruncated) break;
+                if (!LastLineIsOneWord(label)) return tried;
+            }
+            return KitType.Lay(label, width, maxLines);
+        }
+
+        /// <summary>
         /// Lays our own words a little narrower, a twentieth at a time down to six tenths of <paramref name="width"/>, until their
         /// last line holds two words, never on more lines than they took and never cut; where no narrower lay does that, the words
         /// stand as first laid. Only the measure narrows: the words, theirs or ours, and any line end in them stand as written.

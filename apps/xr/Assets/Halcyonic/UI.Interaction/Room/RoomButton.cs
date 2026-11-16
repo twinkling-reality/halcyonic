@@ -336,7 +336,8 @@ namespace Halcyonic.XR.UI
             if (wrap > 0f && inner + wordsWidth > wrap)
             {
                 words.textWrappingMode = TextWrappingModes.Normal;
-                var laid = KitType.Lay(words, wrap - inner, Mathf.Max(WordLines, lines));
+                // Never one word alone on its last line (JUDGE's judge room, 19:20Z: an answer's words); the button keeps its width.
+                var laid = RoomCardView.Balanced(words, wrap - inner, Mathf.Max(WordLines, lines));
                 lines = Mathf.Max(1, laid.Lines);
                 wordsWidth = wrap - inner;
             }

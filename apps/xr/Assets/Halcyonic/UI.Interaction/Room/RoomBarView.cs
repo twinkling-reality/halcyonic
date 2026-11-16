@@ -618,7 +618,8 @@ namespace Halcyonic.XR.UI
             var runs = GlazeRuns.Of(noticeWords!);
             runs.Set(said);
             noticeWords!.textWrappingMode = TextWrappingModes.Normal;
-            var laid = KitType.Lay(noticeWords, width - 2f * pad, 3);
+            // Never one word alone on its last line (JUDGE's judge room, 19:20Z: "live." alone).
+            var laid = RoomCardView.Balanced(noticeWords, width - 2f * pad, 3);
             // The plate as wide as its words laid, never wider than the panel: the same pad on either side (the critic, 2026-11-12).
             noticeWords.ForceMeshUpdate(true);
             var wordsWidth = Mathf.Min(width - 2f * pad, Mathf.Max(noticeWords.GetRenderedValues(true).x, 0f));
@@ -1002,10 +1003,10 @@ namespace Halcyonic.XR.UI
             }
             // No word alone on the words' last line (AUDIT 2026-11-16T16:57Z: "chosen" alone at Standard): the measure narrows a twentieth
             // at a time, down to six tenths, until the last line holds two words, never on more lines; where none does, as first laid.
-            if (!bar.Mono && bar.Lines == null && bar.Part == null && laid.Lines >= 2 && RoomCardView.LastLineIsOneWord(reading)
+            if ((!bar.Mono || reading.text.IndexOf('\n') < 0) && bar.Lines == null && bar.Part == null && laid.Lines >= 2 && RoomCardView.LastLineIsOneWord(reading)
                 && reading.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Length >= 4)
             {
-                var ours = GlazeRuns.Of(reading).Theirs.Count == 0;
+                var ours = !bar.Mono && GlazeRuns.Of(reading).Theirs.Count == 0;
                 (int Lines, float Width, float Height) Again(float width) => ours ? BreakAtSeparators(reading, width, 200) : KitType.Lay(reading, width, 200);
                 var mended = false;
                 for (var step = 1; step <= 8 && !mended; step++)
