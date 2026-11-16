@@ -1291,6 +1291,40 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     );
   });
 
+  test("a Starter Only check is never served, shared or published: it did not pass (LINK, 2026-11-16, CORE's SHOULD)", () => {
+    const { b, projection, scope, command } = setupStarter(true);
+    const refusal = (type: Parameters<typeof command>[0]) => {
+      const result = admitCommand(command(type), projection, catalog());
+      return result.admitted ? null : result.rejection.message;
+    };
+    // The bare starter as the check measured it: everything passed but its own picture is the pristine starter's.
+    const page = {
+      exceptions: [],
+      exception_count: 0,
+      console_errors: 0,
+      canvases: 1,
+      edges_at_3s: 46_485,
+      edges_at_10s: 47_199,
+      drawn: false,
+      own: { share: 0, reference: 'compared' },
+      pictures: [],
+    };
+    projection.apply(
+      b.controlPlane('project.check.recorded', scope, {
+        check_id: b.id() as never,
+        findings: { ...findings(false), page, ready: false, verdict: 'starter_only' } as never,
+      }),
+    );
+    assert.equal(projection.latestCheck(scope.project_id)?.findings.verdict, 'starter_only');
+    assert.match(
+      refusal('project.preview.start') ?? '',
+      /Only the copy of a passed check is served/,
+    );
+    assert.notEqual(refusal('project.open_on_mac'), null, 'nothing to play on the laptop');
+    assert.match(refusal('project.share.start') ?? '', /Only a passed check can be shared/);
+    assert.match(refusal('project.publish') ?? '', /Only a passed check can be published/);
+  });
+
   test('a game plays on the Mac only from a passed, laptop-ready, confined check its preview serves, once at a time (P-A)', () => {
     const { b, projection, scope, command } = setupStarter(true);
     const opens = () => {
