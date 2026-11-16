@@ -99,6 +99,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The agent's words at the top of the question's dialog, the dialog's largest text: 28 dp against the body's 20 (1.75 degrees).</summary>
         public const float DialogWordsDp = 28f;
 
+        /// <summary>The agent's words at the dialog's top, for the kit's checks; inactive when the bar is not a dialog.</summary>
+        public TextMeshPro DialogWords => ask;
+
         /// <summary>Between the agent's words and the answers, and between the answers and the actions' row, in dp.</summary>
         public const float DialogGapDp = 20f;
 

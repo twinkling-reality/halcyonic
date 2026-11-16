@@ -1233,21 +1233,54 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(shown.Column.Any(action => action.Main && action.Control.Action == FileScreens.UseInput), "Use Answer has not arrived with the answer written and drawn");
                             Require(shown.Field?.Action == FileScreens.EditInput, "a press on the panel does not open the keyboard again");
                         }
+                        if (shown.AsDialog)
+                        {
+                            // The question as one dialog (FIELD's question moment): the agent's words whole at the panel's top, exactly as
+                            // written, the panel's largest text at 28 dp or more and never one word alone on their last line; no band beside
+                            // it; the answers whole under the words. The actions are judged as one row below (XR, stricter than the band's).
+                            var words = bar.DialogWords;
+                            words.ForceMeshUpdate(true);
+                            Require(words.gameObject.activeInHierarchy && !words.isTextTruncated && words.textInfo.characterCount > 0, "the agent's words do not stand whole at the dialog's top");
+                            string OneSpaced(string text) => System.Text.RegularExpressions.Regex.Replace(text, "\\s+", " ").Trim();
+                            Require(OneSpaced(LabelText.FromTextMeshPro(words.text)) == OneSpaced(LabelText.Plain(prompt)), "the dialog reads \"" + words.text + "\", not the agent's words as written");
+                            Require(words.fontSize >= typeSize * RoomBarView.DialogWordsDp / RoomGeometry.TypeDp - 1e-4f, "the agent's words stand under the dialog's 28 dp");
+                            foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                                if (!ReferenceEquals(label, words) && label.gameObject.activeInHierarchy && label.text.Length > 0)
+                                    Require(label.fontSize <= words.fontSize + 1e-4f, label.name + " stands larger than the agent's words");
+                            Require(words.textInfo.lineCount < 2 || !RoomCardView.LastLineIsOneWord(words)
+                                || words.GetParsedText().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length < 4, "the agent's words leave one word alone on their last line");
+                            var inPanel = panel.transform;
+                            var low = inPanel.InverseTransformPoint(words.transform.TransformPoint(words.textBounds.min));
+                            var high = inPanel.InverseTransformPoint(words.transform.TransformPoint(words.textBounds.max));
+                            Require(Mathf.Min(low.x, high.x) >= -panel.Size.x / 2f - 1e-3f && Mathf.Max(low.x, high.x) <= panel.Size.x / 2f + 1e-3f
+                                && Mathf.Max(low.y, high.y) <= panel.Size.y / 2f + 1e-3f && Mathf.Min(low.y, high.y) >= -panel.Size.y / 2f - 1e-3f, "the agent's words stand outside the dialog's panel");
+                            Require(host.Band.Words == null || !host.Band.Label.gameObject.activeInHierarchy, "the band stands beside the dialog");
+                            Require(bar.Card != null && bar.Card.gameObject.activeInHierarchy, "the dialog's answers do not stand under the agent's words");
+                            if (bar.Card != null)
+                                foreach (var row in bar.Card.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                                {
+                                    row.ForceMeshUpdate(true);
+                                    Require(!row.isTextTruncated, "an answer \"" + row.text + "\" is cut in the dialog");
+                                }
+                        }
+                        else
+                        {
                         var band = host.Band;
-                        Require(prompt.Length >= 16 && shown.Band == prompt && band.Words != null && RoomWords.Laid(prompt).Replace("\n", " ").StartsWith(band.Text.Replace("\n", " ").Trim(), StringComparison.Ordinal) && band.Text.Length > 0,
-                            "the band reads \"" + band.Text + "\", not the prompt");
-                        foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
-                            Require(!(label.text ?? "").Contains(prompt.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
-                        Require(band.transform.localPosition.y < bar.transform.localPosition.y - bar.Size.y / GlazeText.Scale / 2f + 1e-4f, "the band does not hang under the pair's foot line");
-                        var parted = state is "34-question-long" or "34-question-tall" or "34-question-stop";
-                        // Stopping never waits for reading, yet the frame is not reported drawn for it: the navigator takes Stop and the
-                        // ways out from the frame as it shows (MenuNavigator.Taking), and every deciding press waits for the band's last part.
-                        var stops = state == "34-question-stop";
-                        Require((bar.BandNextButton != null) == parted, parted ? "no way to the band's next part" : "a way to a next part the band does not have");
-                        Require((drawnFrames == 0) == parted, parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");
-                        if (stops) Require(shown.Column.Any(action => action.Place == KitPlace.Stop), "no Stop on a question that cannot be answered");
-                        if (parted) Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Main && band.Words!.Next == bar.BandNextButton.Words.text.Replace("\\\\", "\\") && band.Words.Where == "Part 1 of " + band.Words.Parts.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                            && band.Where != null && band.Where.text == band.Words.Where, "the next part is not the way on, in the band's words");
+                            Require(prompt.Length >= 16 && shown.Band == prompt && band.Words != null && RoomWords.Laid(prompt).Replace("\n", " ").StartsWith(band.Text.Replace("\n", " ").Trim(), StringComparison.Ordinal) && band.Text.Length > 0,
+                                "the band reads \"" + band.Text + "\", not the prompt");
+                            foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                                Require(!(label.text ?? "").Contains(prompt.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
+                            Require(band.transform.localPosition.y < bar.transform.localPosition.y - bar.Size.y / GlazeText.Scale / 2f + 1e-4f, "the band does not hang under the pair's foot line");
+                            var parted = state is "34-question-long" or "34-question-tall" or "34-question-stop";
+                            // Stopping never waits for reading, yet the frame is not reported drawn for it: the navigator takes Stop and the
+                            // ways out from the frame as it shows (MenuNavigator.Taking), and every deciding press waits for the band's last part.
+                            var stops = state == "34-question-stop";
+                            Require((bar.BandNextButton != null) == parted, parted ? "no way to the band's next part" : "a way to a next part the band does not have");
+                            Require((drawnFrames == 0) == parted, parted ? "a question still holding an unread part was reported drawn" : "the question's frame was not reported drawn");
+                            if (stops) Require(shown.Column.Any(action => action.Place == KitPlace.Stop), "no Stop on a question that cannot be answered");
+                            if (parted) Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Main && band.Words!.Next == bar.BandNextButton.Words.text.Replace("\\\\", "\\") && band.Words.Where == "Part 1 of " + band.Words.Parts.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                                && band.Where != null && band.Where.text == band.Words.Where, "the next part is not the way on, in the band's words");
+                        }
                     }
                     if (armedWords != null)
                     {
@@ -1312,7 +1345,28 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(drawn[index].LookNow() == (shown.Column[index].Main && !locked ? RoomButtonLook.Main : RoomButtonLook.Rest), drawn[index].Words.text + " shows " + drawn[index].LookNow());
                         Whole(drawn[index].Words, drawn[index].Words.text);
                     }
-                    if (drawn.Count > 0 && !shown.Wide && bar.BandNextButton == null)
+                    if (shown.AsDialog && drawn.Count > 0)
+                    {
+                        // The dialog's actions: one row inside the panel's foot, Meta's 12 mm apart, the main one last and the only accent.
+                        var rowY = drawn[0].transform.localPosition.y;
+                        Require(drawn.All(button => Mathf.Abs(button.transform.localPosition.y - rowY) < Tolerance), "the dialog's actions do not stand in one row");
+                        var byX = drawn.OrderBy(button => button.transform.localPosition.x).ToList();
+                        for (var index = 1; index < byX.Count; index++)
+                        {
+                            var between = (byX[index].transform.localPosition.x - byX[index].Size.x / 2f) - (byX[index - 1].transform.localPosition.x + byX[index - 1].Size.x / 2f);
+                            Require(between >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f, "the dialog's actions stand under 12 mm apart: " + byX[index - 1].Words.text + ", " + byX[index].Words.text);
+                        }
+                        var dialogFoot = panel.transform.localPosition.y - panel.Size.y / 2f;
+                        var dialogLeft = panel.transform.localPosition.x - panel.Size.x / 2f;
+                        var dialogRight = panel.transform.localPosition.x + panel.Size.x / 2f;
+                        foreach (var button in drawn)
+                            Require(button.transform.localPosition.y - button.Core.y / 2f >= dialogFoot - 1e-3f && button.transform.localPosition.x - button.Core.x / 2f >= dialogLeft - 1e-3f
+                                && button.transform.localPosition.x + button.Core.x / 2f <= dialogRight + 1e-3f, button.Words.text + " stands outside the dialog's panel");
+                        var mains = drawn.Where((button, index) => index < shown.Column.Count && shown.Column[index].Main).ToList();
+                        Require(mains.Count <= 1 && (mains.Count == 0 || ReferenceEquals(byX[byX.Count - 1], mains[0])), "the dialog's main action is not the last in its row");
+                        Require(drawn.Count(button => button.LookNow() == RoomButtonLook.Main) <= 1, "more than one of the dialog's actions stands in the accent");
+                    }
+                    if (drawn.Count > 0 && !shown.Wide && bar.BandNextButton == null && !shown.AsDialog)
                     {
                         var lastFoot = drawn[drawn.Count - 1].transform.localPosition.y - drawn[drawn.Count - 1].Core.y / 2f;
                         var panelFoot = panel.transform.localPosition.y - panel.Size.y / 2f;
@@ -1330,7 +1384,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         var lefts = drawn.Select(button => button.transform.localPosition.x - button.Core.x / 2f).ToList();
                         Require(lefts.Max() - lefts.Min() < Tolerance, "the column's actions are not left-aligned");
                     }
-                    for (var index = 1; index < drawn.Count; index++)
+                    for (var index = 1; index < drawn.Count && !shown.AsDialog; index++)
                     {
                         var gap = (drawn[index - 1].transform.localPosition.y - drawn[index - 1].Size.y / 2f) - (drawn[index].transform.localPosition.y + drawn[index].Size.y / 2f);
                         Require(gap >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f, "the column's targets stand under 12 mm apart");
