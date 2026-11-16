@@ -567,7 +567,9 @@ namespace Halcyonic.XR.Workspace.Editor
             // A question's page laid as the redesign lays it, as the headset always does: each answer's label and description apart
             // (FileScreens.AnswerRow, KitControl.Under), never the older page's words joined on a dot (SCREENS, FIELD's 03:32Z Check).
             var designBefore = RoomDesign.Enabled;
-            if (questioning) RoomDesign.Enabled = true;
+            // More's page reads the routes from the page the kit binds, which the redesign stands first (2c2a6f938): built as the
+            // product builds it, with the redesign on, so the page holds every route the file offers.
+            if (questioning || state == "37-more") RoomDesign.Enabled = true;
             MenuFrame frame;
             try { frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4)); }
             finally { RoomDesign.Enabled = designBefore; }
@@ -703,6 +705,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     "the More page draws no title card with the task's name");
                 var standing = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
                 Require(standing.Count == routes.Count + 1, "the More page stands " + standing.Count + " rows, not " + routes.Count + " routes and Back");
+                // Every route the file offers here, the long ones too, whole at both sizes (AUDIT's 10:53Z).
+                Require(routes.Count == 4, "the More page lists " + routes.Count + " of the four routes the file offers");
+                foreach (var button in standing)
+                {
+                    button.Words.ForceMeshUpdate(true);
+                    Require(!button.Words.isTextTruncated, "the More page's \"" + button.Words.text + "\" is cut");
+                }
                 for (var index = 0; index < standing.Count && index < routes.Count; index++)
                     Require(bar.ControlOf(standing[index])?.Action == routes[index].Action && standing[index].Glyph.Glyph == RoomGlyph.Opens,
                         "the More page's row " + index + " is not the route " + routes[index].Words + " with its chevron");
