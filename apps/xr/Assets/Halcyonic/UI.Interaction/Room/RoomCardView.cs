@@ -128,6 +128,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The most lines a list row's name or quieter line lays: a page's eight (the spec), so words that are not an excerpt are never cut.</summary>
         public const int RowMostLines = 8;
+
+        /// <summary>The most lines an agent's own description of a row takes before it stops at a word, faded.</summary>
+        public const int TheirsUnderLines = 3;
         public const float RowGapDp = 14f;
         public const float RowNameDp = 20f;
         public const float RowNameLineDp = 26f;
@@ -1447,8 +1450,10 @@ namespace Halcyonic.XR.UI
                 if (row.Under != null)
                 {
                     // Outside words lead cut on one line; the product's own (a host's reason) are never cut, as many lines as a page holds.
-                    (underLabel, underTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Under, nameLeft, 0f, nameWidth, row.Under.AllTheirs ? 1 : RowMostLines);
-                    if (row.Under.AllTheirs) underTall = Excerpt(underLabel, row.Under, nameWidth, 1, RowNoteLineDp);
+                    // The agent's own description of an answer reads whole up to three lines (AUDIT2's point 3, the judge room's cut
+                    // descriptions, a release MUST), past that stopping at a word with its tail faded, never an ellipsis.
+                    (underLabel, underTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Under, nameLeft, 0f, nameWidth, row.Under.AllTheirs ? TheirsUnderLines : RowMostLines);
+                    if (row.Under.AllTheirs) underTall = Excerpt(underLabel, row.Under, nameWidth, TheirsUnderLines, RowNoteLineDp, fade: true);
                 }
                 // What the name is, ours, a quiet line of its own above it, whole: never joined to it on a dot.
                 TextMeshPro? labelLabel = null;
