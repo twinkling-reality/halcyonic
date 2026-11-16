@@ -187,6 +187,7 @@ export function openLand(
 ): Place & {
   height(x: number, z: number): number;
   light(x: number, y: number, z: number, colour: Color, strength: number): void;
+  shade(x: number, z: number, depth: number): void;
 } {
   const group = new Group();
   const top = new Color(colours.top);
@@ -213,6 +214,12 @@ export function openLand(
   const step = 0.35;
   // The colour of the sand at (x, z): lit by the low sun on the faces turned to it, in the long shadow of a swell
   // between it and the sun, the lee lit only by the sky, and far off going into the haze of the horizon.
+  // The sky is warmer low round the sun, as just after sunset: how much, by how far toward the sun a bearing is
+  // (toward, -1 to 1) and how high (up, 0 at the horizon).
+  const afterglow = sunColour.clone().lerp(horizon, 0.35);
+  const warmAt = (toward: number, up: number) =>
+    (0.06 + 0.94 * Math.max(0, toward) ** 1.5) * Math.max(0, 1 - Math.max(0, up) / 0.3) ** 2 * 0.8;
+  const hazeColour = new Color();
   const sandAt = (x: number, z: number, into: Color): Color => {
     const y = height(x, z);
     const r = Math.hypot(x, z);
@@ -231,15 +238,33 @@ export function openLand(
       if (over > 0) shade = Math.max(shade, Math.min(1, over / 0.7));
     }
     // A soft turn from light to shade across each slope, never a line drawn across the sand.
+    // Far off a shadow softens into the haze, so distant slopes never step.
+    // Far off only the slopes' own turn from the sun shades them: shadows marched there, between rings a metre or
+    // more apart, would stripe the far dunes.
+    shade *= 1 - Math.min(1, Math.max(0, (r - 24) / 20));
     const k = Math.min(1, Math.max(0, (facing + 0.12) / 0.5)) * (1 - 0.85 * shade);
-    into.copy(shadow).lerp(lit, k * k * (3 - 2 * k));
+    // Sand seen toward the low sun from where the person stands is lit through the air and the glowing sky: its
+    // shade is filled warm, so the slopes under the sun never read as lit from somewhere else.
+    const bearing = r > 0.5 ? Math.max(0, (x * Math.sin(sunAt) - z * Math.cos(sunAt)) / r) : 0;
+    const fill = bearing * bearing * 0.5;
+    // Broad soft changes over the shaded faces, as wind leaves them, so no face is one flat colour.
+    const wander = 1 + 0.09 * Math.sin(x * 0.21 + z * 0.13) * Math.sin(z * 0.17 - x * 0.07 + 1.3);
+    shadow.lerp(lit, fill).multiplyScalar(wander);
+    // Far off light and shade draw together, as distance and haze soften them: a far slip face never reads as a
+    // dark ruled line under its crest.
+    const kk = k * k * (3 - 2 * k);
+    into.copy(shadow).lerp(lit, kk + (0.55 - kk) * 0.65 * Math.min(1, Math.max(0, (r - 22) / 45)));
     // A warm rim along a crest turned toward the sun: where the ground bends over (its heights round it lower than
     // it), lit, and facing the sun's side.
     const bend = (4 * y - height(x + 1, z) - height(x - 1, z) - height(x, z + 1) - height(x, z - 1)) / 4;
     const rim = Math.min(1, Math.max(0, bend * 3)) * Math.min(1, facing / 0.25) * (1 - shade);
     into.lerp(sunColour, rim * 0.35);
     // Only far off does the ground go into the haze, so far crests still stand against the sky.
-    return into.lerp(horizon, Math.min(1, Math.max(0, (r - 30) / 80)) ** 1.6 * 0.92);
+    // Far off the sand goes into the haze, until at its edge it is exactly the sky behind it at that bearing, so the
+    // land's edge never shows as a line.
+    const toward = r > 0 ? (x * Math.sin(sunAt) - z * Math.cos(sunAt)) / r : 0;
+    hazeColour.copy(horizon).lerp(afterglow, warmAt(toward, 0));
+    return into.lerp(hazeColour, Math.min(1, Math.max(0, (r - 40) / 70)) ** 2 * 0.8);
   };
   // Rings closer together near the person, where the ground's shape shows most; fine round, so far crests are
   // smooth lines, not steps.
@@ -255,9 +280,12 @@ export function openLand(
       const x = Math.sin(a) * r;
       const z = -Math.cos(a) * r;
       // Far off the ground rises to the eye's own height, so it meets the sky exactly at the horizon all round.
+      // Far off the ground rises into a soft line of distant dunes along the horizon, hazed into the sky, so the land
+      // meets the sky in hills, never in a ruled line, and no sky shows under it.
       const edge = Math.min(1, Math.max(0, (r - 80) / 30)) ** 2;
+      const skyline = 2.2 + 2.6 * (0.5 + 0.5 * Math.sin(a * 3 + 1.1)) * (0.55 + 0.45 * Math.sin(a * 7 + 2.4)) * (0.8 + 0.2 * Math.sin(a * 17));
       const y = height(x, z);
-      positions.push(x, y + (1.7 - y) * edge, z);
+      positions.push(x, y + (skyline - y) * edge, z);
       sandAt(x, z, c);
       if (i === rings) rim.add(c);
       tints.push(c.r, c.g, c.b);
@@ -340,6 +368,8 @@ export function openLand(
   ripples.magFilter = LinearFilter;
   ripples.minFilter = LinearMipmapLinearFilter;
   ripples.generateMipmaps = true;
+  // Seen at a slant at the feet, a ripple stays crisp along its length rather than smearing.
+  ripples.anisotropy = 8;
   ripples.needsUpdate = true;
   const index: number[] = [];
   for (let i = 0; i < rings; i++) {
@@ -361,6 +391,8 @@ export function openLand(
   // Where a light near the sand is this frame, and its colour times its strength (none until one is given).
   const lampAt = new Vector3(0, -1000, 0);
   const lampColour = new Vector3(0, 0, 0);
+  // Where something floats over the sand (x, z) and how dark the shade under it is.
+  const underAt = new Vector3(0, 0, 0);
   // The near sand's picture, a fine grain and a sheen toward the low sun, in the ground's own shader (no extra draw
   // call).
   sand.onBeforeCompile = (shader) => {
@@ -369,6 +401,7 @@ export function openLand(
     shader.uniforms.sandWind = { value: [wx, wz] };
     shader.uniforms.sandLamp = { value: lampAt };
     shader.uniforms.sandLampColour = { value: lampColour };
+    shader.uniforms.sandUnder = { value: underAt };
     shader.uniforms.sandSpan = { value: span };
     shader.uniforms.sandSun = { value: [Math.sin(sunAt), -Math.cos(sunAt)] };
     shader.uniforms.sandSheen = { value: [sunColour.r, sunColour.g, sunColour.b] };
@@ -376,35 +409,49 @@ export function openLand(
       .replace('void main() {', 'varying vec3 vSand;\nvoid main() {')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSand = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nvarying vec3 vSand;\nvoid main() {')
+      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nvarying vec3 vSand;\nvoid main() {')
       .replace(
         '#include <opaque_fragment>',
         `{
     vec2 p = vSand.xz;
     // Near the person, the sand's light from its picture, blending into the rings' own colour by its edge.
     vec2 cell = p / (2.0 * sandSpan) + 0.5;
-    float inside = 1.0 - smoothstep(0.8, 1.0, max(abs(p.x), abs(p.y)) / sandSpan);
+    // Blended out in a circle well inside the picture's square, so its edge never shows as a straight line.
+    float inside = 1.0 - smoothstep(0.55, 0.92, length(p) / sandSpan);
     if (inside > 0.0) outgoingLight = mix(outgoingLight, texture2D(sandNear, vec2(cell.x, cell.y)).rgb, inside);
     // Ripples across the wind, a tile 2.4 m across: lighter on the side of each that faces the sun, darker on the
     // other, faintly in shade as well; strongest at the feet and gone by 30 m.
+    // Two sizes of ripple at slightly different angles, so they never repeat like a pattern.
     vec2 q = vec2(dot(p, sandWind), dot(p, vec2(-sandWind.y, sandWind.x))) / 2.4;
-    vec2 slope = (texture2D(sandRipples, q).rg - 0.5) * 2.0;
+    vec2 q2 = vec2(q.x * 0.96 + q.y * 0.28, q.y * 0.96 - q.x * 0.28) * 0.62 + vec2(0.37, 0.71);
+    vec2 slope = (texture2D(sandRipples, q).rg - 0.5) * 1.3 + (texture2D(sandRipples, q2).rg - 0.5) * 0.9;
     float sunAlong = dot(sandSun, sandWind);
     float sunAcross = dot(sandSun, vec2(-sandWind.y, sandWind.x));
-    float rippleNear = 1.0 - smoothstep(3.0, 30.0, length(p));
-    outgoingLight *= 1.0 + rippleNear * (0.26 * (slope.x * sunAlong + slope.y * sunAcross) + 0.08 * slope.x);
+    float rippleNear = 1.0 - smoothstep(2.5, 16.0, length(p));
+    outgoingLight *= 1.0 + rippleNear * (0.17 * (slope.x * sunAlong + slope.y * sunAcross) + 0.05 * slope.x);
     // Fine grain, only where a grain is still bigger than a pixel.
-    vec2 g = floor(p * 30.0);
-    float grain = fract(sin(dot(g, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
-    outgoingLight *= 1.0 + 0.05 * grain * (1.0 - smoothstep(0.5, 1.2, fwidth(p.x * 30.0)));
+    // Smooth grain (value noise, never square cells), at two sizes.
+    vec2 g = p * 30.0;
+    vec2 gi = floor(g);
+    vec2 gf = g - gi;
+    gf = gf * gf * (3.0 - 2.0 * gf);
+    float h00 = fract(sin(dot(gi, vec2(12.9898, 78.233))) * 43758.5453);
+    float h10 = fract(sin(dot(gi + vec2(1.0, 0.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float h01 = fract(sin(dot(gi + vec2(0.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float h11 = fract(sin(dot(gi + vec2(1.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float grain = mix(mix(h00, h10, gf.x), mix(h01, h11, gf.x), gf.y) - 0.5;
+    outgoingLight *= 1.0 + 0.12 * grain * (1.0 - smoothstep(0.4, 1.0, fwidth(p.x * 30.0)));
+    // A soft shade on the sand under something floating over it (a window's own).
+    float under = length(p - sandUnder.xy);
+    outgoingLight *= 1.0 - sandUnder.z * exp(-under * under / 0.9);
     // Sand looked at toward a low sun shines along it, as backlit dunes do at sunset.
     vec3 look = vSand - cameraPosition;
     float toward = max(0.0, dot(normalize(look.xz), sandSun));
     float graze = 1.0 - abs(normalize(look).y);
-    outgoingLight += sandSheen * pow(toward, 3.0) * graze * graze * 0.1;
+    outgoingLight += sandSheen * pow(toward, 3.0) * graze * graze * 0.22;
     // A light near the sand (a window's own), warming it in a pool that is gone within a few metres.
     float lampDistance = length(sandLamp - vSand);
-    outgoingLight += sandLampColour * (0.5 / (1.0 + lampDistance * lampDistance * 0.9)) * (1.0 - smoothstep(2.0, 5.0, lampDistance));
+    outgoingLight += sandLampColour * (0.5 / (1.0 + lampDistance * lampDistance * 0.35)) * (1.0 - smoothstep(2.5, 6.0, lampDistance));
   }
   #include <opaque_fragment>`,
       );
@@ -418,7 +465,6 @@ export function openLand(
   const dome = sky(top, horizon, rim, 120, middle, 72);
   const domeAt = dome.geometry.getAttribute('position');
   const domeColour = dome.geometry.getAttribute('color');
-  const afterglow = sunColour.clone().lerp(horizon, 0.35);
   for (let i = 0; i < domeAt.count; i++) {
     const dx = domeAt.getX(i);
     const dy = domeAt.getY(i) / 120;
@@ -426,8 +472,13 @@ export function openLand(
     if (dy < -0.05) continue;
     const toward = (dx * Math.sin(sunAt) - dz * Math.cos(sunAt)) / Math.max(1e-6, Math.hypot(dx, dz));
     // A wide warm band along the horizon, strongest round the sun.
-    const warm = (0.06 + 0.94 * Math.max(0, toward) ** 1.5) * Math.max(0, 1 - Math.max(0, dy) / 0.3) ** 2 * 0.8;
+    const warm = warmAt(toward, dy);
     c.setRGB(domeColour.getX(i), domeColour.getY(i), domeColour.getZ(i)).lerp(afterglow, warm);
+    // A few long soft bands of high cloud, lit warm on the sun's side and dim away from it.
+    const a = Math.atan2(dx, -dz);
+    const band = Math.max(0, Math.sin(dy * 19 + Math.sin(a * 2 + 0.7) * 1.4)) ** 3 * Math.max(0, 1 - Math.abs(dy - 0.24) / 0.22);
+    const streak = band * (0.55 + 0.45 * Math.sin(a * 5 + dy * 9)) * (0.25 + 0.75 * Math.max(0, toward));
+    c.lerp(afterglow, Math.min(0.6, streak * 0.75));
     domeColour.setXYZ(i, c.r, c.g, c.b);
   }
   group.add(dome);
@@ -456,7 +507,7 @@ export function openLand(
     const a = random() * Math.PI * 2;
     const up = 0.3 + random() * 0.7;
     const fromSun = Math.sin(a) * Math.sin(sunAt) + Math.cos(a) * Math.cos(sunAt);
-    const bright = (up - 0.25) * Math.min(1, Math.max(0, 0.5 - fromSun) / 1.2) * 0.6;
+    const bright = (up - 0.25) * Math.min(1, Math.max(0, 0.5 - fromSun) / 1.2) * 0.35;
     home.set([Math.sin(a) * 90 * Math.cos(up), 90 * Math.sin(up), -Math.cos(a) * 90 * Math.cos(up), random() * 6.28, bright], i * 5);
   }
   const starColour = new Color('#DCE3FF');
@@ -470,6 +521,10 @@ export function openLand(
     light(x, y, z, colour, strength) {
       lampAt.set(x, y, z);
       lampColour.set(colour.r * strength, colour.g * strength, colour.b * strength);
+    },
+    // A soft shade on the sand round (x, z) for this frame, under something floating over it, `depth` 0 to 1.
+    shade(x, z, depth) {
+      underAt.set(x, z, Math.min(1, Math.max(0, depth)));
     },
     move(time) {
       glow.begin();

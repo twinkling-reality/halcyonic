@@ -144,6 +144,7 @@ async function read(url: string, options: { hour?: Hour }): Promise<PictureColou
 export interface WindowGround {
   height(x: number, z: number): number;
   light?(x: number, y: number, z: number, colour: Color, strength: number): void;
+  shade?(x: number, z: number, depth: number): void;
 }
 
 /** A picture on a window in the scene. */
@@ -156,7 +157,7 @@ export interface PictureWindow {
   readonly height: number;
   /**
    * Floats the window over `ground` (a place with a `height(x, z)`, such as `openLand`'s) at (x, z), upright and turned
-   * to the person at the origin, its lower edge `lift` metres over the sand under it; if the ground takes light, the
+   * to the person at the origin, its top under the eye and clear of the sand (`lift` sets its height over the sand); if the ground takes light, the
    * window's own light falls on it in front, warm or cool, bright or dim as the picture is.
    */
   standOn(ground: WindowGround, x: number, z: number): void;
@@ -166,24 +167,25 @@ export interface PictureWindow {
 
 /**
  * The photo or video at `url` floating on a window `width` metres wide (1.6 by default), its height from the
- * picture's own shape, in a thin dark frame, its edges glowing softly in the picture's own colour, its lower edge
- * `lift` metres over the ground (0.45), the picture seen through `tint` (a warm dim light by default, so a daytime
+ * picture's own shape, its thin edge lit warm and glowing softly in the picture's own colour, its top under
+ * the person's eye and its lower edge at least 40 cm over the sand (or `lift` metres over it, if given), the picture seen through `tint` (a warm dim light by default, so a daytime
  * picture sits in a dusk place; '#FFFFFF' for none). A video plays by itself, muted and looping (a browser that holds
  * it back until the person's first press plays it then, as the starter's sound does). Float it in the place a few
  * metres off, turned to the person: `standOn(place, x, z)`.
  */
 export function pictureWindow(url: string, options: { width?: number; lift?: number; tint?: string } = {}): PictureWindow {
   const width = options.width ?? 1.6;
-  const lift = options.lift ?? 0.45;
+  const lift = options.lift;
   const group = new Group();
   group.visible = false;
   const face = new MeshBasicMaterial({ color: options.tint ?? '#C49E84', toneMapped: false, transparent: true, opacity: 0 });
-  const frame = new MeshBasicMaterial({ color: '#2C221C', toneMapped: false, transparent: true, opacity: 0 });
+  // A thin edge lit warm, as if the picture's own light caught it, never a dark outline.
+  const frame = new MeshBasicMaterial({ color: '#E9C9A6', toneMapped: false, transparent: true, opacity: 0 });
   const body = new Group();
   group.add(body);
   // The picture's own light: its mean colour, read from it now and then, for the glow round its edges and the light
   // it casts on the sand.
-  const glow = glows(1, { halo: 0.22, round: 0.2, core: 0 });
+  const glow = glows(1, { halo: 0.16, round: 0.12, core: 0 });
   glow.object.position.z = -0.05;
   body.add(glow.object);
   const own = new Color('#FFD9B0');
@@ -221,7 +223,7 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
     face.needsUpdate = true;
     source = from;
     height = (width * h) / Math.max(1, w);
-    const border = Math.min(width, height) * 0.015;
+    const border = Math.min(width, height) * 0.008;
     // A thin frame with a little depth, well behind the picture and drawn first, so the two never fight for pixels.
     const back = new Mesh(new BoxGeometry(width + border * 2, height + border * 2, 0.03), frame);
     back.position.set(0, height / 2, -0.025);
@@ -236,7 +238,10 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
   // Over the sand under the window's middle, the lower edge `lift` above it.
   function place() {
     if (ground === null) return;
-    body.position.y = ground.height(at.x, at.z) + lift;
+    const sand = ground.height(at.x, at.z);
+    // Unless a lift is given: its top well under the person's eye, so it never sits on the horizon, and never closer
+    // than 40 cm to the sand, so it clearly floats.
+    body.position.y = lift === undefined ? Math.max(sand + 0.4, 1.62 - 0.35 - height) : sand + lift;
   }
 
   if (sameOrigin(url) && isVideo(url)) {
@@ -310,20 +315,23 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
             g += data[i + 1] as number;
             b += data[i + 2] as number;
           }
-          own.setRGB(r / 16320, g / 16320, b / 16320, SRGBColorSpace).multiply(face.color);
+          own.setRGB(r / 16320, g / 16320, b / 16320, SRGBColorSpace);
+          // Its own hue, brightened, warmed a little as the dusk light round it is; never washed to white.
+          own.multiplyScalar(0.8 / Math.max(own.r, own.g, own.b, 1e-3)).multiply(face.color).multiplyScalar(1.4);
         } catch {
           // A picture the canvas cannot read keeps its last light.
         }
       }
       glow.begin();
-      glow.add(0, height / 2, 0, width, height, own, 0.14 * eased);
+      glow.add(0, height / 2, 0, width, height, own, 0.1 * eased);
       glow.end();
       if (ground?.light !== undefined) {
         // Its light on the sand a metre in front of it, toward the person.
         const fx = at.x + Math.sin(at.turn);
         const fz = at.z + Math.cos(at.turn);
-        ground.light(fx, ground.height(fx, fz) + 0.6, fz, own, eased);
+        ground.light(fx, ground.height(fx, fz) + 1.1, fz, own, 0.8 * eased);
       }
+      ground?.shade?.(at.x, at.z, 0.35 * eased);
     },
   };
 }

@@ -230,19 +230,19 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
         const w = waves[i] as (typeof waves)[number];
         // Crests bend slowly along their length, as a dune field's do, never ruled straight.
         const bend =
-          0.18 * Math.sin(across / (w.length * 2.3) + w.shift * 6.28) + 0.07 * Math.sin(across / (w.length * 0.9));
+          0.3 * Math.sin(across / (w.length * 2.3) + w.shift * 6.28) + 0.12 * Math.sin(across / (w.length * 0.9));
         const s = (((along / w.length + bend + w.shift) % 1) + 1) % 1;
         // Taller here and lower there along each crest, so the field never repeats like teeth.
         const along2 =
           0.74 + 0.26 * Math.sin(across / (w.length * 1.7) + w.shift * 11) * Math.sin(along / (w.length * 3.1) + w.shift * 5);
         // Far off, crests soften, as distance and haze round them, and no sharp edge is cut into steps.
-        h += swellAt(s, crest * (1 - 0.5 * Math.min(1, Math.max(0, (r - 30) / 50)))) * w.height * along2;
+        h += swellAt(s, crest * (1 - 0.85 * Math.min(1, Math.max(0, (r - 18) / 42)))) * w.height * along2;
       }
       // Lower again toward the rim at 110 m, so the land meets the sky low and softly, never cut off high.
       const rim = 1 - 0.5 * Math.min(1, Math.max(0, (r - 85) / 25)) ** 2;
       // The field lies below the crest the person stands on: its troughs well under their feet, its tallest crests
       // a little over their eye far off.
-      const field = swell * (h / most) * (1 + r / 140) * rim - swell * 0.62;
+      const field = swell * (h / most) * (1 + r / 140) * rim - swell * 0.78;
       const smooth = blend * blend * (3 - 2 * blend);
       return ridge + (field - ridge) * smooth;
     },

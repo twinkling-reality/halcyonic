@@ -236,11 +236,11 @@ A place from the person's own photo or video (somewhere they were, a view they l
   (`hour: 'dusk'` moves its light to dusk when the person asks for dusk; leave it out to keep the picture's own
   hour; a picture that cannot be read answers with the kit's own dusk). Build the place only once it has answered,
   and after `setupScene`, so the place never changes colour after it shows:
-  `const land = openLand(colours, { crest: 1, stars: 120 })` is open ground to the horizon in those colours, dunes
-  at `crest` 1 and soft hills at 0 (`swell` their height in metres near the person, `sun` the low sun's direction in
-  radians, 0 ahead of the person and positive to their right, 1.25 if not given), with sand blowing low on the wind.
-  Use it as any place: `setupScene(world, colours.top)`, its `group` added, its `move` to `ambientMotion`, the same
-  colour in `index.html`'s `background`.
+  `const land = openLand(colours, { crest: 1 })` is open ground to the horizon in those colours, dunes at `crest` 1
+  and soft hills at 0 (`swell` their height in metres near the person, `sun` the low sun's direction in radians, 0
+  ahead of the person and positive to their right, 1.25 if not given), with sand blowing low on the wind if `grains`
+  asks for it, and `stars` only once the sun is down. Use it as any place: `setupScene(world, colours.top)`, its
+  `group` added, its `move` to `ambientMotion`, the same colour in `index.html`'s `background`.
 - `const shown = pictureWindow('/media/<file>', { width: 2.4 })` shows the photo or video itself on a window in the
   place: float it over the sand four to six metres off, on the other side of the view from the sun, with
   `shown.standOn(land, x, z)` (it floats just over the sand, turned to the person, and its own light falls on the sand
