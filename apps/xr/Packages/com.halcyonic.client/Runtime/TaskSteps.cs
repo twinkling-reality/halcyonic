@@ -20,10 +20,52 @@ namespace Halcyonic.Client
         End,
     }
 
+    /// <summary>How the computer checks a project (the host's rule, packages/domain/src/admission.ts at project.check).</summary>
+    public enum TaskCheckWay
+    {
+        /// <summary>No check exists: a world, or a starter that declares no build. No Check and no Ready step.</summary>
+        None,
+
+        /// <summary>A starter's app: built and opened in a sandboxed browser.</summary>
+        StarterApp,
+
+        /// <summary>A project of its own runs the commands the person chose from its package.json (ADR 0055).</summary>
+        OwnCheck,
+
+        /// <summary>A project of its own with no check chosen yet: the host refuses a check until one is.</summary>
+        ChooseOwnCheck,
+    }
+
+    /// <summary>What the project's latest check of the computer's own says, as far as this list needs it.</summary>
+    public sealed class TaskCheckSeen
+    {
+        public TaskCheckSeen(bool covers, bool passed, bool notKnown)
+        {
+            Covers = covers;
+            Passed = passed;
+            NotKnown = notKnown;
+        }
+
+        /// <summary>The project's files are as the check found them.</summary>
+        public bool Covers { get; }
+        public bool Passed { get; }
+
+        /// <summary>The check ran but could not say: never read as failed.</summary>
+        public bool NotKnown { get; }
+
+        /// <summary>A starter's app check (<c>project.check</c>).</summary>
+        public static TaskCheckSeen? Of(ProjectViewCheck? check) => check == null ? null
+            : new TaskCheckSeen(check.Files == ProjectViewCheckFiles.Current, check.Findings.Passed, CheckSteps.PartlyChecked(check.Findings));
+
+        /// <summary>A project's own chosen check, its latest run.</summary>
+        public static TaskCheckSeen? Of(ProjectOwnCheckRunView? run) => run == null ? null
+            : new TaskCheckSeen(run.Files == ProjectOwnCheckRunViewFiles.Current, run.Findings.Passed, run.Findings.Outcome != OwnCheckFindingsOutcome.Ran);
+    }
+
     /// <summary>One step of the plain "what is happening" list: its mark, its word and at most one line under it.</summary>
     public sealed class TaskStep
     {
-        public TaskStep(TaskStepKind kind, GlazeIcon mark, string word, string? line)
+        public TaskStep(TaskStepKind kind, GlazeIcon mark, string word, LineWords? line)
         {
             Kind = kind;
             Mark = mark;
@@ -38,12 +80,13 @@ namespace Halcyonic.Client
         public string Word { get; }
 
         /// <summary>
-        /// One line under the step, or null: the person's request as they gave it (theirs), the step under way
-        /// (<see cref="RoomWork"/>), the files the computer saw change, what waits for the person, or what Check Project does.
+        /// One line under the step, or null, as runs so whose words they are is kept (FIELD, 2026-11-16 02:57Z): the
+        /// person's request as they gave it (theirs), the step under way (<see cref="RoomWork"/>: our verb, the file's
+        /// name theirs), the files the computer saw change, what waits for the person, or what Check Project does (ours).
         /// </summary>
-        public string? Line { get; }
+        public LineWords? Line { get; }
 
-        public override string ToString() => Kind + " " + Word + (Line == null ? "" : ": " + Line);
+        public override string ToString() => Kind + " " + Word + (Line == null ? "" : ": " + Line.Text);
     }
 
     /// <summary>
@@ -69,8 +112,41 @@ namespace Halcyonic.Client
         public const string CantTell = "Can't Tell";
         public const string NeedsYou = "Needs You";
 
-        /// <summary>What Check Project does, under the check's step until it has run (the lead's L1, 2026-11-16 02:05Z).</summary>
+        /// <summary>What Check Project does for a starter's app, under the check's step until it has run (the lead's L1, 2026-11-16 02:05Z).</summary>
         public const string CheckDoes = "Builds the app and opens it.";
+
+        /// <summary>What Check Project does for a project of its own (AUDIT2, 2026-11-16 02:50Z).</summary>
+        public const string OwnCheckDoes = "Runs the project's own checks.";
+
+        /// <summary>Where a project of its own has no check chosen: the host's own words.</summary>
+        public const string ChooseCheck = "Choose a check for this project first.";
+
+        /// <summary>How the computer checks <paramref name="project"/>; <paramref name="starterHasNoBuild"/> where its starter declares none.</summary>
+        public static TaskCheckWay WayOf(ProjectView project, bool starterHasNoBuild)
+        {
+            if (project.World != null) return TaskCheckWay.None;
+            if (project.Starter == null) return project.OwnCheck == null ? TaskCheckWay.ChooseOwnCheck : TaskCheckWay.OwnCheck;
+            return starterHasNoBuild ? TaskCheckWay.None : TaskCheckWay.StarterApp;
+        }
+
+        /// <summary>The project's latest check of the computer's own, by its way.</summary>
+        public static TaskCheckSeen? SeenOf(ProjectView project, TaskCheckWay way) => way switch
+        {
+            TaskCheckWay.StarterApp => TaskCheckSeen.Of(project.Check),
+            TaskCheckWay.OwnCheck => TaskCheckSeen.Of(project.OwnCheck?.Latest),
+            TaskCheckWay.ChooseOwnCheck => null,
+            TaskCheckWay.None => null,
+            _ => throw new ArgumentOutOfRangeException(nameof(way), way, "Unhandled check way."),
+        };
+
+        private static string? Does(TaskCheckWay way) => way switch
+        {
+            TaskCheckWay.StarterApp => CheckDoes,
+            TaskCheckWay.OwnCheck => OwnCheckDoes,
+            TaskCheckWay.ChooseOwnCheck => ChooseCheck,
+            TaskCheckWay.None => null,
+            _ => throw new ArgumentOutOfRangeException(nameof(way), way, "Unhandled check way."),
+        };
 
         /// <summary>The files the computer saw change over the turn.</summary>
         public static string Changed(long files) =>
@@ -85,16 +161,17 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The steps of <paramref name="execution"/>: none without one. <paramref name="check"/> is its project's last check
-        /// of the computer's own; <paramref name="checkRunning"/> says a Check Project the person sent is under way;
-        /// <paramref name="lastTurn"/> is what the computer saw of the folder over the last turn, or null.
+        /// The steps of <paramref name="execution"/>: none without one. <paramref name="way"/> is how the computer checks its
+        /// project and <paramref name="check"/> what that check last said (<see cref="SeenOf"/>); <paramref name="checkRunning"/>
+        /// says a Check Project the person sent is under way; <paramref name="lastTurn"/> is what the computer saw of the
+        /// folder over the last turn, or null. Where no check exists the list ends at Working: never a step nobody can reach.
         /// </summary>
-        public static IReadOnlyList<TaskStep> Of(ExecutionView? execution, ProjectViewCheck? check, bool checkRunning, ObservedTurn? lastTurn)
+        public static IReadOnlyList<TaskStep> Of(ExecutionView? execution, TaskCheckWay way, TaskCheckSeen? check, bool checkRunning, ObservedTurn? lastTurn)
         {
             if (execution == null) return Array.Empty<TaskStep>();
             var steps = new List<TaskStep>
             {
-                new TaskStep(TaskStepKind.Done, GlazeIcon.FinishedThisRound, YourRequest, string.IsNullOrWhiteSpace(execution.Instruction) ? null : execution.Instruction),
+                new TaskStep(TaskStepKind.Done, GlazeIcon.FinishedThisRound, YourRequest, string.IsNullOrWhiteSpace(execution.Instruction) ? null : LineWords.Theirs(execution.Instruction)),
             };
 
             var status = execution.Status;
@@ -114,7 +191,8 @@ namespace Halcyonic.Client
 
             if (planOnly)
             {
-                steps.Add(Step(TaskStepKind.NotYet, Working, null));
+                // A plan made waits for the person to carry it out: the result's own action, named as it is.
+                steps.Add(Step(TaskStepKind.NotYet, Working, finished ? LineWords.Ours(RunStart.CarryOutPlan) : null));
             }
             else if (finished)
             {
@@ -122,22 +200,15 @@ namespace Halcyonic.Client
             }
             else
             {
-                var under = working ? RoomWork.Of(execution)?.Words(_ => true) : null;
+                var under = working ? Under(RoomWork.Of(execution)) : null;
                 if (!AddNow(steps, Working, execution, working, waiting, ended, under)) return steps;
-                steps.Add(Step(TaskStepKind.NotYet, Check, null));
-                steps.Add(Step(TaskStepKind.NotYet, Ready, null));
-                return steps;
+                return NotYet(steps, way);
             }
 
-            if (planOnly)
-            {
-                steps.Add(Step(TaskStepKind.NotYet, Check, null));
-                steps.Add(Step(TaskStepKind.NotYet, Ready, null));
-                return steps;
-            }
+            if (planOnly || way == TaskCheckWay.None) return NotYet(steps, way);
 
             // The work is done: the computer's own check, counted only while the files are as it checked them.
-            var covers = check != null && check.Files == ProjectViewCheckFiles.Current;
+            var covers = check != null && check.Covers;
             if (checkRunning)
             {
                 steps.Add(new TaskStep(TaskStepKind.Now, GlazeIcon.CheckingItsWork, Checking, null));
@@ -146,31 +217,39 @@ namespace Halcyonic.Client
             }
             if (!covers)
             {
-                steps.Add(Step(TaskStepKind.NotYet, Check, CheckDoes));
+                steps.Add(Step(TaskStepKind.NotYet, Check, Does(way) is string does ? LineWords.Ours(does) : null));
                 steps.Add(Step(TaskStepKind.NotYet, Ready, null));
                 return steps;
             }
-            var findings = check!.Findings;
-            if (findings.Passed)
+            if (check!.Passed)
             {
                 steps.Add(Step(TaskStepKind.Done, Check, null));
                 steps.Add(Step(TaskStepKind.Done, Ready, null));
                 return steps;
             }
-            steps.Add(CheckSteps.PartlyChecked(findings)
+            steps.Add(check.NotKnown
                 ? new TaskStep(TaskStepKind.End, GlazeIcon.CantTellYet, PartlyChecked, null)
                 : new TaskStep(TaskStepKind.End, GlazeIcon.ChecksFailed, ChecksFailed, null));
+            return steps;
+        }
+
+        /// <summary>The steps not reached yet: Check and Ready, where a check exists.</summary>
+        private static IReadOnlyList<TaskStep> NotYet(List<TaskStep> steps, TaskCheckWay way)
+        {
+            if (way == TaskCheckWay.None) return steps;
+            steps.Add(Step(TaskStepKind.NotYet, Check, null));
+            steps.Add(Step(TaskStepKind.NotYet, Ready, null));
             return steps;
         }
 
         /// <summary>
         /// Adds the step that is now, or the end in its place; false when the task ended there, so no step follows.
         /// </summary>
-        private static bool AddNow(List<TaskStep> steps, string word, ExecutionView execution, bool working, bool waiting, bool ended, string? line)
+        private static bool AddNow(List<TaskStep> steps, string word, ExecutionView execution, bool working, bool waiting, bool ended, LineWords? line)
         {
             if (waiting)
             {
-                steps.Add(new TaskStep(TaskStepKind.NeedsYou, GlazeIcon.WaitingForYou, word, Waits(execution)));
+                steps.Add(new TaskStep(TaskStepKind.NeedsYou, GlazeIcon.WaitingForYou, word, LineWords.Ours(Waits(execution))));
                 return true;
             }
             if (ended)
@@ -186,11 +265,11 @@ namespace Halcyonic.Client
         {
             ExecutionStatus.Interrupted => new TaskStep(TaskStepKind.End, GlazeIcon.Stopped, Stopped, null),
             ExecutionStatus.Failed => new TaskStep(TaskStepKind.End, GlazeIcon.CouldNotFinish, Failed, null),
-            ExecutionStatus.Unknown => new TaskStep(TaskStepKind.End, GlazeIcon.CantTellYet, CantTell, StateLanguage.CantTellWhy(execution.StatusReason?.Code)),
+            ExecutionStatus.Unknown => new TaskStep(TaskStepKind.End, GlazeIcon.CantTellYet, CantTell, StateLanguage.CantTellWhy(execution.StatusReason?.Code) is string why ? LineWords.Ours(why) : null),
             _ => throw new ArgumentOutOfRangeException(nameof(execution), execution.Status, "Only a task that ended short of done has an end."),
         };
 
-        private static TaskStep Step(TaskStepKind kind, string word, string? line) => new TaskStep(kind, kind switch
+        private static TaskStep Step(TaskStepKind kind, string word, LineWords? line) => new TaskStep(kind, kind switch
         {
             TaskStepKind.Done => GlazeIcon.FinishedThisRound,
             TaskStepKind.Now => GlazeIcon.Working,
@@ -199,11 +278,18 @@ namespace Halcyonic.Client
         }, word, line);
 
         /// <summary>The files the computer saw change over the turn, or null where it did not read them or saw none.</summary>
-        private static string? FilesLine(ObservedTurn? turn)
+        private static LineWords? FilesLine(ObservedTurn? turn)
         {
             if (turn == null || turn.Skipped != null) return null;
             var total = turn.CreatedTotal + turn.ChangedTotal + turn.DeletedTotal;
-            return total > 0 ? Changed(total) : null;
+            return total > 0 ? LineWords.Ours(Changed(total)) : null;
+        }
+
+        /// <summary>The step under way: our verb, then the file's own name as theirs; null where none is reported.</summary>
+        private static LineWords? Under(RoomWorkStep? step)
+        {
+            if (step == null) return null;
+            return step.Name == null ? LineWords.Ours(step.Verb) : LineWords.Ours(step.Verb + " ") + LineWords.TheirName(step.Name);
         }
     }
 }

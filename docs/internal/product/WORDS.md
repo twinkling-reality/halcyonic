@@ -118,11 +118,14 @@ now, not yet) and at most one line under it.
 | Step | When | Its line |
 | --- | --- | --- |
 | Your Request | the task has an instruction | the person's words, as they gave them |
-| Planning | only in plan mode, until the plan is left | none |
+| Planning | only in plan mode, until the plan is left | none; a plan made leaves Working not yet with the result's own action, "Carry Out Plan" |
 | Working | the agent's turn; the agent's own test run is still Working | the step under way ("Editing index.html"); once done, "Changed 3 Files" as the computer saw them, never a count it did not read |
-| Check | the turn ended and no check of the computer's own covers the files as they are | "Builds the app and opens it." |
+| Check | the turn ended and no check of the computer's own covers the files as they are | what the project's check does: a starter's app, "Builds the app and opens it."; a project of its own, "Runs the project's own checks."; one with no check chosen yet, "Choose a check for this project first." (the host's own words) |
 | Checking | a Check Project the person sent is under way | none |
 | Ready | only after that check passed on the files as they are | none |
+
+Where no check exists (a world, or a starter that declares no build) there is no Check and no Ready step: the list
+ends at Working, never at a step nobody can reach (AUDIT2, 2026-11-16).
 
 An approval or a question marks the step that is now, which keeps its word: its line is "Needs You: Run Command?"
 for a command and "Needs You" for anything else (never a tool's own name). A task that ends short of Ready ends the

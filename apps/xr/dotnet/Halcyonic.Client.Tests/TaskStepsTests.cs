@@ -47,18 +47,22 @@ public class TaskStepsTests
         Findings = new CheckFindings { Passed = passed, Verdict = verdict ?? (passed ? CheckFindingsVerdict.Passed : CheckFindingsVerdict.Failed) },
     };
 
+    /// <summary>A starter's app, whose check is the computer's own build and open.</summary>
+    private static IReadOnlyList<TaskStep> Of(ExecutionView? execution, ProjectViewCheck? check, bool checkRunning, ObservedTurn? lastTurn) =>
+        TaskSteps.Of(execution, TaskCheckWay.StarterApp, TaskCheckSeen.Of(check), checkRunning, lastTurn);
+
     private static string[] Read(IReadOnlyList<TaskStep> steps) => steps.Select(step => step.ToString()).ToArray();
 
     [Test]
     public void NoTaskHasNoSteps()
     {
-        Assert.That(TaskSteps.Of(null, null, false, null), Is.Empty);
+        Assert.That(Of(null, null, false, null), Is.Empty);
     }
 
     [Test]
     public void AStartingTaskShowsTheRequestDoneAndWorkingNow()
     {
-        Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Starting), null, false, null)), Is.EqualTo(new[]
+        Assert.That(Read(Of(Execution(ExecutionStatus.Starting), null, false, null)), Is.EqualTo(new[]
         {
             "Done Your Request: " + Request,
             "Now Working",
@@ -70,16 +74,16 @@ public class TaskStepsTests
     [Test]
     public void WorkingSaysTheStepUnderWayAndNothingWhereNoneIsReported()
     {
-        var editing = TaskSteps.Of(Execution(ExecutionStatus.Running, tools: Tool("Edit", "src/index.html")), null, false, null);
+        var editing = Of(Execution(ExecutionStatus.Running, tools: Tool("Edit", "src/index.html")), null, false, null);
         Assert.That(editing[1].ToString(), Is.EqualTo("Now Working: Editing index.html"));
-        var silent = TaskSteps.Of(Execution(ExecutionStatus.Running), null, false, null);
+        var silent = Of(Execution(ExecutionStatus.Running), null, false, null);
         Assert.That(silent[1].ToString(), Is.EqualTo("Now Working"), "no step reported, no line");
     }
 
     [Test]
     public void TheAgentsOwnTestRunIsStillWorkingNeverTheComputersCheck()
     {
-        var steps = TaskSteps.Of(Execution(ExecutionStatus.Verifying), null, false, null);
+        var steps = Of(Execution(ExecutionStatus.Verifying), null, false, null);
         Assert.That(steps[1].Word, Is.EqualTo(TaskSteps.Working));
         Assert.That(steps[1].Kind, Is.EqualTo(TaskStepKind.Now));
         Assert.That(steps.Any(step => step.Word == TaskSteps.Checking), Is.False, "the agent's report is not this list's check");
@@ -90,7 +94,7 @@ public class TaskStepsTests
     {
         var execution = Execution(ExecutionStatus.WaitingForHuman);
         execution.PendingApprovals.Add(new ApprovalView { ApprovalId = "a", Subject = new ToolUseSubject { ToolName = "Bash" } });
-        var steps = TaskSteps.Of(execution, null, false, null);
+        var steps = Of(execution, null, false, null);
         Assert.That(steps[1].ToString(), Is.EqualTo("NeedsYou Working: Needs You: Run Command?"));
         Assert.That(steps[1].Mark, Is.EqualTo(GlazeIcon.WaitingForYou));
         Assert.That(steps.Skip(2).Select(step => step.Kind), Is.All.EqualTo(TaskStepKind.NotYet));
@@ -101,14 +105,14 @@ public class TaskStepsTests
     {
         var execution = Execution(ExecutionStatus.WaitingForHuman);
         execution.PendingApprovals.Add(new ApprovalView { ApprovalId = "a", Subject = new ToolUseSubject { ToolName = "apply_patch" } });
-        Assert.That(TaskSteps.Of(execution, null, false, null)[1].Line, Is.EqualTo("Needs You"), "never a raw tool name");
+        Assert.That(Of(execution, null, false, null)[1].Line!.Text, Is.EqualTo("Needs You"), "never a raw tool name");
     }
 
     [Test]
     public void PlanningStandsOnlyInPlanMode()
     {
-        Assert.That(TaskSteps.Of(Execution(ExecutionStatus.Running), null, false, null).Select(step => step.Word), Has.None.EqualTo(TaskSteps.Planning));
-        Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Running, plan: true), null, false, null)), Is.EqualTo(new[]
+        Assert.That(Of(Execution(ExecutionStatus.Running), null, false, null).Select(step => step.Word), Has.None.EqualTo(TaskSteps.Planning));
+        Assert.That(Read(Of(Execution(ExecutionStatus.Running, plan: true), null, false, null)), Is.EqualTo(new[]
         {
             "Done Your Request: " + Request,
             "Now Planning",
@@ -116,43 +120,43 @@ public class TaskStepsTests
             "NotYet Check",
             "NotYet Ready",
         }));
-        Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Completed, plan: true), null, false, Turn(0, 0, 0))), Is.EqualTo(new[]
+        Assert.That(Read(Of(Execution(ExecutionStatus.Completed, plan: true), null, false, Turn(0, 0, 0))), Is.EqualTo(new[]
         {
             "Done Your Request: " + Request,
             "Done Planning",
-            "NotYet Working",
+            "NotYet Working: " + RunStart.CarryOutPlan,
             "NotYet Check",
             "NotYet Ready",
-        }), "a plan made is not work done: nothing to check yet");
-        Assert.That(TaskSteps.Of(Execution(ExecutionStatus.Running, plan: true, planLeft: true), null, false, null).Select(step => step.ToString()).Take(3),
+        }), "a plan made is not work done: the person carries it out next, nothing to check yet");
+        Assert.That(Of(Execution(ExecutionStatus.Running, plan: true, planLeft: true), null, false, null).Select(step => step.ToString()).Take(3),
             Is.EqualTo(new[] { "Done Your Request: " + Request, "Done Planning", "Now Working" }));
     }
 
     [Test]
     public void AFinishedTurnSaysTheFilesTheComputerSawChangeAndOffersTheCheck()
     {
-        Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Completed), null, false, Turn(1, 2, 0))), Is.EqualTo(new[]
+        Assert.That(Read(Of(Execution(ExecutionStatus.Completed), null, false, Turn(1, 2, 0))), Is.EqualTo(new[]
         {
             "Done Your Request: " + Request,
             "Done Working: Changed 3 Files",
             "NotYet Check: " + TaskSteps.CheckDoes,
             "NotYet Ready",
         }));
-        Assert.That(TaskSteps.Of(Execution(ExecutionStatus.Completed), null, false, Turn(1, 0, 0))[1].Line, Is.EqualTo("Changed 1 File"));
+        Assert.That(Of(Execution(ExecutionStatus.Completed), null, false, Turn(1, 0, 0))[1].Line!.Text, Is.EqualTo("Changed 1 File"));
     }
 
     [Test]
     public void FilesTheComputerDidNotReadAreNeverSaidAsNone()
     {
         var skipped = Turn(0, 0, 0, new FilesObservedSkipped { Code = FilesObservedSkippedCode.TooLarge, Message = "too large" });
-        Assert.That(TaskSteps.Of(Execution(ExecutionStatus.Completed), null, false, skipped)[1].Line, Is.Null);
-        Assert.That(TaskSteps.Of(Execution(ExecutionStatus.Completed), null, false, null)[1].Line, Is.Null);
+        Assert.That(Of(Execution(ExecutionStatus.Completed), null, false, skipped)[1].Line, Is.Null);
+        Assert.That(Of(Execution(ExecutionStatus.Completed), null, false, null)[1].Line, Is.Null);
     }
 
     [Test]
     public void ACheckUnderWayIsCheckingNow()
     {
-        var steps = TaskSteps.Of(Execution(ExecutionStatus.Completed), null, true, Turn(1, 0, 0));
+        var steps = Of(Execution(ExecutionStatus.Completed), null, true, Turn(1, 0, 0));
         Assert.That(steps[2].ToString(), Is.EqualTo("Now Checking"));
         Assert.That(steps[3].ToString(), Is.EqualTo("NotYet Ready"));
     }
@@ -160,11 +164,11 @@ public class TaskStepsTests
     [Test]
     public void ReadyOnlyAfterTheComputersOwnCheckPassedOnTheFilesAsTheyAre()
     {
-        Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Completed), HostCheck(true, ProjectViewCheckFiles.Current), false, Turn(1, 0, 0))).Skip(2),
+        Assert.That(Read(Of(Execution(ExecutionStatus.Completed), HostCheck(true, ProjectViewCheckFiles.Current), false, Turn(1, 0, 0))).Skip(2),
             Is.EqualTo(new[] { "Done Check", "Done Ready" }));
         foreach (var files in new[] { ProjectViewCheckFiles.Changed, ProjectViewCheckFiles.Unknown })
         {
-            Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Completed), HostCheck(true, files), false, Turn(1, 0, 0))).Skip(2),
+            Assert.That(Read(Of(Execution(ExecutionStatus.Completed), HostCheck(true, files), false, Turn(1, 0, 0))).Skip(2),
                 Is.EqualTo(new[] { "NotYet Check: " + TaskSteps.CheckDoes, "NotYet Ready" }), files + ": a check of other files does not count");
         }
     }
@@ -172,23 +176,23 @@ public class TaskStepsTests
     [Test]
     public void AFailedCheckEndsTheListAndOneNotKnownIsPartlyChecked()
     {
-        var failed = TaskSteps.Of(Execution(ExecutionStatus.Completed), HostCheck(false, ProjectViewCheckFiles.Current), false, Turn(1, 0, 0));
+        var failed = Of(Execution(ExecutionStatus.Completed), HostCheck(false, ProjectViewCheckFiles.Current), false, Turn(1, 0, 0));
         Assert.That(failed.Last().ToString(), Is.EqualTo("End Checks Failed"));
         Assert.That(failed.Select(step => step.Word), Has.None.EqualTo(TaskSteps.Ready));
-        var partly = TaskSteps.Of(Execution(ExecutionStatus.Completed), HostCheck(false, ProjectViewCheckFiles.Current, CheckFindingsVerdict.NotKnown), false, Turn(1, 0, 0));
+        var partly = Of(Execution(ExecutionStatus.Completed), HostCheck(false, ProjectViewCheckFiles.Current, CheckFindingsVerdict.NotKnown), false, Turn(1, 0, 0));
         Assert.That(partly.Last().ToString(), Is.EqualTo("End Partly Checked"), "not known is never failed");
     }
 
     [Test]
     public void StoppedFailedAndUnknownEndWhereTheWorkStood()
     {
-        Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Interrupted), null, false, null)), Is.EqualTo(new[] { "Done Your Request: " + Request, "End Stopped" }));
-        Assert.That(TaskSteps.Of(Execution(ExecutionStatus.Failed), null, false, null).Last().ToString(), Is.EqualTo("End Failed"));
+        Assert.That(Read(Of(Execution(ExecutionStatus.Interrupted), null, false, null)), Is.EqualTo(new[] { "Done Your Request: " + Request, "End Stopped" }));
+        Assert.That(Of(Execution(ExecutionStatus.Failed), null, false, null).Last().ToString(), Is.EqualTo("End Failed"));
         var unknown = Execution(ExecutionStatus.Unknown);
         unknown.StatusReason = new ErrorInfo { Code = "runtime_connection_lost", Message = "lost" };
-        var steps = TaskSteps.Of(unknown, null, false, null);
+        var steps = Of(unknown, null, false, null);
         Assert.That(steps.Last().Word, Is.EqualTo(TaskSteps.CantTell));
-        Assert.That(steps.Last().Line, Is.EqualTo(StateLanguage.LostTouch));
+        Assert.That(steps.Last().Line!.Text, Is.EqualTo(StateLanguage.LostTouch));
         Assert.That(steps.Select(step => step.Word), Has.None.EqualTo(TaskSteps.Failed), "can't tell is never read as failed");
     }
 
@@ -205,5 +209,62 @@ public class TaskStepsTests
             Assert.That(word, Does.Not.Contain("·"), word);
         }
         Assert.That(TaskSteps.CheckDoes, Does.Not.Contain("·"));
+    }
+
+    [Test]
+    public void AProjectOfItsOwnSaysItsOwnChecksOrThatOneMustBeChosen()
+    {
+        var own = TaskSteps.Of(Execution(ExecutionStatus.Completed), TaskCheckWay.OwnCheck, null, false, Turn(1, 0, 0));
+        Assert.That(own[2].ToString(), Is.EqualTo("NotYet Check: " + TaskSteps.OwnCheckDoes));
+        var choose = TaskSteps.Of(Execution(ExecutionStatus.Completed), TaskCheckWay.ChooseOwnCheck, null, false, Turn(1, 0, 0));
+        Assert.That(choose[2].ToString(), Is.EqualTo("NotYet Check: " + TaskSteps.ChooseCheck));
+        var ran = new ProjectOwnCheckRunView
+        {
+            CheckId = "own-1",
+            RecordedAt = "2026-11-16T03:05:00.000Z",
+            Files = ProjectOwnCheckRunViewFiles.Current,
+            Findings = new OwnCheckFindings { Outcome = OwnCheckFindingsOutcome.Ran, Passed = true },
+        };
+        Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Completed), TaskCheckWay.OwnCheck, TaskCheckSeen.Of(ran), false, Turn(1, 0, 0))).Skip(2),
+            Is.EqualTo(new[] { "Done Check", "Done Ready" }));
+        var changed = new ProjectOwnCheckRunView
+        {
+            CheckId = "own-2",
+            RecordedAt = "2026-11-16T03:05:00.000Z",
+            Files = ProjectOwnCheckRunViewFiles.Current,
+            Findings = new OwnCheckFindings { Outcome = OwnCheckFindingsOutcome.CommandChanged, Passed = false },
+        };
+        Assert.That(TaskSteps.Of(Execution(ExecutionStatus.Completed), TaskCheckWay.OwnCheck, TaskCheckSeen.Of(changed), false, Turn(1, 0, 0)).Last().ToString(),
+            Is.EqualTo("End Partly Checked"), "a check that could not run its commands is never failed");
+    }
+
+    [Test]
+    public void WhereNoCheckExistsTheListEndsAtWorking()
+    {
+        Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Completed), TaskCheckWay.None, null, false, Turn(0, 2, 0))), Is.EqualTo(new[]
+        {
+            "Done Your Request: " + Request,
+            "Done Working: Changed 2 Files",
+        }), "never a step nobody can reach");
+        Assert.That(TaskSteps.Of(Execution(ExecutionStatus.Running), TaskCheckWay.None, null, false, null).Select(step => step.Word),
+            Is.EqualTo(new[] { TaskSteps.YourRequest, TaskSteps.Working }));
+    }
+
+    [Test]
+    public void TheWayFollowsTheHostsRule()
+    {
+        Assert.That(TaskSteps.WayOf(new ProjectView { ProjectId = "p", Starter = "web-game", World = new ProjectWorldView() }, false), Is.EqualTo(TaskCheckWay.None), "a world has no build");
+        Assert.That(TaskSteps.WayOf(new ProjectView { ProjectId = "p", Starter = "web-game" }, true), Is.EqualTo(TaskCheckWay.None), "a starter that declares no build");
+        Assert.That(TaskSteps.WayOf(new ProjectView { ProjectId = "p", Starter = "web-game" }, false), Is.EqualTo(TaskCheckWay.StarterApp));
+        Assert.That(TaskSteps.WayOf(new ProjectView { ProjectId = "p" }, false), Is.EqualTo(TaskCheckWay.ChooseOwnCheck));
+        Assert.That(TaskSteps.WayOf(new ProjectView { ProjectId = "p", OwnCheck = new ProjectOwnCheckView() }, false), Is.EqualTo(TaskCheckWay.OwnCheck));
+    }
+
+    [Test]
+    public void ALineKeepsWhoseWordsItHolds()
+    {
+        var steps = Of(Execution(ExecutionStatus.Running, tools: Tool("Edit", "src/index.html")), null, false, null);
+        Assert.That(steps[0].Line!.Runs.Select(run => run.Theirs), Is.All.True, "the request is the person's");
+        Assert.That(steps[1].Line!.Runs.Select(run => (run.Text, run.Theirs)), Is.EqualTo(new[] { ("Editing ", false), ("index.html", true) }), "our verb, the file's own name theirs");
     }
 }
