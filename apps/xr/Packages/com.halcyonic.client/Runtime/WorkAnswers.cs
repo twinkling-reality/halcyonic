@@ -780,6 +780,13 @@ namespace Halcyonic.Client
             return new RoomCard(status: new RoomCardStatus(title, line, tone), more: latest.Runs);
         }
 
+        /// <summary>
+        /// The simulated checks' status alone, as the Checks page's card states it (<see cref="SimulatedCard(IntelligenceRead{UnderstandingResponse}?, TimeZoneInfo)"/>),
+        /// for the result's card, so the two never disagree (JUDGE's ALERT 05:04Z); null where the page has no simulated outcome.
+        /// </summary>
+        public static RoomCardStatus? SimulatedStatus(IntelligenceFeed<UnderstandingResponse> understanding, TimeZoneInfo zone) =>
+            SimulatedCard(understanding.Last, zone)?.Status;
+
         public static SectionPresentation Present(
             IntelligenceFeed<UnderstandingResponse> understanding,
             IntelligenceFeed<EvaluationResponse> evaluation,

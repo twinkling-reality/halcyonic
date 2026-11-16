@@ -109,9 +109,14 @@ namespace Halcyonic.Client
         public RoomResult(bool isVr, bool canMakeVr, bool canTry, bool? passed, ObservedTurn? observed, IReadOnlyList<CheckStepOutcome>? steps,
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null, FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null,
-            bool readsFiles = false, ChangesAccount? account = null, bool partlyChecked = false, string? finding = null)
+            bool readsFiles = false, ChangesAccount? account = null, bool partlyChecked = false, string? finding = null,
+            RoomCardStatus? simulated = null, bool checkRunning = false)
         {
             PartlyChecked = partlyChecked && passed == null;
+            // What the Checks page says where the computer's own check is not (JUDGE's ALERT 05:04Z: the card and the page agree):
+            // a demonstration's simulated checks, said as simulated, and a check the computer is running now.
+            Simulated = passed == null && !PartlyChecked ? simulated : null;
+            CheckRunning = passed == null && !PartlyChecked && checkRunning;
             Finding = PartlyChecked ? finding : null;
             ReadsFiles = readsFiles;
             Account = page == RoomResultPage.Changes && account is { Parts: > 0 } ? account : null;
@@ -220,8 +225,14 @@ namespace Halcyonic.Client
         /// <summary>The check's line, the product's own: Build Passed or Build Failed; null where the computer's check gave no outcome.</summary>
         public string? CheckLine => Passed is bool passed ? KitMomentWords.CheckTitle(KitCheckScope.Builds, ended: true, passed) : null;
 
+        /// <summary>The demonstration's simulated checks as the Checks page states them (CheckedPresenter.SimulatedStatus); null otherwise.</summary>
+        public RoomCardStatus? Simulated { get; }
+
+        /// <summary>The computer's check of the project is under way (its command accepted, not yet ended), and none stands yet.</summary>
+        public bool CheckRunning { get; }
+
         /// <summary>Whether the computer has anything to say of the task at rest.</summary>
-        public bool Any => Observed != null || Passed != null || PartlyChecked || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null || Share != null
+        public bool Any => Observed != null || Passed != null || PartlyChecked || Simulated != null || CheckRunning || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null || Share != null
             || Start is { IsPlan: true } or { NotConfined: true };
 
         /// <summary>The page's rows: an observed file a row, or a step of the check a row; none on the result itself.</summary>
@@ -311,9 +322,12 @@ namespace Halcyonic.Client
         public static RoomResult? Of(ProjectView? project, ClientProjection? state, ObservedTurn? observed,
             RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false, bool relays = false, bool relayBuilt = true,
-            FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null, ChangesAccount? account = null)
+            FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null, ChangesAccount? account = null,
+            RoomCardStatus? simulated = null)
         {
             if (project == null || state == null) return null;
+            var checkRunning = state.Commands.Values.Any(command => command.CommandType == CommandType.ProjectCheck
+                && command.ProjectId == project.ProjectId && command.Status == CommandStatus.Accepted);
             var screen = WorkspacePresentationState.ScreenOf(project, state, barOpen: true);
             // The computer's check speaks only for the files it checked: once the folder changed after it, it says nothing of
             // them, so neither its line nor its steps stand (AUDIT2, 2026-11-11).
@@ -327,7 +341,8 @@ namespace Halcyonic.Client
                 // MUST 1), and where the host would admit it (TASKS's conditions) or a share stands to stop.
                 canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null),
                 places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file, start: start, waiting: waiting,
-                readsFiles: way is { Target: not null, Demonstration: false }, account: account, partlyChecked: check?.PartlyChecked == true, finding: check?.Finding);
+                readsFiles: way is { Target: not null, Demonstration: false }, account: account, partlyChecked: check?.PartlyChecked == true, finding: check?.Finding,
+                simulated: simulated, checkRunning: checkRunning && check == null);
         }
     }
 

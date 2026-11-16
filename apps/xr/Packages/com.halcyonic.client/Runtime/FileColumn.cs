@@ -883,7 +883,7 @@ namespace Halcyonic.Client
         {
             var execution = Now?.Execution;
             var clock = host.Clock;
-            if (Screen.Section == FileSection.Changes || Screen.Section == FileSection.Checks || ResultChangesShown?.Invoke() == true)
+            if (Screen.Section == FileSection.Changes || Screen.Section == FileSection.Checks || ResultChangesShown?.Invoke() == true || ResultShown?.Invoke() == true)
             {
                 understanding.Show(execution?.ExecutionId, execution?.UpdatedAt, clock, TimeSpan.FromSeconds(2));
             }
@@ -1153,6 +1153,12 @@ namespace Halcyonic.Client
         /// section reads them (what changed, why, how it is built), and why and how it is built in full from the same read, so the
         /// account's parts hold every reason and step the desk shows; never the source's own provenance. Null until anything is read.
         /// </summary>
+        /// <summary>The demonstration's simulated checks' status for the result's card (CheckedPresenter.SimulatedStatus); null otherwise.</summary>
+        public RoomCardStatus? SimulatedStatus() => CheckedPresenter.SimulatedStatus(understanding, host.Zone);
+
+        /// <summary>Set by the layer that shows the result at rest, so the understanding is read for its card's simulated checks too.</summary>
+        public Func<bool>? ResultShown { get; set; }
+
         public ChangesAccount? Account()
         {
             if (understanding.Last == null && understanding.Error == null) return null;

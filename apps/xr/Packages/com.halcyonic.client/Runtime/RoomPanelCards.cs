@@ -74,7 +74,10 @@ namespace Halcyonic.Client
             var status = ended?.Status ?? (result.Start is { IsPlan: true } plan
                 ? plan.AtRest ? new RoomCardStatus(RunStart.PlanReady, RunStart.PlanReadyLine, RoomTone.Attention)
                     : plan.Running ? new RoomCardStatus(RunStart.Planning, RunStart.PlanningLine, RoomTone.Working) : (RoomCardStatus?)null
-                : (RoomCardStatus?)null);
+                : (RoomCardStatus?)null)
+                // Where the computer's own check gives no outcome, the card says what the Checks page says (JUDGE's ALERT 05:04Z):
+                // a check under way, or the demonstration's simulated checks, said as simulated; never "Nothing checked yet".
+                ?? (result.CheckRunning ? new RoomCardStatus(TaskSteps.Checking, null, RoomTone.Working) : result.Simulated);
             // Where Play in Headset is not drawn and why matters to the person, its reason stands at the card's foot.
             var refusal = result.Play is PlayInHeadset play ? HeadsetPlay.RefusalLine(play) : null;
             return new RoomCard(task, head: RoomCardHead.Picture, status: status, slots: slots, trackAt: ended?.TrackAt, trackOf: ended?.TrackOf,
