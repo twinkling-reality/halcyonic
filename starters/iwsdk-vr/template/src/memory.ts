@@ -206,7 +206,10 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
     state = (state * 16807) % 2147483647;
     return state / 2147483647;
   };
-  const wind = (options.sun ?? 0.8) + 0.3;
+  const sunAt = options.sun ?? 0.8;
+  const sx = Math.sin(sunAt);
+  const sz = -Math.cos(sunAt);
+  const wind = sunAt + 0.3;
   const wx = Math.sin(wind);
   const wz = -Math.cos(wind);
   const waves = [
@@ -250,8 +253,13 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
       // And far off, the great dunes: a long swell some 120 m from crest to crest, rising with distance until its
       // crests stand well over the person's eye and break the skyline, sharp-crested, bending across its length.
       const greatS = (((along / 120 + 0.35 * Math.sin(across / 70 + 1.3) + 0.15 * Math.sin(across / 23)) % 1) + 1) % 1;
-      const great = swellAt(greatS, crest) * Math.min(1, Math.max(0, (r - 35) / 45)) ** 1.5 * swell * 2.6;
-      const field = swell * (h / most) * (1 + r / 140) * rim - swell * 0.78 + great * rim;
+      // Toward the sun the land opens into a long low valley, so the sun sets over a low skyline, never behind a dune:
+      // the great dunes and the field's tallest crests sink there, from 12 m out, widest toward the sun itself.
+      const off = Math.acos(Math.min(1, Math.max(-1, (x * sx + z * sz) / Math.max(r, 1e-6))));
+      const open = Math.exp(-((off / 0.32) ** 2)) * Math.min(1, Math.max(0, (r - 12) / 18));
+      const great =
+        swellAt(greatS, crest) * Math.min(1, Math.max(0, (r - 35) / 45)) ** 1.5 * swell * 2.6 * (1 - 0.92 * open);
+      const field = swell * (h / most) * (1 + r / 140) * rim * (1 - 0.55 * open) - swell * 0.78 + great * rim;
       const smooth = blend * blend * (3 - 2 * blend);
       return ridge + (field - ridge) * smooth;
     },

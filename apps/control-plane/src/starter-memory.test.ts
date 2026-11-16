@@ -161,6 +161,21 @@ describe('open land: long swells of ground round the person', () => {
     assert.ok(highest > 4, `great dunes far off stand well over the eye (1.62 m): ${highest}`);
   });
 
+  test('toward the sun the skyline stays under its disc, so the sun sets over open land, never behind a dune', () => {
+    // The sun's disc stands 0.1 rad up (places.ts) with a 0.04 rad radius: the land under it keeps below 0.05 rad.
+    for (const sun of [0.8, -0.4, 2]) {
+      const land = landShape({ crest: 1, sun });
+      let skyline = -1;
+      for (let a = sun - 0.06; a <= sun + 0.06; a += 0.01) {
+        for (let r = 15; r <= 115; r += 0.5) {
+          const h = land.height(Math.sin(a) * r, -Math.cos(a) * r);
+          skyline = Math.max(skyline, Math.atan2(h - 1.62, r));
+        }
+      }
+      assert.ok(skyline < 0.05, `sun ${sun}: the land under the sun rises to ${skyline} rad`);
+    }
+  });
+
   test('a dune rises slowly into the wind and falls steeply after its crest; a soft hill does neither', () => {
     // Steepness from the trough up to the crest (at phase 0.78), against from the crest down to the next trough.
     const rise = (crest: number) => (swellAt(0.78, crest) - swellAt(0, crest)) / 0.78;
