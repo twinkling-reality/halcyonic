@@ -941,12 +941,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         // The confirmation reads exactly the words that will be sent: as the label parses them, each backslash once (AUDIT, 2026-11-10).
                         bar.Body.ForceMeshUpdate(true);
                         var read = bar.Body.GetParsedText();
-                        var whole = state is "31-bar-confirm" or "31-bar-confirm-escapes";
+                        var readWhole = state is "31-bar-confirm" or "31-bar-confirm-escapes";
                         if (state.EndsWith("-escapes", StringComparison.Ordinal))
                             Require(read.Contains("\\") && !read.Contains("\\\\"), "the panel reads \"" + read + "\", its backslashes not as written");
-                        Require(whole ? read == armedWords : read.Length > 0 && armedWords.StartsWith(read.TrimEnd(), StringComparison.Ordinal),
+                        Require(readWhole ? read == armedWords : read.Length > 0 && armedWords.StartsWith(read.TrimEnd(), StringComparison.Ordinal),
                             "the panel reads \"" + read + "\", not the armed words \"" + armedWords + "\"");
-                        Require(bar.Body.textInfo.lineCount <= RoomBar.RequestLines && (whole || bar.Body.textInfo.lineCount == RoomBar.RequestLines),
+                        Require(bar.Body.textInfo.lineCount <= RoomBar.RequestLines && (readWhole || bar.Body.textInfo.lineCount == RoomBar.RequestLines),
                             "the instruction's part stands " + bar.Body.textInfo.lineCount + " lines, not the panel's eight at most");
                     }
                     Require(bar.Request.gameObject.activeSelf == shown.Mono, shown.Mono ? "the request does not stand in mono" : "mono stands where no request is");

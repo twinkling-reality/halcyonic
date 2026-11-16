@@ -456,9 +456,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var step in card.Steps)
                     {
                         var node = view.Plates.FirstOrDefault(each => each.What == "step " + step.Name).Plate;
-                        var name = view.Shown.FirstOrDefault(label => label.gameObject.activeInHierarchy && label.GetParsedText().Trim() == step.Name);
-                        if (node == null || name == null) { Require(false, "step " + step.Name + " has no node or no name"); continue; }
-                        var gap = (node.transform.localPosition.y - node.Size.y / 2f - name.transform.localPosition.y) / unit;
+                        var stepName = view.Shown.FirstOrDefault(label => label.gameObject.activeInHierarchy && label.GetParsedText().Trim() == step.Name);
+                        if (node == null || stepName == null) { Require(false, "step " + step.Name + " has no node or no name"); continue; }
+                        var gap = (node.transform.localPosition.y - node.Size.y / 2f - stepName.transform.localPosition.y) / unit;
                         Require(Mathf.Abs(gap - RoomCardView.StepNameTightDp * GlazeText.Scale) < 0.5f, "step " + step.Name + "'s name stands " + gap.ToString("0.0") + " dp under its node, not "
                             + (RoomCardView.StepNameTightDp * GlazeText.Scale).ToString("0.0"));
                     }
