@@ -42,8 +42,10 @@ const SOURCES: readonly string[] = [
   'apps/control-plane/src/workspace-agent/requests.ts',
   'apps/xr/Android/glance/src/com/halcyonic/glance/GlanceActivity.java',
   'apps/xr/Android/panel/src/com/halcyonic/panel/AgentPanelActivity.java',
+  'apps/xr/Assets/Halcyonic/UI.Interaction/WorkspaceChromeView.cs',
   'apps/xr/Assets/Plugins/Android/AndroidManifest.xml',
   'apps/xr/ProjectSettings/ProjectSettings.asset',
+  'apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs',
   'packages/domain/src/admission.ts',
   'packages/domain/src/policy.ts',
   'packages/integrations/claude-code/src/claude-agent-runtime.ts',
@@ -75,6 +77,8 @@ const NOT_SHOWN: readonly RegExp[] = [
   /"; Halcyonic.s confinement/g, // a comment inside the sandbox profile
   /TAG = "Halcyonic"/g, // the headset glance's log tag
   /companyName: Halcyonic/g, // Unity's company name: the Editor's data folder, never shown on the Quest (productName is)
+  /\bHalcyonic(?=\.\w)/g, // C# namespaces (Halcyonic.Client, Halcyonic.XR.UI)
+  /new GameObject\("Halcyonic [^"]*"\)/g, // scene object names, seen only in the Editor's hierarchy
 ];
 
 /** The lines of `text` that show the old name: none of a comment, after what names the code is dropped. */
@@ -96,6 +100,7 @@ describe("the product's shown name", () => {
       [1],
     );
     assert.deepEqual(shownOldName("`Halcyonic's own data`"), [1]);
+    assert.deepEqual(shownOldName('public const string Product = "Halcyonic";'), [1]);
     for (const line of [
       "import { x } from '@halcyonic/contracts';",
       'const dir = env.HALCYONIC_DATA_DIR ?? `${home}/.halcyonic`;',
@@ -103,6 +108,8 @@ describe("the product's shown name", () => {
       "'Halora was not started from the file Start Halora.command, so it cannot start itself again.'",
       '// Halcyonic keeps this in its own folder.',
       "const path = 'apps/xr/Assets/Halcyonic/Resources/run.json';",
+      'namespace Halcyonic.XR.UI',
+      'var go = new GameObject("Halcyonic workspace frame");',
     ])
       assert.deepEqual(shownOldName(line), [], line);
   });

@@ -71,7 +71,7 @@ namespace Halcyonic.Client
     /// </summary>
     public static class WorkspaceText
     {
-        public const string Product = "Halcyonic";
+        public const string Product = "Halora";
         public const string WhatHappened = "What Happened";
         public const string OtherApps = "Other Apps";
         public const string Minimize = "Minimize";

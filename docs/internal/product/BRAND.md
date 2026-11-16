@@ -13,8 +13,8 @@ dawn. Code, packages, folders and the repository keep the working name `halcyoni
 
 - Written "Halora": capital H, the rest lower case. Never "HALORA", never "Halora VR".
 - In this checkout the setup page and `Start Halora.command` say Halora; the other Mac pages are
-  titled by what they do. The headset app's product name is still `Halcyonic` (`apps/xr/ProjectSettings/ProjectSettings.asset`,
-  `productName`).
+  titled by what they do. The headset app's product name (`apps/xr/ProjectSettings/ProjectSettings.asset`, `productName`),
+  its panel's label and the workspace's own title (`WorkspaceText.Product`) say Halora too.
 
 ## The story
 

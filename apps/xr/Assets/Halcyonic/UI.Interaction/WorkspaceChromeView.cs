@@ -59,7 +59,7 @@ namespace Halcyonic.XR.UI
             view.identityShoulder = Surface.Create(go.transform, "Work identity shoulder", 19);
             view.heading = Surface.Create(go.transform, "Header", 19);
             view.rule = Surface.Create(go.transform, "Header rule", 20);
-            view.product = GlazeText.Create(go.transform, "Halcyonic", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, 23, strong: true);
+            view.product = GlazeText.Create(go.transform, WorkspaceText.Product, GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, 23, strong: true);
             view.connection = GlazeText.Create(go.transform, "Connection state", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Right, 23);
             view.context = GlazeText.Create(go.transform, "Project and task", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Left, 23);
             view.status = StateBadgeView.Create(go.transform, "Selected task state", 22, pill: true);

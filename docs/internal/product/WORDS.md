@@ -91,7 +91,7 @@ can do next.
 6. **Use familiar names for the work and its actor.** Projects, Tasks, Approvals, Activity, Changes,
    Tests and Send Instruction say what the person can do. Agent and assistant are ordinary nouns;
    avoid forced pronouns and invented circumlocutions. Your computer identifies the connected host.
-   Halcyonic identifies this workspace. Brands supplied as data remain outside text.
+   Halora identifies this workspace. Brands supplied as data remain outside text.
 7. **No blame, and a next step.** Every refusal ends with what to do: "Start Failed · No Folder ·
    Choose Folder".
 8. **The agent's words are its own**, marked as theirs and never restated as fact: tagged by their
