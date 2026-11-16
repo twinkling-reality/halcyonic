@@ -605,15 +605,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     connected = true; session.State.Projects[work.Workstream.ProjectId].Name = originalName;
                     director.Navigator.Renew(); Draw();
                     (CharacterView View, CharacterTarget Target)? character = null;
-                    if (GlazeText.Scale > 1f)
+                    // Beside the Larger workspace production's own placement may refuse every supported one-agent shelf (field or console
+                    // clearance): then assert that refusal, never stage a fallback, and continue the routes without one. Since the envelope
+                    // measures a name at two lines (the filmed tags' height), Larger admits one, and its character is staged and checked as
+                    // at Standard.
+                    var largerRefused = false;
+                    if (GlazeText.Scale > 1f && SupportedShelf(director.Plane, eyes, "spatial character context") is var search && !search.Accepted.HasValue)
                     {
-                        // Beside the Larger workspace, production's own placement refuses every
-                        // supported one-agent shelf (field or console clearance). Assert that
-                        // refusal, never stage a fallback, and continue the routes without one.
-                        var search = SupportedShelf(director.Plane, eyes, "spatial character context");
-                        if (search.Accepted.HasValue)
-                            failures.Add("spatial: Larger now admits a supported one-agent shelf; stage its character here and restore the character checks");
-                        else if (search.FieldRefusals + search.WorkspaceRefusals == 0 || search.AdditionalRefusals != 0)
+                        largerRefused = true;
+                        if (search.FieldRefusals + search.WorkspaceRefusals == 0 || search.AdditionalRefusals != 0)
                             failures.Add("spatial: Larger shelf refusal did not come from the actual field and console predicates");
                         else
                         {
@@ -624,7 +624,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             Debug.LogWarning("Halcyonic: PRODUCT GAP, not a pass: " + gap + ".");
                         }
                     }
-                    else
+                    if (!largerRefused)
                     {
                         var shown = ConfirmedDirectorAgent(root.transform, director, eyes, work.Present().Character, failures, "spatial character context");
                         targets.Add(shown.Target); characters.Add(shown); presentation.SetAgentsEnabled(true);
