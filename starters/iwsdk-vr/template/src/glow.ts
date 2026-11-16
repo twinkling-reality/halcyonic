@@ -1126,8 +1126,8 @@ const AROUND = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0')
 /**
  * Makes a hall of light round the person that answers a score (`playScore`) and builds with it: `columns` columns of
  * light stand round the person about `radius` metres out, each at its own distance and width, rising from the floor and
- * leaning in to meet in a warm crown of light 1.1 times `height` up, in front of the person about 55 degrees above
- * their eye, where a head tilted back finds it, each faintly its own colour (deep blue ahead, sea blue and violet
+ * leaning in to meet in a warm crown of light just beyond the ring in front of the person, about 24 degrees above
+ * their eye, so the keys and the crown are seen together with the head level, each faintly its own colour (deep blue ahead, sea blue and violet
  * beside, rose behind). Each note's light falls down one column, climbs back up it, and climbs, fainter, the column
  * facing it too (each octave runs once round the ring, C ahead and rising to the right, so a scale stands on every side
  * and a run circles the person); when it reaches the top, it lights a point of a slowly turning galaxy overhead, which
@@ -1167,10 +1167,10 @@ export function lightHall(
     const h = Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453;
     return h - Math.floor(h);
   };
-  // Where the columns meet: a crown of light high in front of the person, about 55 degrees up, where a head tilted
-  // back finds it, so looking up they all run together into it.
-  const apex = height * 1.1;
-  const crownZ = -(apex - 1.6) / Math.tan((55 * Math.PI) / 180);
+  // Where the columns meet: a crown of light in front of the person, just beyond the ring, about 24 degrees up, so the
+  // head level holds the keys and the crown in one view and the bloom is seen to open from the music.
+  const crownZ = -radius * 1.25;
+  const apex = 1.6 - crownZ * Math.tan((24 * Math.PI) / 180);
   // A point at height h on a column's line from its foot at (x, z) to the crown.
   const lineX = (x: number, h: number) => x * (1 - h / apex);
   const lineZ = (z: number, h: number) => z + (crownZ - z) * (h / apex);

@@ -1359,7 +1359,7 @@ describe('a whole small piano of light in AGENTS.md, to start a piece of music a
     assert.match(example, /ambientMotion\(around\.move\);/);
     assert.match(
       example,
-      /fallingNotes\(player, keys, \{ from: 'around', echo: false, floor: -1\.0 \}\)/,
+      /fallingNotes\(player, keys, \{ from: 'around', echo: false, floor: -1\.15 \}\)/,
     );
     // The floor it stands on is polished: light under it is seen in it.
     assert.match(

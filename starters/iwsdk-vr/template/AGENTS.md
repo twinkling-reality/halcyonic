@@ -226,8 +226,8 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   it, not the keys themselves; give `fallingNotes` `{ floor }`, the floor's height in the keys' group's own frame, and
   each note's light pools on the floor under its key and runs out across it as a ring. `lightHall(player)` makes the
   hall itself answer, all round the person: soft columns of light stand round the person, each at its own distance and
-  width, leaning in to meet in a warm crown of light high in front of them, about 55 degrees up, where a look up finds
-  it (a fainter, upright ring beyond, and light drifting near the person), two bands of warm amber light circling round
+  width, leaning in to meet in a warm crown of light in front of them, about 24 degrees up, in view with the head
+  level (a fainter, upright ring beyond, and light drifting near the person), two bands of warm amber light circling round
   them, each note's light falls down one and climbs back up it (each octave runs once round the person, C ahead and
   rising to the right, so a chord spreads round them and a run circles them) with sparks and a ring at its foot, a low
   note sends a ring of light out across the floor that lights each column as it passes, and each note lights a point of
@@ -456,15 +456,16 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   const programme = join([pieces.prelude, pieces.gymnopedie], 4);
   const player = playScore(programme, ambientMotion, { loop: true, gap: 4, lead: 1.5 });
   const [low, high] = range([programme]);
-  // 1.1 m away and 1.0 m up: the keys and the notes falling onto them sit together in view with the head level.
+  // 1.1 m away and 1.15 m up: the keys, the notes falling onto them and the hall's crown ahead all sit in one view
+  // with the head level.
   const keys = lightKeys(low - 1, high + 1, { arc: 1.1, keyWidth: 0.055, glass: true });
   const keyboard = new Group();
-  keyboard.position.set(0, 1.0, 0);
+  keyboard.position.set(0, 1.15, 0);
   keyboard.add(keys.group);
   root.add(keyboard);
   // The hall answers each note all round (below), so the far haze need not.
-  // The floor is 1.0 m under the keys: each landing pools there and runs out across it as a ring of light.
-  ambientMotion(fallingNotes(player, keys, { from: 'around', echo: false, floor: -1.0 }).move);
+  // The floor is 1.15 m under the keys: each landing pools there and runs out across it as a ring of light.
+  ambientMotion(fallingNotes(player, keys, { from: 'around', echo: false, floor: -1.15 }).move);
   // The hall all round answers each note and builds with the music to a bloom 20 seconds in.
   const around = lightHall(player);
   root.add(around.group);
