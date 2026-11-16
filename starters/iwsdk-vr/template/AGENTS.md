@@ -140,7 +140,7 @@ An app's use, not a game (a guide, a log, a list, a form, a tool):
   kit's words stand at least 10 pixels high there. `setupScene` puts the laptop camera a step behind where the person
   stands, looking down at the pages and the rows under them, so pages at 1.6 m read on both. On a laptop the view
   drifts gently a few degrees round and back over its first four seconds; a drag, key or press before then stops it
-  where it is. In a headset it never moves.
+  where it is. An app that places its own camera keeps it: the drift stands down. In a headset it never moves.
   Measure each line with `measureText` and start the next thing after it, so a title never runs into the words beside
   or below it. The welcome card keeps its own sizes.
 - What this version does not carry yet goes in one plain line that stays in the scene beside the use (the welcome
