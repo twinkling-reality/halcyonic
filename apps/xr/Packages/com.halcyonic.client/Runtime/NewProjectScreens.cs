@@ -759,7 +759,7 @@ namespace Halcyonic.Client
                 // A model to choose that is not chosen yet still says so: the start waits on it.
                 if (!runtime.Synthetic && runtime.ModelChoice == ModelChoice.Listed && draft.Model == null)
                     slots.Add(new RoomSlot(RoomKind.Agent, LineWords.Ours("Not Chosen")));
-                // The level, or Plan First where the start plans (SCREENS's PlanStart).
+                // The level, or Show Plan First where the start plans (SCREENS's PlanStart).
                 if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(PlanStart.LevelWords(draft))));
             }
             // The first task under the name, unless it is the name word for word: the card says it once (FIELD's trace, 2026-11-16).
@@ -812,7 +812,7 @@ namespace Halcyonic.Client
                     answerMark: AnswerMark.Single));
                 if (offering.OffersNeverAsk == true)
                     lines.Add(new PageLine(AgentColumn.NeverAskWords, action: ChooseLevel, key: AgentColumn.Never, choice: true, chosen: draft.StartsNeverAsk, answerMark: AnswerMark.Single));
-                // SCREENS's Plan First, where the runtime offers a plan.
+                // SCREENS's Show Plan First, where the runtime offers a plan.
                 if (PlanStart.Offered(offering))
                     lines.Add(new PageLine(PlanStart.PlanFirst, action: ChooseLevel, key: PlanStart.Key, choice: true, chosen: draft.StartsPlan, answerMark: AnswerMark.Single));
             }

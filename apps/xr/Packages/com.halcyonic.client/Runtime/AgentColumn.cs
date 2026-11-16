@@ -108,7 +108,7 @@ namespace Halcyonic.Client
     /// <summary>
     /// The agent and its level (the redesign's addendum A1, the owner's ask of 2026-11-10): one page whose subject is the
     /// agent's name alone, its first line what the name is (a model or an agent app, a fact apart, never joined to the
-    /// name on a dot: the addendum's A17), and whose next lines are the two levels as answers, Ask First and Never Ask, and
+    /// name on a dot: the addendum's A17), and whose next lines are the two levels as answers, Ask Me First and Don't Ask Me, and
     /// Change, which turns the page to every agent and model that could run instead. A pick is handed to its owner at
     /// once and the page closes: the action at rest then reads the new choice, which is the sign it took. The page keeps
     /// nothing itself but which of its two faces shows.
@@ -136,8 +136,8 @@ namespace Halcyonic.Client
         /// </summary>
         public const string RoleWords = "Agent";
 
-        public const string AskFirstWords = "Ask First";
-        public const string NeverAskWords = "Never Ask";
+        public const string AskFirstWords = "Ask Me First";
+        public const string NeverAskWords = "Don't Ask Me";
         public const string ChangeWords = "Change";
         public const string BackWords = "Back";
 

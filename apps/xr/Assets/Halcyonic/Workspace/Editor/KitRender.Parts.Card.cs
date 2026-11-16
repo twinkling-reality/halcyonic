@@ -159,7 +159,7 @@ namespace Halcyonic.XR.Workspace.Editor
             return state switch
             {
                 "47-card-recap" => new RoomCard(Theirs("Kite Run"), Theirs("Make a kite that follows my hand, and climbs when I raise it."), RoomCardHead.Project,
-                    slots: new[] { new RoomSlot(RoomKind.Starter, Ours("VR Game")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Never Ask")) }),
+                    slots: new[] { new RoomSlot(RoomKind.Starter, Ours("VR Game")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Don't Ask Me")) }),
                 "47-card-result" => new RoomCard(Theirs("Tail"), Theirs("I added a tail that streams behind the kite."), RoomCardHead.Picture,
                     slots: new[] { new RoomSlot(RoomKind.Passed, Ours("Passed")), new RoomSlot(RoomKind.ToAdd, Ours("4 Files")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")) }),
                 "47-card-changes" => new RoomCard(Ours("Changes"), Ours("What Tail did to the project"), list: tail),
@@ -218,7 +218,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-recap-starter" => new RoomCard(Theirs("Kite Run"), Theirs("Make a kite that follows my hand."), RoomCardHead.Project, slots: new[]
                 {
                     new RoomSlot(RoomKind.Folder, Theirs("kite-run")), new RoomSlot(RoomKind.Starter, Ours("VR Game")),
-                    new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Ask First")),
+                    new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Ask Me First")),
                 }),
                 // A value wider than the card, as a long web address to check: whole, wrapped in its own well, never cut.
                 "47-card-slot-long" => new RoomCard(Theirs("Kite Run"), status: new RoomCardStatus(RoomReview.CheckTitle, RoomReview.CheckAddressLine, RoomTone.Attention, RoomKind.Failed),

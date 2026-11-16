@@ -9,7 +9,7 @@ namespace Halcyonic.Client
         /// <summary>
         /// The action at rest that opens the agent and its level, and the plate that stands in its place while the agent
         /// works (the addendum's A1 and A17): the agent by its own name, and its level apart, as a chip after the name
-        /// ("Glimmer 30B", "Ask First"), never joined on a dot. The level is null where none is known (a run whose record
+        /// ("Glimmer 30B", "Ask Me First"), never joined on a dot. The level is null where none is known (a run whose record
         /// carries none); the name is null where there is no agent to name.
         /// </summary>
         public static (string? Name, string? Level) AgentWords(string? agent, bool? neverAsk)

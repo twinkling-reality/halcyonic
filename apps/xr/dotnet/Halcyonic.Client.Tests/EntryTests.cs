@@ -944,7 +944,7 @@ public class BuildSequenceTests
 
     /// <summary>
     /// AUDIT's MUSTs 3 and 4 and its SHOULD on b100 (2026-11-12): the review a person confirms from names the starter by its
-    /// own name and never as "VR Starter" for another; the level, Plan First included, stands in its own slot, never joined
+    /// own name and never as "VR Starter" for another; the level, Show Plan First included, stands in its own slot, never joined
     /// to the model on a dot; and a starter the computer no longer lists is still named, so nothing goes out unnamed.
     /// </summary>
     [Test]

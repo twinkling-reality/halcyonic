@@ -32,7 +32,7 @@ namespace Halcyonic.Client
         public RuntimeModel? Model { get; private set; }
 
         /// <summary>
-        /// Whether this start is to be never ask (ADR 0043): false, Ask First, unless the flow that shows the level before
+        /// Whether this start is to be never ask (ADR 0043): false, Ask Me First, unless the flow that shows the level before
         /// the start sets it (the review's Model row naming the level; AUDIT, 2026-11-11). The choice alone is not the level
         /// the start uses (<see cref="StartsNeverAsk"/>).
         /// </summary>
@@ -44,7 +44,7 @@ namespace Halcyonic.Client
         /// <summary>Whether this start is to be a plan (SCREENS's <see cref="PlanStart"/>): false unless the flow that shows the level sets it.</summary>
         public bool Plan { get; set; }
 
-        /// <summary>The start will be a plan: the person chose Plan First and the chosen runtime offers a plan. A plan always asks.</summary>
+        /// <summary>The start will be a plan: the person chose Show Plan First and the chosen runtime offers a plan. A plan always asks.</summary>
         public bool StartsPlan => Plan && PlanStart.Offered(Runtime);
 
         public string? ModelProblem { get; private set; }

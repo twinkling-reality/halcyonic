@@ -2730,7 +2730,7 @@ public class NewProjectFlowTests
     });
 
     /// <summary>
-    /// The lead's 2026-11-12T1158Z: with the computer's starters listed (as on a real plane), Start From and Plan First at
+    /// The lead's 2026-11-12T1158Z: with the computer's starters listed (as on a real plane), Start From and Show Plan First at
     /// their defaults leave the recap's one press as it is: Start Task sends at once.
     /// </summary>
     [Test]
@@ -3164,10 +3164,10 @@ public class NewProjectFlowTests
         return runtime;
     }
 
-    [TestCase(true, true, "Never Ask")]
-    [TestCase(false, true, "Ask First")]
-    [TestCase(true, false, "Ask First")]
-    [TestCase(true, null, "Ask First")]
+    [TestCase(true, true, "Don't Ask Me")]
+    [TestCase(false, true, "Ask Me First")]
+    [TestCase(true, false, "Ask Me First")]
+    [TestCase(true, null, "Ask Me First")]
     public void The_recaps_row_and_the_reviews_Model_row_name_the_level_the_start_will_use(bool chosen, bool? offered, string level)
     {
         var draft = new NewWorkDraft(Commands);
@@ -3202,8 +3202,8 @@ public class NewProjectFlowTests
     {
         var lines = new System.Collections.Generic.List<PageLine>
         {
-            new PageLine("Ask First", action: "choose-level", key: "ask", choice: true, chosen: true),
-            new PageLine("Never Ask", action: "choose-level", key: "never", choice: true),
+            new PageLine("Ask Me First", action: "choose-level", key: "ask", choice: true, chosen: true),
+            new PageLine("Don't Ask Me", action: "choose-level", key: "never", choice: true),
         };
         for (var index = 0; index < 6; index++) lines.Add(new PageLine("Thing " + index, action: "change-" + index, opens: true));
         var footer = new Footer(new Prompt("close", "Close", GlazeIcon.Close, PromptKind.Close), farRight: new Prompt(NewProjectScreens.BackToRecap, EntryText.Back, GlazeIcon.Back));
@@ -3246,10 +3246,10 @@ public class NewProjectFlowTests
     {
         var host = new Host { VoiceOffered = false };
         var flow = OnOffering(host);
-        Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Never Ask"), "the recap's row: " + string.Join(" | ", Words(flow)));
+        Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Don't Ask Me"), "the recap's row: " + string.Join(" | ", Words(flow)));
         Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review!.NeverAsk, Is.True, "the review is made at the level the recap named");
-        Assert.That(flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.Level).Value, Is.EqualTo("Never Ask"));
+        Assert.That(flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.Level).Value, Is.EqualTo("Don't Ask Me"));
         Assert.That(host.Sent, Is.Empty);
     });
 
@@ -3268,7 +3268,7 @@ public class NewProjectFlowTests
             Is.All.EqualTo(AnswerMark.Single), "the redesign draws them as answers with their marks");
         Press(flow, NewProjectScreens.ChooseLevel, AgentColumn.Ask);
         Assert.That(Actions(flow), Is.Empty, "kept at once: back on the facts");
-        Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Ask First"), "the recap's row reads the new level");
+        Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Ask Me First"), "the recap's row reads the new level");
         Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review!.NeverAsk, Is.False);
         // Starting over forgets the choice: the default stands again.
@@ -3284,7 +3284,7 @@ public class NewProjectFlowTests
     {
         var host = new Host { VoiceOffered = false };
         var flow = OnOffering(host, offers: null);
-        Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Ask First"));
+        Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Ask Me First"));
         Press(flow, NewProjectScreens.ChangeRecap, null);
         Assert.That(Actions(flow), Has.None.EqualTo(NewProjectScreens.ChooseLevel));
         Press(flow, NewProjectScreens.BackToRecap, null);
@@ -3308,7 +3308,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.Done, null);
         Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review!.NeverAsk, Is.False, "the older pages do not show the level as the default needs, so it asks");
-        Assert.That(flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.Level).Value, Is.EqualTo("Ask First"), "and the review says so");
+        Assert.That(flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.Level).Value, Is.EqualTo("Ask Me First"), "and the review says so");
     }
 
     [Test]
@@ -3440,7 +3440,7 @@ public class NewProjectFlowTests
         var full = new RoomCard(LineWords.Ours("Kite"), slots: new[]
         {
             new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")), new RoomSlot(RoomKind.App, LineWords.Ours("App")), new RoomSlot(RoomKind.Agent, LineWords.Ours("Model")),
-            new RoomSlot(RoomKind.Level, LineWords.Ours("Ask First")),
+            new RoomSlot(RoomKind.Level, LineWords.Ours("Ask Me First")),
         });
         Assert.That(StarterChoice.Shown(full, idea), Is.False, "picked, and not on the card: the review names it");
         var named = new RoomCard(LineWords.Ours("Kite"), slots: new[] { new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")), new RoomSlot(RoomKind.Starter, LineWords.Ours("A World of Your Own")) });
@@ -3474,14 +3474,14 @@ public class NewProjectFlowTests
         // Three facts leave room for the starter after the folder (FIELD's four slots, two by two).
         var three = new RoomCard(LineWords.Ours("Kite"), slots: new[]
         {
-            new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")), new RoomSlot(RoomKind.Agent, LineWords.Ours("Agent")), new RoomSlot(RoomKind.Level, LineWords.Ours("Ask First")),
+            new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")), new RoomSlot(RoomKind.Agent, LineWords.Ours("Agent")), new RoomSlot(RoomKind.Level, LineWords.Ours("Ask Me First")),
         });
         Assert.That(StarterChoice.WithStarter(three, ready[0]).Slots.Select(slot => slot.Kind),
             Is.EqualTo(new[] { RoomKind.Folder, RoomKind.Starter, RoomKind.Agent, RoomKind.Level }));
         // A full card keeps its facts: a fifth would push the level off, so the review alone names the starter.
         var full = new RoomCard(LineWords.Ours("Kite"), slots: new[]
         {
-            new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")), new RoomSlot(RoomKind.Agent, LineWords.Ours("Agent")), new RoomSlot(RoomKind.Level, LineWords.Ours("Ask First")),
+            new RoomSlot(RoomKind.Folder, LineWords.Ours("kite")), new RoomSlot(RoomKind.Agent, LineWords.Ours("Agent")), new RoomSlot(RoomKind.Level, LineWords.Ours("Ask Me First")),
             new RoomSlot(RoomKind.Task, LineWords.Ours("Kite")),
         });
         Assert.That(StarterChoice.WithStarter(full, ready[0]), Is.SameAs(full));
@@ -3490,8 +3490,8 @@ public class NewProjectFlowTests
     }
 
     /// <summary>
-    /// SCREENS's Plan First (VRIFY's planning, FIELD's words): where the runtime offers a plan, a third answer after Ask First
-    /// and Never Ask on the page of changes, kept at once; the recap's level slot and the review's Model row read it; the
+    /// SCREENS's Show Plan First (VRIFY's planning, FIELD's words): where the runtime offers a plan, a third answer after Ask Me First
+    /// and Don't Ask Me on the page of changes, kept at once; the recap's level slot and the review's Model row read it; the
     /// start asks for a plan and never for never ask. Where the runtime offers none, it is not drawn.
     /// </summary>
     [Test]
@@ -3522,7 +3522,7 @@ public class NewProjectFlowTests
         Assert.That((flow.Review!.Plan, flow.Review.NeverAsk), Is.EqualTo((true, false)), "a plan always asks");
         Assert.That(flow.Review.Items.Single(item => item.Kind == ReviewItemKind.Level).Value, Is.EqualTo(PlanStart.PlanFirst));
 
-        // Back to the page of changes: Never Ask undoes the plan.
+        // Back to the page of changes: Don't Ask Me undoes the plan.
         Press(flow, NewProjectScreens.Cancel, null);
         Press(flow, NewProjectScreens.ChangeRecap, null);
         Press(flow, NewProjectScreens.ChooseLevel, AgentColumn.Never);

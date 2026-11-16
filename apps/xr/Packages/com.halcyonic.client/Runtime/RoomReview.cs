@@ -257,7 +257,7 @@ namespace Halcyonic.Client
             if (Value(ReviewItemKind.Folder) is LineWords folder) facts.Add(new ReviewFact(RoomKind.Folder, folder, mono: true, slot: true));
             if (model != null) facts.Add(new ReviewFact(RoomKind.Agent, model, mono: Value(ReviewItemKind.ModelId) != null, slot: true));
             else if (Value(ReviewItemKind.AgentApp) is LineWords agent) facts.Add(new ReviewFact(RoomKind.Agent, agent, slot: true));
-            // The level as the review recorded it, Plan First included (SCREENS's PlanStart; AUDIT's MUST 4: never on the model's row).
+            // The level as the review recorded it, Show Plan First included (SCREENS's PlanStart; AUDIT's MUST 4: never on the model's row).
             facts.Add(new ReviewFact(RoomKind.Level, LineWords.Ours(PlanStart.LevelWords(review.Plan, review.NeverAsk)), slot: true));
             if (Value(ReviewItemKind.TaskName) is LineWords name) facts.Add(new ReviewFact(RoomKind.Task, name));
             // What the new folder starts from, by its own name (SCREENS's Start From): nothing the start sends goes unshown.

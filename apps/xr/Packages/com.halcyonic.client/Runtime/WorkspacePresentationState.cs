@@ -104,7 +104,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Whether a task's next start is never ask by default (ADR 0043's amendment of 2026-11-10): only where the level is
-        /// shown before the start goes, which the redesign's row does at rest (AUDIT, 2026-11-11); Ask First anywhere else.
+        /// shown before the start goes, which the redesign's row does at rest (AUDIT, 2026-11-11); Ask Me First anywhere else.
         /// </summary>
         public Func<bool> NeverAskByDefault { get; set; } = () => RoomDesign.Enabled;
 

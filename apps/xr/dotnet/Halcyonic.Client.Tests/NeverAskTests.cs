@@ -88,7 +88,7 @@ public class NeverAskTests
         var shown = new WorkspacePresentationState { NeverAskByDefault = () => true };
         var changes = 0;
         shown.Changed += () => changes++;
-        Assert.That((shown.NeverAskFor("p1"), shown.NeverAskFor(null)), Is.EqualTo((true, false)), "never ask until the person chooses Ask First; no project, no choice");
+        Assert.That((shown.NeverAskFor("p1"), shown.NeverAskFor(null)), Is.EqualTo((true, false)), "never ask until the person chooses Ask Me First; no project, no choice");
         Assert.That(shown.ChooseNeverAsk("p1", true), Is.False, "choosing the default changes nothing");
         Assert.That(shown.ChooseNeverAsk("p1", false), Is.True);
         Assert.That(shown.ChooseNeverAsk("p1", false), Is.False, "the same choice again changes nothing");
@@ -99,7 +99,7 @@ public class NeverAskTests
         shown.ResetPendingCommands();
         Assert.That(shown.NeverAskFor("p1"), Is.False, "a reset of the session forgets no project's choice");
 
-        // The older kit names no level: there the default is Ask First, and only the person's own choice is never ask.
+        // The older kit names no level: there the default is Ask Me First, and only the person's own choice is never ask.
         var was = RoomDesign.Enabled;
         try
         {
@@ -133,7 +133,7 @@ public class NeverAskTests
 
         // The headset app starts again.
         var after = new WorkspacePresentationState { Preferences = device, NeverAskByDefault = () => true };
-        Assert.That((after.NeverAskFor("p1"), after.NeverAskFor("p2")), Is.EqualTo((false, true)), "Ask First kept; the other project still at the default");
+        Assert.That((after.NeverAskFor("p1"), after.NeverAskFor("p2")), Is.EqualTo((false, true)), "Ask Me First kept; the other project still at the default");
         Assert.That(after.UseProject("p1"), Is.True);
         Assert.That((after.SelectedRuntimeId, after.SelectedModelRef), Is.EqualTo(("codex", "gpt-5")));
         after.UseProject("p2");

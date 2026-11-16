@@ -44,10 +44,10 @@ public sealed class RoomAgentTests
         var frame = new Stand(Offer()).Column.Frame!;
         Assert.That(frame.Subject, Is.EqualTo("Glimmer 30B"), "the name alone, never joined to what it is on a dot");
         Assert.That((frame.Lines[0].Words, frame.Lines[0].Action), Is.EqualTo((AgentColumn.ModelWords, (string?)null)), "what the name is, a fact of its own");
-        Assert.That(Words(frame), Is.EqualTo(new[] { "Ask First", "Never Ask", "Change" }));
+        Assert.That(Words(frame), Is.EqualTo(new[] { "Ask Me First", "Don't Ask Me", "Change" }));
         Assert.That(Acting(frame).Select(line => line.Action), Is.EqualTo(new[] { AgentColumn.Level, AgentColumn.Level, AgentColumn.Change }));
         Assert.That(Acting(frame).Select(line => line.Key), Is.EqualTo(new[] { "ask", "never_ask", null }));
-        Assert.That(Acting(frame).Select(line => line.Chosen), Is.EqualTo(new[] { true, false, false }), "Ask First is the level in force");
+        Assert.That(Acting(frame).Select(line => line.Chosen), Is.EqualTo(new[] { true, false, false }), "Ask Me First is the level in force");
         Assert.That(Acting(frame).Take(2).All(line => line.AnswerMark == AnswerMark.Single), "the levels are answers, one of two");
         var back = frame.Footer[PromptSlot.Close]!;
         Assert.That((back.Words, back.Id, back.Kind), Is.EqualTo(("Back", Footer.Close, PromptKind.Close)));
@@ -77,7 +77,7 @@ public sealed class RoomAgentTests
     public void One_agent_alone_draws_no_Change_and_nothing_to_choose_draws_no_page()
     {
         var alone = new Stand(Offer(options: 1));
-        Assert.That(Words(alone.Column.Frame!), Is.EqualTo(new[] { "Ask First", "Never Ask" }));
+        Assert.That(Words(alone.Column.Frame!), Is.EqualTo(new[] { "Ask Me First", "Don't Ask Me" }));
         alone.Column.Act(AgentColumn.Change, null);
         Assert.That(alone.Changed, Is.EqualTo(0));
         Assert.That(Offer(offersNeverAsk: false, options: 1).Chooses, Is.False);
@@ -155,7 +155,7 @@ public sealed class RoomAgentTests
         stand.Column.Act(AgentColumn.Change, null);
         stand.Column.Act(Footer.Close, null);
         Assert.That((stand.Changed, stand.Closed), Is.EqualTo((2, 0)));
-        Assert.That(Words(stand.Column.Frame!), Is.EqualTo(new[] { "Ask First", "Never Ask", "Change" }));
+        Assert.That(Words(stand.Column.Frame!), Is.EqualTo(new[] { "Ask Me First", "Don't Ask Me", "Change" }));
         stand.Column.Act(Footer.Close, null);
         Assert.That(stand.Closed, Is.EqualTo(1));
     }
@@ -181,7 +181,7 @@ public sealed class RoomAgentTests
         Assert.That(bar.Card.AnyDot, Is.False);
         Assert.That(bar.Wide, Is.False, "the fact keeps the panel; the choices stand in the column");
         Assert.That(bar.Sentence, Is.Null);
-        Assert.That(bar.Column.Select(action => action.Words), Is.EqualTo(new[] { "Ask First", "Never Ask", "Change", "Back" }));
+        Assert.That(bar.Column.Select(action => action.Words), Is.EqualTo(new[] { "Ask Me First", "Don't Ask Me", "Change", "Back" }));
         Assert.That(bar.Column.Select(action => action.Mark), Is.EqualTo(new[] { AnswerMark.Single, AnswerMark.Single, AnswerMark.None, AnswerMark.None }));
         Assert.That(bar.Column.Select(action => action.Chosen), Is.EqualTo(new[] { false, true, false, false }));
         Assert.That(bar.Column.Any(action => action.Main), Is.False, "no action here is the one thing to do");
@@ -215,8 +215,8 @@ public sealed class RoomAgentTests
     [Test]
     public void The_action_at_rest_and_the_plate_at_work_name_the_agent_and_carry_its_level_apart()
     {
-        Assert.That(RoomBar.AgentWords("Glimmer 30B", false), Is.EqualTo(((string?)"Glimmer 30B", (string?)"Ask First")));
-        Assert.That(RoomBar.AgentWords("Glimmer 30B", true), Is.EqualTo(((string?)"Glimmer 30B", (string?)"Never Ask")));
+        Assert.That(RoomBar.AgentWords("Glimmer 30B", false), Is.EqualTo(((string?)"Glimmer 30B", (string?)"Ask Me First")));
+        Assert.That(RoomBar.AgentWords("Glimmer 30B", true), Is.EqualTo(((string?)"Glimmer 30B", (string?)"Don't Ask Me")));
         Assert.That(RoomBar.AgentWords("Glimmer 30B", null), Is.EqualTo(((string?)"Glimmer 30B", (string?)null)), "a run whose record carries no level names the agent alone");
         Assert.That(RoomBar.AgentWords(null, true), Is.EqualTo(((string?)null, (string?)null)));
         Assert.That(RoomBar.AgentWords("  ", false).Name, Is.Null);
@@ -285,8 +285,8 @@ public sealed class RoomAgentTests
             new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true, selectors: selectors)!;
     }
 
-    [TestCase(false, "Ask First")]
-    [TestCase(true, "Never Ask")]
+    [TestCase(false, "Ask Me First")]
+    [TestCase(true, "Don't Ask Me")]
     public void At_rest_the_row_gains_the_action_that_opens_the_agents_page_reading_the_level_the_next_start_carries(bool neverAsk, string level)
     {
         var plain = RoomBar.Of(AtRest(null), VoiceStage.Idle, sentAwaitingStart: false);
@@ -310,15 +310,15 @@ public sealed class RoomAgentTests
         Assert.That(changeable.Row.Count, Is.EqualTo(3));
         Assert.That((changeable.Row[2].Words, changeable.Row[2].Icon), Is.EqualTo((AgentColumn.RoleWords, (GlazeIcon?)GlazeIcon.CodeFile)), "the role, never the agent app's own name");
         var offersOnly = RoomBar.Of(AtRest(new KitSelectors(null, false, "Glimmer 30B", agentChangeable: false, offersNeverAsk: true, neverAsk: false)), VoiceStage.Idle, sentAwaitingStart: false);
-        Assert.That((offersOnly.Row[2].Words, offersOnly.Row[2].Chip), Is.EqualTo((AgentColumn.RoleWords, (string?)"Ask First")), "one agent, a level to choose");
+        Assert.That((offersOnly.Row[2].Words, offersOnly.Row[2].Chip), Is.EqualTo((AgentColumn.RoleWords, (string?)"Ask Me First")), "one agent, a level to choose");
         var nothing = RoomBar.Of(AtRest(new KitSelectors(null, false, "Glimmer 30B")), VoiceStage.Idle, sentAwaitingStart: false);
         Assert.That((nothing.Row.Count, nothing.FromMoment), Is.EqualTo((2, false)));
         var unnamed = RoomBar.Of(AtRest(new KitSelectors(null, false, null, agentChangeable: true, offersNeverAsk: true)), VoiceStage.Idle, sentAwaitingStart: false);
         Assert.That(unnamed.Row.Count, Is.EqualTo(2), "no agent to name: no action");
     }
 
-    [TestCase(ApprovalLevel.NeverAsk, "Never Ask")]
-    [TestCase(ApprovalLevel.Ask, "Ask First")]
+    [TestCase(ApprovalLevel.NeverAsk, "Don't Ask Me")]
+    [TestCase(ApprovalLevel.Ask, "Ask Me First")]
     public void While_the_agent_works_with_no_row_the_plate_reads_the_runs_own_level(ApprovalLevel recorded, string level)
     {
         // The choice for the next start says the other level: the plate reads the run's record.

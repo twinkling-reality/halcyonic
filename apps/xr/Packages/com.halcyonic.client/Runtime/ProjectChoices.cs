@@ -21,7 +21,7 @@ namespace Halcyonic.Client
         /// <summary>The model chosen, as the runtime's list names it, or null.</summary>
         public string? ModelRef { get; }
 
-        /// <summary>The level the person chose: true never ask, false Ask First, null where they chose none (the headset's default).</summary>
+        /// <summary>The level the person chose: true never ask, false Ask Me First, null where they chose none (the headset's default).</summary>
         public bool? NeverAsk { get; }
 
         public ProjectChoice WithLevel(bool neverAsk) => new ProjectChoice(RuntimeId, ModelRef, neverAsk);

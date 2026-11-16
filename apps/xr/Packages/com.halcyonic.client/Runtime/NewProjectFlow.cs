@@ -158,7 +158,7 @@ namespace Halcyonic.Client
         /// </summary>
         private bool? levelChosen;
 
-        /// <summary>SCREENS's Plan First chosen on the page of changes (<see cref="PlanStart"/>); forgotten with the level.</summary>
+        /// <summary>SCREENS's Show Plan First chosen on the page of changes (<see cref="PlanStart"/>); forgotten with the level.</summary>
         private bool planChosen;
 
         /// <summary>The review's parts were cut by the redesign's rows' own lines, not the older page's (AUDIT, 2026-11-10).</summary>
@@ -1863,7 +1863,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The draft with the level its start will ask for (ADR 0043's amendment): where the level is shown before the start,
-        /// which the redesign's recap and review do, never ask by default unless the person chose Ask First; elsewhere it asks.
+        /// which the redesign's recap and review do, never ask by default unless the person chose Ask Me First; elsewhere it asks.
         /// The runtime must offer it too (<see cref="NewWorkDraft.StartsNeverAsk"/>). Set only while the recap or the review
         /// is made, never between a review and its Confirm, which confirms the level the review was made with.
         /// </summary>

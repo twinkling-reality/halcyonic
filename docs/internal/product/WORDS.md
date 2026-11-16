@@ -40,7 +40,13 @@ a newcomer could not tell history of what). The computer's check rows are "Code 
 Shows" and "Has VR Mode" (Type Check, Build, Page Drawn and VR Offered until 2026-11-16; meanings unchanged: "Has VR
 Mode" says the page offers one, never that it was tried in a headset); a project's own check is "Own Checks". While
 the agent fixes a failed check by itself the card reads "Fixing" over "The agent tries again on its own.", the failed
-rows red under it, never the rows' names joined in a sentence.
+rows red under it, never the rows' names joined in a sentence. Check rows after the step a check stopped at read "Not Run", never an empty box
+(FIELD's RoomCardView.NotRun; AUDIT2's W5).
+
+How often the agent asks reads "Ask Me First", "Don't Ask Me" and "Show Plan First" (Ask First, Never Ask and Plan
+First until 2026-11-16, AUDIT2's words: what each does for the person, "Show Plan First" apart from asking). The kit
+picks the agent's glyph from its action, never from these words, so they can move (FIELD's 3a7b25527); the host's own
+labels for the same choice move with them (CORE).
 
 ## The worker by its role
 

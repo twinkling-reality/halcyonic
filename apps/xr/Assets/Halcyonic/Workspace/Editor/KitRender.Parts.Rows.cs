@@ -34,7 +34,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     return new List<RoomRow>
                     {
                         Fact("Project · ", "Kite Run"), Fact("First Task · ", "Make a kite that follows my hand and climbs when I raise it"), Fact("Folder · ", "kite-run"),
-                        Fact("Model · ", "Glimmer 30B · Ask First"),
+                        Fact("Model · ", "Glimmer 30B · Ask Me First"),
                     };
                 case "45-rows-steps":
                     return new List<RoomRow> { Ours("Create Project · Confirmed", RoomRowMark.Check), Ours("Create First Task · Confirmed", RoomRowMark.Check), Ours("Start Task · Sent · Awaiting Agent") };

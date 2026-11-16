@@ -923,7 +923,7 @@ public class NewProjectStartTests
         // No model chosen: Halcyonic's own fallback stands upright, so a name copying it, here the project's, leans; the level the
         // start will use follows, Halcyonic's own.
         Assert.That(review.Items.Single(item => item.Label == "Model · ").Runs.ToString(), Is.EqualTo("Model · App's Choice"));
-        Assert.That(review.Items.Single(item => item.Kind == ReviewItemKind.Level).Runs.ToString(), Is.EqualTo("Level · Ask First"), "the level its own row");
+        Assert.That(review.Items.Single(item => item.Kind == ReviewItemKind.Level).Runs.ToString(), Is.EqualTo("Level · Ask Me First"), "the level its own row");
         Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ProjectLabel).Runs.ToString(), Is.EqualTo("Project · [App's Choice]"));
         Assert.That(review.Items.Single(item => item.Label == "Agent App · ").Runs.Runs.Last().Theirs, Is.True, "the agent app's name leans");
         Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ModelIdLabel).Runs.ToString(), Is.EqualTo("Model ID · none"),
