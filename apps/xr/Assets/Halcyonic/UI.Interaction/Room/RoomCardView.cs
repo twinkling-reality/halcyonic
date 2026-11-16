@@ -1331,9 +1331,10 @@ namespace Halcyonic.XR.UI
                     : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines);
                 // The person's own words of any length, on a row that opens them whole: their lead, cut at a word.
                 if (row.Excerpt) nameTall = Excerpt(nameLabel, row.Name, nameWidth, nameLines, RowNameLineDp);
-                // A path of theirs that wraps breaks after its last slash, the folder over the file's name whole, never inside the name
-                // at a hyphen (AUDIT2's reader 4, F2: "assets/golden-" over "balloon.png"; AUDIT's long-path rule).
-                else if (row.Name.AllTheirs) nameTall = BreakAtFolder(nameLabel, nameWidth, nameLines, row.Mono || !plain ? RowNameLineDp : RowNoteLineDp, nameTall);
+                // A path of theirs that wraps breaks only after a slash or a dot, never inside a name (SCREENS's PathWrap; the lead's
+                // 06:09Z finish item: "welcome.uikitm" / "l"), a piece no line holds shrunk to the caption's size at most, then
+                // broken at its finer places (AUDIT's 06:15Z floor).
+                else if (row.Name.AllTheirs) nameTall = LayPath(nameLabel, row.Name, nameWidth, nameLines, row.Mono || !plain ? RowNameLineDp : RowNoteLineDp, nameTall);
                 // What the row belongs to, a quieter line under its name.
                 TextMeshPro? underLabel = null;
                 var underTall = 0f;
@@ -1557,31 +1558,48 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Where a path laid on two lines or more breaks anywhere but after its last slash, puts the break there: the folder on its
-        /// line or lines, the file's name whole under it, its outside words' places moved with the text. Only where that takes no
-        /// more lines than the words took; else they stand as laid. Returns their height.
+        /// Lays a path of theirs that does not fit one line by SCREENS's <see cref="PathWrap"/>: its lines break only after a slash
+        /// or a dot, never inside a name. A piece no line holds whole shrinks the words, a twentieth at a time, never below the
+        /// product's smallest reading size (a caption's em); where it still does not fit, it breaks at its finer places
+        /// (<see cref="PathWrap.FinerPieces"/>: after a hyphen or an underscore, or before a capital), never inside letters.
+        /// Where the shown text is not the path as written (an escaped character), the words stand as laid. Returns their height.
         /// </summary>
-        private float BreakAtFolder(TextMeshPro label, float width, int lines, float lineDp, float tall)
+        private float LayPath(TextMeshPro label, LineWords name, float width, int lines, float lineDp, float tall)
         {
             label.ForceMeshUpdate(true);
-            var info = label.textInfo;
-            var text = label.text;
-            var at = text.LastIndexOf('/');
-            if (info.lineCount < 2 || at < 1 || at >= text.Length - 1 || text[at + 1] == '\n') return tall;
-            var was = info.lineCount;
-            var runs = GlazeRuns.Of(label);
-            var before = runs.Theirs.ToList();
-            label.text = text.Substring(0, at + 1) + "\n" + text.Substring(at + 1);
-            runs.Lean(before.Select(run => run.Start > at ? (run.Start + 1, run.End + 1) : run.End > at ? (run.Start, run.End + 1) : run).ToList());
-            var laid = KitType.Lay(label, width, lines);
-            if (label.textInfo.lineCount > was || label.isTextOverflowing)
+            var text = name.Text;
+            bool Fits(string line) => label.GetPreferredValues(line).x <= width + 1e-4f;
+            // Only a path: no space in it, a slash or a dot to break after; a name in words (a task's title) wraps as words do.
+            if (text.IndexOf(' ') >= 0 || (text.IndexOf('/') < 0 && text.IndexOf('.') < 0)) return tall;
+            if (Fits(text) || label.text != text || text.IndexOf('\n') >= 0) return tall;
+            var laid = PathWrap.Lines(text, Fits);
+            var floor = GlazeTokens.FontSize(GlazeTokens.Units(Glaze.CaptionDegrees));
+            while (laid.Any(line => !Fits(line)) && label.fontSize > floor + 1e-4f)
             {
-                label.text = text;
-                runs.Lean(before);
-                KitType.Lay(label, width, lines);
-                return tall;
+                label.fontSize = Mathf.Max(floor, label.fontSize * 0.95f);
+                laid = PathWrap.Lines(text, Fits);
             }
-            return Mathf.Max(laid.Lines, 1) * S(lineDp);
+            if (laid.Any(line => !Fits(line)))
+            {
+                // At the floor and still too wide: the overflowing pieces at their finer breaks, laid greedily as PathWrap lays.
+                var pieces = PathWrap.Pieces(text).SelectMany(piece => Fits(piece) ? new[] { piece } : PathWrap.FinerPieces(piece)).ToList();
+                var finer = new List<string>();
+                var current = "";
+                foreach (var piece in pieces)
+                {
+                    if (current.Length > 0 && !Fits(current + piece)) { finer.Add(current); current = piece; }
+                    else current += piece;
+                }
+                if (current.Length > 0) finer.Add(current);
+                laid = finer;
+            }
+            var joined = string.Join("\n", laid);
+            var runs = GlazeRuns.Of(label);
+            label.text = joined;
+            // Every character stays theirs: the breaks are line ends between their pieces.
+            runs.Lean(new List<(int Start, int End)> { (0, joined.Length) });
+            var drawn = KitType.Lay(label, width, Mathf.Max(lines, laid.Count));
+            return Mathf.Max(drawn.Lines, 1) * S(lineDp);
         }
 
         /// <summary>Whether the label's last laid line holds a single word.</summary>

@@ -753,20 +753,25 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(shown.Card != null && !shown.Card.AnyDot && shown.Facts == null, "the page is not a card, or joins facts on a dot");
                         if (state is "38-changes" or "38-changes-long")
                             Require(shown.Card!.List.Count == (state == "38-changes-long" ? RoomCard.ListAPage : known.Changes.Count), "the Changes card lists " + shown.Card.List.Count + " files");
-                        // A wrapped path breaks after its last slash: its file's name starts a line, never broken at a hyphen inside it
-                        // (AUDIT2's reader 4, F2: "assets/golden-" over "balloon.png").
+                        // A wrapped path breaks only after a slash or a dot (or, a piece no line holds at the floor, at its finer
+                        // places), never inside a name (SCREENS's PathWrap; JUDGE's "welcome.uikitm" / "l"; AUDIT2's "assets/golden-").
                         if (state is "38-changes" or "38-changes-long")
                             foreach (var label in host.Bar.Card!.GetComponentsInChildren<TMPro.TextMeshPro>(false))
                             {
                                 label.ForceMeshUpdate(true);
                                 var info = label.textInfo;
                                 if (info.lineCount < 2 || !shown.Card.List.Any(row => row.Name.AllTheirs && row.Name.Text.Contains('/') && label.GetParsedText().Replace("\n", "") == row.Name.Text)) continue;
-                                var slash = -1;
-                                for (var each = 0; each < info.characterCount; each++) if (info.characterInfo[each].character == '/') slash = each;
-                                var next = slash + 1;
-                                while (next < info.characterCount && info.characterInfo[next].character == '\n') next++;
-                                Require(Enumerable.Range(0, info.lineCount).Any(line => info.lineInfo[line].firstCharacterIndex == next),
-                                    "the path \"" + label.GetParsedText().Replace("\n", "") + "\" wraps inside its file's name, not after its last slash");
+                                for (var line = 1; line < info.lineCount; line++)
+                                {
+                                    var first = info.lineInfo[line].firstCharacterIndex;
+                                    var before = first - 1;
+                                    while (before >= 0 && info.characterInfo[before].character == '\n') before--;
+                                    if (before < 0) continue;
+                                    var end = info.characterInfo[before].character;
+                                    var start = info.characterInfo[first].character;
+                                    var allowed = end == '/' || end == '.' || end == '-' || end == '_' || (char.IsLower(end) && char.IsUpper(start));
+                                    Require(allowed, "the path \"" + label.GetParsedText().Replace("\n", "") + "\" breaks inside a name, between '" + end + "' and '" + start + "'");
+                                }
                             }
                         if (state is "38-checks" or "38-checks-failed" or "38-checks-partly")
                             Require(shown.Card!.Steps.Count == known.Steps.Count && shown.Card.Steps.Count(step => step.Tone == RoomTone.Bad) == (state == "38-checks-failed" ? 1 : 0),
