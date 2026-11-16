@@ -1042,6 +1042,9 @@ export function fallingNotes(
   };
 }
 
+/** How many straight pieces draw each of the piano hall's ribs. */
+const RIB_PARTS = 14;
+
 /** The bloom's burst at each column: the height, how many sparks, their size, how far they rise, how long they live. */
 const BURST: readonly (readonly [number, number, number, number, number])[] = [
   [1.2, 16, 0.03, 1.6, 5],
@@ -1290,6 +1293,23 @@ export function lightHall(
   // A note's light climbing its column: a long soft glow, brightest at its head, its tail fading to nothing, so notes
   // following each other up a column run together as one light, never as stacked bars.
   const climbs = glows(200, { upright: true, halo: 0.18, round: 0.02, core: 0.6, whiten: 0.6, ramp: 0, fade: 0.12, mirror: polish });
+  // Ribs of light: from each column's foot a fine bright line arches up and in to the crown, so the hall has a shape,
+  // a vault over the person; each note lights its rib, and the bloom runs up all of them from the floor to the crown.
+  const ribs = glows(count * RIB_PARTS, { upright: true, halo: 0.06, round: 0.01, core: 0.7, whiten: 0.5 });
+  // A point `t` (0 at the foot, 1 at the crown) along rib `i`: rising steeply from the floor, bowing out a little, and
+  // curving in to the crown.
+  const ribAt = (i: number, t: number, into: [number, number, number]) => {
+    const home = homes[i] as (typeof homes)[number];
+    const u = 1 - t;
+    const cx = home.x * 1.08;
+    const cy = apex * 0.95;
+    const cz = home.z * 1.08 + (crownZ - home.z) * 0.15;
+    into[0] = u * u * home.x + 2 * u * t * cx + t * t * 0;
+    into[1] = 2 * u * t * cy + t * t * apex;
+    into[2] = u * u * home.z + 2 * u * t * cz + t * t * crownZ;
+  };
+  const ribFrom: [number, number, number] = [0, 0, 0];
+  const ribTo: [number, number, number] = [0, 0, 0];
   // A note's light falling down its column: brightest at its foot, which meets its own reflection where it lands.
   const falls = glows(48, { upright: true, halo: 0.18, round: 0.02, core: 0.6, whiten: 0.6, ramp: 0, mirror: polish });
   // The bloom's light overhead: one wide soft glow over the person, under the galaxy.
@@ -1309,7 +1329,7 @@ export function lightHall(
   const near = glows(nearby.length, { facing: true, halo: 0.03, round: 1, core: 0.8, whiten: 0.4 });
   // Sparks rising from a column's foot as each note starts up it.
   const embers = sparks(1400);
-  group.add(floor.object, pillars.object, climbs.object, falls.object, arms.object, points.object, crownLight.object, oculus.object, embers.object, near.object);
+  group.add(floor.object, pillars.object, ribs.object, climbs.object, falls.object, arms.object, points.object, crownLight.object, oculus.object, embers.object, near.object);
   const climb = 4;
   const top = height / climb;
   const shade = new Color();
@@ -1558,6 +1578,46 @@ export function lightHall(
         }
       }
       pillars.end();
+      // The ribs: faint while the hall builds, lit by their notes, and at the bloom lit from the floor up to the
+      // crown by a front that climbs them in about a second and a half, ahead first and round to behind.
+      ribs.begin();
+      for (let i = 0; i < count; i++) {
+        const home = homes[i] as (typeof homes)[number];
+        const notes = Math.min(1, lit[i] ?? 0);
+        const turn = since - 0.5 * (Math.min(home.a, Math.PI * 2 - home.a) / Math.PI);
+        const front = turn < 0 ? -1 : Math.min(1.2, turn / 1.5);
+        for (let k = 0; k < RIB_PARTS; k++) {
+          const t0 = k / RIB_PARTS;
+          const t1 = (k + 1) / RIB_PARTS;
+          ribAt(i, t0, ribFrom);
+          ribAt(i, t1, ribTo);
+          const dx = ribTo[0] - ribFrom[0];
+          const dy = ribTo[1] - ribFrom[1];
+          const dz = ribTo[2] - ribFrom[2];
+          const length = Math.hypot(dx, dy, dz);
+          const mid = (t0 + t1) / 2;
+          // The bloom's front: bright as it passes, then a steady glow behind it.
+          const passed = front >= mid ? 0.5 * bloom + 0.9 * Math.exp(-(((front - mid) / 0.12) ** 2)) * Math.min(1, bloom * 2) : 0;
+          const strength = held * (0.06 + 0.12 * built + 0.5 * notes) + passed;
+          if (strength <= 0.003) continue;
+          ribs.place(
+            (ribFrom[0] + ribTo[0]) / 2,
+            (ribFrom[1] + ribTo[1]) / 2,
+            (ribFrom[2] + ribTo[2]) / 2,
+            1,
+            0,
+            0,
+            dx / length,
+            dy / length,
+            dz / length,
+            0.03,
+            length * 1.04,
+            home.colour,
+            strength * home.bright,
+          );
+        }
+      }
+      ribs.end();
       climbs.end();
       falls.end();
       near.begin();
