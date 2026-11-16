@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { lstat, mkdir, readdir, realpath } from 'node:fs/promises';
+import { lstat, mkdir, readdir, realpath, rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type {
   ChangedFile,
@@ -150,7 +150,7 @@ export class TaskCopies {
       await removeInside(root, `${projectId}/${workstreamId}`);
       return copied;
     }
-    if (!(await this.#withoutCredentials(target))) {
+    if (!(await this.#withoutCredentials(target)) || !(await withoutHooks(target))) {
       await removeInside(root, `${projectId}/${workstreamId}`);
       return refuse('copy_failed', "The copy's git settings could not be made safe.");
     }
@@ -385,7 +385,10 @@ export class TaskCopies {
    *   proxy) loses its user part,
    *   where the URL form `scheme://user[:password]@host` keeps one; `user@host:path` names an
    *   ssh login and stays;
-   * - a `url.<base>` rewrite whose base or value carries a user part goes.
+   * - a `url.<base>` rewrite whose base or value carries a user part goes;
+   * - every `remote.<name>` section goes, and each branch's remote with it, so the copy names nowhere to push, and
+   *   an agent that sets a push address back finds no credential to push with (AUDIT3 S3, 2026-11-16);
+   * - `core.hooksPath` goes, so no hook of the person's folder elsewhere runs in the copy (S4).
    * True when there is nothing to do or it is done; false leaves the copy to be removed.
    */
   async #withoutCredentials(copy: string): Promise<boolean> {
@@ -411,7 +414,9 @@ export class TaskCopies {
     for (const { key, value } of entries) {
       const lower = key.toLowerCase();
       if (/^http\.(.*\.)?extraheader$/.test(lower)) unset.add(key);
-      else if (/^(credential|include|includeif)\./.test(lower)) unset.add(key);
+      else if (/^(credential|include|includeif|remote)\./.test(lower)) unset.add(key);
+      else if (/^branch\..*\.(remote|pushremote)$/.test(lower) || lower === 'core.hookspath')
+        unset.add(key);
       else if (/^url\..*\.(insteadof|pushinsteadof)$/.test(lower)) {
         const base = key.slice(4, key.lastIndexOf('.'));
         if (withoutUser(base) !== base || withoutUser(value) !== value) unset.add(key);
@@ -634,4 +639,23 @@ export function readingOf(
     files: listed,
     review: addReview(workstreamId, base, tree, listed),
   };
+}
+
+/**
+ * Removes the person's own git hooks from the copy (AUDIT3 S4, 2026-11-16): every entry of its `.git/hooks` but git's
+ * own `.sample` files, a link removed as a link, so no hook of theirs, such as one that pushes or deploys, runs for
+ * the agent's commits there. The person's folder keeps its hooks. True when there is nothing to do or it is done.
+ */
+async function withoutHooks(copy: string): Promise<boolean> {
+  const hooks = join(copy, '.git', 'hooks');
+  if ((await lstat(hooks).catch(() => null))?.isDirectory() !== true) return true;
+  try {
+    for (const name of await readdir(hooks)) {
+      if (name.endsWith('.sample')) continue;
+      await rm(join(hooks, name), { recursive: true, force: true });
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }

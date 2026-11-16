@@ -127,7 +127,7 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     assert.equal(existsSync(join(folder, 'b.txt')), false);
   });
 
-  test("a copy keeps no token of the person's in its git settings: addresses lose their user part, headers, helpers and includes go, in the copy only", async () => {
+  test("a copy keeps no token of the person's in its git settings: addresses lose their user part, remotes, headers, helpers and includes go, in the copy only", async () => {
     write('a.txt', 'one\n');
     const env = { PATH: '/usr/bin:/bin', HOME: root, GIT_CONFIG_NOSYSTEM: '1' };
     const git = (cwd: string, ...args: string[]) =>
@@ -169,24 +169,80 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     assert.ok(made.ok, made.ok ? '' : made.code);
     const copied = readFileSync(join(made.directory, '.git', 'config'), 'utf8');
     assert.doesNotMatch(copied, /token/);
-    assert.equal(
-      git(made.directory, 'config', 'remote.origin.url'),
-      'https://example.invalid/team/app.git',
-    );
-    assert.equal(
-      git(made.directory, 'config', 'remote.origin.pushurl'),
-      'https://example.invalid/team/app.git',
-    );
-    assert.equal(
-      git(made.directory, 'config', 'remote.ssh.url'),
-      'git@example.invalid:team/app.git',
-    );
+    // No remote is left to push to (AUDIT3 S3): neither its address nor a branch's link to it.
+    assert.equal(git(made.directory, 'remote'), '');
+    assert.doesNotMatch(copied, /\[remote|remote =/);
     assert.equal(git(made.directory, 'config', 'http.proxy'), 'http://proxy.invalid:3128');
     assert.doesNotMatch(copied, /extraheader|credential|include|helper/i);
     // What carries no token stays.
     assert.equal(git(made.directory, 'config', 'user.name'), 'Person');
     // The person's own repository is untouched.
     assert.match(readFileSync(join(folder, '.git', 'config'), 'utf8'), /secret-token/);
+  });
+
+  test("the person's own git hooks never run in a copy: its hooks go but git's samples, and core.hooksPath with them, in the copy only (AUDIT3 S4)", async () => {
+    write('a.txt', 'one\n');
+    const env = { PATH: '/usr/bin:/bin', HOME: root, GIT_CONFIG_NOSYSTEM: '1' };
+    const git = (cwd: string, ...args: string[]) =>
+      execFileSync(GIT, args, { cwd, env }).toString().trim();
+    git(folder, 'init', '-q');
+    git(folder, 'config', 'core.hooksPath', join(root, 'person-hooks'));
+    git(folder, 'config', 'branch.main.remote', 'origin');
+    git(folder, 'config', 'branch.main.pushRemote', 'origin');
+    const hooks = join(folder, '.git', 'hooks');
+    mkdirSync(hooks, { recursive: true });
+    writeFileSync(join(hooks, 'pre-push'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    writeFileSync(join(hooks, 'post-commit'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    mkdirSync(join(hooks, 'pre-commit.d'));
+    writeFileSync(join(root, 'elsewhere-hook'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    symlinkSync(join(root, 'elsewhere-hook'), join(hooks, 'commit-msg'));
+    writeFileSync(join(hooks, 'pre-push.sample'), '#!/bin/sh\n');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok, made.ok ? '' : made.code);
+    const { readdirSync } = await import('node:fs');
+    const left = readdirSync(join(made.directory, '.git', 'hooks'));
+    assert.ok(left.includes('pre-push.sample'));
+    assert.deepEqual(
+      left.filter((name) => !name.endsWith('.sample')),
+      [],
+    );
+    const copied = readFileSync(join(made.directory, '.git', 'config'), 'utf8');
+    assert.doesNotMatch(copied, /hookspath|remote/i);
+    // Only the copy changed: the person's hooks, their link's target and their settings stay.
+    assert.equal(existsSync(join(hooks, 'pre-push')), true);
+    assert.equal(existsSync(join(hooks, 'pre-commit.d')), true);
+    assert.equal(readlinkSync(join(hooks, 'commit-msg')), join(root, 'elsewhere-hook'));
+    assert.equal(existsSync(join(root, 'elsewhere-hook')), true);
+    assert.equal(git(folder, 'config', 'core.hooksPath'), join(root, 'person-hooks'));
+  });
+
+  test("a branch moved in the copy leaves the person's branches where they were (AUDIT3 W1)", async () => {
+    write('a.txt', 'one\n');
+    const env = {
+      PATH: '/usr/bin:/bin',
+      HOME: root,
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_AUTHOR_NAME: 'T',
+      GIT_AUTHOR_EMAIL: 't@example.invalid',
+      GIT_COMMITTER_NAME: 'T',
+      GIT_COMMITTER_EMAIL: 't@example.invalid',
+    };
+    const git = (cwd: string, ...args: string[]) =>
+      execFileSync(GIT, args, { cwd, env }).toString().trim();
+    git(folder, 'init', '-q', '-b', 'main');
+    git(folder, 'add', '.');
+    git(folder, 'commit', '-q', '-m', 'one');
+    const head = git(folder, 'rev-parse', 'main');
+    const made = await copies.prepare(PROJECT, TASK, folder);
+    assert.ok(made.ok, made.ok ? '' : made.code);
+    git(made.directory, 'commit', '-q', '--allow-empty', '-m', 'two');
+    const two = git(made.directory, 'rev-parse', 'HEAD');
+    git(made.directory, 'branch', '-f', 'other', two);
+    git(made.directory, 'update-ref', 'refs/heads/main', two);
+    git(made.directory, 'tag', 'made-in-copy');
+    assert.equal(git(folder, 'rev-parse', 'main'), head);
+    assert.equal(git(folder, 'branch', '--list', 'other'), '');
+    assert.equal(git(folder, 'tag', '--list'), '');
   });
 
   test('a folder whose .git is a file is refused: its copy would act on the repository it points to', async () => {
