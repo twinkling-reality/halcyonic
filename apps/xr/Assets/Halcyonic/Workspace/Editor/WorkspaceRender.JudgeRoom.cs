@@ -1887,6 +1887,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     var tagReach = GlazeChecks.Of("the name tag", eyes, nameTag.gameObject);
                     if (!tagReach.IsEmpty)
                     {
+                        // A character's own tag stands above it, clear of its body, never over its face (AUDIT 13:57Z: the plate covered the
+                        // top of the body and the eyes showed under the words, in every walk frame).
+                        var ownBody = BodyExtent(standing.View, eyes);
+                        if (!ownBody.IsEmpty && tagReach.Apart(ownBody) < 0f)
+                            yield return "the stage: " + tagReach + " stands over its own character's body " + ownBody + ", "
+                                + GlazeChecks.Degrees(-tagReach.Apart(ownBody)) + " degrees into it";
                         var under = drawn.Where(each => each.Top <= tagReach.Bottom + 1e-3f && each.Right > tagReach.Left && each.Left < tagReach.Right)
                             .OrderByDescending(each => each.Top).ToList();
                         Debug.Log("Halcyonic: the stage at " + moment + ": the name tag's foot stands at " + GlazeChecks.Degrees(tagReach.Bottom) + " up, "
