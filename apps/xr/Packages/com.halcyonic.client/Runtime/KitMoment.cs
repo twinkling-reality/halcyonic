@@ -427,7 +427,7 @@ namespace Halcyonic.Client
         public static string YourComputer => "Observed on " + ThisMac;
 
         /// <summary>The eyebrow of a question the agent asks: no app's name in our words, and that it is reported (WORDS.md, T2 and T7).</summary>
-        public const string AgentQuestion = "Reported Question";
+        public const string AgentQuestion = CharacterPresenter.AsksYouWords;
 
         public const string SentTitle = "Sent";
 

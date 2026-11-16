@@ -87,7 +87,7 @@ public class KitMomentTests
         Assert.That(KitMomentWords.Sandbox(KitSandbox.MayLeave), Is.EqualTo("This Mac"));
         Assert.That(KitMomentWords.Sandbox(KitSandbox.StaysInside), Is.EqualTo("Sandbox"));
         Assert.That(KitMomentWords.Sandbox(KitSandbox.NotDeclared), Is.Null);
-        Assert.That(leaves.Source, Is.EqualTo("Reported Question"), "no app's name in our words, and how it is known");
+        Assert.That(leaves.Source, Is.EqualTo("Agent's Question"), "no app's name in our words, and how it is known");
         Assert.That(leaves.Tone, Is.EqualTo(KitMomentTone.Attention));
         Assert.That(leaves.Headline.ToString(), Is.EqualTo("Run Command? · [npm install matter-js]"));
     }
