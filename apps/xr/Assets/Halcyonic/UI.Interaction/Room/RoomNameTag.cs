@@ -60,7 +60,8 @@ namespace Halcyonic.XR.UI
             view.Label.gameObject.SetActive(false);
             tag ??= RoomTag.Create(view.Labels);
             // Where the task needs the person the tag says so in words beside the name (ADR 0023; AUDIT, 2026-11-11).
-            tag.Show(LineWords.TheirName(view.Title), picked, needsYou: view.Presentation is CharacterPresentation shown && CharacterLabel.Of(shown).NeedsPerson);
+            tag.Show(LineWords.TheirName(view.Title), picked, needsYou: view.Presentation is CharacterPresentation shown && CharacterLabel.Of(shown).NeedsPerson,
+                mostWordsDp: RoomTag.NameWordsMostDp);
             tag.transform.localRotation = Quaternion.identity;
             tag.transform.localPosition = new Vector3(0f, -tag.Size.y / 2f - RoomType.Units(UnderDegrees * RoomGeometry.DpPerDegree), 0f);
         }

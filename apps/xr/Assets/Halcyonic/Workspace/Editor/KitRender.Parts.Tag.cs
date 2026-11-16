@@ -18,10 +18,51 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] TagStates = { "46-tag-plate", "46-tag-picked", "46-tag-needs-you" };
+        private static readonly string[] TagStates = { "46-tag-plate", "46-tag-picked", "46-tag-needs-you", "46-tag-long-name" };
+
+        /// <summary>JUDGE's live walk's long task title (08:57Z): its tag stood 27 degrees wide on one line.</summary>
+        private const string TagLongTitle = "A page that says hello and counts my visits";
+
+        /// <summary>
+        /// A task's name tag with a long title, as the shelf stands it (RoomNameTag): its words at most the tag's bound wide,
+        /// broken at words, the name whole on its lines (no ellipsis, nothing cut), two lines for this title, the plate as tall
+        /// as its lines.
+        /// </summary>
+        private static PartShot LongTagShot(Transform root, Vector3 eyes, string name)
+        {
+            var shot = new PartShot { Elevation = 0f };
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            var plane = new GameObject("Plane").transform;
+            plane.SetParent(root, false);
+            var tag = RoomTag.Create(plane);
+            tag.Show(LineWords.TheirName(TagLongTitle), mostWordsDp: RoomTag.NameWordsMostDp);
+            Place(plane, eyes, 0f, shot.Elevation);
+            var unit = RoomType.Units(1f);
+            tag.Words.ForceMeshUpdate(true);
+            var shown = string.Join(" ", tag.Words.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
+            Require(shown == TagLongTitle && !tag.Words.isTextTruncated && !shown.Contains(LineWords.Ellipsis), "the long name is not whole: \"" + shown + "\"");
+            Require(tag.Lines == 2 && tag.Words.textInfo.lineCount == 2, "the long name takes " + tag.Lines + " lines, not two");
+            var bound = RoomType.Scaled(RoomTag.NameWordsMostDp);
+            var wide = tag.Size.x - 2f * RoomType.Scaled(RoomTag.PadXDp);
+            Require(wide <= bound + unit * 0.05f, "the tag's words stand " + (wide / unit).ToString("0.0") + " dp wide, past the bound's " + (bound / unit).ToString("0"));
+            // Each line breaks at a word: no line ends or starts inside one.
+            var info = tag.Words.textInfo;
+            for (var line = 1; line < info.lineCount; line++)
+            {
+                var first = info.lineInfo[line].firstCharacterIndex;
+                Require(first > 0 && char.IsWhiteSpace(info.characterInfo[first - 1].character), "line " + line + " starts inside a word");
+            }
+            var pitch = KitType.LinePitch(tag.Words);
+            Require(tag.Size.y >= tag.Lines * pitch - unit * 0.05f, "the plate is " + (tag.Size.y / unit).ToString("0.0") + " dp tall for " + tag.Lines + " lines");
+            shot.Read = (camera, eye, white, dark, bright, failures) =>
+                Debug.Log("Halcyonic: parts: " + name + ": the long name on " + tag.Lines + " lines, " + (tag.Size.x / unit).ToString("0") + " by " + (tag.Size.y / unit).ToString("0") + " dp, "
+                    + SpatialKit.Degrees(tag.Size.x / unit).ToString("0.0") + " degrees at the plane's distance.");
+            return shot;
+        }
 
         private static PartShot TagShot(string state, Transform root, Vector3 eyes, string name)
         {
+            if (state == "46-tag-long-name") return LongTagShot(root, eyes, name);
             var shot = new PartShot { Elevation = 0f };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
             var picked = state == "46-tag-picked";

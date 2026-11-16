@@ -70,6 +70,16 @@ namespace Halcyonic.XR.UI
         public const int PlateGround = 0x101316;
         public const float PlateAlpha = 0.78f;
 
+        /// <summary>
+        /// The widest a name tag's words stand (the lead's 08:58Z, JUDGE's live walk: a long task's tag stood 27 degrees wide
+        /// and met the bar's halo): past it the name breaks at a word onto more lines, laid whole, never cut (AUDIT and
+        /// AUDIT2, 08:59Z: never an ellipsis on a task's name). Two lines hold a long title; a very long one takes a third.
+        /// </summary>
+        public const float NameWordsMostDp = 260f;
+
+        /// <summary>The lines the words took as last shown.</summary>
+        public int Lines { get; private set; } = 1;
+
         /// <summary>Whether the tag is the agent's plate: its glyph before the name, its quiet finish.</summary>
         public bool IsPlate { get; private set; }
 
@@ -124,7 +134,7 @@ namespace Halcyonic.XR.UI
         /// ring where <paramref name="picked"/>, and where <paramref name="needsYou"/> the chip "Needs You" after the name;
         /// otherwise <paramref name="chip"/>'s words, as the plate's level, in a quiet chip there, or none.
         /// </summary>
-        public void Show(LineWords said, bool picked = false, bool needsYou = false, string? chip = null, bool plate = false)
+        public void Show(LineWords said, bool picked = false, bool needsYou = false, string? chip = null, bool plate = false, float? mostWordsDp = null)
         {
             IsPlate = plate;
             gameObject.SetActive(true);
@@ -137,6 +147,17 @@ namespace Halcyonic.XR.UI
             words.ForceMeshUpdate(true);
             var wide = RoomCursor.WordsWidth(words, 0f);
             var line = RoomType.Scaled(RoomGeometry.LineDp);
+            Lines = 1;
+            if (mostWordsDp is float most && wide > RoomType.Scaled(most))
+            {
+                // Bounded: broken at a word onto as many lines as it needs, whole (no ellipsis: the overflow never cuts).
+                words.textWrappingMode = TextWrappingModes.Normal;
+                words.overflowMode = TextOverflowModes.Overflow;
+                var (lines, laidWide, tall) = KitType.Lay(words, RoomType.Scaled(most), 12);
+                Lines = lines;
+                wide = laidWide;
+                line = Mathf.Max(line, tall);
+            }
             var chipSize = Vector2.zero;
             NeedsYou = needsYou;
             var chipped = needsYou || !string.IsNullOrWhiteSpace(chip);
