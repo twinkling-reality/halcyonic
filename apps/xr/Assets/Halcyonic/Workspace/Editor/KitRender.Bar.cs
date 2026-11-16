@@ -761,6 +761,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     var firstTop = standing[0].transform.localPosition.y + standing[0].Size.y / 2f;
                     Require(Mathf.Abs(panelTop - firstTop) < RoomType.Units(1f), "the More page's title card stands "
                         + ((firstTop - panelTop) / RoomType.Units(1f)).ToString("0.0") + " dp under its first route's top");
+                    // The card hugs its words (AUDIT's 11:57Z: grown to the column it stood an empty slab): no run of empty height
+                    // over a line and a half under its last drawn word, beyond the panel's own padding.
+                    if (bar.Card != null && bar.Card.Shown.Count > 0)
+                    {
+                        var lowestWord = bar.Card.Shown.Min(label => bar.transform.InverseTransformPoint(label.bounds.min).y);
+                        var panelBottom = bar.Panel.transform.localPosition.y - bar.Panel.Size.y / 2f;
+                        var slack = lowestWord - panelBottom - RoomType.Scaled(RoomGeometry.PanelPadDp);
+                        Require(slack <= 1.5f * RoomType.Scaled(RoomGeometry.LineDp), "the More page's card stands "
+                            + (slack / RoomType.Units(1f)).ToString("0") + " dp empty under its words");
+                    }
                 }
                 Require(standing.Count == routes.Count + 1, "the More page stands " + standing.Count + " rows, not " + routes.Count + " routes and Back");
                 // Every route the file offers here, the long ones too, whole at both sizes (AUDIT's 10:53Z).
@@ -1231,7 +1241,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         var lastFoot = drawn[drawn.Count - 1].transform.localPosition.y - drawn[drawn.Count - 1].Core.y / 2f;
                         var panelFoot = panel.transform.localPosition.y - panel.Size.y / 2f;
-                        Require(Mathf.Abs(lastFoot - panelFoot) < 1e-3f, "the column's lowest action does not stand on the panel's foot line");
+                        if (bar.PanelHung)
+                        {
+                            // A page whose card is shorter than its column: the card hugs its words and hangs level with the first
+                            // action's top (AUDIT's 11:57Z), and the column's lowest action still stands on the foot line, under it.
+                            var firstTop = drawn[0].transform.localPosition.y + drawn[0].Size.y / 2f;
+                            var panelTop = panel.transform.localPosition.y + panel.Size.y / 2f;
+                            Require(shown.State == RoomBarState.Page && Mathf.Abs(firstTop - panelTop) < RoomType.Units(1f) && panelFoot >= lastFoot - 1e-3f,
+                                "the page's card does not hang level with its first action over the column's foot");
+                            Require(Mathf.Abs(lastFoot - bar.Foot) < 1e-3f, "the column's lowest action does not stand on the foot line");
+                        }
+                        else Require(Mathf.Abs(lastFoot - panelFoot) < 1e-3f, "the column's lowest action does not stand on the panel's foot line");
                         var lefts = drawn.Select(button => button.transform.localPosition.x - button.Core.x / 2f).ToList();
                         Require(lefts.Max() - lefts.Min() < Tolerance, "the column's actions are not left-aligned");
                     }
