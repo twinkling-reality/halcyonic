@@ -1,5 +1,6 @@
 #nullable enable
 using System.IO;
+using System.Linq;
 using System.Xml;
 using UnityEditor.Android;
 using UnityEngine;
@@ -45,20 +46,27 @@ namespace Halcyonic.XR.Editor
         private static void PreviewManifest(string path, bool include)
         {
             const string android = "http://schemas.android.com/apk/res/android";
-            const string name = "com.halcyonic.panel.PanelPreviewActivity";
+            // The synthetic preview, and its two fixed variants that open compact on one task, so an unworn headset with no
+            // input focus can be captured in that state (take 10's gate frames). Development builds only.
+            var names = new[]
+            {
+                "com.halcyonic.panel.PanelPreviewActivity",
+                "com.halcyonic.panel.PanelPreviewNeedsYouActivity",
+                "com.halcyonic.panel.PanelPreviewQuietActivity",
+            };
             var document = new XmlDocument(); document.Load(path);
             var application = (XmlElement?)document.DocumentElement!.SelectSingleNode("application")
                 ?? throw new InvalidDataException("The library manifest has no application.");
-            foreach (XmlNode node in application.SelectNodes("activity")!)
-                if (node is XmlElement activity && activity.GetAttribute("name", android) == name) application.RemoveChild(node);
-            if (include)
+            foreach (XmlNode node in application.SelectNodes("activity")!.Cast<XmlNode>().ToList())
+                if (node is XmlElement activity && System.Array.IndexOf(names, activity.GetAttribute("name", android)) >= 0) application.RemoveChild(node);
+            if (include) foreach (var name in names)
             {
                 var activity = document.CreateElement("activity");
                 activity.SetAttribute("name", android, name);
                 activity.SetAttribute("exported", android, "false");
                 activity.SetAttribute("excludeFromRecents", android, "true");
                 activity.SetAttribute("launchMode", android, "singleTask");
-                activity.SetAttribute("taskAffinity", android, "${applicationId}.panel.preview");
+                activity.SetAttribute("taskAffinity", android, "${applicationId}.panel." + name.Substring(name.LastIndexOf('.') + 1).ToLowerInvariant());
                 activity.SetAttribute("theme", android, "@android:style/Theme.DeviceDefault.NoActionBar");
                 activity.SetAttribute("resizeableActivity", android, "true");
                 var filter = document.CreateElement("intent-filter");

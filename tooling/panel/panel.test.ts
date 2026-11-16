@@ -64,7 +64,12 @@ const ANDROID_ONLY = [
   'PanelHud.java',
 ];
 const DEVELOPMENT = join(PANEL, 'development/com/halcyonic/panel');
-const DEVELOPMENT_ONLY = ['PanelCaptureDevelopment.java', 'PanelPreviewActivity.java'];
+const DEVELOPMENT_ONLY = [
+  'PanelCaptureDevelopment.java',
+  'PanelPreviewActivity.java',
+  'PanelPreviewNeedsYouActivity.java',
+  'PanelPreviewQuietActivity.java',
+];
 const classes = mkdtempSync(join(tmpdir(), 'halcyonic-panel-'));
 const fixtures = JSON.parse(
   readFileSync(join(ROOT, 'fixtures/workspace/continuation.json'), 'utf8'),
@@ -1127,11 +1132,22 @@ describe('production native agent panel', () => {
     const preview = readFileSync(join(DEVELOPMENT, 'PanelPreviewActivity.java'), 'utf8');
     assert.match(preview, /extends AgentPanelActivity/);
     assert.doesNotMatch(preview, /PanelFiles|PanelTransport|loadSaved|connection\(/);
+    // The two fixed variants that open compact on one synthetic task (take 10's gate frames): the same synthetic surface,
+    // a fixture task's title, nothing private, and development builds only.
+    for (const variant of ['PanelPreviewNeedsYouActivity.java', 'PanelPreviewQuietActivity.java']) {
+      const source = readFileSync(join(DEVELOPMENT, variant), 'utf8');
+      assert.match(source, /extends AgentPanelActivity/);
+      assert.match(source, /syntheticSurface\(\) \{ return true; \}/);
+      assert.match(source, /previewTask\(\) \{ return "[^"]+"; \}/);
+      assert.doesNotMatch(source, /PanelFiles|PanelTransport|loadSaved|connection\(|getIntent/);
+    }
     const packaging = readFileSync(
       join(ROOT, 'apps/xr/Assets/Halcyonic/Editor/PanelInBuilds.cs'),
       'utf8',
     );
     assert.match(packaging, /PreviewManifest[\s\S]*GlanceInDevelopmentBuilds.Include/);
+    assert.match(packaging, /PanelPreviewNeedsYouActivity/);
+    assert.match(packaging, /PanelPreviewQuietActivity/);
     assert.match(packaging, /SetAttribute\("exported", android, "false"\)/);
     assert.doesNotMatch(
       readFileSync(join(ROOT, 'apps/xr/Assets/Plugins/Android/AndroidManifest.xml'), 'utf8'),

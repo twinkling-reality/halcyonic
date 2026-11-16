@@ -85,6 +85,11 @@ public class AgentPanelActivity extends Activity {
 
     /** Only the internal development subclass has a never-private preview window. */
     protected boolean syntheticSurface() { return false; }
+    /**
+     * Only a development preview variant opens straight onto one synthetic task, compact, so an unworn headset with no
+     * input focus can be captured in that state (DEVICE, 23:54Z); never an extra on the real panel.
+     */
+    protected String previewTask() { return null; }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         compactPanel = state != null && state.getBoolean("halcyonic.panel.compact", false);
@@ -100,6 +105,15 @@ public class AgentPanelActivity extends Activity {
                 while ((count = source.read(buffer)) >= 0) { if (bytes.size() + count > 256 * 1024) throw new IOException(); bytes.write(buffer, 0, count); }
                 snapshot = new PanelModel(new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
                 for (Map<String, Object> run : snapshot.executions.values()) if (!PanelJson.bool(PanelJson.object(run.get("runtime")).get("synthetic"))) throw new IOException();
+                String opens = previewTask();
+                if (opens != null) {
+                    for (Map<String, Object> work : snapshot.workstreams.values()) if (opens.equals(PanelJson.text(work.get("title")))) {
+                        projectId = PanelJson.text(work.get("project_id")); workId = PanelJson.text(work.get("workstream_id"));
+                        Map<String, Object> run = snapshot.execution(workId); executionId = run == null ? null : PanelJson.text(run.get("execution_id"));
+                    }
+                    if (workId == null) throw new IOException();
+                    compactPanel = true; authority.compact(true);
+                }
                 shell(); connection.setText("Synthetic preview · no live work loaded, no requests sent."); show();
             } catch (Exception error) { finish(); }
             return;
@@ -787,7 +801,11 @@ public class AgentPanelActivity extends Activity {
         boolean hud = compactPanel && workId != null;
         brand.setVisibility(hud ? View.GONE : View.VISIBLE); navRow.setVisibility(hud ? View.GONE : View.VISIBLE);
         if (hud) presentationButton.setVisibility(View.GONE);
-        shellRoot.setBackgroundColor(hud ? PanelHud.FILL : Color.rgb(18, 24, 34));
+        // Compact is the card alone: the window around it clear, so the card stands at the show's edge rather than at the top of
+        // a dark slab (unverified on the headset whether Horizon OS composites a panel's clear pixels; if not they read black).
+        getWindow().setFormat(hud ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(hud ? Color.TRANSPARENT : Color.rgb(18, 24, 34)));
+        shellRoot.setBackgroundColor(hud ? Color.TRANSPARENT : Color.rgb(18, 24, 34));
         connection.setVisibility(!hud || snapshot == null || preview ? View.VISIBLE : View.GONE);
         if (snapshot == null) return;
         try {
