@@ -23,8 +23,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A part's pager as this design draws it: under the redesign the action alone ("Next Part", "First Part"), with nothing under
-        /// it, since a count there reads as where you are (AUDIT2, 2026-11-16T2147Z: never the next part's number; where you are is
-        /// the page's own line once XR's kit draws it, "Part 1 of 7"); the older view's whole words.
+        /// it, since a count there reads as where you are (AUDIT2, 2026-11-16T2147Z); where you are becomes the page's own line,
+        /// "Part 1 of 7", once XR's kit draws it. The older view keeps its whole words.
         /// </summary>
         public static string NextPartShown(int part, int parts) => !RoomDesign.Enabled ? NextPartWords(part, parts)
             : part + 1 < parts ? EntryText.NextPartLabel : "First Part";
