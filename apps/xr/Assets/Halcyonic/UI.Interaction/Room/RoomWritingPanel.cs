@@ -130,14 +130,17 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public static Func<WritingPanel, (string Title, string? Line)?> NotShownWords { get; set; } = NotShownOf;
 
+        /// <summary>A file the computer could not read: its title, Title Case beside the reading's own (AUDIT2's 08:16Z), no line under it.</summary>
+        public const string UnreadableWords = "Couldn't Be Read";
+
         public static (string Title, string? Line)? NotShownOf(WritingPanel panel) => panel.State switch
         {
             WritingState.Changing or WritingState.Settled => panel.Lines.Count == 0 ? (FileChangeText.Empty, null) : null,
             WritingState.KeptPrivate => (FileChangeText.KeptPrivate, FileChangeText.KeptPrivateLine),
             WritingState.NotText => (FileChangeText.NotText, null),
             WritingState.TooLarge => (FileChangeText.TooLarge, FileChangeText.TooLargeLine),
-            WritingState.Unreadable => (FileChangeText.UnknownLine, null),
-            _ => (FileChangeText.UnknownLine, null),
+            WritingState.Unreadable => (UnreadableWords, null),
+            _ => (UnreadableWords, null),
         };
 
         /// <summary>Lays <paramref name="panel"/>; a new file arrives, a newer read of the same file pours in its new rows. Returns the panel's size.</summary>

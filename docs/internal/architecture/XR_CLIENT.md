@@ -3296,8 +3296,8 @@ in order, as before.
   row's turn, and a changed run's tint and rule grow down with its rows' words, never standing before them. Under
   Still it cross-fades in over 200 ms where it stands and each read stands whole. A file whose text is not shown says why
   with no rows, in the Changes reading's own words (`RoomWritingPanel.NotShownOf`, `FileChangeText`): Kept Private and its
-  line, Not Text, Too Large to Show and its line, Empty File for a file with no lines, and the reading's unknown line for one
-  that could not be read. It takes no press. Checks:
+  line, Not Text, Too Large to Show and its line, Empty File for a file with no lines, and Couldn't Be Read
+  (`RoomWritingPanel.UnreadableWords`) for one that could not be read. It takes no press. Checks:
   `47-build-one`, `47-build-edited` (mid-pour, lit), `47-build-arriving` (mid-rise), `47-build-held` and `47-build-light`
   (the light frame by frame: 0.1 s and 0.7 s, drawn at 0.12 s), `47-build-light-after` (drawn at 0.8 s) in
   `KitRender.PartsCheck`. The arc (`RoomWritingArc`, one `WritingArc`) stands in two columns at the panel's width, 24 dp
