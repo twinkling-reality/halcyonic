@@ -43,9 +43,23 @@ namespace Halcyonic.XR.UI
         private int revealFrom;
         private float revealAt;
         private float revealRate = RowsASecond;
-        private readonly List<(TMP_Text Label, float Alpha, int Row)> words = new List<(TMP_Text, float, int)>();
-        private readonly List<(RoomShape Shape, Color Fill, Color Edge)> plates = new List<(RoomShape, Color, Color)>();
+        private readonly List<(TMP_Text Label, Color Own, int Row)> words = new List<(TMP_Text, Color, int)>();
+        private readonly List<(RoomShape Shape, Color Fill, Color Edge, bool Lit)> plates = new List<(RoomShape, Color, Color, bool)>();
+        private readonly List<(int Row, Vector2 Left, float Width)> lightRows = new List<(int, Vector2, float)>();
+        private readonly List<RoomShape> lights = new List<RoomShape>();
         private float platesAt = -1f;
+
+        /// <summary>
+        /// The light a read lands with (AUDIT's raised bar, the lead's 04:19Z): each new row runs in as a soft line of the one
+        /// accent, left to right in 180 ms under its words, fading over the 400 ms after, while its words arrive in the accent
+        /// and settle into their own colour over the same 400 ms; the rows a read changed glow as it lands, then settle to their
+        /// tint over 2 s. Kept still, there is none of it.
+        /// </summary>
+        public const float LightAcrossSeconds = 0.18f;
+        public const float LightFadeSeconds = 0.4f;
+        public const float LightPeak = 0.26f;
+        public const float LitGlowPeak = 0.34f;
+        public const float LitSettleSeconds = 2f;
         private float folded = 1f;
 
         /// <summary>How small a panel folds to as it reaches its row.</summary>
@@ -141,10 +155,26 @@ namespace Halcyonic.XR.UI
                 if (reading[row].Text is LineWords text && !text.IsEmpty && label < card.ReadingShown.Count) rowOf[card.ReadingShown[label++]] = row;
             words.Clear();
             foreach (var label in GetComponentsInChildren<TMP_Text>(false))
-                words.Add((label, label.alpha, rowOf.TryGetValue(label, out var row) ? row : -1));
+                words.Add((label, label.color, rowOf.TryGetValue(label, out var row) ? row : -1));
             plates.Clear();
-            foreach (var shape in card.GetComponentsInChildren<RoomShape>(false)) plates.Add((shape, shape.Fill, shape.Edge));
+            var litBands = new HashSet<RoomShape>(card.Plates.Where(each => each.What == "reading lit band").Select(each => each.Plate));
+            foreach (var shape in card.GetComponentsInChildren<RoomShape>(false))
+                if (!lights.Contains(shape)) plates.Add((shape, shape.Fill, shape.Edge, litBands.Contains(shape)));
             platesAt = -1f;
+            // Where each row this read pours stands, in the card's own space: the light runs under its words.
+            lightRows.Clear();
+            foreach (var (label, row) in rowOf)
+            {
+                if (row < revealFrom) continue;
+                label.ForceMeshUpdate(true);
+                var bounds = label.textBounds;
+                if (bounds.size.x <= 0f) continue;
+                var left = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.min.x, bounds.center.y, 0f)));
+                var right = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.max.x, bounds.center.y, 0f)));
+                lightRows.Add((row, new Vector2(left.x, left.y), right.x - left.x));
+            }
+            while (lights.Count < lightRows.Count) lights.Add(RoomShape.Create(card.transform, "Read light", KitType.Order.Words - 3));
+            for (var index = lightRows.Count; index < lights.Count; index++) lights[index].gameObject.SetActive(false);
             Follow();
             return Size;
         }
@@ -167,22 +197,72 @@ namespace Halcyonic.XR.UI
             arrived *= kept;
             glass.transform.localPosition = new Vector3(0f, 0f, still ? 0f : RoomType.Units(ArriveBackDp) * (1f - arrived));
             glass.Shown = glassShown;
+            var accent = RoomSurface.Hex(RoomCardView.Accent);
             foreach (var (label, own, row) in words)
             {
                 if (label == null) continue;
-                var alpha = own * arrived * (row >= 0 ? RowShown(row) : 1f);
-                if (!Mathf.Approximately(label.alpha, alpha)) label.alpha = alpha;
+                var alpha = own.a * arrived * (row >= 0 ? RowShown(row) : 1f);
+                // A row this read pours arrives in the accent and settles into its own colour.
+                var settle = row >= 0 ? 1f - LightAt(row).Strength : 1f;
+                var colour = new Color(Mathf.Lerp(accent.r, own.r, settle), Mathf.Lerp(accent.g, own.g, settle), Mathf.Lerp(accent.b, own.b, settle), alpha);
+                if (label.color != colour) label.color = colour;
+            }
+            for (var index = 0; index < lightRows.Count; index++)
+            {
+                var (row, left, width) = lightRows[index];
+                var (across, strength) = LightAt(row);
+                var light = lights[index];
+                var on = strength > 0.001f && kept > 0f;
+                if (light.gameObject.activeSelf != on) light.gameObject.SetActive(on);
+                if (!on) continue;
+                var tall = RoomType.Scaled(RoomReading.LineDp) * 0.86f;
+                var long_ = Mathf.Max(RoomType.Units(1f), width * across);
+                light.Draw(new Vector2(long_, tall), tall / 2f, new Color(accent.r, accent.g, accent.b, LightPeak * strength * arrived));
+                light.transform.localPosition = new Vector3(left.x + long_ / 2f, left.y, -RoomType.Units(0.4f));
             }
             // The card, its words and its well, stands only while it shows: gone once the fold has taken its words.
             var cardShown = kept > 0f;
             if (card.gameObject.activeSelf != cardShown) card.gameObject.SetActive(cardShown);
-            if (Mathf.Approximately(platesAt, arrived)) return;
-            platesAt = arrived;
-            foreach (var (shape, fill, edge) in plates)
+            var glow = LitGlow();
+            var drawnAt = arrived + glow * 10f;
+            if (Mathf.Approximately(platesAt, drawnAt)) return;
+            platesAt = drawnAt;
+            foreach (var (shape, fill, edge, lit) in plates)
             {
                 if (shape == null) continue;
-                shape.Draw(shape.Size, shape.CornerRadius, Faded(fill, arrived), Faded(edge, arrived), shape.EdgeWidth);
+                var shown = lit ? arrived * glow : arrived;
+                shape.Draw(shape.Size, shape.CornerRadius, Faded(fill, shown), Faded(edge, arrived), shape.EdgeWidth);
             }
+        }
+
+        /// <summary>
+        /// The light under row <paramref name="row"/> now: how far across its words it has run (0 to 1) and how strong it
+        /// stands (1 while it runs, fading to 0 over <see cref="LightFadeSeconds"/>); none for a row shown before this read.
+        /// </summary>
+        public (float Across, float Strength) LightAt(int row)
+        {
+            if (GlazeMotion.Still || row < revealFrom) return (1f, 0f);
+            var t = Clock() - revealAt - (row - revealFrom) / revealRate;
+            if (t < 0f) return (0f, 1f);
+            var across = RoomMotion.Standard(Mathf.Clamp01(t / LightAcrossSeconds));
+            var strength = t <= LightAcrossSeconds ? 1f : 1f - RoomMotion.Standard(Mathf.Clamp01((t - LightAcrossSeconds) / LightFadeSeconds));
+            return (across, strength);
+        }
+
+        /// <summary>The light under row <paramref name="row"/> as drawn now, and how wide its row's words stand; null where none runs.</summary>
+        public (RoomShape Light, float Width)? LightOf(int row)
+        {
+            for (var index = 0; index < lightRows.Count; index++)
+                if (lightRows[index].Row == row && lights[index].gameObject.activeSelf) return (lights[index], lightRows[index].Width);
+            return null;
+        }
+
+        /// <summary>How brightly the changed rows' tint stands now, as a share of its own: brighter as the read lands, settling to 1.</summary>
+        public float LitGlow()
+        {
+            if (GlazeMotion.Still) return 1f;
+            var settled = RoomMotion.Standard(Mathf.Clamp01((Clock() - revealAt) / LitSettleSeconds));
+            return Mathf.Lerp(LitGlowPeak / RoomCardView.LitTintAlpha, 1f, settled);
         }
 
         private static Color Faded(Color colour, float shown) => new Color(colour.r, colour.g, colour.b, colour.a * shown);
@@ -199,7 +279,7 @@ namespace Halcyonic.XR.UI
         public void Settle()
         {
             arrivedAt = Clock() - ArriveSeconds;
-            revealAt = Clock() - (RevealMostSeconds + RowFadeSeconds + 1f);
+            revealAt = Clock() - (RevealMostSeconds + LightAcrossSeconds + LightFadeSeconds + LitSettleSeconds + 1f);
             Follow();
         }
 

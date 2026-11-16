@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] BuildStates = { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held" };
+        private static readonly string[] BuildStates = { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light" };
 
         /// <summary>The arc's states: three files (two panels, the first a row), and a fourth that folds the older panel into the files so far, settled and caught mid-fold.</summary>
         private static readonly string[] BuildArcStates = { "47-build-three", "47-build-most", "47-build-folding" };
@@ -223,7 +223,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 WritingPanel shown;
                 IReadOnlyList<int> lit = new int[0];
-                if (state == "47-build-edited")
+                if (state == "47-build-edited" || state == "47-build-light")
                 {
                     view.Show(BuildPanel(BuildFile));
                     view.Settle();
@@ -242,8 +242,39 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(view.RowShown(first) - firstIn) < 0.01f, "the first changed row stands " + view.RowShown(first).ToString("0.00") + " in, not " + firstIn.ToString("0.00"));
                     Require(view.RowShown(first + 2) < 0.01f, "a row two after the change is already in: " + view.RowShown(first + 2).ToString("0.00"));
                     Require(lit.Count >= 3, "the edit lit " + lit.Count + " rows, not three or more");
-                    clock += RoomWritingPanel.RevealMostSeconds + RoomWritingPanel.RowFadeSeconds;
-                    view.Show(shown);
+                    if (state == "47-build-light")
+                    {
+                        // The light, frame by frame (AUDIT's raised bar): 0.1 s in, the first new row's light has run most of
+                        // the way under its words at full strength and its words stand between the accent and their own white; the
+                        // changed rows glow over their tint. Its light gone and its words their own by 0.6 s; the glow settled by 2 s.
+                        var own = Color.white;
+                        view.Show(shown);
+                        var (across, strength) = view.LightAt(first);
+                        Require(Mathf.Abs(across - RoomMotion.Standard(0.1f / RoomWritingPanel.LightAcrossSeconds)) < 0.01f && strength > 0.99f,
+                            "0.1 s in, the first new row's light stands " + across.ToString("0.00") + " across at " + strength.ToString("0.00"));
+                        var light = view.LightOf(first);
+                        Require(light.HasValue && Mathf.Abs(light.Value.Light.Size.x - light.Value.Width * across) < unit * 0.5f && light.Value.Light.Fill.a > RoomWritingPanel.LightPeak * 0.9f,
+                            "0.1 s in, the first new row shows no light under " + (across * 100f).ToString("0") + " percent of its words");
+                        var firstLabel = view.Card.ReadingShown[shown.Lines.Take(first).Count(line => line.Trim(' ').Length > 0)];
+                        Require(firstLabel.color.b > firstLabel.color.r + 0.2f, "0.1 s in, the first new row's words are not yet in the accent: " + firstLabel.color);
+                        Require(view.LitGlow() > 1.5f, "0.1 s in, the changed rows do not glow over their tint: " + view.LitGlow().ToString("0.00"));
+                        Require(view.LightAt(first - 1).Strength == 0f && view.LightOf(first - 1) == null, "a row shown before this read carries light");
+                        clock += 0.5f + 0.2f;
+                        view.Show(shown);
+                        Require(view.LightAt(first).Strength < 0.001f && view.LightOf(first) == null, "0.7 s in, the first new row's light still stands");
+                        Require(Mathf.Abs(firstLabel.color.r - own.r) < 0.01f && Mathf.Abs(firstLabel.color.g - own.g) < 0.01f, "0.7 s in, the first new row's words are not their own colour: " + firstLabel.color);
+                        clock += RoomWritingPanel.LitSettleSeconds;
+                        view.Show(shown);
+                        Require(Mathf.Abs(view.LitGlow() - 1f) < 0.01f, "2.7 s in, the changed rows still glow: " + view.LitGlow().ToString("0.00"));
+                        // The frame drawn: back to 0.12 s in, the light running.
+                        clock -= 0.5f + 0.2f + RoomWritingPanel.LitSettleSeconds - 0.02f;
+                        view.Show(shown);
+                    }
+                    else
+                    {
+                        clock += RoomWritingPanel.RevealMostSeconds + RoomWritingPanel.RowFadeSeconds;
+                        view.Show(shown);
+                    }
                 }
                 else
                 {
@@ -287,7 +318,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         rows[index].ForceMeshUpdate(true);
                         Require(!rows[index].isTextOverflowing && !rows[index].isTextTruncated && rows[index].GetParsedText().TrimEnd(' ') == texts[index], "row " + index + " is not whole: \"" + rows[index].GetParsedText() + "\"");
-                        if (state != "47-build-arriving") Require(rows[index].alpha > 0.79f, "settled, row " + index + " stands at " + rows[index].alpha.ToString("0.00"));
+                        if (state != "47-build-arriving" && state != "47-build-light") Require(rows[index].alpha > 0.79f, "settled, row " + index + " stands at " + rows[index].alpha.ToString("0.00"));
                     }
                     // Each row keeps its line's indent: a row the file indents stands right of one it does not, a continued row further.
                     var lefts = shown.Lines.Where(line => line.Trim(' ').Length > 0).Select(line => line.Length - line.TrimStart(' ').Length).ToList();
@@ -299,7 +330,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 var bands = view.Card.Plates.Where(each => each.What == "reading lit band").ToList();
                 var rules = view.Card.Plates.Where(each => each.What == "reading lit rule").ToList();
-                if (state == "47-build-edited") Require(bands.Count > 0 && rules.Count == bands.Count, "the changed rows are not lit: " + bands.Count + " bands, " + rules.Count + " rules");
+                if (state == "47-build-edited" || state == "47-build-light") Require(bands.Count > 0 && rules.Count == bands.Count, "the changed rows are not lit: " + bands.Count + " bands, " + rules.Count + " rules");
                 else Require(bands.Count == 0, "rows no read changed are lit");
 
                 shot.Read = (camera, eye, white, dark, bright, failures) =>
@@ -321,7 +352,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var nameLight = nameLabel != null ? Lightest(nameLabel) : 0;
                     if (state != "47-build-arriving" && nameLight < 160) failures.Add("the file's name is not in the pixels, the lightest reads " + nameLight + " of 255");
                     var rowLight = view.Card.ReadingShown.Select(Lightest).ToList();
-                    if (state != "47-build-arriving" && rowLight.Any(value => value < 140)) failures.Add("a row is not in the pixels: " + string.Join(", ", rowLight));
+                    if (state != "47-build-arriving" && state != "47-build-light" && rowLight.Any(value => value < 140)) failures.Add("a row is not in the pixels: " + string.Join(", ", rowLight));
                     var ruleNote = "";
                     if (rules.Count > 0)
                     {
