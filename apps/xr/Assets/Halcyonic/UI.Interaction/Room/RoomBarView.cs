@@ -316,6 +316,23 @@ namespace Halcyonic.XR.UI
         /// <summary>Shows <paramref name="bar"/>, centred on its origin; hides for <see cref="RoomBarState.Hidden"/>.</summary>
         public void Show(RoomBar bar)
         {
+            ShowBar(bar);
+            // The words' ink on the glass as the theme stands (RoomInk): nothing on Dark.
+            RoomInk.Follow(transform);
+        }
+
+        private void OnEnable() => RoomSurface.ThemeChanged += ShowAgain;
+
+        private void OnDisable() => RoomSurface.ThemeChanged -= ShowAgain;
+
+        /// <summary>The panels' theme changed: the bar laid again as it stands, so its words take their ink.</summary>
+        private void ShowAgain()
+        {
+            if (shown is RoomBar standing) Show(standing);
+        }
+
+        private void ShowBar(RoomBar bar)
+        {
             if (bar.State == RoomBarState.Hidden && !bar.Working && !bar.Result)
             {
                 Hide();

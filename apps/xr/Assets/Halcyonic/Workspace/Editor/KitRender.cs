@@ -65,6 +65,13 @@ namespace Halcyonic.XR.Workspace.Editor
             RoomDesign.Enabled = false;
             var only = Environment.GetEnvironmentVariable("HALCYONIC_KIT_ONLY");
             var narrowed = !string.IsNullOrWhiteSpace(only);
+            // The panels' Light glass, for its captures only (HALCYONIC_KIT_THEME=Light, the lead's 13:33Z): never a gate run.
+            var themeWas = Halcyonic.XR.UI.RoomSurface.Theme;
+            if (string.Equals(Environment.GetEnvironmentVariable("HALCYONIC_KIT_THEME"), "Light", StringComparison.OrdinalIgnoreCase))
+            {
+                Halcyonic.XR.UI.RoomSurface.Theme = PanelTheme.Light;
+                Debug.LogWarning("Halcyonic: spatial kit: drawn on the Light glass (HALCYONIC_KIT_THEME), for its captures; not a gate run.");
+            }
             try
             {
                 if (!narrowed)
@@ -98,6 +105,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 ViewField.Current = previousField;
                 GlazeMotion.Still = previousStill;
                 RoomDesign.Enabled = designWas;
+                Halcyonic.XR.UI.RoomSurface.Theme = themeWas;
                 KeepFontsAsCommitted();
             }
             foreach (var failure in failures) Debug.LogError("Halcyonic: spatial kit: " + failure);

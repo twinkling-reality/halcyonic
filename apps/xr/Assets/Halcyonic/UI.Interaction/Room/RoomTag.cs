@@ -213,6 +213,7 @@ namespace Halcyonic.XR.UI
             }
             mark.gameObject.SetActive(chipped && !needsYou);
             if (!chipped || needsYou) check.Hide();
+            RoomInk.Follow(transform);
         }
 
         private static Color WithAlpha(Color colour, float alpha) => new Color(colour.r, colour.g, colour.b, alpha);

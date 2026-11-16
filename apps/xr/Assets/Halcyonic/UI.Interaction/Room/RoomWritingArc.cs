@@ -124,6 +124,13 @@ namespace Halcyonic.XR.UI
         /// <summary>Lays <paramref name="arc"/>: a new file arrives at the right, the one before moves to the left column, a file gone from the panels folds into the list under it.</summary>
         public Vector2 Show(WritingArc arc)
         {
+            var size = ShowArc(arc);
+            RoomInk.Follow(transform);
+            return size;
+        }
+
+        private Vector2 ShowArc(WritingArc arc)
+        {
             gameObject.SetActive(true);
             shownArc = arc;
             var now = Clock();
