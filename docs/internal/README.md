@@ -163,6 +163,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [mac-host-setup.md](validation/mac-host-setup.md) | `pnpm mac-setup` and the settings file on the owner's Mac: the read-only check, every setup step in a scratch data directory, a control plane started from the file alone, and what was not tried |
 | [project-location.md](validation/project-location.md) | Binding projects to host-approved folders: real OpenCode and Codex starts on a local model in a new folder, refusals, a moved folder and an unknown effect, through the control plane |
 | [network-pairing.md](validation/network-pairing.md) | Pairing a headset over the local network: certificate callbacks in Unity's Android class libraries, SRP, the pinned transports off the headset |
+| [media-in-a-confined-project.md](validation/media-in-a-confined-project.md) | What a confined agent can do with a photo or video in its project, hosted runs on Claude Agent and OpenCode, and which tools keep where a file was made |
 
 ## Private documents
 
