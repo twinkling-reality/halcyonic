@@ -36,4 +36,17 @@ public class RoomMoreTests
         var actions = RoomBar.WithMore(binding, working).Row.Concat(working.Column).Select(action => action.Control.Action);
         Assert.That(actions, Has.None.EqualTo(RoomBar.More), "at work the column is the work's own");
     }
+
+    [Test]
+    public void MoreStandsBesideAFinishedTasksResultBeforeTheWayBack()
+    {
+        var binding = Binding(ExecutionStatus.Completed);
+        var result = RoomBar.Of(binding, VoiceStage.Idle, false);
+        Assert.That(result.Result, Is.True, "the finished task stands as its result");
+        var row = RoomBar.WithMore(binding, result).Row.Select(action => action.Control).ToList();
+        var more = row.FindIndex(control => control.Action == RoomBar.More);
+        Assert.That(more, Is.GreaterThanOrEqualTo(0), "a finished task's routes are drawn behind More");
+        var back = row.FindIndex(control => control.Place is KitPlace.Close or KitPlace.Cancel);
+        if (back >= 0) Assert.That(more, Is.LessThan(back), "before the way back");
+    }
 }

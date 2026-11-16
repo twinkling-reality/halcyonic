@@ -28,11 +28,13 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The task's bar at rest with More beside its other actions, before the way back, where the file offers a route and the bar is
-        /// the plain row (no pair, not at work, nothing asked); any other bar as it is.
+        /// the plain row or the result's own first page (JUDGE's 07:36Z: a finished task is where a person opens its routes); never at
+        /// work, over a draft, a question or another of the result's pages. Any other bar as it is.
         /// </summary>
         public static RoomBar WithMore(KitFileBinding binding, RoomBar bar)
         {
-            if (bar.State != RoomBarState.Rest || bar.Pair || bar.Working || MoreRoutes(binding).Count == 0) return bar;
+            var atRest = !bar.Pair || bar.Result && bar.Known?.Page == RoomResultPage.Result;
+            if (bar.State != RoomBarState.Rest || !atRest || bar.Working || MoreRoutes(binding).Count == 0) return bar;
             var more = new RoomAction(new KitControl(KitPlace.Step, binding.Frame, More, null, MoreWords, GlazeIcon.OpensMore, true, null, false),
                 main: false, icon: GlazeIcon.OpensMore);
             var row = bar.Row.ToList();
