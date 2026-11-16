@@ -297,6 +297,7 @@ namespace Halcyonic.Client
             WorkspaceRequestResumeCommand _ => CommandType.WorkspaceRequestResume,
             WorkspaceRequestCancelCommand _ => CommandType.WorkspaceRequestCancel,
             AssistantModelChooseCommand _ => CommandType.AssistantModelChoose,
+            ProjectMediaAddCommand _ => CommandType.ProjectMediaAdd,
             _ => throw new ArgumentOutOfRangeException(nameof(command), command.CommandType, "Unhandled command type."),
         };
 

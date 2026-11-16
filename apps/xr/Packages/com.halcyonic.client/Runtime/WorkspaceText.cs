@@ -457,6 +457,15 @@ namespace Halcyonic.Client
         /// folder is said as <see cref="EntryText.FolderProblem"/> says it; the demonstration's refusal,
         /// in Halcyonic's own words, is shown as written by whoever shows it.
         /// </summary>
+        /// <summary>A photo or video the computer no longer keeps (the host's own sentence).</summary>
+        public const string MediaNotKept = "That photo or video is no longer kept on this computer. Add it again.";
+
+        /// <summary>A project at its most photos and videos (50, or 240 MB): AUDIT2 to line the way on.</summary>
+        public const string MediaFull = "This project keeps no more photos or videos. Add it to another project.";
+
+        /// <summary>The same photo or video already in the project (the host's own first sentence).</summary>
+        public const string MediaPresent = "That photo or video is already in this project. Nothing was added.";
+
         public static string? WhyRefused(RejectionCode? code) => code switch
         {
             RejectionCode.RequestNotFound => "Request Missing · Refresh Task",
@@ -479,6 +488,11 @@ namespace Halcyonic.Client
             RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
             // A move or a restore from this headset without the review it read, or one that changed since (ADR 0051).
             RejectionCode.ReviewRequired or RejectionCode.ReviewStale => "Not Sent · Project Changed · Check and Retry",
+            // A photo or video the Mac's page adds (ADR 0066, protocol 3): in sentences, never the dot cadence; the first
+            // and the last are the host's own (AUDIT2 passed, command-service.ts MEDIA_REFUSED).
+            RejectionCode.MediaNotKept => MediaNotKept,
+            RejectionCode.MediaFull => MediaFull,
+            RejectionCode.MediaPresent => MediaPresent,
             _ => null,
         };
 
@@ -503,6 +517,9 @@ namespace Halcyonic.Client
                     : step ? " · Check App and Retry" : " · Check Agent App and Retry"),
             "execution_unknown_to_runtime" => WhyRefused(RejectionCode.ExecutionNotFound),
             "model_unavailable" => WhyRefused(RejectionCode.ModelRequired),
+            "media_not_kept" => WhyRefused(RejectionCode.MediaNotKept),
+            "media_full" => WhyRefused(RejectionCode.MediaFull),
+            "media_present" => WhyRefused(RejectionCode.MediaPresent),
             "capability_unimplemented" => running ? WhyRefused(RejectionCode.CapabilityUnsupported)
                 : step ? "Unsupported · " + InHowItRuns : "Unsupported · " + WithAnotherAgentApp,
             // A start that would fail the same way again (the review's L5, settled by the coordinator, 2026-10-07).
