@@ -574,7 +574,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     // Leaning outside words stand a hair apart from ours (GlazeRuns), so a name is matched by its words, not its spaces.
                     string Words(string text) => string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
                     // An excerpt shows the lead of its words, cut at a word: matched by that lead.
+                    // A path the card broke after a slash or a dot (PathWrap) is matched by its characters: its break is no space of its own.
+                    string Squeezed(string text) => string.Concat(text.Where(ch => !char.IsWhiteSpace(ch)));
+                    var pathLike = !row.Name.Text.Any(char.IsWhiteSpace);
                     var nameLabel = view.Shown.FirstOrDefault(label => Words(label.GetParsedText()) == Words(row.Name.Text)
+                        || (pathLike && Squeezed(label.GetParsedText()) == row.Name.Text)
                         || (row.Excerpt && view.Excerpts.Contains(label) && Words(row.Name.Text).StartsWith(Words(label.GetParsedText()).TrimEnd('…'), StringComparison.Ordinal)));
                     Require(nameLabel != null, row.Name.Text + " is not shown");
                     // Where any row has a mark every name stands after the tiles' room; where none has, at the card's left with the title's.
