@@ -44,8 +44,11 @@ namespace Halcyonic.XR.UI
 
         private void LateUpdate() => Place();
 
-        /// <summary>How far New Project's drawn place stands from a character's drawn tag beside it, at the least, as the eyes see it, in degrees.</summary>
-        public const float ClearOfTagDegrees = 1f;
+        /// <summary>
+        /// How far New Project's drawn glass key stands from a character's drawn tag beside it, at the least, as the eyes see it, in degrees: a
+        /// dark gap wide enough that the two read as two plates, never one bar of pills (AUDIT 2026-11-16T18:36Z).
+        /// </summary>
+        public const float ClearOfTagDegrees = 1.5f;
 
         private static RoomButton? reachMeasure;
         private static int reachAt = -1;
@@ -54,7 +57,7 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// The angle from the eyes, in radians, by which New Project's far edge can stand left of the first character's middle once clear of
         /// the widest tag a name draws: half that tag (its words at their bound, its pads), <see cref="ClearOfTagDegrees"/>, and New Project's
-        /// own width. The shelf's envelope counts it (<see cref="CharacterStage.NewProjectReach"/>), so its field search holds the turned place.
+        /// own width to the far edge of its glass key. The shelf's envelope counts it (<see cref="CharacterStage.NewProjectReach"/>), so its field search holds the turned place.
         /// </summary>
         public static float ReachLeft()
         {
@@ -67,8 +70,9 @@ namespace Halcyonic.XR.UI
                     reachMeasure = RoomButton.Create(model.transform, "New Project reach");
                 }
                 reachAt = GlazeText.Version;
+                // Its key's quad reaches HaloReachDp and a dp past the core each side (RoomButton), the core as wide as the measure.
                 reach = (RoomType.Scaled(RoomTag.NameWordsMostDp) + 2f * RoomType.Scaled(RoomTag.PadXDp)) / 2f + ClearOfTagDegrees * Mathf.Deg2Rad
-                    + reachMeasure.Measure(Words, 0f).x;
+                    + reachMeasure.Measure(Words, 0f).x + 2f * RoomType.Units(RoomButton.HaloReachDp + 1f);
             }
             return reach;
         }
@@ -86,7 +90,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// Turns New Project's <paramref name="place"/> about the <paramref name="eyes"/>, to the person's left and never toward the
-        /// characters, until its drawn right edge (the words and the glyph) stands <see cref="ClearOfTagDegrees"/> left of the drawn left edge
+        /// characters, until its drawn right edge (the words, the glyph and the glass key) stands <see cref="ClearOfTagDegrees"/> left of the drawn left edge
         /// of every tag under <paramref name="shelf"/> (its words and its glass): a long name's tag runs past half a place, and today's place
         /// stood on it (FIELD's F236, AUDIT 2026-11-16T17:46Z). Measured each time from what is drawn; nothing is allocated.
         /// </summary>
@@ -142,7 +146,8 @@ namespace Halcyonic.XR.UI
                 foreach (var plate in Plates) tagLeft = Mathf.Min(tagLeft, Across(plate.Glass, eyes, ahead, left: true));
             }
             if (float.IsPositiveInfinity(tagLeft)) return 0f;
-            var placeRight = Across(button.Words.GetComponent<Renderer>(), eyes, ahead, left: false);
+            // Its right edge is its glass key's, the slab behind the glyph and the words, which reaches past them (AUDIT 18:36Z).
+            var placeRight = Mathf.Max(Across(button.Words.GetComponent<Renderer>(), eyes, ahead, left: false), Across(button.Key, eyes, ahead, left: false));
             button.Glyph.GetComponentsInChildren(false, Marks);
             foreach (var mark in Marks) placeRight = Mathf.Max(placeRight, Across(mark, eyes, ahead, left: false));
             if (float.IsNegativeInfinity(placeRight)) return 0f;

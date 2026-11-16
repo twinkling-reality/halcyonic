@@ -165,6 +165,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The target's size, in its parent's units.</summary>
         public Vector2 Size => press.Size;
 
+        /// <summary>The glass key as drawn: the soft slab behind the chip and the words, its quad <see cref="HaloReachDp"/> and a dp past the core each side.</summary>
+        public MeshRenderer Key => halo;
+
         /// <summary>The core as drawn, the halo's solid middle, in its parent's units.</summary>
         public Vector2 Core => core;
 
