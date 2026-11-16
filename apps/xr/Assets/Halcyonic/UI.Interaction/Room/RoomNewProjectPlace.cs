@@ -102,18 +102,31 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public const float EaseSeconds = 0.15f;
 
+        /// <summary>
+        /// How long the place takes to get out of the way when the turn it needs grows (a tag widening toward it): fast, settled within about
+        /// 0.12 s, so an overlap lasts a blink and reads as the button stepping aside, never two things colliding (AUDIT 2026-11-16T18:37Z).
+        /// </summary>
+        public const float GrowSeconds = 0.02f;
+
+        /// <summary>The fastest it steps aside, in degrees a second: about two degrees a frame at 72 frames a second.</summary>
+        public const float GrowMostDegreesPerSecond = 140f;
+
         private float turned;
         private float turning;
         private bool stood;
 
         /// <summary>
         /// The turn <paramref name="turned"/> eased toward <paramref name="target"/> over <paramref name="seconds"/>, both in degrees, with its speed
-        /// in <paramref name="speed"/>; once within a hundredth of a degree it is the target exactly and still, so a steady tag holds the place
+        /// in <paramref name="speed"/>: fast as it grows (<see cref="GrowSeconds"/>, at most <see cref="GrowMostDegreesPerSecond"/>), over
+        /// <see cref="EaseSeconds"/> as it shrinks; once within a hundredth of a degree it is the target exactly and still, so a steady tag holds the place
         /// steady to the pixel.
         /// </summary>
         public static float Eased(float turned, float target, ref float speed, float seconds)
         {
-            var next = Mathf.SmoothDamp(turned, target, ref speed, EaseSeconds, Mathf.Infinity, Mathf.Max(seconds, 0f));
+            // Out of the way fast as the turn grows, back slowly as it shrinks.
+            var growing = target > turned;
+            var next = Mathf.SmoothDamp(turned, target, ref speed, growing ? GrowSeconds : EaseSeconds, growing ? GrowMostDegreesPerSecond : Mathf.Infinity,
+                Mathf.Max(seconds, 0f));
             if (Mathf.Abs(next - target) < 0.01f) { speed = 0f; return target; }
             return next;
         }

@@ -3069,10 +3069,10 @@ in order, as before.
   shelf's first place, at the person's left, is New Project, the plus glyph on the tags' line, which opens New Project
   as the menu's own does, and which turns further left about the eyes, never toward the characters, until its drawn
   words, glyph and glass key stand at least 1.5 degrees clear of every drawn tag on the page, so the two read as two plates, measured each frame from its own spot (a
-  long name's tag runs past half a place); a tag that widens eases it there over about half a second, and a steady tag
-  holds it still; the shelf's envelope reaches as far left as the turned place can stand beside the widest tag, so the
+  long name's tag runs past half a place); a tag that widens moves it out of the way within about 0.12 s, no more than about
+  two degrees a frame, a tag that narrows eases it back over about half a second, and a steady tag holds it still; the shelf's envelope reaches as far left as the turned place can stand beside the widest tag, so the
   field search holds it in the field on either side of the workspace (`RoomNewProjectPlace.StandClear`, `ClearTurn`,
-  `Eased`, `ClearOfTagDegrees`, `EaseSeconds`, `ReachLeft`; `CharacterStage.NewProjectReach`) (`CharacterStage.ShelfCapacity`, `ShelfPlaces`, `PlaceOf`; `RoomNewProjectPlace`, attached by
+  `Eased`, `ClearOfTagDegrees`, `EaseSeconds`, `GrowSeconds`, `GrowMostDegreesPerSecond`, `ReachLeft`; `CharacterStage.NewProjectReach`) (`CharacterStage.ShelfCapacity`, `ShelfPlaces`, `PlaceOf`; `RoomNewProjectPlace`, attached by
   `WorkspaceDirector`). The shelf's surface widens to its places. With the redesign off the shelf holds one too.
   The older label's name (`CharacterLabelView`) stands whole on up to six lines on the demo stage and four on the shelf
   (`MostTitleLines`, `ShelfTitleLines`, set per view as `MostLines` by `CharacterView.PlaceShelfLabel`), the shelf's
