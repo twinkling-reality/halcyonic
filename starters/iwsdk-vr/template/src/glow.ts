@@ -15,7 +15,7 @@ import {
   ShaderMaterial,
   Vector2,
 } from 'three';
-import type { Player } from './instruments.js';
+import { pageMusic, type Player } from './instruments.js';
 import { isBlack, roundColumn, swell } from './score.js';
 
 /**
@@ -519,7 +519,7 @@ const KEY_FRAGMENT = /* glsl */ `
     float d = abs(along - land * span);
     float spread = exp(-d / (span * (0.06 + 0.75 * vLit.a)));
     vec3 hot = mix(vLit.rgb, vec3(max(vLit.r, max(vLit.g, vLit.b))), 0.45 * spread * spread);
-    c += hot * spread * (0.35 + face) * 2.2 + vLit.rgb * line * 2.0;
+    c += hot * spread * (0.35 + face) * 3.4 + vLit.rgb * line * 2.0;
     // A neighbour's light caught on this key's edges.
     c += vNear * line;
     gl_FragColor = vec4(c * dim, 1.0);
@@ -904,7 +904,7 @@ export function fallingNotes(
       // Bright at the strike, then only a low glow while the note is held, and dying away for a moment after it is
       // let go, so even the shortest note is seen to light its key: nothing stands on a key waiting.
       const after = now > end ? Math.exp(-(now - end) * 7) : 1;
-      const amount = (0.2 + 0.8 * strike) * after;
+      const amount = (0.3 + 0.9 * strike) * after;
       keys.light(note.pitch, colour, amount * (0.65 + 0.35 * note.loud));
       flares.add(lx, spot.y + 0.006, lz, 0.007, 0.007, colour, strike * 0.6);
       if (keys.glass !== undefined) {
@@ -1006,8 +1006,9 @@ const AROUND = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0')
  * rising to the right, so a scale stands on every side and a run circles the person); when it reaches the top, it
  * lights a point of a slowly turning galaxy overhead, which grows from its middle outward as the music goes on. Over
  * the first `rise` seconds of the music the columns and the galaxy grow brighter, until at `rise` the hall blooms:
- * every column flares and a wave runs up them, the whole galaxy lights at once and a ring of light runs out across the
- * floor; then it settles to a steady glow and goes on answering. Read from the player's time, so it lands with the
+ * every column flares and sheds sparks along its height, a wave runs up them, the whole galaxy lights at once and a
+ * ring of light runs out across the floor, and (unless `sound` is false) a soft pad swells into it under the music and
+ * bells run up the chord sounding then; then it settles to a steady glow and goes on answering. Read from the player's time, so it lands with the
  * sound. Add `group` where the person stands, its height 0 on the floor.
  */
 export function lightHall(
@@ -1019,6 +1020,7 @@ export function lightHall(
     rise?: number;
     colour?: (midi: number) => Color;
     quality?: 'auto' | 'high' | 'low';
+    sound?: boolean;
   } = {},
 ): LightHall {
   const radius = options.radius ?? 6.5;
@@ -1108,7 +1110,7 @@ export function lightHall(
   });
   const near = glows(nearby.length, { facing: true, halo: 0.03, round: 1, core: 0.8, whiten: 0.4 });
   // Sparks rising from a column's foot as each note starts up it.
-  const embers = sparks(600);
+  const embers = sparks(1400);
   group.add(floor.object, pillars.object, climbs.object, falls.object, arms.object, points.object, crownLight.object, embers.object, near.object);
   const climb = 4;
   const top = height / climb;
@@ -1125,6 +1127,44 @@ export function lightHall(
   let built = 0;
   let now = 0;
   let rings = 0;
+  let burst = false;
+  // The keys sounding now, for the peak's chord; filled from the player without making anything per frame.
+  const chord = new Set<number>();
+  let swelled = false;
+  let rang = false;
+  let prepared = false;
+  const peakSound = (since: number) => {
+    const music = pageMusic();
+    if (music === null) return;
+    // Well before it, the pad's and the bells' keys are made, a few across the range: any other is played retuned
+    // from the nearest one made.
+    if (!prepared && since >= -14) {
+      prepared = true;
+      void music.voices.pad.prepare([36, 40, 43, 48, 52, 55, 60, 64, 67]).catch(() => {});
+      void music.voices.bell.prepare([72, 76, 79, 84, 88, 91, 96]).catch(() => {});
+    }
+    if (!swelled && since >= -5 && since < -4) {
+      chord.clear();
+      player.each(0.6, 0.6, (note) => {
+        if (chord.size < 5) chord.add(note.pitch);
+      });
+      if (chord.size === 0) return;
+      swelled = true;
+      const at = music.context.currentTime + 0.05;
+      // Under the music, soft at first: the pad's own slow rise carries it to the bloom and past it.
+      for (const k of chord) music.voices.pad.play(k - 12, at, 9 - (since + 5), 0.32);
+    }
+    if (!rang && since >= -0.25 && since < 0.5) {
+      rang = true;
+      const at = music.context.currentTime + Math.max(0, -since);
+      let i = 0;
+      for (const step of [12, 24])
+        for (const k of chord) {
+          music.voices.bell.play(k + step, at + i * 0.07, 2.5, 0.42 - i * 0.02);
+          i += 1;
+        }
+    }
+  };
   let drops = 0;
   const falling = 1.1;
   let waves = 0;
@@ -1236,6 +1276,15 @@ export function lightHall(
       const swelling = swell(now, rise);
       built = swelling.built;
       const since = now - rise;
+      // The bloom heard: a pad swelling under the music for its last seconds, and bells running up at the moment.
+      if (options.sound !== false) peakSound(since);
+      // The bloom seen all round: every column sheds a burst of sparks all along its height at once.
+      if (since >= 0 && !burst) {
+        burst = true;
+        for (const home of homes)
+          for (const y of [1.5, 3.5, 5.5, 7.5]) embers.emit(home.x, y, home.z, home.colour, 12, { rise: 2.4, spread: 1.4, life: 7, size: 0.07 });
+      }
+      if (since < 0) burst = false;
       const bloom = swelling.bloom;
       // After the bloom the hall keeps a steady glow a little under its peak.
       const rest = 0.05 + 0.3 * built - (since > 0 ? 0.08 * Math.min(1, since / 6) : 0);
