@@ -94,6 +94,8 @@ export const COMMAND_FIELDS: Readonly<
   'project.own_check.choose': {
     project_id: project,
     scripts: need('choices', 'Commands', { list: 'own_check_scripts', max: 5 }),
+    // The person's own yes, read with the two gaps beside it (ADR 0055, amended 2026-11-16); absent is no port.
+    open_ports: need('yes_no', 'Open Ports', optional),
   },
   'project.preview.start': { project_id: project },
   'project.preview.stop': { project_id: project },
