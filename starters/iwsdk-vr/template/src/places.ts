@@ -352,9 +352,9 @@ export interface LandColours {
  * the sun, with a few soft bands of high cloud. With `grains`, that many grains of sand blowing low (none unless
  * asked); with `stars`, that many stars, on the side of the sky away from the sun (give them only for a place after
  * sunset). `light(...)` and `shade(...)` let something near the sand (a window floating over it) cast its own light
- * and a soft shade on it. It opens from black, lifting over its first second of `move`, and over its first twenty
- * seconds its low light and the sun's glow build to a peak and settle (`peak: false` keeps them still). One mesh for
- * the ground, one for the sky.
+ * and a soft shade on it. It opens from black, lifting over its first second of `move`; its low light and the sun's
+ * glow build to a peak about 14 s in, then settle to a calmer glow by about 24 s (`peak: false` keeps them still). One
+ * mesh for the ground, one for the sky.
  */
 export function openLand(
   colours: LandColours,
@@ -783,9 +783,10 @@ export function openLand(
     float toward = max(0.0, dot(normalize(look.xz), sandSun));
     float graze = 1.0 - abs(normalize(look).y);
     outgoingLight += sandSheen * pow(toward, 3.0) * graze * graze * 0.22;
-    // A light near the sand (a window's own), warming it in a pool that is gone within a few metres.
+    // A light near the sand (a window's own), warming it in a pool that is gone within a few metres: it brightens
+    // the sand it falls on, ripples and all, never laying a flat haze over them.
     float lampDistance = length(sandLamp - vSand);
-    outgoingLight += sandLampColour * (0.5 / (1.0 + lampDistance * lampDistance * 1.2)) * (1.0 - smoothstep(1.2, 3.0, lampDistance));
+    outgoingLight *= 1.0 + sandLampColour * (0.9 / (1.0 + lampDistance * lampDistance * 1.2)) * (1.0 - smoothstep(1.2, 3.0, lampDistance));
     // The air between the person and the sand: thicker low down and far off, its colour the sky's own at the
     // horizon, warmer and brighter toward the sun, so the land melts into the sky with no edge.
     float sunward = max(0.0, dot(normalize(viewDir.xz), sandSun));
