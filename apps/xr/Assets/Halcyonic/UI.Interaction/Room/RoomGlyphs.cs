@@ -115,6 +115,9 @@ namespace Halcyonic.XR.UI
         /// <summary>Three dots in a row: More, a task's other routes, as the system's own panels keep theirs.</summary>
         More,
 
+        /// <summary>Chevron right: a route that goes to a page of its own (the More page's rows; AUDIT's 10:09Z: the down chevron read as opening below).</summary>
+        Opens,
+
         /// <summary>A flag: a moment after a task worked.</summary>
         Flag,
 
@@ -258,6 +261,8 @@ namespace Halcyonic.XR.UI
             [RoomGlyph.Cross] = new[] { Line(7f, 7f, 17f, 17f), Line(17f, 7f, 7f, 17f) },
             // Three dots on the middle line (strokes of no length, round capped), as the keyboard's keys.
             [RoomGlyph.More] = new[] { Line(6f, 12f, 6f, 12f), Line(12f, 12f, 12f, 12f), Line(18f, 12f, 18f, 12f) },
+            // The row chevron's own shape, on an action: Back's mirror.
+            [RoomGlyph.Opens] = new[] { Line(9.5f, 5.5f, 16f, 12f), Line(16f, 12f, 9.5f, 18.5f) },
             // The hexagon, then the three edges that meet at its middle.
             [RoomGlyph.Cube] = new[]
             {
@@ -373,6 +378,9 @@ namespace Halcyonic.XR.UI
             ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock, ["Earlier Versions"] = RoomGlyph.Clock,
             ["Previous Page"] = RoomGlyph.Previous, ["First Page"] = RoomGlyph.Previous, ["First Part"] = RoomGlyph.Previous, ["Compact"] = RoomGlyph.Next, ["Open Workspace"] = RoomGlyph.Previous, ["Projects"] = RoomGlyph.Back,
             ["Carry Out Plan"] = RoomGlyph.Continue, [RoomBar.MoreWords] = RoomGlyph.More,
+            // The task's routes behind More, each going to its own page (SCREENS's words, keyed by their constants).
+            [FileScreens.ShowTaskHereWords] = RoomGlyph.Opens, [FileScreens.AskWorkspaceWords] = RoomGlyph.Opens,
+            [FileScreens.CharacterColourWords] = RoomGlyph.Opens, [FileScreens.ShowScreenWords] = RoomGlyph.Opens,
             // SCREENS's Start From takes the cube, as Make VR Copy (the addendum's A16).
             ["Start From"] = RoomGlyph.Cube,
         };

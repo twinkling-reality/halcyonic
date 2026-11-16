@@ -690,7 +690,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var standing = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
                 Require(standing.Count == routes.Count + 1, "the More page stands " + standing.Count + " rows, not " + routes.Count + " routes and Back");
                 for (var index = 0; index < standing.Count && index < routes.Count; index++)
-                    Require(bar.ControlOf(standing[index])?.Action == routes[index].Action && standing[index].Glyph.Glyph == RoomGlyph.Next,
+                    Require(bar.ControlOf(standing[index])?.Action == routes[index].Action && standing[index].Glyph.Glyph == RoomGlyph.Opens,
                         "the More page's row " + index + " is not the route " + routes[index].Words + " with its chevron");
                 Require(standing.Count > 0 && bar.ControlOf(standing[standing.Count - 1])?.Action == RoomBar.MoreBack && bar.ControlOf(standing[standing.Count - 1])?.Words == RoomBar.BackWords,
                     "the More page does not end with Back");
