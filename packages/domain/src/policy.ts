@@ -47,6 +47,9 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.secret.set': 'review_required',
   // The value is gone for good and the person may not have it elsewhere: reviewed, then one press (R1).
   'project.secret.remove': 'review_required',
+  // Copies the person's own photo or video into the folder under a new name, never over a file; the
+  // press on the Mac's page is the choice (ADR 0066).
+  'project.media.add': 'low_consequence',
   // The person's own link between a project and a catalog repository; changes no file.
   'project.link_catalog': 'low_consequence',
   'project.unlink_catalog': 'low_consequence',
@@ -199,6 +202,13 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
     description: "Remove one of the project's secrets, so later tasks no longer get it.",
     sayable: true,
     confirm: 'review',
+  },
+  'project.media.add': {
+    title: 'Add Media',
+    underWay: 'Adding a photo or video',
+    description: "Copy a photo or video into the project's folder, so its agents can use it.",
+    sayable: false,
+    confirm: 'none',
   },
   'project.send': {
     title: 'Send for Review',

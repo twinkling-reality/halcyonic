@@ -181,11 +181,15 @@ export type PictureMediaType = Static<typeof PictureMediaType>;
  * A picture that goes with an instruction (A4): `image`, one of the project's folder, read once as the
  * project's own read does; or `given`, one the person gave the host (what they see, a frame of the
  * running game) by its id from `POST /api/pictures`. Either way the host hands the runtime the bytes
- * it read and checked, never a path, never a file outside (ADR 0058, amended).
+ * it read and checked, never a path, never a file outside (ADR 0058, amended). Or `media`, a photo or
+ * video of the project's (ADR 0066) by its path in `project.media.added`: the host hands a runtime that
+ * takes pictures the stills it made of it, each counted in `PICTURES_PER_INSTRUCTION`, and adds one line
+ * of its own after the person's words saying where the file and its copies are.
  */
 export const InstructionAttachment = Type.Union([
   Type.Object({ path: ProjectPath, kind: Type.Literal('image') }, strict),
   Type.Object({ picture: Sha256Hex, kind: Type.Literal('given') }, strict),
+  Type.Object({ path: ProjectPath, kind: Type.Literal('media') }, strict),
 ]);
 export type InstructionAttachment = Static<typeof InstructionAttachment>;
 

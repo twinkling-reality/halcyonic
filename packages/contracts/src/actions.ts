@@ -24,7 +24,8 @@ export type ConfirmKind = Static<typeof ConfirmKind>;
 /**
  * What the person still gives for a command: words; one row of a host list; several of one; a yes or
  * no; a whole number; an amount of US dollars to the cent; the answers to a runtime's question, as
- * its prompts ask; or a secret, typed in a field, never said and never passed through a model.
+ * its prompts ask; a secret, typed in a field, never said and never passed through a model; or a photo
+ * or video, chosen on the Mac's own page and kept by the host before the command names it (ADR 0066).
  */
 export const NeedKind = Type.Union([
   Type.Literal('text'),
@@ -35,6 +36,7 @@ export const NeedKind = Type.Union([
   Type.Literal('amount'),
   Type.Literal('answers'),
   Type.Literal('secret'),
+  Type.Literal('media'),
 ]);
 export type NeedKind = Static<typeof NeedKind>;
 

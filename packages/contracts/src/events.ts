@@ -6,6 +6,7 @@ import {
   CheckpointReason,
   GitObjectId,
   PathList,
+  ProjectPath,
   ReviewDigest,
 } from './checkpoints.ts';
 import {
@@ -31,6 +32,7 @@ import {
   SendRemote,
 } from './github.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
+import { MediaFile, MediaNotMade, MediaStill, MediaType, STILLS_PER_VIDEO } from './media.ts';
 import {
   OWN_CHECK_SCRIPT_NAMES,
   OwnCheckFindings,
@@ -580,6 +582,50 @@ export const ProjectSecretRemoved = projectEvent(
 );
 
 /**
+ * A photo or video the person added is in the project's folder at `path`, the name the host chose
+ * (ADR 0066). `size_bytes` and `sha256` are the file the host wrote, never the upload's; never the
+ * person's file name, nothing read from inside the file, never bytes.
+ */
+export const ProjectMediaAdded = projectEvent(
+  'project.media.added',
+  Type.Object(
+    {
+      command_id: CommandId,
+      path: ProjectPath,
+      media_type: MediaType,
+      size_bytes: Type.Integer({ minimum: 1 }),
+      sha256: Sha256Hex,
+    },
+    strict,
+  ),
+);
+
+/**
+ * What the host made from the photo or video at `path` once it was added (ADR 0066), each written into
+ * the project's folder: its stills (one for every photo, at most `STILLS_PER_VIDEO` for a video), or
+ * `stills_not_made` saying why there are none. A photo placed as a whole PNG, JPEG or WebP of at most
+ * `PICTURE_BYTES` (never HEIC, which no runtime reads) may name its own path as its one still. For a
+ * video, the copy any browser plays, or `play_not_made`, both null for a photo. `width`, `height` and
+ * `duration_ms` as the host read them, null where it did not; never anything else read from the file.
+ */
+export const ProjectMediaPrepared = projectEvent(
+  'project.media.prepared',
+  Type.Object(
+    {
+      path: ProjectPath,
+      stills: Type.Array(MediaStill, { maxItems: STILLS_PER_VIDEO }),
+      stills_not_made: Nullable(MediaNotMade),
+      play: Nullable(MediaFile),
+      play_not_made: Nullable(MediaNotMade),
+      width: Nullable(Type.Integer({ minimum: 1 })),
+      height: Nullable(Type.Integer({ minimum: 1 })),
+      duration_ms: Nullable(Type.Integer({ minimum: 0 })),
+    },
+    strict,
+  ),
+);
+
+/**
  * The project's work was pushed to the folder's own remote (ADR 0039, amended): `commit`, on top of
  * `base_commit` (null for a first send's `main`) of `branch`, as `new_branch` of `remote`, and the
  * review request the host's tool opened, or null where none was. Nothing the person's git or tools
@@ -894,6 +940,34 @@ export const ExecutionInstructionPicturesRead = executionEvent(
     {
       command_id: CommandId,
       pictures: Type.Array(PictureRead, { minItems: 1, maxItems: PICTURES_PER_INSTRUCTION }),
+    },
+    strict,
+  ),
+);
+
+/**
+ * The project's photos and videos an instruction carries (ADR 0066), recorded before the runtime is
+ * handed it: each one's path and type, and how many of its stills went as pictures (the stills
+ * themselves are in `execution.instruction.pictures_read`). `line_added`: the host added its one line,
+ * made only from these facts and never journaled as text, saying where each file and its copies are.
+ */
+export const ExecutionInstructionMediaGiven = executionEvent(
+  'execution.instruction.media_given',
+  Type.Object(
+    {
+      command_id: CommandId,
+      media: Type.Array(
+        Type.Object(
+          {
+            path: ProjectPath,
+            media_type: MediaType,
+            stills_given: Type.Integer({ minimum: 0, maximum: PICTURES_PER_INSTRUCTION }),
+          },
+          strict,
+        ),
+        { minItems: 1, maxItems: PICTURES_PER_INSTRUCTION },
+      ),
+      line_added: Type.Boolean(),
     },
     strict,
   ),
@@ -1480,6 +1554,7 @@ export const EVENT_VARIANTS = [
   ExecutionInstructionQueued,
   ExecutionInstructionDequeued,
   ExecutionInstructionPicturesRead,
+  ExecutionInstructionMediaGiven,
   ProjectRestored,
   ProjectRestoreIncomplete,
   ProjectCheckRecorded,
@@ -1500,6 +1575,8 @@ export const EVENT_VARIANTS = [
   ProjectUnpublished,
   ProjectSecretStored,
   ProjectSecretRemoved,
+  ProjectMediaAdded,
+  ProjectMediaPrepared,
   ProjectWorldObserved,
   ProjectRulesUpdated,
   ExecutionRulesGiven,

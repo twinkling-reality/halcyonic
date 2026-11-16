@@ -17,7 +17,7 @@ namespace Halcyonic.Contracts
     {
         public const int EventSchema = 1;
         public const int CommandSchema = 1;
-        public const int RealtimeProtocol = 2;
+        public const int RealtimeProtocol = 3;
         public const int PairingProtocol = 1;
     }
 
@@ -87,6 +87,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "project.make_private")] ProjectMakePrivate,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.secret.set")] ProjectSecretSet,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.secret.remove")] ProjectSecretRemove,
+        [global::System.Runtime.Serialization.EnumMember(Value = "project.media.add")] ProjectMediaAdd,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
         [global::System.Runtime.Serialization.EnumMember(Value = "project.remove_from_list")] ProjectRemoveFromList,
@@ -124,6 +125,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "amount")] Amount,
         [global::System.Runtime.Serialization.EnumMember(Value = "answers")] Answers,
         [global::System.Runtime.Serialization.EnumMember(Value = "secret")] Secret,
+        [global::System.Runtime.Serialization.EnumMember(Value = "media")] Media,
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -2507,6 +2509,44 @@ namespace Halcyonic.Contracts
         public UsageEstimate? Cost { get; set; }
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum MediaType
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "image/png")] ImagePng,
+        [global::System.Runtime.Serialization.EnumMember(Value = "image/jpeg")] ImageJpeg,
+        [global::System.Runtime.Serialization.EnumMember(Value = "image/webp")] ImageWebp,
+        [global::System.Runtime.Serialization.EnumMember(Value = "image/heic")] ImageHeic,
+        [global::System.Runtime.Serialization.EnumMember(Value = "video/mp4")] VideoMp4,
+        [global::System.Runtime.Serialization.EnumMember(Value = "video/quicktime")] VideoQuicktime,
+    }
+
+    public sealed class ProjectMediaView
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("media_type", Required = global::Newtonsoft.Json.Required.Always)]
+        public MediaType MediaType { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("size_bytes", Required = global::Newtonsoft.Json.Required.Always)]
+        public long SizeBytes { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("added_at", Required = global::Newtonsoft.Json.Required.Always)]
+        public string AddedAt { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("still", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Still { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("play", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Play { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("duration_ms", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? DurationMs { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("prepared", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool Prepared { get; set; }
+    }
+
     public sealed class WorldLight
     {
         [global::Newtonsoft.Json.JsonProperty("light", Required = global::Newtonsoft.Json.Required.Always)]
@@ -2645,6 +2685,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("secrets", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<string>? Secrets { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("media", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<ProjectMediaView>? Media { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("world", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ProjectWorldView? World { get; set; }
@@ -2982,6 +3025,18 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("state", Required = global::Newtonsoft.Json.Required.Always)]
         public SpendingCapViewState State { get; set; }
+    }
+
+    public sealed class ExecutionMediaView
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("media_type", Required = global::Newtonsoft.Json.Required.Always)]
+        public MediaType MediaType { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("still", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Still { get; set; }
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -3380,6 +3435,9 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("instruction", Required = global::Newtonsoft.Json.Required.Always)]
         public string Instruction { get; set; } = default!;
 
+        [global::Newtonsoft.Json.JsonProperty("media", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<ExecutionMediaView>? Media { get; set; }
+
         [global::Newtonsoft.Json.JsonProperty("directory", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public string? Directory { get; set; }
 
@@ -3466,6 +3524,9 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "device_revoked")] DeviceRevoked,
         [global::System.Runtime.Serialization.EnumMember(Value = "review_required")] ReviewRequired,
         [global::System.Runtime.Serialization.EnumMember(Value = "review_stale")] ReviewStale,
+        [global::System.Runtime.Serialization.EnumMember(Value = "media_not_kept")] MediaNotKept,
+        [global::System.Runtime.Serialization.EnumMember(Value = "media_full")] MediaFull,
+        [global::System.Runtime.Serialization.EnumMember(Value = "media_present")] MediaPresent,
     }
 
     public sealed class CommandRejection
@@ -3532,6 +3593,7 @@ namespace Halcyonic.Contracts
                 "workstream_fitted" => new WorkstreamFittedResult(),
                 "project_checked" => new ProjectCheckedResult(),
                 "preview_started" => new PreviewStartedResult(),
+                "media_added" => new MediaAddedResult(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "CommandResult has no string kind."
                     : "Unknown kind \"" + tag + "\" for CommandResult."),
@@ -3690,6 +3752,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("port", Required = global::Newtonsoft.Json.Required.Always)]
         public long Port { get; set; }
+    }
+
+    public sealed class MediaAddedResult : CommandResult
+    {
+        protected override string Discriminator => "media_added";
+
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
     }
 
     public sealed class CommandView
@@ -4128,6 +4198,30 @@ namespace Halcyonic.Contracts
         public global::System.Collections.Generic.List<PictureRead> Pictures { get; set; } = new global::System.Collections.Generic.List<PictureRead>();
     }
 
+    public sealed class ExecutionInstructionMediaGivenPayloadMediaItem
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("media_type", Required = global::Newtonsoft.Json.Required.Always)]
+        public MediaType MediaType { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("stills_given", Required = global::Newtonsoft.Json.Required.Always)]
+        public long StillsGiven { get; set; }
+    }
+
+    public sealed class ExecutionInstructionMediaGivenPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string CommandId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("media", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<ExecutionInstructionMediaGivenPayloadMediaItem> Media { get; set; } = new global::System.Collections.Generic.List<ExecutionInstructionMediaGivenPayloadMediaItem>();
+
+        [global::Newtonsoft.Json.JsonProperty("line_added", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool LineAdded { get; set; }
+    }
+
     public sealed class ProjectRestoredPayload
     {
         [global::Newtonsoft.Json.JsonProperty("checkpoint_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -4400,6 +4494,90 @@ namespace Halcyonic.Contracts
     {
         [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
         public string Name { get; set; } = default!;
+    }
+
+    public sealed class ProjectMediaAddedPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("command_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string CommandId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("media_type", Required = global::Newtonsoft.Json.Required.Always)]
+        public MediaType MediaType { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("size_bytes", Required = global::Newtonsoft.Json.Required.Always)]
+        public long SizeBytes { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("sha256", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Sha256 { get; set; } = default!;
+    }
+
+    public sealed class MediaStill
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("size_bytes", Required = global::Newtonsoft.Json.Required.Always)]
+        public long SizeBytes { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("sha256", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Sha256 { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("at_ms", Required = global::Newtonsoft.Json.Required.Always)]
+        public long AtMs { get; set; }
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum MediaNotMade
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "tool_missing")] ToolMissing,
+        [global::System.Runtime.Serialization.EnumMember(Value = "tool_changed")] ToolChanged,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unreadable")] Unreadable,
+        [global::System.Runtime.Serialization.EnumMember(Value = "timed_out")] TimedOut,
+        [global::System.Runtime.Serialization.EnumMember(Value = "too_long")] TooLong,
+        [global::System.Runtime.Serialization.EnumMember(Value = "too_large")] TooLarge,
+        [global::System.Runtime.Serialization.EnumMember(Value = "no_room")] NoRoom,
+    }
+
+    public sealed class MediaFile
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("size_bytes", Required = global::Newtonsoft.Json.Required.Always)]
+        public long SizeBytes { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("sha256", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Sha256 { get; set; } = default!;
+    }
+
+    public sealed class ProjectMediaPreparedPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("stills", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<MediaStill> Stills { get; set; } = new global::System.Collections.Generic.List<MediaStill>();
+
+        [global::Newtonsoft.Json.JsonProperty("stills_not_made", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public MediaNotMade? StillsNotMade { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("play", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public MediaFile? Play { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("play_not_made", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public MediaNotMade? PlayNotMade { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("width", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Width { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("height", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Height { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("duration_ms", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? DurationMs { get; set; }
     }
 
     public sealed class WorldDescriptionFormat1Sky
@@ -5231,6 +5409,15 @@ namespace Halcyonic.Contracts
         public string Name { get; set; } = default!;
     }
 
+    public sealed class ProjectMediaAddPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("media", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Media { get; set; } = default!;
+    }
+
     public sealed class ProjectLinkCatalogPayload
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -5310,6 +5497,7 @@ namespace Halcyonic.Contracts
             {
                 "image" => new ImageAttachment(),
                 "given" => new GivenAttachment(),
+                "media" => new MediaAttachment(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "InstructionAttachment has no string kind."
                     : "Unknown kind \"" + tag + "\" for InstructionAttachment."),
@@ -5344,6 +5532,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("picture", Required = global::Newtonsoft.Json.Required.Always)]
         public string Picture { get; set; } = default!;
+    }
+
+    public sealed class MediaAttachment : InstructionAttachment
+    {
+        protected override string Discriminator => "media";
+
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
     }
 
     public sealed class ExecutionStartPayload
@@ -5585,6 +5781,7 @@ namespace Halcyonic.Contracts
                 "project.make_private" => new ProjectMakePrivateCommand(),
                 "project.secret.set" => new ProjectSecretSetCommand(),
                 "project.secret.remove" => new ProjectSecretRemoveCommand(),
+                "project.media.add" => new ProjectMediaAddCommand(),
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
                 "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
                 "project.remove_from_list" => new ProjectRemoveFromListCommand(),
@@ -5779,6 +5976,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSecretRemovePayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectMediaAddCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.media.add";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectMediaAddPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectLinkCatalogCommand : CommandEnvelope
@@ -6633,6 +6838,7 @@ namespace Halcyonic.Contracts
                 "execution.instruction.queued" => new ExecutionInstructionQueuedEvent(),
                 "execution.instruction.dequeued" => new ExecutionInstructionDequeuedEvent(),
                 "execution.instruction.pictures_read" => new ExecutionInstructionPicturesReadEvent(),
+                "execution.instruction.media_given" => new ExecutionInstructionMediaGivenEvent(),
                 "project.restored" => new ProjectRestoredEvent(),
                 "project.restore_incomplete" => new ProjectRestoreIncompleteEvent(),
                 "project.check.recorded" => new ProjectCheckRecordedEvent(),
@@ -6653,6 +6859,8 @@ namespace Halcyonic.Contracts
                 "project.unpublished" => new ProjectUnpublishedEvent(),
                 "project.secret.stored" => new ProjectSecretStoredEvent(),
                 "project.secret.removed" => new ProjectSecretRemovedEvent(),
+                "project.media.added" => new ProjectMediaAddedEvent(),
+                "project.media.prepared" => new ProjectMediaPreparedEvent(),
                 "project.world.observed" => new ProjectWorldObservedEvent(),
                 "project.rules.updated" => new ProjectRulesUpdatedEvent(),
                 "execution.rules_given" => new ExecutionRulesGivenEvent(),
@@ -6840,6 +7048,14 @@ namespace Halcyonic.Contracts
         public ExecutionInstructionPicturesReadPayload Payload { get; set; } = default!;
     }
 
+    public sealed class ExecutionInstructionMediaGivenEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.instruction.media_given";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ExecutionInstructionMediaGivenPayload Payload { get; set; } = default!;
+    }
+
     public sealed class ProjectRestoredEvent : EventEnvelope
     {
         protected override string Discriminator => "project.restored";
@@ -6998,6 +7214,22 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ProjectSecretRemovedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectMediaAddedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.media.added";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectMediaAddedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectMediaPreparedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.media.prepared";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ProjectMediaPreparedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectWorldObservedEvent : EventEnvelope
@@ -7539,7 +7771,7 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "welcome";
 
         [global::Newtonsoft.Json.JsonProperty("protocol", Required = global::Newtonsoft.Json.Required.Always)]
-        public long Protocol { get; set; } = 2;
+        public long Protocol { get; set; } = 3;
 
         [global::Newtonsoft.Json.JsonProperty("journal", Required = global::Newtonsoft.Json.Required.Always)]
         public JournalInfo Journal { get; set; } = default!;
@@ -7672,7 +7904,7 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "hello";
 
         [global::Newtonsoft.Json.JsonProperty("protocol", Required = global::Newtonsoft.Json.Required.Always)]
-        public long Protocol { get; set; } = 2;
+        public long Protocol { get; set; } = 3;
 
         [global::Newtonsoft.Json.JsonProperty("client", Required = global::Newtonsoft.Json.Required.Always)]
         public ClientInfo Client { get; set; } = default!;

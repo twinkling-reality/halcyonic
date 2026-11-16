@@ -371,7 +371,9 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 36);
+    assert.equal(policies.size, 37);
+    // A photo or video copied into the folder under a new name, one press on the Mac's page (ADR 0066).
+    assert.equal(policies.get('project.media.add'), 'low_consequence');
     // Taking a project off the list deletes nothing, but the project leaves every list: read first (ADR 0063).
     assert.equal(policies.get('project.remove_from_list'), 'review_required');
     assert.equal(policies.get('project.rules.set'), 'review_required');

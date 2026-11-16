@@ -190,6 +190,24 @@ client                                   server
     `sha256`) records what was read, never the bytes, before the runtime is given them.
   - `RuntimeModel.picture_input` says whether the runtime's list says a model takes pictures; OpenCode refuses,
     with no effect, a model it lists as text only.
+- **Photos and videos in a project** (ADR 0066, protocol 3). The Mac's own page keeps the person's file by its
+  SHA-256; `project.media.add {project_id, media}` (title Add Media, one press, never said) then copies it into
+  the project's folder under a name the host chooses. Admission refuses it with `location_required` for a project
+  without a folder, `invalid_state` while the project is busy (it is one of the commands that write the folder),
+  and `media_full` at `MEDIA_PER_PROJECT` (50) or `MEDIA_FOLDER_BYTES` (240 MB, the files made from them
+  counted); the host refuses `media_not_kept` and `media_present`.
+  - `project.media.added` records the written file (`path`, `media_type`, `size_bytes`, `sha256`, never the
+    person's file name or anything read from inside it), then `project.media.prepared` its stills, its play copy
+    for a video, or why not (`tool_missing`, `tool_changed`, `unreadable`, `timed_out`, `too_long`, `too_large`, `no_room`). The command
+    completes with `{kind: 'media_added', path}` only after both, so the folder counts as busy until then.
+  - `ProjectView.media` lists them, newest first (`path`, `media_type`, `size_bytes`, `added_at`, the first
+    `still`, `play`, `duration_ms`, `prepared`); whether the file is still in the folder is a read, never the view.
+  - An instruction's `attachments` take `{kind: 'media', path}` of one of them. Admission refuses a path that is
+    none of the project's, and more than 4 pictures once a video's stills are counted for a runtime that takes
+    pictures. A runtime that takes pictures gets the stills; every runtime gets one line of the host's after the
+    person's words saying where the file and its copies are. `execution.instruction.media_given` (`command_id`,
+    each medium's `path`, `media_type`, `stills_given`, and `line_added`) records it before the runtime is given
+    the instruction, never the line's text; `ExecutionView.media` holds each medium given, with its first still.
 - **What can be done here** (ADR 0060). `GET /api/actions?project_id=&workstream_id=&execution_id=` (all
   absent for all work; a task's scope names its project and its current execution) answers `HereResponse`
   `{scope, position, actions}`: what the host would admit there now, in its order, the main action first.

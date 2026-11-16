@@ -121,7 +121,7 @@ function needsOf(fields: Readonly<Record<string, FieldSource>>): HereNeed[] {
 }
 
 /** A need the assistant may never fill: a secret, typed in a field, or a runtime's question's answers. */
-const NEVER_SAID = new Set<HereNeed['kind']>(['secret', 'answers']);
+const NEVER_SAID = new Set<HereNeed['kind']>(['secret', 'answers', 'media']);
 
 /** One command's entry: the host's words, how it is confirmed, whether it may be said, its needs. */
 export function commandEntry(commandType: Listed): Extract<HereAction, { kind: 'command' }> {

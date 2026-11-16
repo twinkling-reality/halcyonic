@@ -1,6 +1,6 @@
 import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
-import { CheckpointId, GitObjectId, ReviewDigest } from './checkpoints.ts';
+import { CheckpointId, GitObjectId, ProjectPath, ReviewDigest } from './checkpoints.ts';
 import { Sha256Hex } from './devices.ts';
 import {
   GitBranchName,
@@ -286,6 +286,17 @@ export const ProjectSecretSetCommand = defineCommand(
 export const ProjectSecretRemoveCommand = defineCommand(
   'project.secret.remove',
   Type.Object({ project_id: ProjectId, name: SecretName }, strict),
+);
+
+/**
+ * Copies a photo or video the host keeps, by the SHA-256 the Mac's page kept it under, into the
+ * project's folder under a name the host chooses (ADR 0066). `project.media.added` records the file,
+ * then `project.media.prepared` what the host made from it (or why not), and only then does the
+ * command complete, so the project's folder counts as busy until the host has finished writing in it.
+ */
+export const ProjectMediaAddCommand = defineCommand(
+  'project.media.add',
+  Type.Object({ project_id: ProjectId, media: Sha256Hex }, strict),
 );
 
 export const ProjectShowInFinderCommand = defineCommand(
@@ -601,6 +612,7 @@ export const COMMAND_VARIANTS = [
   ProjectMakePrivateCommand,
   ProjectSecretSetCommand,
   ProjectSecretRemoveCommand,
+  ProjectMediaAddCommand,
   ProjectLinkCatalogCommand,
   ProjectUnlinkCatalogCommand,
   ProjectRemoveFromListCommand,
@@ -645,6 +657,7 @@ export const CommandType = Type.Union([
   Type.Literal('project.make_private'),
   Type.Literal('project.secret.set'),
   Type.Literal('project.secret.remove'),
+  Type.Literal('project.media.add'),
   Type.Literal('project.link_catalog'),
   Type.Literal('project.unlink_catalog'),
   Type.Literal('project.remove_from_list'),
@@ -723,6 +736,12 @@ export const RejectionCode = Type.Union([
   Type.Literal('review_required'),
   /** What the person read no longer matches what is true now: read it again (ADR 0051). */
   Type.Literal('review_stale'),
+  /** The host no longer keeps the photo or video the command names: it is added again (ADR 0066). */
+  Type.Literal('media_not_kept'),
+  /** The project holds `MEDIA_PER_PROJECT` photos and videos, or `MEDIA_FOLDER_BYTES` of them. */
+  Type.Literal('media_full'),
+  /** The project's folder already holds the file the host would write: the same photo or video. */
+  Type.Literal('media_present'),
 ]);
 export type RejectionCode = Static<typeof RejectionCode>;
 
@@ -830,6 +849,8 @@ export const CommandResult = Type.Union([
     },
     strict,
   ),
+  /** The photo or video is in the project's folder at `path`, the name the host chose (ADR 0066). */
+  Type.Object({ kind: Type.Literal('media_added'), path: ProjectPath }, strict),
 ]);
 export type CommandResult = Static<typeof CommandResult>;
 

@@ -107,6 +107,8 @@ export const COMMAND_FIELDS: Readonly<
   'project.share.stop': { project_id: project },
   // The value goes by its own write-only request, typed, never by this command and never said (R6).
   'project.secret.set': { project_id: project, name: need('secret', 'Secret') },
+  // The bytes go by the Mac's own page, which keeps them first; never said, never passed through a model.
+  'project.media.add': { project_id: project, media: need('media', 'Photo or Video') },
   'project.secret.remove': {
     project_id: project,
     name: need('choice', 'Secret', { list: 'secrets' }),

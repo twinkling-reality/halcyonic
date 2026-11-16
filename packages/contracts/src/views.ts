@@ -11,6 +11,7 @@ import { WorkstreamCopy } from './copies.ts';
 import { ApprovalSubject, QUEUED_INSTRUCTIONS_MAX } from './events.ts';
 import { ProjectPublishedView } from './github.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
+import { ExecutionMediaView, MEDIA_PER_PROJECT, ProjectMediaView } from './media.ts';
 import { OwnCheckFindings, OwnCheckManager, OwnCheckScript } from './own-checks.ts';
 import { AutoFixView, CheckFindings, CheckId, ShareAddress, ShareWay } from './previews.ts';
 import {
@@ -245,6 +246,13 @@ export const ProjectView = Type.Object(
      * The project's secrets by name, sorted (ADR 0057); absent when it has none. Never a value.
      */
     secrets: Type.Optional(SecretNames),
+    /**
+     * Its photos and videos, newest first (ADR 0066); absent when none was added. A file put in the
+     * folder by hand is not one of them.
+     */
+    media: Type.Optional(
+      Type.Array(ProjectMediaView, { minItems: 1, maxItems: MEDIA_PER_PROJECT }),
+    ),
     world: Type.Optional(ProjectWorldView),
     /**
      * The project's own rules, while they are on (E5): the file and the digest of the text the person
@@ -379,6 +387,13 @@ export const ExecutionView = Type.Object(
      */
     unconfined_reason: Type.Optional(Text(2000)),
     instruction: Text(32000),
+    /**
+     * The project's photos and videos its instructions carried (ADR 0066), each once, first given
+     * first; absent for none.
+     */
+    media: Type.Optional(
+      Type.Array(ExecutionMediaView, { minItems: 1, maxItems: MEDIA_PER_PROJECT }),
+    ),
     /**
      * The folder the runtime was given to work in, as the host resolved the project's location for
      * this start. Null for a runtime that uses none, and for executions journaled before folders

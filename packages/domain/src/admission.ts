@@ -4,6 +4,7 @@ import type {
   CommandType,
   ExecutionId,
   ExecutionStatus,
+  InstructionAttachment,
   PolicyCategory,
   ProjectId,
   ProjectView,
@@ -17,6 +18,9 @@ import type {
 } from '@halcyonic/contracts';
 import {
   MAX_PROJECT_SECRETS,
+  MEDIA_FOLDER_BYTES,
+  MEDIA_PER_PROJECT,
+  PICTURES_PER_INSTRUCTION,
   QUEUED_INSTRUCTIONS_MAX,
   WORLD_STARTER_ID,
 } from '@halcyonic/contracts';
@@ -264,6 +268,37 @@ function admit(
             `${busy.busy}, so ${notDone(command.command_type)} ${busy.waiting === true ? 'Answer it or stop it, then try again.' : after}`,
           );
       }
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
+    case 'project.media.add': {
+      // The person's photo or video into the folder (ADR 0066): the host writes there, so nothing else may.
+      const projectId = command.payload.project_id;
+      const project = projection.project(projectId);
+      if (project === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (project.location === null)
+        return reject(scope, 'location_required', 'The project has no folder on this computer.');
+      const busy = projection.projectBusyReason(projectId, command.command_id);
+      if (busy !== null)
+        return reject(
+          scope,
+          'invalid_state',
+          busyWords(busy, command.command_type, 'Add it once the task stops.'),
+        );
+      if (projection.media(projectId).length >= MEDIA_PER_PROJECT)
+        return reject(
+          scope,
+          'media_full',
+          `This project holds ${MEDIA_PER_PROJECT} photos and videos, the most it keeps.`,
+        );
+      if (projection.mediaBytes(projectId) >= MEDIA_FOLDER_BYTES)
+        return reject(
+          scope,
+          'media_full',
+          `This project's photos and videos take ${Math.round(MEDIA_FOLDER_BYTES / 1_000_000)} MB, the most it keeps.`,
+        );
       return { admitted: true, policy, scope, runtime: null };
     }
 
@@ -872,6 +907,14 @@ function admit(
       if (fromTheFolder(command.payload.attachments) && location === null) {
         return reject(scope, 'location_required', PICTURES_NEED_A_FOLDER);
       }
+      const media = mediaRefusal(
+        projection,
+        workstream.project_id,
+        runtime,
+        command.payload.attachments,
+        scope,
+      );
+      if (media !== undefined) return media;
       // A task with a copy of its own works there; one without works in the project's folder
       // until the host makes it one (ADR 0045).
       const folder = taskFolder(projection, workstream);
@@ -900,6 +943,14 @@ function admit(
       ) {
         return reject(scope, 'location_required', PICTURES_NEED_A_FOLDER);
       }
+      const media = mediaRefusal(
+        projection,
+        facts.projectId,
+        runtime,
+        command.payload.attachments,
+        scope,
+      );
+      if (media !== undefined) return media;
       if (projection.restoreInProgress(facts.projectId)) {
         return reject(
           scope,
@@ -1439,9 +1490,49 @@ function resolveExecution(
   return { found: true, facts, runtime, scope };
 }
 
-/** Whether any of an instruction's pictures comes from the project's folder; a given one needs none. */
+/**
+ * Whether any of an instruction's pictures, or photos and videos, comes from the project's folder; a
+ * given picture needs none.
+ */
 function fromTheFolder(attachments: readonly { readonly kind: string }[] | undefined): boolean {
-  return attachments?.some((attachment) => attachment.kind === 'image') === true;
+  return (
+    attachments?.some(
+      (attachment) => attachment.kind === 'image' || attachment.kind === 'media',
+    ) === true
+  );
+}
+
+/**
+ * An instruction's photos and videos (ADR 0066) are the project's own, as the journal has them, and
+ * the pictures it then carries, its stills for a runtime that takes pictures, are at most
+ * `PICTURES_PER_INSTRUCTION`. A runtime that takes none gets the host's line about them alone.
+ */
+function mediaRefusal(
+  projection: Projection,
+  projectId: string,
+  runtime: RuntimeDescriptor,
+  attachments: readonly InstructionAttachment[] | undefined,
+  scope: CommandScope,
+): Admission | undefined {
+  if (attachments === undefined) return undefined;
+  let pictures = 0;
+  for (const attachment of attachments) {
+    if (attachment.kind !== 'media') {
+      pictures += 1;
+      continue;
+    }
+    const stills = projection.mediaStills(projectId, attachment.path);
+    if (stills === undefined)
+      return reject(scope, 'invalid_state', "That photo or video is not one of this project's.");
+    if (runtime.takes_pictures === true) pictures += stills.length;
+  }
+  if (pictures > PICTURES_PER_INSTRUCTION)
+    return reject(
+      scope,
+      'invalid_state',
+      `An instruction can carry at most ${PICTURES_PER_INSTRUCTION} pictures, counting the pictures taken from each video. Attach fewer.`,
+    );
+  return undefined;
 }
 
 const PICTURES_NEED_A_FOLDER =
@@ -1453,10 +1544,12 @@ const PICTURES_NEED_A_FOLDER =
  */
 function picturesRefusal(
   runtime: RuntimeDescriptor,
-  attachments: readonly unknown[] | undefined,
+  attachments: readonly InstructionAttachment[] | undefined,
   scope: CommandScope,
 ): Admission | undefined {
   if (attachments === undefined || runtime.takes_pictures === true) return undefined;
+  // A photo or video alone goes as the host's line, which any runtime takes (ADR 0066).
+  if (attachments.every((attachment) => attachment.kind === 'media')) return undefined;
   return reject(
     scope,
     'capability_unsupported',
@@ -1587,6 +1680,8 @@ function commandInWords(type: CommandType): string {
       return 'A check';
     case 'project.own_check.choose':
       return 'Choosing a check';
+    case 'project.media.add':
+      return 'Adding a photo or video';
     default:
       return 'A command';
   }
@@ -1723,6 +1818,7 @@ const PROJECT_FOLDER_COMMANDS: ReadonlySet<CommandType> = new Set<CommandType>([
   'project.own_check.choose',
   'project.set_location',
   'project.make_vr_version',
+  'project.media.add',
 ]);
 
 /**

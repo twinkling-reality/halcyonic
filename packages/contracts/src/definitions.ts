@@ -169,6 +169,14 @@ import {
   ProjectLocationChoice,
 } from './locations.ts';
 import {
+  ExecutionMediaView,
+  MediaFile,
+  MediaNotMade,
+  MediaStill,
+  MediaType,
+  ProjectMediaView,
+} from './media.ts';
+import {
   OwnCheckChoice,
   OwnCheckFindings,
   OwnCheckFoundResponse,
@@ -645,6 +653,12 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ProjectRulesOn,
   ProjectRulesResponse,
   ProjectRulesState,
+  ExecutionMediaView,
+  MediaFile,
+  MediaNotMade,
+  MediaStill,
+  MediaType,
+  ProjectMediaView,
   HistoryEntry,
   HistoryFolder,
   ProjectHistoryQuery,

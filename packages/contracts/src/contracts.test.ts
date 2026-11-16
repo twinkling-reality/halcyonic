@@ -735,6 +735,7 @@ describe('the C# bindings', () => {
     'ExecutionView.approval_level', // ADR 0043
     'ExecutionView.approvals', // how many requests the host answered and how many asked, absent until one
     'ExecutionView.auto_fix', // a failed check sent back on its own (ADR 0044)
+    'ExecutionView.media', // the photos and videos its instructions carried (ADR 0066)
     'ExecutionView.plan', // whether its start recorded a plan (PLAN 4a)
     'ExecutionView.plan_left', // whether the plan was left to carry it out (PLAN 4a)
     'ExecutionView.queued_instructions', // instructions waiting for the turn to end (ADR 0056)
@@ -761,6 +762,7 @@ describe('the C# bindings', () => {
     'ProjectSetLocationPayload.review', // the review a rebinding carries (ADR 0051)
     'ProjectView.check', // M1.8e
     'ProjectView.mac_play', // M1.8e
+    'ProjectView.media', // a project's photos and videos (ADR 0066)
     'ProjectView.own_check', // a project's own check (ADR 0055)
     'ProjectView.preview', // M1.8e
     'ProjectView.published', // a project's published game (ADR 0039)

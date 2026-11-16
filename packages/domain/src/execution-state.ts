@@ -5,6 +5,7 @@ import type {
   CommandId,
   ErrorInfo,
   ExecutionId,
+  ExecutionMediaView,
   ExecutionStatus,
   ExecutionView,
   ProjectId,
@@ -88,6 +89,8 @@ export interface ExecutionState {
   autoFixDriven: boolean;
   /** The person's instructions waiting for the turn to end, oldest first (ADR 0056). */
   queued: QueuedInstructionView[];
+  /** The project's photos and videos its instructions carried, each once (ADR 0066). */
+  media: ExecutionMediaView[];
   /** What its reported turns used (`runtime.usage.reported`); null until one is reported. */
   usage: UsageSum | null;
   /** Its spending limit and the span the app's estimates are summed over; null for none. */
@@ -267,6 +270,7 @@ export function createExecutionState(init: {
     autoFix: null,
     autoFixDriven: false,
     queued: [],
+    media: [],
     usage: null,
     spendingCap: null,
     approvals: null,
@@ -448,6 +452,8 @@ export function toExecutionView(
     ...((state.queued ?? []).length > 0 && {
       queued_instructions: state.queued.map((queued) => ({ ...queued })),
     }),
+    // A state from before media (ADR 0066) has none.
+    ...((state.media ?? []).length > 0 && { media: state.media.map((medium) => ({ ...medium })) }),
     // A state from before usage was recorded has none.
     // A report comes before its turn's end event, so between them its turn counts as ended: never
     // "1 of 0 turns".

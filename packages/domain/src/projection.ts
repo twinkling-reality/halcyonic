@@ -28,12 +28,14 @@ import type {
   ExecutionView,
   HistoryEntry,
   HistoryFolder,
+  MediaType,
   OwnCheckFindings,
   OwnCheckManager,
   OwnCheckScript,
   Principal,
   ProjectId,
   ProjectLocation,
+  ProjectMediaView,
   ProjectOwnCheckView,
   ProjectPublishedView,
   ProjectView,
@@ -175,6 +177,22 @@ interface CheckState<F extends CheckFindings | OwnCheckFindings = CheckFindings>
 /** A check of either kind: the Mac's own of a starter's project, or a project's own check (ADR 0055). */
 type AnyCheckState = CheckState<CheckFindings | OwnCheckFindings>;
 
+/**
+ * A photo or video of a project (ADR 0066): what `project.media.added` recorded, then what
+ * `project.media.prepared` says the host made from it, and the bytes those made files take.
+ */
+interface MediaState {
+  readonly path: string;
+  readonly mediaType: MediaType;
+  readonly sizeBytes: number;
+  readonly addedAt: Timestamp;
+  stills: readonly string[];
+  play: string | null;
+  durationMs: number | null;
+  prepared: boolean;
+  madeBytes: number;
+}
+
 /** A project's own check (ADR 0055): what the person chose, and its runs' state. */
 interface OwnCheckState {
   readonly manager: OwnCheckManager;
@@ -289,9 +307,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * 22: the spending limit each execution runs under (`spendingCapUsd`). 23: when a project was taken off the list
  * (`removedAt`, ADR 0063). 24: how many of each
  * execution's requests the host answered itself and how many asked (`approvals`). 25: the commands a start's press
- * runs before its run (`before`, the recap is the review).
+ * runs before its run (`before`, the recap is the review). 26: each project's photos and videos (`media`) and the
+ * ones each execution was given (ADR 0066).
  */
-export const PROJECTION_STATE_FORMAT = 25;
+export const PROJECTION_STATE_FORMAT = 26;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -317,6 +336,7 @@ export interface ProjectionState {
   readonly shares: ReadonlyMap<unknown, unknown>;
   readonly published: ReadonlyMap<unknown, unknown>;
   readonly secrets: ReadonlyMap<unknown, unknown>;
+  readonly media: ReadonlyMap<unknown, unknown>;
   readonly madeRepositories: ReadonlyMap<unknown, unknown>;
   readonly checkOutputs: ReadonlyMap<unknown, unknown>;
   readonly resultStarts: ReadonlyMap<unknown, unknown>;
@@ -426,6 +446,8 @@ export class Projection {
   readonly #published = new Map<ProjectId, ProjectPublishedView>();
   /** Each project's secrets by name, sorted (ADR 0057): never a value, which only the store holds. */
   readonly #secrets = new Map<ProjectId, readonly SecretName[]>();
+  /** Each project's photos and videos as the journal has them, newest first (ADR 0066). */
+  readonly #media = new Map<ProjectId, MediaState[]>();
   /**
    * Each repository a send of Halcyonic's made for a project, and who can see it as far as the journal
    * says: as it was made, then public once a publish made it so. Nothing else changes it here.
@@ -520,6 +542,7 @@ export class Projection {
       shares: this.#shares,
       published: this.#published,
       secrets: this.#secrets,
+      media: this.#media,
       madeRepositories: this.#madeRepositories,
       checkOutputs: this.#checkOutputs,
       resultStarts: this.#resultStarts,
@@ -606,6 +629,7 @@ export class Projection {
     for (const [key, value] of state.published as Map<never, never>)
       this.#published.set(key, value);
     for (const [key, value] of state.secrets as Map<never, never>) this.#secrets.set(key, value);
+    for (const [key, value] of state.media as Map<never, never>) this.#media.set(key, value);
     for (const [key, value] of state.madeRepositories as Map<never, never>)
       this.#madeRepositories.set(key, value);
     for (const [key, value] of state.checkOutputs as Map<never, never>)
@@ -1454,6 +1478,33 @@ export class Projection {
     return null;
   }
 
+  /** The project's photos and videos as the journal has them, newest first (ADR 0066). */
+  media(projectId: string): ProjectMediaView[] {
+    return (this.#media.get(projectId as ProjectId) ?? []).map((medium) => ({
+      path: medium.path,
+      media_type: medium.mediaType,
+      size_bytes: medium.sizeBytes,
+      added_at: medium.addedAt,
+      still: medium.stills[0] ?? null,
+      play: medium.play,
+      duration_ms: medium.durationMs,
+      prepared: medium.prepared,
+    }));
+  }
+
+  /** The stills the host made of one of the project's photos or videos; undefined when it is none of them. */
+  mediaStills(projectId: string, path: string): readonly string[] | undefined {
+    return this.#media.get(projectId as ProjectId)?.find((medium) => medium.path === path)?.stills;
+  }
+
+  /** The bytes the project's photos and videos take in its folder, the files made from them counted. */
+  mediaBytes(projectId: string): number {
+    let sum = 0;
+    for (const medium of this.#media.get(projectId as ProjectId) ?? [])
+      sum += medium.sizeBytes + medium.madeBytes;
+    return sum;
+  }
+
   /** Whether a restore of the project's files has been accepted and has no outcome yet. */
   restoreInProgress(projectId: string): boolean {
     for (const command of this.#pendingCommands) {
@@ -1887,6 +1938,29 @@ export class Projection {
       case 'execution.instruction.pictures_read':
         // A record of what the host read and handed on (A4); the command's own events end it.
         return;
+      case 'execution.instruction.media_given': {
+        // The photos and videos the run was given (ADR 0066), each once, drawn by its first still.
+        const execution = this.#executions.get(event.execution_id);
+        if (execution === undefined) {
+          notes.push(
+            note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
+          );
+          return;
+        }
+        const given = execution.media ?? [];
+        for (const medium of event.payload.media) {
+          if (given.some((each) => each.path === medium.path)) continue;
+          const stills = this.mediaStills(execution.projectId, medium.path) ?? [];
+          given.push({
+            path: medium.path,
+            media_type: medium.media_type,
+            still: stills[0] ?? null,
+          });
+        }
+        execution.media = given;
+        changes.executions.add(event.execution_id);
+        return;
+      }
       case 'execution.instruction.queued': {
         // The person's instruction waits for the turn to end (ADR 0056); its words are in its command.
         const execution = this.#executions.get(event.execution_id);
@@ -2084,6 +2158,52 @@ export class Projection {
         const names = event.event_type === 'project.secret.stored' ? [...kept, name].sort() : kept;
         if (names.length === 0) this.#secrets.delete(event.project_id);
         else this.#secrets.set(event.project_id, names);
+        if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.media.added': {
+        const held = this.#media.get(event.project_id) ?? [];
+        if (held.some((each) => each.path === event.payload.path)) {
+          notes.push(
+            note('duplicate_entity', event, `media ${event.payload.path} was added before`),
+          );
+          return;
+        }
+        this.#media.set(event.project_id, [
+          {
+            path: event.payload.path,
+            mediaType: event.payload.media_type,
+            sizeBytes: event.payload.size_bytes,
+            addedAt: event.occurred_at,
+            stills: [],
+            play: null,
+            durationMs: null,
+            prepared: false,
+            madeBytes: 0,
+          },
+          ...held,
+        ]);
+        if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.media.prepared': {
+        const medium = this.#media
+          .get(event.project_id)
+          ?.find((each) => each.path === event.payload.path);
+        if (medium === undefined) {
+          notes.push(note('unknown_entity', event, `media ${event.payload.path} was never added`));
+          return;
+        }
+        const { stills, play, duration_ms } = event.payload;
+        medium.stills = stills.map((still) => still.path);
+        medium.play = play?.path ?? null;
+        medium.durationMs = duration_ms;
+        medium.prepared = true;
+        // A photo that is its own still is counted once, as the medium itself.
+        medium.madeBytes =
+          stills
+            .filter((still) => still.path !== medium.path)
+            .reduce((sum, still) => sum + still.size_bytes, 0) + (play?.size_bytes ?? 0);
         if (this.#projects.has(event.project_id)) changes.projects.add(event.project_id);
         return;
       }
@@ -2919,6 +3039,8 @@ export class Projection {
     if (usage !== null) view.usage = usage;
     const secrets = this.#secrets.get(state.projectId);
     if (secrets !== undefined) view.secrets = [...secrets];
+    const media = this.media(state.projectId);
+    if (media.length > 0) view.media = media;
     const share = this.#shares.get(state.projectId);
     if (share !== undefined) {
       view.share = {

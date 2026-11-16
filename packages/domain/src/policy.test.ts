@@ -19,6 +19,7 @@ test('the assistant may propose every command but a share, an approval or answer
   assert.deepEqual(never, [
     'execution.answer_question',
     'execution.respond_to_approval',
+    'project.media.add',
     'project.secret.set',
     'project.share.start',
     'workspace.request.cancel',

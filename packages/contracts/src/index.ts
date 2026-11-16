@@ -12,6 +12,7 @@ export * from './file-changes.ts';
 export * from './github.ts';
 export * from './history.ts';
 export * from './locations.ts';
+export * from './media.ts';
 export * from './own-checks.ts';
 export * from './previews.ts';
 export * from './primitives.ts';
