@@ -191,9 +191,9 @@ export interface LandShape {
  * Long swells of ground running across the wind, `swell` metres high near the person (6; they grow a little toward the
  * horizon, to about 1.6 times at 110 m), `crest` 1 for dunes and 0 for soft hills (0.8), the wind blowing nearly from
  * the low sun's direction `sun` (radians, 0 ahead of the person along -z, positive to their right; 1.25 by default), so
- * the crests run across the light: faces lit toward the sun, shadow in their lee. Level ground within 3 m of the
- * person, rising to full swells by 12 m; each swell's height changes along its crest, so no two crests repeat. The
- * same for the same `seed`.
+ * the crests run across the light: faces lit toward the sun, shadow in their lee. The person stands on the crest of
+ * a dune of their own, level at their feet and falling away along the wind, its slope blending by 18 m into the field
+ * below them; each swell's height changes along its crest, so no two crests repeat. The same for the same `seed`.
  */
 export function landShape(options: { swell?: number; crest?: number; sun?: number; seed?: number } = {}): LandShape {
   const swell = options.swell ?? 6;
@@ -216,10 +216,15 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
     wind: [wx, wz],
     height(x, z) {
       const r = Math.hypot(x, z);
-      const level = Math.min(1, Math.max(0, (r - 3) / 9));
-      if (level === 0) return 0;
       const along = x * wx + z * wz;
       const across = -x * wz + z * wx;
+      // The person stands on a dune's crest, running across the wind through their feet: level where they stand,
+      // falling away gently on the side the wind comes from and steeply on its lee, so they look out over the field.
+      const feet = Math.min(1, Math.max(0, (r - 0.5) / 1.2));
+      const fall = along > 0 ? 0.3 * along ** 1.25 : 0.12 * (-along) ** 1.3;
+      const ridge = -feet * feet * (fall + 0.004 * across * across);
+      const blend = Math.min(1, Math.max(0, (r - 5) / 13));
+      if (blend === 0) return ridge;
       let h = 0;
       for (let i = 0; i < waves.length; i++) {
         const w = waves[i] as (typeof waves)[number];
@@ -233,10 +238,13 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
         // Far off, crests soften, as distance and haze round them, and no sharp edge is cut into steps.
         h += swellAt(s, crest * (1 - 0.5 * Math.min(1, Math.max(0, (r - 30) / 50)))) * w.height * along2;
       }
-      const smooth = level * level * (3 - 2 * level);
       // Lower again toward the rim at 110 m, so the land meets the sky low and softly, never cut off high.
       const rim = 1 - 0.5 * Math.min(1, Math.max(0, (r - 85) / 25)) ** 2;
-      return smooth * swell * (h / most) * (1 + r / 140) * rim;
+      // The field lies below the crest the person stands on: its troughs well under their feet, its tallest crests
+      // a little over their eye far off.
+      const field = swell * (h / most) * (1 + r / 140) * rim - swell * 0.62;
+      const smooth = blend * blend * (3 - 2 * blend);
+      return ridge + (field - ridge) * smooth;
     },
   };
 }

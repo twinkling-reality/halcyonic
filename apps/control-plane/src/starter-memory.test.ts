@@ -116,29 +116,46 @@ describe('a picture read as a sky over a ground', () => {
 });
 
 describe('open land: long swells of ground round the person', () => {
-  test('the person stands on level ground, and the swells rise only from 3 m off', () => {
-    const land = landShape({ crest: 1, swell: 3 });
+  test('the person stands level on a crest, and the ground falls away from it along the wind', () => {
+    const land = landShape({ crest: 1 });
     for (let a = 0; a < Math.PI * 2; a += 0.1) {
-      for (const r of [0, 1, 2, 3])
-        assert.ok(land.height(Math.sin(a) * r, -Math.cos(a) * r) < 1e-9, `level at r ${r}`);
+      for (const r of [0, 0.25, 0.5])
+        assert.ok(
+          Math.abs(land.height(Math.sin(a) * r, -Math.cos(a) * r)) < 1e-9,
+          `level at r ${r}`,
+        );
     }
-    let highest = 0;
-    for (let a = 0; a < Math.PI * 2; a += 0.05)
-      highest = Math.max(highest, land.height(Math.sin(a) * 30, -Math.cos(a) * 30));
-    assert.ok(highest > 1.5, `swells stand at 30 m: ${highest}`);
+    const [wx, wz] = land.wind;
+    assert.ok(land.height(wx * 4, wz * 4) < -1, 'the lee falls away steeply');
+    assert.ok(land.height(-wx * 4, -wz * 4) < -0.4, 'the windward side falls away gently');
+    assert.ok(
+      land.height(wx * 4, wz * 4) < land.height(-wx * 4, -wz * 4),
+      'steeper on the lee than into the wind',
+    );
   });
 
-  test('the ground never dips under the person or steps where the level ground ends', () => {
+  test('the field lies below the person, with crests rising toward their eye far off, and no step anywhere', () => {
     const land = landShape({ crest: 1 });
-    for (let a = 0; a < Math.PI * 2; a += 0.03) {
-      let last = 0;
-      for (let r = 2.9; r < 4; r += 0.01) {
+    let lowest = 0;
+    let highest = -99;
+    for (let a = 0; a < Math.PI * 2; a += 0.02) {
+      for (const r of [30, 60, 100]) {
         const h = land.height(Math.sin(a) * r, -Math.cos(a) * r);
-        assert.ok(h >= 0, `no dip at r ${r}`);
-        assert.ok(Math.abs(h - last) < 0.02, `no step at r ${r.toFixed(2)}: ${last} to ${h}`);
+        lowest = Math.min(lowest, h);
+        highest = Math.max(highest, h);
+      }
+      let last = 0;
+      for (let r = 0; r < 25; r += 0.01) {
+        const h = land.height(Math.sin(a) * r, -Math.cos(a) * r);
+        assert.ok(Math.abs(h - last) < 0.03, `no step at r ${r.toFixed(2)}: ${last} to ${h}`);
         last = h;
       }
     }
+    assert.ok(lowest < -2, `troughs well under the person: ${lowest}`);
+    assert.ok(
+      highest > 0 && highest < 1.62,
+      `far crests rise toward the eye, not past it: ${highest}`,
+    );
   });
 
   test('a dune rises slowly into the wind and falls steeply after its crest; a soft hill does neither', () => {

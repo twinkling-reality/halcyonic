@@ -12,6 +12,7 @@ import {
   LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
+  RepeatWrapping,
   RGBAFormat,
   SphereGeometry,
   SRGBColorSpace,
@@ -275,6 +276,34 @@ export function openLand(
   nearPicture.minFilter = LinearMipmapLinearFilter;
   nearPicture.generateMipmaps = true;
   nearPicture.needsUpdate = true;
+  // Wind ripples: a small tile of how steeply the sand's ripples slope, repeated over the ground across the wind and
+  // mip-mapped, so far off it averages to plain sand and never shimmers into lines.
+  const rippleCells = 128;
+  const rippleSlopes = new Uint8Array(rippleCells * rippleCells * 4);
+  const rippleAt = (u: number, v: number) =>
+    Math.sin(Math.PI * 2 * (9 * u + 0.5 * Math.sin(Math.PI * 2 * v) + 0.22 * Math.sin(Math.PI * 2 * (3 * v + u)))) *
+    (0.75 + 0.25 * Math.sin(Math.PI * 2 * (2 * v - u)));
+  for (let row = 0; row < rippleCells; row++) {
+    for (let col = 0; col < rippleCells; col++) {
+      const u = col / rippleCells;
+      const v = row / rippleCells;
+      const e = 1 / rippleCells;
+      const du = (rippleAt(u + e, v) - rippleAt(u - e, v)) / 2;
+      const dv = (rippleAt(u, v + e) - rippleAt(u, v - e)) / 2;
+      const o = (row * rippleCells + col) * 4;
+      rippleSlopes[o] = Math.round(Math.min(1, Math.max(0, 0.5 + du * 2.2)) * 255);
+      rippleSlopes[o + 1] = Math.round(Math.min(1, Math.max(0, 0.5 + dv * 2.2)) * 255);
+      rippleSlopes[o + 2] = 128;
+      rippleSlopes[o + 3] = 255;
+    }
+  }
+  const ripples = new DataTexture(rippleSlopes, rippleCells, rippleCells, RGBAFormat);
+  ripples.wrapS = RepeatWrapping;
+  ripples.wrapT = RepeatWrapping;
+  ripples.magFilter = LinearFilter;
+  ripples.minFilter = LinearMipmapLinearFilter;
+  ripples.generateMipmaps = true;
+  ripples.needsUpdate = true;
   const index: number[] = [];
   for (let i = 0; i < rings; i++) {
     for (let j = 0; j < around; j++) {
@@ -296,6 +325,8 @@ export function openLand(
   // call).
   sand.onBeforeCompile = (shader) => {
     shader.uniforms.sandNear = { value: nearPicture };
+    shader.uniforms.sandRipples = { value: ripples };
+    shader.uniforms.sandWind = { value: [wx, wz] };
     shader.uniforms.sandSpan = { value: span };
     shader.uniforms.sandSun = { value: [Math.sin(sunAt), -Math.cos(sunAt)] };
     shader.uniforms.sandSheen = { value: [sunColour.r, sunColour.g, sunColour.b] };
@@ -303,7 +334,7 @@ export function openLand(
       .replace('void main() {', 'varying vec3 vSand;\nvoid main() {')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSand = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nvarying vec3 vSand;\nvoid main() {')
+      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nvarying vec3 vSand;\nvoid main() {')
       .replace(
         '#include <opaque_fragment>',
         `{
@@ -312,6 +343,14 @@ export function openLand(
     vec2 cell = p / (2.0 * sandSpan) + 0.5;
     float inside = 1.0 - smoothstep(0.8, 1.0, max(abs(p.x), abs(p.y)) / sandSpan);
     if (inside > 0.0) outgoingLight = mix(outgoingLight, texture2D(sandNear, vec2(cell.x, cell.y)).rgb, inside);
+    // Ripples across the wind, a tile 2.4 m across: lighter on the side of each that faces the sun, darker on the
+    // other, faintly in shade as well; strongest at the feet and gone by 30 m.
+    vec2 q = vec2(dot(p, sandWind), dot(p, vec2(-sandWind.y, sandWind.x))) / 2.4;
+    vec2 slope = (texture2D(sandRipples, q).rg - 0.5) * 2.0;
+    float sunAlong = dot(sandSun, sandWind);
+    float sunAcross = dot(sandSun, vec2(-sandWind.y, sandWind.x));
+    float rippleNear = 1.0 - smoothstep(3.0, 30.0, length(p));
+    outgoingLight *= 1.0 + rippleNear * (0.26 * (slope.x * sunAlong + slope.y * sunAcross) + 0.08 * slope.x);
     // Fine grain, only where a grain is still bigger than a pixel.
     vec2 g = floor(p * 30.0);
     float grain = fract(sin(dot(g, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
