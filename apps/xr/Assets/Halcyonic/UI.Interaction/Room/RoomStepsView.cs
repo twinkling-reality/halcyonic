@@ -233,18 +233,46 @@ namespace Halcyonic.XR.UI
             usageValue ??= RoomType.Create(transform, "Usage value", Color.white, order);
             usageLabel.gameObject.SetActive(true);
             usageValue.gameObject.SetActive(true);
-            RoomType.Size(usageLabel);
+            // As the usage tile lays them (AUDIT 2026-11-16 12:19Z: "Tokens Used  Not Reported Yet" read as one run): the label
+            // small and quiet at the tile's label size, the value in the row's own size and white.
+            var labelSize = GlazeTokens.FontSize(RoomType.Scaled(RoomCardView.GaugeLabelDp));
+            if (!Mathf.Approximately(usageLabel.fontSize, labelSize)) usageLabel.fontSize = labelSize;
+            usageLabel.lineSpacing = KitType.LineSpacingFor(usageLabel, RoomCardView.GaugeLabelLineDp / RoomCardView.GaugeLabelDp);
             RoomType.Size(usageValue);
             usageLabel.color = Quiet;
-            usageValue.color = usage.Known ? Color.white : Quiet;
+            usageValue.color = Color.white;
             GlazeRuns.Of(usageLabel).Set(LineWords.Ours(usage.Label));
             GlazeRuns.Of(usageValue).Set(LineWords.Ours(usage.Value));
+            var labelLine = RoomType.Scaled(RoomCardView.GaugeLabelLineDp);
             var labelWide = KitType.Lay(usageLabel, column, 1).Width;
-            usageLabel.transform.localPosition = new Vector3(indent, -down, 0f);
             var valueLeft = labelWide + RoomType.Scaled(UsageGapDp);
-            var valueTall = KitType.Lay(usageValue, Mathf.Max(RoomType.Units(40f), column - valueLeft), RoomRowsView.RowLines).Height;
-            usageValue.transform.localPosition = new Vector3(indent + valueLeft, -down, 0f);
-            down += Mathf.Max(lineDp, valueTall);
+            // Beside the label where the value fits whole on one line; else under it, the column's width, whole, never a word alone
+            // on its last line.
+            var beside = column - valueLeft >= RoomType.Units(40f) && KitType.Lay(usageValue, column - valueLeft, 1).Width > 0f && !usageValue.isTextTruncated;
+            float valueTall;
+            if (beside)
+            {
+                valueTall = KitType.Lay(usageValue, column - valueLeft, 1).Height;
+                usageLabel.transform.localPosition = new Vector3(indent, -(down + Mathf.Max(0f, (lineDp - labelLine) / 2f)), 0f);
+                usageValue.transform.localPosition = new Vector3(indent + valueLeft, -down, 0f);
+                down += Mathf.Max(lineDp, valueTall);
+            }
+            else
+            {
+                usageLabel.transform.localPosition = new Vector3(indent, -down, 0f);
+                down += labelLine;
+                var laid = KitType.Lay(usageValue, column, RoomRowsView.RowLines);
+                for (var step = 1; step <= 6 && laid.Lines >= 2 && LastLineIsOneWord(usageValue); step++)
+                {
+                    var tried = KitType.Lay(usageValue, column * (1f - 0.06f * step), RoomRowsView.RowLines);
+                    if (tried.Lines != laid.Lines || usageValue.isTextTruncated) break;
+                    laid = tried;
+                }
+                if (LastLineIsOneWord(usageValue) || usageValue.isTextTruncated) laid = KitType.Lay(usageValue, column, RoomRowsView.RowLines);
+                valueTall = laid.Height;
+                usageValue.transform.localPosition = new Vector3(indent, -down, 0f);
+                down += Mathf.Max(lineDp, valueTall);
+            }
             for (var index = 0; index < usage.Notes.Count; index++)
             {
                 while (usageNotes.Count <= index) usageNotes.Add(RoomType.Create(transform, "Usage note", Color.white, order));
@@ -259,6 +287,17 @@ namespace Halcyonic.XR.UI
             }
             for (var index = usage.Notes.Count; index < usageNotes.Count; index++) usageNotes[index].gameObject.SetActive(false);
             return down;
+        }
+
+        /// <summary>Whether the label's last laid line holds one word alone.</summary>
+        private static bool LastLineIsOneWord(TMP_Text label)
+        {
+            var info = label.textInfo;
+            if (info.lineCount < 2) return false;
+            var last = info.lineInfo[info.lineCount - 1];
+            for (var index = last.firstCharacterIndex; index <= last.lastVisibleCharacterIndex && index < info.characterCount; index++)
+                if (char.IsWhiteSpace(info.characterInfo[index].character)) return false;
+            return last.lastVisibleCharacterIndex >= last.firstCharacterIndex;
         }
 
         public void Hide() => gameObject.SetActive(false);

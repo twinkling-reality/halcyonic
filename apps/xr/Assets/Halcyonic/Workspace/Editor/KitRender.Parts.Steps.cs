@@ -127,11 +127,29 @@ namespace Halcyonic.XR.Workspace.Editor
                     label.ForceMeshUpdate(true);
                     value.ForceMeshUpdate(true);
                     Require(label.GetParsedText().Trim() == usage.Label && value.GetParsedText().Trim() == usage.Value, "the usage figure reads \"" + label.GetParsedText() + "\" and \"" + value.GetParsedText() + "\"");
-                    Require(Mathf.Abs(-label.transform.localPosition.y - (below + gap)) < unit * 0.05f && Mathf.Abs(label.transform.localPosition.x - indent) < 1e-6f,
+                    Require(-label.transform.localPosition.y >= below + gap - unit * 0.05f && -label.transform.localPosition.y <= below + gap + line / 2f
+                        && Mathf.Abs(label.transform.localPosition.x - indent) < 1e-6f,
                         "the usage figure does not stand the rows' gap under the last step, at the steps' words");
-                    Require(Mathf.Abs(value.transform.localPosition.y - label.transform.localPosition.y) < 1e-6f
-                        && value.transform.localPosition.x >= label.transform.localPosition.x + RoomCursor.WordsWidth(label, 0f) + RoomType.Scaled(RoomStepsView.UsageGapDp) - unit * 0.05f,
-                        "the usage figure's value does not stand apart beside its label");
+                    // As the usage tile (AUDIT 2026-11-16 12:19Z): the label a step smaller and quiet, the value white at the row's size;
+                    // beside the label on its line where it fits whole, else under it at the steps' words; whole, never a word alone
+                    // on its last line.
+                    Require(label.fontSize < value.fontSize - 0.01f && label.color.a < value.color.a - 0.05f && value.color.r > 0.99f,
+                        "the usage figure's label is not smaller and quieter than its value");
+                    var besideIt = value.transform.localPosition.x >= label.transform.localPosition.x + RoomCursor.WordsWidth(label, 0f) + RoomType.Scaled(RoomStepsView.UsageGapDp) - unit * 0.05f
+                        && Mathf.Abs(value.transform.localPosition.y - label.transform.localPosition.y) < line;
+                    var underIt = Mathf.Abs(value.transform.localPosition.x - indent) < 1e-6f
+                        && -value.transform.localPosition.y >= -label.transform.localPosition.y + RoomType.Scaled(RoomCardView.GaugeLabelLineDp) - unit * 0.05f;
+                    Require(besideIt || underIt, "the usage figure's value stands neither apart beside its label nor under it");
+                    Require(besideIt ? value.textInfo.lineCount == 1 : true, "the usage figure's value beside its label wraps: \"" + value.GetParsedText() + "\"");
+                    Require(!value.isTextTruncated && !value.GetParsedText().Contains("…"), "the usage figure's value is cut");
+                    if (value.textInfo.lineCount >= 2)
+                    {
+                        var lastLine = value.textInfo.lineInfo[value.textInfo.lineCount - 1];
+                        var spaced = false;
+                        for (var at = lastLine.firstCharacterIndex; at <= lastLine.lastVisibleCharacterIndex && at < value.textInfo.characterCount; at++)
+                            spaced |= char.IsWhiteSpace(value.textInfo.characterInfo[at].character);
+                        Require(spaced, "the usage figure's value ends on a word alone: \"" + value.GetParsedText() + "\"");
+                    }
                     Require(!label.GetParsedText().Contains(KitMomentWords.Dot.Trim()) && !value.GetParsedText().Contains(KitMomentWords.Dot.Trim()), "the usage figure joins on a dot");
                     var notes = view.UsageNotes.ToList();
                     Require(notes.Count == 1 && notes[0].GetParsedText().Trim() == usage.Notes[0], "the usage figure's note is not under it");
