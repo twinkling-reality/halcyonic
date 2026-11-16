@@ -725,10 +725,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     // Watch It Work stands only where the host observes the folder the run writes (WatchBuild.Offered): a run with no
                     // folder, as the scratch plane's mock is (its execution's directory is null), never offers it, and the walk says so.
                     // A real agent may take minutes to write its first file; the mock run ends this wait at once (its approval).
+                    // The host says within its two-second tick whether it observes the run's folder (ExecutionView.Writing): where five
+                    // seconds pass with none, it offers no view, and the arc is stood at once, while the run still works.
                     var until = DateTime.UtcNow.AddSeconds(240);
+                    var noWriting = DateTime.UtcNow.AddSeconds(5);
                     RoomButton? watch = null;
                     while (DateTime.UtcNow < until && (watch = Drawn(RoomBar.Watch, null)) == null
-                        && Current(watched.WorkstreamId) is ExecutionView working && working.Status != ExecutionStatus.Completed && working.PendingApprovals.Count == 0)
+                        && Current(watched.WorkstreamId) is ExecutionView working && working.Status != ExecutionStatus.Completed && working.PendingApprovals.Count == 0
+                        && (working.Writing != null || DateTime.UtcNow < noWriting))
                     {
                         Draw();
                         Thread.Sleep(200);
