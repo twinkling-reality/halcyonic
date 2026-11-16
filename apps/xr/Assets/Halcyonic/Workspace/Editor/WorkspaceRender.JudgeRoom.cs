@@ -708,6 +708,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         var share = CoveredShare(camera, character.View, arc.transform);
                         Debug.Log("Halcyonic: live walk: the open Watch It Work arc (" + how + ", the run " + status + ") covers " + (share * 100f).ToString("0.0")
                             + "% of the working character's body and name tag");
+                        // Where the arc stands in the person's field, in degrees from the eyes, the head level: the frame is a crop of the
+                        // field (90 degrees tall, pitched 18 down), so the arc may run off the frame's top and still stand inside the field
+                        // (AUDIT's 13:16Z 3a); RoomFrameChecks holds every Room part inside the field less its margin.
+                        var reach = GlazeChecks.Of("the open arc", eyes, arc.gameObject);
+                        Debug.Log("Halcyonic: live walk: the open Watch It Work arc (" + how + ") stands " + reach + "; the frame shows 27.0 up at most"
+                            + (ViewField.Current is ViewField seen ? ", the field reaches " + GlazeChecks.Degrees((float)seen.Up - ViewField.EdgeMarginDegrees) + " up, its margin kept" : ""));
                         if (share > 0f)
                             failures.Add("live walk: the open Watch It Work arc (" + how + ") covers " + (share * 100f).ToString("0.0") + "% of the working character's body and name tag");
                     }
