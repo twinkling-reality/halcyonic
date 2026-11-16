@@ -12,9 +12,6 @@ namespace Halcyonic.Client
     /// </summary>
     public static class AmbientText
     {
-        /// <summary>The most of a panel's name, which can be a task's title, said while it is kept.</summary>
-        public const int StillOpenLimit = 32;
-
         /// <summary>How many workstreams need the person now: an approval waits, or one waits for them.</summary>
         public static int NeedsYou(ClientProjection state) =>
             state.Workstreams.Values.Count(workstream => CharacterLineup.TierOf(workstream) == LineupTier.NeedsYou);
@@ -24,16 +21,22 @@ namespace Halcyonic.Client
 
         /// <summary>"1 more task not shown here", "3 more tasks not shown here": work with no character on the stage; null for none.</summary>
         public static string? NotShown(int count) =>
-            count <= 0 ? null : "+" + count.ToString(CultureInfo.InvariantCulture) + (count == 1 ? " Task" : " Tasks") + " · Not Shown";
+            count <= 0 ? null : count.ToString(CultureInfo.InvariantCulture) + (count == 1 ? " more task not shown here" : " more tasks not shown here");
+
+        /// <summary>The label over the panel that was open when the work folded (AUDIT2, 2026-11-16 04:52Z).</summary>
+        public const string StillOpenLabel = "Still Open";
 
         /// <summary>
-        /// "Open · Create a project": the panel that was open when it folded, kept as it was. Its
-        /// name can be text from outside, as a task's title, so it is made plain first and then cut short past
-        /// <see cref="StillOpenLimit"/>, never inside a code point it shows.
+        /// "Still Open: Create a project": the panel that was open when it folded, kept as it was, its name whole (never cut:
+        /// the owner's bar and AUDIT's MUST, 2026-11-16; the banner wraps it). The name can be text from outside, as a task's
+        /// title, so it is made plain first. Where the banner lays label and name apart, <see cref="StillOpenLabel"/> and
+        /// <see cref="StillOpenName"/> give them.
         /// </summary>
-        /// <remarks>As runs: "Open · " upright, the panel's name leaning on Halcyonic's ground, last.</remarks>
-        public static LineWords StillOpen(string panel) =>
-            LineWords.Ours("Open · ") + LineWords.TheirName(IntelligenceText.Truncate(LabelText.Plain(panel), StillOpenLimit));
+        /// <remarks>As runs: "Still Open: " upright, the panel's name leaning on Halcyonic's ground, last.</remarks>
+        public static LineWords StillOpen(string panel) => LineWords.Ours(StillOpenLabel + ": ") + StillOpenName(panel);
+
+        /// <summary>The panel's name alone, plain and whole, as an outside name.</summary>
+        public static LineWords StillOpenName(string panel) => LineWords.TheirName(LabelText.Plain(panel));
     }
 
     /// <summary>Where the stage's banner stands (<see cref="BannerPlace"/>).</summary>

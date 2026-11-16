@@ -29,8 +29,8 @@ namespace Halcyonic.Client
         public const string NewNote = "New";
         public const string EditedNote = "Edited";
         public const string RemovedNote = "Removed";
-        public const string SessionWords = "Session";
-        public const string WeekWords = "Week";
+        public const string SessionWords = "5-Hour Limit";
+        public const string WeekWords = "Weekly Limit";
 
         /// <summary>What a usage card says of its numbers: at most what is left, as the provider reported it, never a current value.</summary>
         public const string UsageLine = "At most what is left, as last reported.";
@@ -136,7 +136,7 @@ namespace Halcyonic.Client
             {
                 true => new RoomCardStatus(AllPassing, fix?.Reason == AutoFixEndReason.Passed ? RoomBar.FixedLine : "Every check the computer ran passed", RoomTone.Good),
                 false when fixing => new RoomCardStatus(RoomBar.FixingTitle, RoomBar.FixingLine, RoomTone.Working),
-                false => new RoomCardStatus(ChecksFailed, fix?.Reason == AutoFixEndReason.CapReached ? RoomBar.StoppedLine : StoppedAt(result), RoomTone.Bad),
+                false => new RoomCardStatus(ChecksFailed, fix?.Reason == AutoFixEndReason.CapReached ? RoomBar.StoppedLineFor(fix.Cap) : StoppedAt(result), RoomTone.Bad),
                 null when result.PartlyChecked => new RoomCardStatus(KitMomentWords.PartlyChecked, KitMomentWords.PartlyCheckedLine, RoomTone.Quiet),
                 _ => (RoomCardStatus?)null,
             };

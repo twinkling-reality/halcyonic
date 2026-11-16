@@ -1,3 +1,4 @@
+using System.Linq;
 using Halcyonic.Contracts;
 using NUnit.Framework;
 
@@ -25,22 +26,24 @@ public class AmbientTextTests
     [Test]
     public void SaysHowMuchMoreWorkHasNoCharacter()
     {
-        Assert.That(AmbientText.NotShown(1), Is.EqualTo("+1 Task · Not Shown"));
-        Assert.That(AmbientText.NotShown(3), Is.EqualTo("+3 Tasks · Not Shown"));
+        Assert.That(AmbientText.NotShown(1), Is.EqualTo("1 more task not shown here"));
+        Assert.That(AmbientText.NotShown(3), Is.EqualTo("3 more tasks not shown here"), "never joined on a dot");
         Assert.That(AmbientText.NotShown(0), Is.Null, "nothing to say when every task stands on the stage");
     }
 
     [Test]
-    public void SaysWhichPanelIsStillOpenItsNameCutShort()
+    public void SaysWhichPanelIsStillOpenItsNameWhole()
     {
-        // Halcyonic's words upright and first, the panel's name leaning last (lane V's treatment).
-        Assert.That(AmbientText.StillOpen("New Project").ToString(), Is.EqualTo("Open · [New Project]"));
+        // Halcyonic's words upright and first, the panel's name leaning last (lane V's treatment); never a dot, never cut.
+        Assert.That(AmbientText.StillOpen("New Project").ToString(), Is.EqualTo("Still Open: [New Project]"));
         var title = new string('T', 80);
-        Assert.That(AmbientText.StillOpen(title).Text, Is.EqualTo("Open · " + IntelligenceText.Truncate(title, AmbientText.StillOpenLimit)));
-        Assert.That(AmbientText.StillOpen(title).Text.Length, Is.LessThan(50));
-        // Made plain before it is cut, so what it shows never runs past the limit or splits a code point.
+        Assert.That(AmbientText.StillOpen(title).Text, Is.EqualTo("Still Open: " + title), "a long name stands whole: the banner wraps it");
+        Assert.That(AmbientText.StillOpen(title).Text, Does.Not.Contain("…"));
+        // Made plain first, so a character that would turn the line around never shows.
         var hidden = new string('T', 25) + "\u202E" + new string('T', 20);
-        Assert.That(AmbientText.StillOpen(hidden).Text, Is.EqualTo("Open · " + new string('T', 25) + "…"));
+        Assert.That(AmbientText.StillOpen(hidden).Text.Contains("\u202E", System.StringComparison.Ordinal), Is.False, "the override never reaches the screen raw");
+        Assert.That(AmbientText.StillOpen(hidden).Text, Does.Contain("‹U+202E›"), "what cannot be seen is still read, by its code point");
+        Assert.That(AmbientText.StillOpenName("New Project").Runs.All(run => run.Theirs), "the name apart, theirs");
     }
 
     [Test]

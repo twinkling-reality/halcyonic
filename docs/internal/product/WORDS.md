@@ -50,6 +50,14 @@ First until 2026-11-16, AUDIT2's words: what each does for the person, "Show Pla
 picks the agent's glyph from its action, never from these words, so they can move (FIELD's 3a7b25527); the host's own
 labels for the same choice move with them (CORE).
 
+## Usage, the stage's banner and a fix that ran out (AUDIT2, 2026-11-16)
+
+The usage gauges are the "5-Hour Limit" and the "Weekly Limit" (Session and Week until 2026-11-16: a reader could not
+tell what a session is), each figure with its own word, "62% Left". The stage's banner beside a window says "6 more
+tasks not shown here" ("1 more task not shown here") and "Still Open: <the panel's name>", the name whole, never cut,
+the banner wrapping it (both were dot-joined and the name cut before). Where the agent's tries at a failed check ran
+out, the line says how many from the run's own cap: "The agent tried twice and could not fix it."
+
 ## The worker by its role
 
 On the headset's own surfaces the worker is named by its role, "Agent": on the agent action at rest, on the plate

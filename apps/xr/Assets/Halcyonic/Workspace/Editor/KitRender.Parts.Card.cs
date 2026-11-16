@@ -163,7 +163,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-result" => new RoomCard(Theirs("Tail"), Theirs("I added a tail that streams behind the kite."), RoomCardHead.Picture,
                     slots: new[] { new RoomSlot(RoomKind.Passed, Ours("Passed")), new RoomSlot(RoomKind.ToAdd, Ours("4 Files")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")) }),
                 "47-card-changes" => new RoomCard(Ours("Changes"), Ours("What Tail did to the project"), list: tail),
-                "47-card-checks" => new RoomCard(status: new RoomCardStatus("Build Failed", "Both tries ran out", RoomTone.Bad), steps: new[]
+                "47-card-checks" => new RoomCard(status: new RoomCardStatus("Build Failed", RoomBar.StoppedLineFor(2), RoomTone.Bad), steps: new[]
                 {
                     new RoomCardStep("Types", RoomTone.Good), new RoomCardStep("Build", RoomTone.Bad, 2, 2), new RoomCardStep("Page", RoomTone.Skipped), new RoomCardStep("VR", RoomTone.Skipped),
                 }),

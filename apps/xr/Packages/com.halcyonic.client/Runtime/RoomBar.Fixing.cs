@@ -32,6 +32,13 @@ namespace Halcyonic.Client
         public const string StoppedLine = "The tries ran out";
 
         /// <summary>
+        /// Where the tries ran out, how many the agent made, from the run's own cap, never typed (AUDIT2, 2026-11-16 04:48Z):
+        /// "The agent tried twice and could not fix it."
+        /// </summary>
+        public static string StoppedLineFor(long cap) =>
+            "The agent tried " + (cap == 1 ? "once" : cap == 2 ? "twice" : cap.ToString(System.Globalization.CultureInfo.InvariantCulture) + " times") + " and could not fix it.";
+
+        /// <summary>
         /// While the task's failed check is back with its agent on its own (ADR 0044; the addendum's A7 and A17): a status
         /// card, "Fixing" over its quieter line, its tries as pips under its mark, the one under way filled. The
         /// field and the cursor still say what the agent does. The title names the outcome, never the check's own name, which
@@ -72,7 +79,7 @@ namespace Halcyonic.Client
             return fix.Reason switch
             {
                 AutoFixEndReason.Passed => new RoomCard(status: new RoomCardStatus(FixedTitle, FixedLine, RoomTone.Good), trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap),
-                AutoFixEndReason.CapReached => new RoomCard(status: new RoomCardStatus(StoppedTitle, StoppedLine, RoomTone.Bad), trackAt: (int)fix.Cap, trackOf: (int)fix.Cap),
+                AutoFixEndReason.CapReached => new RoomCard(status: new RoomCardStatus(StoppedTitle, StoppedLineFor(fix.Cap), RoomTone.Bad), trackAt: (int)fix.Cap, trackOf: (int)fix.Cap),
                 _ => null,
             };
         }
