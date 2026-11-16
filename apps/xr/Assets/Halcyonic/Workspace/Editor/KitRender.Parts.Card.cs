@@ -283,7 +283,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The page shown at the earlier reading, then the new one 0.3 s later, by a clock the render fixes.
                 var clock = 100f;
                 view.Clock = () => clock;
-                view.Show(new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }), inner);
+                view.Show(new RoomCard(LineWords.Ours("Usage"), gauges: new[] { new RoomGauge(LineWords.Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(LineWords.Ours("Week"), 38, "Resets Thu", RoomKind.Week) }), inner);
                 clock += 0.3f;
                 easedAt = 0.3f;
             }
