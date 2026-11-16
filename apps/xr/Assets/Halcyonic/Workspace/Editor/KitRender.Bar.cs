@@ -738,14 +738,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 // No frame leaves the plane a part of no height (JUDGE's walk 9): the host's footprint is never empty.
                 Require(host.Size.x > 0f && host.Size.y > 0f, "the host stands " + host.Size.x + " by " + host.Size.y + ": a part of no size");
                 Require(shown.Working == working, working ? "the agent works and the redesign does not say so" : "at work is shown where nothing works");
-                Require((host.Field.gameObject.activeSelf && host.Field.Shown > 0.001f) == (working && !watching) && (host.Field.Shown > 0.999f) == (working && !watching),
-                    watching ? "the working field stands under Watch It Work's arc" : working ? "the working field does not stand" : "the working field stands where nothing works");
+                var fielded = working && !watching && !listing;
+                Require((host.Field.gameObject.activeSelf && host.Field.Shown > 0.001f) == fielded && (host.Field.Shown > 0.999f) == fielded,
+                    watching ? "the working field stands under Watch It Work's arc" : listing ? "the working field stands under the steps list"
+                    : working ? "the working field does not stand" : "the working field stands where nothing works");
                 if (listing)
                 {
                     var list = bar.StepsShown;
                     Require(list != null && list.Count == StepsOf("46-steps-working").Count && bar.Panel.gameObject.activeSelf,
                         "the steps list does not stand on the panel at work: " + (list == null ? "none" : list.Count + " steps"));
-                    Require(!host.Field.gameObject.activeSelf || host.Field.Shown < 0.001f, "the working field stands under the steps list");
                     if (list != null)
                     {
                         // On the panel, inside it, beside the column: the panel's foot on the foot line.
