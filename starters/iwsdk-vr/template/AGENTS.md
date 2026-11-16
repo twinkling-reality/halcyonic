@@ -228,7 +228,7 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   a chord spreads round them and a run circles them) with sparks and a ring at its foot, a low note sends a ring of light out across the floor that lights each column as it passes, and each note
   lights a point of a slowly turning galaxy overhead that grows outward with the music; over the first 20 seconds it
   builds, then blooms (every column flares and a wave runs up them, the galaxy lights whole) and settles to a steady
-  glow; `darkHall`'s polished floor mirrors it. Add its `group` to the group `setupScene` returns, pass its `move` to
+  glow; `darkHall`'s polished floor mirrors it (that floor shows whatever stands below it, so put nothing there). Add its `group` to the group `setupScene` returns, pass its `move` to
   `ambientMotion`, and give `fallingNotes` `{ echo: false }`, as the hall answers in place of the far haze. Each is
   written afresh every frame and makes nothing new in it. Keep the place dark behind them:
   light adds up where it overlaps.

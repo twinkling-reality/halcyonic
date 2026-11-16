@@ -537,7 +537,8 @@ export function lightKeys(
     const black = isBlack(m);
     const s = -width / 2 + keyWidth * (black ? w : w + 0.5);
     if (!black) w += 1;
-    const place = at(s, black ? whiteLength - blackLength : 0);
+    // A black key ends a little short of the white keys' back edge, never past it.
+    const place = at(s, black ? whiteLength * 0.96 - blackLength : 0);
     spots.push({
       midi: m,
       black,
@@ -564,9 +565,11 @@ export function lightKeys(
   // A white key stands from y = -depth to its top at 0; a black key rises from the same foot, between its neighbours,
   // to stand `raised` over them, so it grows out of the keyboard rather than lying on it.
   const whiteTall = depth;
-  const blackTall = depth + raised;
+  // A black key rests on the white keys' tops, sunk a hair into them, never reaching down between them.
+  const sunk = depth * 0.04;
+  const blackTall = sunk + raised;
   const whiteMiddle = -depth / 2;
-  const blackMiddle = (raised - depth) / 2;
+  const blackMiddle = (raised - sunk) / 2;
   const make = (keys: KeySpot[], tall: number, middle: number, base: Color, edgeColour: Color, land: number) => {
     const n = Math.max(1, keys.length);
     const geometry = new BoxGeometry(1, tall, 1);
@@ -963,12 +966,12 @@ const AROUND = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0')
 /**
  * Makes a hall of light round the person that answers a score (`playScore`) and builds with it: `columns` columns of
  * light stand in a ring `radius` metres out, rising from the floor into the dark `height` metres up, each faintly its
- * own colour (deep blue ahead, sea blue and violet beside, rose behind). Each note's light falls down one column and climbs back up
- * it, and fainter the column facing it (each octave runs once round the ring, C ahead and rising to the right, so a
- * scale stands on every side and a run circles the person) and, when it
- * reaches the top, lights a point of a rose of light overhead, which grows from its middle outward as the music goes
- * on. Over the first `rise` seconds of the music the columns and the rose grow brighter, until at `rise` the hall
- * blooms: every column flares to its top, the whole rose lights at once and a ring of light runs out across the
+ * own colour (deep blue ahead, sea blue and violet beside, rose behind). Each note's light falls down one column,
+ * climbs back up it, and climbs, fainter, the column facing it too (each octave runs once round the ring, C ahead and
+ * rising to the right, so a scale stands on every side and a run circles the person); when it reaches the top, it
+ * lights a point of a slowly turning galaxy overhead, which grows from its middle outward as the music goes on. Over
+ * the first `rise` seconds of the music the columns and the galaxy grow brighter, until at `rise` the hall blooms:
+ * every column flares and a wave runs up them, the whole galaxy lights at once and a ring of light runs out across the
  * floor; then it settles to a steady glow and goes on answering. Read from the player's time, so it lands with the
  * sound. Add `group` where the person stands, its height 0 on the floor.
  */
@@ -1016,7 +1019,7 @@ export function lightHall(
     return seed / 2147483647;
   };
   const heart = new Color('#FFC8E6');
-  const rose = Array.from({ length: petals }, (_, k) => {
+  const galaxy = Array.from({ length: petals }, (_, k) => {
     const u = random() ** 0.75;
     const r = 0.15 + u * span;
     const arm = (k % 3) * ((Math.PI * 2) / 3);
@@ -1034,7 +1037,7 @@ export function lightHall(
     const r = 0.3 + ((k / 3) / 32) * span;
     const a = (k % 3) * ((Math.PI * 2) / 3) + 1.9 * Math.log(1 + r);
     const t = Math.min(1, r / span);
-    return { r, a, y: crown - dip * t ** 2, colour: (rose[Math.min(petals - 1, Math.floor(t * t * petals))] as (typeof rose)[number]).colour };
+    return { r, a, y: crown - dip * t ** 2, colour: (galaxy[Math.min(petals - 1, Math.floor(t * t * petals))] as (typeof galaxy)[number]).colour };
   });
   const group = new Group();
   // The columns: soft shafts of light, a faint bright thread down each middle, fading to nothing at the top, so each
@@ -1052,9 +1055,11 @@ export function lightHall(
   // A note's light climbing its column: a long soft glow, brightest at its head, its tail fading to nothing, so notes
   // following each other up a column run together as one light, never as stacked bars.
   const climbs = glows(200, { upright: true, halo: 0.18, round: 0.02, core: 0.6, whiten: 0.6, ramp: 0, fade: 0.12, mirror: polish });
-  // The bloom's light overhead: one wide soft glow over the person, under the rose.
+  // A note's light falling down its column: brightest at its foot, which meets its own reflection where it lands.
+  const falls = glows(48, { upright: true, halo: 0.18, round: 0.02, core: 0.6, whiten: 0.6, ramp: 0, mirror: polish });
+  // The bloom's light overhead: one wide soft glow over the person, under the galaxy.
   const crownLight = glows(1, { facing: true, halo: 4, round: 1, core: 0 });
-  // The rose's points, the floor's light at each column's foot, and the bloom's ring running out across the floor.
+  // The galaxy's points, the floor's light at each column's foot, and the bloom's ring running out across the floor.
   const points = glows(petals, { facing: true, halo: 0.025, round: 1, core: 0.9, whiten: 0.5, mirror: { level: 0, strength: 0.22, narrow: 1 } });
   const arms = glows(veils.length, { facing: true, halo: 0.7, round: 1, core: 0 });
   const floor = glows(count + 96 * 3 + 20 * 24, { halo: 0.5, round: 1, core: 0 });
@@ -1067,13 +1072,13 @@ export function lightHall(
   const near = glows(nearby.length, { facing: true, halo: 0.03, round: 1, core: 0.8, whiten: 0.4 });
   // Sparks rising from a column's foot as each note starts up it.
   const embers = sparks(600);
-  group.add(floor.object, pillars.object, climbs.object, arms.object, points.object, crownLight.object, embers.object, near.object);
+  group.add(floor.object, pillars.object, climbs.object, falls.object, arms.object, points.object, crownLight.object, embers.object, near.object);
   const climb = 4;
   const top = height / climb;
   const shade = new Color();
   const tinted = (note: { pitch: number; loud: number }) =>
     options.colour?.(note.pitch) ?? registerColour(note.pitch + (note.loud - 0.45) * 0.6 * (high - low), low, high, shade);
-  // How lit each column and each point of the rose is this frame by the notes, summed over the notes.
+  // How lit each column and each point of the galaxy is this frame by the notes, summed over the notes.
   const lit = new Float32Array(count);
   const flash = new Float32Array(petals);
   const flashColour = Array.from({ length: petals }, () => new Color());
@@ -1098,7 +1103,7 @@ export function lightHall(
   let lastStep = Number.NEGATIVE_INFINITY;
   // The last step: nothing mirrored in the floor.
   const unmirror = () => {
-    for (const set of [pillars, climbs, points])
+    for (const set of [pillars, climbs, falls, points])
       for (const child of set.object.children) if (child !== set.mesh) child.visible = false;
   };
   if (detail === 0) unmirror();
@@ -1114,7 +1119,7 @@ export function lightHall(
       if (since > -falling && drops < 40) {
         const y = -since * (height * 0.8) / falling;
         const seen = Math.min(1, (falling + since) / 0.4);
-        climbs.place(home.x, y + 0.4, home.z, 1, 0, 0, 0, 1, 0, 0.03, 0.8, c, 0.7 * loud * seen * (0.5 + 0.5 * built));
+        falls.place(home.x, y + 0.4, home.z, 1, 0, 0, 0, 1, 0, 0.03, 0.8, c, 0.7 * loud * seen * (0.5 + 0.5 * built));
         drops += 1;
       }
       return;
@@ -1150,10 +1155,9 @@ export function lightHall(
     if (since < top) {
       const fade = Math.exp(-since * 0.35);
       // Its column, and fainter the one facing it across the hall, so every side answers whatever key the music is in.
-      for (const [j, share] of [
-        [i, 1],
-        [(i + count / 2) % count, 0.55],
-      ] as const) {
+      for (let side = 0; side < 2; side++) {
+        const j = side === 0 ? i : (i + count / 2) % count;
+        const share = side === 0 ? 1 : 0.55;
         lit[j] = (lit[j] ?? 0) + 0.5 * loud * fade * share;
         // Only the newest note climbing a column is drawn, so lights following each other never pile up.
         if (since < (newest[j] as number)) {
@@ -1163,8 +1167,8 @@ export function lightHall(
         }
       }
     }
-    // At the top it lights a point of the rose, which glows and fades over some seconds; while the hall is still
-    // building, only the rose's middle is grown, so it fills outward with the music.
+    // At the top it lights a point of the galaxy, which glows and fades over some seconds; while the hall is still
+    // building, only the galaxy's middle is grown, so it fills outward with the music.
     const after = since - top;
     if (after >= 0 && after < 9) {
       const h = Math.sin(start * 12.9898 + note.pitch * 78.233) * 43758.5453;
@@ -1207,6 +1211,7 @@ export function lightHall(
       wave = 0;
       floor.begin();
       climbs.begin();
+      falls.begin();
       player.each(top + 9, falling, visit);
       pillars.begin();
       for (let i = 0; i < count; i++) {
@@ -1251,6 +1256,7 @@ export function lightHall(
       }
       pillars.end();
       climbs.end();
+      falls.end();
       near.begin();
       for (const m of nearby) {
         const drift = time * 0.05 + m.phase;
@@ -1267,7 +1273,7 @@ export function lightHall(
       const grown = petals * (0.12 + 0.88 * built);
       const every = detail < 1 ? 2 : 1;
       for (let k = 0; k < petals; k += every) {
-        const p = rose[k] as (typeof rose)[number];
+        const p = galaxy[k] as (typeof galaxy)[number];
         // Points beyond the grown middle wait in the dark, each coming in softly as the galaxy reaches it.
         const shown = Math.min(1, Math.max(0, grown - k) / 40);
         const lit = flash[k] ?? 0;
