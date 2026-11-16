@@ -169,12 +169,16 @@ function incomingTile() {
   return node;
 }
 
-/** The progress ring drawn on a first frame, as a chat app draws it on a picture it is sending. */
+/**
+ * The progress ring drawn on a first frame, as a chat app draws it on a picture it is sending: one dark glass disc,
+ * the same over any picture, with its track and arc.
+ */
 function ring() {
+  const disc = el('span', 'media-ring');
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'media-ring');
   svg.setAttribute('viewBox', '0 0 56 56');
   svg.setAttribute('aria-hidden', 'true');
+  disc.append(svg);
   for (const kind of ['media-ring-track', 'media-ring-arc']) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('class', kind);
@@ -185,7 +189,7 @@ function ring() {
     circle.style.strokeDasharray = String(RING_EDGE);
     svg.append(circle);
   }
-  return svg;
+  return disc;
 }
 
 /** Shows how much of the file has gone, on the bar and on the ring alike. */
@@ -213,13 +217,13 @@ function setIncoming(node, fraction, file) {
   }
   node.querySelector('.media-incoming-name').textContent = file?.name ?? '';
   node.classList.toggle('media-sending', sent);
-  node.querySelector('.media-incoming-words').textContent = sent ? 'Sending' : 'Preparing';
-  if (sent) progress(node, fraction);
-  else {
-    // Preparing has no measure: the bar's short run travels and a quarter of the ring turns.
-    node.querySelector('.media-bar-fill').style.transform = 'scaleX(1)';
-    node.querySelector('.media-ring-arc').style.strokeDashoffset = String(RING_EDGE * 0.75);
-  }
+  const words = sent ? 'Sending' : 'Preparing';
+  node.querySelector('.media-incoming-words').textContent = words;
+  // Over a first frame the ring alone shows the state, so the tile carries its word for a screen reader.
+  node.setAttribute('role', 'img');
+  node.setAttribute('aria-label', file?.name ? `${words} ${file.name}` : words);
+  // Preparing has no measure: the bar's short run travels, and the ring, full once every byte has gone, breathes.
+  progress(node, sent ? fraction : 1);
 }
 
 function tile(projectId, medium, shape) {
