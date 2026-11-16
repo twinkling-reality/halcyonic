@@ -33,8 +33,22 @@ public class SpaceSettingsTests
             ("Your Space", "Surroundings"), ("Your Space", "Room Layout"), ("Your Space", "Agents"), ("Your Space", "Agent Shelf"), ("Your Space", "Menu"),
         }));
         var (developing, _) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, new PairingNow(null, PairingStep.Idle, true)));
-        Assert.That(developing.Last().Group, Is.EqualTo("Your computer"));
+        Assert.That(developing.Last().Group, Is.EqualTo("Your Computer"));
         Assert.That(developing.Last().Name, Is.EqualTo("Pairing"));
+    }
+
+    [Test]
+    public void SettingsOpensYourComputerAndItsPairingRowFromTheRowsTheHeadsetBuilds()
+    {
+        // The hub keeps a category only where a row's group is that category's words exactly, so the rows come from
+        // SpaceSettings.Of as the headset builds them, never a pairing row made here under the category's own words.
+        var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, new PairingNow(null, PairingStep.Idle, true)));
+        var hub = new SettingsHubColumn(new FakeMenuHost(), rows, new AppearanceSettings(), () => { });
+        Assert.That(hub.Frame!.Lines.Select(line => line.Key), Does.Contain(SettingsText.YourMac));
+        hub.Act(SettingsHubColumn.OpenCategory, SettingsText.YourMac);
+        hub.Act(SettingsColumn.OpenSetting, SpaceSettings.Pairing);
+        hub.Act(SettingsColumn.ChangeSetting, null);
+        Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.Pairing }));
     }
 
     [Test]

@@ -625,7 +625,7 @@ public class JudgeMenuWalkTests
             host.Press(MenuColumn.Menu, Footer.NextPage);
             (menu, _) = host.Draw();
         }
-        Assert.That(groups, Is.EqualTo(new[] { SettingsText.YourSpace, HostText.YourStart, Comfort.Heading }));
+        Assert.That(groups, Is.EqualTo(new[] { SettingsText.YourSpace, SettingsText.YourMac, Comfort.Heading }));
         Assert.That(host.SpaceActs, Is.Empty, "choosing a setting changes nothing");
 
         // Closed again: the bar alone, the file closed too, saying nothing waits.

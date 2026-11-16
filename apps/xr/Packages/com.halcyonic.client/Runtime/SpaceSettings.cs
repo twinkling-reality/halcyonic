@@ -150,7 +150,7 @@ namespace Halcyonic.Client
             }
             if (pairing)
             {
-                rows.Add(new MenuSetting(Pairing, HostText.YourStart, "Pairing", () => Paired(now().Pairing), () =>
+                rows.Add(new MenuSetting(Pairing, SettingsText.YourMac, "Pairing", () => Paired(now().Pairing), () =>
                 {
                     // Pressed without asking, it only pairs: forgetting is the Yes's alone.
                     if (now().Pairing is PairingNow unpaired && unpaired.Address == null) act(Pairing);

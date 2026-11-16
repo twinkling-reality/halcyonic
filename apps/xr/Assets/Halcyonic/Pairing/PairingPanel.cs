@@ -14,7 +14,7 @@ namespace Halcyonic.XR.Pairing
 {
     /// <summary>
     /// Pairs this headset with a control plane over the network (ADR 0017), as the Pairing row of the
-    /// menu's Settings, under Your computer (<see cref="SpaceSettings"/>, ADR 0026), in a development
+    /// menu's Settings, under Your Computer (<see cref="SpaceSettings"/>, ADR 0026), in a development
     /// build. Its press, unpaired, asks on the system keyboard for the address and the eight-digit
     /// code <c>pnpm pair</c> shows on the computer, pairs in the background, keeps the pairing through
     /// <see cref="ControlPlaneSettings.PairingStore"/>, and connects again. Paired, Settings asks

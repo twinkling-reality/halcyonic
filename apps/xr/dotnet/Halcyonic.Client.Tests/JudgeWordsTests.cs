@@ -51,7 +51,7 @@ public class JudgeWordsTests
             "1 task needs you", TasksText.Waiting(0), UsageText.Subject, "Part of Recording", UsageLeftPresenter.Recorded,
             SettingsText.Subject, ComfortSettings.LargerSize, SettingsText.YourSpace, "Surroundings", "Room Layout", "Agents", "Agent Shelf", "Menu",
         }), "the walk reached the bar, Tasks, Usage and Settings, Your space with it");
-        Assert.That(words, Is.SupersetOf(new[] { HostText.YourStart, "Pairing", "Not Paired", "Type the Name and Code Your Computer Shows" }),
+        Assert.That(words, Is.SupersetOf(new[] { SettingsText.YourMac, "Pairing", "Not Paired", "Type the Name and Code Your Computer Shows" }),
             "the walk reached Your computer's Pairing row, unpaired, as every build offers it");
         Assert.That(words, Is.SupersetOf(new[] { GalleryText.SampleProjects, GalleryText.NotInThisRecording, "Star garden", "Review Requested" }),
             "the walk reached the gallery's sample catalog and the recording without one");
