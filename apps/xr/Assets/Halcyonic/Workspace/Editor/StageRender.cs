@@ -215,6 +215,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 var change = end - start;
                 if (change < 0.2f) failures.Add("New Project's place needs no new turn when the film's tag comes to need the person (" + GlazeChecks.Degrees(change) + " degrees), so its easing is not shown, at text scale " + scale);
                 if (atTenth is float tenth && tenth - start > 0.6f * change) failures.Add("New Project's place jumps: " + GlazeChecks.Degrees(tenth - start) + " of its " + GlazeChecks.Degrees(change) + " degrees in 0.1 s, at text scale " + scale);
+                // No hunting (AUDIT 18:12Z condition 3): from 1 s the clear turn itself holds, within Eased's own snap, every frame.
+                for (var frame = fps + 1; frame <= frames; frame++)
+                    if (Mathf.Abs(ends[frame] - ends[fps]) > 0.01f)
+                    {
+                        failures.Add("New Project's clear turn still moves after 1 s, " + GlazeChecks.Degrees(ends[frame] - ends[fps]) + " degrees at " + (frame / (float)fps).ToString("0.00", CultureInfo.InvariantCulture) + " s, at text scale " + scale);
+                        break;
+                    }
                 if (settled.Count == 0 || settled.Any(each => each != 0f)) failures.Add("New Project's place does not stand still on its turn from 1 s, at text scale " + scale);
                 Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place eases " + GlazeChecks.Degrees(change) + " degrees further left as the film's tag comes to need the person: "
                     + GlazeChecks.Degrees((atTenth ?? start) - start) + " in 0.1 s, at most " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " in a frame, still from 1 s.");
