@@ -143,10 +143,10 @@ public class JudgeHoldsTests
     }
 
     /// <summary>
-    /// As the workspace's director tells the player each frame (WorkspaceDirector.FollowBeside): a task's file or New
-    /// project open beside a workspace that is not compact.
+    /// As the workspace's director tells the player each frame (WorkspaceDirector.FollowBeside): what the navigator says
+    /// the person is reading (a task's file or New project beside the menu, or a Settings page).
     /// </summary>
-    private void Follow(DemonstrationMenuHost host) => player!.Reading = !host.Navigator.IsCompact && host.Navigator.Beside != null;
+    private void Follow(DemonstrationMenuHost host) => player!.Reading = host.Navigator.Reading;
 
     /// <summary>Plays frames for <paramref name="time"/>, as the game loop does.</summary>
     private async Task Frames(DemonstrationMenuHost host, TimeSpan time)

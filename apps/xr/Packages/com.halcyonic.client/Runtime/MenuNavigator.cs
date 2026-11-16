@@ -166,6 +166,15 @@ namespace Halcyonic.Client
         /// <summary>Whether the menu shows the first question now.</summary>
         public bool Asking => IsOpen && asking && BeforeFirstTask;
 
+        /// <summary>
+        /// The person is reading something they opened, so the demonstration's timed holds wait (DemonstrationPlayer.Reading):
+        /// a task's file or New project beside the menu, or a Settings page the menu shows (Comfort, Your Space), which the hand-over
+        /// from the recorded run to the demonstration would otherwise take back to Settings' index under the person (JUDGE,
+        /// 2026-11-16T20:10Z). The menu's own lists, open from launch, hold nothing (2026-11-04).
+        /// </summary>
+        public bool Reading => !IsCompact && Beside != null
+            || IsOpen && !Asking && Place == MenuPlace.Settings && places.TryGetValue(MenuPlace.Settings, out var settings) && settings is SettingsHubColumn { PageOpen: true };
+
         /// <summary>The column the menu shows: the first question's, or its place's; null while closed.</summary>
         public IMenuColumn? Shown => !IsOpen ? null : Asking ? Question : PlaceColumn;
 

@@ -1576,9 +1576,12 @@ launch/return, process recreation and current-frame action behavior need separat
   or a question, for 60 seconds while it offers
   instructions, or, where the recording has nothing more, after a snapshot of its control plane
   started again without runtimes, for 20 seconds. Neither timed hold runs while a task's file or New
-  project stands open beside the menu (`DemonstrationPlayer.Reading`, which the workspace's director
-  sets each frame), so a person reading Changes or Checks, or talking an idea through, is never cut
-  off; once it closes the hold runs whole from then. The workspace's own lists hold nothing
+  project stands open beside the menu, or a Settings page (Comfort, Your Space) stands in the menu
+  (`MenuNavigator.Reading`, which the workspace's director gives `DemonstrationPlayer.Reading` each
+  frame), so a person reading Changes or Checks, changing a setting, or talking an idea through, is
+  never cut off, and the recorded run's hand-over to the demonstration, which makes every menu column
+  afresh, never takes a Settings page back to its index under the person (2026-11-16); once it closes
+  the hold runs whole from then. The workspace's own lists hold nothing
   (2026-11-04): the release build opens the whole workspace at launch, so an ended recording, the
   recorded run first of all, gives way with the workspace open.
   The control plane computed every state in it,

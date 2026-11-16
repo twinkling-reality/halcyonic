@@ -105,6 +105,33 @@ public class MenuNavigatorTests
 
     private static SidePanel Details() => new("Details", facts: new[] { new SideFact("Seen", "just now") });
 
+    /// <summary>
+    /// A Settings page the person opened counts as reading, as a file beside the menu does, so the demonstration's timed holds
+    /// wait for it and the recorded run's hand-over, which makes every column afresh, never takes it back to Settings' index under
+    /// them (JUDGE, 2026-11-16T20:10Z); Settings' own index, the menu's other places and the closed menu hold nothing.
+    /// </summary>
+    [Test]
+    public void ASettingsPageOpenCountsAsReadingAndItsIndexDoesNot()
+    {
+        SettingsHubColumn? hub = null;
+        var makers = MenuBar.Places.ToDictionary(place => place, place => (Func<IMenuColumn>)(() => place == MenuPlace.Settings
+            ? hub = new SettingsHubColumn(new FakeMenuHost(), ComfortSettings.Of(new Comfort(), () => { }).ToList(), new AppearanceSettings(), () => { })
+            : new Column(MenuBar.Word(place))));
+        var navigator = new MenuNavigator(makers);
+        navigator.OpenMenu(MenuPlace.Settings);
+        Assert.That(navigator.Shown, Is.SameAs(hub));
+        Assert.That(navigator.Reading, Is.False, "Settings' index is the menu's own list");
+        hub!.Act(SettingsHubColumn.OpenCategory, Comfort.Heading);
+        Assert.That((hub.PageOpen, navigator.Reading), Is.EqualTo((true, true)), "Comfort's page is open: the holds wait");
+        hub.Act(SettingsHubColumn.Back, null);
+        Assert.That((hub.PageOpen, navigator.Reading), Is.EqualTo((false, false)), "back on the index");
+        hub.Act(SettingsHubColumn.OpenCategory, Comfort.Heading);
+        navigator.OpenMenu(MenuPlace.Tasks);
+        Assert.That(navigator.Reading, Is.False, "another place shows: a Settings page no one sees holds nothing");
+        navigator.CloseMenu();
+        Assert.That(navigator.Reading, Is.False, "the closed menu holds nothing");
+    }
+
     [Test]
     public void DroppingTheOwningFileClosesItsRequestButNotAnotherTasksPanel()
     {

@@ -224,7 +224,7 @@ answer was still sending, shows Approve and Deny.
 | Sound cues | Play as live work does (`StageSound`) | `StageSound.cs` | Headset check |
 | Icons | On badges, marks and actions, as live | Stage and workspace renders | None |
 | Starting again | Closed 2026-10-02: after a pause it goes on where it stood; only after its end does it start again | `DemonstrationTransport.Resume` | None |
-| The holds | Closed 2026-10-08 (the coordinator's call), changed 2026-11-04 (the lead, on JUDGE's ask): the 60 s instruction hold and the 20 s end hold do not run while a task's file or New project is open and run whole once it closes, so a judge reading Changes or Checks is never cut off; the workspace's lists, open from launch, hold nothing, so the recorded run gives way to the demonstration with the workspace open | `DemonstrationPlayer.Reading`, `JudgeHoldsTests` | None |
+| The holds | Closed 2026-10-08 (the coordinator's call), changed 2026-11-04 (the lead, on JUDGE's ask): the 60 s instruction hold and the 20 s end hold do not run while a task's file or New project is open, or (2026-11-16, JUDGE) a Settings page, and run whole once it closes, so a judge reading Changes or Checks, or a Settings page, is never cut off nor sent back to Settings' index by the hand-over; the workspace's lists, open from launch, hold nothing, so the recorded run gives way to the demonstration with the workspace open | `DemonstrationPlayer.Reading`, `MenuNavigator.Reading`, `JudgeHoldsTests`, `MenuNavigatorTests` | None |
 
 ## Names a judge reads
 

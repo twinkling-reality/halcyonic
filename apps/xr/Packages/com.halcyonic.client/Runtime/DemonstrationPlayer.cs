@@ -106,8 +106,8 @@ namespace Halcyonic.Client
         private DemonstrationTransport? playing;
 
         /// <summary>
-        /// A task's file or New project stands open beside the menu, as the workspace's director says each
-        /// frame. While it does, a hold the recording times (an end's before it starts again, or the time
+        /// A task's file or New project stands open beside the menu, or a Settings page in it
+        /// (<see cref="MenuNavigator.Reading"/>), as the workspace's director says each frame. While it does, a hold the recording times (an end's before it starts again, or the time
         /// its instructions are offered) does not run, so a person reading Changes or Checks, or talking
         /// an idea through, is never cut off; once it closes, the hold runs whole from then. The workspace's
         /// own lists, open from launch, hold nothing (2026-11-04). A hold that waits for an answer is unchanged.

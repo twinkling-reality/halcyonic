@@ -19,6 +19,12 @@ namespace Halcyonic.Client
         private int page;
         private string? given;
 
+        /// <summary>
+        /// A category's page is open (Comfort, Your Space, Appearance), not the hub's own index: the person went into it to read
+        /// or change something, so the demonstration's timed holds wait for it (<see cref="MenuNavigator.Reading"/>).
+        /// </summary>
+        public bool PageOpen => leaf != null;
+
         public SettingsHubColumn(IMenuHost host, IReadOnlyList<MenuSetting> settings, AppearanceSettings appearance, Action appearanceSaved)
         {
             this.host = host;

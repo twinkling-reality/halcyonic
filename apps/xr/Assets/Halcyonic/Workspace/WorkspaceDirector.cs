@@ -349,13 +349,14 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// What opens or closes beside the menu: its character faces the person while it shows, and is
         /// kept on the stage a while after. When the stage moves the character, the plane re-centres on it.
-        /// While a task's file or New project stands open beside the menu, the demonstration's timed holds wait for it to
-        /// close; the workspace's own lists, open from launch, hold nothing, so an ended recording still gives way.
+        /// While a task's file or New project stands open beside the menu, or a Settings page in it (MenuNavigator.Reading),
+        /// the demonstration's timed holds wait for it to close; the workspace's own lists, open from launch, hold nothing, so an
+        /// ended recording still gives way.
         /// </summary>
         private void FollowBeside()
         {
             var beside = OpenWorkstream;
-            connection.Reading = menu != null && !menu.Navigator.IsCompact && menu.Navigator.Beside != null;
+            connection.Reading = menu != null && menu.Navigator.Reading;
             if (beside != shownBeside)
             {
                 if (shownBeside is string closed)
