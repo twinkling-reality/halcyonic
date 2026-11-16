@@ -145,6 +145,7 @@ export interface WindowGround {
   height(x: number, z: number): number;
   light?(x: number, y: number, z: number, colour: Color, strength: number): void;
   shade?(x: number, z: number, depth: number): void;
+  castShadow?(x: number, z: number, bottom: number, top: number, width: number, depth: number): void;
 }
 
 /** A picture on a window in the scene. */
@@ -167,7 +168,7 @@ export interface PictureWindow {
 
 /**
  * The photo or video at `url` floating on a window `width` metres wide (1.6 by default), its height from the
- * picture's own shape, its thin edge lit warm and glowing softly in the picture's own colour, its top under
+ * picture's own shape, in a thin frame, its light spilling from its lower edge in the picture's own colour, its top under
  * the person's eye and its lower edge at least 40 cm over the sand (or `lift` metres over it, if given), the picture seen through `tint` (a warm dim light by default, so a daytime
  * picture sits in a dusk place; '#FFFFFF' for none). A video plays by itself, muted and looping (a browser that holds
  * it back until the person's first press plays it then, as the starter's sound does). Float it in the place a few
@@ -178,15 +179,19 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
   const lift = options.lift;
   const group = new Group();
   group.visible = false;
-  const face = new MeshBasicMaterial({ color: options.tint ?? '#C49E84', toneMapped: false, transparent: true, opacity: 0 });
-  // A thin edge lit warm, as if the picture's own light caught it, never a dark outline.
-  const frame = new MeshBasicMaterial({ color: '#E9C9A6', toneMapped: false, transparent: true, opacity: 0 });
+  const face = new MeshBasicMaterial({ color: options.tint ?? '#B98C80', toneMapped: false, transparent: true, opacity: 0 });
+  // A frame of dark warm wood with some depth to it; its edge is lit by a soft warm rim of light, never a line.
+  const frame = new MeshBasicMaterial({ color: '#3A2A20', toneMapped: false, transparent: true, opacity: 0 });
   const body = new Group();
   group.add(body);
   // The picture's own light: its mean colour, read from it now and then, for the glow round its edges and the light
   // it casts on the sand.
-  const glow = glows(1, { halo: 0.16, round: 0.12, core: 0 });
-  glow.object.position.z = -0.05;
+  // Its light spills from its lower edge onto the air and sand below it, never round it as an outline.
+  const glow = glows(1, { halo: 0.35, round: 0.1, core: 0 });
+  glow.object.position.z = -0.1;
+  const spill = new Color();
+  // The frame catches a little of the low sun's warmth.
+  const rimSun = new Color('#A8704C');
   body.add(glow.object);
   const own = new Color('#FFD9B0');
   const sample = document.createElement('canvas');
@@ -223,10 +228,10 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
     face.needsUpdate = true;
     source = from;
     height = (width * h) / Math.max(1, w);
-    const border = Math.min(width, height) * 0.008;
+    const border = Math.min(width, height) * 0.018;
     // A thin frame with a little depth, well behind the picture and drawn first, so the two never fight for pixels.
-    const back = new Mesh(new BoxGeometry(width + border * 2, height + border * 2, 0.03), frame);
-    back.position.set(0, height / 2, -0.025);
+    const back = new Mesh(new BoxGeometry(width + border * 2, height + border * 2, 0.08), frame);
+    back.position.set(0, height / 2, -0.045);
     back.renderOrder = -0.1;
     const picture = new Mesh(new PlaneGeometry(width, height), face);
     picture.position.set(0, height / 2, 0);
@@ -310,28 +315,36 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
           let r = 0;
           let g = 0;
           let b = 0;
-          for (let i = 0; i < data.length; i += 4) {
+          // The lower half of the picture: its ground, whose light falls on the sand under it.
+          for (let i = data.length / 2; i < data.length; i += 4) {
             r += data[i] as number;
             g += data[i + 1] as number;
             b += data[i + 2] as number;
           }
-          own.setRGB(r / 16320, g / 16320, b / 16320, SRGBColorSpace);
-          // Its own hue, brightened, warmed a little as the dusk light round it is; never washed to white.
-          own.multiplyScalar(0.8 / Math.max(own.r, own.g, own.b, 1e-3)).multiply(face.color).multiplyScalar(1.4);
+          own.setRGB(r / 8160, g / 8160, b / 8160, SRGBColorSpace);
+          // Its own hue, brightened; never washed to white.
+          own.multiplyScalar(0.85 / Math.max(own.r, own.g, own.b, 1e-3));
+          // The frame takes the picture's own colour, dimmed, so it sits round the picture rather than outlining it.
+          frame.color.copy(own).multiply(face.color).multiplyScalar(0.32).lerp(rimSun, 0.3);
         } catch {
           // A picture the canvas cannot read keeps its last light.
         }
       }
       glow.begin();
-      glow.add(0, height / 2, 0, width, height, own, 0.1 * eased);
+      spill.copy(own).multiplyScalar(0.8);
+      glow.add(0, 0.02, 0, width * 0.9, 0.04, spill, 0.45 * eased);
       glow.end();
       if (ground?.light !== undefined) {
-        // Its light on the sand a metre in front of it, toward the person.
-        const fx = at.x + Math.sin(at.turn);
-        const fz = at.z + Math.cos(at.turn);
-        ground.light(fx, ground.height(fx, fz) + 1.1, fz, own, 0.8 * eased);
+        // Its light on the sand under it and in front of it, toward the person.
+        const fx = at.x + Math.sin(at.turn) * 0.7;
+        const fz = at.z + Math.cos(at.turn) * 0.7;
+        ground.light(fx, ground.height(fx, fz) + 0.35, fz, own, 0.9 * eased);
       }
-      ground?.shade?.(at.x, at.z, 0.35 * eased);
+      ground?.shade?.(at.x, at.z, 0.5 * eased);
+      if (ground !== null) {
+        const sand = ground.height(at.x, at.z);
+        ground.castShadow?.(at.x, at.z, body.position.y - sand, body.position.y - sand + height, width, 0.45 * eased);
+      }
     },
   };
 }

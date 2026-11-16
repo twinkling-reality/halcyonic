@@ -190,6 +190,7 @@ export function openLand(
   height(x: number, z: number): number;
   light(x: number, y: number, z: number, colour: Color, strength: number): void;
   shade(x: number, z: number, depth: number): void;
+  castShadow(x: number, z: number, bottom: number, top: number, width: number, depth: number): void;
 } {
   const group = new Group();
   const top = new Color(colours.top);
@@ -342,6 +343,8 @@ export function openLand(
   nearPicture.magFilter = LinearFilter;
   nearPicture.minFilter = LinearMipmapLinearFilter;
   nearPicture.generateMipmaps = true;
+  // Seen at a slant, as the sand round the person always is, it stays sharp rather than smearing toward them.
+  nearPicture.anisotropy = 8;
   nearPicture.needsUpdate = true;
   // Wind ripples: a small tile of how steeply the sand's ripples slope, repeated over the ground across the wind and
   // mip-mapped, so far off it averages to plain sand and never shimmers into lines.
@@ -395,6 +398,10 @@ export function openLand(
   const lampColour = new Vector3(0, 0, 0);
   // Where something floats over the sand (x, z) and how dark the shade under it is.
   const underAt = new Vector3(0, 0, 0);
+  // A long shadow cast by something standing over the sand: where it starts and ends along the sand away from the
+  // sun, its half width and how dark (none until one is cast).
+  const castFrom = new Vector3(0, 0, 0);
+  const castBand = new Vector3(0, 0, 0);
   // The near sand's picture, a fine grain and a sheen toward the low sun, in the ground's own shader (no extra draw
   // call).
   sand.onBeforeCompile = (shader) => {
@@ -404,6 +411,8 @@ export function openLand(
     shader.uniforms.sandLamp = { value: lampAt };
     shader.uniforms.sandLampColour = { value: lampColour };
     shader.uniforms.sandUnder = { value: underAt };
+    shader.uniforms.sandCastFrom = { value: castFrom };
+    shader.uniforms.sandCastBand = { value: castBand };
     shader.uniforms.sandSpan = { value: span };
     shader.uniforms.sandSun = { value: [Math.sin(sunAt), -Math.cos(sunAt)] };
     shader.uniforms.sandSheen = { value: [sunColour.r, sunColour.g, sunColour.b] };
@@ -411,7 +420,7 @@ export function openLand(
       .replace('void main() {', 'varying vec3 vSand;\nvoid main() {')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSand = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nvarying vec3 vSand;\nvoid main() {')
+      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform vec3 sandCastFrom;\nuniform vec3 sandCastBand;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nvarying vec3 vSand;\nvoid main() {')
       .replace(
         '#include <opaque_fragment>',
         `{
@@ -427,10 +436,14 @@ export function openLand(
     vec2 q = vec2(dot(p, sandWind), dot(p, vec2(-sandWind.y, sandWind.x))) / 2.4;
     vec2 q2 = vec2(q.x * 0.96 + q.y * 0.28, q.y * 0.96 - q.x * 0.28) * 0.62 + vec2(0.37, 0.71);
     vec2 slope = (texture2D(sandRipples, q).rg - 0.5) * 1.3 + (texture2D(sandRipples, q2).rg - 0.5) * 0.9;
+    // And a finer one at the feet, so the sand close by stays crisp.
+    vec2 q3 = vec2(q.x * 0.9 - q.y * 0.43, q.y * 0.9 + q.x * 0.43) * 2.3 + vec2(0.13, 0.52);
+    slope += (texture2D(sandRipples, q3).rg - 0.5) * 0.8 * (1.0 - smoothstep(1.5, 5.0, length(p)));
     float sunAlong = dot(sandSun, sandWind);
     float sunAcross = dot(sandSun, vec2(-sandWind.y, sandWind.x));
     float rippleNear = 1.0 - smoothstep(2.5, 16.0, length(p));
-    outgoingLight *= 1.0 + rippleNear * (0.17 * (slope.x * sunAlong + slope.y * sunAcross) + 0.05 * slope.x);
+    float atFeet = 1.0 - smoothstep(2.0, 7.0, length(p));
+    outgoingLight *= 1.0 + rippleNear * ((0.2 + 0.12 * atFeet) * (slope.x * sunAlong + slope.y * sunAcross) + (0.06 + 0.06 * atFeet) * slope.x);
     // Fine grain, only where a grain is still bigger than a pixel.
     // Smooth grain (value noise, never square cells), at two sizes.
     vec2 g = p * 30.0;
@@ -445,7 +458,15 @@ export function openLand(
     outgoingLight *= 1.0 + 0.12 * grain * (1.0 - smoothstep(0.4, 1.0, fwidth(p.x * 30.0)));
     // A soft shade on the sand under something floating over it (a window's own).
     float under = length(p - sandUnder.xy);
-    outgoingLight *= 1.0 - sandUnder.z * exp(-under * under / 0.9);
+    outgoingLight *= 1.0 - sandUnder.z * exp(-under * under / 1.8);
+    // A long soft shadow cast away from the low sun by something standing over the sand.
+    vec2 away = -sandSun;
+    vec2 fromFoot = p - sandCastFrom.xy;
+    float along2 = dot(fromFoot, away);
+    float across2 = abs(dot(fromFoot, vec2(-away.y, away.x)));
+    float inShadow = smoothstep(sandCastBand.x - 0.6, sandCastBand.x + 0.6, along2) * (1.0 - smoothstep(sandCastBand.y - 2.0, sandCastBand.y + 1.0, along2))
+      * (1.0 - smoothstep(sandCastFrom.z * 0.7, sandCastFrom.z * 1.3 + 0.25, across2));
+    outgoingLight *= 1.0 - sandCastBand.z * inShadow * (1.0 - 0.6 * clamp((along2 - sandCastBand.x) / max(1.0, sandCastBand.y - sandCastBand.x), 0.0, 1.0));
     // Sand looked at toward a low sun shines along it, as backlit dunes do at sunset.
     vec3 look = vSand - cameraPosition;
     float toward = max(0.0, dot(normalize(look.xz), sandSun));
@@ -453,7 +474,7 @@ export function openLand(
     outgoingLight += sandSheen * pow(toward, 3.0) * graze * graze * 0.22;
     // A light near the sand (a window's own), warming it in a pool that is gone within a few metres.
     float lampDistance = length(sandLamp - vSand);
-    outgoingLight += sandLampColour * (0.5 / (1.0 + lampDistance * lampDistance * 0.35)) * (1.0 - smoothstep(2.5, 6.0, lampDistance));
+    outgoingLight += sandLampColour * (0.5 / (1.0 + lampDistance * lampDistance * 1.2)) * (1.0 - smoothstep(1.2, 3.0, lampDistance));
   }
   #include <opaque_fragment>`,
       );
@@ -527,6 +548,14 @@ export function openLand(
     // A soft shade on the sand round (x, z) for this frame, under something floating over it, `depth` 0 to 1.
     shade(x, z, depth) {
       underAt.set(x, z, Math.min(1, Math.max(0, depth)));
+    },
+    // The long shadow of something `width` metres wide standing at (x, z) from `bottom` to `top` metres over the sand,
+    // cast away from the low sun, `depth` 0 to 1: it starts and ends where the sun's rays past its bottom and its top
+    // meet the sand.
+    castShadow(x, z, bottom, top, width, depth) {
+      const run = 1 / Math.tan(lightUp);
+      castFrom.set(x, z, width / 2);
+      castBand.set(bottom * run, Math.min(60, top * run), Math.min(1, Math.max(0, depth)));
     },
     move(time) {
       glow.begin();
