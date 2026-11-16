@@ -172,7 +172,7 @@ Display stayed the top resumed activity and Halcyonic stayed unfocused.
   target, brought the immersive app back to the front.
 - **The panel's window blanks the whole capture.** `AgentPanelActivity` sets `FLAG_SECURE` on its
   window and dialogs (`AgentPanelActivity.java` at 104, 135, 273 and 1103 on `8d6e0944e`). With the
-  panel open, two `screenrecord` frames (`pnpm quest:device -- shot`) were video black in all 67
+  panel open, two `screenrecord` runs (`pnpm quest:device -- shot`) were black in all 67 of their
   frames (luma 16 to 17), the room and the immersive app included, not only the panel. With the
   immersive app in front and no panel, the same command gave a normal frame (luma up to 250).
   Meta's capture service was not tried.
