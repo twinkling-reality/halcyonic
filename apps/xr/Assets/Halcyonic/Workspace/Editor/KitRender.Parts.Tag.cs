@@ -28,6 +28,13 @@ namespace Halcyonic.XR.Workspace.Editor
         /// broken at words, the name whole on its lines (no ellipsis, nothing cut), two lines for this title, the plate as tall
         /// as its lines.
         /// </summary>
+        /// <summary>The task names the film shows, as FILM's run sheet holds them (2026-11-16 13:17Z).</summary>
+        private static readonly string[] FilmedNames =
+        {
+            "Make a game where I catch falling stars.", "Make a room of lanterns that light up.", "Make a place from this video, at dusk.",
+            "Piano of Light", "Dunes at Dusk",
+        };
+
         private static PartShot LongTagShot(Transform root, Vector3 eyes, string name)
         {
             var shot = new PartShot { Elevation = 0f };
@@ -54,6 +61,18 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var pitch = KitType.LinePitch(tag.Words);
             Require(tag.Size.y >= tag.Lines * pitch - unit * 0.05f, "the plate is " + (tag.Size.y / unit).ToString("0.0") + " dp tall for " + tag.Lines + " lines");
+            // The names the film shows (FILM 2026-11-16 13:17Z), each whole on two lines at most at the size in use (AUDIT 13:22Z).
+            foreach (var filmed in FilmedNames)
+            {
+                var probe = RoomTag.Create(plane);
+                probe.Show(LineWords.TheirName(filmed), mostWordsDp: RoomTag.NameWordsMostDp);
+                probe.Words.ForceMeshUpdate(true);
+                var probeShown = string.Join(" ", probe.Words.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
+                Require(probeShown == filmed && !probe.Words.isTextTruncated && probe.Lines <= 2,
+                    "the filmed name \"" + filmed + "\" takes " + probe.Lines + " lines on its tag, past two, or is not whole");
+                Debug.Log("Halcyonic: parts: " + name + ": the filmed name \"" + filmed + "\" stands on " + probe.Lines + " line" + (probe.Lines == 1 ? "" : "s") + " on its tag.");
+                UnityEngine.Object.DestroyImmediate(probe.gameObject);
+            }
             shot.Read = (camera, eye, white, dark, bright, failures) =>
                 Debug.Log("Halcyonic: parts: " + name + ": the long name on " + tag.Lines + " lines, " + (tag.Size.x / unit).ToString("0") + " by " + (tag.Size.y / unit).ToString("0") + " dp, "
                     + SpatialKit.Degrees(tag.Size.x / unit).ToString("0.0") + " degrees at the plane's distance.");
