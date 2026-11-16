@@ -269,7 +269,9 @@ namespace Halcyonic.Client
         /// (lane V's ruling, 2026-10-08).
         /// </summary>
         public static LineWords TypedRuns(string? typed) =>
-            typed == null || LineWords.Theirs(typed).IsEmpty ? LineWords.Ours(TypeMyAnswer) : LineWords.Ours("Your Answer · ") + LineWords.Theirs(typed);
+            typed == null || LineWords.Theirs(typed).IsEmpty ? LineWords.Ours(TypeMyAnswer) : LineWords.Ours(YourAnswerLabel + ": ") + LineWords.Theirs(typed);
+
+        public const string YourAnswerLabel = "Your Answer";
 
         /// <summary>The row for the person's own answer, as the page draws it and the layout measures it.</summary>
         public static PageLine TypedRow(string? typed, string key, bool besideNext = false, int rows = 1) => typed == null
@@ -357,6 +359,9 @@ namespace Halcyonic.Client
         }
 
         public const string ReadWhy = "read-ambiguous-answer";
+
+        /// <summary>Under an answer that reads as another does: it can't be chosen, and opening its row says why (it has no button of its own).</summary>
+        public const string UnavailableReadWhy = "Unavailable. Open it to read why.";
         public const string BackAmbiguity = "back-ambiguous-answer";
         public const string NextAmbiguityPart = "next-ambiguous-answer-part";
         public const string ReadQuestion = "read-answer-question";
@@ -549,9 +554,12 @@ namespace Halcyonic.Client
         public static LineWords? DescriptionRuns(QuestionOption option) =>
             string.IsNullOrWhiteSpace(option.Description) ? null : LineWords.TheirName(WorkspaceText.OneLine(option.Description!));
 
-        /// <summary>An answer's words as its row and its side panel show them: its label, then its description.</summary>
+        /// <summary>
+        /// An answer's words in one run, where one line is all there is (the older view's row, the measure, the read-alike list):
+        /// its label, then its description after a comma. The redesign's rows lay the two apart.
+        /// </summary>
         public static string AnswerWords(QuestionOption option) =>
-            LabelText.Name(option.Label) + (string.IsNullOrWhiteSpace(option.Description) ? "" : " · " + WorkspaceText.OneLine(option.Description!));
+            LabelText.Name(option.Label) + (string.IsNullOrWhiteSpace(option.Description) ? "" : ", " + WorkspaceText.OneLine(option.Description!));
 
         /// <summary>One answer offered, as a row to choose, its description after its label, in at most two rows.</summary>
         private static PageLine Answer(QuestionDraft draft, FileQuestion question, int prompt, int index)
@@ -580,8 +588,8 @@ namespace Halcyonic.Client
         }
 
         public static string QuestionCaption(int prompt, int prompts, QuestionPrompt asked, int page = 0, int pages = 1) =>
-            QuestionNumber(prompt, prompts) + " · " + HowAnswered(asked)
-                + (pages > 1 ? " · Choices " + (page + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture) : "");
+            QuestionNumber(prompt, prompts) + ", " + HowAnswered(asked)
+                + (pages > 1 ? ", Choices " + (page + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture) : "");
 
         /// <summary>How a prompt is answered, Halcyonic's words: Write Answer where it offers none, else Choose Any or Choose One.</summary>
         public static string HowAnswered(QuestionPrompt asked) => asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose Any" : "Choose One";
@@ -596,8 +604,11 @@ namespace Halcyonic.Client
             new PageLine(TypedRuns(typed), fact: LineWords.Ours("Selected"), rows: rows);
 
         public static PageLine OptionRow(QuestionPrompt prompt, int option, bool chosen = false, int rows = 1) => WorkspaceText.ReadsAlike(prompt, option)
-            ? new PageLine(AnswerRuns(prompt.Options[option]), fact: LineWords.Ours("Unavailable · Read Why"), action: ReadWhy,
-                key: option.ToString(CultureInfo.InvariantCulture), opens: true, control: LineControl.Action, rows: rows)
+            ? (RoomDesign.Enabled
+                ? new PageLine(LineWords.TheirName(LabelText.Name(prompt.Options[option].Label)), fact: LineWords.Ours(UnavailableReadWhy), action: ReadWhy,
+                    key: option.ToString(CultureInfo.InvariantCulture), opens: true, control: LineControl.Action, rows: rows).WithUnder(DescriptionRuns(prompt.Options[option]))
+                : new PageLine(AnswerRuns(prompt.Options[option]), fact: LineWords.Ours(UnavailableReadWhy), action: ReadWhy,
+                    key: option.ToString(CultureInfo.InvariantCulture), opens: true, control: LineControl.Action, rows: rows))
             : AnswerRow(prompt.Options[option], option.ToString(CultureInfo.InvariantCulture), chosen, rows: rows, multiple: prompt.Multiple);
 
         /// <summary>

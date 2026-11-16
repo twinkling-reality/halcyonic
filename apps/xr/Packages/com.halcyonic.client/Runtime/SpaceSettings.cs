@@ -107,6 +107,12 @@ namespace Halcyonic.Client
         /// <summary>Why the room's rows take no change while no room is given (proposed by lane W, 2026-10-03).</summary>
         public const string RoomUnread = "Room Unreadable";
 
+        /// <summary>The room's layout not taken in from the headset yet, which claims nothing about whether a scan exists (AUDIT2, 2026-11-16 15:17Z).</summary>
+        public const string LayoutNotLoaded = "Not Loaded Yet";
+
+        /// <summary>The room's layout not read because the virtual space shows; it comes back when the real room shows.</summary>
+        public const string LayoutOffInVirtualSpace = "Off in Virtual Space";
+
         /// <summary>Why Pairing takes no change while the pairing isn't there yet, or has gone.</summary>
         public const string PairingNotReady = "Not Ready";
 
@@ -173,7 +179,7 @@ namespace Halcyonic.Client
         private static SettingNow Offer(SpaceNow now) => now.Room is not RoomStatus room
             ? new SettingNow("Unknown", RoomUnread, "Nothing to Set Up", RoomUnread, "Set Up Room", RoomUnread)
             : room.Scan == RoomScan.NotRead
-                ? new SettingNow("Not Read", room.Line, "Place Shelf", "Read Only from Shelf Preview", "Place Shelf")
+                ? new SettingNow(room.Shown == RoomSpace.Room ? LayoutNotLoaded : LayoutOffInVirtualSpace, room.Line, "Place Shelf", "Read Only from Shelf Preview", "Place Shelf")
             : now.Offer switch
             {
                 RoomOffer.AllowRoomAccess => new SettingNow("No Access", room.Line, RoomStatus.OfferLabel(now.Offer),

@@ -1198,7 +1198,7 @@ public class QuestionLedWorkspaceTests
         CommandView Decision(CommandStatus status) => new()
         { CommandId = "c1", CommandType = CommandType.ExecutionRespondToApproval, Status = status, ExecutionId = "e1", IssuedAt = Samples.Time };
         Assert.That(WorkspacePresenter.Feedback(Decision(CommandStatus.Accepted)).Text, Is.EqualTo("Sent, waiting for the agent"), "an answer counts once confirmed, not when sent");
-        Assert.That(WorkspacePresenter.Feedback(Decision(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed · Decision Received"));
+        Assert.That(WorkspacePresenter.Feedback(Decision(CommandStatus.Completed)).Text, Is.EqualTo("The decision was received."));
 
         work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", "Drop the table", "2026-09-26T09:05:00.000Z")));
         Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Request, Is.EqualTo("Run the migration"), "the oldest, which an answer goes to");
@@ -1226,8 +1226,8 @@ public class QuestionLedWorkspaceTests
         var work = new WaitingWork();
         work.Workstream.Objective = "Migrate\nthe database";
         var waiting = work.Present();
-        Assert.That(WorkspaceText.Goal(waiting), Is.EqualTo("Goal · Migrate the database"));
-        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new[] { "An approval is waiting. Open Needs You." }),
+        Assert.That(WorkspaceText.Goal(waiting), Is.EqualTo("Goal: Migrate the database"));
+        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new (string?, string)[] { (null, "An approval is waiting. Open Needs You.") }),
             "the request itself shows whole under its tab");
 
         work.Change(execution =>
@@ -1235,12 +1235,12 @@ public class QuestionLedWorkspaceTests
             execution.PendingApprovals.Clear();
             execution.Status = ExecutionStatus.Running;
         }, WorkstreamStatus.Running);
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing Waiting", "Latest · Working" }));
-        Assert.That(WorkspaceText.Answer(work.Present(live: false))[1], Is.EqualTo("Last Known · Latest · Working"));
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new (string?, string)[] { (null, "Nothing Waiting"), ("Latest", "Working") }));
+        Assert.That(WorkspaceText.Answer(work.Present(live: false))[1], Is.EqualTo(((string?)"Last Known", "Working")));
 
         // While the agent checks its own work, the line says the agent reported it (AUDIT's X17A-S1).
         work.Change(execution => execution.Status = ExecutionStatus.Verifying, WorkstreamStatus.Verifying);
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing Waiting", "Latest · Checking · Reported" }));
-        Assert.That(WorkspaceText.Latest(work.Present()).Words.Text, Is.EqualTo("Latest · Checking · Reported"));
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new (string?, string)[] { (null, "Nothing Waiting"), ("Latest", "Checking · Reported") }));
+        Assert.That(WorkspaceText.Latest(work.Present()).Words.Text, Is.EqualTo("Latest: Checking · Reported"));
     }
 }

@@ -60,7 +60,7 @@ public class NewProjectScreensTests
         var idea = new ProjectIdea();
         idea.UseIdea("A page for my running club's race times");
         Assert.That(NewProjectScreens.Subject(idea).ToString(), Is.EqualTo("[A page for my running club's race times]"), "the person's idea leans, as all Halcyonic didn't write");
-        Assert.That(NewProjectScreens.Subject(new ProjectIdea("proj_1", "Race Times")).ToString(), Is.EqualTo("New Task · [Race Times]"));
+        Assert.That(NewProjectScreens.Subject(new ProjectIdea("proj_1", "Race Times")).ToString(), Is.EqualTo("New Task in [Race Times]"));
     }
 
     [Test]

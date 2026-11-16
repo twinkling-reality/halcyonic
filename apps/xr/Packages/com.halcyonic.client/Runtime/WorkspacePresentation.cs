@@ -314,11 +314,11 @@ namespace Halcyonic.Client
             CommandType.WorkspaceRequestSubmit => "Request Recorded",
             CommandType.WorkspaceRequestResume => "Request Continuation Recorded",
             CommandType.WorkspaceRequestCancel => "Request Planning Stopped",
-            CommandType.ExecutionRespondToApproval => "Confirmed · Decision Received",
-            CommandType.ExecutionAnswerQuestion => "Confirmed · Answer Received",
-            CommandType.ExecutionInterrupt => "Confirmed · Stopped",
-            CommandType.ExecutionSendInstruction => "Confirmed · Instruction Received",
-            CommandType.ExecutionStart => "Confirmed · Started",
+            CommandType.ExecutionRespondToApproval => "The decision was received.",
+            CommandType.ExecutionAnswerQuestion => "The answer was received.",
+            CommandType.ExecutionInterrupt => "Stopped.",
+            CommandType.ExecutionSendInstruction => "The instruction was received.",
+            CommandType.ExecutionStart => "Started.",
             _ => "Confirmed",
         };
     }

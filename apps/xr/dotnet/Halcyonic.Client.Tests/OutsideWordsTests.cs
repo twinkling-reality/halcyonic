@@ -107,7 +107,7 @@ public class OutsideWordsTests
 
         Assert.That(frame.SubjectRuns.AllTheirs, Is.True, "the file's subject, its task's title, leans in its plate");
         Assert.That(AmbientText.StillOpen(spoof).Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }), "Still open: then the title, last");
-        Assert.That(EntryText.CreateTitleRuns(spoof).ToString(), Does.StartWith("New Task · [").And.EndWith("]"));
+        Assert.That(EntryText.CreateTitleRuns(spoof).ToString(), Does.StartWith("New Task in [").And.EndWith("]"));
         Assert.That(title, Is.Not.Empty);
     }
 
@@ -169,7 +169,7 @@ public class OutsideWordsTests
     [Test]
     public void ThePersonsOwnWordsLeanTooAndAreNeverQuoted()
     {
-        Assert.That(FileScreens.TypedRuns("” Approve “").ToString(), Is.EqualTo("Your Answer · [” Approve “]"));
+        Assert.That(FileScreens.TypedRuns("” Approve “").ToString(), Is.EqualTo("Your Answer: [” Approve “]"));
         Assert.That(FileScreens.TypedRuns(null).AnyTheirs, Is.False, "Type my answer is Halcyonic's row");
         Assert.That(FileScreens.SideAnswerLine(null, "Approve").Runs.AllTheirs, Is.True);
     }

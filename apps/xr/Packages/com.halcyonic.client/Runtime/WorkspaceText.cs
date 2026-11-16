@@ -182,7 +182,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The typed answer's button: what it says before and after typing.</summary>
-        public static string TypedLabel(string? typed) => typed == null ? "Write Answer" : "Typed · " + OneLine(typed);
+        public static string TypedLabel(string? typed) => typed == null ? "Write Answer" : "Typed: " + OneLine(typed);
 
         /// <summary>
         /// Why Halcyonic cannot send an answer to a question it shows, with the way on: stopping the
@@ -336,24 +336,29 @@ namespace Halcyonic.Client
         public const string CommandNotKnown = "The command isn't complete, so you can only deny it.";
         public const string RequestNotKnown = "The request isn't complete, so you can only deny it.";
 
-        /// <summary>The goal line under the status: the workstream's objective.</summary>
-        public static string Goal(WorkspacePresentation workspace) => "Goal · " + Objective(workspace);
+        /// <summary>The goal line under the status, one line where the panel gives the context one: "Goal: " and the workstream's objective.</summary>
+        public static string Goal(WorkspacePresentation workspace) => GoalLabel + ": " + Objective(workspace);
+
+        public const string GoalLabel = "Goal";
+        public const string LatestLabel = "Latest";
+        public const string LastKnownLabel = "Last Known";
 
         /// <summary>
         /// The one plain answer under the goal: what waits for the person, pointing to where it shows
-        /// whole, or what went wrong, one line per reason; else that nothing waits, and what it did last.
+        /// whole, or what went wrong, one line per reason; else that nothing waits, and what it did last,
+        /// its label ("Latest", or "Last Known" where the state is stale) handed apart from it so the panel
+        /// lays the label small over the line (AUDIT2's rule A, 2026-11-16). Every other line has no label.
         /// </summary>
-        public static IReadOnlyList<string> Answer(WorkspacePresentation workspace)
+        public static IReadOnlyList<(string? Label, string Line)> Answer(WorkspacePresentation workspace)
         {
             // The request or question shows whole under Waiting for you, so the answer names it once.
-            if (workspace.ApprovalToAnswer != null) return new[] { "An approval is waiting. Open " + TabLabel(WorkspaceQuestion.NeedFromYou) + "." };
-            if (workspace.QuestionToAnswer != null) return new[] { "A question is waiting. Open " + TabLabel(WorkspaceQuestion.NeedFromYou) + "." };
+            if (workspace.ApprovalToAnswer != null) return new (string?, string)[] { (null, "An approval is waiting. Open " + TabLabel(WorkspaceQuestion.NeedFromYou) + ".") };
+            if (workspace.QuestionToAnswer != null) return new (string?, string)[] { (null, "A question is waiting. Open " + TabLabel(WorkspaceQuestion.NeedFromYou) + ".") };
             var attention = Attention(workspace);
-            if (attention.Count > 0) return attention;
+            if (attention.Count > 0) return attention.Select(line => ((string?)null, line)).ToList();
             var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
-            var line = "Latest · " + (latest == null ? StateLanguage.LineWordOf(workspace.Character) : Describe(latest));
-            if (workspace.Character.Stale) line = "Last Known · " + line;
-            return new[] { "Nothing Waiting", line };
+            var line = latest == null ? StateLanguage.LineWordOf(workspace.Character) : Describe(latest);
+            return new (string?, string)[] { (null, "Nothing Waiting"), (workspace.Character.Stale ? LastKnownLabel : LatestLabel, line) };
         }
 
         /// <summary>The tools whose approvals run a command, as the agent apps name them: the request reads as a command.</summary>
@@ -595,30 +600,31 @@ namespace Halcyonic.Client
         /// the workspace already knows; where a model runs it does not, and says so. Each line says
         /// whether it holds text from outside.
         /// </summary>
-        public static IReadOnlyList<(string Line, bool IsData)> RunDetails(WorkspacePresentation workspace, TimeZoneInfo zone)
+        public static IReadOnlyList<(string? Label, string Line, bool IsData)> RunDetails(WorkspacePresentation workspace, TimeZoneInfo zone)
         {
             var execution = workspace.Execution;
-            if (execution == null) return new[] { ("Not Run Yet", false) };
-            var lines = new List<(string, bool)>();
-            var gone = workspace.Runtime == null ? " · Agent App Unavailable" : "";
-            if (execution.Runtime.Synthetic) lines.Add((EntryText.PracticeRun + gone, false));
+            if (execution == null) return new (string?, string, bool)[] { (null, "Not Run Yet", false) };
+            var lines = new List<(string?, string, bool)>();
+            if (execution.Runtime.Synthetic) lines.Add(("Agent App", EntryText.PracticeRun + (workspace.Runtime == null ? ", unavailable" : ""), false));
             else
             {
                 var name = CaptureNames.AgentName(OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName));
-                lines.Add(("Agent App · " + name + (workspace.Runtime == null ? " · Unavailable" : " · On Your Computer"), true));
+                lines.Add(("Agent App", name + (workspace.Runtime == null ? ", unavailable" : ", on your computer"), true));
+                // Where a model runs the workspace is never told, so it never says "on your computer" of a model.
                 lines.Add(execution.ModelRef == null
-                    ? ("Model · App's Choice · " + ModelPlaceUnknown, false)
-                    : ("Model · " + CaptureNames.ModelName(OneLine(execution.ModelRef)) + " · " + ModelPlaceUnknown, true));
+                    ? ("Model", "The app's choice, " + ModelPlaceUnknown, false)
+                    : ("Model", CaptureNames.ModelName(OneLine(execution.ModelRef)) + ", " + ModelPlaceUnknown, true));
             }
-            lines.Add(FolderOf(execution.Directory) is string folder ? ("Folder · " + folder, true) : ("Folder · None Given", false));
+            lines.Add(FolderOf(execution.Directory) is string folder ? ("Folder", folder, true) : ("Folder", "None given", false));
             var started = StartedAt(execution.StartedAt, zone);
+            if (started != null) lines.Add(("Started", started, false));
             var round = execution.TurnCount > 0 ? "Round " + execution.TurnCount.ToString(CultureInfo.InvariantCulture) : null;
-            lines.Add((started != null ? "Started · " + started + " · " + (round ?? "No Round Yet") : round ?? "Not Started", false));
+            lines.Add((null, round ?? (started != null ? "No Round Yet" : "Not Started"), false));
             return lines;
         }
 
         /// <summary>Said under the model: the workspace is not told where it runs.</summary>
-        public const string ModelPlaceUnknown = "Location Unknown";
+        public const string ModelPlaceUnknown = "location unknown";
 
         /// <summary>
         /// A folder by its name and the folder it is in, "shop, in Projects"; null for none. The path is
@@ -630,7 +636,7 @@ namespace Halcyonic.Client
             var parts = directory!.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) return OneLine(directory);
             // Under the capture extra the parent folder, which can be the home folder, is left out.
-            return parts.Length == 1 || CaptureNames.Generic ? OneLine(parts[parts.Length - 1]) : OneLine(parts[parts.Length - 1]) + " · " + OneLine(parts[parts.Length - 2]);
+            return parts.Length == 1 || CaptureNames.Generic ? OneLine(parts[parts.Length - 1]) : OneLine(parts[parts.Length - 1]) + " in " + OneLine(parts[parts.Length - 2]);
         }
 
         /// <summary>When it started, in the local time and day: "09:00 on 2 Oct"; null when it hasn't or the time can't be read.</summary>
@@ -638,7 +644,7 @@ namespace Halcyonic.Client
         {
             if (startedAt == null || !DateTimeOffset.TryParse(startedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)) return null;
             var local = TimeZoneInfo.ConvertTime(at, zone);
-            return local.ToString("HH:mm", CultureInfo.InvariantCulture) + " · " + local.Day.ToString(CultureInfo.InvariantCulture) + " "
+            return local.ToString("HH:mm", CultureInfo.InvariantCulture) + ", " + local.Day.ToString(CultureInfo.InvariantCulture) + " "
                 + local.ToString("MMM", CultureInfo.InvariantCulture);
         }
 
@@ -691,7 +697,7 @@ namespace Halcyonic.Client
             WorkspaceAction.Approve => "Approve Request?",
             WorkspaceAction.Deny => "Deny Request?",
             WorkspaceAction.Interrupt => StopQuestion + KitMomentWords.Dot + StopEffect,
-            WorkspaceAction.Instruct => "Send Instruction? · " + OneLine(instruction ?? ""),
+            WorkspaceAction.Instruct => "Send Instruction? " + OneLine(instruction ?? ""),
             WorkspaceAction.Answer => "Send Answers?",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
@@ -716,7 +722,7 @@ namespace Halcyonic.Client
         /// <summary>The caption over a request shown whole, with which part shows when it takes more than one.</summary>
         public static string RequestCaption(int part, int parts) => parts <= 1
             ? "Full Request"
-            : "Full Request · Part " + part.ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture);
+            : "Full Request, Part " + part.ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>
         /// The confirmation's Yes: Confirm, one word, under the question that names the action ("Approve Request?"), so it
@@ -796,13 +802,13 @@ namespace Halcyonic.Client
         public static (LineWords Words, bool Reported) Latest(WorkspacePresentation workspace)
         {
             var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
-            var line = LineWords.Written("Latest · ") + (latest == null ? LineWords.Written(StateLanguage.LineWordOf(workspace.Character)) : latest.Words);
-            if (workspace.Character.Stale) line = LineWords.Written("Last Known · ") + line;
+            var label = workspace.Character.Stale ? LastKnownLabel : LatestLabel;
+            var line = LineWords.Written(label + ": ") + (latest == null ? LineWords.Written(StateLanguage.LineWordOf(workspace.Character)) : latest.Words);
             return (line, latest?.Reported == true);
         }
 
         /// <summary>An activity entry in one line, agent text quoted as the agent's.</summary>
         public static string Describe(ActivityEntry entry) =>
-            entry.Reported ? "Reported · " + OneLine(entry.Text) : OneLine(entry.Text);
+            entry.Reported ? "Reported: " + OneLine(entry.Text) : OneLine(entry.Text);
     }
 }

@@ -263,7 +263,7 @@ public class QuestionTests
             IssuedAt = Samples.Time, Failure = failure, Rejection = rejection,
         };
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent, waiting for the agent"));
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed · Answer Received"));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("The answer was received."));
         var unconfirmed = new CommandFailure { Code = "question_unconfirmed", Message = "Codex did not confirm.", Effect = FailureEffect.Unknown };
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed, unconfirmed)).Text, Is.EqualTo(WorkspaceText.AnswerNotConfirmed));
         var gone = new CommandRejection { Code = RejectionCode.QuestionNotFound, Message = "Question question-1 is not pending." };
@@ -291,7 +291,7 @@ public class QuestionTests
         question.Prompts.RemoveAt(1);
         Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Agent\'s Question: Colour scheme, Which colour scheme should the dashboard use?"));
         var work = new AskingWork();
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "A question is waiting. Open Needs You." }),
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new (string?, string)[] { (null, "A question is waiting. Open Needs You.") }),
             "the answer line points to the tab; the tab's heading names the whole question");
         Assert.That(CharacterPresenter.AsksYou(work.Present().QuestionToAnswer!), Is.EqualTo("2 Questions: Colour scheme; Pages"));
     }

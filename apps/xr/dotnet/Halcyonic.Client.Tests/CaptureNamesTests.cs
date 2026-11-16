@@ -99,7 +99,8 @@ public class CaptureNamesTests
         Assert.That(generic, Does.Not.Contain("someone").And.Not.Contain("/Users"));
         Assert.That(CaptureNames.Request(summary), Is.EqualTo("git -C . commit -am \"Golden fireflies\"\nin star-catcher"), "the command unchanged");
         Assert.That(WorkspaceText.Request(approval), Does.StartWith("commandExecution: git -C . commit -am \"Golden fireflies\"").And.EndWith("in star-catcher"));
-        Assert.That(generic, Does.Contain("Folder · star-catcher"));
+        Assert.That(WorkspaceText.RunDetails(WorkspacePresenter.Present(work, state, new ActivityLog(), true), System.TimeZoneInfo.Utc),
+            Has.Some.EqualTo(((string?)"Folder", "star-catcher", true)), "the folder by its own name, its label apart");
     }
 
     private static (ClientProjection, WorkstreamView, ExecutionView, RuntimeDescriptor) Running(string? directory = null)

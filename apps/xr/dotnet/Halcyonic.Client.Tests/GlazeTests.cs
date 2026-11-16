@@ -386,7 +386,7 @@ public class CharacterLabelTests
             Entry(1, ActivityKind.Tool, "bash succeeded"),
             Entry(2, ActivityKind.Message, "The migration ran\nand the tests pass.", reported: true),
             Entry(3, ActivityKind.Turn, "Round Started")));
-        Assert.That(peek.Reason, Is.EqualTo("Reported · The migration ran and the tests pass."), "round boundaries skipped; agent text a claim");
+        Assert.That(peek.Reason, Is.EqualTo("Reported: The migration ran and the tests pass."), "round boundaries skipped; agent text a claim");
         Assert.That(peek.Next, Is.Null);
         Assert.That(PeekCard.Of(Workspace(character)).Reason, Is.Empty, "nothing known yet: the badge says it all");
     }

@@ -13,12 +13,12 @@ namespace Halcyonic.Client
     public static class ConnectText
     {
         public const string ConnectFolder = "Connect Folder";
-        public const string FoldersLine = "Unused Folders · Connecting Changes Nothing Inside";
+        public const string FoldersLine = "Folders not in a project. Connecting changes nothing inside them.";
         public const string NoFreeFolders = "Every Folder Is a Project";
         public const string Connect = "Connect";
         public const string Connecting = "Waiting on Computer";
         public const string NotConnectedYet = "Not Sent. Not Connected. Try Again";
-        public const string Gone = "Folder Unavailable · Choose Another";
+        public const string Gone = "That folder isn't available. Choose another.";
         public const string LooksLikeAnother = "Similar Name";
 
         /// <summary>Under a folder whose shown name looks like another's: how to tell them apart.</summary>
@@ -51,23 +51,27 @@ namespace Halcyonic.Client
         {
             if (folder.Repository == null) return "Contents Unreadable";
             var changed = folder.ChangedAt == null ? null : "Changed " + Ago(folder.ChangedAt.Value, now, zone);
-            if (folder.Repository == true) return changed == null ? "Repository" : "Repository · " + changed;
+            if (folder.Repository == true) return changed == null ? "Repository" : "Repository, " + changed;
             return changed ?? "Folder";
         }
 
         /// <summary>A row's detail: its facts, and the place it is in when there is more than one.</summary>
         public static string Detail(ConnectableFolder folder, DateTimeOffset now, TimeZoneInfo zone, bool manyPlaces) =>
-            (folder.LooksLikeAnother ? LooksLikeAnother + " · " : "") + Facts(folder, now, zone) + (manyPlaces ? " · In " + folder.RootName : "");
+            (folder.LooksLikeAnother ? LooksLikeAnother + ". " : "") + Facts(folder, now, zone) + (manyPlaces ? ", in " + folder.RootName : "");
 
-        /// <summary>Above Connect: where the folder is, and what connecting does.</summary>
+        /// <summary>Above Connect: what connecting does, and where the folder is, which tells a similar name apart.</summary>
         /// <remarks>What connecting never changes comes first, so no name, however long, pushes it past the line's end.</remarks>
         public static string WhatConnectingDoes(ConnectableFolder folder) => WhatConnectingDoesRuns(folder).Text;
 
         /// <summary>Above Connect, as runs: Halcyonic's words upright, the folder's, place's and project's names leaning.</summary>
         public static LineWords WhatConnectingDoesRuns(ConnectableFolder folder) =>
-            LineWords.Ours("Unchanged Until a Task · ")
-            + (folder.Folder == null ? LineWords.Ours("Folder ") + Named(folder.RawName) : LineWords.Ours("In ") + Named(ProjectFolder.LabelOf(folder.Root)))
-            + LineWords.Ours(" · New Project · ") + Named(folder.ProjectName);
+            LineWords.Ours(NothingChangesYet + " ")
+            + (folder.Folder == null
+                ? Named(folder.RawName) + LineWords.Ours(" becomes the project ") + Named(folder.ProjectName) + LineWords.Ours(".")
+                : LineWords.Ours("It becomes the project ") + Named(folder.ProjectName) + LineWords.Ours(", in ") + Named(ProjectFolder.LabelOf(folder.Root)) + LineWords.Ours("."));
+
+        /// <summary>What connecting never changes, first on the line above Connect: connecting records a project, the folder stays as it is.</summary>
+        public const string NothingChangesYet = "Nothing in the folder changes until a task runs.";
 
         /// <summary>
         /// How connecting went as its state and its why apart, where a panel has room (AUDIT and AUDIT2, 2026-11-16 10:48Z): a

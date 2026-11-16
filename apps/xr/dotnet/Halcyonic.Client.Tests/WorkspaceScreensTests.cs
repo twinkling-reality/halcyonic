@@ -102,7 +102,7 @@ public class WorkspaceScreensTests
         work.Workstream.Objective = "Migrate the database";
         var model = Screen(work.Present(), new WorkspaceSteering(factory));
         Assert.That((model.Title, model.TitleIsData), Is.EqualTo((work.Workstream.Title, true)));
-        Assert.That((model.Context, model.ContextIsData), Is.EqualTo(("Goal · Migrate the database", true)));
+        Assert.That((model.Context, model.ContextIsData), Is.EqualTo(("Goal: Migrate the database", true)));
         Assert.That(model.Badge!.Word, Is.EqualTo("Needs You"));
         Assert.That(model.Marks.Select(mark => mark.Word), Is.EqualTo(new[] { "Practice" }), "simulated work says so beside its state");
         Assert.That((model.Movable, model.Notice), Is.EqualTo((false, (string?)null)), "it stays beside its character: Close only");
@@ -194,7 +194,7 @@ public class WorkspaceScreensTests
         model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
         Assert.That(model.Parts, Is.EqualTo((1, 7)));
         Assert.That(model.PartsCaption, Is.Null, "the pager in the heading's row has no words");
-        Assert.That(screen.Answer!.Provenance, Is.EqualTo("Step 2 of 7 · Explanation, 2 min ago"), "which step leads the provenance");
+        Assert.That(screen.Answer!.Provenance, Is.EqualTo("Step 2 of 7. Explanation, 2 min ago"), "which step leads the provenance");
         Assert.That((screen.Answer!.Lines[0].Text, screen.Answer.Lines[1].Text), Is.EqualTo((UnderstandingPresenter.WhyStep, UnderstandingPresenter.ExplainedUpToDate)));
         screen.TurnAnswer(-5);
         Assert.That(screen.AnswerPage, Is.Zero, "never before the first");
@@ -228,24 +228,26 @@ public class WorkspaceScreensTests
         var activity = Enumerable.Range(1, 6)
             .Select(index => new ActivityEntry(index, "2026-09-26T09:00:0" + index + ".000Z", ActivityKind.Message, "line " + index, reported: index == 5))
             .ToList();
-        var commands = new[] { "Sent · Awaiting Stop", "Confirmed · Instruction Received", "Confirmed · Started" }
+        var commands = new[] { "Sent · Awaiting Stop", "The instruction was received.", "Started." }
             .Select((text, index) => new CommandFeedback("c" + index, CommandType.ExecutionInterrupt, null, text))
             .ToList();
         var workspace = new WorkspacePresentation(present.Character, present.Objective, present.Execution, present.Runtime,
             present.Actions, Array.Empty<WorkspaceAction>(), commands, activity);
         var model = Screen(workspace, new WorkspaceSteering(factory), new WorkspaceScreen { ActivityNote = " (times in UTC)" });
         Assert.That(model.Heading, Is.EqualTo(WorkspaceText.WhatIsItDoing));
-        Assert.That(Titles(model).Take(2), Is.EqualTo(WorkspaceText.Answer(workspace)), "one plain answer first");
-        Assert.That(model.Rows.Take(2).Select(row => row.Tone), Is.All.EqualTo(GlazeTone.Neutral), "quiet while nothing waits");
-        Assert.That(Titles(model).Skip(2).Take(2), Is.EqualTo(commands.Take(2).Select(command => command.Text)), "what this headset sent, newest first");
-        Assert.That(Titles(model)[4], Is.EqualTo("Recent Activity (times in UTC)"));
-        var log = model.Rows.Skip(5).ToList();
-        Assert.That(log.Select(row => row.Title), Is.EqualTo(new[] { "09:00:03  line 3", "09:00:04  line 4", "09:00:05  Reported · line 5", "09:00:06  line 6" }),
+        Assert.That(WorkspaceText.Answer(workspace), Is.EqualTo(new (string?, string)[] { (null, "Nothing Waiting"), ("Latest", "line 6") }));
+        Assert.That(Titles(model).Take(3), Is.EqualTo(new[] { "Nothing Waiting", "Latest", "line 6" }), "one plain answer first, its label on its own row over its line");
+        Assert.That((model.Rows[1].Size, model.Rows[1].Line), Is.EqualTo((PanelTextSize.Caption, true)), "the label laid small over its value");
+        Assert.That(model.Rows.Where((_, index) => index is 0 or 2).Select(row => row.Tone), Is.All.EqualTo(GlazeTone.Neutral), "quiet while nothing waits");
+        Assert.That(Titles(model).Skip(3).Take(2), Is.EqualTo(commands.Take(2).Select(command => command.Text)), "what this headset sent, newest first");
+        Assert.That(Titles(model)[5], Is.EqualTo("Recent Activity (times in UTC)"));
+        var log = model.Rows.Skip(6).ToList();
+        Assert.That(log.Select(row => row.Title), Is.EqualTo(new[] { "09:00:03  line 3", "09:00:04  line 4", "09:00:05  Reported: line 5", "09:00:06  line 6" }),
             "the newest four, oldest first, the newest last");
         Assert.That(log.Select(row => row.Claim), Is.EqualTo(new[] { false, false, true, false }), "the agent's words lean");
-        Assert.That(model.Rows.Skip(4).All(row => row.Droppable && row.Line), Is.True, "older lines give way where there is no room; the log never pages");
-        Assert.That(model.Rows.Take(4).Any(row => row.Droppable), Is.False, "the answer and what was sent always stay");
-        Assert.That(model.Rows.Select(row => row.Continues), Is.EqualTo(new[] { false, true, false, true, false, true, true, true, true }));
+        Assert.That(model.Rows.Skip(5).All(row => row.Droppable && row.Line), Is.True, "older lines give way where there is no room; the log never pages");
+        Assert.That(model.Rows.Take(5).Any(row => row.Droppable), Is.False, "the answer and what was sent always stay");
+        Assert.That(model.Rows.Select(row => row.Continues), Is.EqualTo(new[] { false, true, true, false, true, false, true, true, true, true }));
 
         var quiet = Screen(Running().Present(), new WorkspaceSteering(factory));
         Assert.That(Titles(quiet), Does.Contain(WorkspaceText.NothingSentYet));
@@ -327,7 +329,7 @@ public class WorkspaceScreensTests
         var model = Screen(work.Present(), steering, screen);
         Assert.That(model.Tabs, Is.Empty, "the request shows in the tabs' place");
         Assert.That((Titles(model).Single(), model.Rows[0].TitleLines), Is.EqualTo(("bash: Run the ", 5)));
-        Assert.That((model.Parts, model.PartsCaption), Is.EqualTo(((0, 2), "Full Request · Part 1 of 2")));
+        Assert.That((model.Parts, model.PartsCaption), Is.EqualTo(((0, 2), "Full Request, Part 1 of 2")));
         Assert.That(model.Confirm!.Question, Is.EqualTo(WorkspaceText.ReadRequestFirst));
         Assert.That((model.Confirm.Yes.Label, model.Confirm.Yes.Available), Is.EqualTo(("Read to Part 2", false)));
         Assert.That((model.Confirm.Cancel.Id, model.Confirm.Cancel.Label), Is.EqualTo((WorkspaceScreens.Cancel, "Cancel")));
@@ -390,9 +392,11 @@ public class WorkspaceScreensTests
         Assert.That(Titles(model), Is.EqualTo(new[]
         {
             "Which colour scheme should the dashboard use?",
-            "Light · Dark text on a light background",
-            "Dark · Light text on a dark background",
+            "Light",
+            "Dark",
         }));
+        Assert.That(model.Rows.Skip(1).Select(row => row.Detail), Is.EqualTo(new[] { "Dark text on a light background", "Light text on a dark background" }),
+            "each answer's description apart from its label, never joined on a dot");
         Assert.That((model.Columns, model.Rows[0].TitleLines, model.Rows[0].TitleIsData), Is.EqualTo((2, WorkspaceScreens.QuestionLines, true)));
         Assert.That(model.Rows.Skip(1).All(row => row.Action == WorkspaceScreens.Choose && row.TitleLines == 2), Is.True);
         Assert.That((model.PartsHeading, model.PartsNote), Is.EqualTo(("Question 1 of 2, Colour scheme", "Choose One or Write")));
@@ -415,7 +419,8 @@ public class WorkspaceScreensTests
         screen.Question = WorkspaceQuestion.NeedFromYou;
         screen.Place.Turn(-1);
         model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
-        Assert.That((model.Rows[2].Title, model.Rows[2].Chosen), Is.EqualTo(("Chosen · Dark · Light text on a dark background", true)), "chosen in words as well");
+        Assert.That((model.Rows[2].Title, model.Rows[2].Detail, model.Rows[2].End, model.Rows[2].Chosen),
+            Is.EqualTo(("Dark", "Light text on a dark background", "Chosen", true)), "chosen in words as well");
     }
 
     [Test]
@@ -469,7 +474,8 @@ public class WorkspaceScreensTests
         var work = Running();
         string[] Lines(PanelModel model) => model.Rows.Select(row => row.Title).ToArray();
         var practice = Screen(work.Present(), new WorkspaceSteering(factory), new WorkspaceScreen { Details = true });
-        Assert.That(Lines(practice)[0], Is.EqualTo(EntryText.PracticeRun), "practice names no agent app or model");
+        Assert.That(Lines(practice).Take(2), Is.EqualTo(new[] { "Agent App", EntryText.PracticeRun }), "practice names no agent app by name");
+        Assert.That(Lines(practice), Does.Not.Contain("Model"), "nor a model");
         work.Change(execution =>
         {
             execution.Runtime.Synthetic = false;
@@ -485,11 +491,19 @@ public class WorkspaceScreensTests
         Assert.That((details.Heading, details.HeadingAction!.Id, details.HeadingAction.Label), Is.EqualTo(("Run Details", WorkspaceScreens.ShowLog, "Show Log")));
         Assert.That(details.Rows.Select(row => (row.Title, row.TitleIsData)), Is.EqualTo(new[]
         {
-            ("Agent App · " + work.Present().Runtime!.DisplayName + " · On Your Computer", true),
-            ("Model · ollama/qwen3.6 · Location Unknown", true),
-            ("Folder · shop · HalcyonicProjects", true),
-            ("Started · 09:05 · 2 Oct · Round 2", false),
+            ("Agent App", false),
+            (work.Present().Runtime!.DisplayName + ", on your computer", true),
+            ("Model", false),
+            ("ollama/qwen3.6, location unknown", true),
+            ("Folder", false),
+            ("shop in HalcyonicProjects", true),
+            ("Started", false),
+            ("09:05, 2 Oct", false),
+            ("Round 2", false),
         }));
+        Assert.That(details.Rows.Where((_, index) => index % 2 == 0 && index < 8).Select(row => row.Size), Is.All.EqualTo(PanelTextSize.Caption),
+            "each label laid small on its own row over its value, never joined to it on a dot");
+        Assert.That(details.Rows.Where((_, index) => index % 2 == 1 || index == 8).Select(row => row.Size), Is.All.EqualTo(PanelTextSize.Body));
         Assert.That(details.Rows.All(row => row.Line && row.Action == null), Is.True, "the details only say something, a line each");
 
         work.Change(execution =>
@@ -499,9 +513,9 @@ public class WorkspaceScreensTests
             execution.StartedAt = null;
             execution.TurnCount = 0;
         }, WorkstreamStatus.Running);
-        Assert.That(Lines(Screen(work.Present(), steering, new WorkspaceScreen { Details = true })).Skip(1), Is.EqualTo(new[]
+        Assert.That(Lines(Screen(work.Present(), steering, new WorkspaceScreen { Details = true })).Skip(2), Is.EqualTo(new[]
         {
-            "Model · App's Choice · Location Unknown", "Folder · None Given", "Not Started",
+            "Model", "The app's choice, location unknown", "Folder", "None given", "Not Started",
         }));
         Assert.That(Lines(Screen(new WaitingWork().Present(live: false), steering, new WorkspaceScreen { Details = true })).All(line => line.Length > 0), Is.True);
     }

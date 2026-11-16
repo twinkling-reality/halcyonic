@@ -109,10 +109,10 @@ public class FileQuestionTests
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
         {
-            "Question 1 of 2 · Choose One",
+            "Question 1 of 2, Choose One",
             "Which colour scheme should the dashboard use?",
-            "Light · Dark text on a light background",
-            "Dark · Light text on a dark background",
+            "Light, Dark text on a light background",
+            "Dark, Light text on a dark background",
             FileScreens.WriteAnswer,
         }));
         Assert.That(frame.Lines.Select(line => (line.Runs.AllTheirs, line.Icon == GlazeIcon.Quote)),

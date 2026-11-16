@@ -58,7 +58,7 @@ public class WorkspaceRequestColumnTests
         Assert.That(Source(new AvailableWorkspaceAgent { Model = "Local model" }), Is.EqualTo("Local model on your computer"));
         // A test provider, as a second declaration would name itself: nothing here names a vendor.
         Assert.That(Source(new AvailableWorkspaceAgent { Model = "test-model-1", Served = AssistantServed.Remote, Provider = "Test Hosted" }),
-            Is.EqualTo("On Test Hosted · test-model-1"));
+            Is.EqualTo("test-model-1 on Test Hosted"));
         Assert.That(Source(new AvailableWorkspaceAgent { Model = "test-model-1", Served = AssistantServed.Remote }), Is.EqualTo("Workspace Assistant"),
             "a remote assistant that does not say where it runs is not offered");
     }

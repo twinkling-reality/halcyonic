@@ -172,18 +172,18 @@ namespace Halcyonic.Client
         /// <summary>The folder fact as runs (<see cref="FolderFact"/>): Halcyonic's words upright and first, names leaning.</summary>
         public static LineWords FolderFactRuns(ProjectLocation? current, ProjectFolder? chosen, bool needed)
         {
-            if (chosen != null && current != null) return LineWords.Ours("Next · ") + chosen.DescribeRuns() + LineWords.Ours(" · Now · ") + LineWords.TheirName(current.Name);
+            if (chosen != null && current != null) return LineWords.Ours("Next: ") + chosen.DescribeRuns() + LineWords.Ours(". Now: ") + LineWords.TheirName(current.Name) + LineWords.Ours(".");
             if (chosen != null) return chosen.DescribeRuns(startOfLine: true);
-            if (current != null) return LineWords.TheirName(current.Name) + LineWords.Ours(" · Project Folder");
+            if (current != null) return LineWords.TheirName(current.Name) + LineWords.Ours(", the project's folder");
             return LineWords.Ours(needed ? "Not Chosen" : "Not Needed");
         }
 
         public static string FolderFact(ProjectLocation? current, ProjectFolder? chosen, bool needed)
         {
             // Halcyonic's own words first, so a long name never pushes them past the line's end (settled by the coordinator, 2026-10-08).
-            if (chosen != null && current != null) return "Next · " + chosen.Describe() + " · Now · " + LabelText.Plain(current.Name);
+            if (chosen != null && current != null) return "Next: " + chosen.Describe() + ". Now: " + LabelText.Plain(current.Name) + ".";
             if (chosen != null) return chosen.Describe(startOfLine: true);
-            if (current != null) return LabelText.Plain(current.Name) + " · Project Folder";
+            if (current != null) return LabelText.Plain(current.Name) + ", the project's folder";
             return needed ? "Not Chosen" : "Not Needed";
         }
 
@@ -213,8 +213,8 @@ namespace Halcyonic.Client
         public const string OptionsLine = "Choose an agent app, then its model";
         public const string NoRuntimes = "No agent app is available. Set one up on your computer.";
         public const string ChangeAgentApp = "Change Agent App";
-        public const string ListsModels = "Model · Your Choice";
-        public const string ChoosesModel = "Model · App's Choice";
+        public const string ListsModels = "You choose the model.";
+        public const string ChoosesModel = "The app chooses the model.";
         public const string NoModels = "This agent app offers no models. Choose another agent app.";
 
         /// <summary>
@@ -292,7 +292,7 @@ namespace Halcyonic.Client
 
         public const string SendingLine = "Running Work Continues";
         public const string TryAgain = "Try Again";
-        public const string Started = "Confirmed · Started · On Stage";
+        public const string Started = "Started. It's on the stage.";
 
         /// <summary>The started task's own file, where it works and asks (the lead's first journey, 2026-11-12); FIELD's words to come.</summary>
         public const string OpenTask = "Open Task";
@@ -362,11 +362,11 @@ namespace Halcyonic.Client
         public const string ProjectGone = "That project is gone. Choose another.";
         public const string ChooseWhereFilesLive = "Choose Folder";
 
-        public static string CreateTitle(string? existingProject) => existingProject == null ? CreateProject : "New Task · " + existingProject;
+        public static string CreateTitle(string? existingProject) => existingProject == null ? CreateProject : "New Task in " + existingProject;
 
         /// <summary>New project's subject for a project that exists, as runs: "New task in " upright, its name leaning, last.</summary>
         public static LineWords CreateTitleRuns(string? existingProject) =>
-            existingProject == null ? LineWords.Ours(CreateProject) : LineWords.Ours("New Task · ") + LineWords.TheirName(existingProject);
+            existingProject == null ? LineWords.Ours(CreateProject) : LineWords.Ours("New Task in ") + LineWords.TheirName(existingProject);
 
         public static string Question(int index, int count) => "Question " + Count(index + 1) + " of " + Count(count);
 

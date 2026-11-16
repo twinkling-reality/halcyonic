@@ -786,7 +786,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var commands = new[]
             {
                 new CommandFeedback("c2", CommandType.ExecutionSendInstruction, CommandStatus.Accepted, "Sent. Waiting for the agent…"),
-                new CommandFeedback("c1", CommandType.ExecutionRespondToApproval, CommandStatus.Completed, "Confirmed · Decision Received"),
+                new CommandFeedback("c1", CommandType.ExecutionRespondToApproval, CommandStatus.Completed, "The decision was received."),
             };
             var running = With(Work.Running().Present(), Activity(LongQuote()), commands);
             var screen = new WorkspaceScreen { Zone = TimeZoneInfo.Utc, ActivityNote = " (times in UTC)", Speak = true };
@@ -897,7 +897,7 @@ namespace Halcyonic.XR.Workspace.Editor
             draft.Choose(0, "Light");
             view.Read(screen, draft);
             failures.AddRange(QuestionShot(view, scripted.Present(), screen, "question"));
-            if (!view.Frame.ShownRows.Any(row => row.Row.Chosen && row.Row.Title.StartsWith("Chosen · Light", StringComparison.Ordinal)))
+            if (!view.Frame.ShownRows.Any(row => row.Row.Chosen && row.Row.End == "Chosen" && row.Row.Title.StartsWith("Light", StringComparison.Ordinal)))
             {
                 failures.Add(view.Name + " question: the answer chosen does not say so in words.");
             }

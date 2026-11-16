@@ -51,7 +51,7 @@ public class AnswerFlowTests
         ReadQuestion(host, column);
         for (var page = 0; page < 30; page++)
         {
-            var line = column.Frame!.Lines.FirstOrDefault(line => line.Action == FileScreens.Choose && (line.Words == label || line.Words.StartsWith(label + " · ", StringComparison.Ordinal)));
+            var line = column.Frame!.Lines.FirstOrDefault(line => line.Action == FileScreens.Choose && (line.Words == label || line.Words.StartsWith(label + ", ", StringComparison.Ordinal)));
             if (line != null)
             {
                 Assert.That(line.AnswerMark, Is.Not.EqualTo(AnswerMark.None));
@@ -513,7 +513,7 @@ public class AnswerFlowTests
         var (host, column, _) = Open(question);
         ReadQuestion(host, column);
         var why = column.Frame!.Lines.First(line => line.Action == FileScreens.ReadWhy);
-        Assert.That((why.Fact, why.Control, why.Choice, why.AnswerMark), Is.EqualTo(("Unavailable · Read Why", LineControl.Action, false, AnswerMark.None)));
+        Assert.That((why.Fact, why.Control, why.Choice, why.AnswerMark), Is.EqualTo((FileScreens.UnavailableReadWhy, LineControl.Action, false, AnswerMark.None)));
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done("Yes.");
         Draw(host, column);

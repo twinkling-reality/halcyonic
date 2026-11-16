@@ -125,7 +125,7 @@ namespace Halcyonic.Client
                 new FrameSection("response", "Reply", section == "response"), new FrameSection("receipts", "Actions", section == "receipts") };
             // Where the assistant runs is said, never assumed: this computer, or the hosted provider the person stored a key for.
             var source = agent == null ? LineWords.Ours("Workspace Assistant")
-                : agent.Served == AssistantServed.Remote ? LineWords.Ours("On ").Then(LineWords.TheirName(agent.Provider)).Then(LineWords.Ours(" · ")).Then(LineWords.TheirName(agent.Model))
+                : agent.Served == AssistantServed.Remote ? LineWords.TheirName(agent.Model).Then(LineWords.Ours(" on ")).Then(LineWords.TheirName(agent.Provider))
                 : LineWords.TheirName(agent.Model).Then(LineWords.Ours(" on your computer"));
             var room = new HeightBudget(host.PageHeight(host.TitleRows(subject.Text, Glaze.Menu.FileColumnDegrees), false, focused: true));
             if (section != "draft")
@@ -192,9 +192,10 @@ namespace Halcyonic.Client
                         .Then(LineWords.Theirs(step.Summary)).Then(LineWords.Written("\n"));
                 return words;
             }
-            var result = LineWords.Ours("Request · ").Then(LineWords.Theirs(request!.OriginalText)).Then(LineWords.Written("\nStatus · " + StatusWords(Status) + "\n"));
+            // Each fact's label on its own line over its value, never joined to it (AUDIT2's rule A, 2026-11-16).
+            var result = LineWords.Written("Request\n").Then(LineWords.Theirs(request!.OriginalText)).Then(LineWords.Written("\n\nStatus\n" + StatusWords(Status) + "\n"));
             if (Status == "stopped") result = result.Then(LineWords.Written("Planning stopped. The task may go on.\n"));
-            if (request.Reply != null) result = result.Then(LineWords.Written("\nAssistant Reply · Reported\n")).Then(LineWords.Theirs(request.Reply.Text));
+            if (request.Reply != null) result = result.Then(LineWords.Written("\nAssistant's Reply\nReported: ")).Then(LineWords.Theirs(request.Reply.Text));
             else result = result.Then(LineWords.Ours("No Reply Yet"));
             return result;
         }

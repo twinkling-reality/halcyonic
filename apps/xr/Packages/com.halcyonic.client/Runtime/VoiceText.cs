@@ -50,7 +50,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>The question before a spoken instruction is sent: what the Mac heard, then whether to send it.</summary>
-        public static string SendHeard(string instruction) => "Send This? · " + LabelText.Plain(instruction);
+        public static string SendHeard(string instruction) => "Send This? " + LabelText.Plain(instruction);
 
         /// <summary>Why the Mac turned a clip away, from the control plane's code.</summary>
         public static string Refusal(string? code) => code switch

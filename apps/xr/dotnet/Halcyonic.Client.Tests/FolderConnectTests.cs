@@ -224,10 +224,10 @@ public class FolderConnectTests
     {
         var zone = TimeZoneInfo.Utc;
         string Facts(LocationFolder folder) => ConnectText.Facts(FolderConnect.Offers(Listing(Root("Projects", folder))).Single(), Now, zone);
-        Assert.That(Facts(Folder("a", true, "2026-09-29T11:00:00.000Z")), Is.EqualTo("Repository · Changed 3 Days Ago"));
+        Assert.That(Facts(Folder("a", true, "2026-09-29T11:00:00.000Z")), Is.EqualTo("Repository, Changed 3 Days Ago"));
         Assert.That(Facts(Folder("b", false, "2026-10-02T11:59:30.000Z")), Is.EqualTo("Changed Just Now"));
         Assert.That(Facts(Folder("c", false, "2026-10-02T10:00:00.000Z")), Is.EqualTo("Changed 2 Hours Ago"));
-        Assert.That(Facts(Folder("d", true, "2026-10-01T11:00:00.000Z")), Is.EqualTo("Repository · Changed 1 Day Ago"));
+        Assert.That(Facts(Folder("d", true, "2026-10-01T11:00:00.000Z")), Is.EqualTo("Repository, Changed 1 Day Ago"));
         Assert.That(Facts(Folder("e", false, "2025-03-04T09:00:00.000Z")), Is.EqualTo("Changed 4 Mar 2025"));
         Assert.That(Facts(Folder("f", null)), Is.EqualTo("Contents Unreadable"));
         Assert.That(Facts(Folder("g", false, "2026-11-01T00:00:00.000Z")), Is.EqualTo("Changed 1 Nov 2026"), "a time ahead of this clock is said as a date");
@@ -271,12 +271,12 @@ public class FolderConnectTests
         Assert.That(list.Rows.Select(row => (row.Title, row.Detail, row.TitleIsData, row.Action)), Is.EqualTo(new[]
         {
             ("notes", "Changed 2 Days Ago", true, ConnectScreens.ChooseFolder),
-            ("shop", "Repository · Changed 3 Days Ago", true, ConnectScreens.ChooseFolder),
+            ("shop", "Repository, Changed 3 Days Ago", true, ConnectScreens.ChooseFolder),
         }));
         Assert.That(list.Actions.Back!.Id, Is.EqualTo(ConnectScreens.Back));
 
         var two = ConnectScreens.Folders(Listing(Root("Projects", Folder("shop")), Root("Work", Folder("site"))), null, live: true, Now, zone);
-        Assert.That(two.Rows.Select(row => row.Detail), Is.EquivalentTo(new[] { "Changed 2 Days Ago · In Projects", "Changed 2 Days Ago · In Work" }),
+        Assert.That(two.Rows.Select(row => row.Detail), Is.EquivalentTo(new[] { "Changed 2 Days Ago, in Projects", "Changed 2 Days Ago, in Work" }),
             "with more than one place, each says where it is");
     }
 
@@ -286,16 +286,16 @@ public class FolderConnectTests
         var zone = TimeZoneInfo.Utc;
         var offer = FolderConnect.Offers(Listing(Root("Projects", Folder("shop", true, "2026-09-29T11:00:00.000Z")))).Single();
         var before = ConnectScreens.Folder(offer, null, live: true, Now, zone);
-        Assert.That((before.Title, before.TitleIsData, before.Lead), Is.EqualTo(("shop", true, "Repository · Changed 3 Days Ago")));
-        Assert.That(before.Rows.Single().Title, Is.EqualTo("Unchanged Until a Task · In Projects · New Project · shop"));
+        Assert.That((before.Title, before.TitleIsData, before.Lead), Is.EqualTo(("shop", true, "Repository, Changed 3 Days Ago")));
+        Assert.That(before.Rows.Single().Title, Is.EqualTo("Nothing in the folder changes until a task runs. It becomes the project shop, in Projects."));
         // The names lean on Halcyonic's ground, never quoted (lane V's treatment).
         Assert.That(ConnectText.WhatConnectingDoesRuns(offer).ToString(),
-            Is.EqualTo("Unchanged Until a Task · In [Projects] · New Project · [shop]"));
+            Is.EqualTo("Nothing in the folder changes until a task runs. It becomes the project [shop], in [Projects]."));
         // What connecting never changes comes first, and a name inside the sentence is cut at 40, so neither a long
         // name nor two push it out of sight (the outside-text audit's gap 10).
         var named = FolderConnect.Offers(Listing(Root(new string('R', 90), Folder(new string('f', 90), true, "2026-09-29T11:00:00.000Z")))).Single();
         var sentence = ConnectText.WhatConnectingDoes(named);
-        Assert.That(sentence, Does.StartWith("Unchanged Until a Task · In " + new string('R', 39) + "\u2026 · "));
+        Assert.That(sentence, Does.StartWith(ConnectText.NothingChangesYet + " It becomes the project ").And.EndWith(", in " + new string('R', 39) + "\u2026."));
         Assert.That(ConnectText.Named(new string('n', 90)).ToString(), Is.EqualTo("[" + new string('n', 39) + "\u2026]"));
         Assert.That((before.Actions.Primary!.Id, before.Actions.Primary.Available), Is.EqualTo((ConnectScreens.Connect, true)));
         Assert.That(ConnectScreens.Folder(offer, null, live: false, Now, zone).Actions.Primary!.Available, Is.False, "nothing is sent while away");

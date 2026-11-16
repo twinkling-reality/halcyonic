@@ -56,7 +56,7 @@ namespace Halcyonic.Client
                 if (AnswerPages.Count == 0) return null;
                 var page = AnswerPages[AnswerPage];
                 if (AnswerPages.Count == 1) return page;
-                return new SectionPresentation(page.Kind, Client.AnswerPages.Caption(page, AnswerPage, AnswerPages.Count) + " · " + page.Provenance,
+                return new SectionPresentation(page.Kind, Client.AnswerPages.Caption(page, AnswerPage, AnswerPages.Count) + ". " + page.Provenance,
                     page.ProvenanceTone, page.Lines, page.Simulated, page.Steps);
             }
         }
@@ -333,7 +333,8 @@ namespace Halcyonic.Client
             var answer = WorkspaceText.Answer(workspace);
             for (var index = 0; index < answer.Count; index++)
             {
-                model.Rows.Add(new PanelRow { Line = true, Title = answer[index], TitleIsData = true, Tone = tone, Continues = index > 0 });
+                LabelOver(model, answer[index].Label, index > 0);
+                model.Rows.Add(new PanelRow { Line = true, Title = answer[index].Line, TitleIsData = true, Tone = tone, Continues = index > 0 || answer[index].Label != null });
             }
             var feedback = workspace.Commands.Take(RecentFeedback).Select(command => command.Text).ToList();
             if (feedback.Count == 0) feedback.Add(WorkspaceText.NothingSentYet);
@@ -382,8 +383,18 @@ namespace Halcyonic.Client
             var lines = WorkspaceText.RunDetails(workspace, screen.Zone);
             for (var index = 0; index < lines.Count; index++)
             {
-                model.Rows.Add(new PanelRow { Line = true, Title = lines[index].Line, TitleIsData = lines[index].IsData, Continues = index > 0 });
+                LabelOver(model, lines[index].Label, index > 0);
+                model.Rows.Add(new PanelRow { Line = true, Title = lines[index].Line, TitleIsData = lines[index].IsData, Continues = index > 0 || lines[index].Label != null });
             }
+        }
+
+        /// <summary>
+        /// A fact's label laid small on its own line straight over its value, so the label and the value stand apart rather
+        /// than joined on one line (AUDIT2's rule A, 2026-11-16); nothing where the line has no label.
+        /// </summary>
+        private static void LabelOver(PanelModel model, string? label, bool continues)
+        {
+            if (label != null) model.Rows.Add(new PanelRow { Line = true, Size = PanelTextSize.Caption, Title = label, Continues = continues });
         }
 
         /// <summary>The answer's tone: quiet while nothing waits, else the state's own, waiting for you or what went wrong.</summary>
@@ -455,7 +466,10 @@ namespace Halcyonic.Client
                 var description = string.IsNullOrWhiteSpace(option.Description) ? null : WorkspaceText.OneLine(option.Description!);
                 return new PanelRow
                 {
-                    Title = (chosen ? "Chosen · " : "") + WorkspaceText.OneLine(option.Label) + (description == null ? "" : " · " + description),
+                    // Their label and their description apart, and Chosen as the row's end word, never joined on a dot (AUDIT2's rule A).
+                    Title = WorkspaceText.OneLine(option.Label),
+                    Detail = description,
+                    End = chosen ? "Chosen" : null,
                     TitleIsData = true,
                     TitleLines = 2,
                     Chosen = chosen,

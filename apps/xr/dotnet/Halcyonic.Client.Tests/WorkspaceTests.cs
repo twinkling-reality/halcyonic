@@ -503,7 +503,7 @@ public class WorkspacePresenterTests
             Result = null,
         };
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent, waiting for it to stop"));
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed · Stopped"));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Stopped."));
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Refused: that can't be done now. See Activity."),
             "by the refusal's code, never the control plane's message");
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed)).Text,

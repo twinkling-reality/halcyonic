@@ -997,7 +997,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 ReadQuestion();
                 Capture("alike-stop-escape");
                 var why = file!.Frame!.Lines.FirstOrDefault(line => line.Action == FileScreens.ReadWhy);
-                if (why == null || why.Choice || why.AnswerMark != AnswerMark.None || why.Fact != "Unavailable · Read Why")
+                if (why == null || why.Choice || why.AnswerMark != AnswerMark.None || why.Fact != FileScreens.UnavailableReadWhy)
                     failures.Add(name + ": unavailable choice has no explicit Read why navigation.");
                 else if (!Press(why.Action!, why.Key)) failures.Add(name + ": unavailable choice Read why took no press.");
                 else

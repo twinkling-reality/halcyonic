@@ -94,14 +94,15 @@ public class WorkspaceTextTests
         var replayed = Samples.Snapshot(9, new[] { work.Workstream }, new[] { work.Execution });
         replayed.Runtimes.Clear();
         work.State.ApplySnapshot(replayed, new StateChanges());
-        Assert.That(Lines(work.Present())[0], Is.EqualTo(EntryText.PracticeRun + " · Agent App Unavailable"));
+        Assert.That(Lines(work.Present())[0], Is.EqualTo(EntryText.PracticeRun + ", unavailable"));
         Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.EqualTo("Nothing can be sent: the agent app isn't available on your computer."),
             "a recording carries no runtime, as in a replay or the demonstration");
 
         var real = Samples.Snapshot(10, new[] { work.Workstream }, new[] { work.Execution });
         real.Executions[0].Runtime.Synthetic = false;
         work.State.ApplySnapshot(real, new StateChanges());
-        Assert.That(Lines(work.Present())[0], Is.EqualTo("Agent App · Mock runtime · On Your Computer"), "a real agent app by its own name");
+        Assert.That(Lines(work.Present())[0], Is.EqualTo("Mock runtime, on your computer"), "a real agent app by its own name");
+        Assert.That(WorkspaceText.RunDetails(work.Present(), TimeZoneInfo.Utc)[0].Label, Is.EqualTo("Agent App"), "its label handed apart, never joined on a dot");
 
         var idle = WorkspacePresenter.Present(Samples.Workstream("w2"), work.State, work.Activity, live: true);
         Assert.That(Lines(idle), Is.EqualTo(new[] { "Not Run Yet" }));
@@ -115,7 +116,7 @@ public class WorkspaceTextTests
         Assert.That(WorkspaceText.Activity(Entry(5, ActivityKind.Tool, "bash: Run the migration"), utc),
             Is.EqualTo("09:00:05  bash: Run the migration"));
         Assert.That(WorkspaceText.Activity(Entry(6, ActivityKind.Message, "All done.\n\nTests pass.", reported: true), utc),
-            Is.EqualTo("09:00:06  Reported · All done. Tests pass."));
+            Is.EqualTo("09:00:06  Reported: All done. Tests pass."));
 
         var tokyo = TimeZoneInfo.CreateCustomTimeZone("plus-nine", TimeSpan.FromHours(9), "plus-nine", "plus-nine");
         Assert.That(WorkspaceText.Activity(Entry(7, ActivityKind.Turn, "Round Ended"), tokyo), Is.EqualTo("18:00:07  Round Ended"));
@@ -153,7 +154,7 @@ public class WorkspaceTextTests
         var presentation = new WorkspacePresentation(
             work.Present().Character, null, work.Execution, null, new WorkspaceAction[0], new WorkspaceAction[0],
             new CommandFeedback[0], entries);
-        Assert.That(PeekCard.Of(presentation).ReasonLine, Is.EqualTo("Reported · The migration ran and the tests pass."),
+        Assert.That(PeekCard.Of(presentation).ReasonLine, Is.EqualTo("Reported: The migration ran and the tests pass."),
             "turn boundaries are skipped and agent text is a claim");
     }
 
@@ -194,7 +195,7 @@ public class WorkspaceTextTests
 
         var utc = TimeZoneInfo.Utc;
         Assert.That(WorkspaceText.Activity(Entry(1, ActivityKind.Message, "Done.\r\nrm -rf ~\u202E <alpha=#00>x \\u0041", reported: true), utc),
-            Is.EqualTo("09:00:01  Reported · Done. rm -rf ~‹U+202E› <alpha=#00>x \\u0041"));
+            Is.EqualTo("09:00:01  Reported: Done. rm -rf ~‹U+202E› <alpha=#00>x \\u0041"));
 
         work.Workstream.Objective = "Fix the\u200Blimiter\nnow";
         work.Workstream.Title = "Rate\u2066 limit\r\nsign-in";
@@ -233,9 +234,9 @@ public class WorkspaceTextTests
         Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null), Is.EqualTo("Approve Request?"));
         Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Deny, null), Is.EqualTo("Deny Request?"));
         Assert.That(WorkspaceText.Request(approval), Is.EqualTo("bash: Run the migration"), "the whole request shows below the question");
-        Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Instruct, "Add\na test."), Is.EqualTo("Send Instruction? · Add a test."));
+        Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Instruct, "Add\na test."), Is.EqualTo("Send Instruction? Add a test."));
         Assert.That(WorkspaceText.RequestCaption(1, 1), Is.EqualTo("Full Request"));
-        Assert.That(WorkspaceText.RequestCaption(2, 3), Is.EqualTo("Full Request · Part 2 of 3"));
+        Assert.That(WorkspaceText.RequestCaption(2, 3), Is.EqualTo("Full Request, Part 2 of 3"));
     }
 
     [Test]
@@ -386,7 +387,7 @@ public class CommandSubmissionsTests
 
         work.State.ApplyEvent(Carrying(3, Record(command, CommandStatus.Completed)), new StateChanges());
         var done = work.Present(submissions: submissions).Commands.Single();
-        Assert.That(done.Text, Is.EqualTo("Confirmed · Stopped"));
+        Assert.That(done.Text, Is.EqualTo("Stopped."));
         Assert.That(done.Status, Is.EqualTo(CommandStatus.Completed));
         Assert.That(done.Waits, Is.False, "done, it no longer waits");
 
@@ -849,7 +850,7 @@ public class WorkspaceSteeringTests
         var steering = Steering();
         steering.Press(WorkspaceAction.Instruct, work.Present());
         Assert.That(steering.Typed("Add a test.", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
-        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send Instruction? · Add a test."));
+        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send Instruction? Add a test."));
         Assert.That(steering.Confirm(work.Present()).Message, Is.EqualTo(WorkspaceText.InstructionNotRead), "not before its words have shown");
         Assert.That(steering.ToRead(work.Present()), Is.EqualTo("Add a test."), "its words show whole above the question, leaning, never quoted");
         steering.RequestShown(1, 1);
@@ -872,7 +873,7 @@ public class WorkspaceSteeringTests
 
         Assert.That(steering.Spoken("  Add a test for the expiry.  ", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         Assert.That(steering.Heard, Is.True);
-        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send This? · Add a test for the expiry."));
+        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send This? Add a test for the expiry."));
         Assert.That(steering.Confirm(work.Present()).Message, Is.EqualTo(WorkspaceText.InstructionNotRead), "a mishearing is never sent unread");
         Assert.That(steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "it stays armed, so the rest can still be read");
         steering.RequestShown(1, 2);

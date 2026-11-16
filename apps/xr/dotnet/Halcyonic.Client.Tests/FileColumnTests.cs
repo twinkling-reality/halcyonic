@@ -2284,7 +2284,7 @@ public class FileColumnTests
             foreach (var row in answers.Where(line => line.Action == FileScreens.ReadWhy))
             {
                 Assert.That((row.Available, row.Control, row.Choice, row.AnswerMark, row.Fact, row.Opens),
-                    Is.EqualTo((true, LineControl.Action, false, AnswerMark.None, "Unavailable · Read Why", true)), "an unavailable answer offers readable navigation, no selection mark");
+                    Is.EqualTo((true, LineControl.Action, false, AnswerMark.None, FileScreens.UnavailableReadWhy, true)), "an unavailable answer offers readable navigation, no selection mark");
                 column.Act(FileScreens.Choose, row.Key);
                 Assert.That(draft.IsAnswered(0), Is.False, row.Words + " cannot be forged into a selection");
                 column.Act(FileScreens.ReadWhy, row.Key);
@@ -2304,8 +2304,8 @@ public class FileColumnTests
         }
         Assert.That(rows, Is.EqualTo(new[]
         {
-            ("Yes · Keep the data", false),
-            ("Yes · Delete the data", false),
+            ("Yes, Keep the data", false),
+            ("Yes, Delete the data", false),
             ("Ask me later", true),
         }));
         Assert.That(draft.Problem, Is.EqualTo("Choose or Write First"));
