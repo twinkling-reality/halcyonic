@@ -22,7 +22,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// The fitted shelf's worst case (the lead's 2026-11-14T02:21Z ruling 1 (a), AUDIT's 02:23Z and 02:34Z): the width every shelf
         /// takes beside the plane at rest (CharacterStage.FittedWidth, from the rest a real plane reasons through its own geometry), its
-        /// places each carrying the widest two-line label the shelf's own measure lays, at the search's nearest and farthest distance.
+        /// character places (New Project's stands by its own turn) each carrying the widest two-line label the shelf's own measure lays, at the search's nearest and farthest distance.
         /// It FAILS where any glyph of any label reads under 14 dp as the eyes see it where drawn, its far words included, and where two
         /// characters stand inside each other past half a degree (<see cref="FallbackOverlapDegrees"/>, AUDIT's 03:54Z bound). Characters
         /// (their own shell and feature, triangle by triangle, the glow left out) and labels that touch, and labels that are cut, it
@@ -60,9 +60,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var distance in new[] { AgentShelfSearch.MinimumDistance, AgentShelfSearch.MaximumDistance })
                 {
                     var at = distance.ToString("0.0", CultureInfo.InvariantCulture) + " m";
-                    var laid = LayWorstShelf(root.transform, eyes, distance, places, pitch);
+                    // Characters only at the places characters take (CharacterStage.ShelfCapacity); under the redesign the shelf's first place
+                    // is New Project's, which stands by its own turn clear of the tag (RoomNewProjectPlace), never at the pitch, and which the
+                    // stage journey judges beside the tag (b208's parts: two characters laid where the product stands one and New Project).
+                    var laid = LayWorstShelf(root.transform, eyes, distance, places, pitch, places - CharacterStage.ShelfCapacity);
                     float closestLabels = float.PositiveInfinity, closestBodies = float.PositiveInfinity;
-                    for (var place = 0; place + 1 < places; place++)
+                    for (var place = 0; place + 1 < laid.Labels.Count; place++)
                     {
                         var labels = laid.Labels[place].Apart(laid.Labels[place + 1]);
                         var bodies = laid.Bodies[place].Apart(laid.Bodies[place + 1]);
@@ -74,8 +77,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (closestBodies < -FallbackOverlapDegrees)
                         failures.Add(size + ": " + ShelfWorstState + " at " + at + ": characters stand inside each other by " + Degrees(-closestBodies)
                             + " degrees, past the fallback's " + Degrees(FallbackOverlapDegrees) + ".");
-                    var natural = LayWorstShelf(root.transform, eyes, distance, places, CharacterStage.PitchOf(places, AgentShelfDraft.Width(places)));
-                    var naturalLabels = Enumerable.Range(0, places - 1).Min(place => natural.Labels[place].Apart(natural.Labels[place + 1]));
+                    var natural = LayWorstShelf(root.transform, eyes, distance, places, CharacterStage.PitchOf(places, AgentShelfDraft.Width(places)), places - CharacterStage.ShelfCapacity);
+                    var naturalLabels = natural.Labels.Count < 2 ? float.PositiveInfinity
+                        : Enumerable.Range(0, natural.Labels.Count - 1).Min(place => natural.Labels[place].Apart(natural.Labels[place + 1]));
                     DestroyLaid(natural.Views);
                     Debug.Log("Halcyonic: parts: " + ShelfWorstState + " at " + size + ", " + at + ": " + (closestLabels > 0f && closestBodies > 0f && laid.Cut.Count == 0
                         ? "THE TOUCH PROOF: every character and label apart, every label whole."
@@ -91,10 +95,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     DestroyLaid(laid.Views);
                 }
                 // The witness: a quarter of the pitch must be caught touching, or the check above proves nothing.
-                var witness = LayWorstShelf(root.transform, eyes, AgentShelfSearch.MinimumDistance, places, pitch / 4f);
-                if (!Enumerable.Range(0, places - 1).Any(place => witness.Labels[place].Apart(witness.Labels[place + 1]) <= 0f))
+                // Two characters at least, whatever a page holds, so the measure itself is proved.
+                var witnessPlaces = Mathf.Max(2, places);
+                var witness = LayWorstShelf(root.transform, eyes, AgentShelfSearch.MinimumDistance, witnessPlaces, CharacterStage.PitchOf(witnessPlaces, width) / 4f, 0);
+                if (!Enumerable.Range(0, witnessPlaces - 1).Any(place => witness.Labels[place].Apart(witness.Labels[place + 1]) <= 0f))
                     failures.Add(size + ": " + ShelfWorstState + ": the touch measure accepted labels a quarter as far apart");
-                if (!Enumerable.Range(0, places - 1).Any(place => witness.Bodies[place].Apart(witness.Bodies[place + 1]) <= 0f))
+                if (!Enumerable.Range(0, witnessPlaces - 1).Any(place => witness.Bodies[place].Apart(witness.Bodies[place + 1]) <= 0f))
                     failures.Add(size + ": " + ShelfWorstState + ": the touch check accepted characters a quarter as far apart");
                 DestroyLaid(witness.Views);
             }
@@ -109,12 +115,13 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// A shelf <paramref name="distance"/> metres ahead and as far below the eyes as the stage's own measure stands it, its
-        /// <paramref name="places"/> characters <paramref name="pitch"/> apart, each shown with the shelf measure's widest label and its
-        /// label placed for the eyes as the stage places it: each label's and each body's extent as the eyes see it, the labels cut,
-        /// the smallest word seen, and the whole width with its labels.
+        /// <paramref name="places"/> places <paramref name="pitch"/> apart, a character at each from <paramref name="first"/> on, each shown
+        /// with the shelf measure's widest label and its label placed for the eyes as the stage places it: each label's and each body's
+        /// extent as the eyes see it, the labels cut, the smallest word seen, and the whole width with its labels. The places before
+        /// <paramref name="first"/> are New Project's, which stands by its own turn, never at the pitch.
         /// </summary>
         private static (List<CharacterView> Views, List<GlazeChecks.Extent> Labels, List<GlazeChecks.Extent> Bodies, List<string> Cut, (string Name, float Degrees) Smallest, float Envelope)
-            LayWorstShelf(Transform parent, Vector3 eyes, float distance, int places, float pitch)
+            LayWorstShelf(Transform parent, Vector3 eyes, float distance, int places, float pitch, int first)
         {
             var pose = new Pose(eyes + new Vector3(0f, -0.45f, distance), Quaternion.identity);
             var views = new List<CharacterView>();
@@ -122,7 +129,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var bodies = new List<GlazeChecks.Extent>();
             var cut = new List<string>();
             var smallest = (Name: "no word", Degrees: float.PositiveInfinity);
-            for (var place = 0; place < places; place++)
+            for (var place = first; place < places; place++)
             {
                 var view = CharacterView.Create(parent, "shelf-worst-" + place);
                 view.enabled = false;
