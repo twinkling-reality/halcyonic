@@ -326,7 +326,21 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             foreach (var badge in root.GetComponentsInChildren<StateBadgeView>(false))
             {
-                Judge(badge.transform.parent.name + "'s badge", badge.Word, badge.Icon, badge.Width / badge.transform.localScale.x / 2f);
+                var halfWidth = badge.Width / badge.transform.localScale.x / 2f;
+                Judge(badge.transform.parent.name + "'s badge", badge.Word, badge.Icon, halfWidth);
+                // Its count, where more than one waits, a figure of its own inside the pill's right end, clear of its word, the word
+                // alone in its words (AUDIT 2026-11-16 11:31Z: never "Needs You · 2").
+                if (badge.Shown is StateBadge shownBadge && shownBadge.Count > 1 != badge.ShowsCount)
+                    failures.Add(name + ": " + badge.transform.parent.name + "'s badge waits on " + shownBadge.Count + " but " + (badge.ShowsCount ? "shows" : "draws no") + " count.");
+                if (!badge.ShowsCount) continue;
+                var figure = badge.CountFigure;
+                figure.ForceMeshUpdate(true);
+                var figureLeft = figure.transform.localPosition.x + figure.textBounds.min.x;
+                var figureRight = figure.transform.localPosition.x + figure.textBounds.max.x;
+                var wordRight = badge.Word.transform.localPosition.x + badge.Word.textBounds.max.x;
+                if (figureRight > halfWidth + 1e-4f || figureLeft < wordRight + GlazeTokens.Units(0.2f) || badge.Word.text.Any(char.IsDigit))
+                    failures.Add(name + ": " + badge.transform.parent.name + "'s badge count \"" + figure.text + "\" stands outside its pill's right end, against its word, or in the word \""
+                        + badge.Word.text + "\".");
             }
             foreach (var mark in root.GetComponentsInChildren<MarkTag>(false)) Judge(mark.transform.parent.name + "'s mark", mark.Word, mark.Icon, mark.Width / 2f);
             return failures;

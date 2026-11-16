@@ -15,6 +15,8 @@ namespace Halcyonic.XR.UI
     /// state, its pill's colours cross-fade from the last state's over <see cref="Glaze.StateSeconds"/> (ADR 0027),
     /// its word drawn throughout in whichever of the two states' colours reads more clearly on the pill as
     /// it stands, never a blend that would sink into it; its words, icon and edge's pattern change at once.
+    /// Where more than one thing waits, the count stands inside the pill's right end as a small round figure a
+    /// shade darker than the pill, so it reads "Needs You (2)" by shape, with no character between (AUDIT 2026-11-16 11:31Z).
     /// </summary>
     public sealed class StateBadgeView : MonoBehaviour
     {
@@ -28,6 +30,18 @@ namespace Halcyonic.XR.UI
         private const float EdgeDegrees = 0.1f;
         private const float StrongEdgeDegrees = 0.12f;
         private const float DashDegrees = 0.5f;
+
+        /// <summary>Between the word and the count's figure.</summary>
+        private const float CountGapDegrees = 0.3f;
+
+        /// <summary>The count's round figure stands this far inside the pill's top, bottom and right end.</summary>
+        private const float CountInsetDegrees = 0.22f;
+
+        /// <summary>Beside a count of two figures or more, inside its round: it widens to hold them.</summary>
+        private const float CountSideDegrees = 0.28f;
+
+        /// <summary>How much the count's round darkens the pill under it: a shade, never a hole.</summary>
+        private const float CountShade = 0.22f;
         private const float HalftoneDegrees = 0.3f;
 
         /// <summary>A soft badge with no edge of its own still has a faint one, so it holds its shape on a plate.</summary>
@@ -39,6 +53,9 @@ namespace Halcyonic.XR.UI
         private Surface pill = null!;
         private TextMeshPro word = null!;
         private TextMeshPro icon = null!;
+        private Surface countRound = null!;
+        private TextMeshPro countFigure = null!;
+        private Vector2 countSize;
         private StateBadge? shown;
         private float? maxWidth;
         private float turning;
@@ -98,6 +115,12 @@ namespace Halcyonic.XR.UI
         /// <summary>The icon's label, for checks.</summary>
         public TextMeshPro Icon => icon;
 
+        /// <summary>The count's figure inside the pill's right end, for checks; shown only where more than one thing waits.</summary>
+        public TextMeshPro CountFigure => countFigure;
+
+        /// <summary>Whether the badge shows its count, as a figure in a round of its own inside the pill.</summary>
+        public bool ShowsCount => countFigure.gameObject.activeSelf;
+
         /// <summary>Whether the icon shows beside the word: false where the badge had no room for it.</summary>
         public bool ShowsIcon => icon.gameObject.activeSelf;
 
@@ -136,12 +159,19 @@ namespace Halcyonic.XR.UI
             // icon slot. The stage keeps its larger icon. Rotating header glyphs must stay clear
             // of the pill's bright curved border at every angle, without resizing the badge.
             badge.icon = GlazeIcons.Create(go.transform, "Icon", pill ? Glaze.BadgeDegrees : GlazeIcons.BadgeDegrees, GlazeTokens.Text, order + 1);
+            badge.countRound = Surface.Create(go.transform, "Count round", order + 1);
+            badge.countFigure = GlazeText.Create(go.transform, "Count", GlazeType.Badge, GlazeTokens.Text, TextAlignmentOptions.Center, order + 2);
+            badge.countFigure.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            badge.countFigure.textWrappingMode = TextWrappingModes.NoWrap;
+            badge.countRound.gameObject.SetActive(false);
+            badge.countFigure.gameObject.SetActive(false);
             return badge;
         }
 
         public void Show(StateBadge badge)
         {
-            if (shown != null && shown.State == badge.State && shown.Text == badge.Text && shown.LastKnown == badge.LastKnown && shown.Icon == badge.Icon) return;
+            if (shown != null && shown.State == badge.State && shown.Text == badge.Text && shown.LastKnown == badge.LastKnown && shown.Icon == badge.Icon
+                && shown.Count == badge.Count) return;
             // From another state, its colours cross-fade from those drawn now; a badge's first state shows at once.
             var fades = shown != null && (Application.isPlaying || CrossFadesInEditor);
             if (fades)
@@ -158,7 +188,21 @@ namespace Halcyonic.XR.UI
             var side = GlazeTokens.Units(IconSideDegrees);
             var em = GlazeTokens.Units(GlazeIcons.BadgeDegrees);
             var gap = GlazeTokens.Units(IconGapDegrees);
-            var withIcon = width + 2f * padding + IconWidth;
+            // The count, where more than one thing waits: its round takes the place of the padding after the word.
+            var counted = badge.Count > 1;
+            countRound.gameObject.SetActive(counted);
+            countFigure.gameObject.SetActive(counted);
+            var countRoom = 0f;
+            var inset = GlazeTokens.Units(CountInsetDegrees);
+            if (counted)
+            {
+                GlazeText.SetLiteral(countFigure, badge.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                var (_, figure) = GlazeText.Lay(countFigure, GlazeTokens.Units(10f), 1);
+                var round = Height - 2f * inset;
+                countSize = new Vector2(Mathf.Max(round, figure + 2f * GlazeTokens.Units(CountSideDegrees)), round);
+                countRoom = GlazeTokens.Units(CountGapDegrees) + countSize.x + inset - padding;
+            }
+            var withIcon = width + 2f * padding + IconWidth + countRoom;
             var iconShows = maxWidth == null || withIcon <= maxWidth.Value + 1e-5f;
             icon.gameObject.SetActive(iconShows);
             if (iconShows)
@@ -170,8 +214,14 @@ namespace Halcyonic.XR.UI
             }
             else
             {
-                size = new Vector2(width + 2f * padding, Height);
-                word.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
+                size = new Vector2(width + 2f * padding + countRoom, Height);
+                word.transform.localPosition = new Vector3(-size.x / 2f + padding + width / 2f, 0f, -0.0005f);
+            }
+            if (counted)
+            {
+                var middle = size.x / 2f - inset - countSize.x / 2f;
+                countRound.transform.localPosition = new Vector3(middle, 0f, -0.0003f);
+                countFigure.transform.localPosition = new Vector3(middle, 0f, -0.0007f);
             }
             icon.transform.localRotation = Quaternion.identity;
             turning = 0f;
@@ -285,7 +335,9 @@ namespace Halcyonic.XR.UI
             opacity = value;
             word.alpha = value;
             icon.alpha = value;
+            countFigure.alpha = value;
             pill.Fade(value);
+            countRound.Fade(value);
         }
 
         /// <summary>Forgets the setting when play mode starts without a domain reload.</summary>
@@ -310,6 +362,12 @@ namespace Halcyonic.XR.UI
             var words = changing >= 1f || Contrast(text, pillSeen) >= Contrast(fromText, pillSeen) ? text : fromText;
             word.color = new Color(words.r, words.g, words.b, opacity);
             icon.color = word.color;
+            if (countRound.gameObject.activeSelf)
+            {
+                countRound.Draw(countSize, countSize.y / 2f, new Color(0f, 0f, 0f, CountShade));
+                countRound.Fade(opacity);
+                countFigure.color = word.color;
+            }
         }
 
         /// <summary>The WCAG 2 contrast between two colours, from 1 to 21, by their relative luminance.</summary>
