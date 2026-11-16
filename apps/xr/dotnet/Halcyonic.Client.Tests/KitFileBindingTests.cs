@@ -548,6 +548,7 @@ public class KitFileBindingTests
         Assert.That(rest.State, Is.EqualTo(RoomBarState.Rest), "the older view's binding: the bar at rest");
         Assert.That(RoomBar.WithMore(routes, rest).Row.Select(action => action.Control.Action),
             Is.EqualTo(new[] { FileScreens.HoldToTalk, FileScreens.TellIt, RoomBar.More, Footer.Close }), "More before the way back, never main");
+        Assert.That(rest.Row.Last().Words, Is.EqualTo(RoomBar.BackWords), "N2: the way back to the Projects place reads Back, one level up");
         Assert.That(RoomBar.WithMore(none, RoomBar.Of(none, VoiceStage.Idle, false)).Row.Select(action => action.Control.Action), Has.None.EqualTo(RoomBar.More),
             "no route, no More");
     }

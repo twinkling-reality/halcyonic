@@ -503,14 +503,11 @@ namespace Halcyonic.Client
         /// <summary>The most actions a column holds; past it the older view draws the frame (the view lays as many).</summary>
         public const int ColumnMost = 6;
 
-        /// <summary>The row's way back to the Projects place at rest (FIELD's parts note): "Close" there would read as closing the task.</summary>
-        public const string ProjectsWords = "Projects";
-
         /// <summary>
         /// A task's file always offers its way back to the Projects place (FIELD's parts note; JUDGE's census, 2026-11-11):
         /// the file's own Close, last in the result's column with its cross (the result and its pages, where the census found
-        /// no way out), where the column has room and no Cancel already leads out; at rest with no pair, "Projects" last in
-        /// the row, with the Back glyph, never main. An approval, a question or a confirmation keeps its own ways out.
+        /// no way out), where the column has room and no Cancel already leads out; at rest with no pair, Back last in the row
+        /// (N2: Back goes up one level, here to the Projects place; "Close" there would read as closing the task), never main. An approval, a question or a confirmation keeps its own ways out.
         /// </summary>
         private static RoomBar WithClose(KitFileBinding binding, RoomBar bar)
         {
@@ -519,9 +516,9 @@ namespace Halcyonic.Client
             if (bar.Result && bar.Column.Count < ColumnMost) bar.Column = bar.Column.Append(new RoomAction(close, main: false, icon: GlazeIcon.Close)).ToList();
             // At rest with nothing to press (a recorded run's result), the bar was hidden: it stands as the row with its way back.
             else if (bar.State == RoomBarState.Hidden && !bar.Working && !bar.Result)
-                return new RoomBar(RoomBarState.Rest, row: new[] { new RoomAction(close, main: false, ProjectsWords, icon: GlazeIcon.Back) });
+                return new RoomBar(RoomBarState.Rest, row: new[] { new RoomAction(close, main: false, BackWords, icon: GlazeIcon.Back) });
             else if (!bar.Pair && !bar.Working && bar.State == RoomBarState.Rest)
-                bar.Row = bar.Row.Append(new RoomAction(close, main: false, ProjectsWords, icon: GlazeIcon.Back)).ToList();
+                bar.Row = bar.Row.Append(new RoomAction(close, main: false, BackWords, icon: GlazeIcon.Back)).ToList();
             return bar;
         }
 
