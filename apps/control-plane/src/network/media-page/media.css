@@ -345,8 +345,13 @@ h2.media-name {
       0 14px 28px -20px rgb(23 32 36 / 0.45);
   }
 }
-/* Once its first frame is read here, the file on its way shows it at its own shape, shaded so its words read in white
-   on any picture in either scheme; the frame rises in as the words stay. */
+/* Before a first frame, the caption is no box of its own: its words and name stand in the tile's grid as before. */
+.media-incoming-caption {
+  display: contents;
+}
+/* Once its first frame is read here, the file on its way shows it at its own shape, barely shaded, and its words sit
+   on a dark glass caption whose ground stays dark over any frame, white or black, so they always read. The frame
+   itself says what the file is, so the mark steps aside, and the bar runs along the caption's foot. */
 .media-incoming-frame {
   position: absolute;
   inset: 0;
@@ -355,33 +360,49 @@ h2.media-name {
   object-fit: cover;
   animation: media-frame-in 420ms ease both;
 }
-/* The shade rides the sheen's own layer, which stands over the frame and under the words; at full size the sheen's
-   travel leaves it still. */
+.media-incoming.media-framed {
+  align-content: end;
+  padding: 12px;
+}
 .media-incoming.media-framed .media-sheen {
   background-image:
     linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.08) 50%, transparent 70%),
-    radial-gradient(ellipse at center, rgb(8 12 14 / 0.5), rgb(8 12 14 / 0.3) 70%),
-    linear-gradient(to bottom, transparent 55%, rgb(8 12 14 / 0.45));
+    linear-gradient(rgb(8 12 14 / 0.12), rgb(8 12 14 / 0.12));
   background-size:
     250% 100%,
-    100% 100%,
     100% 100%;
 }
 .media-incoming.media-framed .media-incoming-mark {
-  background: rgb(10 14 16 / 0.5);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  backdrop-filter: blur(12px) saturate(1.4);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
-  color: #ffffff;
+  display: none;
+}
+.media-incoming.media-framed .media-incoming-caption {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  justify-self: stretch;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 16px 22px;
+  border-radius: 14px;
+  background: rgb(10 14 16 / 0.74);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
 }
 .media-incoming.media-framed .media-incoming-words {
+  margin-top: 0;
   color: #ffffff;
 }
 .media-incoming.media-framed .media-incoming-name {
-  color: rgb(255 255 255 / 0.82);
+  font-size: 14px;
+  color: rgb(255 255 255 / 0.8);
 }
 .media-incoming.media-framed .media-bar {
-  background: rgb(255 255 255 / 0.24);
+  left: 16px;
+  right: 16px;
+  bottom: 10px;
+  height: 4px;
+  background: rgb(255 255 255 / 0.22);
 }
 @keyframes media-frame-in {
   from {

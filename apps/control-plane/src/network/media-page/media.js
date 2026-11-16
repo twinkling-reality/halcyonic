@@ -145,9 +145,12 @@ function incomingTile() {
   const mark = el('span', 'media-incoming-mark');
   const words = el('span', 'media-incoming-words');
   const name = el('span', 'media-incoming-name');
+  // The words, name and bar stand together; over a first frame they sit on a dark glass caption of their own.
+  const caption = el('span', 'media-incoming-caption');
   const bar = el('span', 'media-bar');
   bar.append(el('span', 'media-bar-fill'));
-  node.append(sheen, mark, words, name, bar);
+  caption.append(words, name, bar);
+  node.append(sheen, mark, caption);
   return node;
 }
 
