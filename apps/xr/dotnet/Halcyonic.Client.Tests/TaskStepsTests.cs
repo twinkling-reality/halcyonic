@@ -184,6 +184,18 @@ public class TaskStepsTests
     }
 
     [Test]
+    public void AStarterOnlyCheckEndsAsStarterOnlyWithItsLineNeverFailed()
+    {
+        var starter = Of(Execution(ExecutionStatus.Completed), HostCheck(false, ProjectViewCheckFiles.Current, CheckFindingsVerdict.StarterOnly), false, Turn(1, 0, 0));
+        var last = starter.Last();
+        Assert.That((last.Kind, last.Word, last.Line?.Text), Is.EqualTo((TaskStepKind.End, "Starter Only", (string?)"Nothing new is drawn yet. Say what you want to see.")));
+        Assert.That(starter.Select(step => step.Word), Has.None.EqualTo(TaskSteps.ChecksFailed), "a fresh app never reads as broken");
+        Assert.That(last.Mark, Is.Not.EqualTo(GlazeIcon.ChecksFailed), "never the failed mark");
+        Assert.That(CheckSteps.StarterOnly(new CheckFindings { Passed = false, Verdict = CheckFindingsVerdict.StarterOnly }), Is.True);
+        Assert.That(CheckSteps.StarterOnly(new CheckFindings { Passed = false, Verdict = CheckFindingsVerdict.Failed }), Is.False);
+    }
+
+    [Test]
     public void StoppedFailedAndUnknownEndWhereTheWorkStood()
     {
         Assert.That(Read(Of(Execution(ExecutionStatus.Interrupted), null, false, null)), Is.EqualTo(new[] { "Done Your Request: " + Request, "End Stopped" }));

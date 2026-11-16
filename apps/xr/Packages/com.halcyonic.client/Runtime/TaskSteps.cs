@@ -39,12 +39,16 @@ namespace Halcyonic.Client
     /// <summary>What the project's latest check of the computer's own says, as far as this list needs it.</summary>
     public sealed class TaskCheckSeen
     {
-        public TaskCheckSeen(bool covers, bool passed, bool notKnown)
+        public TaskCheckSeen(bool covers, bool passed, bool notKnown, bool starterOnly = false)
         {
             Covers = covers;
             Passed = passed;
             NotKnown = notKnown;
+            StarterOnly = starterOnly && !passed;
         }
+
+        /// <summary>The check found the page still the starter's picture alone: never read as failed.</summary>
+        public bool StarterOnly { get; }
 
         /// <summary>The project's files are as the check found them.</summary>
         public bool Covers { get; }
@@ -55,7 +59,8 @@ namespace Halcyonic.Client
 
         /// <summary>A starter's app check (<c>project.check</c>).</summary>
         public static TaskCheckSeen? Of(ProjectViewCheck? check) => check == null ? null
-            : new TaskCheckSeen(check.Files == ProjectViewCheckFiles.Current, check.Findings.Passed, CheckSteps.PartlyChecked(check.Findings));
+            : new TaskCheckSeen(check.Files == ProjectViewCheckFiles.Current, check.Findings.Passed, CheckSteps.PartlyChecked(check.Findings),
+                CheckSteps.StarterOnly(check.Findings));
 
         /// <summary>A project's own chosen check, its latest run.</summary>
         public static TaskCheckSeen? Of(ProjectOwnCheckRunView? run) => run == null ? null
@@ -229,6 +234,8 @@ namespace Halcyonic.Client
             }
             steps.Add(check.NotKnown
                 ? new TaskStep(TaskStepKind.End, GlazeIcon.CantTellYet, PartlyChecked, null)
+                : check.StarterOnly
+                ? new TaskStep(TaskStepKind.End, GlazeIcon.CantTellYet, CheckSteps.StarterOnlyWord, LineWords.Ours(CheckSteps.StarterOnlyLine))
                 : new TaskStep(TaskStepKind.End, GlazeIcon.ChecksFailed, ChecksFailed, null));
             return steps;
         }

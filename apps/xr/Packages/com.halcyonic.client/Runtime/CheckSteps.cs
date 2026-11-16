@@ -85,6 +85,17 @@ namespace Halcyonic.Client
         public static bool PartlyChecked(CheckFindings findings) => !findings.Passed && findings.Verdict == CheckFindingsVerdict.NotKnown;
 
         /// <summary>
+        /// Whether the check found the page still the starter's picture alone, nothing new drawn yet (LINK's starter_only, the lead's
+        /// 14:11Z: a fresh app never reads as broken). It never passed and never failed: said as Starter Only, quiet, never red.
+        /// </summary>
+        public static bool StarterOnly(CheckFindings findings) => !findings.Passed && findings.Verdict == CheckFindingsVerdict.StarterOnly;
+
+        /// <summary>AUDIT2's words for it (2026-11-16 14:30Z), the host's own (check.ts STARTER_ONLY).</summary>
+        public const string StarterOnlyWord = "Starter Only";
+
+        public const string StarterOnlyLine = "Nothing new is drawn yet. Say what you want to see.";
+
+        /// <summary>
         /// Whether the check's built copy may be served and played, as the host's checkServable says: a pass, or a check whose
         /// verdict is not known. Sharing and publishing still read <see cref="CheckFindings.Passed"/> alone.
         /// </summary>

@@ -311,6 +311,14 @@ namespace Halcyonic.Client
             return moment;
         }
 
+        /// <summary>The computer's check found the page still the starter's picture alone: Starter Only over its line, quiet, never failed.</summary>
+        public static KitMoment StarterOnlyHost(KitCheckScope scope, DateTimeOffset? at, IReadOnlyList<CheckStepOutcome>? steps = null) =>
+            new KitMoment(KitMomentKind.HostCheck, KitProvenance.Observed, KitMomentWords.YourComputer,
+                LineWords.Ours(CheckSteps.StarterOnlyWord), null, NoLines, KitMomentTone.Neutral,
+                new[] { KitMomentAction.SeeTheOutput }, at, null, null, scope)
+                .Parts(LineWords.Ours(CheckSteps.StarterOnlyWord), new[] { LineWords.Ours(CheckSteps.StarterOnlyLine) })
+                .WithSteps(steps);
+
         /// <summary>A command <paramref name="runtime"/> says it ran and the outcome it reports: its words, no colour.</summary>
         public static KitMoment AgentCheck(string runtime, string command, string outcome, DateTimeOffset? at) =>
             new KitMoment(KitMomentKind.AgentCheck, KitProvenance.Reported, Says(runtime),

@@ -333,7 +333,10 @@ namespace Halcyonic.Client
             // them, so neither its line nor its steps stand (AUDIT2, 2026-11-11).
             var check = screen.LastCheck is { Kind: KitMomentKind.HostCheck } host && project.Check?.Files == ProjectViewCheckFiles.Current ? host : null;
             var canMakeVr = !screen.IsVr && ProjectPlayFacts.TryVrVersionTarget(project, out _, out _);
-            return new RoomResult(screen.IsVr, canMakeVr, screen.CanTry, check?.Passed, observed, check?.Steps, page, part,
+            // A check that found only the starter's picture claims no outcome: the card says Starter Only, quiet (the lead's 14:11Z).
+            var starterOnly = check != null && project.Check?.Findings is CheckFindings found && CheckSteps.StarterOnly(found);
+            if (starterOnly) simulated = new RoomCardStatus(CheckSteps.StarterOnlyWord, CheckSteps.StarterOnlyLine, RoomTone.Quiet);
+            return new RoomResult(screen.IsVr, canMakeVr, screen.CanTry, starterOnly ? null : check?.Passed, observed, check?.Steps, page, part,
                 // Play in Headset by how this headset reaches the computer and whether a demonstration shows (DEVICE's rule); unknown without.
                 way is { } reach ? HeadsetPlay.For(project, reach.Target, reach.Demonstration, relays: relays, relayBuilt: relayBuilt) : (Halcyonic.Client.PlayInHeadset?)null, task != null ? RoomAdd.Of(task.Copy, working: false) : null, (task?.Copy as OwnCopy)?.ToAddReview,
                 history, share,

@@ -81,4 +81,31 @@ public class ResultCardAgreesTests
         other.ApplySnapshot(ended, new StateChanges());
         Assert.That(RoomResult.Of(project, other, null)!.CheckRunning, Is.False, "an ended check is no longer under way");
     }
+
+    [Test]
+    public void AStarterOnlyCheckIsSaidAsStarterOnlyOnTheCardNeverFailed()
+    {
+        var project = new ProjectView
+        {
+            ProjectId = "p1", Name = "Playroom", CreatedAt = Samples.Time, UpdatedAt = Samples.Time,
+            Check = new ProjectViewCheck
+            {
+                CheckId = "check-1", RecordedAt = "2026-11-16T14:00:00.000Z", Files = ProjectViewCheckFiles.Current,
+                Findings = HalcyonicJson.Deserialize<CheckFindings>(
+                    "{\"tsc\":{\"exit\":0,\"seconds\":1.5},\"build\":{\"exit\":0,\"seconds\":4.25}," +
+                    "\"page\":{\"exceptions\":[],\"exception_count\":0,\"console_errors\":0,\"canvases\":1,\"edges_at_3s\":900,\"edges_at_10s\":950,\"drawn\":false,\"pictures\":[]}," +
+                    "\"unknown\":null,\"passed\":false,\"verdict\":\"starter_only\",\"reads_confined\":true,\"vr\":{\"offered\":\"offered\",\"how\":\"offer_session\",\"exceptions\":0,\"ready\":true}}", strict: true),
+            },
+        };
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(1, new WorkstreamView[0], new ExecutionView[0]);
+        snapshot.Projects.Add(project);
+        state.ApplySnapshot(snapshot, new StateChanges());
+        var result = RoomResult.Of(project, state, null)!;
+        Assert.That(result.Passed, Is.Null, "a starter's picture alone claims no outcome");
+        var card = RoomPanelCards.Result(result, Task)!;
+        Assert.That((card.Status?.Title, card.Status?.Line, card.Status?.Tone),
+            Is.EqualTo(((string?)"Starter Only", (string?)"Nothing new is drawn yet. Say what you want to see.", (RoomTone?)RoomTone.Quiet)));
+        Assert.That(card.Slots.Select(slot => slot.Value.Text), Has.None.EqualTo(RoomPanelCards.ChecksFailed), "never Failed");
+    }
 }
