@@ -139,7 +139,8 @@ namespace Halcyonic.XR
                 // four shelf lines at the widest measure, its tail faded past them), in the state that draws the most beside it, Needs You with
                 // its count (FIELD's badge figure). The same for every title, so no name, short or long, stands nearer than the clearance,
                 // and the shelf never moves because a name came or went.
-                var title = WidestStandIn;
+                // The height of the names the shelf films (two lines, as every filmed tag; AUDIT's 13:47Z), not the label's whole cap.
+                var title = TwoLineStandIn(shelfMeasure);
                 shelfMeasure.Show(new CharacterPresentation("shelf-label-measurement",
                     title, CharacterActivity.WaitingForHuman,
                     "Needs You", Halcyonic.Contracts.AttentionLevel.ActionRequired, System.Array.Empty<string>(), 2,
@@ -165,6 +166,27 @@ namespace Halcyonic.XR
                 corners[index] = pose.position + pose.rotation * new Vector3(index % 2 == 0 ? minimum.x : maximum.x,
                     index < 4 ? minimum.y : maximum.y, index % 4 < 2 ? minimum.z : maximum.z);
         }
+        /// <summary>The longest whole-word start of the stand-in name the label lays on two lines at the widest measure, per text size.</summary>
+        private static (int Version, string Words)? twoLineStandIn;
+
+        private static string TwoLineStandIn(CharacterView measure)
+        {
+            if (twoLineStandIn is { } known && known.Version == GlazeText.Version) return known.Words;
+            var words = WidestStandIn.Split(' ');
+            var fits = words[0];
+            for (var count = 2; count <= words.Length; count++)
+            {
+                var tried = string.Join(" ", words, 0, count);
+                measure.Show(new CharacterPresentation("shelf-label-measurement", tried, CharacterActivity.WaitingForHuman,
+                    "Needs You", Halcyonic.Contracts.AttentionLevel.ActionRequired, System.Array.Empty<string>(), 2, true, true, false));
+                measure.Label.Title.ForceMeshUpdate(true);
+                if (measure.Label.Title.textInfo.lineCount > 2) break;
+                fits = tried;
+            }
+            twoLineStandIn = (GlazeText.Version, fits);
+            return fits;
+        }
+
         public float ShelfWidth => FittedWidth(ShelfPlaces);
 
         /// <summary>How far apart the shelf's places stand, in its own space: its width less its ends shared among its places.</summary>
