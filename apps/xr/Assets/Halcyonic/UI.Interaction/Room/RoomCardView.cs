@@ -1202,7 +1202,9 @@ namespace Halcyonic.XR.UI
                 StepMark(step, centre);
                 var label = labels[index];
                 label.textWrappingMode = TextWrappingModes.Normal;
-                label.alignment = TextAlignmentOptions.Left;
+                // Top left: TMP's Left is the middle of the box, and the box is laid two lines tall, so a one-line name stood half a
+                // line low beside its mark (AUDIT's 10:51Z, measured in the pixels: 0.35 of the tick low on the Checks page).
+                label.alignment = TextAlignmentOptions.TopLeft;
                 var noteRoom = 0f;
                 if (step.Tone == RoomTone.Skipped)
                 {

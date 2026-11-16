@@ -633,6 +633,45 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             finally { RoomDesign.Enabled = was; }
             var bar = host.Bar;
+            if (state is "38-checks" or "38-checks-failed" or "38-checks-partly")
+            {
+                // Each check standing as a row: its name's ink on its node's middle, read in the eye's pixels (AUDIT's 10:51Z MUST: the
+                // names stood 0.35 of a tick low). No font metrics: the drawn letters against the drawn node.
+                var stepCard = bar.Card;
+                var previousEye = shot.AfterEye;
+                shot.AfterEye = (camera, eye, failures) =>
+                {
+                    previousEye?.Invoke(camera, eye, failures);
+                    if (stepCard == null) return;
+                    int Luma(Color32 pixel) => (pixel.r * 2126 + pixel.g * 7152 + pixel.b * 722) / 10000;
+                    foreach (var (node, what) in stepCard.Plates.Where(each => each.What.StartsWith("step ", StringComparison.Ordinal)))
+                    {
+                        var stepName = what.Substring("step ".Length);
+                        var label = stepCard.Shown.FirstOrDefault(each => each.gameObject.activeInHierarchy && each.GetParsedText().Trim() == stepName);
+                        if (label == null || label.textInfo.lineCount != 1) continue;
+                        // Only where the steps stand as rows: the name beside its node, not under it.
+                        if (label.transform.localPosition.x < node.transform.localPosition.x + node.Size.x / 2f) continue;
+                        var nodeScreen = camera.WorldToScreenPoint(node.transform.position);
+                        var oneDp = camera.WorldToScreenPoint(node.transform.parent.TransformPoint(node.transform.localPosition + new Vector3(0f, RoomType.Units(1f), 0f))).y - nodeScreen.y;
+                        var bounds = label.textBounds;
+                        var low = camera.WorldToScreenPoint(label.transform.TransformPoint(new Vector3(bounds.min.x, bounds.min.y, 0f)));
+                        var high = camera.WorldToScreenPoint(label.transform.TransformPoint(new Vector3(bounds.max.x, bounds.max.y, 0f)));
+                        // The node's own band and a tenth beyond (0.6 of its height each way), so a neighbouring row's letters never count.
+                        var band = 0.6f * Mathf.Abs(camera.WorldToScreenPoint(node.transform.parent.TransformPoint(node.transform.localPosition + new Vector3(0f, node.Size.y, 0f))).y - nodeScreen.y);
+                        double sum = 0, count = 0;
+                        for (var x = Mathf.FloorToInt(low.x); x <= Mathf.CeilToInt(high.x); x += 2)
+                        for (var y = Mathf.FloorToInt(nodeScreen.y - band); y <= Mathf.CeilToInt(nodeScreen.y + band); y++)
+                        {
+                            if (x < 0 || y < 0 || x >= Width || y >= Height) continue;
+                            if (Luma(eye[y * Width + x]) > 150) { sum += y; count++; }
+                        }
+                        if (count < 10 || Mathf.Abs(oneDp) < 1e-4f) continue;
+                        var inkDp = (float)((sum / count - nodeScreen.y) / oneDp);
+                        Debug.Log("Halcyonic: kit: " + state + ": " + stepName + "'s ink stands " + inkDp.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " dp from its node's middle, read in the pixels.");
+                        if (Mathf.Abs(inkDp) > 1.5f) failures.Add(state + ": " + stepName + "'s letters stand " + inkDp.ToString("0.0") + " dp off its node's middle, read in the pixels");
+                    }
+                };
+            }
             if (state == "37-more")
             {
                 // More pressed at rest, as a person presses it (SCREENS's SHAPE 11): the task's page opens in the panel's place.
