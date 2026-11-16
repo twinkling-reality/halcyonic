@@ -359,8 +359,19 @@ describe('the hall of light answers the music all round and builds with it (SHOW
     // Sudden: nothing a second before it, and come in within a third of a second.
     assert.ok(swell(19, 20).bloom < 0.001);
     assert.ok(swell(19.7, 20).bloom > 0.3);
-    // Then dying away over several seconds, and gone by the time the piece has gone on.
-    assert.ok(swell(22, 20).bloom > 0.4);
+    // A flash that falls within a second to a glow, dying away over several seconds, gone by the time the piece has
+    // gone on.
+    assert.ok(swell(21, 20).bloom < 0.5);
+    assert.ok(swell(22, 20).bloom > 0.2);
     assert.ok(swell(35, 20).bloom < 0.01);
+  });
+
+  test('it holds its breath just before the peak: dim from three seconds before, deepest just before, gone at it', () => {
+    assert.equal(swell(10, 20).hush, 0);
+    assert.equal(swell(16.9, 20).hush, 0);
+    assert.ok(swell(18.3, 20).hush > 0.3 && swell(18.3, 20).hush < 0.7);
+    assert.equal(swell(19.7, 20).hush, 1);
+    assert.equal(swell(20, 20).hush, 0);
+    assert.equal(swell(25, 20).hush, 0);
   });
 });

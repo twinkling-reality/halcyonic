@@ -1005,7 +1005,9 @@ const AROUND = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0')
  * climbs back up it, and climbs, fainter, the column facing it too (each octave runs once round the ring, C ahead and
  * rising to the right, so a scale stands on every side and a run circles the person); when it reaches the top, it
  * lights a point of a slowly turning galaxy overhead, which grows from its middle outward as the music goes on. Over
- * the first `rise` seconds of the music the columns and the galaxy grow brighter, until at `rise` the hall blooms:
+ * the first `rise` seconds of the music the columns and the galaxy grow brighter; for its last three seconds the hall
+ * dims, holding its breath, and at
+ * `rise` it blooms:
  * every column flares and sheds sparks along its height, a wave runs up them, the whole galaxy lights at once and a
  * ring of light runs out across the floor, and (unless `sound` is false) a soft pad swells into it under the music and
  * bells run up the chord sounding then; then it settles to a steady glow and goes on answering. Read from the player's time, so it lands with the
@@ -1286,6 +1288,8 @@ export function lightHall(
       }
       if (since < 0) burst = false;
       const bloom = swelling.bloom;
+      // Held just before the peak: the hall dims, so the bloom lands against it.
+      const held = 1 - 0.7 * swelling.hush;
       // After the bloom the hall keeps a steady glow a little under its peak.
       const rest = 0.05 + 0.3 * built - (since > 0 ? 0.08 * Math.min(1, since / 6) : 0);
       lit.fill(0);
@@ -1304,7 +1308,7 @@ export function lightHall(
         const home = homes[i] as (typeof homes)[number];
         const notes = Math.min(1, lit[i] ?? 0);
         shade.copy(home.colour).lerp(litColour[i] as Color, notes > 0 ? 0.6 : 0);
-        const strength = rest + 1.1 * notes + 1.6 * bloom + wave;
+        const strength = held * (rest + 1.1 * notes) + 2.2 * bloom + wave;
         const going = newest[i] as number;
         if (going < top) {
           // Climbing, its head at y and its tail below, fading as it goes.
@@ -1323,7 +1327,7 @@ export function lightHall(
       }
       for (const far of detail > 0 ? beyond : []) {
         const tall = height * 2.4;
-        pillars.add(far.x, height * 0.8, far.z, 0.08, tall, far.colour, 0.9 * rest + 1.2 * bloom);
+        pillars.add(far.x, height * 0.8, far.z, 0.08, tall, far.colour, held * 0.9 * rest + 1.6 * bloom);
       }
       // The bloom's ring runs out across the floor from the person's feet past the columns.
       if (since >= 0 && since < 3) {
