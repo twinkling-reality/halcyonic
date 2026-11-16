@@ -426,13 +426,16 @@ namespace Halcyonic.XR.Workspace.Editor
             if (card.Title is LineWords named && named.AllTheirs)
             {
                 var whole = LabelText.ForTextMeshPro(named.Text);
-                var titled = view.Shown.FirstOrDefault(label => label.text.Length >= Mathf.Min(4, whole.Length) && whole.StartsWith(label.text, StringComparison.Ordinal));
+                // Found by its words, an ellipsis at its end set aside, so a title cut with one is found and refused, not missed.
+                var titled = view.Shown.FirstOrDefault(label => label.text.TrimEnd('\u2026').TrimEnd().Length >= Mathf.Min(4, whole.Length)
+                    && whole.StartsWith(label.text.TrimEnd('\u2026').TrimEnd(), StringComparison.Ordinal));
                 if (titled == null) Require(false, "the card's title \"" + named.Text + "\" is not drawn");
                 else
                 {
                     titled.ForceMeshUpdate(true);
-                    var drawnTitle = titled.text;
-                    Require(!titled.GetParsedText().Contains("\u2026") && !titled.isTextTruncated, "the card's title \"" + titled.GetParsedText() + "\" ends in an ellipsis or is cut");
+                    var drawnTitle = titled.text.TrimEnd('\u2026').TrimEnd();
+                    Require(!titled.text.Contains("\u2026") && !titled.GetParsedText().Contains("\u2026") && !titled.isTextTruncated,
+                        "the card's title \"" + titled.GetParsedText() + "\" ends in an ellipsis or is cut");
                     if (drawnTitle.Length < whole.Length)
                     {
                         Require(char.IsWhiteSpace(whole[drawnTitle.Length]) && view.FadedTails.Contains(titled),
