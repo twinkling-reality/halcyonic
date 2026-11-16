@@ -1520,6 +1520,17 @@ namespace Halcyonic.XR.UI
             runs.Set(cut);
             if (fade) FadedTails.Add(label);
             var laid = KitType.Lay(label, width, lines);
+            // Faded, never one word alone on the last line shown (JUDGE's judge room, 19:23Z: "sign-in" alone under "limiting to the"): the
+            // cut steps back a word at a time while the line above can lend one, the fade still saying the words go on.
+            for (var back = 0; fade && back < 3 && laid.Lines >= 2 && LastLineIsOneWord(label); back++)
+            {
+                var shown = cut.Text.TrimEnd();
+                var space = shown.LastIndexOf(' ');
+                if (space <= 0) break;
+                cut = LineWords.TheirName(shown.Substring(0, space).TrimEnd());
+                runs.Set(cut);
+                laid = KitType.Lay(label, width, lines);
+            }
             if (fade) label.ForceMeshUpdate(true);
             Excerpts.Add(label);
             return Mathf.Max(laid.Lines, 1) * S(lineDp);
