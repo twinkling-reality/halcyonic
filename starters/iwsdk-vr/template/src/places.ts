@@ -585,25 +585,32 @@ export function openLand(
     // bending across their length, faded only where one would be finer than a couple of pixels.
     float ra = dot(p, sandWind);
     float rc = dot(p, vec2(-sandWind.y, sandWind.x));
-    float phase1 = ra * 24.0 + 1.8 * sin(rc * 1.3 + ra * 0.35) + 0.9 * sin(rc * 3.1);
-    float phase2 = (ra * 0.94 + rc * 0.34) * 37.0 + 1.2 * sin(rc * 2.3 - ra * 0.5);
-    float crisp = (1.0 - smoothstep(0.7, 2.0, footprint * 24.0)) * (1.0 - smoothstep(1.0, 7.0, length(p)));
-    float crisp2 = (1.0 - smoothstep(0.7, 2.0, footprint * 37.0)) * (1.0 - smoothstep(0.8, 4.5, length(p)));
+    // Sinuous as wind ripples are: about 16 cm apart, bending at several scales and warped by a smooth noise, so
+    // no two crests run parallel and none reads as a straight line.
+    // A smooth warp from sums of sines at unrelated angles (a noise on a square grid would crease along its cells).
+    float warp = 0.5 + 0.22 * sin(p.x * 1.7 + p.y * 0.6) + 0.18 * sin(p.y * 2.3 - p.x * 1.1 + 1.3)
+      + 0.1 * sin(p.x * 4.1 + p.y * 3.3 + 0.7);
+    float phase1 = ra * 40.0 + 2.6 * sin(rc * 5.0 + ra * 1.2) + 1.3 * sin(rc * 11.0 - ra * 2.1) + 6.0 * warp;
+    float crisp = (1.0 - smoothstep(0.7, 2.0, footprint * 58.0)) * (1.0 - smoothstep(1.0, 7.0, length(p)));
     // A ripple's face: a long slope lit as it rises into the wind, then a sharp crest and a short steep side in
     // shade, as wind-blown sand lies (never a smooth wave).
     float s1 = fract(phase1 / 6.2832);
-    float s2 = fract(phase2 / 6.2832);
-    // The crest's width about one pixel wide, so it stays sharp at the feet and soft only where it must.
-    float w1 = clamp(footprint * 24.0 / 6.2832, 0.006, 0.3);
-    float w2 = clamp(footprint * 37.0 / 6.2832, 0.006, 0.3);
-    float face1 = mix(-0.55 + 1.3 * s1 / 0.78, -0.9, smoothstep(0.78 - w1, 0.78 + w1, s1));
-    float face2 = mix(-0.5 + 1.2 * s2 / 0.75, -0.8, smoothstep(0.75 - w2, 0.75 + w2, s2));
+    // The crest's drop about two pixels wide: narrower would alias, and an aliased crest draws as straight lines
+    // fanning across the sand.
+    float w1 = clamp(footprint * 58.0 / 6.2832 * 2.2, 0.03, 0.35);
+    // One continuous profile round the whole period: up the lit face, a sharp drop at the crest, then a short rise in
+    // shade back to where the next face begins (so there is one line per crest, never two).
+    float lee1 = mix(-0.9, -0.55, clamp((s1 - 0.78) / 0.22, 0.0, 1.0));
+    float face1 = mix(-0.55 + 1.3 * s1 / 0.78, lee1, smoothstep(0.78 - w1, 0.78 + w1, s1));
+    // Each ripple stronger here and fainter there, so crests fade out and come back as real ones do.
+    float strength1 = 0.5 + 0.5 * (0.5 + 0.5 * sin(warp * 9.0 + ra * 0.9 + rc * 0.4));
     float facingSun = 0.55 + 0.45 * sunAlong;
-    outgoingLight *= 1.0 + (crisp * 0.24 * face1 + crisp2 * 0.12 * face2) * facingSun;
+    outgoingLight *= 1.0 + crisp * 0.24 * face1 * strength1 * facingSun;
     // Long faint streaks the wind leaves farther off, where single ripples are too fine to draw.
     float streak = sin(ra * 3.1 + 2.0 * sin(rc * 0.35)) * (1.0 - smoothstep(0.6, 1.6, footprint * 3.1));
     outgoingLight *= 1.0 + 0.05 * streak * smoothstep(5.0, 14.0, length(p)) * (1.0 - smoothstep(30.0, 60.0, length(p)));
-    outgoingLight *= 1.0 + rippleNear * ((0.2 + 0.12 * atFeet) * (slope.x * sunAlong + slope.y * sunAcross) + (0.06 + 0.06 * atFeet) * slope.x);
+    // The soft ripples from the tile only where the exact ripples below have faded, so no crest is drawn twice.
+    outgoingLight *= 1.0 + rippleNear * (1.0 - 0.92 * crisp) * (0.2 * (slope.x * sunAlong + slope.y * sunAcross) + 0.06 * slope.x);
     // Fine grain, only where a grain is still bigger than a pixel.
     // Smooth grain (value noise, never square cells), at two sizes.
     vec2 g = p * 30.0;
@@ -615,7 +622,7 @@ export function openLand(
     float h01 = fract(sin(dot(gi + vec2(0.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
     float h11 = fract(sin(dot(gi + vec2(1.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
     float grain = mix(mix(h00, h10, gf.x), mix(h01, h11, gf.x), gf.y) - 0.5;
-    outgoingLight *= 1.0 + 0.12 * grain * (1.0 - smoothstep(0.4, 1.0, footprint * 30.0));
+    outgoingLight *= 1.0 + 0.06 * grain * (1.0 - smoothstep(0.4, 1.0, footprint * 30.0));
     // A finer grain, a centimetre across, seen only near the feet.
     vec2 fg = p * 110.0;
     vec2 fi = floor(fg);
