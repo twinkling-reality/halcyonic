@@ -299,6 +299,31 @@ function airSky(
   };
 }
 
+/**
+ * A picture read smoothly between its cells (a cubic B-spline from four linear reads): read linearly, a sharp edge of
+ * light or shadow, or a dune's crest in a picture of slopes, shows the cells' square steps. Under low detail one read.
+ */
+const SAND_CUBIC = `
+vec4 sandCubic(sampler2D map, vec2 uv, float size, vec2 dx, vec2 dy) {
+  if (sandDetail < 0.25) return textureGrad(map, uv, dx, dy);
+  vec2 st = uv * size - 0.5;
+  vec2 i = floor(st);
+  vec2 f = st - i;
+  vec2 f2 = f * f;
+  vec2 f3 = f2 * f;
+  vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+  vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+  vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+  vec2 w3 = f3 / 6.0;
+  vec2 g0 = w0 + w1;
+  vec2 g1 = w2 + w3;
+  vec2 a = (i - 1.0 + w1 / g0 + 0.5) / size;
+  vec2 b = (i + 1.0 + w3 / g1 + 0.5) / size;
+  return g0.y * (g0.x * textureGrad(map, a, dx, dy) + g1.x * textureGrad(map, vec2(b.x, a.y), dx, dy))
+    + g1.y * (g0.x * textureGrad(map, vec2(a.x, b.y), dx, dy) + g1.x * textureGrad(map, b, dx, dy));
+}
+`;
+
 /** A place's colours as `#RRGGBB`: a sky from `top` through `middle` to `horizon`, a ground from `far` to `near`. */
 export interface LandColours {
   readonly top: string;
@@ -601,6 +626,8 @@ export function openLand(
     shader.uniforms.sandRipples = { value: ripples };
     shader.uniforms.sandWind = { value: [wx, wz] };
     shader.uniforms.sandNormals = { value: landNormals };
+    // Each picture's cells across, for reading it smoothly between its cells.
+    shader.uniforms.sandSizes = { value: [cells, normalCells] };
     shader.uniforms.sandReach = { value: reachOut };
     shader.uniforms.sandDetail = detail;
     shader.uniforms.sandBaseNear = { value: near };
@@ -621,7 +648,7 @@ export function openLand(
       .replace('void main() {', 'varying vec3 vSand;\nvoid main() {')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSand = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandNormals;\nuniform float sandReach;\nuniform float sandDetail;\nuniform vec3 sandBaseNear;\nuniform vec3 sandBaseFar;\nuniform vec3 sandGold;\nuniform vec3 sandShadeSky;\nuniform vec3 sandSun3;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform vec3 sandCastFrom;\nuniform vec3 sandCastBand;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nuniform vec3 sandFog;\nvarying vec3 vSand;\nvoid main() {')
+      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandNormals;\nuniform float sandReach;\nuniform float sandDetail;\nuniform vec3 sandBaseNear;\nuniform vec3 sandBaseFar;\nuniform vec3 sandGold;\nuniform vec3 sandShadeSky;\nuniform vec3 sandSun3;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform vec3 sandCastFrom;\nuniform vec3 sandCastBand;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nuniform vec3 sandFog;\nuniform vec2 sandSizes;\nvarying vec3 vSand;\n' + SAND_CUBIC + 'void main() {')
       .replace(
         '#include <opaque_fragment>',
         `{
@@ -638,7 +665,7 @@ export function openLand(
     float farOff = smoothstep(24.0, 38.0, length(p));
     if (farOff > 0.0) {
       vec2 nCell = p / (2.0 * sandReach) + 0.5;
-      vec4 ns = textureGrad(sandNormals, nCell, vec2(grad / (2.0 * sandReach), 0.0), vec2(0.0, grad / (2.0 * sandReach)));
+      vec4 ns = sandCubic(sandNormals, nCell, sandSizes.y, vec2(grad / (2.0 * sandReach), 0.0), vec2(0.0, grad / (2.0 * sandReach)));
       vec3 n = normalize(vec3(ns.r * 2.0 - 1.0, ns.b, ns.g * 2.0 - 1.0));
       float faceSun = max(0.0, dot(n, sandSun3));
       vec3 base = mix(sandBaseNear, sandBaseFar, pow(min(1.0, length(p) / sandReach), 0.6));
@@ -657,7 +684,7 @@ export function openLand(
     vec2 cell = p / (2.0 * sandSpan) + 0.5;
     // Blended out in a circle well inside the picture's square, so its edge never shows as a straight line.
     float inside = 1.0 - smoothstep(0.55, 0.92, length(p) / sandSpan);
-    if (inside > 0.0) outgoingLight = mix(outgoingLight, textureGrad(sandNear, vec2(cell.x, cell.y), vec2(grad / (2.0 * sandSpan), 0.0), vec2(0.0, grad / (2.0 * sandSpan))).rgb, inside);
+    if (inside > 0.0) outgoingLight = mix(outgoingLight, sandCubic(sandNear, cell, sandSizes.x, vec2(grad / (2.0 * sandSpan), 0.0), vec2(0.0, grad / (2.0 * sandSpan))).rgb, inside);
     // Ripples across the wind, a tile 2.4 m across: lighter on the side of each that faces the sun, darker on the
     // other, faintly in shade as well; strongest at the feet and gone by 30 m.
     // Ripples from the tile, across the wind (near the feet the exact ripples below take over).
