@@ -57,7 +57,7 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// The angle from the eyes, in radians, by which New Project's far edge can stand left of the first character's middle once clear of
         /// the widest tag a name draws: half that tag (its words at their bound, its pads), <see cref="ClearOfTagDegrees"/>, and New Project's
-        /// own width to the far edge of its glass key. The shelf's envelope counts it (<see cref="CharacterStage.NewProjectReach"/>), so its field search holds the turned place.
+        /// own width to the far edge of its glass key, at its widest look. The shelf's envelope counts it (<see cref="CharacterStage.NewProjectReach"/>), so its field search holds the turned place.
         /// </summary>
         public static float ReachLeft()
         {
@@ -72,7 +72,7 @@ namespace Halcyonic.XR.UI
                 reachAt = GlazeText.Version;
                 // Its key's quad reaches HaloReachDp and a dp past the core each side (RoomButton), the core as wide as the measure.
                 reach = (RoomType.Scaled(RoomTag.NameWordsMostDp) + 2f * RoomType.Scaled(RoomTag.PadXDp)) / 2f + ClearOfTagDegrees * Mathf.Deg2Rad
-                    + reachMeasure.Measure(Words, 0f).x + 2f * RoomType.Units(RoomButton.HaloReachDp + 1f);
+                    + (reachMeasure.Measure(Words, 0f).x + 2f * RoomType.Units(RoomButton.HaloReachDp + 1f)) * WidestLook;
             }
             return reach;
         }
@@ -86,7 +86,16 @@ namespace Halcyonic.XR.UI
         private static readonly List<RoomNameTag> NameTags = new();
         private static readonly List<TMPro.TMP_Text> Texts = new();
         private static readonly List<RoomSurface> Plates = new();
-        private static readonly List<Renderer> Marks = new();
+        /// <summary>The widest a look draws an action, pointed or held (<see cref="RoomMotion.ActionScale"/>).</summary>
+        public static float WidestLook => Mathf.Max(1f, Mathf.Max(RoomMotion.PointedScale, RoomMotion.PressedScale));
+
+        /// <summary>The bearing of <paramref name="point"/> about the vertical through the eyes from <paramref name="ahead"/>, in degrees, rightward positive.</summary>
+        private static float Bearing(Vector3 point, Vector3 eyes, Vector3 ahead)
+        {
+            var away = point - eyes;
+            away.y = 0f;
+            return Vector3.SignedAngle(ahead, away, Vector3.up);
+        }
 
         /// <summary>
         /// Turns New Project's <paramref name="place"/> about the <paramref name="eyes"/>, to the person's left and never toward the
@@ -159,11 +168,13 @@ namespace Halcyonic.XR.UI
                 foreach (var plate in Plates) tagLeft = Mathf.Min(tagLeft, Across(plate.Glass, eyes, ahead, left: true));
             }
             if (float.IsPositiveInfinity(tagLeft)) return 0f;
-            // Its right edge is its glass key's, the slab behind the glyph and the words, which reaches past them (AUDIT 18:36Z).
-            var placeRight = Mathf.Max(Across(button.Words.GetComponent<Renderer>(), eyes, ahead, left: false), Across(button.Key, eyes, ahead, left: false));
-            button.Glyph.GetComponentsInChildren(false, Marks);
-            foreach (var mark in Marks) placeRight = Mathf.Max(placeRight, Across(mark, eyes, ahead, left: false));
-            if (float.IsNegativeInfinity(placeRight)) return 0f;
+            // Its right edge is its glass key's, the slab behind the glyph and the words, which holds them both (AUDIT 18:36Z). A look
+            // scales the key about its middle, so it is taken at rest and reserved at its widest look: pointing or holding never moves
+            // the place under the ray (AUDIT3 18:44Z).
+            var keyRight = Across(button.Key, eyes, ahead, left: false);
+            if (float.IsNegativeInfinity(keyRight)) return 0f;
+            var keyMiddle = Bearing(button.Key.bounds.center, eyes, ahead);
+            var placeRight = keyMiddle + (keyRight - keyMiddle) / Mathf.Max(button.Scale, 0.01f) * WidestLook;
             return Mathf.Max(0f, ClearOfTagDegrees - (tagLeft - placeRight));
         }
 
