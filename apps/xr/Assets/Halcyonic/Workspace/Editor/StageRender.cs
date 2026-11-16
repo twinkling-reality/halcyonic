@@ -174,8 +174,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 // real agent work plays back; the same tasks as the demo's, so only the mark and its line differ.
                 failures.AddRange(Render("practice", folder, Marked(synthetic: true, recorded: false), desk: false, BannerKind.Practice,
                     DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
+                // The recorded run stands under its own notice, as the bar says it while a recording plays.
                 failures.AddRange(Render("recorded", folder, Marked(synthetic: false, recorded: true), desk: false, BannerKind.Practice,
-                    DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
+                    DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, recordedRun: true), AmbientText.NeedsYouLine(1), peekSlot: 2));
                 // A name past four lines, never in a filmed or fixture state: its last line stops at a word with its tail faded.
                 failures.AddRange(Render(LongNameScene, folder, LongName(), desk: false, BannerKind.Practice,
                     DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
