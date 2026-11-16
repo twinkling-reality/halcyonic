@@ -198,6 +198,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     // WorkspaceDirector.Start's setup, as a release build gives it.
                     SpatialWorkspace = true,
+                    // What the computer observed of each run's folder, from the events the walk records, as the player's own
+                    // ActivityLog gives it (WorkspaceDirector.Start): without it a result's Changes reads Not Seen whatever the run holds.
+                    Observed = run => activity.ObservedFor(run),
                     ResponsiveWorkspace = true,
                     Presentation = presentation,
                     InitialPlacementReady = () => true,
@@ -1389,8 +1392,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     OpenSection(task.WorkstreamId, null);
                     if (Until(() => Run(task)?.ActiveTools.Count > 0, "the recorded run at work", 60)) Moment("recorded at work");
                     if (Until(() => Run(task)?.Status == ExecutionStatus.Completed, "the recorded run's result", 120)) { Fresh(); Moment("recorded result"); }
+                    // The host checks the made app after the turn ends (2.7 s later in this recording): the result again once that
+                    // check is recorded, so the card is seen saying what the check found, not only while it runs (SCREENS, 05:16Z).
+                    if (Until(() => State()?.Projects.TryGetValue(task.ProjectId, out var checkedProject) == true && checkedProject.Check != null,
+                        "the recorded run's check", 30)) { Fresh(); Moment("recorded result checked"); }
                     OpenSection(task.WorkstreamId, FileSection.Changes);
                     Moment("recorded changes");
+                    // The recorded run's Changes lists the files its recording says it changed, never Not Seen over them.
+                    if (Run(task)?.ExecutionId is string recordedRun)
+                    {
+                        var turns = activity.ObservedFor(recordedRun);
+                        var files = turns.LastOrDefault() is { Skipped: null } last ? last.Files.Count : 0;
+                        Debug.Log("Halcyonic: judge room: the recorded run's observed turns " + turns.Count + ", files in the last " + files);
+                        if (files > 0 && root.GetComponentsInChildren<TMP_Text>(false).Any(text => text.enabled
+                                && text.GetParsedText().Replace("\n", " ").Contains(RoomPanelCards.NotSeenLine)))
+                            failures.Add("judge room: the recorded run's Changes says \"" + RoomPanelCards.NotSeenLine + "\" while its recording holds the "
+                                + files + " files it changed");
+                    }
                     OpenSection(task.WorkstreamId, FileSection.Checks);
                     Moment("recorded checks");
                     Until(() => fallback.Player?.Finished == true || fallback.Player?.Ended == true, "the recorded run's end", 120);
