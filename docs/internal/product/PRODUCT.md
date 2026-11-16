@@ -14,6 +14,14 @@ retain their identity while the person moves between a focused workspace, a comp
 native panel beside other apps. Characters are optional representations of tasks, not prerequisites
 for finding or controlling them. Runtimes remain interchangeable executors.
 
+## The feeling it exists for
+
+Intent, not a description of this checkout. Halora exists for the magic of being in VR and making
+your own thing there. Anyone should feel it: someone trying VR for the first time, a child, someone
+resting in bed. The first moment should bring wonder, and directing work should feel easy and
+alive, never like a workstation carried into a headset. The brand holds the same feeling
+([BRAND.md](BRAND.md)).
+
 ## The interaction to prove
 
 1. Open directly into understandable project and task context, with actual status and supported

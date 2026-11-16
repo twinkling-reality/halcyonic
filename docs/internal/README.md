@@ -55,6 +55,7 @@ changes, the matching document changes in the same commit.
 | Product | [product/OPEN_QUESTIONS.md](product/OPEN_QUESTIONS.md) | What is unresolved and must not silently become architecture |
 | Product | [product/WORDS.md](product/WORDS.md) | How Halcyonic speaks on the headset: its voice, a word for each state, the words a person sees |
 | Product | [product/STYLE.md](product/STYLE.md) | How Halcyonic looks on the headset: the plane, type, colour, grid, glass, selection, rows, the footer, the light line, icons, and the checks that hold them |
+| Product | [product/BRAND.md](product/BRAND.md) | The name people see, Halora, and its mark, colours, type and ground outside the headset's panels |
 | Architecture | [architecture/SYSTEM.md](architecture/SYSTEM.md) | Components, dependency rules, what is and is not built |
 | Architecture | [architecture/DOMAIN_MODEL.md](architecture/DOMAIN_MODEL.md) | Project, Workstream, Execution, statuses, attention, commands |
 | Architecture | [architecture/EVENTS.md](architecture/EVENTS.md) | Journal, event envelope and catalog, provenance, versioning, traces |
