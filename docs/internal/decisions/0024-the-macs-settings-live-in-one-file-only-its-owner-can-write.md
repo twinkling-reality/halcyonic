@@ -153,7 +153,7 @@ the node on PATH that is the node the command ran with; its environment is PATH 
 folder, none inside the checkout, no `node_modules/.bin`) and only `HALCYONIC_PORT` and the data
 and tasks folders it judged, always written (another data folder is refused without its own tasks folder); KeepAlive with SuccessfulExit false starts it again after any exit that is not
 a success (Restart to Apply's 75, a crash, a close that failed, a refused start; unlike `Start
-Halcyonic.command`, which stops after a failed close, ADR 0053), with a 30 second throttle and 30
+Halora.command` (named `Start Halcyonic.command` until 2026-11-16), which stops after a failed close, ADR 0053), with a 30 second throttle and 30
 seconds for a stop before launchd kills; its log is in the data folder. On refuses while launchd has
 the agent already or a Halcyonic answers on the port, and removes the file if launchd refuses it. A
 first start with no Terminal at all still needs a packaged app (the signed app row). The other
