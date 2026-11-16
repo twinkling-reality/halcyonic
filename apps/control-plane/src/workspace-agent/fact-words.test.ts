@@ -115,11 +115,11 @@ test("the untouched starter's check is Starter Only to the model, never failed, 
   const said = checkWords({ state: 'starter_only', files_since_check: 'current' }, new Date());
   assert.equal(
     said,
-    "The computer's check: Starter Only. Nothing made yet. Say what you want, and it is checked. The files have not changed since.",
+    "The computer's check: Starter Only. Nothing new is drawn yet. Say what you want to see. The files have not changed since.",
   );
   assert.deepEqual(STARTER_ONLY, {
     label: 'Starter Only',
-    line: 'Nothing made yet. Say what you want, and it is checked.',
+    line: 'Nothing new is drawn yet. Say what you want to see.',
   });
   assert.doesNotMatch(said, /fail|broken|error/i);
 });

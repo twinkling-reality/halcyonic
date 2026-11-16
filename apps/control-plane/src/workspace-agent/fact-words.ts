@@ -10,7 +10,7 @@ import { OWN_LOOK_NOT_KNOWN, PARTLY_CHECKED, STARTER_ONLY } from '../preview/che
 /**
  * A starter's check's state as the model reads it: `not_known` where everything seen passed and only whether the page
  * draws its own look could not be found out, never failed (VRIFY, 2026-11-13); `starter_only` where the page is still
- * the untouched starter's, nothing made yet, never failed (LINK, 2026-11-16); else passed or failed by `passed`.
+ * the starter's picture alone, nothing new drawn yet, never failed (LINK, 2026-11-16); else passed or failed by `passed`.
  */
 export function checkStateOf(
   findings: CheckFindings,
@@ -102,7 +102,7 @@ export function checkWords(check: CheckFacts, now: Date): string {
         ? `the page opened with no errors${check.page.showed_its_own_picture === true ? ' and drew the scene' : check.page.showed_its_own_picture === false ? ' but drew nothing' : ''}`
         : `the page showed ${plural(check.page.errors, 'error')}${check.page.showed_its_own_picture === false ? ' and drew nothing' : ''}`,
   ].filter((part): part is string => part !== null);
-  // The untouched starter, nothing made yet: its own state and line, never what failed (LINK, 2026-11-16).
+  // Still the starter's picture, nothing new drawn yet: its own state and line, never what failed (LINK, 2026-11-16).
   const head =
     check.state === 'starter_only'
       ? `The computer's check: ${STARTER_ONLY.label}. ${STARTER_ONLY.line}`

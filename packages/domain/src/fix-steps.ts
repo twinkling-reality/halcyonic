@@ -253,7 +253,7 @@ export function checkVerdict(findings: CheckFindings): CheckVerdict {
     fitUnder(findings) !== null
   )
     return 'failed';
-  // Not drawn of its own because it is still the starter's own page: the starter alone, nothing made yet.
+  // Not drawn of its own because it is still the starter's own page: nothing new drawn yet.
   if (page.drawn === false) return starterPage(page) ? 'starter_only' : 'failed';
   if (page.drawn === null) return 'not_known';
   return findings.passed ? 'passed' : 'failed';

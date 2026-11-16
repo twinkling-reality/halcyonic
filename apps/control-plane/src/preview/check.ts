@@ -99,11 +99,12 @@ export const PARTLY_CHECKED = {
 
 /**
  * A check's state where its verdict is `starter_only` (AUDIT2's words, 2026-11-16): the untouched starter, nothing made
- * yet. Never "failed", and true to a check that ran: the host checks again on its own once a task's turn changes files.
+ * yet. Never "failed". True on a project's own untouched folder and on a task's copy whose page still shows only the starter's
+ * picture: it says what the check measured, nothing about code written (AUDIT2 and AUDIT3, 14:28Z).
  */
 export const STARTER_ONLY = {
   label: 'Starter Only',
-  line: 'Nothing made yet. Say what you want, and it is checked.',
+  line: 'Nothing new is drawn yet. Say what you want to see.',
 } as const;
 
 /** How many exception texts a check's finding holds. */
