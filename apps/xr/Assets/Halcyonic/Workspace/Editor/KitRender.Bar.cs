@@ -758,12 +758,12 @@ namespace Halcyonic.XR.Workspace.Editor
             // included (AUDIT 2026-11-16T15:23Z, "points" alone under the result's title; 16:57Z, "chosen" alone in the panel).
             if (bar.Shown is RoomBar lonely)
             {
-                var whole = new[] { lonely.Card?.Title?.Text, lonely.Mono ? null : lonely.Body?.Text }.Where(text => !string.IsNullOrWhiteSpace(text)).ToList();
+                var lonelyWords = new[] { lonely.Card?.Title?.Text, lonely.Mono ? null : lonely.Body?.Text }.Where(text => !string.IsNullOrWhiteSpace(text)).ToList();
                 foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
                 {
                     label.ForceMeshUpdate(true);
                     var read = string.Join(" ", label.GetParsedText().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-                    if (!whole.Contains(read) || read.Split(' ').Length < 4 || label.textInfo.lineCount < 2) continue;
+                    if (!lonelyWords.Contains(read) || read.Split(' ').Length < 4 || label.textInfo.lineCount < 2) continue;
                     Require(!RoomCardView.LastLineIsOneWord(label), "the words \"" + read + "\" leave one word alone on their last line");
                 }
             }
