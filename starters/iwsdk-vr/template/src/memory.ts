@@ -264,7 +264,10 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
       const bearing = Math.atan2(x, -z);
       const rangeAt = 95 + 7 * Math.sin(2 * bearing + 0.9);
       const rangeS = Math.min(1, Math.max(0, (r - rangeAt) / 34 + 0.78));
-      const rangeHigh = 1.85 + 0.45 * Math.sin(2.3 * bearing + 0.7) + 0.2 * Math.sin(3.1 * bearing + 2.1);
+      // Its crests rise and fall every few degrees as well, so no stretch of the skyline lies level like a ruled line.
+      const rangeHigh =
+        (1.85 + 0.45 * Math.sin(2.3 * bearing + 0.7) + 0.2 * Math.sin(3.1 * bearing + 2.1)) *
+        (1 + 0.22 * Math.sin(11 * bearing + 1.3) + 0.12 * Math.sin(23 * bearing + 0.4));
       const range = swellAt(rangeS, crest) * rangeHigh * swell * Math.min(1, Math.max(0, (r - 50) / 25)) * (1 - 0.6 * open);
       const field =
         swell * (h / most) * (1 + r / 140) * rim * (1 - 0.25 * open) - swell * 0.78 + Math.max(great * 0.7, range) * rim;
