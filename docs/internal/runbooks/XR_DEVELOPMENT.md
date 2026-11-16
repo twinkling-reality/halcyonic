@@ -1495,7 +1495,7 @@ reverse` it would carry the access token and every task title across the network
 The glance is a small 2D window of Halcyonic's, opened from the Library or the Navigator while a game
 or another immersive app runs, to learn whether agents can reach the person there
 ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md), "Reaching the person inside
-another app"). It shows what waits and what is working, offers only Open Halcyonic, and raises a
+another app"). It shows what waits and what is working, offers only Open Halora, and raises a
 notification without the task's title when a task starts waiting. It is in development builds only
 (`GlanceInDevelopmentBuilds`); `BuildReleaseApk` deletes and fails an APK that carries it. Its Java
 lives in `apps/xr/Android/glance`; `tooling/glance` and `GlanceParityTests` hold its loopback proof
@@ -1560,7 +1560,7 @@ The checks, in order, about 20 minutes:
 5. How long it lives: leave it minimised over the game with `pnpm quest:session -- --minutes 60`
    running; note when the poll lines stop. For the battery per hour against the game alone, connect
    over Wireless debugging rather than USB (see "Device measures on a Quest"), never `adb tcpip`.
-6. Open Halcyonic from the toast's action and from the window's button: does the game end, and does
+6. Open Halora from the toast's action and from the window's button: does the game end, and does
    Halcyonic open?
 7. With Do Not Disturb on, is the toast silenced?
 

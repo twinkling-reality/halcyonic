@@ -170,9 +170,9 @@ public final class GlanceActivity extends Activity {
             Notification notification = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(getApplicationInfo().icon)
                 .setContentTitle("A task is waiting for you")
-                .setContentText("Open Halcyonic to see it.")
+                .setContentText("Open Halora to see it.")
                 .setContentIntent(open)
-                .addAction(new Notification.Action.Builder(null, "Open Halcyonic", open).build())
+                .addAction(new Notification.Action.Builder(null, "Open Halora", open).build())
                 .setAutoCancel(true)
                 .build();
             getSystemService(NotificationManager.class).notify(1, notification);
@@ -254,7 +254,7 @@ public final class GlanceActivity extends Activity {
         int pad = dp(24);
         page.setPadding(pad, pad, pad, pad);
 
-        TextView title = text("Halcyonic", 24, INK);
+        TextView title = text("Halora", 24, INK);
         page.addView(title);
         lead = text("", 18, INK);
         lead.setPadding(0, dp(8), 0, dp(16));
@@ -270,7 +270,7 @@ public final class GlanceActivity extends Activity {
         footer.setGravity(Gravity.END);
         footer.setPadding(0, dp(16), 0, 0);
         Button open = new Button(this);
-        open.setText("Open Halcyonic");
+        open.setText("Open Halora");
         open.setAllCaps(false);
         open.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
         open.setTextColor(GROUND);

@@ -203,7 +203,7 @@ public class AgentPanelActivity extends Activity {
     private static String stateName(String value) { return PanelModel.stateName(value); }
     private void shell() {
         LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34));
-        text(root, "Halcyonic", 28);
+        text(root, "Halora", 28);
         connection = new PanelLoadingText(this); connection.setTextSize(16); connection.setPadding(0, dp(6), 0, dp(8));
         root.addView(connection, new LinearLayout.LayoutParams(-1, -2));
         connection.setText("Connecting to your computer…");

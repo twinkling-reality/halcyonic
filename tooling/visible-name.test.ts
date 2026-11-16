@@ -40,6 +40,10 @@ const SOURCES: readonly string[] = [
   'apps/control-plane/src/speech/whisper.ts',
   'apps/control-plane/src/starters.ts',
   'apps/control-plane/src/workspace-agent/requests.ts',
+  'apps/xr/Android/glance/src/com/halcyonic/glance/GlanceActivity.java',
+  'apps/xr/Android/panel/src/com/halcyonic/panel/AgentPanelActivity.java',
+  'apps/xr/Assets/Plugins/Android/AndroidManifest.xml',
+  'apps/xr/ProjectSettings/ProjectSettings.asset',
   'packages/domain/src/admission.ts',
   'packages/domain/src/policy.ts',
   'packages/integrations/claude-code/src/claude-agent-runtime.ts',
@@ -69,6 +73,8 @@ const NOT_SHOWN: readonly RegExp[] = [
   /Halcyonic(?=\/)|\/Halcyonic\b/g, // paths
   /`Halcyonic execution /g, // the session title an agent app keeps for the host: seen only in that app's own list
   /"; Halcyonic.s confinement/g, // a comment inside the sandbox profile
+  /TAG = "Halcyonic"/g, // the headset glance's log tag
+  /companyName: Halcyonic/g, // Unity's company name: the Editor's data folder, never shown on the Quest (productName is)
 ];
 
 /** The lines of `text` that show the old name: none of a comment, after what names the code is dropped. */

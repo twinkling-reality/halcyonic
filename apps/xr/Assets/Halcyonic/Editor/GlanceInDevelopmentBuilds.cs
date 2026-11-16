@@ -70,7 +70,7 @@ namespace Halcyonic.XR.Editor
 
             var activity = document.CreateElement("activity");
             activity.SetAttribute("name", AndroidNamespace, Activity);
-            activity.SetAttribute("label", AndroidNamespace, "Halcyonic");
+            activity.SetAttribute("label", AndroidNamespace, "Halora");
             activity.SetAttribute("exported", AndroidNamespace, "true");
             // Its window shows task titles: keep it out of the recent apps' thumbnails.
             activity.SetAttribute("excludeFromRecents", AndroidNamespace, "true");
