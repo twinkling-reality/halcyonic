@@ -95,10 +95,10 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// The shelf's envelope measures the older label as a stand-in (CharacterStage.WriteShelfCorners) while the redesign draws the
-        /// room's name tag (AUDIT's 13:23Z, (ii) for the film batch): the stand-in holds the tag across only if, at the size in use, the
-        /// widest label the envelope lays is at least as wide as the widest tag, its words at their 260 dp bound with Needs You and the
-        /// picked ring. Both widths logged in metres; a narrower stand-in fails.
+        /// The shelf's envelope holds the name the redesign draws (AUDIT's 13:23Z width condition; 13:47Z, B'): the name the envelope
+        /// measured (CharacterStage.WriteShelfCorners, the room's widest tag at two lines) is at least as wide, at the size in use, as a
+        /// tag drawn the way the shelf draws one for a very long name, its words at their 260 dp bound with Needs You and the picked ring.
+        /// Both widths logged in metres; a narrower envelope fails (on 1ce6f7699 the older label it measured was 0.21 m to a tag's 0.48).
         /// </summary>
         private static List<string> StandInHoldsTheTag()
         {
@@ -119,30 +119,27 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var each in drawn.Skip(1)) all.Encapsulate(each);
                     return all.size.x;
                 }
-                var label = CharacterView.Create(holder.transform, "stand-in");
-                label.transform.SetPositionAndRotation(Vector3.zero, facing);
-                label.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
-                label.Show(presentation);
-                label.PlaceShelfLabel(viewer);
-                WorkspaceRender.ForceMeshes(holder);
-                var standIn = WidthOf(label.Label.GetComponentsInChildren<Renderer>(false));
+                // What the envelope measured for a name: the redesign's widest tag as the room's side stands it (AUDIT's 13:47Z, B').
+                RoomDesign.Enabled = true;
+                CharacterStage.WriteShelfCorners(new Pose(new Vector3(0f, -0.45f, AgentShelfSearch.MinimumDistance), Quaternion.identity),
+                    AgentShelfDraft.Width(1), Vector3.zero, new Vector3[8]);
+                var standIn = CharacterStage.MeasuredNameWidth;
                 var tagged = CharacterView.Create(holder.transform, "tag");
                 tagged.transform.SetPositionAndRotation(Vector3.right * 2f, facing);
                 tagged.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
                 tagged.Show(presentation);
                 tagged.PlaceShelfLabel(viewer);
-                RoomDesign.Enabled = true;
                 var nameTag = RoomNameTag.On(tagged);
                 nameTag.Picked = true;
                 WorkspaceRender.ForceMeshes(holder);
                 var tag = nameTag.Tag;
                 var tagWidth = tag == null ? 0f : WidthOf(tag.GetComponentsInChildren<Renderer>(false));
-                Debug.Log("Halcyonic: agent shelf: at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + ", the envelope's stand-in label is "
+                Debug.Log("Halcyonic: agent shelf: at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + ", the envelope's measured name is "
                     + standIn.ToString("0.000", CultureInfo.InvariantCulture) + " m wide and the widest name tag " + tagWidth.ToString("0.000", CultureInfo.InvariantCulture)
-                    + " m; the " + (standIn >= tagWidth ? "stand-in" : "tag") + " is wider.");
+                    + " m; the " + (standIn >= tagWidth ? "envelope's" : "tag") + " is wider.");
                 if (tag == null) failures.Add("the redesign drew no name tag to measure");
                 else if (standIn < tagWidth)
-                    failures.Add("the envelope's stand-in label (" + standIn.ToString("0.000", CultureInfo.InvariantCulture) + " m) is narrower than the widest name tag ("
+                    failures.Add("the envelope's measured name (" + standIn.ToString("0.000", CultureInfo.InvariantCulture) + " m) is narrower than the widest name tag ("
                         + tagWidth.ToString("0.000", CultureInfo.InvariantCulture) + " m) at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture));
             }
             finally

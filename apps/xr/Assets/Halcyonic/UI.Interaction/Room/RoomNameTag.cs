@@ -66,6 +66,48 @@ namespace Halcyonic.XR.UI
             tag.transform.localPosition = new Vector3(0f, -tag.Size.y / 2f - RoomType.Units(UnderDegrees * RoomGeometry.DpPerDegree), 0f);
         }
 
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+#endif
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void MeasureForTheShelf() => CharacterStage.WidestDrawnName = WidestUnder;
+
+        /// <summary>The longest whole-word start of the stand-in name that the tag lays on two lines, per text size.</summary>
+        private static (int Version, string Words)? twoLines;
+
+        /// <summary>
+        /// The widest tag the shelf can show, stood under the measuring character as the shelf stands a tag (AUDIT's 13:47Z, B'): a name
+        /// filling two lines at the tag's bound (the height of every filmed tag; a longer name only grows downward), Needs You, picked.
+        /// Null where the redesign is off, so the older label is measured.
+        /// </summary>
+        private static Transform? WidestUnder(CharacterView view)
+        {
+            if (!RoomDesign.Enabled) return null;
+            var tag = view.Labels.GetComponentInChildren<RoomTag>(true);
+            if (tag == null) tag = RoomTag.Create(view.Labels);
+            if (twoLines is not { } known || known.Version != GlazeText.Version) twoLines = known = (GlazeText.Version, TwoLines(tag));
+            tag.Show(LineWords.TheirName(known.Words), picked: true, needsYou: true, mostWordsDp: RoomTag.NameWordsMostDp);
+            tag.transform.localRotation = Quaternion.identity;
+            tag.transform.localPosition = new Vector3(0f, -tag.Size.y / 2f - RoomType.Units(UnderDegrees * RoomGeometry.DpPerDegree), 0f);
+            tag.Words.ForceMeshUpdate(true);
+            return tag.transform;
+        }
+
+        private static string TwoLines(RoomTag tag)
+        {
+            var words = CharacterStage.WidestStandIn.Split(' ');
+            var fits = words[0];
+            for (var count = 2; count <= words.Length; count++)
+            {
+                var tried = string.Join(" ", words, 0, count);
+                tag.Show(LineWords.TheirName(tried), picked: true, needsYou: true, mostWordsDp: RoomTag.NameWordsMostDp);
+                tag.Words.ForceMeshUpdate(true);
+                if (tag.Words.textInfo.lineCount > 2) break;
+                fits = tried;
+            }
+            return fits;
+        }
+
         private void OnDestroy()
         {
             if (view != null) view.Shown -= Show;
