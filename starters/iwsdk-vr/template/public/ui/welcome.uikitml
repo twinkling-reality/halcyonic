@@ -2,8 +2,11 @@
   Panel, Divider, Button, ButtonIcon, and ButtonLabel come from the bundled
   Horizon kit. RectangleGoggles and LogIn are bundled Lucide icon components.
 -->
+<!--
+  The card is the kit's dark glass, never a white page: it is part of the place (VRIFY, 2026-11-16).
+  The stylesheet below takes no comments: UIKitML's parser refuses them.
+-->
 <style>
-  /* The kit's dark glass, never a white page: the card is part of the place (VRIFY, 2026-11-16). */
   .panel-root {
     flex-direction: column;
     width: 280px;

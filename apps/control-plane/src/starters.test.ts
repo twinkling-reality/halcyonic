@@ -680,6 +680,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
     const srcFiles = readdirSync(join(template, 'src')).sort();
     assert.deepEqual(srcFiles, [
       'assets.ts',
+      // VRIFY: the welcome card fading in and out by game time (2026-11-16).
+      'card-fade.ts',
       'components.ts',
       'decor.ts',
       // SHOW: light for apps of music and light: soft glows, sparks, a keyboard of light (2026-11-14).
