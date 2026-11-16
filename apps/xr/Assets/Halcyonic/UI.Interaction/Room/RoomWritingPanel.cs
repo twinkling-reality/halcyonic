@@ -46,20 +46,27 @@ namespace Halcyonic.XR.UI
         private readonly List<(TMP_Text Label, Color Own, int Row)> words = new List<(TMP_Text, Color, int)>();
         private readonly List<(RoomShape Shape, Color Fill, Color Edge, bool Lit)> plates = new List<(RoomShape, Color, Color, bool)>();
         private readonly List<(int Row, Vector2 Left, float Width)> lightRows = new List<(int, Vector2, float)>();
-        private readonly List<RoomShape> lights = new List<RoomShape>();
+        private readonly List<RoomShape[]> lights = new List<RoomShape[]>();
+        private readonly List<(RoomShape Plate, Vector2 Size, Vector3 At, int First, int Count)> litRuns = new List<(RoomShape, Vector2, Vector3, int, int)>();
         private float platesAt = -1f;
 
+        /// <summary>How far toward the accent a row's words arrive: a light tint that settles into their own, always 4.5:1 over the lit tint (AUDIT, 07:54Z).</summary>
+        public const float ArriveTint = 0.35f;
+
         /// <summary>
-        /// The light a read lands with (AUDIT's raised bar, the lead's 04:19Z): each new row runs in as a soft line of the one
-        /// accent, left to right in 180 ms under its words, fading over the 400 ms after, while its words arrive in the accent
-        /// and settle into their own colour over the same 400 ms; the rows a read changed glow as it lands, then settle to their
-        /// tint over 2 s. Kept still, there is none of it.
+        /// The light a read lands with (AUDIT's raised bar, the lead's 04:19Z): as each new row's turn comes, a thin bright
+        /// line of the one accent runs under its words, left to right in 180 ms, with a faint glow rising from it in two wider
+        /// layers, so it reads as light and never as a selection (the reader of 07:54Z), all fading over the 400 ms after; its
+        /// words arrive in the accent and settle into their own colour over the same 400 ms. Nothing shows before a row's
+        /// turn. Kept still, there is none of it.
         /// </summary>
         public const float LightAcrossSeconds = 0.18f;
         public const float LightFadeSeconds = 0.4f;
-        public const float LightPeak = 0.26f;
-        public const float LitGlowPeak = 0.34f;
-        public const float LitSettleSeconds = 2f;
+
+        /// <summary>The light's line: this tall, this strong; and its glow's two layers, each a share of the row's pitch and its strength.</summary>
+        public const float LightLineDp = 2f;
+        public const float LightPeak = 0.9f;
+        public static readonly (float Tall, float Alpha)[] LightGlow = { (0.55f, 0.07f), (0.3f, 0.1f) };
         private float folded = 1f;
 
         /// <summary>How small a panel folds to as it reaches its row.</summary>
@@ -157,10 +164,25 @@ namespace Halcyonic.XR.UI
             foreach (var label in GetComponentsInChildren<TMP_Text>(false))
                 words.Add((label, label.color, rowOf.TryGetValue(label, out var row) ? row : -1));
             plates.Clear();
-            var litBands = new HashSet<RoomShape>(card.Plates.Where(each => each.What == "reading lit band").Select(each => each.Plate));
+            var litBands = new HashSet<RoomShape>(card.Plates.Where(each => each.What == "reading lit band" || each.What == "reading lit rule").Select(each => each.Plate));
+            var ours = new HashSet<RoomShape>(lights.SelectMany(layers => layers));
             foreach (var shape in card.GetComponentsInChildren<RoomShape>(false))
-                if (!lights.Contains(shape)) plates.Add((shape, shape.Fill, shape.Edge, litBands.Contains(shape)));
+                if (!ours.Contains(shape)) plates.Add((shape, shape.Fill, shape.Edge, litBands.Contains(shape)));
             platesAt = -1f;
+            // The changed rows' tint and rule, each run of them in the file's order, so each grows down with its rows' words.
+            litRuns.Clear();
+            var runs = new List<(int First, int Count)>();
+            foreach (var row in (panel.Lit ?? Array.Empty<int>()).Where(row => row >= 0 && row < reading.Count).Distinct().OrderBy(row => row))
+            {
+                if (runs.Count > 0 && runs[runs.Count - 1].First + runs[runs.Count - 1].Count == row) runs[runs.Count - 1] = (runs[runs.Count - 1].First, runs[runs.Count - 1].Count + 1);
+                else runs.Add((row, 1));
+            }
+            foreach (var what in new[] { "reading lit band", "reading lit rule" })
+            {
+                var drawnRuns = card.Plates.Where(each => each.What == what).Select(each => each.Plate).ToList();
+                for (var index = 0; index < drawnRuns.Count && index < runs.Count && notShown == null; index++)
+                    litRuns.Add((drawnRuns[index], drawnRuns[index].Size, drawnRuns[index].transform.localPosition, runs[index].First, runs[index].Count));
+            }
             // Where each row this read pours stands, in the card's own space: the light runs under its words.
             lightRows.Clear();
             foreach (var (label, row) in rowOf)
@@ -169,12 +191,16 @@ namespace Halcyonic.XR.UI
                 label.ForceMeshUpdate(true);
                 var bounds = label.textBounds;
                 if (bounds.size.x <= 0f) continue;
-                var left = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.min.x, bounds.center.y, 0f)));
-                var right = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.max.x, bounds.center.y, 0f)));
+                // The line under the words' baseline, the glow rising from it.
+                var left = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.min.x, bounds.min.y, 0f)));
+                var right = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.max.x, bounds.min.y, 0f)));
                 lightRows.Add((row, new Vector2(left.x, left.y), right.x - left.x));
             }
-            while (lights.Count < lightRows.Count) lights.Add(RoomShape.Create(card.transform, "Read light", KitType.Order.Words - 3));
-            for (var index = lightRows.Count; index < lights.Count; index++) lights[index].gameObject.SetActive(false);
+            while (lights.Count < lightRows.Count)
+                lights.Add(new[] { RoomShape.Create(card.transform, "Read light", KitType.Order.Words - 1) }
+                    .Concat(LightGlow.Select(_ => RoomShape.Create(card.transform, "Read light glow", KitType.Order.Words - 3))).ToArray());
+            for (var index = lightRows.Count; index < lights.Count; index++)
+                foreach (var layer in lights[index]) layer.gameObject.SetActive(false);
             Follow();
             return Size;
         }
@@ -203,35 +229,61 @@ namespace Halcyonic.XR.UI
                 if (label == null) continue;
                 var alpha = own.a * arrived * (row >= 0 ? RowShown(row) : 1f);
                 // A row this read pours arrives in the accent and settles into its own colour.
-                var settle = row >= 0 ? 1f - LightAt(row).Strength : 1f;
-                var colour = new Color(Mathf.Lerp(accent.r, own.r, settle), Mathf.Lerp(accent.g, own.g, settle), Mathf.Lerp(accent.b, own.b, settle), alpha);
+                var tint = row >= 0 ? ArriveTint * LightAt(row).Strength : 0f;
+                var colour = new Color(Mathf.Lerp(own.r, accent.r, tint), Mathf.Lerp(own.g, accent.g, tint), Mathf.Lerp(own.b, accent.b, tint), alpha);
                 if (label.color != colour) label.color = colour;
             }
             for (var index = 0; index < lightRows.Count; index++)
             {
                 var (row, left, width) = lightRows[index];
                 var (across, strength) = LightAt(row);
-                var light = lights[index];
-                var on = strength > 0.001f && kept > 0f;
-                if (light.gameObject.activeSelf != on) light.gameObject.SetActive(on);
+                var layers = lights[index];
+                var on = strength > 0.001f && across > 0.001f && kept > 0f;
+                foreach (var layer in layers)
+                    if (layer.gameObject.activeSelf != on) layer.gameObject.SetActive(on);
                 if (!on) continue;
-                var tall = RoomType.Scaled(RoomReading.LineDp) * 0.86f;
-                var long_ = Mathf.Max(RoomType.Units(1f), width * across);
-                light.Draw(new Vector2(long_, tall), tall / 2f, new Color(accent.r, accent.g, accent.b, LightPeak * strength * arrived));
-                light.transform.localPosition = new Vector3(left.x + long_ / 2f, left.y, -RoomType.Units(0.4f));
+                var pitch = RoomType.Scaled(RoomReading.LineDp);
+                var line = RoomType.Scaled(LightLineDp);
+                var long_ = Mathf.Max(line, width * across);
+                layers[0].Draw(new Vector2(long_, line), line / 2f, new Color(accent.r, accent.g, accent.b, LightPeak * strength * arrived));
+                layers[0].transform.localPosition = new Vector3(left.x + long_ / 2f, left.y - line, -RoomType.Units(0.6f));
+                // The glow grows with the run, so the light's start is never a block standing where words will be (no caret).
+                for (var glow = 0; glow < LightGlow.Length; glow++)
+                {
+                    var tall = pitch * LightGlow[glow].Tall;
+                    layers[glow + 1].Draw(new Vector2(long_, tall), Mathf.Min(tall, long_) / 2f, new Color(accent.r, accent.g, accent.b, LightGlow[glow].Alpha * strength * across * arrived));
+                    layers[glow + 1].transform.localPosition = new Vector3(left.x + long_ / 2f, left.y - line + tall / 2f, -RoomType.Units(0.4f));
+                }
             }
             // The card, its words and its well, stands only while it shows: gone once the fold has taken its words.
             var cardShown = kept > 0f;
             if (card.gameObject.activeSelf != cardShown) card.gameObject.SetActive(cardShown);
-            var glow = LitGlow();
-            var drawnAt = arrived + glow * 10f;
+            // A changed row's tint comes with its words, never before them: each run grows down as its rows pour in.
+            var litOf = new Dictionary<RoomShape, (Color Fill, Color Edge)>();
+            foreach (var (shape, fill, edge, lit) in plates) if (lit && shape != null) litOf[shape] = (fill, edge);
+            var poured = 0f;
+            foreach (var (plate, size, at, first, count) in litRuns)
+            {
+                if (plate == null || !litOf.TryGetValue(plate, out var look)) continue;
+                var rowsIn = 0f;
+                for (var row = first; row < first + count; row++) rowsIn += RowShown(row);
+                poured += rowsIn;
+                var pitch = size.y / count;
+                var tall = Mathf.Max(0f, pitch * rowsIn);
+                var on = tall > 0.0001f;
+                if (plate.gameObject.activeSelf != on) plate.gameObject.SetActive(on);
+                if (!on) continue;
+                var top = at.y + size.y / 2f;
+                plate.Draw(new Vector2(size.x, tall), Mathf.Min(plate.CornerRadius, tall / 2f), Faded(look.Fill, arrived), Faded(look.Edge, arrived), plate.EdgeWidth);
+                plate.transform.localPosition = new Vector3(at.x, top - tall / 2f, at.z);
+            }
+            var drawnAt = arrived + poured * 7f;
             if (Mathf.Approximately(platesAt, drawnAt)) return;
             platesAt = drawnAt;
             foreach (var (shape, fill, edge, lit) in plates)
             {
-                if (shape == null) continue;
-                var shown = lit ? arrived * glow : arrived;
-                shape.Draw(shape.Size, shape.CornerRadius, Faded(fill, shown), Faded(edge, arrived), shape.EdgeWidth);
+                if (shape == null || lit) continue;
+                shape.Draw(shape.Size, shape.CornerRadius, Faded(fill, arrived), Faded(edge, arrived), shape.EdgeWidth);
             }
         }
 
@@ -243,27 +295,20 @@ namespace Halcyonic.XR.UI
         {
             if (GlazeMotion.Still || row < revealFrom) return (1f, 0f);
             var t = Clock() - revealAt - (row - revealFrom) / revealRate;
-            if (t < 0f) return (0f, 1f);
+            if (t < 0f) return (0f, 0f);
             var across = RoomMotion.Standard(Mathf.Clamp01(t / LightAcrossSeconds));
             var strength = t <= LightAcrossSeconds ? 1f : 1f - RoomMotion.Standard(Mathf.Clamp01((t - LightAcrossSeconds) / LightFadeSeconds));
             return (across, strength);
         }
 
-        /// <summary>The light under row <paramref name="row"/> as drawn now, and how wide its row's words stand; null where none runs.</summary>
+        /// <summary>The light's line under row <paramref name="row"/> as drawn now, and how wide its row's words stand; null where none runs.</summary>
         public (RoomShape Light, float Width)? LightOf(int row)
         {
             for (var index = 0; index < lightRows.Count; index++)
-                if (lightRows[index].Row == row && lights[index].gameObject.activeSelf) return (lights[index], lightRows[index].Width);
+                if (lightRows[index].Row == row && lights[index][0].gameObject.activeSelf) return (lights[index][0], lightRows[index].Width);
             return null;
         }
 
-        /// <summary>How brightly the changed rows' tint stands now, as a share of its own: brighter as the read lands, settling to 1.</summary>
-        public float LitGlow()
-        {
-            if (GlazeMotion.Still) return 1f;
-            var settled = RoomMotion.Standard(Mathf.Clamp01((Clock() - revealAt) / LitSettleSeconds));
-            return Mathf.Lerp(LitGlowPeak / RoomCardView.LitTintAlpha, 1f, settled);
-        }
 
         private static Color Faded(Color colour, float shown) => new Color(colour.r, colour.g, colour.b, colour.a * shown);
 
@@ -279,7 +324,7 @@ namespace Halcyonic.XR.UI
         public void Settle()
         {
             arrivedAt = Clock() - ArriveSeconds;
-            revealAt = Clock() - (RevealMostSeconds + LightAcrossSeconds + LightFadeSeconds + LitSettleSeconds + 1f);
+            revealAt = Clock() - (RevealMostSeconds + LightAcrossSeconds + LightFadeSeconds + 1f);
             Follow();
         }
 

@@ -3288,13 +3288,15 @@ in order, as before.
   rounded inside the well, and a 3 dp accent rule at their left, their text at 0.96). It arrives with its first read over 600 ms on the standard curve, from 0.92 of its size and 2 dp
   back, its glass, plates and words together, each word at its own alpha scaled, never overwritten; each read's new rows
   pour in top down at 18 a second, or all within a second, each over 120 ms, rows already shown staying shown. Each read
-  lands with light (`RoomWritingPanel.LightAt`, `LitGlow`): each new row runs in as a soft line of the one accent under its
-  words, left to right in 180 ms, fading over the 400 ms after, while its words arrive in the accent and settle into their
-  own colour over the same 400 ms; the changed rows' tint glows as the read lands and settles to its own over 2 s. Under
+  lands with light (`RoomWritingPanel.LightAt`): as each new row's turn comes, a thin bright accent line runs under its
+  words, left to right in 180 ms, a faint glow rising from it in two wider layers that grow with it (so its start is never
+  a caret), all fading over the 400 ms after, while its words arrive lightly tinted toward the accent (`ArriveTint` 0.35,
+  so they hold their contrast over the tint) and settle into their own colour over the same 400 ms; nothing shows before a
+  row's turn, and a changed run's tint and rule grow down with its rows' words, never standing before them. Under
   Still it cross-fades in over 200 ms where it stands and each read stands whole. A file whose text is not shown says why
   in one line (`RoomWritingPanel.NotShownWords`, the product's words) with no rows. It takes no press. Checks:
   `47-build-one`, `47-build-edited` (mid-pour, lit), `47-build-arriving` (mid-rise), `47-build-held` and `47-build-light`
-  (the light frame by frame: 0.1 s, 0.7 s, 2.7 s, drawn at 0.12 s) in
+  (the light frame by frame: 0.1 s and 0.7 s, drawn at 0.12 s), `47-build-light-after` (drawn at 0.8 s) in
   `KitRender.PartsCheck`. The arc (`RoomWritingArc`, one `WritingArc`) stands in two columns at the panel's width, 24 dp
   apart, 904 dp in all (56.5 degrees, inside the comfortable field; three panels side by side came to 103), bent round
   the eyes (`Radius`, 1 at the plane's distance: each panel's middle as far from the eyes as the arc's, turned to face
