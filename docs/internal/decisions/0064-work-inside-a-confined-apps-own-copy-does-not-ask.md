@@ -74,3 +74,9 @@ answers a complete request whose every place is a read strictly inside that one 
 (`confinedTempFolder`, never a path from the agent), resolved through links, with the reason `run_temp_read`. A write
 there, a link out of it, the folder itself, a sibling under the run's sandbox, another folder's temporary folder, or a
 request naming it with any other place still reaches the person (AUDIT3 T1 to T6). It rides protocol 3.
+
+The temporary folder counts only while it is a real folder, never a link: a run may remove its own TMPDIR and put a
+link in its place (seen by LOOP's probe under the profile), so the host takes the folder only when it is a real
+directory and resolves its parent alone. Residual, as for every answered read: between the host's answer and the
+runtime's read the run could swap the folder for a link; the read then goes where the link points, still bounded by
+the profile fixed at launch, while the journal says `run_temp_read`.
