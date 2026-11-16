@@ -377,7 +377,7 @@ export class PairingPage {
         'referrer-policy': 'no-referrer',
         'x-content-type-options': 'nosniff',
         'content-security-policy':
-          "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+          "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
       });
       const refusal = this.#refusal(request);
       if (refusal !== null) return reply.code(403).type('text/plain').send(refusal);

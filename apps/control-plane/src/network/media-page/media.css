@@ -345,6 +345,52 @@ h2.media-name {
       0 14px 28px -20px rgb(23 32 36 / 0.45);
   }
 }
+/* Once its first frame is read here, the file on its way shows it at its own shape, shaded so its words read in white
+   on any picture in either scheme; the frame rises in as the words stay. */
+.media-incoming-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: media-frame-in 420ms ease both;
+}
+/* The shade rides the sheen's own layer, which stands over the frame and under the words; at full size the sheen's
+   travel leaves it still. */
+.media-incoming.media-framed .media-sheen {
+  background-image:
+    linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.08) 50%, transparent 70%),
+    radial-gradient(ellipse at center, rgb(8 12 14 / 0.5), rgb(8 12 14 / 0.3) 70%),
+    linear-gradient(to bottom, transparent 55%, rgb(8 12 14 / 0.45));
+  background-size:
+    250% 100%,
+    100% 100%,
+    100% 100%;
+}
+.media-incoming.media-framed .media-incoming-mark {
+  background: rgb(10 14 16 / 0.5);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+  color: #ffffff;
+}
+.media-incoming.media-framed .media-incoming-words {
+  color: #ffffff;
+}
+.media-incoming.media-framed .media-incoming-name {
+  color: rgb(255 255 255 / 0.82);
+}
+.media-incoming.media-framed .media-bar {
+  background: rgb(255 255 255 / 0.24);
+}
+@keyframes media-frame-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 @keyframes media-sheen {
   from {
     background-position: 120% 0;
@@ -369,6 +415,7 @@ h2.media-name {
 @media (prefers-reduced-motion: reduce) {
   .media-sheen,
   .media-incoming-mark,
+  .media-incoming-frame,
   .media-incoming:not(.media-sending) .media-bar-fill {
     animation: none;
   }

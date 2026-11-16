@@ -11,8 +11,15 @@ let drawn = '';
 const blocks = new Map();
 /** A file this page is sending, by project id: how much of it has gone, 0 to 1. */
 const sending = new Map();
-/** The file a project's incoming tile stands for, its name and whether it is a video, by project id. */
+/**
+ * The file a project's incoming tile stands for, by project id: its name, whether it is a video, and once this page has
+ * read it here, its first frame (a canvas at the file's own shape). The frame never leaves this page.
+ */
 const chosen = new Map();
+/** The shape of the file a project last sent, held until the host's own tile for it is drawn, by project id. */
+const sentShape = new Map();
+/** The longest side a first frame is drawn at; the tile is never wider than this on the page's widest row. */
+const FRAME_SIDE = 640;
 /** Words this page itself has for a project's last add (the file never reached the host), by project id. */
 const told = new Map();
 
@@ -36,12 +43,21 @@ function glyph(id) {
 /** Sends the file's bytes, showing how much has gone; the host's answer says whether it was taken. */
 function send(projectId, file) {
   sending.set(projectId, 0);
-  chosen.set(projectId, {
+  const shown = {
     name: file.name,
     video: file.type.startsWith('video/') || /\.(mov|mp4)$/i.test(file.name),
-  });
+    frame: null,
+  };
+  chosen.set(projectId, shown);
+  sentShape.delete(projectId);
   told.delete(projectId);
   redraw();
+  firstFrame(file, shown.video).then((frame) => {
+    if (frame === null || chosen.get(projectId) !== shown) return;
+    shown.frame = frame;
+    sentShape.set(projectId, frame.width / frame.height);
+    redraw();
+  });
   const request = new XMLHttpRequest();
   request.open('POST', `/setup/media/add?project=${encodeURIComponent(projectId)}`);
   request.setRequestHeader('content-type', 'application/octet-stream');
@@ -55,7 +71,10 @@ function send(projectId, file) {
     // The incoming tile stays while the host reads the state, so it never blinks out before the host's own does.
     await refresh();
     sending.delete(projectId);
-    if (words !== null) told.set(projectId, words);
+    if (words !== null) {
+      told.set(projectId, words);
+      sentShape.delete(projectId);
+    }
     redraw();
   };
   request.addEventListener('load', () => {
@@ -70,6 +89,48 @@ function send(projectId, file) {
   });
   request.addEventListener('error', () => finish("That file couldn't be sent. Try again."));
   request.send(file);
+}
+
+/**
+ * Reads the chosen file's first frame here in the browser, before the host has it: a photo decoded as it is turned, a
+ * video's first drawn frame. Null when this browser cannot read it (a HEIC in Chrome, say); the tile keeps its mark.
+ */
+async function firstFrame(file, video) {
+  let source = null;
+  let url = null;
+  try {
+    if (video) {
+      url = URL.createObjectURL(file);
+      const player = document.createElement('video');
+      player.muted = true;
+      player.playsInline = true;
+      player.preload = 'auto';
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(reject, 10000);
+        player.addEventListener('loadeddata', () => resolve(clearTimeout(timer)), { once: true });
+        player.addEventListener('error', () => reject(clearTimeout(timer)), { once: true });
+        player.src = url;
+      });
+      source = await createImageBitmap(player);
+      player.removeAttribute('src');
+      player.load();
+    } else {
+      source = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    }
+    if (source.width === 0 || source.height === 0) return null;
+    const scale = Math.min(1, FRAME_SIDE / Math.max(source.width, source.height));
+    const canvas = el('canvas', 'media-incoming-frame');
+    canvas.width = Math.max(1, Math.round(source.width * scale));
+    canvas.height = Math.max(1, Math.round(source.height * scale));
+    canvas.setAttribute('aria-hidden', 'true');
+    canvas.getContext('2d')?.drawImage(source, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  } catch {
+    return null;
+  } finally {
+    source?.close?.();
+    if (url !== null) URL.revokeObjectURL(url);
+  }
 }
 
 function choose(block) {
@@ -93,6 +154,15 @@ function incomingTile() {
 function setIncoming(node, fraction, file) {
   const sent = fraction !== null;
   const kind = file?.video === true ? 'g-video' : 'g-photo';
+  // Once its first frame is read, the tile stands at the file's own shape with the frame under its words.
+  const frame = file?.frame ?? null;
+  const held = node.querySelector('.media-incoming-frame');
+  if (held !== frame) {
+    held?.remove();
+    if (frame !== null) node.prepend(frame);
+  }
+  node.classList.toggle('media-framed', frame !== null);
+  node.style.setProperty('--ratio', frame === null ? '0.75' : String(frame.width / frame.height));
   const mark = node.querySelector('.media-incoming-mark');
   if (mark.dataset.kind !== kind) {
     mark.dataset.kind = kind;
@@ -104,9 +174,10 @@ function setIncoming(node, fraction, file) {
   node.querySelector('.media-bar-fill').style.transform = `scaleX(${sent ? fraction : 1})`;
 }
 
-function tile(projectId, medium) {
+function tile(projectId, medium, shape) {
   const node = el('div', medium.video ? 'media-tile media-video' : 'media-tile');
-  node.style.setProperty('--ratio', '0.75');
+  // Takes the shape of the file sent from this page while its still loads, so the row does not move as it lands.
+  node.style.setProperty('--ratio', String(shape ?? 0.75));
   if (medium.still !== null) {
     const image = el('img', 'media-still');
     image.alt = '';
@@ -256,10 +327,17 @@ function update(kept, project) {
   } else {
     chosen.delete(project.project_id);
   }
+  const newest = media.findIndex((_medium, index) => index !== waiting);
   media.forEach((medium, index) => {
     if (index === waiting) return;
     const key = `${medium.path}|${medium.still}|${medium.play}|${medium.prepared}`;
-    const node = kept.tiles.get(key) ?? tile(project.project_id, medium);
+    let node = kept.tiles.get(key);
+    if (node === undefined) {
+      // A new tile in the newest place is the one this page sent (one add at a time): it takes that file's shape.
+      const shape = index === newest ? sentShape.get(project.project_id) : undefined;
+      node = tile(project.project_id, medium, shape);
+      if (shape !== undefined) sentShape.delete(project.project_id);
+    }
     kept.tiles.set(key, node);
     wanted.push(node);
   });

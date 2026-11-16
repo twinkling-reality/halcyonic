@@ -436,6 +436,10 @@ describe('what the page will not show or serve', () => {
     assert.equal(font.status, 200);
     assert.equal(font.headers['content-type'], 'font/ttf');
     assert.match(String(font.headers['content-security-policy']), /font-src 'self'/);
+    // Photos and Videos reads a chosen video's first frame from the file itself, before it is sent: only a blob of this
+    // page's own making, never another place.
+    assert.match(String(font.headers['content-security-policy']), /media-src 'self' blob:;/);
+    assert.match(String(font.headers['content-security-policy']), /img-src 'self';/);
     // Halora's mark in the tab, the same file for every page this server shows (setup, usage, photos and videos).
     for (const icon of ['/icon-32.png', '/icon-64.png']) {
       const answer = await call(page(server).port, 'GET', icon, {
