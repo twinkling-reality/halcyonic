@@ -95,7 +95,7 @@ describe('a picture read as a sky over a ground', () => {
     assert.ok(b - r < 45, `but only by a quarter: ${c.top}`);
   });
 
-  test('moved to dusk: a deep blue overhead, a warm glow at the horizon, a dim ground', () => {
+  test('moved to dusk: a deep blue overhead, a warm glow at the horizon, the ground still its own warm sand', () => {
     const as = pictureColours(picture(32, 60, noon), 32, 60);
     const dusk = pictureColours(picture(32, 60, noon), 32, 60, { hour: 'dusk' });
     const [tr, tg, tb] = rgb(dusk.top);
@@ -103,9 +103,15 @@ describe('a picture read as a sky over a ground', () => {
     const [hr, , hb] = rgb(dusk.horizon);
     assert.ok(hr > hb, `the horizon is warm: ${dusk.horizon}`);
     const sum = (hex: string) => rgb(hex).reduce((a, v) => a + v, 0);
-    assert.ok(sum(dusk.near) < sum(as.near) * 0.75, 'the near ground is dimmer');
+    assert.ok(sum(dusk.near) < sum(as.near), 'the near ground is a little dimmer');
+    // Warmer, not cooler: red over blue grows (as a ratio, since dusk also dims it), so a golden video's sand stays
+    // golden at dusk.
+    const [ar, , ab] = rgb(as.near);
     const [nr, , nb] = rgb(dusk.near);
-    assert.ok(nr > nb + 20, `the near ground keeps its sand: ${dusk.near}`);
+    assert.ok(
+      nr / nb >= ar / ab,
+      `the near ground stays as warm or warmer: ${as.near} to ${dusk.near}`,
+    );
     assert.equal(dusk.horizonAt, as.horizonAt);
   });
 

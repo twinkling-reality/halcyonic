@@ -22,7 +22,10 @@ export interface PictureColours {
   readonly horizonAt: number;
 }
 
-/** An hour to move the picture's light to: as it was, or dusk (a deep blue overhead, a warm low glow, a dim ground). */
+/**
+ * An hour to move the picture's light to: as it was, or dusk (a deep blue overhead, a warm low glow, the ground kept in
+ * its own warm colours, a little dimmer and more golden, never turned cool).
+ */
 export type Hour = 'as-is' | 'dusk';
 
 type Rgb = [number, number, number];
@@ -79,8 +82,8 @@ function toDusk(c: PictureColoursRgb): PictureColoursRgb {
     top: mix(c.top, DUSK_TOP, 0.75),
     middle: mix(c.middle, DUSK_MIDDLE, 0.6),
     horizon: mix(c.horizon, DUSK_GLOW, 0.45),
-    far: mix(c.far, DUSK_MIDDLE, 0.15).map((v) => v * 0.72) as Rgb,
-    near: mix(c.near, DUSK_GLOW, 0.1).map((v) => v * 0.62) as Rgb,
+    far: mix(c.far, DUSK_GLOW, 0.22).map((v) => v * 0.84) as Rgb,
+    near: mix(c.near, DUSK_GLOW, 0.2).map((v) => v * 0.8) as Rgb,
     light: mix(c.light, DUSK_GLOW, 0.5),
     horizonAt: c.horizonAt,
   };

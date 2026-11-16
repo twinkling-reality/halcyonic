@@ -332,7 +332,7 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
       }
       glow.begin();
       spill.copy(own).multiplyScalar(0.8);
-      glow.add(0, 0.02, 0, width * 0.9, 0.04, spill, 0.45 * eased);
+      glow.add(0, 0.02, 0, width * 0.9, 0.04, spill, 0);
       glow.end();
       if (ground?.light !== undefined) {
         // Its light on the sand under it and in front of it, toward the person.
@@ -343,7 +343,7 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
       ground?.shade?.(at.x, at.z, 0.5 * eased);
       if (ground !== null) {
         const sand = ground.height(at.x, at.z);
-        ground.castShadow?.(at.x, at.z, body.position.y - sand, body.position.y - sand + height, width, 0.3 * eased);
+        ground.castShadow?.(at.x, at.z, body.position.y - sand, body.position.y - sand + height, width, 0.2 * eased);
       }
     },
   };
