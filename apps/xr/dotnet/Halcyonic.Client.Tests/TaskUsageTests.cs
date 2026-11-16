@@ -28,7 +28,7 @@ public class TaskUsageTests
     public void UnknownIsSaidNeverZero()
     {
         Assert.That(TaskUsage.Tokens(null, true).Value, Is.EqualTo(TaskUsage.NotReportedYet));
-        Assert.That(TaskUsage.Tokens(null, null).Value, Is.EqualTo(TaskUsage.NotReportedYet));
+        Assert.That(TaskUsage.Tokens(null, null).Value, Is.EqualTo(TaskUsage.NotReportedByThisApp), "an app that does not say it reports is not counted as reporting");
         Assert.That(TaskUsage.Tokens(null, false).Value, Is.EqualTo(TaskUsage.NotReportedByThisApp));
         var none = TaskUsage.Tokens(Usage(null, null, null, null), true);
         Assert.That((none.Value, none.Known), Is.EqualTo((TaskUsage.NotKnown, false)));

@@ -53,12 +53,14 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The tokens figure for <paramref name="usage"/>, where <paramref name="reportsUsage"/> says whether the task's agent
-        /// app reports usage at all (RuntimeDescriptor.reports_usage; null where not known).
+        /// app reports usage at all (RuntimeDescriptor.reports_usage; only true counts as reporting).
         /// </summary>
         public static TaskUsageFigure Tokens(RunUsage? usage, bool? reportsUsage)
         {
             if (usage == null)
-                return new TaskUsageFigure(TokensUsed, reportsUsage == false ? NotReportedByThisApp : NotReportedYet, Array.Empty<string>(), false);
+                // An app reports only where its descriptor says so: absent or unknown is not reporting (the Mac page's rule,
+                // usage-page.ts at reports_usage === true; LINK's read, 2026-11-16 03:47Z).
+                return new TaskUsageFigure(TokensUsed, reportsUsage == true ? NotReportedYet : NotReportedByThisApp, Array.Empty<string>(), false);
             var parts = new[] { usage.Tokens.Input, usage.Tokens.CacheRead, usage.Tokens.CacheWrite, usage.Tokens.Output };
             long sum = 0;
             var given = 0;
