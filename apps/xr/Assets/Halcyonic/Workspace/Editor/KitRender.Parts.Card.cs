@@ -23,7 +23,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
         {
-            var frame = new MenuFrame("History", new Footer(new Prompt(Footer.Close, "Back", GlazeIcon.Back, PromptKind.Close)));
+            var frame = new MenuFrame(HistoryText.Title, new Footer(new Prompt(Footer.Close, "Back", GlazeIcon.Back, PromptKind.Close)));
             return new KitControl(KitPlace.Choice, frame, "history-pick", key, key, null, available: true, reason: null, holds: false);
         }
 
@@ -236,7 +236,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }),
                 // A file's state with no line: its own mark, its title centred on it.
                 "47-card-file-state" => new RoomCard(Theirs("sky.png"), status: new RoomCardStatus("Not Text", null, RoomTone.Quiet), titleMono: true),
-                "47-card-history" => new RoomCard(Ours("History"), Ours("Pick a moment to restore."), list: new[]
+                "47-card-history" => new RoomCard(Ours(HistoryText.Title), Ours("Pick a moment to restore."), list: new[]
                 {
                     new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Tail") + Ours(" Worked"), "18:40", press: CardRowControl("c1")),
                     new RoomListRow(RoomKind.Started, Ours("Before ") + Theirs("Tail") + Ours(" Started"), "18:12", press: CardRowControl("c2")),

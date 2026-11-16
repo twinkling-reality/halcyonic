@@ -31,6 +31,13 @@ added." (the host's own); a project at its most, "This project already holds as 
 keep. Add it to another project." (`WorkspaceText`, AUDIT2's words). On the task, each is its file's own name, as the person's, with the
 still the host made of it where it made one (`TaskMedia`).
 
+## Result pages, 2026-11-16 (AUDIT2's reader 4)
+
+Changes says under its title "What this task changed in the project." (the title already names the task). A failed
+check's line names the step it stopped at by the row's own word ("The check stopped at Build."), else "The
+computer's check stopped on a step". The project's kept versions are "Earlier Versions" (History until 2026-11-16:
+a newcomer could not tell history of what).
+
 ## The worker by its role
 
 On the headset's own surfaces the worker is named by its role, "Agent": on the agent action at rest, on the plate
@@ -438,7 +445,7 @@ within reach (Reset Position). Read title shows the retained task's complete out
 
 Write Instruction opens Your Instruction. An empty keyboard field says Instruction; without a
 keyboard it says Hold to Talk. Keyboard Done and completed transcription save only local
-words. The explicit action is Send Instruction. Recorded or generic instruction choices lead to
+words. The explicit action is Send (Send Instruction until 2026-11-16: one name for the action, AUDIT2). Recorded or generic instruction choices lead to
 Review Instruction, which copies a local draft; choosing or reviewing never sends. Cancel discards
 that draft locally. A spoken draft retains its additional reviewed Confirm after Send Instruction,
 including after a keyboard edit. Read Full Instruction explains an unread draft, as the locked Send's own word in the kit; Answer Approval

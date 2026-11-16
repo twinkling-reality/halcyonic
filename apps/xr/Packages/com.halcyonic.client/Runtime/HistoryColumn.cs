@@ -484,7 +484,7 @@ namespace Halcyonic.Client
     /// <summary>History's words, from FIELD's parts note of 2026-11-11 (A14 as cards, in A17's terms; Go Back is Restore).</summary>
     public static class HistoryText
     {
-        public const string Title = "History";
+        public const string Title = "Earlier Versions";
         public const string Description = "Pick a moment to restore.";
         public const string CanUndo = "You can undo this.";
         public const string Reading = "Reading History";

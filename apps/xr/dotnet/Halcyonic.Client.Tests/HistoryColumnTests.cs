@@ -86,7 +86,7 @@ public class HistoryColumnTests
         var column = Column(out _);
         Assert.That(column.Stage, Is.EqualTo(HistoryStage.Versions));
         var card = column.Card()!;
-        Assert.That(card.Title!.Text, Is.EqualTo("History"));
+        Assert.That(card.Title!.Text, Is.EqualTo("Earlier Versions"));
         Assert.That(card.Description!.Text, Is.EqualTo("Pick a moment to restore."));
         Assert.That(card.List.Select(row => row.Name.Text), Is.EqualTo(new[] { "After Tail Worked", "Before Tail Started" }));
         Assert.That(card.List.Select(row => row.Note), Is.EqualTo(new[] { "18:40", "18:12" }));

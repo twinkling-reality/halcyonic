@@ -8,6 +8,9 @@ namespace Halcyonic.Client
 {
     public static partial class FileScreens
     {
+        /// <summary>The instruction's send, one name for the action (AUDIT2, 2026-11-16 03:23Z W2); "Send This?" asks over heard words.</summary>
+        public const string SendWords = "Send";
+
         public const string BackInstructionNotice = "instruction-notice-back";
         public const string NextInstructionNotice = "instruction-notice-next";
         public const string EditInstruction = "instruction-edit";
@@ -67,7 +70,7 @@ namespace Halcyonic.Client
                 rare: screen.InstructionHideOffered ? new Prompt(CancelInstruction, "Discard Draft", GlazeIcon.Close) : null,
                 secondary: screen.Speak ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true,
                     available: WhyNoInstruction(workspace) == null, reason: WhyNoInstruction(workspace)) : null,
-                farRight: new Prompt(SendInstruction, screen.StartsNewRun ? StartNewRun : "Send Instruction", GlazeIcon.TellIt, main: true,
+                farRight: new Prompt(SendInstruction, screen.StartsNewRun ? StartNewRun : SendWords, GlazeIcon.TellIt, main: true,
                     available: reason == null, reason: reason)));
         }
 

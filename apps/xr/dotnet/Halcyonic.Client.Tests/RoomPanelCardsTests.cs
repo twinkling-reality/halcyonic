@@ -86,8 +86,8 @@ public sealed class RoomPanelCardsTests
     {
         var card = RoomPanelCards.Changes(new RoomResult(false, true, false, true, Turn(Observed), Steps()), Task);
         Assert.That(card.Title!.Text, Is.EqualTo(RoomPanelCards.ChangesTitle));
-        Assert.That(card.Description!.Text, Is.EqualTo("What Golden Balloon did to the project."));
-        Assert.That(card.Description.Runs.Any(run => run.Theirs), "the task's name leans inside our sentence");
+        Assert.That(card.Description!.Text, Is.EqualTo(RoomPanelCards.ChangesLine), "the title names the task; the line says what the page is");
+        Assert.That(card.Description.Runs.Any(run => run.Theirs), Is.False, "the line is ours alone: the task's name stands in the title above, never again in the line");
         Assert.That(card.List.Select(row => (row.Kind, row.Name.Text, row.Note)), Is.EquivalentTo(new[]
         {
             (RoomKind.Added, "src/stars.ts", (string?)"New"), (RoomKind.Changed, "src/game.ts", "Edited"), (RoomKind.Removed, "assets/old.png", "Removed"),
@@ -131,6 +131,8 @@ public sealed class RoomPanelCardsTests
         Assert.That((failed.PartlyChecked, failed.Finding), Is.EqualTo((false, (string?)null)));
         Assert.That(RoomPanelCards.Checks(failed).Status!.Value.Title, Is.EqualTo(RoomPanelCards.ChecksFailed));
         Assert.That(RoomPanelCards.Checks(failed).Description, Is.Null);
+        Assert.That(RoomPanelCards.Checks(failed).Status!.Value.Line, Is.EqualTo("The check stopped at " + RoomResult.StepWords(CheckStepKind.Build) + "."),
+            "a failed check names the step it stopped at, by the row's own word (AUDIT2's W5)");
     }
 
     [Test]

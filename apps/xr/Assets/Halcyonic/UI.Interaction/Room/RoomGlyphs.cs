@@ -357,14 +357,14 @@ namespace Halcyonic.XR.UI
 
         private static readonly Dictionary<string, RoomGlyph> named = new Dictionary<string, RoomGlyph>
         {
-            ["Send Instruction"] = RoomGlyph.Send, ["Send Answer"] = RoomGlyph.Send, ["Hold to Talk"] = RoomGlyph.Microphone, ["Talk Again"] = RoomGlyph.Microphone,
+            ["Send Instruction"] = RoomGlyph.Send, ["Send"] = RoomGlyph.Send, ["Send Answer"] = RoomGlyph.Send, ["Hold to Talk"] = RoomGlyph.Microphone, ["Talk Again"] = RoomGlyph.Microphone,
             ["Type"] = RoomGlyph.Keyboard, ["Stop"] = RoomGlyph.Stop, ["Approve"] = RoomGlyph.Check, ["Deny"] = RoomGlyph.Barred, ["Cancel"] = RoomGlyph.Cross, ["Close"] = RoomGlyph.Cross,
             ["Discard Draft"] = RoomGlyph.Cross,
             ["Make VR Version"] = RoomGlyph.Cube, ["Changes"] = RoomGlyph.Changes, ["Checks"] = RoomGlyph.Checks, ["Back"] = RoomGlyph.Back, ["Next Part"] = RoomGlyph.Next,
             ["Next Page"] = RoomGlyph.Next, ["Next Choices"] = RoomGlyph.Next, ["Previous Part"] = RoomGlyph.Previous, ["Try Build"] = RoomGlyph.Play,
             ["New Project"] = RoomGlyph.Plus, ["Request Change"] = RoomGlyph.Pencil, ["Write Instruction"] = RoomGlyph.Bubble, ["Continue"] = RoomGlyph.Continue,
             ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings,
-            ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock,
+            ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock, ["Earlier Versions"] = RoomGlyph.Clock,
             ["Previous Page"] = RoomGlyph.Previous, ["First Page"] = RoomGlyph.Previous, ["First Part"] = RoomGlyph.Previous, ["Compact"] = RoomGlyph.Next, ["Open Workspace"] = RoomGlyph.Previous, ["Projects"] = RoomGlyph.Back,
             ["Carry Out Plan"] = RoomGlyph.Continue,
             // SCREENS's Start From takes the cube, as Make VR Version (the addendum's A16).

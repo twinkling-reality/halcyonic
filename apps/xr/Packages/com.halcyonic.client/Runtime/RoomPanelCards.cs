@@ -86,7 +86,8 @@ namespace Halcyonic.Client
                 LineWords.Theirs(change.Path),
                 change.Kind == RoomChangeKind.Made ? NewNote : change.Kind == RoomChangeKind.Removed ? RemovedNote : EditedNote,
                 mono: true, press: press?.Invoke(change))).ToList();
-            return new RoomCard(LineWords.Ours(ChangesTitle), LineWords.Ours("What ") + task + LineWords.Ours(" did to the project."), list: rows);
+            // The title above already names the task: the line says what it is (AUDIT2, 2026-11-16 03:23Z W3).
+            return new RoomCard(LineWords.Ours(ChangesTitle), LineWords.Ours(ChangesLine), list: rows);
         }
 
         /// <summary>
@@ -94,6 +95,15 @@ namespace Halcyonic.Client
         /// nodes, in order, those never reached included: dim where the run ended, waiting where it still runs. A chain of
         /// tries hangs its pips on the failed step.
         /// </summary>
+        /// <summary>Changes' line under its title (AUDIT2's W3).</summary>
+        public const string ChangesLine = "What this task changed in the project.";
+
+        /// <summary>A failed check's line: the step it stopped at by the row's own word (AUDIT2's W5), else that it stopped on a step.</summary>
+        public static string StoppedAt(RoomResult result) =>
+            result.StepFacts.FirstOrDefault(step => step.Tone == RoomStepTone.Failed) is { } failed && !string.IsNullOrEmpty(failed.Name)
+                ? "The check stopped at " + failed.Name + "."
+                : "The computer's check stopped on a step";
+
         public static RoomCard Checks(RoomResult result, AutoFixView? fix = null)
         {
             var fixing = fix?.State == AutoFixViewState.Fixing;
@@ -113,7 +123,7 @@ namespace Halcyonic.Client
             {
                 true => new RoomCardStatus(AllPassing, fix?.Reason == AutoFixEndReason.Passed ? RoomBar.FixedLine : "Every check the computer ran passed", RoomTone.Good),
                 false when fixing => new RoomCardStatus(RoomBar.FixingTitle, RoomBar.FixingLine, RoomTone.Working),
-                false => new RoomCardStatus(ChecksFailed, fix?.Reason == AutoFixEndReason.CapReached ? RoomBar.StoppedLine : "The computer's check stopped on a step", RoomTone.Bad),
+                false => new RoomCardStatus(ChecksFailed, fix?.Reason == AutoFixEndReason.CapReached ? RoomBar.StoppedLine : StoppedAt(result), RoomTone.Bad),
                 null when result.PartlyChecked => new RoomCardStatus(KitMomentWords.PartlyChecked, KitMomentWords.PartlyCheckedLine, RoomTone.Quiet),
                 _ => (RoomCardStatus?)null,
             };
