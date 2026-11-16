@@ -11,7 +11,7 @@ const BUTTONS = ['left', 'middle', 'right'];
 const ENDED = {
   closed: { title: 'Game Closed', why: null },
   preview_stopped: { title: 'Game Ended', why: 'Preview Stopped' },
-  newer_check: { title: 'Game Ended', why: 'Newer Check' },
+  newer_check: { title: 'Game Ended', why: 'Replaced by a Newer Check' },
   host_stopped: { title: 'Game Ended', why: 'Computer Stopped' },
   failed: { title: 'Game Ended', why: 'Browser Failed' },
 };
@@ -21,7 +21,7 @@ const LOST = { title: 'Game Closed', why: 'Connection Lost' };
 const SOUND = {
   playing: 'Sound On',
   quiet: 'Sound Paused',
-  none: 'No Sound',
+  none: 'Silent Game',
 };
 
 const status = document.getElementById('status');

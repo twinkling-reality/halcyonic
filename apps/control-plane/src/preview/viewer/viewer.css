@@ -111,6 +111,12 @@ main {
   margin: 0;
   color: var(--secondary);
 }
+.ended-next {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--secondary);
+  opacity: 0.75;
+}
 .ended[hidden],
 .ended-why[hidden],
 .sound[hidden],
