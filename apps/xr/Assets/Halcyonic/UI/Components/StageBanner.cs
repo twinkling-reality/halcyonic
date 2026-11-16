@@ -134,11 +134,12 @@ namespace Halcyonic.XR.UI
                 bottom -= GlazeText.LineHeight(waiting);
                 width = Mathf.Max(width, waitingWidth);
             }
-            foreach (var (label, said, most) in new[] { (this.notShown, notShown == null ? null : LineWords.Ours(notShown), 1), (this.stillOpen, stillOpen, 2) })
+            // Each laid whole, wrapped, never cut (AUDIT2's 04:52Z: "Still Open: <name>" whole; nothing of a name is cut on a screen).
+            foreach (var (label, said, most) in new[] { (this.notShown, notShown == null ? null : LineWords.Ours(notShown), 2), (this.stillOpen, stillOpen, 3) })
             {
                 label.gameObject.SetActive(said != null);
                 if (said == null) continue;
-                var theirs = GlazeRuns.Of(label).Set(said, shown => GlazeText.Lay(label, room, 99).Lines <= most);
+                var theirs = GlazeRuns.Of(label).Set(said);
                 var (saidLines, saidWidth) = GlazeText.Lay(label, room, most);
                 label.transform.localPosition = new Vector3(0f, bottom, -0.001f);
                 if (label == this.stillOpen) GlazeRuns.TokenGrounds(label, theirs, stillOpenGrounds, transform, 1);
