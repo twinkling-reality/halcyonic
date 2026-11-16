@@ -35,9 +35,15 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private const int Width = 2800;
-        private const int Height = 2520;
-        private const float VerticalFieldOfView = 90f;
+        /// <summary>
+        /// The film's renders (HALCYONIC_KIT_FILM=1; the lead's 2026-11-16 06:49Z for FILM's "How it works"): 3840 by 2160, the
+        /// view narrowed so the panels fill about the middle half of the frame head on, and no Editor caption, so a frame is the
+        /// product's own screen as it draws it. Every check runs as ever. Off, the renders are the headset's field as before.
+        /// </summary>
+        private static readonly bool Film = Environment.GetEnvironmentVariable("HALCYONIC_KIT_FILM") == "1";
+        private static readonly int Width = Film ? 3840 : 2800;
+        private static readonly int Height = Film ? 2160 : 2520;
+        private static readonly float VerticalFieldOfView = Film ? 46f : 90f;
         private const float EyeHeight = 1.2f;
         private const int KitLayer = 30;
 
@@ -224,7 +230,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
 
                 var camera = MakeCamera(fixture.transform, eyes, target, shot.Yaw, shot.Elevation);
-                Caption(fixture.transform, camera, shot.Caption + " · " + size + " text");
+                if (!Film) Caption(fixture.transform, camera, shot.Caption + " · " + size + " text");
                 SetLayer(fixture, KitLayer);
                 ForceMeshes(fixture);
                 var image = Render(camera, target);
