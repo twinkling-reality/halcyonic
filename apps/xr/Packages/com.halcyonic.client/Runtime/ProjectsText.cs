@@ -147,12 +147,15 @@ namespace Halcyonic.Client
             var parts = new List<LineWords>();
             // Every part begins with Halcyonic's words, so the fact's first letter is always Halcyonic's to capitalise.
             LineWords Lead(string words) => LineWords.Ours(parts.Count == 0 ? Sentence(words) : words);
-            if (folder.LooksLikeAnother) parts.Add(Lead(ConnectText.LooksLikeAnother));
             if (folder.Repository == null) parts.Add(Lead(CantTell));
             else if (manyPlaces) parts.Add(Lead("In ") + LineWords.TheirName(folder.RootName));
             else if (folder.Repository == true) parts.Add(Lead(Repository));
             if (folder.ChangedAt != null) parts.Add(Lead("Changed " + ConnectText.Ago(folder.ChangedAt.Value, now, zone)));
-            return parts.Count == 0 ? null : parts.Aggregate((said, next) => said + LineWords.Ours(" · ") + next);
+            // The look-alike mark is its own sentence ("Similar Name."), then the facts after commas, never on a dot.
+            var facts = parts.Count == 0 ? null : parts.Aggregate((said, next) => said + LineWords.Ours(", ") + next);
+            if (!folder.LooksLikeAnother) return facts;
+            var mark = LineWords.Ours(ConnectText.LooksLikeAnother + ".");
+            return facts == null ? mark : mark + LineWords.Ours(" ") + facts;
         }
 
         /// <summary>A sentence of Halcyonic's own, begun with a capital, as a side panel's value.</summary>

@@ -174,7 +174,7 @@ namespace Halcyonic.Client
                 if (Runtime == null || !Runtime.Capabilities.StartExecution) return "Choose Agent App";
                 if (Runtime.ModelChoice == ModelChoice.Listed && Model == null) return ModelProblem ?? "Choose Model";
                 if (string.IsNullOrWhiteSpace(Objective)) return "Type Goal";
-                if (Objective.Length > 4000) return "Goal · Up to 4,000 Characters";
+                if (Objective.Length > 4000) return "A goal can be up to 4,000 characters.";
                 return null;
             }
         }

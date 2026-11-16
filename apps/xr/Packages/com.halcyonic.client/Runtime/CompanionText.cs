@@ -26,10 +26,10 @@ namespace Halcyonic.Client
         /// three rows of a 26 degree column and a note has two; the side panel's Change stands beside it
         /// (the coordinator, 2026-10-03).
         /// </summary>
-        public const string SideNote = "Suggested · Local AI · May Be Wrong";
+        public const string SideNote = "Suggested by the AI on your computer. It can be wrong.";
 
         /// <summary>The companion's line, quoted and tagged as its own.</summary>
-        public static string Says(string line) => "Companion · " + LabelText.Plain(line);
+        public static string Says(string line) => "Companion: " + LabelText.Plain(line);
 
         public const string ThinksUnclear = "That wasn't clear. Say it another way.";
         public const string ThinksNotBuildable = "That doesn't sound like something software can do. Try another idea.";
@@ -72,7 +72,7 @@ namespace Halcyonic.Client
         public const string TypeAnswer = "Type Answer";
 
         /// <summary>Under a name or first task the companion proposed, until the person changes it.</summary>
-        public const string Suggested = "Suggested · Companion";
+        public const string Suggested = "Suggested by Companion";
 
         /// <summary>The small fact beside a recap fact the companion suggested, while its suggestion stands (ADR 0026).</summary>
         public const string SuggestedShort = "Suggested";

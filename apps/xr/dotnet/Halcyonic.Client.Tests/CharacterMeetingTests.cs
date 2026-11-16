@@ -35,9 +35,9 @@ public class CharacterMeetingTests
     {
         var a = Task("a", "p1", -0.3, files: new[] { "src/towers.ts", "src/a.ts" });
         var b = Task("b", "p2", 0.3, files: new[] { "src/towers.ts" });
-        Assert.That(CharacterMeetings.LinkOf(a, b), Is.EqualTo("Shared · src/towers.ts"));
+        Assert.That(CharacterMeetings.LinkOf(a, b), Is.EqualTo("Shared: src/towers.ts"));
         var sameProject = Task("c", "p1", 0.3, files: new[] { "src/towers.ts" });
-        Assert.That(CharacterMeetings.LinkOf(a, sameProject), Is.EqualTo("Shared · src/towers.ts"), "the file says more than the project");
+        Assert.That(CharacterMeetings.LinkOf(a, sameProject), Is.EqualTo("Shared: src/towers.ts"), "the file says more than the project");
     }
 
     [Test]

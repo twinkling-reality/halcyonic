@@ -780,7 +780,7 @@ public class NewProjectFlowTests
         flow.Close();
         flow.Open(null, null);
         await Until(flow, () => flow.Idea!.Folder!.PlaceGone);
-        Assert.That(flow.Idea!.Folder!.Describe(), Does.Contain("Place Unlisted"), "never the label now another place's");
+        Assert.That(flow.Idea!.Folder!.Describe(), Does.Contain("its place no longer listed"), "never the label now another place's");
         var recap = flow.Frame!;
         Assert.That((recap.Footer[PromptSlot.FarRight]!.Available, recap.Reason), Is.EqualTo((false, EntryText.ChooseWhereFilesLive)));
         Press(flow, NewProjectScreens.StartBuilding, null);

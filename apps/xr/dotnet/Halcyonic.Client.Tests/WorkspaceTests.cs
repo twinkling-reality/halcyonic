@@ -125,8 +125,8 @@ public class ActivityLogTests
         log.Record(new[] { Unknown(1, "control_plane_restarted"), Unknown(2, "start_outcome_unknown") });
         Assert.That(log.For(execution).Select(entry => entry.Text), Is.EqualTo(new[]
         {
-            "Status Unknown · Computer Restarted",
-            "Status Unknown · Start Unconfirmed",
+            "Status Unknown: Computer Restarted",
+            "Status Unknown: Start Unconfirmed",
         }));
     }
 

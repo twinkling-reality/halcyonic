@@ -166,7 +166,7 @@ namespace Halcyonic.Client
         public const double FaceDegrees = 45, LeanInDegrees = 4;
 
         public const string SameProject = "Same Project";
-        public const string SharedPrefix = "Shared · ";
+        public const string SharedPrefix = "Shared: ";
 
         private readonly Dictionary<(string, string), double> lastMet = new Dictionary<(string, string), double>();
 

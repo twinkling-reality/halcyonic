@@ -83,7 +83,7 @@ public class ProjectsScreensTests
             ("Alpha", "1 task needs you", ProjectsScreens.ChooseProject),
             ("Beta", "Hidden. 1 task paused", ProjectsScreens.ChooseProject),
             (ProjectsText.FoldersHeading, null, null),
-            ("shop", "Repository · Changed 3 Days Ago", ProjectsScreens.ChooseFolder),
+            ("shop", "Repository, Changed 3 Days Ago", ProjectsScreens.ChooseFolder),
         }), "a folder a project uses is not offered");
         Assert.That(frame.Lines.Where(line => line.Action != null).All(line => line.Opens && line.WordsAreData), Is.True, "every row opens its side panel, and names are text from outside");
         Assert.That(frame.Side, Is.Null);
@@ -442,10 +442,10 @@ public class ProjectsScreensTests
             FolderConnect.Offers(listing).Select(offer => offer.Root.Path).Distinct().Count() > 1);
         Assert.That(Fact(Listing(Root("Projects", Folder("a", false, "2026-10-02T09:00:00.000Z")))), Is.EqualTo(((string?)"Changed 3 Hours Ago", false)));
         Assert.That(Fact(Listing(Root("Projects", Folder("a", true, "2026-10-02T09:00:00.000Z")), Root("Work", Folder("b", false, "2026-09-01T00:00:00.000Z")))),
-            Is.EqualTo(((string?)"In Projects · Changed 3 Hours Ago", true)), "a place's name makes the fact text from outside");
+            Is.EqualTo(((string?)"In Projects, Changed 3 Hours Ago", true)), "a place's name makes the fact text from outside");
         Assert.That(Fact(Listing(Root("Projects", Folder("a", null)))).Text, Is.EqualTo(ProjectsText.CantTell));
         Assert.That(Fact(Listing(Root("Projects", Folder("app", true, "2026-10-02T09:00:00.000Z"), Folder("APP", false, "2026-09-01T00:00:00.000Z")))).Text,
-            Is.EqualTo(ConnectText.LooksLikeAnother + " · Repository · Changed 3 Hours Ago"), "a look-alike keeps the facts that tell it apart");
+            Is.EqualTo(ConnectText.LooksLikeAnother + ". Repository, Changed 3 Hours Ago"), "a look-alike keeps the facts that tell it apart");
     }
 
     [Test]

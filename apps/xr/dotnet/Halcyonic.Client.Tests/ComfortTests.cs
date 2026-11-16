@@ -64,12 +64,12 @@ public class ComfortTests
         Assert.That((motion.Group, motion.Name), Is.EqualTo((Comfort.Heading, "Motion")));
         var moving = motion.Read();
         Assert.That((moving.Value, moving.Now, moving.Next, moving.Does, moving.Prompt), Is.EqualTo(("On", "On", "Still",
-            "Still Highlights · Characters and Badges Still", "Keep Still")));
+            "Highlights, characters and badges stay still.", "Keep Still")));
         motion.Change();
         Assert.That((comfort.Still, saves), Is.EqualTo((true, 1)));
         var still = motion.Read();
         Assert.That((still.Value, still.Now, still.Next, still.Does, still.Prompt), Is.EqualTo(("Still", "Still", "On",
-            "Waits Shimmer · Waiting Tasks Breathe · Characters Move", "Allow Motion")));
+            "Waits shimmer, waiting tasks breathe and characters move.", "Allow Motion")));
         motion.Change();
         Assert.That((comfort.Still, saves), Is.EqualTo((false, 2)));
     }

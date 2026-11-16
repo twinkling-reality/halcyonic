@@ -364,9 +364,9 @@ namespace Halcyonic.Client
                 }),
             // Its id stays moving-badges, as the row was named before Keep things still.
             new MenuSetting("moving-badges", Comfort.Heading, "Motion", () => comfort.Still
-                    ? new SettingNow("Still", "Still", "On", "Waits Shimmer · Waiting Tasks Breathe · Characters Move", comfort.MotionButton)
+                    ? new SettingNow("Still", "Still", "On", "Waits shimmer, waiting tasks breathe and characters move.", comfort.MotionButton)
                     : new SettingNow("On", "On", "Still",
-                        "Still Highlights · Characters and Badges Still", comfort.MotionButton),
+                        "Highlights, characters and badges stay still.", comfort.MotionButton),
                 () =>
                 {
                     comfort.Still = !comfort.Still;

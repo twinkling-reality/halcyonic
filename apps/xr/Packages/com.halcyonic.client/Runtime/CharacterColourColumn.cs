@@ -53,7 +53,7 @@ namespace Halcyonic.Client
             else if (id == Cancel && preview) { settings.Cancel(owner); preview = false; chosen = settings.Applied(scope); error = null; }
             else if (id == Apply && preview)
             {
-                if (!settings.Apply(owner, scope, chosen, persist)) error = "Colour Not Saved · Cancel or Retry";
+                if (!settings.Apply(owner, scope, chosen, persist)) error = "The colour wasn't saved. Cancel or Retry.";
                 else { preview = false; error = null; chosen = settings.Applied(scope); }
             }
             else return;

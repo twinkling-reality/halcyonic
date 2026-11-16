@@ -143,9 +143,9 @@ public class QuestionTests
     public void NothingIsSentUntilEveryPromptIsAnsweredAndShownWhole()
     {
         var draft = Draft(new AskingWork());
-        Assert.That(draft.Problem, Is.EqualTo("Answer All Questions · 0 of 2 Answered"));
+        Assert.That(draft.Problem, Is.EqualTo("Answer every question. 0 of 2 answered."));
         draft.Choose(0, "Dark");
-        Assert.That(draft.Problem, Is.EqualTo("Answer All Questions · 1 of 2 Answered"));
+        Assert.That(draft.Problem, Is.EqualTo("Answer every question. 1 of 2 answered."));
         draft.Choose(1, "Orders");
         Assert.That(draft.Problem, Is.EqualTo("Read Each Question"));
         draft.ShownWhole(0);
@@ -157,7 +157,7 @@ public class QuestionTests
     public void TypedTextThatCannotBeSentIsRefusedInWords()
     {
         var draft = Draft(new AskingWork());
-        Assert.That(draft.Type(0, "Dark\uD800"), Is.EqualTo("Unsendable Character · Type Again"));
+        Assert.That(draft.Type(0, "Dark\uD800"), Is.EqualTo("That has a character that can't be sent. Type it again."));
         Assert.That(draft.Typed(0), Is.Null);
         Assert.That(draft.Type(0, "Dark 🌙"), Is.Null, "whole characters outside the first plane are fine");
         Assert.That(draft.Type(0, "   "), Is.Null);
@@ -170,7 +170,7 @@ public class QuestionTests
         var work = new AskingWork();
         var steering = new WorkspaceSteering(factory);
         var draft = Draft(work);
-        Assert.That(steering.SendAnswer(draft, work.Present()).Message, Is.EqualTo("Answer All Questions · 0 of 2 Answered"));
+        Assert.That(steering.SendAnswer(draft, work.Present()).Message, Is.EqualTo("Answer every question. 0 of 2 answered."));
         Assert.That(steering.Press(WorkspaceAction.Answer, work.Present()).Step, Is.EqualTo(SteeringStep.Explain), "no answer without the answers");
         draft.Type(0, "Solarized");
         draft.Choose(1, "Sign in");

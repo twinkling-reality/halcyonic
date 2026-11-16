@@ -15,7 +15,7 @@ namespace Halcyonic.Client
         public string? Title { get; }
         public bool Previous => Count > 0 && Index != 0;
         public bool Next => Count > 0 && Index < Count - 1;
-        public string Summary => Index >= 0 ? "Showing " + (Index + 1) + " of " + Count : "Choose an agent · " + Count + " available";
+        public string Summary => Index >= 0 ? "Showing " + (Index + 1) + " of " + Count : "Choose an agent. " + Count + " available.";
     }
 
     /// <summary>One explicitly paged workstream. Selection survives rank/order changes;

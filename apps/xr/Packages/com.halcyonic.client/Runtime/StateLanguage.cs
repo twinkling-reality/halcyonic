@@ -322,9 +322,9 @@ namespace Halcyonic.Client
         /// <summary>The way on after work that couldn't start or finish where nothing can be told to it now.</summary>
         public const string AddItAgain = "Re-Add Task in Projects";
 
-        /// <summary>A state's words before a cause, in the " · " cadence: "Start Failed · No Folder · Choose Folder".</summary>
+        /// <summary>A state's words before a cause, after a colon: "Start Failed: no folder.", or "Start Failed: No Folder" for a title cause.</summary>
         internal static string Lead(string state, string why) =>
-            why.EndsWith(".", StringComparison.Ordinal) ? state + ": " + LowerFirst(why) : state + " · " + why;
+            why.EndsWith(".", StringComparison.Ordinal) ? state + ": " + LowerFirst(why) : state + ": " + why;
 
         /// <summary>A sentence after a colon with its first letter lowered, as WORDS.md does; a word of capitals (AI) stays.</summary>
         private static string LowerFirst(string why) =>
@@ -333,12 +333,15 @@ namespace Halcyonic.Client
         /// <summary>Said beside what someone other than your computer reported: the agent's own check and its words.</summary>
         public const string Reported = "Reported";
 
+        /// <summary>The agent's own check where its state word stands in a line: whose it is, never a second colon.</summary>
+        public const string AgentsCheck = "Agent's Check";
+
         /// <summary>
         /// The state's word where it stands in a line. The agent's own check says it is the agent's
-        /// report ("Checking · Reported"), so it never reads as your computer's own check (AUDIT's X17A-S1).
+        /// report ("Agent's Check", as "Agent's Question" and "Agent's Explanation" say theirs), so it never reads as your computer's own check (AUDIT's X17A-S1).
         /// </summary>
         public static string LineWordOf(CharacterPresentation presentation) =>
-            StateOf(presentation.Activity, presentation.Attention) == WorkState.CheckingItsWork ? presentation.StatusLabel + " · " + Reported : presentation.StatusLabel;
+            StateOf(presentation.Activity, presentation.Attention) == WorkState.CheckingItsWork ? AgentsCheck : presentation.StatusLabel;
 
         /// <summary>The state's word, the same on the badge, in the peek, the workspace and every list.</summary>
         public static string WordOf(WorkState state) => state switch

@@ -127,7 +127,7 @@ namespace Halcyonic.Client
             if (!Prompts[prompt].FreeText) return "Offered Answers Only";
             var trimmed = text?.Trim();
             if (string.IsNullOrEmpty(trimmed)) return null;
-            if (!IsWhole(trimmed!)) return "Unsendable Character · Type Again";
+            if (!IsWhole(trimmed!)) return "That has a character that can't be sent. Type it again.";
             return WorkspaceText.ReadsLikeOneThatCantBeChosen(Prompts[prompt], trimmed!) ? WorkspaceText.TypedReadsAlike(stopOnPage) : null;
         }
 
@@ -160,7 +160,7 @@ namespace Halcyonic.Client
                 if (unanswered > 0)
                 {
                     return Prompts.Count == 1 ? "Choose or Write First"
-                        : "Answer All Questions · " + Count(Prompts.Count - unanswered) + " of " + Count(Prompts.Count) + " Answered";
+                        : "Answer every question. " + Count(Prompts.Count - unanswered) + " of " + Count(Prompts.Count) + " answered.";
                 }
                 if (Enumerable.Range(0, Prompts.Count).Any(prompt => !shownWhole[prompt]))
                 {

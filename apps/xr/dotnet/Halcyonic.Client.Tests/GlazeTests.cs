@@ -180,7 +180,7 @@ public class StateLanguageTests
         foreach (var activity in Activities)
         {
             var character = Character(activity);
-            var expected = activity == CharacterActivity.Verifying ? "Checking · Reported" : character.StatusLabel;
+            var expected = activity == CharacterActivity.Verifying ? "Agent's Check" : character.StatusLabel;
             Assert.That(StateLanguage.LineWordOf(character), Is.EqualTo(expected), activity.ToString());
             if (activity != CharacterActivity.Verifying) Assert.That(StateLanguage.LineWordOf(character), Does.Not.Contain("Reported"), activity.ToString());
         }
@@ -465,7 +465,7 @@ public class CharacterLabelTests
         state.ApplySnapshot(Samples.Snapshot(1, new[] { workstream }, new[] { failed }, Samples.Journal()), new StateChanges());
         var character = CharacterPresenter.Present(workstream, state, live: true);
         Assert.That(character.StatusLabel, Is.EqualTo("Failed"));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "the workspace's line keeps the state's words");
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Round Failed: Write Instruction" }), "the workspace's line keeps the state's words");
         Assert.That(character.AttentionDetails, Is.EqualTo(new[] { "Write Instruction" }));
     }
 }

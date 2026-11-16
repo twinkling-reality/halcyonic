@@ -266,8 +266,9 @@ namespace Halcyonic.Client
                 _ => LineTone.Primary,
             };
             var marks = StateLanguage.MarksOf(presentation);
-            var fact = LineWords.Ours(badge.Text + (marks.Count > 0 ? " · " + string.Join(" · ", marks.Select(mark => mark.Word)) : ""));
-            if (withProject && state.Projects.TryGetValue(task.ProjectId, out var view)) fact = fact.Then(LineWords.Ours(" · ")).Then(LineWords.TheirName(view.Name));
+            // The state, then its marks, then the project, after commas: never facts strung on a dot (the owner, 2026-11-11).
+            var fact = LineWords.Ours(badge.Text + (marks.Count > 0 ? ", " + string.Join(", ", marks.Select(mark => mark.Word)) : ""));
+            if (withProject && state.Projects.TryGetValue(task.ProjectId, out var view)) fact = fact.Then(LineWords.Ours(", in ")).Then(LineWords.TheirName(view.Name));
             // A row all of outside text: the title and its project's name lean, the state's icon stays Halcyonic's.
             var room = badge.Tone switch
             {

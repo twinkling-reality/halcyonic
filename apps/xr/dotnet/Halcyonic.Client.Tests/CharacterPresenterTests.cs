@@ -87,23 +87,23 @@ public class CharacterPresenterTests
         var failedStream = Samples.Workstream("w1", WorkstreamStatus.Failed, "e1", AttentionLevel.ActionRequired, new ExecutionFailedReason { ExecutionId = "e1" });
         Assert.That(
             CharacterPresenter.Present(failedStream, StateWith(failedStream, failed), live: true).AttentionNotes,
-            Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "the way on, never the agent app's own error");
+            Is.EqualTo(new[] { "Round Failed: Write Instruction" }), "the way on, never the agent app's own error");
 
         var unknown = Samples.Execution("e2", "w2", ExecutionStatus.Unknown);
         unknown.StatusReason = new ErrorInfo { Code = "control_plane_restarted", Message = "The control plane restarted." };
         var unknownStream = Samples.Workstream("w2", WorkstreamStatus.Unknown, "e2", AttentionLevel.Notice, new ExecutionStateUnknownReason { ExecutionId = "e2" });
         var character = CharacterPresenter.Present(unknownStream, StateWith(unknownStream, unknown), live: true);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.Unknown));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Status Unknown · Computer Restarted" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Status Unknown: Computer Restarted" }));
     }
 
     /// <summary>
     /// Why it can't tell is said by the reason's code, never its message: an agent app's diagnostic names
     /// the app, a request and a path, as an old task's did on the headset on 2026-10-04.
     /// </summary>
-    [TestCase("runtime_connection_lost", "Status Unknown · Agent App Unreachable", "Agent App Unreachable")]
-    [TestCase("control_plane_restarted", "Status Unknown · Computer Restarted", "Computer Restarted")]
-    [TestCase("start_outcome_unknown", "Status Unknown · Start Unconfirmed", "Start Unconfirmed")]
+    [TestCase("runtime_connection_lost", "Status Unknown: Agent App Unreachable", "Agent App Unreachable")]
+    [TestCase("control_plane_restarted", "Status Unknown: Computer Restarted", "Computer Restarted")]
+    [TestCase("start_outcome_unknown", "Status Unknown: Start Unconfirmed", "Start Unconfirmed")]
     [TestCase("a_code_from_later", "Status Unknown", "")]
     public void WhyItCantTellIsSaidByTheReasonsCodeNeverTheAgentAppsDiagnostic(string code, string note, string why)
     {
@@ -133,7 +133,7 @@ public class CharacterPresenterTests
         workstream.Title = "<color=#00000000>Tidy</color>\tthe notes\\n";
         var character = CharacterPresenter.Present(workstream, StateWith(workstream, failed), live: true);
         Assert.That(character.Title, Is.EqualTo("<color=#00000000>Tidy</color> the notes\\n"));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "the reason's message is never shown");
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Round Failed: Write Instruction" }), "the reason's message is never shown");
     }
 
     /// <summary>
@@ -203,12 +203,12 @@ public class CharacterPresenterTests
             return execution;
         }
 
-        Assert.That(Notes(Failed("codex_internal_server_error", started: true)), Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "Tell it is offered after a failed round");
+        Assert.That(Notes(Failed("codex_internal_server_error", started: true)), Is.EqualTo(new[] { "Round Failed: Write Instruction" }), "Tell it is offered after a failed round");
         Assert.That(Notes(Failed("location_missing", started: false)), Is.EqualTo(new[]
         {
             "Start Failed: that folder can't be used. Choose another or fix it on your computer.",
         }), "a folder's problem, by its code");
-        Assert.That(Notes(Failed("codex_internal_server_error", started: false)), Is.EqualTo(new[] { "Start Failed · Re-Add Task in Projects" }));
+        Assert.That(Notes(Failed("codex_internal_server_error", started: false)), Is.EqualTo(new[] { "Start Failed: Re-Add Task in Projects" }));
 
         // Where the agent app isn't on the computer now, nothing can be told to it.
         var gone = Failed("opencode_execution_failed", started: true);
@@ -217,7 +217,7 @@ public class CharacterPresenterTests
         var snapshot = Samples.Snapshot(1, new[] { stream }, new[] { gone });
         snapshot.Runtimes.Clear();
         state.ApplySnapshot(snapshot, new StateChanges());
-        Assert.That(Notes(gone, state), Is.EqualTo(new[] { "Round Failed · Re-Add Task in Projects" }));
+        Assert.That(Notes(gone, state), Is.EqualTo(new[] { "Round Failed: Re-Add Task in Projects" }));
     }
 
     /// <summary>

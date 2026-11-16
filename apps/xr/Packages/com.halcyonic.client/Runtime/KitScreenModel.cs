@@ -84,9 +84,9 @@ namespace Halcyonic.Client
 
         public bool ShowsPicture => PictureTakenAt != null;
 
-        /// <summary>"Last Check · Today 10:38 · Observed", or with its day where that isn't today; null without a picture.</summary>
+        /// <summary>"Observed: last check Today 10:38", or with its day where that isn't today; null without a picture.</summary>
         public string? PictureLabel(DateTimeOffset now, TimeZoneInfo zone) => PictureTakenAt is DateTimeOffset taken
-            ? "Last Check · " + GalleryText.When(taken, now, zone) + " · Observed" : null;
+            ? "Observed: last check " + GalleryText.When(taken, now, zone) : null;
 
         /// <summary>The neutral mark in place of a picture.</summary>
         public string Monogram => MonogramOf(Project);

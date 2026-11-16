@@ -266,7 +266,7 @@ public class WorkspacePresentationStateTests
         var verifyingWorkstream = Samples.Workstream("ws-verify", WorkstreamStatus.Verifying, "ex-verify");
         var verifyingState = ProjectionWith(verifyingWorkstream, verifyingExecution, unconfinedProject);
         var screenVerifying = WorkspacePresentationState.ScreenOf(unconfinedProject, verifyingState, barOpen: true);
-        Assert.That(screenVerifying.State, Is.EqualTo("Checking · Reported"));
+        Assert.That(screenVerifying.State, Is.EqualTo("Agent's Check"));
     }
 
     [Test]

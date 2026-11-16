@@ -43,7 +43,7 @@ namespace Halcyonic.Client
         public const string ArrangedByRoom = "Placed by Room";
 
         /// <summary>Said once on the stage's banner, the first time the person comes back from another window while the characters stand in front.</summary>
-        public const string WindowOffer = "Window in the Way? · Move Characters";
+        public const string WindowOffer = "Window in the way? Move the characters.";
 
         /// <summary>
         /// Where the characters stand now, in a line of its own under the room's: Halcyonic can't see

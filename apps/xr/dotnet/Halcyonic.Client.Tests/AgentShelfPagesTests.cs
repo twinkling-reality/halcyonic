@@ -37,7 +37,7 @@ public class AgentShelfPagesTests
         pages.Update("one", new[] { a, b });
         pages.Update("one", new[] { b });
         Assert.That((pages.SelectedId, pages.ShownId, pages.Info.Index), Is.EqualTo(("a", (string?)null, -1)));
-        Assert.That(pages.Info.Summary, Is.EqualTo("Choose an agent · 1 available"));
+        Assert.That(pages.Info.Summary, Is.EqualTo("Choose an agent. 1 available."));
         Assert.That(pages.Move(1), Is.True);
         pages.Update("two", new[] { a, b });
         Assert.That(pages.ShownId, Is.Null, "another journal cannot retarget an old selection");

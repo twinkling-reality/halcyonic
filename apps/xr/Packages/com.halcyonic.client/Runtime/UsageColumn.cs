@@ -789,7 +789,7 @@ namespace Halcyonic.Client
         public const string PartOfTheRecording = "Part of Recording";
 
         /// <summary>A limit's Account fact: the source cannot tell accounts apart.</summary>
-        public const string NotIdentified = "Account Unknown · Any Account on Computer";
+        public const string NotIdentified = "The account isn't known. It may be any account on your computer.";
 
         /// <summary>A limit's share left as its small fact, rounded up so "at most" stays true.</summary>
         public static string Left(int left) => "Up to " + left.ToString(CultureInfo.InvariantCulture) + "% Left";

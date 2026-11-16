@@ -17,7 +17,7 @@ namespace Halcyonic.Client
         public const string Minimize = "placement-minimize";
         public const string OtherApps = "placement-other-apps";
         public const string Navigate = "placement-navigate";
-        public const string HoldInstruction = "Hold Move to Drag · Done Moving When Placed";
+        public const string HoldInstruction = "Hold Move to drag. Press Done Moving once it's placed.";
         private readonly IMenuHost host;
         private readonly Action reset;
         private readonly string? title;

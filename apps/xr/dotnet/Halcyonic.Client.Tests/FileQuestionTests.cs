@@ -154,7 +154,7 @@ public class FileQuestionTests
             ("Colour scheme: Dark", FileScreens.GoToQuestion, "0", 1),
             ("Pages: Not Answered", FileScreens.GoToQuestion, "1", 1),
         }), "each answer whole, by its prompt's name");
-        Assert.That(answers.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Answer All Questions · 1 of 2 Answered"));
+        Assert.That(answers.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Answer every question. 1 of 2 answered."));
 
         screen.Question.GoTo(1);
         Draw(screen);

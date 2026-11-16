@@ -1240,7 +1240,7 @@ public class QuestionLedWorkspaceTests
 
         // While the agent checks its own work, the line says the agent reported it (AUDIT's X17A-S1).
         work.Change(execution => execution.Status = ExecutionStatus.Verifying, WorkstreamStatus.Verifying);
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new (string?, string)[] { (null, "Nothing Waiting"), ("Latest", "Checking · Reported") }));
-        Assert.That(WorkspaceText.Latest(work.Present()).Words.Text, Is.EqualTo("Latest: Checking · Reported"));
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new (string?, string)[] { (null, "Nothing Waiting"), ("Latest", "Agent's Check") }));
+        Assert.That(WorkspaceText.Latest(work.Present()).Words.Text, Is.EqualTo("Latest: Agent's Check"));
     }
 }

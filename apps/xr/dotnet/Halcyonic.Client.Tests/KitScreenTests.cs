@@ -33,8 +33,8 @@ public class KitScreenTests
     {
         var screen = Screen(picture: At);
         Assert.That(screen.ShowsPicture, Is.True);
-        Assert.That(screen.PictureLabel(At.AddHours(2), TimeZoneInfo.Utc), Is.EqualTo("Last Check · Today 10:38 · Observed"));
-        Assert.That(screen.PictureLabel(At.AddDays(1), TimeZoneInfo.Utc), Is.EqualTo("Last Check · 29 Oct 10:38 · Observed"), "the day where it isn't today");
+        Assert.That(screen.PictureLabel(At.AddHours(2), TimeZoneInfo.Utc), Is.EqualTo("Observed: last check Today 10:38"));
+        Assert.That(screen.PictureLabel(At.AddDays(1), TimeZoneInfo.Utc), Is.EqualTo("Observed: last check 29 Oct 10:38"), "the day where it isn't today");
     }
 
     [Test]

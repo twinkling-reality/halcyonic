@@ -187,7 +187,7 @@ namespace Halcyonic.Client
             // A new folder, one phrase, ours around theirs (FIELD's words 2026-11-12T1342Z), never facts on a dot; from a starter
             // too, whose starter is named by the review's own row, by its own name (AUDIT's MUST 3), never here.
             if (IsNew) return Ours("New ") + folder + Ours(" in ") + root;
-            return folder + Ours(PlaceGone ? " · " : " in ") + root;
+            return PlaceGone ? folder + Ours(GoneSuffix) : folder + Ours(" in ") + root;
         }
 
         public string Describe(Func<string, string>? name = null, bool startOfLine = false)
@@ -197,12 +197,15 @@ namespace Halcyonic.Client
             if (FolderName == null) return "Directly in " + root;
             var folder = name(FolderName);
             if (IsNew) return "New " + folder + " in " + root;
-            // A gone place reads as its own segment: "shop · Place Unlisted".
-            return folder + (PlaceGone ? " · " : " in ") + root;
+            // A gone place is said after a comma: "shop, its place no longer listed".
+            return PlaceGone ? folder + GoneSuffix : folder + " in " + root;
         }
 
         /// <summary>A place the computer no longer lists (WORDS.md, M79).</summary>
         public const string PlaceUnlisted = "Place Unlisted";
+
+        /// <summary>After a folder whose place the computer no longer lists, never a separator between two names.</summary>
+        private const string GoneSuffix = ", its place no longer listed";
 
         /// <summary>
         /// What the listing offers, root by root: making a new folder there, the root itself, and each
@@ -252,7 +255,7 @@ namespace Halcyonic.Client
                 if (likeness.Where((each, at) => at != index).Contains(likeness[index], StringComparer.Ordinal))
                 {
                     options[index] = new FolderOption(option.Root, option.Folder, option.Kind, option.LabelRuns,
-                        Ours(ConnectText.LooksLikeAnother + " · ") + option.DetailRuns, option.SuggestedName);
+                        Ours(ConnectText.LooksLikeAnother + ". ") + option.DetailRuns, option.SuggestedName);
                 }
             }
             return options;

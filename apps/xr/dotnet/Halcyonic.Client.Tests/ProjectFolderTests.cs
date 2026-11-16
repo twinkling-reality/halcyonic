@@ -415,7 +415,7 @@ public class FolderRefusalTests
         Assert.That(kept.Current(new LocationsResponse { Roots = new List<LocationRoot> { root } }).Describe(), Is.EqualTo("shop in Projects"));
         var gone = kept.Current(new LocationsResponse { Roots = new List<LocationRoot>() });
         Assert.That(gone.PlaceGone, Is.True);
-        Assert.That(gone.Describe(), Is.EqualTo("shop · Place Unlisted"), "never the old label");
+        Assert.That(gone.Describe(), Is.EqualTo("shop, its place no longer listed"), "never the old label");
         root.Status = LocationRootStatus.Missing;
         Assert.That(kept.Current(new LocationsResponse { Roots = new List<LocationRoot> { root } }).PlaceGone, Is.True);
     }
