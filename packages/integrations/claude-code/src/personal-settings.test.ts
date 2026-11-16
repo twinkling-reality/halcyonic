@@ -14,6 +14,8 @@ import {
   personalSettings,
   personalSetupUsed,
   refuseOtherCredentials,
+  seorakMarkedCommand,
+  seorakOlderAsMarked,
 } from './personal-settings.ts';
 
 const ROOT = mkdtempSync(join(tmpdir(), 'halcyonic-personal-settings-'));
@@ -287,9 +289,21 @@ describe("Seorak's older hook form (before its shell-safe paths), recognised as 
   test("each of the six events in the old form reads true, and passes as Seorak's", () => {
     for (const [event, file] of Object.entries(scripts)) {
       assert.equal(isSeorakOlderHook(old(file), event), true, event);
-      // As the older installer wrote it by default: the bare word node.
+      // As the older installer wrote it by default: the bare word node. It is carried rewritten into Seorak's own marked
+      // form with the plane's node (AUDIT3's ruling (ii)), never as a bare node resolved on the hook's PATH.
       const bare = `node ${join(install, 'bin', file)}`;
       assert.equal(isSeorakOlderHook(bare, event), true, `bare node, ${event}`);
+      const marked = seorakMarkedCommand(process.execPath, join(install, 'bin', file));
+      assert.equal(seorakOlderAsMarked(bare, event), marked, event);
+      assert.equal(
+        isSeorakHook(marked, event),
+        true,
+        "the rewritten command is Seorak's own marked form",
+      );
+      const passed = observationHooks({
+        hooks: { [event]: [{ hooks: [{ type: 'command', command: bare }] }] },
+      });
+      assert.equal(passed[event]?.[0]?.hooks[0]?.command, marked, event);
       const kept = observationHooks({
         hooks: { [event]: [{ hooks: [{ type: 'command', command: old(file) }] }] },
       });
@@ -314,6 +328,17 @@ describe("Seorak's older hook form (before its shell-safe paths), recognised as 
       `${node} ${join(install, 'bin', 'missing.mjs')}`,
     ])
       assert.equal(isSeorakOlderHook(near, 'UserPromptSubmit'), false, near);
+    for (const never of [
+      `'node' ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `nodejs ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `/usr/bin/env node ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `node ${join(install, 'bin', 'hook-user-prompt.mjs')} $x`,
+    ])
+      assert.equal(
+        seorakOlderAsMarked(never, 'UserPromptSubmit'),
+        null,
+        `never rewritten: ${never}`,
+      );
     assert.equal(
       isSeorakOlderHook(old('hook-user-prompt.mjs'), 'Stop'),
       false,

@@ -1,6 +1,6 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
 
 /**
@@ -92,11 +92,15 @@ export function observationHooks(settings: unknown): Record<string, HookGroup[]>
       for (const hook of entry.hooks) {
         const h = record(hook);
         if (h === null || h.type !== 'command' || typeof h.command !== 'string') continue;
-        if (!OBSERVERS.some((observer) => observer.recognises(h.command as string, event)))
-          continue;
+        let carried: string | null = null;
+        for (const observer of OBSERVERS) {
+          carried = observer.carries(h.command as string, event);
+          if (carried !== null) break;
+        }
+        if (carried === null) continue;
         kept.push({
           type: 'command',
-          command: h.command,
+          command: carried,
           ...(typeof h.async === 'boolean' && { async: h.async }),
           ...(typeof h.timeout === 'number' &&
             Number.isFinite(h.timeout) && { timeout: h.timeout }),
@@ -120,13 +124,17 @@ const INSTRUCTIONS_LIMIT = 64 * 1024;
 /** The integrations whose hooks a task outside the sandbox passes on, each with its own project's rule. */
 const OBSERVERS: readonly {
   readonly name: string;
-  readonly recognises: (command: string, event: string) => boolean;
+  /** The command to pass for one of the person's hooks: as written, rewritten, or null when it is not this one's. */
+  readonly carries: (command: string, event: string) => string | null;
 }[] = [
-  { name: 'Salidium', recognises: (command, event) => isSalidiumHook(command, event) },
+  {
+    name: 'Salidium',
+    carries: (command, event) => (isSalidiumHook(command, event) ? command : null),
+  },
   {
     name: 'Seorak',
-    recognises: (command, event) =>
-      isSeorakHook(command, event) || isSeorakOlderHook(command, event),
+    carries: (command, event) =>
+      isSeorakHook(command, event) ? command : seorakOlderAsMarked(command, event),
   },
 ];
 
@@ -269,19 +277,51 @@ export function isSeorakOlderHook(
   event: string,
   disk: SeorakDisk = SEORAK_DISK,
 ): boolean {
+  return seorakOlder(command, event, disk) !== null;
+}
+
+/**
+ * Seorak's older hook, carried in Seorak's own marked form (AUDIT3's ruling (ii), 2026-11-16): an absolute runner as
+ * written, and a bare `node` rewritten to the plane's own node and the script's real path, quoted and marked exactly as
+ * Seorak's installer writes it today (its `commandFor`), so nothing of the hook hangs on the run's PATH. Null when the
+ * command is not Seorak's older form.
+ */
+export function seorakOlderAsMarked(
+  command: string,
+  event: string,
+  disk: SeorakDisk = SEORAK_DISK,
+  node: string = process.execPath,
+): string | null {
+  const older = seorakOlder(command, event, disk);
+  if (older === null) return null;
+  return older.bare ? seorakMarkedCommand(node, older.script) : command;
+}
+
+/** Seorak's marked command for a script, as its installer writes it on a POSIX system (its `commandFor`). */
+export function seorakMarkedCommand(node: string, script: string): string {
+  const quoted = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
+  const marker = Buffer.from(pathToFileURL(script).href, 'utf8').toString('base64url');
+  return `${quoted(node)} ${quoted(script)} --seorak-hook-path=${marker}`;
+}
+
+function seorakOlder(
+  command: string,
+  event: string,
+  disk: SeorakDisk,
+): { readonly bare: boolean; readonly script: string } | null {
   const script = SEORAK_SCRIPTS[event];
-  if (script === undefined) return false;
+  if (script === undefined) return null;
   // The runner is the bare word `node`, as Seorak's older installer wrote it by default (its DEFAULT_RUNNER), or an
   // absolute path whose real path is a runnable `node`. A bare `node` resolves on the run's PATH; the run is unconfined
   // with the person's own rights, so that gives it nothing it lacks (LOOP, 2026-11-16).
   const found = new RegExp(`^(node|${PLAIN_PATH.slice(1, -1)}) ${PLAIN_PATH}$`).exec(command);
-  if (found === null) return false;
+  if (found === null) return null;
   if (found[1] !== 'node') {
     const node = disk.realpath(found[1] as string);
-    if (node === null || basename(node) !== 'node' || !disk.runnable(node)) return false;
+    if (node === null || basename(node) !== 'node' || !disk.runnable(node)) return null;
   }
   const real = disk.realpath(found[2] as string);
-  if (real === null || basename(real) !== script || basename(dirname(real)) !== 'bin') return false;
+  if (real === null || basename(real) !== script || basename(dirname(real)) !== 'bin') return null;
   let name: unknown;
   try {
     name = (
@@ -290,9 +330,9 @@ export function isSeorakOlderHook(
       } | null
     )?.name;
   } catch {
-    return false;
+    return null;
   }
-  return name === 'seorak';
+  return name === 'seorak' ? { bare: found[1] === 'node', script: real } : null;
 }
 
 /**

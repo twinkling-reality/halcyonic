@@ -53,7 +53,9 @@ Claude Code's own install step.
     the marker naming the very same file; and Seorak's older installer form (before 2026-07-27, found in a person's
     settings on 2026-11-16 for six of its eight events), exactly `node <absolute script>` (its default runner, the bare word) or
     `<absolute node> <absolute script>`, plain characters only, an absolute node's real path a runnable `node`, the script that event's own whose real path lies in the `bin` folder
-    of a package named `seorak` (AUDIT3, 2026-11-16). Each entry's type, command, async and timeout are copied and passed in the
+    of a package named `seorak` (AUDIT3, 2026-11-16). A bare `node` is never passed as written: it is rewritten into
+    Seorak's own marked form with the plane's own node and the script's real path, exactly as Seorak's installer writes it
+    today (`commandFor`, compared equal), so nothing of the hook resolves on the run's PATH (AUDIT3's ruling (ii)). Each entry's type, command, async and timeout are copied and passed in the
     flag tier as `settings: { hooks }`. Salidium's older form (a `/.salidium/hooks/` path through `/bin/sh`) is not
     recognised, so not passed. A listing is no task and carries none.
   - The person's own `CLAUDE.md`, appended to Claude Code's preset system prompt, at most 64 KB (larger refuses the run
