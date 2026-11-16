@@ -8,22 +8,25 @@ using UnityEngine;
 namespace Halcyonic.XR.UI
 {
     /// <summary>
-    /// Watch It Work's arc (FIELD's SHAPE, "Several files"; XR places it on the plane), bent round the eyes so every panel
-    /// faces them and no word is read at a slant (a flat 1652 dp row read its outer code under 14 dp): at most
-    /// three file panels (<see cref="RoomWritingPanel"/>) side by side, oldest left, the newest arriving at the right end while
-    /// the others move left by one place over the standard curve's 600 ms; and at the left, once any file has left the
-    /// panels, the turn's files so far as the rows draw them (<see cref="RoomRowsView"/>: each file's name with its check),
-    /// in the result's Changes order, so nothing is ever stacked over text. A panel that leaves the arc folds toward its row:
-    /// it moves to the list over 600 ms, shrinking and fading as its row stands. Under Still nothing moves: panels and rows
-    /// cross-fade in place. Its origin is the arc's top middle.
+    /// Watch It Work's arc (FIELD's SHAPE, "Several files", amended 2026-11-16T0730Z; XR places it on the plane), bent round
+    /// the eyes so every panel faces them and no word is read at a slant: two columns at the panel's width, inside the
+    /// comfortable field. The newest file stands at the right; the one before it at the top of the left column, and under it
+    /// the turn's files so far as the rows draw them (<see cref="RoomRowsView"/>: each file's name with its check), in the
+    /// result's Changes order, so nothing is ever stacked over text. A new file arrives at the right while the one there
+    /// moves to the left column over the standard curve's 600 ms, and the one that stood there folds into its row: it moves
+    /// to the list, its code gone first, shrinking and fading as its row stands. Under Still panels take their places at
+    /// once and fade. A single file stands alone, centred. Its origin is the arc's top middle.
     /// </summary>
     public sealed class RoomWritingArc : MonoBehaviour
     {
         /// <summary>The gap between the panels, and between the list and the first panel.</summary>
         public const float GapDp = 24f;
 
-        /// <summary>How wide the files-so-far list stands.</summary>
-        public const float ListDp = 260f;
+        /// <summary>
+        /// The most panels it draws at once: two columns, 904 dp, 56.5 degrees, inside the comfortable field (three side by
+        /// side came to 103 degrees). A third file the turn hands it stands as its row.
+        /// </summary>
+        public const int MostShown = 2;
 
         /// <summary>How long a panel takes to move one place, or to fold into its row.</summary>
         public const float MoveSeconds = 0.6f;
@@ -48,6 +51,7 @@ namespace Halcyonic.XR.UI
             public Vector3 To;
             public float MovedAt;
             public Vector3 Now;
+            public bool Fresh;
         }
 
         /// <summary>The clock the arc moves by, its panels' too; renders fix it.</summary>
@@ -99,14 +103,20 @@ namespace Halcyonic.XR.UI
             return view;
         }
 
-        /// <summary>The rows of the files so far that stand in no panel, in the result's order, each with its check.</summary>
+        /// <summary>The panels the arc draws: the last two the turn hands it, the older left, the newest right.</summary>
+        public static IReadOnlyList<WritingPanel> Drawn(WritingArc arc) => arc.Panels.Skip(Math.Max(0, arc.Panels.Count - MostShown)).ToList();
+
+        /// <summary>The rows of the files so far that stand in no panel drawn, in the result's order, each with its check.</summary>
         public static IReadOnlyList<RoomRow> ListRows(WritingArc arc)
         {
-            var paths = new HashSet<string>(arc.Panels.Select(panel => panel.Path));
+            var paths = new HashSet<string>(Drawn(arc).Select(panel => panel.Path));
             return arc.SoFar.Where(file => !paths.Contains(file.Path)).Select(file => new RoomRow(file.Name, RoomRowMark.Check)).ToList();
         }
 
-        /// <summary>Lays <paramref name="arc"/>: new files arrive at the right, the rest move left, a file gone from the panels folds into the list.</summary>
+        /// <summary>How wide and tall the list stands as last laid; zero where none stands.</summary>
+        public Vector2 ListSize { get; private set; }
+
+        /// <summary>Lays <paramref name="arc"/>: a new file arrives at the right, the one before moves to the left column, a file gone from the panels folds into the list under it.</summary>
         public Vector2 Show(WritingArc arc)
         {
             gameObject.SetActive(true);
@@ -114,15 +124,40 @@ namespace Halcyonic.XR.UI
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
             var gap = RoomType.Units(GapDp);
             var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
-
-            // The list at the left, where any file has left the panels.
+            var drawn = Drawn(arc);
             var rows = ListRows(arc);
-            var listWidth = rows.Count > 0 ? RoomType.Units(ListDp) : 0f;
+            var columns = drawn.Count == 2 || rows.Count > 0 ? 2 : 1;
+            var width = columns * panelWidth + (columns - 1) * gap;
+            var rightX = width / 2f - panelWidth / 2f;
+            var leftX = -width / 2f + panelWidth / 2f;
+
+            // Panels gone from the arc fold toward the list; the rest are laid first, so the list knows where it starts.
+            var keep = new HashSet<string>(drawn.Select(panel => panel.Path));
+            var leaving = standing.Keys.Where(path => !keep.Contains(path)).ToList();
+            var placed = new List<RoomWritingPanel>();
+            var sizes = new List<Vector2>();
+            foreach (var panel in drawn)
+            {
+                if (!standing.TryGetValue(panel.Path, out var at))
+                {
+                    var view = spare.Count > 0 ? spare[spare.Count - 1] : RoomWritingPanel.Create(transform);
+                    if (spare.Count > 0) spare.RemoveAt(spare.Count - 1);
+                    view.Clock = () => Clock();
+                    at = new Placed { Panel = view, MovedAt = now - MoveSeconds, Fresh = true };
+                    standing[panel.Path] = at;
+                }
+                sizes.Add(at.Panel.Show(panel));
+                placed.Add(at.Panel);
+            }
+            var olderTall = drawn.Count == 2 ? sizes[0].y : 0f;
+
+            // The list in the left column, under the older panel where one stands.
+            var listTop = drawn.Count == 2 ? -(olderTall + gap) : 0f;
             var listTall = 0f;
             if (rows.Count > 0)
             {
                 listGlass.gameObject.SetActive(true);
-                var inner = listWidth - 2f * pad;
+                var inner = panelWidth - 2f * pad;
                 var down = 0f;
                 var title = ListTitle(arc);
                 if (title != null)
@@ -136,22 +171,17 @@ namespace Halcyonic.XR.UI
                 var rowsTall = list.Show(rows, inner);
                 listTall = down + rowsTall + 2f * pad;
                 listGlass.InnerBar = null;
-                listGlass.Draw(new Vector2(listWidth, listTall));
-                listTitle.transform.localPosition = new Vector3(-listWidth / 2f + pad, listTall / 2f - pad, -RoomType.Units(0.5f));
-                list.transform.localPosition = new Vector3(-listWidth / 2f + pad, listTall / 2f - pad - down, -RoomType.Units(0.5f));
+                listGlass.Draw(new Vector2(panelWidth, listTall));
+                listTitle.transform.localPosition = new Vector3(-panelWidth / 2f + pad, listTall / 2f - pad, -RoomType.Units(0.5f));
+                list.transform.localPosition = new Vector3(-panelWidth / 2f + pad, listTall / 2f - pad - down, -RoomType.Units(0.5f));
             }
             else listGlass.gameObject.SetActive(false);
-
-            var count = arc.Panels.Count;
-            var width = listWidth + (listWidth > 0f && count > 0 ? gap : 0f) + count * panelWidth + Math.Max(0, count - 1) * gap;
-            var left = -width / 2f;
-            var listAt = new Vector3(left + listWidth / 2f, -listTall / 2f, 0f);
+            ListSize = rows.Count > 0 ? new Vector2(panelWidth, listTall) : Vector2.zero;
+            var listAt = new Vector3(leftX, listTop - listTall / 2f, 0f);
             ListFlat = listAt;
             Put(listGlass.transform, listAt);
 
-            // Panels gone from the arc fold toward the list; panels that stay move to their new place; new ones arrive in theirs.
-            var keep = new HashSet<string>(arc.Panels.Select(panel => panel.Path));
-            foreach (var path in standing.Keys.Where(path => !keep.Contains(path)).ToList())
+            foreach (var path in leaving)
             {
                 var gone = standing[path];
                 standing.Remove(path);
@@ -160,30 +190,18 @@ namespace Halcyonic.XR.UI
                 gone.MovedAt = now;
                 folding.Add(gone);
             }
-            var tallest = listTall;
-            var placed = new List<RoomWritingPanel>();
-            for (var index = 0; index < count; index++)
+            for (var index = 0; index < drawn.Count; index++)
             {
-                var panel = arc.Panels[index];
-                if (!standing.TryGetValue(panel.Path, out var at))
-                {
-                    var view = spare.Count > 0 ? spare[spare.Count - 1] : RoomWritingPanel.Create(transform);
-                    if (spare.Count > 0) spare.RemoveAt(spare.Count - 1);
-                    view.Clock = () => Clock();
-                    at = new Placed { Panel = view, MovedAt = now - MoveSeconds };
-                    standing[panel.Path] = at;
-                }
-                var size = at.Panel.Show(panel);
-                tallest = Mathf.Max(tallest, size.y);
-                var x = left + listWidth + (listWidth > 0f ? gap : 0f) + index * (panelWidth + gap) + panelWidth / 2f;
-                var to = new Vector3(x, -size.y / 2f, 0f);
-                if (at.MovedAt <= now - MoveSeconds && at.To == default) at.From = to;
+                var at = standing[drawn[index].Path];
+                var x = index == drawn.Count - 1 ? (columns == 1 ? 0f : rightX) : leftX;
+                var to = new Vector3(x, -sizes[index].y / 2f, 0f);
+                if (at.Fresh) { at.From = to; at.Fresh = false; }
                 else if ((at.To - to).sqrMagnitude > 1e-10f) { at.From = at.Now; at.MovedAt = now; }
                 at.To = to;
-                placed.Add(at.Panel);
             }
             Panels = placed;
-            Size = new Vector2(width, tallest);
+            var leftTall = olderTall + (drawn.Count == 2 && rows.Count > 0 ? gap : 0f) + listTall;
+            Size = new Vector2(width, Mathf.Max(leftTall, drawn.Count > 0 ? sizes[drawn.Count - 1].y : 0f));
             Follow();
             return Size;
         }
@@ -222,12 +240,13 @@ namespace Halcyonic.XR.UI
         /// <summary>For renders: every move and fold finished, every panel arrived.</summary>
         public void Settle()
         {
+            // A second past each move's end, so no float lands a fold a hair short of done.
             foreach (var at in standing.Values)
             {
-                at.MovedAt = Clock() - MoveSeconds;
+                at.MovedAt = Clock() - MoveSeconds - 1f;
                 at.Panel.Settle();
             }
-            foreach (var gone in folding) gone.MovedAt = Clock() - MoveSeconds;
+            foreach (var gone in folding) gone.MovedAt = Clock() - MoveSeconds - 1f;
             Follow();
         }
 

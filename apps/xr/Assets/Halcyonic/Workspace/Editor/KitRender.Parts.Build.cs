@@ -20,7 +20,7 @@ namespace Halcyonic.XR.Workspace.Editor
     {
         private static readonly string[] BuildStates = { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held" };
 
-        /// <summary>The arc's states: three files standing, and a fourth that folds the oldest into the files so far, caught mid-move.</summary>
+        /// <summary>The arc's states: three files (two panels, the first a row), and a fourth that folds the older panel into the files so far, caught mid-move.</summary>
         private static readonly string[] BuildArcStates = { "47-build-three", "47-build-most" };
 
         /// <summary>The kite game's files, in the order the agent writes them.</summary>
@@ -97,23 +97,33 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 var final = BuildArcOf(state == "47-build-most" ? 4 : 3);
                 var panels = arc.Panels;
-                Require(panels.Count == final.Panels.Count, "the arc stands " + panels.Count + " panels, not " + final.Panels.Count);
-                for (var index = 0; index < panels.Count; index++)
+                var drawn = RoomWritingArc.Drawn(final);
+                Require(panels.Count == drawn.Count, "the arc stands " + panels.Count + " panels, not " + drawn.Count);
+                for (var index = 0; index < panels.Count && index < drawn.Count; index++)
                 {
-                    Require(panels[index].Path == final.Panels[index].Path, "panel " + index + " shows " + panels[index].Path + ", not " + final.Panels[index].Path);
+                    Require(panels[index].Path == drawn[index].Path, "panel " + index + " shows " + panels[index].Path + ", not " + drawn[index].Path);
                     Require(Mathf.Abs(panels[index].transform.localPosition.y + panels[index].Size.y / 2f) < unit * 0.05f, "panel " + index + "'s top is not the arc's");
-                    if (index == 0) continue;
-                    var apart = arc.FlatOf(panels[index]).x - arc.FlatOf(panels[index - 1]).x;
-                    Require(Mathf.Abs(apart - panelWidth - gap) < unit * 0.05f, "panel " + index + " stands " + ((apart - panelWidth) / unit).ToString("0.0") + " dp after the one before, not " + RoomWritingArc.GapDp.ToString("0"));
+                }
+                // Two columns at the panel's width: the newest at the right, the one before at the left, the gap between.
+                var width = 2f * panelWidth + gap;
+                Require(Mathf.Abs(arc.Size.x - width) < unit * 0.05f, "the arc stands " + (arc.Size.x / unit).ToString("0") + " dp wide, not " + (width / unit).ToString("0"));
+                Require(SpatialKit.Degrees(arc.Size.x / unit) <= 60f, "the arc spans " + SpatialKit.Degrees(arc.Size.x / unit).ToString("0.0") + " degrees, past the comfortable 60");
+                if (panels.Count == 2)
+                {
+                    Require(Mathf.Abs(arc.FlatOf(panels[1]).x - (width / 2f - panelWidth / 2f)) < unit * 0.05f, "the newest panel is not the right column");
+                    Require(Mathf.Abs(arc.FlatOf(panels[0]).x + (width / 2f - panelWidth / 2f)) < unit * 0.05f, "the panel before is not the left column");
                 }
                 var rows = RoomWritingArc.ListRows(final);
+                Require(rows.Count == final.SoFar.Count - drawn.Count, "the list holds " + rows.Count + " rows, not every file the panels do not");
                 Require(arc.ListGlass.gameObject.activeSelf == rows.Count > 0, rows.Count > 0 ? "the files so far are not shown" : "an empty list stands");
                 if (rows.Count > 0)
                 {
                     Require(arc.List.Count == rows.Count, "the list shows " + arc.List.Count + " rows, not " + rows.Count);
-                    var listRight = arc.ListFlat.x + RoomType.Units(RoomWritingArc.ListDp) / 2f;
-                    var firstLeft = arc.FlatOf(panels[0]).x - panelWidth / 2f;
-                    Require(Mathf.Abs(firstLeft - listRight - gap) < unit * 0.05f, "the list stands " + ((firstLeft - listRight) / unit).ToString("0.0") + " dp before the first panel");
+                    // Under the panel before, the gap between, in its column.
+                    var listTop = arc.ListFlat.y + arc.ListSize.y / 2f;
+                    var olderBottom = -panels[0].Size.y;
+                    Require(Mathf.Abs(olderBottom - listTop - gap) < unit * 0.05f, "the list stands " + ((olderBottom - listTop) / unit).ToString("0.0") + " dp under the panel before");
+                    Require(Mathf.Abs(arc.ListFlat.x - arc.FlatOf(panels[0]).x) < unit * 0.05f, "the list is not in the left column");
                 }
                 // On the bend every panel's middle stands as far from the eyes as the arc's, and faces them.
                 var eyeAt = new Vector3(0f, 0f, -arc.Radius);
@@ -123,8 +133,6 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(away.magnitude - arc.Radius) < 1e-4f, panel.Path + " stands " + away.magnitude.ToString("0.000") + " from the eyes, not " + arc.Radius.ToString("0.000"));
                     Require(Vector3.Angle(panel.transform.localRotation * Vector3.back, -away) < 0.5f, panel.Path + " does not face the eyes");
                 }
-                Require(Mathf.Abs(arc.Size.x - (panels.Count * panelWidth + (panels.Count - 1) * gap + (rows.Count > 0 ? RoomType.Units(RoomWritingArc.ListDp) + gap : 0f))) < unit * 0.05f,
-                    "the arc says it stands " + (arc.Size.x / unit).ToString("0") + " dp wide");
                 shot.Read = (camera, eye, white, dark, bright, failures) =>
                 {
                     Debug.Log("Halcyonic: parts: " + name + ": " + (arc.Size.x / unit).ToString("0", CultureInfo.InvariantCulture) + "x" + (arc.Size.y / unit).ToString("0", CultureInfo.InvariantCulture)
