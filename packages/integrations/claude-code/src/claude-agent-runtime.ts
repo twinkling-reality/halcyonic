@@ -697,7 +697,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     } else if (session.stoppedAtCap) {
       throw new RuntimeActionError(
         'invalid_state',
-        'This task waits for a new spending limit, so nothing was sent. Give it a new limit to carry on.',
+        'This task waits for a new spending limit, so nothing was sent.',
       );
     }
     await session.instruct(request.text, request.pictures ?? []);

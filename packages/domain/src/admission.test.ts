@@ -10,7 +10,8 @@ import type {
   WorkstreamId,
 } from '@halcyonic/contracts';
 import { admitCommand, journaledRejection, type RuntimeCatalog } from './admission.ts';
-import { SPEND_NOT_KNOWN } from './execution-state.ts';
+import { ASSISTANT_CLIENT, NEVER_PROPOSED, SPENDING_LIMIT_PERSON_ONLY } from './command-fields.ts';
+import { SPEND_LIMIT_REACHED, SPEND_NOT_KNOWN } from './execution-state.ts';
 import { Projection } from './projection.ts';
 import { EventBuilder } from './testing/events.ts';
 
@@ -1989,8 +1990,44 @@ describe("a spending limit (lead's ruling, 2026-11-13)", () => {
       projection.apply(event);
     assert.deepEqual(rejection(admitCommand(instruct(), projection, offers)), {
       code: 'invalid_state',
-      message: 'This task is at its spending limit. Raise it to carry on.',
+      message: SPEND_LIMIT_REACHED,
     });
     assert.equal(admitCommand(instruct(5), projection, offers).admitted, true);
+    // The assistant never raises it, whatever the model returns (AUDIT3 M-A): the person's own client does.
+    const assistant = { name: ASSISTANT_CLIENT, version: null, device_label: null };
+    assert.deepEqual(
+      rejection(admitCommand({ ...instruct(5), client: assistant }, projection, offers)),
+      {
+        code: 'invalid_state',
+        message: SPENDING_LIMIT_PERSON_ONLY,
+      },
+    );
+    // Its plain instruction is refused only for the limit, as the person's would be.
+    assert.equal(
+      rejection(admitCommand({ ...instruct(), client: assistant }, projection, offers))?.message,
+      SPEND_LIMIT_REACHED,
+    );
+    assert.deepEqual(NEVER_PROPOSED['execution.send_instruction'], ['spending_cap_usd']);
+  });
+
+  test("the assistant never sets a start's spending limit; the person's own client does (AUDIT3 M-A, 2026-11-16)", () => {
+    const { projection, commands, idle } = setup();
+    const start = commands.start(idle.workstreamId);
+    const capped = {
+      ...start,
+      payload: { ...(start.payload as object), spending_cap_usd: 5 },
+    } as typeof start;
+    const assistant = { name: ASSISTANT_CLIENT, version: null, device_label: null };
+    assert.deepEqual(
+      rejection(admitCommand({ ...capped, client: assistant }, projection, offers)),
+      {
+        code: 'invalid_state',
+        message: SPENDING_LIMIT_PERSON_ONLY,
+      },
+    );
+    // Without a limit, the assistant's start is admitted as before; with one, the person's is.
+    assert.equal(admitCommand({ ...start, client: assistant }, projection, offers).admitted, true);
+    assert.equal(admitCommand(capped, projection, offers).admitted, true);
+    assert.deepEqual(NEVER_PROPOSED['execution.start'], ['spending_cap_usd']);
   });
 });

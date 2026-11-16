@@ -47,6 +47,7 @@ import {
   journaledRejection,
   type Projection,
   removalRefusal,
+  SPEND_LIMIT_REACHED,
   SPEND_NOT_KNOWN,
 } from '@halcyonic/domain';
 import {
@@ -556,11 +557,7 @@ export class CommandService {
     if (cap === 'waiting')
       return { code: 'invalid_state', message: SPEND_NOT_KNOWN, effect: 'none' };
     if (cap === 'reached') {
-      return {
-        code: 'invalid_state',
-        message: 'This task is at its spending limit. Raise it to carry on.',
-        effect: 'none',
-      };
+      return { code: 'invalid_state', message: SPEND_LIMIT_REACHED, effect: 'none' };
     }
     return null;
   }
@@ -3431,8 +3428,8 @@ export class CommandService {
         commandId,
         'spending_cap_reached',
         cap === 'reached'
-          ? 'This task is at its spending limit, so it was not sent. Raise the limit to carry on.'
-          : 'What this task spent before the restart is not fully known, so it was not sent.',
+          ? 'This task is at its spending limit, so it was not sent. It carries on once the limit is raised, which the headset offers next.'
+          : 'What this task spent before the restart is not fully known, so it was not sent. It carries on once a new limit is given, which the headset offers next.',
       );
       return false;
     }

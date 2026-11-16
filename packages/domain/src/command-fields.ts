@@ -78,7 +78,15 @@ export const ASSISTANT_CLIENT = 'workspace-agent';
 /** Payload fields the assistant may never fill or propose, by command: the person starts them from their own client. */
 export const NEVER_PROPOSED: Readonly<Partial<Record<CommandType, readonly string[]>>> = {
   'project.own_check.choose': ['open_ports'],
+  // A spending limit is the person's money decision: the assistant's confirm would not show the amount, and nothing
+  // could say the person gave it (AUDIT3 M-A, 2026-11-16).
+  'execution.start': ['spending_cap_usd'],
+  'execution.send_instruction': ['spending_cap_usd'],
 };
+
+/** Said when the assistant sends a spending limit (AUDIT3 M-A, 2026-11-16): the product's refusal family. */
+export const SPENDING_LIMIT_PERSON_ONLY =
+  'Nothing was sent: only you can set a spending limit, on your own screen.';
 
 /**
  * Every payload field of every command but the workspace request's own, which the assistant is and

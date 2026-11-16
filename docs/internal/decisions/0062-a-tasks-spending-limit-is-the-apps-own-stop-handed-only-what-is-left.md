@@ -30,6 +30,11 @@ OpenCode 2.0.18 and Codex 0.157.0 show no such stop. What each turn spent is rec
    be checked, and a limit that counts from now carries it on. Never that it is at its limit, which is not known.
    A Claude Agent session's first turn after a re-attach reports no cost (agent-usage.md), so a limited task followed
    up across two restarts waits for a new limit at the second; reading that turn's cost back is not built.
+   Amended 2026-11-16 (AUDIT3 M-A): a limit is the person's money decision, set or raised only from their own
+   client. The assistant never fills one: `spending_cap_usd` is never proposed for a start or an instruction, and
+   admission refuses it from the assistant ("Nothing was sent: only you can set a spending limit, on your own
+   screen."), since its confirm would not show the amount. Until the headset offers its own press, the refusals say
+   that the task carries on once a limit is given, and name no press.
 4. A turn the app stops fails `spending_cap_reached`; a task at its limit (stopped there, or its known sum at it) reads
    `reached` and takes an instruction only as Carry On: `execution.send_instruction` with `spending_cap_usd`, the
    amount raised, counting from now. Its default is none, and it never adds a press to the start.

@@ -24,8 +24,12 @@ import {
   QUEUED_INSTRUCTIONS_MAX,
   WORLD_STARTER_ID,
 } from '@halcyonic/contracts';
-import { ALLOW_TEST_SERVERS, ASSISTANT_CLIENT } from './command-fields.ts';
-import { SPEND_NOT_KNOWN } from './execution-state.ts';
+import {
+  ALLOW_TEST_SERVERS,
+  ASSISTANT_CLIENT,
+  SPENDING_LIMIT_PERSON_ONLY,
+} from './command-fields.ts';
+import { SPEND_LIMIT_REACHED, SPEND_NOT_KNOWN } from './execution-state.ts';
 import { checkServable, fitPasses, readingPasses } from './fix-steps.ts';
 import { foldersOverlap } from './folders.ts';
 import { COMMAND_POLICY, COMMAND_SAYING } from './policy.ts';
@@ -87,6 +91,14 @@ export function admitCommand(
   runtimes: RuntimeCatalog,
 ): Admission {
   return admit(command, projection, runtimes, false);
+}
+
+/**
+ * Whether the assistant prepared `command` (ADR 0060). The probe for what can be done here carries no client, and is
+ * not the assistant's: the list's needs the assistant may never fill are taken out where it reads them.
+ */
+function fromAssistant(command: CommandEnvelope): boolean {
+  return (command as { client?: { name?: unknown } }).client?.name === ASSISTANT_CLIENT;
 }
 
 /**
@@ -985,6 +997,10 @@ function admit(
       // A task at its limit, or waiting with its spending not known, carries on only under a limit
       // raised now (lead's ruling, 2026-11-13); every sender comes through here, the host's own too.
       if (command.payload.spending_cap_usd !== undefined) {
+        // The person's money decision, from their own screen, never the assistant's (AUDIT3 M-A, 2026-11-16).
+        if (fromAssistant(command)) {
+          return reject(scope, 'invalid_state', SPENDING_LIMIT_PERSON_ONLY);
+        }
         if (runtime.offers_spending_cap !== true) {
           return reject(scope, 'capability_unsupported', NO_SPENDING_CAP);
         }
@@ -996,11 +1012,7 @@ function admit(
           );
         }
       } else if (facts.spendingCap === 'reached') {
-        return reject(
-          scope,
-          'invalid_state',
-          'This task is at its spending limit. Raise it to carry on.',
-        );
+        return reject(scope, 'invalid_state', SPEND_LIMIT_REACHED);
       } else if (facts.spendingCap === 'waiting') {
         return reject(scope, 'invalid_state', SPEND_NOT_KNOWN);
       }
@@ -1367,6 +1379,10 @@ function startRefusal(
   }
   // A spending limit is the runtime's own stop, offered once verified; the host never stops a task
   // on its own sums.
+  // The person's money decision, from their own screen, never the assistant's (AUDIT3 M-A, 2026-11-16).
+  if (command.payload.spending_cap_usd !== undefined && fromAssistant(command)) {
+    return reject(scope, 'invalid_state', SPENDING_LIMIT_PERSON_ONLY);
+  }
   if (command.payload.spending_cap_usd !== undefined && runtime.offers_spending_cap !== true) {
     return reject(scope, 'capability_unsupported', NO_SPENDING_CAP);
   }
