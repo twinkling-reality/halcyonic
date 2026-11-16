@@ -797,7 +797,15 @@ namespace Halcyonic.XR.Workspace.Editor
                             }
                             if (opening != null) break;
                         }
-                        if (opening != null && Press(FileScreens.Open, opening.Key))
+                        // An answer beside its page is a moment only where the redesign draws the control that opens it, as a person
+                        // presses it; where it draws none, no person meets the moment, and the walk says so rather than forcing it
+                        // through the frame of record (the lead's way 1, 2026-11-16; the drawn control is the film batch's).
+                        var drawnOpen = opening != null && (Drawn(FileScreens.Open, opening.Key) != null || plane.KitShows
+                            && plane.Kit.Bar.Card?.RowTargets.Any(row => row.Control.Action == FileScreens.Open && row.Control.Key == opening.Key) == true);
+                        if (opening != null && !drawnOpen)
+                            Debug.Log("Halcyonic: judge room: not reached here: the redesign draws no control that opens an answer beside its page ("
+                                + FileScreens.Open + "/" + opening.Key + ")");
+                        else if (opening != null && Press(FileScreens.Open, opening.Key))
                         {
                             reachedBy += (reachedBy.Length > 0 ? ", then " : "") + "pressed " + FileScreens.Open + "/" + opening.Key;
                             Fresh();
