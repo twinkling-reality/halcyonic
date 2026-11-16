@@ -1901,7 +1901,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 // below it, across its width, at every moment: a long real name reaching down is found here, not on camera (AUDIT 13:23Z).
                 if (standing.View.GetComponentsInChildren<Halcyonic.XR.UI.RoomNameTag>(false).FirstOrDefault() is Halcyonic.XR.UI.RoomNameTag nameTag)
                 {
-                    var tagReach = GlazeChecks.Of("the name tag", eyes, nameTag.gameObject);
+                    // The tag as a person reads it: its words and its plate's glass, never the plate's soft shadow, which reaches past the
+                    // plate by design (RoomSurface.DrawsShadow) and stood over the body where the tag itself stood clear under the feet.
+                    var tagDrawn = nameTag.GetComponentsInChildren<TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
+                        .Concat(nameTag.GetComponentsInChildren<Halcyonic.XR.UI.RoomSurface>(false).Select(plate => (Renderer)plate.Glass))
+                        .Where(part => part != null && part.enabled).ToList();
+                    var tagReach = GlazeChecks.Of("the name tag", eyes, tagDrawn);
                     if (!tagReach.IsEmpty)
                     {
                         // A character's own tag stands above it, clear of its body, never over its face (AUDIT 13:57Z: the plate covered the
