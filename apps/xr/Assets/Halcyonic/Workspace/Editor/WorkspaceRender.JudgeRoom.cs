@@ -696,25 +696,72 @@ namespace Halcyonic.XR.Workspace.Editor
                         Draw();
                         Thread.Sleep(200);
                     }
+                    void Cover(Halcyonic.XR.UI.RoomWritingArc arc, string how)
+                    {
+                        var character = stood.FirstOrDefault(each => each.WorkstreamId == watched.WorkstreamId);
+                        if (character?.View == null || !character.View.gameObject.activeInHierarchy)
+                        {
+                            Debug.Log("Halcyonic: live walk: the working task's character is not on the stage: the arc's cover of it is not measured");
+                            return;
+                        }
+                        var status = Current(watched.WorkstreamId)?.Status.ToString() ?? "unknown";
+                        var share = CoveredShare(camera, character.View, arc.transform);
+                        Debug.Log("Halcyonic: live walk: the open Watch It Work arc (" + how + ", the run " + status + ") covers " + (share * 100f).ToString("0.0")
+                            + "% of the working character's body and name tag");
+                        if (share > 0f)
+                            failures.Add("live walk: the open Watch It Work arc (" + how + ") covers " + (share * 100f).ToString("0.0") + "% of the working character's body and name tag");
+                    }
                     if (watch == null)
                     {
-                        Debug.Log("Halcyonic: live walk: Watch It Work was not drawn while the agent worked here (a run whose folder the host does not observe, as the mock's, never offers it): the open arc's cover is not measured on this plane");
+                        Debug.Log("Halcyonic: live walk: Watch It Work was not drawn while the agent worked here (a run whose folder the host does not observe, as the mock's, never offers it): the arc is stood on the task's bar instead");
+                        // The lead's 12:53Z (B): the arc stood as the director stands it, open on the working task's own bar with the kite's three
+                        // files (KitRender's arc, one source), each arriving a second apart and settled, so its cover of the working character
+                        // is measured where the host offers no view. The director's own view is closed meanwhile, so nothing of it lays over this.
+                        var kit = plane.Kit;
+                        var titleWas = Halcyonic.XR.UI.RoomWritingArc.ListTitle;
+                        Halcyonic.XR.UI.RoomWritingArc.ListTitle = _ => WatchBuild.ListWords;
+                        try
+                        {
+                            kit.WatchOpen = true;
+                            kit.WatchEyes = () => eyes;
+                            var clock = 100f;
+                            kit.ShowWatch(KitRender.BuildArcOf(1));
+                            if (kit.WatchArc != null) kit.WatchArc.Clock = () => clock;
+                            for (var files = 1; files <= 3; files++)
+                            {
+                                kit.ShowWatch(KitRender.BuildArcOf(files));
+                                clock += 1f;
+                                kit.WatchArc?.Settle();
+                            }
+                            clock += 5f;
+                            kit.ShowWatch(KitRender.BuildArcOf(3));
+                            kit.FaceWatch();
+                            kit.SettleForRender();
+                            Draw();
+                            if (kit.WatchArc is Halcyonic.XR.UI.RoomWritingArc stoodArc && stoodArc.GetComponentsInChildren<Renderer>(false).Any(part => part.enabled))
+                            {
+                                Cover(stoodArc, "stood on the bar");
+                                Moment("watch it work, stood");
+                            }
+                            else failures.Add("live walk: the arc stood on the working task's bar draws nothing");
+                        }
+                        finally
+                        {
+                            kit.ShowWatch(null);
+                            kit.WatchOpen = false;
+                            kit.WatchEyes = null;
+                            Halcyonic.XR.UI.RoomWritingArc.ListTitle = titleWas;
+                        }
+                        Draw();
+                        if (root.GetComponentsInChildren<Halcyonic.XR.UI.RoomWritingArc>(false).Any(each => each.GetComponentsInChildren<Renderer>(false).Any(part => part.enabled)))
+                            failures.Add("live walk: the stood arc still stands after it was taken away");
                         return;
                     }
                     if (!Press(RoomBar.Watch, null)) { failures.Add("live walk: Watch It Work is drawn and its press was not taken"); return; }
                     Draw();
                     var arc = root.GetComponentsInChildren<Halcyonic.XR.UI.RoomWritingArc>(false).FirstOrDefault();
-                    var character = stood.FirstOrDefault(each => each.WorkstreamId == watched.WorkstreamId);
                     if (arc == null) { failures.Add("live walk: Watch It Work was pressed and no arc stands"); return; }
-                    if (character?.View == null || !character.View.gameObject.activeInHierarchy)
-                        Debug.Log("Halcyonic: live walk: the working task's character is not on the stage: the arc's cover of it is not measured");
-                    else
-                    {
-                        var share = CoveredShare(camera, character.View, arc.transform);
-                        Debug.Log("Halcyonic: live walk: the open Watch It Work arc covers " + (share * 100f).ToString("0.0") + "% of the working character's body and name tag");
-                        if (share > 0f)
-                            failures.Add("live walk: the open Watch It Work arc covers " + (share * 100f).ToString("0.0") + "% of the working character's body and name tag");
-                    }
+                    Cover(arc, "opened by its press");
                     Moment("watch it work");
                     if (Drawn(RoomBar.Watch, null) != null) Press(RoomBar.Watch, null);
                     Draw();

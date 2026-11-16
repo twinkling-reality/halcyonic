@@ -42,7 +42,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>The arc after <paramref name="files"/> of the kite's files: the last three standing, every one named so far.</summary>
-        private static WritingArc BuildArcOf(int files)
+        internal static WritingArc BuildArcOf(int files)
         {
             var all = Enumerable.Range(0, files).Select(BuildFilePanel).ToList();
             return new WritingArc(all.Skip(System.Math.Max(0, files - WritingArc.MostPanels)).ToList(), all, files);
