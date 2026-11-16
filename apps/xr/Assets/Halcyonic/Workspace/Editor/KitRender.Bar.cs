@@ -740,10 +740,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Its title the task's name; a row per route the file offers, in its order, each with its chevron; Back last; never the results line.
                 var routes = RoomBar.MoreRoutes(binding);
                 Require(morePage.Body.Text == binding.Model.TaskTitle, "the More page's title is \"" + morePage.Body.Text + "\", not the task's name");
-                // Drawn as the page's title, on its card (AUDIT's 10:39Z: the page stood with no title).
+                // Drawn as the page's title, on its card (AUDIT's 10:39Z: the page stood with no title), its top level with the first
+                // route's (AUDIT's 11:09Z: it stood centred on the column).
                 Require(bar.Card != null && bar.Card.Shown.Any(label => label.GetParsedText() == binding.Model.TaskTitle),
                     "the More page draws no title card with the task's name");
                 var standing = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
+                if (standing.Count > 0)
+                {
+                    var panelTop = bar.Panel.transform.localPosition.y + bar.Panel.Size.y / 2f;
+                    var firstTop = standing[0].transform.localPosition.y + standing[0].Size.y / 2f;
+                    Require(Mathf.Abs(panelTop - firstTop) < RoomType.Units(1f), "the More page's title card stands "
+                        + ((firstTop - panelTop) / RoomType.Units(1f)).ToString("0.0") + " dp under its first route's top");
+                }
                 Require(standing.Count == routes.Count + 1, "the More page stands " + standing.Count + " rows, not " + routes.Count + " routes and Back");
                 // Every route the file offers here, the long ones too, whole at both sizes (AUDIT's 10:53Z).
                 Require(routes.Count == 4, "the More page lists " + routes.Count + " of the four routes the file offers");
@@ -762,6 +770,15 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             // The old kit is not drawn at all beside the redesign (the owner, 2026-11-05).
             Require(!host.View.gameObject.activeInHierarchy, "the old kit still draws beside the redesign");
+            // The agent's words on the band exactly as written, every stop kept (AUDIT's 11:09Z, AUDIT2's 11:10Z: WORDS.md rule 8):
+            // the band's words, joined and their spaces read as one, equal the reported message after LabelText.Plain.
+            if (!questioning && !asking && bar.Shown?.Band != null && host.Band.Text.Length > 0 && KitPresenter.ReportOf(workspace.Activity) is ActivityEntry reported
+                && bar.Shown.Band == reported.Text)
+            {
+                static string Spaced(string text) => System.Text.RegularExpressions.Regex.Replace(text, "\\s+", " ").Trim();
+                Require(Spaced(LabelText.FromTextMeshPro(host.Band.Text)) == Spaced(LabelText.Plain(reported.Text)),
+                    "the band reads \"" + host.Band.Text + "\", not the agent's words as written");
+            }
             var actions = new List<RoomButton>();
             if (bar.Shown is RoomBar shown)
             {

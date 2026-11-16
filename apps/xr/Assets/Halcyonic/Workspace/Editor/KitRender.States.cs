@@ -422,7 +422,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static IReadOnlyList<ActivityEntry> ShortReport()
         {
             var (trail, report) = SelectedActivity();
-            var shortened = new ActivityEntry(report.Position, report.OccurredAt, report.Kind, LineWords.TheirName(string.Join(" ", Report.Split(new[] { ". " }, System.StringSplitOptions.None).Take(2)) + "."), report.Reported);
+            var shortened = new ActivityEntry(report.Position, report.OccurredAt, report.Kind, LineWords.TheirName(string.Join(". ", Report.Split(new[] { ". " }, System.StringSplitOptions.None).Take(2)) + "."), report.Reported);
             return trail.Select(entry => entry.Entry).Append(shortened).OrderBy(entry => entry.Position).ToList();
         }
 
