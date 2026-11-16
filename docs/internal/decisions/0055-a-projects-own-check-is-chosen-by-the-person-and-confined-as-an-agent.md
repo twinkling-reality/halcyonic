@@ -181,6 +181,7 @@ the end, and only the last 20 lines were read. So a refusal of the sandbox read 
 gone to the agent as its fault. A refused socket is now read anywhere in a failed script's log (AUDIT3, 15:01Z): a bind,
 listen, connect or dial with "operation not permitted", or Node's "listen EPERM" and "connect EPERM". A bare "permission
 denied" or a file's EACCES is never read this way, since it may be the project's own test; other refusals are still read
-from the last 20 lines. Whether a check may open a port on loopback stays open (OPEN_QUESTIONS.md): the loopback on a
+from the last 20 lines. A project's own test that prints such a socket line for its own reasons reads Refused rather than
+failed: never a pass, since refused is not passed; it only shifts who is told the fault (AUDIT3, 15:07Z). Whether a check may open a port on loopback stays open (OPEN_QUESTIONS.md): the loopback on a
 developer's Mac holds unauthenticated listeners, so a design needs bind and listen on loopback only, connect only to ports
 the same run bound, and a fail-first test that the check cannot reach a listener outside the run.
