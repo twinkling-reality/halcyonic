@@ -62,6 +62,10 @@ namespace Halcyonic.XR.UI
 
         // The row's fourth place: a second action beside Hold to Talk and Type (More at rest before Projects, SCREENS's R1).
         private RoomButton rowMore = null!;
+
+        // Every action of the row past Hold to Talk and Type, one button each, made as the row needs them (SCREENS's 13:41Z (a): a fixed two
+        // drew a fifth action into More's place, More unpressable); the first two are More and RowMore.
+        private readonly List<RoomButton> rowOthers = new List<RoomButton>();
         private GlazeShimmer talkSweep = null!;
         private readonly Transform[] levelBars = new Transform[LevelHistory.Bars];
         private Transform levelRoot = null!;
@@ -181,7 +185,7 @@ namespace Halcyonic.XR.UI
         public Vector2 Size { get; private set; }
 
         /// <summary>Every press it shows now.</summary>
-        public IEnumerable<KitPress> Presses => new[] { talk.Press, type.Press, more.Press, rowMore.Press, field }.Concat(column.Select(button => button.Press))
+        public IEnumerable<KitPress> Presses => new[] { talk.Press, type.Press, field }.Concat(rowOthers.Select(button => button.Press)).Concat(column.Select(button => button.Press))
             .Where(press => press.gameObject.activeInHierarchy);
 
         /// <summary>
@@ -229,6 +233,8 @@ namespace Halcyonic.XR.UI
             view.more.Pressed += () => view.Raise(view.more);
             view.rowMore = RoomButton.Create(go.transform, "Row action 2", RoomButtonSize.Action);
             view.rowMore.Pressed += () => view.Raise(view.rowMore);
+            view.rowOthers.Add(view.more);
+            view.rowOthers.Add(view.rowMore);
             view.levelRoot = new GameObject("Level").transform;
             view.levelRoot.SetParent(go.transform, false);
             var slot = RoomType.Units(LevelWidthDp) / LevelHistory.Bars;
@@ -477,8 +483,7 @@ namespace Halcyonic.XR.UI
             {
                 talk.Hide();
                 type.Hide();
-                more.Hide();
-                rowMore.Hide();
+                HideRowOthers();
                 levelRoot.gameObject.SetActive(false);
                 LayPlate(bar, new Vector3(0f, foot - below + target / 2f, -RoomType.Units(0.5f)));
             }
@@ -511,8 +516,7 @@ namespace Halcyonic.XR.UI
             {
                 talk.Hide();
                 type.Hide();
-                more.Hide();
-                rowMore.Hide();
+                HideRowOthers();
                 levelRoot.gameObject.SetActive(false);
                 LayPlate(bar, new Vector3(0f, under, -RoomType.Units(0.5f)));
             }
@@ -545,8 +549,7 @@ namespace Halcyonic.XR.UI
             // Each part goes off with it, so nothing of a moment that ended reads as standing under the hidden whole.
             talk.Hide();
             type.Hide();
-            more.Hide();
-            rowMore.Hide();
+            HideRowOthers();
             foreach (var button in column) button.Hide();
             panel.gameObject.SetActive(false);
             alone.gameObject.SetActive(false);
@@ -634,6 +637,24 @@ namespace Halcyonic.XR.UI
             }
         }
 
+        /// <summary>The row's action at <paramref name="index"/> past Hold to Talk and Type, made where the row has more than it held before.</summary>
+        private RoomButton RowOther(int index)
+        {
+            while (rowOthers.Count <= index)
+            {
+                var made = RoomButton.Create(transform, "Row action " + (rowOthers.Count + 1), RoomButtonSize.Action);
+                made.Pressed += () => Raise(made);
+                rowOthers.Add(made);
+            }
+            return rowOthers[index];
+        }
+
+        /// <summary>Hides the row's actions past Hold to Talk and Type from <paramref name="from"/> on.</summary>
+        private void HideRowOthers(int from = 0)
+        {
+            for (var index = from; index < rowOthers.Count; index++) rowOthers[index].Hide();
+        }
+
         /// <summary>The row: its actions side by side at home size, 32 dp apart, centred; the level inside Listening's halo.</summary>
         private void LayRow(RoomBar bar, float up)
         {
@@ -646,7 +667,7 @@ namespace Halcyonic.XR.UI
             foreach (var action in bar.Row)
             {
                 // Hold to Talk, then Type (or what stands in its place), then a third action where the model gives one, and a fourth.
-                var button = action.Place == KitPlace.Talk ? talk : action.Place == KitPlace.Field ? type : others++ == 0 ? more : rowMore;
+                var button = action.Place == KitPlace.Talk ? talk : action.Place == KitPlace.Field ? type : RowOther(others++);
                 var width = button.Measure(action.Words, action.Chip) + (button == talk && listening ? RoomType.Units(LevelGapDp + LevelWidthDp) : 0f);
                 buttons.Add((button, action, width));
             }
@@ -662,8 +683,7 @@ namespace Halcyonic.XR.UI
             }
             if (!bar.Row.Any(action => action.Place == KitPlace.Talk)) talk.Hide();
             if (!bar.Row.Any(action => action.Place == KitPlace.Field)) type.Hide();
-            if (others < 1) more.Hide();
-            if (others < 2) rowMore.Hide();
+            HideRowOthers(others);
             talkSweep.Waits = bar.State is RoomBarState.Listening or RoomBarState.Transcribing;
             levelRoot.gameObject.SetActive(listening);
             if (listening)
@@ -681,8 +701,7 @@ namespace Halcyonic.XR.UI
         {
             talk.Hide();
             type.Hide();
-            more.Hide();
-            rowMore.Hide();
+            HideRowOthers();
             levelRoot.gameObject.SetActive(false);
             RoomType.Size(alone);
             GlazeText.SetLiteral(alone, bar.Words.Text);
@@ -918,8 +937,7 @@ namespace Halcyonic.XR.UI
             var saidWaits = fixing != null ? waits : bar.Waits;
             talk.Hide();
             type.Hide();
-            more.Hide();
-            rowMore.Hide();
+            HideRowOthers();
             alone.gameObject.SetActive(false);
             alonePlate.gameObject.SetActive(false);
             HidePlate();
