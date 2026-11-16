@@ -37,7 +37,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         Fact("Model · ", "Glimmer 30B · Ask Me First"),
                     };
                 case "45-rows-steps":
-                    return new List<RoomRow> { Ours("Create Project · Confirmed", RoomRowMark.Check), Ours("Create First Task · Confirmed", RoomRowMark.Check), Ours("Start Task · Sent · Awaiting Agent") };
+                    return new List<RoomRow> { Ours("Create Project · Confirmed", RoomRowMark.Check), Ours("Create First Task · Confirmed", RoomRowMark.Check), Ours("Start Task · Sent. Waiting for the agent.") };
                 case "45-rows-part":
                     // A review's second part: the first task from its third line, three lines of it, then the next item whole.
                     return new List<RoomRow> { new RoomRow(LineWords.Ours("First Task · ") + LineWords.Theirs(RowsLongTask), fromLine: 2, lines: 3), new RoomRow(LineWords.Ours("Folder · ") + LineWords.Theirs("kite-run"), fromLine: 0, lines: 1) };

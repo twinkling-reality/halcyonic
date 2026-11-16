@@ -55,7 +55,7 @@ public class WorkspaceRequestColumnTests
             _ = column.Frame; column.Tick(); Draw(host, column); column.Tick();
             return column.Frame!.Source;
         }
-        Assert.That(Source(new AvailableWorkspaceAgent { Model = "Local model" }), Is.EqualTo("On This Computer · Local model"));
+        Assert.That(Source(new AvailableWorkspaceAgent { Model = "Local model" }), Is.EqualTo("Local model on your computer"));
         // A test provider, as a second declaration would name itself: nothing here names a vendor.
         Assert.That(Source(new AvailableWorkspaceAgent { Model = "test-model-1", Served = AssistantServed.Remote, Provider = "Test Hosted" }),
             Is.EqualTo("On Test Hosted · test-model-1"));
@@ -113,7 +113,7 @@ public class WorkspaceRequestColumnTests
         var foreign = Result(context); foreign.WorkstreamId = "0192f1a0-0000-7000-8000-000000000199";
         var column = Open(host, context, read: (_, _) => Task.FromResult(new WorkspaceRequestResponse { Request = foreign }));
         Draw(host, column);
-        Assert.That(column.Frame!.Lines.Single().Words, Does.Contain("Another Task or Run"));
+        Assert.That(column.Frame!.Lines.Single().Words, Does.Contain("another task or run"));
         Assert.That(column.Frame.Footer.All.Any(each => each.Prompt.Id == WorkspaceRequestColumn.Resume || each.Prompt.Id == WorkspaceRequestColumn.Stop), Is.False);
         column.Act(WorkspaceRequestColumn.Resume, null); column.Act(WorkspaceRequestColumn.Stop, null);
         Assert.That(host.Sent, Is.Empty); Assert.That(column.Draft.Text, Is.EqualTo("My retained local draft"));

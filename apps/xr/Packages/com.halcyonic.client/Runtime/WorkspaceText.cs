@@ -301,20 +301,20 @@ namespace Halcyonic.Client
         /// </summary>
         public static string NotSure(CommandType type) => type switch
         {
-            CommandType.ExecutionSendInstruction => "Delivery Unconfirmed · " + CheckFirst,
-            CommandType.ExecutionInterrupt => "Stop Unconfirmed · " + CheckFirst,
-            CommandType.ExecutionRespondToApproval => "Decision Unconfirmed · " + CheckFirst,
+            CommandType.ExecutionSendInstruction => "Sent, not confirmed yet. Check Activity.",
+            CommandType.ExecutionInterrupt => "The stop isn't confirmed. Check Activity.",
+            CommandType.ExecutionRespondToApproval => "The decision isn't confirmed. Check Activity.",
             CommandType.ExecutionAnswerQuestion => AnswerNotConfirmed,
-            CommandType.ExecutionStart => "Start Unconfirmed · " + CheckFirst,
+            CommandType.ExecutionStart => "The start isn't confirmed. Check Activity.",
             CommandType.WorkspaceRequestSubmit or CommandType.WorkspaceRequestResume or CommandType.WorkspaceRequestCancel
-                => "Request Unconfirmed · Refresh Request",
-            _ => "Effect Unconfirmed · " + CheckFirst,
+                => "The request isn't confirmed. Refresh it.",
+            _ => "Its effect isn't confirmed. Check Activity.",
         };
 
         private const string CheckFirst = "Check Activity";
 
         /// <summary>An answer sent whose effect the runtime never confirmed (Codex's question_unconfirmed, answer_ambiguous).</summary>
-        public const string AnswerNotConfirmed = "Answer Unconfirmed · Check Activity";
+        public const string AnswerNotConfirmed = "The answer isn't confirmed. Check Activity.";
 
         private static bool IsCut(string? text) => text != null && text.Contains("[truncated]");
 
@@ -346,8 +346,8 @@ namespace Halcyonic.Client
         public static IReadOnlyList<string> Answer(WorkspacePresentation workspace)
         {
             // The request or question shows whole under Waiting for you, so the answer names it once.
-            if (workspace.ApprovalToAnswer != null) return new[] { "Approval Requested · See " + TabLabel(WorkspaceQuestion.NeedFromYou) };
-            if (workspace.QuestionToAnswer != null) return new[] { "Question Asked · See " + TabLabel(WorkspaceQuestion.NeedFromYou) };
+            if (workspace.ApprovalToAnswer != null) return new[] { "An approval is waiting. Open " + TabLabel(WorkspaceQuestion.NeedFromYou) + "." };
+            if (workspace.QuestionToAnswer != null) return new[] { "A question is waiting. Open " + TabLabel(WorkspaceQuestion.NeedFromYou) + "." };
             var attention = Attention(workspace);
             if (attention.Count > 0) return attention;
             var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
@@ -386,7 +386,7 @@ namespace Halcyonic.Client
             var tool = approval.Subject as ToolUseSubject;
             var notes = new List<string>();
             var waiting = workspace.Execution?.PendingApprovals.Count ?? 0;
-            if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " Requests Waiting · Oldest First");
+            if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " requests waiting, oldest first");
             if (OnlyDeny(approval) is string onlyDeny) notes.Add(onlyDeny);
             // Where an approved command runs, as its agent app declares it, never read from the request (ADR 0033).
             else if (tool != null && RunsCommand(tool.ToolName) && ApprovedCommandNote(workspace.Runtime) is string where) notes.Add(where);
@@ -549,7 +549,7 @@ namespace Halcyonic.Client
         /// again at once can fail the same way, as when the agent app isn't answering, so the way on looks
         /// at the task first (the coordinator, 2026-10-04).
         /// </summary>
-        public const string NothingChangedSeeIt = "Nothing Changed · See Activity";
+        public const string NothingChangedSeeIt = "Nothing changed. Check Activity.";
 
         /// <summary>
         /// "{lead}: {why}", or <paramref name="lead"/> alone, ended, where there is no why: a refusal or a

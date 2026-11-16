@@ -331,7 +331,7 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/VoiceText.cs",
-    "answer": "\"Voice Failed · Type Instead\"",
+    "answer": "\"Voice didn't work. Type instead.\"",
     "count": 1,
     "why": "generic: Any clip refusal code not listed says Voice Failed with Type Instead, true and vague."
   },
@@ -367,7 +367,7 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs",
-    "answer": "\"Effect Unconfirmed · \" + CheckFirst",
+    "answer": "\"Its effect isn't confirmed. Check Activity.\"",
     "count": 1,
     "why": "generic: Unknown-effect failures of host commands and ExecutionDropQueuedInstruction say Effect Unconfirmed with Check Activity, true for all though vague."
   },

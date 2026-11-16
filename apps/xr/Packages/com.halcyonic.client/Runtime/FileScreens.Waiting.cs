@@ -432,7 +432,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Why Send answer takes no press while an answer sent may still take effect.</summary>
-        public const string SentWaiting = "Sent · Awaiting Agent";
+        public const string SentWaiting = "Sent. Waiting for the agent.";
 
         /// <summary>One complete question with ordered marked choices, scoped editor navigation and a visible forward footer; longer content reads through measured parts.</summary>
         private static Page Question(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)

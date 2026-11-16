@@ -548,7 +548,7 @@ public class FileScreensTests
     {
         var work = new WaitingWork();
         var frame = Screen(new FileScreen { Section = FileSection.Activity }, work.Present());
-        Assert.That((frame.Lines[0].Words, frame.Lines[0].Tone), Is.EqualTo(("Approval Requested · Open Waiting", LineTone.Waiting)));
+        Assert.That((frame.Lines[0].Words, frame.Lines[0].Tone), Is.EqualTo(("An approval is waiting. Open Waiting.", LineTone.Waiting)));
     }
 
     [Test]

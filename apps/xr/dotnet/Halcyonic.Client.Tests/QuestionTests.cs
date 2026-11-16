@@ -291,7 +291,7 @@ public class QuestionTests
         question.Prompts.RemoveAt(1);
         Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Agent\'s Question: Colour scheme, Which colour scheme should the dashboard use?"));
         var work = new AskingWork();
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Question Asked · See Needs You" }),
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "A question is waiting. Open Needs You." }),
             "the answer line points to the tab; the tab's heading names the whole question");
         Assert.That(CharacterPresenter.AsksYou(work.Present().QuestionToAnswer!), Is.EqualTo("2 Questions: Colour scheme; Pages"));
     }

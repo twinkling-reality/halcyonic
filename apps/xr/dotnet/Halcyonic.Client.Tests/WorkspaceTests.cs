@@ -158,7 +158,7 @@ public class ActivityLogTests
         Assert.That(log.For(execution).Select(entry => entry.Text), Is.EqualTo(new[]
         {
             "Instruction Failed: the agent app can't be reached. See Activity and add the task again if it's stuck.",
-            "Delivery Unconfirmed · Check Activity",
+            "Sent, not confirmed yet. Check Activity.",
             "Start Failed: the agent app can't be reached. Check it and try again.",
             "Start Failed: that folder can't be used. Choose another or fix it on your computer.",
             "Round Failed",
@@ -500,15 +500,15 @@ public class WorkspacePresenterTests
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Refused: that can't be done now. See Activity."),
             "by the refusal's code, never the control plane's message");
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed)).Text,
-            Is.EqualTo("Stop Unconfirmed · Check Activity"), "what may have happened, named, never Couldn't");
+            Is.EqualTo("The stop isn't confirmed. Check Activity."), "what may have happened, named, never Couldn't");
         foreach (CommandType type in Enum.GetValues(typeof(CommandType)))
         {
-            Assert.That(WorkspaceText.NotSure(type), Does.Contain(" Unconfirmed · ").And.Not.Contain("Couldn't"), type.ToString());
+            Assert.That(WorkspaceText.NotSure(type), Does.Contain("confirmed").And.Not.Contain("Couldn't").And.Not.Contain("·"), type.ToString());
         }
         var noEffect = Command(CommandStatus.Failed);
         noEffect.Failure!.Effect = FailureEffect.None;
         noEffect.Failure.Code = "codex_other";
-        Assert.That(WorkspacePresenter.Feedback(noEffect).Text, Is.EqualTo("Failed · Nothing Changed · See Activity"),
+        Assert.That(WorkspacePresenter.Feedback(noEffect).Text, Is.EqualTo("Failed: nothing changed. Check Activity."),
             "trying again at once can fail the same way, so the way on looks at the task first");
         // A cause every agent app's adapter shares is said in words already used for it, with the way on.
         foreach (var (code, words) in new[]

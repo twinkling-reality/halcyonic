@@ -1202,7 +1202,7 @@ public class QuestionLedWorkspaceTests
 
         work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", "Drop the table", "2026-09-26T09:05:00.000Z")));
         Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Request, Is.EqualTo("Run the migration"), "the oldest, which an answer goes to");
-        Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Notes, Has.Some.EqualTo("2 Requests Waiting · Oldest First"));
+        Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Notes, Has.Some.EqualTo("2 requests waiting, oldest first"));
 
         work.Change(execution => execution.PendingApprovals[0].Subject = new ToolUseSubject { ToolName = "sh\u202Eell", Summary = "Line one\nline two <b>x</b>" });
         var plain = WorkspaceText.NeedFromYou(work.Present())!;
@@ -1227,7 +1227,7 @@ public class QuestionLedWorkspaceTests
         work.Workstream.Objective = "Migrate\nthe database";
         var waiting = work.Present();
         Assert.That(WorkspaceText.Goal(waiting), Is.EqualTo("Goal · Migrate the database"));
-        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new[] { "Approval Requested · See Needs You" }),
+        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new[] { "An approval is waiting. Open Needs You." }),
             "the request itself shows whole under its tab");
 
         work.Change(execution =>

@@ -438,8 +438,8 @@ namespace Halcyonic.Client
         private static IReadOnlyList<PageLine> Doing(WorkspacePresentation workspace, LineTone tone)
         {
             PageLine Said(string words) => new PageLine(words, tone: tone, rows: 2);
-            if (workspace.ApprovalToAnswer != null) return new[] { Said("Approval Requested · Open " + Word(FileSection.Waiting)) };
-            if (workspace.QuestionToAnswer != null) return new[] { Said("Question Asked · Open " + Word(FileSection.Waiting)) };
+            if (workspace.ApprovalToAnswer != null) return new[] { Said("An approval is waiting. Open " + Word(FileSection.Waiting) + ".") };
+            if (workspace.QuestionToAnswer != null) return new[] { Said("A question is waiting. Open " + Word(FileSection.Waiting) + ".") };
             // A tool's name, a command, a question or a check's summary in a reason leans, last (lane V's treatment).
             var attention = workspace.Character.AttentionNoteRuns;
             if (attention.Count > 0) return attention.Select(note => note.AnyTheirs ? new PageLine(note, tone: tone, rows: 2) : Said(note.Text)).ToList();

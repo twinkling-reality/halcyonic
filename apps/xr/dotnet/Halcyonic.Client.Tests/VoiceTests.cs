@@ -126,7 +126,7 @@ public class TranscriptionTests
         {
             var refused = Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.TranscribeAsync(Second))!;
             Assert.That(refused.Code, Is.EqualTo("transcription_busy_on_mac"));
-            Assert.That(VoiceText.Refusal(refused.Code), Is.EqualTo("Computer Busy · Retry Soon"));
+            Assert.That(VoiceText.Refusal(refused.Code), Is.EqualTo("Your computer is busy. Try again soon."));
         }
     }
 
@@ -142,7 +142,7 @@ public class TranscriptionTests
         foreach (var code in codes)
         {
             var words = VoiceText.Refusal(code);
-            Assert.That(words.ToLowerInvariant(), Does.Contain("type").Or.Contain("retry"), code ?? "null");
+            Assert.That(words.ToLowerInvariant(), Does.Contain("type").Or.Contain("try again"), code ?? "null");
             Assert.That(words, Does.Not.Contain("\u2014"));
         }
         Assert.That(VoiceText.Refusal(null), Is.EqualTo(VoiceText.Unreachable));
@@ -152,7 +152,7 @@ public class TranscriptionTests
     public void NoMicrophoneNeverAsksToAllowOneAndARefusalSaysWhereToAllowIt()
     {
         Assert.That(VoiceText.NoMicrophone, Does.Not.Contain("Allow"));
-        Assert.That(VoiceText.MicrophoneRefused, Does.Contain("Settings"));
+        Assert.That(VoiceText.MicrophoneRefused, Does.Contain("settings"));
         Assert.That(VoiceText.Shown, Does.Contain(VoiceText.NoMicrophone).And.Contain(VoiceText.MicrophoneRefused));
     }
 }
@@ -176,7 +176,7 @@ public class LiveTranscriptionTests
         var refused = Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.TranscribeAsync(Second))!;
         Assert.That(refused.Code, Is.EqualTo("transcription_unavailable"));
         // What a person reads on the headset when the Mac has no voice set up, in every build (ADR 0021, amended).
-        Assert.That(VoiceText.Refusal(refused.Code), Is.EqualTo("Voice Not Set Up · Type Instead"));
+        Assert.That(VoiceText.Refusal(refused.Code), Is.EqualTo("Voice isn't set up. Type instead."));
     }
 
     [Test]

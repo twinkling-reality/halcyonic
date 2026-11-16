@@ -541,7 +541,7 @@ public class CommandSubmissionsSessionTests
         connection.Send(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Rejected, Command = null });
         await submitting;
 
-        Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo("Refused · Check Task · Try Again"));
+        Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo("Refused. Check the task and try again."));
     }
 
     [Test]
@@ -558,7 +558,7 @@ public class CommandSubmissionsSessionTests
 
         Assert.That(submissions.StateOf(command.CommandId), Is.EqualTo(SubmissionState.OutcomeUnknown));
         Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo(
-            "Delivery Unconfirmed · Shows Once Reconnected"));
+            "Sent, not confirmed yet. It shows once you reconnect."));
     }
 
     [Test]

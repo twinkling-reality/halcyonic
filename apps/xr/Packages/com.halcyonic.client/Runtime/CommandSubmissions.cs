@@ -367,7 +367,7 @@ namespace Halcyonic.Client
                         return Local("Nothing was sent: " + Reason);
                     case SubmissionState.OutcomeUnknown:
                         // Whether it arrived can't be told, so it is never said to have gone or not.
-                        return Local("Delivery Unconfirmed · Shows Once Reconnected");
+                        return Local("Sent, not confirmed yet. It shows once you reconnect.");
                 }
                 var ack = Ack!;
                 if (ack.Command != null && ack.Disposition != CommandAckDisposition.Conflict)
@@ -376,9 +376,9 @@ namespace Halcyonic.Client
                 }
                 return ack.Disposition switch
                 {
-                    CommandAckDisposition.Rejected => Local("Refused · Check Task · Try Again"),
-                    CommandAckDisposition.Conflict => Local("Refused · Clashed with Earlier · Try Again"),
-                    CommandAckDisposition.Duplicate => Local("Already Sent · Awaiting Agent"),
+                    CommandAckDisposition.Rejected => Local("Refused. Check the task and try again."),
+                    CommandAckDisposition.Conflict => Local("Refused: it clashed with an earlier one. Try again."),
+                    CommandAckDisposition.Duplicate => Local("Already sent. Waiting for the agent."),
                     _ => Local(WorkspacePresenter.Pending(CommandType)),
                 };
             }

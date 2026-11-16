@@ -16,7 +16,7 @@ public class DotJoinedWordsTests
     /// Lines of the client core that hold a string with a "·" in it, after the Not Sent family became sentences. Lower it as more
     /// become sentences; never raise it.
     /// </summary>
-    private const int MostDotJoinedLines = 251;
+    private const int MostDotJoinedLines = 198;
 
     private static readonly Regex DottedString = new("\"[^\"\\n]*·[^\"\\n]*\"", RegexOptions.CultureInvariant);
 
