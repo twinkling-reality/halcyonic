@@ -559,7 +559,7 @@ namespace Halcyonic.Client
         public static string Newer(int count) => Number(count) + " Newer";
 
         /// <summary>Under a command shown cut: what is left, in the handoff's words ("Cut · 18 More Lines").</summary>
-        public static string CutMore(int lines) => "Cut · " + Number(lines) + (lines == 1 ? " More Line" : " More Lines");
+        public static string CutMore(int lines) => Number(lines) + (lines == 1 ? " More Line Not Shown" : " More Lines Not Shown");
 
         public static string Action(KitMomentAction action) => action switch
         {

@@ -348,16 +348,20 @@ namespace Halcyonic.XR.UI
             KitType.Size(eyebrow, KitRole.Label);
             GlazeText.SetLiteral(eyebrow, moment.Source);
             // The count of the moments behind and after it stands at the eyebrow's end, in the cadence; the stacked edge carries no words.
-            var counted = string.Join(KitFlow.Separator, new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
+            // Each count a line of its own, never joined on a dot (the owner's ban; AUDIT's MUST, 09:34Z): both stand under the eyebrow.
+            var countParts = new[] { slot.Earlier, slot.Newer }.Where(words => words != null).ToList();
+            var counted = string.Join("\n", countParts);
             var eyebrowRoom = width / 2f - pad - eyebrowLeft;
             var countBelow = false;
             if (counted.Length > 0)
             {
                 KitType.Size(count, KitRole.Label);
-                GlazeText.SetLiteral(count, counted);
+                // Each part made literal on its own and joined after: made literal together, the line break folds into a space.
+                GlazeText.SetLiteral(count, countParts[0]!);
+                for (var part = 1; part < countParts.Count; part++) count.text += "\n" + LabelText.ForTextMeshPro(countParts[part]!);
                 var beside = count.GetPreferredValues(count.text).x + Dp(SpatialKit.MarkGapDp);
                 // Beside the eyebrow where both fit; on its own line under it where the source is long.
-                countBelow = eyebrow.GetPreferredValues(eyebrow.text).x > eyebrowRoom - beside;
+                countBelow = countParts.Count > 1 || eyebrow.GetPreferredValues(eyebrow.text).x > eyebrowRoom - beside;
                 if (!countBelow) eyebrowRoom -= beside;
             }
             var (_, _, eyebrowHeight) = KitType.Lay(eyebrow, eyebrowRoom, 1);
@@ -368,7 +372,7 @@ namespace Halcyonic.XR.UI
             if (countBelow)
             {
                 countTop = y - Dp(SpatialKit.MarkGapDp) / 2f;
-                y = countTop - KitType.LinePitch(count);
+                y = countTop - KitType.LinePitch(count) * countParts.Count;
             }
             eyebrowFoot = y;
 
@@ -552,7 +556,7 @@ namespace Halcyonic.XR.UI
             count.gameObject.SetActive(counted.Length > 0);
             if (counted.Length > 0)
             {
-                var (_, countWidth, _) = KitType.Lay(count, width, 1);
+                var (_, countWidth, _) = KitType.Lay(count, width, countParts.Count);
                 if (count.isTextTruncated) cut.Add("count");
                 count.alignment = TextAlignmentOptions.TopLeft;
                 count.transform.localPosition = new Vector3(countBelow ? eyebrowLeft : width / 2f - pad - countWidth, countTop, -0.0005f);

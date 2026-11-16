@@ -202,7 +202,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(!card.Actions.Any(action => KitMomentCard.IsPrimary(action, moment.Tone)) || card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == 1, "the next step is not the one primary");
             // The count: only what stands before the shown moment, on the earlier edge, and what came after a waiting question, in the
             // cadence (the XR baseline's defect 9: "2 Earlier, 1 Newer" took a comma).
-            var counted = string.Join(" · ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
+            var counted = string.Join("\n", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
             Require(card.Count.gameObject.activeSelf == (counted.Length > 0) && (counted.Length == 0 || card.Count.text == counted), "the count is not the model's earlier and newer moments");
             Require(card.Earlier.gameObject.activeSelf == (slot.Earlier != null), "the earlier edge stands without earlier moments, or is missing");
             // The actions beneath, the model's and in this order: the one primary first, at full width, then every other in the
