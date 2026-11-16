@@ -1690,3 +1690,58 @@ describe('a world project beside a starter app (ADR 0049)', () => {
     );
   });
 });
+
+describe("a Starter Only check, through the plane (LINK, 2026-11-16, AUDIT3's S3)", () => {
+  test("the bare starter's check records starter_only, and its preview, sharing and publishing are refused", async (t) => {
+    // The bare starter as the check measured it: everything passed, its own picture the pristine starter's.
+    const bare: CheckResult = {
+      ...PASSED,
+      page:
+        PASSED.page === null
+          ? null
+          : {
+              ...PASSED.page,
+              edges: { at_3s: 46_485, at_10s: 47_199 },
+              drawn: false,
+              own: { share: 0, reference: 'compared', frame: null },
+            },
+      passed: false,
+      ready: false,
+    };
+    const { controlPlane, submit, done, projectId } = plane(t, { result: bare });
+    await done(submit('project.check').command.command_id);
+    assert.equal(controlPlane.projection.latestCheck(projectId)?.findings.verdict, 'starter_only');
+    let n = 0;
+    const refused = (type: string) => {
+      n += 1;
+      const outcome = controlPlane.commands.submit(
+        {
+          schema_version: 1,
+          command_id: `00000000-0000-4000-9000-1${String(n).padStart(11, '0')}` as CommandId,
+          issued_at: '2026-10-29T10:00:00.000Z',
+          client: { name: 'test', version: null, device_label: null },
+          command_type: type,
+          // Each command's own payload as a client sends it; the check's state decides before the review does.
+          payload:
+            type === 'project.share.start'
+              ? { project_id: projectId, way: 'link' }
+              : type === 'project.publish'
+                ? { project_id: projectId, review: 'f'.repeat(64) }
+                : { project_id: projectId },
+        } as CommandEnvelope,
+        'internal',
+      );
+      assert.equal(outcome.disposition, 'rejected', type);
+      return outcome.command?.rejection;
+    };
+    for (const [type, words] of [
+      ['project.preview.start', /Only the copy of a passed check is served/],
+      ['project.share.start', /Only a passed check can be shared/],
+      ['project.publish', /Only a passed check can be published/],
+    ] as const) {
+      const rejection = refused(type);
+      assert.equal(rejection?.code, 'invalid_state', type);
+      assert.match(rejection?.message ?? '', words, type);
+    }
+  });
+});
