@@ -516,7 +516,7 @@ export function lightKeys(
   // With `glass`, the keys stand on a shelf of dark glass that mirrors them and the light near it, fading with height.
   const glass = options.glass === true ? -depth - 0.002 : undefined;
   const mirror = glass === undefined ? undefined : { level: glass, strength: 0.45, lift: 0.35 };
-  const heat = glows(spots.length, { halo: 0.045, round: 1, whiten: 0.35, over: true, mirror });
+  const heat = glows(spots.length, { halo: 0.045, round: 1, whiten: 0.2, over: true, mirror });
   // And the key's own face, lit softly from its front, so which key went down is seen.
   const face = glows(spots.length * 3, { halo: 0.008, round: 0.006, ramp: 0.25, over: true, mirror });
   // Unplayed, each key's front edge keeps a faint line of its own register's colour, so the keyboard is light even
@@ -639,7 +639,8 @@ export function lightKeys(
         const c = hue.get(key.midi) as Color;
         // Dark glass needs more light to be seen lit: a black key's glow is stronger, and its front face lights too.
         const gain = key.black ? 3 : 1;
-        heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.016, 0.016, c, 0.28 * gain * amount);
+        // Bright, never clipping to white: a hot key keeps its colour.
+        heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.016, 0.016, c, 0.2 * gain * amount);
         const mid = key.length / 2;
         face.place(x + ox * mid, y + 0.001, z + oz * mid, tx, 0, tz, ox, 0, oz, key.width * 0.85, key.length, c, 0.2 * gain * amount);
         // Its front face too, carried up over the edge so the top and the front read as one lit key.
@@ -696,7 +697,8 @@ export function fallingNotes(
 ): FallingNotes {
   const fall = options.fall ?? 1.7;
   const reach = options.reach ?? 14;
-  // On keys standing on glass, the notes nearing them and every key's flare are also seen in it.
+  // On keys standing on glass, every key's flare and rising column are also seen in it; the falling drops are not, so
+  // a note never reads as falling on through the glass, nor with a second head under its own.
   const mirror = keys.glass === undefined ? undefined : { level: keys.glass, strength: 0.4, lift: 0.35 };
   const speed = fall / (options.seconds ?? 2.8);
   // The colours span the music itself, its lowest note to its highest.
@@ -727,8 +729,8 @@ export function fallingNotes(
     paths.set(spot.midi, [ox * Math.sin(tilt), Math.cos(tilt), oz * Math.sin(tilt)]);
   }
   // Each drop a small hot head at its foot and a tail tapering up into the dark, both drawn over the key it lands on.
-  const drops = glows(600, { upright: true, halo: 0.03, round: 1, whiten: 0.1, ramp: 0.05, over: true, mirror });
-  const heads = glows(600, { facing: true, halo: 0.025, round: 1, whiten: 0.4, over: true, mirror });
+  const drops = glows(600, { upright: true, halo: 0.03, round: 1, whiten: 0.1, ramp: 0.05, over: true });
+  const heads = glows(600, { facing: true, halo: 0.025, round: 1, whiten: 0.4, over: true });
   // A column of light rising from a struck key: a line with only a halo, fading to nothing at its top.
   const blooms = glows(160, { upright: true, halo: 0.035, round: 1, core: 0, ramp: 0, over: true, mirror });
   const flares = glows(160, { facing: true, halo: 0.12, round: 1, whiten: 0.2, over: true, mirror });

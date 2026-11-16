@@ -443,8 +443,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   keyboard.position.set(0, 1.0, 0);
   keyboard.add(keys.group);
   root.add(keyboard);
-  // The hall's floor is 1.0 m under the keys: each note's light pools on it.
-  ambientMotion(fallingNotes(player, keys, { floor: -1.0 }).move);
+  ambientMotion(fallingNotes(player, keys).move);
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
 });
