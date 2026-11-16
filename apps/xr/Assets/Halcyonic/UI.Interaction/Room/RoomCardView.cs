@@ -329,6 +329,10 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The description's label where it pages (<see cref="RoomCard.DescriptionPage"/>); null where it stands whole.</summary>
+        /// <summary>The paged description's whole text as laid, and where the page shown starts in it: for the checks.</summary>
+        public string PagedDescriptionWhole { get; private set; } = "";
+        public int PagedDescriptionStart { get; private set; }
+
         /// <summary>The page of the paged description shown, from 0.</summary>
         public int PagedDescriptionPage { get; private set; }
 
@@ -428,8 +432,6 @@ namespace Halcyonic.XR.UI
                     // alone and lifted to the block's top; the page asked for, or the last there is.
                     var (label, _) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, RoomRowsView.RowLines * 4);
                     label.overflowMode = TextOverflowModes.Overflow;
-                    label.firstVisibleCharacter = 0;
-                    label.maxVisibleCharacters = 99999;
                     label.ForceMeshUpdate(true);
                     var info = label.textInfo;
                     var lineCount = Mathf.Max(1, info.lineCount);
@@ -437,14 +439,21 @@ namespace Halcyonic.XR.UI
                     var shownPage = Mathf.Min(page, DescriptionPages - 1);
                     var firstLine = shownPage * RoomCard.DescriptionPageLines;
                     var lastLine = Mathf.Min(firstLine + RoomCard.DescriptionPageLines, lineCount) - 1;
+                    PagedDescriptionWhole = label.text;
+                    PagedDescriptionStart = 0;
                     if (info.lineCount > 0)
                     {
-                        label.firstVisibleCharacter = info.lineInfo[firstLine].firstCharacterIndex;
-                        label.maxVisibleCharacters = info.lineInfo[lastLine].lastCharacterIndex + 1;
-                        // The page's first line where the block starts: the lines above it are hidden, so the words move up by them.
-                        var lift = info.lineInfo[0].ascender - info.lineInfo[firstLine].ascender;
-                        label.transform.localPosition += new Vector3(0f, lift, 0f);
-                        label.ForceMeshUpdate(true);
+                        // The page's own words alone, cut between the whole layout's lines (never inside a word), their outside runs
+                        // moved with them; laid again at the same width they break where the whole did.
+                        var whole = label.text;
+                        var start = info.characterInfo[info.lineInfo[firstLine].firstCharacterIndex].index;
+                        var end = lastLine + 1 < info.lineCount ? info.characterInfo[info.lineInfo[lastLine + 1].firstCharacterIndex].index : whole.Length;
+                        var runs = GlazeRuns.Of(label);
+                        var ranges = runs.Theirs.Select(run => (Start: Mathf.Max(run.Start, start) - start, End: Mathf.Min(run.End, end) - start)).Where(run => run.End > run.Start).ToList();
+                        label.text = whole.Substring(start, end - start);
+                        runs.Lean(ranges);
+                        KitType.Lay(label, width, RoomCard.DescriptionPageLines);
+                        PagedDescriptionStart = start;
                     }
                     PagedDescription = label;
                     PagedDescriptionLines = lastLine - firstLine + 1;

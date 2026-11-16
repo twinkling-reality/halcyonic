@@ -344,15 +344,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     var shownPage = Mathf.Min(asked, view.DescriptionPages - 1);
                     Require(view.PagedDescriptionPage == shownPage, "the description shows page " + (view.PagedDescriptionPage + 1) + ", not " + (shownPage + 1));
                     if (reviewPages > 0) Require(card.More?.Text == RoomReview.PartOf(asked, RoomReview.Parts(CardReview(), view.DescriptionPages)), "the foot line does not name this part");
-                    var first = paged.firstVisibleCharacter;
-                    Require(first <= 0 || char.IsWhiteSpace(paged.textInfo.characterInfo[first - 1].character), "a page starts inside a word");
+                    var first = view.PagedDescriptionStart;
+                    Require(first <= 0 || char.IsWhiteSpace(view.PagedDescriptionWhole[first - 1]), "a page starts inside a word");
                     // Exactly the card's four whole lines a page, or what is left on the last (JUDGE's 06:08Z: a fifth line cut at the
                     // card's foot), and no line of the page drawn under the card's own bottom.
-                    var lines = Mathf.Max(1, paged.textInfo.lineCount);
-                    var wantedLines = Mathf.Min(RoomCard.DescriptionPageLines, lines - shownPage * RoomCard.DescriptionPageLines);
-                    Require(view.PagedDescriptionLines == wantedLines, "the description's page shows " + view.PagedDescriptionLines + " lines, not " + wantedLines);
+                    paged.ForceMeshUpdate(true);
+                    Require(paged.textInfo.lineCount == view.PagedDescriptionLines && view.PagedDescriptionLines >= 1 && view.PagedDescriptionLines <= RoomCard.DescriptionPageLines
+                        && (view.PagedDescriptionPage == view.DescriptionPages - 1 || view.PagedDescriptionLines == RoomCard.DescriptionPageLines),
+                        "the description's page shows " + paged.textInfo.lineCount + " lines, not the card's " + view.PagedDescriptionLines + " of its four");
                     var lowest = float.MaxValue;
-                    for (var each = first; each < Mathf.Min(paged.maxVisibleCharacters, paged.textInfo.characterCount); each++)
+                    for (var each = 0; each < paged.textInfo.characterCount; each++)
                         if (paged.textInfo.characterInfo[each].isVisible) lowest = Mathf.Min(lowest, paged.textInfo.characterInfo[each].descender);
                     if (lowest < float.MaxValue)
                     {
