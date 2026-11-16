@@ -215,7 +215,6 @@ namespace Halcyonic.XR.Workspace.Editor
                         place.SetPositionAndRotation(spot.position, spot.rotation);
                         RoomNewProjectPlace.Turn(place, eyes, turned);
                         if (frame == Mathf.RoundToInt(0.1f * fps)) atTenth = turned;
-                        if (aside == null && frame > 0 && Mathf.Abs(off[frame]) <= 0.1f && Mathf.Abs(ends[frame] - ends[frames]) <= 0.1f) aside = frame / (float)fps;
                         if (grow && (frame == 0 || frame == Mathf.RoundToInt(0.1f * fps) || frame == fps / 2))
                         {
                             var image = WorkspaceRender.Render(camera, texture);
@@ -223,12 +222,17 @@ namespace Halcyonic.XR.Workspace.Editor
                             UnityEngine.Object.DestroyImmediate(image);
                         }
                     }
+                    // When the place has caught the tag: the first frame from which it keeps within a tenth of a degree of each frame's clear turn,
+                    // so the key stays out of the tag's way while the tag's new name is still arriving.
+                    for (var frame = frames; frame >= 1 && Mathf.Abs(off[frame]) <= 0.1f; frame--) aside = frame / (float)fps;
+                    var reached = 0f;
+                    for (var frame = 1; frame <= frames; frame++) if (Mathf.Abs(ends[frame] - ends[frames]) > 0.1f) reached = frame / (float)fps;
                     var change = end - start;
                     if (Mathf.Abs(change) < 0.2f) failures.Add("New Project's place needs no new turn when the tag's name " + (grow ? "lengthens" : "shortens") + " (" + GlazeChecks.Degrees(change) + " degrees), so its motion is not shown, at text scale " + scale);
                     if (grow)
                     {
                         // Out of the way within about 0.12 s, so an overlap lasts a blink, never a collision; never more than 2 degrees a frame.
-                        if (aside is not float done || done > 0.125f) failures.Add("New Project's place takes " + (aside is float late ? late.ToString("0.00", CultureInfo.InvariantCulture) + " s" : "past 1.2 s") + " to step aside as the tag grows, over 0.12 s, at text scale " + scale);
+                        if (aside is not float done || done > 0.125f) failures.Add("New Project's place takes " + (aside is float late ? late.ToString("0.00", CultureInfo.InvariantCulture) + " s" : "past 1.2 s") + " to keep up with the tag as it grows, over 0.12 s, at text scale " + scale);
                         if (largest > 2f) failures.Add("New Project's place jumps " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " degrees in one frame as the tag grows, over 2, at text scale " + scale);
                     }
                     else if (atTenth is float tenth && Mathf.Abs(tenth - start) > 0.6f * Mathf.Abs(change))
@@ -243,7 +247,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     for (var frame = fps; frame <= frames; frame++)
                         if (off[frame] != 0f) { failures.Add("New Project's place does not stand still on its turn from 1 s as it " + way + ", at text scale " + scale); break; }
                     Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place " + way + " " + GlazeChecks.Degrees(Mathf.Abs(change)) + " degrees as the tag's name "
-                        + (grow ? "lengthens to the film's sentence needing the person" : "shortens again") + ": " + GlazeChecks.Degrees(Mathf.Abs((atTenth ?? start) - start)) + " in 0.1 s, settled at "
+                        + (grow ? "lengthens to the film's sentence needing the person" : "shortens again") + ": its clear turn arrives by " + reached.ToString("0.00", CultureInfo.InvariantCulture) + " s; "
+                        + GlazeChecks.Degrees(Mathf.Abs((atTenth ?? start) - start)) + " in 0.1 s, keeping up from "
                         + (aside is float at ? at.ToString("0.00", CultureInfo.InvariantCulture) + " s" : "past 1.2 s") + ", at most " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " in a frame, still from 1 s.");
                 }
             }
