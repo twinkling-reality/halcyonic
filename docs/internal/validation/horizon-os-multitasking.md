@@ -150,26 +150,41 @@ Display stayed the top resumed activity and Halcyonic stayed unfocused.
   a window in front (an inference to check on the headset). Moving a window above the characters,
   by its bar, is the person's.
 
-## The native panel on the owner's headset (2026-11-16, first attempt)
+## The native panel on the owner's headset (2026-11-16)
 
 - **Setup:** Quest 3 on Horizon OS 209 (Android 14, build UP1A.231005.007.A1), on the cable. The
   development APK of main `8d6e0944e` was installed (SHA-256 `b05047a3…f0f4`). The control plane on
-  47800 ran the same commit. Nobody wore the headset: it lay on the desk with the proximity sensor
-  overridden (`pnpm quest:device -- awake`), from 22:10:25Z to 22:14:59Z UTC.
-- **Observed: without tracking, nothing opens, the panel included.** For two minutes the headset
-  reported that it could not find its position in the room. An explicit
+  47800 ran the same commit. Nobody wore the headset. The proximity sensor was overridden
+  (`pnpm quest:device -- awake`) for each sitting and given back after it. Every step was driven
+  over adb.
+- **Without tracking, the panel does not open.** Lying on the desk (22:10Z to 22:15Z), and later
+  standing but tilted toward the ceiling (22:19Z to 22:40Z), the headset reported that it could not
+  find its position. An explicit
   `am start -W -n com.halcyonic.xr/com.halcyonic.panel.AgentPanelActivity` did not return within
-  120 seconds and was stopped. So a launch of the 2D panel waits on tracking just as the
-  immersive app does. A test of the panel needs the headset worn, or standing upright facing a lit
-  room.
-- **Read in source, not yet seen on the headset:** `AgentPanelActivity` sets `FLAG_SECURE` on its
-  window and dialogs (`AgentPanelActivity.java`, at 104, 135, 273 and 1103 on `8d6e0944e`). Android
-  draws a secure window black in `screencap` and `screenrecord`. Whether Meta's capture service also
-  draws it black is unverified. Only the development-only synthetic preview activity clears the flag.
-- **Still to check on the headset:** the panel opened from Minimize and from Other Apps, beside a
-  video playing in a system app; its USB development connection; the panel following a task to
-  Needs You; the return to the same task in the workspace; and whether a capture shows the panel or
-  black.
+  120 seconds. In the second case the system dialog "Finding position in room" was in front and
+  also refused a launch of the immersive app.
+- **Upright, level and tracking (22:49Z on), the panel opens beside another app.** An explicit
+  `am start` of `AgentPanelActivity` made it a resumed top activity beside the immersive one. With
+  the system Gallery then playing a video, the Gallery's, the panel's and the immersive app's windows
+  were all on screen (`isOnScreen=true` for each), and the immersive app's process stayed alive. The
+  control plane logged no new realtime connection from 22:50:12Z, inferred to mean the immersive
+  app's connection held. An explicit `am start` of `UnityPlayerGameActivity`, the panel's own return
+  target, brought the immersive app back to the front.
+- **The panel's window blanks the whole capture.** `AgentPanelActivity` sets `FLAG_SECURE` on its
+  window and dialogs (`AgentPanelActivity.java` at 104, 135, 273 and 1103 on `8d6e0944e`). With the
+  panel open, two `screenrecord` frames (`pnpm quest:device -- shot`) were video black in all 67
+  frames (luma 16 to 17), the room and the immersive app included, not only the panel. With the
+  immersive app in front and no panel, the same command gave a normal frame (luma up to 250).
+  Meta's capture service was not tried.
+- **With nobody wearing it, no window has input focus.** `dumpsys window` showed
+  `mCurrentFocus=null`. Injected touchscreen and mouse taps on the panel's
+  **Connection (development)** button changed nothing. The panel accepts that press only when it is
+  focused, so the development connection, and every other press, needs a person.
+- **The panel without a connection** read "Your computer is not available. Pair in Workspace to use
+  this panel." Wi-Fi pairing could not be started from the headset's Settings on this build (a
+  category mismatch, fixed on a branch for a later batch).
+- **Still to check, wearing it:** opening the panel from Minimize and Other Apps; its development
+  connection; the panel following a real task to Needs You; the return to the same task.
 
 ## Consequences
 
