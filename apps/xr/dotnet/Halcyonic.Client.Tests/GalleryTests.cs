@@ -170,9 +170,9 @@ public class GalleryTests
         Assert.That(item.Owner?.Text, Is.EqualTo("harbor-labs"));
         Assert.That(item.Section, Is.EqualTo(GallerySection.NeedsYou), "the more urgent of the two");
         Assert.That(item.SectionFrom, Is.EqualTo(GallerySectionSource.Catalog));
-        Assert.That(item.ObservedLine?.Text, Is.EqualTo("Working · 1"), "this computer's own tasks keep their line");
+        Assert.That(item.ObservedLine?.Text, Is.EqualTo("1 task working"), "this computer's own tasks keep their line");
         Assert.That(item.ReportedLine?.Text, Is.EqualTo("Review Requested"));
-        Assert.That(item.Line.Text, Is.EqualTo("Working · 1"));
+        Assert.That(item.Line.Text, Is.EqualTo("1 task working"));
         Assert.That(item.LineReported, Is.False);
         Assert.That(item.HasCharacter, Is.True);
         Assert.That(item.OnYourComputer, Is.True);
@@ -189,7 +189,7 @@ public class GalleryTests
         var item = Build(halcyonic, Read(new[] { Catalog("c1", "Tide", "agent_running", linked: "p1") })).Items.Single();
         Assert.That(item.Section, Is.EqualTo(GallerySection.NeedsYou));
         Assert.That(item.SectionFrom, Is.EqualTo(GallerySectionSource.Halcyonic));
-        Assert.That(item.ObservedLine?.Text, Is.EqualTo("Needs You · 1"));
+        Assert.That(item.ObservedLine?.Text, Is.EqualTo("1 task needs you"));
         Assert.That(item.ReportedLine?.Text, Is.EqualTo("Agent Running"));
         Assert.That(item.Place.Text, Is.EqualTo("No Folder Yet"), "a project with no folder says so");
     }

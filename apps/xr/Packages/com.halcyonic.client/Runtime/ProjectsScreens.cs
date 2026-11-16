@@ -234,11 +234,12 @@ namespace Halcyonic.Client
             SidePanel? side = null;
             if (project != null)
             {
-                var facts = new List<SideFact>
-                {
-                    new SideFact(ProjectsText.ItsWork, ProjectsText.Work(project)),
-                    new SideFact(ProjectsText.OnTheStage, project.Shown ? ProjectsText.Shown : ProjectsText.Hidden),
-                };
+                // Its work as facts apart, each state its label and its count the value (AUDIT and AUDIT2, 10:48Z).
+                var work = ProjectsText.WorkFacts(project);
+                var facts = work.Count == 0
+                    ? new List<SideFact> { new SideFact(ProjectsText.ItsWork, ProjectsText.NoWork) }
+                    : work.Select(fact => new SideFact(fact.Name, fact.Value)).ToList();
+                facts.Add(new SideFact(ProjectsText.OnTheStage, project.Shown ? ProjectsText.Shown : ProjectsText.Hidden));
                 if (LooksAlike(project, projects, offers, state)) facts.Add(new SideFact(ProjectsText.ItsName, ProjectsText.ProjectLooksAlike));
                 side = new SidePanel(project.Name, subjectIsData: true, facts: facts, identityKind: MenuIdentityKind.Project);
                 footer = new Footer(
@@ -419,7 +420,9 @@ namespace Halcyonic.Client
             // What connecting will do, until it was sent; then how it went takes its place.
             facts.Add(connection == null
                 ? new SideFact(ProjectsText.Connecting, ConnectText.WhatConnectingDoesRuns(folder))
-                : new SideFact(ProjectsText.WhatHappened, ConnectText.OutcomeRuns(connection)));
+                : ConnectText.OutcomeParts(connection) is var (outcome, why) && outcome != null
+                    ? new SideFact(outcome, why)
+                    : new SideFact(ProjectsText.WhatHappened, ConnectText.OutcomeRuns(connection)));
             return new SidePanel(folder.Name, subjectIsData: true, facts: facts);
         }
 

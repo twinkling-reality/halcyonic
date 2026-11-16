@@ -250,7 +250,7 @@ public class JudgeMenuWalkTests
         beginning.ApplyWelcome(Demonstration.Recording().Welcome);
         beginning.ApplySnapshot(Demonstration.Recording().Snapshot.Snapshot, new StateChanges());
         Assert.That(WorkOverview.Of(beginning, new StageVisibility(), _ => true).Projects.Select(project => ProjectsText.ProjectFact(project)),
-            Is.All.EqualTo("Not Started · 3 Tasks"));
+            Is.All.EqualTo("3 tasks not started"));
         foreach (var task in beginning.Workstreams.Values)
         {
             var character = CharacterPresenter.Present(task, beginning, live: true);

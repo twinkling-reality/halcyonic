@@ -182,6 +182,10 @@ public class FolderConnectTests
                 Failure = new CommandFailure { Code = code, Message = Leak, Effect = FailureEffect.None },
             }));
             Assert.That(ConnectText.Outcome(connection), Is.EqualTo(words), code);
+            // Where a panel has room, the state and its why stand apart: "Connect Failed" as the label, the why its own sentence.
+            var (state, why) = ConnectText.OutcomeParts(connection);
+            var expected = words.Substring("Connect Failed: ".Length);
+            Assert.That((state, why.Text), Is.EqualTo(((string?)"Connect Failed", char.ToUpperInvariant(expected[0]) + expected.Substring(1))), code);
         }
     }
 

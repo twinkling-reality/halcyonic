@@ -69,6 +69,28 @@ namespace Halcyonic.Client
             + (folder.Folder == null ? LineWords.Ours("Folder ") + Named(folder.RawName) : LineWords.Ours("In ") + Named(ProjectFolder.LabelOf(folder.Root)))
             + LineWords.Ours(" · New Project · ") + Named(folder.ProjectName);
 
+        /// <summary>
+        /// How connecting went as its state and its why apart, where a panel has room (AUDIT and AUDIT2, 2026-11-16 10:48Z): a
+        /// refused or failed connect gives "Connect Refused" or "Connect Failed" with its why as its own sentence; any other outcome
+        /// has no state of its own (null) and is said whole.
+        /// </summary>
+        public static (string? State, LineWords Why) OutcomeParts(FolderConnection connection)
+        {
+            var step = connection.Step;
+            if (!connection.Connected && step.Status == BuildStepStatus.Refused && step.Refusal != Halcyonic.Contracts.RejectionCode.DeviceRevoked
+                && WorkspaceText.WhyRefused(step.Refusal) is string refused)
+                return (ConnectRefused, LineWords.Written(refused));
+            if (!connection.Connected && step.Status == BuildStepStatus.Failed && !step.EffectUnknown)
+                return (ConnectFailed, LineWords.Written(FailedWhy(step)));
+            return (null, OutcomeRuns(connection));
+        }
+
+        private const string ConnectRefused = "Connect Refused";
+        private const string ConnectFailed = "Connect Failed";
+
+        private static string FailedWhy(BuildStep step) =>
+            (EntryText.FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged;
+
         /// <summary>How connecting went: sent is not done, and only the completed record confirms it.</summary>
         public static string Outcome(FolderConnection connection) => OutcomeRuns(connection).Text;
 
@@ -86,9 +108,9 @@ namespace Halcyonic.Client
                 BuildStepStatus.Waiting => Ours(Connecting),
                 // Why, by its code, never the control plane's message.
                 BuildStepStatus.Refused when step.Refusal == Halcyonic.Contracts.RejectionCode.DeviceRevoked => Ours(ConnectionText.PairingRefused),
-                BuildStepStatus.Refused => Ours(WorkspaceText.Couldnt("Connect Refused", WorkspaceText.WhyRefused(step.Refusal))),
+                BuildStepStatus.Refused => Ours(WorkspaceText.Couldnt(ConnectRefused, WorkspaceText.WhyRefused(step.Refusal))),
                 // A failure that may have had an effect is never put in words that say nothing happened.
-                BuildStepStatus.Failed when !step.EffectUnknown => Ours(WorkspaceText.Couldnt("Connect Failed", (EntryText.FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged)),
+                BuildStepStatus.Failed when !step.EffectUnknown => Ours(WorkspaceText.Couldnt(ConnectFailed, FailedWhy(step))),
                 BuildStepStatus.NotSent => Ours(NotConnectedYet),
                 _ => Ours("Connecting ") + Named(connection.Folder.ProjectName) + Ours(" isn't confirmed. Check Projects."),
             };

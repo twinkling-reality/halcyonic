@@ -83,14 +83,12 @@ namespace Halcyonic.Client
 
         public static string ProjectFact(ProjectSummary project, bool looksAlike = false)
         {
-            var most = project.NeedsYou > 0 ? "Needs You · " + Tasks(project.NeedsYou)
-                : project.Notice > 0 ? "Ready · " + Tasks(project.Notice)
-                : project.Active > 0 ? "Working · " + Tasks(project.Active)
-                : project.Work == 0 ? NoWork
-                : project.Work > project.NotStarted ? "Paused · " + Tasks(project.Work - project.NotStarted)
-                : "Not Started · " + Tasks(project.NotStarted);
-            var fact = project.Shown ? most : Hidden + " · " + most;
-            return looksAlike ? ConnectText.LooksLikeAnother + " · " + fact : fact;
+            // A row's one fact, as a plain phrase ("2 tasks need you"), never parts on a dot; hidden and the look-alike mark
+            // are their own sentences before it.
+            var state = StateOf(project);
+            var most = project.Work == 0 ? NoWork : Phrase(state.Word, state.Tasks);
+            var fact = project.Shown ? most : Hidden + ". " + most;
+            return looksAlike ? ConnectText.LooksLikeAnother + ". " + fact : fact;
         }
 
         /// <summary>
@@ -102,15 +100,32 @@ namespace Halcyonic.Client
         public static string Work(ProjectSummary project)
         {
             if (project.Work == 0) return NoWork;
-            var parts = new System.Collections.Generic.List<string>();
-            string Counted(int count) => count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            // One line where one is all the place holds: a plain phrase, never facts on a dot (the owner's ban, 2026-11-11).
+            return string.Join(", ", WorkFacts(project).Select(fact => Phrase(fact.Name, fact.Count)));
+        }
+
+        /// <summary>
+        /// A project's work as facts apart (AUDIT and AUDIT2, 2026-11-16 10:48Z): each state its own label ("Needs You") and its
+        /// value ("2 Tasks"), what waits for the person first, so a view lays the label small and the value strong. None for no work.
+        /// </summary>
+        public static IReadOnlyList<(string Name, string Value, int Count)> WorkFacts(ProjectSummary project)
+        {
+            var facts = new List<(string Name, string Value, int Count)>();
             var paused = project.Work - project.NeedsYou - project.Notice - project.Active - project.NotStarted;
-            if (project.NeedsYou > 0) parts.Add("Needs You · " + Counted(project.NeedsYou));
-            if (project.Notice > 0) parts.Add("Ready · " + Counted(project.Notice));
-            if (project.Active > 0) parts.Add("Working · " + Counted(project.Active));
-            if (paused > 0) parts.Add("Paused · " + Counted(paused));
-            if (project.NotStarted > 0) parts.Add("Not Started · " + Counted(project.NotStarted));
-            return string.Join(" · ", parts);
+            void Add(string name, int count) { if (count > 0) facts.Add((name, Tasks(count), count)); }
+            Add("Needs You", project.NeedsYou);
+            Add("Ready", project.Notice);
+            Add("Working", project.Active);
+            Add("Paused", paused);
+            Add("Not Started", project.NotStarted);
+            return facts;
+        }
+
+        /// <summary>A state's count as a plain phrase: "1 task needs you", "2 tasks need you", "3 tasks working".</summary>
+        public static string Phrase(string word, int count)
+        {
+            var tasks = count.ToString(System.Globalization.CultureInfo.InvariantCulture) + (count == 1 ? " task " : " tasks ");
+            return tasks + (word == "Needs You" ? (count == 1 ? "needs you" : "need you") : word.ToLowerInvariant());
         }
 
         /// <summary>A project with no tasks yet.</summary>
