@@ -136,7 +136,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// band; a long message; Changes and its second page's way on; Checks passed and failed; and a project with a
         /// check and no observed turn.
         /// </summary>
-        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-checks-partly", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused", "38-result-play-not-in-build", "38-result-add", "38-add", "38-add-last", "38-conflict" };
+        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-checks-partly", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused", "38-result-play-not-in-build", "38-result-add", "38-add", "38-add-last", "38-conflict", "38-result-checking", "38-result-simulated", "38-result-unchecked" };
 
         /// <summary>The agent's newest message in the result's states, DESIGN's own, synthetic.</summary>
         private const string ResultSays = "I added the golden balloon and removed the old backup file.";
@@ -175,6 +175,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private const string PartlyFinding = "The app's own look is not known: the starter's picture to compare with could not be made. Checking again may make it.";
 
+        /// <summary>The demonstration's simulated checks as its Checks page says them (CheckedPresenter.SimulatedStatus's form), synthetic.</summary>
+        private static readonly RoomCardStatus SimulatedChecks = new RoomCardStatus(RoomPanelCards.AllPassing, "Simulated at 05:00:12", RoomTone.Good);
+
         /// <summary>What the computer knows in each of the result's states, synthetic.</summary>
         private static RoomResult? ResultFor(string state)
         {
@@ -196,6 +199,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-result-play-refused" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, play: PlayInHeadset.NotConfined),
                 "38-result-play-not-in-build" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, play: PlayInHeadset.NotInThisBuild),
                 "38-project" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, null, passing),
+                // The card says what its Checks page says (JUDGE's ALERT 05:04Z): a check under way, a demonstration's simulated
+                // checks as simulated, and with neither, no outcome at all, never "Nothing checked yet" over a check.
+                "38-result-checking" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: null, ResultTurn(false), null, checkRunning: true),
+                "38-result-simulated" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: null, ResultTurn(false), null, simulated: SimulatedChecks),
+                "38-result-unchecked" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: null, ResultTurn(false), null),
                 "38-result-add" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, add: CopyFor(10, conflicted: false), addReview: "synthetic-review"),
                 "38-add" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, RoomResultPage.Add, add: CopyFor(10, conflicted: false), addReview: "synthetic-review"),
                 "38-add-last" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, RoomResultPage.Add, part: 1, add: CopyFor(10, conflicted: false), addReview: "synthetic-review"),
@@ -329,6 +337,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 "36-work-steps" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the task's steps list in the panel's place beside Stop, Working now, synthetic data"),
                 "36-work-watch" => (VoiceStage.Idle, false, RoomBarState.Hidden, "Watch It Work open on live work: Done Watching over Stop, the turn's three files on the arc in the panel's place, synthetic data"),
                 "36-work-fixing" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work while the agent's first try at a failed check runs: the failure and the try in the panel beside Stop, synthetic data"),
+                "38-result-checking" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result while the computer's check is under way: Checking on the card, as the Checks page says, synthetic data"),
+                "38-result-simulated" => (VoiceStage.Idle, false, RoomBarState.Rest, "The demonstration's result: its simulated checks on the card as its Checks page says them, synthetic data"),
+                "38-result-unchecked" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result with no check of the computer's: the files only, no outcome claimed, synthetic data"),
                 "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Copy and Try Build, synthetic data"),
                 "37-more" => (VoiceStage.Idle, false, RoomBarState.Page, "More pressed at rest: the task's routes in the panel's place, each with its chevron, then Back, synthetic data"),
                 "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
@@ -824,9 +835,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         // FIELD's result card (A17): the check and the files as slots, an ended chain of tries as its status; no
                         // sentence, nothing joined on a dot, every label of the card whole.
                         var stopped = state == "38-result-stopped";
-                        var slots = state == "38-project" ? new[] { "Passed" } : stopped ? new[] { "Failed", "4 Files" } : state == "38-result-add" ? new[] { "Passed", "10 Files" } : new[] { "Passed", "4 Files" };
+                        var unclaimed = state is "38-result-checking" or "38-result-simulated" or "38-result-unchecked";
+                        var slots = state == "38-project" ? new[] { "Passed" } : stopped ? new[] { "Failed", "4 Files" } : state == "38-result-add" ? new[] { "Passed", "10 Files" }
+                            : unclaimed ? new[] { "4 Files" } : new[] { "Passed", "4 Files" };
+                        var statusTitle = stopped ? RoomBar.StoppedTitle : state == "38-result-checking" ? TaskSteps.Checking : state == "38-result-simulated" ? SimulatedChecks.Title : null;
                         Require(shown.Card != null && !shown.Card.AnyDot && shown.Card.Slots.Select(slot => slot.Value.Text).SequenceEqual(slots) && shown.Sentence == null
-                            && (shown.Card.Status?.Title == (stopped ? RoomBar.StoppedTitle : null)),
+                            && (shown.Card.Status?.Title == statusTitle) && (state != "38-result-simulated" || shown.Card.Status?.Line == SimulatedChecks.Line),
                             "the result's card reads " + string.Join(", ", shown.Card?.Slots.Select(slot => slot.Value.Text) ?? new string[0]) + " under " + shown.Card?.Status?.Title);
                         CardWhole();
                         // DEVICE's Play in Headset: a pressable action where it stands, nothing where it cannot act.
