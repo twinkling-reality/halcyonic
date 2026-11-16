@@ -742,6 +742,7 @@ describe('the C# bindings', () => {
     'ExecutionView.spending_cap', // its spending limit, absent for none
     'ExecutionView.unconfined_reason', // why its start was not counted confined (BOX-4, PLAN 4a)
     'ExecutionView.usage', // what its reported turns used, absent until one is reported
+    'ExecutionView.writing', // the files its running turn changed, as the host saw them (Watch It Work)
     'LocationRoot.label', // a location's label
     'OwnCopy.missing_at', // ADR 0045, amended: a start found the task's copy gone
     'ProjectCheckPayload.workstream_id', // the task whose copy a check checks (ADR 0045)

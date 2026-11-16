@@ -9,6 +9,7 @@ import {
 } from './commands.ts';
 import { WorkstreamCopy } from './copies.ts';
 import { ApprovalSubject, QUEUED_INSTRUCTIONS_MAX } from './events.ts';
+import { ExecutionWritingView } from './file-changes.ts';
 import { ProjectPublishedView } from './github.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import { ExecutionMediaView, MEDIA_PER_PROJECT, ProjectMediaView } from './media.ts';
@@ -387,6 +388,11 @@ export const ExecutionView = Type.Object(
      */
     unconfined_reason: Type.Optional(Text(2000)),
     instruction: Text(32000),
+    /**
+     * The files the host last saw change while its turn runs (Watch It Work), and when; kept until the next
+     * turn starts, so a turn's end still has them. Absent before any.
+     */
+    writing: Type.Optional(ExecutionWritingView),
     /**
      * The project's photos and videos its instructions carried (ADR 0066), each once, first given
      * first; absent for none.

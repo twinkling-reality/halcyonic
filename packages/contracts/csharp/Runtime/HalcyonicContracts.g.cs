@@ -3027,6 +3027,21 @@ namespace Halcyonic.Contracts
         public SpendingCapViewState State { get; set; }
     }
 
+    public sealed class ExecutionWritingView
+    {
+        [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Paths { get; set; } = new global::System.Collections.Generic.List<string>();
+
+        [global::Newtonsoft.Json.JsonProperty("paths_total", Required = global::Newtonsoft.Json.Required.Always)]
+        public long PathsTotal { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("total_complete", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool TotalComplete { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.Always)]
+        public string At { get; set; } = default!;
+    }
+
     public sealed class ExecutionMediaView
     {
         [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
@@ -3434,6 +3449,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("instruction", Required = global::Newtonsoft.Json.Required.Always)]
         public string Instruction { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("writing", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public ExecutionWritingView? Writing { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("media", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<ExecutionMediaView>? Media { get; set; }
@@ -4979,6 +4997,18 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("skipped", Required = global::Newtonsoft.Json.Required.AllowNull)]
         public FilesObservedSkipped? Skipped { get; set; }
+    }
+
+    public sealed class FilesWriting
+    {
+        [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Paths { get; set; } = new global::System.Collections.Generic.List<string>();
+
+        [global::Newtonsoft.Json.JsonProperty("paths_total", Required = global::Newtonsoft.Json.Required.Always)]
+        public long PathsTotal { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("total_complete", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool TotalComplete { get; set; }
     }
 
     public sealed class ExecutionCheckOutputGivenPayload
@@ -6877,6 +6907,7 @@ namespace Halcyonic.Contracts
                 "workstream.fitted" => new WorkstreamFittedEvent(),
                 "execution.created" => new ExecutionCreatedEvent(),
                 "execution.files.observed" => new ExecutionFilesObservedEvent(),
+                "execution.files.writing" => new ExecutionFilesWritingEvent(),
                 "execution.check_output_given" => new ExecutionCheckOutputGivenEvent(),
                 "execution.auto_fix.sent" => new ExecutionAutoFixSentEvent(),
                 "execution.auto_fix.ended" => new ExecutionAutoFixEndedEvent(),
@@ -7358,6 +7389,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public FilesObserved Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionFilesWritingEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.files.writing";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public FilesWriting Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionCheckOutputGivenEvent : EventEnvelope

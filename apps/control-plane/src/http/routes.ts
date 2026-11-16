@@ -456,7 +456,12 @@ export function registerRoutes(
     const projectId = (request.params as { project_id: string }).project_id;
     const query = validateProjectFileQuery(request.query);
     if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
-    return (await reads.file(projectId, query.value, request.principal)) ?? unavailable(reply);
+    const read = await reads.taskFile(projectId, query.value, request.principal);
+    if (read === 'too_many')
+      return reply
+        .code(429)
+        .send(errorBody('too_many_requests', "Too many of a task's files asked for at once."));
+    return read ?? unavailable(reply);
   });
   // The pictures an instruction may carry (A4).
   app.get('/api/projects/:project_id/pictures', async (request, reply) => {

@@ -308,9 +308,9 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * (`removedAt`, ADR 0063). 24: how many of each
  * execution's requests the host answered itself and how many asked (`approvals`). 25: the commands a start's press
  * runs before its run (`before`, the recap is the review). 26: each project's photos and videos (`media`) and the
- * ones each execution was given (ADR 0066).
+ * ones each execution was given (ADR 0066). 27: the files each execution's running turn changed (`writing`).
  */
-export const PROJECTION_STATE_FORMAT = 26;
+export const PROJECTION_STATE_FORMAT = 27;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -2418,6 +2418,19 @@ export class Projection {
         changes.workstreams.add(event.workstream_id);
         return;
       }
+      case 'execution.files.writing': {
+        // The host's own look at the folder while the turn runs (Watch It Work), until the next turn starts.
+        const execution = this.#executions.get(event.execution_id);
+        if (execution === undefined) {
+          notes.push(
+            note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
+          );
+          return;
+        }
+        execution.writing = { ...event.payload, at: event.occurred_at };
+        changes.executions.add(event.execution_id);
+        return;
+      }
       case 'execution.files.observed': {
         // A record of what the Mac saw in the folder; it also says whether a prior check's files are still current (T2).
         const execution = this.#executions.get(event.execution_id);
@@ -2788,6 +2801,7 @@ export class Projection {
         break;
       case 'runtime.turn.started':
         execution.activeTurn = { turnId: event.payload.turn_id };
+        execution.writing = null;
         execution.turnCount += 1;
         // A call opened between turns, whose end may never come, is not this turn's.
         execution.activeTools.clear();

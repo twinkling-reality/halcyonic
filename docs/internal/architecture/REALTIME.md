@@ -190,6 +190,11 @@ client                                   server
     `sha256`) records what was read, never the bytes, before the runtime is given them.
   - `RuntimeModel.picture_input` says whether the runtime's list says a model takes pictures; OpenCode refuses,
     with no effect, a model it lists as text only.
+- **Watch It Work** (protocol 3). While a turn runs, the host watches the run's folder and records
+  `execution.files.writing` (newest 20 paths, a count) at most every two seconds; `ExecutionView.writing` holds the
+  latest until the next turn starts. `GET /api/projects/:project_id/file` takes an optional `workstream_id`: then the
+  file is read in that task's own copy (else the project's folder), only for a path the task's latest run's `writing`
+  names, at most 4 reads a second per task (429 past it), with the same reader and redaction as without it.
 - **Photos and videos in a project** (ADR 0066, protocol 3). The Mac's own page keeps the person's file by its
   SHA-256; `project.media.add {project_id, media}` (title Add Media, one press, never said) then copies it into
   the project's folder under a name the host chooses. Admission refuses it with `location_required` for a project

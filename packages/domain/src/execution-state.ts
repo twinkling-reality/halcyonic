@@ -8,6 +8,7 @@ import type {
   ExecutionMediaView,
   ExecutionStatus,
   ExecutionView,
+  ExecutionWritingView,
   ProjectId,
   QuestionView,
   QueuedInstructionView,
@@ -91,6 +92,8 @@ export interface ExecutionState {
   queued: QueuedInstructionView[];
   /** The project's photos and videos its instructions carried, each once (ADR 0066). */
   media: ExecutionMediaView[];
+  /** The files the host last saw change while a turn ran (Watch It Work); null before any, and at a turn's start. */
+  writing: ExecutionWritingView | null;
   /** What its reported turns used (`runtime.usage.reported`); null until one is reported. */
   usage: UsageSum | null;
   /** Its spending limit and the span the app's estimates are summed over; null for none. */
@@ -271,6 +274,7 @@ export function createExecutionState(init: {
     autoFixDriven: false,
     queued: [],
     media: [],
+    writing: null,
     usage: null,
     spendingCap: null,
     approvals: null,
@@ -451,6 +455,9 @@ export function toExecutionView(
     // A state from before the queue (ADR 0056) has none.
     ...((state.queued ?? []).length > 0 && {
       queued_instructions: state.queued.map((queued) => ({ ...queued })),
+    }),
+    ...(state.writing !== null && {
+      writing: { ...state.writing, paths: [...state.writing.paths] },
     }),
     // A state from before media (ADR 0066) has none.
     ...((state.media ?? []).length > 0 && { media: state.media.map((medium) => ({ ...medium })) }),

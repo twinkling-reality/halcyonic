@@ -26,6 +26,7 @@ import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import { FileObserver } from '../observer/file-observer.ts';
 import { attachWorldReader, type WorldReader } from '../observer/world-reader.ts';
+import { WritingWatcher } from '../observer/writing-watcher.ts';
 import { OwnChecks, type OwnChecksDeps } from '../own-check/own-check.ts';
 import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import { ProjectShares, type ProjectSharesDeps } from '../preview/share.ts';
@@ -217,6 +218,8 @@ export class ControlPlane {
   readonly #logger: Logger;
   /** The Mac's reader of world projects' descriptions, when it reads folders at all (ADR 0049). */
   #worlds: WorldReader | null = null;
+  /** Which files change while a turn runs (Watch It Work), where the Mac reads folders at all. */
+  readonly #writing: WritingWatcher | null = null;
   readonly #snapshotFinishedCommands: number;
   /**
    * Per project, the folders that need an automatic check: a task's id for its own copy (ADR 0045),
@@ -344,6 +347,18 @@ export class ControlPlane {
       clock: options.clock,
       logger: options.logger,
     });
+    if (this.files !== null && options.observeFiles !== undefined) {
+      const files = this.files;
+      this.#writing = new WritingWatcher({
+        publisher: this.publisher,
+        recorder: this.recorder,
+        projection: this.projection,
+        clock: options.clock,
+        logger: options.logger,
+        observes: (executionId) => files.observes(executionId),
+        protect: options.observeFiles.protect,
+      });
+    }
     // A world's description is read wherever the Mac reads folders at all (ADR 0049).
     if (this.files !== null)
       this.#worlds = attachWorldReader({
@@ -818,6 +833,7 @@ export class ControlPlane {
 
   async close(): Promise<void> {
     this.#closed = true;
+    this.#writing?.close();
     this.#autoCheckNeeded.clear();
     this.#autoFix?.close();
     this.#hostAnswers?.close();

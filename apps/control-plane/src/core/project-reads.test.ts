@@ -11,6 +11,9 @@ import type {
   JournalId,
   Principal,
   ProjectId,
+  RuntimeId,
+  Timestamp,
+  WorkstreamId,
 } from '@halcyonic/contracts';
 import { createVirtualTime } from '@halcyonic/runtime-core';
 import { CheckpointStore } from '../checkpoints/store.ts';
@@ -19,7 +22,7 @@ import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 import { createHostLocations } from '../locations.ts';
 import { capturingLogger } from '../testing/harness.ts';
 import { ControlPlane } from './control-plane.ts';
-import { NO_CAUSE } from './drafts.ts';
+import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 import { ProjectReads, withheldPath } from './project-reads.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-project-reads-')));
@@ -280,5 +283,89 @@ describe('reading a project (the parity map, gaps 5 and 10)', () => {
     ]) {
       assert.equal(withheldPath(path), false, path);
     }
+  });
+});
+
+describe("a task's file while its turn runs (Watch It Work, AUDIT3 W4 and H1)", () => {
+  test("only that task's own copy, only a path its run's writing names, at a bounded rate, never through a link", async (t) => {
+    const { root, controlPlane, projectId, journal, reads } = setup('task-read');
+    t.after(() => controlPlane.close());
+    const at = '2026-11-11T02:00:01.000Z' as Timestamp;
+    const runtime = {
+      runtime_id: 'mock' as RuntimeId,
+      kind: 'mock',
+      display_name: 'Mock',
+      synthetic: true,
+    };
+    const task = (n: string, files: Record<string, string>) => {
+      const workstream = `01920000-0000-7000-8000-0000000a000${n}` as WorkstreamId;
+      const execution = `01920000-0000-7000-8000-0000000b000${n}` as ExecutionId;
+      const copy = join(root, 'tasks', n, 'app');
+      mkdirSync(copy, { recursive: true });
+      for (const [path, text] of Object.entries(files)) {
+        mkdirSync(join(copy, path, '..'), { recursive: true });
+        writeFileSync(join(copy, path), text);
+      }
+      const scope = { project_id: projectId, workstream_id: workstream, execution_id: null };
+      const record = (draft: Parameters<typeof controlPlane.recorder.record>[0]) =>
+        controlPlane.recorder.record(draft);
+      record(
+        controlPlaneDraft(
+          'workstream.created',
+          scope,
+          { title: `Task ${n}`, objective: null },
+          at,
+          NO_CAUSE,
+        ),
+      );
+      record(
+        controlPlaneDraft(
+          'workstream.copy_made',
+          scope,
+          { directory: copy, base_tree: 'a'.repeat(64), files: 1 },
+          at,
+          NO_CAUSE,
+        ),
+      );
+      const where = { ...scope, execution_id: execution };
+      record(
+        controlPlaneDraft(
+          'execution.created',
+          where,
+          { runtime, instruction: 'Make it.', directory: copy },
+          at,
+          NO_CAUSE,
+        ),
+      );
+      return { workstream, execution, copy, where, record };
+    };
+    const a = task('1', { 'src/scene.ts': 'const lake = 1;\n' });
+    const b = task('2', { 'src/scene.ts': 'const other = 2;\n' });
+    symlinkSync(join(root, 'app', 'halcyonic-data'), join(a.copy, 'data'));
+    a.record(
+      controlPlaneDraft(
+        'execution.files.writing',
+        a.where,
+        { paths: ['src/scene.ts', 'data/access-token'], paths_total: 2, total_complete: true },
+        at,
+        NO_CAUSE,
+      ),
+    );
+    const read = (workstream: WorkstreamId, path: string) =>
+      reads.taskFile(projectId, { journal_id: journal, path, workstream_id: workstream }, LOCAL);
+
+    const own = await read(a.workstream, 'src/scene.ts');
+    assert.equal(own !== 'too_many' && own?.text, 'const lake = 1;\n', "A's own copy");
+    assert.equal(await read(b.workstream, 'src/scene.ts'), undefined, "B's run named no file");
+    assert.equal(await read(a.workstream, 'README.md'), undefined, 'a path the run did not name');
+    assert.equal(
+      await read(a.workstream, 'data/access-token'),
+      undefined,
+      'the data folder through a link in the copy',
+    );
+    // Four reads a second per task (two so far, the link's counted): the fifth in the same second is too many.
+    assert.notEqual(await read(a.workstream, 'src/scene.ts'), 'too_many');
+    assert.notEqual(await read(a.workstream, 'src/scene.ts'), 'too_many');
+    assert.equal(await read(a.workstream, 'src/scene.ts'), 'too_many');
   });
 });

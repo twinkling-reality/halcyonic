@@ -111,6 +111,11 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       why: "an id and the error, which the logger's serializer reduces to its type and where it happened",
     },
     {
+      file: 'apps/control-plane/src/observer/writing-watcher.ts',
+      args: '{ err: error, execution_id: watch.scope.execution_id }, "" ,',
+      why: "an id and the error, which the logger's serializer reduces to its type and where it happened; never a path",
+    },
+    {
       file: 'apps/control-plane/src/checkpoints/checkpointer.ts',
       args: '{ err: error, project_id: projectId }, "" ,',
       why: "an id and the error, which the logger's serializer reduces to its type and where it happened",

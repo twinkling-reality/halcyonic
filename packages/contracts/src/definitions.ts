@@ -138,7 +138,14 @@ import {
   RuntimeSource,
   StoredEvent,
 } from './events.ts';
-import { FileChanged, FileCreated, FileDeleted, FilesObserved } from './file-changes.ts';
+import {
+  ExecutionWritingView,
+  FileChanged,
+  FileCreated,
+  FileDeleted,
+  FilesObserved,
+  FilesWriting,
+} from './file-changes.ts';
 import {
   GitBranchName,
   PagesAddress,
@@ -499,6 +506,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   StarterView,
   StartersResponse,
   FilesObserved,
+  FilesWriting,
+  ExecutionWritingView,
   FileCreated,
   FileChanged,
   FileDeleted,

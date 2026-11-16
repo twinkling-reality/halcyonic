@@ -319,6 +319,11 @@ export class FileObserver {
     this.#protect = options.protect ?? [];
   }
 
+  /** Whether this process started the execution and so observes its folder (not a recorded run's). */
+  observes(executionId: string): boolean {
+    return this.#watching.has(executionId);
+  }
+
   /** The reading before a task's runtime is asked. A folder that cannot be read leaves none. */
   baseline(executionId: string, directory: string): Promise<void> {
     this.#watching.add(executionId);
@@ -482,7 +487,7 @@ function skipped(turnId: string | null, skip: FilesObservedSkip): FilesObserved 
  * Whether the folder is, or holds, one of the protected folders, compared by real path; a protected
  * folder not made yet is resolved through its nearest folder that exists (as undo's store does).
  */
-async function holdsHostData(folder: string, protect: readonly string[]): Promise<boolean> {
+export async function holdsHostData(folder: string, protect: readonly string[]): Promise<boolean> {
   if (protect.length === 0) return false;
   let real: string;
   try {

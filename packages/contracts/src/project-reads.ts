@@ -2,7 +2,7 @@ import Type, { type Static } from 'typebox';
 import { CheckpointId, ProjectPath, ReviewDigest } from './checkpoints.ts';
 import { Sha256Hex } from './devices.ts';
 import { CheckId } from './previews.ts';
-import { JournalId, Nullable, ProjectId, Text, Timestamp } from './primitives.ts';
+import { JournalId, Nullable, ProjectId, Text, Timestamp, WorkstreamId } from './primitives.ts';
 
 /**
  * Reads of a project's files for the headset (the parity map's gaps 5, 10 and 4): what changed
@@ -42,7 +42,14 @@ export const ProjectFileChangeQuery = Type.Object(
 );
 export type ProjectFileChangeQuery = Static<typeof ProjectFileChangeQuery>;
 
-export const ProjectFileQuery = Type.Object({ journal_id: JournalId, path: ProjectPath }, strict);
+/**
+ * One file as it is now. With `workstream_id`, the file in that task's own copy (ADR 0045), else its project's
+ * folder: during a turn only a path `execution.files.writing` named in that turn, at a bounded rate.
+ */
+export const ProjectFileQuery = Type.Object(
+  { journal_id: JournalId, path: ProjectPath, workstream_id: Type.Optional(WorkstreamId) },
+  strict,
+);
 export type ProjectFileQuery = Static<typeof ProjectFileQuery>;
 
 export const CheckOutputStep = Type.Union([Type.Literal('typecheck'), Type.Literal('build')]);

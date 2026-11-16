@@ -30,6 +30,7 @@ import {
   type Timestamp,
 } from '@halcyonic/contracts';
 import { secretShapedPath } from '@halcyonic/runtime-core';
+import { WindowCounter } from '../network/limits.ts';
 import { NO_LINK } from '../observer/file-observer.ts';
 import { checkLogLines } from '../preview/check-output.ts';
 import type { ControlPlane } from './control-plane.ts';
@@ -42,11 +43,37 @@ import { readRules, rulesReview } from './project-rules.ts';
  * step's output. Read only, for any runtime; owner-journal principals only, as the tool result reads;
  * every text bounded and cleared of the secrets Halcyonic holds, and given as outside words.
  */
+/** How many of a task's files may be read in a second while its turn runs (AUDIT3 W4). */
+export const TASK_FILE_READS_PER_SECOND = 4;
+
 export class ProjectReads {
   readonly #plane: ControlPlane;
+  readonly #taskReads: WindowCounter;
 
   constructor(plane: ControlPlane) {
     this.#plane = plane;
+    this.#taskReads = new WindowCounter(plane.clock, TASK_FILE_READS_PER_SECOND, 1_000);
+  }
+
+  /**
+   * Where a task's file is read during its turn (Watch It Work): its own copy, else the project's folder,
+   * and only a path the host saw change in that task's latest run, at a bounded rate. Null refuses it.
+   */
+  #taskRead(
+    projectId: string,
+    query: ProjectFileQuery,
+  ): { readonly folder: string; readonly copy: boolean } | null | 'too_many' {
+    const workstream = this.#plane.projection.workstream(query.workstream_id ?? '');
+    if (workstream === undefined || workstream.project_id !== projectId) return null;
+    const execution =
+      workstream.current_execution_id === null
+        ? undefined
+        : this.#plane.projection.execution(workstream.current_execution_id);
+    if (execution?.writing?.paths.includes(query.path) !== true) return null;
+    if (!this.#taskReads.take(workstream.workstream_id)) return 'too_many';
+    if (workstream.copy?.state === 'own') return { folder: workstream.copy.directory, copy: true };
+    const folder = this.#plane.projection.project(projectId)?.location?.path;
+    return folder === undefined ? null : { folder, copy: false };
   }
 
   async changes(
@@ -118,23 +145,44 @@ export class ProjectReads {
     };
   }
 
+  /** One file as it is now, or undefined; a task's read past its rate is undefined here too. */
   async file(
     projectId: string,
     query: ProjectFileQuery,
     principal: Principal | null,
   ): Promise<ProjectFileResponse | undefined> {
+    const read = await this.taskFile(projectId, query, principal);
+    return read === 'too_many' ? undefined : read;
+  }
+
+  /** `file`, saying `too_many` where a task's file is asked for past its rate (AUDIT3 W4). */
+  async taskFile(
+    projectId: string,
+    query: ProjectFileQuery,
+    principal: Principal | null,
+  ): Promise<ProjectFileResponse | undefined | 'too_many'> {
     if (!this.#allowed(projectId, query.journal_id, principal)) return undefined;
-    const folder = this.#plane.projection.project(projectId)?.location?.path;
-    if (folder === undefined || !safeRelative(query.path)) return undefined;
+    if (!safeRelative(query.path)) return undefined;
+    const task = query.workstream_id === undefined ? null : this.#taskRead(projectId, query);
+    if (task === 'too_many') return task;
+    if (query.workstream_id !== undefined && task === null) return undefined;
+    const folder = task?.folder ?? this.#plane.projection.project(projectId)?.location?.path;
+    if (folder === undefined) return undefined;
     const full = join(folder, query.path);
     if (!full.startsWith(folder + sep)) return undefined;
     // Real paths, compared without case: the Mac's volumes usually ignore it (AUDIT2 S4).
     const lower = full.toLowerCase();
+    // A task's own copy lies in the copies' folder, one of the host's own: that one copy is read, and
+    // no other copy, nor the data folder, ever is (AUDIT3 H1).
+    const copy = task?.copy === true ? (realpathOr(folder) ?? folder).toLowerCase() : null;
     for (const own of this.#plane.protectedFolders) {
       const mine = (realpathOr(own) ?? own).toLowerCase();
+      if (copy !== null && copy.startsWith(mine + sep) && lower.startsWith(copy + sep)) continue;
       if (lower === mine || lower.startsWith(mine + sep) || mine.startsWith(lower + sep))
         return undefined;
     }
+    if (copy !== null && !(realpathOr(full) ?? full).toLowerCase().startsWith(copy + sep))
+      return undefined;
     // Opened once, never through a link anywhere in its path (`NO_LINK`), and judged and read through
     // that one handle, so nothing swapped in after a look is read.
     const handle = await open(full, constants.O_RDONLY | constants.O_NONBLOCK | NO_LINK).catch(

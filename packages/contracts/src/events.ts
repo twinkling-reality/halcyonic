@@ -23,7 +23,7 @@ import {
 } from './commands.ts';
 import { ChangedFiles, ConflictedFiles, CopyRefusalCode } from './copies.ts';
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
-import { FilesObserved } from './file-changes.ts';
+import { FilesObserved, FilesWriting } from './file-changes.ts';
 import {
   GitBranchName,
   PagesAddress,
@@ -877,6 +877,12 @@ export const ExecutionCreated = executionEvent(
 export const ExecutionFilesObserved = executionEvent('execution.files.observed', FilesObserved);
 
 /**
+ * The files the host saw change in the execution's folder while its turn runs (Watch It Work), at most one
+ * event every two seconds and only when they changed: names only, observed by the host, never contents.
+ */
+export const ExecutionFilesWriting = executionEvent('execution.files.writing', FilesWriting);
+
+/**
  * The host gave the agent, after the person's words, the first lines of the project's failed check
  * (its type check, its build or both, or a project's own check's failed script), marked as the Mac's
  * own check (FX1). Which check, which
@@ -1593,6 +1599,7 @@ export const EVENT_VARIANTS = [
   WorkstreamFitted,
   ExecutionCreated,
   ExecutionFilesObserved,
+  ExecutionFilesWriting,
   ExecutionCheckOutputGiven,
   ExecutionAutoFixSent,
   ExecutionAutoFixEnded,

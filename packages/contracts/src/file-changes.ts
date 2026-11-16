@@ -1,5 +1,6 @@
 import Type, { type Static } from 'typebox';
 import { ProjectPath } from './checkpoints.ts';
+import { Timestamp } from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -91,3 +92,31 @@ export const FilesObserved = Type.Object(
   strict,
 );
 export type FilesObserved = Static<typeof FilesObserved>;
+
+/** The most paths one `execution.files.writing` names; `paths_total` counts every one the turn changed so far. */
+export const FILES_WRITING_LISTED = 20;
+/** The most paths the host counts in one turn; a turn that changes more says its count is not complete. */
+export const FILES_WRITING_COUNTED = 10_000;
+
+/**
+ * The files the host saw change in the run's folder while its turn runs (Watch It Work): what changed most
+ * recently first, at most `FILES_WRITING_LISTED`. Observed by the host's own watch of the folder, names
+ * only, never contents and never who changed them; the turn's end still records `execution.files.observed`.
+ */
+export const FilesWriting = Type.Object(
+  {
+    paths: Type.Array(ProjectPath, { maxItems: FILES_WRITING_LISTED }),
+    /** Each path counted once, up to `FILES_WRITING_COUNTED`; past it, `total_complete` is false. */
+    paths_total: Type.Integer({ minimum: 0, maximum: FILES_WRITING_COUNTED }),
+    total_complete: Type.Boolean(),
+  },
+  strict,
+);
+export type FilesWriting = Static<typeof FilesWriting>;
+
+/** What an execution's view holds of `execution.files.writing`: the latest, and when the host recorded it. */
+export const ExecutionWritingView = Type.Object(
+  { ...FilesWriting.properties, at: Timestamp },
+  strict,
+);
+export type ExecutionWritingView = Static<typeof ExecutionWritingView>;
