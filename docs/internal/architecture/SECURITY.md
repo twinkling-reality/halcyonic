@@ -109,6 +109,16 @@ reaches its API through the key gate with a run credential of its own, and a lig
 commands out of the host's own folders (the data folder with the keys, the task copies, every `.halcyonic*` home)
 ([claude-code-connected-folders.md](../validation/claude-code-connected-folders.md)).
 
+Since 2026-11-16 such a task works in its own copy, under the copy profile (ADR 0045): the light profile with that
+one copy opened, the person's folder read and never written (its `.git` included, a link judged by where it leads),
+every other task's copy refused, and the person's usual ways to push refused: `~/.ssh`, `~/.config/gh`,
+`~/.git-credentials`, `~/.netrc` and `~/.config/git/credentials` neither read nor written, no `git-credential-*`
+helper run, the SSH agent's launchd socket not reached and its address not handed on. The copy names no remote and
+runs none of the person's git hooks. What stays open, as for the person's own Claude Code: the network, the rest of
+their home and their tools, so a token kept elsewhere in the home (a tool's own file, another agent's socket, such as
+1Password's) can still push; "push refused" holds for the usual ways, not for every way. Such a run is recorded not
+confined.
+
 Claude Code loads no settings file (`settingSources: []`, since 2026-11-12), for each task and for listing models:
 a settings `env` could add a credential that outranks the stored key. Outside the closed profile the person's own
 `CLAUDE.md` and Salidium's and Seorak's hooks are passed explicitly, so they observe the session, and a managed

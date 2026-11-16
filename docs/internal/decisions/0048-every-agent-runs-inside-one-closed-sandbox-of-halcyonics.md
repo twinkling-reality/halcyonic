@@ -97,6 +97,10 @@ things that sets the product apart, so it is kept wherever the person works in t
    home, configuration and temporary folder of its own (`<data>/claude-sandbox-<key>`), the person's hooks off, and
    it records `confined: true`: its gate holds the key (below). Everywhere else it runs as before, with the person's own
    settings and hooks, and records `confined: false`; what needs confinement stays refused in words.
+   - **Amended 2026-11-16: a task's copy of a folder the person connected keeps the person's hooks.** There Claude
+     Code runs under the copy profile (ADR 0045, amended 2026-11-16), not this one: the person's settings, hooks and
+     `CLAUDE.md` are passed as on their folder, so Salidium and Seorak observe the run in the copy, found by its
+     session id; the hooks write their own homes, which the profile leaves open. It records `confined: false`.
    - **The gate holds the key, the agent holds none (VRIFY, 2026-11-12; AUDIT BOX-4 F1 closed):** until then
      `ANTHROPIC_API_KEY` reached the confined process, where the agent's own commands could read it, so such a run was
      recorded not confined. Now the agent's environment holds only its run's credential from the gate (random, per

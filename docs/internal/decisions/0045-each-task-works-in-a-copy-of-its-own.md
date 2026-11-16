@@ -46,6 +46,20 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
      switched on (since VRIFY's unit 4c, 2026-11-12). Its record there still says not confined, for
      what its commands can read (the sign-in key is in their environment); what they write is the
      copy and its own place alone. Any other folder runs as before, with no sandbox, and gets no copy.
+     - **Amended 2026-11-16 (CORE's proposal, AUDIT3's SHAPE YES with S1 to S5): a copy of a folder the person
+       connected is held by the copy profile.** It is the light profile with exactly this task's copy opened, on macOS
+       wherever the host names its folders, a cloud provider included (`copyProfile`, `@halcyonic/seatbelt`). In order,
+       the last rule that matches a path deciding it: everything the person's own process may do; never the host's own
+       folders (the data folder, the task copies' folder, every `.halcyonic*` home); never a write to the person's
+       folder the copy was made from, its `.git` included; never the push credentials (`~/.ssh`, `~/.config/gh`,
+       `~/.git-credentials`, `~/.netrc`, `~/.config/git/credentials`), a git credential helper run, or the SSH agent's
+       launchd socket, whose address is not handed on either; this task's copy, read and written. It covers the agent's
+       whole process tree, hooks included, and a link is judged by the path it reaches. The person's settings, hooks
+       and `CLAUDE.md` are passed as on their folder, so Salidium and Seorak observe the run. What stays open, as for
+       their own Claude Code: the network, and the rest of their home, a token kept there under another name included,
+       so "push refused" holds for their usual ways to push, not for every way. The run is recorded not confined,
+       since the profile is not the closed one, and its approvals reach the person (ADR 0064's host answers are for
+       confined runs). A copy of a starter's project stays in the closed profile.
    Each adapter answers this for itself from the confinement it applies at a start
    (`RuntimeAdapter.holdsFolder`); the host names no runtime. A runtime not held works in the
    project's folder, one task at a time (FOLDER), its task refused a copy in words (`copy_refused`
@@ -75,10 +89,23 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    other file under `.git` a tool of the person's wrote, a key of the person's own tool that is not
    an address (a token stored under another name), and a program `core.sshCommand` or
    `core.askPass` names.
+   - **Amended 2026-11-16 (AUDIT3 S3 and S4): a copy names nowhere to push and runs none of the person's hooks.**
+     Every `remote.<name>` key goes, with each branch's `remote` and `pushRemote`, so a push from the copy has no
+     address, and one the agent sets back finds no credential under the copy profile (1). `core.hooksPath` goes, and
+     every entry of the copy's `.git/hooks` but git's own `.sample` files is removed (a link as a link), so no hook of
+     the person's, one that pushes or deploys, runs for the agent's commits there. The person's folder keeps all of
+     it.
 3. A task that cannot have a copy works in the project's folder under the one-task rule, and says
    why (`workstream.copy_refused`): its `.git` is a file, another repository sits inside it, it is
    larger than a checkpoint keeps, its volume cannot clone, it is missing, or it holds Halcyonic's
    data, or its runtime is not held to the folder (1).
+   - **Amended 2026-11-16 (AUDIT3 W6): only a runtime that cannot be held still works in the folder.** Each refusal
+     for what the folder is (`linked_repository`, `nested_repository`, `too_large`, `cannot_clone`, `location_missing`,
+     `holds_host_data`) now fails the start in its words, with effect `none`, and nothing is held against the task, so
+     a start once the folder can be copied gets its copy. Only `runtime_unconfined` is still recorded
+     (`workstream.copy_refused`) and works in the folder, one task at a time; with every agent held on macOS, no task
+     there reaches the person's folder before they add it. The owner's way to the folder stays
+     `HALCYONIC_TASK_COPIES=0`.
    - **A copy that fails unexpectedly is a refusal** (amended 2026-11-16, CORE's finding, AUDIT3's ruling): when making
      the copy fails for no reason above (`copy_failed`, as a step that ran out of time under load), the start fails in
      words, `copy_failed` with effect `none`, and the task never runs in the project's folder instead; nothing is held
