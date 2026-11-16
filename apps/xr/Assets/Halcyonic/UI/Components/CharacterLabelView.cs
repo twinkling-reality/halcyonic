@@ -18,9 +18,9 @@ namespace Halcyonic.XR.UI
     /// apart, and a badge with a mark beside it would reach a neighbour's. For the same reason the
     /// badge shows its icon only while it stays as narrow as the widest plate, 10.5 degrees; a longer
     /// word, such as Finished this round, shows alone. Beside a window the label shows its badge,
-    /// under it the title in one short line on a plate of its own, cut to the widest plate's 10.5
-    /// degrees, so tasks can be told apart, and under that its mark (<see cref="BadgeOnly"/>): work
-    /// that is not real always says so, and the whole title waits for the peek.
+    /// under it the title on a plate of its own, as narrow as the widest plate's 10.5 degrees, on at
+    /// most the full label's two lines, so tasks can be told apart and a name stands whole, and under
+    /// that its mark (<see cref="BadgeOnly"/>): work that is not real always says so.
     /// </remarks>
     public sealed class CharacterLabelView : MonoBehaviour
     {
@@ -106,7 +106,7 @@ namespace Halcyonic.XR.UI
 
         public TextMeshPro Title => title;
 
-        /// <summary>The title in one short line, beside a window.</summary>
+        /// <summary>The title on its own plate beside a window, on at most two lines.</summary>
         public TextMeshPro ShortTitle => shortTitle;
 
         public IReadOnlyList<MarkTag> Tags => tags;
@@ -251,15 +251,16 @@ namespace Halcyonic.XR.UI
             shortTitle.gameObject.SetActive(badgeOnly);
             if (badgeOnly)
             {
-                // The title in one line on a plate of its own, as narrow as the widest plate, then
-                // the marks in a row under it, a little apart.
+                // The title on a plate of its own, as narrow as the widest plate, on as many as the full label's two lines,
+                // so a filmed task's name stands whole (AUDIT's film MUST, 2026-11-16: "A page that says hello an..." cut to
+                // one line at Settings, Usage and Ask); then the marks in a row under it, a little apart.
                 GlazeText.SetLiteral(shortTitle, label.Title);
-                var (_, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, 1);
+                var (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, TitleLines);
                 var line = GlazeText.LineHeight(shortTitle);
                 var pad = GlazeTokens.Units(ShortTitlePaddingDegrees);
                 var shortTop = top - badgeHeight - GlazeTokens.Units(ShortTitleGapDegrees);
                 shortTitle.transform.localPosition = new Vector3(0f, shortTop - pad, -0.001f);
-                var shortPlate = new Vector2(Mathf.Min(maxWidth, shortWidth + 2f * side), line + 2f * pad);
+                var shortPlate = new Vector2(Mathf.Min(maxWidth, shortWidth + 2f * side), Mathf.Max(1, shortLines) * line + 2f * pad);
                 plate.transform.localPosition = new Vector3(0f, shortTop - shortPlate.y / 2f, 0f);
                 plate.Draw(shortPlate, GlazeTokens.Units(Glaze.PlateRadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Glaze.PlateOpacity));
                 plate.gameObject.SetActive(true);

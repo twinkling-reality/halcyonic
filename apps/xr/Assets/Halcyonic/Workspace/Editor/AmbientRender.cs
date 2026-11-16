@@ -180,6 +180,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var slots = lineup.Slots.Where(id => id != null).ToList();
             state.Workstreams[slots[0]!].Title = "Add rate limiting to the sign-in endpoint";
             state.Workstreams[slots[1]!].Title = "Add rate limiting to the sign-up form";
+            // A name as long as the film's runs give, which must stand whole on its two lines beside a window (AUDIT's film MUST, 2026-11-16).
+            if (slots.Count > 2) state.Workstreams[slots[2]!].Title = "A page that says hello and counts my visits";
             var shown = lineup.Slots.Select(id => CharacterPresenter.Present(state.Workstreams[id!], state, live: true)).ToList();
             return new Beside(state, lineup, shown);
         }
@@ -271,7 +273,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (yaw - bodyHalf < lane) yield return "beside a window, " + view.WorkstreamId + "'s body reaches " + WorkspaceRender.Degrees(yaw - bodyHalf) + " degrees from straight ahead, inside the lane and its degree.";
                 var inner = InnermostYaw(eyes, view);
                 if (inner < lane) yield return "beside a window, " + view.WorkstreamId + "'s label reaches " + WorkspaceRender.Degrees(inner) + " degrees from straight ahead, inside the lane and its degree.";
-                if (view.Label.Title.gameObject.activeSelf) yield return "beside a window, " + view.WorkstreamId + " shows its whole title; only one short line belongs there.";
+                if (view.Label.Title.gameObject.activeSelf) yield return "beside a window, " + view.WorkstreamId + " shows its full label's title; only the short title's plate belongs there.";
                 var shortTitle = view.Label.ShortTitle;
                 if (!shortTitle.gameObject.activeSelf || string.IsNullOrEmpty(shortTitle.text))
                 {
@@ -279,7 +281,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     continue;
                 }
                 shortTitle.ForceMeshUpdate();
-                if (shortTitle.textInfo.lineCount != 1) yield return "beside a window, " + view.WorkstreamId + "'s short title takes " + shortTitle.textInfo.lineCount + " lines.";
+                // Whole on at most the full label's two lines, never cut (AUDIT's film MUST, 2026-11-16): a filmed task's name is never ellipsed.
+                if (shortTitle.textInfo.lineCount > CharacterLabelView.TitleLines) yield return "beside a window, " + view.WorkstreamId + "'s short title takes " + shortTitle.textInfo.lineCount + " lines.";
+                if (shortTitle.isTextTruncated || shortTitle.isTextOverflowing) yield return "beside a window, " + view.WorkstreamId + "'s short title is cut: \"" + Visible(shortTitle) + "\".";
                 // As designed, in units of the distance from the eyes, as the widest plate's 10.5 degrees are.
                 var wide = GlazeTokens.DegreesOf(view.Label.Plate.Size.x);
                 if (wide > CharacterLabelView.MaxWidthDegrees + 0.01f)
