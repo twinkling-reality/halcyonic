@@ -2,7 +2,7 @@
  * How the welcome card comes and goes (VRIFY, 2026-11-16): by game time only, never a timer or a press, so a checked
  * page draws the same pixels at the same moments in every load. It fades in over its first FADE_IN seconds, holds,
  * and fades out over FADE_OUT seconds ending CARD_SECONDS after it was shown; never a cut. The first card waits
- * CARD_FROM seconds, so it never stands on the black a place opens from.
+ * CARD_FROM seconds, so it never stands on the black a place opens from, and every card waits for its words' font.
  */
 
 /** Seconds of game time the card's words stay before they have gone, so the game is in view. */
@@ -24,8 +24,22 @@ export function cardOpacity(time: number, shownAt: number, from = 0): number {
   const since = time - shownAt - from;
   const length = CARD_SECONDS - from;
   if (!Number.isFinite(since) || since < 0) return 0;
+  // Too little time left to fade in, be read and fade out: no card at all, never a faint flash.
+  if (length < FADE_IN + MIN_HOLD + FADE_OUT) return 0;
   if (since < FADE_IN) return since / FADE_IN;
   if (since < length - FADE_OUT) return 1;
   if (since < length) return (length - since) / FADE_OUT;
   return 0;
+}
+
+/** The shortest hold worth fading a card in for, in seconds of game time. */
+export const MIN_HOLD = 1;
+
+/**
+ * How long the card waits after `shownAt`: at least `from`, and until its words are ready (`readyAt`, the game time
+ * every text in it first had its font; null while any is still loading), so it never fades in as an empty box
+ * (AUDIT2, 2026-11-16). While the words are not ready it waits the whole CARD_SECONDS: no card.
+ */
+export function cardWait(shownAt: number, from: number, readyAt: number | null): number {
+  return readyAt === null ? CARD_SECONDS : Math.max(from, readyAt - shownAt);
 }

@@ -35,6 +35,7 @@ import {
 import { readingOf } from './laptop-probe.ts';
 import { installLauncher, launcherFor } from './launcher.ts';
 import { browserBinary, browserProblem } from './play.ts';
+import { decodePng } from './png.ts';
 
 const ok: CheckStep = { exit: 0, seconds: 1 };
 const page = (findings: Partial<PageFindings>): PageFindings => ({
@@ -307,6 +308,38 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       (moved.page?.edges.at_3s ?? 0) > (pristine.page?.edges.at_3s ?? 0) + DRAWN_EDGES,
       `${moved.page?.edges.at_3s} against ${pristine.page?.edges.at_3s}`,
     );
+  });
+
+  test("the welcome card is never an empty box: while its words' font is loading there is no card at all (AUDIT, 2026-11-16)", {
+    timeout: 180_000,
+  }, async (t) => {
+    // The kit's fonts come as webp pictures in the page; this page holds every one back for a minute, so no word of
+    // the card can be drawn while the check watches. A card that drew its box anyway would stand empty at 3 s.
+    const held = await check(t, (project) =>
+      addToIndex(
+        project,
+        "{ const src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src') as PropertyDescriptor; Object.defineProperty(HTMLImageElement.prototype, 'src', { configurable: true, get: src.get, set(value: string) { if (typeof value === 'string' && value.startsWith('data:image/webp')) setTimeout(() => src.set?.call(this, value), 60_000); else src.set?.call(this, value); } }); }",
+        '',
+      ),
+    );
+    assert.equal(held.page?.exception_count, 0, JSON.stringify(held.page?.exceptions));
+    const at3 = held.page?.pictures.find((picture) => picture.at_ms === 3000);
+    assert.ok(at3 !== undefined, 'a picture at 3 s');
+    const picture = decodePng(readFileSync(at3.file));
+    // The card's own dark (rgb about 25, 33, 51 over this scene) in its corner: none, so no box stands there.
+    let dark = 0;
+    for (let y = 460; y < 800; y++) {
+      for (let x = 0; x < 320; x++) {
+        const i = (y * picture.width + x) * 4;
+        const [r, g, b] = [
+          picture.rgba[i] ?? 0,
+          picture.rgba[i + 1] ?? 0,
+          picture.rgba[i + 2] ?? 0,
+        ];
+        if (Math.abs(r - 25) < 14 && Math.abs(g - 33) < 14 && Math.abs(b - 51) < 14) dark += 1;
+      }
+    }
+    assert.ok(dark < 2_000, `${dark} pixels of the card's dark in its corner at 3 s`);
   });
 
   test('a box in front of the camera is drawn, and the check passes', {

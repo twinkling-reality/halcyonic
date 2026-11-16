@@ -5,8 +5,10 @@ import {
   CARD_FROM,
   CARD_SECONDS,
   cardOpacity,
+  cardWait,
   FADE_IN,
   FADE_OUT,
+  MIN_HOLD,
 } from '../../../starters/iwsdk-vr/template/src/card-fade.ts';
 
 // The starter's welcome card (VRIFY, 2026-11-16): part of the place, never a white page cut from view. Its fade is
@@ -53,10 +55,37 @@ describe("the IWSDK starter's welcome card", () => {
     assert.ok(CARD_SECONDS - CARD_FROM >= FADE_IN + FADE_OUT + 3, 'still held long enough to read');
   });
 
+  test('a card waits for its words: no empty box, and no faint flash when they come too late', () => {
+    // Words not ready: no card at all.
+    for (let t = 0; t <= CARD_SECONDS; t += 0.25)
+      near(cardOpacity(t, 0, cardWait(0, CARD_FROM, null)), 0, `t ${t}`);
+    // Ready before the wait is over: the wait stands.
+    assert.equal(cardWait(0, CARD_FROM, 0.3), CARD_FROM);
+    // Ready later: it fades in from then, still gone by CARD_SECONDS.
+    const wait = cardWait(0, CARD_FROM, 2);
+    assert.equal(wait, 2);
+    near(cardOpacity(2 + FADE_IN, 0, wait), 1);
+    near(cardOpacity(CARD_SECONDS, 0, wait), 0);
+    // Too late to fade in, be read and fade out: no card, never a flash.
+    const late = CARD_SECONDS - (FADE_IN + MIN_HOLD + FADE_OUT) + 0.1;
+    for (let t = 0; t <= CARD_SECONDS; t += 1 / 72)
+      near(cardOpacity(t, 0, cardWait(0, CARD_FROM, late)), 0, `t ${t}`);
+    // H's card: its words were ready long before.
+    assert.equal(cardWait(20, 0, 1.2), 0);
+  });
+
   test('the panel fades by that function and drops the card only once it has faded', () => {
     const panel = read('src/panel.ts');
     assert.match(panel, /from '\.\/card-fade\.js'/);
-    assert.match(panel, /cardOpacity\(time, this\.#shownAt, this\.#from\)/);
+    assert.match(
+      panel,
+      /cardOpacity\(time, this\.#shownAt, cardWait\(this\.#shownAt, this\.#from, this\.#readyAt\)\)/,
+    );
+    assert.match(
+      panel,
+      /if \(this\.#readyAt === null && wordsReady\(this\.#card\)\) this\.#readyAt = time;/,
+    );
+    assert.match(panel, /fontSignal/);
     assert.match(panel, /#from = CARD_FROM;/);
     // Drawn in a group of its own, as the kit's Panel is, never the library's shared one (VRIFY, 2026-11-16).
     assert.match(panel, /class CardGlass extends MeshBasicMaterial \{\}/);

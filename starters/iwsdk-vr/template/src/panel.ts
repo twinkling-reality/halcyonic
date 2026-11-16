@@ -7,7 +7,7 @@
 
 import { createSystem, UIKitMLAsset, VisibilityState } from '@iwsdk/core';
 import { MeshBasicMaterial } from 'three';
-import { CARD_FROM, CARD_SECONDS, cardOpacity } from './card-fade.js';
+import { CARD_FROM, CARD_SECONDS, cardOpacity, cardWait } from './card-fade.js';
 import { helpPressed } from './play-input.js';
 
 /**
@@ -15,6 +15,20 @@ import { helpPressed } from './play-input.js';
  * other boxes in the library's shared buffers (VRIFY, 2026-11-16). A plain colour: its background is drawn as written.
  */
 class CardGlass extends MeshBasicMaterial {}
+
+/**
+ * Whether every text in the card has its font (the library's `fontSignal`), so the card never fades in as an empty
+ * box: the box draws at once, its words only once their font has loaded (AUDIT2, 2026-11-16).
+ */
+function wordsReady(card: { traverse(visit: (each: object) => void): void } | undefined): boolean {
+  if (card === undefined) return false;
+  let ready = true;
+  card.traverse((each) => {
+    const font = (each as { fontSignal?: { value: unknown } }).fontSignal;
+    if (font !== undefined && font.value == null) ready = false;
+  });
+  return ready;
+}
 
 /*
  * The card's words stay CARD_SECONDS of game time, fading in and out by game time (card-fade.ts), never a timer or a
@@ -27,6 +41,9 @@ export class PanelSystem extends createSystem({}) {
   #shownAt = 0;
   /** The first card waits for the place to open from black; H's card comes at once. */
   #from = CARD_FROM;
+  /** The game time every text in the card first had its font, or null while one is still loading. */
+  #readyAt: number | null = null;
+  #card: { traverse(visit: (each: object) => void): void } | undefined;
   /** What fades: the whole card where nothing of it stays once its words go, else only the words. */
   #fade: ((opacity: number) => void) | null = null;
   #dropWords: (() => void) | null = null;
@@ -37,6 +54,7 @@ export class PanelSystem extends createSystem({}) {
     const card = panel?.getElementById('card');
     const words = panel?.getElementById('card-words');
     card?.setProperties({ panelMaterialClass: CardGlass });
+    this.#card = card ?? undefined;
     const xrButton = panel?.getElementById('xr-button');
     const exitButton = panel?.getElementById('exit-button');
     const laptopHelp = panel?.getElementById('laptop-help');
@@ -107,7 +125,8 @@ export class PanelSystem extends createSystem({}) {
     }
     if (!this.#wordsShown || this.#dropWords === null) return;
     if (!immersive) {
-      this.#fade?.(cardOpacity(time, this.#shownAt, this.#from));
+      if (this.#readyAt === null && wordsReady(this.#card)) this.#readyAt = time;
+      this.#fade?.(cardOpacity(time, this.#shownAt, cardWait(this.#shownAt, this.#from, this.#readyAt)));
       // Gone only once fully faded: never a cut.
       if (time < this.#shownAt + CARD_SECONDS) return;
     }
