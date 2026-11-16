@@ -51,6 +51,9 @@ namespace Halcyonic.XR.UI
         /// <summary>How small a panel folds to as it reaches its row.</summary>
         public const float FoldTo = 0.3f;
 
+        /// <summary>How much of the fold is left when the words are gone: the glass then 0.93 of its size, where the code still stands at the kit's floor.</summary>
+        public const float WordsGoneAt = 0.9f;
+
         /// <summary>The clock the panel moves by; renders fix it.</summary>
         public Func<float> Clock { get; set; } = () => Time.unscaledTime;
 
@@ -102,6 +105,7 @@ namespace Halcyonic.XR.UI
         public Vector2 Show(WritingPanel panel)
         {
             gameObject.SetActive(true);
+            card.gameObject.SetActive(true);
             var now = Clock();
             if (path != panel.Path)
             {
@@ -155,18 +159,23 @@ namespace Halcyonic.XR.UI
             var still = GlazeMotion.Still;
             var since = Clock() - arrivedAt;
             var arrived = still ? Mathf.Clamp01(since / StillFadeSeconds) : RoomMotion.Standard(since / ArriveSeconds);
-            // Folding into its row, its code goes first (the fold's first third), then its glass shrinks and fades.
-            var code = Mathf.Clamp01((folded - 2f / 3f) * 3f);
+            // Folding into its row, its words go first, gone before the glass shrinks a word under the kit's floor (the fold's
+            // first tenth), then the glass alone shrinks and fades into the row.
+            var kept = folded >= 1f ? 1f : Mathf.Clamp01((folded - WordsGoneAt) / (1f - WordsGoneAt));
             transform.localScale = Vector3.one * (still ? 1f : Mathf.Lerp(ArriveFrom, 1f, arrived) * Mathf.Lerp(FoldTo, 1f, folded));
-            arrived *= folded;
+            var glassShown = arrived * folded;
+            arrived *= kept;
             glass.transform.localPosition = new Vector3(0f, 0f, still ? 0f : RoomType.Units(ArriveBackDp) * (1f - arrived));
-            glass.Shown = arrived;
+            glass.Shown = glassShown;
             foreach (var (label, own, row) in words)
             {
                 if (label == null) continue;
-                var alpha = own * arrived * (row >= 0 ? RowShown(row) * code : 1f);
+                var alpha = own * arrived * (row >= 0 ? RowShown(row) : 1f);
                 if (!Mathf.Approximately(label.alpha, alpha)) label.alpha = alpha;
             }
+            // The card, its words and its well, stands only while it shows: gone once the fold has taken its words.
+            var cardShown = kept > 0f;
+            if (card.gameObject.activeSelf != cardShown) card.gameObject.SetActive(cardShown);
             if (Mathf.Approximately(platesAt, arrived)) return;
             platesAt = arrived;
             foreach (var (shape, fill, edge) in plates)

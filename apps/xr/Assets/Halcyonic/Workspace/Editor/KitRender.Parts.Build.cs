@@ -20,8 +20,8 @@ namespace Halcyonic.XR.Workspace.Editor
     {
         private static readonly string[] BuildStates = { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held" };
 
-        /// <summary>The arc's states: three files (two panels, the first a row), and a fourth that folds the older panel into the files so far, caught mid-move.</summary>
-        private static readonly string[] BuildArcStates = { "47-build-three", "47-build-most" };
+        /// <summary>The arc's states: three files (two panels, the first a row), and a fourth that folds the older panel into the files so far, settled and caught mid-fold.</summary>
+        private static readonly string[] BuildArcStates = { "47-build-three", "47-build-most", "47-build-folding" };
 
         /// <summary>The kite game's files, in the order the agent writes them.</summary>
         private static readonly (string Name, string Folder, string[] Lines)[] BuildFiles =
@@ -71,7 +71,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
                 var gap = RoomType.Units(RoomWritingArc.GapDp);
-                if (state == "47-build-most")
+                var folding = state == "47-build-folding";
+                if (state == "47-build-most" || folding)
                 {
                     var before = arc.Panels.Select(panel => arc.FlatOf(panel).x).ToList();
                     var oldest = arc.Panels[0];
@@ -86,20 +87,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(arc.FlatOf(next).x < before[1] - unit && arc.FlatOf(next).x > before[0] - panelWidth,
                         "the second panel is not moving left: it stands at " + (arc.FlatOf(next).x / unit).ToString("0") + " dp, was " + (before[1] / unit).ToString("0"));
                     Require(moved > 0.05f && moved < 0.95f, "0.3 s is not mid-move on the standard curve: " + moved.ToString("0.00"));
-                    clock += RoomWritingArc.MoveSeconds;
-                    arc.Show(BuildArcOf(4));
-                    arc.Settle();
-                    Require(!oldest.gameObject.activeSelf || arc.Panels.Contains(oldest), "the folded panel still stands once its row is shown");
+                    if (!folding)
+                    {
+                        clock += RoomWritingArc.MoveSeconds;
+                        arc.Show(BuildArcOf(4));
+                        arc.Settle();
+                        Require(!oldest.gameObject.activeSelf || arc.Panels.Contains(oldest), "the folded panel still stands once its row is shown");
+                    }
                 }
                 // The arc's middle at the eyes' level, as XR stands it: its origin is its top.
                 arc.transform.localPosition = new Vector3(0f, arc.Size.y / 2f, 0f);
                 Place(plane, eyes, 0f, shot.Elevation);
 
-                var final = BuildArcOf(state == "47-build-most" ? 4 : 3);
+                var final = BuildArcOf(state == "47-build-three" ? 3 : 4);
                 var panels = arc.Panels;
                 var drawn = RoomWritingArc.Drawn(final);
                 Require(panels.Count == drawn.Count, "the arc stands " + panels.Count + " panels, not " + drawn.Count);
-                for (var index = 0; index < panels.Count && index < drawn.Count; index++)
+                for (var index = 0; index < panels.Count && index < drawn.Count && !folding; index++)
                 {
                     Require(panels[index].Path == drawn[index].Path, "panel " + index + " shows " + panels[index].Path + ", not " + drawn[index].Path);
                     Require(Mathf.Abs(panels[index].transform.localPosition.y + panels[index].Size.y / 2f) < unit * 0.05f, "panel " + index + "'s top is not the arc's");
@@ -108,7 +112,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var width = 2f * panelWidth + gap;
                 Require(Mathf.Abs(arc.Size.x - width) < unit * 0.05f, "the arc stands " + (arc.Size.x / unit).ToString("0") + " dp wide, not " + (width / unit).ToString("0"));
                 Require(SpatialKit.Degrees(arc.Size.x / unit) <= 60f, "the arc spans " + SpatialKit.Degrees(arc.Size.x / unit).ToString("0.0") + " degrees, past the comfortable 60");
-                if (panels.Count == 2)
+                if (panels.Count == 2 && !folding)
                 {
                     Require(Mathf.Abs(arc.FlatOf(panels[1]).x - (width / 2f - panelWidth / 2f)) < unit * 0.05f, "the newest panel is not the right column");
                     Require(Mathf.Abs(arc.FlatOf(panels[0]).x + (width / 2f - panelWidth / 2f)) < unit * 0.05f, "the panel before is not the left column");
@@ -116,7 +120,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var rows = RoomWritingArc.ListRows(final);
                 Require(rows.Count == final.SoFar.Count - drawn.Count, "the list holds " + rows.Count + " rows, not every file the panels do not");
                 Require(arc.ListGlass.gameObject.activeSelf == rows.Count > 0, rows.Count > 0 ? "the files so far are not shown" : "an empty list stands");
-                if (rows.Count > 0)
+                if (rows.Count > 0 && !folding)
                 {
                     Require(arc.List.Count == rows.Count, "the list shows " + arc.List.Count + " rows, not " + rows.Count);
                     // Under the panel before, the gap between, in its column.
@@ -133,10 +137,32 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(away.magnitude - arc.Radius) < 1e-4f, panel.Path + " stands " + away.magnitude.ToString("0.000") + " from the eyes, not " + arc.Radius.ToString("0.000"));
                     Require(Vector3.Angle(panel.transform.localRotation * Vector3.back, -away) < 0.5f, panel.Path + " does not face the eyes");
                 }
+                // Inside a Quest 3S's field less its margin with the head forward (AUDIT, 07:26Z): every corner of every glass.
+                IEnumerable<Vector3> CornersOf(Transform glass, Vector2 size)
+                {
+                    foreach (var x in new[] { -0.5f, 0.5f })
+                    foreach (var y in new[] { -0.5f, 0.5f }) yield return glass.TransformPoint(new Vector3(x * size.x, y * size.y, 0f));
+                }
+                var corners = panels.SelectMany(panel => CornersOf(panel.Glass.transform, panel.Size)).ToList();
+                if (rows.Count > 0) corners.AddRange(CornersOf(arc.ListGlass.transform, arc.ListSize));
+                var forward = (plane.position - eyes).normalized;
+                shot.Failures.AddRange(FieldChecks.Inside("the arc", corners, eyes, forward, 0f, FieldChecks.Quest3S));
+                var yaws = corners.Select(corner => Vector3.SignedAngle(new Vector3(forward.x, 0f, forward.z), new Vector3(corner.x - eyes.x, 0f, corner.z - eyes.z), Vector3.up)).ToList();
+                // Every word on its own plate: the bend turns each panel whole, so no word stands off its glass (86e3d194f's rule).
+                var mostOff = 0f;
+                foreach (var panel in panels)
+                foreach (var label in panel.GetComponentsInChildren<TMPro.TMP_Text>(false))
+                {
+                    var depth = -panel.Glass.transform.InverseTransformPoint(label.transform.position).z;
+                    mostOff = Mathf.Max(mostOff, Mathf.Abs(depth));
+                    Require(depth >= -unit * 0.05f && depth <= unit * 2f, panel.Path + "'s \"" + label.text + "\" stands " + (depth / unit).ToString("0.00") + " dp off its glass");
+                }
                 shot.Read = (camera, eye, white, dark, bright, failures) =>
                 {
                     Debug.Log("Halcyonic: parts: " + name + ": " + (arc.Size.x / unit).ToString("0", CultureInfo.InvariantCulture) + "x" + (arc.Size.y / unit).ToString("0", CultureInfo.InvariantCulture)
-                        + " dp, " + panels.Count + " panels, " + rows.Count + " rows so far.");
+                        + " dp, " + panels.Count + " panels, " + rows.Count + " rows so far, across " + yaws.Min().ToString("0.0", CultureInfo.InvariantCulture) + " to "
+                        + yaws.Max().ToString("0.0", CultureInfo.InvariantCulture) + " degrees (the field " + (FieldChecks.Quest3S.Left - ViewField.EdgeMarginDegrees).ToString("0.0", CultureInfo.InvariantCulture)
+                        + " either side), every word within " + (mostOff / unit).ToString("0.00", CultureInfo.InvariantCulture) + " dp of its glass.");
                 };
             }
             finally { RoomWritingArc.ListTitle = titleWas; }
