@@ -188,7 +188,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // while a shelf is placed, at every width, so the record holds what placing lays.
             // The shelf's placing page in the shape the plane hands it (XR's a46dc4651 and 56e6726e2: two instruction lines, the moves in
             // pairs, Find Room Surface alone; SCREENS's 52-general-shelf), not the older narrow copy: the plane at rest while placing.
-            var placing = new List<PageLine> { new PageLine("Hold Move Shelf to drag it.", tone: LineTone.Secondary), new PageLine("Apply keeps this place for this session.", tone: LineTone.Secondary) };
+            var placing = new List<PageLine> { new PageLine("Hold Move Shelf to drag it.", tone: LineTone.Secondary), new PageLine("Apply keeps this place for now.", tone: LineTone.Secondary) };
             foreach (var (pairLeft, pairRight) in GeneralShelfPairs)
             {
                 placing.Add(new PageLine(pairLeft, action: "move", key: pairLeft, control: LineControl.Action).WithGroup(pairLeft));

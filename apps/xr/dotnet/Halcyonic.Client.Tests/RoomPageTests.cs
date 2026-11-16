@@ -608,7 +608,7 @@ public class RoomPageTests
     {
         var lines = new List<PageLine>
         {
-            new PageLine("Hold Move Shelf to drag it.", tone: LineTone.Secondary), new PageLine("Apply keeps this place for this session.", tone: LineTone.Secondary),
+            new PageLine("Hold Move Shelf to drag it.", tone: LineTone.Secondary), new PageLine("Apply keeps this place for now.", tone: LineTone.Secondary),
         };
         for (var extra = 1; extra <= notes; extra++) lines.Add(new PageLine("Room note " + extra));
         foreach (var (a, b) in new[] { ("Left", "Right"), ("Closer", "Farther"), ("Up", "Down"), ("Turn Left", "Turn Right") })
@@ -655,13 +655,13 @@ public class RoomPageTests
         var shelf = RoomBar.OfFrame(Grouped(0, apply: true), VoiceStage.Idle, RoomForm.Full)!;
         Assert.That(shelf.GeneralPart.Pages, Is.EqualTo(2), Show(shelf));
         Assert.That(shelf.Card!.List.Select(row => row.Name.Text), Is.EqualTo(new[] { "Left", "Right", "Closer", "Farther" }));
-        Assert.That((shelf.Card.Description?.Text, shelf.Card.More?.Text), Is.EqualTo(("Hold Move Shelf to drag it.", "Apply keeps this place for this session.")));
+        Assert.That((shelf.Card.Description?.Text, shelf.Card.More?.Text), Is.EqualTo(("Hold Move Shelf to drag it.", "Apply keeps this place for now.")));
         Assert.That(shelf.Column.Select(action => action.Control.Action), Is.EqualTo(new[] { "apply", RoomBar.TurnPage, Footer.Close }), Show(shelf));
         for (var rows = 1; rows <= RoomRows.APage; rows++)
             if (rows >= 2) Whole(Grouped(0, apply: true), new RoomForm(false, rows), "card at " + rows + " rows a page");
         var second = RoomBar.OfFrame(Grouped(0, apply: true), VoiceStage.Idle, RoomForm.Full)!;
         second.Turn();
-        Assert.That((second.Card!.Description?.Text, second.Card.More?.Text), Is.EqualTo(("Hold Move Shelf to drag it.", "Apply keeps this place for this session.")), "both instructions on the second page too");
+        Assert.That((second.Card!.Description?.Text, second.Card.More?.Text), Is.EqualTo(("Hold Move Shelf to drag it.", "Apply keeps this place for now.")), "both instructions on the second page too");
 
         // The column: a frame that states more (a title and four lines) with room for a pair beside the pager and Cancel.
         var column = RoomBar.OfFrame(Grouped(2, apply: false), VoiceStage.Idle, RoomForm.Full)!;
@@ -672,7 +672,7 @@ public class RoomPageTests
         var taken = RoomBar.OfFrame(Grouped(2, apply: true), VoiceStage.Idle, RoomForm.Full)!;
         Assert.That(taken.Card, Is.Not.Null, Show(taken));
         Assert.That(taken.Card!.List.TakeWhile(row => row.Press == null).Select(row => row.Name.Text),
-            Is.EqualTo(new[] { "Hold Move Shelf to drag it.", "Apply keeps this place for this session.", "Room note 1", "Room note 2" }));
+            Is.EqualTo(new[] { "Hold Move Shelf to drag it.", "Apply keeps this place for now.", "Room note 1", "Room note 2" }));
         Whole(Grouped(2, apply: true), RoomForm.Full, "taken by the card");
         Assert.That(taken.LostPart, Is.False);
     }
