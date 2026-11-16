@@ -203,3 +203,61 @@ test('the page says how many files may wait from the store own bound, never a nu
   );
   assert.match(String(RECEIVED_WORDS.too_large), /25 MB for a photo, 80 MB for a video/);
 });
+
+test('a video tile plays only the play copy the journal names, read without a link, never another file (ADR 0066)', async (t) => {
+  const { mkdirSync, symlinkSync, writeFileSync } = await import('node:fs');
+  const project = join(root, 'play-project');
+  mkdirSync(join(project, 'media'), { recursive: true });
+  const play = 'media/video-0123456789ab-play.mp4';
+  writeFileSync(join(project, play), clip);
+  writeFileSync(join(project, 'media', 'video-0123456789ab.mov'), clip);
+  writeFileSync(join(root, 'outside.mp4'), Buffer.from('not the project'));
+  symlinkSync(join(root, 'outside.mp4'), join(project, 'media', 'video-bbbbbbbbbbbb-play.mp4'));
+  const media = (path: string) => ({
+    path: path.replace('-play.mp4', '.mov'),
+    media_type: 'video/quicktime' as const,
+    size_bytes: clip.length,
+    added_at: '2026-11-16T04:00:00.000Z' as never,
+    still: null,
+    play: path,
+    duration_ms: 6000,
+    prepared: true,
+  });
+  const page = new MediaPage({
+    store: new MediaStore(join(root, 'store-3')),
+    projects: () => [{ project_id: 'p1' as ProjectId, name: 'Camel Ride', folder: project }],
+    media: () => [media(play), media('media/video-bbbbbbbbbbbb-play.mp4')],
+    stills: () => [],
+    command: () => undefined,
+    pending: () => [],
+    submit: () => ({ disposition: 'accepted', command: null }),
+    protectedFolders: [],
+    nextId: () => 'id',
+    now: () => new Date(),
+  });
+  const server = await startTestServer({ page: { ports: PORTS, mount: mountMedia(page) } });
+  t.after(() => server.stop());
+  assert.ok(server.page);
+  const port = server.page.port;
+  const link = new URL(server.page.link());
+  const opened = await call(port, 'GET', `${link.pathname}${link.search}`);
+  const cookie = String(opened.headers['set-cookie']).split(';')[0] ?? '';
+  const get = (path: string, headers: Record<string, string> = { cookie }) =>
+    call(port, 'GET', `/setup/media/play?project=p1&path=${encodeURIComponent(path)}`, headers);
+  const served = await get(play);
+  assert.equal(served.status, 200);
+  assert.equal(served.headers['content-type'], 'video/mp4');
+  assert.equal(Number(served.headers['content-length']), clip.length);
+  assert.equal((await get(play, {})).status, 403, 'behind the session');
+  assert.equal(
+    (await get('media/video-0123456789ab.mov')).status,
+    404,
+    'only a play copy the journal names',
+  );
+  assert.equal(
+    (await get('media/video-bbbbbbbbbbbb-play.mp4')).status,
+    404,
+    'never through a link',
+  );
+  assert.equal((await get('../outside.mp4')).status, 404);
+});

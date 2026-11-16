@@ -63,6 +63,18 @@ function tile(project, medium) {
     node.append(glyph(medium.prepared ? 'g-photo' : 'g-hourglass'));
     node.classList.add('media-shown', 'media-bare');
   }
+  // A video plays its own copy, muted and looping, over its still, shown only once its first frame is drawn.
+  if (medium.video && medium.play !== null) {
+    const video = el('video', 'media-play');
+    video.muted = true;
+    video.loop = true;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.addEventListener('playing', () => node.classList.add('media-moving'), { once: true });
+    video.src = `/setup/media/play?project=${encodeURIComponent(project.project_id)}&path=${encodeURIComponent(medium.play)}`;
+    node.append(video);
+  }
   if (medium.video) {
     const mark = el('span', 'media-mark');
     mark.append(glyph('g-play'));

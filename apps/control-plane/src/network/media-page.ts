@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { constants, readFileSync, realpathSync } from 'node:fs';
+import { type FileHandle, open } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   COMMAND_SCHEMA_VERSION,
   type CommandEnvelope,
@@ -14,6 +16,7 @@ import {
 } from '@halcyonic/contracts';
 import { KEPT_FILES, type MediaStore } from '../core/media-store.ts';
 import { readPictures } from '../core/pictures.ts';
+import { NO_LINK } from '../observer/file-observer.ts';
 import type { PageRoutes } from './pairing-page.ts';
 
 /**
@@ -61,6 +64,7 @@ export interface MediaPageProjectState {
     readonly path: string;
     readonly video: boolean;
     readonly still: string | null;
+    readonly play: string | null;
     readonly seconds: number | null;
     readonly prepared: boolean;
   }[];
@@ -108,6 +112,7 @@ export class MediaPage {
             path: medium.path,
             video: medium.media_type === 'video/mp4' || medium.media_type === 'video/quicktime',
             still: medium.still,
+            play: medium.play,
             seconds:
               medium.duration_ms === null
                 ? null
@@ -165,6 +170,37 @@ export class MediaPage {
     return { said: null };
   }
 
+  /**
+   * The play copy of one of the project's videos (ADR 0066), for the tile to play muted: only a path the journal
+   * names as a play copy, opened once without a link anywhere in its path inside the project's real folder, a regular
+   * file no larger than MEDIA_VIDEO_BYTES, streamed from that one handle.
+   */
+  async play(
+    projectId: unknown,
+    path: unknown,
+  ): Promise<{
+    readonly type: string;
+    readonly body: NodeJS.ReadableStream;
+    readonly length: number;
+  } | null> {
+    const project = this.#deps.projects().find((each) => each.project_id === projectId);
+    if (project === undefined || typeof path !== 'string') return null;
+    const ours = this.#deps.media(project.project_id).some((medium) => medium.play === path);
+    if (!ours) return null;
+    let handle: FileHandle;
+    try {
+      handle = await open(join(realpathSync(project.folder), path), constants.O_RDONLY | NO_LINK);
+    } catch {
+      return null;
+    }
+    const info = await handle.stat().catch(() => null);
+    if (info === null || !info.isFile() || info.size > MEDIA_VIDEO_BYTES) {
+      await handle.close();
+      return null;
+    }
+    return { type: 'video/mp4', body: handle.createReadStream(), length: info.size };
+  }
+
   /** A still of one of the project's photos or videos, read as an instruction's picture is. */
   async still(
     projectId: unknown,
@@ -198,6 +234,10 @@ export function mountMedia(page: MediaPage): (routes: PageRoutes) => void {
     routes.asset('/setup/media.js', 'text/javascript; charset=utf-8', asset('media.js'));
     routes.asset('/setup/media.css', 'text/css; charset=utf-8', asset('media.css'));
     routes.get('/setup/media/state', (_request, session) => page.state(session));
+    routes.file('/setup/media/play', async (request) => {
+      const query = request.query as { project?: unknown; path?: unknown };
+      return page.play(query.project, query.path);
+    });
     routes.file('/setup/media/still', async (request) => {
       const query = request.query as { project?: unknown; path?: unknown };
       return page.still(query.project, query.path);

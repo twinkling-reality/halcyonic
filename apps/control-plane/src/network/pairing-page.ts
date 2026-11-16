@@ -139,7 +139,11 @@ export interface PageRoutes {
     handler: (
       request: FastifyRequest,
       session: string,
-    ) => Promise<{ readonly type: string; readonly body: Buffer } | null>,
+    ) => Promise<{
+      readonly type: string;
+      readonly body: Buffer | NodeJS.ReadableStream;
+      readonly length?: number;
+    } | null>,
   ): void;
   /**
    * A POST of raw bytes from the page's own origin (ADR 0066), in a scope of its own: the session,
@@ -368,7 +372,7 @@ export class PairingPage {
         'referrer-policy': 'no-referrer',
         'x-content-type-options': 'nosniff',
         'content-security-policy':
-          "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+          "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
       });
       const refusal = this.#refusal(request);
       if (refusal !== null) return reply.code(403).type('text/plain').send(refusal);
@@ -461,6 +465,7 @@ export class PairingPage {
           if (session === null) return reply.code(403).type('text/plain').send(AGAIN);
           const found = await handler(request, session);
           if (found === null) return reply.code(404).type('text/plain').send('Not here.');
+          if (found.length !== undefined) reply.header('content-length', found.length);
           return reply.type(found.type).send(found.body);
         });
       },
