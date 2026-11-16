@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0} html,body{background:transparent;overflow:hidden}
+#box{position:absolute;left:0;top:0;overflow:hidden;display:grid;place-items:center}
+#box canvas{position:absolute}
+#box svg.grain{position:absolute;inset:0;width:100%;height:100%;opacity:.30;mix-blend-mode:overlay;pointer-events:none}
+#box svg.bird{position:relative;color:#FFF6E8}
+</style></head><body><div id="box"></div>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="bird" viewBox="0 0 200 200">
+    <path fill="currentColor" fill-rule="evenodd" d="
+      M 16 83 Q 46 74 70 66
+      C 74 52 92 44 108 48
+      C 124 52 133 66 133 82
+      C 139 98 150 113 160 127
+      L 185 150 Q 191 158 181 161
+      L 155 153
+      C 143 159 129 162 116 160
+      C 96 158 85 142 84 124
+      C 82 110 80 100 73 94
+      Q 52 88 16 85 Z
+      M 106 68 m -5.5 0 a 5.5 5.5 0 1 0 11 0 a 5.5 5.5 0 1 0 -11 0 Z"/>
+  </symbol></defs></svg>
+<script>
+// Usage: copy the approved ground raster (ground-2048.png, sha256 bb200b8d3abd..., the board's own SwiftShader render) beside this file, then
+// for each density: chrome --headless=new --default-background-color=00000000 --window-size=N,N --virtual-time-budget=3000 --screenshot=out.png "icon.html?s=N&k=legacy|round|back|fore"
+// Halora's launcher icon from the board (halora-k3.html, the owner's yes 2026-11-16): the ground (its shader, seed 3.1) cropped square,
+// blurred, film grain over it, and the cream kingfisher centred, at one Android density. kind: legacy (the board's squircle),
+// round (a circle), back (the adaptive ground, full bleed), fore (the bird alone inside the adaptive safe zone).
+const q=new URLSearchParams(location.search); const s=+q.get('s'); const kind=q.get('k');
+const k=s/220; const box=document.getElementById('box'); box.style.width=s+'px'; box.style.height=s+'px';
+if(kind==='legacy') box.style.borderRadius=(52*k)+'px';
+if(kind==='round') box.style.borderRadius='50%';
+function ground(){ // the approved ground as drawn for the board (SwiftShader; the lead's 14:38Z), never re-rendered here
+  const im=document.createElement('img'); im.src='ground-2048.png';
+  im.style.position='absolute'; im.style.left=(-0.08*s)+'px'; im.style.top=(-0.08*s)+'px'; im.style.width=(1.16*s)+'px'; im.style.height=(1.16*s)+'px';
+  im.style.filter='blur('+(10*k)+'px)'; box.appendChild(im);
+  box.insertAdjacentHTML('beforeend','<svg class="grain"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#gr)"/></svg>'); }
+function bird(px){ box.insertAdjacentHTML('beforeend','<svg class="bird" width="'+px+'" height="'+px+'"><use href="#bird"/></svg>'); }
+if(kind==='legacy'){ ground(); bird(170*k); }
+else if(kind==='round'){ ground(); bird(s*0.70); }
+else if(kind==='back'){ ground(); }
+else if(kind==='fore'){ bird(s*66/108*0.95); }
+document.title=document.title||'OK';
+</script></body></html>
