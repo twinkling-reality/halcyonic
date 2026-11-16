@@ -573,6 +573,27 @@ export function openLand(
     float sunAcross = dot(sandSun, vec2(-sandWind.y, sandWind.x));
     float rippleNear = 1.0 - smoothstep(2.5, 16.0, length(p));
     float atFeet = 1.0 - smoothstep(2.0, 7.0, length(p));
+    // Close to the person, ripples worked out exactly at every pixel (no texture to blur at a slant): sharp-crested,
+    // bending across their length, faded only where one would be finer than a couple of pixels.
+    float ra = dot(p, sandWind);
+    float rc = dot(p, vec2(-sandWind.y, sandWind.x));
+    float phase1 = ra * 24.0 + 1.8 * sin(rc * 1.3 + ra * 0.35) + 0.9 * sin(rc * 3.1);
+    float phase2 = (ra * 0.94 + rc * 0.34) * 37.0 + 1.2 * sin(rc * 2.3 - ra * 0.5);
+    float crisp = (1.0 - smoothstep(0.7, 2.0, fwidth(phase1))) * (1.0 - smoothstep(1.0, 7.0, length(p)));
+    float crisp2 = (1.0 - smoothstep(0.7, 2.0, fwidth(phase2))) * (1.0 - smoothstep(0.8, 4.5, length(p)));
+    // A ripple's face: a long slope lit as it rises into the wind, then a sharp crest and a short steep side in
+    // shade, as wind-blown sand lies (never a smooth wave).
+    float s1 = fract(phase1 / 6.2832);
+    float s2 = fract(phase2 / 6.2832);
+    float w1 = max(fwidth(phase1) / 6.2832, 0.02);
+    float w2 = max(fwidth(phase2) / 6.2832, 0.02);
+    float face1 = mix(-0.55 + 1.3 * s1 / 0.78, -0.9, smoothstep(0.78 - w1, 0.78 + w1, s1));
+    float face2 = mix(-0.5 + 1.2 * s2 / 0.75, -0.8, smoothstep(0.75 - w2, 0.75 + w2, s2));
+    float facingSun = 0.55 + 0.45 * sunAlong;
+    outgoingLight *= 1.0 + (crisp * 0.24 * face1 + crisp2 * 0.12 * face2) * facingSun;
+    // Long faint streaks the wind leaves farther off, where single ripples are too fine to draw.
+    float streak = sin(ra * 3.1 + 2.0 * sin(rc * 0.35)) * (1.0 - smoothstep(0.6, 1.6, fwidth(ra * 3.1)));
+    outgoingLight *= 1.0 + 0.05 * streak * smoothstep(5.0, 14.0, length(p)) * (1.0 - smoothstep(30.0, 60.0, length(p)));
     outgoingLight *= 1.0 + rippleNear * ((0.2 + 0.12 * atFeet) * (slope.x * sunAlong + slope.y * sunAcross) + (0.06 + 0.06 * atFeet) * slope.x);
     // Fine grain, only where a grain is still bigger than a pixel.
     // Smooth grain (value noise, never square cells), at two sizes.
@@ -586,6 +607,17 @@ export function openLand(
     float h11 = fract(sin(dot(gi + vec2(1.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
     float grain = mix(mix(h00, h10, gf.x), mix(h01, h11, gf.x), gf.y) - 0.5;
     outgoingLight *= 1.0 + 0.12 * grain * (1.0 - smoothstep(0.4, 1.0, fwidth(p.x * 30.0)));
+    // A finer grain, a centimetre across, seen only near the feet.
+    vec2 fg = p * 110.0;
+    vec2 fi = floor(fg);
+    vec2 ff = fg - fi;
+    ff = ff * ff * (3.0 - 2.0 * ff);
+    float f00 = fract(sin(dot(fi, vec2(27.17, 91.31))) * 41231.27);
+    float f10 = fract(sin(dot(fi + vec2(1.0, 0.0), vec2(27.17, 91.31))) * 41231.27);
+    float f01 = fract(sin(dot(fi + vec2(0.0, 1.0), vec2(27.17, 91.31))) * 41231.27);
+    float f11 = fract(sin(dot(fi + vec2(1.0, 1.0), vec2(27.17, 91.31))) * 41231.27);
+    float fine = mix(mix(f00, f10, ff.x), mix(f01, f11, ff.x), ff.y) - 0.5;
+    outgoingLight *= 1.0 + 0.1 * fine * (1.0 - smoothstep(0.4, 1.0, fwidth(p.x * 110.0)));
     // A soft shade on the sand under something floating over it (a window's own).
     float under = length(p - sandUnder.xy);
     outgoingLight *= 1.0 - sandUnder.z * exp(-under * under / 1.8);
@@ -615,10 +647,16 @@ export function openLand(
     vec3 airColour = sandFog + sandSheen * (0.06 + 0.5 * sunward * sunward);
     outgoingLight = mix(outgoingLight, airColour, thick);
     // Grains catching the low sun: tiny glints on the sand seen toward it, only where a grain is bigger than a pixel.
-    vec2 cellG = floor(p * 45.0);
-    float glint = step(0.996, fract(sin(dot(cellG, vec2(41.31, 289.13))) * 15731.743));
-    float glintNear = 1.0 - smoothstep(0.4, 1.0, fwidth(p.x * 45.0));
-    outgoingLight += sandSheen * glint * glintNear * pow(sunward, 3.0) * 0.9;
+    // Each glint a tiny round point in its own cell, there only from some places the eye stands, so it comes and
+    // goes as the head moves.
+    vec2 gp = p * 70.0;
+    vec2 cellG = floor(gp);
+    float pick = fract(sin(dot(cellG, vec2(41.31, 289.13))) * 15731.743);
+    float seen = fract(sin(dot(cellG + floor(cameraPosition.xz * 9.0), vec2(17.7, 63.3))) * 9173.1);
+    vec2 inCell = fract(gp) - 0.5;
+    float round1 = 1.0 - smoothstep(0.05, 0.14, length(inCell));
+    float glintNear = 1.0 - smoothstep(0.3, 0.8, fwidth(p.x * 70.0));
+    outgoingLight += sandSheen * step(0.993, pick) * step(0.5, seen) * round1 * glintNear * pow(sunward, 2.0) * 1.2;
   }
   #include <opaque_fragment>`,
       );
