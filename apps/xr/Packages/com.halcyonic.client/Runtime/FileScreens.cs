@@ -73,6 +73,9 @@ namespace Halcyonic.Client
         public const string HowBuiltKey = "how-built";
         public const string ChecksKey = "checks";
 
+        /// <summary>The press that opens a section's whole answer beside its page where a card stands in its lines' place (the demonstration's Checks).</summary>
+        public const string ReadAllWords = "Read All";
+
         /// <summary>The section a file opens on: Waiting while something waits for the person, else Activity.</summary>
         public static FileSection Opening(WorkspacePresentation workspace) =>
             WorkspaceText.SomethingWaits(workspace) ? FileSection.Waiting : FileSection.Activity;

@@ -170,11 +170,16 @@ namespace Halcyonic.Client
             // the panel in place of the page's lines, which say the same for the older view, and the line that opens the full answer
             // goes with them, since the card shows the summary whole; the frame's own Next Page pages those lines, so it goes too. The
             // column pages as every column does (the lead's 19:47Z: Checks with an answer had seven actions and fell to the older view).
+            // The whole answer stays one press away: the line that opens it beside the page stands in the column as Read All, since the
+            // card holds the summary and the answer holds more (JUDGE's item 8: on the demonstration's Checks page no control opened it).
             // A line carries words to read on a button (a value, a quieter line, a label): only a card's row holds them all.
             bool Valued(PageLine line) => !line.Choice && ((line.FactRuns?.Text ?? line.Fact) != null || line.Under != null || line.RowLabel != null);
             var ownCard = frame.Side == null && !lineActs.Any(each => Valued(each.Line)) ? frame.Card : null;
             if (ownCard != null)
             {
+                others.AddRange(lineActs.Where(each => each.Line.Action == FileScreens.Open && each.Line.Key != null).Select(each => new RoomAction(
+                    new KitControl(KitPlace.Step, frame, FileScreens.Open, each.Line.Key, FileScreens.ReadAllWords, GlazeIcon.Next, true, null, false),
+                    main: false, icon: GlazeIcon.Next)));
                 lineActs.Clear();
                 rows.Clear();
                 unders.Clear();
