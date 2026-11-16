@@ -36,6 +36,13 @@ namespace Halcyonic.Client
         public const string UsageLine = "At most what is left, as last reported.";
 
         /// <summary>
+        /// The usage card's line with when the numbers were read (AUDIT's condition, 2026-11-16 04:23Z: numbers from an earlier
+        /// read say when, never read as now): the first window's own Seen time, as each row already carries it.
+        /// </summary>
+        public static string UsageLineSeen(IReadOnlyList<UsageLeftRow> rows) =>
+            rows.FirstOrDefault(row => !string.IsNullOrEmpty(row.Seen)) is { } seen ? UsageLine + " Seen " + seen.Seen + "." : UsageLine;
+
+        /// <summary>
         /// The result at rest: the task's name as the title beside the result's picture; its facts as slots (the check, and
         /// how many files changed, or the files waiting to be added where A13's copy says so); where a chain of tries
         /// ended, its status first (<see cref="RoomBar.FixedCard"/>). The agent's own words stand on the band, never here.
@@ -149,7 +156,7 @@ namespace Halcyonic.Client
                 var label = several && !row.Label.IsEmpty ? row.Label + LineWords.Ours(" ") + window : window;
                 return new RoomGauge(label, row.Left, row.Resets.Length > 0 ? "Resets " + row.Resets : null, week ? RoomKind.Week : RoomKind.Session);
             }).ToList();
-            return new RoomCard(LineWords.Ours(UsageTitle), gauges.Count > 0 ? LineWords.Ours(UsageLine) : null, gauges: gauges,
+            return new RoomCard(LineWords.Ours(UsageTitle), gauges.Count > 0 ? LineWords.Ours(UsageLineSeen(rows)) : null, gauges: gauges,
                 list: assistant == null ? null : new[] { assistant });
         }
 

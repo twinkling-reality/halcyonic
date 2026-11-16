@@ -170,6 +170,13 @@ public sealed class RoomPanelCardsTests
         Assert.That(card.Gauges.Select(gauge => gauge.Kind), Is.EqualTo(new[] { RoomKind.Session, RoomKind.Week }));
         Assert.That(card.Gauges.Select(gauge => gauge.Note), Is.EqualTo(new[] { "Resets today at 18:40", "Resets Thursday at 09:00" }));
         Assert.That(RoomPanelCards.Usage(new UsageLeftRow[0]), Is.Null);
+        var seen = new[]
+        {
+            new UsageLeftRow(LineWords.TheirName("Pro") + LineWords.Ours(" · " + UsageLeftPresenter.FiveHourWindow), "At most 62% left", 62, seen: "Today 04:20", resets: "Today 08:40",
+                label: LineWords.TheirName("Pro"), window: UsageLeftPresenter.FiveHourWindow),
+        };
+        Assert.That(RoomPanelCards.Usage(seen)!.Description!.Text, Is.EqualTo(RoomPanelCards.UsageLine + " Seen Today 04:20."),
+            "numbers from a read say when it was, never read as now (AUDIT, 2026-11-16 04:23Z)");
     }
     [Test]
     public void The_assistant_row_names_its_model_and_where_it_runs_and_presses_to_choose()
