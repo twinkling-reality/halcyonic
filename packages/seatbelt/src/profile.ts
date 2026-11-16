@@ -827,6 +827,71 @@ export function withinHostFolders(path: string, scope: HostFoldersScope): boolea
   return new RegExp(`^${seatbeltRegexLiteral(home)}/\\.halcyonic(-[^/]*)?(/|$)`).test(real);
 }
 
+/** What the copy profile keeps an agent app to: one task's own copy of a folder the person connected (ADR 0045). */
+export interface CopyScope extends HostFoldersScope {
+  /** This task's own copy, inside the task copies' folder: the one folder of the host's it reads and writes. */
+  readonly copy: string;
+  /** The person's folder the copy was made from: read, never written, its .git included. */
+  readonly original: string;
+}
+
+/**
+ * Where the person's usual ways to push keep what they push with, under `home`: SSH keys, git's stored
+ * credentials, a .netrc, and the GitHub CLI's login. The copy profile refuses reading and writing each.
+ */
+export const PUSH_CREDENTIALS = {
+  folders: ['.ssh', '.config/gh'],
+  files: ['.git-credentials', '.netrc', '.config/git/credentials'],
+} as const;
+
+/**
+ * The copy profile (ADR 0045, amended 2026-11-16): the light profile, with exactly this task's copy opened, the
+ * person's own folder read only, and the person's usual ways to push refused. In order, the last rule that matches
+ * a path deciding it:
+ * 1. everything the person's own process may do;
+ * 2. never the host's own folders: the data folder, the task copies' folder, every `.halcyonic*` home;
+ * 3. never a write to the person's folder the copy was made from, its .git included;
+ * 4. never the push credentials (`PUSH_CREDENTIALS`), nor any git credential helper run, nor the SSH agent's
+ *    socket reached;
+ * 5. this task's copy, read and written, so it alone of the task copies' folder is open.
+ * The network, the rest of the person's home and their tools stay open, as for their own Claude Code. A run under
+ * it is never recorded confined: it is not the closed profile.
+ */
+export function copyProfile(scope: CopyScope): string {
+  const copy = resolved(scope.copy).replace(/\/+$/, '');
+  const original = resolved(scope.original).replace(/\/+$/, '');
+  for (const path of [copy, original]) {
+    if (/["\n\r]/.test(path))
+      throw new Error(`a folder Halora cannot name in its profile: ${path}`);
+  }
+  if (!withinHostFolders(copy, scope))
+    throw new Error("a task's copy is always inside the task copies' folder");
+  // A copy inside the folder it was made from, or the folder inside the copy, would leave one rule undoing the other.
+  if (within(copy, original) || within(original, copy))
+    throw new Error("a task's copy and the folder it was made from are apart");
+  const home = resolved(scope.home).replace(/\/+$/, '');
+  const under = `^${seatbeltRegexLiteral(home)}/`;
+  const credentials = [
+    ...PUSH_CREDENTIALS.folders.map((path) => `(regex #"${under}${anyCase(path)}(/|$)")`),
+    ...PUSH_CREDENTIALS.files.map((path) => `(regex #"${under}${anyCase(path)}$")`),
+  ];
+  return [
+    hostFoldersDeniedProfile(scope).trimEnd(),
+    `(deny file-write* (subpath ${JSON.stringify(original)}))`,
+    `(deny file-read* file-write* ${credentials.join(' ')})`,
+    // Every helper git asks for a password or token: the Keychain's, Git Credential Manager, the store.
+    '(deny process-exec (regex #"/git-credential-[^/]*$"))',
+    // The SSH agent launchd starts for the person's login.
+    '(deny network-outbound (remote unix-socket (path-regex #"^/private/tmp/com\\.apple\\.launchd\\.[^/]+/Listeners$")))',
+    `(allow file-read* file-write* (subpath ${JSON.stringify(copy)}))`,
+    '',
+  ].join('\n');
+}
+
+function within(path: string, folder: string): boolean {
+  return path === folder || path.startsWith(`${folder}/`);
+}
+
 /** A path as a literal in a seatbelt (and JavaScript) regular expression. */
 function seatbeltRegexLiteral(path: string): string {
   return path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { type AddressInfo, createServer } from 'node:net';
@@ -17,6 +20,7 @@ import { promisify } from 'node:util';
 import {
   confinedProfile,
   confinementKey,
+  copyProfile,
   gitDataOutside,
   hostFoldersDeniedProfile,
   OWN_LOOPBACK_ALWAYS_DENIED,
@@ -1090,6 +1094,160 @@ describe("the light profile outside the closed one: the host's own folders out o
       assert.equal(await exit(['/bin/cat', join(root, 'home/project/marker.txt')]), 0);
       assert.equal(await exit(['/bin/cat', join(root, 'home/.halcyonicnot/marker.txt')]), 0);
       assert.equal(await exit(['/usr/bin/touch', join(root, 'home/project/made')]), 0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the copy profile: one task's copy of a connected folder (ADR 0045, amended 2026-11-16)", () => {
+  /** A Mac-like layout: the host's data and copies' folders, two tasks' copies, the person's folder and home. */
+  function layout() {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-copy-profile-')));
+    const at = (path: string) => join(root, path);
+    for (const folder of [
+      'data',
+      'tasks/p/a/project/.git',
+      'tasks/p/b/project',
+      'project/.git',
+      'home/.ssh',
+      'home/.config/gh',
+      'home/elsewhere',
+      'home/bin',
+    ])
+      mkdirSync(at(folder), { recursive: true });
+    for (const file of [
+      'data/marker.txt',
+      'tasks/p/a/project/marker.txt',
+      'tasks/p/b/project/marker.txt',
+      'project/marker.txt',
+      'project/.git/HEAD',
+      'home/.ssh/id_marker',
+      'home/.netrc',
+      'home/.git-credentials',
+      'home/.config/gh/hosts.yml',
+      'home/elsewhere/marker.txt',
+    ])
+      writeFileSync(at(file), 'marker');
+    // A helper git would run for a password, as the Keychain's: here a script of our own that only prints.
+    writeFileSync(at('home/bin/git-credential-marker'), '#!/bin/sh\necho ran\n');
+    chmodSync(at('home/bin/git-credential-marker'), 0o755);
+    writeFileSync(at('home/bin/plain-marker'), '#!/bin/sh\necho ran\n');
+    chmodSync(at('home/bin/plain-marker'), 0o755);
+    // A link the agent could make in its copy, into the person's folder and into another task's copy.
+    symlinkSync(at('project'), at('tasks/p/a/project/to-original'));
+    symlinkSync(at('tasks/p/b/project'), at('tasks/p/a/project/to-sibling'));
+    const scope = {
+      folders: [at('data'), at('tasks')],
+      home: at('home'),
+      copy: at('tasks/p/a/project'),
+      original: at('project'),
+    };
+    return { root, at, scope };
+  }
+
+  test('opens only its copy, after the rules that close the rest, and refuses a copy it cannot keep apart', () => {
+    const { root, at, scope } = layout();
+    try {
+      const lines = copyProfile(scope).trimEnd().split('\n');
+      assert.deepEqual(lines.slice(0, 2), ['(version 1)', '(allow default)']);
+      assert.match(lines[2] ?? '', /^\(deny file-read\* file-write\* /);
+      assert.equal(lines[3], `(deny file-write* (subpath ${JSON.stringify(at('project'))}))`);
+      assert.equal(
+        lines.at(-1),
+        `(allow file-read* file-write* (subpath ${JSON.stringify(at('tasks/p/a/project'))}))`,
+      );
+      assert.throws(
+        () => copyProfile({ ...scope, copy: at('home/elsewhere') }),
+        /inside the task copies/,
+      );
+      assert.throws(
+        () => copyProfile({ ...scope, original: at('tasks/p/a'), copy: at('tasks/p/a/project') }),
+        /apart/,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("on this Mac: its copy is read and written; the person's folder only read; the rest of the host and the push credentials not at all", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { root, at, scope } = layout();
+    try {
+      const probe = async (text: string) => {
+        const file = at(`profile-${randomUUID()}.sb`);
+        writeFileSync(file, text);
+        const exit = (command: string[]) =>
+          run(SANDBOX_EXEC, ['-f', file, ...command]).then(
+            () => 0,
+            (error: { code?: number }) => error.code ?? -1,
+          );
+        // Each probe makes a new file of its own, so no probe leans on another's leftovers.
+        const fresh = () => randomUUID();
+        return {
+          copyRead: await exit(['/bin/cat', at('tasks/p/a/project/marker.txt')]),
+          copyWrite: await exit(['/usr/bin/touch', at(`tasks/p/a/project/${fresh()}`)]),
+          copyGitWrite: await exit(['/usr/bin/touch', at(`tasks/p/a/project/.git/${fresh()}`)]),
+          originalRead: await exit(['/bin/cat', at('project/marker.txt')]),
+          originalWrite: await exit(['/usr/bin/touch', at(`project/${fresh()}`)]),
+          originalGitWrite: await exit(['/usr/bin/touch', at(`project/.git/${fresh()}`)]),
+          linkedOriginalWrite: await exit([
+            '/usr/bin/touch',
+            at(`tasks/p/a/project/to-original/${fresh()}`),
+          ]),
+          siblingRead: await exit(['/bin/cat', at('tasks/p/b/project/marker.txt')]),
+          linkedSiblingRead: await exit([
+            '/bin/cat',
+            at('tasks/p/a/project/to-sibling/marker.txt'),
+          ]),
+          siblingWrite: await exit(['/usr/bin/touch', at(`tasks/p/b/project/${fresh()}`)]),
+          dataRead: await exit(['/bin/cat', at('data/marker.txt')]),
+          sshRead: await exit(['/bin/cat', at('home/.ssh/id_marker')]),
+          sshReadOtherCase: await exit(['/bin/cat', at('home/.SSH/id_marker')]),
+          netrcRead: await exit(['/bin/cat', at('home/.netrc')]),
+          storeRead: await exit(['/bin/cat', at('home/.git-credentials')]),
+          ghRead: await exit(['/bin/cat', at('home/.config/gh/hosts.yml')]),
+          helperRun: await exit([at('home/bin/git-credential-marker')]),
+          plainRun: await exit([at('home/bin/plain-marker')]),
+          homeRead: await exit(['/bin/cat', at('home/elsewhere/marker.txt')]),
+          homeWrite: await exit(['/usr/bin/touch', at(`home/elsewhere/${fresh()}`)]),
+        };
+      };
+      const whole = copyProfile(scope);
+      const got = await probe(whole);
+      const open = [
+        'copyRead',
+        'copyWrite',
+        'copyGitWrite',
+        'originalRead',
+        'plainRun',
+        'homeRead',
+        'homeWrite',
+      ];
+      for (const [name, code] of Object.entries(got)) {
+        if (open.includes(name)) assert.equal(code, 0, `${name} is open`);
+        else assert.notEqual(code, 0, `${name} is refused`);
+      }
+      // Each rule is needed: without it, what it holds is no longer held (deny first, then open).
+      const without = (line: string) =>
+        whole
+          .split('\n')
+          .filter((each) => each !== line)
+          .join('\n');
+      const lines = whole.split('\n');
+      const rule = (prefix: string) => lines.find((line) => line.startsWith(prefix)) ?? '';
+      assert.equal(
+        (await probe(without(rule('(deny file-read* file-write* (subpath')))).dataRead,
+        0,
+      );
+      assert.equal((await probe(without(rule('(deny file-write* (subpath')))).originalWrite, 0);
+      assert.equal((await probe(without(rule('(deny file-read* file-write* (regex')))).sshRead, 0);
+      assert.equal((await probe(without(rule('(deny process-exec')))).helperRun, 0);
+      assert.notEqual(
+        (await probe(without(rule('(allow file-read* file-write* (subpath')))).copyWrite,
+        0,
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
