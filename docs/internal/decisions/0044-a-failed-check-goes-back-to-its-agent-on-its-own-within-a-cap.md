@@ -115,8 +115,9 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   tries, `reading` step and held rule (`last_hidden_kind` until a measured reading with none behind). The kit casts
   the rays inside its sealed hook, from the same camera the heights use; the host takes a count from 0 to 5 per text
   and reads anything else as not known. The try names the text by its kind only (a page, a row of buttons, the score
-  sign), never its words, says to move it or what covers it, and that the laptop camera stands behind the person's
-  place; where its words are also too small, the size is said first. A panel under the camera (the starter's controls
+  sign), never its words, says to move it or what covers it, and to look for the cover along the laptop camera's
+  line, not the person's own (for a view that camera stands a step behind the person's place, for a game at it);
+  where its words are also too small, the size is said first. A panel under the camera (the starter's controls
   card while it shows) never covers, and a ray sees meshes only, so a pass is where it could measure.
 - On wherever checks are; `ControlPlaneOptions.autoFix: false` turns it off.
 
