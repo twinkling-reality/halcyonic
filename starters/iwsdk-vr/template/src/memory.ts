@@ -258,16 +258,16 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
       const off = Math.acos(Math.min(1, Math.max(-1, (x * sx + z * sz) / Math.max(r, 1e-6))));
       const open = Math.exp(-((off / 0.32) ** 2)) * Math.min(1, Math.max(0, (r - 12) / 18));
       const great =
-        swellAt(greatS, crest) * Math.min(1, Math.max(0, (r - 35) / 45)) ** 1.5 * swell * 2.6 * (1 - 0.92 * open);
+        swellAt(greatS, crest) * Math.min(1, Math.max(0, (r - 35) / 45)) ** 1.5 * swell * 2.6 * (1 - 0.6 * open);
       // And along the horizon a range of far dunes all round, its crest some 95 m out and wandering in and out, taller
       // here and lower there, so the skyline is a long line of crests, never one lone peak over flat ground.
       const bearing = Math.atan2(x, -z);
       const rangeAt = 95 + 7 * Math.sin(2 * bearing + 0.9);
       const rangeS = Math.min(1, Math.max(0, (r - rangeAt) / 34 + 0.78));
       const rangeHigh = 1.85 + 0.45 * Math.sin(2.3 * bearing + 0.7) + 0.2 * Math.sin(3.1 * bearing + 2.1);
-      const range = swellAt(rangeS, crest) * rangeHigh * swell * Math.min(1, Math.max(0, (r - 50) / 25)) * (1 - 0.92 * open);
+      const range = swellAt(rangeS, crest) * rangeHigh * swell * Math.min(1, Math.max(0, (r - 50) / 25)) * (1 - 0.6 * open);
       const field =
-        swell * (h / most) * (1 + r / 140) * rim * (1 - 0.55 * open) - swell * 0.78 + Math.max(great * 0.7, range) * rim;
+        swell * (h / most) * (1 + r / 140) * rim * (1 - 0.25 * open) - swell * 0.78 + Math.max(great * 0.7, range) * rim;
       const smooth = blend * blend * (3 - 2 * blend);
       return ridge + (field - ridge) * smooth;
     },
