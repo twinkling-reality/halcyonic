@@ -24,6 +24,12 @@ OpenCode 2.0.18 and Codex 0.157.0 show no such stop. What each turn spent is rec
    flight that had not reported) waits (`spending_cap.state` `waiting`) for the person to give a limit that counts
    from now, and every sender, the host's own included, goes through the same
    admission, so nothing launches it before. A process that survived is not relaunched and changes nothing.
+   Amended 2026-11-16 (VRIFY): a session is re-attached when an instruction for it arrives, after its admission, so
+   the wait a re-attach records is read again once it is done, and the instruction is refused there in the host's
+   words, before the app is asked: what the task spent before the restart is not fully known, so its limit cannot
+   be checked, and a limit that counts from now carries it on. Never that it is at its limit, which is not known.
+   A Claude Agent session's first turn after a re-attach reports no cost (agent-usage.md), so a limited task followed
+   up across two restarts waits for a new limit at the second; reading that turn's cost back is not built.
 4. A turn the app stops fails `spending_cap_reached`; a task at its limit (stopped there, or its known sum at it) reads
    `reached` and takes an instruction only as Carry On: `execution.send_instruction` with `spending_cap_usd`, the
    amount raised, counting from now. Its default is none, and it never adds a press to the start.

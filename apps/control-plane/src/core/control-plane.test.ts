@@ -12,6 +12,7 @@ import type {
   RuntimeId,
   WorkstreamId,
 } from '@halcyonic/contracts';
+import { SPEND_NOT_KNOWN } from '@halcyonic/domain';
 import { MockRuntimeAdapter, parseScenario } from '@halcyonic/integration-mock';
 import {
   type ObservationSink,
@@ -1257,6 +1258,66 @@ class RestingRuntime extends ResumableRuntime {
   }
 }
 
+/**
+ * A resting runtime that, as the Claude Agent adapter does, reports no cost for a re-attached session's turn and
+ * refuses an instruction once re-attached with nothing it could be handed (the sum not known).
+ */
+class UnreportedRuntime extends RestingRuntime {
+  readonly #emits = new Map<string, ObservationSink>();
+  readonly #stopped = new Set<string>();
+  #turns = 1;
+
+  constructor() {
+    super('restore', 0.3);
+  }
+
+  override async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
+    this.#emits.set(request.execution.execution_id, request.emit);
+    return super.startExecution(request);
+  }
+
+  override async reattach(request: ReattachRequest): Promise<void> {
+    this.#emits.set(request.execution.execution_id, request.emit);
+    if (request.spending_allowance_usd === null) this.#stopped.add(request.execution.execution_id);
+    return super.reattach(request);
+  }
+
+  override async sendInstruction(request: {
+    execution: { execution_id: string };
+    text: string;
+  }): Promise<void> {
+    const id = request.execution.execution_id;
+    if (this.#stopped.has(id)) {
+      throw new RuntimeActionError(
+        'invalid_state',
+        'This task stopped at its spending limit. Give it a new limit to carry on.',
+      );
+    }
+    await super.sendInstruction(request);
+    const emit = this.#emits.get(id);
+    this.#turns += 1;
+    const turn = { turn_id: `t${this.#turns}` };
+    const at = new Date().toISOString() as never;
+    const observed = { epistemic: 'observed', native_type: null } as const;
+    emit?.({
+      type: 'runtime.turn.started',
+      occurred_at: at,
+      native_event_id: `${id}-${turn.turn_id}`,
+      sequence: null,
+      provenance: observed,
+      payload: turn,
+    });
+    emit?.({
+      type: 'runtime.turn.completed',
+      occurred_at: at,
+      native_event_id: `${id}-${turn.turn_id}c`,
+      sequence: null,
+      provenance: observed,
+      payload: turn,
+    });
+  }
+}
+
 describe('a session the runtime let go at rest (a quiet folder server, 2026-11-13)', () => {
   const finished = async (runtime: RestingRuntime) => {
     const harness = createTestControlPlane({ adapters: () => [runtime] });
@@ -1340,6 +1401,63 @@ describe('a session the runtime let go at rest (a quiet folder server, 2026-11-1
     assert.equal(runtime.reattached.length, 1);
     const left = runtime.reattached[0]?.spending_allowance_usd;
     assert.ok(typeof left === 'number' && Math.abs(left - 0.7) < 1e-9, String(left));
+    await harness.controlPlane.close();
+  });
+
+  test('a limited task whose re-attached turn reported no cost is refused after the next restart as not known, never at its limit (VRIFY, 2026-11-16)', async () => {
+    const runtime = new UnreportedRuntime();
+    const harness = createTestControlPlane({ adapters: () => [runtime] });
+    const workstreamId = await createWorkstream(harness);
+    harness.controlPlane.commands.submit(
+      {
+        ...harness.commands.startExecution(workstreamId, FEATURE),
+        payload: {
+          workstream_id: workstreamId,
+          runtime_id: 'resumable' as RuntimeId,
+          instruction: 'Finish.',
+          options: { lane: 'core' },
+          model_ref: null,
+          spending_cap_usd: 1,
+        },
+      },
+      'internal',
+    );
+    await harness.time.runUntilIdle();
+    const executionId = harness.controlPlane.projection.workstream(workstreamId)
+      ?.current_execution_id as ExecutionId;
+    // The first restart: what is left is known, so the follow-up runs; its turn reports no cost.
+    runtime.letGo(executionId);
+    assert.equal((await instruct(harness, executionId))?.status, 'completed');
+    assert.equal(
+      harness.controlPlane.projection.execution(executionId)?.spending_cap?.spent_usd,
+      null,
+    );
+    // The second restart: what it spent is not known, so it waits for a limit, said as not known.
+    runtime.letGo(executionId);
+    const refused = await instruct(harness, executionId);
+    assert.deepEqual(
+      {
+        status: refused?.status,
+        code: refused?.failure?.code,
+        message: refused?.failure?.message,
+        effect: refused?.failure?.effect,
+      },
+      { status: 'failed', code: 'invalid_state', message: SPEND_NOT_KNOWN, effect: 'none' },
+    );
+    assert.doesNotMatch(refused?.failure?.message ?? '', /at its spending limit|stopped at/);
+    assert.equal(
+      harness.controlPlane.projection.execution(executionId)?.spending_cap?.state,
+      'waiting',
+    );
+    // Its agent app was never asked: only the first follow-up reached it.
+    assert.deepEqual(runtime.instructions, ['One more thing.']);
+    // A third try is refused at once, by admission now, in the same words until the person gives a limit.
+    const again = await instruct(harness, executionId);
+    assert.deepEqual(
+      { status: again?.status, code: again?.rejection?.code, message: again?.rejection?.message },
+      { status: 'rejected', code: 'invalid_state', message: SPEND_NOT_KNOWN },
+    );
+    assert.deepEqual(runtime.instructions, ['One more thing.']);
     await harness.controlPlane.close();
   });
 });

@@ -43,7 +43,16 @@ figure came from the runtime's: Claude and Codex `differenced`, OpenCode `summed
   result's in the same query; a re-attached session's first turn reports nothing, since its first
   result may carry earlier runs, and totals that fall below the last ones (a cleared or zeroed
   result) leave the next turn's start unknown too, so earlier turns are never counted again.
-  Tokens a background subagent spends between turns land in the next turn's difference. Cost is the difference of `total_cost_usd`, by `costBasis` (`list`,
+  Tokens a background subagent spends between turns land in the next turn's difference. Whether a re-attached session's first turn could be counted after all (read 2026-11-16, VRIFY's
+  second-restart finding, from the SDK 0.3.283 typings, not yet run): its `total_cost_usd` and `modelUsage` "continue
+  from the total its transcript saved, when it has one", so the first result holds the earlier turns plus this one,
+  but nothing says when a transcript holds a total, and the host's own known sum can differ from it (turns it did not
+  see whole, a background subagent), so differencing by the host's sum could count a turn wrongly. The one way the
+  SDK gives to read the starting total before that turn is `usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET()`
+  (`get_usage`, the session's `total_cost_usd` and `model_usage`), which it says not to rely on. So nothing is counted
+  for that turn, and a limited task whose sum is then not known waits for a new limit after the next restart, said as
+  not known, never as at its limit. A run on the proving plane that resumes a session twice and compares the first
+  result with `get_usage` read before it would settle whether that call can be trusted for this; it is not built. Cost is the difference of `total_cost_usd`, by `costBasis` (`list`,
   `managed`); none where a model the turn used was priced at a guess (`unknown`) or the turn's
   models were priced by different tables. `reasoning` is `thinkingTokens`, null where absent.
 - OpenCode: the turn is the sum of its `session.step.ended` events, seen from the turn's start;

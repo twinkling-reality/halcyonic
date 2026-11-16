@@ -10,6 +10,7 @@ import type {
   WorkstreamId,
 } from '@halcyonic/contracts';
 import { admitCommand, journaledRejection, type RuntimeCatalog } from './admission.ts';
+import { SPEND_NOT_KNOWN } from './execution-state.ts';
 import { Projection } from './projection.ts';
 import { EventBuilder } from './testing/events.ts';
 
@@ -1971,8 +1972,7 @@ describe("a spending limit (lead's ruling, 2026-11-13)", () => {
     projection.apply(b.runtimeEvent(scope, 'runtime.connection.restored', { reason: 'Back.' }));
     assert.deepEqual(rejection(admitCommand(instruct(), projection, offers)), {
       code: 'invalid_state',
-      message:
-        'What this task spent before the restart is not fully known. Give it a limit that counts from now to carry on.',
+      message: SPEND_NOT_KNOWN,
     });
     assert.equal(admitCommand(instruct(2), projection, offers).admitted, true);
     assert.equal(

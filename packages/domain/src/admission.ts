@@ -25,6 +25,7 @@ import {
   WORLD_STARTER_ID,
 } from '@halcyonic/contracts';
 import { ALLOW_TEST_SERVERS, ASSISTANT_CLIENT } from './command-fields.ts';
+import { SPEND_NOT_KNOWN } from './execution-state.ts';
 import { checkServable, fitPasses, readingPasses } from './fix-steps.ts';
 import { foldersOverlap } from './folders.ts';
 import { COMMAND_POLICY, COMMAND_SAYING } from './policy.ts';
@@ -1001,11 +1002,7 @@ function admit(
           'This task is at its spending limit. Raise it to carry on.',
         );
       } else if (facts.spendingCap === 'waiting') {
-        return reject(
-          scope,
-          'invalid_state',
-          'What this task spent before the restart is not fully known. Give it a limit that counts from now to carry on.',
-        );
+        return reject(scope, 'invalid_state', SPEND_NOT_KNOWN);
       }
       switch (facts.status) {
         case 'completed':

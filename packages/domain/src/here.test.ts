@@ -10,6 +10,7 @@ import {
 } from '@halcyonic/contracts';
 import { admitCommand, type RuntimeCatalog } from './admission.ts';
 import { COMMAND_FIELDS } from './command-fields.ts';
+import { SPEND_NOT_KNOWN } from './execution-state.ts';
 import { boundCommand, hereActions } from './here.ts';
 import { COMMAND_POLICY, COMMAND_SAYING } from './policy.ts';
 import { Projection } from './projection.ts';
@@ -374,8 +375,7 @@ describe("a task's spending limit in what can be done here (lead's ruling, 2026-
     const plain = admitCommand(instruct(), projection, offers);
     assert.deepEqual(plain.admitted ? null : plain.rejection, {
       code: 'invalid_state',
-      message:
-        'What this task spent before the restart is not fully known. Give it a limit that counts from now to carry on.',
+      message: SPEND_NOT_KNOWN,
     });
   });
 });

@@ -47,6 +47,7 @@ import {
   journaledRejection,
   type Projection,
   removalRefusal,
+  SPEND_NOT_KNOWN,
 } from '@halcyonic/domain';
 import {
   type Clock,
@@ -541,6 +542,27 @@ export class CommandService {
       commands: commands.length,
       cut: [...executions, ...unsettled],
     };
+  }
+
+  /**
+   * An instruction admitted before its task was re-attached, which the re-attach then left waiting for a limit (what it
+   * spent is not known) or at its limit, is refused here in the host's words, before its agent app is asked: admission
+   * could not see it, since a re-attach is what records it (VRIFY, 2026-11-16). One raising the limit goes on.
+   */
+  #capAfterReattach(command: CommandEnvelope, execution: ExecutionContext): CommandFailure | null {
+    if (command.command_type !== 'execution.send_instruction') return null;
+    if (command.payload.spending_cap_usd !== undefined) return null;
+    const cap = this.#deps.projection.execution(execution.execution_id)?.spending_cap?.state;
+    if (cap === 'waiting')
+      return { code: 'invalid_state', message: SPEND_NOT_KNOWN, effect: 'none' };
+    if (cap === 'reached') {
+      return {
+        code: 'invalid_state',
+        message: 'This task is at its spending limit. Raise it to carry on.',
+        effect: 'none',
+      };
+    }
+    return null;
   }
 
   /**
@@ -2740,7 +2762,12 @@ export class CommandService {
             reattached === null
               ? this.#perform(command, action, outcome)
               : reattached.then(
-                  () => this.#perform(command, action, outcome),
+                  () => {
+                    const refused = this.#capAfterReattach(command, execution);
+                    return refused === null
+                      ? this.#perform(command, action, outcome)
+                      : outcome.failed(refused);
+                  },
                   (error: unknown) => outcome.failed(toFailure(error, this.#deps.redaction)),
                 );
           const before: Promise<void>[] = [];

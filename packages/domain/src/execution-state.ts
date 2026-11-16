@@ -154,6 +154,13 @@ export function newSpendingCap(
 }
 
 /**
+ * What a person reads when a task with a limit waits for a new one because what it spent is not known (a re-attached
+ * turn the app reported no cost for): never that it reached its limit, which is not known (VRIFY, 2026-11-16).
+ */
+export const SPEND_NOT_KNOWN =
+  'What this task spent before the restart is not fully known, so its limit cannot be checked. Give it a limit that counts from now to carry on.';
+
+/**
  * What a person reads when the app stopped a task at its limit (ADR 0062): the limit, then the
  * known sum over the person's own span, named only where a raise began it, or that it is not known.
  * Never a span the person cannot see, never "at most".
