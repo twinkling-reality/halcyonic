@@ -114,6 +114,111 @@ namespace Halcyonic.XR.Workspace.Editor
             // The ruled case, and the film's sentence working and needing the person, each drawn into a frame for the look (AUDIT 17:47Z).
             foreach (var (name, title, needs) in new[] { ("page-long-needs", LongShelfName, true), ("page-film-working", FilmShelfName, false), ("page-film-needs", FilmShelfName, true) })
                 failures.AddRange(ShelfPageHoldsTheTag(folder, name, title, needs));
+            failures.AddRange(NewProjectEasesClear(folder));
+            return failures;
+        }
+
+        /// <summary>
+        /// New Project's place as the room moves it when the tag beside it widens (AUDIT 2026-11-16T18:04Z): the film's sentence working, then
+        /// needing the person, at 72 frames a second. The place eases to its new turn, never jumps (under 60 percent of the way after 0.1 s),
+        /// stands on it exactly by 1 s and holds it to the pixel after; frames at 0, 0.5 and 1 s go to the folder for the look.
+        /// </summary>
+        private static List<string> NewProjectEasesClear(string folder)
+        {
+            var failures = new List<string>();
+            var holder = new GameObject("New Project easing clear");
+            var designWas = RoomDesign.Enabled;
+            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            var scale = GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture);
+            try
+            {
+                RoomDesign.Enabled = true;
+                var capacity = CharacterStage.ShelfCapacity;
+                var places = CharacterStage.ShelfPlaces;
+                var first = places - capacity;
+                if (first == 0) return failures;
+                var eyes = Vector3.zero;
+                var pose = new Pose(new Vector3(0f, -0.45f, AgentShelfSearch.MinimumDistance), Quaternion.identity);
+                var pitch = CharacterStage.PitchOf(places, CharacterStage.FittedWidth(places));
+                float PlaceX(int place) => -pitch * (places - 1) / 2f + pitch * place;
+                CharacterPresentation Shown(int index, bool needs) => needs
+                    ? new CharacterPresentation("ease-tag-" + index, FilmShelfName, CharacterActivity.WaitingForHuman, "Needs You", AttentionLevel.ActionRequired, Array.Empty<string>(), 2, false, false, false)
+                    : new CharacterPresentation("ease-tag-" + index, FilmShelfName, CharacterActivity.Working, CharacterPresenter.LabelOf(CharacterActivity.Working), AttentionLevel.None, Array.Empty<string>(), 0, false, false, false);
+                var views = new List<CharacterView>();
+                for (var index = 0; index < capacity; index++)
+                {
+                    var view = CharacterView.Create(holder.transform, "ease-tag-" + index);
+                    view.transform.SetPositionAndRotation(pose.position + Vector3.right * PlaceX(first + index), Quaternion.Euler(0f, 180f, 0f));
+                    view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
+                    RoomNameTag.On(view).Picked = true;
+                    view.Show(Shown(index, needs: false));
+                    view.PlaceShelfLabel(eyes);
+                    views.Add(view);
+                }
+                var lip = pose.position + Vector3.right * PlaceX(0) - Vector3.forward * (AgentShelfDraft.Depth / 2f);
+                var away = lip - eyes;
+                var place = new GameObject("New Project place").transform;
+                place.SetParent(holder.transform, false);
+                var spot = new Pose(lip, Quaternion.LookRotation(new Vector3(away.x, 0f, away.z), Vector3.up));
+                place.SetPositionAndRotation(spot.position, spot.rotation);
+                place.localScale = Vector3.one * away.magnitude;
+                var button = RoomButton.Create(place, RoomNewProjectPlace.Words);
+                var target = RoomType.Units(RoomButton.HeightDp);
+                var under = RoomType.Units(RoomNameTag.UnderDegrees * RoomGeometry.DpPerDegree);
+                button.Show(RoomNewProjectPlace.Words, GlazeIcon.CreateProject, isMain: false, available: true, new Vector2(0f, -under - target / 2f), button.Measure(RoomNewProjectPlace.Words, 0f).x);
+                WorkspaceRender.ForceMeshes(holder);
+                var start = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
+                foreach (var (view, index) in views.Select((view, index) => (view, index)))
+                {
+                    view.Show(Shown(index, needs: true));
+                    view.PlaceShelfLabel(eyes);
+                }
+                WorkspaceRender.ForceMeshes(holder);
+                var end = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
+                var change = end - start;
+                var camera = WorkspaceRender.MakeCamera(holder.transform, eyes, texture);
+                camera.transform.LookAt(pose.position + Vector3.right * (PlaceX(0) + PlaceX(places - 1)) / 2f + Vector3.down * 0.05f);
+                camera.fieldOfView = 30f;
+                const int fps = 72;
+                var turned = start;
+                var speed = 0f;
+                var settled = new List<float>();
+                var largest = 0f;
+                float? atTenth = null;
+                for (var frame = 0; frame <= fps * 6 / 5; frame++)
+                {
+                    if (frame > 0)
+                    {
+                        var was = turned;
+                        place.SetPositionAndRotation(spot.position, spot.rotation);
+                        turned = RoomNewProjectPlace.Eased(turned, RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes), ref speed, 1f / fps);
+                        largest = Mathf.Max(largest, Mathf.Abs(turned - was));
+                    }
+                    place.SetPositionAndRotation(spot.position, spot.rotation);
+                    RoomNewProjectPlace.Turn(place, eyes, turned);
+                    if (frame == Mathf.RoundToInt(0.1f * fps)) atTenth = turned;
+                    if (frame >= fps) settled.Add(turned);
+                    if (frame == 0 || frame == fps / 2 || frame == fps)
+                    {
+                        var image = WorkspaceRender.Render(camera, texture);
+                        File.WriteAllBytes(Path.Combine(folder, "page-film-ease-" + (frame / (float)fps).ToString("0.0", CultureInfo.InvariantCulture) + "s.png"), image.EncodeToPNG());
+                        UnityEngine.Object.DestroyImmediate(image);
+                    }
+                }
+                if (change < 0.2f) failures.Add("New Project's place needs no new turn when the film's tag comes to need the person (" + GlazeChecks.Degrees(change) + " degrees), so its easing is not shown, at text scale " + scale);
+                if (atTenth is float tenth && tenth - start > 0.6f * change) failures.Add("New Project's place jumps: " + GlazeChecks.Degrees(tenth - start) + " of its " + GlazeChecks.Degrees(change) + " degrees in 0.1 s, at text scale " + scale);
+                if (settled.Count == 0 || settled.Any(each => each != end)) failures.Add("New Project's place does not stand still on its turn from 1 s, at text scale " + scale);
+                Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place eases " + GlazeChecks.Degrees(change) + " degrees further left as the film's tag comes to need the person: "
+                    + GlazeChecks.Degrees((atTenth ?? start) - start) + " in 0.1 s, at most " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " in a frame, still from 1 s.");
+            }
+            catch (Exception error) { failures.Add(error.ToString()); }
+            finally
+            {
+                RoomDesign.Enabled = designWas;
+                UnityEngine.Object.DestroyImmediate(holder);
+                texture.Release();
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
             return failures;
         }
 

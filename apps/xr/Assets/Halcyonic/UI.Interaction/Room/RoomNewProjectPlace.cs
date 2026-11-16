@@ -58,11 +58,47 @@ namespace Halcyonic.XR.UI
         /// of every tag under <paramref name="shelf"/> (its words and its glass): a long name's tag runs past half a place, and today's place
         /// stood on it (FIELD's F236, AUDIT 2026-11-16T17:46Z). Measured each time from what is drawn; nothing is allocated.
         /// </summary>
-        public static void StandClear(Transform place, RoomButton button, Transform shelf, Vector3 eyes)
+        public static void StandClear(Transform place, RoomButton button, Transform shelf, Vector3 eyes) => Turn(place, eyes, ClearTurn(place, button, shelf, eyes));
+
+        /// <summary>
+        /// How long the place takes to settle on a new turn when a tag beside it widens or narrows (Needs You arriving, a name changed): it
+        /// eases there, never jumps under the person's eye (AUDIT 2026-11-16T18:04Z), settling within about four times this.
+        /// </summary>
+        public const float EaseSeconds = 0.15f;
+
+        private float turned;
+        private float turning;
+        private bool stood;
+
+        /// <summary>
+        /// The turn <paramref name="turned"/> eased toward <paramref name="target"/> over <paramref name="seconds"/>, both in degrees, with its speed
+        /// in <paramref name="speed"/>; once within a hundredth of a degree it is the target exactly and still, so a steady tag holds the place
+        /// steady to the pixel.
+        /// </summary>
+        public static float Eased(float turned, float target, ref float speed, float seconds)
+        {
+            var next = Mathf.SmoothDamp(turned, target, ref speed, EaseSeconds, Mathf.Infinity, Mathf.Max(seconds, 0f));
+            if (Mathf.Abs(next - target) < 0.01f) { speed = 0f; return target; }
+            return next;
+        }
+
+        /// <summary>Turns <paramref name="place"/> about the vertical through <paramref name="eyes"/> by <paramref name="degrees"/> to the person's left.</summary>
+        public static void Turn(Transform place, Vector3 eyes, float degrees)
+        {
+            if (degrees <= 0f) return;
+            var turn = Quaternion.AngleAxis(-degrees, Vector3.up);
+            place.SetPositionAndRotation(eyes + turn * (place.position - eyes), turn * place.rotation);
+        }
+
+        /// <summary>
+        /// How many degrees to the person's left <paramref name="place"/>, as it stands, must turn about the eyes for its drawn words and glyph
+        /// to stand <see cref="ClearOfTagDegrees"/> left of every drawn tag under <paramref name="shelf"/>; 0 where they already do.
+        /// </summary>
+        public static float ClearTurn(Transform place, RoomButton button, Transform shelf, Vector3 eyes)
         {
             var ahead = place.position - eyes;
             ahead.y = 0f;
-            if (ahead.sqrMagnitude < 1e-6f) return;
+            if (ahead.sqrMagnitude < 1e-6f) return 0f;
             var tagLeft = float.PositiveInfinity;
             shelf.GetComponentsInChildren(false, NameTags);
             foreach (var nameTag in NameTags)
@@ -73,15 +109,12 @@ namespace Halcyonic.XR.UI
                 tag.GetComponentsInChildren(false, Plates);
                 foreach (var plate in Plates) tagLeft = Mathf.Min(tagLeft, Across(plate.Glass, eyes, ahead, left: true));
             }
-            if (float.IsPositiveInfinity(tagLeft)) return;
+            if (float.IsPositiveInfinity(tagLeft)) return 0f;
             var placeRight = Across(button.Words.GetComponent<Renderer>(), eyes, ahead, left: false);
             button.Glyph.GetComponentsInChildren(false, Marks);
             foreach (var mark in Marks) placeRight = Mathf.Max(placeRight, Across(mark, eyes, ahead, left: false));
-            if (float.IsNegativeInfinity(placeRight)) return;
-            var missing = ClearOfTagDegrees - (tagLeft - placeRight);
-            if (missing <= 0f) return;
-            var turn = Quaternion.AngleAxis(-missing, Vector3.up);
-            place.SetPositionAndRotation(eyes + turn * (place.position - eyes), turn * place.rotation);
+            if (float.IsNegativeInfinity(placeRight)) return 0f;
+            return Mathf.Max(0f, ClearOfTagDegrees - (tagLeft - placeRight));
         }
 
         /// <summary>
@@ -113,7 +146,7 @@ namespace Halcyonic.XR.UI
             if (stage == null || holder == null) return;
             var stands = RoomDesign.Enabled && stage.Visible;
             if (holder.gameObject.activeSelf != stands) holder.gameObject.SetActive(stands);
-            if (!stands) return;
+            if (!stands) { stood = false; return; }
             var shelf = stage.Shelf;
             // The characters face the eyes, so the shelf's front lip is toward the eyes from each place.
             var lip = shelf.TransformPoint(stage.PlaceOf(0)) - shelf.forward * (AgentShelfDraft.Depth / 2f) * shelf.lossyScale.z;
@@ -127,7 +160,13 @@ namespace Halcyonic.XR.UI
             var width = button.Measure(Words, 0f).x;
             var under = RoomType.Units(RoomNameTag.UnderDegrees * RoomGeometry.DpPerDegree);
             button.Show(Words, GlazeIcon.CreateProject, isMain: false, available: true, new Vector2(0f, -under - target / 2f), width);
-            StandClear(holder, button, shelf, stage.ShelfViewer);
+            // Measured from the place's own spot each frame, so a steady tag gives a steady turn; eased only while it stands, so a place
+            // that comes into being stands clear at once.
+            var target = ClearTurn(holder, button, shelf, stage.ShelfViewer);
+            if (stood) turned = Eased(turned, target, ref turning, Time.deltaTime);
+            else { turned = target; turning = 0f; }
+            stood = true;
+            Turn(holder, stage.ShelfViewer, turned);
         }
     }
 }

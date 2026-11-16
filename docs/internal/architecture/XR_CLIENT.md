@@ -3068,8 +3068,9 @@ in order, as before.
   their names run past a few words, so a page holds one until a page takes its pitch from its widest tag (`AgentShelfPages.PerPage`, `Shown`); the
   shelf's first place, at the person's left, is New Project, the plus glyph on the tags' line, which opens New Project
   as the menu's own does, and which turns further left about the eyes, never toward the characters, until its drawn
-  words and glyph stand at least 1 degree clear of every drawn tag on the page, measured each frame (a long name's tag
-  runs past half a place; `RoomNewProjectPlace.StandClear`, `ClearOfTagDegrees`) (`CharacterStage.ShelfCapacity`, `ShelfPlaces`, `PlaceOf`; `RoomNewProjectPlace`, attached by
+  words and glyph stand at least 1 degree clear of every drawn tag on the page, measured each frame from its own spot (a
+  long name's tag runs past half a place); a tag that widens eases it there over about half a second, and a steady tag
+  holds it still (`RoomNewProjectPlace.StandClear`, `ClearTurn`, `Eased`, `ClearOfTagDegrees`, `EaseSeconds`) (`CharacterStage.ShelfCapacity`, `ShelfPlaces`, `PlaceOf`; `RoomNewProjectPlace`, attached by
   `WorkspaceDirector`). The shelf's surface widens to its places. With the redesign off the shelf holds one too.
   The older label's name (`CharacterLabelView`) stands whole on up to six lines on the demo stage and four on the shelf
   (`MostTitleLines`, `ShelfTitleLines`, set per view as `MostLines` by `CharacterView.PlaceShelfLabel`), the shelf's
