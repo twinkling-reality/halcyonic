@@ -1992,6 +1992,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 var rect = new RectInt(Mathf.FloorToInt(corners.Min(c => c.x)), Mathf.FloorToInt(corners.Min(c => c.y)),
                     Mathf.CeilToInt(corners.Max(c => c.x) - corners.Min(c => c.x)) + 1, Mathf.CeilToInt(corners.Max(c => c.y) - corners.Min(c => c.y)) + 1);
                 if (rect.width < 2 || rect.height < 2) continue;
+                // Words the frame does not show cannot be read in it: the walk's frame is a crop of the field (90 degrees tall, pitched
+                // 18 down), and the field check above holds where every part stands. Only words at least half in the frame are measured,
+                // on their part inside it (the open arc's file names at Larger stood above the frame's top, read as 1.0:1).
+                var inside = new RectInt(Mathf.Max(rect.xMin, 0), Mathf.Max(rect.yMin, 0), 0, 0);
+                inside.width = Mathf.Min(rect.xMax, image.width) - inside.x;
+                inside.height = Mathf.Min(rect.yMax, image.height) - inside.y;
+                if (inside.width < 2 || inside.height < 2 || inside.width * inside.height * 2 < rect.width * rect.height)
+                {
+                    Debug.Log("Halcyonic: frame checks: " + PathOf(label.transform) + " \"" + Codes(label.text) + "\" stands mostly outside the frame: its contrast is not read here");
+                    continue;
+                }
+                rect = inside;
                 var ground = MostCommon(image, rect);
                 var contrast = GlazeChecks.Contrast(image, rect, ground);
                 if (contrast < 4.5f) failures.Add(PathOf(label.transform) + " \"" + Codes(label.text) + "\" reaches " + contrast.ToString("0.0") + ":1, under 4.5:1");
