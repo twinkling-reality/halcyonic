@@ -1949,14 +1949,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         {
                             var toward = eyes + Quaternion.Euler(0f, side * turn, 0f) * ahead;
                             var outside = GlazeChecks.InsideField("the character on the stage (the head turned " + turn.ToString("0") + " degrees)", body, eyes, toward, 0f, field).ToList();
+                            // The character WHOLE: its body and its drawn name tag (words and plate glass) inside the field at one turn of the
+                            // head, as a person turns toward a character to read its name (AUDIT 17:29Z, reading (ii) of its 16:48Z rule).
+                            if (tagPoints.Count > 0)
+                                outside.AddRange(GlazeChecks.InsideField("the character's name tag (the head turned " + turn.ToString("0") + " degrees)", tagPoints, eyes, toward, 0f, field));
                             if (outside.Count == 0)
                             {
+                                Debug.Log("Halcyonic: the stage at " + moment + ": the character and its name tag stand whole in the field with the head turned "
+                                    + turn.ToString("0") + " degrees");
                                 if (turn > 30f) Debug.Log("Halcyonic: judge room: the character on the stage is seen with the head turned " + turn.ToString("0") + " degrees, past thirty");
-                                // Its name tag, as drawn (words and plate glass), inside the field at the same turn as the body; the field check
-                                // logs its lowest point against the field's reach.
-                                if (tagPoints.Count > 0)
-                                    foreach (var cut in GlazeChecks.InsideField("the character's name tag (the head turned " + turn.ToString("0") + " degrees)", tagPoints, eyes, toward, 0f, field))
-                                        yield return "the stage: " + cut;
                                 least = null;
                                 break;
                             }
