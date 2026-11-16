@@ -52,6 +52,13 @@ namespace Halcyonic.XR.UI
                 if (!(panelWordsRest.TryGetValue(words, out var known) && Mathf.Approximately(words.alpha, known.Applied)))
                     panelWordsRest[words] = (words.alpha, words.alpha);
             }
+            // Each block of words is a line of the build-up, in reading order: top first, then left first on one line.
+            panelWords.Sort((a, b) =>
+            {
+                var ay = a.transform.position.y;
+                var by = b.transform.position.y;
+                return Mathf.Abs(ay - by) > 1e-4f ? by.CompareTo(ay) : a.transform.position.x.CompareTo(b.transform.position.x);
+            });
             FollowArrival();
         }
 
@@ -63,11 +70,14 @@ namespace Halcyonic.XR.UI
             PanelArrival = move;
             panel.Shown = move.Shown;
             panel.transform.localPosition = panelRest + Vector3.down * (move.LowerDp * RoomType.Units(1f));
-            foreach (var words in panelWords)
+            var since = PanelClock() - arrivedAt;
+            for (var index = 0; index < panelWords.Count; index++)
             {
+                var words = panelWords[index];
                 if (words == null) continue;
                 var rest = panelWordsRest.TryGetValue(words, out var known) ? known.Laid : 1f;
-                var applied = rest * move.Shown;
+                // The panel's lines build up after its glass, a line at a time in reading order, each from its own rest.
+                var applied = GlazeMotion.Still ? rest : rest * move.Shown * RoomMotion.PanelLineArrives(since, index).Shown;
                 if (!Mathf.Approximately(words.alpha, applied)) words.alpha = applied;
                 panelWordsRest[words] = (rest, words.alpha);
             }
@@ -76,7 +86,7 @@ namespace Halcyonic.XR.UI
         /// <summary>For renders: the panel in its place, whole.</summary>
         public void SettleArrival()
         {
-            arrivedAt = PanelClock() - RoomMotion.PanelSeconds;
+            arrivedAt = PanelClock() - RoomMotion.PanelArrivalSeconds(panelWords.Count);
             FollowArrival();
         }
     }

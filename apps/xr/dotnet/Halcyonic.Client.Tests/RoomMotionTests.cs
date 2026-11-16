@@ -158,6 +158,24 @@ public class RoomMotionTests
     }
 
     [Test]
+    public void ThePanelsLinesBuildUpAfterItsGlassTopFirst()
+    {
+        Assert.That(RoomMotion.PanelLineArrives(0.119f, 0).Shown, Is.EqualTo(0f), "no words before the glass has led by 120 ms");
+        Assert.That(RoomMotion.PanelLineArrives(0.12f, 0).LowerDp, Is.EqualTo(8f).Within(1e-3f), "each line rises 8 dp to its place");
+        for (var line = 0; line < 6; line++)
+        {
+            var start = 0.12f + line * 0.06f;
+            Assert.That(RoomMotion.PanelLineArrives(start, line).Shown, Is.EqualTo(0f).Within(Close), $"line {line} begins unseen");
+            Assert.That(RoomMotion.PanelLineArrives(start + 0.24f, line).Shown, Is.EqualTo(1f).Within(Close), $"line {line} lands in 240 ms");
+            for (var at = 0f; at < 1f; at += 0.01f)
+                Assert.That(RoomMotion.PanelLineArrives(at, line).Shown, Is.GreaterThanOrEqualTo(RoomMotion.PanelLineArrives(at, line + 1).Shown), $"line {line} leads line {line + 1} at {at} s");
+        }
+        Assert.That(RoomMotion.PanelArrivalSeconds(1), Is.EqualTo(0.36f).Within(1e-5f), "one line: the glass's own 360 ms");
+        Assert.That(RoomMotion.PanelArrivalSeconds(8), Is.EqualTo(0.12f + 7 * 0.06f + 0.24f).Within(1e-5f), "eight lines: the last one's landing");
+        Assert.That(RoomMotion.PanelLineArrives(RoomMotion.PanelArrivalSeconds(8), 7).Shown, Is.EqualTo(1f).Within(Close), "whole when it says it is");
+    }
+
+    [Test]
     public void ThePanelRisesADegreeAndFadesInThenLeavesOnTheStandardCurve()
     {
         var start = RoomMotion.PanelArrives(0f);

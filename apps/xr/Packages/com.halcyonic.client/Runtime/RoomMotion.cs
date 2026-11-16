@@ -147,6 +147,18 @@ namespace Halcyonic.Client
             return new RoomMove(progress, (1f - progress) * PanelRiseDp);
         }
 
+        /// <summary>
+        /// A line of words on the information panel <paramref name="seconds"/> after the panel starts to arrive: the panel's
+        /// lines build up after its glass, as Star Citizen's cards build up as the player arrives: line <paramref name="line"/>
+        /// (from 0, the top one first) starts 120 ms after the glass and 60 ms after the line above it, rises 8 dp to its
+        /// place and fades in over 240 ms, ease out.
+        /// </summary>
+        public static RoomMove PanelLineArrives(float seconds, int line) => LineArrives(seconds - BandLinesAfterSeconds, line);
+
+        /// <summary>When a panel of <paramref name="lines"/> lines of words stands whole, every line in its place.</summary>
+        public static float PanelArrivalSeconds(int lines) =>
+            Math.Max(PanelSeconds, BandLinesAfterSeconds + Math.Max(0, lines - 1) * LineApartSeconds + LineSeconds);
+
         /// <summary>How far a panel is still in view <paramref name="seconds"/> after it starts to leave: 360 ms, the standard curve.</summary>
         public static float PanelLeaves(float seconds) => 1f - Standard(seconds / PanelSeconds);
 
