@@ -1038,13 +1038,13 @@ namespace Halcyonic.XR.Workspace.Editor
                         // (AUDIT2 14:02Z: the judges may open them; one name per thing, a way on in every refusal, no dot).
                         foreach (var category in new[] { Comfort.Heading, SettingsText.YourSpace })
                         {
-                            if (Drawn(SettingsHubColumn.OpenCategory, category) is not RoomButton open)
+                            if (Drawn(SettingsHubColumn.OpenCategory, category) is not RoomButton opening)
                             {
                                 failures.Add("the Settings page draws no " + category + " to open");
                                 continue;
                             }
-                            open.Press.SettleForRender();
-                            open.Press.PressForRender(986);
+                            opening.Press.SettleForRender();
+                            opening.Press.PressForRender(986);
                             presses++;
                             Fresh();
                             Moment("room settings " + category.ToLowerInvariant());
