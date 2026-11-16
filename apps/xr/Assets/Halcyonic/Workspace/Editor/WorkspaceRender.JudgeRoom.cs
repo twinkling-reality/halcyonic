@@ -586,6 +586,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     found.AddRange(StageClear(root, eyes, plane, stood, name));
                     found.AddRange(OutsideItsShelf(eyes, stood, stageParts));
                     FootHeld(found, name);
+                    // An approval's Approve is its one main action and carries the one accent, and only it on the bar (AUDIT 13:18Z: the
+                    // kit render's 33-ask-tool draws it so; the live approval drew it plain, room-06 on 30fea4d72).
+                    if (Drawn(FileScreens.Approve, null) is RoomButton approve)
+                    {
+                        var mains = plane.Kit.Bar.GetComponentsInChildren<RoomButton>(false)
+                            .Where(button => button.Main && button.GetComponentsInChildren<Renderer>(false).Any(part => part.enabled)).ToList();
+                        if (!approve.Main) found.Add("the approval's Approve is drawn plain: the one accent is not on its main action");
+                        foreach (var other in mains.Where(button => button != approve))
+                            found.Add("the approval's bar carries a second accent, on " + PathOf(other.transform));
+                    }
                     AsideHeld(found);
                     // No computer: a recording plays, so voice is never offered and Hold to Talk never drawn (ADR 0021, amended).
                     // A recording says what it is wherever it plays (lead, 14:33Z): its own line, in its own words, drawn whole.
