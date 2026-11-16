@@ -178,10 +178,12 @@ export class MediaPage {
   async play(
     projectId: unknown,
     path: unknown,
+    asked: unknown = undefined,
   ): Promise<{
     readonly type: string;
     readonly body: NodeJS.ReadableStream;
     readonly length: number;
+    readonly range?: { readonly start: number; readonly end: number; readonly size: number };
   } | null> {
     const project = this.#deps.projects().find((each) => each.project_id === projectId);
     if (project === undefined || typeof path !== 'string') return null;
@@ -198,7 +200,16 @@ export class MediaPage {
       await handle.close();
       return null;
     }
-    return { type: 'video/mp4', body: handle.createReadStream(), length: info.size };
+    // One part, as a browser asks for a video (Safari plays none without it); anything else is the whole file.
+    const range = partOf(asked, info.size);
+    if (range === null)
+      return { type: 'video/mp4', body: handle.createReadStream(), length: info.size };
+    return {
+      type: 'video/mp4',
+      body: handle.createReadStream({ start: range.start, end: range.end }),
+      length: range.end - range.start + 1,
+      range: { ...range, size: info.size },
+    };
   }
 
   /** A still of one of the project's photos or videos, read as an instruction's picture is. */
@@ -223,6 +234,28 @@ export class MediaPage {
   }
 }
 
+/** A single byte range of a file of `size`, from a Range header (`bytes=a-b`, `bytes=a-`, `bytes=-n`), or null. */
+export function partOf(
+  header: unknown,
+  size: number,
+): { readonly start: number; readonly end: number } | null {
+  if (typeof header !== 'string' || size === 0) return null;
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (match === null || (match[1] === '' && match[2] === '')) return null;
+  let start: number;
+  let end: number;
+  if (match[1] === '') {
+    start = Math.max(0, size - Number(match[2]));
+    end = size - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] === '' ? size - 1 : Math.min(Number(match[2]), size - 1);
+  }
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= size)
+    return null;
+  return { start, end };
+}
+
 function asset(name: string): Buffer {
   return readFileSync(new URL(`./media-page/${name}`, import.meta.url));
 }
@@ -236,7 +269,7 @@ export function mountMedia(page: MediaPage): (routes: PageRoutes) => void {
     routes.get('/setup/media/state', (_request, session) => page.state(session));
     routes.file('/setup/media/play', async (request) => {
       const query = request.query as { project?: unknown; path?: unknown };
-      return page.play(query.project, query.path);
+      return page.play(query.project, query.path, request.headers.range);
     });
     routes.file('/setup/media/still', async (request) => {
       const query = request.query as { project?: unknown; path?: unknown };

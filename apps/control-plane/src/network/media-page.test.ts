@@ -7,7 +7,7 @@ import { after, test } from 'node:test';
 import type { CommandEnvelope, ProjectId } from '@halcyonic/contracts';
 import { KEPT_FILES, MediaStore } from '../core/media-store.ts';
 import { startTestServer } from '../testing/harness.ts';
-import { MediaPage, mountMedia, RECEIVED_WORDS } from './media-page.ts';
+import { MediaPage, mountMedia, partOf, RECEIVED_WORDS } from './media-page.ts';
 
 const PORTS = [47912, 47919] as const;
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-media-page-')));
@@ -249,6 +249,11 @@ test('a video tile plays only the play copy the journal names, read without a li
   assert.equal(served.headers['content-type'], 'video/mp4');
   assert.equal(Number(served.headers['content-length']), clip.length);
   assert.equal((await get(play, {})).status, 403, 'behind the session');
+  // A part, as Safari asks for a video: 206 with its place in the whole.
+  const part = await get(play, { cookie, range: 'bytes=0-9' });
+  assert.equal(part.status, 206);
+  assert.equal(part.headers['content-range'], `bytes 0-9/${clip.length}`);
+  assert.equal(Number(part.headers['content-length']), 10);
   assert.equal(
     (await get('media/video-0123456789ab.mov')).status,
     404,
@@ -260,4 +265,21 @@ test('a video tile plays only the play copy the journal names, read without a li
     'never through a link',
   );
   assert.equal((await get('../outside.mp4')).status, 404);
+});
+
+test('a Range header is read as one part of the file or not at all (ADR 0066)', () => {
+  assert.deepEqual(partOf('bytes=0-9', 100), { start: 0, end: 9 });
+  assert.deepEqual(partOf('bytes=90-', 100), { start: 90, end: 99 });
+  assert.deepEqual(partOf('bytes=-10', 100), { start: 90, end: 99 });
+  assert.deepEqual(partOf('bytes=0-1000', 100), { start: 0, end: 99 });
+  for (const bad of [
+    'bytes=100-',
+    'bytes=5-2',
+    'bytes=0-1,5-6',
+    'items=0-1',
+    'bytes=-',
+    undefined,
+    7,
+  ])
+    assert.equal(partOf(bad, 100), null, String(bad));
 });

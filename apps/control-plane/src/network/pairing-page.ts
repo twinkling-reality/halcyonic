@@ -143,6 +143,8 @@ export interface PageRoutes {
       readonly type: string;
       readonly body: Buffer | NodeJS.ReadableStream;
       readonly length?: number;
+      /** A part of the file, as a Range request asked: answered 206 with its place in the whole. */
+      readonly range?: { readonly start: number; readonly end: number; readonly size: number };
     } | null>,
   ): void;
   /**
@@ -466,6 +468,15 @@ export class PairingPage {
           const found = await handler(request, session);
           if (found === null) return reply.code(404).type('text/plain').send('Not here.');
           if (found.length !== undefined) reply.header('content-length', found.length);
+          if (found.range !== undefined)
+            reply
+              .code(206)
+              .header('accept-ranges', 'bytes')
+              .header(
+                'content-range',
+                `bytes ${found.range.start}-${found.range.end}/${found.range.size}`,
+              );
+          else if (found.length !== undefined) reply.header('accept-ranges', 'bytes');
           return reply.type(found.type).send(found.body);
         });
       },
