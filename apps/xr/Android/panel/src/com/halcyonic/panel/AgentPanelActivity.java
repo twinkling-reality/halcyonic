@@ -50,6 +50,8 @@ public class AgentPanelActivity extends Activity {
     private PanelLoadingText connection;
     private TextView requestAvailability;
     private Button presentationButton;
+    private TextView brand;
+    private LinearLayout navRow, shellRoot;
     private LinearLayout developmentControls;
     private boolean compactPanel;
     private long checkedAt;
@@ -205,12 +207,12 @@ public class AgentPanelActivity extends Activity {
     }
     private static String stateName(String value) { return PanelModel.stateName(value); }
     private void shell() {
-        LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34));
-        text(root, "Halora", 28);
+        LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34)); shellRoot = root;
+        brand = text(root, "Halora", 28);
         connection = new PanelLoadingText(this); connection.setTextSize(16); connection.setPadding(0, dp(6), 0, dp(8));
         root.addView(connection, new LinearLayout.LayoutParams(-1, -2));
         connection.setText("Connecting to your computer…");
-        LinearLayout nav = new LinearLayout(this); nav.setOrientation(LinearLayout.HORIZONTAL); root.addView(nav);
+        LinearLayout nav = new LinearLayout(this); nav.setOrientation(LinearLayout.HORIZONTAL); root.addView(nav); navRow = nav;
         for (String name : new String[] {"Projects", "Workspace", "Other apps"}) {
             Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, name); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
             b.setOnClickListener(v -> {
@@ -259,17 +261,43 @@ public class AgentPanelActivity extends Activity {
         String when = checkedAt == 0 ? "Not checked yet" : "Last checked " + new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT).format(new java.util.Date(checkedAt));
         return (paused ? "Updates paused" : "Read-only task monitor") + " · " + when;
     }
+    /**
+     * The compact panel beside the person's show (take 10; SCREENS' brief, AUDIT2's words of 23:49Z): four things and nothing
+     * else. The task's name, its state as one word, what it needs in words while it needs them, and the presses: Open Task
+     * (the one orange, only then) to answer it here, and Open Workspace (quiet) back into the same task.
+     */
     private void monitorTask(Map<String, Object> summary) {
-        text(content, "Project · " + PanelJson.text(summary.get("project")), 18);
-        text(content, PanelJson.text(summary.get("task")), 24);
-        text(content, (PanelJson.bool(summary.get("has_agent")) ? "Agent status · " : "Task status · ") + PanelJson.text(summary.get("state")), 22);
-        text(content, PanelJson.text(summary.get("source")), 16);
-        long approvals = PanelJson.integer(summary.get("permissions"), 0, Long.MAX_VALUE);
-        long questions = PanelJson.integer(summary.get("questions"), 0, Long.MAX_VALUE);
-        text(content, approvals + (approvals == 1 ? " permission request" : " permission requests") + " · "
-            + questions + (questions == 1 ? " agent question" : " agent questions"), 18);
-        if (!PanelJson.bool(summary.get("has_agent"))) text(content, "No current agent. Start work in Workspace.", 18);
+        float density = getResources().getDisplayMetrics().density;
+        boolean needs = PanelJson.bool(summary.get("needs_you"));
+        content.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), needs, density), new LinearLayout.LayoutParams(-1, -2));
+        PanelHud.Frame frame = new PanelHud.Frame(this, needs, density);
+        LinearLayout card = new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL); card.setPadding(dp(18), dp(18), dp(18), dp(18));
+        LinearLayout who = new LinearLayout(this); who.setOrientation(LinearLayout.HORIZONTAL); who.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        who.addView(PanelHud.mark(this, PanelJson.text(summary.get("mark")), density), new LinearLayout.LayoutParams(dp(76), dp(76)));
+        LinearLayout words = new LinearLayout(this); words.setOrientation(LinearLayout.VERTICAL); words.setPadding(dp(16), 0, 0, 0);
+        TextView title = new TextView(this); title.setText(PanelJson.text(summary.get("task"))); title.setTextSize(22); title.setTextColor(PanelHud.TEXT);
+        words.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        Object need = summary.get("need");
+        if (needs && need != null) {
+            TextView what = new TextView(this); what.setText(PanelJson.text(need)); what.setTextSize(17); what.setTextColor(PanelHud.SECOND); what.setPadding(0, dp(4), 0, 0);
+            words.addView(what, new LinearLayout.LayoutParams(-1, -2));
+        }
+        who.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(who, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout presses = new LinearLayout(this); presses.setOrientation(LinearLayout.HORIZONTAL); presses.setPadding(0, dp(18), 0, 0);
+        if (needs) hudPress(presses, "Open Task", true, () -> changePresentation(false));
+        hudPress(presses, "Open Workspace", false, () -> { cancelNetwork(); returnToWorkspace(); });
+        card.addView(presses, new LinearLayout.LayoutParams(-1, -2));
+        frame.addView(card, new android.widget.FrameLayout.LayoutParams(-1, -2));
+        content.addView(frame, new LinearLayout.LayoutParams(-1, -2));
         if (requestPending != null) text(content, "The last workspace send is unconfirmed. Its original reference is retained.", 16);
+    }
+    /** One press on the compact card, held to the same navigation authority as the panel's own navigation. */
+    private void hudPress(LinearLayout parent, String label, boolean main, Runnable action) {
+        Button press = new Button(this); PanelHud.action(press, label, main, getResources().getDisplayMetrics().density);
+        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-2, -2); layout.setMargins(0, 0, dp(10), 0);
+        parent.addView(press, layout);
+        press.setOnClickListener(view -> { if (!visible || !authority.navigate()) return; cancelVoice(); action.run(); });
     }
     private void cancelNetwork() { if (connection != null) connection.stop(); cancelVoice(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
     private void switchConnection(boolean usb) {
@@ -703,7 +731,7 @@ public class AgentPanelActivity extends Activity {
                 if (response.status == 401 || response.status == 403) failure = "This connection was refused. Pair again in Workspace.";
                 else if (response.status != 200) failure = "Your computer is not available.";
                 else model = new PanelModel(response.body);
-            } catch (Exception error) { failure = "Your computer is not available. Pair in Workspace to use this panel."; }
+            } catch (Exception error) { failure = "Your computer is not available."; }
             PanelIdentity receivedTarget = target; PanelModel received = model; String message = failure;
             ui.post(() -> {
                 if (!visible || generation != requestGeneration) return;
@@ -712,7 +740,7 @@ public class AgentPanelActivity extends Activity {
                 if (voiceLease != null && !voiceCurrent(received, receivedTarget)) cancelVoice();
                 if (identity != null && snapshot != null && !saveState()) { ui.postDelayed(refresh, 3000); return; }
                 if (received == null) {
-                    snapshot = null; identity = null; authority.awaitingProjection(); closeReview(); instruction = null;requestEditor=null;agentOffer=requestView=null;
+                    snapshot = null; identity = null; authority.awaitingProjection(); closeReview(); instruction = null;requestEditor=null;agentOffer=requestView=null; connection.setVisibility(View.VISIBLE);
                     connection.setText(compactPanel ? message + "\n" + monitorFreshness(true) : message); content.removeAllViews(); text(content, "Your agents continue on your computer. Open Workspace to check the connection.", 20);
                 } else {
                     String priorContext = snapshot == null || workId == null ? null : snapshot.context(workId);
@@ -753,6 +781,13 @@ public class AgentPanelActivity extends Activity {
         presentationButton.setText(compactPanel ? "Expand task controls" : "Compact panel");
         presentationButton.setContentDescription(presentationButton.getText());
         developmentControls.setVisibility(compactPanel && workId != null ? View.GONE : View.VISIBLE);
+        // Compact beside the person's show is the card alone (take 10): no name, no navigation, no monitor line, save the
+        // offline line, and the synthetic preview's own line, which never leaves the preview (AUDIT2, 23:49Z).
+        boolean hud = compactPanel && workId != null;
+        brand.setVisibility(hud ? View.GONE : View.VISIBLE); navRow.setVisibility(hud ? View.GONE : View.VISIBLE);
+        if (hud) presentationButton.setVisibility(View.GONE);
+        shellRoot.setBackgroundColor(hud ? PanelHud.FILL : Color.rgb(18, 24, 34));
+        connection.setVisibility(!hud || snapshot == null || preview ? View.VISIBLE : View.GONE);
         if (snapshot == null) return;
         try {
             if (projectId == null) {

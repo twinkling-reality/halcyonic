@@ -332,6 +332,17 @@ agent-question counts, and when the authenticated snapshot was last checked. Bot
 execution's status, not certified software completion. Missing or foreign project/task bindings refuse the summary.
 The Expand/Compact action remains outside the content scroll, including for long task titles.
 
+Superseded for what compact shows (2026-11-16, the film's take 10; SCREENS' brief, AUDIT2's words of 23:49Z, held against
+Titanfall 2's pilot HUD speaker card for feel). Compact beside the person's show is now four things and nothing else: the
+task's name; its state as one of the headset's own words (Working, Checking, Needs You, Turn Finished, Stopped, Failed,
+Not Started, Not Known), never Ready, which needs the computer's own check the panel cannot read; what it needs in words
+while it needs them (Run Command? before Agent's Question), never a count; and Open Task (the one orange, only then, to
+the expanded task where the answer lives) and Open Workspace (quiet). The name, the navigation, the Expand action, the
+provenance and the monitor line are hidden in compact, save the offline line and the synthetic preview's own line. The
+offline line is "Your computer is not available.", since the panel cannot know whether pairing is offered (AUDIT2, 22:59Z).
+The card is drawn in the panel's own views (PanelHud): a solid fill, one hairline, four corner ticks, and while it needs
+the person one orange and one soft glow, never animated. Not yet seen on the headset.
+
 Before either transition the existing aggregate and selected private stores must retain both
 independent ordinary drafts, spoken origin/read part and the exact pending request command UUID.
 A save failure refuses the transition. Successful transition expires old review authority, voice

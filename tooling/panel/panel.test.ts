@@ -61,6 +61,7 @@ const ANDROID_ONLY = [
   'PanelVoiceCapture.java',
   'PanelAppLauncher.java',
   'PanelCapture.java',
+  'PanelHud.java',
 ];
 const DEVELOPMENT = join(PANEL, 'development/com/halcyonic/panel');
 const DEVELOPMENT_ONLY = ['PanelCaptureDevelopment.java', 'PanelPreviewActivity.java'];
@@ -840,6 +841,63 @@ describe('production native agent panel', () => {
       /if \(preview\) \{ if \(snapshot != null && content != null\) \{ authority\.projected\(\); show\(\); \} return; \}/,
     );
   });
+  test("the compact panel says the task's state in the headset's own words and what it needs, never more than it reads (AUDIT2 23:49Z)", () => {
+    const parsed = (what: string, raw: string) => {
+      assert.notEqual(raw, 'refused', what);
+      return JSON.parse(raw);
+    };
+    const base = model();
+    const at = (status: string, approvals = 0, questions = 0) =>
+      parsed(
+        `${status} ${approvals} ${questions}`,
+        run(
+          'monitor',
+          JSON.stringify({
+            ...base,
+            workstreams: base.workstreams.map((work) => ({
+              ...work,
+              title: 'Make the game',
+              status: 'running',
+            })),
+            executions: base.executions.map((execution) => ({
+              ...execution,
+              status,
+              runtime: { ...execution.runtime, synthetic: false },
+              pending_approvals: Array.from({ length: approvals }, (_, i) => ({
+                approval_id: `a${i}`,
+              })),
+              pending_questions: Array.from({ length: questions }, (_, i) => ({
+                question_id: `q${i}`,
+                prompts: [],
+              })),
+            })),
+          }),
+          projectId,
+          workId,
+        ),
+      );
+    const words: Record<string, string> = {
+      starting: 'Working',
+      running: 'Working',
+      verifying: 'Checking',
+      waiting_for_human: 'Needs You',
+      completed: 'Turn Finished',
+      interrupted: 'Stopped',
+      failed: 'Failed',
+      created: 'Not Started',
+      something_new: 'Not Known',
+    };
+    for (const [status, word] of Object.entries(words))
+      assert.equal(at(status).state_word, word, status);
+    // Never Ready: the panel cannot see the computer's own check.
+    assert.ok(!Object.values(words).includes('Ready'));
+    // What it needs, the approval first, and only while something waits.
+    assert.equal(at('waiting_for_human', 1, 1).need, 'Run Command?');
+    assert.equal(at('waiting_for_human', 0, 1).need, "Agent's Question");
+    assert.equal(at('running').need, null);
+    assert.equal(at('running').needs_you, false);
+    assert.equal(at('waiting_for_human', 0, 1).needs_you, true);
+  });
   test('compact task projection uses the selected tuple and separates live, recorded and simulated provenance', () => {
     const base = model();
     const selected = {
@@ -864,6 +922,10 @@ describe('production native agent panel', () => {
       permissions: 0,
       questions: 0,
       has_agent: true,
+      state_word: 'Working',
+      needs_you: false,
+      need: null,
+      mark: 'FI',
     });
     const recorded = { ...selected, journal: { ...selected.journal, origin: 'fixture' } };
     assert.equal(JSON.parse(read(recorded)).source, 'Recorded state · simulated agent');
@@ -885,6 +947,10 @@ describe('production native agent panel', () => {
       permissions: 2,
       questions: 1,
       has_agent: true,
+      state_word: 'Needs You',
+      needs_you: true,
+      need: 'Run Command?',
+      mark: 'FI',
     });
     const unknown = {
       ...selected,

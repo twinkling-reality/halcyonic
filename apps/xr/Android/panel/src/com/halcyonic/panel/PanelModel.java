@@ -66,10 +66,51 @@ final class PanelModel {
         if (synthetic) source += " · simulated agent";
         int approvals = run == null ? 0 : PanelJson.array(run.get("pending_approvals")).size();
         int questions = run == null ? 0 : PanelJson.array(run.get("pending_questions")).size();
-        return PanelJson.map("project", PanelText.plain(PanelJson.text(project.get("name"))),
+        String status = PanelJson.text((run == null ? work : run).get("status"));
+        String projectName = PanelText.plain(PanelJson.text(project.get("name")));
+        return PanelJson.map("project", projectName,
             "task", PanelText.plain(PanelJson.text(work.get("title"))),
-            "state", stateName(PanelJson.text((run == null ? work : run).get("status"))),
-            "source", source, "permissions", (long) approvals, "questions", (long) questions, "has_agent", run != null);
+            "state", stateName(status),
+            "source", source, "permissions", (long) approvals, "questions", (long) questions, "has_agent", run != null,
+            "state_word", run == null ? NOT_STARTED : stateWord(status),
+            "needs_you", run != null && (approvals > 0 || questions > 0 || "waiting_for_human".equals(status)),
+            "need", run == null ? null : need(approvals, questions),
+            "mark", monogram(projectName));
+    }
+    static final String NOT_STARTED = "Not Started";
+    /**
+     * The compact panel's one state word, the headset's own (TaskSteps), never claiming more than the panel reads (AUDIT2,
+     * 2026-11-16 23:49Z): a finished turn is "Turn Finished", never Ready, since Ready needs the computer's own check.
+     */
+    static String stateWord(String state) {
+        switch (state) {
+            case "starting": case "running": return "Working";
+            case "verifying": return "Checking";
+            case "waiting_for_human": return "Needs You";
+            case "completed": return "Turn Finished";
+            case "interrupted": return "Stopped";
+            case "failed": return "Failed";
+            case "created": return NOT_STARTED;
+            default: return "Not Known";
+        }
+    }
+    /** What a waiting task needs, in the headset's words, the approval first; null when nothing waits. */
+    static String need(long approvals, long questions) {
+        if (approvals > 0) return "Run Command?";
+        if (questions > 0) return "Agent's Question";
+        return null;
+    }
+    /** The headset's mark of a name (KitScreenModel.MonogramOf): the first letters of its first two words, or its first two letters. */
+    static String monogram(String name) {
+        java.util.List<String> words = new java.util.ArrayList<>();
+        for (String word : (name == null ? "" : name).split("[ \\-_.]+")) {
+            StringBuilder letters = new StringBuilder();
+            for (int i = 0; i < word.length(); ) { int c = word.codePointAt(i); if (Character.isLetter(c)) letters.appendCodePoint(c); i += Character.charCount(c); }
+            if (letters.length() > 0) words.add(letters.toString());
+        }
+        String mark = words.size() >= 2 ? words.get(0).substring(0, words.get(0).offsetByCodePoints(0, 1)) + words.get(1).substring(0, words.get(1).offsetByCodePoints(0, 1))
+            : words.size() == 1 ? words.get(0).substring(0, words.get(0).offsetByCodePoints(0, Math.min(2, words.get(0).codePointCount(0, words.get(0).length())))) : "";
+        return mark.toUpperCase(java.util.Locale.ROOT);
     }
     static String stateName(String state) {
         switch (state) {
