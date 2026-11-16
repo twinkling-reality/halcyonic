@@ -370,6 +370,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place reaches " + GlazeChecks.Degrees(middle - leftmost)
                             + " degrees left of the page's middle; the field's left side less its margin leaves " + GlazeChecks.Degrees(margin) + " degrees.");
                         if (margin < 0f) failures.Add("New Project's place stands " + GlazeChecks.Degrees(-margin) + " degrees past the field's left edge with the head on the page's middle, at text scale " + scale);
+                        // Facing the workspace the shelf's own field search holds only its envelope (WriteShelfCorners) inside the field, so the
+                        // turned place must stand inside that envelope too, on whichever side of the workspace the shelf stands (AUDIT 18:13Z).
+                        var corners = new Vector3[8];
+                        CharacterStage.WriteShelfCorners(new Pose(pose.position, Quaternion.identity), width, eyes, corners, places);
+                        var envelopeLeft = corners.Min(corner => Mathf.Atan2(corner.x - eyes.x, corner.z - eyes.z) * Mathf.Rad2Deg);
+                        var inside = leftmost - envelopeLeft;
+                        Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place stands " + GlazeChecks.Degrees(inside)
+                            + " degrees inside the left end of the envelope the shelf's field search holds in the field.");
+                        if (inside < 0f) failures.Add("New Project's place stands " + GlazeChecks.Degrees(-inside) + " degrees past the left end of the shelf's envelope, which the field search never counts, at text scale " + scale);
                     }
                 }
                 for (var index = 0; index < capacity; index++)
