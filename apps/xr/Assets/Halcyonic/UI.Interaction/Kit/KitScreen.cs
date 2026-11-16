@@ -129,7 +129,8 @@ namespace Halcyonic.XR.UI
                 mark.transform.localPosition = new Vector3(0f, markY, -0.0006f);
             }
 
-            ReadsWhole = nameWhole && titleLines == 1 && factLines == 1 && !title.isTextTruncated && !facts.isTextTruncated;
+            // The facts stand as the runtime over its state: two lines, each whole (never one line joined on a dot).
+            ReadsWhole = nameWhole && titleLines == 1 && factLines == 2 && !title.isTextTruncated && !facts.isTextTruncated;
             gameObject.SetActive(true);
         }
     }
