@@ -256,7 +256,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 void Pump()
                 {
-                    if (fallback.Player is DemonstrationPlayer player) player.Reading = !navigator.IsCompact && navigator.Beside != null;
+                    if (fallback.Player is DemonstrationPlayer player) player.Reading = navigator.Reading;
                     var changes = fallback.Pump();
                     if (changes.Resynchronized && (State()?.Journal?.JournalId != journal || changes.Rewound))
                     {
@@ -2137,10 +2137,6 @@ namespace Halcyonic.XR.Workspace.Editor
                     "Change the lockout test to expect limits per address only\\.|" +
                     "Run make migrate to add the sign-in attempts table to the development database" +
                     ")\" ends on one word alone on its last line$")),
-            // The walk's own fault, not the product's: room-24 draws Back beside Comfort's card (Back, Tasks, Next Page, Close), yet
-            // the walk's press finds no drawn Back there; Your Space's is found. JUDGE finds why in the next batch (AUDIT 19:50Z).
-            ("the walk's press of Comfort's drawn Back, JUDGE's next batch",
-                new Regex("^the Settings page Comfort draws no way back to the hub$")),
         };
 
         private static List<string> NoticeOffPlate(Camera camera, TMP_Text words, Halcyonic.XR.UI.RoomSurface plate)
