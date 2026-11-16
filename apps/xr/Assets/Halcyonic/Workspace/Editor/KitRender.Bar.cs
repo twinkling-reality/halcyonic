@@ -579,7 +579,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 asking: screen.Question.Draft != null && !screen.Question.Reviewing ? screen.Question.Prompt : (int?)null,
                 writing: screen.Question.Writing ? screen.Question.Input : null, result: ResultFor(state),
                 selectors: state == "38-result-agent" ? new KitSelectors("This Mac", false, "Synthetic Agent", agentChangeable: true, offersNeverAsk: true, neverAsk: true) : null,
-                steps: state == "36-work-steps" ? StepsOf("46-steps-working") : null);
+                steps: state == "36-work-steps" ? StepsOf("46-steps-working") : null,
+                stepsUsage: state == "36-work-steps" ? WorkStepsUsage : null);
             // As the director does: a frame the task's binding has no place for is carried plain where a reader of the redesign takes it.
             if (binding == null && state == "37-page" && RoomBar.OfFrame(frame, VoiceStage.Idle) != null) binding = KitFileBinding.PlainOf(frame);
             if (binding == null)
@@ -772,6 +773,29 @@ namespace Halcyonic.XR.Workspace.Editor
                         "the steps list does not stand on the panel at work: " + (list == null ? "none" : list.Count + " steps"));
                     if (list != null)
                     {
+                        // What stands in the field's place (AUDIT's 11:05Z): every step's word and line whole, and the usage figure
+                        // under the last step where the agent app reports it, its label and value apart, all inside the panel.
+                        for (var index = 0; index < list.Count; index++)
+                        {
+                            var word = list.Word(index);
+                            word.ForceMeshUpdate(true);
+                            Require(!word.isTextTruncated && word.text.Length > 0, "the steps list's word " + index + " \"" + word.text + "\" is cut or empty");
+                            if (list.Line(index) is TMPro.TextMeshPro line)
+                            {
+                                line.ForceMeshUpdate(true);
+                                Require(!line.isTextTruncated, "the steps list's line " + index + " \"" + line.text + "\" is cut");
+                            }
+                        }
+                        Require(list.UsageLabel != null && list.UsageValue != null && list.UsageLabel.text == WorkStepsUsage.Label
+                            && list.UsageValue.text == WorkStepsUsage.Value, "the usage figure does not stand under the steps, label and value apart");
+                        var listTop = bar.Panel.transform.localPosition.y + bar.Panel.Size.y / 2f;
+                        foreach (var part in list.GetComponentsInChildren<Renderer>(false))
+                        {
+                            if (!part.enabled) continue;
+                            var at = bar.transform.InverseTransformPoint(part.bounds.min).y;
+                            Require(at >= bar.Panel.transform.localPosition.y - bar.Panel.Size.y / 2f - Tolerance, part.name + " stands under the steps' panel");
+                            Require(bar.transform.InverseTransformPoint(part.bounds.max).y <= listTop + Tolerance, part.name + " stands over the steps' panel");
+                        }
                         // On the panel, inside it, beside the column: the panel's foot on the foot line.
                         var panelFoot = bar.Panel.transform.localPosition.y - bar.Panel.Size.y / 2f;
                         Require(Mathf.Abs(panelFoot - bar.Foot) < Tolerance, "the list's panel does not stand on the foot line");
@@ -1302,6 +1326,9 @@ namespace Halcyonic.XR.Workspace.Editor
             };
             return shot;
         }
+
+        /// <summary>The usage figure 36-work-steps lays under its steps: the agent app reports usage and has counted none yet.</summary>
+        private static readonly TaskUsageFigure WorkStepsUsage = TaskUsage.Tokens(null, true);
 
         /// <summary>
         /// Watch It Work open at work (36-work-watch): Done Watching, the one accent, over Stop, plain, its core on the foot line, both
