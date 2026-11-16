@@ -139,6 +139,7 @@ export class MediaPlacer {
     if (folder === null) return { ok: false, refusal: 'folder_refused' };
     const run = await tool.folder();
     const note = new PlacingNote(this.#deps.notes, request.commandId, request.projectId, folder);
+    let recorded = false;
     try {
       const stripped = await tool.strip(kept, upload.type, run.path);
       if (!stripped.ok) return { ok: false, refusal: 'unreadable' };
@@ -163,6 +164,7 @@ export class MediaPlacer {
         return { ok: false, refusal: placed };
       }
       request.added({ path, media_type: copy.type, size_bytes: copy.size, sha256: digest });
+      recorded = true;
 
       const facts: MediaFacts = stripped.value.facts;
       const place = async (
@@ -250,7 +252,7 @@ export class MediaPlacer {
       };
     } catch (error) {
       // Stopped after the medium is in: what was made from it so far goes now, not at the next start.
-      await note.abandon(this.#deps.protectedFolders);
+      await note.abandon(this.#deps.protectedFolders, recorded);
       throw error;
     } finally {
       await run.done();
@@ -357,9 +359,10 @@ class PlacingNote {
    * Removes the files made from the medium that this add had written, as the start's sweep would,
    * and only those: the medium itself, once recorded added, stays (ADR 0066).
    */
-  async abandon(protectedFolders: readonly string[]): Promise<void> {
+  async abandon(protectedFolders: readonly string[], recorded: boolean): Promise<void> {
+    // The medium goes too while it was never recorded added: nothing in the journal names it.
     for (const entry of this.#body.entries)
-      if (!entry.medium)
+      if (!entry.medium || !recorded)
         await removeIfOurs(this.#body.folder, entry, protectedFolders).catch(() => false);
     await this.done();
   }

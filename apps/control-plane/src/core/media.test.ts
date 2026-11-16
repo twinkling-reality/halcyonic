@@ -429,3 +429,31 @@ test('an add stopped by a failure after the medium is in removes what it had mad
   );
   assert.deepEqual(readdirSync(join(data, 'media-placing')), [], 'and its note');
 });
+
+test('a medium placed but never recorded, because the record itself failed, is removed with what was made (ADR 0066)', async () => {
+  const data = fresh('data');
+  const project = fresh('project');
+  const store = new MediaStore(join(data, 'media'));
+  const placer = new MediaPlacer({
+    store,
+    tool: new StandInTool(join(data, 'work')),
+    notes: join(data, 'media-placing'),
+    protectedFolders: [data],
+  });
+  const id = await kept(store, clip());
+  await assert.rejects(
+    placer.add({
+      projectId: 'p',
+      commandId: 'c',
+      folder: project,
+      id,
+      bytes: 0,
+      added: () => {
+        throw new Error('the journal refused it');
+      },
+    }),
+    /the journal refused it/,
+  );
+  assert.deepEqual(readdirSync(join(project, 'media')), [], 'nothing unrecorded stays');
+  assert.deepEqual(readdirSync(join(data, 'media-placing')), []);
+});
