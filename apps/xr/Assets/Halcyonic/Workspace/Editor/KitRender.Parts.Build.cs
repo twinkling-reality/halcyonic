@@ -32,7 +32,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ("index.html", "public", new[] { "<canvas id=\"sky\"></canvas>", "<script type=\"module\" src=\"/src/main.js\"></script>" }),
         };
 
-        private const string BuildListWords = "Files So Far";
+        private const string BuildListWords = WatchBuild.ListWords;
 
         private static WritingPanel BuildFilePanel(int index)
         {

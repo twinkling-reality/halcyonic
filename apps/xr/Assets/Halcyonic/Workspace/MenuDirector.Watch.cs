@@ -33,6 +33,7 @@ namespace Halcyonic.XR.Workspace
                 return true;
             }
             watch = new WatchBuild(RoomWritingPanel.Wrap);
+            RoomWritingArc.ListTitle = _ => WatchBuild.ListWords;
             watchTask = now.Character.WorkstreamId;
             watchShown = -1;
             watchClosesAt = null;

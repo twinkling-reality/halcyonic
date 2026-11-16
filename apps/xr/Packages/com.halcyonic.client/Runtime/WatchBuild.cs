@@ -19,6 +19,12 @@ namespace Halcyonic.Client
         /// <summary>The rows of code a panel shows (FIELD's window, at the Changes reading's measure).</summary>
         public const int WindowRows = 12;
 
+        /// <summary>
+        /// The title of the list at the arc's left, the files that stepped back from it (AUDIT2's 08:12Z): with the count line over it,
+        /// "Changed 3 Files So Far", the two read as one. The one constant the headset and its renders draw.
+        /// </summary>
+        public const string ListWords = "Files So Far";
+
         /// <summary>The least time between two reads of one file, in seconds (CORE's host coalesces at the same pace).</summary>
         public const double ReadEverySeconds = 2;
 
