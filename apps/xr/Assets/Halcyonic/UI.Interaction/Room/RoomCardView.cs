@@ -619,8 +619,8 @@ namespace Halcyonic.XR.UI
         // Each gauge's number, which follows its bar in whole percents while it moves (AUDIT's SHOULD, 2026-11-16).
         private readonly List<(TextMeshPro Number, RoomKind Kind)> gaugeNumbers = new List<(TextMeshPro, RoomKind)>();
 
-        /// <summary>A gauge's number as it reads now: its bar's place, in whole percents.</summary>
-        public static string GaugeWords(float percent) => Mathf.RoundToInt(Mathf.Clamp(percent, 0f, 100f)) + "%";
+        /// <summary>A gauge's number as it reads now: its bar's place, in whole percents, in the product's own words ("62% Left", AUDIT2's 10:05Z).</summary>
+        public static string GaugeWords(float percent) => RoomPanelCards.GaugeWords(Mathf.RoundToInt(Mathf.Clamp(percent, 0f, 100f)));
 
         /// <summary>The reading a gauge's number shows as it is laid: where its bar stands, the move started first where its reading changed.</summary>
         private float GaugeShownBefore(RoomGauge gauge)
@@ -778,7 +778,10 @@ namespace Halcyonic.XR.UI
             // A squircle, as the check nodes: a disc is only ever an answer.
             Plate(new Vector2(S(StatusMarkDp), S(StatusMarkDp)), S(StatusCornerDp), ground, new Vector2(S(StatusMarkDp) / 2f, -middle), "status mark");
             Glyph(glyph, StatusGlyphDp, ink, new Vector2(S(StatusMarkDp) / 2f, -middle), "status " + status.Tone, MarkStroke);
-            if (card.TrackOf is int of)
+            // The tries as pips while they run; once spent, where the line says them in words ("The agent tried twice and could
+            // not fix it."), the pips would say nothing the line does not (AUDIT and AUDIT2, 10:05Z): none.
+            var spentAndSaid = card.TrackOf is int all && (card.TrackAt ?? 0) >= all && !string.IsNullOrWhiteSpace(status.Line);
+            if (card.TrackOf is int of && !spentAndSaid)
             {
                 var used = Mathf.Clamp(card.TrackAt is int at ? at > of ? of : at : 0, 0, of);
                 Pips(used, of, status.Tone, new Vector2(S(StatusMarkDp) / 2f, -(middle + S(StatusMarkDp) / 2f + S(PipDropDp) - S(PipDp) / 2f)));
@@ -1010,31 +1013,27 @@ namespace Halcyonic.XR.UI
                 noteWidth = Mathf.Max(noteWidth, RoomCursor.WordsWidth(note, 0f));
             }
             var bar = inner - (noteWidth > 0f ? noteWidth + S(10f) : 0f);
-            var tall = S(GaugePadTopDp) + S(GaugeNumberLineDp) + S(14f) + Mathf.Max(S(TrackTallDp), S(GaugeResetLineDp)) + S(GaugePadFootDp);
+            // The window's word on a line of its own over the number: "62% Left" in the number's size leaves no room for it after
+            // the number at the larger text size ("Weekly Limit" ran past the column, 2026-11-16 F185).
+            var labelLine = S(GaugeLabelLineDp) + S(4f);
+            var tall = S(GaugePadTopDp) + labelLine + S(GaugeNumberLineDp) + S(14f) + Mathf.Max(S(TrackTallDp), S(GaugeResetLineDp)) + S(GaugePadFootDp);
             for (var index = 0; index < count; index++)
             {
                 var gauge = gauges[index];
                 var top = down + index * (tall + S(GaugeGapDp));
                 Plate(new Vector2(width, tall), S(TileCornerDp), White(WellAlpha), new Vector2(width / 2f, -(top + tall / 2f)), "gauge tile", under: true);
                 var x = S(GaugePadXDp);
-                var line = top + S(GaugePadTopDp);
-                Glyph(GlyphOf(gauge.Kind), SlotGlyphDp, Rgb(TileInk, 0.86f), new Vector2(x + S(SlotGlyphBoxDp) / 2f, -(line + S(GaugeNumberLineDp) / 2f)), "gauge " + gauge.Kind);
+                var labelTop = top + S(GaugePadTopDp);
+                Glyph(GlyphOf(gauge.Kind), SlotGlyphDp, Rgb(TileInk, 0.86f), new Vector2(x + S(SlotGlyphBoxDp) / 2f, -(labelTop + S(GaugeLabelLineDp) / 2f)), "gauge " + gauge.Kind);
                 x += S(SlotGlyphBoxDp) + S(10f);
-                // The number reads where its bar stands; the window's word stands after the wider of the reading it leaves and the
-                // one it goes to, so it never moves while the digits follow the bar.
+                // The window's word beside its glyph, the number under it at the same left.
+                Text(KitRole.Label, GaugeLabelDp, GaugeLabelLineDp, White(NoteAlpha), gauge.Label, x, -labelTop, inner - x, 1);
+                var line = labelTop + labelLine;
+                // The number reads where its bar stands, following it in whole percents while it moves; nothing stands after it, so
+                // nothing moves as its digits change.
                 var shownNow = GaugeShownBefore(gauge);
-                var leaving = GaugeWords(gaugeEases[gauge.Kind].From);
-                var (number, _) = Text(KitRole.Title, GaugeNumberDp, GaugeNumberLineDp, Color.white, LineWords.Ours(leaving), x, -line, inner, 1);
-                var numberWide = RoomCursor.WordsWidth(number, 0f);
-                GlazeRuns.Of(number).Set(LineWords.Ours(GaugeWords(gauge.PercentLeft)));
-                KitType.Lay(number, inner, 1);
-                numberWide = Mathf.Max(numberWide, RoomCursor.WordsWidth(number, 0f));
-                GlazeRuns.Of(number).Set(LineWords.Ours(GaugeWords(shownNow)));
-                KitType.Lay(number, inner, 1);
+                var (number, _) = Text(KitRole.Title, GaugeNumberDp, GaugeNumberLineDp, Color.white, LineWords.Ours(GaugeWords(shownNow)), x, -line, inner - x, 1);
                 gaugeNumbers.Add((number, gauge.Kind));
-                x += numberWide + S(10f);
-                // The window's word on the number's baseline: its line's foot against the number's.
-                Text(KitRole.Label, GaugeLabelDp, GaugeLabelLineDp, White(NoteAlpha), gauge.Label, x, -(line + S(GaugeNumberLineDp) - S(GaugeLabelLineDp) - S(4f)), inner, 1);
                 var middle = line + S(GaugeNumberLineDp) + S(14f) + Mathf.Max(S(TrackTallDp), S(GaugeResetLineDp)) / 2f;
                 Plate(new Vector2(bar, S(TrackTallDp)), S(TrackTallDp) / 2f, White(0.10f), new Vector2(S(GaugePadXDp) + bar / 2f, -middle), "gauge track");
                 // A new reading moves the bar from where it stood, on the standard curve, its number with it (started above).

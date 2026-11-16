@@ -553,7 +553,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
             }
             if (card.Status != null && card.TrackOf is int of)
-                Require(view.Plates.Count(each => each.What.StartsWith("pip", StringComparison.Ordinal) && each.What != "pip ring") == of, "the status's pips are not its tries");
+            {
+                // Tries as pips while they run; spent and said in the status's line, none (AUDIT's 10:05Z).
+                var said = (card.TrackAt ?? 0) >= of && !string.IsNullOrWhiteSpace(card.Status.Value.Line);
+                Require(view.Plates.Count(each => each.What.StartsWith("pip", StringComparison.Ordinal) && each.What != "pip ring") == (said ? 0 : of),
+                    said ? "the status's spent tries stand as pips beside the line that says them" : "the status's pips are not its tries");
+            }
             if (card.List.Any(row => row.Press != null))
             {
                 // Each picked-from row: its chevron at the card's right, and a press target as wide as the card, its own control.
