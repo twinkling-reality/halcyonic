@@ -192,6 +192,7 @@ const SKY_FRAGMENT = /* glsl */ `
   uniform vec3 sunDir;
   uniform float time;
   uniform float cloud;
+  uniform float bloom;
   varying vec3 vDir;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float noise(vec2 p) {
@@ -222,16 +223,16 @@ const SKY_FRAGMENT = /* glsl */ `
     float toward = max(mu, 0.0);
     // The air thickest along the horizon, lit warm on the sun's side (the light scattered in the low air).
     float low = exp(-h * 8.0);
-    colour += sunColour * (0.06 + 0.9 * toward * toward) * low;
+    colour += sunColour * (0.06 + 0.9 * toward * toward) * low * (1.0 + 0.8 * bloom);
     // Opposite the sun, low: the pink band of the last light over the blue of the earth's own shadow.
     float away = max(-mu, 0.0);
     vec3 pink = mix(sunColour, vec3(0.9, 0.45, 0.6), 0.6);
-    colour = mix(colour, pink * 0.85 + middle * 0.2, away * smoothstep(0.03, 0.09, h) * (1.0 - smoothstep(0.1, 0.24, h)) * 0.55);
+    colour = mix(colour, pink * 0.85 + middle * 0.2, away * smoothstep(0.03, 0.09, h) * (1.0 - smoothstep(0.1, 0.24, h)) * (0.55 + 0.3 * bloom));
     colour = mix(colour, zenith * 1.3 + vec3(0.02, 0.03, 0.08), away * (1.0 - smoothstep(0.0, 0.05, h)) * 0.45);
     // The forward glow round the sun, wide and soft, as fine dust and haze scatter it.
     float g = 0.82;
     float glow = (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * mu, 1.5);
-    colour += sunColour * 0.018 * glow * (0.5 + 0.5 * low);
+    colour += sunColour * 0.018 * glow * (0.5 + 0.5 * low) * (1.0 + 0.7 * bloom);
     // Thin high cloud drifting slowly, lit on its edges toward the sun.
     vec2 at = d.xz / (h + 0.12) * 1.4 + vec2(time * 0.006, time * 0.002);
     float c = fbm(at * 1.2);
@@ -240,7 +241,7 @@ const SKY_FRAGMENT = /* glsl */ `
     float behind = smoothstep(0.5, 0.8, fbm(at * 1.2 - sunDir.xz * 0.3));
     float edge = clamp((c - behind) * 1.5 + 0.55, 0.0, 1.0);
     vec3 cool = mix(middle, horizonColour, 0.3) * 0.95;
-    vec3 lit = mix(cool, sunColour * 1.6 + vec3(0.08, 0.04, 0.0), edge * (0.25 + 0.75 * pow(toward, 1.2)));
+    vec3 lit = mix(cool, sunColour * (1.6 + 1.2 * bloom) + vec3(0.08, 0.04, 0.0), edge * (0.25 + 0.75 * pow(toward, 1.2)));
     colour = mix(colour, lit, c * 0.7);
     // The sun's disc, its edge darker than its middle, cut by nothing but the land.
     float disc = smoothstep(0.9992, 0.99965, mu);
@@ -248,7 +249,7 @@ const SKY_FRAGMENT = /* glsl */ `
     vec3 core = mix(sunColour, vec3(1.0, 0.93, 0.78), 0.65);
     colour = mix(colour, core * 1.9 * limb, disc);
     // Its bloom: a tight bright halo, then a wider warm one.
-    colour += core * pow(toward, 900.0) * 1.4 + sunColour * pow(toward, 70.0) * 0.5 + sunColour * pow(toward, 9.0) * 0.18;
+    colour += (core * pow(toward, 900.0) * 1.4 + sunColour * pow(toward, 70.0) * 0.5 + sunColour * pow(toward, 9.0) * 0.18) * (1.0 + 0.4 * bloom);
     // A little noise below one step of the screen's colour, so the soft sky never shows rings.
     colour += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
     gl_FragColor = vec4(colour, 1.0);
@@ -267,7 +268,7 @@ function airSky(
   sunDir: Vector3,
   radius: number,
   options: { cloud?: number } = {},
-): { mesh: Mesh; move(time: number): void; cloud(amount: number): void } {
+): { mesh: Mesh; move(time: number): void; cloud(amount: number): void; bloom(amount: number): void } {
   const material = new ShaderMaterial({
     uniforms: {
       zenith: { value: colours.top },
@@ -278,6 +279,7 @@ function airSky(
       sunDir: { value: sunDir },
       time: { value: 0 },
       cloud: { value: options.cloud ?? 1 },
+      bloom: { value: 0 },
     },
     vertexShader: SKY_VERTEX,
     fragmentShader: SKY_FRAGMENT,
@@ -288,7 +290,7 @@ function airSky(
   const mesh = new Mesh(new SphereGeometry(radius, 64, 32), material);
   // After setupScene's flat backdrop (-1), before anything of the place.
   mesh.renderOrder = -0.95;
-  const uniforms = material.uniforms as { time: { value: number }; cloud: { value: number } };
+  const uniforms = material.uniforms as { time: { value: number }; cloud: { value: number }; bloom: { value: number } };
   return {
     mesh,
     move(time) {
@@ -296,6 +298,9 @@ function airSky(
     },
     cloud(amount) {
       uniforms.cloud.value = amount;
+    },
+    bloom(amount) {
+      uniforms.bloom.value = amount;
     },
   };
 }
@@ -347,8 +352,9 @@ export interface LandColours {
  * the sun, with a few soft bands of high cloud. With `grains`, that many grains of sand blowing low (none unless
  * asked); with `stars`, that many stars, on the side of the sky away from the sun (give them only for a place after
  * sunset). `light(...)` and `shade(...)` let something near the sand (a window floating over it) cast its own light
- * and a soft shade on it. It opens from black, lifting over its first second of `move`. One mesh for the ground, one
- * for the sky.
+ * and a soft shade on it. It opens from black, lifting over its first second of `move`, and over its first twenty
+ * seconds its low light and the sun's glow build to a peak and settle (`peak: false` keeps them still). One mesh for
+ * the ground, one for the sky.
  */
 export function openLand(
   colours: LandColours,
@@ -357,6 +363,7 @@ export function openLand(
     crest?: number;
     sun?: number;
     grains?: number;
+    peak?: boolean;
     stars?: number;
     seed?: number;
     quality?: 'auto' | 'high' | 'low';
@@ -594,6 +601,8 @@ export function openLand(
   // How much fine detail the sand draws (1 all of it, 0 the least), lowered by itself under 'auto' when frames come
   // slower than 50 a second, so a headset short of its frame rate steps down instead of stuttering.
   const detail = { value: quality === 'low' ? 0 : 1 };
+  // How far the place is into its peak, 0 to 1 (see `move`).
+  const bloom = { value: 0 };
   const index: number[] = [];
   for (let i = 0; i < rings; i++) {
     for (let j = 0; j < around; j++) {
@@ -645,11 +654,12 @@ export function openLand(
     shader.uniforms.sandSun = { value: [Math.sin(sunAt), -Math.cos(sunAt)] };
     shader.uniforms.sandSheen = { value: [sunColour.r, sunColour.g, sunColour.b] };
     shader.uniforms.sandFog = { value: horizon };
+    shader.uniforms.sandBloom = bloom;
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vSand;\nvoid main() {')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSand = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandNormals;\nuniform float sandReach;\nuniform float sandDetail;\nuniform vec3 sandBaseNear;\nuniform vec3 sandBaseFar;\nuniform vec3 sandGold;\nuniform vec3 sandShadeSky;\nuniform vec3 sandSun3;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform vec3 sandCastFrom;\nuniform vec3 sandCastBand;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nuniform vec3 sandFog;\nuniform vec2 sandSizes;\nvarying vec3 vSand;\n' + SAND_CUBIC + 'void main() {')
+      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandNormals;\nuniform float sandReach;\nuniform float sandDetail;\nuniform vec3 sandBaseNear;\nuniform vec3 sandBaseFar;\nuniform vec3 sandGold;\nuniform vec3 sandShadeSky;\nuniform vec3 sandSun3;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform vec3 sandCastFrom;\nuniform vec3 sandCastBand;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nuniform vec3 sandFog;\nuniform float sandBloom;\nuniform vec2 sandSizes;\nvarying vec3 vSand;\n' + SAND_CUBIC + 'void main() {')
       .replace(
         '#include <opaque_fragment>',
         `{
@@ -781,7 +791,9 @@ export function openLand(
     float sunward = max(0.0, dot(normalize(viewDir.xz), sandSun));
     float density = 0.005 * exp(-max(vSand.y + 3.0, 0.0) * 0.12) * smoothstep(25.0, 90.0, dist) + 0.0008;
     float thick = 1.0 - exp(-dist * density);
-    vec3 airColour = sandFog + sandSheen * (0.06 + 0.5 * sunward * sunward);
+    // At the place's peak the low light warms the sand and the air toward the sun.
+    outgoingLight *= 1.0 + sandBloom * vec3(0.14, 0.05, -0.03);
+    vec3 airColour = sandFog + sandSheen * (0.06 + (0.5 + 0.35 * sandBloom) * sunward * sunward);
     outgoingLight = mix(outgoingLight, airColour, thick);
     // Grains catching the low sun: tiny glints on the sand seen toward it, only where a grain is bigger than a pixel.
     // Each glint a tiny round point in its own cell, there only from some places the eye stands, so it comes and
@@ -867,8 +879,17 @@ export function openLand(
     },
     move(time) {
       air.move(time);
+      if (Number.isNaN(opened)) opened = time;
+      // Its first twenty seconds build to a peak: the low light and the sun's glow rise to their fullest about 14 s
+      // in, then settle to a calmer glow that stays.
+      if (options.peak !== false) {
+        const since = time - opened;
+        const rise = Math.min(1, Math.max(0, (since - 2) / 11));
+        const settle = Math.min(1, Math.max(0, (since - 15) / 9));
+        bloom.value = rise * rise * (3 - 2 * rise) * (1 - 0.6 * settle * settle * (3 - 2 * settle));
+        air.bloom(bloom.value);
+      }
       if (veil.visible) {
-        if (Number.isNaN(opened)) opened = time;
         const k = Math.min(1, Math.max(0, (time - opened - 0.1) / 0.8));
         (veil.material as MeshBasicMaterial).opacity = 1 - k * k * (3 - 2 * k);
         if (k >= 1) veil.visible = false;
