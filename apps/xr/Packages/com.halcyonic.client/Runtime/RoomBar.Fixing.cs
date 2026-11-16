@@ -86,7 +86,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The line a result at rest adds where a chain of tries ended, as XR's result moment lays it until the result is a
-        /// card of its own (A17's next part): "Fixed · Try {n} of {m}" where the check passed after a try, "Stopped After {m}
+        /// card of its own (A17's next part): "Fixed on Try {n} of {m}" where the check passed after a try (no joining dot), "Stopped After {m}
         /// Tries" where the tries ran out. Null for any other end. The card for the same end is <see cref="FixedCard"/>.
         /// </summary>
         public static string? FixedWords(AutoFixView? fix)
@@ -94,7 +94,7 @@ namespace Halcyonic.Client
             if (fix == null || fix.State != AutoFixViewState.Ended || fix.Attempt < 1) return null;
             return fix.Reason switch
             {
-                AutoFixEndReason.Passed => "Fixed" + KitMomentWords.Dot + "Try " + fix.Attempt + " of " + fix.Cap,
+                AutoFixEndReason.Passed => "Fixed on Try " + fix.Attempt + " of " + fix.Cap,
                 AutoFixEndReason.CapReached => "Stopped After " + fix.Cap + " Tries",
                 _ => null,
             };

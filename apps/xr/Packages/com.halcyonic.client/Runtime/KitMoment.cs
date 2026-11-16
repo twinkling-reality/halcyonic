@@ -339,7 +339,7 @@ namespace Halcyonic.Client
                 throw new ArgumentException("Ready follows a passed check of the computer's own.", nameof(check));
             var actions = tryRoute ? new[] { KitMomentAction.TryIt, KitMomentAction.SeeWhatChanged } : new[] { KitMomentAction.SeeWhatChanged };
             return new KitMoment(KitMomentKind.Ready, KitProvenance.Observed, KitMomentWords.YourComputer,
-                LineWords.Ours(KitMomentWords.BuildReady + KitMomentWords.Dot) + LineWords.TheirName(project), null, new[] { KitMomentWords.Reward(elapsed, scope) },
+                LineWords.Ours(KitMomentWords.BuildReady + KitMomentWords.Dot) + LineWords.TheirName(project), null, KitMomentWords.Reward(elapsed, scope).ToArray(),
                 KitMomentTone.Passed, actions, check.At, null, true, scope)
                 .Parts(LineWords.Ours(KitMomentWords.BuildReady), new[] { LineWords.TheirName(project) });
         }
@@ -525,34 +525,47 @@ namespace Halcyonic.Client
         public static string AgentChip(string agent) => AgentPrefix + agent;
 
         /// <summary>
-        /// A check of the computer's own in one line, its Title then what it covered: "Computer Check · Builds · Opens · Under Way"
-        /// while it runs, so it never shares the agent's own "Checking" (AUDIT's X17A-S1); "Build Passed · Builds · Opens",
-        /// "Build Failed · Builds", or "Check Ran · Result Unknown" where its exit carried no outcome.
+        /// A check of the computer's own in one line, for what reads a moment whole (never drawn: the card draws its parts apart):
+        /// its Title, then its parts after a colon and commas, never a dot (AUDIT2's 09:51Z BLOCK): "Computer Check: Builds,
+        /// Starts and Shows, Checking" while it runs, "Build Passed: Builds", or "Check Ran: Can't Tell" where its exit carried no outcome.
         /// </summary>
-        public static string Check(KitCheckScope scope, bool ended, bool? passed) => CheckTitle(scope, ended, passed) + Dot + CheckOutcome(scope, ended, passed);
+        public static string Check(KitCheckScope scope, bool ended, bool? passed) => CheckTitle(scope, ended, passed) + ": " + CheckOutcome(scope, ended, passed);
 
         /// <summary>The check's Title: Computer Check while it runs, then its outcome in it (ART's review of A3a).</summary>
         public static string CheckTitle(KitCheckScope scope, bool ended, bool? passed) =>
             !ended ? "Computer Check" : passed is bool outcome ? outcome ? "Build Passed" : "Build Failed" : "Check Ran";
 
-        /// <summary>The check's metadata: what it covered and, while it runs, that it is under way; Result Unknown where its exit carried no outcome.</summary>
-        public static string CheckOutcome(KitCheckScope scope, bool ended, bool? passed) =>
-            ended && passed == null ? "Result Unknown" : Covered(scope) + (ended ? "" : Dot + "Under Way");
+        /// <summary>The check's metadata in one line, its parts after commas (<see cref="CheckOutcomeParts"/>).</summary>
+        public static string CheckOutcome(KitCheckScope scope, bool ended, bool? passed) => string.Join(", ", CheckOutcomeParts(scope, ended, passed));
 
-        private static string Covered(KitCheckScope scope) => scope == KitCheckScope.BuildsAndOpens ? "Builds" + Dot + "Opens" : "Builds";
+        /// <summary>
+        /// What the check covered, in the result's own row names (RoomResult.StepWords, the Checks card's rows and the film's
+        /// diagram: one name per check, AUDIT's 09:51Z): Builds, and Starts and Shows where it opens the page too.
+        /// </summary>
+        public static IReadOnlyList<string> Covered(KitCheckScope scope) => scope == KitCheckScope.BuildsAndOpens
+            ? new[] { RoomResult.StepWords(CheckStepKind.Build), RoomResult.StepWords(CheckStepKind.PageDrawn) }
+            : new[] { RoomResult.StepWords(CheckStepKind.Build) };
 
-        /// <summary>The check's metadata as parts, each drawn on a line of its own, never joined on a dot (AUDIT's MUST, 09:34Z).</summary>
+        /// <summary>
+        /// The check's metadata as parts, each drawn on a line of its own, never joined on a dot (AUDIT's MUST, 09:34Z), in the shared
+        /// words (AUDIT2's 09:51Z BLOCK): what it covered, then Checking while it runs (TaskSteps.Checking); Can't Tell where its exit
+        /// carried no outcome (TaskSteps.CantTell).
+        /// </summary>
         public static IReadOnlyList<string> CheckOutcomeParts(KitCheckScope scope, bool ended, bool? passed)
         {
-            if (ended && passed == null) return new[] { "Result Unknown" };
-            var parts = new List<string> { "Builds" };
-            if (scope == KitCheckScope.BuildsAndOpens) parts.Add("Opens");
-            if (!ended) parts.Add("Under Way");
+            if (ended && passed == null) return new[] { TaskSteps.CantTell };
+            var parts = new List<string>(Covered(scope));
+            if (!ended) parts.Add(TaskSteps.Checking);
             return parts;
         }
 
-        /// <summary>The ready line: what the passed check covered, then the time it took where known, and no more.</summary>
-        public static string Reward(TimeSpan? elapsed, KitCheckScope scope) => Covered(scope) + (elapsed is TimeSpan taken ? Dot + Time(taken) : "");
+        /// <summary>The ready lines: what the passed check covered, each its own line, then the time it took where known, and no more.</summary>
+        public static IReadOnlyList<string> Reward(TimeSpan? elapsed, KitCheckScope scope)
+        {
+            var lines = new List<string>(Covered(scope));
+            if (elapsed is TimeSpan taken) lines.Add(Time(taken));
+            return lines;
+        }
 
         public static string Earlier(int count) => Number(count) + " Earlier";
 

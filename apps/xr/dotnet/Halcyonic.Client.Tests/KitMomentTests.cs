@@ -123,10 +123,11 @@ public class KitMomentTests
         var running = KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, At);
         var unknown = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: null, At);
         var passed = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
-        Assert.That(Text(running.Headline), Is.EqualTo("Computer Check · Builds · Under Way"), "never the agent's own Checking");
-        Assert.That(Text(unknown.Headline), Is.EqualTo("Check Ran · Result Unknown"));
-        Assert.That(Text(passed.Headline), Is.EqualTo("Build Passed · Builds · Opens"));
-        Assert.That(Text(KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: false, At).Headline), Is.EqualTo("Build Failed · Builds"));
+        Assert.That(Text(running.Headline), Is.EqualTo("Computer Check: Builds, Checking"), "the title never the agent's own Checking");
+        Assert.That(Text(unknown.Headline), Is.EqualTo("Check Ran: Can't Tell"));
+        Assert.That(Text(passed.Headline), Is.EqualTo("Build Passed: Builds, Starts and Shows"));
+        Assert.That(Text(KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: false, At).Headline), Is.EqualTo("Build Failed: Builds"));
+        foreach (var moment in new[] { running, unknown, passed }) Assert.That(Text(moment.Headline), Does.Not.Contain("·"), "no joining dot");
         Assert.That(Text(running.Headline), Does.Not.StartWith("Checking"), "the computer's own check never shares the agent's badge word (X17A-S1)");
         Assert.That(passed.Tone, Is.EqualTo(KitMomentTone.Passed));
         Assert.That(unknown.Tone, Is.EqualTo(KitMomentTone.Neutral));
@@ -138,8 +139,8 @@ public class KitMomentTests
     {
         var builds = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, At);
         var opens = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
-        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), builds, tryRoute: true).Lines.Single(), Is.EqualTo("Builds · 6 min 40 s"));
-        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), opens, tryRoute: true).Lines.Single(), Is.EqualTo("Builds · Opens · 6 min 40 s"));
+        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), builds, tryRoute: true).Lines, Is.EqualTo(new[] { "Builds", "6 min 40 s" }), "each its own line, never joined on a dot");
+        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), opens, tryRoute: true).Lines, Is.EqualTo(new[] { "Builds", "Starts and Shows", "6 min 40 s" }));
         Assert.That(KitMoment.Ready("Tower Toss", null, builds, tryRoute: true).Lines.Single(), Is.EqualTo("Builds"));
         Assert.That(KitMoment.Ready("Tower Toss", null, builds, tryRoute: true).Headline.ToString(), Is.EqualTo("Build Ready · [Tower Toss]"));
     }
@@ -233,11 +234,11 @@ public class KitMomentTests
         var asks = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.MayLeave, complete: true, At);
         Assert.That((Title(asks), asks.Well, Meta(asks)), Is.EqualTo(("Run Command?", "npm install matter-js", new string[0])));
         var check = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
-        Assert.That((Title(check), Meta(check)), Is.EqualTo(("Build Passed", new[] { "Builds", "Opens" })), "the outcome in the Title (ART's review), what it covered in the metadata, each part apart");
+        Assert.That((Title(check), Meta(check)), Is.EqualTo(("Build Passed", new[] { "Builds", "Starts and Shows" })), "the outcome in the Title (ART's review), what it covered in the metadata, each part apart");
         var unknown = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: null, At);
-        Assert.That((Title(unknown), Meta(unknown)), Is.EqualTo(("Check Ran", new[] { "Result Unknown" })));
+        Assert.That((Title(unknown), Meta(unknown)), Is.EqualTo(("Check Ran", new[] { TaskSteps.CantTell })));
         var running = KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, At);
-        Assert.That((Title(running), Meta(running)), Is.EqualTo(("Computer Check", new[] { "Builds", "Under Way" })), "each part apart, never joined on a dot");
+        Assert.That((Title(running), Meta(running)), Is.EqualTo(("Computer Check", new[] { "Builds", TaskSteps.Checking })), "each part apart, never joined on a dot");
         var ran = KitMoment.AgentCheck(Codex, "npm run build", "exit 1", At);
         Assert.That((Title(ran), ran.Well, Meta(ran)), Is.EqualTo(("Check Reported", "npm run build", new[] { "[exit 1]" })), "their command in the well, their outcome theirs");
         var refused = KitMoment.PackageRefused("matter-js", At);
@@ -258,5 +259,16 @@ public class KitMomentTests
             Assert.That(KitMomentWords.Action(action), Is.Not.Empty, action.ToString());
         Assert.That(KitMomentWords.Action(KitMomentAction.YesRunIt), Is.EqualTo("Run"));
         Assert.That(KitMomentWords.Action(KitMomentAction.TryIt), Is.EqualTo("Try Build"));
+    }
+
+    [Test]
+    public void TheCheckMomentNamesWhatItCoveredAsTheChecksCardsRowsDo()
+    {
+        // AUDIT's 09:51Z and AUDIT2's BLOCK: one name per check, in the moment, the Checks card's rows and the film's diagram.
+        var opens = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
+        var rows = new[] { CheckStepKind.Build, CheckStepKind.PageDrawn }.Select(RoomResult.StepWords).ToArray();
+        Assert.That(opens.Meta.Select(segment => segment.ToString()), Is.EqualTo(rows));
+        var built = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, At);
+        Assert.That(built.Meta.Select(segment => segment.ToString()), Is.EqualTo(new[] { RoomResult.StepWords(CheckStepKind.Build) }));
     }
 }

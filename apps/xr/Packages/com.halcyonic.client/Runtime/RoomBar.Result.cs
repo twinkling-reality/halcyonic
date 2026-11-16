@@ -21,7 +21,7 @@ namespace Halcyonic.Client
         /// step the check reached, with its mark, then Try Build where it may stand, or the file's own way to an
         /// instruction where the check failed (Write Instruction), and Back. With nothing known of the task the loop's own view stands unchanged.
         /// Where a chain of tries at a failed check ended (FIELD's A7), its line is the panel's first, over the result's own
-        /// ("Fixed · Try 2 of 2", "Stopped After 2 Tries"), and where the tries ran out the main action is the file's own way to
+        /// ("Fixed on Try 2 of 2", "Stopped After 2 Tries"), and where the tries ran out the main action is the file's own way to
         /// an instruction, as on a failed check's page. "Fixed" stands only while the result has the computer's check.
         /// </summary>
         private static RoomBar Resulting(KitFileBinding binding, RoomResult result, RoomBar loop)

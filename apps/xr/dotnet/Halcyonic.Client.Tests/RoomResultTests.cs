@@ -352,7 +352,7 @@ public class RoomResultTests
             Assert.That((bar.Known?.FilesChanged, bar.Known?.Passed, bar.Ended), Is.EqualTo(((long?)5, (bool?)true, (string?)null)), "the bar hands the card its result");
             var ended = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()),
                 fix: new AutoFixView { State = AutoFixViewState.Ended, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = 2, Cap = 2, Reason = AutoFixEndReason.Passed });
-            Assert.That(ended.Ended, Is.EqualTo("Fixed · Try 2 of 2"), "the tries' line apart from the result's own");
+            Assert.That(ended.Ended, Is.EqualTo("Fixed on Try 2 of 2"), "the tries' line apart from the result's own, no joining dot");
         }
         finally { RoomDesign.Enabled = was; }
     }
