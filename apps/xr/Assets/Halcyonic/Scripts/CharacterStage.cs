@@ -135,10 +135,11 @@ namespace Halcyonic.XR
                 shelfMeasure.transform.SetPositionAndRotation(pose.position + pose.rotation * Vector3.right * x,
                     pose.rotation * Quaternion.Euler(0f, 180f, 0f));
                 shelfMeasure.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
-                // The widest label the shelf can ever show (AUDIT's 12:52Z): a name long enough to reach the label's cap (FIELD's six
-                // lines at the widest measure, its tail faded past them), or a longer one standing, in the state that draws the most beside
-                // it, Needs You with its count (FIELD's badge figure). No name, short or long, then stands nearer than the clearance.
-                var title = LongestTitle.Length > WidestStandIn.Length ? LongestTitle : WidestStandIn;
+                // The widest label the shelf can ever show (AUDIT's 12:52Z and 12:55Z): a name long enough to reach the label's cap (FIELD's
+                // six lines at the widest measure, its tail faded past them), in the state that draws the most beside it, Needs You with
+                // its count (FIELD's badge figure). The same for every title, so no name, short or long, stands nearer than the clearance,
+                // and the shelf never moves because a name came or went.
+                var title = WidestStandIn;
                 shelfMeasure.Show(new CharacterPresentation("shelf-label-measurement",
                     title, CharacterActivity.WaitingForHuman,
                     "Needs You", Halcyonic.Contracts.AttentionLevel.ActionRequired, System.Array.Empty<string>(), 2,
@@ -448,7 +449,6 @@ namespace Halcyonic.XR
                 standings.Remove(id);
             }
             var slots = lineup.Slots;
-            var longestStanding = "";
             for (var slot = 0; slot < slots.Count; slot++)
             {
                 var id = slots[slot];
@@ -461,22 +461,12 @@ namespace Halcyonic.XR
                     views[id] = view;
                     CharacterCreated?.Invoke(id, view);
                 }
-                var presented = CharacterPresenter.Present(session.State.Workstreams[id], session.State, live);
-                view.Show(presented);
-                if (presented.Title.Length > longestStanding.Length) longestStanding = presented.Title;
+                view.Show(CharacterPresenter.Present(session.State.Workstreams[id], session.State, live));
                 view.BadgeOnly = BesideAWindow;
                 MoveToSlot(id, view, slot);
             }
-            LongestTitle = longestStanding;
             Refreshed?.Invoke();
         }
-
-        /// <summary>
-        /// The longest task title standing on the shelf now, for the shelf's envelope to measure its widest label by (JUDGE's 12:51Z: the
-        /// plane reasoned the shelf at 22.8 to 35.6 degrees while a real name tag stood 20.2 to 40.2 at Larger, so a stand-in label laid
-        /// narrower than the real ones and the plane kept no clearance from them); empty before any stands.
-        /// </summary>
-        public static string LongestTitle { get; private set; } = "";
 
         /// <summary>
         /// A name long enough to fill the label to its cap at either text size (FIELD's six lines, about 48 letters a four-line plate at
