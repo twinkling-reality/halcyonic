@@ -135,9 +135,10 @@ namespace Halcyonic.XR
                 shelfMeasure.transform.SetPositionAndRotation(pose.position + pose.rotation * Vector3.right * x,
                     pose.rotation * Quaternion.Euler(0f, 180f, 0f));
                 shelfMeasure.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
-                // The widest label the shelf can show: the longest title standing (never shorter than a name a person gives), in the
-                // state that draws the most beside it, Needs You with its count (FIELD's badge figure).
-                var title = LongestTitle.Length > LongStandIn.Length ? LongestTitle : LongStandIn;
+                // The widest label the shelf can ever show (AUDIT's 12:52Z): a name long enough to reach the label's cap (FIELD's six
+                // lines at the widest measure, its tail faded past them), or a longer one standing, in the state that draws the most beside
+                // it, Needs You with its count (FIELD's badge figure). No name, short or long, then stands nearer than the clearance.
+                var title = LongestTitle.Length > WidestStandIn.Length ? LongestTitle : WidestStandIn;
                 shelfMeasure.Show(new CharacterPresentation("shelf-label-measurement",
                     title, CharacterActivity.WaitingForHuman,
                     "Needs You", Halcyonic.Contracts.AttentionLevel.ActionRequired, System.Array.Empty<string>(), 2,
@@ -477,8 +478,12 @@ namespace Halcyonic.XR
         /// </summary>
         public static string LongestTitle { get; private set; } = "";
 
-        /// <summary>A name as long as a person gives one (FIELD's fixture rule, about sixty letters): the least the envelope measures.</summary>
-        private const string LongStandIn = "A complete task title a person gives, in plain words, sixty long";
+        /// <summary>
+        /// A name long enough to fill the label to its cap at either text size (FIELD's six lines, about 48 letters a four-line plate at
+        /// Standard), so the envelope measures the widest box a label can take.
+        /// </summary>
+        private const string WidestStandIn = "A complete task title a person gives, in plain words, long enough to fill every line the label can lay at its widest "
+            + "measure, with more words after that so its tail fades past its last line, as a very long name does";
 
         /// <summary>
         /// The lineup's slots for how the characters stand now: four beside a window, else six. What it
