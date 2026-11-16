@@ -2672,9 +2672,17 @@ public class FileColumnTests
             }), "an answer's label and its description given apart, never one string joined on a dot (JUDGE's dot list, item 1)");
             Assert.That(asked.Card.List.Select(row => row.Under!.AllTheirs), Is.All.True, "the description is the agent's words");
             Assert.That(asked.Column.Any(action => action.Control.Place == KitPlace.Choice), Is.False, "no described answer in the column");
-            Assert.That(asked.Column.Any(action => action.Main), Is.False, "no way on before an answer is chosen: an action that cannot act is not drawn");
+            // The way on stands from the start, locked, its reason under it, in the place it lights (AUDIT's 2026-11-16T2258Z MUST 1):
+            // one main action, unavailable, saying why, never a moment with nothing to press.
+            var locked = asked.Column.Where(action => action.Main).ToList();
+            Assert.That(locked, Has.Count.EqualTo(1), "one way on before an answer is chosen");
+            Assert.That(locked[0].Control.Available, Is.False, "the way on is locked before an answer is chosen");
+            Assert.That(locked[0].Detail, Is.Not.Empty.And.EqualTo(locked[0].Control.Reason), "the locked way on says why, in the file's own words");
 
             Draw(host, column);
+            var drawnWhole = Bar().Column.Single(action => action.Main);
+            Assert.That(drawnWhole.Control.Available, Is.False, "drawn whole, still locked until an answer is chosen");
+            Assert.That(drawnWhole.Detail, Is.EqualTo("Choose Answer First"), "drawn whole, the locked way on asks for an answer, in AUDIT2's words");
             column.Act(asked.Card.List[1].Press!.Action, asked.Card.List[1].Press!.Key);
             var chosen = Bar();
             Assert.That(chosen.Card!.List.Select(row => row.Chosen), Is.EqualTo(new[] { false, true }));
