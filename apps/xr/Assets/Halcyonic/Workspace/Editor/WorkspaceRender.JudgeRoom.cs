@@ -587,13 +587,22 @@ namespace Halcyonic.XR.Workspace.Editor
                     found.AddRange(OutsideItsShelf(eyes, stood, stageParts));
                     FootHeld(found, name);
                     // An approval's Approve is its one main action and carries the one accent, and only it on the bar (AUDIT 13:18Z: the
-                    // kit render's 33-ask-tool draws it so; the live approval drew it plain, room-06 on 30fea4d72).
+                    // kit render's 33-ask-tool draws it so; the live approval drew it plain, room-06 on 30fea4d72). Read in the chip as
+                    // painted, not the flag: the flag stood main while the chip kept a held look (XR 13:24Z, 3d98fc848).
                     if (Drawn(FileScreens.Approve, null) is RoomButton approve)
                     {
-                        var mains = plane.Kit.Bar.GetComponentsInChildren<RoomButton>(false)
-                            .Where(button => button.Main && button.GetComponentsInChildren<Renderer>(false).Any(part => part.enabled)).ToList();
-                        if (!approve.Main) found.Add("the approval's Approve is drawn plain: the one accent is not on its main action");
-                        foreach (var other in mains.Where(button => button != approve))
+                        bool Accented(RoomButton button)
+                        {
+                            var chip = button.ChipColour;
+                            bool Near(Color colour) => Mathf.Abs(chip.x - colour.r) < 0.02f && Mathf.Abs(chip.y - colour.g) < 0.02f && Mathf.Abs(chip.z - colour.b) < 0.02f;
+                            return Near(Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.AccentColour)) || Near(Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.AccentPointedColour));
+                        }
+                        var accented = plane.Kit.Bar.GetComponentsInChildren<RoomButton>(false)
+                            .Where(button => button.GetComponentsInChildren<Renderer>(false).Any(part => part.enabled) && Accented(button)).ToList();
+                        if (!approve.Main || !Accented(approve))
+                            found.Add("the approval's Approve is drawn without the one accent (main " + approve.Main + ", chip "
+                                + ColorUtility.ToHtmlStringRGB(new Color(approve.ChipColour.x, approve.ChipColour.y, approve.ChipColour.z)) + ")");
+                        foreach (var other in accented.Where(button => button != approve))
                             found.Add("the approval's bar carries a second accent, on " + PathOf(other.transform));
                     }
                     AsideHeld(found);
