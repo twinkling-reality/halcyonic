@@ -35,8 +35,21 @@ namespace Halcyonic.XR.UI
         private readonly List<TextMeshPro> lines = new List<TextMeshPro>();
         private readonly List<RoomShape> tiles = new List<RoomShape>();
         private readonly List<RoomGlyphView> marks = new List<RoomGlyphView>();
+        private readonly List<TextMeshPro> usageNotes = new List<TextMeshPro>();
+        private TextMeshPro? usageLabel;
+        private TextMeshPro? usageValue;
         private int order;
         private int shown;
+
+        /// <summary>The gap between a usage figure's label and its value, laid apart on one line, never joined on a dot.</summary>
+        public const float UsageGapDp = 10f;
+
+        /// <summary>The usage figure's label, value and notes as last shown; null where the list shows none.</summary>
+        public TextMeshPro? UsageLabel => usageLabel != null && usageLabel.gameObject.activeSelf ? usageLabel : null;
+
+        public TextMeshPro? UsageValue => usageValue != null && usageValue.gameObject.activeSelf ? usageValue : null;
+
+        public IEnumerable<TextMeshPro> UsageNotes => usageNotes.FindAll(note => note.gameObject.activeSelf);
 
         /// <summary>How wide and how tall the steps stand as last shown.</summary>
         public Vector2 Size { get; private set; }
@@ -127,7 +140,7 @@ namespace Halcyonic.XR.UI
         /// Shows <paramref name="steps"/> <paramref name="width"/> wide, at the person's text size, and returns how tall they
         /// stand: each step's word, then its line, the next step the rows' gap under it.
         /// </summary>
-        public float Show(IReadOnlyList<TaskStep> steps, float width)
+        public float Show(IReadOnlyList<TaskStep> steps, float width, TaskUsageFigure? usage = null)
         {
             gameObject.SetActive(true);
             shown = steps.Count;
@@ -194,7 +207,57 @@ namespace Halcyonic.XR.UI
                 tiles[index].gameObject.SetActive(false);
                 marks[index].Hide();
             }
+            down = LayUsage(usage, width, indent, down, steps.Count > 0 ? gap : 0f);
             Size = new Vector2(width, down);
+            return down;
+        }
+
+        /// <summary>
+        /// Under the last step, where the caller hands one (only where the task's agent app reports usage): the figure's label
+        /// quiet and its value white apart on one line, aligned with the steps' words, then each note a quiet line under it, laid
+        /// whole. Returns how far down the list now ends.
+        /// </summary>
+        private float LayUsage(TaskUsageFigure? usage, float width, float indent, float down, float gap)
+        {
+            if (usage == null)
+            {
+                usageLabel?.gameObject.SetActive(false);
+                usageValue?.gameObject.SetActive(false);
+                foreach (var note in usageNotes) note.gameObject.SetActive(false);
+                return down;
+            }
+            var lineDp = RoomType.Scaled(RoomGeometry.LineDp);
+            var column = Mathf.Max(RoomType.Units(40f), width - indent);
+            down += gap;
+            usageLabel ??= RoomType.Create(transform, "Usage label", Color.white, order);
+            usageValue ??= RoomType.Create(transform, "Usage value", Color.white, order);
+            usageLabel.gameObject.SetActive(true);
+            usageValue.gameObject.SetActive(true);
+            RoomType.Size(usageLabel);
+            RoomType.Size(usageValue);
+            usageLabel.color = Quiet;
+            usageValue.color = usage.Known ? Color.white : Quiet;
+            GlazeRuns.Of(usageLabel).Set(LineWords.Ours(usage.Label));
+            GlazeRuns.Of(usageValue).Set(LineWords.Ours(usage.Value));
+            var labelWide = KitType.Lay(usageLabel, column, 1).Width;
+            usageLabel.transform.localPosition = new Vector3(indent, -down, 0f);
+            var valueLeft = labelWide + RoomType.Scaled(UsageGapDp);
+            var valueTall = KitType.Lay(usageValue, Mathf.Max(RoomType.Units(40f), column - valueLeft), RoomRowsView.RowLines).Height;
+            usageValue.transform.localPosition = new Vector3(indent + valueLeft, -down, 0f);
+            down += Mathf.Max(lineDp, valueTall);
+            for (var index = 0; index < usage.Notes.Count; index++)
+            {
+                while (usageNotes.Count <= index) usageNotes.Add(RoomType.Create(transform, "Usage note", Color.white, order));
+                var note = usageNotes[index];
+                note.gameObject.SetActive(true);
+                RoomType.Size(note);
+                note.color = Quiet;
+                GlazeRuns.Of(note).Set(LineWords.Ours(usage.Notes[index]));
+                var noteTall = KitType.Lay(note, column, RoomRowsView.RowLines).Height;
+                note.transform.localPosition = new Vector3(indent, -down, 0f);
+                down += Mathf.Max(lineDp, noteTall);
+            }
+            for (var index = usage.Notes.Count; index < usageNotes.Count; index++) usageNotes[index].gameObject.SetActive(false);
             return down;
         }
 

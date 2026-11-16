@@ -17,7 +17,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] StepsStates = { "46-steps-working", "46-steps-needs-you", "46-steps-ready", "46-steps-failed", "46-steps-long" };
+        private static readonly string[] StepsStates = { "46-steps-working", "46-steps-needs-you", "46-steps-ready", "46-steps-failed", "46-steps-long", "46-steps-usage" };
 
         /// <summary>A request longer than three lines at either size, laid whole.</summary>
         private const string StepsLongRequest = "Make a kite that follows my hand and climbs when I raise it, with a tail that streams behind it, a score that counts how high it has climbed since the last time it fell, and a gentle sound each time it turns";
@@ -67,7 +67,9 @@ namespace Halcyonic.XR.Workspace.Editor
             plane.SetParent(root, false);
             var panel = Halcyonic.XR.UI.RoomSurface.Create(plane, "Information panel", RoomSurfaceKind.Information, KitType.Order.Plate);
             var view = RoomStepsView.Create(panel.transform);
-            var tall = view.Show(steps, width - 2f * pad);
+            // At work where the agent app reports usage: the tokens figure under the list (XR's 09:33Z (c), AUDIT's 09:34Z).
+            var usage = state == "46-steps-usage" ? new TaskUsageFigure(TaskUsage.TokensUsed, "12,400", new[] { "Counted by the agent app" }, true) : null;
+            var tall = view.Show(steps, width - 2f * pad, usage);
             var size = new Vector2(width, tall + 2f * pad);
             panel.InnerBar = null;
             panel.Draw(size);
@@ -113,7 +115,37 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!under.isTextOverflowing && !under.isTextTruncated && shownLine == step.Line.Text && !shownLine.Contains("…"), what + "'s line is not whole: \"" + shownLine + "\"");
                 below += Mathf.Max(line, under.textInfo.lineCount * KitType.LinePitch(under));
             }
-            Require(Mathf.Abs(below - tall) < unit * 0.05f, "the list says it stands " + (tall / unit).ToString("0.0") + " dp, its last step ends at " + (below / unit).ToString("0.0"));
+            if (usage != null)
+            {
+                // The figure's label quiet and its value apart on one line, under the last step by the rows' gap, aligned with the
+                // steps' words; its note a quiet line under it; nothing joined on a dot; the list as tall as its last line.
+                var label = view.UsageLabel;
+                var value = view.UsageValue;
+                Require(label != null && value != null, "the usage figure is not shown");
+                if (label != null && value != null)
+                {
+                    label.ForceMeshUpdate(true);
+                    value.ForceMeshUpdate(true);
+                    Require(label.GetParsedText().Trim() == usage.Label && value.GetParsedText().Trim() == usage.Value, "the usage figure reads \"" + label.GetParsedText() + "\" and \"" + value.GetParsedText() + "\"");
+                    Require(Mathf.Abs(-label.transform.localPosition.y - (below + gap)) < unit * 0.05f && Mathf.Abs(label.transform.localPosition.x - indent) < 1e-6f,
+                        "the usage figure does not stand the rows' gap under the last step, at the steps' words");
+                    Require(Mathf.Abs(value.transform.localPosition.y - label.transform.localPosition.y) < 1e-6f
+                        && value.transform.localPosition.x >= label.transform.localPosition.x + RoomCursor.WordsWidth(label, 0f) + RoomType.Scaled(RoomStepsView.UsageGapDp) - unit * 0.05f,
+                        "the usage figure's value does not stand apart beside its label");
+                    Require(!label.GetParsedText().Contains(KitMomentWords.Dot.Trim()) && !value.GetParsedText().Contains(KitMomentWords.Dot.Trim()), "the usage figure joins on a dot");
+                    var notes = view.UsageNotes.ToList();
+                    Require(notes.Count == 1 && notes[0].GetParsedText().Trim() == usage.Notes[0], "the usage figure's note is not under it");
+                    var last = notes.Count > 0 ? notes[notes.Count - 1] : value;
+                    last.ForceMeshUpdate(true);
+                    var ends = -last.transform.localPosition.y + Mathf.Max(line, last.textInfo.lineCount * KitType.LinePitch(last));
+                    Require(Mathf.Abs(ends - tall) < unit * 0.05f, "the list says it stands " + (tall / unit).ToString("0.0") + " dp, its usage ends at " + (ends / unit).ToString("0.0"));
+                }
+            }
+            else
+            {
+                Require(view.UsageLabel == null, "a usage figure stands where none was handed");
+                Require(Mathf.Abs(below - tall) < unit * 0.05f, "the list says it stands " + (tall / unit).ToString("0.0") + " dp, its last step ends at " + (below / unit).ToString("0.0"));
+            }
 
             shot.Read = (camera, eye, white, dark, bright, failures) =>
             {
