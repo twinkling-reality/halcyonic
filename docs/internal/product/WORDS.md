@@ -298,11 +298,11 @@ stay exactly as written and lean.
 | Kind | Pattern | Example |
 | --- | --- | --- |
 | A peek | {State} · {reason}, the reason without the state's words | Needs You · make migrate |
-| Nothing waiting | Nothing Waiting, then the label Latest (Last Known when the state is stale) laid small over {activity}, a name or the agent's message in it leaning, the agent's beside its chip; "Latest: {activity}" where one line is all there is | Nothing Waiting · Latest · Used edit: src/auth/rate-limit.ts; Last Known · Latest · {activity} |
+| Nothing waiting | Nothing Waiting, then "Latest: {activity}" ("Last Known: {activity}" when the state is stale), a name or the agent's message in it leaning, the agent's beside its chip; the model hands the label and the activity apart, and the task panel, one row a fact, lays them in one line | Nothing Waiting · Latest · Used edit: src/auth/rate-limit.ts; Last Known · Latest · {activity} |
 | Sent | Sent · Awaiting {Who} | Sent. Waiting for the agent. |
 | Still on its way | Sending, unavailable, where the action that sent it stood | Sending |
 | Confirmed | A sentence that says what was received: "The decision was received.", "The answer was received.", "The instruction was received.", "Stopped.", "Started." | Confirmed · Answer Received |
-| The run details on the task panel | Each fact's label laid small over its value: Agent App over "{name}, on your computer" (", unavailable" once it is gone); Model over "{model}" or "The app's choice", with no place, since where a model runs is never told; Folder over "{folder} in {parent}" or "None given"; Started over "HH:mm, d MMM"; then the round on its own line | Agent App · {name} · On Your Computer; Model · App's Choice · Location Unknown |
+| The run details on the task panel | One row a fact, its label then its value, handed apart by the model: "Agent App: {name}, on your computer" (", unavailable" once it is gone); "Model: {model}" or "Model: The app's choice", with no place, since where a model runs is never told; "Folder: {folder} in {parent}" or "Folder: None given"; "Started: HH:mm, d MMM"; then the round on its own row | Agent App · {name} · On Your Computer; Model · App's Choice · Location Unknown |
 | Refusal | {Action} Refused or Failed · {Cause} · {Next Step}, the next step a control's name where one is offered | Start Failed · No folder is chosen. Choose one. |
 | Unknown effect | {What} Unconfirmed · {What to Check} | Delivery Unconfirmed · Check Activity |
 | Not sent | "Nothing was sent: {why}. {Next step}." wherever a press sent nothing, one sentence, never parts on a dot (`DotJoinedWordsTests`) | Nothing was sent: your answer changed. Read it again. |

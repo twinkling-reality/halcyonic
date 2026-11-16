@@ -333,8 +333,7 @@ namespace Halcyonic.Client
             var answer = WorkspaceText.Answer(workspace);
             for (var index = 0; index < answer.Count; index++)
             {
-                LabelOver(model, answer[index].Label, index > 0);
-                model.Rows.Add(new PanelRow { Line = true, Title = answer[index].Line, TitleIsData = true, Tone = tone, Continues = index > 0 || answer[index].Label != null });
+                model.Rows.Add(new PanelRow { Line = true, Title = OneLine(answer[index].Label, answer[index].Line), TitleIsData = true, Tone = tone, Continues = index > 0 });
             }
             var feedback = workspace.Commands.Take(RecentFeedback).Select(command => command.Text).ToList();
             if (feedback.Count == 0) feedback.Add(WorkspaceText.NothingSentYet);
@@ -383,19 +382,16 @@ namespace Halcyonic.Client
             var lines = WorkspaceText.RunDetails(workspace, screen.Zone);
             for (var index = 0; index < lines.Count; index++)
             {
-                LabelOver(model, lines[index].Label, index > 0);
-                model.Rows.Add(new PanelRow { Line = true, Title = lines[index].Line, TitleIsData = lines[index].IsData, Continues = index > 0 || lines[index].Label != null });
+                model.Rows.Add(new PanelRow { Line = true, Title = OneLine(lines[index].Label, lines[index].Line), TitleIsData = lines[index].IsData, Continues = index > 0 });
             }
         }
 
         /// <summary>
-        /// A fact's label laid small on its own line straight over its value, so the label and the value stand apart rather
-        /// than joined on one line (AUDIT2's rule A, 2026-11-16); nothing where the line has no label.
+        /// A fact in one line, "Label: value", or the value alone where it has no label. This panel pages only what its screens
+        /// page and lays each fact in one row, so one line is all a fact has here (AUDIT2's rule A fallback); the model still
+        /// hands the label and the value apart.
         /// </summary>
-        private static void LabelOver(PanelModel model, string? label, bool continues)
-        {
-            if (label != null) model.Rows.Add(new PanelRow { Line = true, Size = PanelTextSize.Caption, Title = label, Continues = continues });
-        }
+        private static string OneLine(string? label, string line) => label == null ? line : label + ": " + line;
 
         /// <summary>The answer's tone: quiet while nothing waits, else the state's own, waiting for you or what went wrong.</summary>
         private static GlazeTone? AnswerTone(CharacterPresentation character)
@@ -466,9 +462,9 @@ namespace Halcyonic.Client
                 var description = string.IsNullOrWhiteSpace(option.Description) ? null : WorkspaceText.OneLine(option.Description!);
                 return new PanelRow
                 {
-                    // Their label and their description apart, and Chosen as the row's end word, never joined on a dot (AUDIT2's rule A).
-                    Title = WorkspaceText.OneLine(option.Label),
-                    Detail = description,
+                    // One title, their label then their description after a comma, as the one-line answer words read
+                    // (FileScreens.AnswerWords), so a long label shows whole and only the description is cut; Chosen as the row's end word.
+                    Title = WorkspaceText.OneLine(option.Label) + (description == null ? "" : ", " + description),
                     End = chosen ? "Chosen" : null,
                     TitleIsData = true,
                     TitleLines = 2,
