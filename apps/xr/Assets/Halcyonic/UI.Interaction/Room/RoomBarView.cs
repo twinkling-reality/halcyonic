@@ -462,6 +462,15 @@ namespace Halcyonic.XR.UI
                 panel.transform.localPosition = new Vector3(-total / 2f + panelWidth / 2f, foot + panelHeight / 2f, 0f);
                 panel.gameObject.SetActive(true);
                 steps!.transform.localPosition = new Vector3(-panelWidth / 2f + pad, panelHeight / 2f - pad, -RoomType.Units(0.5f));
+                // The panel stands here for the list alone: none of the pair's own parts (the words, the request, the sentence, the
+                // caret, a card, the rows, the field) may stand on it (AUDIT's 12:19Z: a text caret stood inside "index.html").
+                body.gameObject.SetActive(false);
+                request.gameObject.SetActive(false);
+                sentence.gameObject.SetActive(false);
+                caret.gameObject.SetActive(false);
+                field.gameObject.SetActive(false);
+                if (card != null) card.Hide();
+                if (facts != null) facts.Hide();
             }
             if (rowed) LayRow(bar, foot - below + target / 2f);
             else

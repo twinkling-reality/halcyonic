@@ -862,6 +862,12 @@ namespace Halcyonic.XR.Workspace.Editor
                                 Require(!line.isTextTruncated, "the steps list's line " + index + " \"" + line.text + "\" is cut");
                             }
                         }
+                        // Nothing but the list on its panel: no caret, no words of the pair's, no card, and the agent's cursor gone
+                        // (AUDIT's 12:19Z: a caret stood inside "index.html", and the cursor in the gap at Larger).
+                        var onPanel = new[] { "Words", "Request", "Sentence", "Caret", "Card" }
+                            .Where(part => bar.Panel.transform.Find(part) is Transform drawn && drawn.gameObject.activeSelf).ToList();
+                        Require(onPanel.Count == 0, "the steps' panel also draws " + string.Join(", ", onPanel));
+                        Require(!host.Cursor.gameObject.activeSelf || host.Cursor.Words.Length == 0 && host.Cursor.Shown < 0.001f, "the agent's cursor is drawn over the steps list");
                         Require(list.UsageLabel != null && list.UsageValue != null && list.UsageLabel.text == WorkStepsUsage.Label
                             && list.UsageValue.text == WorkStepsUsage.Value, "the usage figure does not stand under the steps, label and value apart");
                         var listTop = bar.Panel.transform.localPosition.y + bar.Panel.Size.y / 2f;
