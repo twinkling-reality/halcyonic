@@ -889,6 +889,9 @@ export function fallingNotes(
   // Given `floor`, each landing also sends a ring of its light out across the floor from under its key, so every note
   // is seen to land on the place and not only on the keyboard: at most eight at a time.
   const ripples = options.floor === undefined ? undefined : floorRings(RIPPLES + 1);
+  // On glass, each strike also rings out across the glass from the key, crisp and quick, right where the eye is.
+  const glassRings = keys.glass === undefined ? undefined : floorRings(12);
+  if (glassRings !== undefined) group.add(glassRings.mesh);
   // How far the keyboard's front edge is from its middle: where the bloom's wave starts out across the floor.
   const middleKey = keys.spots[Math.floor(keys.spots.length / 2)];
   const reachOut = middleKey === undefined ? 1 : Math.hypot(middleKey.x, middleKey.z);
@@ -961,6 +964,8 @@ export function fallingNotes(
     const landed = now - start;
     if (ripples !== undefined && options.floor !== undefined)
       ripples.add(lx, options.floor + 0.006, lz, ringRadius(landed), colour, ringStrength(landed, note.loud));
+    if (glassRings !== undefined && keys.glass !== undefined && landed >= 0 && landed < 0.7)
+      glassRings.add(lx, keys.glass + 0.002, lz, 0.04 + landed * 0.8, colour, (1 - landed / 0.7) ** 1.5 * 0.8 * (0.6 + 0.4 * note.loud));
     // A few sparks where each note lands, on the frame it lands.
     if (!Number.isNaN(previous) && start > previous && start <= now)
       motes.emit(lx, spot.y + 0.01, lz, colour, 6 + Math.round(10 * note.loud), {
@@ -1008,6 +1013,7 @@ export function fallingNotes(
       flares.begin();
       pools.begin();
       ripples?.begin();
+      glassRings?.begin();
       player.each(RING_SECONDS, fall / speed, draw);
       // The bloom comes out of the keyboard: every key flares in its own colour, a column of light rises from each,
       // and one warm ring runs out across the floor from the keys.
@@ -1036,6 +1042,7 @@ export function fallingNotes(
       flares.end();
       pools.end();
       ripples?.end();
+      glassRings?.end();
       motes.update(delta);
       previous = now;
     },
