@@ -126,8 +126,8 @@ namespace Halcyonic.XR.Editor
 
         /// <summary>
         /// What of the glance an APK carries: its activity or the notification permission in the
-        /// manifest, its classes in any dex file, or cleartext to 127.0.0.1 in a resource. Empty for a
-        /// build without it.
+        /// manifest, its classes in any dex file, or cleartext to 127.0.0.1 in a resource; and the native
+        /// panel's development-only capture marker in any dex file. Empty for a release build.
         /// </summary>
         internal static List<string> FindIn(string apkPath)
         {
@@ -146,6 +146,8 @@ namespace Halcyonic.XR.Editor
                 if (manifest && Contains(data, Activity)) found.Add("the glance's activity in the manifest");
                 if (manifest && Contains(data, NotificationPermission)) found.Add(NotificationPermission + " in the manifest");
                 if (dex && Contains(data, "Lcom/halcyonic/glance/")) found.Add("the glance's classes in " + entry.FullName);
+                // The panel's capture marker (PanelCaptureDevelopment) is development-only too: a release that carries it could be captured.
+                if (dex && Contains(data, "Lcom/halcyonic/panel/PanelCaptureDevelopment;")) found.Add("the panel's capture marker in " + entry.FullName);
                 if (resource && Contains(data, "domain-config") && Contains(data, LoopbackHost)) found.Add("cleartext to " + LoopbackHost + " in " + entry.FullName);
             }
             return found;
