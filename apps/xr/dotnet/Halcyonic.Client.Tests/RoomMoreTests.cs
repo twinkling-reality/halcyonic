@@ -49,4 +49,30 @@ public class RoomMoreTests
         var back = row.FindIndex(control => control.Place is KitPlace.Close or KitPlace.Cancel);
         if (back >= 0) Assert.That(more, Is.LessThan(back), "before the way back");
     }
+
+    [Test]
+    public void MoreListsEveryRouteTheFileOffersOnANarrowPageFullOfActivity()
+    {
+        // JUDGE's 08:31Z: at Larger the Activity page holds fewer rows, and the routes stood after the activity on a later page.
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            var work = new WaitingWork();
+            work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Completed; }, WorkstreamStatus.Completed);
+            var now = work.Present();
+            var offered = new[] { WorkspaceAction.Instruct };
+            var activity = Enumerable.Range(1, 9).Select(index => new ActivityEntry(index, "2026-11-16T08:0" + index + ":00.000Z", ActivityKind.Message, "Step " + index + " of the work.", true)).ToArray();
+            var workspace = new WorkspacePresentation(now.Character, now.Objective, now.Execution, now.Runtime, offered,
+                offered.Where(now.RequiresConfirmation).ToList(), now.Commands, activity);
+            var steering = new WorkspaceSteering(new CommandFactory(Samples.Client));
+            var frame = FileScreens.Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true, CharacterColourOffered = true, ShowTaskHereOffered = true },
+                new AnswerRoom(3));
+            var binding = KitFileBinding.Of(frame, steering.Armed, workspace, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
+                new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!;
+            Assert.That(RoomBar.MoreRoutes(binding).Select(route => route.Action), Is.SupersetOf(new[] { FileScreens.OpenCharacterColour, FileScreens.ShowTaskHere }),
+                "every route the file offers, on the page the kit binds");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }
