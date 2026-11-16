@@ -1245,7 +1245,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(OneSpaced(LabelText.FromTextMeshPro(words.text)) == OneSpaced(LabelText.Plain(prompt)), "the dialog reads \"" + words.text + "\", not the agent's words as written");
                             Require(words.fontSize >= typeSize * RoomBarView.DialogWordsDp / RoomGeometry.TypeDp - 1e-4f, "the agent's words stand under the dialog's 28 dp");
                             foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
-                                if (!ReferenceEquals(label, words) && label.gameObject.activeInHierarchy && label.text.Length > 0)
+                                if (!ReferenceEquals(label, words) && label.gameObject.activeInHierarchy && (label.text ?? "").Length > 0)
                                     Require(label.fontSize <= words.fontSize + 1e-4f, label.name + " stands larger than the agent's words");
                             Require(words.textInfo.lineCount < 2 || !RoomCardView.LastLineIsOneWord(words)
                                 || words.GetParsedText().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length < 4, "the agent's words leave one word alone on their last line");
@@ -1331,7 +1331,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             "the approval's dialog reads \"" + asks.text + "\" at its top, not \"" + shown.Sentence + "\"");
                         Require(asks.fontSize >= typeSize * RoomBarView.DialogWordsDp / RoomGeometry.TypeDp - 1e-4f, "the approval's question stands under the dialog's 28 dp");
                         foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
-                            if (!ReferenceEquals(label, asks) && label.gameObject.activeInHierarchy && label.text.Length > 0)
+                            if (!ReferenceEquals(label, asks) && label.gameObject.activeInHierarchy && (label.text ?? "").Length > 0)
                                 Require(label.fontSize <= asks.fontSize + 1e-4f, label.name + " stands larger than the approval's question");
                         var askLow = panel.transform.InverseTransformPoint(asks.transform.TransformPoint(asks.textBounds.min));
                         var askHigh = panel.transform.InverseTransformPoint(asks.transform.TransformPoint(asks.textBounds.max));
