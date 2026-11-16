@@ -641,6 +641,14 @@ namespace Halcyonic.XR.Workspace.Editor
                             found.Add("the approval's bar carries a second accent, on " + PathOf(other.transform));
                     }
                     AsideHeld(found);
+                    // A recorded or demonstrated run is current within itself: its characters stand solid, never ghosted as a session
+                    // that lost its plane (AUDIT 22:30Z, a MUST before the release APK; XR's rule). Read from each drawn character's own
+                    // cues, so an ease not yet finished in the Editor cannot hide it.
+                    if (live == null)
+                        foreach (var character in root.GetComponentsInChildren<CharacterView>(false))
+                            if (character.Presentation is CharacterPresentation shown && CharacterCues.Of(shown).Ghosted)
+                                found.Add("a character of the " + (fallback.ShowingRecordedRun ? "recorded run" : "demonstration") + " is ghosted as not live: "
+                                    + PathOf(character.transform));
                     // No computer: a recording plays, so voice is never offered and Hold to Talk never drawn (ADR 0021, amended).
                     // A recording says what it is wherever it plays (lead, 14:33Z): its own line, in its own words, drawn whole.
                     // The notice is the recording's own line whole, both sentences, word for word (lead, 17:45Z): the product's
