@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-checks-plain", "47-card-fixing", "47-card-usage", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-checks-plain", "47-card-fixing", "47-card-usage", "47-card-usage-easing", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -178,6 +178,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         FailedSteps = new List<Halcyonic.Contracts.AutoFixViewFailedStepsItem> { Halcyonic.Contracts.AutoFixViewFailedStepsItem.Build },
                     })!,
                 "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
+                // A new reading lands while the page stands: Session from 62 to 40, drawn 0.3 s after it came (shown first at 62 below).
+                "47-card-usage-easing" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 40, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
                 // The assistant's row under the gauges: on this computer, on a provider's hosted model with a long id, and unable to run.
                 "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, null, CardRowControl("use-model")))!,
                 "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0", "Tidewater", null, CardRowControl("use-model")))!,
@@ -275,8 +277,30 @@ namespace Halcyonic.XR.Workspace.Editor
                 reviewPages = view.DescriptionPages;
                 card = RoomReview.Card(CardReview(), part: state == "47-card-review" ? reviewPages : state == "47-card-review-check" ? reviewPages + 1 : 1, taskPages: reviewPages);
             }
+            var easedAt = 0f;
+            if (state == "47-card-usage-easing")
+            {
+                // The page shown at the earlier reading, then the new one 0.3 s later, by a clock the render fixes.
+                var clock = 100f;
+                view.Clock = () => clock;
+                view.Show(new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }), inner);
+                clock += 0.3f;
+                easedAt = 0.3f;
+            }
             var tall = view.Show(card, inner);
             var size = new Vector2(width, tall + 2f * pad);
+            if (state == "47-card-usage-easing")
+            {
+                // Mid-move the Session bar stands where the standard curve puts it, never at 40 or at 62; Week, unchanged, does not move.
+                var wanted = RoomMotion.Gauge(easedAt, 62f, 40f);
+                Require(Mathf.Abs(view.GaugeShown(RoomKind.Session) - wanted) < 0.01f && wanted > 40.5f && wanted < 61.5f,
+                    "the Session bar stands at " + view.GaugeShown(RoomKind.Session).ToString("0.0") + " percent mid-move, not " + wanted.ToString("0.0"));
+                Require(Mathf.Abs(view.GaugeShown(RoomKind.Week) - 38f) < 0.01f, "the unchanged Week bar moved to " + view.GaugeShown(RoomKind.Week).ToString("0.0"));
+                var fills = view.Plates.Where(each => each.What == "gauge fill").Select(each => each.Plate.Size.x).ToList();
+                var tracks = view.Plates.Where(each => each.What == "gauge track").Select(each => each.Plate.Size.x).ToList();
+                Require(fills.Count == 2 && tracks.Count == 2 && Mathf.Abs(fills[0] / tracks[0] * 100f - wanted) < 0.5f,
+                    "the Session fill is not drawn where its bar stands mid-move");
+            }
             panel.InnerBar = null;
             panel.Ring = view.PanelRing;
             panel.Draw(size);

@@ -370,6 +370,7 @@ namespace Halcyonic.XR.UI
             chevronAt = null;
             foreach (var role in new List<KitRole>(textsUsed.Keys)) textsUsed[role] = 0;
             platesUsed = 0;
+            gaugeFills.Clear();
             glyphsUsed = 0;
             rowPressesUsed = 0;
             codeUsed = false;
@@ -550,7 +551,39 @@ namespace Halcyonic.XR.UI
         /// <summary>The chevron's stroke: a capital's stem, so it weighs as the words beside it.</summary>
         public const float CardChevronStroke = 2.6f;
 
-        private void Update() => PaintCardFace();
+        private void Update()
+        {
+            PaintCardFace();
+            EaseGauges();
+        }
+
+        /// <summary>The seconds every gauge's move is timed by; a render fixes it.</summary>
+        public System.Func<float> Clock { get; set; } = () => Time.unscaledTime;
+
+        // Each gauge's reading as it moves, by its window: where it started, where it goes and when (RoomMotion.Gauge).
+        private readonly Dictionary<RoomKind, (float From, float To, float Since)> gaugeEases = new Dictionary<RoomKind, (float, float, float)>();
+        // The fills laid this show, so a move is drawn each frame until it ends.
+        private readonly List<(RoomShape Fill, RoomKind Kind, float Bar, float Middle)> gaugeFills = new List<(RoomShape, RoomKind, float, float)>();
+
+        /// <summary>A gauge's bar as it stands now, in percent left: its new reading, or on its way there from the one it showed.</summary>
+        public float GaugeShown(RoomKind kind) =>
+            gaugeEases.TryGetValue(kind, out var ease) ? RoomMotion.Gauge(GlazeMotion.Still ? float.PositiveInfinity : Clock() - ease.Since, ease.From, ease.To) : 0f;
+
+        private void EaseGauges()
+        {
+            foreach (var (fill, kind, bar, middle) in gaugeFills)
+                if (gaugeEases.TryGetValue(kind, out var ease) && !GlazeMotion.Still && Clock() - ease.Since <= RoomMotion.GaugeSeconds + 0.05f)
+                    DrawGaugeFill(fill, bar, middle, GaugeShown(kind));
+        }
+
+        private void DrawGaugeFill(RoomShape fill, float bar, float middle, float percent)
+        {
+            var filled = bar * Mathf.Clamp(percent, 0f, 100f) / 100f;
+            fill.gameObject.SetActive(filled > 1e-4f);
+            if (filled <= 1e-4f) return;
+            fill.Draw(new Vector2(filled, S(TrackTallDp)), Mathf.Min(S(TrackTallDp) / 2f, filled / 2f), AsShown(White(0.62f)), AsShown(default), 0f);
+            fill.transform.localPosition = new Vector3(S(GaugePadXDp) + filled / 2f, -middle, fill.transform.localPosition.z);
+        }
 
         /// <summary>
         /// The ring the panel holding the card draws as its edge where the card is the way in (RoomSurface.Ring): the card's
@@ -894,9 +927,22 @@ namespace Halcyonic.XR.UI
                 Text(KitRole.Label, GaugeLabelDp, GaugeLabelLineDp, White(NoteAlpha), gauge.Label, x, -(line + S(GaugeNumberLineDp) - S(GaugeLabelLineDp) - S(4f)), inner, 1);
                 var middle = line + S(GaugeNumberLineDp) + S(14f) + Mathf.Max(S(TrackTallDp), S(GaugeResetLineDp)) / 2f;
                 Plate(new Vector2(bar, S(TrackTallDp)), S(TrackTallDp) / 2f, White(0.10f), new Vector2(S(GaugePadXDp) + bar / 2f, -middle), "gauge track");
-                var filled = bar * gauge.PercentLeft / 100f;
-                if (filled > 0f)
-                    Plate(new Vector2(filled, S(TrackTallDp)), Mathf.Min(S(TrackTallDp) / 2f, filled / 2f), White(0.62f), new Vector2(S(GaugePadXDp) + filled / 2f, -middle), "gauge fill");
+                // A new reading moves the bar from where it stood, on the standard curve; the number says the new reading at once.
+                var now = Clock();
+                if (!gaugeEases.TryGetValue(gauge.Kind, out var ease) || !Mathf.Approximately(ease.To, gauge.PercentLeft))
+                {
+                    var from = gaugeEases.ContainsKey(gauge.Kind) ? GaugeShown(gauge.Kind) : gauge.PercentLeft;
+                    gaugeEases[gauge.Kind] = (from, gauge.PercentLeft, now);
+                }
+                var shownPercent = GaugeShown(gauge.Kind);
+                var filled = bar * Mathf.Clamp(shownPercent, 0f, 100f) / 100f;
+                if (filled > 0f || gauge.PercentLeft > 0f)
+                {
+                    Plate(new Vector2(Mathf.Max(filled, 1e-4f), S(TrackTallDp)), Mathf.Min(S(TrackTallDp) / 2f, Mathf.Max(filled, 1e-4f) / 2f), White(0.62f), new Vector2(S(GaugePadXDp) + filled / 2f, -middle), "gauge fill");
+                    var fill = Plates[Plates.Count - 1].Plate;
+                    fill.gameObject.SetActive(filled > 1e-4f);
+                    gaugeFills.Add((fill, gauge.Kind, bar, middle));
+                }
                 if (notes[index] is TextMeshPro note)
                     note.transform.localPosition = new Vector3(width - S(GaugePadXDp) - RoomCursor.WordsWidth(note, 0f), -(middle - S(GaugeResetLineDp) / 2f), -RoomType.Units(0.5f));
             }

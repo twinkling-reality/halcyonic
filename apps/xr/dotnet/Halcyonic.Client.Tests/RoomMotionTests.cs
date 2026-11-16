@@ -28,6 +28,17 @@ public class RoomMotionTests
     }
 
     [Test]
+    public void AGaugeMovesToItsNewReadingOnTheStandardCurve()
+    {
+        Assert.That(RoomMotion.Gauge(0f, 62f, 40f), Is.EqualTo(62f), "it starts where it stood");
+        Assert.That(RoomMotion.Gauge(0.3f, 62f, 40f), Is.EqualTo(62f + (40f - 62f) * RoomMotion.Standard(0.5f)).Within(Close));
+        Assert.That(RoomMotion.Gauge(RoomMotion.GaugeSeconds, 62f, 40f), Is.EqualTo(40f).Within(Close));
+        Assert.That(RoomMotion.Gauge(float.PositiveInfinity, 62f, 40f), Is.EqualTo(40f), "kept still, it is at its new reading");
+        Assert.That(RoomMotion.Gauge(-1f, 10f, 90f), Is.EqualTo(10f), "before its start it is its start");
+        Assert.That(RoomMotion.Gauge(0.3f, 40f, 40f), Is.EqualTo(40f), "an unchanged reading never moves");
+    }
+
+    [Test]
     public void EaseOutIsTheCubicFastFirstThenSettling()
     {
         Assert.That(RoomMotion.EaseOut(0f), Is.EqualTo(0f));

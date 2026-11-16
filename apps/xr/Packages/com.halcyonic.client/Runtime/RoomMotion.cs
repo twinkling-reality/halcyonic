@@ -125,6 +125,15 @@ namespace Halcyonic.Client
         public static float BandHeight(float seconds, float from, float to) =>
             from + (to - from) * EaseOut((seconds - LineLeaveSeconds) / BandHeightSeconds);
 
+        /// <summary>How long a usage gauge's bar takes to move to a new reading: as a part moves (STYLE: 600 ms).</summary>
+        public const float GaugeSeconds = 0.6f;
+
+        /// <summary>
+        /// A usage gauge's bar, in percent left, <paramref name="seconds"/> after a new reading came: from the one it showed to
+        /// the new one on the standard curve, so a refreshed number is followed, never jumped to (SCREENS's and AUDIT's 2026-11-16).
+        /// </summary>
+        public static float Gauge(float seconds, float from, float to) => from + (to - from) * Standard(seconds / GaugeSeconds);
+
         /// <summary>How far the working field is in view <paramref name="seconds"/> after it starts to fade in: 600 ms, the standard curve.</summary>
         public static float FieldArrives(float seconds) => Standard(seconds / FieldSeconds);
 
