@@ -13,6 +13,7 @@ import {
   MeshBasicMaterial,
   PlaneGeometry,
   ShaderMaterial,
+  Vector2,
 } from 'three';
 import type { Player } from './instruments.js';
 import { isBlack, roundColumn, swell } from './score.js';
@@ -75,7 +76,7 @@ const FRAGMENT = /* glsl */ `
   uniform float core;
   uniform float whiten;
   uniform float ramp;
-  uniform float fade;
+  uniform vec2 fade;
   uniform float dim;
   uniform float ripple;
   uniform float time;
@@ -114,8 +115,11 @@ const FRAGMENT = /* glsl */ `
     vec3 light = (hot * inside * core * (0.45 + 0.55 * deep) + vColour * glow * 0.5) * dim * vNear * band;
     // A ramp, when asked: full at the shape's -y end, falling to the ramp's share at its +y end.
     if (ramp >= 0.0) light *= pow(mix(1.0, pow(ramp, 0.333), clamp(vPoint.y / max(vHalf.y, 1e-4) * 0.5 + 0.5, 0.0, 1.0)), 3.0);
-    // A fade, when asked: from nothing at both ends to full that share of the way in, so a shape has no end at all.
-    if (fade > 0.0) light *= smoothstep(0.0, fade, 0.5 - 0.5 * abs(vPoint.y) / max(vHalf.y + halo, 1e-4));
+    // A fade, when asked: from nothing at its -y end (fade.x) and its +y end (fade.y) to full that share of its length
+    // in from each, so a shape has no end at all.
+    float fromFoot = clamp(0.5 + 0.5 * vPoint.y / max(vHalf.y + halo, 1e-4), 0.0, 1.0);
+    if (fade.x > 0.0) light *= smoothstep(0.0, fade.x, fromFoot);
+    if (fade.y > 0.0) light *= smoothstep(0.0, fade.y, 1.0 - fromFoot);
     if (dot(light, vec3(1.0)) < 0.0004) discard;
     gl_FragColor = vec4(light, 1.0);
     #include <colorspace_fragment>
@@ -167,7 +171,7 @@ export interface Glows {
  * far the glow reaches round each shape, `round` its corner radius, both in metres; a shape whose `round` is half its
  * size is a disc; `whiten` makes the core hotter than its colour; `ramp` fades each shape from full at its -y end to
  * that share at its +y end (a drop brightest at its foot); `fade` fades it from nothing at both ends to full that share
- * of its whole length in from each (a shaft of light with no end). With `mirror`, the shapes are also seen reflected in a
+ * of its whole length in from each (a shaft of light with no end), or a pair, its -y end's share and its +y end's. With `mirror`, the shapes are also seen reflected in a
  * surface at height `level` of the object's frame, `strength` as bright, `stretch` times as tall (water stretches a
  * light's reflection downward) and `narrow` times as wide, fading the higher a shape hangs over it (`lift` metres
  * to fall to a third), broken into `ripple` bands that sway (0 for dark glass, about 9 for a lake at dusk). Add
@@ -184,7 +188,7 @@ export function glows(
     core?: number;
     whiten?: number;
     ramp?: number;
-    fade?: number;
+    fade?: number | readonly [number, number];
     mirror?: { level: number; strength?: number; stretch?: number; narrow?: number; lift?: number; ripple?: number };
   } = {},
 ): Glows {
@@ -196,7 +200,7 @@ export function glows(
     whiten: { value: options.whiten ?? 0 },
     dim: { value: dim },
     ramp: { value: options.ramp ?? -1 },
-    fade: { value: options.fade ?? 0 },
+    fade: { value: typeof options.fade === 'number' ? new Vector2(options.fade, options.fade) : new Vector2(...(options.fade ?? [0, 0])) },
     stretch: { value: stretch },
     narrow: { value: 1 },
     level: { value: 0 },
@@ -538,7 +542,7 @@ export function lightKeys(
     const s = -width / 2 + keyWidth * (black ? w : w + 0.5);
     if (!black) w += 1;
     // A black key ends a little short of the white keys' back edge, never past it.
-    const place = at(s, black ? whiteLength * 0.96 - blackLength : 0);
+    const place = at(s, black ? whiteLength * 0.9 - blackLength : 0);
     spots.push({
       midi: m,
       black,
@@ -1051,7 +1055,8 @@ export function lightHall(
     const n = Math.round((i / outer) * count) % count;
     return { x: Math.sin(a) * radius * 2.3, z: -Math.cos(a) * radius * 2.3, colour: (homes[n] as (typeof homes)[number]).colour };
   });
-  const pillars = glows(count + outer, { upright: true, halo: 0.55, round: 0.05, core: 0.18, whiten: 0.3, fade: 0.4, mirror: { level: 0, strength: 0.6, narrow: 1 } });
+  // Faded toward their tops only: at the floor each meets its own reflection, with no dark line between.
+  const pillars = glows(count + outer, { upright: true, halo: 0.55, round: 0.05, core: 0.18, whiten: 0.3, fade: [0, 0.4], mirror: { level: 0, strength: 0.6, narrow: 1 } });
   // A note's light climbing its column: a long soft glow, brightest at its head, its tail fading to nothing, so notes
   // following each other up a column run together as one light, never as stacked bars.
   const climbs = glows(200, { upright: true, halo: 0.18, round: 0.02, core: 0.6, whiten: 0.6, ramp: 0, fade: 0.12, mirror: polish });
@@ -1228,8 +1233,6 @@ export function lightHall(
           climbs.place(home.x, y - tail / 2, home.z, 1, 0, 0, 0, -1, 0, 0.05, tail, litColour[i] as Color, 1.5 * (newestLoud[i] as number) * fade * (0.5 + 0.5 * built));
         }
         pillars.add(home.x, height * 0.7, home.z, 0.14, height * 1.4, shade, 1.4 * strength);
-        // Its light lying on the floor round its foot, so the floor is seen where it stands.
-        floor.place(home.x, 0.006, home.z, 1, 0, 0, 0, 0, 1, 1.6, 1.6, shade, 0.35 * strength);
         // The bloom runs up every column at once from its foot into the light overhead.
         if (since >= 0 && since < 2.5) {
           const y = since * 5;
