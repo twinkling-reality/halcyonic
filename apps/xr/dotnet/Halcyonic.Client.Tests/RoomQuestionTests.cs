@@ -332,8 +332,8 @@ public class RoomQuestionTests
             var why = BarOf(column);
             Assert.That((why.State, why.Body.Text, why.Sentence, why.Wide), Is.EqualTo((RoomBarState.Question, "These share a name, so none can be chosen", (string?)"Duplicate Choices", false)),
                 "only the product's own words in the panel, one plain phrase, never two facts on a dot (AUDIT2's 2026-11-14T05:45Z)");
-            Assert.That(why.Band, Is.EqualTo("Red\nThe bright one\nRed\nThe dark one"),
-                "the answers, the agent's words, on the band: each its label then its description, no comma or slash of ours between them");
+            Assert.That(why.Band, Is.EqualTo("Red\nThe bright one\nThe dark one"),
+                "the answers, the agent's words, on the band: the label they share once, then each one's description, no comma or slash of ours between them");
             Assert.That(why.Body.Text, Does.Not.Contain("Red"));
             Assert.That(why.Column.Select(action => action.Control.Action), Does.Contain(FileScreens.BackAmbiguity));
             Draw();

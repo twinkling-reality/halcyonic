@@ -646,19 +646,17 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The read-alike page's words in one run: the lead, then each answer that reads alike as a pair of lines, its label
-        /// then its description, with no comma or slash of Halcyonic's between the agent's strings (the interim until the band
-        /// lays <see cref="AlikeAnswers"/> as a list).
+        /// The read-alike page's words in one run: the lead, the label they share once (they read alike, so it is the same
+        /// label), then each answer's own description on a line of its own, which is what tells them apart; no comma or slash
+        /// of Halcyonic's between the agent's strings, and within the band's three lines for two answers (the interim until
+        /// the band lays <see cref="AlikeAnswers"/> as a list).
         /// </summary>
         public static LineWords AmbiguityRuns(QuestionDraft draft, int prompt, int option)
         {
-            var words = LineWords.Ours(AlikeLead);
             var answers = AlikeAnswers(draft, prompt, option);
-            for (var index = 0; index < answers.Count; index++)
-            {
-                words = words + (index > 0 ? LineWords.Written("\n") : LineWords.None) + answers[index].Label;
-                if (answers[index].Description is LineWords description) words = words + LineWords.Written("\n") + description;
-            }
+            var words = LineWords.Ours(AlikeLead) + answers[0].Label;
+            foreach (var answer in answers)
+                if (answer.Description is LineWords description) words = words + LineWords.Written("\n") + description;
             return words;
         }
 

@@ -691,7 +691,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var frame = plane.Showing(MenuColumn.File);
                     var prompt = frame?.Footer.All.FirstOrDefault(each => (each.Prompt.Words == words || each.Prompt.Words.StartsWith(words + ", ", StringComparison.Ordinal) || each.Prompt.Words.StartsWith(words + " · ", StringComparison.Ordinal))).Prompt;
                     if (prompt != null) return prompt.Available && Press(prompt.Id);
-                    var line = frame?.Lines.FirstOrDefault(each => each.Action != null && (each.Words == words || each.Words.StartsWith(words + " · ", StringComparison.Ordinal)));
+                    var line = frame?.Lines.FirstOrDefault(each => each.Action != null && (each.Words == words || each.Words.StartsWith(words + ", ", StringComparison.Ordinal) || each.Words.StartsWith(words + " · ", StringComparison.Ordinal)));
                     return line?.Action != null && line.Available && Press(line.Action, line.Key);
                 }
                 bool ChooseWords(string words)

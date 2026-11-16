@@ -1198,7 +1198,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         var prompt = state == "34-question-alike" ? shown.Band ?? "" : workspace.QuestionToAnswer!.Prompts[state == "34-question-several" ? 1 : 0].Text;
                         if (state == "34-question-alike")
                         {
-                            Require(prompt.StartsWith("Dark", StringComparison.Ordinal) && prompt.Contains(" / "), "the band does not hold the answers that read alike: \"" + prompt + "\"");
+                            Require(prompt.StartsWith("Dark\n", StringComparison.Ordinal) && prompt.Split('\n').Length == 3 && !prompt.Contains(" / ") && !prompt.Contains(", "),
+                                "the band does not hold the answers that read alike, the label once and each description: \"" + prompt + "\"");
                             Require(bar.Body.text == LabelText.ForTextMeshPro(FileScreens.AlikeLine) && shown.Sentence == FileScreens.AlikeCaption, "the panel holds \"" + bar.Body.text + "\" under \"" + shown.Sentence + "\"");
                         }
                         if (state == "34-question-writing")
