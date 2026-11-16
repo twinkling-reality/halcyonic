@@ -175,7 +175,7 @@ public sealed class RoomPanelCardsTests
             new UsageLeftRow(LineWords.TheirName("Pro") + LineWords.Ours(" · " + UsageLeftPresenter.FiveHourWindow), "At most 62% left", 62, seen: "Today 04:20", resets: "Today 08:40",
                 label: LineWords.TheirName("Pro"), window: UsageLeftPresenter.FiveHourWindow),
         };
-        Assert.That(RoomPanelCards.Usage(seen)!.Description!.Text, Is.EqualTo(RoomPanelCards.UsageLine + " Seen Today 04:20."),
+        Assert.That(RoomPanelCards.Usage(seen)!.Description!.Text, Is.EqualTo("At most what is left, as last reported Today 04:20."),
             "numbers from a read say when it was, never read as now (AUDIT, 2026-11-16 04:23Z)");
     }
     [Test]

@@ -37,10 +37,10 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The usage card's line with when the numbers were read (AUDIT's condition, 2026-11-16 04:23Z: numbers from an earlier
-        /// read say when, never read as now): the first window's own Seen time, as each row already carries it.
+        /// read say when, never read as now), one sentence (AUDIT2): "At most what is left, as last reported Today 04:20."
         /// </summary>
         public static string UsageLineSeen(IReadOnlyList<UsageLeftRow> rows) =>
-            rows.FirstOrDefault(row => !string.IsNullOrEmpty(row.Seen)) is { } seen ? UsageLine + " Seen " + seen.Seen + "." : UsageLine;
+            rows.FirstOrDefault(row => !string.IsNullOrEmpty(row.Seen)) is { } seen ? UsageLine.TrimEnd('.') + " " + seen.Seen + "." : UsageLine;
 
         /// <summary>
         /// The result at rest: the task's name as the title beside the result's picture; its facts as slots (the check, and
