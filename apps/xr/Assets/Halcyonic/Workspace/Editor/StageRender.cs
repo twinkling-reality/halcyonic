@@ -119,8 +119,9 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// New Project's place as the room moves it when the tag beside it widens (AUDIT 2026-11-16T18:04Z): the film's sentence working, then
-        /// needing the person, at 72 frames a second. The place eases to its new turn, never jumps (under 60 percent of the way after 0.1 s),
+        /// New Project's place as the room moves it when the tag beside it widens (AUDIT 2026-11-16T18:04Z): a short name working, then the
+        /// film's sentence needing the person, at 72 frames a second. Needs You alone never moves the tag's left edge (its chip stands right of
+        /// and under the name), so the case that turns the place is the name lengthening. The place eases to its new turn, never jumps (under 60 percent of the way after 0.1 s),
         /// stands on it exactly by 1 s and holds it to the pixel after; frames at 0, 0.5 and 1 s go to the folder for the look.
         /// </summary>
         private static List<string> NewProjectEasesClear(string folder)
@@ -143,7 +144,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 float PlaceX(int place) => -pitch * (places - 1) / 2f + pitch * place;
                 CharacterPresentation Shown(int index, bool needs) => needs
                     ? new CharacterPresentation("ease-tag-" + index, FilmShelfName, CharacterActivity.WaitingForHuman, "Needs You", AttentionLevel.ActionRequired, Array.Empty<string>(), 2, false, false, false)
-                    : new CharacterPresentation("ease-tag-" + index, FilmShelfName, CharacterActivity.Working, CharacterPresenter.LabelOf(CharacterActivity.Working), AttentionLevel.None, Array.Empty<string>(), 0, false, false, false);
+                    : new CharacterPresentation("ease-tag-" + index, "Kite Run", CharacterActivity.Working, CharacterPresenter.LabelOf(CharacterActivity.Working), AttentionLevel.None, Array.Empty<string>(), 0, false, false, false);
                 var views = new List<CharacterView>();
                 for (var index = 0; index < capacity; index++)
                 {
@@ -213,7 +214,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 var change = end - start;
-                if (change < 0.2f) failures.Add("New Project's place needs no new turn when the film's tag comes to need the person (" + GlazeChecks.Degrees(change) + " degrees), so its easing is not shown, at text scale " + scale);
+                if (change < 0.2f) failures.Add("New Project's place needs no new turn when the tag's short name gives way to the film's sentence (" + GlazeChecks.Degrees(change) + " degrees), so its easing is not shown, at text scale " + scale);
                 if (atTenth is float tenth && tenth - start > 0.6f * change) failures.Add("New Project's place jumps: " + GlazeChecks.Degrees(tenth - start) + " of its " + GlazeChecks.Degrees(change) + " degrees in 0.1 s, at text scale " + scale);
                 // No hunting (AUDIT 18:12Z condition 3): from 1 s the clear turn itself holds, within Eased's own snap, every frame.
                 for (var frame = fps + 1; frame <= frames; frame++)
@@ -223,7 +224,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         break;
                     }
                 if (settled.Count == 0 || settled.Any(each => each != 0f)) failures.Add("New Project's place does not stand still on its turn from 1 s, at text scale " + scale);
-                Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place eases " + GlazeChecks.Degrees(change) + " degrees further left as the film's tag comes to need the person: "
+                Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place eases " + GlazeChecks.Degrees(change) + " degrees further left as the tag's short name gives way to the film's sentence needing the person: "
                     + GlazeChecks.Degrees((atTenth ?? start) - start) + " in 0.1 s, at most " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " in a frame, still from 1 s.");
             }
             catch (Exception error) { failures.Add(error.ToString()); }
