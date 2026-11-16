@@ -319,7 +319,12 @@ namespace Halcyonic.Client
         public const string AddItAgain = "Re-Add Task in Projects";
 
         /// <summary>A state's words before a cause, in the " · " cadence: "Start Failed · No Folder · Choose Folder".</summary>
-        internal static string Lead(string state, string why) => state + " · " + why;
+        internal static string Lead(string state, string why) =>
+            why.EndsWith(".", StringComparison.Ordinal) ? state + ": " + LowerFirst(why) : state + " · " + why;
+
+        /// <summary>A sentence after a colon with its first letter lowered, as WORDS.md does; a word of capitals (AI) stays.</summary>
+        private static string LowerFirst(string why) =>
+            why.Length > 0 && char.IsUpper(why[0]) && (why.Length == 1 || !char.IsUpper(why[1])) ? char.ToLowerInvariant(why[0]) + why.Substring(1) : why;
 
         /// <summary>Said beside what someone other than your computer reported: the agent's own check and its words.</summary>
         public const string Reported = "Reported";

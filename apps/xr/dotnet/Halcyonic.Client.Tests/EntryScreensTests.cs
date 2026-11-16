@@ -63,7 +63,7 @@ public class EntryScreensTests
 
         Assert.That(Problem(true, state, true, idea, empty), Is.EqualTo(EntryText.DemoCannotStart));
         Assert.That(Problem(false, state, false, idea, empty), Is.EqualTo(EntryText.WaitingForMac));
-        Assert.That(Problem(false, state, true, new ProjectIdea(), empty), Is.EqualTo("Name · Up to 200 Characters"));
+        Assert.That(Problem(false, state, true, new ProjectIdea(), empty), Is.EqualTo("A name can be up to 200 characters."));
         Assert.That(Problem(false, state, true, idea, empty), Is.EqualTo(EntryText.ChooseHowItRuns));
         Assert.That(Problem(false, WithRuntimes(Listing("other")), true, idea, Draft(runtime)), Is.EqualTo(EntryText.ChooseAgain));
         Assert.That(Problem(false, state, true, idea, Draft(runtime)), Is.EqualTo(EntryText.FinishChoosing));

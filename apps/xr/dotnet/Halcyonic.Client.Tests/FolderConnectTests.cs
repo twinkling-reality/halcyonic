@@ -111,7 +111,7 @@ public class FolderConnectTests
         Assert.That(connection.Connected, Is.True);
         Assert.That(connection.ProjectId, Is.EqualTo(ProjectA));
         Assert.That(connection.Unresolved, Is.Null);
-        Assert.That(ConnectText.OutcomeRuns(connection).ToString(), Is.EqualTo("Connected · [shop] · Add Task"));
+        Assert.That(ConnectText.OutcomeRuns(connection).ToString(), Is.EqualTo("[shop] is connected. Add a task."));
     }
 
     [Test]
@@ -125,7 +125,7 @@ public class FolderConnectTests
             Rejection = new CommandRejection { Code = RejectionCode.LocationMissing, Message = "/Users/person/Projects/shop is not there." },
         }));
         Assert.That(connection.CanRetry, Is.True);
-        Assert.That(ConnectText.Outcome(connection), Does.StartWith("Connect Refused · "));
+        Assert.That(ConnectText.Outcome(connection), Does.StartWith("Connect Refused: "));
         Assert.That(ConnectText.Outcome(connection), Does.Not.Contain("/Users/person"), "the next step from the code, not the host's path");
         var again = connection.Retry();
         Assert.That(again.CommandId, Is.Not.EqualTo(command.CommandId));
@@ -170,9 +170,9 @@ public class FolderConnectTests
         // With no effect, the outcome is what Halcyonic knows of the code, else that nothing changed.
         foreach (var (code, words) in new[]
         {
-            ("internal_error", "Connect Failed · Nothing Changed · Retry"),
-            ("runtime_unreachable", "Connect Failed · Agent App Unreachable · Check App and Retry"),
-            ("location_not_created", "Connect Failed · Folder Not Made · Nothing Changed · Choose Another"),
+            ("internal_error", "Connect Failed: nothing changed. Try again."),
+            ("runtime_unreachable", "Connect Failed: the agent app can't be reached. Check it and try again."),
+            ("location_not_created", "Connect Failed: the folder wasn't made and nothing changed. Choose another."),
         })
         {
             var connection = Begun(out var command);
@@ -194,7 +194,7 @@ public class FolderConnectTests
         lost.Advance(With());
         Assert.That(lost.CanRetry, Is.False);
         Assert.That(lost.Unresolved, Is.EqualTo(command.CommandId));
-        Assert.That(ConnectText.Outcome(lost), Does.StartWith("Connect Unconfirmed · "));
+        Assert.That(ConnectText.Outcome(lost), Does.StartWith("Connecting "));
         Assert.Throws<InvalidOperationException>(() => lost.Retry());
 
         var failed = new FolderConnection(FolderConnect.Offers(Listing(Root("Projects", Folder("shop")))).Single(), Commands);
@@ -205,7 +205,7 @@ public class FolderConnectTests
             Failure = new CommandFailure { Code = "timeout", Message = "No answer.", Effect = FailureEffect.Unknown },
         }));
         Assert.That(failed.CanRetry, Is.False);
-        Assert.That(ConnectText.Outcome(failed), Does.StartWith("Connect Unconfirmed · "));
+        Assert.That(ConnectText.Outcome(failed), Does.StartWith("Connecting "));
 
         var notSent = new FolderConnection(FolderConnect.Offers(Listing(Root("Projects", Folder("shop")))).Single(), Commands);
         notSent.Begin();
@@ -378,7 +378,7 @@ public class FolderConnectTests
         Assert.That(screen.Actions.Primary!.Available, Is.False);
         Assert.That(screen.Actions.Primary.Reason, Is.EqualTo(ConnectText.WaitingOn(shop)));
         // A prompt's reason holds Halcyonic's words alone, so it names no folder.
-        Assert.That(screen.Actions.Primary.Reason, Does.Not.Contain("shop").And.Contain("Other Folder"));
+        Assert.That(screen.Actions.Primary.Reason, Does.Not.Contain("shop").And.Contain("other folder"));
     }
 
     [Test]

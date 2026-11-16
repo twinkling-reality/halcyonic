@@ -45,9 +45,9 @@ namespace Halcyonic.Client
         public const string TypeName = "Type Name";
 
         /// <summary>What a name or first task must be, said where it can't be kept as it is.</summary>
-        public const string NameRule = "Name · Up to 200 Characters";
+        public const string NameRule = "A name can be up to 200 characters.";
         public const string DescribeTask = "Describe First Task";
-        public const string ShortenTask = "First Task · Up to 4,000 Characters";
+        public const string ShortenTask = "The first task can be up to 4,000 characters.";
 
         /// <summary>The words page's line for a new folder: the folder list's own words for it.</summary>
         public static string NewFolderIn(LocationRoot root) => ProjectFolder.NewFolderLabel(root);
@@ -75,9 +75,9 @@ namespace Halcyonic.Client
         public const string WhatFirstTask = "First Task Goal";
 
         public const string FolderTitle = "Folder";
-        public const string FolderLine = "Allowed Folders · New Folder Starts Empty";
+        public const string FolderLine = "Only folders you allowed can be used. A new folder starts empty.";
         public const string ReadingFolders = "Reading Folders";
-        public const string NoFolders = "No Folders Allowed · Allow on Computer · Try Again";
+        public const string NoFolders = "No folder is allowed yet. Allow one on your computer and try again.";
         public const string FoldersCut = "First 200 Folders Only";
         public const string NewFolderPrompt = "New Folder Name";
         public const string NewFolderRule = "Up to 64 letters, digits, dots, dashes or underscores, starting with a letter or digit";
@@ -87,7 +87,7 @@ namespace Halcyonic.Client
         /// <summary>The recap's main action where Start Building waits on run settings: the choice itself, one press to its page.</summary>
         public const string ChooseAgentApp = "Choose Agent App";
         public const string ChooseModel = "Choose Model";
-        public const string RebindWarning = "Later Tasks Use New Folder · Running Tasks Keep Theirs";
+        public const string RebindWarning = "Later tasks use the new folder. Running tasks keep theirs.";
 
         /// <summary>
         /// The folders couldn't be read: this line, then why on the next, in Halcyonic's own words from
@@ -139,8 +139,8 @@ namespace Halcyonic.Client
             return null;
         }
 
-        public const string FoldersUnanswered = "No Answer · Check App · Try Again";
-        public const string FoldersTurnedAway = "Computer Busy · Too Many Tries · Retry in 1 min";
+        public const string FoldersUnanswered = "Your computer didn't answer. Check the app there and try again.";
+        public const string FoldersTurnedAway = "Your computer paused this headset after too many tries. Try again in a minute.";
 
         public const string FoldersNotConnected = "your computer isn't connected. Try again when it is.";
 
@@ -194,16 +194,16 @@ namespace Halcyonic.Client
         public static string? FolderProblem(RejectionCode? refusal, string? failure)
         {
             if (refusal == RejectionCode.LocationRequired || failure == "location_required")
-                return "No Folder · Choose Folder";
+                return "No folder is chosen. Choose one.";
             if (refusal == RejectionCode.LocationMissing || failure == "location_missing")
                 // The host also answers this for a folder or place that is there but cannot be read.
-                return "Folder Unusable · Choose Again or Fix on Computer";
+                return "That folder can't be used. Choose another or fix it on your computer.";
             if (refusal == RejectionCode.LocationNotAllowed || failure == "location_not_allowed")
-                return "Folder Not Allowed · Choose Listed Folder";
+                return "That folder isn't allowed. Choose one from the list.";
             if (refusal == RejectionCode.LocationExists || failure == "location_exists")
-                return "Folder Exists · Use It or Rename";
+                return "That folder already exists. Use it or give it another name.";
             if (failure == "location_not_created")
-                return "Folder Not Made · Nothing Changed · Choose Another";
+                return "The folder wasn't made and nothing changed. Choose another.";
             return null;
         }
 
@@ -211,11 +211,11 @@ namespace Halcyonic.Client
         public static bool AboutFolder(BuildStep step) => !step.EffectUnknown && FolderProblem(step.Refusal, step.Failure) != null;
 
         public const string OptionsLine = "Choose an agent app, then its model";
-        public const string NoRuntimes = "No Agent App Available · Set Up on Computer";
+        public const string NoRuntimes = "No agent app is available. Set one up on your computer.";
         public const string ChangeAgentApp = "Change Agent App";
         public const string ListsModels = "Model · Your Choice";
         public const string ChoosesModel = "Model · App's Choice";
-        public const string NoModels = "No Models Offered · Change Agent App";
+        public const string NoModels = "This agent app offers no models. Choose another agent app.";
 
         /// <summary>
         /// Why the agent app's models couldn't be read, by the reason's code, never its message, which is the
@@ -230,12 +230,12 @@ namespace Halcyonic.Client
             _ => ModelsUnreadable,
         };
 
-        public const string ModelsUnanswered = "Models Unreadable · Agent App Silent · Check Setup";
+        public const string ModelsUnanswered = "The models couldn't be read: the agent app didn't answer. Check its setup.";
         /// <summary>The headset gave up waiting for your computer, past the 40 s a models read may take (settled by the coordinator, 2026-10-07).</summary>
-        public const string ModelsComputerSilent = "Models Unreadable · No Answer · Choose Again to Retry";
-        public const string ModelsUnreadable = "Models Unreadable · Choose Again to Retry";
-        public const string ModelsUnsupported = "Models Unreadable · Version Unsupported · Choose Another";
-        public const string ModelsNotConnected = "Models Unreadable · Not Connected · Retry When Connected";
+        public const string ModelsComputerSilent = "The models couldn't be read: no answer came. Choose again to try once more.";
+        public const string ModelsUnreadable = "The models couldn't be read. Choose again to try once more.";
+        public const string ModelsUnsupported = "The models couldn't be read: this version isn't supported. Choose another.";
+        public const string ModelsNotConnected = "The models couldn't be read: your computer isn't connected. Try again when it is.";
         public const string ChosenForYou = "Chosen for You";
 
         /// <summary>A simulated agent app in the recorded demonstration, which keeps its name.</summary>
@@ -280,7 +280,7 @@ namespace Halcyonic.Client
         /// (from 0) of <paramref name="pages"/>: the page it turns to, or First page on the last, as the
         /// menu's pager says (<see cref="Footer.NextPageWords"/>) and the review's row counts.
         /// </summary>
-        public static string NextPage(int page, int pages) => page == pages - 1 ? "First Page" : "Next Page · " + Count(page + 2) + " of " + Count(pages);
+        public static string NextPage(int page, int pages) => page == pages - 1 ? "First Page" : "Next Page, " + Count(page + 2) + " of " + Count(pages);
 
         /// <summary>The pager's words, everywhere in the entry panel: a word with its direction, never Back, which leaves the screen.</summary>
         public const string Previous = "Previous";
@@ -359,7 +359,7 @@ namespace Halcyonic.Client
         public const string ChooseHowItRuns = "Choose Run Settings";
         public const string ChooseAgain = "Those run settings aren't available. Choose again.";
         public const string FinishChoosing = "Finish Run Settings";
-        public const string ProjectGone = "Project Missing · Choose Another";
+        public const string ProjectGone = "That project is gone. Choose another.";
         public const string ChooseWhereFilesLive = "Choose Folder";
 
         public static string CreateTitle(string? existingProject) => existingProject == null ? CreateProject : "New Task · " + existingProject;
@@ -522,7 +522,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>The recap's note after focus left a review whose final press waited.</summary>
-        public const string ReviewAfresh = "Not Started · Window Changed · Recheck";
+        public const string ReviewAfresh = "Nothing was started: you moved to another panel. Check it again.";
 
         /// <summary>A simulated runtime in a live session, named for what it does, so no one takes it for a real one.</summary>
         public const string PracticeRun = "Practice Run";

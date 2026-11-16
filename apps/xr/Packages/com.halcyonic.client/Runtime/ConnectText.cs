@@ -22,12 +22,12 @@ namespace Halcyonic.Client
         public const string LooksLikeAnother = "Similar Name";
 
         /// <summary>Under a folder whose shown name looks like another's: how to tell them apart.</summary>
-        public const string CheckWhichOne = "Similar Name · Check Place and Date";
+        public const string CheckWhichOne = "A project has a similar name. Check its place and date.";
 
         /// <summary>Connect waits while another folder's connection may still be on its way.</summary>
         /// <remarks>It stands where a prompt's reason does, which holds Halcyonic's words alone, so it names no folder (settled by the coordinator, 2026-10-08).</remarks>
         public static string WaitingOn(ConnectableFolder other) =>
-            "Awaiting Other Folder · Connect Waits";
+            "Waiting for the other folder. Connecting waits until then.";
 
         /// <summary>
         /// Connect waits on another folder's connection: still on its way, or sent with an outcome nobody
@@ -35,7 +35,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string WaitingOn(FolderConnection other) => other.Step.Status == BuildStepStatus.Waiting
             ? WaitingOn(other.Folder)
-            : "Other Folder Unconfirmed · Check Projects · Connect Waits";
+            : "The other folder isn't confirmed. Check Projects. Connecting waits until then.";
 
         /// <summary>A name from outside inside one of Halcyonic's sentences, leaning on Halcyonic's ground so it never reads as Halcyonic's words.</summary>
         public static LineWords Named(string name) => LineWords.TheirName(WorkspaceText.Truncate(LabelText.Name(name), NameLimit));
@@ -78,7 +78,7 @@ namespace Halcyonic.Client
             var step = connection.Step;
             if (connection.Connected)
             {
-                return LineWords.Ours("Connected · ") + Named(connection.Folder.ProjectName) + LineWords.Ours(" · Add Task");
+                return Named(connection.Folder.ProjectName) + LineWords.Ours(" is connected. Add a task.");
             }
             LineWords Ours(string words) => LineWords.Written(words);
             return step.Status switch
@@ -90,7 +90,7 @@ namespace Halcyonic.Client
                 // A failure that may have had an effect is never put in words that say nothing happened.
                 BuildStepStatus.Failed when !step.EffectUnknown => Ours(WorkspaceText.Couldnt("Connect Failed", (EntryText.FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged)),
                 BuildStepStatus.NotSent => Ours(NotConnectedYet),
-                _ => Ours("Connect Unconfirmed · ") + Named(connection.Folder.ProjectName) + Ours(" · Check Projects"),
+                _ => Ours("Connecting ") + Named(connection.Folder.ProjectName) + Ours(" isn't confirmed. Check Projects."),
             };
         }
 

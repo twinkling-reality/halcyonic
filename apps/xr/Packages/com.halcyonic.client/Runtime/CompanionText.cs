@@ -31,8 +31,8 @@ namespace Halcyonic.Client
         /// <summary>The companion's line, quoted and tagged as its own.</summary>
         public static string Says(string line) => "Companion · " + LabelText.Plain(line);
 
-        public const string ThinksUnclear = "Companion · Unclear";
-        public const string ThinksNotBuildable = "Companion · Not Buildable as Software";
+        public const string ThinksUnclear = "That wasn't clear. Say it another way.";
+        public const string ThinksNotBuildable = "That doesn't sound like something software can do. Try another idea.";
 
         /// <summary>The companion's view, as its opinion, or null when it found the idea clear.</summary>
         public static string? View(CompanionView view) => view switch
@@ -100,10 +100,10 @@ namespace Halcyonic.Client
         public const string NotAsked = "Not Asked, your computer turned the question away";
 
         /// <summary>The person's words are longer than the companion takes.</summary>
-        public static string TooLong(int limit) => "Too Long · Under " + limit.ToString("N0", CultureInfo.InvariantCulture) + " Characters";
+        public static string TooLong(int limit) => "Too long. Keep it under " + limit.ToString("N0", CultureInfo.InvariantCulture) + " characters.";
 
         /// <summary>The exchange holds all it can: only the recap is left.</summary>
-        public const string Full = "Companion Full · Make Recap or Continue Without";
+        public const string Full = "This conversation is as long as it can be. Make the recap, or go on without it.";
 
         /// <summary>Why the companion can't be asked, from the Mac's code (<c>GET /api/companion</c>), never from its message.</summary>
         public static string Unavailable(string? code) => code == "companion_not_set_up" ? NotSetUp : CantRun;

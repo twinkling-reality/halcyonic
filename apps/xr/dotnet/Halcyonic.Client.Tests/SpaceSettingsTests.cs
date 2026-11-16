@@ -45,7 +45,7 @@ public class SpaceSettingsTests
         Assert.That(Read(rows, SpaceSettings.ResetPosition).Value, Is.EqualTo("Default"));
         moved = true;
         var dragged = Read(rows, SpaceSettings.ResetPosition);
-        Assert.That((dragged.Value, dragged.Now, dragged.Prompt), Is.EqualTo(("Moved", "Position · Moved", "Reset Position")));
+        Assert.That((dragged.Value, dragged.Now, dragged.Prompt), Is.EqualTo(("Moved", "Moved from where it started.", "Reset Position")));
         moved = false;
         Assert.That(Read(rows, SpaceSettings.ResetPosition).Value, Is.EqualTo("Default"), "Reset position put it back");
     }
@@ -122,7 +122,7 @@ public class SpaceSettingsTests
 
         pairing = new PairingNow("192.168.1.23:47801", PairingStep.Idle, true);
         now = Read(rows, SpaceSettings.Pairing);
-        Assert.That((now.Value, now.Now, now.Prompt, now.Reason), Is.EqualTo(("Paired", "Paired · 192.168.1.23:47801", "Forget Computer", (string?)null)));
+        Assert.That((now.Value, now.Now, now.Prompt, now.Reason), Is.EqualTo(("Paired", "Paired with 192.168.1.23:47801.", "Forget Computer", (string?)null)));
         Assert.That((now.Confirm, now.ValueIsData), Is.EqualTo(("Confirm", true)), "Settings asks first, and the address shows as data");
 
         pairing = new PairingNow("192.168.1.23:47801", PairingStep.Forgetting, true);
@@ -306,7 +306,7 @@ public class SpaceSettingsTests
         boundary = new BoundaryNow(BoundaryStep.KeptOn, roomShows: true);
         var kept = Read(rows, SpaceSettings.ToggleBoundary);
         Assert.That((kept.Value, kept.Now, kept.Next, kept.Does, kept.Prompt), Is.EqualTo(("Kept On",
-            "Headset Kept It On · Asks Again", "Shown", "Stops Asking", "Stop Asking")));
+            "The headset kept it on and asks again.", "Shown", "Stops Asking", "Stop Asking")));
 
         rows.Single(row => row.Key == SpaceSettings.ToggleBoundary).Change();
         Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.ToggleBoundary }));

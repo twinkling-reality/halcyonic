@@ -267,7 +267,7 @@ public class QuestionTests
         var unconfirmed = new CommandFailure { Code = "question_unconfirmed", Message = "Codex did not confirm.", Effect = FailureEffect.Unknown };
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed, unconfirmed)).Text, Is.EqualTo(WorkspaceText.AnswerNotConfirmed));
         var gone = new CommandRejection { Code = RejectionCode.QuestionNotFound, Message = "Question question-1 is not pending." };
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected, rejection: gone)).Text, Is.EqualTo("Answer Refused · Question Closed · See Activity"));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected, rejection: gone)).Text, Is.EqualTo("Answer Refused: that question has closed. See Activity."));
     }
 
     [Test]

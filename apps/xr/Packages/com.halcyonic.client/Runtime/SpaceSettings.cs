@@ -158,8 +158,8 @@ namespace Halcyonic.Client
 
         /// <summary>The menu's row: where it stands by itself, or where the person dragged it until Reset position.</summary>
         private static SettingNow Menu(bool moved) => moved
-            ? new SettingNow("Moved", "Position · Moved", "Default", "Back in Front · Within Reach", "Reset Position")
-            : new SettingNow("Default", "Position · Default", "Default", "Back in Front · Within Reach", "Reset Position");
+            ? new SettingNow("Moved", "Moved from where it started.", "Default", "It comes back in front of you, within reach.", "Reset Position")
+            : new SettingNow("Default", "Where it started.", "Default", "It comes back in front of you, within reach.", "Reset Position");
 
         private static SettingNow Space(RoomStatus? room)
         {
@@ -177,7 +177,7 @@ namespace Halcyonic.Client
             : now.Offer switch
             {
                 RoomOffer.AllowRoomAccess => new SettingNow("No Access", room.Line, RoomStatus.OfferLabel(now.Offer),
-                    "Headset Asks Again · Characters Can Use Desk", RoomStatus.OfferLabel(now.Offer)),
+                    "The headset asks again, then characters can use the desk.", RoomStatus.OfferLabel(now.Offer)),
                 RoomOffer.SetUpRoom => new SettingNow("Not Set Up", room.Line, RoomStatus.OfferLabel(now.Offer),
                     "Space Setup Captures Room", RoomStatus.OfferLabel(now.Offer)),
                 _ => new SettingNow("Ready", room.Line, "Nothing to Set Up", "Nothing More Needed", "Set Up Room",
@@ -194,7 +194,7 @@ namespace Halcyonic.Client
             var page = now.ShelfPage;
             var available = now.AgentsEnabled && now.ShelfPlaced && page != null && (previous ? page.Previous : page.Next);
             return new SettingNow(page?.Summary ?? "No Agent Selected", page?.Title ?? "Choose Agent",
-                previous ? "Previous Agent" : "Next Agent", "One Label at a Time · Tasks Stay in Workspace",
+                previous ? "Previous Agent" : "Next Agent", "One label at a time. Tasks stay in the workspace.",
                 previous ? "Previous Agent" : "Next Agent", available ? null : "No " + (previous ? "Previous" : "Next") + " Agent",
                 nowRuns: page?.Title != null ? LineWords.TheirName(page.Title) : null);
         }
@@ -211,7 +211,7 @@ namespace Halcyonic.Client
             {
                 BoundaryStep.Asked => new SettingNow("Hide Requested", "Hide Unconfirmed", "Shown", Again, "Show Boundary"),
                 BoundaryStep.Hidden => new SettingNow("Hidden", "Hidden While Room Shows", "Shown", Again, "Show Boundary"),
-                BoundaryStep.KeptOn => new SettingNow("Kept On", "Headset Kept It On · Asks Again", "Shown",
+                BoundaryStep.KeptOn => new SettingNow("Kept On", "The headset kept it on and asks again.", "Shown",
                     "Stops Asking", "Stop Asking"),
                 _ => new SettingNow("Shown", "Drawn as Set Up", "Hidden While Room Shows",
                     "Returns When Room Stops or App Pauses", "Hide Boundary",
@@ -221,7 +221,7 @@ namespace Halcyonic.Client
 
         private static SettingNow Shelf(SpaceNow now) => new SettingNow(now.ShelfPlaced ? "Placed" : "Not Placed",
             now.ShelfPlaced ? (now.ShelfPage?.Summary ?? "Placed This Session") : "No Shelf Until Apply",
-            "Move Shelf", "Move Preview · Apply or Cancel", now.ShelfPlaced ? "Move Shelf" : "Place Shelf",
+            "Move Shelf", "A preview of the move. Apply it or cancel.", now.ShelfPlaced ? "Move Shelf" : "Place Shelf",
             now.Room == null ? RoomUnread : null);
 
         private static SettingNow Paired(PairingNow? pairing)
@@ -234,9 +234,9 @@ namespace Halcyonic.Client
             {
                 case PairingStep.Typing:
                 case PairingStep.Pairing:
-                    return new SettingNow("Pairing", "Pairing · Computer", Pair, "After Pairing", Pair, "Pairing Under Way");
+                    return new SettingNow("Pairing", "Pairing with your computer.", Pair, "After Pairing", Pair, "Pairing Under Way");
                 case PairingStep.Forgetting:
-                    return new SettingNow("Forgetting", "Forgetting · Computer", Forget, "After Forgetting", Forget, "Forgetting Under Way");
+                    return new SettingNow("Forgetting", "Forgetting your computer.", Forget, "After Forgetting", Forget, "Forgetting Under Way");
             }
             if (pairing.Address == null)
             {
@@ -245,7 +245,7 @@ namespace Halcyonic.Client
                     pairing.Keyboard ? null : "Needs Headset Keyboard");
             }
             // Forgetting asks first, Settings' own Yes; the address is the person's typing, shown as data.
-            return new SettingNow("Paired", "Paired · " + pairing.Address, Forget, AgainNeeded, Forget,
+            return new SettingNow("Paired", "Paired with " + pairing.Address + ".", Forget, AgainNeeded, Forget,
                 confirm: "Confirm", valueIsData: true, about: pairing.Address, destructive: true);
         }
     }

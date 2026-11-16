@@ -819,11 +819,11 @@ public class NewProjectFlowTests
         static string Refusal(string code) => HalcyonicJson.Serialize(new ErrorResponse { Error = new ErrorBody { Code = code, Message = Leak } });
         var cases = new (Action<Routes> Fail, string Shown)[]
         {
-            (routes => routes.Unreachable["GET /api/locations"] = Leak, "No Answer · Check App · Try Again"),
+            (routes => routes.Unreachable["GET /api/locations"] = Leak, "Your computer didn't answer. Check the app there and try again."),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.Unauthorized, Refusal("device_revoked")), ConnectionText.PairingRefused),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.Unauthorized, Refusal("unauthorized")), ConnectionText.AccessTokenRefused),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.TooManyRequests, Refusal("too_many_requests")),
-                "Computer Busy · Too Many Tries · Retry in 1 min"),
+                "Your computer paused this headset after too many tries. Try again in a minute."),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.InternalServerError, Refusal("internal_error")), "Try Again"),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.BadGateway, Leak), "Try Again"),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.InternalServerError, Refusal("device_revoked")), "Try Again"),

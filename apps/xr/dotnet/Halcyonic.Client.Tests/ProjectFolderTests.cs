@@ -352,8 +352,8 @@ public class FolderRefusalTests
         {
             Assert.That(EntryText.FolderProblem(code, null), Is.Not.Null, code.ToString());
         }
-        Assert.That(EntryText.FolderProblem(null, "location_not_created"), Does.Contain("Nothing Changed"));
-        Assert.That(EntryText.FolderProblem(null, "location_missing"), Is.EqualTo("Folder Unusable · Choose Again or Fix on Computer"),
+        Assert.That(EntryText.FolderProblem(null, "location_not_created"), Does.Contain("nothing changed"));
+        Assert.That(EntryText.FolderProblem(null, "location_missing"), Is.EqualTo("That folder can't be used. Choose another or fix it on your computer."),
             "the host also answers location_missing for a folder it cannot read, so the words never claim it is gone");
         Assert.That(EntryText.FolderProblem(RejectionCode.InvalidState, "other"), Is.Null);
 

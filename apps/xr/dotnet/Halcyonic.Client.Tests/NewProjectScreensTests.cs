@@ -787,7 +787,7 @@ public class NewProjectStartTests
         Assert.That(EntryText.ConfirmStart, Is.EqualTo("Confirm"));
         Assert.That(EntryText.NothingStartsYet, Is.EqualTo("Nothing Starts Yet"));
         Assert.That(EntryText.RecapLine, Is.EqualTo("Editable Before Start"));
-        Assert.That(EntryText.ReviewAfresh, Does.Contain("Not Started").And.Not.Contain("building"));
+        Assert.That(EntryText.ReviewAfresh, Does.Contain("Nothing was started").And.Not.Contain("building"));
     }
 
     [Test]

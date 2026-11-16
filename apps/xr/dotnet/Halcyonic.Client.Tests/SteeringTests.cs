@@ -414,7 +414,7 @@ public class CommandSubmissionsTests
         Assert.That(submissions.FeedbackFor("e1", work.State, 5).Select(feedback => feedback.Text), Is.EqualTo(new[]
         {
             "Nothing was sent: your computer isn't connected. Try again when it is.",
-            "Refused · Not Possible Now · See Activity",
+            "Refused: that can't be done now. See Activity.",
         }));
         Assert.That(submissions.FeedbackFor("e1", work.State, 1), Has.Count.EqualTo(1));
     }

@@ -346,7 +346,7 @@ public class CompanionWordsTests
         Assert.That(CompanionText.Says("Fits a page."), Is.EqualTo("Companion · Fits a page."));
         Assert.That(CompanionText.Says("a‮b"), Is.EqualTo("Companion · " + LabelText.Plain("a‮b")));
         Assert.That(CompanionText.View(CompanionView.Clear), Is.Null);
-        Assert.That(CompanionText.View(CompanionView.NotBuildable), Does.StartWith("Companion · "));
+        Assert.That(CompanionText.View(CompanionView.NotBuildable), Is.EqualTo(CompanionText.ThinksNotBuildable));
     }
 
     [Test]

@@ -384,7 +384,7 @@ public class ProjectIdeaTests
     public void TheRecapStaysWithinTheContract()
     {
         var idea = new ProjectIdea();
-        Assert.That(idea.Problem, Is.EqualTo("Name · Up to 200 Characters"));
+        Assert.That(idea.Problem, Is.EqualTo("A name can be up to 200 characters."));
         idea.UseIdea(new string('x', 4001));
         Assert.That(idea.Name.Length, Is.EqualTo(ProjectIdea.SuggestedNameLength));
         Assert.That(idea.Problem, Does.Contain("4,000"));

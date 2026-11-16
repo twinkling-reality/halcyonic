@@ -103,7 +103,7 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/ConnectText.cs",
-    "answer": "Ours(\"Connect Unconfirmed · \") + Named(connection.Folder.ProjectName) + Ours(\" · Check Projects\")",
+    "answer": "Ours(\"Connecting \") + Named(connection.Folder.ProjectName) + Ours(\" isn't confirmed. Check Projects.\")",
     "count": 1,
     "why": "true: Only Unknown, Unexpected and Failed with an unknown effect reach it in practice (NotYet ends at Begin), and Connect Unconfirmed with Check Projects is true for each."
   },

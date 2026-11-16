@@ -40,7 +40,7 @@ namespace Halcyonic.Client
         // Why no folder is listed: a row, and its side panel's subject; Try again stands in the footer.
         public const string FoldersUnread = "Folders Unreadable";
         public const string NoFolders = "No Folders Allowed";
-        public const string AllowAFolder = "Allow on Computer · Try Again";
+        public const string AllowAFolder = "Allow a folder on your computer and try again.";
 
         /// <summary>The problems as a card's status lines (FIELD, 2026-11-12), the redesign's in place of the side panel.</summary>
         public const string FoldersUnreadLine = "Your computer couldn't list its folders";
@@ -62,7 +62,7 @@ namespace Halcyonic.Client
         public const string MoreRoom = "No Room";
 
         /// <summary>Under a project whose shown name looks like another project's or a free folder's.</summary>
-        public const string ProjectLooksAlike = "Similar Name Exists · Check Its Work";
+        public const string ProjectLooksAlike = "A project has a similar name. Check its work.";
 
         /// <summary>
         /// A project's small fact on its row: what matters most, what waits for the person first, as a

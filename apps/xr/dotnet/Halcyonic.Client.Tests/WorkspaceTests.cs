@@ -157,10 +157,10 @@ public class ActivityLogTests
         });
         Assert.That(log.For(execution).Select(entry => entry.Text), Is.EqualTo(new[]
         {
-            "Instruction Failed · Agent App Unreachable · See Activity · Re-Add Task if Stuck",
+            "Instruction Failed: the agent app can't be reached. See Activity and add the task again if it's stuck.",
             "Delivery Unconfirmed · Check Activity",
-            "Start Failed · Agent App Unreachable · Check Agent App and Retry",
-            "Start Failed · Folder Unusable · Choose Again or Fix on Computer",
+            "Start Failed: the agent app can't be reached. Check it and try again.",
+            "Start Failed: that folder can't be used. Choose another or fix it on your computer.",
             "Round Failed",
         }), "an effect that can't be ruled out is never said as Couldn't");
         Assert.That(log.For(execution).Select(entry => entry.Text), Has.None.Contains("ECONNREFUSED").And.None.Contains("OpenCode").And.None.Contains("/Users/"));
@@ -174,14 +174,14 @@ public class ActivityLogTests
     public void AFailedStartNeverSaysToSeeWhatItsDoing()
     {
         var execution = "01a0dcf1-5e68-7034-8b08-109e41ae25e9";
-        const string LostTouch = "Agent App Unreachable · Check Agent App and Retry";
+        const string LostTouch = "the agent app can't be reached. Check it and try again.";
         var log = new ActivityLog();
         log.Record(new[]
         {
             Journaled(1, "command.failed", "{\"command_id\":\"01a0dcf1-6e6c-74af-93ca-dea260db9472\",\"command_type\":\"execution.start\","
                 + "\"failure\":{\"code\":\"runtime_unreachable\",\"message\":\"gone\",\"effect\":\"none\"}}", execution),
         });
-        Assert.That(log.For(execution).Single().Text, Is.EqualTo("Start Failed · " + LostTouch));
+        Assert.That(log.For(execution).Single().Text, Is.EqualTo("Start Failed: " + LostTouch));
 
         var start = new CommandView
         {
@@ -189,7 +189,7 @@ public class ActivityLogTests
             ProjectId = Samples.ProjectId, WorkstreamId = "w1", ExecutionId = execution, IssuedAt = Samples.Time, UpdatedAt = Samples.Time,
             Failure = new CommandFailure { Code = "runtime_unreachable", Message = "gone", Effect = FailureEffect.None },
         };
-        Assert.That(WorkspacePresenter.Feedback(start).Text, Is.EqualTo("Failed · " + LostTouch));
+        Assert.That(WorkspacePresenter.Feedback(start).Text, Is.EqualTo("Failed: " + LostTouch));
 
         // A refusal coded demonstration is said in its own words only in the demonstration: a live control plane's
         // message is never shown (the outside-text audit's gap 5).
@@ -203,22 +203,22 @@ public class ActivityLogTests
         Assert.That(WorkspacePresenter.Feedback(refused).Text, Does.Not.Contain("203.0.113.9").And.StartWith("Refused"));
         Assert.That(WorkspacePresenter.Feedback(refused, demonstration: true).Text, Is.EqualTo(Lure), "the recording's own words");
         start.Failure.Code = "codex_other";
-        Assert.That(WorkspacePresenter.Feedback(start).Text, Is.EqualTo("Failed · " + WorkspaceText.NothingChanged));
+        Assert.That(WorkspacePresenter.Feedback(start).Text, Is.EqualTo("Failed: nothing changed. Try again."));
 
         var never = Samples.Execution(execution, "w1", ExecutionStatus.Failed);
         never.StartedAt = null;
         never.TurnCount = 0;
         never.StatusReason = new ErrorInfo { Code = "runtime_unreachable", Message = "gone" };
-        Assert.That(StateLanguage.CouldNotFinish(never, null).Note, Is.EqualTo("Start Failed · " + LostTouch));
+        Assert.That(StateLanguage.CouldNotFinish(never, null).Note, Is.EqualTo("Start Failed: " + LostTouch));
 
         Assert.That(WorkspaceText.WhyRefused(RejectionCode.DeviceRevoked), Is.EqualTo(ConnectionText.PairingRefused), "one sentence for a revoked pairing");
 
         // A start that fails the same way again is never told just to try again (the review's L5).
         foreach (var (code, words) in new[]
         {
-            ("runtime_unavailable", "Start Failed · Agent App Unavailable · Check Setup · Re-Add Task"),
-            ("runtime_version_unsupported", "Start Failed · Version Unsupported · Re-Add Task with Another App"),
-            ("capability_unimplemented", "Start Failed · Unsupported · Re-Add Task with Another App"),
+            ("runtime_unavailable", "Start Failed: the agent app isn't available. Check its setup, then add the task again."),
+            ("runtime_version_unsupported", "Start Failed: this version of the agent app isn't supported. Add the task again with another app."),
+            ("capability_unimplemented", "Start Failed: that isn't supported. Add the task again with another app."),
         })
         {
             never.StatusReason.Code = code;
@@ -228,17 +228,17 @@ public class ActivityLogTests
         // Something else changed what the task may do, so the agent app's adapter stopped it: said for a start, a
         // round and an activity line alike, never on New project's steps, which no start command fails with
         // (settled by the coordinator, 2026-10-08).
-        const string Tampered = "Task Stopped · Permissions Changed · See Activity";
+        const string Tampered = "The task stopped because its permissions changed. See Activity.";
         Assert.That(WorkspaceText.Tampered, Is.EqualTo(Tampered));
         Assert.That((WorkspaceText.WhyFailed("runtime_tampered", running: true), WorkspaceText.WhyFailed("runtime_tampered", running: false)),
             Is.EqualTo((Tampered, Tampered)));
         Assert.That(WorkspaceText.WhyFailed("runtime_tampered", running: false, step: true), Is.Null);
         never.StatusReason.Code = "runtime_tampered";
-        Assert.That(StateLanguage.CouldNotFinish(never, null).Note, Is.EqualTo("Start Failed · " + Tampered));
+        Assert.That(StateLanguage.CouldNotFinish(never, null).Note, Is.EqualTo("Start Failed: the task stopped because its permissions changed. See Activity."));
         var ran = Samples.Execution(execution, "w1", ExecutionStatus.Failed);
         ran.TurnCount = 1;
         ran.StatusReason = new ErrorInfo { Code = "runtime_tampered", Message = "Something other than Halcyonic answered an approval." };
-        Assert.That(StateLanguage.CouldNotFinish(ran, null), Is.EqualTo(("Round Failed · " + Tampered, Tampered)), "never to tell it again");
+        Assert.That(StateLanguage.CouldNotFinish(ran, null), Is.EqualTo(("Round Failed: the task stopped because its permissions changed. See Activity.", Tampered)), "never to tell it again");
     }
 
     [Test]
@@ -252,7 +252,7 @@ public class ActivityLogTests
         // The agent app's own reason for losing the session is a diagnostic, never shown.
         Assert.That(log.For(ExecutionOf(events, "Run the integration suite")).Last().Text, Is.EqualTo("Agent App Unreachable"));
         var refactor = log.For(ExecutionOf(events, "Refactor the session store")).Select(entry => entry.Text).ToList();
-        Assert.That(refactor, Does.Contain("Instruction Refused · Unsupported · See Activity"), "by the refusal's code, never its message");
+        Assert.That(refactor, Does.Contain("Instruction Refused: that isn't supported. See Activity."), "by the refusal's code, never its message");
         Assert.That(refactor, Has.None.Contains("instruct_while_running").And.None.Contains("Runtime mock"));
         Assert.That(refactor[^1], Is.EqualTo("Round Stopped"));
         Assert.That(log.For(ExecutionOf(events, "Drop the legacy sessions table")).Select(entry => entry.Text), Does.Contain("Denied"));
@@ -497,7 +497,7 @@ public class WorkspacePresenterTests
         };
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent, waiting for it to stop"));
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed · Stopped"));
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Refused · Not Possible Now · See Activity"),
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Refused: that can't be done now. See Activity."),
             "by the refusal's code, never the control plane's message");
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed)).Text,
             Is.EqualTo("Stop Unconfirmed · Check Activity"), "what may have happened, named, never Couldn't");
@@ -513,14 +513,14 @@ public class WorkspacePresenterTests
         // A cause every agent app's adapter shares is said in words already used for it, with the way on.
         foreach (var (code, words) in new[]
         {
-            ("approval_not_pending", "Failed · Decision Closed · See Activity"),
-            ("question_not_pending", "Failed · Question Closed · See Activity"),
-            ("no_running_turn", "Failed · Not Possible Now · See Activity"),
-            ("runtime_unreachable", "Failed · Agent App Unreachable · See Activity · Re-Add Task if Stuck"),
-            ("runtime_closed", "Failed · Agent App Unreachable · See Activity · Re-Add Task if Stuck"),
-            ("execution_unknown_to_runtime", "Failed · Work Missing · Re-Add Task in Projects"),
-            ("model_unavailable", "Failed · Model Required · Choose Model"),
-            ("capability_unimplemented", "Failed · Unsupported · See Activity"),
+            ("approval_not_pending", "Failed: that decision has closed. See Activity."),
+            ("question_not_pending", "Failed: that question has closed. See Activity."),
+            ("no_running_turn", "Failed: that can't be done now. See Activity."),
+            ("runtime_unreachable", "Failed: the agent app can't be reached. See Activity and add the task again if it's stuck."),
+            ("runtime_closed", "Failed: the agent app can't be reached. See Activity and add the task again if it's stuck."),
+            ("execution_unknown_to_runtime", "Failed: that work is gone. Add the task again in Projects."),
+            ("model_unavailable", "Failed: a model is needed. Choose one."),
+            ("capability_unimplemented", "Failed: that isn't supported. See Activity."),
         })
         {
             noEffect.Failure.Code = code;

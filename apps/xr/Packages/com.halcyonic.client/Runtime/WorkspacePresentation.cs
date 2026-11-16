@@ -269,7 +269,7 @@ namespace Halcyonic.Client
                     text = command.Rejection?.Code == RejectionCode.Demonstration && demonstration
                         ? command.Rejection.Message
                         : command.Rejection?.Code == RejectionCode.QuestionNotFound
-                        ? "Answer Refused · Question Closed · See Activity"
+                        ? "Answer Refused: that question has closed. See Activity."
                         : WorkspaceText.Couldnt("Refused", WorkspaceText.WhyRefused(command.Rejection?.Code));
                     break;
                 default:

@@ -260,12 +260,12 @@ public class ProjectsScreensTests
         state.Connection = unknown;
         state.ChosenFolder = shop.Key;
         var blocked = ProjectsScreens.Projects(state);
-        Assert.That(blocked.Reason, Does.StartWith("Other Folder Unconfirmed · "), "an unknown outcome is said as unknown, not as still coming");
+        Assert.That(blocked.Reason, Does.StartWith("The other folder isn't confirmed."), "an unknown outcome is said as unknown, not as still coming");
         Assert.That(blocked.Reason, Does.Contain("Check Projects"));
         state.ChosenFolder = notes.Key;
         var own = ProjectsScreens.Projects(state);
         Assert.That(own.Footer[PromptSlot.FarRight], Is.Null, "a connection that may have run is never offered again");
-        Assert.That(own.Side!.Facts.Last().Value, Does.StartWith("Connect Unconfirmed · "));
+        Assert.That(own.Side!.Facts.Last().Value, Does.StartWith("Connecting "));
         state.ChosenFolder = shop.Key;
         state.Connection = connection;
 
@@ -314,7 +314,7 @@ public class ProjectsScreensTests
         state.Listing = Listing();
         var none = ProjectsScreens.Projects(state);
         Assert.That(none.Lines.Last().Words, Is.EqualTo("No Folders Allowed"));
-        Assert.That(none.Side!.Lines.Single().Words, Is.EqualTo("Allow on Computer · Try Again"));
+        Assert.That(none.Side!.Lines.Single().Words, Is.EqualTo("Allow a folder on your computer and try again."));
         Assert.That(none.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.ReadAgain));
         Assert.That(new[] { unread.Words, none.Lines.Last().Words }.Any(words => words.Contains("Press", StringComparison.Ordinal)), Is.False);
         state.ChosenProblem = false;

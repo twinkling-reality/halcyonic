@@ -173,7 +173,7 @@ public class CharacterPresenterTests
         }
         Assert.That(WorkspaceText.Couldnt("Couldn't connect", null), Is.EqualTo("Couldn't connect"), "no why: the lead alone");
         Assert.That(WorkspaceText.Couldnt("Couldn't connect", WorkspaceText.WhyRefused(RejectionCode.ProjectNotFound)),
-            Is.EqualTo("Couldn't connect · Project Missing · Choose Another"));
+            Is.EqualTo("Couldn't connect: that project is gone. Choose another."));
     }
 
     /// <summary>
@@ -206,7 +206,7 @@ public class CharacterPresenterTests
         Assert.That(Notes(Failed("codex_internal_server_error", started: true)), Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "Tell it is offered after a failed round");
         Assert.That(Notes(Failed("location_missing", started: false)), Is.EqualTo(new[]
         {
-            "Start Failed · Folder Unusable · Choose Again or Fix on Computer",
+            "Start Failed: that folder can't be used. Choose another or fix it on your computer.",
         }), "a folder's problem, by its code");
         Assert.That(Notes(Failed("codex_internal_server_error", started: false)), Is.EqualTo(new[] { "Start Failed · Re-Add Task in Projects" }));
 

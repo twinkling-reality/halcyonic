@@ -468,22 +468,22 @@ namespace Halcyonic.Client
 
         public static string? WhyRefused(RejectionCode? code) => code switch
         {
-            RejectionCode.RequestNotFound => "Request Missing · Refresh Task",
-            RejectionCode.ProjectNotFound => "Project Missing · Choose Another",
-            RejectionCode.WorkstreamNotFound => "Task Missing · Choose Another",
-            RejectionCode.ExecutionNotFound => "Work Missing · " + StateLanguage.AddItAgain,
-            RejectionCode.RuntimeNotFound => "Agent App Unavailable · Set Up and Retry",
-            RejectionCode.ApprovalNotFound => "Decision Closed · See Activity",
-            RejectionCode.ApprovalNotWhole => "Never Shown Whole · Deny or Stop Task",
-            RejectionCode.QuestionNotFound => "Question Closed · See Activity",
-            RejectionCode.InvalidAnswer => "Answer Refused · Reread Question",
-            RejectionCode.ModelRequired => "Model Required · Choose Model",
-            RejectionCode.CapabilityUnsupported => "Unsupported · See Activity",
-            RejectionCode.InvalidState => "Not Possible Now · See Activity",
-            RejectionCode.InvalidRuntimeOptions => "Settings Refused · Choose Again",
+            RejectionCode.RequestNotFound => "That request is gone. Refresh the task.",
+            RejectionCode.ProjectNotFound => "That project is gone. Choose another.",
+            RejectionCode.WorkstreamNotFound => "That task is gone. Choose another.",
+            RejectionCode.ExecutionNotFound => "That work is gone. Add the task again in Projects.",
+            RejectionCode.RuntimeNotFound => "The agent app isn't available. Set it up and try again.",
+            RejectionCode.ApprovalNotFound => "That decision has closed. See Activity.",
+            RejectionCode.ApprovalNotWhole => "It was never shown whole. Deny it or stop the task.",
+            RejectionCode.QuestionNotFound => "That question has closed. See Activity.",
+            RejectionCode.InvalidAnswer => "The answer was refused. Read the question again.",
+            RejectionCode.ModelRequired => "A model is needed. Choose one.",
+            RejectionCode.CapabilityUnsupported => "That isn't supported. See Activity.",
+            RejectionCode.InvalidState => "That can't be done now. See Activity.",
+            RejectionCode.InvalidRuntimeOptions => "Those settings were refused. Choose again.",
             RejectionCode.LocationRequired or RejectionCode.LocationMissing or RejectionCode.LocationNotAllowed or RejectionCode.LocationExists
                 => EntryText.FolderProblem(code, null),
-            RejectionCode.CheckpointNotFound => "Version Not Kept · Choose Another",
+            RejectionCode.CheckpointNotFound => "That version isn't kept. Choose another.",
             // One sentence for a revoked pairing, wherever it is said.
             RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
             // A move or a restore from this headset without the review it read, or one that changed since (ADR 0051).
@@ -512,24 +512,23 @@ namespace Halcyonic.Client
             "question_not_pending" => WhyRefused(RejectionCode.QuestionNotFound),
             "no_running_turn" => WhyRefused(RejectionCode.InvalidState),
             // One code covers a blip and an agent app's ended process or lost thread, where trying again can't succeed.
-            "runtime_unreachable" or "runtime_closed" => StateLanguage.LostTouch
-                + (running ? " · See Activity · Re-Add Task if Stuck"
-                    : step ? " · Check App and Retry" : " · Check Agent App and Retry"),
+            "runtime_unreachable" or "runtime_closed" => running ? "The agent app can't be reached. See Activity and add the task again if it's stuck."
+                : "The agent app can't be reached. Check it and try again.",
             "execution_unknown_to_runtime" => WhyRefused(RejectionCode.ExecutionNotFound),
             "model_unavailable" => WhyRefused(RejectionCode.ModelRequired),
             "media_not_kept" => WhyRefused(RejectionCode.MediaNotKept),
             "media_full" => WhyRefused(RejectionCode.MediaFull),
             "media_present" => WhyRefused(RejectionCode.MediaPresent),
             "capability_unimplemented" => running ? WhyRefused(RejectionCode.CapabilityUnsupported)
-                : step ? "Unsupported · " + InHowItRuns : "Unsupported · " + WithAnotherAgentApp,
+                : step ? "That isn't supported. Choose another agent app." : "That isn't supported. Add the task again with another app.",
             // A start that would fail the same way again (the review's L5, settled by the coordinator, 2026-10-07).
             // A step's lines are New project's, within its 110 characters (settled by the coordinator, 2026-10-07).
             "runtime_unavailable" when !running => step
-                ? "Agent App Unavailable · Check Setup and Retry"
-                : "Agent App Unavailable · Check Setup · Re-Add Task",
+                ? "The agent app isn't available. Check its setup and try again."
+                : "The agent app isn't available. Check its setup, then add the task again.",
             "runtime_version_unsupported" when !running => step
-                ? "Version Unsupported · " + InHowItRuns
-                : "Version Unsupported · " + WithAnotherAgentApp,
+                ? "This version of the agent app isn't supported. Choose another agent app."
+                : "This version of the agent app isn't supported. Add the task again with another app.",
             // Something other than Halcyonic changed what the task may do, so the agent app's adapter stopped it; a
             // turn's failure, never a step's, which no start command fails with (settled by the coordinator, 2026-10-08).
             "runtime_tampered" when !step => Tampered,
@@ -537,13 +536,13 @@ namespace Halcyonic.Client
         };
 
         /// <summary>A task stopped because something on the computer changed what it was allowed to do (runtime_tampered).</summary>
-        public const string Tampered = "Task Stopped · Permissions Changed · See Activity";
+        public const string Tampered = "The task stopped because its permissions changed. See Activity.";
 
         private const string WithAnotherAgentApp = "Re-Add Task with Another App";
         private const string InHowItRuns = "Change Agent App";
 
         /// <summary>Said of a step of Start building or Connect that failed with no effect and no cause a person can act on.</summary>
-        public const string NothingChanged = "Nothing Changed · Retry";
+        public const string NothingChanged = "Nothing changed. Try again.";
 
         /// <summary>
         /// Said of a command on a task that failed with no effect and no cause a person can act on. Trying

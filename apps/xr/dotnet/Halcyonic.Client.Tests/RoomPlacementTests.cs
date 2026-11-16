@@ -516,7 +516,7 @@ public class RoomStatusTests
         Assert.That(Room(RoomScan.NoAccess, StagePlacement.InFront).Offer(canSetUpRoom: true), Is.EqualTo(RoomOffer.AllowRoomAccess));
         Assert.That(Room(RoomScan.NoAccess, StagePlacement.InFront).Offer(canSetUpRoom: false), Is.EqualTo(RoomOffer.AllowRoomAccess));
         Assert.That(Room(RoomScan.AccessOff, StagePlacement.InFront).Offer(canSetUpRoom: true), Is.EqualTo(RoomOffer.None));
-        Assert.That(Room(RoomScan.AccessOff, StagePlacement.InFront).Line, Does.Contain("Headset Settings"));
+        Assert.That(Room(RoomScan.AccessOff, StagePlacement.InFront).Line, Does.Contain("headset's settings"));
     }
 
     [Test]
@@ -534,7 +534,7 @@ public class RoomStatusTests
         foreach (var status in reasons)
         {
             Assert.That(status.Line, Does.Not.Contain("stand in front"), status.ToString());
-            Assert.That(status.Line, Does.Match("Shelf|Tucked Away"), "every failure offers manual placement or hides until recovery");
+            Assert.That(status.Line, Does.Match("shelf|tucked away"), "every failure offers manual placement or hides until recovery");
         }
         Assert.That(reasons.Select(status => status.Line).Distinct().Count(), Is.EqualTo(reasons.Length), "each reason reads differently");
     }
@@ -543,7 +543,7 @@ public class RoomStatusTests
     public void APlacementOnASurfaceSaysWhereAndWhetherItIsKept()
     {
         Assert.That(Room(RoomScan.Read, StagePlacement.OnSurface, SurfaceKind.Desk).Line, Is.EqualTo("Agents on Your Desk"));
-        Assert.That(Room(RoomScan.Read, StagePlacement.OnSurfaceThisSession, SurfaceKind.Desk).Line, Does.Contain("This Session"));
+        Assert.That(Room(RoomScan.Read, StagePlacement.OnSurfaceThisSession, SurfaceKind.Desk).Line, Does.Contain("this session"));
         Assert.That(Room(RoomScan.Read, StagePlacement.BackOnSurface, SurfaceKind.Desk).Line, Is.EqualTo("Agents Back on Desk"));
         Assert.That(Room(RoomScan.NoAccess, StagePlacement.BackOnSurface).Line, Is.EqualTo("Agents Back Where Left"),
             "a placement kept from before holds even where the room's layout cannot be read");
@@ -556,7 +556,7 @@ public class RoomStatusTests
     public void TheVirtualSpaceSaysWhyItIsShown()
     {
         Assert.That(RoomStatus.Initial.With(preferred: RoomSpace.Virtual).Line, Is.EqualTo("Virtual Space"));
-        Assert.That(RoomStatus.Initial.With(passthrough: PassthroughState.Unavailable).Line, Does.StartWith("Passthrough Unavailable"));
+        Assert.That(RoomStatus.Initial.With(passthrough: PassthroughState.Unavailable).Line, Does.StartWith("Passthrough isn't available"));
     }
 
     [Test]
