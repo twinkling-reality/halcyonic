@@ -1003,7 +1003,10 @@ namespace Halcyonic.XR.UI
             }
             // No word alone on the words' last line (AUDIT 2026-11-16T16:57Z: "chosen" alone at Standard): the measure narrows a twentieth
             // at a time, down to six tenths, until the last line holds two words, never on more lines; where none does, as first laid.
-            if ((!bar.Mono || reading.text.IndexOf('\n') < 0) && bar.Lines == null && bar.Part == null && laid.Lines >= 2 && RoomCardView.LastLineIsOneWord(reading)
+            // A part the panel shows whole from its first row (a confirmation's words, XR's kit at 19:25Z) keeps its rows when only the
+            // measure narrows on the same lines, so it takes the mend too; a part cut from longer words never does.
+            var wholePart = bar.Part == null || (from == 0 && reading.textInfo.lineCount <= most);
+            if ((!bar.Mono || reading.text.IndexOf('\n') < 0) && bar.Lines == null && wholePart && laid.Lines >= 2 && RoomCardView.LastLineIsOneWord(reading)
                 && reading.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Length >= 4)
             {
                 var ours = !bar.Mono && GlazeRuns.Of(reading).Theirs.Count == 0;
