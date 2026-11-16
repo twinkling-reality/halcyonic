@@ -84,4 +84,5 @@ Decided on 2026-11-16; not all of it is built in this checkout:
 ## Rules
 
 - Light and warm. Never a dark board, never random colour blobs, never a flat single-colour field.
-- The mark shows no other company's name or logo, and stands beside none.
+- The mark shows no other company's logo and stands beside none; a plain line naming the device it
+  runs on is a fact, not a brand.
