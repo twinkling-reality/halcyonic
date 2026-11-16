@@ -272,15 +272,19 @@ namespace Halcyonic.Client
                 },
             });
 
-        /// <summary>The person's one press on a waiting step's review card: the step and the digest the card showed.</summary>
-        public WorkspaceRequestResumeCommand ConfirmRequest(string requestId, string stepId, string review) =>
+        /// <summary>
+        /// The person's one press on a waiting step's review card: the step and the digest the card showed. With
+        /// <paramref name="openPorts"/>, the person's own yes to the step's offered Allow Test Servers, and
+        /// <paramref name="review"/> is then that option's digest (<see cref="PersonsYes"/>).
+        /// </summary>
+        public WorkspaceRequestResumeCommand ConfirmRequest(string requestId, string stepId, string review, bool openPorts = false) =>
             Stamp(new WorkspaceRequestResumeCommand
             {
                 Payload = new WorkspaceRequestResumePayload
                 {
                     RequestId = requestId,
                     Text = null,
-                    Confirm = new WorkspaceRequestResumePayloadConfirm { StepId = stepId, Review = review },
+                    Confirm = new WorkspaceRequestResumePayloadConfirm { StepId = stepId, Review = review, OpenPorts = openPorts ? true : null },
                 },
             });
 

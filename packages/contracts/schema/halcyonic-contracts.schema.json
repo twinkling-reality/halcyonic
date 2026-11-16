@@ -1437,35 +1437,7 @@
             "options": {
               "type": "array",
               "items": {
-                "type": "object",
-                "required": [
-                  "field",
-                  "label",
-                  "line",
-                  "review"
-                ],
-                "properties": {
-                  "field": {
-                    "type": "string",
-                    "const": "open_ports"
-                  },
-                  "label": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 40,
-                    "pattern": "\\S"
-                  },
-                  "line": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200,
-                    "pattern": "\\S"
-                  },
-                  "review": {
-                    "$ref": "#/$defs/ReviewDigest"
-                  }
-                },
-                "additionalProperties": false
+                "$ref": "#/$defs/WorkspaceRequestOption"
               },
               "minItems": 1,
               "maxItems": 1
@@ -1497,6 +1469,37 @@
         "failed",
         "unknown"
       ]
+    },
+    "WorkspaceRequestOption": {
+      "type": "object",
+      "required": [
+        "field",
+        "label",
+        "line",
+        "review"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "const": "open_ports"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "\\S"
+        },
+        "line": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "review": {
+          "$ref": "#/$defs/ReviewDigest"
+        }
+      },
+      "additionalProperties": false
     },
     "EventEnvelope": {
       "anyOf": [

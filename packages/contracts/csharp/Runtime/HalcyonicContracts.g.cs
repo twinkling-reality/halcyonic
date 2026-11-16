@@ -6428,7 +6428,7 @@ namespace Halcyonic.Contracts
         public WorkspaceRequestObservedProjects? Projects { get; set; }
     }
 
-    public sealed class WorkspaceRequestStepProposalOptionsItem
+    public sealed class WorkspaceRequestOption
     {
         [global::Newtonsoft.Json.JsonProperty("field", Required = global::Newtonsoft.Json.Required.Always)]
         public string Field { get; set; } = "open_ports";
@@ -6470,7 +6470,7 @@ namespace Halcyonic.Contracts
         public global::System.Collections.Generic.List<ActionReviewWarning>? Warnings { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("options", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
-        public global::System.Collections.Generic.List<WorkspaceRequestStepProposalOptionsItem>? Options { get; set; }
+        public global::System.Collections.Generic.List<WorkspaceRequestOption>? Options { get; set; }
     }
 
     public sealed class WorkspaceRequestStep
