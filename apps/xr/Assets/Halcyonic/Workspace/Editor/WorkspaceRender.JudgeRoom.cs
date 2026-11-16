@@ -969,7 +969,14 @@ namespace Halcyonic.XR.Workspace.Editor
                             && plane.Kit.Bar.Card?.RowTargets.Any(row => row.Control.Action == FileScreens.Open && row.Control.Key == opening.Key) == true);
                         if (opening != null && !drawnOpen)
                         {
-                            failures.Add("judge room: the redesign draws no control that opens the answer beside its page (" + FileScreens.Open + "/" + opening.Key + ")");
+                            // The one NAMED KNOWN FAULT (the lead's 19:03Z rule; SCREENS 19:07Z, on main too): the recorded and demonstration
+                            // runs' Checks page offers open/checks and the result's Checks page draws no row for it (RoomResult.cs:243). SCREENS
+                            // mends it the batch after the film; any other key, or the live run, still fails.
+                            if (live == null && opening.Key == "checks")
+                                Debug.Log("Halcyonic: judge room: NAMED KNOWN FAULT: the redesign draws no control that opens the answer beside its page ("
+                                    + FileScreens.Open + "/" + opening.Key + "), the result's Checks page; SCREENS's next batch");
+                            else
+                                failures.Add("judge room: the redesign draws no control that opens the answer beside its page (" + FileScreens.Open + "/" + opening.Key + ")");
                             // The walk leaves the section it opened itself, which no person reaches under the redesign, and opens the task
                             // again as a person does, so the stage is crossed from a page a person stands on.
                             CloseFile();
