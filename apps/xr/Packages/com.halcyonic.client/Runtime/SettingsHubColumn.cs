@@ -31,7 +31,13 @@ namespace Halcyonic.Client
         public event Action? Closed;
 
         private IReadOnlyList<string> Categories => new[] { Appearance, Comfort.Heading, SettingsText.YourSpace, SettingsText.YourMac }
-            .Where(group => group == Appearance || settings.Any(setting => setting.Group == group)).ToList();
+            .Where(group => group == Appearance ? AppearanceShown : settings.Any(setting => setting.Group == group)).ToList();
+
+        /// <summary>
+        /// Appearance is offered where its choice changes what the person sees (AUDIT2's 14:01Z: a page offers only what it does): with the
+        /// older kit, its palettes; under the redesign, only once Dark and Light are offered whole (<see cref="PanelThemes.Offered"/>).
+        /// </summary>
+        private static bool AppearanceShown => !RoomDesign.Enabled || PanelThemes.Offered;
 
         public MenuFrame? Frame
         {

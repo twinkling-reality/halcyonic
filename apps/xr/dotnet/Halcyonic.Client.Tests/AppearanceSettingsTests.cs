@@ -655,6 +655,9 @@ public class AppearanceSettingsTests
             RoomDesign.Enabled = true;
             try
             {
+                var hub = new SettingsHubColumn(new FakeMenuHost(), Array.Empty<MenuSetting>(), new AppearanceSettings(), () => { });
+                Assert.That(hub.Frame!.Lines.Select(line => line.Key), Does.Not.Contain(SettingsHubColumn.Appearance),
+                    "under the redesign Settings offers no Appearance until its choice is whole");
                 var settings0 = new AppearanceSettings();
                 var column0 = new AppearanceColumn(settings0, () => { });
                 Assert.That(column0.Frame!.Lines.Select(line => line.Words), Does.Not.Contain(PanelThemes.LightWords));
