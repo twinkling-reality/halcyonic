@@ -165,7 +165,7 @@ namespace Halcyonic.XR.UI
                 RoomType.Size(word);
                 word.color = WordColourOf(step);
                 GlazeRuns.Of(word).Set(LineWords.Ours(step.Word));
-                var (_, _, wordTall) = KitType.Lay(word, column, RoomRowsView.RowLines);
+                var wordTall = Balanced(word, column);
                 wordTall = Mathf.Max(lineDp, wordTall);
                 word.transform.localPosition = new Vector3(indent, -down, 0f);
                 // The tile before the word's first line, at its middle, so a step's mark and its word read as one.
@@ -193,7 +193,7 @@ namespace Halcyonic.XR.UI
                     line.color = new Color(tone.r, tone.g, tone.b, step.Kind == TaskStepKind.NeedsYou ? 1f : QuietAlpha);
                     // Whole, the person's words and ours alike: nothing on the list is cut (the owner's bar, the reader of 04:48Z).
                     GlazeRuns.Of(line).Set(said);
-                    var lineTall = KitType.Lay(line, column, RoomRowsView.RowLines).Height;
+                    var lineTall = Balanced(line, column);
                     line.transform.localPosition = new Vector3(indent, -down, 0f);
                     down += Mathf.Max(lineDp, lineTall);
                 }
@@ -281,12 +281,32 @@ namespace Halcyonic.XR.UI
                 RoomType.Size(note);
                 note.color = Quiet;
                 GlazeRuns.Of(note).Set(LineWords.Ours(usage.Notes[index]));
-                var noteTall = KitType.Lay(note, column, RoomRowsView.RowLines).Height;
+                var noteTall = Balanced(note, column);
                 note.transform.localPosition = new Vector3(indent, -down, 0f);
                 down += Mathf.Max(lineDp, noteTall);
             }
             for (var index = usage.Notes.Count; index < usageNotes.Count; index++) usageNotes[index].gameObject.SetActive(false);
             return down;
+        }
+
+        /// <summary>
+        /// Lays <paramref name="label"/> at <paramref name="column"/> on the list's lines and returns its height, with no word alone on its last
+        /// line where it runs four words or more (AUDIT 2026-11-16T15:23Z; JUDGE's live walk at 19:08Z: "visits!" and "first." alone at
+        /// Larger): the measure narrows a twentieth at a time, down to six tenths, never onto another line nor cut; where none does, as
+        /// first laid. The words, theirs or ours, stand as written.
+        /// </summary>
+        private static float Balanced(TMP_Text label, float column)
+        {
+            var laid = KitType.Lay(label, column, RoomRowsView.RowLines);
+            if (laid.Lines < 2 || !LastLineIsOneWord(label) || label.text.IndexOf('\n') >= 0
+                || label.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Length < 4) return laid.Height;
+            for (var step = 1; step <= 8; step++)
+            {
+                var tried = KitType.Lay(label, column * (1f - 0.05f * step), RoomRowsView.RowLines);
+                if (tried.Lines != laid.Lines || label.isTextTruncated) break;
+                if (!LastLineIsOneWord(label)) return tried.Height;
+            }
+            return KitType.Lay(label, column, RoomRowsView.RowLines).Height;
         }
 
         /// <summary>Whether the label's last laid line holds one word alone.</summary>
