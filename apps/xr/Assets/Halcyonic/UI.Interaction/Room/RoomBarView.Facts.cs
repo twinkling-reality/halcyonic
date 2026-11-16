@@ -69,6 +69,7 @@ namespace Halcyonic.XR.UI
                 // A row picked from a card's list acts as any action does: its own control, raised to the bar's owner.
                 card.RowPressed += control => Acted?.Invoke(control);
             }
+            card.TitleUnderWords = bar.AsDialog;
             return card.Show(bar.Card, width);
         }
 

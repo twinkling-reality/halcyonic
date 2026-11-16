@@ -1012,7 +1012,6 @@ namespace Halcyonic.XR.UI
             body.gameObject.SetActive(false);
             request.gameObject.SetActive(false);
             panel.InnerBar = null;
-            locking = null;
             var unit = RoomType.Units(1f);
             var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
@@ -1021,13 +1020,22 @@ namespace Halcyonic.XR.UI
 
             // The agent's words, theirs, at the dialog's own size; never one word alone on their last line.
             ask.gameObject.SetActive(true);
-            Set(ask, LineWords.Theirs(bar.Band!), false);
+            // A question's words are the agent's; an approval's question is ours (Run Command?).
+            Set(ask, bar.Band != null ? LineWords.Theirs(bar.Band) : LineWords.Ours(bar.Sentence!), false);
             ask.fontSize *= DialogWordsDp / RoomGeometry.TypeDp;
             var asked = RoomCardView.Balanced(ask, wordsWidth, 8);
             var askHeight = Mathf.Max(RoomType.Scaled(RoomGeometry.LineDp), asked.Height);
 
-            // The answers: the bar's card, at the words' width.
+            // The answers: the bar's card, at the words' width; an approval's command in mono, exact, its first eight lines.
             var cardHeight = LayFacts(bar, wordsWidth) ?? 0f;
+            if (bar.Card == null && bar.Body.Text.Length > 0)
+            {
+                var reading = bar.Mono ? request : body;
+                Set(reading, bar.Body, bar.Mono);
+                reading.gameObject.SetActive(true);
+                var laidBody = KitType.Lay(reading, wordsWidth, bar.Mono ? RoomBar.RequestLines : 8);
+                cardHeight = laidBody.Height;
+            }
 
             // The actions: one row, content-sized, the main one last.
             var count = Mathf.Min(bar.Column.Count, ColumnMost);
@@ -1060,6 +1068,7 @@ namespace Halcyonic.XR.UI
             var rowY = foot + pad + rowHeight / 2f;
             var x = left + pad;
             var mainIndex = order.Count > 0 && bar.Column[order[order.Count - 1]].Main ? order[order.Count - 1] : -1;
+            RoomButton? dialogLocks = null;
             for (var index = 0; index < column.Count; index++)
             {
                 if (index >= count) column[index].Hide();
@@ -1075,7 +1084,18 @@ namespace Halcyonic.XR.UI
                     0f, doing: RoomButton.Doing(action.Control), detail: action.Detail, destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
                 controls[button] = action.Control;
                 button.Press.ActsOnPinch = action.Control.Holds;
+                if (action.Locks) dialogLocks = button;
             }
+            // Confirm's lock as the pair keeps it: it starts when it arrives and holds through the frames drawn again while it stands.
+            if (dialogLocks == null) locking = null;
+            else if (!ReferenceEquals(locking, dialogLocks))
+            {
+                locking = dialogLocks;
+                lockedAt = Time.unscaledTime;
+                lockAged = 0f;
+                lockLifted = false;
+            }
+            if (locking != null && !lockLifted) FollowLock();
 
             ArrivePanel(bar);
             Foot = foot;

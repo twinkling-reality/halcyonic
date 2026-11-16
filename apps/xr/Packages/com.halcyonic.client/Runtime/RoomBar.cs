@@ -291,7 +291,10 @@ namespace Halcyonic.Client
         /// panel's): the agent's words at the panel's top, its described answers the panel's card under them, the actions in one row
         /// at the panel's foot, the main one last; no band and no column beside it. Only where the answers already stand in the card.
         /// </summary>
-        public bool AsDialog => State == RoomBarState.Question && Card != null && Band != null && !Wide && !Narrow && !Caret;
+        public bool AsDialog => !Wide && !Narrow && !Caret
+            && (State == RoomBarState.Question && Card != null && Band != null
+                // The approval the same way: its question (Run Command?) at the top, the command in mono under it, Deny then Approve.
+                || State == RoomBarState.Request && Mono && Sentence != null && Column.Count > 0 && Card == null);
 
         /// <summary>Whether the pair (the panel and its column) shows.</summary>
         public bool Pair => Result || State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question or RoomBarState.Choose or RoomBarState.Page;
