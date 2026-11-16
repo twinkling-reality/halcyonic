@@ -80,6 +80,76 @@ export const VIEW_CAMERA = {
   lookAt: [0, VIEW_AIM, -PAGES_DISTANCE],
 } as const;
 
+/** A laptop camera's place and the point it looks at, its up the world's, so it never rolls. */
+export interface ViewPose {
+  readonly position: readonly [number, number, number];
+  readonly lookAt: readonly [number, number, number];
+}
+
+/**
+ * The laptop view's drift (SHOW, 2026-11-16): over its first `seconds` of game time the camera swings `arc` degrees
+ * round the point it looks at and dollies `back` metres away from it, easing out and back to `VIEW_CAMERA`, then
+ * rests. At most about 2.4 degrees a second of turn; home again before the check's twin loads reach their first frame
+ * (5 s) and long before its laptop step looks for a still screen (10 s), so every check sees `VIEW_CAMERA` at rest.
+ */
+export const DRIFT = { seconds: 4, arc: 3, back: 0.05 } as const;
+
+/** Where the drift has the laptop camera `seconds` after it began: exactly `VIEW_CAMERA` at its start and its end. */
+export function driftPose(seconds: number): ViewPose {
+  if (!(seconds > 0 && seconds < DRIFT.seconds)) return VIEW_CAMERA;
+  const ease = Math.sin((Math.PI * seconds) / DRIFT.seconds) ** 2;
+  const turn = ((DRIFT.arc * Math.PI) / 180) * ease;
+  const [x, y, z] = VIEW_CAMERA.position;
+  const [ax, ay, az] = VIEW_CAMERA.lookAt;
+  const away = Math.hypot(x - ax, y - ay, z - az);
+  const scale = (away + DRIFT.back * ease) / away;
+  const across = (x - ax) * scale;
+  const along = (z - az) * scale;
+  return {
+    position: [
+      ax + across * Math.cos(turn) + along * Math.sin(turn),
+      ay + (y - ay) * scale,
+      az - across * Math.sin(turn) + along * Math.cos(turn),
+    ],
+    lookAt: VIEW_CAMERA.lookAt,
+  };
+}
+
+/**
+ * The drift as `setupScene` runs it, on the game's time: `step` gives the pose for this frame, or null to leave the
+ * camera be: once the drift is home, once `stop` was called (the person's first drag, key or press, `stopOnInput` in
+ * play-input-core.ts), and in a presenting session or ever after one began, each for good.
+ */
+export class ViewDrift {
+  #start: number | null = null;
+  #over = false;
+
+  step(time: number, presenting: boolean): ViewPose | null {
+    if (presenting) this.#over = true;
+    if (this.#over) return null;
+    this.#start ??= time;
+    const seconds = time - this.#start;
+    if (seconds >= DRIFT.seconds) this.#over = true;
+    return driftPose(seconds);
+  }
+
+  stop(): void {
+    this.#over = true;
+  }
+
+  /**
+   * The pose the check's readings and panel boxes are taken from while the drift moves: `VIEW_CAMERA`, so they are the
+   * same at any frame of it. Null when it is not moving (a game, before its first frame, home, stopped or in a
+   * headset): then they are read through the camera as it stands.
+   */
+  restPose(): ViewPose | null {
+    return this.#start !== null && !this.#over ? driftPose(0) : null;
+  }
+}
+
+/** The laptop view's one drift: `setupScene` steps it, the input layer stops it and reads at its rest pose. */
+export const viewDrift = new ViewDrift();
+
 /** What the kit drew words on: a page of `pages()`, a button of `rows()`, or the score sign. */
 export type TextKind = 'page' | 'row' | 'sign';
 

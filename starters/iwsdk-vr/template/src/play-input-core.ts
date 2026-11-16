@@ -80,3 +80,50 @@ export const BUTTONS = {
 } as const;
 
 export type ButtonName = keyof typeof BUTTONS;
+
+/**
+ * Every key the layer binds on a laptop: the SDK's browser-first-person keys (W A S D and the arrows, and Space, the
+ * jump), E for the action and H for the welcome card (`HELP_KEY` in play-input.ts). Nothing else, so the check's F24,
+ * which steps its clock, is never one.
+ */
+export const BOUND_KEYS: ReadonlySet<string> = new Set([
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  BUTTONS.jump.key,
+  BUTTONS.action.key,
+  'KeyH',
+]);
+
+/**
+ * Calls `stop` once, at the first input the layer binds on a laptop: a key of `BOUND_KEYS` going down on `keys` (the
+ * window), or the main button pressed on `canvas`, which starts both a click and a drag to look. A hover, another
+ * button, a key let go or a key the layer does not bind never calls it. Its listeners go once it has.
+ */
+export function stopOnInput(keys: EventTarget, canvas: EventTarget, stop: () => void): void {
+  const off = new AbortController();
+  const once = () => {
+    off.abort();
+    stop();
+  };
+  keys.addEventListener(
+    'keydown',
+    (event) => {
+      const code = (event as Event & { code?: unknown }).code;
+      if (typeof code === 'string' && BOUND_KEYS.has(code)) once();
+    },
+    { capture: true, signal: off.signal },
+  );
+  canvas.addEventListener(
+    'pointerdown',
+    (event) => {
+      if ((event as Event & { button?: unknown }).button === 0) once();
+    },
+    { capture: true, signal: off.signal },
+  );
+}

@@ -19,7 +19,7 @@ import {
   VisibilityState,
   type World,
 } from '@iwsdk/core';
-import { Box3, type Mesh, type Object3D, Raycaster, Vector3 } from 'three';
+import { Box3, type Mesh, type Object3D, Quaternion, Raycaster, Vector3 } from 'three';
 import {
   FACE_POINTS,
   IN_FRONT,
@@ -29,6 +29,7 @@ import {
   screenBox,
   segmentPixels,
   type TextKind,
+  viewDrift,
   wordedMeshes,
 } from './legible.js';
 import {
@@ -40,6 +41,7 @@ import {
   isDrag,
   look,
   type PlaySource,
+  stopOnInput,
   within,
   yawPitchOf,
 } from './play-input-core.js';
@@ -264,6 +266,32 @@ function hiddenPoints(w: World, text: Object3D): number {
   return hidden;
 }
 
+const standing = new Vector3();
+const facing = new Quaternion();
+
+/**
+ * Runs `read` with the laptop camera at the view's rest pose while its drift moves (`VIEW_CAMERA`), so what the check
+ * measures at rest is the same at any frame of the drift, and puts the camera back as it stood; nothing draws between.
+ * With no drift moving, `read` sees the camera as it stands.
+ */
+function atRest<T>(w: World, read: () => T): T {
+  const pose = viewDrift.restPose();
+  if (pose === null) return read();
+  const camera = w.camera;
+  standing.copy(camera.position);
+  facing.copy(camera.quaternion);
+  camera.position.set(...pose.position);
+  camera.lookAt(...pose.lookAt);
+  camera.updateMatrixWorld(true);
+  try {
+    return read();
+  } finally {
+    camera.position.copy(standing);
+    camera.quaternion.copy(facing);
+    camera.updateMatrixWorld(true);
+  }
+}
+
 /**
  * How high the kit's words stand on the laptop's screen, in CSS pixels, for the computer's check of the app: for each
  * mesh the kit drew words on whose centre the camera sees, the height of its smallest words projected through the
@@ -271,19 +299,21 @@ function hiddenPoints(w: World, text: Object3D): number {
  * Words the app drew itself are not here.
  */
 function readings(w: World): { texts: { px: number; kind: TextKind; hidden: number }[] } {
-  const rect = w.renderer.domElement.getBoundingClientRect();
-  const texts: { px: number; kind: TextKind; hidden: number }[] = [];
-  w.scene.updateMatrixWorld();
-  for (const [mesh, { height, kind }] of wordedMeshes()) {
-    const object = mesh as Object3D;
-    if (!shown(object)) continue;
-    object.updateWorldMatrix(true, false);
-    object.localToWorld(foot.set(0, 0, 0)).project(w.camera);
-    if (!inView(foot)) continue;
-    object.localToWorld(head.set(0, height, 0)).project(w.camera);
-    texts.push({ px: segmentPixels(foot.y, head.y, rect.height), kind, hidden: hiddenPoints(w, object) });
-  }
-  return { texts };
+  return atRest(w, () => {
+    const rect = w.renderer.domElement.getBoundingClientRect();
+    const texts: { px: number; kind: TextKind; hidden: number }[] = [];
+    w.scene.updateMatrixWorld();
+    for (const [mesh, { height, kind }] of wordedMeshes()) {
+      const object = mesh as Object3D;
+      if (!shown(object)) continue;
+      object.updateWorldMatrix(true, false);
+      object.localToWorld(foot.set(0, 0, 0)).project(w.camera);
+      if (!inView(foot)) continue;
+      object.localToWorld(head.set(0, height, 0)).project(w.camera);
+      texts.push({ px: segmentPixels(foot.y, head.y, rect.height), kind, hidden: hiddenPoints(w, object) });
+    }
+    return { texts };
+  });
 }
 
 const corner = new Vector3();
@@ -293,35 +323,37 @@ const MAX_LABEL = 80;
 
 /**
  * Where each panel of the kit stands on the laptop's screen, in CSS pixels, for the computer's check of the app: each
- * page and row of buttons the kit placed that is shown, its four corners projected through the camera as it stands,
- * boxed. Read before any press, so at rest. Panels the app placed itself are not here.
+ * page and row of buttons the kit placed that is shown, its four corners projected through the camera at rest
+ * (`atRest`), boxed. Read before any press, so at rest. Panels the app placed itself are not here.
  */
 function panels(
   w: World,
 ): ({ kind: 'page' | 'row'; label: string | null } & ScreenBox)[] {
-  const rect = w.renderer.domElement.getBoundingClientRect();
-  const found: ({ kind: 'page' | 'row'; label: string | null } & ScreenBox)[] = [];
-  for (const [held, panel] of kitPanels()) {
-    if (found.length >= MAX_PANELS) break;
-    const object = held as Object3D;
-    if (!shown(object) || object.parent === null) continue;
-    object.updateWorldMatrix(true, false);
-    const corners = [
-      [-1, -1],
-      [1, -1],
-      [1, 1],
-      [-1, 1],
-    ].map(([sx = 0, sy = 0]) => {
-      object.localToWorld(corner.set((sx * panel.width) / 2, (sy * panel.height) / 2, 0)).project(w.camera);
-      return { x: corner.x, y: corner.y, z: corner.z };
-    });
-    found.push({
-      kind: panel.kind,
-      label: panel.label === null ? null : panel.label.slice(0, MAX_LABEL),
-      ...screenBox(corners, rect.left, rect.top, rect.width, rect.height),
-    });
-  }
-  return found;
+  return atRest(w, () => {
+    const rect = w.renderer.domElement.getBoundingClientRect();
+    const found: ({ kind: 'page' | 'row'; label: string | null } & ScreenBox)[] = [];
+    for (const [held, panel] of kitPanels()) {
+      if (found.length >= MAX_PANELS) break;
+      const object = held as Object3D;
+      if (!shown(object) || object.parent === null) continue;
+      object.updateWorldMatrix(true, false);
+      const corners = [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ].map(([sx = 0, sy = 0]) => {
+        object.localToWorld(corner.set((sx * panel.width) / 2, (sy * panel.height) / 2, 0)).project(w.camera);
+        return { x: corner.x, y: corner.y, z: corner.z };
+      });
+      found.push({
+        kind: panel.kind,
+        label: panel.label === null ? null : panel.label.slice(0, MAX_LABEL),
+        ...screenBox(corners, rect.left, rect.top, rect.width, rect.height),
+      });
+    }
+    return found;
+  });
 }
 
 /** Call once, in src/index.ts, before registering the game's systems. */
@@ -335,6 +367,8 @@ export function setupPlayInput(w: World): void {
   ]);
   w.registerSystem(PlayInputSystem);
   dragToLook(w);
+  // The view's laptop drift stops for good at the first key, press or drag the layer binds.
+  stopOnInput(globalThis, w.renderer.domElement, () => viewDrift.stop());
   // Only when the person's computer checks the app (it adds ?check): what reached the game, where to click, how high
   // the kit's words stand on the screen, and where the kit's panels stand on it.
   // Defined once, frozen, neither writable nor configurable, so the app's own code cannot swap in another report

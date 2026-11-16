@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import {
+  BOUND_KEYS,
   BUTTONS,
   Counts,
   DRAG_PIXELS,
@@ -10,6 +11,7 @@ import {
   isDrag,
   LOOK,
   look,
+  stopOnInput,
   within,
   yawPitchOf,
 } from '../../../starters/iwsdk-vr/template/src/play-input-core.ts';
@@ -132,6 +134,70 @@ describe("the IWSDK starter's input layer", () => {
     const card = read('public/ui/welcome.uikitml');
     assert.match(card, /<Panel id="card" class="panel-root">/);
     assert.match(card, /<div id="card-words" class="panel-content">/);
+  });
+
+  test("the laptop view's drift stops at the first key, press or drag the layer binds, never at the check's F24 clock step", () => {
+    /** An event as the browser fires it, with the fields the stop reads. */
+    const fire = (target: EventTarget, type: string, fields: Record<string, unknown>) => {
+      const event = new Event(type);
+      for (const [name, value] of Object.entries(fields))
+        Object.defineProperty(event, name, { value });
+      target.dispatchEvent(event);
+    };
+    const setUp = () => {
+      const keys = new EventTarget();
+      const canvas = new EventTarget();
+      let stops = 0;
+      stopOnInput(keys, canvas, () => {
+        stops += 1;
+      });
+      return { keys, canvas, stops: () => stops };
+    };
+    // The twin loads step their clock with a trusted F24 key (laptop-probe.ts twinLoad): it never stops the drift,
+    // and neither does a key the layer does not bind, a key let go, a hover or another mouse button.
+    const quiet = setUp();
+    fire(quiet.keys, 'keydown', { code: 'F24', key: 'F24' });
+    fire(quiet.keys, 'keyup', { code: 'F24', key: 'F24' });
+    fire(quiet.keys, 'keydown', { code: 'KeyQ' });
+    fire(quiet.keys, 'keyup', { code: 'Space' });
+    fire(quiet.canvas, 'pointermove', { button: -1 });
+    fire(quiet.canvas, 'pointerdown', { button: 2 });
+    assert.equal(quiet.stops(), 0);
+    const probe = readFileSync(new URL('./preview/laptop-probe.ts', import.meta.url), 'utf8');
+    assert.match(probe, /\{ type, code: 'F24', key: 'F24', windowsVirtualKeyCode: 135 \}/);
+    assert.ok(!BOUND_KEYS.has('F24'));
+    // Each key the layer binds stops it: the SDK's browser-first-person keys, Space, E and H; and a press or a drag.
+    assert.deepEqual([...BOUND_KEYS].sort(), [
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'KeyA',
+      'KeyD',
+      'KeyE',
+      'KeyH',
+      'KeyS',
+      'KeyW',
+      'Space',
+    ]);
+    assert.ok(BOUND_KEYS.has(BUTTONS.jump.key) && BOUND_KEYS.has(BUTTONS.action.key));
+    for (const code of BOUND_KEYS) {
+      const one = setUp();
+      fire(one.keys, 'keydown', { code });
+      fire(one.keys, 'keydown', { code });
+      assert.equal(one.stops(), 1, code);
+    }
+    const pressed = setUp();
+    fire(pressed.canvas, 'pointerdown', { button: 0 });
+    fire(pressed.keys, 'keydown', { code: 'Space' });
+    assert.equal(pressed.stops(), 1, 'a press, the start of a click or a drag, stops it once');
+    // The layer wires it to the view's drift, on the window and the canvas its drag and clicks use.
+    const layer = read('src/play-input.ts');
+    assert.match(
+      layer,
+      /stopOnInput\(globalThis, w\.renderer\.domElement, \(\) => viewDrift\.stop\(\)\);/,
+    );
+    assert.match(layer, /export const HELP_KEY = 'KeyH';/);
   });
 
   test('on a laptop H shows the card again for another 6 s, said on the card; never in a headset, never by the check (VRIFY U2, 2026-11-14)', () => {

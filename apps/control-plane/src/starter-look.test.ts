@@ -4,6 +4,8 @@ import { describe, test } from 'node:test';
 import { READING_HIDDEN_POINTS } from '@halcyonic/contracts';
 import {
   arcSlot,
+  DRIFT,
+  driftPose,
   FACE_POINTS,
   FAR_OFF,
   firstOf,
@@ -29,10 +31,13 @@ import {
   VIEW_AIM,
   VIEW_BACK,
   VIEW_CAMERA,
+  ViewDrift,
   wordedMeshes,
   wordsOn,
 } from '../../../starters/iwsdk-vr/template/src/legible.ts';
 import { fitText } from '../../../starters/iwsdk-vr/template/src/page-fit.ts';
+import { PAGE_MS } from './preview/check.ts';
+import { TWIN_FRAMES } from './preview/laptop-probe.ts';
 
 // The starter's look as a headset wearer and the laptop camera see it. The template's three.js code runs only in a
 // browser (the repository does not install the starter's dependencies), so its numbers and wiring are read here as
@@ -868,7 +873,7 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
     return { centre: [0, y, -PAGES_DISTANCE], up: [0, Math.cos(tilt), -Math.sin(tilt)] };
   };
   /** The box on the 1280 by 800 screen round corners at `centre`, `w` by `h` metres along `right` and `up`. */
-  const boxAt = (centre: V, right: V, up: V, w: number, h: number) =>
+  const boxAt = (centre: V, right: V, up: V, w: number, h: number, pose: Pose = viewCamera()) =>
     screenBox(
       [
         [-1, -1],
@@ -876,7 +881,7 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
         [1, 1],
         [-1, 1],
       ].map(([sx = 0, sy = 0]) =>
-        project(viewCamera(), [
+        project(pose, [
           centre[0] + (right[0] * sx * w) / 2 + (up[0] * sy * h) / 2,
           centre[1] + (right[1] * sx * w) / 2 + (up[1] * sy * h) / 2,
           centre[2] + (right[2] * sx * w) / 2 + (up[2] * sy * h) / 2,
@@ -888,7 +893,7 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
       VIEW.height,
     );
   /** Page `index` of a row of `count` on a laptop, at rest or pressed: nearer by `PRESS_FORWARD` and bigger. */
-  const pageBox = (index: number, count: number, pressed: boolean) => {
+  const pageBox = (index: number, count: number, pressed: boolean, pose: Pose = viewCamera()) => {
     const { angle } = arcSlot(index, 0, LAPTOP_PAGES, count, PAGES_DISTANCE);
     const near = pressed ? PRESS_FORWARD : 0;
     const scale = pressed ? 1 + PRESS_GROW : 1;
@@ -903,6 +908,7 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
       [0, 1, 0],
       PAGE_WIDTH * scale,
       PAGE_HEIGHT * scale,
+      pose,
     );
   };
   /** Inside the view, as the check reads it: no more than 2 px past any edge. */
@@ -945,6 +951,176 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
     const { centre, up } = rowAt(5);
     assert.equal(inside(boxAt(centre, [1, 0, 0], up, KEYS_WIDE, ROW_HEIGHT)), false);
     assert.match(read('AGENTS.md'), /Five rows fit\./);
+  });
+
+  // The laptop view's drift (SHOW, 2026-11-16): a slow arc round the pages and a small dolly back on game time, on a
+  // laptop only, stopped for good by the person's first drag, key or press and never moving in a headset.
+  const forwardOf = (pose: Pose): V => unit(sub(pose.lookAt as V, pose.position as V));
+  const angleBetween = (a: V, b: V) => Math.acos(Math.min(1, Math.max(-1, dot(a, b))));
+  /** Every 10 ms of the drift's own seconds, its end included. */
+  const driftTimes = () =>
+    Array.from({ length: Math.round(DRIFT.seconds * 100) + 1 }, (_, i) => i / 100);
+  /** Where the drift stands farthest from VIEW_CAMERA: the far end of its arc, half way through. */
+  const farEnd = () => driftPose(DRIFT.seconds / 2);
+  /** What the check takes at rest from `pose`: the words' heights of three pages and five rows, and their boxes. */
+  const reports = (pose: Pose) => {
+    const heights: number[] = [];
+    const boxes: ReturnType<typeof screenBox>[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      const { angle } = arcSlot(index, 0, LAPTOP_PAGES, 3, PAGES_DISTANCE);
+      const at: V = [
+        Math.sin(angle) * PAGES_DISTANCE,
+        PAGES_EYE,
+        -Math.cos(angle) * PAGES_DISTANCE,
+      ];
+      heights.push(wordPixels(pose, at, words()));
+      boxes.push(pageBox(index, 3, false, pose));
+    }
+    for (let row = 0; row < 5; row += 1) {
+      const { centre, up } = rowAt(row);
+      const foot = project(pose, centre);
+      const head = project(pose, [centre[0], centre[1] + up[1] * 0.04, centre[2] + up[2] * 0.04]);
+      heights.push(segmentPixels(foot.y, head.y, VIEW.height));
+      boxes.push(boxAt(centre, [1, 0, 0], up, KEYS_WIDE, ROW_HEIGHT, pose));
+    }
+    return { heights, boxes };
+  };
+
+  test('the drift starts exactly at VIEW_CAMERA and comes back to it, still, before the check looks for a still screen', () => {
+    assert.deepEqual(driftPose(0), VIEW_CAMERA);
+    assert.deepEqual(driftPose(DRIFT.seconds), VIEW_CAMERA);
+    assert.deepEqual(driftPose(DRIFT.seconds + 100), VIEW_CAMERA);
+    // Back before the twin loads' first frame (60 a second) and long before the laptop step's still control pair.
+    assert.ok(DRIFT.seconds < TWIN_FRAMES[0] / 60 - 0.5, `${DRIFT.seconds} s`);
+    assert.ok(DRIFT.seconds < PAGE_MS / 1000 / 2);
+  });
+
+  test('the drift turns at most 3 degrees a second with no roll, a few degrees of arc and a small dolly', () => {
+    let fastest = 0;
+    let widest = 0;
+    let farthest = 0;
+    const home = forwardOf(VIEW_CAMERA);
+    const times = driftTimes();
+    for (let i = 1; i < times.length; i += 1) {
+      const before = times[i - 1] ?? 0;
+      const now = times[i] ?? 0;
+      const turn = angleBetween(forwardOf(driftPose(before)), forwardOf(driftPose(now)));
+      fastest = Math.max(fastest, turn / DEGREE / (now - before));
+      widest = Math.max(widest, angleBetween(home, forwardOf(driftPose(now))) / DEGREE);
+      farthest = Math.max(
+        farthest,
+        Math.hypot(...sub(driftPose(now).position as V, VIEW_CAMERA.position)),
+      );
+      // It always looks at the same point, the camera's up the world's, so it never rolls.
+      assert.deepEqual(driftPose(now).lookAt, VIEW_CAMERA.lookAt);
+    }
+    assert.ok(fastest <= 3, `${fastest} degrees a second`);
+    assert.ok(widest >= 1 && widest <= 4, `${widest} degrees`);
+    assert.ok(farthest <= 0.15, `${farthest} m`);
+    const dolly =
+      Math.hypot(...sub(farEnd().position as V, farEnd().lookAt as V)) -
+      Math.hypot(...sub(VIEW_CAMERA.position, VIEW_CAMERA.lookAt));
+    assert.ok(dolly > 0 && dolly <= 0.1, `back ${dolly} m`);
+    assert.equal(DRIFT.arc, 3);
+    assert.ok(DRIFT.back <= 0.1);
+  });
+
+  test("at the arc's far end, and every frame of it, the pages, a pressed page and five rows stay inside the view and read at 10 px", () => {
+    for (const pose of [farEnd(), ...driftTimes().map((t) => driftPose(t))]) {
+      for (const count of [1, 2, 3])
+        for (let index = 0; index < count; index += 1) {
+          assert.ok(inside(pageBox(index, count, false, pose)), `page ${index} of ${count}`);
+          assert.ok(inside(pageBox(index, count, true, pose)), `pressed page ${index} of ${count}`);
+        }
+      const { heights, boxes } = reports(pose);
+      for (const px of heights) assert.ok(px >= 10, `${px} px`);
+      for (const box of boxes) assert.ok(inside(box), JSON.stringify(box));
+    }
+  });
+
+  test("the check's reading and fit are the same with and without the drift: taken at VIEW_CAMERA while it moves (D1)", () => {
+    const still = reports(VIEW_CAMERA);
+    const drift = new ViewDrift();
+    // Never stepped (a game, or before the first frame): read through the camera as it stands.
+    assert.equal(drift.restPose(), null);
+    for (const t of driftTimes()) {
+      const drawn = drift.step(t, false);
+      assert.ok(drawn !== null);
+      if (t < DRIFT.seconds) assert.deepEqual(drift.restPose(), VIEW_CAMERA);
+      assert.deepEqual(reports(drift.restPose() ?? drawn), still, `at ${t} s`);
+    }
+    // The drawn frame is not VIEW_CAMERA half way, so what keeps the reports the same is the rest pose.
+    assert.notDeepEqual(reports(farEnd()), still);
+    // The kit's hook reads and boxes through the camera put at the rest pose, then put back as it stood.
+    const layer = read('src/play-input.ts');
+    const readingsBody = layer.slice(layer.indexOf('function readings('));
+    assert.match(readingsBody, /^[\s\S]*?\{\n\s+return atRest\(w, \(\) => \{/);
+    const panelsBody = layer.slice(layer.indexOf('function panels('));
+    assert.match(panelsBody, /^[\s\S]*?\{\n\s+return atRest\(w, \(\) => \{/);
+    assert.match(
+      layer,
+      /const pose = viewDrift\.restPose\(\);\n\s+if \(pose === null\) return read\(\);/,
+    );
+    assert.match(
+      layer,
+      /camera\.position\.set\(\.\.\.pose\.position\);\n\s+camera\.lookAt\(\.\.\.pose\.lookAt\);/,
+    );
+    assert.match(
+      layer,
+      /camera\.position\.copy\(standing\);\n\s+camera\.quaternion\.copy\(facing\);/,
+    );
+  });
+
+  test('after a stop the drift never moves the camera again, and once back home it lets the camera be', () => {
+    const drift = new ViewDrift();
+    assert.deepEqual(
+      drift.step(10, false),
+      VIEW_CAMERA,
+      'its first frame is VIEW_CAMERA, whatever the game time',
+    );
+    const moved = drift.step(10 + DRIFT.seconds / 4, false);
+    assert.ok(moved !== null);
+    assert.notDeepEqual(moved, VIEW_CAMERA);
+    drift.stop();
+    for (let t = 10.5; t < 40; t += 0.25) assert.equal(drift.step(t, false), null, `${t}`);
+    assert.equal(drift.restPose(), null, 'read through the camera where it stopped');
+    drift.stop();
+    assert.equal(drift.step(50, false), null);
+    const ended = new ViewDrift();
+    ended.step(0, false);
+    assert.deepEqual(
+      ended.step(DRIFT.seconds + 0.01, false),
+      VIEW_CAMERA,
+      'its last frame lands home',
+    );
+    for (let t = DRIFT.seconds + 0.02; t < 30; t += 0.5) assert.equal(ended.step(t, false), null);
+    // The look moves the camera only from the drift's own pose, on the game's time, and only while it gives one.
+    const look = read('src/look.ts');
+    const body = look.slice(look.indexOf('export function setupScene('));
+    assert.match(
+      body,
+      /ambientMotion\(\(time\) => \{\n\s+const pose = viewDrift\.step\(time, inHeadset\(\) \|\| renderer\.xr\.isPresenting\);\n\s+if \(pose === null\) return;\n\s+world\.camera\.position\.set\(\.\.\.pose\.position\);\n\s+world\.camera\.lookAt\(\.\.\.pose\.lookAt\);/,
+    );
+    // A game keeps its camera: only a view drifts.
+    assert.equal(look.split('viewDrift.').length, 2);
+    assert.doesNotMatch(
+      look.slice(
+        look.indexOf('export function setupLook('),
+        look.indexOf('export function setupScene('),
+      ),
+      /viewDrift/,
+    );
+  });
+
+  test('in a presenting session nothing moves, and never again after one began', () => {
+    const drift = new ViewDrift();
+    drift.step(0, false);
+    assert.equal(drift.step(0.5, true), null);
+    for (let t = 0.6; t < 20; t += 0.3) assert.equal(drift.step(t, false), null, `${t}`);
+    assert.equal(drift.restPose(), null);
+    const headset = new ViewDrift();
+    assert.equal(headset.step(0, true), null, 'a session from the first frame never drifts');
+    assert.equal(headset.step(1, false), null);
   });
 
   test("from the old camera, at the person's own place, the side pages already reached past the edge: the cause", () => {

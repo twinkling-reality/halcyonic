@@ -116,7 +116,8 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   the rays inside its sealed hook, from the same camera the heights use; the host takes a count from 0 to 5 per text
   and reads anything else as not known. The try names the text by its kind only (a page, a row of buttons, the score
   sign), never its words, says to move it or what covers it, and that the laptop camera stands behind the person's
-  place (a step behind it for a view, 0.4 m; further back and higher for a game, 2.2 m behind and above, as
+  place (a step behind it for a view, 0.4 m, drifting a few degrees and back over its first 4 s or until the first
+  key press, click or drag, read at rest; further back and higher for a game, 2.2 m behind and above, as
   iwsdk.config.json places it), so a cover may stand behind the person; where its words are also too small, the size
   is said first. A panel under the camera (the starter's controls
   card while it shows) never covers, and a ray sees meshes only, so a pass is where it could measure.

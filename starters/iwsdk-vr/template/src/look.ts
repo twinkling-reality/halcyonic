@@ -27,7 +27,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { VIEW_CAMERA } from './legible.js';
+import { VIEW_CAMERA, viewDrift } from './legible.js';
 import { drift } from './motion.js';
 import { toyMaterial } from './palette.js';
 import { startAmbience } from './sound.js';
@@ -593,6 +593,14 @@ export function setupScene(world: World, background = '#000000'): { root: Group 
   world.camera.lookAt(...VIEW_CAMERA.lookAt);
   session = world;
   const renderer = world.renderer;
+  // On a laptop it drifts a few degrees round the pages and back over its first seconds, on the game's time (`DRIFT`),
+  // until the person's first drag, key or press stops it where it is; in a headset it never moves.
+  ambientMotion((time) => {
+    const pose = viewDrift.step(time, inHeadset() || renderer.xr.isPresenting);
+    if (pose === null) return;
+    world.camera.position.set(...pose.position);
+    world.camera.lookAt(...pose.lookAt);
+  });
   renderer.toneMapping = NoToneMapping;
   world.scene.environment = null;
   // The SDK's environment system clears scene.background, so the colour is a sphere round the person, as the starter's
