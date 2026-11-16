@@ -162,8 +162,8 @@ export async function choiceRows(
         );
     case 'approval_levels':
       return [
-        row(0, 'approval_level', 'Ask First', 'ask', { actions: ['execution.start'] }),
-        row(1, 'approval_level', 'Never Ask', 'never_ask', { actions: ['execution.start'] }),
+        row(0, 'approval_level', 'Ask Me First', 'ask', { actions: ['execution.start'] }),
+        row(1, 'approval_level', "Don't Ask Me", 'never_ask', { actions: ['execution.start'] }),
       ];
     case 'share_ways':
       if (project === undefined) return null;

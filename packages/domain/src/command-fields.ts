@@ -154,7 +154,7 @@ export const COMMAND_FIELDS: Readonly<
     options: host,
     model_ref: need('choice', 'Model', { ...optional, list: 'models' }),
     approval_level: need('choice', 'Asking', { ...optional, list: 'approval_levels' }),
-    plan: need('yes_no', 'Plan First', optional),
+    plan: need('yes_no', 'Show Plan First', optional),
     spending_cap_usd: need('amount', 'Spending Limit', optional),
     attachments: need('choices', 'Pictures', { ...optional, list: 'pictures', max: 4 }),
   },
