@@ -3053,7 +3053,11 @@ in order, as before.
   under the foot line, no step reported, so no cursor) and `36-stop-confirm`; `RoomWorkingTests` drives Stop and its
   confirmation through a real file column and reads the one command sent.
 - **The shelf's name tags** (BUILD-SPEC-v4 2.2): under the redesign each character on the shelf is named by FIELD's tag
-  in the panel's material, one line of its task's name 0.8 degrees under its feet, and the one whose task stands open
+  in the panel's material, its task's name 0.8 degrees under its feet, and under its body as the eyes see it: the tag
+  stands on the shelf lip's plane in front of the character, so its top is the lower of the gap under the lip and the gap
+  under the body's lowest point carried along the eyes' line onto that plane (`CharacterView.BodyCorners`, `ShelfViewer`,
+  `LabelsPlaced`; `RoomNameTag.Place`), and it never stands over the character's face (AUDIT 2026-11-16 13:58Z; the
+  lead's ruling that the settled spec keeps it under the feet). The one whose task stands open
   beside the menu wears the ring (`RoomNameTag`, attached by `WorkspaceDirector.Attach`, ringed in `FollowBeside`);
   the character's older label (badge, plate and marks) does not stand. A task that needs the person says so on its tag,
   FIELD's dot before the name and Needs You after it, so its need is never told by colour or motion alone (ADR 0023;

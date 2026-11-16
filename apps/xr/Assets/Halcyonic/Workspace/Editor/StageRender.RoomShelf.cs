@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
@@ -76,6 +77,13 @@ namespace Halcyonic.XR.Workspace.Editor
                         // Under the feet: the tag's top stands below the character's body.
                         var top = tag.transform.TransformPoint(new Vector3(0f, tag.Size.y / 2f, 0f));
                         if (top.y >= view.transform.position.y) failures.Add(name + ": the tag's top stands at or above the character's feet");
+                        // And under the body as the eyes see it (AUDIT 2026-11-16 13:58Z): its top lower in view than every point of the
+                        // character's drawn body, so the tag never stands over the character's face.
+                        float Up(Vector3 point) { var away = point - eyes; return Mathf.Atan2(away.y, new Vector2(away.x, away.z).magnitude) * Mathf.Rad2Deg; }
+                        var lowestBody = view.BodyCorners().Min(Up);
+                        if (Up(top) >= lowestBody - 0.3f)
+                            failures.Add(name + ": the tag's top stands " + Up(top).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " degrees up, over the character's body down to "
+                                + lowestBody.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + ", as the eyes see it");
                         // The frame shows the shelf alone, looked at: the console is not part of the redesign's shelf.
                         plane.gameObject.SetActive(false);
                         camera.transform.LookAt(view.transform.position);

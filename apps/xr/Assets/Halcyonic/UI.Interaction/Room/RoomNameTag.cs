@@ -43,6 +43,7 @@ namespace Halcyonic.XR.UI
             made = character.gameObject.AddComponent<RoomNameTag>();
             made.view = character;
             character.Shown += made.Show;
+            character.LabelsPlaced += made.Place;
             made.Show();
             return made;
         }
@@ -62,13 +63,49 @@ namespace Halcyonic.XR.UI
             // Where the task needs the person the tag says so in words beside the name (ADR 0023; AUDIT, 2026-11-11).
             tag.Show(LineWords.TheirName(view.Title), picked, needsYou: view.Presentation is CharacterPresentation shown && CharacterLabel.Of(shown).NeedsPerson,
                 mostWordsDp: RoomTag.NameWordsMostDp);
+            Place();
+        }
+
+        /// <summary>Stands the tag where its character's labels now stand, its words as they are: each time the shelf places them.</summary>
+        public void Place()
+        {
+            if (tag == null || !tag.gameObject.activeSelf) return;
             tag.transform.localRotation = Quaternion.identity;
-            tag.transform.localPosition = new Vector3(0f, -tag.Size.y / 2f - RoomType.Units(UnderDegrees * RoomGeometry.DpPerDegree), 0f);
+            // Under the feet (BUILD-SPEC-v4 2.2), and under the body as the eyes see it too: the tag stands on the shelf lip's plane,
+            // in front of the character, so seen from above the body would rise over a tag laid only under the lip (AUDIT
+            // 2026-11-16 13:58Z, the lead's 15:0xZ). Its top stands the gap under the lip, or under the body's lowest point carried
+            // along the eyes' line onto that plane, whichever is lower.
+            var gap = RoomType.Units(UnderDegrees * RoomGeometry.DpPerDegree);
+            var top = Mathf.Min(-gap, BodyFootOnPlane() - gap);
+            tag.transform.localPosition = new Vector3(0f, top - tag.Size.y / 2f, 0f);
+        }
+
+        /// <summary>
+        /// The lowest the character's body stands on the tag's plane (the labels' space, z = 0) as the eyes the shelf was placed
+        /// for see it; where no eyes are known yet, its lowest point straight across.
+        /// </summary>
+        private float BodyFootOnPlane()
+        {
+            var labels = view.Labels;
+            var from = view.ShelfViewer is Vector3 eyes ? labels.InverseTransformPoint(eyes) : (Vector3?)null;
+            var lowest = float.PositiveInfinity;
+            foreach (var corner in view.BodyCorners())
+            {
+                var at = labels.InverseTransformPoint(corner);
+                var y = at.y;
+                if (from is Vector3 eye && Mathf.Abs(at.z - eye.z) > 1e-6f) y = eye.y + (-eye.z / (at.z - eye.z)) * (at.y - eye.y);
+                lowest = Mathf.Min(lowest, y);
+            }
+            return float.IsPositiveInfinity(lowest) ? 0f : lowest;
         }
 
         private void OnDestroy()
         {
-            if (view != null) view.Shown -= Show;
+            if (view != null)
+            {
+                view.Shown -= Show;
+                view.LabelsPlaced -= Place;
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 #nullable enable
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
@@ -235,8 +236,30 @@ namespace Halcyonic.XR
 
         /// <summary>Places readable rendered labels independently of the fixed grounded body's scale.
         /// The placement-time viewer is retained; later head motion does not move the shelf or label.</summary>
+        /// <summary>The eyes the shelf's label was last placed for, null before; what the tag under the feet is placed by.</summary>
+        public Vector3? ShelfViewer { get; private set; }
+
+        /// <summary>Raised after <see cref="PlaceShelfLabel"/> has placed and grown the label, so what stands on its place follows.</summary>
+        public event System.Action? LabelsPlaced;
+
+        /// <summary>
+        /// Every corner of the character's drawn body in the world, its labels left out: what the tag under its feet must stand clear
+        /// of as the eyes see it. Read on placement, never each frame.
+        /// </summary>
+        public IEnumerable<Vector3> BodyCorners()
+        {
+            foreach (var drawn in GetComponentsInChildren<Renderer>(false))
+            {
+                if (labels != null && drawn.transform.IsChildOf(labels)) continue;
+                var box = drawn.bounds;
+                for (var corner = 0; corner < 8; corner++)
+                    yield return box.center + Vector3.Scale(box.extents, new Vector3(corner % 2 == 0 ? -1f : 1f, corner < 4 ? -1f : 1f, corner % 4 < 2 ? -1f : 1f));
+            }
+        }
+
         public void PlaceShelfLabel(Vector3 viewer)
         {
+            ShelfViewer = viewer;
             // The character faces the viewer; its forward edge is the actual shelf's front lip.
             // Only the label moves. The grounded shell and confirmed shelf pose remain untouched.
             var lip = transform.position + transform.forward * (AgentShelfDraft.Depth / 2f);
@@ -285,6 +308,7 @@ namespace Halcyonic.XR
             }
             AttachTop();
             GrowLabelToFloor(viewer, words, AttachTop);
+            LabelsPlaced?.Invoke();
         }
 
         /// <summary>
