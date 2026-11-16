@@ -2137,8 +2137,6 @@ namespace Halcyonic.XR.Workspace.Editor
                     "Change the lockout test to expect limits per address only\\.|" +
                     "Run make migrate to add the sign-in attempts table to the development database" +
                     ")\" ends on one word alone on its last line$")),
-            ("the result card's title cut to three lines with its last word alone, AUDIT to rule",
-                new Regex("/Information panel/Card/Title words \"Add rate limiting to the sign-in\" ends on one word alone on its last line$")),
         };
 
         private static List<string> NoticeOffPlate(Camera camera, TMP_Text words, Halcyonic.XR.UI.RoomSurface plate)
