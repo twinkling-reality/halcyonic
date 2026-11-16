@@ -195,6 +195,7 @@ const SKY_FRAGMENT = /* glsl */ `
   uniform float time;
   uniform float cloud;
   uniform float bloom;
+  uniform float dusk;
   varying vec3 vDir;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float noise(vec2 p) {
@@ -245,6 +246,9 @@ const SKY_FRAGMENT = /* glsl */ `
     vec3 cool = mix(middle, horizonColour, 0.3) * 0.95;
     vec3 lit = mix(cool, sunColour * (1.6 + 1.2 * bloom) + vec3(0.08, 0.04, 0.0), edge * (0.25 + 0.75 * pow(toward, 1.2)));
     colour = mix(colour, lit, c * 0.7);
+    // As the sun goes down the sky deepens from its height down: rose low, indigo overhead.
+    colour = mix(colour, colour * vec3(0.3, 0.26, 0.62) + vec3(0.006, 0.003, 0.028), dusk * smoothstep(0.01, 0.35, h));
+    colour += sunColour * vec3(0.45, 0.1, 0.16) * dusk * low * (0.3 + 0.7 * toward);
     // The sun's disc, its edge darker than its middle, cut by nothing but the land.
     float disc = smoothstep(0.9992, 0.99965, mu);
     float limb = 0.75 + 0.25 * smoothstep(0.9992, 0.99995, mu);
@@ -270,7 +274,13 @@ function airSky(
   sunDir: Vector3,
   radius: number,
   options: { cloud?: number } = {},
-): { mesh: Mesh; move(time: number): void; cloud(amount: number): void; bloom(amount: number): void } {
+): {
+  mesh: Mesh;
+  move(time: number): void;
+  cloud(amount: number): void;
+  bloom(amount: number): void;
+  dusk(amount: number): void;
+} {
   const material = new ShaderMaterial({
     uniforms: {
       zenith: { value: colours.top },
@@ -282,6 +292,7 @@ function airSky(
       time: { value: 0 },
       cloud: { value: options.cloud ?? 1 },
       bloom: { value: 0 },
+      dusk: { value: 0 },
     },
     vertexShader: SKY_VERTEX,
     fragmentShader: SKY_FRAGMENT,
@@ -292,7 +303,12 @@ function airSky(
   const mesh = new Mesh(new SphereGeometry(radius, 64, 32), material);
   // After setupScene's flat backdrop (-1), before anything of the place.
   mesh.renderOrder = -0.95;
-  const uniforms = material.uniforms as { time: { value: number }; cloud: { value: number }; bloom: { value: number } };
+  const uniforms = material.uniforms as {
+    time: { value: number };
+    cloud: { value: number };
+    bloom: { value: number };
+    dusk: { value: number };
+  };
   return {
     mesh,
     move(time) {
@@ -303,6 +319,9 @@ function airSky(
     },
     bloom(amount) {
       uniforms.bloom.value = amount;
+    },
+    dusk(amount) {
+      uniforms.dusk.value = amount;
     },
   };
 }
@@ -356,8 +375,9 @@ export interface LandColours {
  * asked); with `stars`, that many stars, on the side of the sky away from the sun (give them only for a place after
  * sunset). `light(...)` and `shade(...)` let something near the sand (a window floating over it) cast its own light
  * and a soft shade on it. It opens from black, lifting over its first second of `move`; its low light and the sun's
- * glow build to a peak about 14 s in, then settle to a calmer glow by about 24 s (`peak: false` keeps them still). One
- * mesh for the ground, one for the sky.
+ * glow build to a peak about 14 s in while the sun sinks into the valley toward it from about 7 s, the sky deepening
+ * from rose to indigo by about 19 s, the sand dimming and a few stars coming out (`peak: false` keeps it all still, its stars only
+ * those asked for). One mesh for the ground, one for the sky.
  */
 export function openLand(
   colours: LandColours,
@@ -606,6 +626,8 @@ export function openLand(
   const detail = { value: quality === 'low' ? 0 : 1 };
   // How far the place is into its peak, 0 to 1 (see `move`).
   const bloom = { value: 0 };
+  // How far the sun has gone down after the peak, 0 to 1.
+  const dusk = { value: 0 };
   const index: number[] = [];
   for (let i = 0; i < rings; i++) {
     for (let j = 0; j < around; j++) {
@@ -658,11 +680,12 @@ export function openLand(
     shader.uniforms.sandSheen = { value: [sunColour.r, sunColour.g, sunColour.b] };
     shader.uniforms.sandFog = { value: horizon };
     shader.uniforms.sandBloom = bloom;
+    shader.uniforms.sandDusk = dusk;
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vSand;\nvoid main() {')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSand = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandNormals;\nuniform float sandReach;\nuniform float sandDetail;\nuniform vec3 sandBaseNear;\nuniform vec3 sandBaseFar;\nuniform vec3 sandGold;\nuniform vec3 sandShadeSky;\nuniform vec3 sandSun3;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform vec3 sandCastFrom;\nuniform vec3 sandCastBand;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nuniform vec3 sandFog;\nuniform float sandBloom;\nuniform vec2 sandSizes;\nvarying vec3 vSand;\n' + SAND_CUBIC + 'void main() {')
+      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandNormals;\nuniform float sandReach;\nuniform float sandDetail;\nuniform vec3 sandBaseNear;\nuniform vec3 sandBaseFar;\nuniform vec3 sandGold;\nuniform vec3 sandShadeSky;\nuniform vec3 sandSun3;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform vec3 sandCastFrom;\nuniform vec3 sandCastBand;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nuniform vec3 sandFog;\nuniform float sandBloom;\nuniform float sandDusk;\nuniform vec2 sandSizes;\nvarying vec3 vSand;\n' + SAND_CUBIC + 'void main() {')
       .replace(
         '#include <opaque_fragment>',
         `{
@@ -797,6 +820,8 @@ export function openLand(
     float thick = 1.0 - exp(-dist * density);
     // At the place's peak the low light warms the sand and the air toward the sun.
     outgoingLight *= 1.0 + sandBloom * vec3(0.14, 0.05, -0.03);
+    // And as it goes down, the sand dims and cools with the sky.
+    outgoingLight *= 1.0 - sandDusk * vec3(0.45, 0.5, 0.28);
     vec3 airColour = sandFog + sandSheen * (0.06 + (0.5 + 0.35 * sandBloom) * sunward * sunward);
     outgoingLight = mix(outgoingLight, airColour, thick);
     // Grains catching the low sun: tiny glints on the sand seen toward it, only where a grain is bigger than a pixel.
@@ -835,7 +860,8 @@ export function openLand(
   const grainColour = near.clone().lerp(sunColour, 0.6);
 
   // Stars come out first on the side of the sky away from the sun.
-  const starCount = options.stars ?? 0;
+  // With the peak and no stars asked for, a few come out as the sky darkens after it.
+  const starCount = options.stars ?? (options.peak !== false ? 140 : 0);
   const stars = glows(Math.max(1, starCount), { facing: true, halo: 0.2, round: 1 });
   group.add(stars.object);
   // Each star: x, y, z, its twinkle's phase and its brightness, in one typed array read by index each frame.
@@ -885,13 +911,19 @@ export function openLand(
       air.move(time);
       if (Number.isNaN(opened)) opened = time;
       // Its first twenty seconds build to a peak: the low light and the sun's glow rise to their fullest about 14 s
-      // in, then settle to a calmer glow that stays.
+      // in, then settle as the sun goes down.
       if (options.peak !== false) {
         const since = time - opened;
         const rise = Math.min(1, Math.max(0, (since - 2) / 11));
         const settle = Math.min(1, Math.max(0, (since - 15) / 9));
         bloom.value = rise * rise * (3 - 2 * rise) * (1 - 0.6 * settle * settle * (3 - 2 * settle));
         air.bloom(bloom.value);
+        // After the peak the sun sinks into the valley toward it and the light goes down with it.
+        const down = Math.min(1, Math.max(0, (since - 7) / 12));
+        dusk.value = down * down * (3 - 2 * down);
+        air.dusk(dusk.value);
+        const up = sunUp - 0.13 * dusk.value;
+        sunDir.set(Math.sin(sunAt) * Math.cos(up), Math.sin(up), -Math.cos(sunAt) * Math.cos(up));
       }
       if (veil.visible) {
         const k = Math.min(1, Math.max(0, (time - opened - 0.1) / 0.8));
@@ -927,7 +959,8 @@ export function openLand(
       for (let i = 0; i < starCount; i++) {
         const k = i * 5;
         const twinkle = 0.6 + 0.4 * Math.sin(time * 1.3 + (home[k + 3] as number) * 5);
-        stars.add(home[k] as number, home[k + 1] as number, home[k + 2] as number, 0.24, 0.24, starColour, (home[k + 4] as number) * twinkle);
+        const out = options.stars === undefined ? dusk.value * dusk.value : 1;
+        stars.add(home[k] as number, home[k + 1] as number, home[k + 2] as number, 0.24, 0.24, starColour, (home[k + 4] as number) * twinkle * out);
       }
       stars.end();
     },
