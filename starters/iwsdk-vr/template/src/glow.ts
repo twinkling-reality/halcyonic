@@ -534,7 +534,7 @@ const KEY_FRAGMENT = /* glsl */ `
     c += vNear * line;
     // Toward the keyboard's ends the keys grow clear as well as dim, so it ends in the place's own light, never in a
     // dark block.
-    gl_FragColor = vec4(c * dim, vTone.a);
+    gl_FragColor = vec4(c * dim, vTone.a * vTone.a);
     #include <colorspace_fragment>
     gl_FragColor.rgb += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
   }
@@ -1151,7 +1151,7 @@ const AROUND = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0')
 /**
  * Makes a hall of light round the person that answers a score (`playScore`) and builds with it: `columns` columns of
  * light stand round the person about `radius` metres out, each at its own distance and width, rising from the floor and
- * leaning in to meet in a warm crown of light just beyond the ring in front of the person, about 24 degrees above
+ * leaning in to meet in a warm crown of light just beyond the ring in front of the person, about 18 degrees above
  * their eye, so the keys and the crown are seen together with the head level, each faintly its own colour (deep blue ahead, sea blue and violet
  * beside, rose behind). Each note's light falls down one column, climbs back up it, and climbs, fainter, the column
  * facing it too (each octave runs once round the ring, C ahead and rising to the right, so a scale stands on every side
@@ -1192,10 +1192,10 @@ export function lightHall(
     const h = Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453;
     return h - Math.floor(h);
   };
-  // Where the columns meet: a crown of light in front of the person, just beyond the ring, about 24 degrees up, so the
-  // head level holds the keys and the crown in one view and the bloom is seen to open from the music.
+  // Where the columns meet: a crown of light in front of the person, just beyond the ring, about 18 degrees up, so the
+  // head level holds the keys and the crown's heart in one view and the bloom is seen to open from the music.
   const crownZ = -radius * 1.25;
-  const apex = 1.6 - crownZ * Math.tan((24 * Math.PI) / 180);
+  const apex = 1.6 - crownZ * Math.tan((18 * Math.PI) / 180);
   // A point at height h on a column's line from its foot at (x, z) to the crown.
   const lineX = (x: number, h: number) => x * (1 - h / apex);
   const lineZ = (z: number, h: number) => z + (crownZ - z) * (h / apex);
@@ -1514,7 +1514,7 @@ export function lightHall(
         const swept = sweeping(home.a);
         shade.copy(home.colour).lerp(litColour[i] as Color, notes > 0 ? 0.6 : 0).lerp(amber, Math.min(0.95, swept));
         // The bloom brightens the columns well short of white, so their colour holds at the peak.
-        const strength = held * (rest + 1.1 * notes + swept) + 0.75 * bloom + wave;
+        const strength = held * (rest + 1.1 * notes + swept) + 0.45 * bloom + wave;
         const going = newest[i] as number;
         if (going < top) {
           // Climbing, its head at y and its tail below, fading as it goes.
@@ -1581,7 +1581,7 @@ export function lightHall(
         const shown = Math.min(1, Math.max(0, grown - k) / 40);
         const lit = flash[k] ?? 0;
         const glint = 0.7 + 0.3 * Math.sin(time * p.twinkle + p.phase);
-        const strength = p.own * glint * ((1 - 0.85 * swelling.hush) * shown * (0.3 + 0.5 * built) + 1.0 * bloom) + lit;
+        const strength = p.own * glint * ((1 - 0.85 * swelling.hush) * shown * (0.3 + 0.5 * built) + 0.6 * bloom) + lit;
         if (strength <= 0.002) continue;
         const a = p.a + turn;
         shade.copy(p.colour);
@@ -1594,7 +1594,7 @@ export function lightHall(
       for (const v of detail > 0 ? veils : []) {
         const shown = Math.min(1, Math.max(0, grown / petals - v.r / span + 0.1) * 5);
         const a = v.a + turn;
-        arms.add(Math.sin(a) * v.r, v.y, -Math.cos(a) * v.r, 0.2, 0.2, v.colour, shown * (0.015 + 0.03 * built) + 0.1 * bloom);
+        arms.add(Math.sin(a) * v.r, v.y, -Math.cos(a) * v.r, 0.2, 0.2, v.colour, shown * (0.015 + 0.03 * built) + 0.03 * bloom);
       }
       arms.end();
       crownLight.begin();
@@ -1604,7 +1604,7 @@ export function lightHall(
       oculus.begin();
       // The warm eye: a hot white heart in a broad warm halo, so it reads as the light itself, never a bead or a
       // dull ball; at the peak the heart is the brightest thing in view.
-      oculus.add(0, apex, crownZ, 0.5, 0.5, amber, (1 - 0.7 * swelling.hush) * 0.35 * built + 1.3 * bloom);
+      oculus.add(0, apex, crownZ, 0.5, 0.5, amber, (1 - 0.7 * swelling.hush) * 0.35 * built + 0.8 * bloom);
       oculus.add(0, apex, crownZ, 3.2, 3.2, amber, (1 - 0.9 * swelling.hush) * 0.05 * built + 0.25 * bloom);
       oculus.end();
     },
