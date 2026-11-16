@@ -220,7 +220,12 @@ namespace Halcyonic.Client
                 // The rows' words, joined, are the body's: a view that draws no rows still shows every word, each on its own line.
                 foreach (var row in facts) body = body.IsEmpty ? row.Words : body + LineWords.Ours(KitMomentWords.Dot) + row.Words;
             }
-            return new RoomBar(loop.State, row: loop.Row, body: body, sentence: sentence, column: column, band: band, wide: body.IsEmpty && card == null,
+            // One accent (AUDIT2's N3, SCREENS's reader 5: two cyan buttons on a failed result): where the result's column leads with
+            // its own main action, the row's ways in stand plain beside it.
+            var plainRow = column.Any(action => action.Main)
+                ? loop.Row.Select(action => action.Main ? new RoomAction(action.Control, false, action.Words, action.Locks, action.Icon, action.Mark, action.Chosen, action.Chip, action.Detail) : action).ToList()
+                : loop.Row;
+            return new RoomBar(loop.State, row: plainRow, body: body, sentence: sentence, column: column, band: band, wide: body.IsEmpty && card == null,
                 lines: facts != null && facts.Count > 1 ? facts.Select(row => row.Words).ToList() : null)
             {
                 Result = true,

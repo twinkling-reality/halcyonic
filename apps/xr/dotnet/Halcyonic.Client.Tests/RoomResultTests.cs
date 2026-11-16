@@ -185,6 +185,24 @@ public class RoomResultTests
     }
 
     [Test]
+    public void AResultNeverStandsTwoAccentsTheRowGoesPlainBesideTheColumnsMainAction()
+    {
+        // SCREENS's reader 5 (AUDIT2's N3): Hold to Talk and the column's main action read as two cyan buttons.
+        foreach (var result in new[]
+        {
+            new RoomResult(true, false, true, true, null, Steps(), RoomResultPage.Checks),
+            new RoomResult(true, false, false, false, null, Steps(buildFails: true), RoomResultPage.Checks),
+            new RoomResult(true, false, true, true, null, Steps()),
+        })
+        {
+            var bar = Bar(result);
+            var accents = bar.Column.Concat(bar.Row).Count(action => action.Main);
+            Assert.That(accents, Is.LessThanOrEqualTo(1), result.Page + ": " + string.Join(", ", bar.Column.Concat(bar.Row).Where(action => action.Main).Select(action => action.Words)));
+            if (bar.Column.Any(action => action.Main)) Assert.That(bar.Row.Any(action => action.Main), Is.False, "the row stands plain beside the column's main action");
+        }
+    }
+
+    [Test]
     public void ThePageShownIsKeptForOneTaskAndRunAndStartsAtTheResultAgain()
     {
         var state = new WorkspacePresentationState();
