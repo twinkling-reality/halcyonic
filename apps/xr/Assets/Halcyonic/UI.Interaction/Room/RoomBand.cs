@@ -355,13 +355,39 @@ namespace Halcyonic.XR.UI
                 RoomType.Size(Label);
                 Label.richText = false;
                 Label.parseCtrlCharacters = true;
-                Label.text = laid;
                 var pitch = KitType.LinePitch(Label);
-                var box = new Vector2(RoomWords.MeasureDp * Dp, RoomWords.LinesAPart * pitch);
+                var measure = RoomWords.MeasureDp * Dp;
+                var lines = LayAt(laid, measure, pitch);
+                // No word alone on the words' last line (AUDIT's 11:18Z: "file." alone under the result at the larger size): the
+                // measure narrows a twentieth at a time, down to six tenths, until the last line holds two words, never on more lines
+                // than first laid; where none does, the words stand as first laid. The words themselves are never changed.
+                if (lines >= 2 && RoomCardView.LastLineIsOneWord(Label) && laid.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Length >= 4)
+                {
+                    var mended = false;
+                    for (var step = 1; step <= 8 && !mended; step++)
+                    {
+                        if (LayAt(laid, measure * (1f - 0.05f * step), pitch) != lines) break;
+                        mended = !RoomCardView.LastLineIsOneWord(Label);
+                    }
+                    if (!mended) LayAt(laid, measure, pitch);
+                }
+                Words = RoomWords.Of(Label.textInfo.characterCount == 0 ? 0 : Label.textInfo.lineCount, part);
+                Place(Label.textInfo, everything: true);
+                Push();
+            }
+
+            /// <summary>
+            /// Lays <paramref name="laid"/> <paramref name="width"/> wide, its box three lines tall, its first line under the band's
+            /// padding at the measure's left, and turns a word that a hyphen would break to its next line; returns the lines it takes.
+            /// </summary>
+            private int LayAt(string laid, float width, float pitch)
+            {
+                Label.text = laid;
+                var box = new Vector2(width, RoomWords.LinesAPart * pitch);
                 if (Label.rectTransform.sizeDelta != box) Label.rectTransform.sizeDelta = box;
                 // The first line's box starts under the band's padding: a line's letters stand in the middle of its 28 dp, as the page lays them.
                 var above = RoomWords.PadDp * Dp * GlazeText.Scale + (pitch - GlazeText.LineHeight(Label)) / 2f;
-                Label.transform.localPosition = new Vector3(-box.x / 2f, -above, -RoomType.Units(0.5f));
+                Label.transform.localPosition = new Vector3(-RoomWords.MeasureDp * Dp / 2f, -above, -RoomType.Units(0.5f));
                 Label.ForceMeshUpdate(true);
                 // Words break only at spaces: where the label ended a line on a hyphen inside a word ("sign-" / "ins"), the
                 // word goes whole to the next line, the space before it becoming the line's end.
@@ -371,9 +397,7 @@ namespace Halcyonic.XR.UI
                     Label.text = shown.Substring(0, space) + "\n" + shown.Substring(space + 1);
                     Label.ForceMeshUpdate(true);
                 }
-                Words = RoomWords.Of(Label.textInfo.characterCount == 0 ? 0 : Label.textInfo.lineCount, part);
-                Place(Label.textInfo, everything: true);
-                Push();
+                return Label.textInfo.characterCount == 0 ? 0 : Label.textInfo.lineCount;
             }
 
             /// <summary>The words a band turns to their next line at most to keep them off a hyphen's break: more than its longest text has lines.</summary>

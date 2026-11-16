@@ -735,6 +735,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     "the level does not stand after Listening's words inside its halo");
             }
             Require(bar.gameObject.activeSelf && bar.Shown?.State == expected, "it shows " + (bar.Shown?.State.ToString() ?? "nothing") + ", not " + expected);
+            // No word alone on the band's last line where its words run four or more (AUDIT's 11:18Z MUST: "file." alone at the
+            // larger size under the result).
+            if (host.Band.Words != null && host.Band.Label.gameObject.activeInHierarchy)
+            {
+                var bandLabel = host.Band.Label;
+                bandLabel.ForceMeshUpdate(true);
+                var bandWords = bandLabel.GetParsedText().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+                Require(!(bandWords >= 4 && bandLabel.textInfo.lineCount >= 2 && RoomCardView.LastLineIsOneWord(bandLabel)),
+                    "the band's last line holds one word alone: \"" + bandLabel.GetParsedText() + "\"");
+            }
             if (state == "37-more" && bar.Shown is RoomBar morePage)
             {
                 // Its title the task's name; a row per route the file offers, in its order, each with its chevron; Back last; never the results line.
