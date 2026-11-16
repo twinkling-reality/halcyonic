@@ -1001,7 +1001,7 @@ export class CommandService {
       case 'project.make_vr_version': {
         // Offered only where a starter says it makes VR versions and is set up here.
         const version = this.#deps.starters?.vrVersion() ?? null;
-        if (version === null) return 'No starter on this computer makes VR versions.';
+        if (version === null) return 'No starter on this computer makes VR copies.';
         return this.#deps.starters?.check(version.starter_id).ok === true
           ? null
           : 'This computer has no starters.';
@@ -1171,7 +1171,7 @@ export class CommandService {
         // The starter that says it makes VR versions (its starter.json), never a name written here.
         const version = this.#deps.starters?.vrVersion() ?? null;
         if (version === null)
-          return refuse('capability_unsupported', 'No starter on this computer makes VR versions.');
+          return refuse('capability_unsupported', 'No starter on this computer makes VR copies.');
         const choice = {
           kind: 'new_from_starter' as const,
           root: command.payload.root,
@@ -1192,7 +1192,7 @@ export class CommandService {
         const starters = this.#deps.starters;
         const refusal =
           folder === undefined
-            ? 'The game has no folder to make a VR version from.'
+            ? 'This project has no folder to make a VR copy from.'
             : starters === undefined || starters === null
               ? 'This computer has no starters.'
               : starters.originalRefusal(
@@ -1676,7 +1676,7 @@ export class CommandService {
         if (original === undefined || folder === undefined) {
           this.#fail(command, admission.scope, {
             code: 'location_required',
-            message: 'The game has no folder to make a VR version from.',
+            message: 'This project has no folder to make a VR copy from.',
             effect: 'none',
           });
           return;
@@ -1685,7 +1685,7 @@ export class CommandService {
         if (version === null) {
           this.#fail(command, admission.scope, {
             code: 'capability_unsupported',
-            message: 'No starter on this computer makes VR versions.',
+            message: 'No starter on this computer makes VR copies.',
             effect: 'none',
           });
           return;

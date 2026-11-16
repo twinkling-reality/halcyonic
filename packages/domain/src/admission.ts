@@ -223,7 +223,7 @@ function admit(
         return reject(
           scope,
           'location_required',
-          'The game has no folder to make a VR version from.',
+          'This project has no folder to make a VR copy from.',
         );
       return { admitted: true, policy, scope, runtime: null };
     }

@@ -559,7 +559,7 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     );
     assert.deepEqual(refused.command?.rejection, {
       code: 'capability_unsupported',
-      message: 'No starter on this computer makes VR versions.',
+      message: 'No starter on this computer makes VR copies.',
     });
     assert.equal(existsSync(join(fixture.projects, 'garden-vr')), false);
     await harness.controlPlane.close();

@@ -119,9 +119,9 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
     confirm: 'review',
   },
   'project.make_vr_version': {
-    title: 'Make VR Version',
+    title: 'Make VR Copy',
     description:
-      'Make a VR version of the project in a new folder beside it, leaving the original as it is.',
+      'Make a VR copy of the project in a new folder beside it, leaving the original as it is.',
     sayable: true,
     confirm: 'none',
   },
