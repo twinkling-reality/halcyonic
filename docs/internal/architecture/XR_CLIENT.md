@@ -1866,7 +1866,7 @@ The card's title is the file's own name and the line under it its path where it 
 file's line reads "As it is now:" then the path, last (its run carries its own gap). A file whose lines cannot be shown keeps its name as the
 title, in mono, and its path, then says why as a status with its own mark: Not Text (the default dash), Kept Private
 (the folder's mark: its name says it may hold secrets, so the Mac never sends its lines), Too Large to Show (over
-256 KB) and Empty File (the file's mark); a failed read with no answer (the computer not reached, the read given up) is Not Read with Try Again, and one the computer answered but that could not be shown (a refusal, an answer for another file) is Not Read over "The computer's reply can't be shown" with no Try Again (`FileChangeColumn.Answered`). While a read is out the sentence reads "Reading File".
+the computer's 262,144-byte bound, said as "Over 262 KB", computed from it) and Empty File (the file's mark); a failed read with no answer (the computer not reached, the read given up) is Not Read with Try Again, and one the computer answered but that could not be shown (a refusal, an answer for another file) is Not Read over "The computer's reply can't be shown" with no Try Again (`FileChangeColumn.Answered`). While a read is out the sentence reads "Reading File".
 The lines are FIELD's page of reading on the card (`RoomCard.Reading`, `RoomReadingRow`: kind, the line number on a
 line's first row, the row's words as theirs, the line's leading spaces as its indent, at most half a row), drawn by
 `RoomCardView` with the line number in a gutter, an added line's plus and a removed line's minus over a band of their

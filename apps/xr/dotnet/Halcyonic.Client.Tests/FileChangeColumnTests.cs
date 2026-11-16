@@ -115,6 +115,17 @@ public class FileChangeColumnTests
     }
 
     [Test]
+    public void TheTooLargeLineSaysTheComputersOwnBoundInKilobytes()
+    {
+        var source = System.IO.File.ReadAllText(Repository.PathTo("packages/contracts/src/project-reads.ts"));
+        var match = System.Text.RegularExpressions.Regex.Match(source, @"export const PROJECT_FILE_BYTES = ([0-9_]+);");
+        Assert.That(match.Success, "the contract still names its bound");
+        Assert.That(FileChangeText.FileBytesBound, Is.EqualTo(long.Parse(match.Groups[1].Value.Replace("_", ""))), "the headset's bound is the computer's");
+        Assert.That(FileChangeText.TooLargeLine, Is.EqualTo($"Over {FileChangeText.Kilobytes(FileChangeText.FileBytesBound)} KB"));
+        Assert.That(FileChangeText.TooLargeLine, Is.EqualTo("Over 262 KB"), "262,144 bytes in decimal kilobytes, as the Mac counts");
+    }
+
+    [Test]
     public void TheDiffParsesIntoMarkedNumberedRowsWithAGapBetweenPartsAndNoHeaders()
     {
         var rows = FileChangeColumn.ParseDiff(Diff);
@@ -326,7 +337,7 @@ public class FileChangeColumnTests
         Assert.That((withheld.Title, withheld.Line, withheld.Mark), Is.EqualTo(("Kept Private", "Its name says it may hold secrets", RoomKind.Folder)));
         Assert.That(withheld.Column.Actions().Select(action => action.Kind), Is.EqualTo(new[] { FileChangeActionKind.Back }), "a withheld file has no Whole File");
         var large = Case(column => { column.Changed(Change(Diff)); column.OpenWhole(); column.FileRead(File(null, ProjectFileKind.TooLarge)); }, whole: true);
-        Assert.That((large.Title, large.Line, large.Mark), Is.EqualTo(("Too Large to Show", "Over 256 KB", RoomKind.File)));
+        Assert.That((large.Title, large.Line, large.Mark), Is.EqualTo(("Too Large to Show", "Over 262 KB", RoomKind.File)));
         var empty = Case(column => { column.Changed(Change(Diff)); column.OpenWhole(); column.FileRead(File("")); }, whole: true);
         Assert.That((empty.Title, empty.Line, empty.Mark), Is.EqualTo(("Empty File", (string?)null, RoomKind.File)));
     }

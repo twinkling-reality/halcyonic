@@ -656,7 +656,17 @@ namespace Halcyonic.Client
         public const string KeptPrivateLine = "Its name says it may hold secrets";
         public const string NotText = "Not Text";
         public const string TooLarge = "Too Large to Show";
-        public const string TooLargeLine = "Over 256 KB";
+        /// <summary>
+        /// The most bytes the computer reads of one file for the headset: PROJECT_FILE_BYTES in packages/contracts/src/project-reads.ts
+        /// (a test holds the two equal). Never said by hand: <see cref="TooLargeLine"/> is computed from it.
+        /// </summary>
+        public const long FileBytesBound = 262_144;
+
+        /// <summary>A file over <see cref="FileBytesBound"/>, in decimal kilobytes as the Mac counts them: "Over 262 KB".</summary>
+        public static readonly string TooLargeLine = $"Over {Kilobytes(FileBytesBound)} KB";
+
+        /// <summary>Bytes in whole decimal kilobytes, rounded, as the Mac counts a file's size.</summary>
+        public static long Kilobytes(long bytes) => (long)Math.Round(bytes / 1000.0, MidpointRounding.AwayFromZero);
         public const string Empty = "Empty File";
         public const string TooLong = "The rest is too long to show here";
         public const string AsItIsNow = "As it is now.";
