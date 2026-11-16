@@ -185,6 +185,39 @@ public class RoomResultTests
     }
 
     [Test]
+    public void ARunsChecksPageOnceItsAnswerIsReadDrawsTheLineThatOpensItBesideThePage()
+    {
+        // JUDGE's walk on line A (2026-11-16T2139Z) met a recorded run's Checks page offering open/checks with no drawn control.
+        // Once the file's answer of its checks is read, the frame holds the line that opens it: the kit's binding leaves that frame
+        // (the result's own Checks page stands only while no such line does), and the general reader draws the line as a press.
+        SectionPresentation Checked(AnswerDepth depth) =>
+            CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),
+                false, null, Intelligence.Live(Intelligence.Evaluation(ControlPlaneApiTests.Available), "2026-09-26T18:01:00.000Z"), false,
+                "tests passed", Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc, depth: depth);
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Completed; }, WorkstreamStatus.Completed);
+        var now = work.Present();
+        var offered = new[] { WorkspaceAction.Instruct };
+        var workspace = new WorkspacePresentation(now.Character, now.Objective, now.Execution, now.Runtime, offered, offered.Where(now.RequiresConfirmation).ToList(), now.Commands,
+            new ActivityEntry[0]);
+        var steering = new WorkspaceSteering(new CommandFactory(Samples.Client));
+        var screen = new FileScreen { Section = FileSection.Checks, Checked = new FileAnswer(Checked(AnswerDepth.Brief), Checked(AnswerDepth.Full)) };
+        var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
+        var opening = frame.Lines.First(line => line.Action == FileScreens.Open && line.Key != null);
+        Assert.That(opening.Key, Is.EqualTo(FileScreens.ChecksKey));
+        var binding = KitFileBinding.Of(frame, steering.Armed, workspace, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
+            new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true,
+            result: new RoomResult(true, false, true, true, null, Steps(), RoomResultPage.Checks));
+        Assert.That(binding, Is.Null, "the result's own Checks page does not stand over a frame that opens an answer");
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+        var drawn = bar.Column.Select(action => action.Control)
+            .Concat(new[] { bar.Card?.Press }.Concat(bar.Card?.List.Select(row => row.Press) ?? Enumerable.Empty<KitControl?>())
+                .Concat(bar.Card?.Slots.Select(slot => slot.Press) ?? Enumerable.Empty<KitControl?>()).OfType<KitControl>());
+        Assert.That(drawn.Any(control => control.Action == FileScreens.Open && control.Key == FileScreens.ChecksKey), Is.True,
+            "the line that opens the checks' answer is drawn as a press: " + string.Join(", ", bar.Column.Select(action => action.Words)));
+    }
+
+    [Test]
     public void AResultNeverStandsTwoAccentsTheRowGoesPlainBesideTheColumnsMainAction()
     {
         // SCREENS's reader 5 (AUDIT2's N3): Hold to Talk and the column's main action read as two cyan buttons.
