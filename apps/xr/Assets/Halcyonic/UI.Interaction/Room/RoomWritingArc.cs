@@ -31,6 +31,11 @@ namespace Halcyonic.XR.UI
         /// <summary>How long a panel takes to move one place, or to fold into its row.</summary>
         public const float MoveSeconds = 0.6f;
 
+        /// <summary>At the turn's end, how long after one panel starts folding the one left of it starts: one after the other, right to left.</summary>
+        public const float FoldStaggerSeconds = 0.25f;
+
+        private WritingArc? shownArc;
+
         /// <summary>
         /// The radius the arc bends on, in its own units: 1 where its parent stands at the plane's distance scaled by it (as the
         /// plane does), so each panel's middle is as far from the eyes as the arc's middle; 0 lays it flat.
@@ -120,6 +125,7 @@ namespace Halcyonic.XR.UI
         public Vector2 Show(WritingArc arc)
         {
             gameObject.SetActive(true);
+            shownArc = arc;
             var now = Clock();
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
             var gap = RoomType.Units(GapDp);
@@ -236,6 +242,26 @@ namespace Halcyonic.XR.UI
                 gone.Panel.Fold(1f - folded, still);
             }
         }
+
+        /// <summary>
+        /// The turn ended (FIELD's SHAPE, "THE SETTLE"): each standing panel folds into its row of the files so far, right to
+        /// left, one after the other, each in one continuous move, so the list holds every file the turn changed, in the
+        /// result's order, and nothing is left floating. Returns how many seconds the whole settle takes from now.
+        /// </summary>
+        public float FoldAll()
+        {
+            if (shownArc == null) return 0f;
+            var now = Clock();
+            var before = folding.Count;
+            Show(new WritingArc(Array.Empty<WritingPanel>(), shownArc.SoFar, shownArc.Count));
+            var leaving = folding.Skip(before).OrderByDescending(gone => gone.From.x).ToList();
+            for (var index = 0; index < leaving.Count; index++) leaving[index].MovedAt = now + index * FoldStaggerSeconds;
+            Follow();
+            return leaving.Count == 0 ? 0f : MoveSeconds + (leaving.Count - 1) * FoldStaggerSeconds;
+        }
+
+        /// <summary>The panels still folding into their rows: for the checks.</summary>
+        public IReadOnlyList<RoomWritingPanel> Folding => folding.Select(gone => gone.Panel).ToList();
 
         /// <summary>For renders: every move and fold finished, every panel arrived.</summary>
         public void Settle()

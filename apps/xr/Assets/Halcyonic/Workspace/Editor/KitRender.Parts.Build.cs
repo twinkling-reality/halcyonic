@@ -21,7 +21,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] BuildStates = { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after" };
 
         /// <summary>The arc's states: three files (two panels, the first a row), and a fourth that folds the older panel into the files so far, settled and caught mid-fold.</summary>
-        private static readonly string[] BuildArcStates = { "47-build-three", "47-build-most", "47-build-folding" };
+        private static readonly string[] BuildArcStates = { "47-build-three", "47-build-most", "47-build-folding", "47-build-settle", "47-build-after" };
 
         /// <summary>The kite game's files, in the order the agent writes them.</summary>
         private static readonly (string Name, string Folder, string[] Lines)[] BuildFiles =
@@ -99,7 +99,29 @@ namespace Halcyonic.XR.Workspace.Editor
                 arc.transform.localPosition = new Vector3(0f, arc.Size.y / 2f, 0f);
                 Place(plane, eyes, 0f, shot.Elevation);
 
-                var final = BuildArcOf(state == "47-build-three" ? 3 : 4);
+                var settling = state is "47-build-settle" or "47-build-after";
+                if (settling)
+                {
+                    // The turn ends with three files: the panels fold into the list right to left, the newest first, one after the other.
+                    var newest = arc.Panels[arc.Panels.Count - 1];
+                    var older = arc.Panels[0];
+                    var takes = arc.FoldAll();
+                    Require(Mathf.Abs(takes - (RoomWritingArc.MoveSeconds + RoomWritingArc.FoldStaggerSeconds)) < 1e-4f, "the settle says it takes " + takes.ToString("0.00") + " s");
+                    clock += 0.2f;
+                    arc.Show(new WritingArc(new WritingPanel[0], BuildArcOf(3).SoFar, 3));
+                    Require(arc.Folding.Contains(newest) && newest.transform.localScale.x < 0.99f, "0.2 s into the settle, the newest panel is not folding first");
+                    Require(arc.Folding.Contains(older) && older.transform.localScale.x > 0.999f, "0.2 s into the settle, the older panel already folds: they fold one after the other");
+                    if (state == "47-build-after")
+                    {
+                        clock += takes + 0.1f;
+                        arc.Show(new WritingArc(new WritingPanel[0], BuildArcOf(3).SoFar, 3));
+                        Require(arc.Folding.Count == 0 && !newest.gameObject.activeSelf && !older.gameObject.activeSelf, "once settled, a panel still stands");
+                        Require(arc.List.Count == 3, "once settled, the list holds " + arc.List.Count + " files, not the turn's 3");
+                    }
+                    else clock += 0.15f;
+                    arc.Show(new WritingArc(new WritingPanel[0], BuildArcOf(3).SoFar, 3));
+                }
+                var final = settling ? new WritingArc(new WritingPanel[0], BuildArcOf(3).SoFar, 3) : BuildArcOf(state == "47-build-three" ? 3 : 4);
                 var panels = arc.Panels;
                 var drawn = RoomWritingArc.Drawn(final);
                 Require(panels.Count == drawn.Count, "the arc stands " + panels.Count + " panels, not " + drawn.Count);
@@ -123,11 +145,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (rows.Count > 0 && !folding)
                 {
                     Require(arc.List.Count == rows.Count, "the list shows " + arc.List.Count + " rows, not " + rows.Count);
-                    // Under the panel before, the gap between, in its column.
+                    // Under the panel before, the gap between, in its column; with no panel standing (the turn settled), at the arc's top.
                     var listTop = arc.ListFlat.y + arc.ListSize.y / 2f;
-                    var olderBottom = -panels[0].Size.y;
-                    Require(Mathf.Abs(olderBottom - listTop - gap) < unit * 0.05f, "the list stands " + ((olderBottom - listTop) / unit).ToString("0.0") + " dp under the panel before");
-                    Require(Mathf.Abs(arc.ListFlat.x - arc.FlatOf(panels[0]).x) < unit * 0.05f, "the list is not in the left column");
+                    if (panels.Count > 1)
+                    {
+                        var olderBottom = -panels[0].Size.y;
+                        Require(Mathf.Abs(olderBottom - listTop - gap) < unit * 0.05f, "the list stands " + ((olderBottom - listTop) / unit).ToString("0.0") + " dp under the panel before");
+                        Require(Mathf.Abs(arc.ListFlat.x - arc.FlatOf(panels[0]).x) < unit * 0.05f, "the list is not in the left column");
+                    }
+                    else if (panels.Count == 0) Require(Mathf.Abs(listTop) < unit * 0.05f, "with no panel standing, the list does not stand at the arc's top");
                 }
                 // On the bend every panel's middle stands as far from the eyes as the arc's, and faces them.
                 var eyeAt = new Vector3(0f, 0f, -arc.Radius);
