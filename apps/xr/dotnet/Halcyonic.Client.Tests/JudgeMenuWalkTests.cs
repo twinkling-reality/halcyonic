@@ -260,7 +260,7 @@ public class JudgeMenuWalkTests
         // The directed work comes to wait: the closed bar says so, with Tasks' amber dot, and nothing opens by itself.
         await Pumping.Until(player.Session, Demonstration.AsksItsQuestion, "the directed work asks its question");
         Assert.That(host.Draw(), Is.EqualTo(((MenuFrame?)null, (MenuFrame?)null)), "nothing interrupts the stage");
-        Assert.That(host.Bar.ClosedLine, Is.EqualTo("Needs You · 1 Task"));
+        Assert.That(host.Bar.ClosedLine, Is.EqualTo("1 task needs you"));
 
         // Opened from the bar, the menu has its places, and Projects is one press away with the demonstration's
         // projects and New project, which plays the companion's recording.

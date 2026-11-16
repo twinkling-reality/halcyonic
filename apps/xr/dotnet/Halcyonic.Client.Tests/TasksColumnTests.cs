@@ -279,7 +279,7 @@ public class TasksColumnTests
     {
         var waiting = TasksColumn.Bar(MenuPlace.Usage, StateWith(new[] { Task("a", WorkstreamStatus.WaitingForHuman, 1, AttentionLevel.ActionRequired), Task("b", WorkstreamStatus.Running, 2) }));
         Assert.That((waiting.Chosen, waiting.ClosedLine, waiting.Waits(MenuPlace.Tasks), waiting.Waits(MenuPlace.Usage)),
-            Is.EqualTo((MenuPlace.Usage, "Needs You · 1 Task", true, false)));
+            Is.EqualTo((MenuPlace.Usage, "1 task needs you", true, false)));
         var quiet = TasksColumn.Bar(MenuPlace.Tasks, StateWith(new[] { Task("b", WorkstreamStatus.Running, 2) }));
         Assert.That((quiet.ClosedLine, quiet.Waits(MenuPlace.Tasks)), Is.EqualTo(("Nothing Waiting", false)));
         Assert.That(TasksColumn.Bar(MenuPlace.Tasks, null).ClosedLine, Is.EqualTo("Nothing Waiting"), "before the first snapshot");

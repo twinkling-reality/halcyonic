@@ -178,7 +178,7 @@ public class KitPresenterTests
         Assert.That((row.Icon, row.IconTone, row.Detail, row.DetailTone), Is.EqualTo(((GlazeIcon?)badge.Icon, badge.Tone, badge.Text, (GlazeTone?)badge.Tone)));
         Assert.That((row.End, row.EndTone, row.Selected), Is.EqualTo(("Review request", (GlazeTone?)GlazeTone.Attention, true)));
         var presence = KitPresenter.PresenceOf(task, waiting: 2);
-        Assert.That((presence.TaskTitle, presence.Badge!.Text, presence.WaitingWords), Is.EqualTo((task.Title, badge.Text, "Needs You · 2 Tasks")));
+        Assert.That((presence.TaskTitle, presence.Badge!.Text, presence.WaitingWords), Is.EqualTo((task.Title, badge.Text, "2 tasks need you")));
         Assert.That(presence.Identity.AllTheirs, Is.True, "a task's name is theirs");
     }
 
@@ -192,7 +192,7 @@ public class KitPresenterTests
         var task = Task(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, 1);
         var badge = StateLanguage.BadgeOf(task);
         var retained = KitPresenter.PresenceOf(LineWords.TheirName(task.Title), badge, waiting: 1);
-        Assert.That((retained.Identity.Text, retained.Identity.AllTheirs, retained.TaskTitle, retained.WaitingWords), Is.EqualTo((task.Title, true, task.Title, "Needs You · 1 Task")));
+        Assert.That((retained.Identity.Text, retained.Identity.AllTheirs, retained.TaskTitle, retained.WaitingWords), Is.EqualTo((task.Title, true, task.Title, "1 task needs you")));
         Assert.That(retained.Badge, Is.SameAs(badge));
     }
 

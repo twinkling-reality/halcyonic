@@ -984,8 +984,8 @@ public class EntryWordsTests
     [Test]
     public void TasksWaitingForYouAreSaidAsAPersonWouldSayThem()
     {
-        Assert.That(EntryText.WaitingForYou(1), Is.EqualTo("Needs You · 1 Task"));
-        Assert.That(EntryText.WaitingForYou(2), Is.EqualTo("Needs You · 2 Tasks"));
+        Assert.That(EntryText.WaitingForYou(1), Is.EqualTo("1 task needs you"));
+        Assert.That(EntryText.WaitingForYou(2), Is.EqualTo("2 tasks need you"));
         Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo(EntryText.WaitingForYou(2)), "the ambient line and the entry agree");
     }
 

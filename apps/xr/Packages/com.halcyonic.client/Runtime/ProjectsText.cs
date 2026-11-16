@@ -66,11 +66,9 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A project's small fact on its row: what matters most, what waits for the person first, as a
-        /// short count that keeps its noun ("1 task waiting", "2 tasks running", "1 task to look at" for
-        /// work that failed, can't be told or failed its checks; at rest, "1 task paused" for work that ran,
-        /// else "3 tasks not started"), after "Hidden · " when its work is not
-        /// on the stage, and after the look-alike mark when its name looks like another's. A long name
-        /// shortens to make room, never this.
+        /// plain phrase that keeps its noun (<see cref="Phrase"/>: "2 tasks need you", "1 task ready", "3 tasks working",
+        /// "1 task paused" for work that ran, else "3 tasks not started"), after "Hidden." when its work is not on the
+        /// stage, and after "Similar Name." when its name looks like another's. A long name shortens to make room, never this.
         /// </summary>
         /// <summary>The project's state apart (A17): the word of what matters most, how many tasks it counts, and whether the project is on the stage.</summary>
         public static ProjectState StateOf(ProjectSummary project) =>

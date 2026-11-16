@@ -372,7 +372,7 @@ namespace Halcyonic.Client
 
 
         /// <summary>How many tasks wait for the person, said as a person would: "1 task is waiting for you", "2 tasks are waiting for you".</summary>
-        public static string WaitingForYou(int count) => "Needs You · " + Tasks(count);
+        public static string WaitingForYou(int count) => ProjectsText.Phrase("Needs You", count);
 
         private static string Tasks(int count) => Count(count) + (count == 1 ? " Task" : " Tasks");
 

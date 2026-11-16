@@ -640,6 +640,6 @@ namespace Halcyonic.Client
 
         /// <summary>The count said in full, as there is room for it (WORDS.md): a count keeps its noun and its verb.</summary>
         public string WaitingWords => Waiting == 0 ? "Nothing Waiting"
-            : Waiting == 1 ? "Needs You · 1 Task" : "Needs You · " + Waiting + " Tasks";
+            : ProjectsText.Phrase("Needs You", Waiting);
     }
 }

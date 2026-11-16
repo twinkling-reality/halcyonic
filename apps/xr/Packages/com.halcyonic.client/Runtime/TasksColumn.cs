@@ -329,11 +329,8 @@ namespace Halcyonic.Client
         public const string NothingRunning = "Nothing Running";
 
         /// <summary>The subject: what waits for the person, or that nothing does.</summary>
-        public static string Waiting(int count) => count switch
-        {
-            0 => "Nothing Waiting",
-            1 => "Needs You · 1 Task",
-            _ => "Needs You · " + count + " Tasks",
-        };
+        public static string Waiting(int count) =>
+            // The same phrase as a Projects row, never parts on a dot (AUDIT2 2026-11-16 11:20Z).
+            count <= 0 ? "Nothing Waiting" : ProjectsText.Phrase("Needs You", count);
     }
 }

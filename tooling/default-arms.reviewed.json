@@ -313,12 +313,6 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/TasksColumn.cs",
-    "answer": "\"Needs You · \" + count + \" Tasks\"",
-    "count": 1,
-    "why": "true: Only counts of two or more tasks in the Needs You tier reach it, and it states that count."
-  },
-  {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/TasksColumn.cs",
     "answer": "LineTone.Primary",
     "count": 1,
     "why": "style: Line tone for Accent, Active, Neutral, Simulated and Unknown badges; a look only."
