@@ -1899,6 +1899,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 // The name tag grows downward without a bound in lines (up to twelve), so its foot is said against the nearest drawn part
                 // below it, across its width, at every moment: a long real name reaching down is found here, not on camera (AUDIT 13:23Z).
+                // The drawn tag's corners, held to the field below with the body (AUDIT 16:48Z: the tag under the feet is now the lowest
+                // thing a character draws, and a name cut by the edge of view is what a person sees wrong first).
+                var tagPoints = new List<Vector3>();
                 if (standing.View.GetComponentsInChildren<Halcyonic.XR.UI.RoomNameTag>(false).FirstOrDefault() is Halcyonic.XR.UI.RoomNameTag nameTag)
                 {
                     // The tag as a person reads it: its words and its plate's glass, never the plate's soft shadow, which reaches past the
@@ -1907,6 +1910,13 @@ namespace Halcyonic.XR.Workspace.Editor
                         .Concat(nameTag.GetComponentsInChildren<Halcyonic.XR.UI.RoomSurface>(false).Select(plate => (Renderer)plate.Glass))
                         .Where(part => part != null && part.enabled).ToList();
                     var tagReach = GlazeChecks.Of("the name tag", eyes, tagDrawn);
+                    foreach (var part in tagDrawn)
+                    {
+                        if (part.GetComponent<TMP_Text>() is TMP_Text words && words.mesh != null)
+                            tagPoints.AddRange(words.mesh.vertices.Select(vertex => words.transform.TransformPoint(vertex)));
+                        else if (part.GetComponent<MeshFilter>() is MeshFilter filter && filter.sharedMesh != null)
+                            tagPoints.AddRange(filter.sharedMesh.vertices.Select(vertex => filter.transform.TransformPoint(vertex)));
+                    }
                     if (!tagReach.IsEmpty)
                     {
                         // A character's own tag stands above it, clear of its body, never over its face (AUDIT 13:57Z: the plate covered the
@@ -1942,6 +1952,11 @@ namespace Halcyonic.XR.Workspace.Editor
                             if (outside.Count == 0)
                             {
                                 if (turn > 30f) Debug.Log("Halcyonic: judge room: the character on the stage is seen with the head turned " + turn.ToString("0") + " degrees, past thirty");
+                                // Its name tag, as drawn (words and plate glass), inside the field at the same turn as the body; the field check
+                                // logs its lowest point against the field's reach.
+                                if (tagPoints.Count > 0)
+                                    foreach (var cut in GlazeChecks.InsideField("the character's name tag (the head turned " + turn.ToString("0") + " degrees)", tagPoints, eyes, toward, 0f, field))
+                                        yield return "the stage: " + cut;
                                 least = null;
                                 break;
                             }
