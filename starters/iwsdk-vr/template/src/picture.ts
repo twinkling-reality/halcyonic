@@ -177,14 +177,14 @@ export interface PictureWindow {
 
 /**
  * The photo or video at `url` floating on a window `width` metres wide (1.6 by default), its height from the
- * picture's own shape, in a thin frame, its light spilling from its lower edge in the picture's own colour, its top under
+ * picture's own shape (never over 1.5 m: a tall picture, a phone's held upright, narrows instead), in a thin frame, its light spilling from its lower edge in the picture's own colour, its top under
  * the person's eye and its lower edge at least 40 cm over the sand (or `lift` metres over it, if given), the picture seen through `tint` (a warm dim light by default, so a daytime
  * picture sits in a dusk place; '#FFFFFF' for none). A video plays by itself, muted and looping (a browser that holds
  * it back until the person's first press plays it then, as the starter's sound does). Float it in the place a few
  * metres off, turned to the person: `standOn(place, x, z)`.
  */
 export function pictureWindow(url: string, options: { width?: number; lift?: number; tint?: string } = {}): PictureWindow {
-  const width = options.width ?? 1.6;
+  let width = options.width ?? 1.6;
   const lift = options.lift;
   const group = new Group();
   group.visible = false;
@@ -237,6 +237,11 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
     face.needsUpdate = true;
     source = from;
     height = (width * h) / Math.max(1, w);
+    // A tall picture (a phone's, upright) is never taller than 1.5 m: it narrows instead, so it stays in view.
+    if (height > 1.5) {
+      width = (width * 1.5) / height;
+      height = 1.5;
+    }
     const border = Math.min(width, height) * 0.018;
     // A thin frame with a little depth, well behind the picture and drawn first, so the two never fight for pixels.
     const back = new Mesh(new BoxGeometry(width + border * 2, height + border * 2, 0.08), frame);

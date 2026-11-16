@@ -206,7 +206,7 @@ export function landShape(options: { swell?: number; crest?: number; sun?: numbe
     state = (state * 16807) % 2147483647;
     return state / 2147483647;
   };
-  const sunAt = options.sun ?? 0.8;
+  const sunAt = options.sun ?? 0.45;
   const sx = Math.sin(sunAt);
   const sz = -Math.cos(sunAt);
   const wind = sunAt + 0.3;

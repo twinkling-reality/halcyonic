@@ -349,7 +349,8 @@ export interface LandColours {
  * the sand falling away along the wind into a field of dunes (`crest` 1, sharp crests) or soft hills (`crest` 0) below
  * them, `swell` metres high near them, rising far off into a hazed line of distant dunes along the horizon. A low sun
  * of the `light`'s colour, warmed, stands over the horizon (`sun` its direction in radians, 0 ahead of the person and
- * positive to their right; 0.8, ahead and to the right, by default, so dunes ahead are lit from the side and the sun's glow stands at the view's edge); the sand is warm
+ * positive to their right; 0.45, ahead and a little to the right, by default, so the sun itself stands in view while the
+ * dunes ahead are lit from the side); the sand is warm
  * on faces turned to it and cool in their lee, with wind ripples and grain near the person; the sky warms low round
  * the sun, with a few soft bands of high cloud. With `grains`, that many grains of sand blowing low (none unless
  * asked); with `stars`, that many stars, on the side of the sky away from the sun (give them only for a place after
@@ -387,7 +388,7 @@ export function openLand(
   const radius = 110;
 
   const random = seeded(options.seed ?? 7);
-  const sunAt = options.sun ?? 0.8;
+  const sunAt = options.sun ?? 0.45;
   // How much the place draws: 'high' all of it, 'low' the least, 'auto' all of it until frames come slow.
   const quality = options.quality ?? 'auto';
   const land = landShape({ ...options, sun: sunAt });

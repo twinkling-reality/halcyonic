@@ -247,7 +247,7 @@ A place from the person's own photo or video (somewhere they were, a view they l
   so the place never changes colour after it shows:
   `const land = openLand(colours, { crest: 1 })` stands the person on a dune's crest over open ground to the horizon
   in those colours, dunes at `crest` 1 and soft hills at 0 (`swell` their height in metres near the person, `sun` the
-  low sun's direction in radians, 0 ahead of the person and positive to their right, 0.8 if not given), with sand
+  low sun's direction in radians, 0 ahead of the person and positive to their right, 0.45 if not given), with sand
   blowing low on the wind if `grains` asks for it, and give it `stars` only for a place after sunset; its light
   builds to a peak about 14 s in and settles (`peak: false` keeps it calm). Add its `group` to
   `root` and pass its `move` to `ambientMotion`.
