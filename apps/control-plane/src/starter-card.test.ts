@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import {
+  CARD_FROM,
   CARD_SECONDS,
   cardOpacity,
   FADE_IN,
@@ -39,10 +40,25 @@ describe("the IWSDK starter's welcome card", () => {
     }
   });
 
+  test('the first card waits for the place to open from black, and is gone by the same moment', () => {
+    // The kit's places lift their black veil over game time 0.1 to 0.9 s; the card stays out of all of it.
+    assert.ok(CARD_FROM >= 0.9);
+    for (let t = 0; t < CARD_FROM; t += 1 / 72) near(cardOpacity(t, 0, CARD_FROM), 0, `t ${t}`);
+    near(cardOpacity(CARD_FROM + FADE_IN / 2, 0, CARD_FROM), 0.5);
+    near(cardOpacity(CARD_FROM + FADE_IN, 0, CARD_FROM), 1);
+    near(cardOpacity(CARD_SECONDS - FADE_OUT, 0, CARD_FROM), 1);
+    near(cardOpacity(CARD_SECONDS - FADE_OUT / 2, 0, CARD_FROM), 0.5);
+    // Gone by CARD_SECONDS, before the check's own picture at 6 s, as without the wait.
+    near(cardOpacity(CARD_SECONDS, 0, CARD_FROM), 0);
+    assert.ok(CARD_SECONDS - CARD_FROM >= FADE_IN + FADE_OUT + 3, 'still held long enough to read');
+  });
+
   test('the panel fades by that function and drops the card only once it has faded', () => {
     const panel = read('src/panel.ts');
     assert.match(panel, /from '\.\/card-fade\.js'/);
-    assert.match(panel, /cardOpacity\(time, this\.#shownAt\)/);
+    assert.match(panel, /cardOpacity\(time, this\.#shownAt, this\.#from\)/);
+    assert.match(panel, /#from = CARD_FROM;/);
+    assert.match(panel, /this\.#shownAt = time;\n\s*this\.#from = 0;/);
     assert.match(panel, /if \(time < this\.#shownAt \+ CARD_SECONDS\) return;/);
   });
 

@@ -6,7 +6,7 @@
  */
 
 import { createSystem, UIKitMLAsset, VisibilityState } from '@iwsdk/core';
-import { CARD_SECONDS, cardOpacity } from './card-fade.js';
+import { CARD_FROM, CARD_SECONDS, cardOpacity } from './card-fade.js';
 import { helpPressed } from './play-input.js';
 
 /*
@@ -18,6 +18,8 @@ import { helpPressed } from './play-input.js';
 export class PanelSystem extends createSystem({}) {
   #wordsShown = true;
   #shownAt = 0;
+  /** The first card waits for the place to open from black; H's card comes at once. */
+  #from = CARD_FROM;
   /** What fades: the whole card where nothing of it stays once its words go, else only the words. */
   #fade: ((opacity: number) => void) | null = null;
   #dropWords: (() => void) | null = null;
@@ -92,11 +94,12 @@ export class PanelSystem extends createSystem({}) {
     if (!immersive && !this.#wordsShown && this.#showWords !== null && helpPressed()) {
       this.#wordsShown = true;
       this.#shownAt = time;
+      this.#from = 0;
       this.#showWords();
     }
     if (!this.#wordsShown || this.#dropWords === null) return;
     if (!immersive) {
-      this.#fade?.(cardOpacity(time, this.#shownAt));
+      this.#fade?.(cardOpacity(time, this.#shownAt, this.#from));
       // Gone only once fully faded: never a cut.
       if (time < this.#shownAt + CARD_SECONDS) return;
     }

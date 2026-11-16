@@ -397,9 +397,10 @@ template's projects; the same rule may follow.
 
 Every critic of the showcase pieces read the starter's welcome card as a white web page over the view that vanished at
 6 s. The card is now the kit's dark glass, smaller, at the bottom left on a laptop (ScreenSpace bottom 20px, left
-20px) and low beside the person in a headset ([0.75, 1.05, -1.1], turned 35 degrees to face them, scale 0.3); it fades
-in over 0.4 s and out over 0.8 s ending at 6 s, by game time (`src/card-fade.ts`), and is dropped only once faded, so
-every check load draws the same frames. The region the own-picture comparison and the edge count leave out is now the
+20px) and low beside the person in a headset ([0.75, 1.05, -1.1], turned 35 degrees to face them, scale 0.3); it waits
+1 s (`CARD_FROM`) so it never stands on the black a place opens from (the kit's veil lifts over game time 0.1 to 0.9 s),
+fades in over 0.4 s and out over 0.8 s ending at 6 s, by game time (`src/card-fade.ts`), and is dropped only once faded,
+so every check load draws the same frames. H's card on a laptop comes at once and also ends 6 s after the press. The region the own-picture comparison and the edge count leave out is now the
 host's own constant for that placement at the check's 1280 by 800 (`CARD_REGION`: x 0 to 320, y 460 to 800, in place
 of the 360 by 240 top-left corner), never anything a page reports, so a card an app moves elsewhere is counted. The
 excluded area grows from 86,400 to 108,800 pixels; `OWN_DRAWN` stays. A project made from the template before this
