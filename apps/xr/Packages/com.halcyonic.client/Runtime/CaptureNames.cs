@@ -18,7 +18,7 @@ namespace Halcyonic.Client
         public const string Agent = "Coding Agent";
 
         /// <summary>A model's name or reference under the extra.</summary>
-        public const string Model = "Local Model";
+        public const string Model = "AI Model";
 
         /// <summary>The host, where the live build names it "This Mac", under the extra.</summary>
         public const string Host = "This Computer";
