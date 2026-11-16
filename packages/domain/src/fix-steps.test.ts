@@ -16,6 +16,9 @@ import {
   readingUnder,
 } from './fix-steps.ts';
 
+/** A check's verdict for the project's own folder, where most of these findings come from. */
+const verdictOf = (findings: CheckFindings) => checkVerdict(findings, 'project');
+
 /** A check that passed: its page drew, nothing threw, and its laptop step read `reading`. */
 function passed(reading?: CheckReading): CheckFindings {
   return {
@@ -119,7 +122,7 @@ describe("a kit text behind something goes back the same way, the reading's seco
 
   test('a text measured behind something is a step to fix, fails the verdict and the reading, named by its kind only', () => {
     assert.deepEqual(fixSteps(passed(behind('sign'))), ['reading']);
-    assert.equal(checkVerdict(passed(behind('sign'))), 'failed');
+    assert.equal(verdictOf(passed(behind('sign'))), 'failed');
     assert.equal(readingPasses(behind('sign')), false);
     assert.equal(
       readingFix(passed(behind('sign'))),
@@ -241,7 +244,7 @@ describe("the kit's panels past a laptop's edge or over each other go back the s
   test('a measured misfit is a step to fix, named reading, and the verdict is failed', () => {
     for (const problem of ['past_edge', 'overlap'] as const) {
       assert.deepEqual(fixSteps(placed(fitted(problem))), ['reading'], problem);
-      assert.equal(checkVerdict(placed(fitted(problem))), 'failed', problem);
+      assert.equal(verdictOf(placed(fitted(problem))), 'failed', problem);
       assert.equal(fitPasses(fitted(problem)), false);
       assert.notEqual(fitUnder(placed(fitted(problem))), null);
     }
@@ -255,11 +258,11 @@ describe("the kit's panels past a laptop's edge or over each other go back the s
 
   test('a fit that fits, one not known, or none recorded is nothing to fix and refuses nothing', () => {
     assert.deepEqual(fixSteps(placed(fitted(null))), []);
-    assert.equal(checkVerdict(placed(fitted(null))), 'passed');
+    assert.equal(verdictOf(placed(fitted(null))), 'passed');
     for (const state of ['unknown', 'changed'] as const) {
       assert.deepEqual(fixSteps(placed(fitNotMeasured(state, null))), [], state);
       assert.equal(fitPasses(fitNotMeasured(state, null)), true, state);
-      assert.equal(checkVerdict(placed(fitNotMeasured(state, null))), 'passed', state);
+      assert.equal(verdictOf(placed(fitNotMeasured(state, null))), 'passed', state);
     }
     assert.equal(fitPasses(undefined), true, 'a check recorded before the fit');
     assert.equal(fitFix(placed(fitted(null))), null);
@@ -269,7 +272,7 @@ describe("the kit's panels past a laptop's edge or over each other go back the s
   test('a misfit last measured and not measured since is still one: held, sent, and failed', () => {
     const held = placed(fitNotMeasured('changed', 'past_edge'));
     assert.deepEqual(fixSteps(held), ['reading']);
-    assert.equal(checkVerdict(held), 'failed');
+    assert.equal(verdictOf(held), 'failed');
     assert.equal(
       fitFix(held),
       'A panel of the kit (a row of buttons "Back") reached past the edge of a laptop\'s 1280 by 800 view when last measured. The check can no longer measure it: a starter kit file that places them (src/pages.ts, src/rows.ts, src/look.ts, src/legible.ts or the input layer) differs from the starter\'s own; put it back. Split the row into two rows or shorten its words; five rows fit under the pages.',
@@ -308,11 +311,11 @@ describe("a check's whole answer beside passed (VRIFY, 2026-11-13: a reference t
   };
 
   test('only the own look not known reads not_known, never passed, and serves', () => {
-    assert.equal(checkVerdict(unmade()), 'not_known');
+    assert.equal(verdictOf(unmade()), 'not_known');
     assert.equal(unmade().passed, false, 'passed keeps its meaning');
     assert.equal(checkServable({ ...unmade(), verdict: 'not_known' }), true);
-    assert.equal(checkVerdict(passed()), 'passed');
-    assert.equal(checkVerdict(passed(measured(14))), 'passed');
+    assert.equal(verdictOf(passed()), 'passed');
+    assert.equal(verdictOf(passed(measured(14))), 'passed');
   });
 
   test('any failure the check measured or saw wins over what is not known (C1)', () => {
@@ -337,11 +340,11 @@ describe("a check's whole answer beside passed (VRIFY, 2026-11-13: a reference t
       },
     ];
     for (const findings of failures) {
-      assert.equal(checkVerdict(findings), 'failed', JSON.stringify(findings));
-      assert.equal(checkServable({ ...findings, verdict: checkVerdict(findings) }), false);
+      assert.equal(verdictOf(findings), 'failed', JSON.stringify(findings));
+      assert.equal(checkServable({ ...findings, verdict: verdictOf(findings) }), false);
     }
     // The laptop reading measured under its floor fails the whole answer, even where everything else passed.
-    assert.equal(checkVerdict(passed(measured(6))), 'failed');
+    assert.equal(verdictOf(passed(measured(6))), 'failed');
     assert.equal(passed(measured(6)).passed, true, 'passed keeps its meaning');
   });
 
@@ -373,8 +376,8 @@ describe("the untouched starter's check reads starter_only, never failed (LINK, 
   };
 
   test('the bare starter, and its own picture at the threshold, read starter_only; passed stays false and it is not served', () => {
-    assert.equal(checkVerdict(bare()), 'starter_only');
-    assert.equal(checkVerdict(bare(OWN_DRAWN)), 'starter_only');
+    assert.equal(verdictOf(bare()), 'starter_only');
+    assert.equal(verdictOf(bare(OWN_DRAWN)), 'starter_only');
     assert.equal(bare().passed, false);
     assert.equal(checkServable({ ...bare(), verdict: 'starter_only' }), false);
   });
@@ -403,16 +406,11 @@ describe("the untouched starter's check reads starter_only, never failed (LINK, 
       { ...bare(), page: { ...page, edges_at_3s: DRAWN_EDGES, edges_at_10s: 0 } },
     ];
     for (const findings of failures)
-      assert.equal(checkVerdict(findings), 'failed', JSON.stringify(findings));
+      assert.equal(verdictOf(findings), 'failed', JSON.stringify(findings));
   });
 
   test("only the project's own folder reads starter_only: a task's copy with the same findings is a miss, failed (AUDIT2, 14:29Z)", () => {
     assert.equal(checkVerdict(bare(), 'project'), 'starter_only');
-    assert.equal(
-      checkVerdict(bare()),
-      'starter_only',
-      "a check names the project's own folder unless told otherwise",
-    );
     assert.equal(checkVerdict(bare(), 'task'), 'failed');
     assert.equal(checkVerdict(passed(), 'task'), 'passed');
   });
@@ -420,23 +418,23 @@ describe("the untouched starter's check reads starter_only, never failed (LINK, 
   test('a picture of its own past the threshold, another template, no reference, or none recorded never reads starter_only', () => {
     const page = bare().page;
     assert.ok(page !== null);
-    assert.equal(checkVerdict(bare(OWN_DRAWN * 2)), 'failed');
+    assert.equal(verdictOf(bare(OWN_DRAWN * 2)), 'failed');
     assert.equal(
-      checkVerdict({ ...bare(), page: { ...page, own: { share: null, reference: 'compared' } } }),
+      verdictOf({ ...bare(), page: { ...page, own: { share: null, reference: 'compared' } } }),
       'failed',
     );
     assert.equal(
-      checkVerdict({
+      verdictOf({
         ...bare(),
         page: { ...page, own: { share: null, reference: 'other_template' } },
       }),
       'failed',
     );
     assert.equal(
-      checkVerdict({ ...bare(), page: { ...page, own: { share: 0, reference: 'unavailable' } } }),
+      verdictOf({ ...bare(), page: { ...page, own: { share: 0, reference: 'unavailable' } } }),
       'failed',
     );
     const { own: _own, ...noOwn } = page;
-    assert.equal(checkVerdict({ ...bare(), page: noOwn }), 'failed');
+    assert.equal(verdictOf({ ...bare(), page: noOwn }), 'failed');
   });
 });

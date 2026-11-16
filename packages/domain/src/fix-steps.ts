@@ -241,12 +241,10 @@ function starterPage(page: NonNullable<CheckFindings['page']>): boolean {
  * never servable, since `passed` stays false. `not_known` where nothing failed and only whether the page draws its
  * own look is not known (`drawn` null). `passed` only for a whole seen pass. `starter_only` only for a check of the
  * project's own folder (`folder` 'project'): a task's own copy whose page still shows only the starter's picture after
- * its agent's turn drew nothing of what was asked, a real miss, and reads `failed` (AUDIT2, 2026-11-16).
+ * its agent's turn drew nothing of what was asked, a real miss, and reads `failed` (AUDIT2, 2026-11-16). `folder` has no
+ * default, so a caller always says which folder it checked (AUDIT3).
  */
-export function checkVerdict(
-  findings: CheckFindings,
-  folder: 'project' | 'task' = 'project',
-): CheckVerdict {
+export function checkVerdict(findings: CheckFindings, folder: 'project' | 'task'): CheckVerdict {
   const page = findings.page;
   if (
     findings.tsc.exit !== 0 ||
