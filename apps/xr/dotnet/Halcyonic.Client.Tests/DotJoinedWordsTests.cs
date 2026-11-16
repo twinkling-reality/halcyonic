@@ -13,10 +13,10 @@ namespace Halcyonic.Client.Tests;
 public class DotJoinedWordsTests
 {
     /// <summary>
-    /// Lines of the client core that hold a string with a "·" in it, after the Not Sent family became sentences. Lower it as more
-    /// become sentences; never raise it.
+    /// Lines of the client core that hold a string with a "·" in it. Lower it as more become sentences; never raise it. Open:
+    /// the Editor-only WorkspacePanel (WorkspaceScreens) keeps its rows until it is retired (AUDIT 2026-11-16 12:49Z).
     /// </summary>
-    private const int MostDotJoinedLines = 198;
+    private const int MostDotJoinedLines = 73;
 
     private static readonly Regex DottedString = new("\"[^\"\\n]*·[^\"\\n]*\"", RegexOptions.CultureInvariant);
 
