@@ -583,7 +583,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     // The redesign is on in every player: an older part drawn at any moment is the older view a person meets (AUDIT,
                     // 2026-11-13), not a moment the redesign has yet to cover.
                     if (older.Count > 0) found.Add("older parts draw: " + string.Join(", ", older));
-                    found.AddRange(StageClear(root, eyes, plane, stood));
+                    found.AddRange(StageClear(root, eyes, plane, stood, name));
                     found.AddRange(OutsideItsShelf(eyes, stood, stageParts));
                     FootHeld(found, name);
                     AsideHeld(found);
@@ -1751,7 +1751,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// Each character standing on the stage, its body and its label, a degree at least from every part the redesign draws, as
         /// the eyes see them, and its body inside the measured field while the person faces the workspace (AUDIT, 2026-11-13).
         /// </summary>
-        private static IEnumerable<string> StageClear(GameObject root, Vector3 eyes, MenuPlane plane, IReadOnlyList<CharacterTarget> stood)
+        private static IEnumerable<string> StageClear(GameObject root, Vector3 eyes, MenuPlane plane, IReadOnlyList<CharacterTarget> stood, string moment)
         {
             if (stood.Count == 0) yield break;
             // A character's own name tag (RoomNameTag, under its Labels, as the player attaches it) is part of the character, never
@@ -1766,8 +1766,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (standing == null || standing.View == null || !standing.View.gameObject.activeInHierarchy) continue;
                 var parts = new[] { BodyExtent(standing.View, eyes), GlazeChecks.Of("the character's label", eyes, standing.View.Labels.gameObject) };
                 foreach (var part in parts.Where(each => !each.IsEmpty))
-                    foreach (var near in drawn.Where(each => each.Apart(part) < GlazeChecks.GapDegrees - 1e-3f).Take(1))
-                        yield return "the stage: " + part + " is " + GlazeChecks.Degrees(near.Apart(part)) + " degrees from " + near + ", under a degree";
+                {
+                    // Each moment says how far the part stands from the nearest part the redesign draws, so a clear moment is said
+                    // and not only a near one (AUDIT 12:44Z: every moment's gap logged at least a degree).
+                    if (drawn.Count == 0) continue;
+                    var nearest = drawn.OrderBy(each => each.Apart(part)).First();
+                    Debug.Log("Halcyonic: the stage at " + moment + ": " + part.Name + " stands " + GlazeChecks.Degrees(nearest.Apart(part))
+                        + " degrees from the nearest drawn part, " + nearest.Name);
+                    if (nearest.Apart(part) < GlazeChecks.GapDegrees - 1e-3f)
+                        yield return "the stage: " + part + " is " + GlazeChecks.Degrees(nearest.Apart(part)) + " degrees from " + nearest + ", under a degree";
+                }
                 if (ViewField.Current is ViewField field)
                 {
                     var body = standing.View.Body.GetComponentsInChildren<MeshFilter>(false)
