@@ -6,8 +6,15 @@
  */
 
 import { createSystem, UIKitMLAsset, VisibilityState } from '@iwsdk/core';
+import { MeshBasicMaterial } from 'three';
 import { CARD_FROM, CARD_SECONDS, cardOpacity } from './card-fade.js';
 import { helpPressed } from './play-input.js';
+
+/**
+ * The card's own material class, so the card is drawn alone in its own group, as the kit's Panel is, and never moves
+ * other boxes in the library's shared buffers (VRIFY, 2026-11-16). A plain colour: its background is drawn as written.
+ */
+class CardGlass extends MeshBasicMaterial {}
 
 /*
  * The card's words stay CARD_SECONDS of game time, fading in and out by game time (card-fade.ts), never a timer or a
@@ -29,6 +36,7 @@ export class PanelSystem extends createSystem({}) {
     const panel = this.world.getSceneObject<UIKitMLAsset>('welcome-panel');
     const card = panel?.getElementById('card');
     const words = panel?.getElementById('card-words');
+    card?.setProperties({ panelMaterialClass: CardGlass });
     const xrButton = panel?.getElementById('xr-button');
     const exitButton = panel?.getElementById('exit-button');
     const laptopHelp = panel?.getElementById('laptop-help');

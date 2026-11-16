@@ -58,6 +58,9 @@ describe("the IWSDK starter's welcome card", () => {
     assert.match(panel, /from '\.\/card-fade\.js'/);
     assert.match(panel, /cardOpacity\(time, this\.#shownAt, this\.#from\)/);
     assert.match(panel, /#from = CARD_FROM;/);
+    // Drawn in a group of its own, as the kit's Panel is, never the library's shared one (VRIFY, 2026-11-16).
+    assert.match(panel, /class CardGlass extends MeshBasicMaterial \{\}/);
+    assert.match(panel, /card\?\.setProperties\(\{ panelMaterialClass: CardGlass \}\);/);
     assert.match(panel, /this\.#shownAt = time;\n\s*this\.#from = 0;/);
     assert.match(panel, /if \(time < this\.#shownAt \+ CARD_SECONDS\) return;/);
   });
