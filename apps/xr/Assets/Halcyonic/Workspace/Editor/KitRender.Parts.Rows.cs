@@ -37,7 +37,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         Fact("Model · ", "Glimmer 30B · Ask Me First"),
                     };
                 case "45-rows-steps":
-                    return new List<RoomRow> { Ours("Create Project · Confirmed", RoomRowMark.Check), Ours("Create First Task · Confirmed", RoomRowMark.Check), Ours("Start Task · Sent. Waiting for the agent.") };
+                    // A start's steps as the product lays them (RoomBar.NewProject: the step its row's words, its state the row's note, never
+                    // joined on a dot), in the product's own words (EntryText.StepName and StepStatusOf), so the fixture never goes stale.
+                    string State(BuildStepStatus status, BuildStepKind kind) => EntryText.StepStatusOf(status, kind, null, null, false);
+                    return new List<RoomRow>
+                    {
+                        new RoomRow(LineWords.Ours(EntryText.StepName(BuildStepKind.CreateProject, true)), RoomRowMark.Check, note: State(BuildStepStatus.Confirmed, BuildStepKind.CreateProject)),
+                        new RoomRow(LineWords.Ours(EntryText.StepName(BuildStepKind.CreateWorkstream, true)), RoomRowMark.Check, note: State(BuildStepStatus.Confirmed, BuildStepKind.CreateWorkstream)),
+                        new RoomRow(LineWords.Ours(EntryText.StepName(BuildStepKind.StartWork, true)), note: State(BuildStepStatus.NotYet, BuildStepKind.StartWork)),
+                    };
                 case "45-rows-part":
                     // A review's second part: the first task from its third line, three lines of it, then the next item whole.
                     return new List<RoomRow> { new RoomRow(LineWords.Ours("First Task · ") + LineWords.Theirs(RowsLongTask), fromLine: 2, lines: 3), new RoomRow(LineWords.Ours("Folder · ") + LineWords.Theirs("kite-run"), fromLine: 0, lines: 1) };

@@ -237,7 +237,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var onPage = new List<string>();
                 foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
                 {
-                    label.ForceMeshUpdate(true);
+                    // Parsed afresh: a reused button's label measured with other words keeps them in TMP's buffer until it is parsed again, so
+                    // its parsed text could echo them ("Next Pagee" after "First Page", b208's parts log) while its mesh draws the words.
+                    label.ForceMeshUpdate(true, true);
                     var said = label.GetParsedText();
                     if (said.Trim().Length == 0) continue;
                     onPage.Add(said);
@@ -245,8 +247,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(!said.Contains(KitMomentWords.Dot.Trim()), at + "\"" + said + "\" joins facts on a dot");
                 }
                 foreach (var action in sweep.Column)
-                    Require(onPage.Any(said => Words(said).Contains(Words(action.Words))) && (action.Detail == null || onPage.Any(said => Words(said).Contains(Words(action.Detail)))),
-                        at + "the action \"" + action.Words + "\" is not drawn whole with its detail");
+                    // Exactly the action's words, or its words over its detail, on one drawn label: never words that merely contain them.
+                    Require(action.Detail != null && onPage.Any(said => Words(said) == Words(action.Words + " " + action.Detail))
+                        || onPage.Any(said => Words(said) == Words(action.Words)) && (action.Detail == null || onPage.Any(said => Words(said) == Words(action.Detail))),
+                        at + "the action \"" + action.Words + "\" is not drawn as its words exactly, with its detail");
                 drawn.AddRange(onPage);
                 foreach (var row in sweep.Card?.List ?? (IReadOnlyList<RoomListRow>)Array.Empty<RoomListRow>()) pageOf[row.Name.Text] = page;
                 Debug.Log("Halcyonic: parts: " + name + ": " + at + "drew " + string.Join(" | ", onPage.Select(Words)) + ".");
