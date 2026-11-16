@@ -206,12 +206,14 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   pass the hall's `move` to `ambientMotion`. Put the same colour in `index.html`'s `background`. The welcome card
   already stands low beside the person, out of the view's middle; leave it there.
 - Its music is made in the browser, with no file and no network: `playScore(score, ambientMotion, options)` plays a
-  score on the piano, the bell or the pad (`voice: 'piano'`, or one per part, `voice: (part) => (part === 0 ? 'pad' :
-  'bell')`), starting from its first note at the person's first press (entering VR is one). The scores are in
-  `src/pieces.ts`: `pieces.prelude` (Bach) and `pieces.gymnopedie` (Satie), both in the public domain; `join([a, b],
-  4)` plays them one after the other and `loop: true` for ever. A piece of your own is a list of notes, `{ at, length,
-  pitch, loud, part }` in beats, `pitch('C4')` for a key. Never type in a tune still in copyright: no song, no film or
-  game theme, nothing from a recording, a MIDI file or an arrangement.
+  score on the piano, the bell or the pad (`voice: 'piano'`, or one per part,
+  `voice: (part) => (part === 0 ? 'pad' : 'bell')`), starting from its first note at the person's first press (entering
+  VR is one). The scores are in `src/pieces.ts`: `pieces.prelude` (Bach) and `pieces.gymnopedie` (Satie), both in the
+  public domain; `join([a, b], 4)` plays them one after the other and `loop: true` for ever. `openings.morning` is the
+  first four bars of Grieg's Morning Mood (1875, public domain), eight seconds, for a moment on camera; give `lightHall`
+  `{ rise: 8 }` and the hall blooms as its last note ends. A piece of your own is a list of notes,
+  `{ at, length, pitch, loud, part }` in beats, `pitch('C4')` for a key. Never type in a tune still in copyright: no
+  song, no film or game theme, nothing from a recording, a MIDI file or an arrangement.
 - Light lands with its sound only when it reads the player's time: place everything that moves with the music from
   `player.now()` each frame, and `player.each(behind, ahead, visit)` gives each note due or still held with its start
   and end in those same seconds. Never a timer of your own, and never `gameTime()` for it.

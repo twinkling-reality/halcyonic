@@ -187,8 +187,9 @@ export function roundColumn(midi: number, columns = 24): number {
 /**
  * How light that builds with a piece stands `seconds` into it (play time), building over its first `rise` seconds:
  * `built`, 0 before the music to 1 at `rise`, slow at first; `hush`, a breath held just before the peak, rising from
- * 0 three seconds before `rise` to 1 just before it and gone at it; and `bloom`, the peak itself, coming in over a
- * third of a second, a flash at `rise` that falls within a second to a glow dying away over the next several seconds.
+ * 0 three seconds before `rise` to 1 just before it and gone at it; and `bloom`, the peak itself, nothing before
+ * `rise` and all at once at it (one hit a cut can land on), a flash that falls within a second to a warm glow that
+ * holds for several seconds more.
  */
 export function swell(
   seconds: number,
@@ -198,6 +199,6 @@ export function swell(
   const since = seconds - rise;
   const k = Math.min(1, Math.max(0, (since + 3) / 2.6));
   const hush = since < 0 ? k * k * (3 - 2 * k) : 0;
-  const bloom = since < 0 ? Math.exp(-((since / 0.35) ** 2)) : 0.55 * Math.exp(-since / 0.45) + 0.45 * Math.exp(-since / 3.5);
+  const bloom = since < 0 ? 0 : 0.5 * Math.exp(-since / 0.45) + 0.5 * Math.exp(-since / 5);
   return { built, hush, bloom };
 }

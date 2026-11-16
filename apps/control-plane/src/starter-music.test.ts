@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { pieces, pitch } from '../../../starters/iwsdk-vr/template/src/pieces.ts';
+import { openings, pieces, pitch } from '../../../starters/iwsdk-vr/template/src/pieces.ts';
 import {
   eachHeard,
   isBlack,
@@ -356,14 +356,15 @@ describe('the hall of light answers the music all round and builds with it (SHOW
     for (let t = 0; t < 20; t += 0.5)
       assert.ok(swell(t + 0.5, 20).built > swell(t, 20).built, String(t));
     assert.equal(swell(20, 20).bloom, 1);
-    // Sudden: nothing a second before it, and come in within a third of a second.
-    assert.ok(swell(19, 20).bloom < 0.001);
-    assert.ok(swell(19.7, 20).bloom > 0.3);
-    // A flash that falls within a second to a glow, dying away over several seconds, gone by the time the piece has
+    // One hit: nothing at all before it, so a cut can land on it.
+    assert.equal(swell(19, 20).bloom, 0);
+    assert.equal(swell(19.97, 20).bloom, 0);
+    // A flash that falls within a second to a warm glow, held for several seconds, gone by the time the piece has
     // gone on.
     assert.ok(swell(21, 20).bloom < 0.5);
-    assert.ok(swell(22, 20).bloom > 0.2);
-    assert.ok(swell(35, 20).bloom < 0.01);
+    assert.ok(swell(22, 20).bloom > 0.3);
+    assert.ok(swell(24, 20).bloom > 0.2);
+    assert.ok(swell(45, 20).bloom < 0.01);
   });
 
   test('it holds its breath just before the peak: dim from three seconds before, deepest just before, gone at it', () => {
@@ -373,5 +374,32 @@ describe('the hall of light answers the music all round and builds with it (SHOW
     assert.equal(swell(19.7, 20).hush, 1);
     assert.equal(swell(20, 20).hush, 0);
     assert.equal(swell(25, 20).hush, 0);
+  });
+});
+
+describe("Morning Mood's opening, for a moment on camera (SHOW, 2026-11-16)", () => {
+  const { morning } = openings;
+  test('its tune fills eight seconds (nine with its last note ringing), a dotted quarter at 60 in 6/8, two hands', () => {
+    assert.equal(scoreSeconds(morning), 27 / 3);
+    // The tune's last note starts at the 21st eighth, seven seconds in, and the opening is four bars of six eighths.
+    assert.equal(Math.max(...morning.notes.map((note) => note.at)), 21);
+    assert.ok(morning.notes.every((note, i, all) => i === 0 || (all[i - 1]?.at ?? 0) <= note.at));
+    assert.deepEqual([...new Set(morning.notes.map((note) => note.part))].sort(), [0, 1]);
+    assert.ok(
+      morning.notes.every(
+        (note) => note.at + note.length <= morning.beats && note.loud > 0 && note.loud <= 1,
+      ),
+    );
+  });
+
+  test('the tune opens as Grieg wrote it, B G sharp F sharp E F sharp G sharp, and comes home to E', () => {
+    const tune = morning.notes.filter((note) => note.part === 1);
+    assert.deepEqual(
+      tune.slice(0, 6).map((note) => note.pitch),
+      ['B4', 'G#4', 'F#4', 'E4', 'F#4', 'G#4'].map(pitch),
+    );
+    assert.equal(tune.at(-1)?.pitch, pitch('E4'));
+    // The third bar reaches up to C sharp, twice.
+    assert.equal(tune.filter((note) => note.pitch === pitch('C#5')).length, 2);
   });
 });

@@ -1264,7 +1264,7 @@ export function lightHall(
         const a = (k / 96) * Math.PI * 2;
         const sa = Math.sin(a);
         const ca = -Math.cos(a);
-        floor.place(sa * r, 0.01, ca * r, -ca, 0, sa, sa, 0, ca, (2 * Math.PI * r) / 80, 0.3, c, fade);
+        floor.place(sa * r, 0.01, ca * r, -ca, 0, sa, sa, 0, ca, (2 * Math.PI * r) / 80, 0.9, c, 0.45 * fade);
       }
       const passing = Math.exp(-(((r - radius) / 0.8) ** 2)) * fade * 2;
       wave = Math.max(wave, passing);
@@ -1330,7 +1330,7 @@ export function lightHall(
       if (since < 0) burst = false;
       const bloom = swelling.bloom;
       // Held just before the peak: the hall dims, so the bloom lands against it.
-      const held = 1 - 0.7 * swelling.hush;
+      const held = 1 - 0.85 * swelling.hush;
       // After the bloom the hall keeps a steady glow a little under its peak.
       const rest = 0.05 + 0.3 * built - (since > 0 ? 0.08 * Math.min(1, since / 6) : 0);
       lit.fill(0);
@@ -1346,7 +1346,8 @@ export function lightHall(
       player.each(top + 9, falling, visit);
       // The circling light comes in as the hall builds, and runs on at its full after the bloom.
       sweepAt = -(Math.max(0, now) / 14) * Math.PI * 2;
-      sweepGain = 1.1 * built;
+      // Faint while the hall builds, so the warm light comes with the bloom and circles on after it.
+      sweepGain = since >= 0 ? 1.1 : 0.2 * built;
       pillars.begin();
       for (let i = 0; i < count; i++) {
         const home = homes[i] as (typeof homes)[number];
@@ -1418,7 +1419,7 @@ export function lightHall(
         const shown = Math.min(1, Math.max(0, grown - k) / 40);
         const lit = flash[k] ?? 0;
         const glint = 0.7 + 0.3 * Math.sin(time * p.twinkle + p.phase);
-        const strength = p.own * glint * (shown * (0.3 + 0.5 * built) + 1.6 * bloom) + lit;
+        const strength = p.own * glint * ((1 - 0.85 * swelling.hush) * shown * (0.3 + 0.5 * built) + 1.6 * bloom) + lit;
         if (strength <= 0.002) continue;
         const a = p.a + turn;
         shade.copy(p.colour);

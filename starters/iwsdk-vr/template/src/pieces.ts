@@ -243,3 +243,54 @@ function gymnopedie(): Score {
 export const pieces = { prelude: prelude(), gymnopedie: gymnopedie() } as const;
 
 export type PieceName = keyof typeof pieces;
+
+/**
+ * Edvard Grieg (1843 to 1907), Morning Mood (Morgenstemning), from the music to Peer Gynt (1875), its first four bars:
+ * the flute's tune, as Grieg wrote it (Allegretto pastorale, a dotted quarter at 60, 6/8, E major; read from the
+ * Grieg Gesamtausgabe, vol. 12, p. 1), an octave down for the piano's right hand, over a held E major chord of this
+ * starter's own in the left. Counted in eighths: 24 of them, eight seconds.
+ */
+function morning(): Score {
+  // [start, length] in eighths and the key; the grace notes take a tenth of an eighth each, before their note.
+  const tune: readonly (readonly [number, number, string])[] = [
+    [0, 1, 'B4'], [1, 1, 'G#4'], [2, 1, 'F#4'], [3, 1, 'E4'], [4, 1, 'F#4'], [5, 1, 'G#4'],
+    [6, 0.8, 'B4'], [6.8, 0.1, 'G#4'], [6.9, 0.1, 'A4'], [7, 1, 'G#4'], [8, 1, 'F#4'], [9, 1, 'E4'],
+    [10, 0.5, 'F#4'], [10.5, 0.5, 'G#4'], [11, 0.5, 'F#4'], [11.5, 0.5, 'G#4'],
+    [11.8, 0.1, 'G#4'], [11.9, 0.1, 'A4'], [12, 1, 'B4'], [13, 1, 'G#4'], [14, 1, 'B4'], [15, 1, 'C#5'], [16, 1, 'G#4'], [17, 1, 'C#5'],
+    [18, 1, 'B4'], [19, 1, 'G#4'], [20, 1, 'F#4'], [21, 2.6, 'E4'],
+  ];
+  const notes: Note[] = tune.map(([at, length, name]) => ({
+    at,
+    length: length <= 0.1 ? 0.15 : length * 1.15,
+    pitch: pitch(name),
+    // The phrase rises a little toward its middle and falls back; the grace notes are only touched.
+    loud: length <= 0.1 ? 0.28 : 0.42 + 0.12 * Math.sin((at / 24) * Math.PI),
+    part: 1,
+  }));
+  // The left hand: E major held under the first two bars, then A and B before the tune comes home.
+  const chords: readonly (readonly [number, number, readonly string[], number])[] = [
+    [0, 12, ['E2', 'B2', 'E3', 'G#3'], 0.22],
+    [15, 3, ['A2', 'E3', 'A3', 'C#4'], 0.18],
+    [18, 3, ['B2', 'F#3', 'B3'], 0.2],
+  ];
+  for (const [at, length, names, loud] of chords)
+    for (const name of names) notes.push({ at, length, pitch: pitch(name), loud, part: 0 });
+  return {
+    title: 'Morning Mood, the opening',
+    by: 'Edvard Grieg, 1875',
+    tempo: 180,
+    beats: 27,
+    notes: ordered(notes),
+    pedal: [
+      [0.05, 11.9],
+      [12.05, 23.9],
+    ],
+  };
+}
+
+/**
+ * Short openings, for a moment on camera rather than a piece to listen through: `openings.morning` is Morning Mood's
+ * first four bars, eight seconds, the most famous dawn there is. Give `lightHall` `{ rise: 8 }` and the hall blooms
+ * as its last note ends.
+ */
+export const openings = { morning: morning() } as const;

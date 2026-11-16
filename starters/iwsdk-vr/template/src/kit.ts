@@ -45,7 +45,7 @@ export {
   type VoiceName,
 } from './instruments.js';
 export { type Heard, isBlack, join, type Note, range, roundColumn, type Score, scoreSeconds, swell } from './score.js';
-export { type PieceName, pieces, pitch } from './pieces.js';
+export { openings, type PieceName, pieces, pitch } from './pieces.js';
 export {
   type FallingNotes,
   fallingNotes,
