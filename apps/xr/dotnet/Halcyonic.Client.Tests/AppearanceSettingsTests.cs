@@ -648,6 +648,22 @@ public class AppearanceSettingsTests
     [Test]
     public void UnderTheRedesignAppearanceIsDarkAndLightChosenAtOnceAndKept()
     {
+        if (!PanelThemes.Offered)
+        {
+            // Until Light's words have their inks the page is the one it was, and a panel choice changes nothing.
+            var was0 = RoomDesign.Enabled;
+            RoomDesign.Enabled = true;
+            try
+            {
+                var settings0 = new AppearanceSettings();
+                var column0 = new AppearanceColumn(settings0, () => { });
+                Assert.That(column0.Frame!.Lines.Select(line => line.Words), Does.Not.Contain(PanelThemes.LightWords));
+                column0.Act(AppearanceColumn.ChoosePanels, "light");
+                Assert.That((settings0.Panels, PanelThemes.Current), Is.EqualTo((PanelTheme.Dark, PanelTheme.Dark)));
+            }
+            finally { RoomDesign.Enabled = was0; }
+            return;
+        }
         var was = RoomDesign.Enabled;
         RoomDesign.Enabled = true;
         PanelThemes.Set(PanelTheme.Dark);

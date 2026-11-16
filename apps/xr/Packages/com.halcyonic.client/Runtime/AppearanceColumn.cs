@@ -42,7 +42,7 @@ namespace Halcyonic.Client
                 var close = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
                 // The redesign's glass (the lead's 13:33Z): Dark and Light are the page's choice, the one in force chosen; choosing one
                 // applies it at once, so there is no preview or apply step for two looks a person sees by choosing.
-                if (RoomDesign.Enabled)
+                if (RoomDesign.Enabled && PanelThemes.Offered)
                 {
                     var panels = new[] { PanelTheme.Dark, PanelTheme.Light }.Select(theme => new PageLine(PanelThemes.Words(theme),
                         action: ChoosePanels, key: PanelThemes.Key(theme), choice: true, chosen: theme == settings.Panels, answerMark: AnswerMark.Single)).ToList();
@@ -105,7 +105,7 @@ namespace Halcyonic.Client
         {
             switch (id)
             {
-                case ChoosePanels when RoomDesign.Enabled && PanelThemes.Find(key) is PanelTheme theme:
+                case ChoosePanels when RoomDesign.Enabled && PanelThemes.Offered && PanelThemes.Find(key) is PanelTheme theme:
                     if (theme == settings.Panels) return;
                     settings.ApplyPanels(theme);
                     PanelThemes.Set(theme);

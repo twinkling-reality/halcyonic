@@ -21,6 +21,12 @@ namespace Halcyonic.Client
 
         public const string LightWords = "Light";
 
+        /// <summary>
+        /// Whether the redesign offers the choice: only once Light's words have their own inks (FIELD's 13:59Z: every view's words are white,
+        /// so Light glass alone fails contrast). Until then Settings › Appearance stays as it was and Dark, the default, is the glass.
+        /// </summary>
+        public static bool Offered { get; } = false;
+
         public static PanelTheme Current { get; private set; } = PanelTheme.Dark;
 
         /// <summary>Raised once per change, never for the theme already in force: the kit eases its faces from one to the other.</summary>

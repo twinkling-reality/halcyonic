@@ -55,7 +55,7 @@ namespace Halcyonic.Client
                 var footer = new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close));
                 if (pages > 1) footer = footer.WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage));
                 var lines = categories.Skip(page * each).Take(each).Select(group => new PageLine(LineWords.Ours(group),
-                    fact: group == Appearance ? LineWords.Ours(RoomDesign.Enabled ? PanelThemes.Words(appearance.Panels) : appearance.Applied.Name) : settings.First(setting => setting.Group == group).Read().ValueRuns,
+                    fact: group == Appearance ? LineWords.Ours(RoomDesign.Enabled && PanelThemes.Offered ? PanelThemes.Words(appearance.Panels) : appearance.Applied.Name) : settings.First(setting => setting.Group == group).Read().ValueRuns,
                     action: OpenCategory, key: group, opens: true)).ToList();
                 return new MenuFrame(SettingsText.Subject, footer, lines: lines);
             }
