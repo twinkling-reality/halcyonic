@@ -136,7 +136,7 @@ namespace Halcyonic.XR
                     pose.rotation * Quaternion.Euler(0f, 180f, 0f));
                 shelfMeasure.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
                 // The widest label the shelf can ever show (AUDIT's 12:52Z and 12:55Z): a name long enough to reach the label's cap (FIELD's
-                // six lines at the widest measure, its tail faded past them), in the state that draws the most beside it, Needs You with
+                // four shelf lines at the widest measure, its tail faded past them), in the state that draws the most beside it, Needs You with
                 // its count (FIELD's badge figure). The same for every title, so no name, short or long, stands nearer than the clearance,
                 // and the shelf never moves because a name came or went.
                 var title = WidestStandIn;
@@ -469,10 +469,11 @@ namespace Halcyonic.XR
         }
 
         /// <summary>
-        /// A name long enough to fill the label to its cap at either text size (FIELD's six lines, about 48 letters a four-line plate at
-        /// Standard), so the envelope measures the widest box a label can take.
+        /// A name long enough to fill the label to its shelf cap at either text size (FIELD's four lines, 82fc14aea), so the envelope
+        /// measures the widest box a label can take. Under the redesign the drawn name is the room's tag, bounded across and never
+        /// wider than this label (the shelf journey checks it at each size; AUDIT's 13:23Z).
         /// </summary>
-        private const string WidestStandIn = "A complete task title a person gives, in plain words, long enough to fill every line the label can lay at its widest "
+        public const string WidestStandIn = "A complete task title a person gives, in plain words, long enough to fill every line the label can lay at its widest "
             + "measure, with more words after that so its tail fades past its last line, as a very long name does";
 
         /// <summary>
