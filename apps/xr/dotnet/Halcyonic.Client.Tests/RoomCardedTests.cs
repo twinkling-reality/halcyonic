@@ -34,6 +34,7 @@ public sealed class RoomCardedTests
         {
             new PageLine("Checks Passed", action: FileScreens.Open, key: FileScreens.ChecksKey, opens: true),
             new PageLine("Code Check passed."),
+            new PageLine("Builds", action: FileScreens.Open, key: FileScreens.HowBuiltKey, opens: true),
         };
         var frame = new MenuFrame("Kite Run", new Footer(close), subjectIsData: true, lines: lines, identityKind: MenuIdentityKind.Task).WithCard(card);
 
@@ -43,6 +44,6 @@ public sealed class RoomCardedTests
         Assert.That(bar.Column.Select(action => (action.Control.Action, action.Control.Key, action.Words, action.Main)), Is.EqualTo(new[]
         {
             (FileScreens.Open, (string?)FileScreens.ChecksKey, FileScreens.ReadAllWords, false), (Footer.Close, (string?)null, "Close", false),
-        }), "Read All, then Close");
+        }), "one Read All, the first answer's, then Close");
     }
 }

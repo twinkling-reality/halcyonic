@@ -177,7 +177,8 @@ namespace Halcyonic.Client
             var ownCard = frame.Side == null && !lineActs.Any(each => Valued(each.Line)) ? frame.Card : null;
             if (ownCard != null)
             {
-                others.AddRange(lineActs.Where(each => each.Line.Action == FileScreens.Open && each.Line.Key != null).Select(each => new RoomAction(
+                // One Read All a frame, the first answer's, however many lines open one (AUDIT3's SHOULD: never two buttons alike).
+                others.AddRange(lineActs.Where(each => each.Line.Action == FileScreens.Open && each.Line.Key != null).Take(1).Select(each => new RoomAction(
                     new KitControl(KitPlace.Step, frame, FileScreens.Open, each.Line.Key, FileScreens.ReadAllWords, GlazeIcon.Next, true, null, false),
                     main: false, icon: GlazeIcon.Next)));
                 lineActs.Clear();
