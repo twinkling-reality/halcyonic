@@ -81,6 +81,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var execution = HalcyonicJson.Deserialize<ExecutionView>(HalcyonicJson.Serialize(prototype.Execution));
                 work.WorkstreamId = ResultsTask; work.ProjectId = ResultsProject; work.CurrentExecutionId = ResultsRun; work.ExecutionIds = new List<string> { ResultsRun };
                 execution.ExecutionId = ResultsRun; execution.ProjectId = ResultsProject; execution.WorkstreamId = ResultsTask;
+                // At rest, where a person opens Character Colour: the redesign offers the task's routes behind More only at rest, never
+                // while the agent works (XR's c5802ab49), so the colour panel is reached as a person reaches it.
+                work.Status = WorkstreamStatus.Completed; execution.Status = ExecutionStatus.Completed;
                 var snapshot = new Snapshot { Journal = new JournalInfo { JournalId = ResultsJournal, Origin = JournalOrigin.Live }, Position = 5,
                     Projects = new List<ProjectView> { new ProjectView { ProjectId = ResultsProject, Name = "Synthetic colour project", CreatedAt = Time, UpdatedAt = Time } },
                     Workstreams = new List<WorkstreamView> { work }, Executions = new List<ExecutionView> { execution }, Runtimes = prototype.State.Runtimes.ToList() };
@@ -155,6 +158,22 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (!director.Plane.KitShows || next == null) break;
                         next.SettleForRender(); next.PressForRender(990); Draw();
                         drawn = DrawnPress(action, key);
+                    }
+                    // The task's routes stand behind the bar's More at rest (XR's c5802ab49, SCREENS's SHAPE 11): press it as a person
+                    // does, then look for the route on the More page.
+                    if (drawn == null && action == FileScreens.OpenCharacterColour && DrawnPress(RoomBar.More, null) is KitPress more)
+                    {
+                        more.SettleForRender(); more.PressForRender(990); Draw();
+                        drawn = DrawnPress(action, key);
+                        // The More page's further pages through its own drawn pager, as a person turns them (at Larger it holds fewer rows).
+                        for (var page = 0; drawn == null && page < 4; page++)
+                        {
+                            var next = DrawnPress(Footer.NextPage, null) ?? director.Plane.Kit.Bar.BandNextButton?.Press;
+                            if (next == null) break;
+                            next.SettleForRender(); next.PressForRender(990); Draw();
+                            drawn = DrawnPress(action, key);
+                        }
+                        Debug.Log("Halcyonic: character colour: pressed More; the More page " + (drawn != null ? "offers" : "does not offer") + " " + action);
                     }
                     if (drawn == null && action == FileScreens.OpenCharacterColour)
                     {
