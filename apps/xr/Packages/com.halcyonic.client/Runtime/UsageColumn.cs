@@ -53,6 +53,45 @@ namespace Halcyonic.Client
         /// <summary>The most usage windows the redesign's card holds (FIELD's two wells); more, and the older view draws the page.</summary>
         private const int CardWindows = 2;
 
+        /// <summary>
+        /// The last limits each computer gave, kept by its connection (AUDIT's film MUST, 2026-11-16 04:17Z: Usage opens with
+        /// its numbers drawn, never a loading line): a page opened again shows them at once while it reads again, and
+        /// <see cref="Prime"/> reads them before the page is first opened. They are said as last reported, as the card says.
+        /// </summary>
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ControlPlaneApi, UsageLimitsResponse> lastRead =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<ControlPlaneApi, UsageLimitsResponse>();
+
+        private static void Keep(ControlPlaneApi api, UsageLimitsResponse response)
+        {
+            lock (lastRead)
+            {
+                lastRead.Remove(api);
+                lastRead.Add(api, response);
+            }
+        }
+
+        /// <summary>What <paramref name="api"/>'s computer last gave, or null before its first read came back.</summary>
+        internal static UsageLimitsResponse? LastRead(ControlPlaneApi api)
+        {
+            lock (lastRead) return lastRead.TryGetValue(api, out var response) ? response : null;
+        }
+
+        /// <summary>
+        /// Reads the computer's limits now and keeps them, so Usage opens with its numbers (the Unity layer calls it once the
+        /// headset is connected). A read that fails keeps nothing: the page then reads again when opened.
+        /// </summary>
+        public static async Task Prime(ControlPlaneApi api, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                Keep(api, await api.GetUsageLimitsAsync(cancellationToken).ConfigureAwait(false));
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Unknown stays unknown: nothing is kept, and the page says so when it is opened and its own read fails.
+            }
+        }
+
         private readonly IMenuHost host;
         private readonly Func<DateTimeOffset, AvailableUsageLimits?> recorded;
         private UsageLeftPresentation? shown;
@@ -115,6 +154,9 @@ namespace Halcyonic.Client
             this.host = host;
             this.recorded = recorded;
             this.commands = commands;
+            // The last limits this computer gave, at once, while the page reads again (never on the demonstration's own).
+            if (!host.Demonstration && host.Api is ControlPlaneApi api && LastRead(api) is UsageLimitsResponse last)
+                shown = UsageLeftPresenter.Present(last, host.Clock, host.Zone);
             Read();
         }
 
@@ -275,6 +317,7 @@ namespace Halcyonic.Client
             if (reading is Task<UsageLimitsResponse> pending && pending.IsCompleted)
             {
                 reading = null;
+                if (pending.Status == TaskStatus.RanToCompletion && host.Api is ControlPlaneApi read) Keep(read, pending.Result);
                 shown = pending.Status == TaskStatus.RanToCompletion
                     ? UsageLeftPresenter.Present(pending.Result, host.Clock, host.Zone)
                     : pending.IsCanceled ? shown : UsageLeftPresenter.Unreachable();

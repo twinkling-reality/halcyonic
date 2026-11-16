@@ -298,6 +298,41 @@ public class UsageColumnTests
         return usage.Frame!.Card!;
     }
 
+    /// <summary>
+    /// Usage opens with its numbers drawn, never a loading line, once the computer has given them (AUDIT's film MUST,
+    /// 2026-11-16 04:17Z): primed before the page opens, or kept from the last time it was open; a computer never read
+    /// still reads first.
+    /// </summary>
+    [Test]
+    public async Task APrimedComputersUsageOpensWithItsNumbersNeverReading()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            using var fresh = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", new TwoReads(null));
+            var unread = new UsageColumn(new FakeMenuHost { Clock = Now, Height = MenuPage.Rows(6), Api = fresh }, _ => null);
+            Assert.That(unread.Frame!.Card!.Description!.Text, Is.EqualTo(UsageLeftPresenter.Reading), "never read: it reads first");
+
+            using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", new TwoReads(null));
+            await UsageColumn.Prime(api);
+            var opened = new UsageColumn(new FakeMenuHost { Clock = Now, Height = MenuPage.Rows(6), Api = api }, _ => null);
+            Assert.That(opened.Frame!.Card!.Gauges.Count, Is.EqualTo(2), "primed: the windows stand the moment it opens");
+            Assert.That(opened.Frame.Card.Words(), Has.None.EqualTo(UsageLeftPresenter.Reading));
+
+            using var again = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", new TwoReads(null));
+            var first = new UsageColumn(new FakeMenuHost { Clock = Now, Height = MenuPage.Rows(6), Api = again }, _ => null);
+            for (var tries = 0; tries < 200 && (first.Frame?.Card?.Gauges.Count ?? 0) == 0; tries++)
+            {
+                await Task.Delay(10);
+                first.Tick();
+            }
+            var reopened = new UsageColumn(new FakeMenuHost { Clock = Now, Height = MenuPage.Rows(6), Api = again }, _ => null);
+            Assert.That(reopened.Frame!.Card!.Gauges.Count, Is.EqualTo(2), "opened again: the last read stands while it reads again");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
     private static List<RoomListRow> AssistantRows(RoomCard card) =>
         card.List.Where(row => row.Kind is RoomKind.Computer or RoomKind.Link or RoomKind.Failed).ToList();
 
