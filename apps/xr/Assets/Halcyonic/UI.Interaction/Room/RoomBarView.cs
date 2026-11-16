@@ -618,8 +618,7 @@ namespace Halcyonic.XR.UI
             var runs = GlazeRuns.Of(noticeWords!);
             runs.Set(said);
             noticeWords!.textWrappingMode = TextWrappingModes.Normal;
-            // Never one word alone on its last line (JUDGE's judge room, 19:20Z: "live." alone).
-            var laid = RoomCardView.Balanced(noticeWords, width - 2f * pad, 3);
+            var laid = KitType.Lay(noticeWords, width - 2f * pad, 3);
             // The plate as wide as its words laid, never wider than the panel: the same pad on either side (the critic, 2026-11-12).
             noticeWords.ForceMeshUpdate(true);
             var wordsWidth = Mathf.Min(width - 2f * pad, Mathf.Max(noticeWords.GetRenderedValues(true).x, 0f));
