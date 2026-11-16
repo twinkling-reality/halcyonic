@@ -108,16 +108,23 @@ test('the store keeps a file private by its digest, refuses one too large or not
   assert.deepEqual(readdirSync(folder).sort(), [first.id]);
 
   // One at a time: a second while the first still arrives is refused.
+  // The first holds after its first chunk until released; the test waits until it truly holds, never a fixed time,
+  // since under load the store may take longer than any sleep to read that chunk (a release sent too early hung).
   let release: () => void = () => undefined;
+  let holding: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    holding = resolve;
+  });
   const slow = (async function* () {
     yield clip().subarray(0, 10);
     await new Promise<void>((resolve) => {
       release = resolve;
+      holding();
     });
     yield clip().subarray(10);
   })();
   const arriving = store.receive(slow, clip().length);
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await held;
   assert.deepEqual(await store.receive(chunks(clip('isom')), clip('isom').length), {
     ok: false,
     reason: 'busy',
