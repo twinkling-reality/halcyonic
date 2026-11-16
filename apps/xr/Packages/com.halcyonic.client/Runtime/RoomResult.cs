@@ -161,7 +161,7 @@ namespace Halcyonic.Client
         /// <summary>Whether the project is made from a starter, a VR project already.</summary>
         public bool IsVr { get; }
 
-        /// <summary>Whether Make VR Version can be asked now: not a VR project, and a place for its copy can be named.</summary>
+        /// <summary>Whether Make VR Copy can be asked now: not a VR project, and a place for its copy can be named.</summary>
         public bool CanMakeVr { get; }
 
         /// <summary>Whether Try Build may stand (<see cref="KitScreenModel.CanTry"/>): a passed check of the computer's own, nothing changed since, no turn running.</summary>

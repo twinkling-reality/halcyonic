@@ -25,7 +25,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly (RoomGlyph Glyph, string Words)[] GlyphActions =
         {
             (RoomGlyph.Send, "Send Instruction"), (RoomGlyph.Microphone, "Hold to Talk"), (RoomGlyph.Keyboard, "Type"), (RoomGlyph.Stop, "Stop"),
-            (RoomGlyph.Check, "Approve"), (RoomGlyph.Barred, "Deny"), (RoomGlyph.Cross, "Cancel"), (RoomGlyph.Cube, "Make VR Version"),
+            (RoomGlyph.Check, "Approve"), (RoomGlyph.Barred, "Deny"), (RoomGlyph.Cross, "Cancel"), (RoomGlyph.Cube, "Make VR Copy"),
             (RoomGlyph.Changes, "Changes"), (RoomGlyph.Checks, "Checks"), (RoomGlyph.Back, "Back"), (RoomGlyph.Next, "Next Part · 2 of 3"),
             (RoomGlyph.Previous, "Previous Part"), (RoomGlyph.Play, "Try Build"), (RoomGlyph.Plus, "New Project"), (RoomGlyph.Pencil, "Request Change"),
             (RoomGlyph.Continue, "Continue"), (RoomGlyph.Lines, "Summarize"), (RoomGlyph.Again, "Run Checks Again"),

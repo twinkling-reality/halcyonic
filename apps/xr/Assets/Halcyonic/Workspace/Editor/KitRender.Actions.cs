@@ -35,7 +35,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 ("Approve", GlazeIcon.Approve, true, null, null, AnswerMark.None, false, RoomButtonLook.Main, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
                 ("Deny", GlazeIcon.Deny, false, null, null, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Barred, RoomButton.RestChipColour, 0xFFFFFF),
                 ("Changes", null, false, RoomButtonLook.Pointed, null, AnswerMark.None, false, RoomButtonLook.Pointed, RoomGlyph.Changes, RoomButton.LightColour, RoomButton.InkColour),
-                ("Make VR Version", null, true, RoomButtonLook.MainPointed, null, AnswerMark.None, false, RoomButtonLook.MainPointed, RoomGlyph.Cube, RoomButton.AccentColour, RoomButton.InkColour),
+                ("Make VR Copy", null, true, RoomButtonLook.MainPointed, null, AnswerMark.None, false, RoomButtonLook.MainPointed, RoomGlyph.Cube, RoomButton.AccentColour, RoomButton.InkColour),
                 ("Checks", null, false, RoomButtonLook.Pressed, null, AnswerMark.None, false, RoomButtonLook.Pressed, RoomGlyph.Checks, -1, RoomButton.InkColour),
                 ("Confirm", GlazeIcon.Approve, false, null, 0.5f, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
                 ("Cancel", null, false, null, null, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Cross, RoomButton.RestChipColour, 0xFFFFFF),

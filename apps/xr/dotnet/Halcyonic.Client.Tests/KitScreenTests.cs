@@ -120,7 +120,7 @@ public class KitScreenTests
     {
         foreach (KitScreenAction action in Enum.GetValues(typeof(KitScreenAction)))
             Assert.That(KitScreenModel.Words(action), Is.Not.Empty, action.ToString());
-        Assert.That(KitScreenModel.Words(KitScreenAction.MakeAVrVersion), Is.EqualTo("Make VR Version"));
+        Assert.That(KitScreenModel.Words(KitScreenAction.MakeAVrVersion), Is.EqualTo("Make VR Copy"));
         Assert.That(KitScreenModel.Words(KitScreenAction.HowItWent), Is.EqualTo("Outcome"));
     }
 }

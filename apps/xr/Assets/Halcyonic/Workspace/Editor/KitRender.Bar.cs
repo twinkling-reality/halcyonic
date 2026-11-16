@@ -315,7 +315,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-result-play-refused" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the preview reads outside its project: no Play in Headset, its reason at the card's foot, synthetic data"),
                 "38-result-play-not-in-build" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result on a paired release build, which carries no relay: no Play in Headset, its reason at the card's foot, synthetic data"),
                 "36-work-fixing" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work while the agent's first try at a failed check runs: the failure and the try in the panel beside Stop, synthetic data"),
-                "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Version and Try Build, synthetic data"),
+                "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Copy and Try Build, synthetic data"),
                 "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
                 "36-work" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the field, the agent's cursor saying its step, Stop alone, synthetic data"),
                 "36-work-recorded" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work with nothing to press or name, as a recorded run plays: the field alone, synthetic data"),
@@ -723,7 +723,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (stopped) Require(shown.Column[0].Place == KitPlace.Field && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1, "Write Instruction does not lead where the tries ran out");
                         else if (state == "38-result-add") Require(shown.Column[0].Control.Action == RoomResult.ShowAdd && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1,
                             "Add to Project does not lead where the task holds work to add");
-                        else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Version does not lead");
+                        else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Copy does not lead");
                     }
                     else
                     {

@@ -244,7 +244,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// A press on one of the result's own actions (<see cref="RoomResult.Actions"/>), taken as any press of the file's is:
         /// only from the file's frame as drawn and still standing. Changes, Checks, Next Page and Back turn the page shown;
-        /// Make VR Version and Try Build go the way the project's screen sends them (<see cref="OnScreenActed"/>).
+        /// Make VR Copy and Try Build go the way the project's screen sends them (<see cref="OnScreenActed"/>).
         /// </summary>
         private bool OnResultActed(string action, string? key, MenuFrame? frame)
         {

@@ -147,7 +147,7 @@ namespace Halcyonic.Client
         public static string Words(KitScreenAction action) => action switch
         {
             KitScreenAction.ChangeIt => "Request Change",
-            KitScreenAction.MakeAVrVersion => "Make VR Version",
+            KitScreenAction.MakeAVrVersion => "Make VR Copy",
             KitScreenAction.TryIt => "Try Build",
             KitScreenAction.Steps => "Activity",
             KitScreenAction.Why => "Reasoning",

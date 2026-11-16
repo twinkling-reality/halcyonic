@@ -88,7 +88,7 @@ public class RoomResultTests
         Assert.That(bar.BandIsRead, Is.False, "a message is not something to read before the row takes a press");
         Assert.That(bar.Column.Where(NotClose).Select(action => (action.Control.Action, action.Words, action.Main)), Is.EqualTo(new[]
         {
-            (RoomResult.MakeVrVersion, "Make VR Version", true), (RoomResult.ShowChanges, "Changes", false), (RoomResult.ShowChecks, "Checks", false),
+            (RoomResult.MakeVrVersion, "Make VR Copy", true), (RoomResult.ShowChanges, "Changes", false), (RoomResult.ShowChecks, "Checks", false),
         }));
 
         // One file, and a VR project: the file's own way to an instruction leads, as Request Change.

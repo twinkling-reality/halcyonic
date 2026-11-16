@@ -759,7 +759,7 @@ public class BuildSequenceTests
         changed.NeverAsk = true;
         Assert.That(() => refused.Begin(reviewedAtAsk), Throws.InvalidOperationException.With.Message.EqualTo("The level is not the one reviewed."));
 
-        // Make VR Version's start: never ask only where asked for and offered.
+        // Make VR Copy's start: never ask only where asked for and offered.
         var vr = BuildSequence.ForPrompt("p1", "Make it VR.", Runtime(true), Commands, out var create, neverAsk: true);
         var vrStart = (ExecutionStartCommand)vr.Advance(With(Completed(create, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
         Assert.That(vrStart.Payload.ApprovalLevel, Is.EqualTo(ApprovalLevel.NeverAsk));
