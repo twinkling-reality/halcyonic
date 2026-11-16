@@ -67,6 +67,9 @@ const optional = { required: false } as const;
 export const ALLOW_TEST_SERVERS = {
   label: 'Allow Test Servers',
   line: 'Its tests may start servers. While they run, devices on your network can reach them, and the tests can reach any service that starts on this computer meanwhile.',
+  /** Said when anything but the person's own client sends the yes (AUDIT2, 16:36Z): the product's refusal family. */
+  refused:
+    "Nothing was sent: only you can turn on Allow Test Servers. Turn it on when you choose the project's check.",
 } as const;
 
 /** The client name of a command the assistant prepares (ADR 0060): never the person's own client. */

@@ -1212,11 +1212,7 @@ function admit(
         return reject(scope, 'invalid_state', 'This project has no folder to check.');
       // Test servers are the person's own yes, started from their own screen, never the assistant's (AUDIT3, CORE 16:22Z).
       if (command.payload.open_ports === true && command.client.name === ASSISTANT_CLIENT)
-        return reject(
-          scope,
-          'invalid_state',
-          `${ALLOW_TEST_SERVERS.label} is chosen by you on your own screen, never proposed for you.`,
-        );
+        return reject(scope, 'invalid_state', ALLOW_TEST_SERVERS.refused);
       // Choosing runs the check once: never over files a runtime is still writing.
       const busy = projection.projectBusyReason(projectId);
       if (busy !== null)

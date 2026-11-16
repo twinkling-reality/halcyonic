@@ -75,7 +75,8 @@ test("test servers are the person's own yes: refused from the assistant and from
     const { controlPlane, choose } = connected(t);
     return controlPlane.commands.submit(choose(client, openPorts), via);
   };
-  const refusal = /Allow Test Servers is chosen by you on your own screen/;
+  const refusal =
+    /Nothing was sent: only you can turn on Allow Test Servers\. Turn it on when you choose the project's check\./;
   // From the assistant, with the yes: refused, in words that say whose choice it is.
   const proposed = once(ASSISTANT, 'internal', true);
   assert.equal(proposed.disposition, 'rejected');

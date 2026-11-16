@@ -310,9 +310,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * (`removedAt`, ADR 0063). 24: how many of each
  * execution's requests the host answered itself and how many asked (`approvals`). 25: the commands a start's press
  * runs before its run (`before`, the recap is the review). 26: each project's photos and videos (`media`) and the
- * ones each execution was given (ADR 0066). 27: the files each execution's running turn changed (`writing`).
+ * ones each execution was given (ADR 0066). 27: the files each execution's running turn changed (`writing`). 28: whether
+ * the person let each project's own check start test servers (`openPorts`, ADR 0055, 2026-11-16).
  */
-export const PROJECTION_STATE_FORMAT = 27;
+export const PROJECTION_STATE_FORMAT = 28;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).

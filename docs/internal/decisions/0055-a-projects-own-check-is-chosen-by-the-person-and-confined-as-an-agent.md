@@ -213,6 +213,10 @@ and never for the agent's own run, whose profile is unchanged.
   press is too easy a yes. Its words are AUDIT2's (`ALLOW_TEST_SERVERS`): the label "Allow Test Servers" and, beside the yes on the
   review card as a warning and in its digest, "Its tests may start servers. While they run, devices on your network can reach
   them, and the tests can reach any service that starts on this computer meanwhile." A test pins the line to the profile's rules.
+- Residual (AUDIT3, 16:37Z): anything holding the paired token can send the yes over HTTP or the realtime connection: the
+  person's own clients, and a proving-plane lane script the lead allows hash by hash. No agent holds the token, since the data folder
+  is hidden from every agent process. Anything else sending it is refused: "Nothing was sent: only you can turn on Allow Test
+  Servers. Turn it on when you choose the project's check." (AUDIT2, 16:36Z).
 - The client half draws the choice with those words; until it ships, no client sends `open_ports` and nothing changes for anyone. An older generated C# client meets the new optional field; the plane and
   the headset move together.
 - The real fix for both gaps is a check outside the person's own login (a separate macOS user or a VM), a unit of its own.

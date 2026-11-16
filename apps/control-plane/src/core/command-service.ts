@@ -538,14 +538,6 @@ export class CommandService {
     };
   }
 
-  /** Rejects a command from a device that is no longer paired, whatever its admission. */
-  /**
-   * The review a command that changes a project's files or folder rests on (ADR 0051): a paired
-   * device's `project.restore`, or its `project.set_location` that rebinds a project that has a
-   * folder, must carry the digest of what the person read; a rebinding whose digest, from anyone,
-   * no longer matches what is true now is refused. A restore's digest is checked in the restore's
-   * own turn, against what it would change then, since that is read from the files.
-   */
   /**
    * Allow Test Servers (`open_ports`, ADR 0055 amended 2026-11-16) is the person's own yes, sent by a client they drive, over
    * HTTP or the realtime connection, as the host's transport records it and no client can declare. A command the host submits
@@ -564,12 +556,20 @@ export class CommandService {
         scope: admission.scope,
         rejection: {
           code: 'invalid_state',
-          message: `${ALLOW_TEST_SERVERS.label} is chosen by you on your own screen, never proposed for you.`,
+          message: ALLOW_TEST_SERVERS.refused,
         },
       };
     return admission;
   }
 
+  /** Rejects a command from a device that is no longer paired, whatever its admission. */
+  /**
+   * The review a command that changes a project's files or folder rests on (ADR 0051): a paired
+   * device's `project.restore`, or its `project.set_location` that rebinds a project that has a
+   * folder, must carry the digest of what the person read; a rebinding whose digest, from anyone,
+   * no longer matches what is true now is refused. A restore's digest is checked in the restore's
+   * own turn, against what it would change then, since that is read from the files.
+   */
   #reviewed(
     principal: Principal | null,
     admission: Admission,
