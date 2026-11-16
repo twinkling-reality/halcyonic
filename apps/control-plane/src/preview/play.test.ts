@@ -547,7 +547,7 @@ describe('the host runs, streams, feeds and stops a play (P-A)', () => {
     assert.equal(
       unknown.plays.sound('p1'),
       undefined,
-      'never "Silent Game" when the computer could not say',
+      'never "No Sound Yet" when the computer could not say',
     );
     offUnknown();
     await unknown.plays.close();

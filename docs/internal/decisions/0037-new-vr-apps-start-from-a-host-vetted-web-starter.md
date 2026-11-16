@@ -205,7 +205,7 @@ agent's work in a way that closing a window does not undo.
 The viewer's page is Halcyonic's own: the game's frames, a press to start taking keys, and labels in the product's
 voice for its state (Ready, Live, Reconnecting) and for its end (Game Closed, or Game Ended with its reason, such as Preview Stopped, on a line of its own; since
 2026-11-16 never joined on a dot, with a quiet line under it: Start it again from the headset). A reload does not end the game: the host keeps a play for 5 s after its last stream closes, and the page,
-with its cookie, comes back within that time. The page says when a game makes no sound (Silent Game) and
+with its cookie, comes back within that time. The page says when a game has made no sound so far (No Sound Yet) and
 when it plays sound (Sound On), from the computer's own record of which processes play audio rather than from
 anything the page reports, and says nothing about sound when the computer cannot tell. Since S1 that record is
 CoreAudio's per-process output state, read by a small helper of Halcyonic's for the browser's own processes; Sound On

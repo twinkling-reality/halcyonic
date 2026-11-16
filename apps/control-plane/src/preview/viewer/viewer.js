@@ -21,7 +21,7 @@ const LOST = { title: 'Game Closed', why: 'Connection Lost' };
 const SOUND = {
   playing: 'Sound On',
   quiet: 'Sound Paused',
-  none: 'Silent Game',
+  none: 'No Sound Yet',
 };
 
 const status = document.getElementById('status');
