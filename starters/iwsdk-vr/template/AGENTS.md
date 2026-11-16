@@ -218,9 +218,10 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   the person, and `fallingNotes(player, keys)` lets each note fall onto its key from the dark overhead, the keys'
   light spilling onto its neighbours, the rising glow and the sparks included, coloured by where each note lies in the
   music, while the hall far off answers each note in its colour, all round the person; give `lightKeys` `{ glass:
-  true }` and the keys stand on dark glass that mirrors them and every note nearing them; give `fallingNotes` `{ floor
-  }`, the floor's height in the keys' group's own frame, and each note's light pools on the floor under its key. Each is
-  written afresh every frame and makes nothing new in it. Keep the place dark behind them: light adds up where it overlaps.
+  true }` and the keys stand on dark glass that mirrors them, each key's flare and the light rising from it; give
+  `fallingNotes` `{ floor }`, the floor's height in the keys' group's own frame, and each note's light pools on the
+  floor under its key. Each is written afresh every frame and makes nothing new in it. Keep the place dark behind them:
+  light adds up where it overlaps.
 - For light of your own, the same parts are general: `glows` with `upright: true` keeps each shape vertical however
   the head tilts (a falling drop, a rising column), `place(...)` lays a shape in any plane (light along a curve, on a
   sloping surface), `keys.spot(midi)` says where a key is and which way it faces, and `registerColour(midi, low,
