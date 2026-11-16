@@ -1015,15 +1015,15 @@ namespace Halcyonic.XR.UI
                 : panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
             // Narrow: the column on the foot line, the panel over it a pair's gap up; else side by side on the one foot line.
             var under = narrow && places > 0 ? columnHeight + gap : 0f;
+            // A page's panel stands as tall as its column where the column is taller, so its card's top is level with the first action
+            // and its foot stays on the foot line with the lowest (AUDIT's 11:09Z: More's title card stood unanchored, centred low).
+            if (bar.State == RoomBarState.Page && !narrow && !bar.Wide && columnHeight > panelHeight) panelHeight = columnHeight;
             var height = narrow ? panelHeight + under : Mathf.Max(panelHeight, columnHeight);
             var foot = -height / 2f;
             var left = -total / 2f;
 
             panel.InnerBar = barHeight > 0f ? ((panelHeight - inset - barHeight) / unit, barHeight / unit, inset / unit) : ((float, float, float)?)null;
-            // A page's card stands its top level with the column's first action where the column stands taller (AUDIT's 11:09Z: More's
-            // title card stood centred on its routes, unanchored); every other moment keeps the panel on the foot line.
-            var rise = bar.State == RoomBarState.Page && !narrow && columnHeight > panelHeight ? columnHeight - panelHeight : 0f;
-            panel.transform.localPosition = new Vector3(left + panelWidth / 2f, foot + under + rise + panelHeight / 2f, 0f);
+            panel.transform.localPosition = new Vector3(left + panelWidth / 2f, foot + under + panelHeight / 2f, 0f);
             // A card that is the way in rings its panel in its hue, on the panel's own corner.
             panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
             if (!bar.Wide) panel.Draw(new Vector2(panelWidth, panelHeight));
