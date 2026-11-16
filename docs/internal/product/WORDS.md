@@ -36,7 +36,11 @@ still the host made of it where it made one (`TaskMedia`).
 Changes says under its title "What this task changed in the project." (the title already names the task). A failed
 check's line names the step it stopped at by the row's own word ("The check stopped at Build."), else "The
 computer's check stopped on a step". The project's kept versions are "Earlier Versions" (History until 2026-11-16:
-a newcomer could not tell history of what).
+a newcomer could not tell history of what). The computer's check rows are "Code Check", "Builds", "Starts and
+Shows" and "Has VR Mode" (Type Check, Build, Page Drawn and VR Offered until 2026-11-16; meanings unchanged: "Has VR
+Mode" says the page offers one, never that it was tried in a headset); a project's own check is "Own Checks". While
+the agent fixes a failed check by itself the line is "Fixing What Failed", the failed rows red under it, never the
+rows' names joined in a sentence.
 
 ## The worker by its role
 

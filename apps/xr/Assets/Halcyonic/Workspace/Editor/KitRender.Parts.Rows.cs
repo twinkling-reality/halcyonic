@@ -42,7 +42,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     // A review's second part: the first task from its third line, three lines of it, then the next item whole.
                     return new List<RoomRow> { new RoomRow(LineWords.Ours("First Task · ") + LineWords.Theirs(RowsLongTask), fromLine: 2, lines: 3), new RoomRow(LineWords.Ours("Folder · ") + LineWords.Theirs("kite-run"), fromLine: 0, lines: 1) };
                 case "45-rows-checks":
-                    return new List<RoomRow> { Ours("Type Check", RoomRowMark.Check), Ours("Build", RoomRowMark.Check), Ours("Page Drawn", RoomRowMark.Cross), Ours("VR Offered", RoomRowMark.Check) };
+                    return new List<RoomRow> { Ours(RoomResult.StepWords(CheckStepKind.TypeCheck), RoomRowMark.Check), Ours(RoomResult.StepWords(CheckStepKind.Build), RoomRowMark.Check), Ours(RoomResult.StepWords(CheckStepKind.PageDrawn), RoomRowMark.Cross), Ours(RoomResult.StepWords(CheckStepKind.VrOffered), RoomRowMark.Check) };
                 default:
                     // A page of Changes as the screen words its rows (2.6): the kind, a change's lines, then the path, the agent's own word, last.
                     return new[] { ("Changed", "src/game.js", "120 to 134 Lines"), ("Changed", "src/balloons/golden/burst-particles.js", "41 to 54 Lines"), ("Made", "src/gold.js", ""),

@@ -23,7 +23,7 @@ namespace Halcyonic.Client
 
         /// <summary>The fixing card's title and its quieter line while a try is under way (the addendum's A7 and A17).</summary>
         public const string FixingTitle = "Fixing";
-        public const string FixingLine = "The agent works on it by itself";
+        public const string FixingLine = "Fixing What Failed";
 
         /// <summary>The ended chain's card: its title and line where the check passed after a try, and where the tries ran out.</summary>
         public const string FixedTitle = "All Passing";
@@ -40,20 +40,9 @@ namespace Halcyonic.Client
         public static RoomCard? FixingCard(AutoFixView? fix)
         {
             if (fix == null || fix.State != AutoFixViewState.Fixing || fix.Attempt < 1 || fix.Cap < 1) return null;
-            // What is being fixed, named in the line ("Working on Build by itself"), the tries as pips on the status's mark:
-            // a node of its own under the mark repeated the mark (the critics, 2026-11-11).
-            // A step this client cannot name leaves the plain line, never another step's name: a line that named only some of
-            // the steps would say less than is being fixed (AUDIT's F1, 2026-11-12).
-            var named = fix.FailedSteps is { Count: > 0 } failed ? failed.Distinct().Select(FailedStepWords).ToList() : null;
-            var line = named != null && named.All(each => each != null) ? FixingOn(named.Select(each => each!).ToList()) : FixingLine;
-            return new RoomCard(status: new RoomCardStatus(FixingTitle, line, RoomTone.Working), trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap);
-        }
-
-        /// <summary>The fixing line naming its steps: "Working on Build by itself", "Working on Type Check and Build by itself".</summary>
-        public static string FixingOn(IReadOnlyList<string> steps)
-        {
-            var named = steps.Count == 1 ? steps[0] : string.Join(", ", steps.Take(steps.Count - 1)) + " and " + steps[steps.Count - 1];
-            return "Working on " + named + " by itself";
+            // One line that never joins the rows' names (AUDIT2, 2026-11-16 03:07Z): the failed rows stand red on the checks card,
+            // so the line says what is under way, the tries as pips on the status's mark.
+            return new RoomCard(status: new RoomCardStatus(FixingTitle, FixingLine, RoomTone.Working), trackAt: (int)fix.Attempt, trackOf: (int)fix.Cap);
         }
 
         /// <summary>
@@ -70,7 +59,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>A project's own check where the fixing line names it: the view carries no script's name.</summary>
-        public const string OwnCheckWords = "Project Check";
+        public const string OwnCheckWords = "Own Checks";
 
         /// <summary>
         /// The card a result at rest shows where a chain of tries ended (the addendum's A7 and A17): "All Passing" over its

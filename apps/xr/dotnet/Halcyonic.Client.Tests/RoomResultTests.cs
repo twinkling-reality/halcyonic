@@ -165,7 +165,7 @@ public class RoomResultTests
         Assert.That(failed.Card!.Status?.Title, Is.EqualTo(RoomPanelCards.ChecksFailed));
         Assert.That(failed.Card.Steps.Select(step => (step.Name, step.Tone)), Is.EqualTo(new[]
         {
-            ("Type Check", RoomTone.Good), ("Build", RoomTone.Bad), ("Page Drawn", RoomTone.Good), ("VR Offered", RoomTone.Good),
+            ("Code Check", RoomTone.Good), ("Builds", RoomTone.Bad), ("Starts and Shows", RoomTone.Good), ("Has VR Mode", RoomTone.Good),
         }));
         Assert.That(failed.Column.Where(NotClose).Select(action => (action.Words, action.Main, action.Place)),
             Is.EqualTo(new[] { ("Write Instruction", true, KitPlace.Field), (RoomResult.ChangesWords, false, KitPlace.Step), ("Back", false, KitPlace.Step) }),
@@ -176,7 +176,7 @@ public class RoomResultTests
             new CheckStepOutcome(CheckStepKind.TypeCheck, CheckStepResult.Passed), new CheckStepOutcome(CheckStepKind.Build, CheckStepResult.Failed),
             new CheckStepOutcome(CheckStepKind.PageDrawn, CheckStepResult.NotRun), new CheckStepOutcome(CheckStepKind.VrOffered, CheckStepResult.NotRun),
         }, RoomResultPage.Checks);
-        Assert.That(stopped.Rows.Select(row => row.Words.Text), Is.EqualTo(new[] { "Type Check", "Build" }));
+        Assert.That(stopped.Rows.Select(row => row.Words.Text), Is.EqualTo(new[] { "Code Check", "Builds" }));
         var passed = Bar(new RoomResult(true, false, true, true, null, Steps(), RoomResultPage.Checks));
         Assert.That(passed.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.TryBuild, true), (RoomResult.ShowChanges, false), (RoomResult.Back, false) }));
     }
@@ -591,7 +591,7 @@ public class RoomResultTests
     public void EveryCheckStepIsNamedByItsOwnKind()
     {
         Assert.That(System.Enum.GetValues(typeof(CheckStepKind)).Cast<CheckStepKind>().Select(RoomResult.StepWords),
-            Is.EqualTo(new[] { "Type Check", "Build", "Page Drawn", "VR Offered" }));
+            Is.EqualTo(new[] { "Code Check", "Builds", "Starts and Shows", "Has VR Mode" }));
         Assert.That(RoomResult.StepWords((CheckStepKind)99), Is.EqualTo("Step Unknown"));
     }
 

@@ -291,10 +291,12 @@ namespace Halcyonic.Client
         /// <summary>A step of the computer's check, in DESIGN's words (BUILD-SPEC-v4 2.8).</summary>
         public static string StepWords(CheckStepKind step) => step switch
         {
-            CheckStepKind.TypeCheck => "Type Check",
-            CheckStepKind.Build => "Build",
-            CheckStepKind.PageDrawn => "Page Drawn",
-            CheckStepKind.VrOffered => "VR Offered",
+            // AUDIT2's words for the film (2026-11-16 02:02Z and 03:06Z), meanings unchanged: the type check, the build, the
+            // page started and drawn in a sandboxed browser, and an immersive mode the page offers (never tried in a headset).
+            CheckStepKind.TypeCheck => "Code Check",
+            CheckStepKind.Build => "Builds",
+            CheckStepKind.PageDrawn => "Starts and Shows",
+            CheckStepKind.VrOffered => "Has VR Mode",
             // A step with no words of its own is unknown, never another step's name (the lead's rule, 2026-11-12).
             _ => "Step Unknown",
         };

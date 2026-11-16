@@ -50,11 +50,11 @@ public sealed class RoomFixingTests
         fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.Build, AutoFixViewFailedStepsItem.Build };
         var card = RoomBar.FixingCard(fix)!;
         Assert.That(card.Status!.Value.Title, Is.EqualTo(RoomBar.FixingTitle));
-        Assert.That(card.Status!.Value.Line, Is.EqualTo("Working on Build by itself"), "what is being fixed, named");
+        Assert.That(card.Status!.Value.Line, Is.EqualTo(RoomBar.FixingLine), "one line that never joins the rows' names");
         Assert.That((card.TrackAt, card.TrackOf), Is.EqualTo(((int?)1, (int?)2)));
         Assert.That(card.Steps, Is.Empty, "no node repeating the mark");
         fix.FailedSteps.Add(AutoFixViewFailedStepsItem.Typecheck);
-        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo("Working on Build and " + RoomResult.StepWords(CheckStepKind.TypeCheck) + " by itself"));
+        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo(RoomBar.FixingLine), "two steps, the same one line");
         Assert.That(RoomBar.FixingCard(Fix(AutoFixViewState.Fixing, 1))!.Status!.Value.Line, Is.EqualTo(RoomBar.FixingLine), "no step named, the line as before");
     }
 
@@ -63,9 +63,10 @@ public sealed class RoomFixingTests
     {
         var fix = Fix(AutoFixViewState.Fixing, 1);
         fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.Page };
-        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo("Working on " + RoomResult.StepWords(CheckStepKind.PageDrawn) + " by itself"));
+        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo(RoomBar.FixingLine));
         fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.OwnCheck };
-        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo("Working on Project Check by itself"), "a project's own check, never Page Drawn (AUDIT's F1)");
+        Assert.That(RoomBar.FailedStepWords(AutoFixViewFailedStepsItem.OwnCheck), Is.EqualTo("Own Checks"), "a project's own check by its own name, never another step's (AUDIT's F1)");
+        Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo(RoomBar.FixingLine));
         fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { (AutoFixViewFailedStepsItem)99 };
         Assert.That(RoomBar.FixingCard(fix)!.Status!.Value.Line, Is.EqualTo(RoomBar.FixingLine), "a step this client does not know: the plain line");
         fix.FailedSteps = new System.Collections.Generic.List<AutoFixViewFailedStepsItem> { AutoFixViewFailedStepsItem.Build, (AutoFixViewFailedStepsItem)99 };
