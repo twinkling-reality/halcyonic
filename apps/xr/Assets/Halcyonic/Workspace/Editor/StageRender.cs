@@ -168,6 +168,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     var under = RoomType.Units(RoomNameTag.UnderDegrees * RoomGeometry.DpPerDegree);
                     newProject.Show(RoomNewProjectPlace.Words, GlazeIcon.CreateProject, isMain: false, available: true, new Vector2(0f, -under - target / 2f),
                         newProject.Measure(RoomNewProjectPlace.Words, 0f).x);
+                    // And clear of the page's tags, as the room stands it each frame.
+                    WorkspaceRender.ForceMeshes(holder);
+                    var before = place.position - eyes;
+                    RoomNewProjectPlace.StandClear(place, newProject, holder.transform, eyes);
+                    Debug.Log("Halcyonic: agent shelf: " + name + " at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + ": New Project's place stands "
+                        + Vector3.Angle(new Vector3(before.x, 0f, before.z), new Vector3(place.position.x - eyes.x, 0f, place.position.z - eyes.z)).ToString("0.0", CultureInfo.InvariantCulture)
+                        + " degrees further left, clear of the tag.");
                 }
                 WorkspaceRender.ForceMeshes(holder);
                 GlazeChecks.Extent Drawn(CharacterView view)

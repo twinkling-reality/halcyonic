@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Halcyonic.Client;
 using UnityEngine;
 
@@ -43,6 +44,66 @@ namespace Halcyonic.XR.UI
 
         private void LateUpdate() => Place();
 
+        /// <summary>How far New Project's drawn place stands from a character's drawn tag beside it, at the least, as the eyes see it, in degrees.</summary>
+        public const float ClearOfTagDegrees = 1f;
+
+        private static readonly List<RoomNameTag> NameTags = new();
+        private static readonly List<TMPro.TMP_Text> Texts = new();
+        private static readonly List<RoomSurface> Plates = new();
+        private static readonly List<Renderer> Marks = new();
+
+        /// <summary>
+        /// Turns New Project's <paramref name="place"/> about the <paramref name="eyes"/>, to the person's left and never toward the
+        /// characters, until its drawn right edge (the words and the glyph) stands <see cref="ClearOfTagDegrees"/> left of the drawn left edge
+        /// of every tag under <paramref name="shelf"/> (its words and its glass): a long name's tag runs past half a place, and today's place
+        /// stood on it (FIELD's F236, AUDIT 2026-11-16T17:46Z). Measured each time from what is drawn; nothing is allocated.
+        /// </summary>
+        public static void StandClear(Transform place, RoomButton button, Transform shelf, Vector3 eyes)
+        {
+            var ahead = place.position - eyes;
+            ahead.y = 0f;
+            if (ahead.sqrMagnitude < 1e-6f) return;
+            var tagLeft = float.PositiveInfinity;
+            shelf.GetComponentsInChildren(false, NameTags);
+            foreach (var nameTag in NameTags)
+            {
+                if (nameTag.Tag is not RoomTag tag) continue;
+                tag.GetComponentsInChildren(false, Texts);
+                foreach (var text in Texts) tagLeft = Mathf.Min(tagLeft, Across(text.GetComponent<Renderer>(), eyes, ahead, left: true));
+                tag.GetComponentsInChildren(false, Plates);
+                foreach (var plate in Plates) tagLeft = Mathf.Min(tagLeft, Across(plate.Glass, eyes, ahead, left: true));
+            }
+            if (float.IsPositiveInfinity(tagLeft)) return;
+            var placeRight = Across(button.Words.GetComponent<Renderer>(), eyes, ahead, left: false);
+            button.Glyph.GetComponentsInChildren(false, Marks);
+            foreach (var mark in Marks) placeRight = Mathf.Max(placeRight, Across(mark, eyes, ahead, left: false));
+            if (float.IsNegativeInfinity(placeRight)) return;
+            var missing = ClearOfTagDegrees - (tagLeft - placeRight);
+            if (missing <= 0f) return;
+            var turn = Quaternion.AngleAxis(-missing, Vector3.up);
+            place.SetPositionAndRotation(eyes + turn * (place.position - eyes), turn * place.rotation);
+        }
+
+        /// <summary>
+        /// The bearing, about the vertical through the eyes, of a drawn part's leftmost (or rightmost) corner from the bearing
+        /// <paramref name="ahead"/>, in degrees, rightward positive; infinite the far way for a part not drawn.
+        /// </summary>
+        private static float Across(Renderer? part, Vector3 eyes, Vector3 ahead, bool left)
+        {
+            if (part == null || !part.enabled || !part.gameObject.activeInHierarchy) return left ? float.PositiveInfinity : float.NegativeInfinity;
+            var bounds = part.bounds;
+            var most = left ? float.PositiveInfinity : float.NegativeInfinity;
+            for (var corner = 0; corner < 8; corner++)
+            {
+                var point = new Vector3(corner % 2 == 0 ? bounds.min.x : bounds.max.x, corner < 4 ? bounds.min.y : bounds.max.y, corner % 4 < 2 ? bounds.min.z : bounds.max.z);
+                var away = point - eyes;
+                away.y = 0f;
+                var bearing = Vector3.SignedAngle(ahead, away, Vector3.up);
+                most = left ? Mathf.Min(most, bearing) : Mathf.Max(most, bearing);
+            }
+            return most;
+        }
+
         /// <summary>
         /// Stands the action at the front lip of the shelf's first place, facing the eyes the shelf was placed for and sized
         /// for them as the characters' labels are, its middle on the tags' line 0.8 degrees under the characters' feet.
@@ -66,6 +127,7 @@ namespace Halcyonic.XR.UI
             var width = button.Measure(Words, 0f).x;
             var under = RoomType.Units(RoomNameTag.UnderDegrees * RoomGeometry.DpPerDegree);
             button.Show(Words, GlazeIcon.CreateProject, isMain: false, available: true, new Vector2(0f, -under - target / 2f), width);
+            StandClear(holder, button, shelf, stage.ShelfViewer);
         }
     }
 }
