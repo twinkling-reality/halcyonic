@@ -395,8 +395,9 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// At work (DESIGN 2.3): no panel, its place left to the working field; Stop alone where the column stands, its core
-        /// on the foot line, a rest action; and the row, where the file still offers an instruction, centred under the foot
+        /// At work (DESIGN 2.3): no panel, its place left to the working field; the column where it stands, its last action's
+        /// core on the foot line and each before it a target's gap above (Stop alone, or Watch It Work over Stop, the bar's
+        /// own WithWatch), rest actions; and the row, where the file still offers an instruction, centred under the foot
         /// line with its feet where DESIGN stands them. The whole is centred on this view's middle.
         /// </summary>
         private void LayWork(RoomBar bar)
@@ -408,15 +409,29 @@ namespace Halcyonic.XR.UI
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
             var target = RoomType.Units(RoomButton.HeightDp);
             var stops = bar.Column.Count > 0;
-            var core = stops ? column[0].Measure(bar.Column[0].Words, 0f, bar.Column[0].Detail) : Vector2.zero;
-            var total = panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), core.x);
+            var places = Mathf.Min(bar.Column.Count, column.Count);
+            var cores = new Vector2[places];
+            var widest = 0f;
+            for (var index = 0; index < places; index++)
+            {
+                cores[index] = column[index].Measure(bar.Column[index].Words, 0f, bar.Column[index].Detail);
+                widest = Mathf.Max(widest, cores[index].x);
+            }
+            // Each action's middle up from the foot line: the last's core on it, as Stop alone always stood, each before it a
+            // target's gap over the one under it (as the pair's column stands, LayPair).
+            var rises = new float[places];
+            for (var index = places - 1; index >= 0; index--)
+                rises[index] = index == places - 1 ? cores[index].y / 2f
+                    : rises[index + 1] + Mathf.Max(target, cores[index + 1].y) / 2f + KitType.Units(SpatialKit.TargetGapDegrees) + Mathf.Max(target, cores[index].y) / 2f;
+            var columnHeight = places == 0 ? 0f : Mathf.Max(Mathf.Max(target, cores[places - 1].y), rises[0] + Mathf.Max(target, cores[0].y) / 2f);
+            var total = panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
             var rowed = bar.Row.Count > 0;
             // Where the row does not stand, the agent's plate stands in its place: a name tag, never pressed (FIELD's part).
             var plated = !rowed && bar.Plate != null;
-            // From the foot line: the column's one action above it, the row's feet, or the plate's, under it. With nothing
+            // From the foot line: the column above it, the row's feet, or the plate's, under it. With nothing
             // to press and nothing to name (a recorded run at work), the row's place still stands under the foot line, so
             // the working field has its place and the view is never a part of no height (JUDGE's walk 9, 2026-11-11).
-            var above = stops ? Mathf.Max(target, core.y) : 0f;
+            var above = stops ? columnHeight : 0f;
             var below = rowed || plated || !stops ? RoomType.Units(RowFeetDp) : 0f;
             var foot = (below - above) / 2f;
             if (rowed) LayRow(bar, foot - below + target / 2f);
@@ -429,12 +444,13 @@ namespace Halcyonic.XR.UI
                 LayPlate(bar, new Vector3(0f, foot - below + target / 2f, -RoomType.Units(0.5f)));
             }
             var rowWidth = rowed ? Size.x : 0f;
-            if (stops)
+            for (var index = 0; index < places; index++)
             {
-                var action = bar.Column[0];
-                column[0].Show(action.Words, action.Icon, action.Main, available: true, new Vector2(-total / 2f + panelWidth + gap + core.x / 2f, foot + core.y / 2f), core.x,
+                var action = bar.Column[index];
+                column[index].Show(action.Words, action.Icon, action.Main, available: true,
+                    new Vector2(-total / 2f + panelWidth + gap + widest / 2f, foot + rises[index]), widest,
                     doing: RoomButton.Doing(action.Control), detail: action.Detail);
-                controls[column[0]] = action.Control;
+                controls[column[index]] = action.Control;
             }
             Foot = foot;
             PanelRight = -total / 2f + panelWidth;

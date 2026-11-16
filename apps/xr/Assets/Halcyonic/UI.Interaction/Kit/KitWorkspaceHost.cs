@@ -451,6 +451,7 @@ namespace Halcyonic.XR.UI
             PlaceHandle(zoom);
             TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
             // The working field stands round the panel's place where the bar now stands (a plate or row under it moves it up).
+            if (watchDrawn) StandWatch(writingArc!.Size);
             ShowWork(room, zoom);
             foreach (var press in bar.Presses) press.Accepting = () => Accepting();
         }
@@ -475,7 +476,8 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void ShowWork(RoomBar room, float zoom)
         {
-            if (!room.Working)
+            // Watch It Work's arc, where it stands drawn, holds the panel's place instead of the field and the cursor.
+            if (!room.Working || watchDrawn)
             {
                 field.Leave();
                 cursor.Leave();
@@ -512,12 +514,38 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public void ShowWatch(WritingArc? arc)
         {
-            if (arc == null) { if (writingArc != null) writingArc.Hide(); return; }
-            if (writingArc == null) writingArc = RoomWritingArc.Create(bar.transform);
-            writingArc.gameObject.SetActive(true);
-            var size = writingArc.Show(arc);
+            var was = watchDrawn;
+            if (arc == null)
+            {
+                if (writingArc != null) writingArc.Hide();
+                watchDrawn = false;
+            }
+            else
+            {
+                if (writingArc == null) writingArc = RoomWritingArc.Create(bar.transform);
+                writingArc.gameObject.SetActive(true);
+                var size = writingArc.Show(arc);
+                watchDrawn = size.y > 0f;
+                if (watchDrawn) StandWatch(size);
+            }
+            // The field and the cursor give the panel's place to the arc, and take it back when it goes.
+            if (watchDrawn != was && bar.Shown is RoomBar room) ShowWork(room, GlazeText.Scale);
+        }
+
+        /// <summary>Watch It Work's arc where it was made, for the Editor's renders and checks; null before the view first opened.</summary>
+        public RoomWritingArc? WatchArc => writingArc;
+
+        /// <summary>Whether Watch It Work's arc stands drawn: before its first read no panel stands, and the working field keeps its place.</summary>
+        private bool watchDrawn;
+
+        /// <summary>
+        /// The arc in the panel's place (AUDIT's 07:33Z), over the foot line and never over the bar: its foot a gap over the bar's
+        /// highest part, the column's top at work, centred on the bar's middle. The arc's origin is its top middle; the bar's is its middle.
+        /// </summary>
+        private void StandWatch(Vector2 size)
+        {
             var gap = RoomType.Units(RoomWritingArc.GapDp);
-            writingArc.transform.localPosition = new Vector3(0f, bar.Size.y + gap + size.y, 0f);
+            writingArc!.transform.localPosition = new Vector3(0f, bar.Size.y / 2f + gap + size.y, 0f);
             if (!Mathf.Approximately(watchGapSaid, GlazeText.Scale))
             {
                 watchGapSaid = GlazeText.Scale;

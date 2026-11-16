@@ -63,7 +63,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// At work (DESIGN 2.3): the working field and the agent's cursor with Stop alone; the same where the runtime still
         /// takes an instruction, the row under the foot line; and Stop's own confirmation.
         /// </summary>
-        private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm", "36-work-recorded", "36-work-fixing" };
+        private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm", "36-work-recorded", "36-work-fixing", "36-work-watch" };
 
         /// <summary>A page of the file with no moment of its own, drawn by the general rule (RoomBar.OfFrame): Checks while its answer is read.</summary>
         private static readonly string[] PageStates = { "37-page" };
@@ -326,6 +326,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-result-play" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the project's checked preview can open on the headset: Play in Headset beside Try Build, synthetic data"),
                 "38-result-play-refused" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the preview reads outside its project: no Play in Headset, its reason at the card's foot, synthetic data"),
                 "38-result-play-not-in-build" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result on a paired release build, which carries no relay: no Play in Headset, its reason at the card's foot, synthetic data"),
+                "36-work-watch" => (VoiceStage.Idle, false, RoomBarState.Hidden, "Watch It Work open on live work: Done Watching over Stop, the turn's three files on the arc in the panel's place, synthetic data"),
                 "36-work-fixing" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work while the agent's first try at a failed check runs: the failure and the try in the panel beside Stop, synthetic data"),
                 "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Copy and Try Build, synthetic data"),
                 "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
@@ -379,7 +380,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 _ when asking => SelectedWorkspace(waiting: true, command: AskCommand),
                 _ when questioning => SelectedWorkspace(waiting: true, asked: QuestionFor(state), confirmAnswers: state == "34-question-confirm"),
                 // At work, on an agent that takes no instruction while it works, and on one that does.
-                "36-work" or "36-stop-confirm" or "36-work-fixing" => WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()),
+                "36-work" or "36-stop-confirm" or "36-work-fixing" or "36-work-watch" => WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()),
                 // Nothing to press: no Stop and no instruction while it works, as a recorded run offers.
                 "36-work-recorded" => Recorded(WithActions(WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()), new WorkspaceAction[0])),
                 "36-work-row" => Running(ShortReport()),
@@ -390,6 +391,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 _ => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed), ShortReport()),
             };
             if (replayed) workspace = Recorded(workspace);
+            // The host lists the files the turn changes, as it does where it observes the task's folder: Watch It Work is offered.
+            if (state == "36-work-watch")
+                workspace.Execution!.Writing = new ExecutionWritingView
+                {
+                    Paths = Enumerable.Range(0, 3).Select(index => BuildFilePanel(index).Path).Reverse().ToList(), PathsTotal = 3, TotalComplete = true, At = Day + "09:04:00.000Z",
+                };
             if (state == "36-work")
             {
                 // The runtime reports the file it edits: the cursor says so.
@@ -555,6 +562,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 return shot;
             }
             host.Accepting = () => true;
+            host.WatchOpen = state == "36-work-watch";
             host.Voice = () => voice;
             host.AwaitingStart = () => sent;
             var recorded = state == "31-bar-listening" ? RecordedLevel() : null;
@@ -572,6 +580,28 @@ namespace Halcyonic.XR.Workspace.Editor
                 // A question's frame is reported drawn as a frame would report it, with the redesign still on: not while the band holds an unread part.
                 if (questioning || ResultStates.Contains(state)) host.DrawnForRender();
                 else host.SettleForRender();
+                if (state == "36-work-watch")
+                {
+                    // The turn's files arrive one a second, as the director lays them from its reads (FIELD's 47-build-three), each move settled.
+                    var titleWas = RoomWritingArc.ListTitle;
+                    RoomWritingArc.ListTitle = _ => BuildListWords;
+                    try
+                    {
+                        var clock = 100f;
+                        host.ShowWatch(BuildArcOf(1));
+                        if (host.WatchArc != null) host.WatchArc.Clock = () => clock;
+                        for (var files = 1; files <= 3; files++)
+                        {
+                            host.ShowWatch(BuildArcOf(files));
+                            clock += 1f;
+                            host.WatchArc?.Settle();
+                        }
+                        clock += 5f;
+                        host.ShowWatch(BuildArcOf(3));
+                    }
+                    finally { RoomWritingArc.ListTitle = titleWas; }
+                    host.SettleForRender();
+                }
             }
             finally { RoomDesign.Enabled = was; }
             var bar = host.Bar;
@@ -647,11 +677,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 // The working field and the agent's cursor stand only at work; Stop's confirmation and every other moment have neither.
-                var working = state is "36-work" or "36-work-row" or "36-work-recorded" or "36-work-fixing";
+                var working = state is "36-work" or "36-work-row" or "36-work-recorded" or "36-work-fixing" or "36-work-watch";
+                // Watch It Work's arc holds the panel's place: the field and the cursor give it up.
+                var watching = state == "36-work-watch";
                 // No frame leaves the plane a part of no height (JUDGE's walk 9): the host's footprint is never empty.
                 Require(host.Size.x > 0f && host.Size.y > 0f, "the host stands " + host.Size.x + " by " + host.Size.y + ": a part of no size");
                 Require(shown.Working == working, working ? "the agent works and the redesign does not say so" : "at work is shown where nothing works");
-                Require(host.Field.gameObject.activeSelf == working && (host.Field.Shown > 0.999f) == working, working ? "the working field does not stand" : "the working field stands where nothing works");
+                Require((host.Field.gameObject.activeSelf && host.Field.Shown > 0.001f) == (working && !watching) && (host.Field.Shown > 0.999f) == (working && !watching),
+                    watching ? "the working field stands under Watch It Work's arc" : working ? "the working field does not stand" : "the working field stands where nothing works");
                 Require(host.Cursor.Words == (state == "36-work" ? RoomWork.Editing + " score.js" : ""), "the cursor reads \"" + host.Cursor.Words + "\"");
                 if (working)
                 {
@@ -669,7 +702,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     else Require(!bar.Panel.gameObject.activeSelf && host.Band.Words == null, "a panel or the band stands while the agent works");
                     var stop = bar.Column[0];
-                    if (state == "36-work-recorded") Require(shown.Column.Count == 0 && shown.Row.Count == 0 && bar.Column.All(button => !button.gameObject.activeSelf), "an action stands where nothing can be pressed");
+                    if (watching) WatchChecks(state, host, shown, eyes, actions, Require, Tolerance);
+                    else if (state == "36-work-recorded") Require(shown.Column.Count == 0 && shown.Row.Count == 0 && bar.Column.All(button => !button.gameObject.activeSelf), "an action stands where nothing can be pressed");
                     else
                     {
                     actions.Add(stop);
@@ -680,6 +714,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(stop.transform.localPosition.x - stop.Core.x / 2f - (bar.PanelRight + RoomType.Units(RoomGeometry.PairGapDp))) < Tolerance, "Stop does not stand where the column stands");
                     }
                     var unit = RoomType.Units(1f);
+                    if (!watching)
+                    {
                     // The field's inner box: the panel's place, 12 degrees up from the foot line.
                     var zoom = GlazeText.Scale;
                     var middle = (host.Field.transform.localPosition - bar.transform.localPosition) * zoom;
@@ -688,6 +724,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         "the field's inner box does not end at the panel's place and stand on the foot line");
                     Require(Vector2.Distance(host.Field.Size, RoomField.Around(inner)) < Tolerance, "the field is " + (host.Field.Size / unit) + " dp, not the design's size round its box");
                     Require(host.Cursor.transform.localPosition == host.Field.transform.localPosition, "the cursor does not count its stops from the field's middle");
+                    }
                     // The row stands only where the file still offers an instruction, its feet 94.4 dp under the foot line.
                     Require((shown.Row.Count > 0) == (state == "36-work-row"), state == "36-work-row" ? "the row does not stand though the agent takes an instruction" : "a row stands though nothing can be sent");
                     if (shown.Row.Count > 0)
@@ -1162,6 +1199,75 @@ namespace Halcyonic.XR.Workspace.Editor
                     + ", presses took " + (acted.Count == 0 ? "nothing" : string.Join(", ", acted)) + ".");
             };
             return shot;
+        }
+
+        /// <summary>
+        /// Watch It Work open at work (36-work-watch): Done Watching, the one accent, over Stop, plain, its core on the foot line, both
+        /// where the column stands; the arc drawn in the panel's place, every part of it a gap over the bar's top and never over the bar
+        /// (AUDIT's 07:33Z), its two newest files whole. Its place in degrees is said at each size, for the shelf's clearance.
+        /// </summary>
+        private static void WatchChecks(string state, KitWorkspaceHost host, RoomBar shown, Vector3 eyes, List<RoomButton> actions, Action<bool, string> require, float tolerance)
+        {
+            var bar = host.Bar;
+            var unit = RoomType.Units(1f);
+            require(shown.Column.Count == 2 && shown.Column[0].Control.Action == RoomBar.Watch && shown.Column[0].Words == RoomBar.WatchDoneWords && shown.Column[0].Main
+                && shown.Column[1].Place == KitPlace.Stop && !shown.Column[1].Main,
+                "the column is not Done Watching, the accent, over Stop, plain: " + string.Join(", ", shown.Column.Select(action => action.Words + (action.Main ? " (main)" : ""))));
+            require(bar.Column.Count(button => button.gameObject.activeSelf) == 2, bar.Column.Count(button => button.gameObject.activeSelf) + " column actions stand, not Done Watching and Stop");
+            if (shown.Column.Count != 2) return;
+            var (watch, stop) = (bar.Column[0], bar.Column[1]);
+            actions.Add(watch);
+            actions.Add(stop);
+            require(watch.LookNow() == RoomButtonLook.Main && stop.LookNow() == RoomButtonLook.Rest, "Done Watching shows " + watch.LookNow() + " and Stop " + stop.LookNow());
+            foreach (var (button, words) in new[] { (watch, RoomBar.WatchDoneWords), (stop, shown.Column[1].Words) })
+            {
+                button.Words.ForceMeshUpdate(true);
+                require(!button.Words.isTextTruncated && button.Words.text == LabelText.ForTextMeshPro(words), button.name + " reads \"" + button.Words.text + "\"");
+                require(Mathf.Abs(button.transform.localPosition.x - button.Core.x / 2f - (bar.PanelRight + RoomType.Units(RoomGeometry.PairGapDp))) < tolerance,
+                    button.name + " does not stand where the column stands");
+            }
+            require(Mathf.Abs(stop.transform.localPosition.y - stop.Core.y / 2f - bar.Foot) < tolerance, "Stop's core does not stand on the foot line");
+            var between = (watch.transform.localPosition.y - watch.Core.y / 2f) - (stop.transform.localPosition.y + stop.Core.y / 2f);
+            require(between >= KitType.Units(SpatialKit.TargetGapDegrees) - tolerance, "Done Watching stands " + (between / unit).ToString("0.0") + " dp over Stop, closer than a target's gap");
+            require(!host.Cursor.gameObject.activeSelf || string.IsNullOrEmpty(host.Cursor.Words), "the agent's cursor still speaks under the arc");
+
+            var arc = host.WatchArc;
+            require(arc != null && arc.gameObject.activeSelf && arc.Panels.Count(panel => panel.gameObject.activeSelf) == RoomWritingArc.MostShown,
+                "the arc does not stand with its " + RoomWritingArc.MostShown + " newest files");
+            if (arc == null) return;
+            // In the bar's own space (the arc is its child): the arc's lowest part against the bar's top.
+            var into = bar.transform.worldToLocalMatrix;
+            float low = float.PositiveInfinity, high = float.NegativeInfinity, lowPitch = float.PositiveInfinity, highPitch = float.NegativeInfinity, left = float.PositiveInfinity, right = float.NegativeInfinity;
+            foreach (var part in arc.GetComponentsInChildren<Renderer>(false))
+            {
+                if (!part.enabled) continue;
+                var bounds = part.localBounds;
+                if (bounds.size == Vector3.zero) continue;
+                var toBar = into * part.transform.localToWorldMatrix;
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var at = new Vector3((corner & 1) == 0 ? bounds.min.x : bounds.max.x, (corner & 2) == 0 ? bounds.min.y : bounds.max.y, (corner & 4) == 0 ? bounds.min.z : bounds.max.z);
+                    var local = toBar.MultiplyPoint3x4(at);
+                    low = Mathf.Min(low, local.y);
+                    high = Mathf.Max(high, local.y);
+                    var seen = part.transform.localToWorldMatrix.MultiplyPoint3x4(at) - eyes;
+                    var flat = Mathf.Sqrt(seen.x * seen.x + seen.z * seen.z);
+                    lowPitch = Mathf.Min(lowPitch, Mathf.Atan2(seen.y, flat) * Mathf.Rad2Deg);
+                    highPitch = Mathf.Max(highPitch, Mathf.Atan2(seen.y, flat) * Mathf.Rad2Deg);
+                    left = Mathf.Min(left, Mathf.Atan2(seen.x, seen.z) * Mathf.Rad2Deg);
+                    right = Mathf.Max(right, Mathf.Atan2(seen.x, seen.z) * Mathf.Rad2Deg);
+                }
+            }
+            var top = bar.Size.y / 2f;
+            var gap = RoomType.Units(RoomWritingArc.GapDp);
+            require(low >= top + gap - 10f * tolerance, "the arc's lowest part stands " + ((low - top) / unit).ToString("0.0") + " dp over the bar's top, not its " + RoomWritingArc.GapDp + " dp gap: over the bar");
+            var watchTop = watch.transform.localPosition.y + watch.Core.y / 2f;
+            var footSeen = bar.transform.localToWorldMatrix.MultiplyPoint3x4(new Vector3(0f, bar.Foot, 0f)) - eyes;
+            var footPitch = Mathf.Atan2(footSeen.y, Mathf.Sqrt(footSeen.x * footSeen.x + footSeen.z * footSeen.z)) * Mathf.Rad2Deg;
+            string Deg(float value) => value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            Debug.Log("Halcyonic: spatial kit: " + state + (GlazeText.Scale > 1.001f ? " (Larger)" : " (Standard)") + ": the arc stands " + Deg((low - top) / unit)
+                + " dp over the bar's top (Done Watching's top " + Deg((top - watchTop) / unit) + " dp under it), pitch " + Deg(lowPitch) + " to " + Deg(highPitch)
+                + " degrees, yaw " + Deg(left) + " to " + Deg(right) + "; the foot line at pitch " + Deg(footPitch) + ", " + Deg((high - low) / unit) + " dp tall.");
         }
     }
 }
