@@ -1291,6 +1291,11 @@ namespace Halcyonic.XR.UI
                 if (boxes.Count == 0) return;
                 var area = Rect.MinMaxRect(at.x + boxes.Min(box => box.xMin) - pad, at.y + boxes.Min(box => box.yMin) - pad,
                     at.x + boxes.Max(box => box.xMax) + pad, at.y + boxes.Max(box => box.yMax) + pad);
+                // With nothing beside it, the block stands as wide as an answer row's press, the inset past the content line on
+                // both sides, so its words keep the answer chips' padding under the quote mark it now holds (AUDIT 2026-11-16
+                // 11:31Z: the companion's question ran its words to the ground's right edge, "Where will" touching it).
+                var beside = model.Fact != null || model.Chip != null || model.AnswerMark != AnswerMark.None || model.Opens;
+                if (!beside) area = Rect.MinMaxRect(Mathf.Min(area.xMin, left - Inset), area.yMin, Mathf.Max(area.xMax, right + Inset), area.yMax);
                 line.BlockArea = area;
                 GlazeRuns.DrawGround(line.BlockGround(), area.size, new Vector3(area.center.x, area.center.y, -U(0.04f)));
                 return;

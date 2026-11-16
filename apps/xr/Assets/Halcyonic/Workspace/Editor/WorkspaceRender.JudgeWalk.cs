@@ -88,6 +88,48 @@ namespace Halcyonic.XR.Workspace.Editor
                 .First(branch => branch.Answer.Kind == kind && (label == null || branch.Answer.Label == label)).Node;
 
         /// <summary>
+        /// The companion's question on its ground keeps the answer rows' padding on both sides (AUDIT 2026-11-16 11:31Z MUST:
+        /// "Where will" touched the ground's right edge): every block of outside words alone on its line stands at least the
+        /// menu's inset clear of its ground's left and right edges, as an answer's words stand in its press, its quote mark inside.
+        /// </summary>
+        private static IEnumerable<string> QuestionKeepsChipPadding(string name, GameObject root)
+        {
+            var failures = new List<string>();
+            var inset = GlazeTokens.Units(Glaze.Menu.InsetDegrees);
+            var blocks = 0;
+            foreach (var view in root.GetComponentsInChildren<MenuFrameView>())
+                foreach (var shown in view.ShownLines)
+                {
+                    if (shown.Model.Action != null || !shown.Model.Runs.AllTheirs || shown.Fact != null || shown.Chip != null || shown.Grounds.Count == 0) continue;
+                    var ground = shown.Grounds[0];
+                    var space = ground.transform.parent;
+                    var mesh = ground.GetComponent<MeshFilter>()?.sharedMesh;
+                    if (mesh == null || shown.Words.textInfo.characterCount == 0) continue;
+                    Vector3 In(Transform from, Vector3 point) => space.InverseTransformPoint(from.TransformPoint(point));
+                    var groundLeft = In(ground.transform, mesh.bounds.min).x;
+                    var groundRight = In(ground.transform, mesh.bounds.max).x;
+                    var words = shown.Words.textBounds;
+                    var wordsLeft = In(shown.Words.transform, words.min).x;
+                    var wordsRight = In(shown.Words.transform, words.max).x;
+                    var leftPad = Mathf.Min(wordsLeft, wordsRight) - Mathf.Min(groundLeft, groundRight);
+                    var rightPad = Mathf.Max(groundLeft, groundRight) - Mathf.Max(wordsLeft, wordsRight);
+                    blocks++;
+                    if (leftPad < inset * 0.95f || rightPad < inset * 0.95f)
+                        failures.Add(name + ": \"" + shown.Words.text + "\" stands " + (leftPad / inset).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+                            + " and " + (rightPad / inset).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+                            + " insets from its ground's left and right edges, under the answer rows' one inset.");
+                    if (shown.Icon != null)
+                    {
+                        var mark = In(shown.Icon.transform, shown.Icon.textBounds.min).x;
+                        if (mark < Mathf.Min(groundLeft, groundRight)) failures.Add(name + ": the quote mark of \"" + shown.Words.text + "\" stands outside its ground.");
+                    }
+                }
+            if (blocks == 0) failures.Add(name + ": no block of the companion's words on a ground of its own was found to measure.");
+            else Debug.Log("Halcyonic: " + name + ": " + blocks + " block(s) of outside words keep the answer rows' padding on their ground.");
+            return failures;
+        }
+
+        /// <summary>
         /// A judge's walk through the menu (ADR 0026) on the recorded demonstration, from the eyes, drawn
         /// by the menu's own director: Projects at launch, its retained Minimize/Restore dock,
         /// Tasks with the waiting task first, its file at the
@@ -502,6 +544,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": the companion's words don't lean as its own.");
                 }
                 Shot("12 new project questions", lightLine: false);
+                failures.AddRange(QuestionKeepsChipPadding(name + " judge 12 new project questions", root));
                 if (flow?.Idea?.Companion is CompanionExchange exchange && companion.RecordedAnswer(exchange) is string answer)
                 {
                     // Where the page holds less than the question and its answers, they follow under it by More answers: turn to them.
