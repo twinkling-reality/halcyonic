@@ -221,6 +221,9 @@ namespace Halcyonic.XR.UI
                 if (host.binding == null) return;
                 // The general reader's own pager turns its page here; it is no action of the frame's.
                 if (control.Action == RoomBar.TurnPage) { host.OnTurnPage(); return; }
+                // The task's More page is the bar's own (SCREENS's SHAPE 11): it opens and goes back here, and any other press leaves it.
+                if (control.Action is RoomBar.More or RoomBar.MoreBack) { host.OnMore(control.Action == RoomBar.More); return; }
+                host.moreFor = null;
                 host.Acted?.Invoke(host.column, control.Action, control.Key, control.Frame, null);
             };
             host.bar.TalkPressed += host.OnTalkPressed;
@@ -387,7 +390,7 @@ namespace Halcyonic.XR.UI
             var zoom = GlazeText.Scale;
             bar.transform.localScale = Vector3.one / zoom;
             bar.transform.localPosition = Vector3.zero;
-            var room = RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), Form);
+            var room = WithMore(RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), Form));
             // The general reader's pages turned for this very frame stay turned; another frame starts on its first page.
             if (turned is { } kept && ReferenceEquals(kept.Frame, binding.Frame)) { for (var turn = 0; turn < kept.Turns && room.Turn(); turn++) { } }
             else turned = null;
@@ -404,7 +407,7 @@ namespace Halcyonic.XR.UI
             while (RoomDesign.Enabled && (!bar.LaidWhole || bar.PassedLargest) && asked.RowsAPage > 1)
             {
                 asked = asked.Fewer();
-                room = RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), asked);
+                room = WithMore(RoomBar.Of(binding, Voice(), AwaitingStart(), RecordedWork(), asked));
                 if (turned is { } again && ReferenceEquals(again.Frame, binding.Frame)) { for (var turn = 0; turn < again.Turns && room.Turn(); turn++) { } }
                 bar.Show(room);
             }
@@ -498,6 +501,29 @@ namespace Halcyonic.XR.UI
         /// The general reader's Next Page pressed (RoomBar.TurnPage): its next page, or the first after the last, drawn as the same
         /// bar; the frame counts as drawn again only once every page was shown (RoomBar.Whole, ReportDrawn).
         /// </summary>
+        /// <summary>The file column whose task's More page stands, or null: kept by column, so the page stays through the frame's refreshes.</summary>
+        private object? moreFor;
+
+        /// <summary>The bar with More: the task's More page where it stands open for this column, else the row with More where it offers routes.</summary>
+        private RoomBar WithMore(RoomBar room)
+        {
+            if (binding == null) return room;
+            if (moreFor != null && ReferenceEquals(moreFor, column) && room.State == RoomBarState.Rest && RoomBar.MorePage(binding) is RoomBar page) return page;
+            if (moreFor != null && !ReferenceEquals(moreFor, column)) moreFor = null;
+            return RoomBar.WithMore(binding, room);
+        }
+
+        /// <summary>More pressed (open) or the More page's Back (closed): the bar laid again, every press on it settling afresh.</summary>
+        private void OnMore(bool open)
+        {
+            if (binding == null || !Settled || !Accepting() || bar.Shown == null) return;
+            moreFor = open ? column : null;
+            ShowBar(binding);
+            drawn = null;
+            shownAt = Time.unscaledTime;
+            foreach (var press in bar.Presses) press.Unsettle();
+        }
+
         private void OnTurnPage()
         {
             if (binding == null || !Settled || !Accepting() || bar.Shown == null) return;

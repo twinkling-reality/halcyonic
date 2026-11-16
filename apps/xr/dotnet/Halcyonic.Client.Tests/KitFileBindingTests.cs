@@ -517,6 +517,42 @@ public class KitFileBindingTests
     }
 
     [Test]
+    public void TheMorePageListsTheTasksRoutesWithChevronsThenBackAndNeverTheResultsLine()
+    {
+        var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = Steering();
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true, ShowTaskHereOffered = true, WorkspaceRequestOffered = true, ResultsOffered = true,
+            CharacterColourOffered = true };
+        var binding = Bind(Screen(workspace, steering, screen, rows: 12), steering, workspace)!;
+        Assert.That(RoomBar.MoreRoutes(binding).Select(route => route.Action),
+            Is.EqualTo(new[] { FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenCharacterColour }), "the result is the moment itself, not a route");
+        var page = RoomBar.MorePage(binding)!;
+        Assert.That(page.State, Is.EqualTo(RoomBarState.Page));
+        Assert.That(page.Column.Select(action => action.Control.Action),
+            Is.EqualTo(new[] { FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenCharacterColour, RoomBar.MoreBack }));
+        Assert.That(page.Column.Take(3).All(action => action.Icon == GlazeIcon.Next && !action.Main), Is.True, "each route opens a page: the chevron, never the accent");
+        Assert.That(page.Column.Last().Words, Is.EqualTo(RoomBar.BackWords));
+        Assert.That(page.Column.Take(3).Select(action => action.Control), Is.EqualTo(binding.Routes.Where(route => route.Action != FileScreens.OpenResults)),
+            "a route's press is the frame's own line, as the kit's route rows raise it");
+    }
+
+    [Test]
+    public void MoreStandsAtRestOnlyWhereTheFileOffersARouteBeforeTheWayBack()
+    {
+        var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = Steering();
+        var none = Bind(Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true }, rows: 12), steering, workspace)!;
+        Assert.That(RoomBar.MorePage(none), Is.Null, "no page stands empty");
+        var routes = Bind(Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true, CharacterColourOffered = true }, rows: 12), steering, workspace)!;
+        var rest = RoomBar.Of(routes, VoiceStage.Idle, false);
+        Assert.That(rest.State, Is.EqualTo(RoomBarState.Rest), "the older view's binding: the bar at rest");
+        Assert.That(RoomBar.WithMore(routes, rest).Row.Select(action => action.Control.Action),
+            Is.EqualTo(new[] { FileScreens.HoldToTalk, FileScreens.TellIt, RoomBar.More, Footer.Close }), "More before the way back, never main");
+        Assert.That(RoomBar.WithMore(none, RoomBar.Of(none, VoiceStage.Idle, false)).Row.Select(action => action.Control.Action), Has.None.EqualTo(RoomBar.More),
+            "no route, no More");
+    }
+
+    [Test]
     public void EachRouteAloneBindsAsItsLine()
     {
         var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
