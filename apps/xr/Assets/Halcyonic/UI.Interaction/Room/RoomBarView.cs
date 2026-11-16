@@ -59,6 +59,9 @@ namespace Halcyonic.XR.UI
         private RoomButton talk = null!;
         private RoomButton type = null!;
         private RoomButton more = null!;
+
+        // The row's fourth place: a second action beside Hold to Talk and Type (More at rest before Projects, SCREENS's R1).
+        private RoomButton rowMore = null!;
         private GlazeShimmer talkSweep = null!;
         private readonly Transform[] levelBars = new Transform[LevelHistory.Bars];
         private Transform levelRoot = null!;
@@ -116,6 +119,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The row's third action, after Type, where the model gives one; hidden otherwise.</summary>
         public RoomButton More => more;
 
+        /// <summary>The row's second action after Hold to Talk and Type, where the model gives two (More, then the way back); hidden otherwise.</summary>
+        public RoomButton RowMore => rowMore;
+
         public RoomButton Type => type;
 
         public IReadOnlyList<RoomButton> Column => column;
@@ -172,7 +178,7 @@ namespace Halcyonic.XR.UI
         public Vector2 Size { get; private set; }
 
         /// <summary>Every press it shows now.</summary>
-        public IEnumerable<KitPress> Presses => new[] { talk.Press, type.Press, more.Press, field }.Concat(column.Select(button => button.Press))
+        public IEnumerable<KitPress> Presses => new[] { talk.Press, type.Press, more.Press, rowMore.Press, field }.Concat(column.Select(button => button.Press))
             .Where(press => press.gameObject.activeInHierarchy);
 
         /// <summary>
@@ -218,6 +224,8 @@ namespace Halcyonic.XR.UI
             // A third action of the row, where the model gives one (the agent and its level): action size, on the row's line.
             view.more = RoomButton.Create(go.transform, "Row action", RoomButtonSize.Action);
             view.more.Pressed += () => view.Raise(view.more);
+            view.rowMore = RoomButton.Create(go.transform, "Row action 2", RoomButtonSize.Action);
+            view.rowMore.Pressed += () => view.Raise(view.rowMore);
             view.levelRoot = new GameObject("Level").transform;
             view.levelRoot.SetParent(go.transform, false);
             var slot = RoomType.Units(LevelWidthDp) / LevelHistory.Bars;
@@ -440,6 +448,7 @@ namespace Halcyonic.XR.UI
                 talk.Hide();
                 type.Hide();
                 more.Hide();
+                rowMore.Hide();
                 levelRoot.gameObject.SetActive(false);
                 LayPlate(bar, new Vector3(0f, foot - below + target / 2f, -RoomType.Units(0.5f)));
             }
@@ -473,6 +482,7 @@ namespace Halcyonic.XR.UI
                 talk.Hide();
                 type.Hide();
                 more.Hide();
+                rowMore.Hide();
                 levelRoot.gameObject.SetActive(false);
                 LayPlate(bar, new Vector3(0f, under, -RoomType.Units(0.5f)));
             }
@@ -506,6 +516,7 @@ namespace Halcyonic.XR.UI
             talk.Hide();
             type.Hide();
             more.Hide();
+            rowMore.Hide();
             foreach (var button in column) button.Hide();
             panel.gameObject.SetActive(false);
             alone.gameObject.SetActive(false);
@@ -601,10 +612,11 @@ namespace Halcyonic.XR.UI
             HidePlate();
             var listening = bar.State == RoomBarState.Listening && Level() != null;
             var buttons = new List<(RoomButton Button, RoomAction Action, float Width)>();
+            var others = 0;
             foreach (var action in bar.Row)
             {
-                // Hold to Talk, then Type (or what stands in its place), then a third action where the model gives one.
-                var button = action.Place == KitPlace.Talk ? talk : action.Place == KitPlace.Field ? type : more;
+                // Hold to Talk, then Type (or what stands in its place), then a third action where the model gives one, and a fourth.
+                var button = action.Place == KitPlace.Talk ? talk : action.Place == KitPlace.Field ? type : others++ == 0 ? more : rowMore;
                 var width = button.Measure(action.Words, action.Chip) + (button == talk && listening ? RoomType.Units(LevelGapDp + LevelWidthDp) : 0f);
                 buttons.Add((button, action, width));
             }
@@ -620,7 +632,8 @@ namespace Halcyonic.XR.UI
             }
             if (!bar.Row.Any(action => action.Place == KitPlace.Talk)) talk.Hide();
             if (!bar.Row.Any(action => action.Place == KitPlace.Field)) type.Hide();
-            if (!bar.Row.Any(action => action.Place != KitPlace.Talk && action.Place != KitPlace.Field)) more.Hide();
+            if (others < 1) more.Hide();
+            if (others < 2) rowMore.Hide();
             talkSweep.Waits = bar.State is RoomBarState.Listening or RoomBarState.Transcribing;
             levelRoot.gameObject.SetActive(listening);
             if (listening)
@@ -639,6 +652,7 @@ namespace Halcyonic.XR.UI
             talk.Hide();
             type.Hide();
             more.Hide();
+            rowMore.Hide();
             levelRoot.gameObject.SetActive(false);
             RoomType.Size(alone);
             GlazeText.SetLiteral(alone, bar.Words.Text);
@@ -875,6 +889,7 @@ namespace Halcyonic.XR.UI
             talk.Hide();
             type.Hide();
             more.Hide();
+            rowMore.Hide();
             alone.gameObject.SetActive(false);
             alonePlate.gameObject.SetActive(false);
             HidePlate();

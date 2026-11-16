@@ -655,16 +655,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (shown.Row.Count > 0)
                 {
                     // The row: home-size actions in its order, the main one first, its core the hand target itself, 32 dp apart.
-                    var row = shown.Row.Select(action => action.Place == KitPlace.Talk ? bar.Talk : action.Place == KitPlace.Field ? bar.Type : bar.More).ToList();
+                    // The row's third and fourth places take the actions after Hold to Talk and Type, in order (More, then Projects).
+                    var others = 0;
+                    var row = shown.Row.Select(action => action.Place == KitPlace.Talk ? bar.Talk : action.Place == KitPlace.Field ? bar.Type : others++ == 0 ? bar.More : bar.RowMore).ToList();
                     actions.AddRange(row);
                     Require(row.All(button => button.gameObject.activeSelf), "a row action is not drawn");
                     Require(!bar.Type.gameObject.activeSelf || shown.Row.Any(action => action.Place == KitPlace.Field), "Type stands while it listens");
-                    Require(bar.More.gameObject.activeSelf == shown.Row.Any(action => action.Place != KitPlace.Talk && action.Place != KitPlace.Field), "the row's third action stands where the model gives none, or does not where it gives one");
+                    Require(bar.More.gameObject.activeSelf == others >= 1 && bar.RowMore.gameObject.activeSelf == others >= 2,
+                        "the row's third or fourth action stands where the model gives none, or does not where it gives one");
                     for (var index = 0; index < row.Count; index++)
                     {
                         Require(row[index].LookNow() == (shown.Row[index].Main ? RoomButtonLook.Main : RoomButtonLook.Rest), row[index].name + " shows " + row[index].LookNow());
                         // Hold to Talk and Type are home size; a third action is action size, its target still Meta's.
-                        if (row[index] != bar.More) Require(Mathf.Abs(row[index].Core.y - RoomType.Units(RoomButton.HeightDp)) < Tolerance, row[index].name + "'s core is not the hand target");
+                        if (row[index] != bar.More && row[index] != bar.RowMore) Require(Mathf.Abs(row[index].Core.y - RoomType.Units(RoomButton.HeightDp)) < Tolerance, row[index].name + "'s core is not the hand target");
                         Whole(row[index].Words, row[index].name + "'s words");
                         Require(row[index].Words.text == LabelText.ForTextMeshPro(shown.Row[index].Words), row[index].name + " reads \"" + row[index].Words.text + "\"");
                         // Where no keyboard is offered, the action that would open it says what it opens instead.
