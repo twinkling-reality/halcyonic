@@ -77,6 +77,10 @@ M1 to M9, C1 to C8, D1 to D4, E1 and E2, K1 and K2, and a fresh critic's read); 
 
 - A Homebrew upgrade of ffmpeg stops adding until the person records it again; SECURITY.md states that the pin covers
   the executable's own bytes, not the libraries it loads.
+- A residual: a task copy cloned in the moment before the start's sweep settles could carry a cut-off file of the
+  host's own name under `media/`; a new add waits for the sweep, which is a few file checks.
+- An add stopped by a failure after the medium is in removes what it had made from it at once; the medium stays, and
+  `project.media.prepared` says nothing was made.
 - A paired device cannot upload in this version.
 - A medium an agent copies into a built piece is public once the piece is shared.
 - Removing a medium is the person's own; the view stays the journal's, and a read says when the file is gone.

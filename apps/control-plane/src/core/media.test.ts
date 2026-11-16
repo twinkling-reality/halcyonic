@@ -390,3 +390,42 @@ test('at the next start only a cut-off write of the host own name is removed, ne
   assert.ok(existsSync(join(outside, 'secret.txt')));
   assert.deepEqual(readdirSync(notes), [], 'the note goes once read');
 });
+
+test('an add stopped by a failure after the medium is in removes what it had made at once, never the medium (ADR 0066)', async () => {
+  const data = fresh('data');
+  const project = fresh('project');
+  const store = new MediaStore(join(data, 'media'));
+  class Breaking extends StandInTool {
+    override async play(): Promise<never> {
+      throw new Error('the tool broke');
+    }
+  }
+  const placer = new MediaPlacer({
+    store,
+    tool: new Breaking(join(data, 'work')),
+    notes: join(data, 'media-placing'),
+    protectedFolders: [data],
+  });
+  const id = await kept(store, clip());
+  let added = '';
+  await assert.rejects(
+    placer.add({
+      projectId: 'p',
+      commandId: 'c',
+      folder: project,
+      id,
+      bytes: 0,
+      added: (file) => {
+        added = file.path;
+      },
+    }),
+    /the tool broke/,
+  );
+  assert.ok(existsSync(join(project, added)), 'the medium stays');
+  assert.deepEqual(
+    readdirSync(join(project, `${added.slice(0, -4)}-stills`)),
+    [],
+    'its stills are gone',
+  );
+  assert.deepEqual(readdirSync(join(data, 'media-placing')), [], 'and its note');
+});

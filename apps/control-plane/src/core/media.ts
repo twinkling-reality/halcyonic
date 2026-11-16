@@ -248,6 +248,10 @@ export class MediaPlacer {
           duration_ms: video ? facts.durationMs : null,
         },
       };
+    } catch (error) {
+      // Stopped after the medium is in: what was made from it so far goes now, not at the next start.
+      await note.abandon(this.#deps.protectedFolders);
+      throw error;
     } finally {
       await run.done();
       await store.remove(request.id);
@@ -347,6 +351,17 @@ class PlacingNote {
 
   async done(): Promise<void> {
     await rm(this.#file, { force: true });
+  }
+
+  /**
+   * Removes the files made from the medium that this add had written, as the start's sweep would,
+   * and only those: the medium itself, once recorded added, stays (ADR 0066).
+   */
+  async abandon(protectedFolders: readonly string[]): Promise<void> {
+    for (const entry of this.#body.entries)
+      if (!entry.medium)
+        await removeIfOurs(this.#body.folder, entry, protectedFolders).catch(() => false);
+    await this.done();
   }
 }
 
