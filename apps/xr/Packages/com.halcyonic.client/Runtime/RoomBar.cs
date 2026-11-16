@@ -286,6 +286,13 @@ namespace Halcyonic.Client
         /// <summary>The control a press on the panel's field raises (the keyboard again), or null.</summary>
         public KitControl? Field { get; }
 
+        /// <summary>
+        /// The question laid as one dialog (the owner's "dialogue like Mirror's Edge", 2026-11-16, its glass the equipped-test Ask
+        /// panel's): the agent's words at the panel's top, its described answers the panel's card under them, the actions in one row
+        /// at the panel's foot, the main one last; no band and no column beside it. Only where the answers already stand in the card.
+        /// </summary>
+        public bool AsDialog => State == RoomBarState.Question && Card != null && Band != null && !Wide && !Narrow && !Caret;
+
         /// <summary>Whether the pair (the panel and its column) shows.</summary>
         public bool Pair => Result || State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question or RoomBarState.Choose or RoomBarState.Page;
 

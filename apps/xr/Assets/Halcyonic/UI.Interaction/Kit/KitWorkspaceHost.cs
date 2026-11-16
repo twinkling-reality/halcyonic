@@ -395,7 +395,8 @@ namespace Halcyonic.XR.UI
             if (turned is { } kept && ReferenceEquals(kept.Frame, binding.Frame)) { for (var turn = 0; turn < kept.Turns && room.Turn(); turn++) { } }
             else turned = null;
             // The agent's own words stand on the band, never in the panel; the same words again keep the part it shows.
-            if (room.Band != null) band.Show(room.Band);
+            // In the question's dialog the agent's words stand at the top of the panel instead (RoomBar.AsDialog).
+            if (room.Band != null && !room.AsDialog) band.Show(room.Band);
             else band.Hide();
             bar.BandNext = band.Words?.Next;
             // The way on alone, "Next Part" or "First Part": where the person is stands on the band's own foot (AUDIT2's M2).

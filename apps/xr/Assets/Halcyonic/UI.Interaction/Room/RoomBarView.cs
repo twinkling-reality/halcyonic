@@ -93,6 +93,13 @@ namespace Halcyonic.XR.UI
         public const float NoticePadDp = 12f;
         private TextMeshPro body = null!;
         private TextMeshPro request = null!;
+        private TextMeshPro ask = null!;
+
+        /// <summary>The agent's words at the top of the question's dialog, the dialog's largest text: 28 dp against the body's 20 (1.75 degrees).</summary>
+        public const float DialogWordsDp = 28f;
+
+        /// <summary>Between the agent's words and the answers, and between the answers and the actions' row, in dp.</summary>
+        public const float DialogGapDp = 20f;
         private TextMeshPro measureBody = null!;
         private TextMeshPro measureRequest = null!;
         private TextMeshPro sentence = null!;
@@ -270,6 +277,9 @@ namespace Halcyonic.XR.UI
             view.body = RoomType.Create(view.panel.transform, "Words", Color.white, KitType.Order.Words);
             view.body.textWrappingMode = TextWrappingModes.Normal;
             view.bodySweep = GlazeShimmer.On(view.body);
+            view.ask = RoomType.Create(view.panel.transform, "Agent words", Color.white, KitType.Order.Words);
+            view.ask.textWrappingMode = TextWrappingModes.Normal;
+            view.ask.gameObject.SetActive(false);
             view.request = RoomType.CreateMono(view.panel.transform, "Request", Color.white, KitType.Order.Words);
             view.request.textWrappingMode = TextWrappingModes.Normal;
             view.request.overflowMode = TextOverflowModes.Overflow;
@@ -979,9 +989,117 @@ namespace Halcyonic.XR.UI
             return text.Substring(start, end - start).TrimEnd();
         }
 
+        /// <summary>
+        /// The question as one dialog (<see cref="RoomBar.AsDialog"/>; Mirror's Edge Catalyst's mission dialog, in the equipped-test
+        /// Ask panel's glass): the agent's own words at the top of the panel, its largest text; the card of described answers under
+        /// them, each a row a hand points at; and the actions in one row at the panel's foot, the main one last and the only one in
+        /// the accent. No band, no column beside it: the panel is the whole moment.
+        /// </summary>
+        private void LayDialog(RoomBar bar)
+        {
+            talk.Hide();
+            type.Hide();
+            HideRowOthers();
+            alone.gameObject.SetActive(false);
+            alonePlate.gameObject.SetActive(false);
+            HidePlate();
+            levelRoot.gameObject.SetActive(false);
+            sentence.gameObject.SetActive(false);
+            sentenceSweep.Waits = false;
+            bodySweep.Waits = false;
+            caret.gameObject.SetActive(false);
+            field.gameObject.SetActive(false);
+            body.gameObject.SetActive(false);
+            request.gameObject.SetActive(false);
+            panel.InnerBar = null;
+            locking = null;
+            var unit = RoomType.Units(1f);
+            var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
+            var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
+            var gapIn = RoomType.Scaled(DialogGapDp);
+            var wordsWidth = panelWidth - 2f * pad;
+
+            // The agent's words, theirs, at the dialog's own size; never one word alone on their last line.
+            ask.gameObject.SetActive(true);
+            Set(ask, LineWords.Theirs(bar.Band!), false);
+            ask.fontSize *= DialogWordsDp / RoomGeometry.TypeDp;
+            var asked = RoomCardView.Balanced(ask, wordsWidth, 8);
+            var askHeight = Mathf.Max(RoomType.Scaled(RoomGeometry.LineDp), asked.Height);
+
+            // The answers: the bar's card, at the words' width.
+            var cardHeight = LayFacts(bar, wordsWidth) ?? 0f;
+
+            // The actions: one row, content-sized, the main one last.
+            var count = Mathf.Min(bar.Column.Count, ColumnMost);
+            var order = Enumerable.Range(0, count).OrderBy(index => bar.Column[index].Main ? 1 : 0).ToList();
+            var cores = new Vector2[count];
+            var rowHeight = 0f;
+            for (var index = 0; index < count; index++)
+            {
+                cores[index] = column[index].Measure(bar.Column[index].Words, 0f, bar.Column[index].Detail);
+                rowHeight = Mathf.Max(rowHeight, cores[index].y);
+            }
+            rowHeight = Mathf.Max(rowHeight, RoomType.Units(RoomButton.HeightDp));
+
+            var panelHeight = pad + askHeight + (cardHeight > 0f ? gapIn + cardHeight : 0f) + (count > 0 ? gapIn + rowHeight : 0f) + pad;
+            panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
+            panel.Draw(new Vector2(panelWidth, panelHeight));
+            panel.gameObject.SetActive(true);
+            panel.transform.localPosition = Vector3.zero;
+            PanelHung = false;
+            var top = panelHeight / 2f;
+            var left = -panelWidth / 2f;
+            ask.transform.localPosition = new Vector3(left + pad, top - pad, -RoomType.Units(0.5f));
+            var cardAt = new Vector3(left + pad, top - pad - askHeight - gapIn, -RoomType.Units(0.5f));
+            body.transform.localPosition = cardAt;
+            request.transform.localPosition = cardAt;
+            PlaceFacts(cardAt);
+
+            // The row: the others from the left edge of the words, the main action's right edge on the words' right edge.
+            var foot = -panelHeight / 2f;
+            var rowY = foot + pad + rowHeight / 2f;
+            var x = left + pad;
+            var mainIndex = order.Count > 0 && bar.Column[order[order.Count - 1]].Main ? order[order.Count - 1] : -1;
+            for (var index = 0; index < column.Count; index++)
+            {
+                if (index >= count) column[index].Hide();
+            }
+            foreach (var index in order)
+            {
+                var action = bar.Column[index];
+                var button = column[index];
+                var width = cores[index].x;
+                var centreX = index == mainIndex ? -left - pad - width / 2f : x + width / 2f;
+                if (index != mainIndex) x += width + KitType.Units(SpatialKit.TargetGapDegrees);
+                button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(centreX, rowY), width, action.Mark, action.Chosen,
+                    0f, doing: RoomButton.Doing(action.Control), detail: action.Detail, destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
+                controls[button] = action.Control;
+                button.Press.ActsOnPinch = action.Control.Holds;
+            }
+
+            ArrivePanel(bar);
+            Foot = foot;
+            PanelRight = left + panelWidth;
+            Size = new Vector2(panelWidth, panelHeight);
+            LaidPanelDp = panelWidth / unit;
+            var largest = LargestAt(LaidPanelDp);
+            var passed = panelWidth > largest.x + unit * 0.5f || panelHeight > largest.y + unit * 0.5f;
+            if (passed && !PassedLargest)
+                Debug.LogWarning("Halcyonic: the dialog laid past the bar's largest footprint, " + (panelWidth / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                    + " by " + (panelHeight / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " dp.");
+            PassedLargest = passed;
+            Narrow = false;
+        }
+
         /// <summary>The pair: the panel at the left with the words and the sentence bar at its foot, the column at its right.</summary>
         private void LayPair(RoomBar bar, string? fixing = null, bool waits = false)
         {
+            if (bar.AsDialog)
+            {
+                LayDialog(bar);
+                return;
+            }
+            ask.gameObject.SetActive(false);
             // At work while a try runs, the sentence bar says which try, sweeping; anywhere else the bar's own sentence.
             var said = fixing ?? bar.Sentence;
             var saidWaits = fixing != null ? waits : bar.Waits;
