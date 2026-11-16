@@ -63,6 +63,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         glyph + " reaches past its 24-unit box");
             }
             foreach (var (glyph, words) in GlyphActions) Require(RoomGlyphs.Named(words) == glyph, "\"" + words + "\" is not named " + glyph);
+            // Confirm carries the glyph of what it confirms: an approval's check, a denial's barred circle, a stop's square, and an
+            // instruction's or an answer's Send arrow, never the keyboard of Type (AUDIT2's reader 4, F1).
+            var confirm = WorkspaceText.ConfirmLabel(WorkspaceAction.Instruct);
+            Require(RoomButton.GlyphOf(confirm, GlazeIcon.TellIt) == RoomGlyph.Send && RoomButton.GlyphOf(confirm, GlazeIcon.Approve) == RoomGlyph.Check
+                && RoomButton.GlyphOf(confirm, GlazeIcon.Deny) == RoomGlyph.Barred && RoomButton.GlyphOf(confirm, GlazeIcon.Stop) == RoomGlyph.Stop
+                && RoomButton.GlyphOf(confirm, GlazeIcon.SendAnswer) == RoomGlyph.Send, "a Confirm does not carry the glyph of what it confirms");
             Require(RoomGlyphs.Named("Talk Again") == RoomGlyph.Microphone && RoomGlyphs.Named("Next Page") == RoomGlyph.Next && RoomGlyphs.Named("Write Instruction") == RoomGlyph.Bubble
                 && RoomGlyphs.Named("Choose Instruction") == RoomGlyph.Lines && RoomGlyphs.Named("Send Answer") == RoomGlyph.Send && RoomGlyphs.Named("Confirm") == null
                 && RoomGlyphs.Named("Compact") == RoomGlyph.Next && RoomGlyphs.Named("Open Workspace") == RoomGlyph.Previous && RoomGlyphs.Named("Previous Page") == RoomGlyph.Previous

@@ -456,12 +456,15 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// The glyph an action carries: DESIGN's own for its words (<see cref="RoomGlyphs.Named"/>), else the one its icon
-        /// stands for (Confirm takes the check or the barred circle of what it confirms), else the arrow of going on.
+        /// stands for (Confirm takes the check or the barred circle of what it confirms), else the arrow of going on. Confirming an
+        /// instruction sends it, so its Confirm carries Send's arrow, as an answer's does, never the keyboard of Type (AUDIT2's reader
+        /// 4, F1: a keyboard on Confirm read as typing).
         /// </summary>
         public static RoomGlyph? GlyphOf(string text, GlazeIcon? icon)
         {
             if (RoomGlyphs.Named(text) is RoomGlyph named) return named;
             if (icon is not GlazeIcon given) return null;
+            if (given == GlazeIcon.TellIt && text == WorkspaceText.ConfirmLabel(WorkspaceAction.Instruct)) return RoomGlyph.Send;
             return given switch
             {
                 GlazeIcon.Approve => RoomGlyph.Check,
