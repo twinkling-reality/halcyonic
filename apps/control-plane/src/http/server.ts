@@ -4,6 +4,12 @@ import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import type { LogLevel } from '../config.ts';
 import { OwnWordsError } from '../logger.ts';
 import {
+  boundConnections,
+  LOOPBACK_LIMITS,
+  type LoopbackLimits,
+  loopbackServerOptions,
+} from './limits.ts';
+import {
   checkRequest,
   isProofChallenge,
   loopbackProof,
@@ -33,6 +39,8 @@ export interface HttpServerOptions {
   readonly token: string;
   /** Where log lines go instead of stdout, for tests that check what is logged. */
   readonly logStream?: NodeJS.WritableStream;
+  /** The listener's bounds, over the defaults (tests shorten them). */
+  readonly limits?: LoopbackLimits;
 }
 
 /**
@@ -92,6 +100,7 @@ export function errorBody(
  * this server's logger while it is being assembled.
  */
 export async function createHttpServer(options: HttpServerOptions): Promise<FastifyInstance> {
+  const limits = options.limits ?? LOOPBACK_LIMITS;
   const app = Fastify({
     logger: {
       level: options.logLevel,
@@ -101,7 +110,9 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Fast
     },
     bodyLimit: 1024 * 1024,
     forceCloseConnections: true,
+    ...loopbackServerOptions(limits),
   });
+  boundConnections(app, limits);
   await prepareServer(app);
 
   // Runs for every request, including WebSocket upgrades, before any route handler.

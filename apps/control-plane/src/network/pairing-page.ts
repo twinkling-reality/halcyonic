@@ -5,6 +5,12 @@ import type { DeviceView, PairingState } from '@halcyonic/contracts';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { type NetworkListenerConfig, portFamily } from '../config.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
+import {
+  boundConnections,
+  type LoopbackLimits,
+  loopbackServerOptions,
+  PAGE_LIMITS,
+} from '../http/limits.ts';
 import { LOCAL_PRINCIPAL } from '../http/server.ts';
 import type { DeviceAccess } from './devices.ts';
 import type { Pairing } from './pairing.ts';
@@ -102,6 +108,8 @@ export interface PairingPageOptions {
    * usual one.
    */
   readonly dataFolder?: string | null;
+  /** The page's bounds, over the defaults (tests shorten them). */
+  readonly limits?: LoopbackLimits;
 }
 
 /** What a view mounted on the page may add: routes behind the page's session and checks, under `/setup`. */
@@ -229,7 +237,14 @@ export class PairingPage {
   ): Promise<PairingPage> {
     const [first, last] = options.ports ?? [PAIRING_PAGE_PORT_FIRST, PAIRING_PAGE_PORT_LAST];
     for (let port = first; port <= last; port += 1) {
-      const app = Fastify({ logger: false, forceCloseConnections: true, bodyLimit: 1024 });
+      const limits = options.limits ?? PAGE_LIMITS;
+      const app = Fastify({
+        logger: false,
+        forceCloseConnections: true,
+        bodyLimit: 1024,
+        ...loopbackServerOptions(limits),
+      });
+      boundConnections(app, limits);
       const page = new PairingPage(
         app,
         port,

@@ -4,6 +4,12 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import { VIEWER_PORT_FIRST, VIEWER_PORT_LAST } from '../config.ts';
+import {
+  boundConnections,
+  type LoopbackLimits,
+  loopbackServerOptions,
+  VIEWER_LIMITS,
+} from '../http/limits.ts';
 
 /**
  * The viewer of one play on the Mac (P-A): a small server of its own on 127.0.0.1, apart from the
@@ -35,6 +41,14 @@ const MAX_MESSAGE_BYTES = 1024;
 /** Frames waiting to reach a slow viewer past this are dropped rather than queued. */
 const MAX_BUFFERED_BYTES = 4 * 1024 * 1024;
 
+/**
+ * How often the viewer pings each stream (CARBON A1-8). An upgraded stream is outside the idle bound (ws
+ * turns its socket's timeout off) and a still game sends no frames, so a browser that has gone is found
+ * by its answers: a stream that answered neither of the last `VIEWER_MISSED_PINGS` pings is ended.
+ */
+export const VIEWER_PING_MS = 15_000;
+export const VIEWER_MISSED_PINGS = 2;
+
 /** What a viewer can do with its play: watch its frames and send it input. Nothing else. */
 export interface ViewerPlay {
   /** Streams frames (base64 JPEG) until the returned function is called. */
@@ -48,6 +62,10 @@ export interface ViewerOptions {
   readonly ports?: readonly [number, number];
   readonly codeMs?: number;
   readonly now?: () => number;
+  /** The viewer's bounds, over the defaults (tests shorten them). */
+  readonly limits?: LoopbackLimits;
+  /** How often each stream is pinged; `VIEWER_PING_MS` by default. */
+  readonly pingMs?: number;
 }
 
 /** A message for the viewer page: the game's sound, or why it ended. */
@@ -100,7 +118,14 @@ export class PlayViewer {
     const [first, last] = options.ports ?? [VIEWER_PORT_FIRST, VIEWER_PORT_LAST];
     const now = options.now ?? Date.now;
     for (let port = first; port <= last; port += 1) {
-      const app = Fastify({ logger: false, forceCloseConnections: true, bodyLimit: 1024 });
+      const limits = options.limits ?? VIEWER_LIMITS;
+      const app = Fastify({
+        logger: false,
+        forceCloseConnections: true,
+        bodyLimit: 1024,
+        ...loopbackServerOptions(limits),
+      });
+      boundConnections(app, limits);
       const viewer = new PlayViewer(
         app,
         port,
@@ -109,7 +134,7 @@ export class PlayViewer {
         now() + (options.codeMs ?? VIEWER_CODE_MS),
         now,
       );
-      await viewer.#routes(play);
+      await viewer.#routes(play, options.pingMs ?? VIEWER_PING_MS);
       try {
         await app.listen({ host: '127.0.0.1', port });
         return viewer;
@@ -172,7 +197,7 @@ export class PlayViewer {
     await this.#app.close();
   }
 
-  async #routes(play: ViewerPlay): Promise<void> {
+  async #routes(play: ViewerPlay, pingMs: number): Promise<void> {
     const app = this.#app;
     await app.register(websocket, { options: { maxPayload: MAX_MESSAGE_BYTES } });
     app.addHook('onRequest', async (request, reply) => {
@@ -196,7 +221,23 @@ export class PlayViewer {
     }
     app.get('/stream', { websocket: true }, (socket) => {
       this.#sockets.add(socket);
-      socket.on('close', () => this.#sockets.delete(socket));
+      let missed = 0;
+      socket.on('pong', () => {
+        missed = 0;
+      });
+      const ping = setInterval(() => {
+        if (missed >= VIEWER_MISSED_PINGS) {
+          socket.terminate();
+          return;
+        }
+        missed += 1;
+        socket.ping();
+      }, pingMs);
+      ping.unref();
+      socket.on('close', () => {
+        clearInterval(ping);
+        this.#sockets.delete(socket);
+      });
       for (const text of this.#latest.values()) socket.send(text);
       const off = play.watch((frame) => {
         if (socket.bufferedAmount < MAX_BUFFERED_BYTES) socket.send(Buffer.from(frame, 'base64'));

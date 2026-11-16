@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import { request } from 'node:http';
-import { createServer } from 'node:net';
+import { connect as connectRaw, createServer } from 'node:net';
 import { describe, test } from 'node:test';
-import { PlayViewer, type ViewerPlay } from './play-viewer.ts';
+import { VIEWER_LIMITS } from '../http/limits.ts';
+import { PlayViewer, VIEWER_MISSED_PINGS, type ViewerPlay } from './play-viewer.ts';
+
+/** A WebSocket key: 16 bytes, base64, as a client sends one. */
+const webSocketKey = () => Buffer.alloc(16, 7).toString('base64');
 
 /** A free port, and the one after it, for a viewer of the test's own. */
 async function freePorts(): Promise<[number, number]> {
@@ -431,6 +435,64 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
       await viewer.close();
     } finally {
       await new Promise((resolve) => taken.close(resolve));
+    }
+  });
+
+  test('a stream of a still game stays open while its browser answers the pings, and one that stops is ended (CARBON A1-8, AUDIT3 F1)', async () => {
+    // An upgraded stream is outside the idle bound (ws turns its socket's timeout off), so a short one here
+    // proves nothing closes a stream that answers; the pings are what find one that has gone.
+    const limits = { ...VIEWER_LIMITS, idleMs: 400, checkEveryMs: 100 };
+    const viewer = await PlayViewer.open(standIn().play, {
+      ports: await freePorts(),
+      limits,
+      pingMs: 100,
+    });
+    try {
+      const cookie = await signIn(viewer);
+      const origin = `http://127.0.0.1:${viewer.port}`;
+      const answering = await connect(viewer.port, { cookie, origin });
+      let answeringClosed = false;
+      answering.addEventListener('close', () => {
+        answeringClosed = true;
+      });
+      // A peer that upgrades and then never answers a ping, as a browser that has gone does not.
+      const gone = connectRaw({ host: '127.0.0.1', port: viewer.port });
+      gone.on('error', () => {});
+      let head = '';
+      const upgraded = new Promise<void>((resolve) => {
+        gone.on('data', (chunk) => {
+          head += chunk.toString('latin1');
+          if (head.includes('\r\n\r\n')) resolve();
+        });
+      });
+      gone.write(
+        [
+          'GET /stream HTTP/1.1',
+          `Host: 127.0.0.1:${viewer.port}`,
+          'Connection: Upgrade',
+          'Upgrade: websocket',
+          'Sec-WebSocket-Version: 13',
+          `Sec-WebSocket-Key: ${webSocketKey()}`,
+          `Cookie: ${cookie}`,
+          `Origin: ${origin}`,
+          '',
+          '',
+        ].join('\r\n'),
+      );
+      await upgraded;
+      assert.match(head, /^HTTP\/1\.1 101/);
+      const goneClosed = new Promise<'closed'>((resolve) =>
+        gone.once('close', () => resolve('closed')),
+      );
+      const ended = await Promise.race([
+        goneClosed,
+        new Promise((resolve) => setTimeout(() => resolve('still open'), 2_000)),
+      ]);
+      assert.equal(ended, 'closed', `ended after ${VIEWER_MISSED_PINGS} missed pings`);
+      assert.equal(answeringClosed, false, 'many idle bounds, open while it answers');
+      answering.close();
+    } finally {
+      await viewer.close();
     }
   });
 });
