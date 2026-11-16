@@ -66,7 +66,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm", "36-work-recorded", "36-work-fixing", "36-work-watch" };
 
         /// <summary>A page of the file with no moment of its own, drawn by the general rule (RoomBar.OfFrame): Checks while its answer is read.</summary>
-        private static readonly string[] PageStates = { "37-page" };
+        private static readonly string[] PageStates = { "37-page", "37-more" };
 
         /// <summary>The suffix of a moment played as a recording (<see cref="ReplayedStates"/>).</summary>
         private const string Replayed = "-replayed";
@@ -329,6 +329,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "36-work-watch" => (VoiceStage.Idle, false, RoomBarState.Hidden, "Watch It Work open on live work: Done Watching over Stop, the turn's three files on the arc in the panel's place, synthetic data"),
                 "36-work-fixing" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work while the agent's first try at a failed check runs: the failure and the try in the panel beside Stop, synthetic data"),
                 "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Copy and Try Build, synthetic data"),
+                "37-more" => (VoiceStage.Idle, false, RoomBarState.Page, "More pressed at rest: the task's routes in the panel's place, each with its chevron, then Back, synthetic data"),
                 "37-page" => (VoiceStage.Idle, false, RoomBarState.Page, "A page with no moment of its own: its line in the panel, its actions in the column, synthetic data"),
                 "36-work" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the field, the agent's cursor saying its step, Stop alone, synthetic data"),
                 "36-work-recorded" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work with nothing to press or name, as a recorded run plays: the field alone, synthetic data"),
@@ -387,6 +388,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The result: at rest, the agent's newest message its one line of activity.
                 _ when ResultStates.Contains(state) => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed),
                     new[] { new ActivityEntry(1, Day + "09:04:00.000Z", ActivityKind.Message, state == "38-result-long" ? ResultSaysLong : ResultSays, true) }),
+                // More at rest on a finished task with no log of its own, so the routes stand on the file's first page as the director has them.
+                "37-more" => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed), new ActivityEntry[0]),
                 // Every other moment of the row is at rest: the run has ended, and its next instruction starts the next one.
                 _ => WithActivity(SelectedWorkspace(waiting: false, status: ExecutionStatus.Completed), ShortReport()),
             };
@@ -413,6 +416,14 @@ namespace Halcyonic.XR.Workspace.Editor
             var steering = new WorkspaceSteering(factory, () => DateTimeOffset.UtcNow);
             if (state == "36-stop-confirm" && steering.Press(WorkspaceAction.Interrupt, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Stop did not ask for its confirmation");
             var screen = new FileScreen { Section = asking || questioning ? FileSection.Waiting : state == "37-page" ? FileSection.Checks : FileSection.Activity, Speak = true };
+            // The task's routes the room offers, as the director offers them where each is reachable: More stands at rest for them.
+            if (state == "37-more")
+            {
+                screen.ShowTaskHereOffered = true;
+                screen.WorkspaceRequestOffered = true;
+                screen.CharacterColourOffered = true;
+                screen.ShowScreenOffered = true;
+            }
             // The host stands first: under a confirmation the file counts what is read by the panel's own lines, as the director has it do.
             var host = KitWorkspaceHost.Create(root);
             int? requestRows = null;
@@ -606,6 +617,27 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             finally { RoomDesign.Enabled = was; }
             var bar = host.Bar;
+            if (state == "37-more")
+            {
+                // More pressed at rest, as a person presses it (SCREENS's SHAPE 11): the task's page opens in the panel's place.
+                var moreButton = bar.GetComponentsInChildren<RoomButton>(false).FirstOrDefault(button => bar.ControlOf(button)?.Action == RoomBar.More);
+                Require(moreButton != null, "More does not stand at rest where the file offers " + RoomBar.MoreRoutes(binding).Count + " routes");
+                if (moreButton != null)
+                {
+                    var designWas = RoomDesign.Enabled;
+                    RoomDesign.Enabled = true;
+                    try
+                    {
+                        Require(bar.ControlOf(moreButton) is KitControl moreControl && moreControl.Words == RoomBar.MoreWords && moreButton.Glyph.Glyph == RoomGlyph.More,
+                            "More does not read More with its three dots");
+                        // Pressed once the bar has settled, as a person's press counts only then.
+                        host.SettleForRender();
+                        moreButton.Press.PressForRender(480);
+                        host.SettleForRender();
+                    }
+                    finally { RoomDesign.Enabled = designWas; }
+                }
+            }
             // Confirm's lock: on its arrival the ring is part filled and it takes no press; 0.7 s on it is the main action.
             if (state == "33-ask-confirm-arriving") bar.AgeLockForRender(0.42f * RoomBar.ConfirmLockSeconds);
             if (state is "33-ask-confirm" or "34-question-confirm" or "33-ask-tool-confirm" or "36-stop-confirm" or "38-add-last")
@@ -648,6 +680,21 @@ namespace Halcyonic.XR.Workspace.Editor
                     "the level does not stand after Listening's words inside its halo");
             }
             Require(bar.gameObject.activeSelf && bar.Shown?.State == expected, "it shows " + (bar.Shown?.State.ToString() ?? "nothing") + ", not " + expected);
+            if (state == "37-more" && bar.Shown is RoomBar morePage)
+            {
+                // Its title the task's name; a row per route the file offers, in its order, each with its chevron; Back last; never the results line.
+                var routes = RoomBar.MoreRoutes(binding);
+                Require(morePage.Body.Text == binding.Model.TaskTitle, "the More page's title is \"" + morePage.Body.Text + "\", not the task's name");
+                var standing = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
+                Require(standing.Count == routes.Count + 1, "the More page stands " + standing.Count + " rows, not " + routes.Count + " routes and Back");
+                for (var index = 0; index < standing.Count && index < routes.Count; index++)
+                    Require(bar.ControlOf(standing[index])?.Action == routes[index].Action && standing[index].Glyph.Glyph == RoomGlyph.Next,
+                        "the More page's row " + index + " is not the route " + routes[index].Words + " with its chevron");
+                Require(standing.Count > 0 && bar.ControlOf(standing[standing.Count - 1])?.Action == RoomBar.MoreBack && bar.ControlOf(standing[standing.Count - 1])?.Words == RoomBar.BackWords,
+                    "the More page does not end with Back");
+                Require(standing.All(button => bar.ControlOf(button)?.Action != FileScreens.OpenResults), "the More page offers the results line");
+                Debug.Log("Halcyonic: kit: " + state + ": More opened the task's page: " + string.Join(", ", standing.Select(button => bar.ControlOf(button)?.Words)) + ".");
+            }
             // The old kit is not drawn at all beside the redesign (the owner, 2026-11-05).
             Require(!host.View.gameObject.activeInHierarchy, "the old kit still draws beside the redesign");
             var actions = new List<RoomButton>();
@@ -1175,7 +1222,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 void SweepPress(RoomButton button)
                 {
                     // Talk Again is held, not pressed: it starts the hold, as Hold to Talk does.
-                    if (bar.ControlOf(button) is not KitControl control || control.Place == KitPlace.Talk) return;
+                    // The More page's Back is the bar's own, as the reader's pager is: it goes back here, never the file's to take.
+                    if (bar.ControlOf(button) is not KitControl control || control.Place == KitPlace.Talk || control.Action == RoomBar.MoreBack) return;
                     button.Press.PressForRender(press++);
                     // Confirm behind its lock takes no press: nothing is confirmed by the press that answered.
                     if (ReferenceEquals(bar.Locking, button))
