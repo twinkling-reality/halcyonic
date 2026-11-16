@@ -328,6 +328,10 @@ namespace Halcyonic.XR.Workspace
                 && session.State.Journal != null && connection.SourceConnectionKey is string colourKey)
                 characterColours.Prune(colourKey, session.State.Journal.JournalId,
                     session.State.Workstreams.Keys.ToList(), saveCharacterColours);
+            // Usage opens with its numbers (SCREENS's 4694dc7f1; AUDIT's 04:17Z MUST): its limits are read once the headset is
+            // connected and again on each reconnect, never on the demonstration, so the page is never "Reading Usage" when opened.
+            if (changes.Resynchronized && session.SnapshotCurrent && connection.DemonstrationLine == null && menu.Api is ControlPlaneApi usageApi)
+                _ = UsageColumn.Prime(usageApi);
             activity.Record(changes.Events);
             // DEVICE's History hears a restore done or incomplete, and the answer to a restore sent.
             menu.HistoryHeard(changes);
