@@ -102,17 +102,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     if (shown.Model.Action != null || !shown.Model.Runs.AllTheirs || shown.Fact != null || shown.Chip != null || shown.Grounds.Count == 0) continue;
                     var ground = shown.Grounds[0];
-                    var space = ground.transform.parent;
-                    var mesh = ground.GetComponent<MeshFilter>()?.sharedMesh;
-                    if (mesh == null || shown.Words.textInfo.characterCount == 0) continue;
-                    Vector3 In(Transform from, Vector3 point) => space.InverseTransformPoint(from.TransformPoint(point));
-                    var groundLeft = In(ground.transform, mesh.bounds.min).x;
-                    var groundRight = In(ground.transform, mesh.bounds.max).x;
+                    if (shown.Words.textInfo.characterCount == 0 || ground.transform.parent != shown.Words.transform.parent) continue;
+                    // In the content's flat layout, where both were laid: a curved plane bends the ground's mesh and the words' after,
+                    // and their drawn bounds would compare a bent edge with a flat one.
+                    var groundLeft = ground.transform.localPosition.x - ground.Size.x / 2f;
+                    var groundRight = ground.transform.localPosition.x + ground.Size.x / 2f;
                     var words = shown.Words.textBounds;
-                    var wordsLeft = In(shown.Words.transform, words.min).x;
-                    var wordsRight = In(shown.Words.transform, words.max).x;
-                    var leftPad = Mathf.Min(wordsLeft, wordsRight) - Mathf.Min(groundLeft, groundRight);
-                    var rightPad = Mathf.Max(groundLeft, groundRight) - Mathf.Max(wordsLeft, wordsRight);
+                    var wordsLeft = shown.Words.transform.localPosition.x + words.min.x * shown.Words.transform.localScale.x;
+                    var wordsRight = shown.Words.transform.localPosition.x + words.max.x * shown.Words.transform.localScale.x;
+                    var leftPad = wordsLeft - groundLeft;
+                    var rightPad = groundRight - wordsRight;
                     blocks++;
                     if (leftPad < inset * 0.95f || rightPad < inset * 0.95f)
                         failures.Add(name + ": \"" + shown.Words.text + "\" stands " + (leftPad / inset).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
@@ -120,8 +119,8 @@ namespace Halcyonic.XR.Workspace.Editor
                             + " insets from its ground's left and right edges, under the answer rows' one inset.");
                     if (shown.Icon != null)
                     {
-                        var mark = In(shown.Icon.transform, shown.Icon.textBounds.min).x;
-                        if (mark < Mathf.Min(groundLeft, groundRight)) failures.Add(name + ": the quote mark of \"" + shown.Words.text + "\" stands outside its ground.");
+                        var mark = shown.Icon.transform.localPosition.x + shown.Icon.textBounds.min.x * shown.Icon.transform.localScale.x;
+                        if (shown.Icon.transform.parent == ground.transform.parent && mark < groundLeft) failures.Add(name + ": the quote mark of \"" + shown.Words.text + "\" stands outside its ground.");
                     }
                 }
             if (blocks == 0) failures.Add(name + ": no block of the companion's words on a ground of its own was found to measure.");
