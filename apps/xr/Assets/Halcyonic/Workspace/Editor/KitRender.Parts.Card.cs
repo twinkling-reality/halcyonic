@@ -614,6 +614,32 @@ namespace Halcyonic.XR.Workspace.Editor
                     return pixels[Mathf.Clamp(Mathf.FloorToInt(screen.y), 0, Height - 1) * Width + Mathf.Clamp(Mathf.FloorToInt(screen.x), 0, Width - 1)];
                 }
                 int Light(Color32 pixel) => (pixel.r * 2126 + pixel.g * 7152 + pixel.b * 722) / 10000;
+                // A marked row's one-line name, read in the pixels (AUDIT's 10:05Z: the Checks rows' labels sat low): the vertical
+                // middle of its letters' ink against its tile's middle, in dp, measured, never from the font's metrics.
+                var tilesRead = view.Plates.Where(each => each.What.StartsWith("row tile", StringComparison.Ordinal)).Select(each => each.Plate).ToList();
+                foreach (var row in card.List.Where(each => each.Kind != RoomKind.None && each.Label == null && each.Under == null))
+                {
+                    var nameLabel = view.Shown.FirstOrDefault(label => string.Concat(label.GetParsedText().Where(ch => !char.IsWhiteSpace(ch))) == string.Concat(row.Name.Text.Where(ch => !char.IsWhiteSpace(ch))));
+                    if (nameLabel == null || nameLabel.textInfo.lineCount != 1 || tilesRead.Count == 0) continue;
+                    var boxMiddle = nameLabel.transform.localPosition.y - KitType.LinePitch(nameLabel) / 2f;
+                    var tile = tilesRead.OrderBy(each => Mathf.Abs(each.transform.localPosition.y - boxMiddle)).First();
+                    var tileScreen = camera.WorldToScreenPoint(tile.transform.position);
+                    var oneDp = camera.WorldToScreenPoint(tile.transform.parent.TransformPoint(tile.transform.localPosition + new Vector3(0f, unit, 0f))).y - tileScreen.y;
+                    var b = nameLabel.textBounds;
+                    var low = camera.WorldToScreenPoint(nameLabel.transform.TransformPoint(new Vector3(b.min.x, b.min.y - KitType.LinePitch(nameLabel) * 0.3f, 0f)));
+                    var high = camera.WorldToScreenPoint(nameLabel.transform.TransformPoint(new Vector3(b.max.x, b.max.y + KitType.LinePitch(nameLabel) * 0.3f, 0f)));
+                    double sum = 0, count = 0;
+                    for (var x = Mathf.FloorToInt(low.x); x <= Mathf.CeilToInt(high.x); x += 2)
+                    for (var y = Mathf.FloorToInt(low.y); y <= Mathf.CeilToInt(high.y); y++)
+                    {
+                        if (x < 0 || y < 0 || x >= Width || y >= Height) continue;
+                        if (Light(dark[y * Width + x]) >= 150) { sum += y; count++; }
+                    }
+                    if (count < 10 || Mathf.Abs(oneDp) < 1e-4f) continue;
+                    var inkDp = (float)((sum / count - tileScreen.y) / oneDp);
+                    Debug.Log("Halcyonic: parts: " + name + ": " + row.Name.Text + "'s ink stands " + inkDp.ToString("0.0", CultureInfo.InvariantCulture) + " dp from its tile's middle, read in the pixels.");
+                    if (Mathf.Abs(inkDp) > 1.5f) failures.Add(name + ": " + row.Name.Text + "'s letters stand " + inkDp.ToString("0.0") + " dp off its tile's middle, read in the pixels");
+                }
                 // Every label's words are in the pixels.
                 foreach (var label in view.Shown)
                 {
