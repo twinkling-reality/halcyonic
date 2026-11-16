@@ -13,13 +13,13 @@ namespace Halcyonic.Client
     {
         public const string HoldToTalk = "Hold to Talk";
         public const string Listening = "Listening";
-        public const string Hearing = "Transcribing";
+        public const string Hearing = "Typing It Out";
 
         /// <summary>Hold to talk's own words while it records, in its place on the footer, so the page never grows for it.</summary>
         public const string ListeningWords = "Listening";
 
         /// <summary>Hold to talk's own words while the computer writes down what was said.</summary>
-        public const string WritingDownWords = "Transcribing";
+        public const string WritingDownWords = "Typing It Out";
 
         /// <summary>The words Hold to talk shows in place of its own, laid at the widest so it never changes width under the hand.</summary>
         public static readonly IReadOnlyList<string> TalkReads = new[] { ListeningWords, WritingDownWords };
@@ -50,7 +50,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>The question before a spoken instruction is sent: what the Mac heard, then whether to send it.</summary>
-        public static string SendHeard(string instruction) => "Send Heard Instruction? · " + LabelText.Plain(instruction);
+        public static string SendHeard(string instruction) => "Send This? · " + LabelText.Plain(instruction);
 
         /// <summary>Why the Mac turned a clip away, from the control plane's code.</summary>
         public static string Refusal(string? code) => code switch

@@ -51,7 +51,7 @@ public class RoomBarTests
 
         var listening = RoomBar.Of(binding, VoiceStage.Listening, sentAwaitingStart: false);
         Assert.That(Actions(listening.Row), Is.EqualTo(new[] { (KitPlace.Talk, "Listening", true) }), "Type goes while it listens");
-        Assert.That(Actions(RoomBar.Of(binding, VoiceStage.WritingDown, false).Row), Is.EqualTo(new[] { (KitPlace.Talk, "Transcribing", true) }));
+        Assert.That(Actions(RoomBar.Of(binding, VoiceStage.WritingDown, false).Row), Is.EqualTo(new[] { (KitPlace.Talk, "Typing It Out", true) }));
 
         var sent = RoomBar.Of(binding, VoiceStage.Idle, sentAwaitingStart: true);
         Assert.That((sent.State, sent.Words.Text, sent.Row.Count), Is.EqualTo((RoomBarState.Sent, "Sent · Awaiting Start", 0)));
@@ -140,7 +140,7 @@ public class RoomBarTests
         var binding = Bind(workspace, new WorkspaceSteering(factory), heard);
         var draft = RoomBar.Of(binding, VoiceStage.Idle, false);
         Assert.That((draft.State, draft.Body.Text, draft.Caret), Is.EqualTo((RoomBarState.Draft, "Add a golden balloon worth five points.", false)));
-        // Read first, in the product's words; Send Instruction arrives once read, with "Send Heard Instruction?".
+        // Read first, in the product's words; Send Instruction arrives once read, with "Send This?".
         Assert.That(draft.Sentence, Is.EqualTo(FileScreens.InstructionNotRead));
         Assert.That(Actions(draft.Column), Is.EqualTo(new[] { (KitPlace.Talk, "Talk Again", false), (KitPlace.Close, "Cancel", false) }));
         Assert.That(draft.Column[0].Control.Action, Is.EqualTo(FileScreens.HoldToTalk), "Talk Again is the frame's own hold to talk");
@@ -166,7 +166,7 @@ public class RoomBarTests
 
         screen.RequestDrawn(0, steering, Now);
         var read = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
-        Assert.That(read.Sentence, Is.EqualTo("Send Heard Instruction?"));
+        Assert.That(read.Sentence, Is.EqualTo("Send This?"));
         Assert.That(Actions(read.Column), Is.EqualTo(new[] { (KitPlace.Yes, "Confirm", true), (KitPlace.Cancel, "Cancel", false) }));
         Assert.That(read.Column[0].Control.Action, Is.EqualTo(FileScreens.Yes), "Confirm is the confirmation's own Yes");
     }

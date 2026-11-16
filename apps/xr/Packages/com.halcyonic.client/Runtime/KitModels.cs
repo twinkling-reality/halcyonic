@@ -311,7 +311,7 @@ namespace Halcyonic.Client
         /// <summary>The instruction's line as the file drew it: its words, rows and the row the part showing starts from.</summary>
         public PageLine Words { get; }
 
-        /// <summary>The frame's own question under the words: Read to Part N, or Send Heard Instruction? or Send Instruction?.</summary>
+        /// <summary>The frame's own question under the words: Read to Part N, or Send This? (heard) or Send Instruction?.</summary>
         public string Asks { get; }
     }
 

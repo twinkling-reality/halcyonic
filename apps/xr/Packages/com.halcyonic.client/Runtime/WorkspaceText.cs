@@ -568,7 +568,7 @@ namespace Halcyonic.Client
         /// What an instruction's confirmation asks once all its words, shown above in parts where they are
         /// long, have been read: as heard on the computer, or as typed (settled by the coordinator, 2026-10-04).
         /// </summary>
-        public static string SendWordsAbove(bool heard) => heard ? "Send Heard Instruction?" : "Send Instruction?";
+        public static string SendWordsAbove(bool heard) => heard ? "Send This?" : "Send Instruction?";
 
         /// <summary>What the Doing tab says before anything was sent to the work from here.</summary>
         public const string NothingSentYet = "Nothing Sent";

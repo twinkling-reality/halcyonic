@@ -872,7 +872,7 @@ public class WorkspaceSteeringTests
 
         Assert.That(steering.Spoken("  Add a test for the expiry.  ", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         Assert.That(steering.Heard, Is.True);
-        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send Heard Instruction? · Add a test for the expiry."));
+        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send This? · Add a test for the expiry."));
         Assert.That(steering.Confirm(work.Present()).Message, Is.EqualTo(WorkspaceText.InstructionNotRead), "a mishearing is never sent unread");
         Assert.That(steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "it stays armed, so the rest can still be read");
         steering.RequestShown(1, 2);
