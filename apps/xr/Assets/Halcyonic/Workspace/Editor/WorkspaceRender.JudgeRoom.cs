@@ -604,6 +604,16 @@ namespace Halcyonic.XR.Workspace.Editor
                             && !plane.Kit.Bar.GetComponentsInChildren<RoomButton>(false).Any(button => plane.Kit.Bar.ControlOf(button)?.Place == KitPlace.Close))
                             found.Add("the result card draws no Close: the way out is gone");
                     }
+                    // No word the redesign draws is cut with an ellipsis: a name stands whole on the lines it needs, or stops at its last
+                    // whole word with the fade (AUDIT 13:53Z: the recap card's title cut a 64-character name "...visitor by" and an ellipsis).
+                    foreach (var label in root.GetComponentsInChildren<TMP_Text>(false))
+                    {
+                        if (label.GetComponent<Renderer>() is not Renderer seen || !seen.enabled) continue;
+                        if (OwnerOf(label.transform)?.StartsWith("Room", StringComparison.Ordinal) != true) continue;
+                        var shown = label.GetParsedText();
+                        if (shown.Contains(LineWords.Ellipsis) || shown.Contains("..."))
+                            found.Add(PathOf(label.transform) + " cuts its words with an ellipsis: \"" + shown.Replace("\n", " ").Trim() + "\"");
+                    }
                     // An approval's Approve is its one main action and carries the one accent, and only it on the bar (AUDIT 13:18Z: the
                     // kit render's 33-ask-tool draws it so; the live approval drew it plain, room-06 on 30fea4d72). Read in the chip as
                     // painted, not the flag: the flag stood main while the chip kept a held look (XR 13:24Z, 3d98fc848).
