@@ -1289,7 +1289,7 @@ export function lightHall(
   });
   // Each runs on through the polished floor as its own reflection, one light with no join, dimmer below the floor
   // and fading out under it.
-  const pillars = glows(count + outer, { upright: true, halo: 0.55, round: 0.05, core: 0.18, whiten: 0.3, fade: [0.18, 0.3], under: { level: 0, strength: 0.4 } });
+  const pillars = glows(count + outer, { upright: true, halo: 0.55, round: 0.05, core: 0.18, whiten: 0.3, fade: [0.18, 0.3], ramp: 0.15, under: { level: 0, strength: 0.4 } });
   // A note's light climbing its column: a long soft glow, brightest at its head, its tail fading to nothing, so notes
   // following each other up a column run together as one light, never as stacked bars.
   const climbs = glows(200, { upright: true, halo: 0.18, round: 0.02, core: 0.6, whiten: 0.6, ramp: 0, fade: 0.12, mirror: polish });
@@ -1526,7 +1526,7 @@ export function lightHall(
       // The circling light comes in as the hall builds, and runs on at its full after the bloom.
       sweepAt = -(Math.max(0, now) / 14) * Math.PI * 2;
       // Faint while the hall builds, so the warm light comes with the bloom and circles on after it.
-      sweepGain = since >= 0 ? 1.1 : 0.2 * built;
+      sweepGain = since >= 0 ? 0.45 : 0.2 * built;
       pillars.begin();
       for (let i = 0; i < count; i++) {
         const home = homes[i] as (typeof homes)[number];
@@ -1544,9 +1544,10 @@ export function lightHall(
           const h = Math.min(apex - 0.3, y - tail / 2);
           climbs.place(lineX(home.x, h), h, lineZ(home.z, h), 1, 0, 0, -home.dx, -home.dy, -home.dz, 0.05, tail / home.dy, litColour[i] as Color, 1.5 * (newestLoud[i] as number) * fade * (0.5 + 0.5 * built));
         }
-        // From under the floor (its reflection) up to the crown, along its lean.
+        // From under the floor (its reflection) up along its lean toward the crown, fading as it rises and ending well
+        // short of it, so the columns never pile up into white where they meet; the ribs carry the light on into it.
         const foot = -3;
-        const crest = apex - 0.4;
+        const crest = apex * 0.7;
         const mid = (foot + crest) / 2;
         pillars.place(lineX(home.x, mid), mid, lineZ(home.z, mid), 1, 0, 0, home.dx, home.dy, home.dz, home.wide, (crest - foot) / home.dy, shade, 1.4 * home.bright * strength);
         // The bloom runs up the columns from their feet into the light overhead, the ones ahead first and round to
