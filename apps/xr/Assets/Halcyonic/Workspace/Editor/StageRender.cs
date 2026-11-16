@@ -166,38 +166,45 @@ namespace Halcyonic.XR.Workspace.Editor
                 var target = RoomType.Units(RoomButton.HeightDp);
                 var under = RoomType.Units(RoomNameTag.UnderDegrees * RoomGeometry.DpPerDegree);
                 button.Show(RoomNewProjectPlace.Words, GlazeIcon.CreateProject, isMain: false, available: true, new Vector2(0f, -under - target / 2f), button.Measure(RoomNewProjectPlace.Words, 0f).x);
-                WorkspaceRender.ForceMeshes(holder);
+                SettlePage(holder, views, button);
                 var start = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
                 foreach (var (view, index) in views.Select((view, index) => (view, index)))
                 {
                     view.Show(Shown(index, needs: true));
                     view.PlaceShelfLabel(eyes);
                 }
-                WorkspaceRender.ForceMeshes(holder);
-                var end = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
-                var change = end - start;
-                var camera = WorkspaceRender.MakeCamera(holder.transform, eyes, texture);
-                camera.transform.LookAt(pose.position + Vector3.right * (PlaceX(0) + PlaceX(places - 1)) / 2f + Vector3.down * 0.05f);
-                camera.fieldOfView = 30f;
                 const int fps = 72;
+                place.SetPositionAndRotation(spot.position, spot.rotation);
+                var camera = WorkspaceRender.MakeCamera(holder.transform, eyes, texture);
                 var turned = start;
                 var speed = 0f;
                 var settled = new List<float>();
                 var largest = 0f;
                 float? atTenth = null;
-                for (var frame = 0; frame <= fps * 6 / 5; frame++)
+                var end = start;
+                var frames = fps * 6 / 5;
+                var ends = new float[frames + 1];
+                ends[0] = start;
+                for (var frame = 0; frame <= frames; frame++)
                 {
                     if (frame > 0)
                     {
+                        // The tag's Needs You arrives as the room draws it, a frame at a time, and the place eases after it.
+                        foreach (var view in views) view.AdvanceForRender(1f / fps);
+                        WorkspaceRender.ForceMeshes(holder);
                         var was = turned;
                         place.SetPositionAndRotation(spot.position, spot.rotation);
-                        turned = RoomNewProjectPlace.Eased(turned, RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes), ref speed, 1f / fps);
+                        end = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
+                        ends[frame] = end;
+                        turned = RoomNewProjectPlace.Eased(turned, end, ref speed, 1f / fps);
                         largest = Mathf.Max(largest, Mathf.Abs(turned - was));
                     }
+                    // Framed on the page as it starts, with room for the chip arriving at the right and the place easing left.
+                    if (frame == 0) { FramePage(camera, eyes, holder.transform); camera.fieldOfView += 10f; }
                     place.SetPositionAndRotation(spot.position, spot.rotation);
                     RoomNewProjectPlace.Turn(place, eyes, turned);
                     if (frame == Mathf.RoundToInt(0.1f * fps)) atTenth = turned;
-                    if (frame >= fps) settled.Add(turned);
+                    if (frame >= fps) settled.Add(turned - ends[frame]);
                     if (frame == 0 || frame == fps / 2 || frame == fps)
                     {
                         var image = WorkspaceRender.Render(camera, texture);
@@ -205,9 +212,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         UnityEngine.Object.DestroyImmediate(image);
                     }
                 }
+                var change = end - start;
                 if (change < 0.2f) failures.Add("New Project's place needs no new turn when the film's tag comes to need the person (" + GlazeChecks.Degrees(change) + " degrees), so its easing is not shown, at text scale " + scale);
                 if (atTenth is float tenth && tenth - start > 0.6f * change) failures.Add("New Project's place jumps: " + GlazeChecks.Degrees(tenth - start) + " of its " + GlazeChecks.Degrees(change) + " degrees in 0.1 s, at text scale " + scale);
-                if (settled.Count == 0 || settled.Any(each => each != end)) failures.Add("New Project's place does not stand still on its turn from 1 s, at text scale " + scale);
+                if (settled.Count == 0 || settled.Any(each => each != 0f)) failures.Add("New Project's place does not stand still on its turn from 1 s, at text scale " + scale);
                 Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place eases " + GlazeChecks.Degrees(change) + " degrees further left as the film's tag comes to need the person: "
                     + GlazeChecks.Degrees((atTenth ?? start) - start) + " in 0.1 s, at most " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " in a frame, still from 1 s.");
             }
@@ -220,6 +228,38 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(texture);
             }
             return failures;
+        }
+
+        /// <summary>A shelf page as it stands once arrived: each character a second on (its tag's Needs You come), New Project's button whole.</summary>
+        private static void SettlePage(GameObject holder, IEnumerable<CharacterView> views, RoomButton? button)
+        {
+            foreach (var view in views) Advance(view, 1f);
+            button?.Settle();
+            WorkspaceRender.ForceMeshes(holder);
+        }
+
+        /// <summary>
+        /// Aims <paramref name="camera"/> from <paramref name="eyes"/> at the middle of everything drawn under <paramref name="page"/>, and opens its
+        /// view to hold it all with two degrees to spare each way, so the character, its whole tag and New Project's place stand whole in the frame.
+        /// </summary>
+        private static void FramePage(Camera camera, Vector3 eyes, Transform page)
+        {
+            float left = float.PositiveInfinity, right = float.NegativeInfinity, low = float.PositiveInfinity, high = float.NegativeInfinity;
+            foreach (var part in page.GetComponentsInChildren<Renderer>(false))
+            {
+                if (!part.enabled) continue;
+                var bounds = part.bounds;
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var point = new Vector3(corner % 2 == 0 ? bounds.min.x : bounds.max.x, corner < 4 ? bounds.min.y : bounds.max.y, corner % 4 < 2 ? bounds.min.z : bounds.max.z) - eyes;
+                    var yaw = Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg;
+                    var pitch = Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg;
+                    left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); low = Mathf.Min(low, pitch); high = Mathf.Max(high, pitch);
+                }
+            }
+            if (float.IsPositiveInfinity(left)) return;
+            camera.transform.SetPositionAndRotation(eyes, Quaternion.Euler(-(low + high) / 2f, (left + right) / 2f, 0f));
+            camera.fieldOfView = Mathf.Clamp(Mathf.Max(right - left, high - low) + 4f, 10f, 120f);
         }
 
         /// <summary>The longest filmed task name (FILM's run sheet), drawn beside New Project's place for the look.</summary>
@@ -273,8 +313,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     var under = RoomType.Units(RoomNameTag.UnderDegrees * RoomGeometry.DpPerDegree);
                     newProject.Show(RoomNewProjectPlace.Words, GlazeIcon.CreateProject, isMain: false, available: true, new Vector2(0f, -under - target / 2f),
                         newProject.Measure(RoomNewProjectPlace.Words, 0f).x);
-                    // And clear of the page's tags, as the room stands it each frame.
-                    WorkspaceRender.ForceMeshes(holder);
+                    // And clear of the page's tags, as the room stands it each frame, once the tag's Needs You has arrived and the button stands whole.
+                    SettlePage(holder, views, newProject);
                     var before = place.position - eyes;
                     RoomNewProjectPlace.StandClear(place, newProject, holder.transform, eyes);
                     Debug.Log("Halcyonic: agent shelf: " + name + " at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + ": New Project's place stands "
@@ -331,8 +371,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     + Least(leastNeighbour) + ", least gap from a tag to New Project's place " + Least(leastNewProject) + ", least gap from a tag to any character " + Least(leastBody) + ".");
                 // The frame, from the eyes, toward the page and New Project's place together.
                 var camera = WorkspaceRender.MakeCamera(holder.transform, eyes, texture);
-                camera.transform.LookAt(pose.position + Vector3.right * (PlaceX(0) + PlaceX(places - 1)) / 2f + Vector3.down * 0.05f);
-                camera.fieldOfView = 30f;
+                FramePage(camera, eyes, holder.transform);
                 var image = WorkspaceRender.Render(camera, texture);
                 File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
                 UnityEngine.Object.DestroyImmediate(image);
