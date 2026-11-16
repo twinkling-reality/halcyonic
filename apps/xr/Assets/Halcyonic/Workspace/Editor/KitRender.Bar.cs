@@ -467,7 +467,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (state == "33-ask-long-part-2")
                 {
                     // On to the second part, as Next Part takes the person: its rows are the ones the panel must show, none of the first.
-                    screen.NextRequestPart(steering, DateTimeOffset.UtcNow);
+                    // A minute on: the first part drawn and stood past its turn guard, as a person who read it presses Next Part.
+                    screen.NextRequestPart(steering, DateTimeOffset.UtcNow.AddMinutes(1));
                     var (partWords, partMono) = RoomBar.Reading(FileScreens.RequestLine(steering, steering.ToRead(workspace)!), workspace, false);
                     partTwo = LabelText.FromTextMeshPro(host.Bar.PartRows(partWords, partMono, screen.RequestPart * screen.RequestPartRows, screen.RequestPartRows));
                     if (screen.RequestPart != 1) shot.Failures.Add("Next Part did not turn the request to its second part");
