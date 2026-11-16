@@ -23,7 +23,7 @@ const FRAME_SIDE = 640;
 /** Where in a video the host takes the still its tile shows (STILL_AT's first, in media-tool.ts), as a share of it. */
 const STILL_SHARE = 0.1;
 /** The progress ring's circle: its radius and the length of its edge. */
-const RING_R = 22;
+const RING_R = 24;
 const RING_EDGE = 2 * Math.PI * RING_R;
 /** Words this page itself has for a project's last add (the file never reached the host), by project id. */
 const told = new Map();
@@ -222,8 +222,12 @@ function setIncoming(node, fraction, file) {
   // Over a first frame the ring alone shows the state, so the tile carries its word for a screen reader.
   node.setAttribute('role', 'img');
   node.setAttribute('aria-label', file?.name ? `${words} ${file.name}` : words);
-  // Preparing has no measure: the bar's short run travels, and the ring, full once every byte has gone, breathes.
-  progress(node, sent ? fraction : 1);
+  // Preparing has no measure: the bar's short run travels, and over a ring now faintly full a short arc turns.
+  if (sent) progress(node, fraction);
+  else {
+    node.querySelector('.media-bar-fill').style.transform = 'scaleX(1)';
+    node.querySelector('.media-ring-arc').style.strokeDashoffset = String(RING_EDGE * 0.78);
+  }
 }
 
 function tile(projectId, medium, shape) {
