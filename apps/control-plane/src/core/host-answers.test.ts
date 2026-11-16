@@ -182,6 +182,18 @@ describe("the host's answer in a confined app (judgeRequest)", () => {
       null,
       'no recorded folder, no answer',
     );
+    // The run removes its own temporary folder and puts a link to the data folder in its place (LOOP, 04:39Z).
+    const swapped = join(data, 'claude-sandbox-00000000aaaaaaaa', 'tmp');
+    mkdirSync(join(swapped, '..'), { recursive: true });
+    symlinkSync(data, swapped);
+    assert.equal(
+      judgeRequest(read(join(swapped, 'access-token')), copy, {
+        ...reads,
+        runTemp: { 'claude-agent': swapped },
+      }),
+      null,
+      'a temporary folder that is now a link answers nothing',
+    );
     assert.equal(
       judgeRequest({ ...read(join(temp, 'frame.jpg')), runtimeKind: 'opencode' }, copy, withTemp),
       null,

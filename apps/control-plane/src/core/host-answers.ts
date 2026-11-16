@@ -1,4 +1,5 @@
-import { isAbsolute, join, relative, sep } from 'node:path';
+import { lstatSync, type Stats } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import {
   type ApprovalPath,
   COMMAND_SCHEMA_VERSION,
@@ -111,7 +112,7 @@ export function judgeRequest(
   const given = Object.hasOwn(reads.runTemp ?? {}, request.runtimeKind)
     ? reads.runTemp?.[request.runtimeKind]
     : undefined;
-  const temp = given === undefined ? null : resolvedPath(given);
+  const temp = given === undefined ? null : realFolder(given);
   const judged: ApprovalPath[] = [];
   let outsideCopy = false;
   let inTemp = false;
@@ -143,6 +144,22 @@ export function judgeRequest(
       ? { because: 'run_temp_read', paths: judged }
       : null;
   return { because: outsideCopy ? 'reads_original' : 'inside_copy', paths: judged };
+}
+
+/**
+ * The run's temporary folder as the host made it, or null: a real folder, never a link (a confined run may remove
+ * its own TMPDIR and put a link in its place, LOOP 2026-11-16), under its parent resolved through links. Its own
+ * name is never followed, so a link there leads nowhere the host answers.
+ */
+function realFolder(folder: string): string | null {
+  let stats: Stats;
+  try {
+    stats = lstatSync(folder);
+  } catch {
+    return null;
+  }
+  if (stats.isSymbolicLink() || !stats.isDirectory()) return null;
+  return join(resolvedPath(dirname(folder)), basename(folder));
 }
 
 /** Whether `path` is `folder` or inside it, both resolved. */
