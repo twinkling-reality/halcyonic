@@ -84,7 +84,7 @@ can do next.
 3. **Only what is true now, and how sure.** Sending, Sent · Awaiting Agent, Confirmed only when
    the agent confirmed, Refused, Unconfirmed, Not Sent wherever a press sent nothing. A finished round says nothing
    about whether the work is right, so nothing celebrates it.
-4. **Lead with the state or the action**, then the cause, then the way on (Not Sent · Answer Changed · Reread).
+4. **Lead with the state or the action**, then the cause, then the way on, as one plain sentence, never facts on a dot ("Nothing was sent: your answer changed. Read it again."; the owner's ban, 2026-11-11, on every panel and page).
 5. **Buttons** begin with a verb, in Title Case, in one to three words. A confirmation is
    "Confirm" beside Cancel, under the question that names the action ("Approve Request?"). An icon may
    stand before a button's words, never in their place.
@@ -273,8 +273,8 @@ current-request checks.
 | Where | Words |
 | --- | --- |
 | Review Instruction while offered instructions show and none is chosen | Choose Instruction (locked) |
-| A confirmation dropped because the request it asks about now reads differently | Not Sent · Request Changed · Reread |
-| Answers awaiting their Confirm, dropped because the question is no longer the one asked | Not Sent · Question Changed · Reread (instead of Check it again) |
+| A confirmation dropped because the request it asks about now reads differently | Nothing was sent: the request changed. Read it again. |
+| Answers awaiting their Confirm, dropped because the question is no longer the one asked | Nothing was sent: the question changed. Read it again. (instead of Check it again) |
 | What an approval asks, as the heading over its request | Run Command; Use {tool}; Approval Requested where it names no tool. The request stands whole on its own line beneath, so the heading ends without a separator (instead of Run Command ·, 2026-11-03) |
 
 ### The headset's access code
@@ -304,7 +304,7 @@ stay exactly as written and lean.
 | Confirmed | Confirmed · {What} | Confirmed · Answer Received |
 | Refusal | {Action} Refused or Failed · {Cause} · {Next Step}, the next step a control's name where one is offered | Start Failed · No Folder · Choose Folder |
 | Unknown effect | {What} Unconfirmed · {What to Check} | Delivery Unconfirmed · Check Activity |
-| Not sent | Not Sent · {Why} · {Next Step}, wherever a press sent nothing | Not Sent · Answer Changed · Reread |
+| Not sent | "Nothing was sent: {why}. {Next step}." wherever a press sent nothing, one sentence, never parts on a dot (`DotJoinedWordsTests`) | Nothing was sent: your answer changed. Read it again. |
 | Connection | {Truth} · {Cause} · {What Happens} | Computer Unreachable · Retrying |
 | Provenance | {Source}, {When}, the source in the product's own words, never a sibling product's name | Measurement, Read 2 min ago |
 | The work's reported request or state | Reported, on Waiting and request pages; Activity identifies each reported message separately | Reported |
@@ -428,7 +428,7 @@ Settled by the coordinator on 2026-10-08, old beside new.
 | A recorded run's composer, nothing to send (XR, 2026-11-04) | Nothing can be sent: the agent app isn't available on your computer. | This is a recording, so nothing can be sent. |
 | A recorded run's Changes and Checks, no read recorded (XR, 2026-11-04) | Understanding Unreadable · Demo · No Recorded Answer Here, in the problem tone | Not Recorded, secondary |
 | The redesign's instruction at rest (DESIGN's FINISH-3, the owner's yes 2026-11-05) | Type or Talk, one capsule | Hold to Talk and Type, two floating actions; then Listening, Transcribing, a typed draft with Send Instruction and Cancel, a heard draft with Send Heard Instruction?, Send Instruction, Talk Again and Cancel, Sending, Sent over Waiting for the agent to start. (the product's own words but Type, Talk Again and the waiting line, AUDIT2's W1) |
-| The redesign's approval (BUILD-SPEC-v4 2.4, XR 2026-11-10) | Run Command over the request, Deny and Approve in the decision bar; Approve Request? on its own line with Cancel and Confirm | The request alone in mono; Run Command? (a command), Use {tool} or Approval Requested in the sentence bar; Approve and Deny; then Read Full Request or Approve Request? (Deny Request?) with Confirm, Next Part · 2 of 3 and Cancel; Sending while the answer may still take effect; a lapse in the same bar (Not Sent · Confirm Timed Out · Press Again); the product's own words throughout |
+| The redesign's approval (BUILD-SPEC-v4 2.4, XR 2026-11-10) | Run Command over the request, Deny and Approve in the decision bar; Approve Request? on its own line with Cancel and Confirm | The request alone in mono; Run Command? (a command), Use {tool} or Approval Requested in the sentence bar; Approve and Deny; then Read Full Request or Approve Request? (Deny Request?) with Confirm, Next Part · 2 of 3 and Cancel; Sending while the answer may still take effect; a lapse in the same bar (Nothing was sent: the confirmation timed out. Press again.); the product's own words throughout |
 | The redesign's question (BUILD-SPEC-v4 2.9, XR 2026-11-10) | Agent · Question over the question as a block; each answer a row, the one chosen said Selected; the press on where Send stands | The question alone on the band of the agent's words; each answer an action with its mark, "{label} · {description}"; the file's own Write Answer, More Choices, Next Question, Review Answers, Send Answer, Back; with several, Question 1 of 2 · Choose One in the panel; Send Answers? with Confirm and Cancel; Sending. No caption for one question and no Selected: the mark says it |
 | The redesign with no keyboard (BUILD-SPEC-v4 2.1, XR 2026-11-10) | Tell it, then each offered instruction's sentence as a row, Review Instruction | Choose Instruction in Type's place; then Continue, Summarize and Run Checks Again by their short names (a recorded run's own by their words), each with its mark, Review Instruction once one is chosen, and Cancel; the sentence itself shows in the draft before it is sent |
 | The redesign at work (BUILD-SPEC-v4 2.3, XR and FIELD 2026-11-10) | Working in the file's pill, the activity's latest line, Request Under Way where nothing can be written | No panel and no sentence: the working field, Stop alone, and the agent's cursor saying the step the runtime reports: Running Tests, Running Command, Reading {file name}, Editing {file name}, or Reading, Editing or Running alone where the whole line does not fit or no file is named; nothing where the runtime reports no step. Stop's confirmation is the file's own line in two places, Stopped Once Agent Confirms in the panel and Stop Task? in its sentence bar, with Confirm and Cancel |
@@ -474,7 +474,7 @@ words. The explicit action is Send (Send Instruction until 2026-11-16: one name 
 Review Instruction, which copies a local draft; choosing or reviewing never sends. Cancel discards
 that draft locally. A spoken draft retains its additional reviewed Confirm after Send Instruction,
 including after a keyboard edit. Read Full Instruction explains an unread draft, as the locked Send's own word in the kit; Answer Approval
-First explains approval preemption. A changed execution says Not Sent · Task Changed.
+First explains approval preemption. A changed execution says Nothing was sent: the task changed..
 
 Next Choices names the preset chooser's body pager. Back to Choices acknowledges the full notice
 and returns to the preserved selection. Task unavailable is the compact fallback only when the
@@ -588,8 +588,8 @@ in `KitMomentWords`; the gallery's title, newcomer line, shelves and finder are 
 | A rail entry the agent reported, its evidence in the chip beneath | {What} · Reported, in the cadence, never "(Reported)" | Tests Failed · Reported |
 | Where the task's character can't stand, beside its way back | No Room, with Move Workspace; Agents Hidden, with Show Agents (render fixtures: nothing in production draws this band yet) | No Room |
 | The composer, in the kit | Instruction (empty field) · Your Answer · Not Sent · Send Instruction · Hold to Talk | Send Instruction |
-| Send at rest on another agent | Start New Run, where Send starts the task's next run on the agent the Agent chip names (never a claim that the new run keeps the old one's conversation); Not Sent · Choose a Model where that agent lists its models and none is chosen | Start New Run |
-| Send while a request is under way | Request Under Way, Send's reason while a request to the task is being sent or not yet confirmed; Not Sent · Request Under Way where a press comes anyway | Request Under Way |
+| Send at rest on another agent | Start New Run, where Send starts the task's next run on the agent the Agent chip names (never a claim that the new run keeps the old one's conversation); Nothing was sent: choose a model first. where that agent lists its models and none is chosen | Start New Run |
+| Send while a request is under way | Request Under Way, Send's reason while a request to the task is being sent or not yet confirmed; "Nothing was sent: a request is already under way." where a press comes anyway | Request Under Way |
 
 ## The projects gallery
 

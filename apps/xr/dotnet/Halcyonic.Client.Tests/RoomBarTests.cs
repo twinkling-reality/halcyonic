@@ -449,7 +449,7 @@ public class RoomBarTests
         clock += TimeSpan.FromSeconds(16);
         var lapsed = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
         Assert.That(steering.Armed, Is.Null);
-        Assert.That(lapsed.Sentence, Is.EqualTo("Not Sent · Confirm Timed Out · Press Again"));
+        Assert.That(lapsed.Sentence, Is.EqualTo("Nothing was sent: the confirmation timed out. Press again."));
         Assert.That(lapsed.Column.Select(action => action.Place), Is.EqualTo(new[] { KitPlace.Approve, KitPlace.Deny }));
     }
 }

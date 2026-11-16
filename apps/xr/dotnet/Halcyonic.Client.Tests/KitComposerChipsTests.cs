@@ -190,7 +190,7 @@ public class KitComposerChipsTests
         starting.Screen.Instruction.Drawn(Now);
         var second = starting.Steering.SendInstruction(starting.Screen.Instruction, starting.Work, KitPresenter.NewRunOf(starting.Work, choice));
         Assert.That(second.Command, Is.Null, "while the new run starts, the old run takes no instruction from the same draft");
-        Assert.That(second.Message, Is.EqualTo("Not Sent · " + FileScreens.RequestUnderWay));
+        Assert.That(second.Message, Is.EqualTo("Nothing was sent: a request is already under way."));
         Assert.That(FileScreens.WhyNoInstruction(starting.Work), Is.EqualTo(FileScreens.RequestUnderWay), "Send says why it waits");
         Assert.That(starting.Steering.Typed("Run the tests again.", starting.Work).Command, Is.Null, "nor through the keyboard");
     }

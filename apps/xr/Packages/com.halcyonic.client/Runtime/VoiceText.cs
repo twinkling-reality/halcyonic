@@ -34,7 +34,7 @@ namespace Halcyonic.Client
 
         public const string NothingHeard = "Nothing Heard · Hold While Talking";
         public const string TooShort = "Too Short · Hold While Talking";
-        public const string Stopped = "Not Sent · Listening Stopped";
+        public const string Stopped = "Nothing was sent: listening stopped.";
         public const string AllowMicrophone = "Allow Microphone · Hold Again";
         public const string MicrophoneAllowed = "Microphone Allowed · Hold to Talk";
         public const string NoMicrophone = "No Microphone · Type Instead";

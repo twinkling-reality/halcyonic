@@ -442,13 +442,13 @@ namespace Halcyonic.Client
         public const string ReadRequestFirst = "Read Full Request";
 
         /// <summary>An answer armed to send, cancelled as words heard or typed changed it (settled by the coordinator, 2026-10-04).</summary>
-        public const string AnswerChanged = "Not Sent · Answer Changed · Reread";
+        public const string AnswerChanged = "Nothing was sent: your answer changed. Read it again.";
 
         /// <summary>An answer armed to send, cancelled as the text size changed (settled by the coordinator, 2026-10-04).</summary>
-        public const string TextSizeChanged = "Not Sent · Text Size Changed · Reread";
+        public const string TextSizeChanged = "Nothing was sent: the text size changed. Read it again.";
 
         /// <summary>A confirmation dropped because focus went to another window.</summary>
-        public const string ConfirmAfresh = "Not Sent · Window Changed · Press Again";
+        public const string ConfirmAfresh = "Nothing was sent: the window changed. Press again.";
 
         /// <summary>
         /// Why your computer refused a command, from its code alone, with the way on; null where the code
@@ -487,7 +487,7 @@ namespace Halcyonic.Client
             // One sentence for a revoked pairing, wherever it is said.
             RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
             // A move or a restore from this headset without the review it read, or one that changed since (ADR 0051).
-            RejectionCode.ReviewRequired or RejectionCode.ReviewStale => "Not Sent · Project Changed · Check and Retry",
+            RejectionCode.ReviewRequired or RejectionCode.ReviewStale => "Nothing was sent: the project changed. Check it and try again.",
             // A photo or video the Mac's page adds (ADR 0066, protocol 3): in sentences, never the dot cadence; the first
             // and the last are the host's own (AUDIT2 passed, command-service.ts MEDIA_REFUSED).
             RejectionCode.MediaNotKept => MediaNotKept,
@@ -559,10 +559,10 @@ namespace Halcyonic.Client
         public static string Couldnt(string lead, string? why) => why == null ? lead : StateLanguage.Lead(lead, why);
 
         /// <summary>What a press on an approval's confirmation says before the whole request has been shown.</summary>
-        public const string RequestNotRead = "Not Sent · Read Full Request";
+        public const string RequestNotRead = "Nothing was sent: read the whole request first.";
 
         /// <summary>What a press on an instruction's confirmation says before all its words have been shown (settled by the coordinator, 2026-10-04).</summary>
-        public const string InstructionNotRead = "Not Sent · Read to Last Part";
+        public const string InstructionNotRead = "Nothing was sent: read to the last part first.";
 
         /// <summary>
         /// What an instruction's confirmation asks once all its words, shown above in parts where they are

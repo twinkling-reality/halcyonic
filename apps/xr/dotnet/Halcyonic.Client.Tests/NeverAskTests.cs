@@ -244,7 +244,7 @@ public class NeverAskTests
         now = task.Choice(null, neverAskChosen: true);
         Assert.That(now, Is.Not.Null);
         var changed = task.Steering.Confirm(task.Work);
-        Assert.That((changed.Step, changed.Command, changed.Message), Is.EqualTo((SteeringStep.Explain, (CommandEnvelope?)null, "Not Sent · Task Changed · Check and Retry")),
+        Assert.That((changed.Step, changed.Command, changed.Message), Is.EqualTo((SteeringStep.Explain, (CommandEnvelope?)null, "Nothing was sent: the task changed. Check it and try again.")),
             "the level chosen since is not the level armed: nothing goes");
         Assert.That(task.Steering.Armed, Is.Null);
 
@@ -255,7 +255,7 @@ public class NeverAskTests
         armedNever.Screen.Instruction.Drawn(Now);
         Assert.That(armedNever.Steering.SendInstruction(armedNever.Screen.Instruction, armedNever.Work, KitPresenter.NewRunOf(armedNever.Work, chosen)).Step, Is.EqualTo(SteeringStep.Confirm));
         chosen = null;
-        Assert.That(armedNever.Steering.Refresh(armedNever.Work), Is.EqualTo("Not Sent · Task Changed · Check and Retry"), "the confirmation drops as soon as the choice is another");
+        Assert.That(armedNever.Steering.Refresh(armedNever.Work), Is.EqualTo("Nothing was sent: the task changed. Check it and try again."), "the confirmation drops as soon as the choice is another");
 
         // The same choice still: Confirm starts the run at the level it was armed with and shown.
         var kept = new Task(offering, new[] { offering }, policies: policies);

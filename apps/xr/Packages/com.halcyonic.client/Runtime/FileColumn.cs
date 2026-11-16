@@ -592,7 +592,7 @@ namespace Halcyonic.Client
         {
             if (host.Submit(command) is null)
             {
-                Notify("Not Sent · Not Connected · Try Again");
+                Notify("Nothing was sent: your computer isn't connected. Try again when it is.");
                 return;
             }
             notice = null;

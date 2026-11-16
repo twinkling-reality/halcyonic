@@ -271,7 +271,7 @@ namespace Halcyonic.Client
             commandId = null;
             if (!PersistPending()) commandId = pending;
             else submittedType = null;
-            notice = "Not Sent · Refresh";
+            notice = "Nothing was sent. Press Refresh.";
         }
         private bool MatchesCommand(CommandView command) => command.CommandId == commandId && command.ProjectId == context.ProjectId
             && command.WorkstreamId == context.WorkstreamId && command.ExecutionId == context.ExecutionId
@@ -299,7 +299,7 @@ namespace Halcyonic.Client
                 commandId = null; submittedType = null; request = null; readAttempted = false; readPosition = -1; notice = null; section = "response";
             }
             else if (command.Status == CommandStatus.Rejected || command.Status == CommandStatus.Failed && command.Failure?.Effect == FailureEffect.None)
-            { commandId = null; submittedType = null; notice = "Not Sent · Refresh"; }
+            { commandId = null; submittedType = null; notice = "Nothing was sent. Press Refresh."; }
             else if (command.Status == CommandStatus.Failed) notice = "Delivery Unconfirmed · Refresh";
         }
         public void Drawn(MenuFrame frame, Footer? sidePanel)

@@ -951,7 +951,7 @@ public class FileColumnTests
         column.Act(FileScreens.Approve, null);
         Draw(host, column);
         column.Act(FileScreens.Yes, null);
-        Assert.That(column.Frame!.Lines.Last().Words, Does.StartWith("Not Sent"));
+        Assert.That(column.Frame!.Lines.Last().Words, Does.StartWith("Nothing was sent"));
     }
 
     /// <summary>A question taking a typed answer, its answers' page in view, with an unsaved editor buffer long enough to take several parts.</summary>

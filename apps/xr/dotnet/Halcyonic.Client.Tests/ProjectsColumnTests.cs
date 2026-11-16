@@ -128,7 +128,7 @@ public class ProjectsColumnTests
             // Not "didn't answer" where something did (the review's L5).
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new CertificateMismatchException("ab"))), ConnectionText.NotThePairedComputer),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unproved, new Uri("http://127.0.0.1:47800/")))),
-                "Host Unverified · Code Not Sent · Check App · Try Again"),
+                "What answered couldn't prove it is your computer, so the code wasn't sent. Check the app there, then try again."),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.NotLoopback, new Uri("http://localhost:47800/")))), null),
             // Over USB, a proof nothing answered: nothing answered (the review's R3).
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unreachable, new Uri("http://127.0.0.1:47800/")))),

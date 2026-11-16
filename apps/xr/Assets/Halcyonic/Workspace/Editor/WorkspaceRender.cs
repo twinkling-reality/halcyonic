@@ -1274,7 +1274,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // The approval: the title, the goal, a notice, what it wants and the request.
             var waiting = Work.Approval(Hostile("request"), tool: Hostile("tool"), title: Hostile("title"));
             waiting.Workstream.Objective = Hostile("objective");
-            var screen = new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou, Notice = "Not Sent · " + Hostile("setup problem") };
+            var screen = new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou, Notice = "Nothing was sent: " + Hostile("setup problem") };
             view.Show(waiting.Present(), screen, Steering());
             failures.AddRange(AllShowLiterally(root, name + " need", view.Eyes));
             failures.AddRange(Carry(root, name + " need", "Notice", "Line 0", "Line 1"));

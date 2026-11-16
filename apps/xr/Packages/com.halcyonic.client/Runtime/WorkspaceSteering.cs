@@ -64,8 +64,8 @@ namespace Halcyonic.Client
     {
         public static readonly TimeSpan DefaultConfirmationWindow = TimeSpan.FromSeconds(15);
 
-        private const string QuestionChanged = "Not Sent · Question Changed · Reread";
-        private const string NoInstructions = "Not Sent · Not Taking Instructions";
+        private const string QuestionChanged = "Nothing was sent: the question changed. Read it again.";
+        private const string NoInstructions = "Nothing was sent: this task isn't taking instructions now.";
 
         private readonly CommandFactory commands;
         private readonly Func<DateTimeOffset> now;
@@ -97,7 +97,7 @@ namespace Halcyonic.Client
             : first.RuntimeId == second.RuntimeId && first.ModelRef == second.ModelRef && first.NeverAsk == second.NeverAsk;
 
         /// <summary>Why a start on a runtime that lists its models waits: no model chosen.</summary>
-        public const string ChooseAModel = "Not Sent · Choose a Model";
+        public const string ChooseAModel = "Nothing was sent: choose a model first.";
 
         public WorkspaceSteering(CommandFactory commands, Func<DateTimeOffset>? now = null, TimeSpan? confirmationWindow = null)
         {
@@ -153,10 +153,10 @@ namespace Halcyonic.Client
             if (Typing) return SteeringOutcome.Nothing;
             Cancel();
             // An answer goes only with the answers chosen, through SendAnswer.
-            if (action == WorkspaceAction.Answer) return SteeringOutcome.Explain("Not Sent · Choose Answers First");
+            if (action == WorkspaceAction.Answer) return SteeringOutcome.Explain("Nothing was sent: choose your answers first.");
             if (!workspace.Actions.Contains(action))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Not sent: that can't be done right now.");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Nothing was sent: that can't be done right now.");
             }
             if (action == WorkspaceAction.Instruct)
             {
@@ -207,7 +207,7 @@ namespace Halcyonic.Client
             if (waits != null) return SteeringOutcome.Explain(waits);
             if (!workspace.Actions.Contains(WorkspaceAction.Answer))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Not sent: the question has closed.");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Nothing was sent: the question has closed.");
             }
             if (!draft.Answers(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer))
             {
@@ -268,8 +268,8 @@ namespace Halcyonic.Client
         public SteeringOutcome SendInstruction(FileInstruction draft, WorkspacePresentation workspace, RunChoice? newRun = null)
         {
             if (!draft.Open || draft.ExecutionId != workspace.Execution?.ExecutionId) return SteeringOutcome.Explain(FileScreens.InstructionChanged);
-            if (WorkspaceText.NeedFromYou(workspace) != null) return SteeringOutcome.Explain("Not Sent · Answer Approval First");
-            if (FileScreens.RequestPending(workspace)) return SteeringOutcome.Explain("Not Sent · " + FileScreens.RequestUnderWay);
+            if (WorkspaceText.NeedFromYou(workspace) != null) return SteeringOutcome.Explain("Nothing was sent: answer the approval first.");
+            if (FileScreens.RequestPending(workspace)) return SteeringOutcome.Explain("Nothing was sent: a request is already under way.");
             if (!draft.Read) return SteeringOutcome.Explain(draft.Words.Length == 0 ? FileScreens.InstructionEmpty : FileScreens.InstructionNotRead);
             if (newRun != null && newRun.ModelRequired && newRun.ModelRef == null) return SteeringOutcome.Explain(ChooseAModel);
             StopTyping();
@@ -292,8 +292,8 @@ namespace Halcyonic.Client
         {
             Typing = false;
             var instruction = text?.Trim() ?? "";
-            if (instruction.Length == 0) return SteeringOutcome.Explain("Not Sent · Nothing Typed");
-            if (FileScreens.RequestPending(workspace)) return SteeringOutcome.Explain("Not Sent · " + FileScreens.RequestUnderWay);
+            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was sent: nothing was typed.");
+            if (FileScreens.RequestPending(workspace)) return SteeringOutcome.Explain("Nothing was sent: a request is already under way.");
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);
@@ -321,7 +321,7 @@ namespace Halcyonic.Client
             if (Typing) return SteeringOutcome.Nothing;
             Cancel();
             var instruction = text?.Trim() ?? "";
-            if (instruction.Length == 0) return SteeringOutcome.Explain("Not Sent · Nothing Heard");
+            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was sent: nothing was heard.");
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);
@@ -493,21 +493,21 @@ namespace Halcyonic.Client
         /// <summary>Why the armed confirmation no longer holds, or null while it does.</summary>
         private string? Lapse(WorkspacePresentation workspace)
         {
-            if (now() - armedAt > window) return "Not Sent · Confirm Timed Out · Press Again";
+            if (now() - armedAt > window) return "Nothing was sent: the confirmation timed out. Press again.";
             if (Armed == WorkspaceAction.Instruct && instructionExecution != null)
             {
                 if (instructionExecution != workspace.Execution?.ExecutionId) return FileScreens.InstructionChanged;
-                if (WorkspaceText.NeedFromYou(workspace) != null) return "Not Sent · Answer Approval First";
-                if (armedChoice != null && !KitPresenter.AtRest(workspace)) return "Not Sent · Task Changed · Check and Retry";
-                if (ChoiceNow != null && !SameChoice(armedChoice, ChoiceNow())) return "Not Sent · Task Changed · Check and Retry";
+                if (WorkspaceText.NeedFromYou(workspace) != null) return "Nothing was sent: answer the approval first.";
+                if (armedChoice != null && !KitPresenter.AtRest(workspace)) return "Nothing was sent: the task changed. Check it and try again.";
+                if (ChoiceNow != null && !SameChoice(armedChoice, ChoiceNow())) return "Nothing was sent: the task changed. Check it and try again.";
             }
             // Stop was read and pressed on one run: where the task runs another by now, nothing is stopped.
-            if (Armed == WorkspaceAction.Interrupt && interruptExecution != workspace.Execution?.ExecutionId) return "Not Sent · Task Changed · Check and Retry";
-            if (!workspace.Actions.Contains(Armed!.Value)) return "Not Sent · Task Changed · Check and Retry";
+            if (Armed == WorkspaceAction.Interrupt && interruptExecution != workspace.Execution?.ExecutionId) return "Nothing was sent: the task changed. Check it and try again.";
+            if (!workspace.Actions.Contains(Armed!.Value)) return "Nothing was sent: the task changed. Check it and try again.";
             if (IsAnswer(Armed.Value)
                 && workspace.Execution?.PendingApprovals.Any(pending => pending.ApprovalId == ArmedApprovalId) != true)
             {
-                return "Not Sent · Already Answered";
+                return "Nothing was sent: this was already answered.";
             }
             // Answers armed for a question no longer shown would ask "Send Answers?" over none.
             if (Armed == WorkspaceAction.Answer
@@ -517,7 +517,7 @@ namespace Halcyonic.Client
             }
             if (IsAnswer(Armed.Value) && ArmedRequest != null && Request(workspace) != ArmedRequest)
             {
-                return "Not Sent · Request Changed · Reread";
+                return "Nothing was sent: the request changed. Read it again.";
             }
             return null;
         }

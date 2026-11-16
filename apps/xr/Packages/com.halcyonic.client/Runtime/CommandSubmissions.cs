@@ -136,7 +136,7 @@ namespace Halcyonic.Client
             }
             catch (SessionUnavailableException)
             {
-                NotSent(command.CommandId, "Not Connected · Try Again");
+                NotSent(command.CommandId, "your computer isn't connected. Try again when it is.");
             }
             catch (Exception error)
             {
@@ -364,7 +364,7 @@ namespace Halcyonic.Client
                     case SubmissionState.Sending:
                         return new CommandFeedback(CommandId, CommandType, null, "Sending", waits: true);
                     case SubmissionState.NotSent:
-                        return Local("Not Sent · " + Reason);
+                        return Local("Nothing was sent: " + Reason);
                     case SubmissionState.OutcomeUnknown:
                         // Whether it arrived can't be told, so it is never said to have gone or not.
                         return Local("Delivery Unconfirmed · Shows Once Reconnected");

@@ -24,7 +24,7 @@ namespace Halcyonic.Client
         public const string PreviousInstructionPart = "instruction-previous-part";
         public const string InstructionNotRead = "Read Full Instruction";
         public const string InstructionEmpty = "Write Instruction First";
-        public const string InstructionChanged = "Not Sent · Task Changed";
+        public const string InstructionChanged = "Nothing was sent: the task changed.";
         /// <summary>Why Send waits while a request of this client's to the task is under way: nothing more goes until it is taken or refused.</summary>
         public const string RequestUnderWay = "Request Under Way";
 

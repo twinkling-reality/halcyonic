@@ -127,7 +127,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>The folders' why when what answered couldn't prove it holds the access code (settled by the coordinator, 2026-10-07).</summary>
-        public const string FoldersUnproved = "Host Unverified · Code Not Sent · Check App · Try Again";
+        public const string FoldersUnproved = "What answered couldn't prove it is your computer, so the code wasn't sent. Check the app there, then try again.";
 
         /// <summary>The first exception of this kind in the chain of inner ones, or null.</summary>
         private static T? Within<T>(Exception? error) where T : Exception
@@ -142,7 +142,7 @@ namespace Halcyonic.Client
         public const string FoldersUnanswered = "No Answer · Check App · Try Again";
         public const string FoldersTurnedAway = "Computer Busy · Too Many Tries · Retry in 1 min";
 
-        public const string FoldersNotConnected = "Not Connected · Try Again";
+        public const string FoldersNotConnected = "your computer isn't connected. Try again when it is.";
 
         public const string PressTryAgain = "Try Again";
 

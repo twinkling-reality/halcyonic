@@ -2758,7 +2758,7 @@ alone, through the director's own routes (`OpenFile` with a section, `ShowProjec
 always arms an approval's confirm step and never sends), waits for the live snapshot to hold the id,
 and logs one fixed line. An armed approval is said only once the arm has stood unbroken for three
 seconds: a launch lays the file out again in its first seconds (the room, the stage, the composer's
-geometry), each layout drops an armed confirmation ("Not Sent · Window Changed"), and the preset presses
+geometry), each layout drops an armed confirmation ("Nothing was sent: the window changed. Press again."), and the preset presses
 Approve again while nothing is armed, never once it is, as that press would confirm (2026-11-04). The
 check applies each preset to a director with a counting submit and requires nothing sent, an unknown id
 to wait, the approval armed with nothing sent even under a low-consequence approval policy, and the arm
@@ -2926,8 +2926,8 @@ in order, as before.
   file's Yes, so `WorkspaceSteering.Confirm` sends `execution.respond_to_approval`, and accepted is not done: while
   the answer may still take effect (`ApprovalInFlight`, the frame's Sending prompt, `KitPlace.Sending`) the sentence
   bar reads Sending, sweeping, and the column is empty, until `runtime.approval.resolved` takes the approval away. A
-  confirmation that lapses reads in the sentence bar in the product's words (Not Sent · Confirm Timed Out · Press
-  Again and the others), with both answers back. Since R1 of the lead's decision (2026-11-12) the answer pressed
+  confirmation that lapses reads in the sentence bar in the product's words ("Nothing was sent: the confirmation
+  timed out. Press again." and the others, one sentence each), with both answers back. Since R1 of the lead's decision (2026-11-12) the answer pressed
   is the decision where the redesign's panel draws the request: a denial goes at its press, and an approval goes the
   moment its request is drawn whole in one part (`FileColumn`'s `decidedOnce`), so neither shows a Confirm; a request
   longer than one part still pages, and only then asks its Confirm. Only a person's press decides (`DecideOnPress`;
@@ -3033,7 +3033,7 @@ in order, as before.
   the redesign (`KitWorkModel.Stops`): what stopping does in the panel, the file's question in the sentence bar, Confirm
   behind its lock, and Cancel;
   `execution.interrupt` goes only on that Yes, and only to the run Stop was pressed on: where the task runs another by
-  then the confirmation lapses with Not Sent · Task Changed · Check and Retry (`WorkspaceSteering.Lapse`), in
+  then the confirmation lapses with Nothing was sent: the task changed. Check it and try again. (`WorkspaceSteering.Lapse`), in
   either view. The host holds both without measuring anything
   (`KitWorkspaceHost.Holds`). Checks: `36-work` (an agent that takes no instruction while it works, editing a file:
   the field, the cursor reading Editing and the file's name, Stop alone), `36-work-row` (one that takes one: the row
@@ -3199,7 +3199,7 @@ in order, as before.
   run's own record makes the next instruction a start on the run's own runtime and model
   (`KitPresenter.NewRunOf`); a run under way keeps its level whatever is chosen. An instruction armed for its
   confirmation goes only on the choice it was armed with: where the agent, the model or the level the person
-  chose is another by the time it is confirmed, or while it stands, it lapses with Not Sent · Task Changed · Check
+  chose is another by the time it is confirmed, or while it stands, it lapses with Nothing was sent: the task changed. · Check
   and Retry, so the level shown before a start is the level sent (`WorkspaceSteering.ChoiceNow`, set by the file). The model carries what a view may
   show: whether the runtime the next start would use offers it, the level that start will use, shown before it
   goes, and the running or last run's own recorded level, null where its record has none, never the choice
@@ -4904,7 +4904,7 @@ presence, contextual moment cards and the on-demand project screen:
   runtime or a listed model can be chosen. `FileColumn.Choice` reads the choice at each press and rebuild,
   `KitPresenter.NewRunOf` decides whether Send starts or instructs, Send then reads "Start New Run", and
   `WorkspaceSteering` sends `commands.StartExecution(workstream, runtime, words, model)` at once, or after
-  Yes where the policy asks; a runtime that lists its models waits for one ("Not Sent · Choose a Model").
+  Yes where the policy asks; a runtime that lists its models waits for one ("Nothing was sent: choose a model first.").
   The start takes the draft, which closes as an instruction's does, and while any request of this client's
   to the task is under way (`FileScreens.RequestPending`: being sent, or accepted and not yet confirmed)
   Send waits, saying "Request Under Way", and the steering sends nothing (AUDIT's XR-SWITCH finding: with a

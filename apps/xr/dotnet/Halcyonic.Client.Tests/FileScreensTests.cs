@@ -594,8 +594,8 @@ public class FileScreensTests
     [Test]
     public void ANoticeIsThePagesLastLine()
     {
-        var frame = Screen(new FileScreen { Section = FileSection.Checks, Notice = "Not Sent · Confirm Timed Out · Press Again" });
-        Assert.That(frame.Lines.Last().Words, Does.StartWith("Not Sent"));
+        var frame = Screen(new FileScreen { Section = FileSection.Checks, Notice = "Nothing was sent: the confirmation timed out. Press again." });
+        Assert.That(frame.Lines.Last().Words, Does.StartWith("Nothing was sent"));
     }
 
     /// <summary>

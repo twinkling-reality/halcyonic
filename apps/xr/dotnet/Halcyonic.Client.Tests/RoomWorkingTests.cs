@@ -196,7 +196,7 @@ public class RoomWorkingTests
         var other = Present(work, WorkspaceAction.Interrupt);
         other.Execution!.ExecutionId = "another-run";
         var outcome = steering.Confirm(other);
-        Assert.That((outcome.Step, outcome.Command, outcome.Message), Is.EqualTo((SteeringStep.Explain, (CommandEnvelope?)null, "Not Sent · Task Changed · Check and Retry")));
+        Assert.That((outcome.Step, outcome.Command, outcome.Message), Is.EqualTo((SteeringStep.Explain, (CommandEnvelope?)null, "Nothing was sent: the task changed. Check it and try again.")));
         Assert.That(steering.Armed, Is.Null, "the confirmation is gone with it");
 
         // The same run: Confirm stops it, by its own id.

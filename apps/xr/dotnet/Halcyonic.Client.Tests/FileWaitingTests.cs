@@ -202,10 +202,10 @@ public class FileWaitingTests
 
         work.Change(execution => execution.PendingApprovals[0] = WaitingWork.Approval(WaitingWork.ApprovalId, "Drop the database", Samples.Time));
         var changed = Approving(work);
-        Assert.That(other.Confirm(changed).Message, Is.EqualTo("Not Sent · Request Changed · Reread"), "Yes itself lapses");
+        Assert.That(other.Confirm(changed).Message, Is.EqualTo("Nothing was sent: the request changed. Read it again."), "Yes itself lapses");
         var frame = Screen(changed, steering, screen);
         Assert.That(frame.Footer.Confirming, Is.False, "dropped before the file is drawn");
-        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Not Sent · Request Changed · Reread"));
+        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Nothing was sent: the request changed. Read it again."));
         Assert.That(steering.Armed, Is.Null);
     }
 

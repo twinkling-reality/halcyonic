@@ -107,7 +107,7 @@ public class WorkspaceScreensTests
         Assert.That(model.Marks.Select(mark => mark.Word), Is.EqualTo(new[] { "Practice" }), "simulated work says so beside its state");
         Assert.That((model.Movable, model.Notice), Is.EqualTo((false, (string?)null)), "it stays beside its character: Close only");
 
-        var screen = new WorkspaceScreen { Notice = "Not Sent · Confirm Timed Out · Press Again" };
+        var screen = new WorkspaceScreen { Notice = "Nothing was sent: the confirmation timed out. Press again." };
         Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Notice, Is.EqualTo(screen.Notice));
     }
 
