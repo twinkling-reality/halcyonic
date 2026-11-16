@@ -426,14 +426,15 @@ import { PanelSystem } from './panel.js';
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
   const { root } = setupScene(world, '#010103');
-  // Frames the keys round the person on a laptop; keep setupScene's camera for anything a person must read.
-  world.camera.position.set(0, 1.8, 1.3);
-  world.camera.lookAt(0, 1.35, -1.2);
+  // On a laptop, the view from inside the keyboard's curve, low among the keys, the notes falling round it; keep
+  // setupScene's camera for anything a person must read.
+  world.camera.position.set(0, 1.3, 0.2);
+  world.camera.lookAt(0, 1.05, -1.1);
   const hall = darkHall();
   root.add(hall.group);
   ambientMotion(hall.move);
   const programme = join([pieces.prelude, pieces.gymnopedie], 4);
-  const player = playScore(programme, ambientMotion, { loop: true, gap: 4, lead: 4 });
+  const player = playScore(programme, ambientMotion, { loop: true, gap: 4, lead: 1.5 });
   const [low, high] = range([programme]);
   // 1.1 m away and 1.0 m up: the keys and the notes falling onto them sit together in view with the head level.
   const keys = lightKeys(low - 1, high + 1, { arc: 1.1, keyWidth: 0.055, glass: true });

@@ -628,7 +628,8 @@ export function lightKeys(
       face.begin();
       for (const key of spots) {
         const { x, y, z, tx, tz, ox, oz } = key;
-        face.place(x - ox * 0.001, y + 0.0005, z - oz * 0.001, tx, 0, tz, ox, 0, oz, key.width * 0.8, 0.004, edge.get(key.midi) as Color, 1);
+        // White keys only: on a black key the line reads as a post standing up.
+        if (!key.black) face.place(x - ox * 0.001, y + 0.0005, z - oz * 0.001, tx, 0, tz, ox, 0, oz, key.width * 0.8, 0.004, edge.get(key.midi) as Color, 1);
       }
       for (const key of spots) {
         const amount = Math.min(1, level.get(key.midi) ?? 0);
@@ -642,7 +643,8 @@ export function lightKeys(
         const mid = key.length / 2;
         face.place(x + ox * mid, y + 0.001, z + oz * mid, tx, 0, tz, ox, 0, oz, key.width * 0.85, key.length, c, 0.2 * gain * amount);
         // Its front face too, carried up over the edge so the top and the front read as one lit key.
-        const front = key.black ? 0.6 : 0.35;
+        // A black key's front lit softly: brighter, its upright face reads as a post, not a key.
+        const front = key.black ? 0.2 : 0.35;
         face.place(x - ox * 0.001, y - depth / 2 + 0.002, z - oz * 0.001, tx, 0, tz, 0, 1, 0, key.width * 0.85, depth + 0.004, c, front * amount);
       }
       heat.end();
@@ -734,7 +736,7 @@ export function fallingNotes(
   // A struck key's light spilling softly over it and its neighbours, laid flat on the keys; and, given `floor` (the
   // floor's height in the keys' group's frame), a pool of each sounding note's light on the floor beneath it.
   const spill = glows(160, { halo: 0.06, round: 0.05, core: 0, over: true });
-  const pools = glows(320, { halo: 0.35, round: 0.25, core: 0 });
+  const pools = glows(480, { halo: 0.35, round: 0.25, core: 0 });
   group.add(spill.object, pools.object);
   // The place answers: each note lights the far dark of the hall in its colour, where its key points, to both sides
   // and behind the person, so the music is all round them.
@@ -784,6 +786,12 @@ export function fallingNotes(
       if (keys.glass !== undefined) {
         // On glass, a wide soft pool of the note's colour spreads in front of its key.
         pools.place(lx - spot.ox * 0.12, keys.glass + 0.001, lz - spot.oz * 0.12, spot.tx, 0, spot.tz, spot.ox, 0, spot.oz, spot.width * 7, 0.36, colour, 0.16 * amount);
+        // And each strike sends a pulse of its light spreading out over the glass, fading as it goes.
+        if (since < 0.7) {
+          const out = 0.08 + since * 1.4;
+          const left = 1 - since / 0.7;
+          pools.place(lx - spot.ox * 0.1, keys.glass + 0.0015, lz - spot.oz * 0.1, spot.tx, 0, spot.tz, spot.ox, 0, spot.oz, out * 2, out * 1.2, colour, 0.3 * left * left * (0.6 + 0.4 * note.loud));
+        }
       }
       if (options.floor !== undefined) {
         pools.place(lx + spot.ox * 0.15, options.floor + 0.004, lz + spot.oz * 0.15, 1, 0, 0, 0, 0, 1, 0.34, 0.34, colour, 0.3 * amount * (0.6 + 0.4 * note.loud));

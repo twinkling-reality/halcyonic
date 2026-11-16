@@ -65,8 +65,8 @@ function sky(top: Color, horizon: Color, below: Color, radius: number, middle?: 
 
 /**
  * A floor disc `radius` metres round the person, `centre` under them fading to `edge`, with `mist` added toward its
- * far part (from a quarter of the way out, full at `misted` metres, gone again at its edge), so haze over the horizon
- * carries on down it.
+ * far part (from a quarter of the way out, full from `misted` metres to its edge), so haze over the horizon carries on
+ * down it; give the sky's horizon the same mist, so the two meet in one colour.
  */
 function floor(centre: Color, edge: Color, radius: number, mist?: Color, misted = radius): Mesh {
   const geometry = new CircleGeometry(radius, 64, 0, Math.PI * 2);
@@ -79,9 +79,7 @@ function floor(centre: Color, edge: Color, radius: number, mist?: Color, misted 
     c.copy(centre).lerp(edge, Math.min(1, out ** 0.5));
     if (mist !== undefined) {
       const k = Math.min(1, Math.max(0, (out * radius - radius * 0.25) / (misted - radius * 0.25)));
-      // And out again past `misted` to the edge, where the floor meets the sky's own horizon.
-      const past = Math.min(1, Math.max(0, (out * radius - misted) / (radius - misted)));
-      const m = k * k * (3 - 2 * k) * (1 - past * past * (3 - 2 * past));
+      const m = k * k * (3 - 2 * k);
       c.setRGB(c.r + mist.r * m, c.g + mist.g * m, c.b + mist.b * m);
     }
     colours.push(c.r, c.g, c.b);
@@ -110,9 +108,12 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   const black = new Color('#010103');
   // The floor fades into the horizon's colour and the sky rises from it, so no line marks where they meet.
   const horizon = tint.clone().multiplyScalar(0.16);
-  group.add(sky(black, horizon, horizon, 120));
+  const mist = tint.clone().multiplyScalar(0.05);
+  // The sky's horizon carries the floor's mist, so where the floor ends the sky begins in the same colour.
+  const misted = horizon.clone().add(mist);
+  group.add(sky(black, misted, misted, 120));
   // The haze ring (below) stands 44 m out; the floor carries its low glow on toward the person, with no seam.
-  group.add(floor(tint.clone().multiplyScalar(0.1), horizon, 60, tint.clone().multiplyScalar(0.05), 44));
+  group.add(floor(tint.clone().multiplyScalar(0.1), horizon, 60, mist, 44));
   const count = options.motes ?? 160;
   const motes = glows(count, { facing: true, halo: 0.01, round: 1 });
   group.add(motes.object);
