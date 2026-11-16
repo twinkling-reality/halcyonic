@@ -304,7 +304,8 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(pristine.page?.own.share, 0, String(pristine.page?.own.share));
     // One flat unlit magenta box, 160 by 120 px, held to the camera so the view's drift cannot move it on the
     // screen, centred at (px, py) of the check's 1280 by 800: no font and no texture, so it is drawn from the first
-    // frame. Inside the region it stands at (160, 630), 80 px clear of its sides; outside, at the mirror spot top right.
+    // frame. Inside the region it stands at (160, 630), 80 px clear of its sides; outside, in the mirror region top right,
+    // at (1180, 80) over plain sky (20 px from the frame's edges), so it hides no cloud's edges of its own.
     const boxAt = (px: number, py: number) => (project: string) =>
       addToIndex(
         project,
@@ -312,7 +313,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
         `{ const camera = world.camera; const halfH = Math.tan((camera.fov * Math.PI) / 360); const halfW = halfH * (1280 / 800); const box = new Mesh(new PlaneGeometry((160 / 640) * halfW, (120 / 400) * halfH), new MeshBasicMaterial({ color: 0xff00ff, depthTest: false })); box.renderOrder = 999; box.position.set((${px} / 640 - 1) * halfW, (1 - ${py} / 400) * halfH, -1); camera.add(box); if (camera.parent === null) world.scene.add(camera); }`,
       );
     const inside = await check(t, boxAt(160, 630));
-    const outside = await check(t, boxAt(1120, 170));
+    const outside = await check(t, boxAt(1180, 80));
     const edges = (result: { page: PageFindings | null }) => result.page?.edges.at_3s ?? 0;
     const said = `pristine ${edges(pristine)}, inside ${edges(inside)}, outside ${edges(outside)}`;
     // Inside the region: left out, adding no edges (only an upper bound: 3 s by the wall clock lands at slightly
