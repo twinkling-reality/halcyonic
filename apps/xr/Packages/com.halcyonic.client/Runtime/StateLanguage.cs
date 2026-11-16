@@ -195,8 +195,12 @@ namespace Halcyonic.Client
         /// <summary>The state is the last known one while the session is not live: the badge is ghosted and still.</summary>
         public bool LastKnown { get; }
 
-        /// <summary>The word with its count, as the badge shows it: "Needs You · 2".</summary>
-        public string Text => Count > 1 ? Word + " · " + Count : Word;
+        /// <summary>
+        /// The badge's words: the word alone, never with its count on a dot (AUDIT 2026-11-16 11:31Z). The count is what waits on
+        /// this one task (its requests and questions), so it is never said as tasks; the badge's view lays <see cref="Count"/>
+        /// as its own small figure inside the pill where it is more than one.
+        /// </summary>
+        public string Text => Word;
     }
 
     /// <summary>A mark beside the badge saying where the work comes from: practice, a demo or a recording.</summary>

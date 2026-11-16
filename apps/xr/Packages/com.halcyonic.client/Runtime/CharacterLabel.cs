@@ -120,12 +120,17 @@ namespace Halcyonic.Client
         {
             get
             {
-                // How many more first, so the reason's own words, which can be outside text, never cut it off.
-                var line = MoreReasons > 0 ? "+" + MoreReasons + " More · " + Reason : Reason;
-                if (!Badge.LastKnown) return line;
-                return line.Length == 0 ? LastKnown : LastKnown + " · " + line;
+                // The reason alone (AUDIT 2026-11-16 11:31Z): how many more wait and "Last Known" are the foot's own quiet parts
+                // (MoreLine, LastKnownLine), so the reason's own words, which can be outside text, never cut them off.
+                return Reason;
             }
         }
+
+        /// <summary>"Last Known" while the session is not live, the foot's quiet part, so the words say what the ghosted badge shows; null when live.</summary>
+        public string? LastKnownLine => Badge.LastKnown ? LastKnown : null;
+
+        /// <summary>How many more wait beyond the reason shown, the foot's quiet part: "1 More Waiting"; null for none.</summary>
+        public string? MoreLine => MoreReasons > 0 ? MoreReasons.ToString(System.Globalization.CultureInfo.InvariantCulture) + " More Waiting" : null;
 
         /// <summary>What the marks mean, in a sentence, or null for work that is neither practice nor recorded.</summary>
         public string? MarkLine => Marks.Count == 0 ? null : MeaningOf(Marks[0]);

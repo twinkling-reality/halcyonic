@@ -223,8 +223,8 @@ namespace Halcyonic.Client
                         {
                             // A command reads as one; any other tool, or one this app doesn't know, by its own name.
                             return Both(WorkspaceText.RunsCommand(tool.ToolName)
-                                ? Ours("Run Command · ") + LineWords.Theirs(CaptureNames.Request(tool.Summary))
-                                : Ours("Use ") + LineWords.TheirName(tool.ToolName) + Ours(" · ") + LineWords.Theirs(CaptureNames.Request(tool.Summary)));
+                                ? Ours("Run Command: ") + LineWords.Theirs(CaptureNames.Request(tool.Summary))
+                                : Ours("Use ") + LineWords.TheirName(tool.ToolName) + Ours(": ") + LineWords.Theirs(CaptureNames.Request(tool.Summary)));
                         }
                     }
                     return Both(Ours("Approval Requested"));

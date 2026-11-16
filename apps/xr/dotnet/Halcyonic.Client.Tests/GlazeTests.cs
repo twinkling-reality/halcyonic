@@ -315,7 +315,7 @@ public class StateLanguageTests
     public void WaitingForYouCountsWhatWaitsWhenMoreThanOne()
     {
         Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, new[] { "a" }, approvals: 1)).Text, Is.EqualTo("Needs You"));
-        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, new[] { "a", "b" }, approvals: 2)).Text, Is.EqualTo("Needs You · 2"));
+        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, new[] { "a", "b" }, approvals: 2)).Text, Is.EqualTo("Needs You"));
         Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.Working, notes: new[] { "a", "b" })).Count, Is.EqualTo(0), "only Waiting for you counts");
     }
 
@@ -351,7 +351,7 @@ public class CharacterLabelTests
     public void TheLabelHasATitleABadgeAndMarksAndNoReason()
     {
         var character = StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
-            new[] { "Run Command · Run the migration" }, approvals: 1, synthetic: true);
+            new[] { "Run Command: Run the migration" }, approvals: 1, synthetic: true);
         var label = CharacterLabel.Of(character);
         Assert.That(label.Title, Is.EqualTo("Fix the authentication regression"));
         Assert.That(label.Badge.Text, Is.EqualTo("Needs You"));
@@ -395,9 +395,9 @@ public class CharacterLabelTests
     public void ThePeekCountsTheReasonsBehindTheFirst()
     {
         var character = StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
-            new[] { "Run Command · Run the migration", "Asks you: Which colour?" }, approvals: 1);
+            new[] { "Run Command: Run the migration", "Asks you: Which colour?" }, approvals: 1);
         var peek = PeekCard.Of(Workspace(character));
-        Assert.That(peek.ReasonLine, Is.EqualTo("+1 More · Run Command · Run the migration"));
+        Assert.That((peek.ReasonLine, peek.MoreLine), Is.EqualTo(("Run Command: Run the migration", (string?)"1 More Waiting")));
         Assert.That(peek.Next, Is.EqualTo("Open to Answer"));
     }
 
@@ -423,8 +423,8 @@ public class CharacterLabelTests
         var peek = PeekCard.Of(Workspace(character));
         Assert.That(peek.Badge.LastKnown, Is.True);
         Assert.That(peek.Next, Is.Null);
-        Assert.That(peek.ReasonLine, Is.EqualTo("Last Known · Approval Requested"), "the words say what the ghosted badge shows");
-        Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, stale: true))).ReasonLine, Is.EqualTo("Last Known"));
+        Assert.That((peek.ReasonLine, peek.LastKnownLine), Is.EqualTo(("Approval Requested", (string?)"Last Known")), "the words say what the ghosted badge shows");
+        Assert.That((PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, stale: true))).ReasonLine, PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, stale: true))).LastKnownLine), Is.EqualTo(("", (string?)"Last Known")));
     }
 
     [Test]

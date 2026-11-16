@@ -74,7 +74,7 @@ public class CharacterPresenterTests
         Assert.That(character.StatusLabel, Is.EqualTo("Needs You"));
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.PendingApprovals, Is.EqualTo(1));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Run Command · Run the migration" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Run Command: Run the migration" }));
         Assert.That(character.Synthetic, Is.True);
         Assert.That(character.Stale, Is.False);
     }

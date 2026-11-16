@@ -156,7 +156,7 @@ public class LiveControlPlaneTests
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.WaitingForHuman));
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.Synthetic, Is.True);
-        Assert.That(character.AttentionNotes.Single(), Does.StartWith("Run Command · "));
+        Assert.That(character.AttentionNotes.Single(), Does.StartWith("Run Command: "));
         var waiting = WorkspacePresenter.Present(session.State.Workstreams[workstreamId], session.State, activity, live: true);
         Assert.That(waiting.Actions, Is.EqualTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
         Assert.That(waiting.Actions.All(waiting.RequiresConfirmation), Is.True, "approving and interrupting are review_required");
