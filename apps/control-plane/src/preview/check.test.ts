@@ -384,7 +384,12 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     });
     // The one taken first; another only where the port given was itself taken before the server listened.
     assert.equal(given[0], PORT, 'another port asked for, in place of the one taken');
-    assert.equal(result.unknown, null);
+    // The template with a box nothing listens to has nothing to press: it is ready once it draws and its sound starts
+    // (the lead's ruling 5), so what is left not known is only whether its words read (no kit page is drawn).
+    assert.equal(result.laptop?.mouse, 'no_target');
+    assert.equal(result.laptop?.sound, 'running');
+    assert.equal(result.laptop?.ready, true);
+    assert.match(result.unknown ?? '', /^Not known whether it reads on a laptop/);
     assert.equal(result.passed, true, JSON.stringify(result.page?.edges));
     // With no other port to take, the check says its copy was not served, and does not pass.
     const refused = await runCheck({ ...options(project, join(root, 'cache-2')), reference });
@@ -498,6 +503,8 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       mouse: 'reached',
       key: 'reached',
       screen_changed: true,
+      // The island's wind starts after the step's key press, seen in the browser's own WebAudio record.
+      sound: 'running',
       exceptions_during: 0,
       ready: true,
     });
@@ -738,10 +745,33 @@ describe('the laptop step that could not tell (run (a4), 2026-11-13)', () => {
       laptopUnknown({ ...step, mouse: 'unknown' }) ?? '',
       /could not read the app's input layer/,
     );
+    // A piece with nothing to press (lead's ruling 5): a seen silence and a sound not known are said apart, an old
+    // check with no sound recorded reads as not known, and a ready one is not unknown at all (AUDIT2 W1 to W3).
     assert.match(
-      laptopUnknown({ ...step, mouse: 'no_target' }) ?? '',
-      /found nothing it can press/,
+      laptopUnknown({ ...step, mouse: 'no_target', sound: 'not_running' }) ?? '',
+      /^The check found nothing to press, and the app's sound did not start after a key press, so it is not ready on a laptop yet\.$/,
     );
+    for (const sound of ['unknown', undefined] as const)
+      assert.match(
+        laptopUnknown({ ...step, mouse: 'no_target', ...(sound === undefined ? {} : { sound }) }) ??
+          '',
+        /^The check found nothing to press and could not tell whether the app's sound started, so whether it works on a laptop is not known\.$/,
+        String(sound),
+      );
+    assert.match(
+      laptopUnknown({ ...step, mouse: 'no_target', sound: 'running' }) ?? '',
+      /found nothing it can press/,
+      'running but not ready: something of its own not seen drawn',
+    );
+    assert.equal(
+      laptopUnknown({ ...step, mouse: 'no_target', sound: 'running', ready: true }),
+      null,
+    );
+    for (const sound of ['running', 'not_running', 'unknown'] as const)
+      assert.doesNotMatch(
+        laptopUnknown({ ...step, mouse: 'no_target', sound }) ?? '',
+        /heard|hear |the game/,
+      );
     assert.equal(laptopUnknown({ ...step, targets: 1, mouse: 'not_reached' }), null);
     assert.equal(laptopUnknown({ ...step, targets: 1, mouse: 'reached', ready: true }), null);
     for (const said of [

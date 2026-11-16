@@ -305,3 +305,18 @@ view's three pages, with the starter's controls card over the top left of the sc
 (the card stands under the camera in screen space and is never a cover); a game's pages from its camera still read
 about 6 px. What it does not see: a mesh an app made unhittable, words or covers an app draws in a shader of its own,
 a cover under the camera that is the app's own, and the app's own text, which is not measured at all.
+
+## A piece with nothing to press, ready when it draws and sounds (2026-11-16)
+
+Run (d) of 2026-11-14 built two pianos from "I just stand inside it and listen": both passed the check and read not
+ready on a laptop, since the input layer reported nothing to press (`no_target`), so Play on Laptop was refused for
+exactly what was asked. The lead ruled on 2026-11-16 that such a piece is ready on a laptop when it draws and sounds.
+Checked before building, in the check's own browser (the pinned chrome-headless-shell folder, launched by
+`launchChrome` with the check's Seatbelt profile and switches, which hold no audio services), with the key press the
+laptop step sends (`Input.dispatchKeyEvent` keyDown and keyUp, Space): the DevTools `WebAudio` domain answers
+`enable`; a page that makes an `AudioContext` on keydown is user-activated at that key (`navigator.userActivation`
+false before, true at the key) and its realtime context reaches `running`, with its oscillator connected through a
+gain into the `AudioDestination` node; a page that makes its context at load, with no press, stays `suspended`; an
+`OfflineAudioContext` connects nothing to a destination. So the check reads `sound` from the browser's own record,
+never from the page, and a running context needs no audio output on the Mac. What it does not say: that anything is
+heard (a context may run at no volume), or anything of sound an app makes without Web Audio.

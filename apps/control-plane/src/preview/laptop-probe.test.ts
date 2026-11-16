@@ -31,6 +31,7 @@ import {
   type HookPanel,
   laptopStep,
   layerState,
+  listenOnlyReady,
   parsePanels,
   parseReadings,
   parseReport,
@@ -38,6 +39,10 @@ import {
   readingFiles,
   readingOf,
   readingPasses,
+  SOUND_AFTER_KEY_MS,
+  SOUND_CONTEXTS,
+  SOUND_NODES,
+  SoundWatch,
   STILL_CONTROL,
   screenChanged,
   settledPicture,
@@ -987,6 +992,219 @@ describe("the kit's panels fit a laptop's 1280 by 800 view and stay clear of eac
     };
     assert.deepEqual(read(true), { panels: [box(10, 10, 100, 100)], sealed: true });
     assert.equal(read(false)?.sealed, false);
+  });
+});
+
+describe("a piece with nothing to press: its sound, from the browser's WebAudio record (lead's ruling 5, AUDIT3 L1 to L4, 2026-11-16)", () => {
+  /** The events the check's browser sent for a page that starts a tone on a key press (the probe of 2026-11-16). */
+  const started = (watch: SoundWatch, context = 'c1', into = 'd1') => {
+    watch.handle('WebAudio.contextCreated', {
+      context: { contextId: context, contextType: 'realtime', contextState: 'suspended' },
+    });
+    watch.handle('WebAudio.audioNodeCreated', {
+      node: { nodeId: into, contextId: context, nodeType: 'AudioDestination' },
+    });
+    watch.handle('WebAudio.audioNodeCreated', {
+      node: { nodeId: `${context}-osc`, contextId: context, nodeType: 'Oscillator' },
+    });
+    watch.handle('WebAudio.nodesConnected', {
+      contextId: context,
+      sourceId: `${context}-osc`,
+      destinationId: into,
+    });
+    watch.handle('WebAudio.contextChanged', {
+      context: { contextId: context, contextType: 'realtime', contextState: 'running' },
+    });
+  };
+  const answered = () => {
+    const watch = new SoundWatch();
+    watch.answered = true;
+    return watch;
+  };
+
+  test('a running realtime context with a node into its own destination is running', () => {
+    const watch = answered();
+    started(watch);
+    assert.equal(watch.read(), 'running');
+  });
+
+  test('a context made at load and never resumed, an offline one, or a tone wired only to an analyser is not running', () => {
+    const suspended = answered();
+    suspended.handle('WebAudio.contextCreated', {
+      context: { contextId: 'c1', contextType: 'realtime', contextState: 'suspended' },
+    });
+    suspended.handle('WebAudio.audioNodeCreated', {
+      node: { nodeId: 'd1', contextId: 'c1', nodeType: 'AudioDestination' },
+    });
+    suspended.handle('WebAudio.nodesConnected', {
+      contextId: 'c1',
+      sourceId: 'o',
+      destinationId: 'd1',
+    });
+    assert.equal(suspended.read(), 'not_running');
+    const offline = answered();
+    offline.handle('WebAudio.contextCreated', {
+      context: { contextId: 'c1', contextType: 'offline', contextState: 'running' },
+    });
+    offline.handle('WebAudio.audioNodeCreated', {
+      node: { nodeId: 'd1', contextId: 'c1', nodeType: 'AudioDestination' },
+    });
+    offline.handle('WebAudio.nodesConnected', {
+      contextId: 'c1',
+      sourceId: 'o',
+      destinationId: 'd1',
+    });
+    assert.equal(offline.read(), 'not_running', 'the kit renders tones offline; those never count');
+    const analysed = answered();
+    analysed.handle('WebAudio.contextCreated', {
+      context: { contextId: 'c1', contextType: 'realtime', contextState: 'running' },
+    });
+    analysed.handle('WebAudio.audioNodeCreated', {
+      node: { nodeId: 'd1', contextId: 'c1', nodeType: 'AudioDestination' },
+    });
+    analysed.handle('WebAudio.audioNodeCreated', {
+      node: { nodeId: 'a1', contextId: 'c1', nodeType: 'Analyser' },
+    });
+    analysed.handle('WebAudio.nodesConnected', {
+      contextId: 'c1',
+      sourceId: 'o',
+      destinationId: 'a1',
+    });
+    assert.equal(analysed.read(), 'not_running', 'a chain must end in the destination (AUDIT3)');
+    const ended = answered();
+    started(ended);
+    ended.handle('WebAudio.contextWillBeDestroyed', { contextId: 'c1' });
+    assert.equal(ended.read(), 'not_running', 'a context closed and gone runs no sound');
+  });
+
+  test('unknown stays unknown: no answer to enable, or a type or state the host does not know (AUDIT3 L1, L2)', () => {
+    const silent = new SoundWatch();
+    started(silent);
+    assert.equal(silent.read(), 'unknown', 'the browser never answered WebAudio.enable');
+    const strange = answered();
+    strange.handle('WebAudio.contextCreated', {
+      context: { contextId: 'c1', contextType: 'realtime', contextState: 'singing' },
+    });
+    assert.equal(strange.read(), 'unknown', 'never running from a state the host does not know');
+    const odd = answered();
+    odd.handle('WebAudio.contextCreated', {
+      context: { contextId: 'c1', contextType: 'surround', contextState: 'running' },
+    });
+    assert.equal(odd.read(), 'unknown');
+    const ignored = answered();
+    ignored.handle('Runtime.consoleAPICalled', { context: { contextId: 'c1' } });
+    ignored.handle('WebAudio.nodesConnected', undefined);
+    ignored.handle('WebAudio.contextCreated', {
+      context: { contextId: 'x'.repeat(129), contextType: 'realtime', contextState: 'running' },
+    });
+    assert.equal(
+      ignored.read(),
+      'not_running',
+      'other events, empty ones and overlong ids are ignored',
+    );
+  });
+
+  test(`at most ${SOUND_CONTEXTS} contexts and ${SOUND_NODES} nodes each are kept; the rest are ignored (AUDIT3 L1)`, () => {
+    const crowded = answered();
+    for (let n = 0; n < SOUND_CONTEXTS; n += 1)
+      crowded.handle('WebAudio.contextCreated', {
+        context: { contextId: `quiet-${n}`, contextType: 'realtime', contextState: 'suspended' },
+      });
+    started(crowded, 'late', 'late-d');
+    assert.equal(crowded.read(), 'not_running', 'a context past the limit is never read');
+    const noisy = answered();
+    noisy.handle('WebAudio.contextCreated', {
+      context: { contextId: 'c1', contextType: 'realtime', contextState: 'running' },
+    });
+    for (let n = 0; n < SOUND_NODES; n += 1)
+      noisy.handle('WebAudio.audioNodeCreated', {
+        node: { nodeId: `g${n}`, contextId: 'c1', nodeType: 'Gain' },
+      });
+    noisy.handle('WebAudio.audioNodeCreated', {
+      node: { nodeId: 'd1', contextId: 'c1', nodeType: 'AudioDestination' },
+    });
+    noisy.handle('WebAudio.nodesConnected', {
+      contextId: 'c1',
+      sourceId: 'g0',
+      destinationId: 'd1',
+    });
+    assert.equal(noisy.read(), 'not_running', 'nodes past the limit are never read');
+  });
+
+  test('the step waits for a piece with nothing to press, reads its sound, and never calls it reached by a mouse', async () => {
+    const waits: number[] = [];
+    const { fake } = driver({ targets: [] });
+    const waiting: Driver = {
+      ...fake,
+      wait: async (ms) => {
+        waits.push(ms);
+      },
+    };
+    const laptop = await laptopStep(waiting, 'starter', { ...KIT, sound: () => 'running' });
+    assert.equal(laptop.mouse, 'no_target');
+    assert.equal(laptop.sound, 'running');
+    assert.equal(laptop.ready, false, 'ready only once the check has seen it draw');
+    assert.equal(waits.at(-1), SOUND_AFTER_KEY_MS);
+    const pressed: number[] = [];
+    const withTarget: Driver = {
+      ...driver({ targets: [AT], changes: MANY }).fake,
+      wait: async (ms) => {
+        pressed.push(ms);
+      },
+    };
+    const reached = await laptopStep(withTarget, 'starter', { ...KIT, sound: () => 'not_running' });
+    assert.equal(reached.sound, 'not_running');
+    assert.equal(reached.ready, true, 'a piece with targets is judged by its presses, as before');
+    assert.ok(
+      !pressed.includes(SOUND_AFTER_KEY_MS),
+      'no wait for sound where something was pressed',
+    );
+    assert.equal((await laptopStep(driver({ targets: [] }).fake, 'starter', KIT)).sound, undefined);
+  });
+
+  test('ready once it draws and sounds, with its reading and fit holding nothing back; never otherwise', () => {
+    const listening = {
+      layer: 'starter' as const,
+      targets: 0,
+      mouse: 'no_target' as const,
+      key: 'reached' as const,
+      screen_changed: null,
+      sound: 'running' as const,
+      ready: false,
+    };
+    assert.equal(listenOnlyReady(listening, true), true);
+    assert.equal(listenOnlyReady(listening, null), false, 'drawn not known');
+    assert.equal(listenOnlyReady(listening, false), false);
+    for (const sound of ['not_running', 'unknown'] as const)
+      assert.equal(listenOnlyReady({ ...listening, sound }, true), false, sound);
+    const { sound: _absent, ...before } = listening;
+    assert.equal(
+      listenOnlyReady(before, true),
+      false,
+      'a check recorded before the sound reads unknown',
+    );
+    assert.equal(listenOnlyReady({ ...listening, layer: 'changed' }, true), false);
+    assert.equal(listenOnlyReady({ ...listening, mouse: 'not_reached', targets: 1 }, true), false);
+    assert.equal(
+      listenOnlyReady(
+        {
+          ...listening,
+          reading: {
+            state: 'measured',
+            smallest_px: 6,
+            measured: 3,
+            fill_share: 0.05,
+            floor_px: READING_FLOOR_PX,
+            last_measured_px: null,
+            words: 'The words are too small to read on a laptop',
+            detail: null,
+          },
+        },
+        true,
+      ),
+      false,
+      'words under the floor still hold it back',
+    );
   });
 });
 

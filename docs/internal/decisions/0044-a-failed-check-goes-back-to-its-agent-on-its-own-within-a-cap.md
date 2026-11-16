@@ -120,6 +120,15 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   iwsdk.config.json places it), so a cover may stand behind the person; where its words are also too small, the size
   is said first. A panel under the camera (the starter's controls
   card while it shows) never covers, and a ray sees meshes only, so a pass is where it could measure.
+- A piece with nothing to press counts as ready on a laptop when it draws and the browser shows its sound starting
+  after a key press (the lead's ruling, 2026-11-16: the mouse rule applies only where something is pressed); the check
+  hears nothing itself, and a sound that starts at no volume still counts. "Starting" is the browser's own WebAudio
+  record over the check's DevTools pipe: a realtime context running with a node connected into its destination,
+  read 2 s after the step's Space and E, at most 8 contexts and 256 nodes each, no id kept; a record that does not
+  answer, or says what the host does not know, reads not known and holds the piece back. Its mouse finding stays
+  `no_target`, so nothing says it works with a mouse. Since "nothing to press" is the page's own report, an app with
+  things to press that it never registers through the kit takes this path too, and reads ready when it draws and
+  starts a sound, where before it read not ready.
 - On wherever checks are; `ControlPlaneOptions.autoFix: false` turns it off.
 
 ## Alternatives considered

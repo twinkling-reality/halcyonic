@@ -520,16 +520,25 @@ function admit(
         return reject(
           scope,
           'invalid_state',
-          // Not seen is not the same as not working: where the check could not tell, it says so.
-          findings.laptop?.mouse === 'unknown' || findings.laptop?.mouse === 'no_target'
-            ? "The check couldn't tell whether the game works with a mouse and keyboard, so it can't be played here yet."
-            : reading !== undefined && !readingPasses(reading)
-              ? // Whether it reads on a laptop, in the check's own plain words, its numbers second (VRIFY, AUDIT2 R2).
-                `${reading.words}${reading.detail === null ? '' : ` (${reading.detail})`}.`
-              : fit !== undefined && !fitPasses(fit)
-                ? // Whether its parts fit a laptop's screen, in the host's own words, never the app's labels.
-                  `${fit.words}${fit.detail === null ? '' : ` (${fit.detail})`}.`
-                : "The check didn't see the game work with a mouse and keyboard.",
+          // Not seen is not the same as not working: where the check could not tell, it says so. A piece with nothing
+          // to press is ready once it draws and starts its sound (lead's ruling 5): a seen silence and a sound not
+          // known are said apart (AUDIT2 W1 to W3).
+          findings.laptop?.mouse === 'no_target' && findings.laptop.sound === 'not_running'
+            ? "This app has nothing to press and its sound did not start in the check, so it can't be played on a laptop yet. Ask its agent to start the sound on the first key press."
+            : findings.laptop?.mouse === 'no_target' && findings.laptop.sound !== 'running'
+              ? "The check could not tell whether this app's sound starts, so it can't be played on a laptop yet. Check it again."
+              : findings.laptop?.mouse === 'unknown' ||
+                  (findings.laptop?.mouse === 'no_target' &&
+                    readingPasses(reading) &&
+                    fitPasses(fit))
+                ? "The check couldn't tell whether the game works with a mouse and keyboard, so it can't be played here yet."
+                : reading !== undefined && !readingPasses(reading)
+                  ? // Whether it reads on a laptop, in the check's own plain words, its numbers second (VRIFY, AUDIT2 R2).
+                    `${reading.words}${reading.detail === null ? '' : ` (${reading.detail})`}.`
+                  : fit !== undefined && !fitPasses(fit)
+                    ? // Whether its parts fit a laptop's screen, in the host's own words, never the app's labels.
+                      `${fit.words}${fit.detail === null ? '' : ` (${fit.detail})`}.`
+                    : "The check didn't see the game work with a mouse and keyboard.",
         );
       if (!findings.reads_confined)
         return reject(

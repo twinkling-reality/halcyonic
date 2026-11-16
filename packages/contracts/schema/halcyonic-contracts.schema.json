@@ -18842,6 +18842,13 @@
         "fit": {
           "$ref": "#/$defs/CheckFit"
         },
+        "sound": {
+          "enum": [
+            "running",
+            "not_running",
+            "unknown"
+          ]
+        },
         "ready": {
           "type": "boolean"
         }

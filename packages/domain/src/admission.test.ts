@@ -1405,14 +1405,31 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     assert.match(refusal(), /didn't see the game work/);
     assert.doesNotMatch(refusal(), /ready/i);
     // Where the check could not tell, it says so, never that the game does not work (run (a4), 2026-11-13).
-    for (const mouse of ['unknown', 'no_target']) {
-      record(first, { laptop: { ...laptopReady.laptop, mouse, targets: 0, ready: false } });
-      assert.match(
+    record(first, {
+      laptop: { ...laptopReady.laptop, mouse: 'unknown', targets: 0, ready: false },
+    });
+    assert.match(refusal(), /couldn't tell whether the game works with a mouse and keyboard/);
+    // A piece with nothing to press (lead's ruling 5, AUDIT2 W1 to W3): its silence seen, its sound not known (an
+    // older check's absent sound reads so too), or its sound started but not ready for another reason.
+    const listening = (extra: Record<string, unknown>) =>
+      record(first, {
+        laptop: { ...laptopReady.laptop, mouse: 'no_target', targets: 0, ready: false, ...extra },
+      });
+    listening({ sound: 'not_running' });
+    assert.equal(
+      refusal(),
+      "This app has nothing to press and its sound did not start in the check, so it can't be played on a laptop yet. Ask its agent to start the sound on the first key press.",
+    );
+    for (const extra of [{ sound: 'unknown' }, {}]) {
+      listening(extra);
+      assert.equal(
         refusal(),
-        /couldn't tell whether the game works with a mouse and keyboard/,
-        mouse,
+        "The check could not tell whether this app's sound starts, so it can't be played on a laptop yet. Check it again.",
+        JSON.stringify(extra),
       );
     }
+    listening({ sound: 'running' });
+    assert.match(refusal(), /couldn't tell whether the game works with a mouse and keyboard/);
     record(first, { ...laptopReady, reads_confined: false });
     assert.equal(opens(), 'invalid_state', 'not confined');
     record(first, laptopReady);
@@ -1421,6 +1438,18 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       b.controlPlane('project.preview.started', scope, { check_id: first as never, port: 47930 }),
     );
     assert.equal(opens(), true);
+    // A piece with nothing to press that draws and starts its sound is laptop ready, and plays (lead's ruling 5).
+    record(first, {
+      ...laptopReady,
+      laptop: {
+        ...laptopReady.laptop,
+        mouse: 'no_target',
+        targets: 0,
+        sound: 'running',
+        ready: true,
+      },
+    });
+    assert.equal(opens(), true, 'a listen-only piece that draws and sounds');
     // Never measured, not known: it plays, and whether it reads is said apart (the lead, 22:40Z).
     record(first, {
       ...laptopReady,

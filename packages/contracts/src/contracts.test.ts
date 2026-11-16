@@ -714,6 +714,7 @@ describe('the C# bindings', () => {
     'CheckLaptop.reading', // whether a person can read the app on a laptop (VRIFY, 2026-11-13)
     'CheckLaptop.response_seen', // M1.8g
     'CheckLaptop.response_unknown', // why a twin read was unknown (M1.8g-b)
+    'CheckLaptop.sound', // whether a piece's sound started, from the browser's WebAudio record (VRIFY, 2026-11-16)
     'CheckPage.own', // a check page's own pixels against the starter's (DRAWN)
     'CheckReading.hidden', // how many of the kit's texts are behind something on a laptop (VRIFY, 2026-11-14)
     'CheckReading.hidden_kind', // the kind of the first text behind something (VRIFY, 2026-11-14)

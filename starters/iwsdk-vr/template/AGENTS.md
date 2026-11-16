@@ -196,6 +196,8 @@ A view from another app, not a game:
   on what to press, as for a game.
 
 Music and light, not a game (a piece that plays itself, a concert of light, a place to listen in):
+- A piece with nothing to press is ready on a laptop when it draws and starts its sound after the first key press
+  (the check presses Space, then E), as the kit's sound does.
 - Its place is from `src/places.ts`, never an island: in `src/index.ts` call `setupScene(world, '#010103')` from
   `./kit.js` instead of `setupLook` and `decorate`, add `darkHall()`'s `group` to the group `setupScene` returns, and
   pass the hall's `move` to `ambientMotion`. Put the same colour in `index.html`'s `background`. Move the welcome card

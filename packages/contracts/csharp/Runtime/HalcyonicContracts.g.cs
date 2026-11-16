@@ -2142,6 +2142,9 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("fit", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public CheckFit? Fit { get; set; }
 
+        [global::Newtonsoft.Json.JsonProperty("sound", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::Newtonsoft.Json.Linq.JToken? Sound { get; set; }
+
         [global::Newtonsoft.Json.JsonProperty("ready", Required = global::Newtonsoft.Json.Required.Always)]
         public bool Ready { get; set; }
     }

@@ -542,6 +542,119 @@ export function screenChanged(control: number | null, press: number | null): boo
   return press > CHANGED_AFTER;
 }
 
+/** How long the step waits after its keys for a piece with nothing to press to start its sound (AUDIT3, 2026-11-16). */
+export const SOUND_AFTER_KEY_MS = 2_000;
+/** The most realtime contexts, and nodes in each, the sound watch keeps (AUDIT3 L1); the rest are ignored. */
+export const SOUND_CONTEXTS = 8;
+export const SOUND_NODES = 256;
+const CONTEXT_TYPES = new Set(['realtime', 'offline']);
+const CONTEXT_STATES = new Set(['suspended', 'running', 'closed', 'interrupted']);
+const MAX_ID = 128;
+
+/**
+ * Whether the page's sound started, from the browser's own WebAudio record over the check's DevTools pipe (lead's
+ * ruling 5, 2026-11-16; verified in the check's browser, validation/vrify-real-projects.md): the page decides how many
+ * events come, so at most `SOUND_CONTEXTS` realtime contexts and `SOUND_NODES` nodes in each are kept, and no id is
+ * ever recorded or logged (AUDIT3 L1). A context type or state the host does not know reads `unknown`, never running.
+ * Running means a realtime context runs now with a node connected into its own destination: an oscillator wired only
+ * to an analyser does not count (AUDIT3). It never says a person hears anything.
+ */
+export class SoundWatch {
+  /** Whether the browser answered `WebAudio.enable`; until it does, nothing is known. */
+  answered = false;
+  #strange = false;
+  readonly #contexts = new Map<
+    string,
+    { running: boolean; destination: string | null; nodes: number; into: Set<string> }
+  >();
+
+  /** One DevTools event of the page's session; anything but the WebAudio events it reads is ignored. */
+  handle(method: string | undefined, params: Record<string, unknown> | undefined): void {
+    if (method === undefined || !method.startsWith('WebAudio.') || params === undefined) return;
+    const id = (value: unknown): string | null =>
+      typeof value === 'string' && value.length > 0 && value.length <= MAX_ID ? value : null;
+    if (method === 'WebAudio.contextCreated' || method === 'WebAudio.contextChanged') {
+      const context = params.context as Record<string, unknown> | undefined;
+      const contextId = id(context?.contextId);
+      if (contextId === null) return;
+      const type = context?.contextType;
+      const state = context?.contextState;
+      if (
+        typeof type !== 'string' ||
+        !CONTEXT_TYPES.has(type) ||
+        typeof state !== 'string' ||
+        !CONTEXT_STATES.has(state)
+      ) {
+        this.#strange = true;
+        return;
+      }
+      if (type !== 'realtime') return;
+      const known = this.#contexts.get(contextId);
+      if (known !== undefined) known.running = state === 'running';
+      else if (this.#contexts.size < SOUND_CONTEXTS)
+        this.#contexts.set(contextId, {
+          running: state === 'running',
+          destination: null,
+          nodes: 0,
+          into: new Set(),
+        });
+      return;
+    }
+    if (method === 'WebAudio.contextWillBeDestroyed') {
+      const contextId = id(params.contextId);
+      if (contextId !== null) this.#contexts.delete(contextId);
+      return;
+    }
+    const contextId = id(
+      params.contextId ?? (params.node as Record<string, unknown> | undefined)?.contextId,
+    );
+    const context = contextId === null ? undefined : this.#contexts.get(contextId);
+    if (context === undefined || context.nodes >= SOUND_NODES) return;
+    if (method === 'WebAudio.audioNodeCreated') {
+      const node = params.node as Record<string, unknown>;
+      const nodeId = id(node.nodeId);
+      if (nodeId === null) return;
+      context.nodes += 1;
+      if (node.nodeType === 'AudioDestination' && context.destination === null)
+        context.destination = nodeId;
+      return;
+    }
+    if (method === 'WebAudio.nodesConnected') {
+      const destination = id(params.destinationId);
+      if (destination === null) return;
+      context.nodes += 1;
+      context.into.add(destination);
+    }
+  }
+
+  /** What the record says now. */
+  read(): 'running' | 'not_running' | 'unknown' {
+    if (!this.answered) return 'unknown';
+    for (const context of this.#contexts.values())
+      if (context.running && context.destination !== null && context.into.has(context.destination))
+        return 'running';
+    return this.#strange ? 'unknown' : 'not_running';
+  }
+}
+
+/**
+ * Whether a piece with nothing to press is ready on a laptop (lead's ruling 5, 2026-11-16): the starter's own layer
+ * answered with no target, its sound started after the step's key presses, something of its own is drawn, and its
+ * reading and fit hold nothing back. Its `mouse` stays `no_target`: it is never said to work with a mouse (AUDIT3 L4).
+ * Since `targets` is the page's own report, an app with things to press that it never registers through the kit
+ * takes this path too, and reads ready when it draws and starts a sound.
+ */
+export function listenOnlyReady(laptop: CheckLaptop, drawn: boolean | null): boolean {
+  return (
+    laptop.layer === 'starter' &&
+    laptop.mouse === 'no_target' &&
+    laptop.sound === 'running' &&
+    drawn === true &&
+    readingPasses(laptop.reading) &&
+    fitPasses(laptop.fit)
+  );
+}
+
 /** The few things the laptop step does to the page; the real one drives Chrome, a test's stands in. */
 export interface Driver {
   evaluate(expression: string): Promise<unknown>;
@@ -608,6 +721,8 @@ export async function laptopStep(
     readonly fitFiles?: CheckLaptop['layer'];
     /** The project's last measured fit, which a fit that cannot measure never clears. */
     readonly lastFit?: CheckFit | null;
+    /** What the browser's WebAudio record says now (`SoundWatch.read`); absent where the step has none. */
+    readonly sound?: () => NonNullable<CheckLaptop['sound']>;
   },
 ): Promise<CheckLaptop> {
   const report = async () => parseReport(await driver.evaluate(HOOK_EXPRESSION).catch(() => null));
@@ -683,7 +798,11 @@ export async function laptopStep(
     if (afterKeys !== null)
       key = afterKeys.counts.key > beforeKeys.counts.key ? 'reached' : 'not_reached';
   }
-  return finish({ targets, mouse, key, screen_changed: screen });
+  if (view.sound === undefined) return finish({ targets, mouse, key, screen_changed: screen });
+  // A piece with nothing to press is given its time to start its sound after the keys, as the kit's sound starts on a
+  // first press; one with targets is read as it stands, with no wait.
+  if (targets === 0) await driver.wait(SOUND_AFTER_KEY_MS);
+  return finish({ targets, mouse, key, screen_changed: screen, sound: view.sound() });
 }
 
 /**

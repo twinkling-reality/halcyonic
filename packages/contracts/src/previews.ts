@@ -168,9 +168,15 @@ export type CheckFit = Static<typeof CheckFit>;
  * compared (`failed`); absent when not unknown. `exceptions_during` counts uncaught exceptions while
  * the step acted. `reading` says whether a person can read the app on a laptop (`CheckReading`); absent on
  * checks recorded before it. `fit` says whether the kit's panels fit a laptop's view and stay clear of each other
- * (`CheckFit`); absent on checks recorded before it. `ready` needs the starter's own layer and either the mouse
- * reported reached with the screen observed changed, or a response seen against the twin; and, where `reading` or
- * `fit` is present, no measured failure of it.
+ * (`CheckFit`); absent on checks recorded before it. `sound` is observed by the host from the browser's own
+ * WebAudio record, never reported by the page: `running` when a realtime audio context of the page runs, with a node
+ * connected into that context's destination, after the step's key presses; `not_running` when the record answered
+ * and none did; `unknown` when it did not answer or said something the host does not know. It never says a person
+ * hears anything: a running context may be silent. Absent on checks recorded before it, and read as `unknown`.
+ * `ready` needs the starter's own layer and either the mouse reported reached with the screen observed changed, or a
+ * response seen against the twin, or, for a piece with nothing to press (`no_target`), its sound `running` and
+ * something of its own drawn (lead's ruling, 2026-11-16); and, where `reading` or `fit` is present, no measured
+ * failure of it.
  */
 export const CheckLaptop = Type.Object(
   {
@@ -194,6 +200,7 @@ export const CheckLaptop = Type.Object(
     exceptions_during: Type.Optional(Type.Integer({ minimum: 0 })),
     reading: Type.Optional(CheckReading),
     fit: Type.Optional(CheckFit),
+    sound: Type.Optional(Type.Enum(['running', 'not_running', 'unknown'])),
     ready: Type.Boolean(),
   },
   strict,

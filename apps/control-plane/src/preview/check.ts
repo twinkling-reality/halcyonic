@@ -18,10 +18,12 @@ import {
   fitPasses,
   laptopStep,
   layerState,
+  listenOnlyReady,
   pipeDriver,
   readingFiles,
   readingOf,
   readingPasses,
+  SoundWatch,
   TWIN_FRAMES,
   type TwinVerdict,
   twinLoad,
@@ -505,6 +507,8 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
       own,
       drawn: drawnFrom(opened.page.edges.at_3s, opened.page.edges.at_10s, own),
     };
+    // A piece with nothing to press is ready on a laptop once it draws and starts its sound (lead's ruling 5).
+    if (listenOnlyReady(laptop, page.drawn)) laptop = { ...laptop, ready: true };
     const passed = passes(tsc, build, page);
     return {
       tsc,
@@ -585,7 +589,13 @@ async function ownFrom(
 export function laptopUnknown(laptop: CheckLaptop): string | null {
   if (laptop.mouse === 'unknown')
     return "The check could not read the app's input layer, so whether it works with a mouse and keyboard is not known.";
-  if (laptop.mouse === 'no_target')
+  // A piece with nothing to press: ready once it draws and starts its sound (lead's ruling 5); a seen silence and a
+  // sound not known are said apart, never in one sentence (AUDIT2 W1 to W3).
+  if (laptop.mouse === 'no_target' && laptop.sound === 'not_running')
+    return "The check found nothing to press, and the app's sound did not start after a key press, so it is not ready on a laptop yet.";
+  if (laptop.mouse === 'no_target' && laptop.sound !== 'running')
+    return "The check found nothing to press and could not tell whether the app's sound started, so whether it works on a laptop is not known.";
+  if (laptop.mouse === 'no_target' && !laptop.ready)
     return 'The check found nothing it can press through the input layer, so whether the app works with a mouse is not known.';
   // Whether it reads on a laptop, where the check could not measure it: said apart from whether it plays, never as
   // ready (AUDIT2); with the last measured failure where one is held.
@@ -763,6 +773,16 @@ async function openPage(
     });
     for (const domain of ['Runtime.enable', 'Page.enable'])
       await devtools.send(domain, {}, session);
+    // Whether the page's sound starts, from the browser's own WebAudio record, enabled before the page loads so every
+    // context it makes is seen, and disabled once the laptop step has read it (AUDIT3 L1).
+    const sound = new SoundWatch();
+    const stopSound = devtools.onEvent((message) => {
+      if (message.sessionId === session) sound.handle(message.method, message.params);
+    });
+    sound.answered = await devtools.send('WebAudio.enable', {}, session).then(
+      () => true,
+      () => false,
+    );
     // ?check turns on the input layer's check hook; a person's preview never has it.
     await devtools.send('Page.navigate', { url: `http://127.0.0.1:${port}/?check` }, session);
     const picture = async (
@@ -813,6 +833,7 @@ async function openPage(
       last: last.reading,
       fitFiles: files.fit,
       lastFit: last.fit,
+      sound: () => sound.read(),
     }).catch(
       (): CheckLaptop => ({
         layer,
@@ -825,6 +846,8 @@ async function openPage(
         ready: false,
       }),
     );
+    stopSound();
+    await devtools.send('WebAudio.disable', {}, session).catch(() => {});
     const laptop: CheckLaptop = { ...stepped, exceptions_during: exceptionCount - thrownBefore };
     const vr = await vrStep(devtools, session, `http://127.0.0.1:${port}/`).catch(
       (): CheckVr => ({ offered: 'unknown', how: null, exceptions: 0, ready: false }),
