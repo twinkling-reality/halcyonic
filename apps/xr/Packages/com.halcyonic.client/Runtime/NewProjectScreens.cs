@@ -1163,8 +1163,7 @@ namespace Halcyonic.Client
             // Only while a later part is there to turn to: never a "Next part" past the last.
             if (review.Paginated && review.Page < review.PageCount - 1)
             {
-                lines.Add(new PageLine(EntryText.NextPartShown(review.Page + 2, review.PageCount), icon: GlazeIcon.Next, action: NextPart)
-                    .WithUnder(EntryText.NextPartCount(review.Page + 2, review.PageCount)));
+                lines.Add(new PageLine(EntryText.NextPartShown(review.Page + 2, review.PageCount), icon: GlazeIcon.Next, action: NextPart));
             }
             var before = new Footer(Close(), farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true));
             var yes = review.CanConfirm

@@ -2836,9 +2836,10 @@ its own line; a part with no sentence end in its lines takes its three and fades
 No part's last line holds one word alone where its line above can lend one, and words of parts stand a part's three lines
 tall on every part, a shorter part centred in them, so the band never moves under the pointer (`RoomWords.MostHeightDp`, which
 `UnderFootMostDp` holds). And every other part pager under the redesign, a request's, a question's, its typed answer's,
-its answers' review, New Project's review and an unknown start's, is "Next Part" or "First Part" with its count as the row's
-or the prompt's `Under` (`FileScreens.NextPartShown`, `NextPartCount`; `EntryText.NextPartShown`, `NextPartCount`;
-`Prompt.WithUnder`, which `KitControl.Under` carries), the older view keeping its whole words. Checks that walk
+its answers' review, New Project's review and an unknown start's, is "Next Part" or "First Part" with nothing under it
+(`FileScreens.NextPartShown`, `EntryText.NextPartShown`): a count under the pager read as where you are while it named the next
+part, so it is gone (AUDIT2, 2026-11-16T2147Z), and where you are becomes the page's own quiet line, "Part 1 of 7", once the kit
+draws it; the older view keeps its whole words. Checks that walk
 the older views on purpose turn it off inside themselves until then: KitRender's old-kit states,
 `WorkspaceRender.KitSpatialCheck` and `KitActivityComposerCheck` (the old kit's spine, rail, pills and switch),
 `ShowTaskHereCheck` (the older file's Show Task Here and its one-character shelf) and New Project's older review
