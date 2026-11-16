@@ -171,3 +171,26 @@ export function join(scores: readonly Score[], gap = 3): Score {
     pedal,
   };
 }
+
+/**
+ * Which of `columns` places round the person a note's light stands at (0 ahead, counting to the right), for light
+ * that answers the music all round (`lightHall`): its key's place on the circle of fifths sets the bearing, so notes a
+ * fifth apart stand side by side and a chord's notes spread round the whole circle; a note at or above `middle` takes
+ * the next place over from the same key below it. `columns` a multiple of 24 uses every place.
+ */
+export function fifthsColumn(midi: number, middle: number, columns = 24): number {
+  const fifth = (((midi * 7) % 12) + 12) % 12;
+  return Math.floor(((fifth * 2 + (midi >= middle ? 1 : 0)) * columns) / 24) % columns;
+}
+
+/**
+ * How light that builds with a piece stands `seconds` into it (play time), building over its first `rise` seconds:
+ * `built`, 0 before the music to 1 at `rise`, slow at first; and `bloom`, its burst at `rise`, coming in over a
+ * third of a second, 1 at `rise` and dying away over the next several seconds.
+ */
+export function swell(seconds: number, rise: number): { readonly built: number; readonly bloom: number } {
+  const built = Math.min(1, Math.max(0, seconds / rise)) ** 1.6;
+  const since = seconds - rise;
+  const bloom = since < 0 ? Math.exp(-((since / 0.35) ** 2)) : Math.exp(-since / 3);
+  return { built, bloom };
+}

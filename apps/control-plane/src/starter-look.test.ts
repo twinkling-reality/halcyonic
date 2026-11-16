@@ -1352,6 +1352,19 @@ describe('a whole small piano of light in AGENTS.md, to start a piece of music a
     assert.match(example, /fallingNotes\(player, keys/);
   });
 
+  test('the hall round the person answers the notes and builds to a bloom, in place of the far haze (SHOW)', () => {
+    const example = piano();
+    assert.match(example, /const around = lightHall\(player\);/);
+    assert.match(example, /root\.add\(around\.group\);/);
+    assert.match(example, /ambientMotion\(around\.move\);/);
+    assert.match(example, /fallingNotes\(player, keys, \{ from: 'around', echo: false \}\)/);
+    // The floor it stands on is polished: light under it is seen in it.
+    assert.match(
+      read('src/places.ts'),
+      /ground\.material as MeshBasicMaterial\)\.depthWrite = false;/,
+    );
+  });
+
   test('it imports only names src/kit.ts gives', () => {
     const imported = piano().match(/import \{([^}]+)\} from '\.\/kit\.js';/);
     assert.ok(imported, "the example imports from './kit.js'");

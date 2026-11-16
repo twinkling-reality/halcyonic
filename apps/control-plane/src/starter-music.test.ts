@@ -4,6 +4,7 @@ import { describe, test } from 'node:test';
 import { pieces, pitch } from '../../../starters/iwsdk-vr/template/src/pieces.ts';
 import {
   eachHeard,
+  fifthsColumn,
   isBlack,
   join,
   occurrences,
@@ -12,6 +13,7 @@ import {
   type Score,
   scoreSeconds,
   spanning,
+  swell,
 } from '../../../starters/iwsdk-vr/template/src/score.ts';
 import {
   hertz,
@@ -306,4 +308,51 @@ describe('the starter music and light kit keeps to its page', () => {
       assert.ok(text.length > 200, `${file} is read`);
       assert.deepEqual(found(text), []);
     });
+});
+
+describe('the hall of light answers the music all round and builds with it (SHOW, 2026-11-16)', () => {
+  test('notes a fifth apart stand side by side round the hall, and a chord spreads round it', () => {
+    const middle = 60;
+    // C, G, D: each a fifth above the last, two places on each time (low and high keys share a pair of places).
+    assert.equal(fifthsColumn(48, middle), 0);
+    assert.equal(fifthsColumn(55, middle), 2);
+    assert.equal(fifthsColumn(50, middle), 4);
+    // The same key at or above the middle takes the next place over.
+    assert.equal(fifthsColumn(60, middle), 1);
+    assert.equal(fifthsColumn(72, middle), 1);
+    // C, E and G of a chord stand far apart round the circle, not side by side.
+    const places = [60, 64, 67].map((key) => fifthsColumn(key, middle));
+    assert.deepEqual(places, [1, 9, 3]);
+  });
+
+  test('every place round the hall is some key, low or high, and each key has one place', () => {
+    const middle = 60;
+    const taken = new Set<number>();
+    for (let key = 48; key < 72; key++) taken.add(fifthsColumn(key, middle));
+    assert.equal(taken.size, 24);
+    for (const column of taken) assert.ok(column >= 0 && column < 24);
+    // Fewer places: the circle shared out among them, never past the last.
+    for (let key = 21; key <= 108; key++) {
+      const column = fifthsColumn(key, middle, 12);
+      assert.ok(Number.isInteger(column) && column >= 0 && column < 12, String(key));
+    }
+  });
+
+  test('it builds from nothing to full over the rise, slowly at first, and blooms once at the top of it', () => {
+    assert.equal(swell(-3, 20).built, 0);
+    assert.equal(swell(0, 20).built, 0);
+    assert.equal(swell(20, 20).built, 1);
+    assert.equal(swell(90, 20).built, 1);
+    // Slow at first: halfway through the rise it has built a third, not a half.
+    assert.ok(swell(10, 20).built < 0.35 && swell(10, 20).built > 0.3);
+    for (let t = 0; t < 20; t += 0.5)
+      assert.ok(swell(t + 0.5, 20).built > swell(t, 20).built, String(t));
+    assert.equal(swell(20, 20).bloom, 1);
+    // Sudden: nothing a second before it, and come in within a third of a second.
+    assert.ok(swell(19, 20).bloom < 0.001);
+    assert.ok(swell(19.7, 20).bloom > 0.3);
+    // Then dying away over several seconds, and gone by the time the piece has gone on.
+    assert.ok(swell(22, 20).bloom > 0.4);
+    assert.ok(swell(35, 20).bloom < 0.01);
+  });
 });

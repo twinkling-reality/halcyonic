@@ -15,7 +15,7 @@ import {
   ShaderMaterial,
 } from 'three';
 import type { Player } from './instruments.js';
-import { isBlack } from './score.js';
+import { fifthsColumn, isBlack, swell } from './score.js';
 
 /**
  * Light for apps of music and light: soft glowing shapes, sparks, and a keyboard of light. Each kind is ONE instanced
@@ -75,6 +75,7 @@ const FRAGMENT = /* glsl */ `
   uniform float core;
   uniform float whiten;
   uniform float ramp;
+  uniform float fade;
   uniform float dim;
   uniform float ripple;
   uniform float time;
@@ -113,6 +114,8 @@ const FRAGMENT = /* glsl */ `
     vec3 light = (hot * inside * core * (0.45 + 0.55 * deep) + vColour * glow * 0.5) * dim * vNear * band;
     // A ramp, when asked: full at the shape's -y end, falling to the ramp's share at its +y end.
     if (ramp >= 0.0) light *= pow(mix(1.0, pow(ramp, 0.333), clamp(vPoint.y / max(vHalf.y, 1e-4) * 0.5 + 0.5, 0.0, 1.0)), 3.0);
+    // A fade, when asked: from nothing at both ends to full that share of the way in, so a shape has no end at all.
+    if (fade > 0.0) light *= smoothstep(0.0, fade, 0.5 - 0.5 * abs(vPoint.y) / max(vHalf.y + halo, 1e-4));
     if (dot(light, vec3(1.0)) < 0.0004) discard;
     gl_FragColor = vec4(light, 1.0);
     #include <colorspace_fragment>
@@ -163,7 +166,8 @@ export interface Glows {
  * they are drawn over what is near them (light spilling over a neighbour) instead of hidden by it. `halo` is how
  * far the glow reaches round each shape, `round` its corner radius, both in metres; a shape whose `round` is half its
  * size is a disc; `whiten` makes the core hotter than its colour; `ramp` fades each shape from full at its -y end to
- * that share at its +y end (a drop brightest at its foot). With `mirror`, the shapes are also seen reflected in a
+ * that share at its +y end (a drop brightest at its foot); `fade` fades it from nothing at both ends to full that share
+ * of its whole length in from each (a shaft of light with no end). With `mirror`, the shapes are also seen reflected in a
  * surface at height `level` of the object's frame, `strength` as bright, `stretch` times as tall (water stretches a
  * light's reflection downward) and `narrow` times as wide, fading the higher a shape hangs over it (`lift` metres
  * to fall to a third), broken into `ripple` bands that sway (0 for dark glass, about 9 for a lake at dusk). Add
@@ -180,6 +184,7 @@ export function glows(
     core?: number;
     whiten?: number;
     ramp?: number;
+    fade?: number;
     mirror?: { level: number; strength?: number; stretch?: number; narrow?: number; lift?: number; ripple?: number };
   } = {},
 ): Glows {
@@ -191,6 +196,7 @@ export function glows(
     whiten: { value: options.whiten ?? 0 },
     dim: { value: dim },
     ramp: { value: options.ramp ?? -1 },
+    fade: { value: options.fade ?? 0 },
     stretch: { value: stretch },
     narrow: { value: 1 },
     level: { value: 0 },
@@ -513,7 +519,7 @@ export function lightKeys(
   const whiteLength = keyWidth * 4.6;
   const blackLength = whiteLength * 0.62;
   const depth = 0.018;
-  const raised = depth * 1.1;
+  const raised = depth * 0.55;
   const idle = options.idle ?? new Color('#40508A');
   // Smoky glass: far darker than the white keys, so the two kinds read apart at a glance.
   const blackIdle = idle.clone().multiplyScalar(0.12);
@@ -542,7 +548,7 @@ export function lightKeys(
       tz: place.tz,
       ox: place.ox,
       oz: place.oz,
-      width: black ? keyWidth * 0.55 : keyWidth * 0.92,
+      width: black ? keyWidth * 0.55 : keyWidth * 0.96,
       length: black ? blackLength : whiteLength,
     });
   }
@@ -768,6 +774,7 @@ export function fallingNotes(
     reach?: number;
     from?: 'above' | 'around';
     floor?: number;
+    echo?: boolean;
   } = {},
 ): FallingNotes {
   const fall = options.fall ?? 1.7;
@@ -928,7 +935,7 @@ export function fallingNotes(
       pools.begin();
       player.each(0.5, fall / speed, draw);
       echoes.begin();
-      player.each(2, 0, echo);
+      if (options.echo !== false) player.each(2, 0, echo);
       echoes.end();
       keys.end();
       drops.end();
@@ -938,6 +945,334 @@ export function fallingNotes(
       pools.end();
       motes.update(delta);
       previous = now;
+    },
+  };
+}
+
+/** A hall of light round the person, answering a score: what `lightHall` makes. */
+export interface LightHall {
+  /** The hall's light, round the group's origin, its floor at the group's own height 0: stand it where the person stands. */
+  readonly group: Group;
+  /** Draws a frame from the player's time; pass it to `ambientMotion`. */
+  move(time: number): void;
+}
+
+/** The hall's colours round the person: deep blue ahead, sea blue and violet to the sides, rose behind. */
+const AROUND = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0'), new Color('#E06AB8')];
+
+/**
+ * Makes a hall of light round the person that answers a score (`playScore`) and builds with it: `columns` columns of
+ * light stand in a ring `radius` metres out, rising from the floor into the dark `height` metres up, each faintly its
+ * own colour (deep blue ahead, sea blue and violet beside, rose behind). Each note sends its light climbing one column
+ * (the notes a fifth apart stand side by side round the ring, so a chord lights the hall all round) and, when it
+ * reaches the top, lights a point of a rose of light overhead, which grows from its middle outward as the music goes
+ * on. Over the first `rise` seconds of the music the columns and the rose grow brighter, until at `rise` the hall
+ * blooms: every column flares to its top, the whole rose lights at once and a ring of light runs out across the
+ * floor; then it settles to a steady glow and goes on answering. Read from the player's time, so it lands with the
+ * sound. Add `group` where the person stands, its height 0 on the floor.
+ */
+export function lightHall(
+  player: Player,
+  options: {
+    radius?: number;
+    height?: number;
+    columns?: number;
+    rise?: number;
+    colour?: (midi: number) => Color;
+    quality?: 'auto' | 'high' | 'low';
+  } = {},
+): LightHall {
+  const radius = options.radius ?? 6.5;
+  const height = options.height ?? 10;
+  const count = options.columns ?? 24;
+  const rise = options.rise ?? 20;
+  let low = Number.POSITIVE_INFINITY;
+  let high = Number.NEGATIVE_INFINITY;
+  for (const note of player.score.notes) {
+    low = Math.min(low, note.pitch);
+    high = Math.max(high, note.pitch);
+  }
+  const middle = Math.round((low + high) / 2);
+  const homes = Array.from({ length: count }, (_, i) => {
+    const a = (i / count) * Math.PI * 2;
+    // 0 ahead, 1 behind, either way round, changing evenly with the bearing.
+    const t = Math.min(a, Math.PI * 2 - a) / Math.PI;
+    const at = t * (AROUND.length - 1);
+    const k = Math.min(AROUND.length - 2, Math.floor(at));
+    return { x: Math.sin(a) * radius, z: -Math.cos(a) * radius, colour: (AROUND[k] as Color).clone().lerp(AROUND[k + 1] as Color, at - k) };
+  });
+  // The light overhead: a slowly turning galaxy of fine points over the person, three arms winding out from its
+  // middle, its middle a little higher than its rim; warm at its heart, violet along its arms, deep blue at its rim.
+  // Points of many sizes and brightnesses, nearest the middle first, so it can grow outward.
+  const petals = 1400;
+  const crown = height * 0.6;
+  const span = radius * 0.95;
+  // How far the galaxy's rim dips toward the floor: it comes down round the person like a dome, its rim in view at eye
+  // height.
+  const dip = 2.6;
+  let seed = 7;
+  const random = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  const heart = new Color('#FFC8E6');
+  const rose = Array.from({ length: petals }, (_, k) => {
+    const u = random() ** 0.75;
+    const r = 0.15 + u * span;
+    const arm = (k % 3) * ((Math.PI * 2) / 3);
+    // Scattered about each arm, more widely near the middle, and a few between the arms.
+    const off = (random() + random() + random() - 1.5) * (random() < 0.15 ? 1.6 : 0.45);
+    const a = arm + 1.9 * Math.log(1 + r) + off;
+    const t = Math.min(1, r / span);
+    const colour = t < 0.5 ? heart.clone().lerp(AROUND[2] as Color, t * 2) : (AROUND[2] as Color).clone().lerp(AROUND[0] as Color, (t - 0.5) * 2);
+    const size = 0.005 + 0.028 * random() ** 4;
+    const own = 0.35 + 0.65 * random() ** 2;
+    return { r, a, y: crown - dip * t ** 2 + (random() - 0.5) * 1.2, colour, size, own, twinkle: 0.6 + random() * 2.2, phase: random() * 6.28 };
+  }).sort((p, q) => p.r - q.r);
+  // The arms' own soft light: wide faint glows along each arm's middle.
+  const veils = Array.from({ length: 96 }, (_, k) => {
+    const r = 0.3 + ((k / 3) / 32) * span;
+    const a = (k % 3) * ((Math.PI * 2) / 3) + 1.9 * Math.log(1 + r);
+    const t = Math.min(1, r / span);
+    return { r, a, y: crown - dip * t ** 2, colour: (rose[Math.min(petals - 1, Math.floor(t * t * petals))] as (typeof rose)[number]).colour };
+  });
+  const group = new Group();
+  // The columns: soft shafts of light, a faint bright thread down each middle, fading to nothing at the top, so each
+  // rises out of the floor into the dark.
+  // All of it is also seen in the polished floor (`darkHall`'s), so each column runs on down into its reflection.
+  const polish = { level: 0, strength: 0.55, narrow: 1 };
+  // Beyond them a second ring, twice as far, of fainter and finer columns, so the hall has depth all round.
+  const outer = Math.round(count * 1.5);
+  const beyond = Array.from({ length: outer }, (_, i) => {
+    const a = ((i + 0.5) / outer) * Math.PI * 2;
+    const n = Math.round((i / outer) * count) % count;
+    return { x: Math.sin(a) * radius * 2.3, z: -Math.cos(a) * radius * 2.3, colour: (homes[n] as (typeof homes)[number]).colour };
+  });
+  const pillars = glows(count + outer, { upright: true, halo: 0.55, round: 0.05, core: 0.18, whiten: 0.3, fade: 0.4, mirror: { level: 0, strength: 0.6, narrow: 1 } });
+  // A note's light climbing its column: a long soft glow, brightest at its head, its tail fading to nothing, so notes
+  // following each other up a column run together as one light, never as stacked bars.
+  const climbs = glows(200, { upright: true, halo: 0.18, round: 0.02, core: 0.6, whiten: 0.6, ramp: 0, fade: 0.12, mirror: polish });
+  // The bloom's light overhead: one wide soft glow over the person, under the rose.
+  const crownLight = glows(1, { facing: true, halo: 4, round: 1, core: 0 });
+  // The rose's points, the floor's light at each column's foot, and the bloom's ring running out across the floor.
+  const points = glows(petals, { facing: true, halo: 0.025, round: 1, core: 0.9, whiten: 0.5, mirror: { level: 0, strength: 0.22, narrow: 1 } });
+  const arms = glows(veils.length, { facing: true, halo: 0.7, round: 1, core: 0 });
+  const floor = glows(count + 96 * 3 + 20 * 24, { halo: 0.5, round: 1, core: 0 });
+  // Light drifting near the person, 1.5 m to 5 m away all round, so the hall has something close as well as far.
+  const nearby = Array.from({ length: 140 }, () => {
+    const a = random() * Math.PI * 2;
+    const r = 1.6 + random() * 3.4;
+    return { x: Math.sin(a) * r, y: 0.4 + random() * 3.2, z: -Math.cos(a) * r, phase: random() * 6.28, size: 0.006 + 0.012 * random() ** 2, n: Math.floor((a / (Math.PI * 2)) * count) % count };
+  });
+  const near = glows(nearby.length, { facing: true, halo: 0.03, round: 1, core: 0.8, whiten: 0.4 });
+  // Sparks rising from a column's foot as each note starts up it.
+  const embers = sparks(600);
+  group.add(floor.object, pillars.object, climbs.object, arms.object, points.object, crownLight.object, embers.object, near.object);
+  const climb = 4;
+  const top = height / climb;
+  const shade = new Color();
+  const tinted = (note: { pitch: number; loud: number }) =>
+    options.colour?.(note.pitch) ?? registerColour(note.pitch + (note.loud - 0.45) * 0.6 * (high - low), low, high, shade);
+  // How lit each column and each point of the rose is this frame by the notes, summed over the notes.
+  const lit = new Float32Array(count);
+  const flash = new Float32Array(petals);
+  const flashColour = Array.from({ length: petals }, () => new Color());
+  const litColour = Array.from({ length: count }, () => new Color());
+  const newest = new Float32Array(count);
+  const newestLoud = new Float32Array(count);
+  let built = 0;
+  let now = 0;
+  let rings = 0;
+  let waves = 0;
+  let wave = 0;
+  let previous = Number.POSITIVE_INFINITY;
+  let lastTime = Number.NaN;
+  // Under 'auto', a stretch of slow frames lowers the detail a step, at most once every three seconds: first every
+  // other point of the galaxy, then its arms' soft light, the far ring of columns and what the floor mirrors too.
+  const quality = options.quality ?? 'auto';
+  let detail = quality === 'low' ? 0 : 1;
+  let slow = 0;
+  let lastFrame = Number.NaN;
+  let lastStep = Number.NEGATIVE_INFINITY;
+  // The last step: nothing mirrored in the floor.
+  const unmirror = () => {
+    for (const set of [pillars, climbs, points])
+      for (const child of set.object.children) if (child !== set.mesh) child.visible = false;
+  };
+  if (detail === 0) unmirror();
+  const visit = (note: { pitch: number; loud: number }, start: number) => {
+    const since = now - start;
+    if (since < 0) return;
+    const c = tinted(note);
+    const i = fifthsColumn(note.pitch, middle, count);
+    const home = homes[i] as (typeof homes)[number];
+    const loud = 0.45 + note.loud;
+    // Where it starts up, a ring of its light runs out across the floor round the column's foot.
+    if (since < 1.4 && rings < 20) {
+      const r = 0.2 + since * 1.8;
+      const fade = (1 - since / 1.4) ** 2 * 0.9 * loud * (0.5 + 0.5 * built);
+      for (let k = 0; k < 24; k++) {
+        const a = (k / 24) * Math.PI * 2;
+        const s = Math.sin(a);
+        const o = Math.cos(a);
+        floor.place(home.x + s * r, 0.008, home.z + o * r, o, 0, -s, s, 0, o, (2 * Math.PI * r) / 20, 0.2, c, fade);
+      }
+      rings += 1;
+    }
+    // A low note sends a ring of its light out across the floor from the keyboard, lighting each column as it passes.
+    if (note.pitch < middle - 6 && since < 2.6 && waves < 3) {
+      const r = 1.2 + since * 3.2;
+      const fade = (1 - since / 2.6) ** 1.5 * 0.5 * loud * (0.4 + 0.6 * built);
+      for (let k = 0; k < 96; k++) {
+        const a = (k / 96) * Math.PI * 2;
+        const sa = Math.sin(a);
+        const ca = -Math.cos(a);
+        floor.place(sa * r, 0.01, ca * r, -ca, 0, sa, sa, 0, ca, (2 * Math.PI * r) / 80, 0.3, c, fade);
+      }
+      const passing = Math.exp(-(((r - radius) / 0.8) ** 2)) * fade * 2;
+      wave = Math.max(wave, passing);
+      waves += 1;
+    }
+    if (start > previous && start <= now)
+      embers.emit(home.x, 0.05, home.z, c, 8 + Math.round(8 * note.loud), { rise: 0.8, spread: 0.6, life: 2.2, size: 0.022 });
+    if (since < top) {
+      const fade = Math.exp(-since * 0.35);
+      lit[i] = (lit[i] ?? 0) + 0.5 * loud * fade;
+      // Only the newest note climbing a column is drawn, so lights following each other never pile up.
+      if (since < (newest[i] as number)) {
+        newest[i] = since;
+        newestLoud[i] = loud;
+        (litColour[i] as Color).copy(c);
+      }
+    }
+    // At the top it lights a point of the rose, which glows and fades over some seconds; while the hall is still
+    // building, only the rose's middle is grown, so it fills outward with the music.
+    const after = since - top;
+    if (after >= 0 && after < 9) {
+      const h = Math.sin(start * 12.9898 + note.pitch * 78.233) * 43758.5453;
+      const reach = Math.max(13, Math.floor(petals * (0.15 + 0.85 * built)));
+      const k = Math.floor((h - Math.floor(h)) * reach);
+      const glow = 0.9 * loud * Math.min(1, after / 0.08) * Math.exp(-after * 0.45);
+      if (glow > (flash[k] ?? 0)) (flashColour[k] as Color).copy(c);
+      flash[k] = Math.max(flash[k] ?? 0, glow);
+    }
+  };
+  const ring = new Color();
+  return {
+    group,
+    move(time) {
+      now = player.now();
+      if (quality === 'auto' && detail > 0) {
+        const dt = time - lastFrame;
+        if (dt > 0 && dt < 1) slow = slow * 0.95 + (dt > 1 / 50 ? 0.05 : 0);
+        if (slow > 0.6 && time - lastStep > 3) {
+          detail = Math.max(0, detail - 0.5);
+          lastStep = time;
+          slow = 0;
+          if (detail === 0) unmirror();
+        }
+      }
+      lastFrame = time;
+      // How far the hall has built, 0 before the music to 1 at its bloom; and the bloom itself, sudden and long fading.
+      const swelling = swell(now, rise);
+      built = swelling.built;
+      const since = now - rise;
+      const bloom = swelling.bloom;
+      // After the bloom the hall keeps a steady glow a little under its peak.
+      const rest = 0.05 + 0.3 * built - (since > 0 ? 0.08 * Math.min(1, since / 6) : 0);
+      lit.fill(0);
+      flash.fill(0);
+      newest.fill(Number.POSITIVE_INFINITY);
+      rings = 0;
+      waves = 0;
+      wave = 0;
+      floor.begin();
+      climbs.begin();
+      player.each(top + 9, 0, visit);
+      pillars.begin();
+      for (let i = 0; i < count; i++) {
+        const home = homes[i] as (typeof homes)[number];
+        const notes = Math.min(1, lit[i] ?? 0);
+        shade.copy(home.colour).lerp(litColour[i] as Color, notes > 0 ? 0.6 : 0);
+        const strength = rest + 0.35 * notes + 1.6 * bloom + wave;
+        const going = newest[i] as number;
+        if (going < top) {
+          // Climbing, its head at y and its tail below, fading as it goes.
+          const y = going * climb;
+          const tail = Math.min(y, 3);
+          const fade = Math.exp(-going * 0.35);
+          climbs.place(home.x, y - tail / 2, home.z, 1, 0, 0, 0, -1, 0, 0.035, tail, litColour[i] as Color, 0.8 * (newestLoud[i] as number) * fade * (0.5 + 0.5 * built));
+        }
+        pillars.add(home.x, height * 0.7, home.z, 0.14, height * 1.4, shade, 1.4 * strength);
+        // Its light lying on the floor round its foot, so the floor is seen where it stands.
+        floor.place(home.x, 0.006, home.z, 1, 0, 0, 0, 0, 1, 1.6, 1.6, shade, 0.35 * strength);
+        // The bloom runs up every column at once from its foot into the light overhead.
+        if (since >= 0 && since < 2.5) {
+          const y = since * 5;
+          const tail = Math.min(y, 7);
+          climbs.place(home.x, y - tail / 2, home.z, 1, 0, 0, 0, -1, 0, 0.14, tail, home.colour, 0.9 * (1 - since / 2.5));
+        }
+      }
+      for (const far of detail > 0 ? beyond : []) {
+        const tall = height * 2;
+        pillars.add(far.x, tall / 2, far.z, 0.08, tall, far.colour, 0.9 * rest + 1.2 * bloom);
+      }
+      // The bloom's ring runs out across the floor from the person's feet past the columns.
+      if (since >= 0 && since < 3) {
+        const r = 0.8 + since * 4;
+        const fade = (1 - since / 3) ** 2;
+        for (let k = 0; k < 96; k++) {
+          const a = (k / 96) * Math.PI * 2;
+          const s = Math.sin(a);
+          const c = -Math.cos(a);
+          const n = Math.round(((a / (Math.PI * 2)) * count) % count) % count;
+          ring.copy((homes[n] as (typeof homes)[number]).colour);
+          floor.place(s * r, 0.012, c * r, -c, 0, s, s, 0, c, (2 * Math.PI * r) / 60, 0.5, ring, 0.6 * fade);
+        }
+      }
+      pillars.end();
+      climbs.end();
+      near.begin();
+      for (const m of nearby) {
+        const drift = time * 0.05 + m.phase;
+        const c = (homes[m.n] as (typeof homes)[number]).colour;
+        near.add(m.x + Math.sin(drift) * 0.3, m.y + Math.sin(drift * 0.7) * 0.2, m.z + Math.cos(drift * 0.8) * 0.3, m.size, m.size, c, (0.25 + 0.5 * built + 1.2 * bloom) * (0.6 + 0.4 * Math.sin(time * 0.9 + m.phase * 3)));
+      }
+      near.end();
+      embers.update(Number.isNaN(lastTime) ? 0 : time - lastTime);
+      lastTime = time;
+      previous = now;
+      floor.end();
+      points.begin();
+      const turn = now * 0.015;
+      const grown = petals * (0.12 + 0.88 * built);
+      const every = detail < 1 ? 2 : 1;
+      for (let k = 0; k < petals; k += every) {
+        const p = rose[k] as (typeof rose)[number];
+        // Points beyond the grown middle wait in the dark, each coming in softly as the galaxy reaches it.
+        const shown = Math.min(1, Math.max(0, grown - k) / 40);
+        const lit = flash[k] ?? 0;
+        const glint = 0.7 + 0.3 * Math.sin(time * p.twinkle + p.phase);
+        const strength = p.own * glint * (shown * (0.3 + 0.5 * built) + 4 * bloom) + lit;
+        if (strength <= 0.002) continue;
+        const a = p.a + turn;
+        shade.copy(p.colour);
+        if (lit > 0) shade.lerp(flashColour[k] as Color, Math.min(1, lit * 2));
+        const size = p.size * (1 + 1.5 * Math.min(1, lit) + 0.3 * bloom);
+        points.add(Math.sin(a) * p.r, p.y, -Math.cos(a) * p.r, size, size, shade, strength);
+      }
+      points.end();
+      arms.begin();
+      for (const v of detail > 0 ? veils : []) {
+        const shown = Math.min(1, Math.max(0, grown / petals - v.r / span + 0.1) * 5);
+        const a = v.a + turn;
+        arms.add(Math.sin(a) * v.r, v.y, -Math.cos(a) * v.r, 0.2, 0.2, v.colour, shown * (0.015 + 0.03 * built) + 0.1 * bloom);
+      }
+      arms.end();
+      crownLight.begin();
+      ring.copy(AROUND[2] as Color).lerp(AROUND[3] as Color, 0.4);
+      crownLight.add(0, crown + 0.5, 0, 1, 1, ring, 0.04 * built + 0.6 * bloom);
+      crownLight.end();
     },
   };
 }

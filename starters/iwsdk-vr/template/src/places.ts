@@ -114,31 +114,34 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   const misted = horizon.clone().add(mist);
   group.add(sky(black, misted, misted, 120));
   // The haze ring (below) stands 44 m out; the floor carries its low glow on toward the person, with no seam.
-  group.add(floor(tint.clone().multiplyScalar(0.1), horizon, 60, mist, 44));
+  // Polished: it writes no depth, so light mirrored under it (`lightHall`'s columns and the light overhead) shows in it.
+  const ground = floor(tint.clone().multiplyScalar(0.1), horizon, 60, mist, 44);
+  (ground.material as MeshBasicMaterial).depthWrite = false;
+  // After the sky (-0.95), before anything standing on it.
+  ground.renderOrder = -0.9;
+  group.add(ground);
   const count = options.motes ?? 160;
   const motes = glows(count, { facing: true, halo: 0.01, round: 1 });
   group.add(motes.object);
   const random = seeded(4242);
-  const home = Array.from({ length: count }, () => [
-    (random() - 0.5) * 16,
-    0.3 + random() * 4.5,
-    -0.5 - random() * 14,
-    random() * 6.28,
-    0.003 + random() * 0.005,
-  ]);
+  // All round the person, from 2 m to 15 m away, so dust drifts on every side they turn to.
+  const home = Array.from({ length: count }, () => {
+    const a = random() * Math.PI * 2;
+    const r = 2 + random() * 13;
+    return [Math.sin(a) * r, 0.3 + random() * 4.5, -Math.cos(a) * r, random() * 6.28, 0.003 + random() * 0.005];
+  });
   const dust = new Color('#8FA6FF');
   // Haze far off, low over the floor, so the dark has depth and is not a wall: one soft ring of the tint all round,
-  // rising softly out of the floor with no edge, brightest three metres up and fading to nothing above, with no crease
-  // anywhere in it (a single smooth curve, never two joined at their peak).
-  const ring = new CylinderGeometry(44, 44, 12, 96, 24, true);
-  ring.translate(0, 6, 0);
+  // brightest along the floor and fading to nothing above, with no crease anywhere in it (a single smooth curve).
+  // Seen again in the polished floor below it, nearly as bright, as a floor mirrors what it is seen along: brightest
+  // where it meets the floor and level there, so the haze and its reflection are one band with no line between.
+  const ring = new CylinderGeometry(44, 44, 24, 96, 48, true);
   const at = ring.getAttribute('position');
   const glow: number[] = [];
   for (let i = 0; i < at.count; i++) {
     const y = at.getY(i);
-    const t = Math.min(1, Math.max(0, y / 12));
-    // Starting flat at its foot, so the line where it meets the floor never shows.
-    const k = ((t * t * (1 - t) ** 6) / 0.01112) * 0.16;
+    const t = Math.min(1, Math.abs(y) / 12);
+    const k = (1 - t) ** 6 * (1 + 6 * t) * 0.12 * (y < 0 ? 0.85 : 1);
     glow.push(tint.r * k, tint.g * k, tint.b * k);
   }
   ring.setAttribute('color', new Float32BufferAttribute(glow, 3));

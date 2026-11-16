@@ -222,7 +222,15 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   music, while the hall far off answers each note in its colour, all round the person; give `lightKeys` `{ glass:
   true }` and the keys stand on dark glass that mirrors each key's flare and the light rising from it, not the keys
   themselves; give `fallingNotes` `{ floor }`, the floor's height in the keys' group's own frame, and each note's light
-  pools on the floor under its key. Each is written afresh every frame and makes nothing new in it. Keep the place dark behind them:
+  pools on the floor under its key. `lightHall(player)` makes the hall itself answer, all round the person: soft
+  columns of light stand in a ring 6.5 m out (a fainter ring beyond, and light drifting near the person), each note's
+  light climbs one (notes a fifth apart side by side, so a chord lights the hall all round) with sparks and a ring at
+  its foot, a low note sends a ring of light out across the floor that lights each column as it passes, and each note
+  lights a point of a slowly turning galaxy overhead that grows outward with the music; over the first 20 seconds it
+  builds, then blooms (every column flares and a wave runs up them, the galaxy lights whole) and settles to a steady
+  glow; `darkHall`'s polished floor mirrors it. Add its `group` to the group `setupScene` returns, pass its `move` to
+  `ambientMotion`, and give `fallingNotes` `{ echo: false }`, as the hall answers in place of the far haze. Each is
+  written afresh every frame and makes nothing new in it. Keep the place dark behind them:
   light adds up where it overlaps.
 - For light of your own, the same parts are general: `glows` with `upright: true` keeps each shape vertical however
   the head tilts (a falling drop, a rising column), `place(...)` lays a shape in any plane (light along a curve, on a
@@ -427,7 +435,7 @@ person in a dark hall, and Bach's Prelude and Satie's first Gymnopedie falling o
 import { World } from '@iwsdk/core';
 import { Group } from 'three';
 import projectOptions from 'virtual:iwsdk-project';
-import { ambientMotion, darkHall, fallingNotes, join, lightKeys, pieces, playScore, range, setupPlayInput, setupScene } from './kit.js';
+import { ambientMotion, darkHall, fallingNotes, join, lightHall, lightKeys, pieces, playScore, range, setupPlayInput, setupScene } from './kit.js';
 import { PanelSystem } from './panel.js';
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
@@ -448,7 +456,12 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   keyboard.position.set(0, 1.0, 0);
   keyboard.add(keys.group);
   root.add(keyboard);
-  ambientMotion(fallingNotes(player, keys).move);
+  // The hall answers each note all round (below), so the far haze need not.
+  ambientMotion(fallingNotes(player, keys, { from: 'around', echo: false }).move);
+  // The hall all round answers each note and builds with the music to a bloom 20 seconds in.
+  const around = lightHall(player);
+  root.add(around.group);
+  ambientMotion(around.move);
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
 });
