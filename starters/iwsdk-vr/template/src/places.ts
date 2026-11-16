@@ -392,7 +392,7 @@ export function openLand(
   const shadow = new Color();
   // The grade: gold for the sun's light, blue-violet for the sky's light in shade.
   const gold = sunColour.clone().lerp(new Color('#FFC27A'), 0.5);
-  const shadeSky = top.clone().lerp(middle, 0.35).lerp(new Color('#5A5BB0'), 0.4);
+  const shadeSky = top.clone().lerp(middle, 0.35).lerp(new Color('#4A45A8'), 0.5);
   const farShade = shadeSky.clone().multiplyScalar(0.75);
   const c = new Color();
   const step = 0.35;
@@ -414,7 +414,7 @@ export function openLand(
     into.copy(near).lerp(far, Math.min(1, (r / radius) ** 0.6));
     // In shade the sand still has the sky's light and a little warmth bounced from the lit slopes round it.
     // Graded as dusk light is: faces toward the sun gold, faces away from it cool blue-violet, lit by the sky.
-    shadow.copy(into).multiplyScalar(0.32).lerp(shadeSky, 0.4);
+    shadow.copy(into).multiplyScalar(0.26).lerp(shadeSky, 0.5);
     lit.copy(into).lerp(gold, 0.55).multiplyScalar(1.9);
     let shade = 0;
     // No march where the shadow would fade to nothing anyway (past 44 m): most of the land's rings are out there.
@@ -430,21 +430,21 @@ export function openLand(
     shade *= 1 - Math.min(1, Math.max(0, (r - 24) / 20));
     const k = Math.min(1, Math.max(0, (facing + 0.12) / 0.5)) * (1 - 0.85 * shade);
     // Sand seen toward the low sun from where the person stands is lit through the air and the glowing sky: its
-    // shade is filled warm, so the slopes under the sun never read as lit from somewhere else.
+    // shade is filled a little warm, yet stays dark, so dunes against the sun stand as shapes edged in light.
     const bearing = r > 0.5 ? Math.max(0, (x * Math.sin(sunAt) - z * Math.cos(sunAt)) / r) : 0;
-    const fill = bearing * bearing * 0.18;
+    const fill = bearing * bearing * 0.07;
     // Broad soft changes over the shaded faces, as wind leaves them, so no face is one flat colour.
     const wander = 1 + 0.09 * Math.sin(x * 0.21 + z * 0.13) * Math.sin(z * 0.17 - x * 0.07 + 1.3);
     shadow.lerp(lit, fill).multiplyScalar(wander);
     // Far off light and shade draw together, as distance and haze soften them: a far slip face never reads as a
     // dark ruled line under its crest.
     const kk = k * k * (3 - 2 * k);
-    into.copy(shadow).lerp(lit, kk + (0.55 - kk) * 0.65 * Math.min(1, Math.max(0, (r - 22) / 45)));
+    into.copy(shadow).lerp(lit, kk + (0.55 - kk) * 0.45 * Math.min(1, Math.max(0, (r - 22) / 45)));
     // A warm rim along a crest turned toward the sun: where the ground bends over (its heights round it lower than
     // it), lit, and facing the sun's side.
     const bend = (4 * y - height(x + 1, z) - height(x - 1, z) - height(x, z + 1) - height(x, z - 1)) / 4;
     const rim = Math.min(1, Math.max(0, bend * 3)) * Math.min(1, facing / 0.25) * (1 - shade);
-    into.lerp(sunColour, rim * 0.35);
+    into.lerp(sunColour, rim * 0.5);
     // Only far off does the ground go into the haze, so far crests still stand against the sky.
     // Far off the sand goes into the haze, until at its edge it is exactly the sky behind it at that bearing, so the
     // land's edge never shows as a line.
@@ -669,7 +669,7 @@ export function openLand(
       vec3 n = normalize(vec3(ns.r * 2.0 - 1.0, ns.b, ns.g * 2.0 - 1.0));
       float faceSun = max(0.0, dot(n, sandSun3));
       vec3 base = mix(sandBaseNear, sandBaseFar, pow(min(1.0, length(p) / sandReach), 0.6));
-      vec3 shadeC = mix(base * 0.3, sandShadeSky, 0.55);
+      vec3 shadeC = mix(base * 0.24, sandShadeSky, 0.6);
       vec3 litC = mix(base, sandGold, 0.55) * 1.9;
       float k = clamp((faceSun + 0.12) / 0.5, 0.0, 1.0);
       vec3 farLight = mix(shadeC, litC, k * k * (3.0 - 2.0 * k));
