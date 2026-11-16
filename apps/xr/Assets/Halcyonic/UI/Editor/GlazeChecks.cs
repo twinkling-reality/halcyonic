@@ -677,6 +677,9 @@ namespace Halcyonic.XR.UI.Editor
             const int Tries = 3;
             using var calls = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC Allocation In Frame Count");
             using var allocated = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC Allocated In Frame");
+            // The same count on this thread alone, for the diagnostic below (AUDIT's 06:41Z: which thread the bytes came from).
+            using var allocatedHere = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC Allocated In Frame", 1,
+                Unity.Profiling.ProfilerRecorderOptions.Default | Unity.Profiling.ProfilerRecorderOptions.CollectOnlyOnCurrentThread);
             var allocating = new int[steps];
             for (var index = 0; index < 4; index++) step(index % steps);
             var probe = calls.CurrentValue;
@@ -689,9 +692,15 @@ namespace Halcyonic.XR.UI.Editor
                 if (round > 0) System.Threading.Thread.Sleep(250);
                 Array.Clear(allocating, 0, steps);
                 var bytes = long.MaxValue;
+                var bytesHere = long.MaxValue;
+                // Whether the Editor still compiles shaders or imports as the round starts: a first measured pass of a run once counted
+                // frames allocating that no later pass did (shelf 11-16 03:03Z, stage 03:52Z and 06:38Z); the cause is read here first.
+                var compiling = UnityEditor.ShaderUtil.anythingCompiling;
+                var updating = UnityEditor.EditorApplication.isUpdating;
                 for (var attempt = 0; attempt < Tries; attempt++)
                 {
                     var before = allocated.CurrentValue;
+                    var beforeHere = allocatedHere.CurrentValue;
                     for (var index = 0; index < steps; index++)
                     {
                         var count = calls.CurrentValue;
@@ -699,8 +708,12 @@ namespace Halcyonic.XR.UI.Editor
                         if (calls.CurrentValue > count) allocating[index]++;
                     }
                     bytes = Math.Min(bytes, allocated.CurrentValue - before);
+                    bytesHere = Math.Min(bytesHere, allocatedHere.CurrentValue - beforeHere);
                 }
                 var found = (allocating.Count(tries => tries == Tries), allocating.Count(tries => tries > 0), bytes);
+                Debug.Log("Halcyonic: allocation round " + (round + 1) + " of " + steps + " steps: " + found.Item1 + " in every try, " + found.Item2
+                    + " in some; the quietest try counts " + bytes + " bytes on every thread, " + bytesHere + " on this one; shaders compiling " + compiling
+                    + ", importing " + updating + ".");
                 if (quietest == null || found.Item1 < quietest.Value.Every) quietest = found;
                 if (quietest.Value.Every == 0) break;
             }
