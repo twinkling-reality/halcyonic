@@ -32,6 +32,7 @@ import {
   type RuntimeAdapter,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
+import { NO_COPIES_HERE } from '../core/command-service.ts';
 import { ControlPlane } from '../core/control-plane.ts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { createUuidV7Generator } from '../ids.ts';
@@ -103,7 +104,12 @@ function writingRuntime(runtimeId = 'writer') {
 
 function setup(
   name: string,
-  options: { linkedRepository?: boolean; copiesOff?: boolean; notHeldInCopies?: boolean } = {},
+  options: {
+    linkedRepository?: boolean;
+    copiesOff?: boolean;
+    notHeldInCopies?: boolean;
+    promised?: boolean;
+  } = {},
 ) {
   const root = join(base, name);
   const projects = join(root, 'projects');
@@ -130,6 +136,7 @@ function setup(
     logger: capturingLogger().logger,
     commandTimeoutMs: 30_000,
     locations: createHostLocations([projects]),
+    ...(options.promised === undefined ? {} : { taskCopiesPromised: options.promised }),
     checkpoints: {
       store: new CheckpointStore({ git: GIT, directory: join(root, 'checkpoints') }),
       keeping: { downloads, reveal: async () => true },
@@ -822,6 +829,41 @@ describe('several agents on one project (ADR 0045)', {
       refused.command?.rejection?.message ?? '',
       /This task's copy is off on this computer/,
     );
+  });
+
+  test('copies promised but none this computer can make: the task is refused before it starts, never run in the folder', async () => {
+    // As on a Mac with copies on and no git Halora trusts (the lead, 2026-11-16): nothing reaches the project's folder.
+    const { controlPlane, folder, task, start, of } = setup('promised', {
+      copiesOff: true,
+      promised: true,
+    });
+    const first = task('Lanterns');
+    const sent = start(first, 'lanterns');
+    const id = sent.command?.command_id ?? '';
+    await until(() => controlPlane.projection.command(id)?.status === 'failed', 'the refusal');
+    const failed = controlPlane.projection.command(id);
+    assert.equal(failed?.failure?.code, 'capability_unsupported');
+    assert.equal(failed?.failure?.effect, 'none');
+    assert.equal(failed?.failure?.message, NO_COPIES_HERE);
+    assert.equal(of('runtime.execution.started', first).length, 0, 'no agent started');
+    assert.equal(of('runtime.turn.started', first).length, 0);
+    assert.equal(
+      readFileSync(join(folder, 'app.txt'), 'utf8'),
+      'person\n',
+      'the folder is untouched',
+    );
+  });
+
+  test('copies turned off by the owner: a task still runs in the project folder, as before', async () => {
+    const { folder, task, start, of, finish } = setup('owner-off', {
+      copiesOff: true,
+      promised: false,
+    });
+    const first = task('Lanterns');
+    assert.equal(start(first, 'lanterns').disposition, 'accepted');
+    await until(() => of('runtime.turn.started', first).length === 1, 'the turn');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'lanterns\n');
+    finish();
   });
 
   test("Save a Copy puts a zip of the project's files in Downloads, and Show in Finder shows the folder (F3)", async () => {

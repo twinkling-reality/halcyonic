@@ -72,6 +72,11 @@ export interface ControlPlaneOptions {
    * Where Halcyonic keeps checkpoints of project folders for its own undo (ADR 0036). Absent,
    * undo is off: no checkpoint is taken and `project.restore` is refused.
    */
+  /**
+   * Whether every task is promised its own copy (`HALCYONIC_TASK_COPIES`, on by default): then a task the host cannot
+   * give one, as with no git it trusts, is refused before it starts, never run in the project's folder instead.
+   */
+  readonly taskCopiesPromised?: boolean;
   readonly checkpoints?: {
     readonly store: CheckpointStore;
     readonly restoreHooks?: RestoreHooks;
@@ -458,6 +463,7 @@ export class ControlPlane {
       redaction: this.redaction,
       checkpoints: this.checkpoints,
       copies,
+      copiesPromised: options.taskCopiesPromised ?? false,
       keeping:
         options.checkpoints?.keeping === undefined
           ? null

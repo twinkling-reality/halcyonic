@@ -82,6 +82,7 @@ import { listedSpokenNames } from './speech/tidy.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
 import { HostStarters, originalFolderOf, originalRefusal } from './starters.ts';
+import { findTrustedGit } from './trusted-git.ts';
 import { OllamaWorkspaceModel } from './workspace-agent/ollama.ts';
 import { assistantModel } from './workspace-agent/providers/assistant.ts';
 import { ASSISTANT_READER, PROTOCOLS } from './workspace-agent/providers/index.ts';
@@ -226,6 +227,11 @@ async function main(): Promise<void> {
     app.log.warn(`the tunnel binary is not the pinned ${TUNNEL_PIN.version}: sharing is off`);
   // The person's catalog (ADR 0039): its last answer checks links, so it exists before the control plane.
   const catalog = omnoriumCatalogFor(config.dataDir);
+  // The git undo, task copies and Send to GitHub use: the one the setting names, or else one the system owns at a
+  // fixed place (trusted-git.ts), found once now; never PATH (AUDIT3 G1 to G4, 2026-11-16).
+  const gitBinary = config.gitBinary ?? (process.platform === 'darwin' ? findTrustedGit() : null);
+  if (config.gitBinary === null && gitBinary !== null)
+    app.log.info({ git: gitBinary }, 'git found where the system keeps it');
   const controlPlane = new ControlPlane({
     journal,
     adapters,
@@ -235,6 +241,8 @@ async function main(): Promise<void> {
     logger: app.log,
     commandTimeoutMs: config.commandTimeoutMs,
     locations,
+    // Task copies are on (ADR 0045): a task never starts in the project's own folder for want of a copy.
+    taskCopiesPromised: config.taskCopies,
     // A confined app's requests inside its own copy are answered by the host (the lead's ruling, 2026-11-13): the same
     // reads its sandbox is given (`folderReads`), for a starter's project only.
     confinedReads: (directory) =>
@@ -245,12 +253,12 @@ async function main(): Promise<void> {
             // The temporary folder Claude Agent's confinement makes for a run in this folder, by its own rule.
             runTemp: { 'claude-agent': confinedTempFolder(config.dataDir, directory) },
           },
-    ...(config.gitBinary === null
+    ...(gitBinary === null
       ? {}
       : {
           checkpoints: {
             store: new CheckpointStore({
-              git: config.gitBinary,
+              git: gitBinary,
               directory: join(config.dataDir, 'checkpoints'),
               // A project folder holding the journal and token is never checkpointed.
               protect: [config.dataDir],
@@ -326,11 +334,11 @@ async function main(): Promise<void> {
         }
       : {}),
     // Send to GitHub (ADR 0039, amended): the person's own git and gh, for their reviewed command only.
-    ...(config.gitBinary === null
+    ...(gitBinary === null
       ? {}
       : {
           github: {
-            git: config.gitBinary,
+            git: gitBinary,
             gh: config.ghBinary,
             dataDir: config.dataDir,
             env: process.env,

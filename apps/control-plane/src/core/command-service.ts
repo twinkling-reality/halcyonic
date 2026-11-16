@@ -187,6 +187,8 @@ export interface CommandServiceDeps {
   readonly checkpoints?: Checkpointer | null;
   /** Every task's own copy of its project's folder (ADR 0045); absent, tasks work in the project's. */
   readonly copies?: TaskCopies | null;
+  /** Copies are promised (`taskCopiesPromised`): with none to make, a task is refused rather than run in the folder. */
+  readonly copiesPromised?: boolean;
   /** Show in Finder and Save a Copy on the Mac (F3); absent, both are refused. */
   readonly keeping?: ProjectKeeping | null;
   /** Shared links to a running preview (F1); absent, sharing is refused. */
@@ -227,6 +229,10 @@ interface ActionOutcome {
  * its folder before going ahead without it.
  */
 const BASELINE_WAIT_MS = 10_000;
+
+/** Why a task is refused where copies are on and this computer cannot make one (the git fallback, 2026-11-16). */
+export const NO_COPIES_HERE =
+  "This computer has no git Halora can trust, so this task can't get its own copy. Install Apple's command line tools (xcode-select --install), or run pnpm mac-setup undo.";
 
 /** What an execution that may still be working reads, until a runtime or a restart says otherwise. */
 const ACTIVE_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
@@ -2888,6 +2894,16 @@ export class CommandService {
         code: 'capability_unsupported',
         message:
           'This task starts from an older version, so it needs a copy of its own, which this computer cannot make for this agent.',
+        effect: 'none',
+      });
+      return;
+    }
+    // Copies are on but this host cannot make one (no git it trusts): refused, never run in the project's own folder
+    // instead, where nothing would wait for Add to Project (the lead, 2026-11-16).
+    if (projectFolder !== null && own === null && !copies && this.#deps.copiesPromised === true) {
+      this.#fail(command, admission.scope, {
+        code: 'capability_unsupported',
+        message: NO_COPIES_HERE,
         effect: 'none',
       });
       return;
