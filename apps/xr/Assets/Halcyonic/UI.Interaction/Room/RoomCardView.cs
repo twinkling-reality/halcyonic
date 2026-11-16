@@ -1181,6 +1181,16 @@ namespace Halcyonic.XR.UI
                     steps[index].Words ?? LineWords.HostPlain(steps[index].Name ?? ""), 0f, 0f, width, 1, TextAlignmentOptions.Top);
                 labels[index] = label;
                 widths[index] = Mathf.Max(S(StepDp), RoomCursor.WordsWidth(label, 0f));
+                // A step never run says Not Run under its name on one line, so its column is as wide as those words too (the
+                // reader of 04:48Z: "Page / Not / Run" stacked one word a line under a narrow node).
+                if (steps[index].Tone == RoomTone.Skipped)
+                {
+                    var (notRunMeasure, _) = Text(KitRole.Label, StepNameDp, StepNameLineDp, White(NoteAlpha), LineWords.Ours(NotRun), 0f, 0f, width, 1, TextAlignmentOptions.Top);
+                    widths[index] = Mathf.Max(widths[index], RoomCursor.WordsWidth(notRunMeasure, 0f));
+                    notRunMeasure.gameObject.SetActive(false);
+                    Shown.Remove(notRunMeasure);
+                    textsUsed[KitRole.Label]--;
+                }
                 tallest = Mathf.Max(tallest, tall);
             }
             // Equal columns, each as wide as the widest name or mark, so every node stands the same pitch from the next and
@@ -1236,7 +1246,8 @@ namespace Halcyonic.XR.UI
                 if (index < joins)
                 {
                     var joined = step.Tone == RoomTone.Good;
-                    Plate(new Vector2(join, S(StepJoinDp)), S(StepJoinDp) / 2f, joined ? Rgb(GoodFill, 0.70f) : White(0.28f),
+                    // A join not passed reads as a line, never as nothing (the reader of 04:48Z: "nearly invisible" at 0.28).
+                    Plate(new Vector2(join, S(StepJoinDp)), S(StepJoinDp) / 2f, joined ? Rgb(GoodFill, 0.70f) : White(0.46f),
                         new Vector2(x + S(StepJoinGapDp) + join / 2f, middle), "join");
                     x += join + 2f * S(StepJoinGapDp);
                 }

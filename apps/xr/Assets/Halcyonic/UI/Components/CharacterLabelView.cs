@@ -263,6 +263,18 @@ namespace Halcyonic.XR.UI
                 // one line at Settings, Usage and Ask); then the marks in a row under it, a little apart.
                 GlazeText.SetLiteral(shortTitle, label.Title);
                 var (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, ShortTitleLines);
+                // No word alone on its last line ("Upgrade the image / pipeline", the reader of 04:48Z): laid a little narrower,
+                // never on more lines, never cut; where none holds, as first laid.
+                if (shortLines >= 2 && LastLineIsOneWord(shortTitle))
+                {
+                    for (var step = 1; step <= 6; step++)
+                    {
+                        var tried = GlazeText.Lay(shortTitle, (maxWidth - 2f * side) * (1f - 0.06f * step), ShortTitleLines);
+                        if (tried.Lines != shortLines || shortTitle.isTextOverflowing) break;
+                        if (!LastLineIsOneWord(shortTitle)) { (shortLines, shortWidth) = tried; break; }
+                    }
+                    if (LastLineIsOneWord(shortTitle) || shortTitle.isTextOverflowing) (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, ShortTitleLines);
+                }
                 var line = GlazeText.LineHeight(shortTitle);
                 var pad = GlazeTokens.Units(ShortTitlePaddingDegrees);
                 var shortTop = top - badgeHeight - GlazeTokens.Units(ShortTitleGapDegrees);
@@ -310,6 +322,17 @@ namespace Halcyonic.XR.UI
             bottom = marked ? plateBottom - MarkTag.Height / 2f : plateBottom;
             HalfWidth = Mathf.Max(plateWidth, Mathf.Max(widest, row)) / 2f;
             PresentSharedIdentity(label, top - badgeHeight);
+        }
+
+        /// <summary>Whether the label's last laid line holds a single word.</summary>
+        private static bool LastLineIsOneWord(TMP_Text label)
+        {
+            var info = label.textInfo;
+            if (info.lineCount < 2) return false;
+            var last = info.lineInfo[info.lineCount - 1];
+            for (var index = last.firstCharacterIndex; index <= last.lastVisibleCharacterIndex && index < info.characterCount; index++)
+                if (char.IsWhiteSpace(info.characterInfo[index].character)) return false;
+            return last.lastVisibleCharacterIndex >= last.firstCharacterIndex;
         }
 
         private void PresentSharedIdentity(CharacterLabel label, float badgeBottom)

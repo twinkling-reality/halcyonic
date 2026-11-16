@@ -10,16 +10,16 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
     /// The plain "what is happening" list (<see cref="RoomStepsView"/>) on the information panel: a task at work, one that waits
-    /// for the person, one ready, one whose checks failed, and one whose request is longer than its lines. Each is measured (every
-    /// step under the last with the rows' gap and never over it, every word whole, a line only where its step has one, a mark
-    /// before each word at its first line's middle, the person's own words cut at a word past three lines, nothing in the list
-    /// that takes a press) and read in the pixels (each mark in its colour, each word in the pixels, amber where it waits).
+    /// for the person, one ready, one whose checks failed, and one whose request runs long. Each is measured (every step under
+    /// the last with the rows' gap and never over it, every word whole, a line only where its step has one and laid whole, a
+    /// mark's tile before each word at its first line's middle, nothing in the list that takes a press) and read in the pixels
+    /// (each tile in its tone, each glyph's ink, each word in the pixels, the line amber where it says what waits).
     /// </summary>
     public static partial class KitRender
     {
         private static readonly string[] StepsStates = { "46-steps-working", "46-steps-needs-you", "46-steps-ready", "46-steps-failed", "46-steps-long" };
 
-        /// <summary>A request longer than its three lines at either size.</summary>
+        /// <summary>A request longer than three lines at either size, laid whole.</summary>
         private const string StepsLongRequest = "Make a kite that follows my hand and climbs when I raise it, with a tail that streams behind it, a score that counts how high it has climbed since the last time it fell, and a gentle sound each time it turns";
 
         private static List<TaskStep> StepsOf(string state)
@@ -76,7 +76,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
             var gap = RoomType.Scaled(RoomRows.GapDp);
             var line = RoomType.Scaled(RoomGeometry.LineDp);
-            var indent = RoomType.Scaled(RoomRows.MarkDp + RoomRows.MarkGapDp);
+            var tile = RoomType.Scaled(RoomStepsView.TileDp);
+            var indent = tile + RoomType.Scaled(RoomStepsView.TileGapDp);
             Require(view.Count == steps.Count && Mathf.Approximately(view.Size.y, tall), "the list reports " + view.Count + " steps, " + view.Size);
             // It only says: nothing in it takes a press or a ray.
             Require(view.GetComponentsInChildren<Collider>(true).Length == 0 && view.GetComponentsInChildren<KitPress>(true).Length == 0, "the list holds a part that takes a press");
@@ -92,29 +93,24 @@ namespace Halcyonic.XR.Workspace.Editor
                 var top = -word.transform.localPosition.y;
                 var wanted = index == 0 ? 0f : below + gap;
                 Require(Mathf.Abs(top - wanted) < unit * 0.05f, what + " stands " + ((top - below) / unit).ToString("0.00") + " dp under the step before, not the rows' " + RoomRows.GapDp.ToString("0") + " dp");
-                Require(Mathf.Approximately(word.color.a, RoomStepsView.WordColourOf(step).a) && Mathf.Approximately(word.color.r, RoomStepsView.WordColourOf(step).r), what + "'s word is not in its colour");
-                var mark = view.Mark(index);
-                var (glyph, _) = RoomStepsView.MarkOf(step);
-                Require(mark.Glyph == glyph, what + " carries " + (mark.Glyph?.ToString() ?? "no mark") + ", not " + glyph);
-                Require(Mathf.Abs(-mark.transform.localPosition.y - (top + line / 2f)) < unit * 0.5f && Mathf.Abs(mark.transform.localPosition.x - RoomType.Scaled(RoomRows.MarkDp) / 2f) < 1e-6f,
-                    what + "'s mark does not stand before its word, at its first line's middle");
+                var colour = RoomStepsView.WordColourOf(step);
+                Require(Mathf.Approximately(word.color.a, colour.a) && Mathf.Approximately(word.color.r, colour.r), what + "'s word is not in its colour");
+                // The tile before its word's first line, at its middle; its glyph on it, as the mark says.
+                var expected = RoomStepsView.MarkOf(step);
+                var tileView = view.Tile(index);
+                Require(tileView.gameObject.activeSelf && Mathf.Abs(tileView.Size.x - tile) < unit * 0.05f, what + "'s tile is not " + RoomStepsView.TileDp.ToString("0") + " dp");
+                Require(Mathf.Abs(-tileView.transform.localPosition.y - (top + line / 2f)) < unit * 0.5f && Mathf.Abs(tileView.transform.localPosition.x - tile / 2f) < 1e-6f,
+                    what + "'s tile does not stand before its word, at its first line's middle");
+                Require(view.Mark(index).Glyph == expected.Glyph, what + " carries " + (view.Mark(index).Glyph?.ToString() ?? "no glyph") + ", not " + (expected.Glyph?.ToString() ?? "none"));
                 below = top + Mathf.Max(line, word.textInfo.lineCount * KitType.LinePitch(word));
                 var under = view.Line(index);
                 Require((under != null) == (step.Line != null), what + (step.Line != null ? " shows no line under it" : " shows a line it does not have"));
                 if (under == null || step.Line == null) continue;
                 under.ForceMeshUpdate(true);
                 Require(Mathf.Abs(-under.transform.localPosition.y - below) < unit * 0.05f, what + "'s line does not stand straight under its word");
-                Require(!under.isTextOverflowing && under.textInfo.characterCount > 0, what + "'s line is cut by its box or empty");
+                // Every line whole, the person's long request included: nothing on the list is cut.
                 var shownLine = string.Join(" ", under.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
-                if (state == "46-steps-long" && index == 0)
-                {
-                    // The person's own words past three lines: their lead, cut at a word, with its ellipsis, never a word in part.
-                    var body = shownLine.TrimEnd('…').TrimEnd();
-                    Require(under.textInfo.lineCount <= RoomStepsView.TheirLines && shownLine.EndsWith("…", System.StringComparison.Ordinal)
-                        && StepsLongRequest.StartsWith(body, System.StringComparison.Ordinal) && StepsLongRequest.Length > body.Length && StepsLongRequest[body.Length] == ' ',
-                        what + "'s long request is not its lead cut at a word in " + RoomStepsView.TheirLines + " lines: \"" + shownLine + "\" in " + under.textInfo.lineCount);
-                }
-                else Require(shownLine == step.Line.Text, what + "'s line is not whole: \"" + shownLine + "\"");
+                Require(!under.isTextOverflowing && !under.isTextTruncated && shownLine == step.Line.Text && !shownLine.Contains("…"), what + "'s line is not whole: \"" + shownLine + "\"");
                 below += Mathf.Max(line, under.textInfo.lineCount * KitType.LinePitch(under));
             }
             Require(Mathf.Abs(below - tall) < unit * 0.05f, "the list says it stands " + (tall / unit).ToString("0.0") + " dp, its last step ends at " + (below / unit).ToString("0.0"));
@@ -127,44 +123,59 @@ namespace Halcyonic.XR.Workspace.Editor
                     return pixels[Mathf.Clamp(Mathf.FloorToInt(screen.y), 0, Height - 1) * Width + Mathf.Clamp(Mathf.FloorToInt(screen.x), 0, Width - 1)];
                 }
                 int Light(Color32 pixel) => (pixel.r * 2126 + pixel.g * 7152 + pixel.b * 722) / 10000;
+                int Off(Color32 pixel, Color32 want) => Mathf.Max(Mathf.Abs(pixel.r - want.r), Mathf.Max(Mathf.Abs(pixel.g - want.g), Mathf.Abs(pixel.b - want.b)));
                 var lightest = new List<int>();
                 for (var index = 0; index < steps.Count; index++)
                 {
-                    // Each mark's ink in its own colour, on the middle of each of its glyph's shapes; a quiet one lighter than the panel.
-                    var mark = view.Mark(index);
-                    var (marked, colour) = RoomStepsView.MarkOf(steps[index]);
-                    if (!(marked is RoomGlyph glyph)) continue;
-                    var ink = (Color32)colour;
-                    foreach (var shape in RoomGlyphs.Of(glyph))
-                    foreach (var middle in shape.Middles())
+                    var expected = RoomStepsView.MarkOf(steps[index]);
+                    var tileView = view.Tile(index).transform;
+                    // The tile's own tone, read inside its corner where no glyph stands; the empty tile's edge lighter than the panel.
+                    if (expected.Fill.a > 0.99f)
                     {
-                        var at = mark.transform.TransformPoint(new Vector3(middle.x / RoomGlyphs.Grid - 0.5f, 0.5f - middle.y / RoomGlyphs.Grid, 0f));
-                        var pixel = At(dark, at);
-                        if (colour.a > 0.99f)
-                        {
-                            var off = Mathf.Max(Mathf.Abs(pixel.r - ink.r), Mathf.Max(Mathf.Abs(pixel.g - ink.g), Mathf.Abs(pixel.b - ink.b)));
-                            if (off > 14) failures.Add("step " + index + "'s mark is " + off + " of 255 from its colour");
-                        }
-                        else if (Light(pixel) < 90) failures.Add("step " + index + "'s quiet mark reads " + Light(pixel) + " of 255: it is not drawn");
+                        var corner = At(dark, tileView.TransformPoint(new Vector3(-tile * 0.32f, tile * 0.32f, 0f)));
+                        if (Off(corner, expected.Fill) > 16) failures.Add("step " + index + "'s tile is " + Off(corner, expected.Fill) + " of 255 from its tone");
                     }
-                    // The step's word is in the pixels: white or amber full, a step not yet quieter but still well clear of the panel.
+                    else
+                    {
+                        var edge = Light(At(dark, tileView.TransformPoint(new Vector3(tile / 2f - RoomType.Scaled(1f), 0f, 0f))));
+                        var inside = Light(At(dark, tileView.TransformPoint(Vector3.zero)));
+                        if (!(edge > inside + 40)) failures.Add("step " + index + "'s empty tile shows no edge: " + edge + " on its inside's " + inside + " of 255");
+                    }
+                    // The glyph's ink, on the middle of each of its shapes.
+                    var mark = view.Mark(index);
+                    if (expected.Glyph is RoomGlyph glyph)
+                        foreach (var shape in RoomGlyphs.Of(glyph))
+                        foreach (var middle in shape.Middles())
+                        {
+                            var at = mark.transform.TransformPoint(new Vector3(middle.x / RoomGlyphs.Grid - 0.5f, 0.5f - middle.y / RoomGlyphs.Grid, 0f));
+                            var off = Off(At(dark, at), expected.Ink);
+                            if (off > 20) failures.Add("step " + index + "'s glyph is " + off + " of 255 from its ink");
+                        }
+                    // The step's word is in the pixels: white full, a step not yet quieter but still well clear of the panel.
                     var word = view.Word(index);
                     var bounds = word.textBounds;
                     var most = 0;
-                    Color32 brightest = default;
                     for (var step = 0; step <= 60; step++)
-                    {
-                        var pixel = At(dark, word.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 60f), bounds.max.y - KitType.LinePitch(word) * 0.5f, 0f)));
-                        if (Light(pixel) > most) { most = Light(pixel); brightest = pixel; }
-                    }
+                        most = Mathf.Max(most, Light(At(dark, word.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 60f), bounds.max.y - KitType.LinePitch(word) * 0.5f, 0f)))));
                     lightest.Add(most);
-                    var quiet = steps[index].Kind == TaskStepKind.NotYet;
-                    if (most < (quiet ? 120 : 160)) failures.Add("step " + index + "'s word is not in the pixels, the lightest reads " + most + " of 255");
-                    if (steps[index].Kind == TaskStepKind.NeedsYou && !(brightest.r > brightest.b + 60 && brightest.g > brightest.b + 30))
-                        failures.Add("step " + index + " waits for the person but its word is not amber: " + brightest);
+                    if (most < (steps[index].Kind == TaskStepKind.NotYet ? 120 : 160)) failures.Add("step " + index + "'s word is not in the pixels, the lightest reads " + most + " of 255");
+                    // What waits for the person is said amber, in its line.
+                    if (steps[index].Kind == TaskStepKind.NeedsYou && view.Line(index) is TMPro.TextMeshPro waits)
+                    {
+                        var lineBounds = waits.textBounds;
+                        Color32 brightest = default;
+                        var lightestLine = 0;
+                        for (var step = 0; step <= 60; step++)
+                        {
+                            var pixel = At(dark, waits.transform.TransformPoint(new Vector3(Mathf.Lerp(lineBounds.min.x, lineBounds.max.x, step / 60f), lineBounds.max.y - KitType.LinePitch(waits) * 0.5f, 0f)));
+                            if (Light(pixel) > lightestLine) { lightestLine = Light(pixel); brightest = pixel; }
+                        }
+                        if (!(brightest.r > brightest.b + 60 && brightest.g > brightest.b + 30)) failures.Add("step " + index + " waits for the person but its line is not amber: " + brightest);
+                    }
                 }
                 Debug.Log("Halcyonic: parts: " + name + ": " + steps.Count + " steps, " + (view.Size.y / unit).ToString("0", CultureInfo.InvariantCulture) + " dp tall, the words' lightest "
-                    + string.Join(", ", lightest.Select(value => value.ToString(CultureInfo.InvariantCulture))) + " of 255, marks " + string.Join(", ", steps.Select(each => RoomStepsView.MarkOf(each).Glyph)) + ".");
+                    + string.Join(", ", lightest.Select(value => value.ToString(CultureInfo.InvariantCulture))) + " of 255, marks "
+                    + string.Join(", ", steps.Select(each => RoomStepsView.MarkOf(each).Glyph?.ToString() ?? "empty")) + ".");
             };
             return shot;
         }
