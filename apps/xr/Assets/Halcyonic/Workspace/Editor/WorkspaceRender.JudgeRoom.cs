@@ -1038,23 +1038,16 @@ namespace Halcyonic.XR.Workspace.Editor
                         // (AUDIT2 14:02Z: the judges may open them; one name per thing, a way on in every refusal, no dot).
                         foreach (var category in new[] { Comfort.Heading, SettingsText.YourSpace })
                         {
-                            if (Drawn(SettingsHubColumn.OpenCategory, category) is not RoomButton opening)
+                            // The categories stand as the page card's rows (a chevron each), so the walk presses them as it presses any drawn
+                            // control or row (Press), never by opening the page itself.
+                            if (!Press(SettingsHubColumn.OpenCategory, category))
                             {
                                 failures.Add("the Settings page draws no " + category + " to open");
                                 continue;
                             }
-                            opening.Press.SettleForRender();
-                            opening.Press.PressForRender(986);
-                            presses++;
                             Fresh();
                             Moment("room settings " + category.ToLowerInvariant());
-                            if (Drawn(SettingsHubColumn.Back, null) is RoomButton back)
-                            {
-                                back.Press.SettleForRender();
-                                back.Press.PressForRender(986);
-                                presses++;
-                                Fresh();
-                            }
+                            if (Press(SettingsHubColumn.Back, null)) Fresh();
                             else failures.Add("the Settings page " + category + " draws no way back to the hub");
                         }
                     }
