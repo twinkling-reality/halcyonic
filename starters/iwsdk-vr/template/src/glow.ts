@@ -1,13 +1,15 @@
 import {
   AdditiveBlending,
   BoxGeometry,
-  Float32BufferAttribute,
-  Mesh,
+  BufferGeometry,
   Color,
+  DoubleSide,
   DynamicDrawUsage,
+  Float32BufferAttribute,
   Group,
   InstancedBufferAttribute,
   InstancedMesh,
+  Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
   ShaderMaterial,
@@ -25,13 +27,22 @@ import { isBlack } from './score.js';
 const VERTEX = /* glsl */ `
   uniform float facing;
   uniform float halo;
+  uniform float stretch;
+  uniform float narrow;
+  uniform float level;
+  uniform float lift;
   varying vec2 vPoint;
   varying vec2 vHalf;
   varying vec3 vColour;
+  varying float vNear;
   void main() {
+    // How near the water a reflected light is: a light high above it is seen faintly in it.
+    vNear = lift > 0.0 ? exp(-max(0.0, instanceMatrix[3].y - level) / lift) : 1.0;
     vec3 x = instanceMatrix[0].xyz;
     vec3 y = instanceMatrix[1].xyz;
-    vec2 size = vec2(length(x), length(y));
+    // A reflection's length differs light to light (its own wind on the water), never one shape for all.
+    float own = lift > 0.0 ? 0.7 + 0.6 * fract(sin(dot(instanceMatrix[3].xz, vec2(12.9898, 78.233))) * 43758.5453) : 1.0;
+    vec2 size = vec2(length(x) * narrow, length(y) * stretch * own);
     // The quad is the shape plus its halo all round; vPoint is in metres from its centre.
     vec2 whole = size + 2.0 * halo;
     vPoint = position.xy * whole;
@@ -63,13 +74,28 @@ const FRAGMENT = /* glsl */ `
   uniform float core;
   uniform float whiten;
   uniform float ramp;
+  uniform float dim;
+  uniform float ripple;
+  uniform float time;
+  varying float vNear;
   varying vec2 vPoint;
   varying vec2 vHalf;
   varying vec3 vColour;
   void main() {
     // Distance in metres from the rounded shape's edge: below zero inside.
     float r = min(corner, min(vHalf.x, vHalf.y));
-    vec2 q = abs(vPoint) - vHalf + r;
+    // On rippled water a reflection is broken into bands that sway sideways and come and go, never a still streak.
+    vec2 at = vPoint;
+    float band = 1.0;
+    if (ripple > 0.0) {
+      float w = vPoint.y / max(vHalf.y, 1e-4) * ripple;
+      float seed = vColour.g * 31.0 + vColour.r * 17.0;
+      at.x += (sin(w * 0.61 + time * 0.9 + seed) + 0.6 * sin(w * 1.37 - time * 1.3 + seed * 2.0)) * vHalf.x * 0.3;
+      // Two slow waves of different lengths: the light comes and goes along the reflection, never in even rungs.
+      float wave = 0.5 + 0.3 * sin(w + time * 1.1 + seed) + 0.2 * sin(w * 1.7 - time * 0.7 + seed * 3.0);
+      band = 0.72 + 0.28 * wave;
+    }
+    vec2 q = abs(at) - vHalf + r;
     float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
     // The core's own edge is soft too, in proportion to its size, so no shape shows an outline.
     float soft = max(0.0015, 0.3 * min(vHalf.x, vHalf.y));
@@ -83,7 +109,7 @@ const FRAGMENT = /* glsl */ `
     float glow = exp(-4.0 * outside * outside) * fall * fall;
     // A hot core, whiter than its colour along its middle, its own colour at its edges, inside a halo of the colour.
     vec3 hot = mix(vColour, vec3(max(vColour.r, max(vColour.g, vColour.b))), whiten * deep);
-    vec3 light = hot * inside * core * (0.45 + 0.55 * deep) + vColour * glow * 0.5;
+    vec3 light = (hot * inside * core * (0.45 + 0.55 * deep) + vColour * glow * 0.5) * dim * vNear * band;
     // A ramp, when asked: full at the shape's -y end, falling to the ramp's share at its +y end.
     if (ramp >= 0.0) light *= pow(mix(1.0, pow(ramp, 0.333), clamp(vPoint.y / max(vHalf.y, 1e-4) * 0.5 + 0.5, 0.0, 1.0)), 3.0);
     if (dot(light, vec3(1.0)) < 0.0004) discard;
@@ -96,7 +122,7 @@ const FRAGMENT = /* glsl */ `
 
 /** A set of soft glowing shapes drawn as one: rounded bars, dots and discs, each with a halo of light round it. */
 export interface Glows {
-  /** What to add to the scene. */
+  /** What to add to the scene: the shapes, and their reflection when they have one. */
   readonly object: Group;
   readonly mesh: InstancedMesh;
   /** Starts a frame's shapes: everything added since the last `begin` is cleared. */
@@ -136,7 +162,11 @@ export interface Glows {
  * they are drawn over what is near them (light spilling over a neighbour) instead of hidden by it. `halo` is how
  * far the glow reaches round each shape, `round` its corner radius, both in metres; a shape whose `round` is half its
  * size is a disc; `whiten` makes the core hotter than its colour; `ramp` fades each shape from full at its -y end to
- * that share at its +y end (a drop brightest at its foot). Add `object` to the scene.
+ * that share at its +y end (a drop brightest at its foot). With `mirror`, the shapes are also seen reflected in a
+ * surface at height `level` of the object's frame, `strength` as bright, `stretch` times as tall (water stretches a
+ * light's reflection downward) and `narrow` times as wide, fading the higher a shape hangs over it (`lift` metres
+ * to fall to a third), broken into `ripple` bands that sway (0 for dark glass, about 9 for a lake at dusk). Add
+ * `object` to the scene.
  */
 export function glows(
   capacity: number,
@@ -149,18 +179,26 @@ export function glows(
     core?: number;
     whiten?: number;
     ramp?: number;
+    mirror?: { level: number; strength?: number; stretch?: number; narrow?: number; lift?: number; ripple?: number };
   } = {},
 ): Glows {
-  const uniforms = () => ({
+  const uniforms = (dim: number, stretch: number) => ({
     facing: { value: options.upright === true ? 2 : options.facing === true ? 1 : 0 },
     halo: { value: options.halo ?? 0.03 },
     corner: { value: options.round ?? 0.01 },
     core: { value: options.core ?? 1 },
     whiten: { value: options.whiten ?? 0 },
+    dim: { value: dim },
     ramp: { value: options.ramp ?? -1 },
+    stretch: { value: stretch },
+    narrow: { value: 1 },
+    level: { value: 0 },
+    lift: { value: 0 },
+    ripple: { value: 0 },
+    time: { value: 0 },
   });
   const material = new ShaderMaterial({
-    uniforms: uniforms(),
+    uniforms: uniforms(1, 1),
     vertexShader: VERTEX,
     fragmentShader: FRAGMENT,
     transparent: true,
@@ -179,6 +217,37 @@ export function glows(
   mesh.count = 0;
   const object = new Group();
   object.add(mesh);
+  let reflection: InstancedMesh | null = null;
+  if (options.mirror !== undefined) {
+    // The same shapes drawn again upside down about the surface: their arrays are shared, so it costs one draw call.
+    const mirrored = material.clone();
+    mirrored.uniforms = uniforms(options.mirror.strength ?? 0.35, options.mirror.stretch ?? 1);
+    // A reflection has no hot core of its own: only its glow, softened by the water.
+    mirrored.uniforms.core = { value: 0 };
+    // Narrower, with a wider halo: water draws a light softer than the light, never a copy of its shape.
+    mirrored.uniforms.narrow = { value: options.mirror.narrow ?? 0.6 };
+    mirrored.uniforms.ripple = { value: options.mirror.ripple ?? 0 };
+    // Seen in still water, a light fades the higher it hangs over it.
+    mirrored.uniforms.level = { value: options.mirror.level };
+    mirrored.uniforms.lift = { value: options.mirror.lift ?? 0 };
+    mirrored.uniforms.halo = { value: (options.halo ?? 0.03) * 1.4 };
+    mirrored.side = DoubleSide;
+    // Seen only where nothing stands in front of the mirror: a key or a hand hides its reflection.
+    mirrored.depthTest = true;
+    reflection = new InstancedMesh(geometry, mirrored, capacity);
+    reflection.instanceMatrix = mesh.instanceMatrix;
+    reflection.instanceColor = mesh.instanceColor;
+    reflection.frustumCulled = false;
+    reflection.count = 0;
+    reflection.scale.y = -1;
+    reflection.position.y = 2 * options.mirror.level;
+    // The ripples move on the page's own clock, whatever the app's time is doing.
+    const clock = mirrored.uniforms.time as { value: number };
+    reflection.onBeforeRender = () => {
+      clock.value = (performance.now() / 1000) % 1000;
+    };
+    object.add(reflection);
+  }
   const matrices = mesh.instanceMatrix.array as Float32Array;
   const colours = mesh.instanceColor.array as Float32Array;
   let used = 0;
@@ -218,6 +287,7 @@ export function glows(
     },
     end() {
       mesh.count = used;
+      if (reflection !== null) reflection.count = used;
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor !== null) mesh.instanceColor.needsUpdate = true;
     },
@@ -344,6 +414,8 @@ export interface LightKeys {
   readonly spots: readonly KeySpot[];
   /** A white key's width. */
   readonly keyWidth: number;
+  /** With `glass`, the height of the dark glass the keys stand on, where light near it is seen mirrored. */
+  readonly glass: number | undefined;
   /** Lights `midi` at `amount` (0 to 1) in `colour` for this frame; call between `begin` and `end` each frame. */
   light(midi: number, colour: Color, amount: number): void;
   begin(): void;
@@ -359,7 +431,7 @@ export interface LightKeys {
 export function lightKeys(
   low: number,
   high: number,
-  options: { keyWidth?: number; arc?: number; idle?: Color; dark?: Color } = {},
+  options: { keyWidth?: number; arc?: number; idle?: Color; dark?: Color; glass?: boolean } = {},
 ): LightKeys {
   let first = Math.floor(low);
   while (isBlack(first)) first -= 1;
@@ -440,11 +512,84 @@ export function lightKeys(
   const black = make(blackKeys, blackIdle);
   // A played key's light: a soft round heat where the note lands, hottest at its middle, drawn over the keys so a
   // neighbour never cuts it.
-  const heat = glows(spots.length, { halo: 0.045, round: 1, whiten: 0.35, over: true });
+  // With `glass`, the keys stand on a shelf of dark glass that mirrors them and the light near it, fading with height.
+  const glass = options.glass === true ? -depth - 0.002 : undefined;
+  const mirror = glass === undefined ? undefined : { level: glass, strength: 0.45, lift: 0.35 };
+  const heat = glows(spots.length, { halo: 0.045, round: 1, whiten: 0.35, over: true, mirror });
   // And the key's own face, lit softly from its front, so which key went down is seen.
-  const face = glows(spots.length * 2, { halo: 0.008, round: 0.006, ramp: 0.25, over: true });
+  const face = glows(spots.length * 3, { halo: 0.008, round: 0.006, ramp: 0.25, over: true, mirror });
+  // Unplayed, each key's front edge keeps a faint line of its own register's colour, so the keyboard is light even
+  // before a note, fading toward the ends like the glass.
+  const edge = new Map(
+    spots.map((key) => [key.midi, registerColour(key.midi, first, last).multiplyScalar(0.07 * ends(key))]),
+  );
   const group = new Group();
   group.add(white, black, face.object, heat.object);
+  if (glass !== undefined) {
+    // The shelf: a faint sheen of the keys' own colour, widest just under them and fading out on every side, so it
+    // has no edge; it writes no depth, so what is mirrored under it shows through.
+    const along = 64;
+    const across = 8;
+    const sheen: number[] = [];
+    const shade: number[] = [];
+    const inner = -0.4;
+    const outer = whiteLength + 0.3;
+    for (let i = 0; i <= along; i++) {
+      for (let j = 0; j <= across; j++) {
+        const u = i / along;
+        const v = j / across;
+        const p = at(-width / 2 + u * width, inner + v * (outer - inner));
+        sheen.push(p.x, glass, p.z);
+        const out = inner + v * (outer - inner);
+        const k = Math.sin(Math.PI * u) ** 1.2 * Math.exp(-(((out - whiteLength * 0.4) / 0.28) ** 2)) * 0.22;
+        shade.push(idle.r * k, idle.g * k, idle.b * k);
+      }
+    }
+    const order: number[] = [];
+    for (let i = 0; i < along; i++) {
+      for (let j = 0; j < across; j++) {
+        const a = i * (across + 1) + j;
+        order.push(a, a + 1, a + across + 1, a + 1, a + across + 2, a + across + 1);
+      }
+    }
+    const shelf = new BufferGeometry();
+    shelf.setAttribute('position', new Float32BufferAttribute(sheen, 3));
+    shelf.setAttribute('color', new Float32BufferAttribute(shade, 3));
+    shelf.setIndex(order);
+    group.add(
+      new Mesh(
+        shelf,
+        new MeshBasicMaterial({
+          vertexColors: true,
+          toneMapped: false,
+          transparent: true,
+          blending: AdditiveBlending,
+          depthWrite: false,
+          side: DoubleSide,
+        }),
+      ),
+    );
+    // Each key's reflection: the same keys, turned over under the glass and added faintly to it, so they move and
+    // take their colours with the keys themselves.
+    const seen = new MeshBasicMaterial({
+      color: new Color(0.7, 0.7, 0.7),
+      toneMapped: false,
+      transparent: true,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      side: DoubleSide,
+    });
+    for (const keys of [white, black]) {
+      const reflected = new InstancedMesh(keys.geometry, seen, keys.count);
+      reflected.instanceMatrix = keys.instanceMatrix;
+      reflected.instanceColor = keys.instanceColor;
+      reflected.count = keys.count;
+      reflected.frustumCulled = false;
+      reflected.scale.y = -1;
+      reflected.position.y = 2 * glass;
+      group.add(reflected);
+    }
+  }
   const level = new Map<number, number>();
   const hue = new Map<number, Color>();
   for (const spot of spots) hue.set(spot.midi, new Color());
@@ -466,6 +611,7 @@ export function lightKeys(
     spot: (midi) => byKey.get(midi),
     spots,
     keyWidth,
+    glass,
     light(midi, colour, amount) {
       if (!byKey.has(midi) || amount <= (level.get(midi) ?? 0)) return;
       level.set(midi, amount);
@@ -479,6 +625,10 @@ export function lightKeys(
       paint(black, blackKeys, depth * 0.6);
       heat.begin();
       face.begin();
+      for (const key of spots) {
+        const { x, y, z, tx, tz, ox, oz } = key;
+        face.place(x - ox * 0.001, y + 0.0005, z - oz * 0.001, tx, 0, tz, ox, 0, oz, key.width * 0.8, 0.004, edge.get(key.midi) as Color, 1);
+      }
       for (const key of spots) {
         const amount = Math.min(1, level.get(key.midi) ?? 0);
         if (amount <= 0) continue;
@@ -538,10 +688,13 @@ export function fallingNotes(
     fall?: number;
     reach?: number;
     from?: 'above' | 'around';
+    floor?: number;
   } = {},
 ): FallingNotes {
   const fall = options.fall ?? 1.7;
   const reach = options.reach ?? 14;
+  // On keys standing on glass, the notes nearing them and every key's flare are also seen in it.
+  const mirror = keys.glass === undefined ? undefined : { level: keys.glass, strength: 0.4, lift: 0.35 };
   const speed = fall / (options.seconds ?? 2.8);
   // The colours span the music itself, its lowest note to its highest.
   let low = Number.POSITIVE_INFINITY;
@@ -571,12 +724,17 @@ export function fallingNotes(
     paths.set(spot.midi, [ox * Math.sin(tilt), Math.cos(tilt), oz * Math.sin(tilt)]);
   }
   // Each drop a small hot head at its foot and a tail tapering up into the dark, both drawn over the key it lands on.
-  const drops = glows(600, { upright: true, halo: 0.03, round: 1, whiten: 0.1, ramp: 0.05, over: true });
-  const heads = glows(600, { facing: true, halo: 0.025, round: 1, whiten: 0.4, over: true });
+  const drops = glows(600, { upright: true, halo: 0.03, round: 1, whiten: 0.1, ramp: 0.05, over: true, mirror });
+  const heads = glows(600, { facing: true, halo: 0.025, round: 1, whiten: 0.4, over: true, mirror });
   // A column of light rising from a struck key: a line with only a halo, fading to nothing at its top.
-  const blooms = glows(160, { upright: true, halo: 0.035, round: 1, core: 0, ramp: 0, over: true });
-  const flares = glows(160, { facing: true, halo: 0.12, round: 1, whiten: 0.2, over: true });
+  const blooms = glows(160, { upright: true, halo: 0.035, round: 1, core: 0, ramp: 0, over: true, mirror });
+  const flares = glows(160, { facing: true, halo: 0.12, round: 1, whiten: 0.2, over: true, mirror });
   const motes = sparks(700, { over: true });
+  // A struck key's light spilling softly over it and its neighbours, laid flat on the keys; and, given `floor` (the
+  // floor's height in the keys' group's frame), a pool of each sounding note's light on the floor beneath it.
+  const spill = glows(160, { halo: 0.06, round: 0.05, core: 0, over: true });
+  const pools = glows(320, { halo: 0.35, round: 0.25, core: 0 });
+  group.add(spill.object, pools.object);
   // The place answers: each note lights the far dark of the hall in its colour, where its key points, to both sides
   // and behind the person, so the music is all round them.
   // Each answer stays wholly above the floor (its halo smaller than its height), so the floor never meets it.
@@ -601,7 +759,7 @@ export function fallingNotes(
     const lz = spot.z + spot.oz * into;
     // A drop, not a bar: the same short length for every note; a held note goes on as light on its key.
     const from = (start - now) * speed;
-    const to = Math.min(from + 0.1, fall);
+    const to = Math.min(from + 0.15, fall);
     if (from >= 0 && to > from) {
       // Out of the dark overhead, brightest as it lands; faded as the eye sees it, then made linear.
       const up = (from + to) / 2 / fall;
@@ -609,8 +767,8 @@ export function fallingNotes(
       const [px, py, pz] = paths.get(note.pitch) as [number, number, number];
       const mid = (from + to) / 2;
       const strength = 0.7 * seen ** 2.2;
-      drops.place(lx + px * mid, spot.y + 0.004 + py * mid, lz + pz * mid, 1, 0, 0, px, py, pz, spot.width * 0.22, to - from, colour, strength);
-      heads.add(lx + px * from, spot.y + 0.006 + py * from, lz + pz * from, 0.01, 0.01, colour, 0.9 * seen ** 2.2);
+      drops.place(lx + px * mid, spot.y + 0.004 + py * mid, lz + pz * mid, 1, 0, 0, px, py, pz, spot.width * 0.3, to - from, colour, strength);
+      heads.add(lx + px * from, spot.y + 0.006 + py * from, lz + pz * from, 0.014, 0.014, colour, 0.9 * seen ** 2.2);
     }
     if (now >= start && now < end + 0.45) {
       const since = now - start;
@@ -620,7 +778,15 @@ export function fallingNotes(
       const after = now > end ? Math.exp(-(now - end) * 7) : 1;
       const amount = (0.2 + 0.8 * strike) * after;
       keys.light(note.pitch, colour, amount * (0.65 + 0.35 * note.loud));
-      flares.add(lx, spot.y + 0.012, lz, 0.022, 0.022, colour, strike * 0.4);
+      flares.add(lx, spot.y + 0.012, lz, 0.03, 0.03, colour, strike * 0.65);
+      spill.place(lx, spot.y + 0.003, lz, spot.tx, 0, spot.tz, spot.ox, 0, spot.oz, spot.width * 3.5, spot.length * 0.9, colour, 0.22 * amount);
+      if (keys.glass !== undefined) {
+        // On glass, a wide soft pool of the note's colour spreads in front of its key.
+        pools.place(lx - spot.ox * 0.12, keys.glass + 0.001, lz - spot.oz * 0.12, spot.tx, 0, spot.tz, spot.ox, 0, spot.oz, spot.width * 7, 0.36, colour, 0.16 * amount);
+      }
+      if (options.floor !== undefined) {
+        pools.place(lx + spot.ox * 0.15, options.floor + 0.004, lz + spot.oz * 0.15, 1, 0, 0, 0, 0, 1, 0.34, 0.34, colour, 0.3 * amount * (0.6 + 0.4 * note.loud));
+      }
       // Light blooms up from the key where it landed, rising and fading.
       const rise = 0.06 + since * 0.5;
       if (since < 0.8) blooms.add(lx, spot.y + rise / 2, lz, 0.002, rise, colour, 0.3 * Math.exp(-since * 5));
@@ -670,6 +836,8 @@ export function fallingNotes(
       heads.begin();
       blooms.begin();
       flares.begin();
+      spill.begin();
+      pools.begin();
       player.each(0.5, fall / speed, draw);
       echoes.begin();
       player.each(2, 0, echo);
@@ -679,6 +847,8 @@ export function fallingNotes(
       heads.end();
       blooms.end();
       flares.end();
+      spill.end();
+      pools.end();
       motes.update(delta);
       previous = now;
     },

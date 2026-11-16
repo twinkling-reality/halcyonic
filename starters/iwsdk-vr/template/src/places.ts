@@ -63,8 +63,12 @@ function sky(top: Color, horizon: Color, below: Color, radius: number, middle?: 
   return mesh;
 }
 
-/** A floor disc `radius` metres round the person, `centre` under them fading to `edge`. */
-function floor(centre: Color, edge: Color, radius: number): Mesh {
+/**
+ * A floor disc `radius` metres round the person, `centre` under them fading to `edge`, with `mist` added toward its
+ * far part (from a quarter of the way out, full at `misted` metres, gone again at its edge), so haze over the horizon
+ * carries on down it.
+ */
+function floor(centre: Color, edge: Color, radius: number, mist?: Color, misted = radius): Mesh {
   const geometry = new CircleGeometry(radius, 64, 0, Math.PI * 2);
   geometry.rotateX(-Math.PI / 2);
   const position = geometry.getAttribute('position');
@@ -73,6 +77,13 @@ function floor(centre: Color, edge: Color, radius: number): Mesh {
   for (let i = 0; i < position.count; i++) {
     const out = Math.hypot(position.getX(i), position.getZ(i)) / radius;
     c.copy(centre).lerp(edge, Math.min(1, out ** 0.5));
+    if (mist !== undefined) {
+      const k = Math.min(1, Math.max(0, (out * radius - radius * 0.25) / (misted - radius * 0.25)));
+      // And out again past `misted` to the edge, where the floor meets the sky's own horizon.
+      const past = Math.min(1, Math.max(0, (out * radius - misted) / (radius - misted)));
+      const m = k * k * (3 - 2 * k) * (1 - past * past * (3 - 2 * past));
+      c.setRGB(c.r + mist.r * m, c.g + mist.g * m, c.b + mist.b * m);
+    }
     colours.push(c.r, c.g, c.b);
   }
   geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
@@ -100,7 +111,8 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   // The floor fades into the horizon's colour and the sky rises from it, so no line marks where they meet.
   const horizon = tint.clone().multiplyScalar(0.16);
   group.add(sky(black, horizon, horizon, 120));
-  group.add(floor(tint.clone().multiplyScalar(0.1), horizon, 60));
+  // The haze ring (below) stands 44 m out; the floor carries its low glow on toward the person, with no seam.
+  group.add(floor(tint.clone().multiplyScalar(0.1), horizon, 60, tint.clone().multiplyScalar(0.05), 44));
   const count = options.motes ?? 160;
   const motes = glows(count, { facing: true, halo: 0.01, round: 1 });
   group.add(motes.object);
@@ -114,14 +126,16 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   ]);
   const dust = new Color('#8FA6FF');
   // Haze far off, low over the floor, so the dark has depth and is not a wall: one soft ring of the tint all round,
-  // rising softly out of the floor with no edge, brightest three metres up and fading to nothing above.
+  // rising softly out of the floor with no edge, brightest three metres up and fading to nothing above, with no crease
+  // anywhere in it (a single smooth curve, never two joined at their peak).
   const ring = new CylinderGeometry(44, 44, 12, 96, 24, true);
   ring.translate(0, 6, 0);
   const at = ring.getAttribute('position');
   const glow: number[] = [];
   for (let i = 0; i < at.count; i++) {
     const y = at.getY(i);
-    const k = (y < 3 ? (y / 3) ** 2 : Math.max(0, 1 - (y - 3) / 9) ** 2) * 0.16;
+    const t = Math.min(1, Math.max(0, y / 12));
+    const k = ((t * (1 - t) ** 3) / 0.1055) * 0.16;
     glow.push(tint.r * k, tint.g * k, tint.b * k);
   }
   ring.setAttribute('color', new Float32BufferAttribute(glow, 3));

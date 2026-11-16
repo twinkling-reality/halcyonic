@@ -216,9 +216,11 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
 - Light is glow, never a full-screen effect: `glows(count, options)` draws soft shapes (drops, dots, discs, columns)
   as one draw call, `sparks()` rise and fade, `lightKeys(low, high, { arc })` is a keyboard of light curving round
   the person, and `fallingNotes(player, keys)` lets each note fall onto its key from the dark overhead, the keys'
-  light, the rising glow and the sparks included, coloured by where each note lies in the music, while the hall far
-  off answers each note in its colour, all round the person. Each is written afresh every frame and makes nothing new
-  in it. Keep the place dark behind them: light adds up where it overlaps.
+  light spilling onto its neighbours, the rising glow and the sparks included, coloured by where each note lies in the
+  music, while the hall far off answers each note in its colour, all round the person; give `lightKeys` `{ glass:
+  true }` and the keys stand on dark glass that mirrors them and every note nearing them; give `fallingNotes` `{ floor
+  }`, the floor's height in the keys' group's own frame, and each note's light pools on the floor under its key. Each is
+  written afresh every frame and makes nothing new in it. Keep the place dark behind them: light adds up where it overlaps.
 - For light of your own, the same parts are general: `glows` with `upright: true` keeps each shape vertical however
   the head tilts (a falling drop, a rising column), `place(...)` lays a shape in any plane (light along a curve, on a
   sloping surface), `keys.spot(midi)` says where a key is and which way it faces, and `registerColour(midi, low,
@@ -431,12 +433,13 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   const player = playScore(programme, ambientMotion, { loop: true, gap: 4, lead: 4 });
   const [low, high] = range([programme]);
   // 1.1 m away and 1.0 m up: the keys and the notes falling onto them sit together in view with the head level.
-  const keys = lightKeys(low - 1, high + 1, { arc: 1.1, keyWidth: 0.055 });
+  const keys = lightKeys(low - 1, high + 1, { arc: 1.1, keyWidth: 0.055, glass: true });
   const keyboard = new Group();
   keyboard.position.set(0, 1.0, 0);
   keyboard.add(keys.group);
   root.add(keyboard);
-  ambientMotion(fallingNotes(player, keys).move);
+  // The hall's floor is 1.0 m under the keys: each note's light pools on it.
+  ambientMotion(fallingNotes(player, keys, { floor: -1.0 }).move);
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
 });
