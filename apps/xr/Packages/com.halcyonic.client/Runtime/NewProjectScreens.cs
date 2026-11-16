@@ -808,6 +808,7 @@ namespace Halcyonic.Client
             var lines = new List<PageLine>();
             if (draft?.Runtime is RuntimeDescriptor offering && !offering.Synthetic && (offering.OffersNeverAsk == true || PlanStart.Offered(offering)) && !confirmingStartOver)
             {
+                lines.Add(new PageLine(AgentColumn.BeforeItActs).AsHeading());
                 lines.Add(new PageLine(AgentColumn.AskFirstWords, action: ChooseLevel, key: AgentColumn.Ask, choice: true, chosen: !draft.StartsNeverAsk && !draft.StartsPlan,
                     answerMark: AnswerMark.Single));
                 if (offering.OffersNeverAsk == true)

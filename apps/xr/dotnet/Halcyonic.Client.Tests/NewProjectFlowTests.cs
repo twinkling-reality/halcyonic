@@ -3266,6 +3266,9 @@ public class NewProjectFlowTests
         }));
         Assert.That(RoomBar.NewProject(flow.Frame!, VoiceStage.Idle)!.Column.Where(action => action.Control.Action == NewProjectScreens.ChooseLevel).Select(action => action.Mark),
             Is.All.EqualTo(AnswerMark.Single), "the redesign draws them as answers with their marks");
+        Assert.That(Pages(flow).Where(frame => frame.Lines.Any(line => line.Action == NewProjectScreens.ChooseLevel))
+                .Select(frame => frame.Lines.Count(line => line.Heading && line.Words == AgentColumn.BeforeItActs)), Is.All.EqualTo(1),
+            "the question the levels answer stands over them on every page they stand on (AUDIT2; the lead, 2026-11-16 04:40Z)");
         Press(flow, NewProjectScreens.ChooseLevel, AgentColumn.Ask);
         Assert.That(Actions(flow), Is.Empty, "kept at once: back on the facts");
         Assert.That(flow.Frame!.Lines.Any(line => line.Fact == "Ask Me First"), "the recap's row reads the new level");

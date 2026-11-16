@@ -136,6 +136,12 @@ namespace Halcyonic.Client
         /// </summary>
         public const string RoleWords = "Agent";
 
+        /// <summary>
+        /// The question the asking choices answer, over them on the agent page and the recap's change page, so the chosen
+        /// one's tick reads as an answer, never as a switch (AUDIT2's words; the lead's yes, 2026-11-16 04:40Z).
+        /// </summary>
+        public const string BeforeItActs = "Before It Acts";
+
         public const string AskFirstWords = "Ask Me First";
         public const string NeverAskWords = "Don't Ask Me";
         public const string ChangeWords = "Change";
@@ -195,6 +201,7 @@ namespace Halcyonic.Client
                 }
                 if (now.OffersNeverAsk)
                 {
+                    lines.Add(new PageLine(BeforeItActs).AsHeading());
                     lines.Add(new PageLine(AskFirstWords, action: Level, key: Ask, choice: true, chosen: !now.NeverAsk, answerMark: AnswerMark.Single));
                     lines.Add(new PageLine(NeverAskWords, action: Level, key: Never, choice: true, chosen: now.NeverAsk, answerMark: AnswerMark.Single));
                 }

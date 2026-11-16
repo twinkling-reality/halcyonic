@@ -48,6 +48,10 @@ public sealed class RoomAgentTests
         Assert.That(Acting(frame).Select(line => line.Action), Is.EqualTo(new[] { AgentColumn.Level, AgentColumn.Level, AgentColumn.Change }));
         Assert.That(Acting(frame).Select(line => line.Key), Is.EqualTo(new[] { "ask", "never_ask", null }));
         Assert.That(Acting(frame).Select(line => line.Chosen), Is.EqualTo(new[] { true, false, false }), "Ask Me First is the level in force");
+        var heading = frame.Lines.Single(line => line.Heading);
+        Assert.That((heading.Words, heading.Action), Is.EqualTo((AgentColumn.BeforeItActs, (string?)null)),
+            "the question the two levels answer stands over them, so the tick reads as the chosen answer (AUDIT2; the lead, 2026-11-16 04:40Z)");
+        Assert.That(frame.Lines.ToList().IndexOf(heading), Is.LessThan(frame.Lines.ToList().FindIndex(line => line.Action == AgentColumn.Level)), "over them, never under");
         Assert.That(Acting(frame).Take(2).All(line => line.AnswerMark == AnswerMark.Single), "the levels are answers, one of two");
         var back = frame.Footer[PromptSlot.Close]!;
         Assert.That((back.Words, back.Id, back.Kind), Is.EqualTo(("Back", Footer.Close, PromptKind.Close)));

@@ -43,7 +43,9 @@ the agent fixes a failed check by itself the card reads "Fixing" over "The agent
 rows red under it, never the rows' names joined in a sentence. Check rows after the step a check stopped at read "Not Run", never an empty box
 (FIELD's RoomCardView.NotRun; AUDIT2's W5).
 
-How often the agent asks reads "Ask Me First", "Don't Ask Me" and "Show Plan First" (Ask First, Never Ask and Plan
+"Before It Acts" stands over those choices, on the agent page and New Project's change page, so the chosen one's
+tick reads as the answer, never as a switch (AUDIT2; the lead's yes, 2026-11-16). How often the agent asks reads "Ask
+Me First", "Don't Ask Me" and "Show Plan First" (Ask First, Never Ask and Plan
 First until 2026-11-16, AUDIT2's words: what each does for the person, "Show Plan First" apart from asking). The kit
 picks the agent's glyph from its action, never from these words, so they can move (FIELD's 3a7b25527); the host's own
 labels for the same choice move with them (CORE).
