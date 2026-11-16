@@ -15,7 +15,7 @@ import {
   ShaderMaterial,
 } from 'three';
 import type { Player } from './instruments.js';
-import { fifthsColumn, isBlack, swell } from './score.js';
+import { isBlack, roundColumn, swell } from './score.js';
 
 /**
  * Light for apps of music and light: soft glowing shapes, sparks, and a keyboard of light. Each kind is ONE instanced
@@ -963,8 +963,9 @@ const AROUND = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0')
 /**
  * Makes a hall of light round the person that answers a score (`playScore`) and builds with it: `columns` columns of
  * light stand in a ring `radius` metres out, rising from the floor into the dark `height` metres up, each faintly its
- * own colour (deep blue ahead, sea blue and violet beside, rose behind). Each note sends its light climbing one column
- * (the notes a fifth apart stand side by side round the ring, so a chord lights the hall all round) and, when it
+ * own colour (deep blue ahead, sea blue and violet beside, rose behind). Each note's light falls down one column and climbs back up
+ * it, and fainter the column facing it (each octave runs once round the ring, C ahead and rising to the right, so a
+ * scale stands on every side and a run circles the person) and, when it
  * reaches the top, lights a point of a rose of light overhead, which grows from its middle outward as the music goes
  * on. Over the first `rise` seconds of the music the columns and the rose grow brighter, until at `rise` the hall
  * blooms: every column flares to its top, the whole rose lights at once and a ring of light runs out across the
@@ -992,7 +993,6 @@ export function lightHall(
     low = Math.min(low, note.pitch);
     high = Math.max(high, note.pitch);
   }
-  const middle = Math.round((low + high) / 2);
   const homes = Array.from({ length: count }, (_, i) => {
     const a = (i / count) * Math.PI * 2;
     // 0 ahead, 1 behind, either way round, changing evenly with the bearing.
@@ -1083,6 +1083,8 @@ export function lightHall(
   let built = 0;
   let now = 0;
   let rings = 0;
+  let drops = 0;
+  const falling = 1.1;
   let waves = 0;
   let wave = 0;
   let previous = Number.POSITIVE_INFINITY;
@@ -1102,11 +1104,21 @@ export function lightHall(
   if (detail === 0) unmirror();
   const visit = (note: { pitch: number; loud: number }, start: number) => {
     const since = now - start;
-    if (since < 0) return;
     const c = tinted(note);
-    const i = fifthsColumn(note.pitch, middle, count);
+    const i = roundColumn(note.pitch, count);
     const home = homes[i] as (typeof homes)[number];
     const loud = 0.45 + note.loud;
+    // Before it sounds, the note's light falls down its column out of the dark, landing on the floor at its foot as
+    // it is heard; it splashes there and climbs back up.
+    if (since < 0) {
+      if (since > -falling && drops < 40) {
+        const y = -since * (height * 0.8) / falling;
+        const seen = Math.min(1, (falling + since) / 0.4);
+        climbs.place(home.x, y + 0.4, home.z, 1, 0, 0, 0, 1, 0, 0.03, 0.8, c, 0.7 * loud * seen * (0.5 + 0.5 * built));
+        drops += 1;
+      }
+      return;
+    }
     // Where it starts up, a ring of its light runs out across the floor round the column's foot.
     if (since < 1.4 && rings < 20) {
       const r = 0.2 + since * 1.8;
@@ -1120,7 +1132,7 @@ export function lightHall(
       rings += 1;
     }
     // A low note sends a ring of its light out across the floor from the keyboard, lighting each column as it passes.
-    if (note.pitch < middle - 6 && since < 2.6 && waves < 3) {
+    if (note.pitch < low + (high - low) / 3 && since < 2.6 && waves < 3) {
       const r = 1.2 + since * 3.2;
       const fade = (1 - since / 2.6) ** 1.5 * 0.5 * loud * (0.4 + 0.6 * built);
       for (let k = 0; k < 96; k++) {
@@ -1137,12 +1149,18 @@ export function lightHall(
       embers.emit(home.x, 0.05, home.z, c, 8 + Math.round(8 * note.loud), { rise: 0.8, spread: 0.6, life: 2.2, size: 0.022 });
     if (since < top) {
       const fade = Math.exp(-since * 0.35);
-      lit[i] = (lit[i] ?? 0) + 0.5 * loud * fade;
-      // Only the newest note climbing a column is drawn, so lights following each other never pile up.
-      if (since < (newest[i] as number)) {
-        newest[i] = since;
-        newestLoud[i] = loud;
-        (litColour[i] as Color).copy(c);
+      // Its column, and fainter the one facing it across the hall, so every side answers whatever key the music is in.
+      for (const [j, share] of [
+        [i, 1],
+        [(i + count / 2) % count, 0.55],
+      ] as const) {
+        lit[j] = (lit[j] ?? 0) + 0.5 * loud * fade * share;
+        // Only the newest note climbing a column is drawn, so lights following each other never pile up.
+        if (since < (newest[j] as number)) {
+          newest[j] = since;
+          newestLoud[j] = loud * share;
+          (litColour[j] as Color).copy(c);
+        }
       }
     }
     // At the top it lights a point of the rose, which glows and fades over some seconds; while the hall is still
@@ -1184,24 +1202,25 @@ export function lightHall(
       flash.fill(0);
       newest.fill(Number.POSITIVE_INFINITY);
       rings = 0;
+      drops = 0;
       waves = 0;
       wave = 0;
       floor.begin();
       climbs.begin();
-      player.each(top + 9, 0, visit);
+      player.each(top + 9, falling, visit);
       pillars.begin();
       for (let i = 0; i < count; i++) {
         const home = homes[i] as (typeof homes)[number];
         const notes = Math.min(1, lit[i] ?? 0);
         shade.copy(home.colour).lerp(litColour[i] as Color, notes > 0 ? 0.6 : 0);
-        const strength = rest + 0.35 * notes + 1.6 * bloom + wave;
+        const strength = rest + 1.1 * notes + 1.6 * bloom + wave;
         const going = newest[i] as number;
         if (going < top) {
           // Climbing, its head at y and its tail below, fading as it goes.
           const y = going * climb;
           const tail = Math.min(y, 3);
           const fade = Math.exp(-going * 0.35);
-          climbs.place(home.x, y - tail / 2, home.z, 1, 0, 0, 0, -1, 0, 0.035, tail, litColour[i] as Color, 0.8 * (newestLoud[i] as number) * fade * (0.5 + 0.5 * built));
+          climbs.place(home.x, y - tail / 2, home.z, 1, 0, 0, 0, -1, 0, 0.05, tail, litColour[i] as Color, 1.5 * (newestLoud[i] as number) * fade * (0.5 + 0.5 * built));
         }
         pillars.add(home.x, height * 0.7, home.z, 0.14, height * 1.4, shade, 1.4 * strength);
         // Its light lying on the floor round its foot, so the floor is seen where it stands.

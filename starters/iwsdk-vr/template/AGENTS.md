@@ -224,8 +224,8 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   themselves; give `fallingNotes` `{ floor }`, the floor's height in the keys' group's own frame, and each note's light
   pools on the floor under its key. `lightHall(player)` makes the hall itself answer, all round the person: soft
   columns of light stand in a ring 6.5 m out (a fainter ring beyond, and light drifting near the person), each note's
-  light climbs one (notes a fifth apart side by side, so a chord lights the hall all round) with sparks and a ring at
-  its foot, a low note sends a ring of light out across the floor that lights each column as it passes, and each note
+  light falls down one and climbs back up it (each octave runs once round the person, C ahead and rising to the right, so
+  a chord spreads round them and a run circles them) with sparks and a ring at its foot, a low note sends a ring of light out across the floor that lights each column as it passes, and each note
   lights a point of a slowly turning galaxy overhead that grows outward with the music; over the first 20 seconds it
   builds, then blooms (every column flares and a wave runs up them, the galaxy lights whole) and settles to a steady
   glow; `darkHall`'s polished floor mirrors it. Add its `group` to the group `setupScene` returns, pass its `move` to

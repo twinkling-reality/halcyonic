@@ -174,13 +174,14 @@ export function join(scores: readonly Score[], gap = 3): Score {
 
 /**
  * Which of `columns` places round the person a note's light stands at (0 ahead, counting to the right), for light
- * that answers the music all round (`lightHall`): its key's place on the circle of fifths sets the bearing, so notes a
- * fifth apart stand side by side and a chord's notes spread round the whole circle; a note at or above `middle` takes
- * the next place over from the same key below it. `columns` a multiple of 24 uses every place.
+ * that answers the music all round (`lightHall`): each octave runs once round the person, C ahead and each key up a
+ * twelfth of a turn to the right, so the notes of any scale stand on every side, a chord spreads round the person and
+ * a run circles them; one octave and the next take neighbouring places.
  */
-export function fifthsColumn(midi: number, middle: number, columns = 24): number {
-  const fifth = (((midi * 7) % 12) + 12) % 12;
-  return Math.floor(((fifth * 2 + (midi >= middle ? 1 : 0)) * columns) / 24) % columns;
+export function roundColumn(midi: number, columns = 24): number {
+  const key = ((midi % 12) + 12) % 12;
+  const octave = ((Math.floor(midi / 12) % 2) + 2) % 2;
+  return Math.floor(((key * 2 + octave) * columns) / 24) % columns;
 }
 
 /**

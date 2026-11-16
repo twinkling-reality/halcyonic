@@ -4,12 +4,12 @@ import { describe, test } from 'node:test';
 import { pieces, pitch } from '../../../starters/iwsdk-vr/template/src/pieces.ts';
 import {
   eachHeard,
-  fifthsColumn,
   isBlack,
   join,
   occurrences,
   range,
   ringsUntil,
+  roundColumn,
   type Score,
   scoreSeconds,
   spanning,
@@ -311,29 +311,37 @@ describe('the starter music and light kit keeps to its page', () => {
 });
 
 describe('the hall of light answers the music all round and builds with it (SHOW, 2026-11-16)', () => {
-  test('notes a fifth apart stand side by side round the hall, and a chord spreads round it', () => {
-    const middle = 60;
-    // C, G, D: each a fifth above the last, two places on each time (low and high keys share a pair of places).
-    assert.equal(fifthsColumn(48, middle), 0);
-    assert.equal(fifthsColumn(55, middle), 2);
-    assert.equal(fifthsColumn(50, middle), 4);
-    // The same key at or above the middle takes the next place over.
-    assert.equal(fifthsColumn(60, middle), 1);
-    assert.equal(fifthsColumn(72, middle), 1);
-    // C, E and G of a chord stand far apart round the circle, not side by side.
-    const places = [60, 64, 67].map((key) => fifthsColumn(key, middle));
-    assert.deepEqual(places, [1, 9, 3]);
+  test('each octave runs once round the person: C ahead, rising to the right, the next octave beside it', () => {
+    assert.equal(roundColumn(48), 0);
+    assert.equal(roundColumn(60), 1);
+    // E a third of the way round to the right, G past half way, B just short of ahead again.
+    assert.equal(roundColumn(52), 8);
+    assert.equal(roundColumn(55), 14);
+    assert.equal(roundColumn(59), 22);
+    // A C major chord's notes stand far apart round the person, never side by side.
+    assert.deepEqual(
+      [60, 64, 67].map((key) => roundColumn(key)),
+      [1, 9, 15],
+    );
   });
 
-  test('every place round the hall is some key, low or high, and each key has one place', () => {
-    const middle = 60;
+  test("a scale's notes stand on every side, and every place is some key in one octave or the next", () => {
+    const major = [0, 2, 4, 5, 7, 9, 11].map((step) => roundColumn(60 + step));
+    for (const [from, to] of [
+      [0, 6],
+      [6, 12],
+      [12, 18],
+      [18, 24],
+    ])
+      assert.ok(
+        major.some((column) => column >= (from as number) && column < (to as number)),
+        `a C major note in ${from} to ${to}`,
+      );
     const taken = new Set<number>();
-    for (let key = 48; key < 72; key++) taken.add(fifthsColumn(key, middle));
+    for (let key = 48; key < 72; key++) taken.add(roundColumn(key));
     assert.equal(taken.size, 24);
-    for (const column of taken) assert.ok(column >= 0 && column < 24);
-    // Fewer places: the circle shared out among them, never past the last.
     for (let key = 21; key <= 108; key++) {
-      const column = fifthsColumn(key, middle, 12);
+      const column = roundColumn(key, 12);
       assert.ok(Number.isInteger(column) && column >= 0 && column < 12, String(key));
     }
   });
