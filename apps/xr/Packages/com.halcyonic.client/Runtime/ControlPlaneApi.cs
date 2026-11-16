@@ -406,6 +406,49 @@ namespace Halcyonic.Client
         /// </summary>
         public Task<string> GetDocumentAsync(string path, CancellationToken cancellationToken = default) => GetAsync(path, cancellationToken);
 
+        /// <summary>
+        /// The still of a photo or video given to a task, as its bytes (<see cref="TaskPicture"/>): a PNG or a JPEG of at most
+        /// <see cref="TaskPicture.MostBytes"/>. A refusal keeps the computer's code (<see cref="TaskPicture.Gone"/>,
+        /// <see cref="TaskPicture.NotFound"/>); an answer this headset does not draw is refused as <see cref="TaskPicture.NotDrawn"/>,
+        /// its body never read past the limit.
+        /// </summary>
+        public async Task<byte[]> GetPictureAsync(string projectId, string journalId, string path, CancellationToken cancellationToken = default)
+        {
+            HttpResponseMessage response;
+            try
+            {
+                response = await http.GetAsync(new Uri(baseUri, TaskPicture.PathOf(projectId, journalId, path)), HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (HttpRequestException error)
+            {
+                throw new ControlPlaneRequestException("The control plane could not be reached: " + error.Message, error);
+            }
+            using (response)
+            {
+                if (!response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body), (int)response.StatusCode);
+                }
+                ControlPlaneRequestException NotDrawn(string why) =>
+                    new ControlPlaneRequestException("The picture is not one this headset draws: " + why + ".", TaskPicture.NotDrawn, (int)response.StatusCode);
+                if (!TaskPicture.Drawn(response.Content.Headers.ContentType?.MediaType)) throw NotDrawn("its type is " + (response.Content.Headers.ContentType?.MediaType ?? "not given"));
+                if (response.Content.Headers.ContentLength is long length && length > TaskPicture.MostBytes) throw NotDrawn("it holds " + length + " bytes");
+                using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                using var bytes = new System.IO.MemoryStream();
+                var buffer = new byte[81920];
+                int read;
+                while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    if (bytes.Length + read > TaskPicture.MostBytes) throw NotDrawn("it holds more than " + TaskPicture.MostBytes + " bytes");
+                    bytes.Write(buffer, 0, read);
+                }
+                if (bytes.Length == 0) throw NotDrawn("it holds nothing");
+                return bytes.ToArray();
+            }
+        }
+
         private async Task<string> GetAsync(string path, CancellationToken cancellationToken, HttpClient? client = null)
         {
             HttpResponseMessage response;
