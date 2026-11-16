@@ -555,20 +555,28 @@ export function openLand(
         '#include <opaque_fragment>',
         `{
     vec2 p = vSand.xz;
+    // How much sand one pixel covers here, from its distance and how slanting the view is: smooth across every
+    // triangle of the ground (screen derivatives jump where two triangles meet, and would draw the mesh as lines).
+    vec3 look = vSand - cameraPosition;
+    float dist = length(look);
+    vec3 viewDir = look / max(dist, 0.001);
+    float across = dist * 0.0011;
+    float footprint = across / max(abs(viewDir.y), 0.08);
+    float grad = sqrt(across * footprint);
     // Near the person, the sand's light from its picture, blending into the rings' own colour by its edge.
     vec2 cell = p / (2.0 * sandSpan) + 0.5;
     // Blended out in a circle well inside the picture's square, so its edge never shows as a straight line.
     float inside = 1.0 - smoothstep(0.55, 0.92, length(p) / sandSpan);
-    if (inside > 0.0) outgoingLight = mix(outgoingLight, texture2D(sandNear, vec2(cell.x, cell.y)).rgb, inside);
+    if (inside > 0.0) outgoingLight = mix(outgoingLight, textureGrad(sandNear, vec2(cell.x, cell.y), vec2(grad / (2.0 * sandSpan), 0.0), vec2(0.0, grad / (2.0 * sandSpan))).rgb, inside);
     // Ripples across the wind, a tile 2.4 m across: lighter on the side of each that faces the sun, darker on the
     // other, faintly in shade as well; strongest at the feet and gone by 30 m.
     // Two sizes of ripple at slightly different angles, so they never repeat like a pattern.
     vec2 q = vec2(dot(p, sandWind), dot(p, vec2(-sandWind.y, sandWind.x))) / 2.4;
     vec2 q2 = vec2(q.x * 0.96 + q.y * 0.28, q.y * 0.96 - q.x * 0.28) * 0.62 + vec2(0.37, 0.71);
-    vec2 slope = (texture2D(sandRipples, q).rg - 0.5) * 1.3 + (texture2D(sandRipples, q2).rg - 0.5) * 0.9;
+    vec2 slope = (textureGrad(sandRipples, q, vec2(grad / 2.4, 0.0), vec2(0.0, grad / 2.4)).rg - 0.5) * 1.3 + (textureGrad(sandRipples, q2, vec2(grad * 0.26, 0.0), vec2(0.0, grad * 0.26)).rg - 0.5) * 0.9;
     // And a finer one at the feet, so the sand close by stays crisp.
     vec2 q3 = vec2(q.x * 0.9 - q.y * 0.43, q.y * 0.9 + q.x * 0.43) * 2.3 + vec2(0.13, 0.52);
-    slope += (texture2D(sandRipples, q3).rg - 0.5) * 0.8 * (1.0 - smoothstep(1.5, 5.0, length(p)));
+    slope += (textureGrad(sandRipples, q3, vec2(grad * 0.96, 0.0), vec2(0.0, grad * 0.96)).rg - 0.5) * 0.8 * (1.0 - smoothstep(1.5, 5.0, length(p)));
     float sunAlong = dot(sandSun, sandWind);
     float sunAcross = dot(sandSun, vec2(-sandWind.y, sandWind.x));
     float rippleNear = 1.0 - smoothstep(2.5, 16.0, length(p));
@@ -579,20 +587,21 @@ export function openLand(
     float rc = dot(p, vec2(-sandWind.y, sandWind.x));
     float phase1 = ra * 24.0 + 1.8 * sin(rc * 1.3 + ra * 0.35) + 0.9 * sin(rc * 3.1);
     float phase2 = (ra * 0.94 + rc * 0.34) * 37.0 + 1.2 * sin(rc * 2.3 - ra * 0.5);
-    float crisp = (1.0 - smoothstep(0.7, 2.0, fwidth(phase1))) * (1.0 - smoothstep(1.0, 7.0, length(p)));
-    float crisp2 = (1.0 - smoothstep(0.7, 2.0, fwidth(phase2))) * (1.0 - smoothstep(0.8, 4.5, length(p)));
+    float crisp = (1.0 - smoothstep(0.7, 2.0, footprint * 24.0)) * (1.0 - smoothstep(1.0, 7.0, length(p)));
+    float crisp2 = (1.0 - smoothstep(0.7, 2.0, footprint * 37.0)) * (1.0 - smoothstep(0.8, 4.5, length(p)));
     // A ripple's face: a long slope lit as it rises into the wind, then a sharp crest and a short steep side in
     // shade, as wind-blown sand lies (never a smooth wave).
     float s1 = fract(phase1 / 6.2832);
     float s2 = fract(phase2 / 6.2832);
-    float w1 = max(fwidth(phase1) / 6.2832, 0.02);
-    float w2 = max(fwidth(phase2) / 6.2832, 0.02);
+    // The crest's width about one pixel wide, so it stays sharp at the feet and soft only where it must.
+    float w1 = clamp(footprint * 24.0 / 6.2832, 0.006, 0.3);
+    float w2 = clamp(footprint * 37.0 / 6.2832, 0.006, 0.3);
     float face1 = mix(-0.55 + 1.3 * s1 / 0.78, -0.9, smoothstep(0.78 - w1, 0.78 + w1, s1));
     float face2 = mix(-0.5 + 1.2 * s2 / 0.75, -0.8, smoothstep(0.75 - w2, 0.75 + w2, s2));
     float facingSun = 0.55 + 0.45 * sunAlong;
     outgoingLight *= 1.0 + (crisp * 0.24 * face1 + crisp2 * 0.12 * face2) * facingSun;
     // Long faint streaks the wind leaves farther off, where single ripples are too fine to draw.
-    float streak = sin(ra * 3.1 + 2.0 * sin(rc * 0.35)) * (1.0 - smoothstep(0.6, 1.6, fwidth(ra * 3.1)));
+    float streak = sin(ra * 3.1 + 2.0 * sin(rc * 0.35)) * (1.0 - smoothstep(0.6, 1.6, footprint * 3.1));
     outgoingLight *= 1.0 + 0.05 * streak * smoothstep(5.0, 14.0, length(p)) * (1.0 - smoothstep(30.0, 60.0, length(p)));
     outgoingLight *= 1.0 + rippleNear * ((0.2 + 0.12 * atFeet) * (slope.x * sunAlong + slope.y * sunAcross) + (0.06 + 0.06 * atFeet) * slope.x);
     // Fine grain, only where a grain is still bigger than a pixel.
@@ -606,7 +615,7 @@ export function openLand(
     float h01 = fract(sin(dot(gi + vec2(0.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
     float h11 = fract(sin(dot(gi + vec2(1.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
     float grain = mix(mix(h00, h10, gf.x), mix(h01, h11, gf.x), gf.y) - 0.5;
-    outgoingLight *= 1.0 + 0.12 * grain * (1.0 - smoothstep(0.4, 1.0, fwidth(p.x * 30.0)));
+    outgoingLight *= 1.0 + 0.12 * grain * (1.0 - smoothstep(0.4, 1.0, footprint * 30.0));
     // A finer grain, a centimetre across, seen only near the feet.
     vec2 fg = p * 110.0;
     vec2 fi = floor(fg);
@@ -617,7 +626,7 @@ export function openLand(
     float f01 = fract(sin(dot(fi + vec2(0.0, 1.0), vec2(27.17, 91.31))) * 41231.27);
     float f11 = fract(sin(dot(fi + vec2(1.0, 1.0), vec2(27.17, 91.31))) * 41231.27);
     float fine = mix(mix(f00, f10, ff.x), mix(f01, f11, ff.x), ff.y) - 0.5;
-    outgoingLight *= 1.0 + 0.1 * fine * (1.0 - smoothstep(0.4, 1.0, fwidth(p.x * 110.0)));
+    outgoingLight *= 1.0 + 0.1 * fine * (1.0 - smoothstep(0.4, 1.0, footprint * 110.0));
     // A soft shade on the sand under something floating over it (a window's own).
     float under = length(p - sandUnder.xy);
     outgoingLight *= 1.0 - sandUnder.z * exp(-under * under / 1.8);
@@ -630,7 +639,6 @@ export function openLand(
       * (1.0 - smoothstep(sandCastFrom.z * 0.7, sandCastFrom.z * 1.3 + 0.25, across2));
     outgoingLight *= 1.0 - sandCastBand.z * inShadow * (1.0 - 0.6 * clamp((along2 - sandCastBand.x) / max(1.0, sandCastBand.y - sandCastBand.x), 0.0, 1.0));
     // Sand looked at toward a low sun shines along it, as backlit dunes do at sunset.
-    vec3 look = vSand - cameraPosition;
     float toward = max(0.0, dot(normalize(look.xz), sandSun));
     float graze = 1.0 - abs(normalize(look).y);
     outgoingLight += sandSheen * pow(toward, 3.0) * graze * graze * 0.22;
@@ -639,8 +647,6 @@ export function openLand(
     outgoingLight += sandLampColour * (0.5 / (1.0 + lampDistance * lampDistance * 1.2)) * (1.0 - smoothstep(1.2, 3.0, lampDistance));
     // The air between the person and the sand: thicker low down and far off, its colour the sky's own at the
     // horizon, warmer and brighter toward the sun, so the land melts into the sky with no edge.
-    float dist = length(look);
-    vec3 viewDir = look / max(dist, 0.001);
     float sunward = max(0.0, dot(normalize(viewDir.xz), sandSun));
     float density = 0.006 * exp(-max(vSand.y + 3.0, 0.0) * 0.12) * smoothstep(8.0, 60.0, dist) + 0.0015;
     float thick = 1.0 - exp(-dist * density);
@@ -655,7 +661,7 @@ export function openLand(
     float seen = fract(sin(dot(cellG + floor(cameraPosition.xz * 9.0), vec2(17.7, 63.3))) * 9173.1);
     vec2 inCell = fract(gp) - 0.5;
     float round1 = 1.0 - smoothstep(0.05, 0.14, length(inCell));
-    float glintNear = 1.0 - smoothstep(0.3, 0.8, fwidth(p.x * 70.0));
+    float glintNear = 1.0 - smoothstep(0.3, 0.8, footprint * 70.0);
     outgoingLight += sandSheen * step(0.993, pick) * step(0.5, seen) * round1 * glintNear * pow(sunward, 2.0) * 1.2;
   }
   #include <opaque_fragment>`,
