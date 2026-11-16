@@ -2047,6 +2047,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "passed")] Passed,
         [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
         [global::System.Runtime.Serialization.EnumMember(Value = "not_known")] NotKnown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "starter_only")] StarterOnly,
     }
 
     public sealed class CheckReading

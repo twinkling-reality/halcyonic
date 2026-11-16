@@ -200,13 +200,46 @@ export function laptopFix(findings: CheckFindings): string | null {
 export type CheckVerdict = NonNullable<CheckFindings['verdict']>;
 
 /**
+ * More sharp edges than this outside the welcome panel, in the picture at 3 s or at 10 s, means
+ * something is drawn in view of the laptop camera: a white, black or blank page has none, one small
+ * test box about 2,700. The starter's own island, sky and decor have about 56,000, so a page is drawn
+ * only with pixels of its own as well (`OWN_DRAWN`). It never means the game works: a scene of the
+ * wrong objects passes it too. The host's check measures by it; the verdict reads it.
+ */
+export const DRAWN_EDGES = 200;
+
+/**
+ * More than this share of the pixels outside the card's corner must differ from the pristine
+ * starter's picture at the same frame for a page to draw something of its own (DRAWN): about 940 of
+ * 1280 by 800, a square 31 pixels a side. Calibrated in `docs/internal/validation/iwsdk-starter.md`.
+ */
+export const OWN_DRAWN = 0.001;
+
+/**
+ * Whether the page the check opened is the untouched starter's: something is drawn by its edges, and its own picture
+ * is the pristine starter's (at most `OWN_DRAWN` of it differs) against a reference the check compared with. Never
+ * for another template's reference or one that could not be made.
+ */
+function starterPage(page: NonNullable<CheckFindings['page']>): boolean {
+  const own = page.own;
+  return (
+    Math.max(page.edges_at_3s ?? 0, page.edges_at_10s ?? 0) > DRAWN_EDGES &&
+    own !== undefined &&
+    own.reference === 'compared' &&
+    own.share !== null &&
+    own.share <= OWN_DRAWN
+  );
+}
+
+/**
  * A starter's check's whole answer, recorded beside `passed` (VRIFY, 2026-11-13): a reference the product could not make
  * is the product's failure, never the app's. `failed` on any failure the check measured or saw, whatever else is not
  * known: a type check or build that did not exit 0, a page not opened, an uncaught exception, nothing drawn by its
  * edges or of its own, a refusal of its starter, the laptop reading measured under its floor, or the kit's panels
- * measured past a laptop's edge or over each other. `not_known` where
- * nothing failed and only whether the page draws its own look is not known (`drawn` null). `passed` only for a whole
- * seen pass.
+ * measured past a laptop's edge or over each other. `starter_only` where nothing else failed and the page draws nothing
+ * of its own only because it is the untouched starter's (LINK, 2026-11-16): the starter alone, never a failure, and
+ * never servable, since `passed` stays false. `not_known` where nothing failed and only whether the page draws its
+ * own look is not known (`drawn` null). `passed` only for a whole seen pass.
  */
 export function checkVerdict(findings: CheckFindings): CheckVerdict {
   const page = findings.page;
@@ -215,12 +248,13 @@ export function checkVerdict(findings: CheckFindings): CheckVerdict {
     findings.build.exit !== 0 ||
     page === null ||
     page.exception_count > 0 ||
-    page.drawn === false ||
     (findings.refusals?.length ?? 0) > 0 ||
     readingUnder(findings) !== null ||
     fitUnder(findings) !== null
   )
     return 'failed';
+  // Not drawn of its own because it is still the starter's own page: the starter alone, nothing made yet.
+  if (page.drawn === false) return starterPage(page) ? 'starter_only' : 'failed';
   if (page.drawn === null) return 'not_known';
   return findings.passed ? 'passed' : 'failed';
 }

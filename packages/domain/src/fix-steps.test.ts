@@ -4,11 +4,13 @@ import type { CheckFindings, CheckFit, CheckReading } from '@halcyonic/contracts
 import {
   checkServable,
   checkVerdict,
+  DRAWN_EDGES,
   fitFix,
   fitPasses,
   fitUnder,
   fixSteps,
   laptopFix,
+  OWN_DRAWN,
   readingFix,
   readingPasses,
   readingUnder,
@@ -346,5 +348,84 @@ describe("a check's whole answer beside passed (VRIFY, 2026-11-13: a reference t
   test('a check recorded before the verdict is served by passed alone', () => {
     assert.equal(checkServable(passed()), true);
     assert.equal(checkServable(unmade()), false);
+  });
+});
+
+describe("the untouched starter's check reads starter_only, never failed (LINK, 2026-11-16: a fresh New App never reads Failed)", () => {
+  /** The bare starter as the check measured it on 2026-11-16: tsc and build 0, no exception, the island drawn, its own picture the pristine starter's. */
+  const bare = (share = 0, reading?: CheckReading): CheckFindings => {
+    const seen = passed(reading);
+    return {
+      ...seen,
+      page:
+        seen.page === null
+          ? null
+          : {
+              ...seen.page,
+              edges_at_3s: 46_485,
+              edges_at_10s: 47_199,
+              drawn: false,
+              own: { share, reference: 'compared' },
+            },
+      passed: false,
+      ready: false,
+    };
+  };
+
+  test('the bare starter, and its own picture at the threshold, read starter_only; passed stays false and it is not served', () => {
+    assert.equal(checkVerdict(bare()), 'starter_only');
+    assert.equal(checkVerdict(bare(OWN_DRAWN)), 'starter_only');
+    assert.equal(bare().passed, false);
+    assert.equal(checkServable({ ...bare(), verdict: 'starter_only' }), false);
+  });
+
+  test("any other failure stays failed, even with its own picture the starter's (AUDIT3 S3)", () => {
+    const page = bare().page;
+    assert.ok(page !== null);
+    const failures: CheckFindings[] = [
+      { ...bare(), tsc: { exit: 2, seconds: 1 } },
+      { ...bare(), build: { exit: 1, seconds: 2 } },
+      { ...bare(), build: { exit: null, seconds: 180 } },
+      { ...bare(), page: { ...page, exceptions: ['Uncaught TypeError'], exception_count: 1 } },
+      { ...bare(), page: null },
+      bare(0, measured(6)),
+      {
+        ...bare(),
+        refusals: [
+          {
+            kind: 'original_share_image',
+            words: 'Make your own share picture.',
+            file: 'public/og.png',
+          },
+        ],
+      },
+      // Nothing drawn by its edges: a blank page, whatever its own picture.
+      { ...bare(), page: { ...page, edges_at_3s: DRAWN_EDGES, edges_at_10s: 0 } },
+    ];
+    for (const findings of failures)
+      assert.equal(checkVerdict(findings), 'failed', JSON.stringify(findings));
+  });
+
+  test('a picture of its own past the threshold, another template, no reference, or none recorded never reads starter_only', () => {
+    const page = bare().page;
+    assert.ok(page !== null);
+    assert.equal(checkVerdict(bare(OWN_DRAWN * 2)), 'failed');
+    assert.equal(
+      checkVerdict({ ...bare(), page: { ...page, own: { share: null, reference: 'compared' } } }),
+      'failed',
+    );
+    assert.equal(
+      checkVerdict({
+        ...bare(),
+        page: { ...page, own: { share: null, reference: 'other_template' } },
+      }),
+      'failed',
+    );
+    assert.equal(
+      checkVerdict({ ...bare(), page: { ...page, own: { share: 0, reference: 'unavailable' } } }),
+      'failed',
+    );
+    const { own: _own, ...noOwn } = page;
+    assert.equal(checkVerdict({ ...bare(), page: noOwn }), 'failed');
   });
 });

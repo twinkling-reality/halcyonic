@@ -5,14 +5,18 @@
  * stay as they are for every other reader.
  */
 import type { CheckFindings } from '@halcyonic/contracts';
-import { OWN_LOOK_NOT_KNOWN, PARTLY_CHECKED } from '../preview/check.ts';
+import { OWN_LOOK_NOT_KNOWN, PARTLY_CHECKED, STARTER_ONLY } from '../preview/check.ts';
 
 /**
  * A starter's check's state as the model reads it: `not_known` where everything seen passed and only whether the page
- * draws its own look could not be found out, never failed (VRIFY, 2026-11-13); else passed or failed by `passed`.
+ * draws its own look could not be found out, never failed (VRIFY, 2026-11-13); `starter_only` where the page is still
+ * the untouched starter's, nothing made yet, never failed (LINK, 2026-11-16); else passed or failed by `passed`.
  */
-export function checkStateOf(findings: CheckFindings): 'passed' | 'failed' | 'not_known' {
+export function checkStateOf(
+  findings: CheckFindings,
+): 'passed' | 'failed' | 'not_known' | 'starter_only' {
   if (findings.verdict === 'not_known') return 'not_known';
+  if (findings.verdict === 'starter_only') return 'starter_only';
   return findings.passed ? 'passed' : 'failed';
 }
 
@@ -98,9 +102,13 @@ export function checkWords(check: CheckFacts, now: Date): string {
         ? `the page opened with no errors${check.page.showed_its_own_picture === true ? ' and drew the scene' : check.page.showed_its_own_picture === false ? ' but drew nothing' : ''}`
         : `the page showed ${plural(check.page.errors, 'error')}${check.page.showed_its_own_picture === false ? ' and drew nothing' : ''}`,
   ].filter((part): part is string => part !== null);
-  const head = notKnown
-    ? `The computer's check: ${PARTLY_CHECKED.label}. ${PARTLY_CHECKED.line} ${OWN_LOOK_NOT_KNOWN}${parts.length ? ` ${seenParts(parts)}.` : ''}`
-    : `The computer's check ${check.state === 'passed' ? 'passed' : 'failed'}${parts.length ? `: ${parts.join(', ')}` : ''}.`;
+  // The untouched starter, nothing made yet: its own state and line, never what failed (LINK, 2026-11-16).
+  const head =
+    check.state === 'starter_only'
+      ? `The computer's check: ${STARTER_ONLY.label}. ${STARTER_ONLY.line}`
+      : notKnown
+        ? `The computer's check: ${PARTLY_CHECKED.label}. ${PARTLY_CHECKED.line} ${OWN_LOOK_NOT_KNOWN}${parts.length ? ` ${seenParts(parts)}.` : ''}`
+        : `The computer's check ${check.state === 'passed' ? 'passed' : 'failed'}${parts.length ? `: ${parts.join(', ')}` : ''}.`;
   const since =
     check.files_since_check === 'current'
       ? ' The files have not changed since.'

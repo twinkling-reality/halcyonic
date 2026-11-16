@@ -297,8 +297,12 @@ export type CheckRefusal = Static<typeof CheckRefusal>;
  * saw (a type check or build that did not exit 0, a page not opened, an uncaught exception, nothing
  * drawn by its edges or of its own, a refusal, the laptop reading measured under its floor), whatever
  * else is not known; `not_known` where everything seen passed and only whether the page draws its own
- * look could not be found out (`page.drawn` null); `passed` only for a whole seen pass. Absent on
- * checks recorded before it, which read by `passed` alone.
+ * look could not be found out (`page.drawn` null); `starter_only` where the page is the untouched starter's
+ * (its type check and build exit 0, no exception, something drawn, its own picture the pristine starter's against a
+ * compared reference) and nothing else measured failed: the starter alone, nothing made yet, never a failure, while
+ * `passed` and `ready` stay false (LINK, 2026-11-16); `passed` only for a whole seen pass. Absent on checks
+ * recorded before it, which read by `passed` alone; one recorded before `starter_only` stays as it was recorded.
+ * A client built before `starter_only` meets a verdict it does not know.
  */
 export const CheckFindings = Type.Object(
   {
@@ -309,7 +313,12 @@ export const CheckFindings = Type.Object(
     unknown: Nullable(Text(300)),
     passed: Type.Boolean(),
     verdict: Type.Optional(
-      Type.Union([Type.Literal('passed'), Type.Literal('failed'), Type.Literal('not_known')]),
+      Type.Union([
+        Type.Literal('passed'),
+        Type.Literal('failed'),
+        Type.Literal('not_known'),
+        Type.Literal('starter_only'),
+      ]),
     ),
     reads_confined: Type.Boolean(),
     laptop: Type.Optional(Nullable(CheckLaptop)),

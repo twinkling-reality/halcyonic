@@ -413,3 +413,24 @@ excluded area grows from 86,400 to 108,800 pixels; `OWN_DRAWN` stays. A project 
 change was made from another template digest, so its own picture is read as `other_template` (edges alone) as for any
 template change.
 
+## Amendment, 2026-11-16: the untouched starter's check is Starter Only, never failed
+
+The bare starter checked before anything is made (Playroom on the owner's computer, 2026-11-16) builds, runs with no
+exception and draws its island, and its own picture is the pristine starter's, so DRAWN's rule reads `drawn` false and
+the check did not pass. That stays: the starter alone is not an app yet. What changes is the name of the outcome. It
+was recorded as `failed`, the same verdict as a broken build, so a person who had just made a new app read it as
+broken. The check's verdict gains `starter_only` (`checkVerdict`, the domain's): the type check and build exit 0, no
+uncaught exception, no refusal, nothing under the laptop reading's floor or out of the kit's fit, something drawn by its
+edges (over `DRAWN_EDGES`), and its own picture at most `OWN_DRAWN` from the pristine starter's against a `compared`
+reference. Any other failure stays `failed`, `drawn` false or not; another template's reference or none never reads
+`starter_only`. `passed` and `ready` stay false, so preview, Play on Mac, publish and share stay refused as before, and
+AutoFix sends nothing for it, as it already sent nothing for a page showing only the starter's scene (ADR 0044). The two
+thresholds moved from the host's check into the domain beside the verdict, one number for the measure and the verdict.
+The host's words for it are AUDIT2's: Starter Only, "Nothing made yet. Say what you want, and it is checked." A New App
+is never checked by itself (the host checks on its own only after a task's turn changed files), so it reads "Nothing
+checked yet" until someone presses Check Project or a task makes something.
+
+Checks recorded before this keep the verdict they were recorded with: no migration rewrites the journal, so a project
+checked bare before it reads failed until it is checked again. A client built before `starter_only` meets a verdict
+literal it does not know; the headset's strict realtime validator drops the whole message carrying it, so the control
+plane and the headset build move together, never the plane first.

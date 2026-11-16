@@ -11,6 +11,7 @@ import type {
   CheckReading,
   CheckVr,
 } from '@halcyonic/contracts';
+import { DRAWN_EDGES, OWN_DRAWN } from '@halcyonic/domain';
 import { launchChrome } from './chrome.ts';
 import {
   fitFiles,
@@ -44,13 +45,10 @@ export const HOST_FILES = [
 ] as const;
 
 /**
- * More sharp edges than this outside the welcome panel, in the picture at 3 s or at 10 s, means
- * something is drawn in view of the laptop camera: a white, black or blank page has none, one small
- * test box about 2,700. The starter's own island, sky and decor have about 56,000, so a page is drawn
- * only with pixels of its own as well (`OWN_DRAWN`). It never means the game works: a scene of the
- * wrong objects passes it too.
+ * The two thresholds of DRAWN, `DRAWN_EDGES` and `OWN_DRAWN`, are the domain's, since a check's verdict reads them
+ * too (`starter_only`, LINK 2026-11-16): one number for the measure and the verdict.
  */
-export const DRAWN_EDGES = 200;
+export { DRAWN_EDGES, OWN_DRAWN };
 
 /**
  * The welcome card's region of a laptop picture, which neither the edge count nor a project's own
@@ -60,13 +58,6 @@ export const DRAWN_EDGES = 200;
  * page from the check by moving or resizing its card (AUDIT3 C1, 2026-11-16).
  */
 export const CARD_REGION = { x0: 0, y0: 460, x1: 320, y1: 800 } as const;
-
-/**
- * More than this share of the pixels outside the card's corner must differ from the pristine
- * starter's picture at the same frame for a page to draw something of its own (DRAWN): about 940 of
- * 1280 by 800, a square 31 pixels a side. Calibrated in `docs/internal/validation/iwsdk-starter.md`.
- */
-export const OWN_DRAWN = 0.001;
 
 /** How long the page's own no-input load may take by the wall clock, when the twin step made none. */
 export const OWN_LOAD_MS = 90_000;
@@ -104,6 +95,15 @@ export const OWN_LOOK_NOT_KNOWN =
 export const PARTLY_CHECKED = {
   label: 'Partly Checked',
   line: 'What was checked passed; one thing could not be checked.',
+} as const;
+
+/**
+ * A check's state where its verdict is `starter_only` (AUDIT2's words, 2026-11-16): the untouched starter, nothing made
+ * yet. Never "failed", and true to a check that ran: the host checks again on its own once a task's turn changes files.
+ */
+export const STARTER_ONLY = {
+  label: 'Starter Only',
+  line: 'Nothing made yet. Say what you want, and it is checked.',
 } as const;
 
 /** How many exception texts a check's finding holds. */

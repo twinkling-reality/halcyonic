@@ -1269,12 +1269,13 @@ describe("a check's verdict beside passed, and a drawn not known (VRIFY, 2026-11
     passed: false,
     reads_confined: true,
   };
-  test('passed, failed or not_known, or absent on earlier checks; drawn true, false or null; nothing else', () => {
+  test('passed, failed, not_known or starter_only, or absent on earlier checks; drawn true, false or null; nothing else', () => {
     assert.equal(validate(findings).ok, true, JSON.stringify(validate(findings)));
-    for (const verdict of ['passed', 'failed', 'not_known'])
+    for (const verdict of ['passed', 'failed', 'not_known', 'starter_only'])
       assert.equal(validate({ ...findings, verdict }).ok, true, verdict);
     assert.equal(validate({ ...findings, verdict: null }).ok, false);
     assert.equal(validate({ ...findings, verdict: 'unknown' }).ok, false);
+    assert.equal(validate({ ...findings, verdict: 'starter' }).ok, false);
     for (const drawn of [true, false])
       assert.equal(validate({ ...findings, page: { ...page, drawn } }).ok, true);
     assert.equal(validate({ ...findings, page: { ...page, drawn: 'unknown' } }).ok, false);

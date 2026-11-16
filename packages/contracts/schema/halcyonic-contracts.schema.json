@@ -19304,6 +19304,10 @@
             {
               "type": "string",
               "const": "not_known"
+            },
+            {
+              "type": "string",
+              "const": "starter_only"
             }
           ]
         },

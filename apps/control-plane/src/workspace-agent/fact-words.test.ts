@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { OWN_LOOK_NOT_KNOWN, PARTLY_CHECKED } from '../preview/check.ts';
+import { OWN_LOOK_NOT_KNOWN, PARTLY_CHECKED, STARTER_ONLY } from '../preview/check.ts';
 import { agoWords, checkStateOf, checkWords, looksLikeRecords, statusWords } from './fact-words.ts';
 
 // The two answers the 30B model gave in the window at 04:40Z on 2026-11-12: right, and read like a printout.
@@ -100,4 +100,26 @@ test('a check whose own look is not known is Partly Checked, its line and the fi
     'a check recorded before the verdict reads by passed',
   );
   assert.equal(checkStateOf({ ...findings, passed: true, verdict: 'passed' }), 'passed');
+});
+
+test("the untouched starter's check is Starter Only to the model, never failed, and counts as no failure (LINK, 2026-11-16)", () => {
+  const findings = {
+    tsc: { exit: 0, seconds: 1 },
+    build: { exit: 0, seconds: 1 },
+    page: null,
+    unknown: null,
+    passed: false,
+    reads_confined: true,
+  };
+  assert.equal(checkStateOf({ ...findings, verdict: 'starter_only' }), 'starter_only');
+  const said = checkWords({ state: 'starter_only', files_since_check: 'current' }, new Date());
+  assert.equal(
+    said,
+    "The computer's check: Starter Only. Nothing made yet. Say what you want, and it is checked. The files have not changed since.",
+  );
+  assert.deepEqual(STARTER_ONLY, {
+    label: 'Starter Only',
+    line: 'Nothing made yet. Say what you want, and it is checked.',
+  });
+  assert.doesNotMatch(said, /fail|broken|error/i);
 });

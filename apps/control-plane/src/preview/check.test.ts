@@ -16,7 +16,8 @@ import { type AddressInfo, createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { after, before, describe, type TestContext, test } from 'node:test';
-import { readingFix } from '@halcyonic/domain';
+import type { CheckFindings } from '@halcyonic/contracts';
+import { checkVerdict, readingFix } from '@halcyonic/domain';
 import { checkWords } from '../workspace-agent/fact-words.ts';
 import {
   type CheckStep,
@@ -282,6 +283,28 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.ok((result.page?.own.share ?? 1) <= OWN_DRAWN, String(result.page?.own.share));
     assert.equal(result.page?.drawn, false);
     assert.equal(result.passed, false);
+    // Its whole answer is the starter alone, never failed (LINK, 2026-11-16: a fresh New App never reads Failed).
+    const page = result.page;
+    assert.ok(page !== null && page !== undefined);
+    const findings: CheckFindings = {
+      tsc: result.tsc,
+      build: result.build,
+      page: {
+        exceptions: [...page.exceptions],
+        exception_count: page.exception_count,
+        console_errors: page.console_errors,
+        canvases: page.canvases,
+        edges_at_3s: page.edges.at_3s,
+        edges_at_10s: page.edges.at_10s,
+        drawn: page.drawn,
+        own: { share: page.own.share, reference: page.own.reference },
+        pictures: [],
+      },
+      unknown: result.unknown,
+      passed: result.passed,
+      reads_confined: true,
+    };
+    assert.equal(checkVerdict(findings), 'starter_only');
     // Nothing to press, but the starter's World offers VR as it loads (M1.8b).
     assert.equal(result.laptop?.layer, 'starter');
     assert.equal(result.laptop?.mouse, 'no_target');
