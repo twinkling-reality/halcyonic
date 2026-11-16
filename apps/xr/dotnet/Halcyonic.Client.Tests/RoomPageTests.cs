@@ -241,10 +241,10 @@ public class RoomPageTests
         var nine = RoomBar.OfFrame(Frame(Enumerable.Range(1, RoomRows.APage + 1).Select(n => new PageLine("Line " + n)).ToList()), VoiceStage.Idle)!;
         Assert.That((nine.Facts!.Count, nine.Whole, nine.GeneralPart), Is.EqualTo((RoomRows.APage, false, (0, 2))));
         Assert.That(nine.Column.Select(action => (action.Control.Action, action.Words, action.Detail)),
-            Is.EqualTo(new[] { (RoomBar.TurnPage, "Next Page", (string?)"Page 1 of 2"), (Footer.Close, "Close", null) }));
+            Is.EqualTo(new[] { (RoomBar.TurnPage, "Next Page", (string?)null), (Footer.Close, "Close", null) }));
         Assert.That(nine.Turn(), Is.True);
         Assert.That((nine.Facts!.Select(row => row.Words.Text), nine.Whole), Is.EqualTo((new[] { "Line 8", "Line 9" }, true)), "row nine reached by a press, and now every page was seen");
-        Assert.That(nine.Column.Select(action => (action.Words, action.Detail)), Is.EqualTo(new[] { ("First Page", (string?)"Page 2 of 2"), ("Close", null) }), "the pager says where you are");
+        Assert.That(nine.Column.Select(action => (action.Words, action.Detail)), Is.EqualTo(new[] { ("First Page", (string?)null), ("Close", null) }), "the pager says its action alone, never its count (M2)");
 
         var eight = RoomBar.OfFrame(Frame(Stating(Enumerable.Range(1, 8).Select(n => new PageLine("Do " + n, action: "do", key: n.ToString())))), VoiceStage.Idle)!;
         var keys = new List<string?>();

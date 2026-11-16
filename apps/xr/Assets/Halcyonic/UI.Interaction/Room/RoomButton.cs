@@ -369,7 +369,7 @@ namespace Halcyonic.XR.UI
         /// where approval A was answered must never take the pinch that answered A).
         /// </param>
         public void Show(string text, GlazeIcon? icon, bool isMain, bool available, Vector2 centre, float width, AnswerMark mark = AnswerMark.None,
-            bool chosen = false, float wrap = 0f, string? aside = null, string? doing = null, string? detail = null, bool destructive = false)
+            bool chosen = false, float wrap = 0f, string? aside = null, string? doing = null, string? detail = null, bool destructive = false, bool route = false)
         {
             // An action that cannot act yet is not drawn (BUILD-SPEC-v4 1.4, 2026-11-05): no disabled look; it arrives when it can act.
             if (!available)
@@ -421,7 +421,10 @@ namespace Halcyonic.XR.UI
             // The one main action goes on: where it carries the pager's icon (a step forward written as Next), it draws the
             // forward arrow, never the pager's down chevron (the critic, 2026-11-12); a pager is never the main action.
             // A destructive action carries the cross, never the arrow of going on (AUDIT's MUST, 2026-11-13T1754Z).
-            else Lay(destructive ? RoomGlyph.Cross : isMain && icon == GlazeIcon.Next && RoomGlyphs.Named(text) == null ? RoomGlyph.Continue : GlyphOf(text, icon),
+            // A route to another place (a section of the menu: Tasks, Usage, Projects) points right, the way the More page's routes do
+            // (AUDIT's 14:59Z: a down chevron read as opening below, a left one as Back); a place with a glyph of its own keeps it.
+            else Lay(destructive ? RoomGlyph.Cross : route && RoomGlyphs.Named(text) is null or RoomGlyph.Back or RoomGlyph.Next ? RoomGlyph.Opens
+                : isMain && icon == GlazeIcon.Next && RoomGlyphs.Named(text) == null ? RoomGlyph.Continue : GlyphOf(text, icon),
                 (size == RoomButtonSize.Home ? HomeGlyphDp : GlyphDp) * GlazeText.Scale);
             LockProgress = null;
             press.Available = available;

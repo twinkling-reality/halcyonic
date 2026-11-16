@@ -496,7 +496,7 @@ namespace Halcyonic.XR.UI
                 var action = bar.Column[index];
                 column[index].Show(action.Words, action.Icon, action.Main, available: true,
                     new Vector2(-total / 2f + panelWidth + gap + widest / 2f, foot + rises[index]), widest,
-                    doing: RoomButton.Doing(action.Control), detail: action.Detail);
+                    doing: RoomButton.Doing(action.Control), detail: action.Detail, route: action.Place == KitPlace.Section);
                 controls[column[index]] = action.Control;
             }
             Foot = foot;
@@ -1123,7 +1123,7 @@ namespace Halcyonic.XR.UI
                 var action = bar.Column[index];
                 button.Show(action.Words, action.Icon, action.Main, available: true, centre, cores[index].x, action.Mark, action.Chosen,
                     action.Mark != AnswerMark.None ? wrap : 0f, doing: RoomButton.Doing(action.Control), detail: action.Detail,
-                    destructive: action.Control.Destructive);
+                    destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
                 controls[button] = action.Control;
                 // A held action (Hold to Talk in the column) acts at its pinch; every other on its release (the one press).
                 button.Press.ActsOnPinch = action.Control.Holds;

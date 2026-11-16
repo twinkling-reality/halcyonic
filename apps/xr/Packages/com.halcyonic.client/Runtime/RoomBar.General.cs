@@ -318,8 +318,9 @@ namespace Halcyonic.Client
                 {
                     var last = page == pages - 1;
                     if (last && ownPager != null) column.Add(ownPager);
+                    // The pager says its action alone, never its count under it (AUDIT2's M2; AUDIT's 14:59Z on Settings' column).
                     else column.Add(new RoomAction(new KitControl(KitPlace.Step, frame, TurnPage, null, Footer.NextPageWords(page, pages), GlazeIcon.Next, true, null, false),
-                        main: false, icon: GlazeIcon.Next, detail: FileChangeText.PageOf(page, pages)));
+                        main: false, icon: GlazeIcon.Next));
                 }
                 column.AddRange(leaving);
                 parts.Add(ownCard != null ? new GeneralPage(new List<RoomRow>(), column, ownCard)
