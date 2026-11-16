@@ -146,6 +146,22 @@ export class ConfigError extends OwnWordsError {
   }
 }
 
+/** The most of a path a refusal shows. */
+export const SHOWN_PATH_LENGTH = 300;
+
+/**
+ * A path as a refusal shows it: whole up to `SHOWN_PATH_LENGTH`, otherwise its start and "…", never
+ * splitting a character in two, so a pasted line that began with "/" can't carry the rest of itself
+ * into stderr and the log.
+ */
+function shown(path: string): string {
+  if (path.length <= SHOWN_PATH_LENGTH) return path;
+  let end = SHOWN_PATH_LENGTH - 1;
+  const last = path.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return `${path.slice(0, end)}…`;
+}
+
 export const DEFAULT_PORT = 47800;
 export const DEFAULT_NETWORK_PORT = 47801;
 
@@ -405,9 +421,9 @@ function parseBrowser(
   try {
     isDirectory = statSync(folder).isDirectory();
   } catch {
-    throw new ConfigError(`HALCYONIC_BROWSER ${folder} does not exist.`);
+    throw new ConfigError(`HALCYONIC_BROWSER ${shown(folder)} does not exist.`);
   }
-  if (!isDirectory) throw new ConfigError(`HALCYONIC_BROWSER ${folder} is not a folder.`);
+  if (!isDirectory) throw new ConfigError(`HALCYONIC_BROWSER ${shown(folder)} is not a folder.`);
   return { folder, sha256: pin };
 }
 
@@ -418,9 +434,9 @@ function parseExecutable(name: string, raw: string | undefined): string | null {
   try {
     isFile = statSync(raw).isFile();
   } catch {
-    throw new ConfigError(`${name} ${raw} does not exist.`);
+    throw new ConfigError(`${name} ${shown(raw)} does not exist.`);
   }
-  if (!isFile) throw new ConfigError(`${name} ${raw} is not a file.`);
+  if (!isFile) throw new ConfigError(`${name} ${shown(raw)} is not a file.`);
   return raw;
 }
 
@@ -469,7 +485,7 @@ export function readOpenCodeSettings(home: string): OpenCodeSettings {
   for (const directory of [home, folder]) {
     const stats = lstatOrNull(directory);
     if (stats === null || !stats.isDirectory()) {
-      throw new ConfigError(`${name}: ${directory} is not a folder, or is a link.`);
+      throw new ConfigError(`${name}: ${shown(directory)} is not a folder, or is a link.`);
     }
     refuseOpen(directory, stats, 'Run chmod 700 on it.');
   }
@@ -477,7 +493,7 @@ export function readOpenCodeSettings(home: string): OpenCodeSettings {
     const others = readdirSync(directory).filter((candidate) => candidate !== entry);
     if (others.length > 0) {
       throw new ConfigError(
-        `${name}: ${directory} holds ${others.join(', ')} beside ${entry}, which OpenCode could read too; move them away.`,
+        `${name}: ${shown(directory)} holds ${shown(others.join(', '))} beside ${entry}, which OpenCode could read too; move them away.`,
       );
     }
   };
@@ -491,10 +507,10 @@ function parseOpenCodeSettings(path: string, text: string): OpenCodeSettings {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new ConfigError(`${path} is not valid JSON.`);
+    throw new ConfigError(`${shown(path)} is not valid JSON.`);
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new ConfigError(`${path} must hold one JSON object.`);
+    throw new ConfigError(`${shown(path)} must hold one JSON object.`);
   }
   const document = parsed as Record<string, unknown>;
   const unknown = Object.keys(document).filter(
@@ -502,26 +518,26 @@ function parseOpenCodeSettings(path: string, text: string): OpenCodeSettings {
   );
   if (unknown.length > 0) {
     throw new ConfigError(
-      `${path} can't set ${unknown.join(', ')}: Halcyonic's own OpenCode settings hold only what pnpm mac-setup local-model writes.`,
+      `${shown(path)} can't set ${unknown.join(', ')}: Halcyonic's own OpenCode settings hold only what pnpm mac-setup local-model writes.`,
     );
   }
   if (!isLocalOllamaModel(document.model)) {
     throw new ConfigError(
-      `${path} must name a model served on this Mac through Ollama as its "model", such as "ollama/qwen3.6:35b-a3b-nvfp4".`,
+      `${shown(path)} must name a model served on this Mac through Ollama as its "model", such as "ollama/qwen3.6:35b-a3b-nvfp4".`,
     );
   }
   if (document.small_model !== undefined && !isLocalOllamaModel(document.small_model)) {
-    throw new ConfigError(`${path} names a "small_model" that is not served on this Mac.`);
+    throw new ConfigError(`${shown(path)} names a "small_model" that is not served on this Mac.`);
   }
   const permissions = document.permissions ?? [];
   if (!Array.isArray(permissions) || !permissions.every(isPermission)) {
     throw new ConfigError(
-      `${path} must list its "permissions" as rules of an action, a resource and an effect of allow, ask or deny.`,
+      `${shown(path)} must list its "permissions" as rules of an action, a resource and an effect of allow, ask or deny.`,
     );
   }
   if (document.providers !== undefined && !isOllamaLimits(document.providers)) {
     throw new ConfigError(
-      `${path} may give "providers" only the context and output limits of Ollama's models.`,
+      `${shown(path)} may give "providers" only the context and output limits of Ollama's models.`,
     );
   }
   return {
@@ -577,24 +593,25 @@ function parseOpenCodeConfigHome(raw: string | undefined): string | null {
  */
 export function readPrivateFile(path: string, limit: number): string {
   const first = lstatOrNull(path);
-  if (first === null) throw new ConfigError(`${path} is not there.`);
-  if (!first.isFile()) throw new ConfigError(`${path} is not a regular file, so it is not used.`);
+  if (first === null) throw new ConfigError(`${shown(path)} is not there.`);
+  if (!first.isFile())
+    throw new ConfigError(`${shown(path)} is not a regular file, so it is not used.`);
   refuseOpen(path, first, 'Run chmod 600 on it.');
   let fd: number;
   try {
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch (error) {
     throw new ConfigError(
-      `${path} can't be read (${(error as NodeJS.ErrnoException).code ?? 'unknown error'}).`,
+      `${shown(path)} can't be read (${(error as NodeJS.ErrnoException).code ?? 'unknown error'}).`,
     );
   }
   try {
     const stats = fstatSync(fd);
     if (!stats.isFile() || stats.ino !== first.ino || stats.dev !== first.dev) {
-      throw new ConfigError(`${path} changed while it was read, so it is not used.`);
+      throw new ConfigError(`${shown(path)} changed while it was read, so it is not used.`);
     }
     refuseOpen(path, stats, 'Run chmod 600 on it.');
-    if (stats.size > limit) throw new ConfigError(`${path} is larger than ${limit} bytes.`);
+    if (stats.size > limit) throw new ConfigError(`${shown(path)} is larger than ${limit} bytes.`);
     return readFileSync(fd, 'utf8');
   } finally {
     closeSync(fd);
@@ -605,10 +622,12 @@ export function readPrivateFile(path: string, limit: number): string {
 export function refuseOpen(path: string, stats: Stats, fix: string): void {
   const uid = process.getuid?.();
   if (uid !== undefined && stats.uid !== uid) {
-    throw new ConfigError(`${path} belongs to another user, so it is not used.`);
+    throw new ConfigError(`${shown(path)} belongs to another user, so it is not used.`);
   }
   if ((stats.mode & 0o077) !== 0) {
-    throw new ConfigError(`${path}: other users can read or change it, so it is not used. ${fix}`);
+    throw new ConfigError(
+      `${shown(path)}: other users can read or change it, so it is not used. ${fix}`,
+    );
   }
 }
 
@@ -844,14 +863,14 @@ function parseProjectRoots(raw: string | undefined, context: FolderContext): str
       try {
         isDirectory = statSync(entry).isDirectory();
       } catch {
-        throw new ConfigError(`HALCYONIC_PROJECT_ROOTS entry ${entry} does not exist.`);
+        throw new ConfigError(`HALCYONIC_PROJECT_ROOTS entry ${shown(entry)} does not exist.`);
       }
       if (!isDirectory)
-        throw new ConfigError(`HALCYONIC_PROJECT_ROOTS entry ${entry} is not a directory.`);
+        throw new ConfigError(`HALCYONIC_PROJECT_ROOTS entry ${shown(entry)} is not a directory.`);
       const assessment = assessFolder(realpathSync.native(entry), context);
       if (assessment.verdict === 'refused') {
         throw new ConfigError(
-          `HALCYONIC_PROJECT_ROOTS entry ${entry} can't hold projects: ${assessment.reason}`,
+          `HALCYONIC_PROJECT_ROOTS entry ${shown(entry)} can't hold projects: ${assessment.reason}`,
         );
       }
       return entry;

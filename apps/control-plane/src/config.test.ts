@@ -9,6 +9,7 @@ import {
   loadConfig,
   portFamily,
   readOpenCodeSettings,
+  SHOWN_PATH_LENGTH,
   unusualDataFolder,
 } from './config.ts';
 
@@ -108,6 +109,27 @@ describe('configuration', () => {
       assert.ok(said.startsWith(name), `${name}: ${said}`);
       assert.doesNotMatch(said, /secret-/, name);
     }
+    // A path is shown, since it names a place to find, but only its start: a pasted line that began with "/" and
+    // ran on does not carry its tail into the log (AUDIT3's SHOULD on A1-5).
+    const long = `/${'p'.repeat(2 * SHOWN_PATH_LENGTH)}secret-tail-321`;
+    for (const name of ['HALCYONIC_GIT_BIN', 'HALCYONIC_CODEX_BIN']) {
+      const said = refusal({ [name]: long });
+      assert.match(
+        said,
+        new RegExp(`^${name} /p{${SHOWN_PATH_LENGTH - 2}}… does not exist\\.$`),
+        name,
+      );
+      assert.doesNotMatch(said, /secret-tail/, name);
+    }
+    const root = refusal({ HALCYONIC_PROJECT_ROOTS: long });
+    assert.match(root, /^HALCYONIC_PROJECT_ROOTS entry \/p+… does not exist\.$/);
+    assert.doesNotMatch(root, /secret-tail/);
+    const short = join(base, 'no-such-git');
+    assert.equal(
+      refusal({ HALCYONIC_GIT_BIN: short }),
+      `HALCYONIC_GIT_BIN ${short} does not exist.`,
+      'a path within the bound is shown whole',
+    );
     for (const tasks of ['/d/data/tasks', '/d/data', '/d'])
       assert.throws(
         () => loadConfig({ HALCYONIC_DATA_DIR: '/d/data', HALCYONIC_TASKS_DIR: tasks }),
