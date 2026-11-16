@@ -84,6 +84,9 @@ namespace Halcyonic.XR.UI
             target.Resize(size);
         }
 
+        /// <summary>Another action took the control's place: the last one's press shows no more on it, its flash ended at once.</summary>
+        public void EndFlash() => flash = 0f;
+
         /// <summary>The control took new words, a new role or a new place: a press already under way is not one of it.</summary>
         public void Unsettle()
         {

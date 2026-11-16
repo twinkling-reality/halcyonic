@@ -137,6 +137,7 @@ namespace Halcyonic.XR.UI
         private float chipCentreX;
         private RoomButtonLook? painted;
         private bool paintedLocked;
+        private (bool Main, bool Destructive, AnswerMark Mark, bool Chosen)? paintedKind;
 
         /// <summary>The look it eases from and to (its chip's colour and alpha, its halo, its glyph's colour, its scale), and when the easing started.</summary>
         private Vector4 chipFrom, chipTo, chipNow;
@@ -379,6 +380,7 @@ namespace Halcyonic.XR.UI
             var arrives = !gameObject.activeSelf;
             aside = string.IsNullOrWhiteSpace(aside) ? null : aside;
             var shownAs = string.IsNullOrWhiteSpace(detail) ? text : text + "\n" + detail;
+            var another = !arrives && !string.Equals(shownDoing, doing, StringComparison.Ordinal);
             var changed = arrives || shownWords != shownAs || shownAside != aside || main != isMain || this.destructive != destructive || this.mark != mark || this.chosen != chosen
                 || !string.Equals(shownDoing, doing, StringComparison.Ordinal);
             shownDoing = doing;
@@ -426,6 +428,13 @@ namespace Halcyonic.XR.UI
             // The core stands where it would alone; the chip beside it takes the room after it that the caller laid out.
             transform.localPosition = new Vector3(centre.x - asideWidth / 2f, centre.y, -RoomType.Units(1f));
             if (changed) press.Unsettle();
+            // Another action in this place shows nothing of the last one's press (JUDGE's walk, 2026-11-16: Approve drawn held and
+            // plain where the answer before it was pressed): its hold and its flash were the last action's.
+            if (another)
+            {
+                press.EndFlash();
+                held = false;
+            }
             if (arrives)
             {
                 // The actions of one moment arrive one after another, in the order they are shown (RoomMotion): each 60 ms after the one before.
@@ -585,8 +594,11 @@ namespace Halcyonic.XR.UI
             var look = LookNow();
             var locked = LockProgress != null;
             var now = Clock();
-            if (painted != look || paintedLocked != locked)
+            // Its kind decides the colours as much as its look: main, destructive or marked anew in the same look repaints too.
+            var kind = (main, destructive, mark, chosen);
+            if (painted != look || paintedLocked != locked || paintedKind != kind)
             {
+                paintedKind = kind;
                 var first = painted == null;
                 painted = look;
                 paintedLocked = locked;
