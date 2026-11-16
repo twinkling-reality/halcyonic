@@ -233,7 +233,8 @@ namespace Halcyonic.Client
                     foreach (var pending in execution?.PendingQuestions ?? new List<QuestionView>())
                     {
                         if (pending.QuestionId != question.QuestionId || pending.Prompts.Count == 0) continue;
-                        return Both(AsksYouRuns(pending));
+                        // The note keeps the one-line form; the peek's detail is the question alone, its count the foot's (AUDIT2 12:09Z).
+                        return (AsksYouRuns(pending), LineWords.Theirs(pending.Prompts[0].Text));
                     }
                     return Both(Ours("Question Asked"));
                 case ExecutionFailedReason _:

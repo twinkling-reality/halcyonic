@@ -92,8 +92,8 @@ public class QuestionTests
         var work = new AskingWork();
         var workspace = work.Present();
         Assert.That(workspace.Character.StatusLabel, Is.EqualTo("Needs You"));
-        Assert.That(PeekCard.Of(workspace).ReasonLine, Is.EqualTo("2 Questions: Colour scheme; Pages"),
-            "the whole question, never only the prompt the body may not show");
+        Assert.That((PeekCard.Of(workspace).ReasonLine, PeekCard.Of(workspace).QuestionsLine), Is.EqualTo(("Which colour scheme should the dashboard use?", (string?)"2 Questions")),
+            "the first question alone, and how many the agent asks on the foot (AUDIT2 2026-11-16 12:09Z)");
         Assert.That(WorkspaceText.FirstQuestion(workspace), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
         Assert.That(workspace.QuestionToAnswer, Is.SameAs(work.Question));
         Assert.That(workspace.Actions, Does.Contain(WorkspaceAction.Answer).And.Contain(WorkspaceAction.Interrupt));

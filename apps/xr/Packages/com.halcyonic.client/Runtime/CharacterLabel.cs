@@ -110,6 +110,9 @@ namespace Halcyonic.Client
         /// <summary>"Last Known" while the session is not live, the foot's quiet part, so the words say what the ghosted badge shows; null when live.</summary>
         public string? LastKnownLine => Badge.LastKnown ? LastKnown : null;
 
+        /// <summary>How many questions the agent asks where it asks more than one, the foot's quiet part: "2 Questions"; null otherwise.</summary>
+        public string? QuestionsLine { get; private set; }
+
         /// <summary>How many more wait beyond the reason shown, the foot's quiet part: "1 More Waiting"; null for none.</summary>
         public string? MoreLine => MoreReasons > 0 ? MoreReasons.ToString(System.Globalization.CultureInfo.InvariantCulture) + " More Waiting" : null;
 
@@ -145,7 +148,10 @@ namespace Halcyonic.Client
                     runs = latest.Words;
                 }
             }
-            return new PeekCard(badge, StateLanguage.MarksOf(character), reason, more, NextOf(badge), runs);
+            var card = new PeekCard(badge, StateLanguage.MarksOf(character), reason, more, NextOf(badge), runs);
+            var prompts = workspace.QuestionToAnswer?.Prompts.Count ?? 0;
+            if (prompts > 1) card.QuestionsLine = prompts.ToString(System.Globalization.CultureInfo.InvariantCulture) + " Questions";
+            return card;
         }
 
         /// <summary>
@@ -182,6 +188,7 @@ namespace Halcyonic.Client
             && other.Reason == Reason
             && other.ReasonRuns.ToString() == ReasonRuns.ToString()
             && other.MoreReasons == MoreReasons
+            && other.QuestionsLine == QuestionsLine
             && other.Next == Next
             && other.Marks.Select(mark => mark.Word).SequenceEqual(Marks.Select(mark => mark.Word));
 
