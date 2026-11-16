@@ -111,6 +111,7 @@ import {
   writeHostSettings,
 } from '../settings.ts';
 import { HostStarters, installedSet, recordInstalled, VR_STARTER } from '../starters.ts';
+import { findTrustedGit, GIT_CANDIDATES, systemOwned } from '../trusted-git.ts';
 import { printable } from './devices.ts';
 import { localLoginIo, runLogin } from './login-agent.ts';
 
@@ -118,7 +119,8 @@ import { localLoginIo, runLogin } from './login-agent.ts';
 const TRACKED_STARTERS = fileURLToPath(new URL('../../../../starters', import.meta.url));
 
 /** The git undo runs when none is named: the system's own, never one found on the PATH (ADR 0036). */
-const SYSTEM_GIT = '/usr/bin/git';
+/** The git Apple's command line tools keep, the first the plane would find (trusted-git.ts). */
+const SYSTEM_GIT = GIT_CANDIDATES[0] as string;
 
 export interface Firewall {
   readonly enabled: boolean;
@@ -189,6 +191,8 @@ export interface MacSetupIo {
    * setup first needs it, so a declaration that does not hold is said as a step.
    */
   readonly providers?: () => HostProviders;
+  /** The git the system owns that the plane would find with no setting (trusted-git.ts); tests stand in for it. */
+  readonly trustedGit?: () => string | null;
 }
 
 /** Whether `variable` holds a key in `env`: a value of spaces alone is none, as the start reads it. */
@@ -1030,14 +1034,24 @@ class MacSetup {
     const title = 'Undo';
     const about =
       "With undo on, Halora keeps checkpoints of a project's folder before each task and after each turn, so a task's changes can be put back.";
-    const git = env.HALCYONIC_GIT_BIN;
-    if (!present(git))
+    const set = env.HALCYONIC_GIT_BIN;
+    if (set?.trim() === 'off')
       return {
         title,
         status: 'optional',
         lines: ['Undo is off.', about],
         next: ['pnpm mac-setup undo'],
       };
+    // Unset, the plane uses a git the system owns, found as it starts (trusted-git.ts).
+    const found = present(set) ? null : (this.#io.trustedGit?.() ?? null);
+    if (!present(set) && found === null)
+      return {
+        title,
+        status: 'optional',
+        lines: ['Undo is off: this Mac has no git the system owns.', about],
+        next: ['xcode-select --install'],
+      };
+    const git = found ?? (set as string);
     if (runnableProgram(git) === null)
       return {
         title,
@@ -1048,10 +1062,9 @@ class MacSetup {
         ],
         next: ['pnpm mac-setup undo'],
       };
-    const named =
-      git === SYSTEM_GIT
-        ? `Undo uses ${this.#tilde(git)}.`
-        : `Undo uses ${this.#tilde(git)}. It isn't the system's own git, ${SYSTEM_GIT}.`;
+    const named = systemOwned(git)
+      ? `Undo uses ${this.#tilde(git)}.`
+      : `Undo uses ${this.#tilde(git)}. It isn't a git the system owns, such as ${SYSTEM_GIT}.`;
     return { title, status: 'ready', lines: [named, about] };
   }
 
@@ -1283,9 +1296,10 @@ class MacSetup {
     const settings = this.#settingsOrPrint();
     if (settings === null) return 1;
     if (argument === 'off') {
+      // 'off', never unset: unset, the plane would find a git the system owns and turn undo on again.
       const next: Record<string, string | undefined> = {
         ...settings,
-        HALCYONIC_GIT_BIN: undefined,
+        HALCYONIC_GIT_BIN: 'off',
       };
       this.#save(next);
       io.print(
@@ -1294,7 +1308,13 @@ class MacSetup {
       await this.#afterChange(next);
       return 0;
     }
-    const git = argument ?? SYSTEM_GIT;
+    const git = argument ?? io.trustedGit?.() ?? null;
+    if (git === null) {
+      io.print(
+        `This Mac has no git the system owns, so undo stays off. Apple's command line tools keep one at ${SYSTEM_GIT}: xcode-select --install.`,
+      );
+      return 1;
+    }
     if (!isAbsolute(git)) {
       io.print(`Name git by its full path, such as ${SYSTEM_GIT}.`);
       return 1;
@@ -1312,9 +1332,9 @@ class MacSetup {
     io.print(
       `Undo is on from Halora's next start, with ${this.#tilde(program)}: it keeps checkpoints of a project's folder in ${this.#tilde(join(this.#dataDir, 'checkpoints'))}, before each task and after each turn, and can put the folder back as one holds it.`,
     );
-    if (program !== SYSTEM_GIT)
+    if (!systemOwned(program))
       io.print(
-        `${this.#tilde(program)} isn't the system's own git, ${SYSTEM_GIT}. Undo runs it for every checkpoint, so use it only if you trust it.`,
+        `${this.#tilde(program)} isn't a git the system owns, such as ${SYSTEM_GIT}. Undo runs it for every checkpoint, so use it only if you trust it.`,
       );
     await this.#afterChange(next);
     return 0;
@@ -2659,6 +2679,7 @@ export function localMacSetupIo(
     which,
     firewall: platform() === 'darwin' ? readFirewall : () => null,
     pins: pinsForThisMac(),
+    trustedGit: platform() === 'darwin' ? () => findTrustedGit() : () => null,
   };
 }
 

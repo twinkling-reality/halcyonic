@@ -125,6 +125,8 @@ const COMPANION = {
 type Answer = { readonly status: number; readonly body: unknown };
 
 interface Mac {
+  /** The git the system owns that the plane would find (trusted-git.ts); none unless a test sets one. */
+  trustedGit: string | null;
   readonly root: string;
   readonly home: string;
   readonly dataDir: string;
@@ -163,6 +165,7 @@ function mac(t: TestContext): Mac {
     ['ollama /api/tags', { status: 200, body: { models: OLLAMA_MODELS } }],
   ]);
   const machine: Mac = {
+    trustedGit: null,
     root,
     home,
     dataDir,
@@ -181,6 +184,7 @@ function mac(t: TestContext): Mac {
       const io: MacSetupIo = {
         env: machine.env,
         home,
+        trustedGit: () => machine.trustedGit,
         print: (line) => {
           machine.lines.push(line);
           everything.push(line);
@@ -1585,7 +1589,10 @@ describe('pnpm mac-setup', () => {
     symlinkSync(git, link);
     assert.equal(await machine.run('undo', link), 0, text(machine));
     assert.equal(machine.settings().HALCYONIC_GIT_BIN, git);
-    assert.match(text(machine), /isn't the system's own git, \/usr\/bin\/git/);
+    assert.match(
+      text(machine),
+      /isn't a git the system owns, such as \/Library\/Developer\/CommandLineTools\/usr\/bin\/git/,
+    );
   });
 
   test("the check's Undo step is Ready only for a program that can run, and names it with ~ (AUDIT SETUP-5)", async (t) => {
@@ -1639,7 +1646,35 @@ describe('pnpm mac-setup', () => {
     await machine.run();
     assert.match(text(machine), /Undo: Ready/);
     assert.equal(await machine.run('undo', 'off'), 0);
+    // Off is said, never left unset, where the plane would find a git the system owns and turn undo on again.
+    assert.equal(machine.settings().HALCYONIC_GIT_BIN, 'off');
+    const off = loadConfig(withSettings(machine.env, machine.settings()), PINS);
+    assert.equal(off.gitBinary, null);
+    assert.equal(off.gitOff, true);
+    machine.trustedGit = git;
+    await machine.run();
+    assert.match(text(machine), /Undo: Optional/, 'off stays off, whatever git the Mac has');
+  });
+
+  test('with no git set, the check names the git the system owns that the plane uses, and undo records it', async (t) => {
+    const machine = mac(t);
+    const git = join(machine.root, 'clt', 'git');
+    mkdirSync(dirname(git), { recursive: true });
+    writeFileSync(git, '#!/bin/sh\n');
+    chmodSync(git, 0o755);
+    // None the system owns: undo is off, and pnpm mac-setup undo says how to get one, recording nothing.
+    await machine.run();
+    assert.match(text(machine), /Undo: Optional/);
+    assert.match(text(machine), /this Mac has no git the system owns/);
+    assert.equal(await machine.run('undo'), 1);
+    assert.match(text(machine), /xcode-select --install/);
     assert.equal(machine.settings().HALCYONIC_GIT_BIN, undefined);
+    // One found: the check says undo uses it, and pnpm mac-setup undo records that one.
+    machine.trustedGit = git;
+    await machine.run();
+    assert.match(text(machine), /Undo: Ready/);
+    assert.equal(await machine.run('undo'), 0, text(machine));
+    assert.equal(machine.settings().HALCYONIC_GIT_BIN, git);
   });
 
   test('undo refuses a git that is not there, is a folder or cannot run, and records nothing', async (t) => {

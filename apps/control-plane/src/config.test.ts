@@ -316,6 +316,14 @@ describe('configuration', () => {
 
   test('undo is off unless a git is set, which must be an existing absolute file', () => {
     assert.equal(loadConfig({}).gitBinary, null);
+    assert.equal(
+      loadConfig({}).gitOff,
+      false,
+      'unset is not off: the plane may find a git the system owns',
+    );
+    // Off, as pnpm mac-setup undo off writes it: no git, and none is looked for.
+    assert.equal(loadConfig({ HALCYONIC_GIT_BIN: 'off' }).gitBinary, null);
+    assert.equal(loadConfig({ HALCYONIC_GIT_BIN: 'off' }).gitOff, true);
     const binary = join(base, 'git');
     writeFileSync(binary, '#!/bin/sh\n');
     assert.equal(loadConfig({ HALCYONIC_GIT_BIN: binary }).gitBinary, binary);

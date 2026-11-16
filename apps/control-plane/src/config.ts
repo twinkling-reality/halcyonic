@@ -99,10 +99,13 @@ export interface ControlPlaneConfig {
    */
   readonly codexBinary: string | null;
   /**
-   * The git Halcyonic's undo runs (ADR 0036), by absolute path, or null to leave undo off. Never
-   * looked up on PATH: on the owner's Mac an older git comes first there.
+   * The git Halcyonic's undo runs (ADR 0036), by absolute path, or null when none is set. Never
+   * looked up on PATH: on the owner's Mac an older git comes first there. Unset, the plane looks for
+   * one the system owns (trusted-git.ts) unless `gitOff`.
    */
   readonly gitBinary: string | null;
+  /** `HALCYONIC_GIT_BIN=off`: the owner turned undo off (`pnpm mac-setup undo off`), so no git is looked for. */
+  readonly gitOff: boolean;
   /**
    * The tunnel binary that shares a running preview at a public address (F1), used only when its
    * SHA-256 is the pinned one. Null leaves sharing off.
@@ -340,7 +343,11 @@ export function loadConfig(
     opencodeBinary: parseExecutable('HALCYONIC_OPENCODE_BIN', env.HALCYONIC_OPENCODE_BIN),
     opencodeConfigHome: parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
-    gitBinary: parseExecutable('HALCYONIC_GIT_BIN', env.HALCYONIC_GIT_BIN),
+    gitBinary:
+      env.HALCYONIC_GIT_BIN?.trim() === 'off'
+        ? null
+        : parseExecutable('HALCYONIC_GIT_BIN', env.HALCYONIC_GIT_BIN),
+    gitOff: env.HALCYONIC_GIT_BIN?.trim() === 'off',
     tunnelBinary: parseExecutable('HALCYONIC_TUNNEL_BIN', env.HALCYONIC_TUNNEL_BIN),
     ghBinary: parseExecutable('HALCYONIC_GH_BIN', env.HALCYONIC_GH_BIN),
     browser: parseBrowser(env, pins),

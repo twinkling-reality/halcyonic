@@ -21,6 +21,7 @@ import {
   portFamily,
   unusualDataFolder,
 } from './config.ts';
+import { NO_COPIES_HERE, NO_COPIES_UNDO_OFF } from './core/command-service.ts';
 import { ControlPlane } from './core/control-plane.ts';
 import { OllamaUnloader } from './core/ollama-unload.ts';
 import { admittingAlso } from './directory-policy.ts';
@@ -229,7 +230,8 @@ async function main(): Promise<void> {
   const catalog = omnoriumCatalogFor(config.dataDir);
   // The git undo, task copies and Send to GitHub use: the one the setting names, or else one the system owns at a
   // fixed place (trusted-git.ts), found once now; never PATH (AUDIT3 G1 to G4, 2026-11-16).
-  const gitBinary = config.gitBinary ?? (process.platform === 'darwin' ? findTrustedGit() : null);
+  const gitBinary =
+    config.gitBinary ?? (config.gitOff || process.platform !== 'darwin' ? null : findTrustedGit());
   if (config.gitBinary === null && gitBinary !== null)
     app.log.info({ git: gitBinary }, 'git found where the system keeps it');
   const controlPlane = new ControlPlane({
@@ -243,6 +245,7 @@ async function main(): Promise<void> {
     locations,
     // Task copies are on (ADR 0045): a task never starts in the project's own folder for want of a copy.
     taskCopiesPromised: config.taskCopies,
+    noCopiesWhy: config.gitOff ? NO_COPIES_UNDO_OFF : NO_COPIES_HERE,
     // A confined app's requests inside its own copy are answered by the host (the lead's ruling, 2026-11-13): the same
     // reads its sandbox is given (`folderReads`), for a starter's project only.
     confinedReads: (directory) =>

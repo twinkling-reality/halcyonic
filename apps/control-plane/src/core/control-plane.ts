@@ -77,6 +77,8 @@ export interface ControlPlaneOptions {
    * give one, as with no git it trusts, is refused before it starts, never run in the project's folder instead.
    */
   readonly taskCopiesPromised?: boolean;
+  /** Why such a task is refused, in the person's words; the host's own git words where unset (NO_COPIES_HERE). */
+  readonly noCopiesWhy?: string;
   readonly checkpoints?: {
     readonly store: CheckpointStore;
     readonly restoreHooks?: RestoreHooks;
@@ -464,6 +466,7 @@ export class ControlPlane {
       checkpoints: this.checkpoints,
       copies,
       copiesPromised: options.taskCopiesPromised ?? false,
+      ...(options.noCopiesWhy === undefined ? {} : { noCopiesWhy: options.noCopiesWhy }),
       keeping:
         options.checkpoints?.keeping === undefined
           ? null

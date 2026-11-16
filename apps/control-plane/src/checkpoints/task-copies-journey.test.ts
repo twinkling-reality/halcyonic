@@ -32,7 +32,7 @@ import {
   type RuntimeAdapter,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
-import { NO_COPIES_HERE } from '../core/command-service.ts';
+import { NO_COPIES_HERE, NO_COPIES_UNDO_OFF } from '../core/command-service.ts';
 import { ControlPlane } from '../core/control-plane.ts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { createUuidV7Generator } from '../ids.ts';
@@ -109,6 +109,7 @@ function setup(
     copiesOff?: boolean;
     notHeldInCopies?: boolean;
     promised?: boolean;
+    why?: string;
   } = {},
 ) {
   const root = join(base, name);
@@ -137,6 +138,7 @@ function setup(
     commandTimeoutMs: 30_000,
     locations: createHostLocations([projects]),
     ...(options.promised === undefined ? {} : { taskCopiesPromised: options.promised }),
+    ...(options.why === undefined ? {} : { noCopiesWhy: options.why }),
     checkpoints: {
       store: new CheckpointStore({ git: GIT, directory: join(root, 'checkpoints') }),
       keeping: { downloads, reveal: async () => true },
@@ -852,6 +854,19 @@ describe('several agents on one project (ADR 0045)', {
       'person\n',
       'the folder is untouched',
     );
+  });
+
+  test('where the owner turned undo off, the same refusal says so in its own words', async () => {
+    const { controlPlane, folder, task, start } = setup('undo-off', {
+      copiesOff: true,
+      promised: true,
+      why: NO_COPIES_UNDO_OFF,
+    });
+    const sent = start(task('Lanterns'), 'lanterns');
+    const id = sent.command?.command_id ?? '';
+    await until(() => controlPlane.projection.command(id)?.status === 'failed', 'the refusal');
+    assert.equal(controlPlane.projection.command(id)?.failure?.message, NO_COPIES_UNDO_OFF);
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person\n');
   });
 
   test('copies turned off by the owner: a task still runs in the project folder, as before', async () => {

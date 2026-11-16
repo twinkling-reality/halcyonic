@@ -189,6 +189,8 @@ export interface CommandServiceDeps {
   readonly copies?: TaskCopies | null;
   /** Copies are promised (`taskCopiesPromised`): with none to make, a task is refused rather than run in the folder. */
   readonly copiesPromised?: boolean;
+  /** The refusal's words for it; `NO_COPIES_HERE` by default. */
+  readonly noCopiesWhy?: string;
   /** Show in Finder and Save a Copy on the Mac (F3); absent, both are refused. */
   readonly keeping?: ProjectKeeping | null;
   /** Shared links to a running preview (F1); absent, sharing is refused. */
@@ -233,6 +235,10 @@ const BASELINE_WAIT_MS = 10_000;
 /** Why a task is refused where copies are on and this computer cannot make one (the git fallback, 2026-11-16). */
 export const NO_COPIES_HERE =
   "This computer has no git Halora can trust, so this task can't get its own copy. Install Apple's command line tools (xcode-select --install), or run pnpm mac-setup undo.";
+
+/** The same refusal where the owner turned undo off (`HALCYONIC_GIT_BIN=off`): a task's own copy needs it. */
+export const NO_COPIES_UNDO_OFF =
+  "Undo is off on this computer, and a task's own copy needs it. Turn undo on with pnpm mac-setup undo, or turn task copies off.";
 
 /** What an execution that may still be working reads, until a runtime or a restart says otherwise. */
 const ACTIVE_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
@@ -2903,7 +2909,7 @@ export class CommandService {
     if (projectFolder !== null && own === null && !copies && this.#deps.copiesPromised === true) {
       this.#fail(command, admission.scope, {
         code: 'capability_unsupported',
-        message: NO_COPIES_HERE,
+        message: this.#deps.noCopiesWhy ?? NO_COPIES_HERE,
         effect: 'none',
       });
       return;
