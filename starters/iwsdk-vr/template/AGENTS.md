@@ -99,9 +99,9 @@ Make it fun to look at:
   in clear sight: the laptop camera stands just behind the player, and the check reads words behind a tree, a wall
   or any object between that camera and them as words a person cannot read.
 - Name the game on its welcome card, `public/ui/welcome.uikitml`: its name in `card-title` and one short line on how
-  to play in `card-line`, with nothing else on the card; put the same name in `index.html`'s `<title>`. The card's
-  words go by themselves after a few seconds (`src/panel.ts`), and on a laptop H shows them again; leave that as it
-  is. Rewrite the card's laptop line (`laptop-help` in `welcome.uikitml`) to the keys and mouse your game really
+  to play in `card-line`, with nothing else on the card; put the same name in `index.html`'s `<title>`. The welcome
+  card stands at the bottom left on a laptop and low beside the person in a headset; it fades in, then fades out by
+  6 s, and H shows it again on a laptop (`src/panel.ts`, `src/card-fade.ts`); leave that as it is. Rewrite the card's laptop line (`laptop-help` in `welcome.uikitml`) to the keys and mouse your game really
   uses, for example "A and D or the arrows to move"; the headset's line stays as it is.
 - Before you finish, delete any scratch or helper files you made, anywhere in the project: no `.py`, `.txt`, `.sh` or
   `.patch` files.
@@ -202,9 +202,8 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   (the check presses Space, then E), as the kit's sound does.
 - Its place is from `src/places.ts`, never an island: in `src/index.ts` call `setupScene(world, '#010103')` from
   `./kit.js` instead of `setupLook` and `decorate`, add `darkHall()`'s `group` to the group `setupScene` returns, and
-  pass the hall's `move` to `ambientMotion`. Put the same colour in `index.html`'s `background`. Move the welcome card
-  out of the middle of the view: `welcome-panel`'s `position` in `public/scenes/main.iwsdk.scene.json` to
-  `[-1.25, 1.4, -1.5]`.
+  pass the hall's `move` to `ambientMotion`. Put the same colour in `index.html`'s `background`. The welcome card
+  already stands low beside the person, out of the view's middle; leave it there.
 - Its music is made in the browser, with no file and no network: `playScore(score, ambientMotion, options)` plays a
   score on the piano, the bell or the pad (`voice: 'piano'`, or one per part, `voice: (part) => (part === 0 ? 'pad' :
   'bell')`), starting from its first note at the person's first press (entering VR is one). The scores are in
@@ -258,7 +257,8 @@ A place from the person's own photo or video (somewhere they were, a view they l
   in front of it), add its `group` and pass its `move` to `ambientMotion`. A video plays by itself, muted and looping;
   the window stays hidden until its first frame is ready, then fades in. One window is enough. Move the welcome card
   low and to the sun's side, clear of the window and of the sun: `welcome-panel`'s `position` in
-  `public/scenes/main.iwsdk.scene.json` to `[0.9, 0.9, -1.4]` (`[-0.9, 0.9, -1.4]` when the sun is to the left).
+  `public/scenes/main.iwsdk.scene.json` to `[0.9, 0.9, -1.4]` (`[-0.9, 0.9, -1.4]` and its `rotationDeg` to
+  `[0, 35, 0]` when the sun is to the left, so it still faces the person).
 - `startAmbience({ wind: 0.35 }, ambientMotion)` gives the place its wind. Music from `playScore` as above, quiet
   under it, if the person asks for music.
 

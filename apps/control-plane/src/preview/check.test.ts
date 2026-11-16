@@ -282,6 +282,28 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     );
   });
 
+  test("the welcome card's region is the host's own: the starter's two loads match outside it, and a card the app moves elsewhere is counted (AUDIT3 C1, C2, 2026-11-16)", {
+    timeout: 180_000,
+  }, async (t) => {
+    // The pristine starter against its own reference: two loads by game time, the same pixels outside the region.
+    const pristine = await check(t, () => undefined);
+    assert.equal(pristine.page?.own.reference, 'compared');
+    assert.equal(pristine.page?.own.share, 0, String(pristine.page?.own.share));
+    // The card moved to the top right by the app: the host's region stays at the bottom left, so the card counts.
+    const moved = await check(t, (project) => {
+      const file = join(project, 'public', 'scenes', 'main.iwsdk.scene.json');
+      const before = readFileSync(file, 'utf8');
+      const after = before.replace(
+        '"bottom": "20px",\n          "left": "20px"',
+        '"top": "20px",\n          "right": "20px"',
+      );
+      assert.notEqual(after, before, 'the card was moved');
+      writeFileSync(file, after);
+    });
+    assert.equal(moved.page?.own.reference, 'compared');
+    assert.ok((moved.page?.own.share ?? 0) > 0, String(moved.page?.own.share));
+  });
+
   test('a box in front of the camera is drawn, and the check passes', {
     timeout: 180_000,
   }, async (t) => {

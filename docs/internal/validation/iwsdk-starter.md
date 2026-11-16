@@ -657,3 +657,14 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - Open: whether Quest Browser treats `http://127.0.0.1` (never `localhost`) through `adb reverse` as a secure context
   for WebXR ([quest-browser-preview.md](quest-browser-preview.md)), and
   the uikitml licence, which the owner decides before anything containing it is published.
+
+## The welcome card's region moved (2026-11-16)
+
+The card moved from the top left to the bottom left (ADR 0037's amendment of 2026-11-16), so the region the DRAWN
+measures leave out moved with it: `CARD_REGION`, x 0 to 320 and y 460 to 800 at 1280 by 800, 108,800 pixels against the
+old corner's 86,400. The calibration above stands: a share is of the pixels outside the region, so the empty starter's
+share against its own reference is still 0 (two loads by game time, the check's real-Chrome test asserts it exactly),
+and `OWN_DRAWN` and `DRAWN_EDGES` are unchanged; a page that moves its card elsewhere has the card counted (the same
+test). Not re-measured by hand: the margins of the calibration's cases at the new region; the real-Chrome tests are
+the check.
+

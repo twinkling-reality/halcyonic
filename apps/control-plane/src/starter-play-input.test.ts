@@ -125,10 +125,11 @@ describe("the IWSDK starter's input layer", () => {
 
   test("the card's words go after 6 s of game time or when VR starts, never at a press (GQ1a)", () => {
     const panel = read('src/panel.ts');
-    // Game time, so a checked page drops them at the same frame in every load, with or without a press.
-    assert.match(panel, /const CARD_SECONDS = 6;/);
+    // Game time, so a checked page drops them at the same frame in every load, with or without a press; since
+    // 2026-11-16 they fade by that same game time (card-fade.ts) and go only once faded.
+    assert.match(read('src/card-fade.ts'), /export const CARD_SECONDS = 6;/);
     assert.match(panel, /update\(_delta: number, time: number\): void \{/);
-    assert.match(panel, /if \(time < this\.#shownUntil && !immersive\) return;/);
+    assert.match(panel, /if \(time < this\.#shownAt \+ CARD_SECONDS\) return;/);
     // Not on a press or a game key: then a press would always seem to change the screen. Only H brings them back.
     assert.doesNotMatch(panel, /\bpressed\(|onSelect\(|setTimeout|setInterval/);
     const card = read('public/ui/welcome.uikitml');
@@ -206,7 +207,7 @@ describe("the IWSDK starter's input layer", () => {
     assert.match(panel, /import \{ helpPressed \} from '\.\/play-input\.js';/);
     assert.match(
       panel,
-      /if \(!immersive && !this\.#wordsShown && this\.#showWords !== null && helpPressed\(\)\) \{\s+this\.#wordsShown = true;\s+this\.#shownUntil = time \+ CARD_SECONDS;/,
+      /if \(!immersive && !this\.#wordsShown && this\.#showWords !== null && helpPressed\(\)\) \{\s+this\.#wordsShown = true;\s+this\.#shownAt = time;/,
     );
     // Read through the layer's own bindings (AUDIT3), on a laptop only, and never before the layer is set up.
     assert.match(layer, /\{ source: 'keyboard', action: HELP, kind: 'button', code: HELP_KEY \}/);

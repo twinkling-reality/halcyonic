@@ -53,10 +53,13 @@ export const HOST_FILES = [
 export const DRAWN_EDGES = 200;
 
 /**
- * The welcome card's corner of a laptop picture, which neither the edge count nor a project's own
- * pixels count: the card holds the game's name and how to play, which are no game.
+ * The welcome card's region of a laptop picture, which neither the edge count nor a project's own
+ * pixels count: the card holds the game's name and how to play, which are no game. The host's own
+ * constant for the template's placement (the bottom left, `main.iwsdk.scene.json`'s ScreenSpace) at
+ * the check's 1280 by 800, never anything the page reports, so an app cannot hide part of its own
+ * page from the check by moving or resizing its card (AUDIT3 C1, 2026-11-16).
  */
-export const CARD_CORNER = { width: 360, height: 240 } as const;
+export const CARD_REGION = { x0: 0, y0: 460, x1: 320, y1: 800 } as const;
 
 /**
  * More than this share of the pixels outside the card's corner must differ from the pristine
@@ -289,7 +292,8 @@ export function edgeCount(png: Buffer): number | null {
   let n = 0;
   for (let y = 0; y < h - 3; y += 1) {
     for (let x = 0; x < w - 3; x += 1) {
-      if (x < CARD_CORNER.width && y < CARD_CORNER.height) continue;
+      if (x >= CARD_REGION.x0 && x < CARD_REGION.x1 && y >= CARD_REGION.y0 && y < CARD_REGION.y1)
+        continue;
       const i = (y * w + x) * 4;
       if (apart(i, i + 12) > 40 || apart(i, i + 12 * w) > 40) n += 1;
     }
@@ -574,7 +578,7 @@ async function ownFrom(
   return {
     share:
       reference.kind === 'compared' && frame !== null
-        ? changedShare(frame, reference.png, CARD_CORNER)
+        ? changedShare(frame, reference.png, CARD_REGION)
         : null,
     reference: reference.kind === 'making' ? 'unavailable' : reference.kind,
     frame: saved,

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { deflateSync } from 'node:zlib';
-import { CARD_CORNER, edgeCount } from './check.ts';
+import { CARD_REGION, edgeCount } from './check.ts';
 import { changedShare, decodePng, MAX_SIDE } from './png.ts';
 
 function chunk(type: string, body: Buffer): Buffer {
@@ -117,28 +117,34 @@ describe("the check's own reading of its pictures (AUDIT M18B-M1)", () => {
     assert.throws(() => decodePng(encode(4, 4, pixels, { filters: [9] })), /unknown PNG filter/);
   });
 
-  test('counts edges in the host: none in a flat picture, a bar outside the panel corner, nothing inside it', () => {
+  test("counts edges in the host: none in a flat picture, a bar outside the card's region, nothing inside it", () => {
     assert.equal(edgeCount(picture()), 0);
     const bar = edgeCount(picture({ x0: 600, x1: 700, y0: 300, y1: 500 }));
     assert.ok(bar !== null && bar > 200, String(bar));
-    assert.equal(edgeCount(picture({ x0: 20, x1: 300, y0: 20, y1: 200 })), 0);
+    assert.equal(edgeCount(picture({ x0: 20, x1: 300, y0: 480, y1: 780 })), 0);
+    // The old top-left corner is the app's own now: a card moved there is counted (AUDIT3 C1).
+    assert.ok((edgeCount(picture({ x0: 20, x1: 300, y0: 20, y1: 200 })) ?? 0) > 200);
     assert.equal(edgeCount(Buffer.from('no picture')), null);
   });
 
   test("compares two pictures outside the card's corner when asked: a change inside it is no change, and the corner is no part of the whole (DRAWN)", () => {
     const flat = picture();
-    const inCorner = picture({ x0: 20, x1: 300, y0: 20, y1: 200 });
+    const inCorner = picture({ x0: 20, x1: 300, y0: 480, y1: 780 });
     assert.ok((changedShare(flat, inCorner) ?? 0) > 0);
-    assert.equal(changedShare(flat, inCorner, CARD_CORNER), 0);
+    assert.equal(changedShare(flat, inCorner, CARD_REGION), 0);
+    // A card the app moved elsewhere moves nothing: its pixels count (AUDIT3 C1).
+    assert.ok(
+      (changedShare(flat, picture({ x0: 960, x1: 1260, y0: 20, y1: 200 }), CARD_REGION) ?? 0) > 0,
+    );
     // A 100 by 100 bar outside it: its share of the pixels outside the corner, not of them all.
     const bar = picture({ x0: 600, x1: 700, y0: 300, y1: 400 });
     assert.equal(changedShare(flat, bar), 10_000 / (1280 * 800));
     assert.equal(
-      changedShare(flat, bar, CARD_CORNER),
-      10_000 / (1280 * 800 - CARD_CORNER.width * CARD_CORNER.height),
+      changedShare(flat, bar, CARD_REGION),
+      10_000 / (1280 * 800 - (CARD_REGION.x1 - CARD_REGION.x0) * (CARD_REGION.y1 - CARD_REGION.y0)),
     );
-    // The edge count skips the same corner.
-    assert.deepEqual(CARD_CORNER, { width: 360, height: 240 });
-    assert.equal(changedShare(flat, Buffer.from('no picture'), CARD_CORNER), null);
+    // The edge count skips the same region: the host's own constant for the template's bottom-left card.
+    assert.deepEqual(CARD_REGION, { x0: 0, y0: 460, x1: 320, y1: 800 });
+    assert.equal(changedShare(flat, Buffer.from('no picture'), CARD_REGION), null);
   });
 });

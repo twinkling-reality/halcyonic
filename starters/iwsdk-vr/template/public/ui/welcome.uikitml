@@ -3,9 +3,12 @@
   Horizon kit. RectangleGoggles and LogIn are bundled Lucide icon components.
 -->
 <style>
+  /* The kit's dark glass, never a white page: the card is part of the place (VRIFY, 2026-11-16). */
   .panel-root {
     flex-direction: column;
-    width: 344px;
+    width: 280px;
+    background-color: rgba(16, 18, 34, 0.72);
+    border-radius: 16px;
   }
 
   .panel-content {
@@ -19,11 +22,11 @@
   .heading {
     height: 48px;
     text-align: center;
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
-    line-height: 24px;
+    line-height: 22px;
     letter-spacing: -0.5px;
-    color: #272727;
+    color: rgba(255, 255, 255, 0.92);
   }
 
   .heading:dark {
@@ -31,7 +34,7 @@
   }
 
   .sub-heading {
-    color: #272727;
+    color: rgba(255, 255, 255, 0.82);
     font-size: 14px;
     font-weight: 500;
     line-height: 18px;

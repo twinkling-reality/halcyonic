@@ -94,13 +94,13 @@ export const CHANNEL_CHANGE = 40;
 
 /**
  * The share of pixels that changed from one picture to another, in the host; null when either
- * cannot be read or they are not the same size. With `corner`, the pixels in that top-left
- * rectangle are left out: neither counted as changed nor as part of the whole.
+ * cannot be read or they are not the same size. With `skip`, the pixels in that rectangle
+ * (x0 to x1, y0 to y1, ends excluded) are left out: neither counted as changed nor as part of the whole.
  */
 export function changedShare(
   before: Buffer,
   after: Buffer,
-  corner?: { readonly width: number; readonly height: number },
+  skip?: { readonly x0: number; readonly y0: number; readonly x1: number; readonly y1: number },
 ): number | null {
   let a: Pixels;
   let b: Pixels;
@@ -111,11 +111,14 @@ export function changedShare(
     return null;
   }
   if (a.width !== b.width || a.height !== b.height) return null;
-  const skipWidth = Math.min(corner?.width ?? 0, a.width);
-  const skipHeight = Math.min(corner?.height ?? 0, a.height);
+  const x0 = Math.max(0, Math.min(skip?.x0 ?? 0, a.width));
+  const x1 = Math.max(x0, Math.min(skip?.x1 ?? 0, a.width));
+  const y0 = Math.max(0, Math.min(skip?.y0 ?? 0, a.height));
+  const y1 = Math.max(y0, Math.min(skip?.y1 ?? 0, a.height));
   let changed = 0;
   for (let y = 0; y < a.height; y += 1) {
-    for (let x = y < skipHeight ? skipWidth : 0; x < a.width; x += 1) {
+    for (let x = 0; x < a.width; x += 1) {
+      if (x >= x0 && x < x1 && y >= y0 && y < y1) continue;
       const i = (y * a.width + x) * 4;
       for (let c = 0; c < 3; c += 1) {
         if (Math.abs((a.rgba[i + c] ?? 0) - (b.rgba[i + c] ?? 0)) > CHANNEL_CHANGE) {
@@ -125,6 +128,6 @@ export function changedShare(
       }
     }
   }
-  const whole = a.width * a.height - skipWidth * skipHeight;
+  const whole = a.width * a.height - (x1 - x0) * (y1 - y0);
   return whole > 0 ? changed / whole : null;
 }

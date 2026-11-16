@@ -360,7 +360,7 @@ Since the starter's look (GQ1b) and its decor (U4), the empty starter draws an i
 flowers: about 56,000 sharp edges in each picture. So every project read drawn, with a game or without, and `passed`
 followed; the empty starter's own opt-in test and AUDIT M18B-M1's fake page failed for it. A page is now drawn when it
 has more than 200 edges, as before, and its own picture differs from the pristine starter's in more than 0.1%
-(`OWN_DRAWN`) of the pixels outside the welcome card's corner, which the edge count skips too: the card holds the
+(`OWN_DRAWN`) of the pixels outside the welcome card's region (its corner until 2026-11-16, see below), which the edge count skips too: the card holds the
 game's name and how to play, which are no game. The picture is the page with no input at the last of the twin's frames
 (360) under the stepped clock: the twin step's first load when it runs, else one load of its own.
 
@@ -392,3 +392,17 @@ another shape leaves the template alone as the measure. A project holding an old
 kit's own readings as they were then; an agent can restore an older released set, which is the kit's own code as
 shipped, never its own invention. The own picture's reference (`other_template`) still reads only the current
 template's projects; the same rule may follow.
+
+## Amendment, 2026-11-16: the welcome card is part of the place
+
+Every critic of the showcase pieces read the starter's welcome card as a white web page over the view that vanished at
+6 s. The card is now the kit's dark glass, smaller, at the bottom left on a laptop (ScreenSpace bottom 20px, left
+20px) and low beside the person in a headset ([0.75, 1.05, -1.1], turned 35 degrees to face them, scale 0.3); it fades
+in over 0.4 s and out over 0.8 s ending at 6 s, by game time (`src/card-fade.ts`), and is dropped only once faded, so
+every check load draws the same frames. The region the own-picture comparison and the edge count leave out is now the
+host's own constant for that placement at the check's 1280 by 800 (`CARD_REGION`: x 0 to 320, y 460 to 800, in place
+of the 360 by 240 top-left corner), never anything a page reports, so a card an app moves elsewhere is counted. The
+excluded area grows from 86,400 to 108,800 pixels; `OWN_DRAWN` stays. A project made from the template before this
+change was made from another template digest, so its own picture is read as `other_template` (edges alone) as for any
+template change.
+
