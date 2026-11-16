@@ -448,7 +448,7 @@ namespace Halcyonic.Client
         public const string TextSizeChanged = "Nothing was sent: the text size changed. Read it again.";
 
         /// <summary>A confirmation dropped because focus went to another window.</summary>
-        public const string ConfirmAfresh = "Nothing was sent: the window changed. Press again.";
+        public const string ConfirmAfresh = "Nothing was sent: you moved to another panel. Press again.";
 
         /// <summary>
         /// Why your computer refused a command, from its code alone, with the way on; null where the code

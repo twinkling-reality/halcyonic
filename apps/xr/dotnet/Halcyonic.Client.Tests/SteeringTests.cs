@@ -882,7 +882,7 @@ public class WorkspaceSteeringTests
         Assert.That(command.Payload.Text, Is.EqualTo("Add a test for the expiry."));
         Assert.That(steering.Heard, Is.False);
 
-        Assert.That(steering.Spoken("", work.Present()).Message, Is.EqualTo("Nothing was sent: nothing was heard."));
+        Assert.That(steering.Spoken("", work.Present()).Message, Is.EqualTo("Nothing was sent: no words were heard. Try again."));
         steering.Spoken("Add a test.", work.Present());
         Assert.That(steering.FocusLeft().Step, Is.EqualTo(SteeringStep.Explain), "focus away drops it unsent");
         Assert.That(steering.Armed, Is.Null);

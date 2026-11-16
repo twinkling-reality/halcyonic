@@ -292,7 +292,7 @@ namespace Halcyonic.Client
         {
             Typing = false;
             var instruction = text?.Trim() ?? "";
-            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was sent: nothing was typed.");
+            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was sent: type something first.");
             if (FileScreens.RequestPending(workspace)) return SteeringOutcome.Explain("Nothing was sent: a request is already under way.");
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
@@ -321,7 +321,7 @@ namespace Halcyonic.Client
             if (Typing) return SteeringOutcome.Nothing;
             Cancel();
             var instruction = text?.Trim() ?? "";
-            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was sent: nothing was heard.");
+            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was sent: no words were heard. Try again.");
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);

@@ -35,7 +35,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// How long an armed approval must stand unbroken before the preset says so. A launch lays the file out again in
         /// its first seconds (the room, the stage, the composer's geometry), and each layout drops an armed confirmation
-        /// ("Nothing was sent: the window changed. Press again."), so the preset presses Approve again until the arm holds (DEVICE, 2026-11-04).
+        /// ("Nothing was sent: you moved to another panel. Press again."), so the preset presses Approve again until the arm holds (DEVICE, 2026-11-04).
         /// </summary>
         public const float HoldSeconds = 3f;
 

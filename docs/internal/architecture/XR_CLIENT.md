@@ -2758,7 +2758,7 @@ alone, through the director's own routes (`OpenFile` with a section, `ShowProjec
 always arms an approval's confirm step and never sends), waits for the live snapshot to hold the id,
 and logs one fixed line. An armed approval is said only once the arm has stood unbroken for three
 seconds: a launch lays the file out again in its first seconds (the room, the stage, the composer's
-geometry), each layout drops an armed confirmation ("Nothing was sent: the window changed. Press again."), and the preset presses
+geometry), each layout drops an armed confirmation ("Nothing was sent: you moved to another panel. Press again."), and the preset presses
 Approve again while nothing is armed, never once it is, as that press would confirm (2026-11-04). The
 check applies each preset to a director with a counting submit and requires nothing sent, an unknown id
 to wait, the approval armed with nothing sent even under a low-consequence approval policy, and the arm
