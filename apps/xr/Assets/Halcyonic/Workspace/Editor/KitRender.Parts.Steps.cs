@@ -130,14 +130,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     var expected = RoomStepsView.MarkOf(steps[index]);
                     var tileView = view.Tile(index).transform;
                     // The tile's own tone, read inside its corner where no glyph stands; the empty tile's edge lighter than the panel.
+                    // A shape's transform is scaled to its size, so its points are in its own unit square.
                     if (expected.Fill.a > 0.99f)
                     {
-                        var corner = At(dark, tileView.TransformPoint(new Vector3(-tile * 0.32f, tile * 0.32f, 0f)));
+                        var corner = At(dark, tileView.TransformPoint(new Vector3(-0.32f, 0.32f, 0f)));
                         if (Off(corner, expected.Fill) > 16) failures.Add("step " + index + "'s tile is " + Off(corner, expected.Fill) + " of 255 from its tone");
                     }
                     else
                     {
-                        var edge = Light(At(dark, tileView.TransformPoint(new Vector3(tile / 2f - RoomType.Scaled(1f), 0f, 0f))));
+                        var edge = Light(At(dark, tileView.TransformPoint(new Vector3(0.5f - RoomType.Scaled(1f) / tile, 0f, 0f))));
                         var inside = Light(At(dark, tileView.TransformPoint(Vector3.zero)));
                         if (!(edge > inside + 40)) failures.Add("step " + index + "'s empty tile shows no edge: " + edge + " on its inside's " + inside + " of 255");
                     }

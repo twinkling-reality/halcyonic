@@ -1186,7 +1186,7 @@ namespace Halcyonic.XR.UI
                 if (steps[index].Tone == RoomTone.Skipped)
                 {
                     var (notRunMeasure, _) = Text(KitRole.Label, StepNameDp, StepNameLineDp, White(NoteAlpha), LineWords.Ours(NotRun), 0f, 0f, width, 1, TextAlignmentOptions.Top);
-                    widths[index] = Mathf.Max(widths[index], RoomCursor.WordsWidth(notRunMeasure, 0f));
+                    widths[index] = Mathf.Max(widths[index], RoomCursor.WordsWidth(notRunMeasure, 0f) + S(2f));
                     notRunMeasure.gameObject.SetActive(false);
                     Shown.Remove(notRunMeasure);
                     textsUsed[KitRole.Label]--;
