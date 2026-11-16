@@ -65,21 +65,34 @@ function connected(t: TestContext) {
 
 const ASSISTANT = { name: ASSISTANT_CLIENT, version: null, device_label: null };
 
-test("test servers are the person's own yes: refused from the assistant, admitted from the person's own client (AUDIT3, CORE 16:22Z)", async (t) => {
-  const { controlPlane, choose } = connected(t);
+test("test servers are the person's own yes: refused from the assistant and from the host itself, admitted from the person's own client (AUDIT3 A1, CORE 16:22Z)", async (t) => {
+  /** One choice on a fresh plane, so an earlier accepted choice's run never makes the project busy for the next. */
+  const once = (
+    client: CommandEnvelope['client'],
+    via: 'internal' | 'http' | 'websocket',
+    openPorts?: boolean,
+  ) => {
+    const { controlPlane, choose } = connected(t);
+    return controlPlane.commands.submit(choose(client, openPorts), via);
+  };
+  const refusal = /Allow Test Servers is chosen by you on your own screen/;
   // From the assistant, with the yes: refused, in words that say whose choice it is.
-  const proposed = controlPlane.commands.submit(choose(ASSISTANT, true), 'internal');
+  const proposed = once(ASSISTANT, 'internal', true);
   assert.equal(proposed.disposition, 'rejected');
-  assert.match(
-    proposed.command?.rejection?.message ?? '',
-    /Allow Test Servers is chosen by you on your own screen/,
-  );
-  // From the assistant without it, as today: not refused for this reason.
-  const plain = controlPlane.commands.submit(choose(ASSISTANT, false), 'internal');
-  assert.doesNotMatch(plain.command?.rejection?.message ?? '', /Allow Test Servers/);
-  // From the person's own client, with the yes: not refused for this reason.
-  const own = controlPlane.commands.submit(choose(TEST_CLIENT, true), 'websocket');
-  assert.doesNotMatch(own.command?.rejection?.message ?? '', /Allow Test Servers/);
+  assert.match(proposed.command?.rejection?.message ?? '', refusal);
+  // Submitted by the host itself, whatever name its client declares (a confirmed proposal, a replay): refused (AUDIT3 A1).
+  for (const client of [TEST_CLIENT, { name: 'halcyonic-xr', version: null, device_label: null }]) {
+    const internal = once(client, 'internal', true);
+    assert.equal(internal.disposition, 'rejected', client.name);
+    assert.match(internal.command?.rejection?.message ?? '', refusal, client.name);
+  }
+  // From the assistant without it, as today: admitted.
+  assert.equal(once(ASSISTANT, 'internal', false).disposition, 'accepted');
+  // From the person's own client, over either transport a client uses, with the yes: admitted.
+  for (const via of ['websocket', 'http'] as const) {
+    const own = once(TEST_CLIENT, via, true);
+    assert.equal(own.disposition, 'accepted', `${via}: ${JSON.stringify(own.command?.rejection)}`);
+  }
   // The model is never offered the field, and the assistant's list names it as never proposed.
   assert.deepEqual(NEVER_PROPOSED['project.own_check.choose'], ['open_ports']);
   assert.equal(COMMAND_FIELDS['project.own_check.choose'].open_ports?.from, 'person');

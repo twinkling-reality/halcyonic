@@ -37,6 +37,7 @@ import type {
 import { MEDIA_FOLDER_BYTES, PAGES_BRANCH, WORLD_STARTER_ID } from '@halcyonic/contracts';
 import {
   type Admission,
+  ALLOW_TEST_SERVERS,
   admitCommand,
   boundCommand,
   COMMAND_FIELDS,
@@ -402,9 +403,9 @@ export class CommandService {
         if (oldest !== undefined) this.#requestDigests.delete(oldest);
       }
     }
-    const admission = this.#reviewed(
-      principal,
-      this.#authorize(principal, this.#admit(command), command),
+    const admission = this.#personsOwn(
+      via,
+      this.#reviewed(principal, this.#authorize(principal, this.#admit(command), command), command),
       command,
     );
     const cause = causedBy(command.command_id);
@@ -545,6 +546,30 @@ export class CommandService {
    * no longer matches what is true now is refused. A restore's digest is checked in the restore's
    * own turn, against what it would change then, since that is read from the files.
    */
+  /**
+   * Allow Test Servers (`open_ports`, ADR 0055 amended 2026-11-16) is the person's own yes, sent by a client they drive, over
+   * HTTP or the realtime connection, as the host's transport records it and no client can declare. A command the host submits
+   * itself (`internal`: an assistant's proposal the person confirmed, an automated step, a replay) never carries it, whatever
+   * its client name says (AUDIT3 A1, 16:28Z).
+   */
+  #personsOwn(via: ReceivedVia, admission: Admission, command: CommandEnvelope): Admission {
+    if (!admission.admitted) return admission;
+    if (
+      command.command_type === 'project.own_check.choose' &&
+      command.payload.open_ports === true &&
+      via === 'internal'
+    )
+      return {
+        admitted: false,
+        scope: admission.scope,
+        rejection: {
+          code: 'invalid_state',
+          message: `${ALLOW_TEST_SERVERS.label} is chosen by you on your own screen, never proposed for you.`,
+        },
+      };
+    return admission;
+  }
+
   #reviewed(
     principal: Principal | null,
     admission: Admission,

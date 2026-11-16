@@ -3255,3 +3255,99 @@ test("a proposal the one preparation takes and only the domain's admission refus
     await f.close();
   }
 });
+
+test('Allow Test Servers is never offered to the model, and a proposal carrying it is refused before anything is prepared (AUDIT3 A2)', async (t) => {
+  const { mkdirSync, realpathSync, writeFileSync } = await import('node:fs');
+  const { createHostLocations } = await import('../locations.ts');
+  const { managersOn } = await import('../own-check/own-check.ts');
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-request-test-servers-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'site'));
+  writeFileSync(
+    join(root, 'site', 'package.json'),
+    JSON.stringify({ name: 'site', scripts: { test: 'node -e ""' } }),
+  );
+  const h = createTestControlPlane({
+    locations: createHostLocations([root]),
+    ownChecks: {
+      dataDir: join(root, 'data'),
+      home: '/Users/someone',
+      node: process.execPath,
+      managers: managersOn(process.env.PATH),
+      listening: async () => null,
+    },
+  });
+  t.after(() => h.controlPlane.close());
+  const made = h.controlPlane.commands.submit(
+    h.commands.createProject('Site', { kind: 'existing_folder', root, folder_name: 'site' }),
+    'internal',
+  );
+  const projectId =
+    made.command?.result?.kind === 'project_created' ? made.command.result.project_id : '';
+  const seen: ToolMessage[][] = [];
+  let turns = 0;
+  const ids = createUuidV7Generator({ now: () => h.time.now().getTime() });
+  new WorkspaceRequests({
+    controlPlane: h.controlPlane,
+    ids,
+    model: {
+      status: async () => available,
+      turn: async (messages: readonly ToolMessage[]) => {
+        seen.push([...messages]);
+        turns++;
+        if (turns === 1)
+          return answer([{ name: 'read_choices', arguments: { list: 'own_check_scripts' } }]);
+        if (turns === 2)
+          return answer([
+            {
+              name: 'propose_command',
+              arguments: {
+                command_type: 'project.own_check.choose',
+                values: { scripts: [0], open_ports: true },
+              },
+            },
+          ]);
+        return answer([], 'I cannot propose that.');
+      },
+    },
+    ...providers,
+    scheduler: h.time,
+  });
+  const outcome = h.controlPlane.commands.submit(
+    {
+      schema_version: 1,
+      command_id: ids.next() as CommandId,
+      issued_at: h.time.now().toISOString(),
+      client: { name: 'synthetic', version: null, device_label: null },
+      command_type: 'workspace.request.submit',
+      payload: {
+        project_id: projectId,
+        workstream_id: null,
+        execution_id: null,
+        text: 'Let its tests start servers.',
+      } as never,
+    },
+    'http',
+    { kind: 'local' },
+  );
+  assert.equal(outcome.disposition, 'accepted', JSON.stringify(outcome.command?.rejection));
+  for (let i = 0; i < 12; i++) await settle();
+  // The choice is offered to the model, but never its test servers.
+  const context = seen[0]?.find((m) => m.content.startsWith('Host context data'))?.content ?? '';
+  assert.match(context, /"command_type":"project.own_check.choose"/);
+  assert.doesNotMatch(context, /open_ports/);
+  // The model's proposal carrying it is refused, as the person's own, and nothing waits for a press.
+  const id =
+    outcome.command?.result?.kind === 'workspace_request_created'
+      ? outcome.command.result.request_id
+      : '';
+  const request = h.controlPlane.projection.workspaceRequest(id);
+  const step = request?.steps.find((candidate) => candidate.tool_name === 'propose_command');
+  assert.equal(step?.status, 'rejected', JSON.stringify(request?.steps));
+  assert.match(
+    step?.summary ?? '',
+    /open_ports is the person's to choose on their own screen, never proposed/,
+  );
+  assert.equal(step?.proposal, undefined);
+  assert.equal(h.controlPlane.projection.ownCheck(projectId), undefined, 'no check was chosen');
+});

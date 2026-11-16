@@ -206,8 +206,9 @@ and never for the agent's own run, whose profile is unchanged.
   run's folders are refused, and with the deny lifted the
   listener that was up before is reached; through the plane, a check chosen with ports passes such a probe, and the same check
   not chosen, or with the listeners unreadable, gets no port and reads refused.
-- It is the person's own yes, started from their own screen: admission refuses `open_ports` true from the assistant's client
-  (`ASSISTANT_CLIENT`), the assistant's list never offers it and a value for it is refused before anything is prepared
+- It is the person's own yes, started from their own screen: the command service refuses `open_ports` true on any command the host
+  submits itself (`received_via` internal, which the transport records and no client declares: a proposal the person confirmed, an
+  automated step, a replay; AUDIT3 A1), the domain's admission also refuses it from the assistant's client (`ASSISTANT_CLIENT`), the assistant's list never offers it and a value for it is refused before anything is prepared
   (`NEVER_PROPOSED`; AUDIT3 and CORE, 16:22Z), since a repository's own text could talk an assistant into proposing it and one
   press is too easy a yes. Its words are AUDIT2's (`ALLOW_TEST_SERVERS`): the label "Allow Test Servers" and, beside the yes on the
   review card as a warning and in its digest, "Its tests may start servers. While they run, devices on your network can reach
