@@ -108,6 +108,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(Render("demo", folder, Demo(), desk: false, BannerKind.Practice,
                     DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
                 failures.AddRange(Render("desk", folder, StatesA(), desk: true, BannerKind.Live, "Connected to " + HostText.Your, null, peekSlot: 4));
+                // The peek's other two marks, each drawn once (AUDIT2 2026-11-16 11:31Z): practice builds nothing, and a recording of
+                // real agent work plays back; the same tasks as the demo's, so only the mark and its line differ.
+                failures.AddRange(Render("practice", folder, Marked(synthetic: true, recorded: false), desk: false, BannerKind.Practice,
+                    DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
+                failures.AddRange(Render("recorded", folder, Marked(synthetic: false, recorded: true), desk: false, BannerKind.Practice,
+                    DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
                 // Built and shown before the stage is placed, under its hidden arc, as on the headset when
                 // the work arrives first: every badge, mark, banner and peek measured all the same.
                 failures.AddRange(RenderBuiltHidden("built-hidden", folder, Demo(), StatesA(), peekSlot: 4));
@@ -691,6 +697,18 @@ namespace Halcyonic.XR.Workspace.Editor
         };
 
         /// <summary>The recorded demonstration's kind of stage: every character marked Demo, two-line titles, the deepest labels.</summary>
+        /// <summary>The demo's tasks with one mark: practice (synthetic, not recorded) or a recording of real work (recorded, not synthetic).</summary>
+        private static IReadOnlyList<CharacterPresentation> Marked(bool synthetic, bool recorded) => new[]
+        {
+            Character(0, "Paginate the order history endpoint for large accounts", CharacterActivity.Working, synthetic: synthetic, recorded: recorded),
+            Character(1, "Send an order confirmation email after every purchase", CharacterActivity.TurnFinished, synthetic: synthetic, recorded: recorded),
+            Character(2, "Add rate limiting to the sign-in endpoint", CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
+                new[] { "It wants to use shell: Run make migrate" }, approvals: 1, synthetic: synthetic, recorded: recorded),
+            Character(3, "Refresh the checkout copy for the spring sale", CharacterActivity.TurnFinished, synthetic: synthetic, recorded: recorded),
+            Character(4, "Upgrade the image pipeline to the new encoder", CharacterActivity.Verifying, synthetic: synthetic, recorded: recorded),
+            Character(5, "Tidy the release notes before the next version", CharacterActivity.Working, synthetic: synthetic, recorded: recorded),
+        };
+
         private static IReadOnlyList<CharacterPresentation> Demo() => new[]
         {
             Character(0, "Paginate the order history endpoint for large accounts", CharacterActivity.Working, synthetic: true, recorded: true),
