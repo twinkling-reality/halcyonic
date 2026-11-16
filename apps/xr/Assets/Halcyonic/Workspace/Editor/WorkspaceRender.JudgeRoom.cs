@@ -274,7 +274,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         // Live as the product reads it (CharacterStage: session.Status.IsLive): a demonstration's or recording's session is
                         // live throughout, so its character stands solid; only a session that lost its plane ghosts (XR 22:31Z).
-                        var agent = ConfirmedPlaneAgent(root.transform, plane, eyes, CharacterPresenter.Present(work, state, fallback.Current?.Status.IsLive == true),
+                        var agent = ConfirmedPlaneAgent(root.transform, plane, eyes, CharacterPresenter.Present(work, state, live != null || fallback.Current?.Status.IsLive == true),
                             failures, "judge room");
                         // The redesign's name tag, as the player attaches it to every character on the shelf (WorkspaceDirector.Attach;
                         // FIELD 06:21Z): under RoomDesign it hides the older label, so the walk's frames show what a person sees.
