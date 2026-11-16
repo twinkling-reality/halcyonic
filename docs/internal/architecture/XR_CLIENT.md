@@ -3063,11 +3063,12 @@ in order, as before.
   FIELD's dot before the name and Needs You after it, so its need is never told by colour or motion alone (ADR 0023;
   `CharacterLabel.NeedsPerson`; check state `needs`). With the redesign off nothing changes. The
   character says what it shows (`CharacterView.Shown`, `Title`, `Labels`), since its own assembly cannot see the
-  room's parts. Check: `StageRender.RoomShelfCheck`. Under the redesign two characters stand at once, a page of the
-  shelf's order holding the picked one, and paging turns a page at a time (`AgentShelfPages.PerPage`, `Shown`); the
+  room's parts. Check: `StageRender.RoomShelfCheck`. Under the redesign one character stands at a time, a page of the
+  shelf's order holding the picked one, and paging turns a page at a time; two drawn tags at the shelf's pitch meet once
+  their names run past a few words, so a page holds one until a page takes its pitch from its widest tag (`AgentShelfPages.PerPage`, `Shown`); the
   shelf's first place, at the person's left, is New Project, the plus glyph on the tags' line, which opens New Project
   as the menu's own does (`CharacterStage.ShelfCapacity`, `ShelfPlaces`, `PlaceOf`; `RoomNewProjectPlace`, attached by
-  `WorkspaceDirector`). The shelf's surface widens to its places. With the redesign off the shelf holds one, as ever.
+  `WorkspaceDirector`). The shelf's surface widens to its places. With the redesign off the shelf holds one too.
   The older label's name (`CharacterLabelView`) stands whole on up to six lines on the demo stage and four on the shelf
   (`MostTitleLines`, `ShelfTitleLines`, set per view as `MostLines` by `CharacterView.PlaceShelfLabel`), the shelf's
   envelope measuring the four-line cap so it never moves for a name; past its cap a name stops at its last whole word and

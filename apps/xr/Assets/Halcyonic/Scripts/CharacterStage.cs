@@ -30,8 +30,11 @@ namespace Halcyonic.XR
 
         private const float spanDegrees = 60f; // Internal slot interpolation, not an eye-relative arc.
 
-        /// <summary>How many characters stand at once on the shelf: one, or two while the redesign draws (DESIGN 2.2).</summary>
-        public static int ShelfCapacity => RoomDesign.Enabled ? 2 : 1;
+        /// <summary>
+        /// How many characters stand at once on the shelf: one, the shelf paging through the rest. Two drawn tags at the shelf's
+        /// pitch meet once their names run past a few words (FIELD F234), so a page holds one until a page takes its pitch from its tags.
+        /// </summary>
+        public static int ShelfCapacity => 1;
 
         /// <summary>The shelf's places: its characters', and under the redesign one more for New Project, the shelf's last.</summary>
         public static int ShelfPlaces => ShelfCapacity + (RoomDesign.Enabled ? 1 : 0);
