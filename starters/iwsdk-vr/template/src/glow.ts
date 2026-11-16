@@ -1006,12 +1006,11 @@ const AROUND = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0')
  * rising to the right, so a scale stands on every side and a run circles the person); when it reaches the top, it
  * lights a point of a slowly turning galaxy overhead, which grows from its middle outward as the music goes on. Over
  * the first `rise` seconds of the music the columns and the galaxy grow brighter; for its last three seconds the hall
- * dims, holding its breath, and at
- * `rise` it blooms:
- * every column flares and sheds sparks along its height, a wave runs up them, the whole galaxy lights at once and a
- * ring of light runs out across the floor, and (unless `sound` is false) a soft pad swells into it under the music and
- * bells run up the chord sounding then; then it settles to a steady glow and goes on answering. Read from the player's time, so it lands with the
- * sound. Add `group` where the person stands, its height 0 on the floor.
+ * dims, holding its breath, and at `rise` it blooms: every column flares and sheds sparks along its height, a wave runs
+ * up them, the whole galaxy lights at once and a ring of light runs out across the floor, and (unless `sound` is false)
+ * a soft pad swells into it under the music and bells run up the chord sounding then; then it settles to a steady glow
+ * and goes on answering. Read from the player's time, so it lands with the sound. Add `group` where the person stands,
+ * its height 0 on the floor.
  */
 export function lightHall(
   player: Player,

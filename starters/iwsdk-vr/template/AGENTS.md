@@ -231,9 +231,9 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   flares and sheds sparks, a wave runs up them, the galaxy lights whole, and the bloom is heard: a soft pad swells under
   the music into it and bells run up the chord sounding then; `{ sound: false }` for none) and settles to a steady glow;
   `darkHall`'s polished floor mirrors it (that floor shows whatever stands below it, so put nothing there). Add its
-  `group` to the group `setupScene` returns, pass its `move` to `ambientMotion`, and give `fallingNotes` `{ echo: false
-  }`, as the hall answers in place of the far haze. Each is written afresh every frame and makes nothing new in it. Keep
-  the place dark behind them: light adds up where it overlaps.
+  `group` to the group `setupScene` returns, pass its `move` to `ambientMotion`, and give `fallingNotes`
+  `{ echo: false }`, as the hall answers in place of the far haze. Each is written afresh every frame and makes nothing
+  new in it. Keep the place dark behind them: light adds up where it overlaps.
 - For light of your own, the same parts are general: `glows` with `upright: true` keeps each shape vertical however
   the head tilts (a falling drop, a rising column), `place(...)` lays a shape in any plane (light along a curve, on a
   sloping surface), `keys.spot(midi)` says where a key is and which way it faces, and `registerColour(midi, low,
