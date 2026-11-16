@@ -321,7 +321,8 @@ export interface LandColours {
  * the sun, with a few soft bands of high cloud. With `grains`, that many grains of sand blowing low (none unless
  * asked); with `stars`, that many stars, on the side of the sky away from the sun (give them only for a place after
  * sunset). `light(...)` and `shade(...)` let something near the sand (a window floating over it) cast its own light
- * and a soft shade on it. One mesh for the ground, one for the sky.
+ * and a soft shade on it. It opens from black, lifting over its first second of `move`. One mesh for the ground, one
+ * for the sky.
  */
 export function openLand(
   colours: LandColours,
@@ -803,6 +804,15 @@ export function openLand(
     home.set([Math.sin(a) * 90 * Math.cos(up), 90 * Math.sin(up), -Math.cos(a) * 90 * Math.cos(up), random() * 6.28, bright], i * 5);
   }
   const starColour = new Color('#DCE3FF');
+  // The place opens from black: a dark veil round the person, drawn over everything, lifts over its first second.
+  const veil = new Mesh(
+    new SphereGeometry(3, 16, 8),
+    new MeshBasicMaterial({ color: 0x000000, side: BackSide, transparent: true, depthTest: false, depthWrite: false }),
+  );
+  veil.renderOrder = 1000;
+  veil.frustumCulled = false;
+  group.add(veil);
+  let opened = Number.NaN;
 
   return {
     group,
@@ -829,6 +839,12 @@ export function openLand(
     },
     move(time) {
       air.move(time);
+      if (veil.visible) {
+        if (Number.isNaN(opened)) opened = time;
+        const k = Math.min(1, Math.max(0, (time - opened - 0.1) / 0.8));
+        (veil.material as MeshBasicMaterial).opacity = 1 - k * k * (3 - 2 * k);
+        if (k >= 1) veil.visible = false;
+      }
       // Under 'auto', a stretch of slow frames lowers the detail a step, at most once every three seconds.
       if (quality === 'auto' && detail.value > 0) {
         const dt = time - lastFrame;

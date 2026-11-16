@@ -236,21 +236,24 @@ A place from the person's own photo or video (somewhere they were, a view they l
 - A photo or video the person added to the project is in its `media/` folder. A video has a play copy beside it, its
   name ending `-play.mp4`: copy that one, or the photo (JPEG, PNG or WebP), into `public/media/`, never a `.mov` or a
   `.heic`. Pictures beside it named as stills are for you to look at; the app reads the photo or video itself.
+- Call `const { root } = setupScene(world)` first, before reading the picture, so the view is black while it is
+  read (the place then opens from black by itself), and put `#000000` in `index.html`'s `background`.
 - `const colours = await coloursOfPicture('/media/<file>', { hour: 'dusk' })` reads its sky and its ground
   (`hour: 'dusk'` moves its light to dusk when the person asks for dusk; leave it out to keep the picture's own
   hour; a picture that cannot be read answers with the kit's own dusk). Build the place only once it has answered,
-  and after `setupScene`, so the place never changes colour after it shows:
+  so the place never changes colour after it shows:
   `const land = openLand(colours, { crest: 1 })` stands the person on a dune's crest over open ground to the horizon
   in those colours, dunes at `crest` 1 and soft hills at 0 (`swell` their height in metres near the person, `sun` the
   low sun's direction in radians, 0 ahead of the person and positive to their right, 0.8 if not given), with sand
-  blowing low on the wind if `grains` asks for it, and give it `stars` only for a place after sunset. Use it as any
-  place: `setupScene(world, colours.top)`, its `group` added, its `move` to `ambientMotion`, the same colour in
-  `index.html`'s `background`.
+  blowing low on the wind if `grains` asks for it, and give it `stars` only for a place after sunset. Add its `group` to
+  `root` and pass its `move` to `ambientMotion`.
 - `const shown = pictureWindow('/media/<file>', { width: 2.4 })` shows the photo or video itself on a window in the
   place: float it over the sand four to six metres off, on the other side of the view from the sun, with
   `shown.standOn(land, x, z)` (it floats just over the sand, turned to the person, and its own light falls on the sand
   in front of it), add its `group` and pass its `move` to `ambientMotion`. A video plays by itself, muted and looping;
-  the window stays hidden until its first frame is ready, then fades in. One window is enough.
+  the window stays hidden until its first frame is ready, then fades in. One window is enough. Move the welcome card
+  low and to the sun's side, clear of the window and of the sun: `welcome-panel`'s `position` in
+  `public/scenes/main.iwsdk.scene.json` to `[0.9, 0.9, -1.4]` (`[-0.9, 0.9, -1.4]` when the sun is to the left).
 - `startAmbience({ wind: 0.35 }, ambientMotion)` gives the place its wind. Music from `playScore` as above, quiet
   under it, if the person asks for music.
 
