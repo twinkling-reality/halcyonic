@@ -140,7 +140,7 @@ describe('open land: long swells of ground round the person', () => {
     );
   });
 
-  test('the field lies below the person, with crests rising toward their eye far off, and no step anywhere', () => {
+  test('the field lies below the person, great dunes rise past their eye far off, and no step anywhere', () => {
     const land = landShape({ crest: 1 });
     let lowest = 0;
     let highest = -99;
@@ -158,10 +158,7 @@ describe('open land: long swells of ground round the person', () => {
       }
     }
     assert.ok(lowest < -2, `troughs well under the person: ${lowest}`);
-    assert.ok(
-      highest > 0 && highest < 1.62,
-      `far crests rise toward the eye, not past it: ${highest}`,
-    );
+    assert.ok(highest > 4, `great dunes far off stand well over the eye (1.62 m): ${highest}`);
   });
 
   test('a dune rises slowly into the wind and falls steeply after its crest; a soft hill does neither', () => {

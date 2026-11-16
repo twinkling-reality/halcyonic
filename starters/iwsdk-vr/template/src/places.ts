@@ -252,7 +252,7 @@ function airSky(
   sunDir: Vector3,
   radius: number,
   options: { cloud?: number } = {},
-): { mesh: Mesh; move(time: number): void } {
+): { mesh: Mesh; move(time: number): void; cloud(amount: number): void } {
   const material = new ShaderMaterial({
     uniforms: {
       zenith: { value: colours.top },
@@ -273,11 +273,14 @@ function airSky(
   const mesh = new Mesh(new SphereGeometry(radius, 64, 32), material);
   // After setupScene's flat backdrop (-1), before anything of the place.
   mesh.renderOrder = -0.95;
-  const uniforms = material.uniforms as { time: { value: number } };
+  const uniforms = material.uniforms as { time: { value: number }; cloud: { value: number } };
   return {
     mesh,
     move(time) {
       uniforms.time.value = time;
+    },
+    cloud(amount) {
+      uniforms.cloud.value = amount;
     },
   };
 }
@@ -308,7 +311,15 @@ export interface LandColours {
  */
 export function openLand(
   colours: LandColours,
-  options: { swell?: number; crest?: number; sun?: number; grains?: number; stars?: number; seed?: number } = {},
+  options: {
+    swell?: number;
+    crest?: number;
+    sun?: number;
+    grains?: number;
+    stars?: number;
+    seed?: number;
+    quality?: 'auto' | 'high' | 'low';
+  } = {},
 ): Place & {
   height(x: number, z: number): number;
   light(x: number, y: number, z: number, colour: Color, strength: number): void;
@@ -327,6 +338,8 @@ export function openLand(
 
   const random = seeded(options.seed ?? 7);
   const sunAt = options.sun ?? 0.8;
+  // How much the place draws: 'high' all of it, 'low' the least, 'auto' all of it until frames come slow.
+  const quality = options.quality ?? 'auto';
   const land = landShape({ ...options, sun: sunAt });
   const height = land.height;
   const [wx, wz] = land.wind;
@@ -334,6 +347,7 @@ export function openLand(
   // The sun lights the ground from 7 degrees up and shows itself a little lower, just clear of the far crests.
   const lightUp = 0.075;
   const sun = { x: Math.sin(sunAt) * Math.cos(lightUp), y: Math.sin(lightUp), z: -Math.cos(sunAt) * Math.cos(lightUp) };
+  const sunLight3 = new Vector3(sun.x, sun.y, sun.z);
   const lit = new Color();
   const shadow = new Color();
   // The grade: gold for the sun's light, blue-violet for the sky's light in shade.
@@ -363,8 +377,9 @@ export function openLand(
     shadow.copy(into).multiplyScalar(0.32).lerp(shadeSky, 0.4);
     lit.copy(into).lerp(gold, 0.55).multiplyScalar(1.9);
     let shade = 0;
-    for (let s = 1; s <= 18 && shade < 1; s++) {
-      const d = s * 0.7 + s * s * 0.16;
+    // No march where the shadow would fade to nothing anyway (past 44 m): most of the land's rings are out there.
+    for (let s = 1; s <= 14 && shade < 1 && r < 44; s++) {
+      const d = s * 0.8 + s * s * 0.22;
       const over = height(x + sun.x * d, z + sun.z * d) - (y + sun.y * d);
       if (over > 0) shade = Math.max(shade, Math.min(1, over / 0.7));
     }
@@ -422,10 +437,10 @@ export function openLand(
       tints.push(c.r, c.g, c.b);
     }
   }
-  // Near the person the sand's light is a picture of it made once, 28 cm a step, read in the ground's shader at every
+  // Near the person the sand's light is a picture of it made once, about 38 cm a step, read in the ground's shader at every
   // pixel: the ring of vertices alone smears light and shadow into streaks round the person.
   const span = 36;
-  const cells = 256;
+  const cells = quality === 'low' ? 128 : 192;
   let light = new Float32Array(cells * cells * 3);
   for (let row = 0; row < cells; row++) {
     for (let col = 0; col < cells; col++) {
@@ -505,6 +520,38 @@ export function openLand(
   // Seen at a slant at the feet, a ripple stays crisp along its length rather than smearing.
   ripples.anisotropy = 8;
   ripples.needsUpdate = true;
+  // The whole land's slopes, made once: far off, where the rings of vertices are a metre or more apart, the sand is
+  // lit at every pixel from these, so far crests keep a sharp edge between their lit and shaded sides.
+  const normalCells = quality === 'low' ? 128 : 256;
+  const normalSlopes = new Uint8Array(normalCells * normalCells * 4);
+  const reachOut = radius;
+  for (let row = 0; row < normalCells; row++) {
+    for (let col = 0; col < normalCells; col++) {
+      const x = ((col + 0.5) / normalCells) * 2 * reachOut - reachOut;
+      const z = ((row + 0.5) / normalCells) * 2 * reachOut - reachOut;
+      // Forward differences: three heights a cell, not four (the land is built on the headset as the app opens).
+      const e = 0.6;
+      const here = height(x, z);
+      const nx = here - height(x + e, z);
+      const nz = here - height(x, z + e);
+      const ny = e;
+      const n = Math.hypot(nx, ny, nz);
+      const o = (row * normalCells + col) * 4;
+      normalSlopes[o] = Math.round((0.5 + 0.5 * (nx / n)) * 255);
+      normalSlopes[o + 1] = Math.round((0.5 + 0.5 * (nz / n)) * 255);
+      normalSlopes[o + 2] = Math.round((ny / n) * 255);
+      normalSlopes[o + 3] = 255;
+    }
+  }
+  const landNormals = new DataTexture(normalSlopes, normalCells, normalCells, RGBAFormat);
+  landNormals.magFilter = LinearFilter;
+  landNormals.minFilter = LinearMipmapLinearFilter;
+  landNormals.generateMipmaps = true;
+  landNormals.anisotropy = 8;
+  landNormals.needsUpdate = true;
+  // How much fine detail the sand draws (1 all of it, 0 the least), lowered by itself under 'auto' when frames come
+  // slower than 50 a second, so a headset short of its frame rate steps down instead of stuttering.
+  const detail = { value: quality === 'low' ? 0 : 1 };
   const index: number[] = [];
   for (let i = 0; i < rings; i++) {
     for (let j = 0; j < around; j++) {
@@ -537,6 +584,14 @@ export function openLand(
     shader.uniforms.sandNear = { value: nearPicture };
     shader.uniforms.sandRipples = { value: ripples };
     shader.uniforms.sandWind = { value: [wx, wz] };
+    shader.uniforms.sandNormals = { value: landNormals };
+    shader.uniforms.sandReach = { value: reachOut };
+    shader.uniforms.sandDetail = detail;
+    shader.uniforms.sandBaseNear = { value: near };
+    shader.uniforms.sandBaseFar = { value: far };
+    shader.uniforms.sandGold = { value: gold };
+    shader.uniforms.sandShadeSky = { value: shadeSky };
+    shader.uniforms.sandSun3 = { value: sunLight3 };
     shader.uniforms.sandLamp = { value: lampAt };
     shader.uniforms.sandLampColour = { value: lampColour };
     shader.uniforms.sandUnder = { value: underAt };
@@ -550,7 +605,7 @@ export function openLand(
       .replace('void main() {', 'varying vec3 vSand;\nvoid main() {')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSand = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform vec3 sandCastFrom;\nuniform vec3 sandCastBand;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nuniform vec3 sandFog;\nvarying vec3 vSand;\nvoid main() {')
+      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandNormals;\nuniform float sandReach;\nuniform float sandDetail;\nuniform vec3 sandBaseNear;\nuniform vec3 sandBaseFar;\nuniform vec3 sandGold;\nuniform vec3 sandShadeSky;\nuniform vec3 sandSun3;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform vec3 sandUnder;\nuniform vec3 sandCastFrom;\nuniform vec3 sandCastBand;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nuniform vec3 sandFog;\nvarying vec3 vSand;\nvoid main() {')
       .replace(
         '#include <opaque_fragment>',
         `{
@@ -563,6 +618,19 @@ export function openLand(
     float across = dist * 0.0011;
     float footprint = across / max(abs(viewDir.y), 0.08);
     float grad = sqrt(across * footprint);
+    // Far off, the sand lit at every pixel from the land's own slopes: gold toward the sun, blue-violet in shade.
+    float farOff = smoothstep(24.0, 38.0, length(p));
+    if (farOff > 0.0) {
+      vec2 nCell = p / (2.0 * sandReach) + 0.5;
+      vec4 ns = textureGrad(sandNormals, nCell, vec2(grad / (2.0 * sandReach), 0.0), vec2(0.0, grad / (2.0 * sandReach)));
+      vec3 n = normalize(vec3(ns.r * 2.0 - 1.0, ns.b, ns.g * 2.0 - 1.0));
+      float faceSun = max(0.0, dot(n, sandSun3));
+      vec3 base = mix(sandBaseNear, sandBaseFar, pow(min(1.0, length(p) / sandReach), 0.6));
+      vec3 shadeC = mix(base * 0.32, sandShadeSky, 0.4);
+      vec3 litC = mix(base, sandGold, 0.55) * 1.9;
+      float k = clamp((faceSun + 0.12) / 0.5, 0.0, 1.0);
+      outgoingLight = mix(outgoingLight, mix(shadeC, litC, k * k * (3.0 - 2.0 * k)), farOff);
+    }
     // Near the person, the sand's light from its picture, blending into the rings' own colour by its edge.
     vec2 cell = p / (2.0 * sandSpan) + 0.5;
     // Blended out in a circle well inside the picture's square, so its edge never shows as a straight line.
@@ -612,7 +680,7 @@ export function openLand(
     // Each ripple stronger here and fainter there, so crests fade out and come back as real ones do.
     float strength1 = 0.5 + 0.5 * (0.5 + 0.5 * sin(warp * 9.0 + ra * 0.9 + rc * 0.4));
     float facingSun = 0.55 + 0.45 * sunAlong;
-    outgoingLight *= 1.0 + crisp * 0.26 * face1 * strength1 * facingSun;
+    outgoingLight *= 1.0 + sandDetail * crisp * 0.26 * face1 * strength1 * facingSun;
     float litFace = crisp > 0.0 ? smoothstep(0.1, 0.5, face1) : 1.0;
     // The soft ripples from the tile only where the exact ripples below have faded, so no crest is drawn twice.
     outgoingLight *= 1.0 + rippleNear * (1.0 - 0.92 * crisp) * (0.2 * (slope.x * sunAlong + slope.y * sunAcross) + 0.06 * slope.x);
@@ -674,7 +742,7 @@ export function openLand(
     vec2 inCell = fract(gp) - 0.5;
     float round1 = 1.0 - smoothstep(0.05, 0.14, length(inCell));
     float glintNear = 1.0 - smoothstep(0.3, 0.8, footprint * 70.0);
-    outgoingLight += sandSheen * step(0.993, pick) * step(0.5, seen) * round1 * glintNear * pow(sunward, 2.0) * 1.2 * litFace;
+    outgoingLight += sandSheen * step(0.993, pick) * step(0.5, seen) * round1 * glintNear * pow(sunward, 2.0) * 1.2 * litFace * sandDetail;
   }
   #include <opaque_fragment>`,
       );
@@ -686,7 +754,10 @@ export function openLand(
   rim.multiplyScalar(1 / around);
   const sunUp = 0.1;
   const sunDir = new Vector3(Math.sin(sunAt) * Math.cos(sunUp), Math.sin(sunUp), -Math.cos(sunAt) * Math.cos(sunUp));
-  const air = airSky({ top, middle, horizon, below: rim, sun: sunColour }, sunDir, 120);
+  const air = airSky({ top, middle, horizon, below: rim, sun: sunColour }, sunDir, 120, { cloud: detail.value });
+  let lastFrame = 0;
+  let lastStep = 0;
+  let slow = 0;
   group.add(air.mesh);
 
   // With `grains`, that many grains of sand blowing low on the wind round the person.
@@ -736,6 +807,18 @@ export function openLand(
     },
     move(time) {
       air.move(time);
+      // Under 'auto', a stretch of slow frames lowers the detail a step, at most once every three seconds.
+      if (quality === 'auto' && detail.value > 0) {
+        const dt = time - lastFrame;
+        if (dt > 0 && dt < 1) slow = slow * 0.95 + (dt > 1 / 50 ? 0.05 : 0);
+        if (slow > 0.6 && time - lastStep > 3) {
+          detail.value = Math.max(0, detail.value - 0.5);
+          air.cloud(detail.value);
+          lastStep = time;
+          slow = 0;
+        }
+      }
+      lastFrame = time;
       grains.begin();
       for (let i = 0; i < grainCount; i++) {
         const k = i * 4;
