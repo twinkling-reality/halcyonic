@@ -963,6 +963,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         // read (ten seconds at most each): where the result's own page stands in the section's place, the file's
                         // section is opened by the walk and said so.
                         PageLine? opening = null;
+                        FileSection? openedIn = null;
                         foreach (var section in new[] { FileSection.Changes, FileSection.Checks })
                         {
                             OpenSection(workstreamId, section);
@@ -978,7 +979,7 @@ namespace Halcyonic.XR.Workspace.Editor
                                 Draw();
                                 Thread.Sleep(250);
                             }
-                            if (opening != null) break;
+                            if (opening != null) { openedIn = section; break; }
                         }
                         // An answer beside its page is reached by the control the redesign draws for it, as a person presses it. Since
                         // the film batch draws Read All on Changes and Checks, a line that opens an answer with no drawn control is a
@@ -987,7 +988,10 @@ namespace Halcyonic.XR.Workspace.Editor
                             && plane.Kit.Bar.Card?.RowTargets.Any(row => row.Control.Action == FileScreens.Open && row.Control.Key == opening.Key) == true);
                         if (opening != null && !drawnOpen)
                         {
-                            failures.Add("judge room: the redesign draws no control that opens the answer beside its page (" + FileScreens.Open + "/" + opening.Key + ")");
+                            // Which run's page, so a named case can name the one page it stands for and no other (AUDIT3 21:55Z).
+                            var whose = fallback.Player?.Recording?.IsRecordedRun == true ? "the recorded run's" : "the demonstration's";
+                            failures.Add("judge room: the redesign draws no control that opens the answer beside its page (" + FileScreens.Open + "/" + opening.Key + ") on "
+                                + whose + " " + openedIn + " page");
                             // The walk leaves the section it opened itself, which no person reaches under the redesign, and opens the task
                             // again as a person does, so the stage is crossed from a page a person stands on.
                             CloseFile();
@@ -2141,6 +2145,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     "Change the lockout test to expect limits per address only\\.|" +
                     "Run make migrate to add the sign-in attempts table to the development database" +
                     ")\" ends on one word alone on its last line$")),
+            // The recorded run's result Checks offers no way to the file's checks answer where the computer ran its own check
+            // (RoomBar.Result's ChecksOf, SCREENS 21:55Z): SCREENS's review-card unit mends it, and the name goes then (AUDIT3 21:55Z).
+            ("the recorded run's result Checks has no way to the file's checks answer, SCREENS's review card unit",
+                new Regex("^judge room: the redesign draws no control that opens the answer beside its page \\(open/checks\\) on the recorded run's Checks page$")),
         };
 
         private static List<string> NoticeOffPlate(Camera camera, TMP_Text words, Halcyonic.XR.UI.RoomSurface plate)
