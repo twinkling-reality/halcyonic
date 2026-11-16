@@ -744,11 +744,13 @@ namespace Halcyonic.Client
             var slots = new List<RoomSlot>();
             var folder = EntryText.FolderFactPartsOf(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true);
             // The folder and where it is, as the review names it (a fresh critic, 2026-11-12): the recap is what Start Task sends.
-            var folderWords = folder.Name is LineWords named && folder.Place is LineWords place ? named + LineWords.Ours(" in ") + place
+            var made = folder.Kind is FolderFactKind.NewFolder or FolderFactKind.NewStarter;
+            // Whether it is made new: the name the host will make leads, our phrase describes it, "kite-run, a new folder in
+            // Projects", so a made-up name never reads as a word in our sentence (AUDIT2 2026-11-16 17:49Z, the one-line form); a
+            // starter's folder is made new too (the critic, 2026-11-13). The slot's folder glyph is its label.
+            var folderWords = folder.Name is LineWords named && folder.Place is LineWords place
+                ? named + LineWords.Ours(made ? ProjectFolder.NewFolderAfter : " in ") + place
                 : folder.Name ?? folder.Place ?? (folder.Kind == FolderFactKind.NotChosen ? LineWords.Ours("Not Chosen") : null);
-            // Whether it is made new, one phrase, ours around theirs (FIELD's words 13:42Z): "New kite-run in Projects"; a starter's
-            // folder is made new too (the critic, 2026-11-13).
-            if (folderWords != null && folder.Kind is FolderFactKind.NewFolder or FolderFactKind.NewStarter) folderWords = LineWords.Ours("New ") + folderWords;
             if (folderWords != null) slots.Add(new RoomSlot(RoomKind.Folder, folderWords));
             if (draft.Runtime is RuntimeDescriptor runtime)
             {

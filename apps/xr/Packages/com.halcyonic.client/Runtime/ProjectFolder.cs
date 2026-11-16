@@ -184,9 +184,11 @@ namespace Halcyonic.Client
             if (FolderName == null) return Ours("Directly in ") + root;
             var folder = name(FolderName);
             // " in " between a folder and its place, never a bare separator, which would join two names into one of theirs.
-            // A new folder, one phrase, ours around theirs (FIELD's words 2026-11-12T1342Z), never facts on a dot; from a starter
-            // too, whose starter is named by the review's own row, by its own name (AUDIT's MUST 3), never here.
-            if (IsNew) return Ours("New ") + folder + Ours(" in ") + root;
+            // A new folder: the name the host will make on disk leads, as the thing's name, and our phrase describes it, so a
+            // made-up name is never read as a word inside our sentence; ", a new folder in " holds words, so the two names stay
+            // two runs (AUDIT2 2026-11-16 17:49Z). From a starter too, whose starter is named by the review's own row, by its own
+            // name (AUDIT's MUST 3), never here.
+            if (IsNew) return folder + Ours(NewFolderAfter) + root;
             return PlaceGone ? folder + Ours(GoneSuffix) : folder + Ours(" in ") + root;
         }
 
@@ -196,7 +198,7 @@ namespace Halcyonic.Client
             var root = PlaceGone ? PlaceUnlisted : name(RootName);
             if (FolderName == null) return "Directly in " + root;
             var folder = name(FolderName);
-            if (IsNew) return "New " + folder + " in " + root;
+            if (IsNew) return folder + NewFolderAfter + root;
             // A gone place is said after a comma: "shop, its place no longer listed".
             return PlaceGone ? folder + GoneSuffix : folder + " in " + root;
         }
@@ -212,7 +214,13 @@ namespace Halcyonic.Client
         /// folder in it. A root the host lists as missing is shown, and offers nothing.
         /// </summary>
         /// <summary>A new folder's words in a place: in the folder list, and over its name as it is given.</summary>
-        public static string NewFolderLabel(LocationRoot root) => "New Folder in " + LabelText.Name(LabelOf(root));
+        public static string NewFolderLabel(LocationRoot root) => NewFolderIn + LabelText.Name(LabelOf(root));
+
+        /// <summary>Our phrase before a new folder's place, one name with the folder list's own row.</summary>
+        public const string NewFolderIn = "New Folder in ";
+
+        /// <summary>Our phrase between a new folder's name and its place, where one line is all there is: "kite-run, a new folder in Projects".</summary>
+        public const string NewFolderAfter = ", a new folder in ";
 
         /// <summary>A new VR starter folder's words in a place.</summary>
         public static string NewStarterFolderLabel(LocationRoot root) => "New VR Starter in " + LabelText.Name(LabelOf(root));

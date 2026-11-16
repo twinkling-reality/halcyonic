@@ -71,7 +71,7 @@ public class ProjectFolderTests
         var root = Root("Pro‮jects", LocationRootStatus.Available, "shop<b>x</b>​");
         Assert.That(ProjectFolder.Existing(root, root.Folders[0]).Describe(), Is.EqualTo("shop<b>x</b>‹U+200B› in Pro‹U+202E›jects"));
         Assert.That(ProjectFolder.Existing(root, null).Describe(), Is.EqualTo("Directly in Pro‹U+202E›jects"));
-        Assert.That(ProjectFolder.New(Root(), "cards")!.Describe(), Is.EqualTo("New cards in Projects"));
+        Assert.That(ProjectFolder.New(Root(), "cards")!.Describe(), Is.EqualTo("cards, a new folder in Projects"));
         var options = ProjectFolder.Options(new LocationsResponse { Roots = new List<LocationRoot> { root } });
         Assert.That(options.Select(option => option.Label), Has.Some.EqualTo("shop<b>x</b>‹U+200B›"));
     }
@@ -118,9 +118,9 @@ public class ProjectFolderTests
         var current = new ProjectLocation { Path = "/Users/person/Projects/old", Name = "old", Created = false };
         Assert.That(EntryText.FolderFact(null, null, needed: true), Is.EqualTo("Not Chosen"));
         Assert.That(EntryText.FolderFact(null, null, needed: false), Is.EqualTo("Not Needed"));
-        Assert.That(EntryText.FolderFact(null, chosen, needed: true), Is.EqualTo("New recipes in Projects"));
+        Assert.That(EntryText.FolderFact(null, chosen, needed: true), Is.EqualTo("recipes, a new folder in Projects"));
         Assert.That(EntryText.FolderFact(current, null, needed: true), Is.EqualTo("old, the project's folder"));
-        Assert.That(EntryText.FolderFact(current, chosen, needed: true), Is.EqualTo("Next: New recipes in Projects. Now: old."));
+        Assert.That(EntryText.FolderFact(current, chosen, needed: true), Is.EqualTo("Next: recipes, a new folder in Projects. Now: old."));
         var shop = Root("Projects", LocationRootStatus.Available, "shop");
         Assert.That(EntryText.FolderFact(null, ProjectFolder.Existing(shop, shop.Folders[0]), needed: true), Is.EqualTo("shop in Projects"),
             "a name from the file system starts the line as it is");
@@ -137,7 +137,7 @@ public class ProjectFolderTests
 
     /// <summary>
     /// FIELD's words (2026-11-12T1342Z) for every new folder, and the lead's rule of no facts on a dot: a plain new folder reads
-    /// as one phrase, ours around theirs, "New cards in Projects", and the options to make one read "New Folder in Projects"
+    /// as one phrase, ours around theirs, "cards, a new folder in Projects", and the options to make one read "New Folder in Projects"
     /// and "New VR Starter in Projects", the place's name leaning last, never joined on a dot.
     /// </summary>
     [Test]
@@ -145,8 +145,8 @@ public class ProjectFolderTests
     {
         var root = Root("Projects", LocationRootStatus.Available, "recipes");
         var plain = ProjectFolder.New(root, "cards")!;
-        Assert.That(plain.Describe(), Is.EqualTo("New cards in Projects"));
-        Assert.That(plain.DescribeRuns().Text, Is.EqualTo("New cards in Projects"));
+        Assert.That(plain.Describe(), Is.EqualTo("cards, a new folder in Projects"));
+        Assert.That(plain.DescribeRuns().Text, Is.EqualTo("cards, a new folder in Projects"));
         Assert.That(ProjectFolder.NewFolderLabel(root), Is.EqualTo("New Folder in Projects"));
         Assert.That(ProjectFolder.NewStarterFolderLabel(root), Is.EqualTo("New VR Starter in Projects"));
         var options = ProjectFolder.Options(new LocationsResponse { Roots = new List<LocationRoot> { root } }, includeStarters: true);
@@ -162,7 +162,7 @@ public class ProjectFolderTests
         var starter = ProjectFolder.NewStarter(root, "VR Starter Project")!;
         Assert.That(starter, Is.Not.Null);
         Assert.That((starter.IsNew, starter.StarterId, starter.FolderName), Is.EqualTo((true, "iwsdk-vr", "vr-starter-project")));
-        Assert.That(starter.Describe(), Is.EqualTo("New vr-starter-project in Projects"), "one phrase, ours around theirs; the starter is named by the review's own row, never here (AUDIT's MUST 3, FIELD's words 13:42Z)");
+        Assert.That(starter.Describe(), Is.EqualTo("vr-starter-project, a new folder in Projects"), "one phrase, ours around theirs; the starter is named by the review's own row, never here (AUDIT's MUST 3, FIELD's words 13:42Z)");
 
         var renamed = starter.WithFolderName("galaxy-vr")!;
         Assert.That(renamed, Is.Not.Null);
@@ -212,13 +212,13 @@ public class FolderRefusalTests
         idea.UseIdea("Plan the week's dinners.");
         idea.ChooseFolder(ProjectFolder.New(new LocationRoot { Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false, Folders = new List<LocationFolder>() }, "kite-run")!);
         var slot = NewProjectScreens.RecapCard(idea, Draft(), null, live: true, null).Slots.First(item => item.Kind == RoomKind.Folder);
-        Assert.That(slot.Value.Text, Is.EqualTo("New kite-run in Projects"));
+        Assert.That(slot.Value.Text, Is.EqualTo("kite-run, a new folder in Projects"));
         Assert.That(slot.Value.Runs.Single(run => run.Theirs && run.Text.Contains("kite-run")).Text, Is.EqualTo("kite-run"), "the folder's name stays theirs");
         // A starter's folder is made new too, so it says so the same way (the critic, 2026-11-13: "kite-run in Projects" hid it).
         var started = new ProjectIdea();
         started.UseIdea("Plan the week's dinners.");
         started.ChooseFolder(ProjectFolder.NewStarter(new LocationRoot { Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false, Folders = new List<LocationFolder>() }, "kite-run")!);
-        Assert.That(NewProjectScreens.RecapCard(started, Draft(), null, live: true, null).Slots.First(item => item.Kind == RoomKind.Folder).Value.Text, Is.EqualTo("New kite-run in Projects"));
+        Assert.That(NewProjectScreens.RecapCard(started, Draft(), null, live: true, null).Slots.First(item => item.Kind == RoomKind.Folder).Value.Text, Is.EqualTo("kite-run, a new folder in Projects"));
     }
 
     private static ClientProjection With(CommandView command)
@@ -406,7 +406,7 @@ public class FolderRefusalTests
         var chosen = ProjectFolder.Existing(root, root.Folders[0]);
         Assert.That(chosen.Describe(), Is.EqualTo("shop in Projects (person)"));
         Assert.That(((ExistingFolderChoice)chosen.ToContract()).Root, Is.EqualTo(root.Path), "the label is shown, never sent");
-        Assert.That(ProjectFolder.New(root, "site")!.Describe(), Is.EqualTo("New site in Projects (person)"));
+        Assert.That(ProjectFolder.New(root, "site")!.Describe(), Is.EqualTo("site, a new folder in Projects (person)"));
         Assert.That(ProjectFolder.NewFolderLabel(root), Is.EqualTo("New Folder in Projects (person)"));
 
         // Kept across a restart, then the roots changed: the label is read again by the root's path.

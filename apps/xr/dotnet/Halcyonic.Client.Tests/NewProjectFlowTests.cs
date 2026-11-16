@@ -958,7 +958,7 @@ public class NewProjectFlowTests
         await Until(flow, () => Start().Available);
         Assert.That(Start().Reason, Is.Null, "nothing left to choose: two presses (New Project, Start Building) and the idea");
         Assert.That((flow.Idea!.Folder!.IsNew, flow.Idea.Folder.FolderName, flow.Idea.Folder.Describe()),
-            Is.EqualTo((true, Taken + "-2", "New " + Taken + "-2 in Projects")), "a new folder named from the idea, the taken name passed over");
+            Is.EqualTo((true, Taken + "-2", Taken + "-2, a new folder in Projects")), "a new folder named from the idea, the taken name passed over");
         Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.ModelId).Value, Is.EqualTo("local/30b"),
             "the one model on this computer, never the hosted one first");
