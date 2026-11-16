@@ -124,8 +124,10 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// New Project's place as the room moves it when the tag beside it widens (AUDIT 2026-11-16T18:04Z): a short name working, then the
         /// film's sentence needing the person, at 72 frames a second. Needs You alone never moves the tag's left edge (its chip stands right of
-        /// and under the name), so the case that turns the place is the name lengthening. The place eases to its new turn, never jumps (under 60 percent of the way after 0.1 s),
-        /// stands on it exactly by 1 s and holds it to the pixel after; frames at 0, 0.5 and 1 s go to the folder for the look.
+        /// and under the name), so the case that turns the place is the name lengthening, then shortening. As the tag grows the place steps aside
+        /// within about 0.12 s, never more than 2 degrees a frame; as it shrinks it comes back slowly (under 60 percent of the way after 0.1 s);
+        /// either way it stands on its turn exactly by 1 s and holds it to the pixel after (AUDIT 18:37Z). Frames at 0, 0.1 and 0.5 s of the growth
+        /// go to the folder for the look.
         /// </summary>
         private static List<string> NewProjectEasesClear(string folder)
         {
@@ -171,64 +173,79 @@ namespace Halcyonic.XR.Workspace.Editor
                 var under = RoomType.Units(RoomNameTag.UnderDegrees * RoomGeometry.DpPerDegree);
                 button.Show(RoomNewProjectPlace.Words, GlazeIcon.CreateProject, isMain: false, available: true, new Vector2(0f, -under - target / 2f), button.Measure(RoomNewProjectPlace.Words, 0f).x);
                 SettlePage(holder, views, button);
-                var start = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
-                foreach (var (view, index) in views.Select((view, index) => (view, index)))
-                {
-                    view.Show(Shown(index, needs: true));
-                    view.PlaceShelfLabel(eyes);
-                }
                 const int fps = 72;
-                place.SetPositionAndRotation(spot.position, spot.rotation);
                 var camera = WorkspaceRender.MakeCamera(holder.transform, eyes, texture);
-                var turned = start;
+                var turned = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
                 var speed = 0f;
-                var settled = new List<float>();
-                var largest = 0f;
-                float? atTenth = null;
-                var end = start;
-                var frames = fps * 6 / 5;
-                var ends = new float[frames + 1];
-                ends[0] = start;
-                for (var frame = 0; frame <= frames; frame++)
+                // The tag's name lengthens, then shortens again: the place steps aside fast as the tag grows, and comes back slowly (AUDIT 18:37Z).
+                foreach (var grow in new[] { true, false })
                 {
-                    if (frame > 0)
+                    var way = grow ? "steps aside" : "comes back";
+                    var start = turned;
+                    foreach (var (view, index) in views.Select((view, index) => (view, index)))
                     {
-                        // The tag's Needs You arrives as the room draws it, a frame at a time, and the place eases after it.
-                        foreach (var view in views) view.AdvanceForRender(1f / fps);
-                        WorkspaceRender.ForceMeshes(holder);
-                        var was = turned;
+                        view.Show(Shown(index, needs: grow));
+                        view.PlaceShelfLabel(eyes);
+                    }
+                    var largest = 0f;
+                    float? atTenth = null;
+                    float? aside = null;
+                    var end = start;
+                    var frames = fps * 6 / 5;
+                    var ends = new float[frames + 1];
+                    var off = new float[frames + 1];
+                    ends[0] = start;
+                    for (var frame = 0; frame <= frames; frame++)
+                    {
+                        if (frame > 0)
+                        {
+                            // The new name arrives as the room draws it, a frame at a time, and the place follows it.
+                            foreach (var view in views) view.AdvanceForRender(1f / fps);
+                            WorkspaceRender.ForceMeshes(holder);
+                            var was = turned;
+                            place.SetPositionAndRotation(spot.position, spot.rotation);
+                            end = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
+                            ends[frame] = end;
+                            turned = RoomNewProjectPlace.Eased(turned, end, ref speed, 1f / fps);
+                            largest = Mathf.Max(largest, Mathf.Abs(turned - was));
+                        }
+                        off[frame] = turned - ends[frame];
+                        // Framed on the page as it starts, with room for the chip arriving at the right and the place easing left.
+                        if (grow && frame == 0) { FramePage(camera, eyes, holder.transform); camera.fieldOfView += 10f; }
                         place.SetPositionAndRotation(spot.position, spot.rotation);
-                        end = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
-                        ends[frame] = end;
-                        turned = RoomNewProjectPlace.Eased(turned, end, ref speed, 1f / fps);
-                        largest = Mathf.Max(largest, Mathf.Abs(turned - was));
+                        RoomNewProjectPlace.Turn(place, eyes, turned);
+                        if (frame == Mathf.RoundToInt(0.1f * fps)) atTenth = turned;
+                        if (aside == null && frame > 0 && Mathf.Abs(off[frame]) <= 0.1f && Mathf.Abs(ends[frame] - ends[frames]) <= 0.1f) aside = frame / (float)fps;
+                        if (grow && (frame == 0 || frame == Mathf.RoundToInt(0.1f * fps) || frame == fps / 2))
+                        {
+                            var image = WorkspaceRender.Render(camera, texture);
+                            File.WriteAllBytes(Path.Combine(folder, "page-film-ease-" + (frame / (float)fps).ToString("0.0", CultureInfo.InvariantCulture) + "s.png"), image.EncodeToPNG());
+                            UnityEngine.Object.DestroyImmediate(image);
+                        }
                     }
-                    // Framed on the page as it starts, with room for the chip arriving at the right and the place easing left.
-                    if (frame == 0) { FramePage(camera, eyes, holder.transform); camera.fieldOfView += 10f; }
-                    place.SetPositionAndRotation(spot.position, spot.rotation);
-                    RoomNewProjectPlace.Turn(place, eyes, turned);
-                    if (frame == Mathf.RoundToInt(0.1f * fps)) atTenth = turned;
-                    if (frame >= fps) settled.Add(turned - ends[frame]);
-                    if (frame == 0 || frame == fps / 2 || frame == fps)
+                    var change = end - start;
+                    if (Mathf.Abs(change) < 0.2f) failures.Add("New Project's place needs no new turn when the tag's name " + (grow ? "lengthens" : "shortens") + " (" + GlazeChecks.Degrees(change) + " degrees), so its motion is not shown, at text scale " + scale);
+                    if (grow)
                     {
-                        var image = WorkspaceRender.Render(camera, texture);
-                        File.WriteAllBytes(Path.Combine(folder, "page-film-ease-" + (frame / (float)fps).ToString("0.0", CultureInfo.InvariantCulture) + "s.png"), image.EncodeToPNG());
-                        UnityEngine.Object.DestroyImmediate(image);
+                        // Out of the way within about 0.12 s, so an overlap lasts a blink, never a collision; never more than 2 degrees a frame.
+                        if (aside is not float done || done > 0.125f) failures.Add("New Project's place takes " + (aside is float late ? late.ToString("0.00", CultureInfo.InvariantCulture) + " s" : "past 1.2 s") + " to step aside as the tag grows, over 0.12 s, at text scale " + scale);
+                        if (largest > 2f) failures.Add("New Project's place jumps " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " degrees in one frame as the tag grows, over 2, at text scale " + scale);
                     }
+                    else if (atTenth is float tenth && Mathf.Abs(tenth - start) > 0.6f * Mathf.Abs(change))
+                        failures.Add("New Project's place comes back too fast: " + GlazeChecks.Degrees(Mathf.Abs(tenth - start)) + " of its " + GlazeChecks.Degrees(Mathf.Abs(change)) + " degrees in 0.1 s, at text scale " + scale);
+                    // No hunting (AUDIT 18:12Z condition 3): from 1 s the clear turn itself holds, within Eased's own snap, and the place stands on it.
+                    for (var frame = fps + 1; frame <= frames; frame++)
+                        if (Mathf.Abs(ends[frame] - ends[fps]) > 0.01f)
+                        {
+                            failures.Add("New Project's clear turn still moves after 1 s as it " + way + ", " + GlazeChecks.Degrees(ends[frame] - ends[fps]) + " degrees at " + (frame / (float)fps).ToString("0.00", CultureInfo.InvariantCulture) + " s, at text scale " + scale);
+                            break;
+                        }
+                    for (var frame = fps; frame <= frames; frame++)
+                        if (off[frame] != 0f) { failures.Add("New Project's place does not stand still on its turn from 1 s as it " + way + ", at text scale " + scale); break; }
+                    Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place " + way + " " + GlazeChecks.Degrees(Mathf.Abs(change)) + " degrees as the tag's name "
+                        + (grow ? "lengthens to the film's sentence needing the person" : "shortens again") + ": " + GlazeChecks.Degrees(Mathf.Abs((atTenth ?? start) - start)) + " in 0.1 s, settled at "
+                        + (aside is float at ? at.ToString("0.00", CultureInfo.InvariantCulture) + " s" : "past 1.2 s") + ", at most " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " in a frame, still from 1 s.");
                 }
-                var change = end - start;
-                if (change < 0.2f) failures.Add("New Project's place needs no new turn when the tag's short name gives way to the film's sentence (" + GlazeChecks.Degrees(change) + " degrees), so its easing is not shown, at text scale " + scale);
-                if (atTenth is float tenth && tenth - start > 0.6f * change) failures.Add("New Project's place jumps: " + GlazeChecks.Degrees(tenth - start) + " of its " + GlazeChecks.Degrees(change) + " degrees in 0.1 s, at text scale " + scale);
-                // No hunting (AUDIT 18:12Z condition 3): from 1 s the clear turn itself holds, within Eased's own snap, every frame.
-                for (var frame = fps + 1; frame <= frames; frame++)
-                    if (Mathf.Abs(ends[frame] - ends[fps]) > 0.01f)
-                    {
-                        failures.Add("New Project's clear turn still moves after 1 s, " + GlazeChecks.Degrees(ends[frame] - ends[fps]) + " degrees at " + (frame / (float)fps).ToString("0.00", CultureInfo.InvariantCulture) + " s, at text scale " + scale);
-                        break;
-                    }
-                if (settled.Count == 0 || settled.Any(each => each != 0f)) failures.Add("New Project's place does not stand still on its turn from 1 s, at text scale " + scale);
-                Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place eases " + GlazeChecks.Degrees(change) + " degrees further left as the tag's short name gives way to the film's sentence needing the person: "
-                    + GlazeChecks.Degrees((atTenth ?? start) - start) + " in 0.1 s, at most " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " in a frame, still from 1 s.");
             }
             catch (Exception error) { failures.Add(error.ToString()); }
             finally
