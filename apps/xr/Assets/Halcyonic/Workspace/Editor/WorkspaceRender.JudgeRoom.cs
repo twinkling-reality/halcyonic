@@ -2051,6 +2051,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (OwnerOf(label.transform)?.StartsWith("Room", StringComparison.Ordinal) != true) continue;
                 label.ForceMeshUpdate(true);
                 if (label.isTextTruncated) failures.Add(PathOf(label.transform) + " \"" + Codes(label.text) + "\" is cut");
+                // No title or label of four words or more ends on one word alone (AUDIT 15:23Z and 16:57Z: narrow the measure, the same
+                // lines, until the last line holds two words). Read from the label's own laid lines; code in Watch It Work is not words.
+                if (label.GetComponentInParent<Halcyonic.XR.UI.RoomWritingArc>() == null && label.textInfo.lineCount >= 2)
+                {
+                    var laid = label.textInfo;
+                    var words = laid.wordCount;
+                    var lastLine = laid.lineInfo[laid.lineCount - 1];
+                    if (words >= 4 && lastLine.wordCount == 1 && lastLine.characterCount > 0)
+                        failures.Add(PathOf(label.transform) + " \"" + Codes(label.text) + "\" ends on one word alone on its last line");
+                }
                 // The label's rectangle on the render: its strokes against the most common colour under them.
                 var bounds = label.textBounds;
                 var corners = new[] { new Vector3(bounds.min.x, bounds.min.y), new Vector3(bounds.max.x, bounds.max.y), new Vector3(bounds.min.x, bounds.max.y), new Vector3(bounds.max.x, bounds.min.y) }
