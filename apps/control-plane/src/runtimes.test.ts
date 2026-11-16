@@ -1186,6 +1186,23 @@ describe("Claude Code's confinement (ADR 0048, BOX-4)", () => {
       '/d',
       '/t',
     ]);
+    // A task's copy of a folder the person connected names the folder it was made from, for the copy profile; a
+    // starter's project's copy names none (the closed profile holds it), nor does a host without its copies' folder.
+    const copies = claudeConfinement({
+      dataDir: '/d',
+      tasksDir: '/t',
+      starterOf: (folder) => (folder === '/t/p/g/garden' ? 'web-game' : null),
+      copyOriginOf: (folder) =>
+        folder === '/t/p/a/repo'
+          ? '/Users/someone/dev/repo'
+          : folder === '/t/p/g/garden'
+            ? '/p/garden'
+            : null,
+    });
+    assert.equal(copies.copyOf?.('/t/p/a/repo'), '/Users/someone/dev/repo');
+    assert.equal(copies.copyOf?.('/t/p/g/garden'), null);
+    assert.equal(copies.copyOf?.('/Users/someone/dev/repo'), null);
+    assert.equal(claudeConfinement({ dataDir: '/d', copyOriginOf: () => '/x' }).copyOf, undefined);
   });
 });
 

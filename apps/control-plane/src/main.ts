@@ -113,6 +113,8 @@ async function main(): Promise<void> {
   // Which starter a folder was made from, read from the projection once the control plane is built.
   let starterOf: (directory: string) => string | null = () => null;
   let originalOf: (directory: string) => string | null = () => null;
+  // The project folder a task's own copy was made from, read from the projection likewise (ADR 0045).
+  let copyOriginOf: (directory: string) => string | null = () => null;
   // Every bound project's folder, read at each start, so no run reaches another project (BOX-3).
   let projectFolders: () => readonly string[] = () => [];
   // The host's one list of declared hosted providers, read once as the plane starts (ADR 0061): a declaration that
@@ -150,6 +152,7 @@ async function main(): Promise<void> {
     starterOf: (directory) => starterOf(directory),
     originalOf: (directory) => originalOf(directory),
     projectFolders: () => projectFolders(),
+    copyOriginOf: (directory) => copyOriginOf(directory),
   });
   const keyedAtStart = adapters
     .map((adapter) => adapter.descriptor.runtime_id as string)
@@ -387,6 +390,10 @@ async function main(): Promise<void> {
         return projection.project(workstream.project_id)?.location?.path ?? directory;
     }
     return directory;
+  };
+  copyOriginOf = (directory) => {
+    const folder = projectFolderOf(directory);
+    return folder === directory ? null : folder;
   };
   starterOf = (directory) => {
     const folder = projectFolderOf(directory);

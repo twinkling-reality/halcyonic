@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { after, describe, type TestContext, test } from 'node:test';
@@ -2325,6 +2325,58 @@ describe("Claude Agent outside the closed profile, kept out of the host's own fo
       return true;
     });
     assert.equal(runs.length, 0, 'a query was started');
+  });
+});
+
+describe("Claude Agent in a task's own copy of a folder the person connected, under the copy profile (ADR 0045, amended 2026-11-16)", () => {
+  /** A host whose copies' folder holds one task's copy of `person`, a folder the person connected. */
+  function copies() {
+    const host = realpathSync(mkdtempSync(join(WORKDIR, 'copy-host-')));
+    const tasks = join(host, 'tasks');
+    const copy = join(tasks, 'p', 't', 'app');
+    const person = join(host, 'person', 'app');
+    const stray = join(tasks, 'p', 'other', 'app');
+    for (const folder of [copy, person, stray]) mkdirSync(folder, { recursive: true });
+    const confinement = {
+      dataFolder: join(host, 'data'),
+      toolFolders: [],
+      forDirectory: () => null,
+      hostFolders: [join(host, 'data'), tasks],
+      copyOf: (directory: string) => (directory === copy ? person : null),
+    };
+    return { host, tasks, copy, person, stray, confinement };
+  }
+
+  test('is held in the copy and, before it is made, on the folder it is made from; never in a folder of the host it is no copy of', {
+    skip: process.platform !== 'darwin',
+  }, () => {
+    const { copy, person, stray, tasks, confinement } = copies();
+    const { adapter } = setup({ confinement });
+    assert.equal(adapter.holdsFolder(copy), true);
+    assert.equal(adapter.holdsFolder(person), true);
+    assert.equal(adapter.holdsFolder(stray), false);
+    assert.equal(adapter.holdsFolder(tasks), false);
+    // Without a host that names its folders, or one that says which copy is whose, no copy is held.
+    const { copyOf: _, ...unnamed } = confinement;
+    assert.equal(setup({ confinement: unnamed }).adapter.holdsFolder(person), false);
+    assert.equal(setup({ confinement: unnamed }).adapter.holdsFolder(copy), false);
+  });
+
+  test("starts in its copy, recorded unconfined, and refuses a folder of the host's that is no copy it holds", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { copy, stray, confinement } = copies();
+    const held = setup({ confinement });
+    const starting = held.start({}, copy);
+    held.run().emit(init(held.run().sessionId));
+    await starting;
+    assert.equal(held.runs.length, 1);
+    assert.equal(held.run().options.cwd, copy);
+    const started = held.observed.find((o) => o.type === 'runtime.execution.started');
+    assert.equal((started?.payload as { confined?: boolean } | undefined)?.confined, false);
+    const refused = setup({ confinement });
+    await assert.rejects(refused.start({}, stray), /one of Halora's own folders/);
+    assert.equal(refused.runs.length, 0);
   });
 });
 

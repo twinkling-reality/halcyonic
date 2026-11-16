@@ -135,6 +135,12 @@ export interface RuntimeDependencies {
    * offered there.
    */
   readonly projectFolders?: () => readonly string[];
+  /**
+   * The project folder a task's own copy was made from, or null for a folder that is no task's copy (ADR 0045),
+   * read from the journal at each start: Claude Code runs in a copy of a folder the person connected under the copy
+   * profile.
+   */
+  readonly copyOriginOf?: (directory: string) => string | null;
 }
 
 /**
@@ -340,7 +346,10 @@ export function folderReads(
  * and hooks, so Salidium and Seorak observe it. The adapter confines on macOS only.
  */
 export function claudeConfinement(
-  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir' | 'tasksDir'>,
+  dependencies: Pick<
+    RuntimeDependencies,
+    'starterOf' | 'originalOf' | 'dataDir' | 'tasksDir' | 'copyOriginOf'
+  >,
   node: string = process.execPath,
 ): ClaudeConfinementOptions {
   return {
@@ -357,6 +366,15 @@ export function claudeConfinement(
       (dependencies.starterOf?.(directory) ?? null) === null
         ? null
         : folderReads(dependencies, directory),
+    // A copy of a folder the person connected runs under the copy profile; a starter's copy stays in the closed one.
+    ...(dependencies.tasksDir === undefined || dependencies.copyOriginOf === undefined
+      ? {}
+      : {
+          copyOf: (directory: string) =>
+            (dependencies.starterOf?.(directory) ?? null) === null
+              ? (dependencies.copyOriginOf?.(directory) ?? null)
+              : null,
+        }),
   };
 }
 

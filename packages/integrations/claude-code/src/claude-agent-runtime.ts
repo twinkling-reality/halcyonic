@@ -59,6 +59,7 @@ import {
 } from '@halcyonic/runtime-core';
 import {
   type ApiGate,
+  confinementKey,
   endLeftovers,
   type HostFoldersScope,
   type KeyGateDeclaration,
@@ -75,6 +76,7 @@ import {
   findInConfinedStore,
   openLaunch,
   prepareConfinedFolder,
+  writeCopyProfile,
   writeHostFoldersProfile,
 } from './confinement.ts';
 import { buildEnvironment, cloudProvider, type ModelHost, modelHost } from './environment.ts';
@@ -347,10 +349,23 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   /**
    * Held where a start runs inside Halcyonic's closed profile (ADR 0048, BOX-4), as `#scopeFor`
    * decides it: a folder its confinement covers, on macOS, with no cloud provider switched on. There
-   * it writes that folder and its own place alone, and holds no key: its gate does.
+   * it writes that folder and its own place alone, and holds no key: its gate does. Held too in a
+   * task's own copy of a folder the person connected, under the copy profile (ADR 0045, amended
+   * 2026-11-16): of the host's folders and the person's project it writes that copy alone, while the
+   * rest of the person's home and the network stay open, as for their own Claude Code.
    */
   holdsFolder(directory: string): boolean {
-    return this.#scopeFor(directory).folder !== null;
+    if (this.#scopeFor(directory).folder !== null) return true;
+    // A task's own copy of a folder the person connected, under the copy profile (ADR 0045, amended 2026-11-16).
+    if (this.#copyOriginOf(directory) !== null) return true;
+    // A folder the person connected, asked before its task's copy is made: held in that copy. The copy is asked
+    // again once made, and a start is refused in words where it would not be held there.
+    return (
+      this.#hostFolders !== null &&
+      this.#confinement?.copyOf !== undefined &&
+      this.#confinement.copyOf(directory) === null &&
+      !withinHostFolders(directory, this.#hostFolders)
+    );
   }
 
   /**
@@ -472,8 +487,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     const scope = this.#scopeFor(cwd);
     const gate = scope.folder === null ? null : await this.#apiGate();
     if (scope.folder !== null) prepareConfinedFolder(scope.folder);
+    const held = scope.folder === null ? this.#copyProfileFor(cwd) : null;
     if (scope.folder === null) {
-      this.#refuseHostFolder(cwd);
+      if (held === null) this.#refuseHostFolder(cwd);
       this.#refuseHostTemp();
     }
     const found = scope.folder === null ? this.#personal() : null;
@@ -514,13 +530,14 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
         confinedTo,
         personal,
         openGate,
+        held,
       ),
     );
     let started: Promise<string>;
     try {
       started = session.start(
         this.#query,
-        this.#options(bounds, session, false, confinedTo, personal, openGate),
+        this.#options(bounds, session, false, confinedTo, personal, openGate, held),
         request.instruction,
         request.pictures ?? [],
       );
@@ -615,8 +632,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       throw new RuntimeActionError('duplicate_execution', 'The execution is already attached.');
     }
     const gate = scope.folder === null ? null : await this.#apiGate();
+    const held = scope.folder === null ? this.#copyProfileFor(cwd) : null;
     if (scope.folder === null) {
-      this.#refuseHostFolder(cwd);
+      if (held === null) this.#refuseHostFolder(cwd);
       this.#refuseHostTemp();
     }
     const found = scope.folder === null ? this.#personal() : null;
@@ -656,13 +674,14 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
           confinedTo,
           personal,
           openGate,
+          held,
         ),
       // Nothing left to hand, or not known: it launches nothing until it carries on under a new limit.
       request.spending_allowance_usd === null,
     );
     session.prepare(
       this.#query,
-      this.#options(bounds, session, true, confinedTo, personal, openGate),
+      this.#options(bounds, session, true, confinedTo, personal, openGate, held),
     );
     this.#sessions.set(executionId, session);
     session.restored(request.cut_turn);
@@ -803,6 +822,31 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
+   * The folder `directory` is a task's own copy of, where it is one the copy profile holds (ADR 0045, amended
+   * 2026-11-16): a copy inside the host's own folders, of a folder the person connected that is outside them, on a
+   * host that names its folders. Null for any other folder, a starter's project's copy included (the closed
+   * profile's).
+   */
+  #copyOriginOf(directory: string): string | null {
+    const scope = this.#hostFolders;
+    const original = this.#confinement?.copyOf?.(directory) ?? null;
+    if (scope === null || original === null) return null;
+    if (!withinHostFolders(directory, scope) || withinHostFolders(original, scope)) return null;
+    return original;
+  }
+
+  /** The copy profile's file for a start in `cwd`, written afresh, where `cwd` is a task's copy it holds; else null. */
+  #copyProfileFor(cwd: string): string | null {
+    const original = this.#copyOriginOf(cwd);
+    if (original === null || this.#hostFolders === null) return null;
+    return writeCopyProfile(`${this.#hostProfilePath}.copy-${confinementKey(cwd)}.sb`, {
+      ...this.#hostFolders,
+      copy: cwd,
+      original,
+    });
+  }
+
+  /**
    * Refuses outside the closed profile when this host's temporary folder is one of its own folders (VRIFY,
    * 2026-11-13, seen on the proving plane): the light profile keeps every Claude Code process out of it, so the
    * process could not open its own working or temporary folder and would only exit; said in words instead.
@@ -834,11 +878,24 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
    * Spawns a Claude Code process outside the closed profile: through the gate with a credential of its own, dead
    * the moment the process ends, and under the light profile where the host names its folders.
    */
-  #openSpawn(options: SpawnOptions, gate: ApiGate | null, label: string): SpawnedProcess {
+  #openSpawn(
+    options: SpawnOptions,
+    gate: ApiGate | null,
+    label: string,
+    held: string | null = null,
+  ): SpawnedProcess {
     const credential = gate === null ? null : gate.issue();
     try {
+      // In a task's copy, the SSH agent's address is not handed on either: the copy profile refuses its socket too.
+      const launch = held === null ? options : { ...options, env: withoutSshAgent(options.env) };
       const spawned = this.#guard.spawn(
-        openLaunch(options, gate, CLAUDE_CODE_KEY_GATE, credential, this.#hostFoldersProfile()),
+        openLaunch(
+          launch,
+          gate,
+          CLAUDE_CODE_KEY_GATE,
+          credential,
+          held ?? this.#hostFoldersProfile(),
+        ),
         label,
       );
       if (gate !== null && credential !== null) spawned.once('exit', () => gate.revoke(credential));
@@ -892,6 +949,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     confined: { readonly folder: ConfinedFolder; readonly gate: ApiGate } | null = null,
     personal: PersonalSettings | null = null,
     openGate: ApiGate | null = null,
+    held: string | null = null,
   ): Options {
     const settings = this.#confinement;
     const open = confined === null || settings === null;
@@ -905,7 +963,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       // outside it, since its home and configuration are the folder's own.
       spawnClaudeCodeProcess: (options) => {
         if (confined === null || settings === null)
-          return this.#openSpawn(options, openGate, session.id);
+          return this.#openSpawn(options, openGate, session.id, held);
         // This process's own credential for the gate: dead the moment the process ends (AUDIT3).
         const credential = confined.gate.issue();
         try {
@@ -2322,4 +2380,12 @@ function wholeError(text: string): string | null {
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** A launch's environment without the SSH agent's address, for a run in a task's copy. */
+function withoutSshAgent(
+  env: Record<string, string | undefined> | undefined,
+): Record<string, string | undefined> {
+  const { SSH_AUTH_SOCK: _, ...rest } = env ?? {};
+  return rest;
 }

@@ -13,9 +13,11 @@ import { dirname, join } from 'node:path';
 import type { SpawnOptions } from '@anthropic-ai/claude-agent-sdk';
 import {
   type Confinement,
+  type CopyScope,
   confinedHomeEnvironment,
   confinedProfile,
   confinementKey,
+  copyProfile,
   gatedEnvironment,
   type HostFoldersScope,
   hostFoldersDeniedProfile,
@@ -46,6 +48,12 @@ export interface ClaudeConfinementOptions {
    * a start outside the closed profile runs as before, with no profile.
    */
   readonly hostFolders?: readonly string[];
+  /**
+   * For a task's own copy of a folder the person connected, one made from no starter: the folder it was made from;
+   * null for any other folder (ADR 0045, amended 2026-11-16). There the run is held by the copy profile, which needs
+   * `hostFolders`. Absent, no such copy is held, and those tasks get none.
+   */
+  readonly copyOf?: (directory: string) => string | null;
 }
 
 /** One confined folder's own place: its home, Claude Code's configuration in it, and temporary folder. */
@@ -178,6 +186,14 @@ export function openLaunch(
     args: ['-f', profile, options.command, ...options.args],
     env,
   };
+}
+
+/** Writes the copy profile for `scope` at `path` whole, replacing any older one at once. */
+export function writeCopyProfile(path: string, scope: CopyScope): string {
+  const draft = `${path}.${process.pid}.${randomUUID()}`;
+  writeFileSync(draft, copyProfile(scope), { mode: 0o600, flag: 'wx' });
+  renameSync(draft, path);
+  return path;
 }
 
 /** Writes the light profile for `scope` at `path` whole, replacing any older one at once. */

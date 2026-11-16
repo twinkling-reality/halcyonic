@@ -129,8 +129,8 @@ const COMMAND = [
   `/usr/bin/curl -s --max-time 5 -o /dev/null -w 'bare=%{http_code}' -X POST "\${ANTHROPIC_BASE_URL}/v1/messages" >> ${RESULTS}; echo " bare-curl=$?" >> ${RESULTS}`,
 ].join('; ');
 
-/** A Messages API that asks for one Bash call for the prompt marked TOOL, then answers Done. */
-function fakeApi() {
+/** A Messages API that asks for one Bash call of `command` for the prompt marked TOOL, then answers Done. */
+function fakeApi(command: string = COMMAND) {
   const bodies: string[] = [];
   let direct = 0;
   /** The credential headers each request reached the API with. */
@@ -179,7 +179,7 @@ function fakeApi() {
                 type: 'tool_use',
                 id: `toolu_${randomUUID().slice(0, 8)}`,
                 name: 'Bash',
-                input: { command: COMMAND, description: 'Try the sandbox' },
+                input: { command, description: 'Try the sandbox' },
               },
             ]
           : [{ type: 'text', text: 'Done.' }];
@@ -213,7 +213,7 @@ function fakeApi() {
           index: 0,
           delta: {
             type: 'input_json_delta',
-            partial_json: JSON.stringify({ command: COMMAND, description: 'Try the sandbox' }),
+            partial_json: JSON.stringify({ command, description: 'Try the sandbox' }),
           },
         });
       } else {
@@ -431,4 +431,145 @@ test("Claude Code on a connected folder holds no key and reaches none of the hos
   assert.equal(api.direct, 0);
   assert.deepEqual(filesHoldingSlice(join(ROOT, 'home'), KEY), []);
   assert.deepEqual(filesHoldingSlice(join(ROOT, 'config'), KEY), []);
+});
+
+/**
+ * A task's own copy of a folder the person connected, under the copy profile (ADR 0045, amended 2026-11-16; AUDIT3
+ * W3), on the real CLI: its command writes the copy alone, reads the person's folder and never writes it, reaches no
+ * other task's copy, no push credential and no credential helper, and is handed no SSH agent; the hooks still run.
+ */
+test("Claude Code in a task's copy writes only that copy, never the person's folder, another copy or a way to push", {
+  skip: SKIP,
+  timeout: 240_000,
+}, async (t) => {
+  const tasks = join(ROOT, 'tasks');
+  const copy = join(tasks, 'p', 't', 'app');
+  const sibling = join(tasks, 'p', 'other', 'app');
+  const original = join(ROOT, 'outside', 'app');
+  for (const folder of [
+    copy,
+    sibling,
+    join(original, '.git'),
+    join(ROOT, 'home', '.ssh'),
+    join(ROOT, 'bin'),
+  ])
+    mkdirSync(folder, { recursive: true });
+  writeFileSync(join(original, 'person.txt'), 'person-marker-3c8d\n');
+  writeFileSync(join(sibling, 'other.txt'), 'sibling-marker-71fa\n');
+  writeFileSync(join(ROOT, 'home', '.ssh', 'id_marker'), 'ssh-marker-0b52\n');
+  writeFileSync(join(ROOT, 'bin', 'git-credential-marker'), '#!/bin/sh\necho helper-ran\n', {
+    mode: 0o755,
+  });
+  // The same script under a name of no credential helper: it runs, so the helper's refusal is the profile's.
+  writeFileSync(join(ROOT, 'bin', 'plain-marker'), '#!/bin/sh\necho plain-ran\n', { mode: 0o755 });
+  const results = join(copy, 'results.txt');
+  const command = [
+    `echo made > ${copy}/made.txt; echo "copy-write=$?" >> ${results}`,
+    `cat ${original}/person.txt >> ${results} 2>&1; echo "original-read=$?" >> ${results}`,
+    `echo planted > ${original}/planted 2>/dev/null; echo "original-write=$?" >> ${results}`,
+    `echo planted > ${original}/.git/planted 2>/dev/null; echo "original-git-write=$?" >> ${results}`,
+    `ln -s ${original} ${copy}/to-original; echo planted > ${copy}/to-original/linked 2>/dev/null; echo "linked-write=$?" >> ${results}`,
+    `cat ${sibling}/other.txt >> ${results} 2>/dev/null; echo "sibling-read=$?" >> ${results}`,
+    `cat ${ROOT}/home/.ssh/id_marker >> ${results} 2>/dev/null; echo "ssh=$?" >> ${results}`,
+    `${ROOT}/bin/git-credential-marker >> ${results} 2>/dev/null; echo "helper=$?" >> ${results}`,
+    `${ROOT}/bin/plain-marker >> ${results} 2>/dev/null; echo "plain=$?" >> ${results}`,
+    `echo "agent=\${SSH_AUTH_SOCK:-none}" >> ${results}`,
+  ].join('; ');
+  const api = fakeApi(command);
+  const base = await listen(api.server);
+  t.after(() => {
+    api.server.closeAllConnections();
+    api.server.close();
+  });
+  const adapter = new ClaudeAgentRuntimeAdapter({
+    directoryPolicy: (path) => ({ ok: true, directory: path }),
+    processRecordFile: join(DATA, 'claude-agent-copy-processes.json'),
+    inheritedEnvironment: {
+      PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
+      HOME: join(ROOT, 'home'),
+      CLAUDE_CONFIG_DIR: join(ROOT, 'config'),
+      TMPDIR: `${join(ROOT, 'tmp')}/`,
+      ANTHROPIC_API_KEY: KEY,
+      // An SSH agent the person's login would have: never handed on in a copy.
+      SSH_AUTH_SOCK: join(ROOT, 'tmp', 'agent.sock'),
+    },
+    environment: {
+      ANTHROPIC_BASE_URL: base,
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+      DISABLE_AUTOUPDATER: '1',
+      DISABLE_TELEMETRY: '1',
+      DISABLE_ERROR_REPORTING: '1',
+    },
+    pathToClaudeCodeExecutable: BINARY,
+    remainingSettings: async () => ({}),
+    confinement: {
+      dataFolder: DATA,
+      toolFolders: toolFoldersFor(process.execPath),
+      hidden: [DATA],
+      forDirectory: () => null,
+      hostFolders: [DATA, tasks],
+      copyOf: (directory) => (directory === copy ? original : null),
+    },
+  });
+  t.after(() => adapter.close());
+  assert.equal(adapter.holdsFolder(copy), true);
+  const observed: RuntimeObservation[] = [];
+  const execution = context(3);
+  await adapter.startExecution({
+    execution,
+    instruction: 'TOOL first MARKER-COPY.',
+    options: {},
+    model_ref: null,
+    directory: copy,
+    emit: (observation) => observed.push(observation),
+  });
+  await until(
+    () => observed.some((o) => o.type === 'runtime.approval.requested'),
+    60_000,
+    () => `the command to ask; observed ${observed.map((o) => o.type).join(', ')}`,
+  );
+  const asked = observed.find((o) => o.type === 'runtime.approval.requested');
+  assert.ok(asked?.type === 'runtime.approval.requested');
+  await adapter.respondToApproval({
+    execution,
+    approval_id: asked.payload.approval_id,
+    decision: 'approve',
+    message: null,
+  });
+  await until(
+    () => observed.some((o) => o.type === 'runtime.turn.completed'),
+    90_000,
+    () => `the turn to finish; observed ${observed.map((o) => o.type).join(', ')}`,
+  );
+  const said = readFileSync(results, 'utf8');
+  t.diagnostic(said);
+  // Not the closed profile: recorded so.
+  const started = observed.find((o) => o.type === 'runtime.execution.started');
+  assert.equal((started?.payload as { confined?: boolean } | undefined)?.confined, false);
+  // Its copy, and the person's folder read.
+  assert.match(said, /copy-write=0/);
+  assert.equal(readFileSync(join(copy, 'made.txt'), 'utf8'), 'made\n');
+  assert.match(said, /person-marker-3c8d/);
+  assert.match(said, /original-read=0/);
+  // Never written, through a link neither; no other copy; no push credential, helper or agent.
+  for (const refused of [
+    'original-write',
+    'original-git-write',
+    'linked-write',
+    'sibling-read',
+    'ssh',
+    'helper',
+  ])
+    assert.match(said, new RegExp(`${refused}=[1-9]`), refused);
+  for (const path of ['planted', '.git/planted', 'linked'])
+    assert.equal(existsSync(join(original, path)), false, path);
+  assert.doesNotMatch(said, /sibling-marker-71fa|ssh-marker-0b52|helper-ran/);
+  assert.match(said, /plain-ran/);
+  assert.match(said, /plain=0/);
+  assert.match(said, /agent=none/);
+  // The observers' hook still ran, holding this run's credential, never the key.
+  const hooked = readFileSync(HOOK_KEYS, 'utf8').trim().split('\n');
+  assert.ok(hooked.length >= 1, hooked.join(' | '));
+  for (const line of hooked) assert.match(line, /^hook-key=halcyonic-gate-run-[0-9a-f]{64}$/);
+  assert.ok(!said.includes(KEY), "the person's key reached the command");
 });

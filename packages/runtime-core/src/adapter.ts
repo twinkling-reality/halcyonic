@@ -293,8 +293,10 @@ export interface RuntimeAdapter {
   /**
    * Whether a start in `directory` on this computer runs held to that folder: its commands write
    * no folder but it and the runtime's own home and temporary folders, so a task may work in a copy
-   * of its own there (ADR 0045). The adapter answers from the confinement it applies at the start
-   * itself. Absent, or false, the runtime is not held, and its tasks get no copy.
+   * of its own there (ADR 0045). Asked of a project's folder before its task's copy is made, it says
+   * whether a start in that copy would be held; the copy is asked again once made. The adapter
+   * answers from the confinement it applies at the start itself, and says in its documentation what
+   * a held start may still reach. Absent, or false, the runtime is not held, and its tasks get no copy.
    */
   holdsFolder?(directory: string): boolean;
   /**
