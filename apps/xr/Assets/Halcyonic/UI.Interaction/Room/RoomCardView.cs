@@ -180,7 +180,7 @@ namespace Halcyonic.XR.UI
         public const float ReadingWellPadDp = 8f;
 
         /// <summary>How strong the accent's tint stands under rows a later read changed: a wash, never a slab.</summary>
-        public const float LitTintAlpha = 0.14f;
+        public const float LitTintAlpha = 0.1f;
 
         /// <summary>The colours of the language: the pass, failure and accent hues, and their deep grounds.</summary>
         public const int Passed = 0x69D98D;
@@ -874,7 +874,7 @@ namespace Halcyonic.XR.UI
                     for (var next = index; next < rows.Count && lit.Contains(next); next++) run++;
                     var runTall = run * pitch;
                     var centreY = -(down + runTall / 2f);
-                    Plate(new Vector2(width, runTall), S(4f), Rgb(Accent, LitTintAlpha), new Vector2(width / 2f, centreY), "reading lit band");
+                    Plate(new Vector2(width, runTall), S(6f), Rgb(Accent, LitTintAlpha), new Vector2(width / 2f, centreY), "reading lit band");
                     Plate(new Vector2(S(3f), runTall), 0f, Rgb(Accent), new Vector2(S(1.5f), centreY), "reading lit rule", front: true);
                 }
                 if (changed && (index == 0 || rows[index - 1].Kind != row.Kind))

@@ -253,7 +253,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(Mathf.Abs(across - RoomMotion.Standard(0.1f / RoomWritingPanel.LightAcrossSeconds)) < 0.01f && strength > 0.99f,
                             "0.1 s in, the first new row's light stands " + across.ToString("0.00") + " across at " + strength.ToString("0.00"));
                         var light = view.LightOf(first);
-                        Require(light.HasValue && Mathf.Abs(light.Value.Light.Size.x - light.Value.Width * across) < unit * 0.5f && light.Value.Light.Fill.a > RoomWritingPanel.LightPeak * 0.9f,
+                        Require(light.HasValue && Mathf.Abs(light.Value.Light.Size.x - light.Value.Width * across) < unit * 0.5f && light.Value.Light.Fill.a > RoomWritingPanel.LightPeak * 0.75f,
                             "0.1 s in, the first new row shows no light under " + (across * 100f).ToString("0") + " percent of its words");
                         var firstLabel = view.Card.ReadingShown[shown.Lines.Take(first).Count(line => line.Trim(' ').Length > 0)];
                         // Its words arrive lightly tinted, light enough to hold their contrast over the tint (AUDIT's 07:54Z point 2).

@@ -61,12 +61,16 @@ namespace Halcyonic.XR.UI
         /// turn. Kept still, there is none of it.
         /// </summary>
         public const float LightAcrossSeconds = 0.18f;
-        public const float LightFadeSeconds = 0.4f;
+        public const float LightFadeSeconds = 0.3f;
 
         /// <summary>The light's line: this tall, this strong; and its glow's two layers, each a share of the row's pitch and its strength.</summary>
-        public const float LightLineDp = 2f;
-        public const float LightPeak = 0.9f;
-        public static readonly (float Tall, float Alpha)[] LightGlow = { (0.55f, 0.07f), (0.3f, 0.1f) };
+        public const float LightLineDp = 3f;
+        public const float LightPeak = 1f;
+        public static readonly (float Tall, float Alpha)[] LightGlow = { (0.7f, 0.08f), (0.38f, 0.14f) };
+
+        /// <summary>The light's head, the bright front it runs with: this long, this tall, white-hot accent while it runs, gone once across.</summary>
+        public const float LightHeadDp = 28f;
+        public const float LightHeadTallDp = 5f;
         private float folded = 1f;
 
         /// <summary>How small a panel folds to as it reaches its row.</summary>
@@ -198,7 +202,8 @@ namespace Halcyonic.XR.UI
             }
             while (lights.Count < lightRows.Count)
                 lights.Add(new[] { RoomShape.Create(card.transform, "Read light", KitType.Order.Words - 1) }
-                    .Concat(LightGlow.Select(_ => RoomShape.Create(card.transform, "Read light glow", KitType.Order.Words - 3))).ToArray());
+                    .Concat(LightGlow.Select(_ => RoomShape.Create(card.transform, "Read light glow", KitType.Order.Words - 3)))
+                    .Concat(new[] { RoomShape.Create(card.transform, "Read light head", KitType.Order.Words - 1) }).ToArray());
             for (var index = lightRows.Count; index < lights.Count; index++)
                 foreach (var layer in lights[index]) layer.gameObject.SetActive(false);
             Follow();
@@ -245,7 +250,9 @@ namespace Halcyonic.XR.UI
                 var pitch = RoomType.Scaled(RoomReading.LineDp);
                 var line = RoomType.Scaled(LightLineDp);
                 var long_ = Mathf.Max(line, width * across);
-                layers[0].Draw(new Vector2(long_, line), line / 2f, new Color(accent.r, accent.g, accent.b, LightPeak * strength * arrived));
+                // Its strength grows with its run, so a light just begun is faint, never a mark standing where words will be.
+                var grown = Mathf.Sqrt(across);
+                layers[0].Draw(new Vector2(long_, line), line / 2f, new Color(accent.r, accent.g, accent.b, LightPeak * strength * grown * arrived));
                 layers[0].transform.localPosition = new Vector3(left.x + long_ / 2f, left.y - line, -RoomType.Units(0.6f));
                 // The glow grows with the run, so the light's start is never a block standing where words will be (no caret).
                 for (var glow = 0; glow < LightGlow.Length; glow++)
@@ -253,6 +260,19 @@ namespace Halcyonic.XR.UI
                     var tall = pitch * LightGlow[glow].Tall;
                     layers[glow + 1].Draw(new Vector2(long_, tall), Mathf.Min(tall, long_) / 2f, new Color(accent.r, accent.g, accent.b, LightGlow[glow].Alpha * strength * across * arrived));
                     layers[glow + 1].transform.localPosition = new Vector3(left.x + long_ / 2f, left.y - line + tall / 2f, -RoomType.Units(0.4f));
+                }
+                // The head: a brighter, whiter front on the line while it runs, gone as it reaches the row's end.
+                var head = layers[layers.Length - 1];
+                var heat = across < 1f ? grown * (1f - across) * 2f : 0f;
+                var headOn = heat > 0.01f;
+                if (head.gameObject.activeSelf != headOn) head.gameObject.SetActive(headOn);
+                if (headOn)
+                {
+                    var headLong = Mathf.Min(long_, RoomType.Scaled(LightHeadDp));
+                    var headTall = RoomType.Scaled(LightHeadTallDp);
+                    var hot = Color.Lerp(accent, Color.white, 0.55f);
+                    head.Draw(new Vector2(headLong, headTall), headTall / 2f, new Color(hot.r, hot.g, hot.b, Mathf.Clamp01(heat) * strength * arrived));
+                    head.transform.localPosition = new Vector3(left.x + long_ - headLong / 2f, left.y - line, -RoomType.Units(0.65f));
                 }
             }
             // The card, its words and its well, stands only while it shows: gone once the fold has taken its words.

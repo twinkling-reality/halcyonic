@@ -3284,14 +3284,15 @@ in order, as before.
   the panel's width holding a card (`RoomCard`) with the file's name as its mono title, its folder quiet under it, and its
   window's rows in the reading's dark well, each row keeping its line's indent (`RoomWritingPanel.Wrap` writes a row's
   indent as leading spaces, a continued row two columns more, and `RowOf` lays them as the row's indent again). The rows a
-  later read changed are lit (`RoomCard.ReadingLit`: a light tint of the accent under them, `LitTintAlpha` 0.14, its ends
+  later read changed are lit (`RoomCard.ReadingLit`: a light tint of the accent under them, `LitTintAlpha` 0.10, its ends
   rounded inside the well, and a 3 dp accent rule at their left, their text at 0.96). It arrives with its first read over 600 ms on the standard curve, from 0.92 of its size and 2 dp
   back, its glass, plates and words together, each word at its own alpha scaled, never overwritten; each read's new rows
   pour in top down at 18 a second, or all within a second, each over 120 ms, rows already shown staying shown. Each read
-  lands with light (`RoomWritingPanel.LightAt`): as each new row's turn comes, a thin bright accent line runs under its
-  words, left to right in 180 ms, a faint glow rising from it in two wider layers that grow with it (so its start is never
-  a caret), all fading over the 400 ms after, while its words arrive lightly tinted toward the accent (`ArriveTint` 0.35,
-  so they hold their contrast over the tint) and settle into their own colour over the same 400 ms; nothing shows before a
+  lands with light (`RoomWritingPanel.LightAt`): as each new row's turn comes, a 3 dp bright accent line runs under its
+  words, left to right in 180 ms, with a whiter head at its front while it runs and a faint glow rising from it in two
+  wider layers; the line's strength grows with its run (so a light just begun is faint, never a caret), and all of it fades
+  over the 300 ms after, while its words arrive lightly tinted toward the accent (`ArriveTint` 0.35, so they hold their
+  contrast over the tint) and settle into their own colour over the same 300 ms; nothing shows before a
   row's turn, and a changed run's tint and rule grow down with its rows' words, never standing before them. Under
   Still it cross-fades in over 200 ms where it stands and each read stands whole. A file whose text is not shown says why
   in one line (`RoomWritingPanel.NotShownWords`, the product's words) with no rows. It takes no press. Checks:
