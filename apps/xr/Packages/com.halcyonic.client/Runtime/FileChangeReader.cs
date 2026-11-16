@@ -78,9 +78,13 @@ namespace Halcyonic.Client
             Project(projectId) + "/changes/file?journal_id=" + Escaped(journalId, nameof(journalId)) + "&from=" + Escaped(from, nameof(from))
             + "&to=" + Escaped(to, nameof(to)) + "&path=" + Escaped(path, nameof(path));
 
-        /// <summary>The path of one file of the project's folder as it is now.</summary>
-        public static string FilePath(string projectId, string journalId, string path) =>
-            Project(projectId) + "/file?journal_id=" + Escaped(journalId, nameof(journalId)) + "&path=" + Escaped(path, nameof(path));
+        /// <summary>
+        /// The path of one file as it is now: of the project's folder, or with <paramref name="workstreamId"/> of that task's own copy
+        /// (CORE's Watch It Work host: only a path the task's running turn named, at most four reads a second).
+        /// </summary>
+        public static string FilePath(string projectId, string journalId, string path, string? workstreamId = null) =>
+            Project(projectId) + "/file?journal_id=" + Escaped(journalId, nameof(journalId)) + "&path=" + Escaped(path, nameof(path))
+            + (workstreamId == null ? "" : "&workstream_id=" + Escaped(workstreamId, nameof(workstreamId)));
 
         /// <summary>
         /// The versions around the turn the computer observed of <paramref name="executionId"/>'s run: the version kept after
@@ -130,9 +134,13 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The file as it is now, checked to be the one asked for.</summary>
-        public async Task<ProjectFileResponse> FileAsync(string projectId, string journalId, string path, CancellationToken cancellationToken = default)
+        public async Task<ProjectFileResponse> FileAsync(string projectId, string journalId, string path, CancellationToken cancellationToken = default) =>
+            await FileAsync(projectId, journalId, path, null, cancellationToken).ConfigureAwait(false);
+
+        /// <summary>The file as it is now, in <paramref name="workstreamId"/>'s own copy where given, checked to be the one asked for.</summary>
+        public async Task<ProjectFileResponse> FileAsync(string projectId, string journalId, string path, string? workstreamId, CancellationToken cancellationToken = default)
         {
-            var json = await get(FilePath(projectId, journalId, path), cancellationToken).ConfigureAwait(false);
+            var json = await get(FilePath(projectId, journalId, path, workstreamId), cancellationToken).ConfigureAwait(false);
             var response = HalcyonicJson.Deserialize<ProjectFileResponse>(json, strict: true);
             if (response.ProjectId != projectId || response.Path != path) throw new FormatException("The computer answered for another file.");
             return response;
