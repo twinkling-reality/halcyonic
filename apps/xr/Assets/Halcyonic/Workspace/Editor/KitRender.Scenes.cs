@@ -17,20 +17,20 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private const string SelectedProject = "Storefront API";
-        private const string SelectedTask = "Add rate limiting to the sign-in endpoint";
-        private const string WaitingTask = "Update the payment webhook retries";
-        private const string FinishedTask = "Paginate the order history endpoint";
+        private const string SelectedProject = "Balloon Pop";
+        private const string SelectedTask = "Add a golden balloon worth five points";
+        private const string WaitingTask = "Make the sky darker as a round ends";
+        private const string FinishedTask = "Add a pause button to the game";
 
         /// <summary>The agent's report: long on purpose, about a hundred words, a claim the evidence beside it does not settle.</summary>
-        private const string Report = "I found the cause. Sign-in attempts from one network address share a single counter, so two people "
-            + "behind the same office router lock each other out after five tries. I separated the account limit from the "
-            + "address limit and kept the address limit at twenty attempts per minute. The new regression test signs in two "
-            + "accounts from one address; it still fails because the address window resets one second late. I have not "
-            + "changed the session store. I think the remaining failure is a timing boundary in the test clock, not in the "
-            + "limiter, but I have not confirmed that.";
+        // One story with the rest of the scenes' work (the lead's 04:40Z ruling: the readers tripped on two): the golden balloon.
+        private const string Report = "I added the golden balloon. It floats a little slower than the others, so there is time to "
+            + "aim, and it pops with a brighter sound. Its picture is in assets/golden-balloon.png, its rules are in "
+            + "src/golden-balloon.js, and the score now adds five points when it pops. I removed backup/old-game.js, since "
+            + "nothing loads it. One scoring test still fails: it expects five points, and the game gives six when two "
+            + "balloons pop at once. I think the test counts the pair wrongly, not the game, but I have not checked that.";
 
-        private const string Draft = "Keep the address limit at twenty a minute. Fix the window boundary, then run the sign-in "
+        private const string Draft = "Keep the golden balloon at five points. Fix how a pair is counted, then run the balloon "
             + "tests again and tell me the exact result.";
 
         private const string Day = "2026-10-16T";
@@ -65,11 +65,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 outcomes[position] = (icon, tone);
             }
             Add(new RuntimeTurnStartedEvent { Provenance = new ObservedProvenance(), Payload = new RuntimeTurnStartedPayload { TurnId = "synthetic-turn" } }, "09:00:01", GlazeIcon.StartBuilding);
-            Add(Tool("read-1", "read", "src/auth/sign-in.ts"), "09:00:04", GlazeIcon.TextFile);
-            Add(Tool("read-2", "read", "src/auth/rate-limit.ts"), "09:00:06", GlazeIcon.TextFile);
-            Add(Tool("edit-1", "edit", "src/auth/rate-limit.ts"), "09:01:12", GlazeIcon.Change);
-            Add(Tool("edit-2", "edit", "test/sign-in.test.ts"), "09:01:40", GlazeIcon.Change);
-            Add(new RuntimeTestRunStartedEvent { Provenance = new ObservedProvenance(), Payload = new RuntimeTestRunStartedPayload { TestRunId = "synthetic-tests", Label = "sign-in rate limit" } }, "09:02:05", GlazeIcon.CheckingItsWork);
+            Add(Tool("read-1", "read", "src/balloons.js"), "09:00:04", GlazeIcon.TextFile);
+            Add(Tool("read-2", "read", "src/golden-balloon.js"), "09:00:06", GlazeIcon.TextFile);
+            Add(Tool("edit-1", "edit", "src/golden-balloon.js"), "09:01:12", GlazeIcon.Change);
+            Add(Tool("edit-2", "edit", "test/golden-balloon.test.js"), "09:01:40", GlazeIcon.Change);
+            Add(new RuntimeTestRunStartedEvent { Provenance = new ObservedProvenance(), Payload = new RuntimeTestRunStartedPayload { TestRunId = "synthetic-tests", Label = "balloon scoring" } }, "09:02:05", GlazeIcon.CheckingItsWork);
             Add(new RuntimeTestRunCompletedEvent { Provenance = new ObservedProvenance(), Payload = new RuntimeTestRunCompletedPayload { TestRunId = "synthetic-tests", Outcome = TestOutcome.Failed, Summary = "1 failed, 23 passed" } }, "09:02:31", GlazeIcon.ChecksFailed, GlazeTone.Failure);
             Add(new RuntimeAgentMessageEvent { Provenance = new ReportedProvenance(), Payload = new RuntimeAgentMessagePayload { Text = Report } }, "09:02:48", GlazeIcon.Quote);
             log.Record(stored);

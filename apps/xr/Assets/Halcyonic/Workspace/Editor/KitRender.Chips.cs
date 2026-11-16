@@ -59,7 +59,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>The agent's report for the chip states, synthetic: two sentences, so the chips are what they show.</summary>
         private static readonly ActivityEntry ChipReport = new ActivityEntry(8, Day + "09:02:48.000Z", ActivityKind.Message,
-            "I separated the account limit from the address limit. The sign-in tests run next.", true);
+            "I added the golden balloon and removed the old backup file. The balloon tests run next.", true);
 
         private static KitWorkModel WithSelectors(KitWorkModel work, KitSelectors selectors, ActivityEntry? report = null) => new KitWorkModel(work.ProjectName,
             work.TaskTitle, work.Badge, work.Marks, report ?? work.Report, work.Trail, work.Draft, work.VoiceOffered, work.Sendable, work.WhyNotSend, work.Spine,

@@ -17,7 +17,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private const string ApprovalCommand = "npm test -- --grep \"sign-in rate limit\" --reporter spec";
+        private const string ApprovalCommand = "npm test -- --grep \"balloon scoring\" --reporter spec";
 
         private const string AskedQuestion = "Should the address limit reset at the start of each minute, or count the last sixty seconds "
             + "from each attempt? The tests assume the second.";
@@ -341,7 +341,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 new QuestionPrompt
                 {
-                    Key = "scheme", Header = "Colour scheme", Text = "Which colour scheme should the sign-in page use?", FreeText = true,
+                    Key = "scheme", Header = "Colour scheme", Text = "Which colour scheme should the game's start page use?", FreeText = true,
                     Options = new List<QuestionOption>
                     {
                         new QuestionOption { Label = "Light", Description = "Dark text on a light background" },
@@ -643,7 +643,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 WorkstreamId = "synthetic-task-rate-limit",
                 ProjectId = "synthetic-project-storefront",
                 Title = SelectedTask,
-                Objective = "Limit sign-in attempts per address and per account.",
+                Objective = "Add a golden balloon worth five points, and remove the old backup file.",
                 Status = waiting ? WorkstreamStatus.WaitingForHuman : status == ExecutionStatus.Completed ? WorkstreamStatus.Completed : WorkstreamStatus.Running,
                 Attention = waiting
                     ? new Attention
