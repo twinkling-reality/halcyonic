@@ -177,9 +177,14 @@ namespace Halcyonic.Client
             var ownCard = frame.Side == null && !lineActs.Any(each => Valued(each.Line)) ? frame.Card : null;
             if (ownCard != null)
             {
-                // One Read All a frame, the first answer's, however many lines open one (AUDIT3's SHOULD: never two buttons alike).
-                others.AddRange(lineActs.Where(each => each.Line.Action == FileScreens.Open && each.Line.Key != null).Take(1).Select(each => new RoomAction(
-                    new KitControl(KitPlace.Step, frame, FileScreens.Open, each.Line.Key, FileScreens.ReadAllWords, GlazeIcon.Next, true, null, false),
+                // One press an answer: Read All where one answer stands behind the card (the demonstration's Checks), and where more
+                // do, each by its own line's words, so no press opens less than it says and no two read alike (AUDIT3's SHOULD and
+                // AUDIT2's condition, 20:13Z).
+                var answers = lineActs.Where(each => each.Line.Action == FileScreens.Open && each.Line.Key != null)
+                    .GroupBy(each => each.Line.Key).Select(group => group.First().Line).ToList();
+                others.AddRange(answers.Select(line => new RoomAction(
+                    new KitControl(KitPlace.Step, frame, FileScreens.Open, line.Key, answers.Count == 1 ? FileScreens.ReadAllWords : line.Words, GlazeIcon.Next,
+                        true, null, false),
                     main: false, icon: GlazeIcon.Next)));
                 lineActs.Clear();
                 rows.Clear();

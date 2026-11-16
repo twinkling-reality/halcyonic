@@ -34,7 +34,7 @@ public sealed class RoomCardedTests
         {
             new PageLine("Checks Passed", action: FileScreens.Open, key: FileScreens.ChecksKey, opens: true),
             new PageLine("Code Check passed."),
-            new PageLine("Builds", action: FileScreens.Open, key: FileScreens.HowBuiltKey, opens: true),
+            new PageLine("Checks Passed", action: FileScreens.Open, key: FileScreens.ChecksKey, opens: true),
         };
         var frame = new MenuFrame("Kite Run", new Footer(close), subjectIsData: true, lines: lines, identityKind: MenuIdentityKind.Task).WithCard(card);
 
@@ -44,6 +44,28 @@ public sealed class RoomCardedTests
         Assert.That(bar.Column.Select(action => (action.Control.Action, action.Control.Key, action.Words, action.Main)), Is.EqualTo(new[]
         {
             (FileScreens.Open, (string?)FileScreens.ChecksKey, FileScreens.ReadAllWords, false), (Footer.Close, (string?)null, "Close", false),
-        }), "one Read All, the first answer's, then Close");
+        }), "one answer, one Read All, then Close");
+    }
+
+    /// <summary>A carded page with two answers behind it: each opens by its own words, never one Read All that opens only the first.</summary>
+    [Test]
+    public void ACardedPageWithTwoAnswersOpensEachByItsOwnWords()
+    {
+        var close = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
+        var card = new RoomCard(status: new RoomCardStatus("Checks Passed", "Simulated at 09:00", RoomTone.Good));
+        var lines = new[]
+        {
+            new PageLine("What Was Checked", action: FileScreens.Open, key: FileScreens.ChecksKey, opens: true),
+            new PageLine("How It Was Built", action: FileScreens.Open, key: FileScreens.HowBuiltKey, opens: true),
+        };
+        var frame = new MenuFrame("Kite Run", new Footer(close), subjectIsData: true, lines: lines, identityKind: MenuIdentityKind.Task).WithCard(card);
+
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+
+        Assert.That(bar.Column.Where(action => action.Control.Action == FileScreens.Open).Select(action => (action.Control.Key, action.Words)), Is.EqualTo(new[]
+        {
+            ((string?)FileScreens.ChecksKey, "What Was Checked"), ((string?)FileScreens.HowBuiltKey, "How It Was Built"),
+        }), "each answer its own press, by its own words");
+        Assert.That(bar.Column.Any(action => action.Words == FileScreens.ReadAllWords), Is.False, "no Read All that opens only one of two");
     }
 }
