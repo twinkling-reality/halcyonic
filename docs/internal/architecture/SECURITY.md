@@ -116,8 +116,10 @@ every other task's copy refused, and the person's usual ways to push refused: `~
 helper run, the SSH agent's launchd socket not reached and its address not handed on. The copy names no remote and
 runs none of the person's git hooks. What stays open, as for the person's own Claude Code: the network, the rest of
 their home and their tools, so a token kept elsewhere in the home (a tool's own file, another agent's socket, such as
-1Password's) can still push; "push refused" holds for the usual ways, not for every way. Such a run is recorded not
-confined.
+1Password's) can still push; "push refused" holds for the usual ways, not for every way. The keychain stays open
+too: the GitHub CLI keeps its login there by default, not in `~/.config/gh`, and the copy profile refuses neither the
+keychain nor `/usr/bin/security`, so a run can be expected to reach that login and push with it (an inference from
+gh's documented storage, not probed). Such a run is recorded not confined.
 
 Claude Code loads no settings file (`settingSources: []`, since 2026-11-12), for each task and for listing models:
 a settings `env` could add a credential that outranks the stored key. Outside the closed profile the person's own

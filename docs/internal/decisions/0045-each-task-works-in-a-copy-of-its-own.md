@@ -57,7 +57,8 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
        whole process tree, hooks included, and a link is judged by the path it reaches. The person's settings, hooks
        and `CLAUDE.md` are passed as on their folder, so Salidium and Seorak observe the run. What stays open, as for
        their own Claude Code: the network, and the rest of their home, a token kept there under another name included,
-       so "push refused" holds for their usual ways to push, not for every way. The run is recorded not confined,
+       and the keychain, where the GitHub CLI keeps its login by default (not probed), so "push refused" holds for
+       their usual ways to push in files and the SSH agent, not for every way. The run is recorded not confined,
        since the profile is not the closed one, and its approvals reach the person (ADR 0064's host answers are for
        confined runs). A copy of a starter's project stays in the closed profile.
    Each adapter answers this for itself from the confinement it applies at a start
