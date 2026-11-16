@@ -408,8 +408,9 @@ namespace Halcyonic.Client
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
             KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false, string? stopsDoes = null,
             RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null, RoomResult? result = null,
-            Halcyonic.Contracts.AutoFixView? autoFix = null, RoomCard? standing = null, bool watch = false, TaskStill? still = null)
+            Halcyonic.Contracts.AutoFixView? autoFix = null, RoomCard? standing = null, bool watch = false, TaskStill? still = null, IReadOnlyList<TaskStep>? steps = null)
         {
+            Steps = steps ?? new TaskStep[0];
             Watch = watch;
             Still = still;
             Standing = standing;
@@ -488,6 +489,9 @@ namespace Halcyonic.Client
 
         /// <summary>The still of the first photo or video given to the task's run, for its card's picture head (TaskPicture.StillOf); null where there is none.</summary>
         public TaskStill? Still { get; }
+
+        /// <summary>The task's steps list (RoomSteps.Of), for the redesign's bar at work and at rest with no result; empty where none is read.</summary>
+        public IReadOnlyList<TaskStep> Steps { get; }
 
         /// <summary>The step the runtime reports under way, for the agent's cursor; null where it reports none.</summary>
         public RoomWorkStep? Step { get; }

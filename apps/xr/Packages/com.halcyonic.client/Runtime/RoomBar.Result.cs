@@ -52,6 +52,7 @@ namespace Halcyonic.Client
             string? band = null;
             IReadOnlyList<RoomRow>? facts = null;
             RoomCard? card = null;
+            IReadOnlyList<TaskStep> listed = new TaskStep[0];
             switch (result.Page)
             {
                 case RoomResultPage.Changes:
@@ -213,6 +214,13 @@ namespace Halcyonic.Client
                     band = card != null && ReferenceEquals(card, binding.Model.Standing)
                         ? KitPresenter.TurnReportOf(binding.Model.Report, binding.Model.Trail)?.Text
                         : binding.Model.Report?.Text;
+                    // Where the result says nothing, the task's steps list stands in place of how the run stands (place (b), SCREENS's
+                    // reader 5: "Turn Finished" goes once the list stands); the band keeps that turn's own words.
+                    if (card != null && ReferenceEquals(card, binding.Model.Standing) && binding.Model.Steps.Count > 0)
+                    {
+                        listed = binding.Model.Steps;
+                        card = null;
+                    }
                     break;
             }
             if (facts != null)
@@ -225,10 +233,11 @@ namespace Halcyonic.Client
             var plainRow = column.Any(action => action.Main)
                 ? loop.Row.Select(action => action.Main ? new RoomAction(action.Control, false, action.Words, action.Locks, action.Icon, action.Mark, action.Chosen, action.Chip, action.Detail) : action).ToList()
                 : loop.Row;
-            return new RoomBar(loop.State, row: plainRow, body: body, sentence: sentence, column: column, band: band, wide: body.IsEmpty && card == null,
+            return new RoomBar(loop.State, row: plainRow, body: body, sentence: sentence, column: column, band: band, wide: body.IsEmpty && card == null && listed.Count == 0,
                 lines: facts != null && facts.Count > 1 ? facts.Select(row => row.Words).ToList() : null)
             {
                 Result = true,
+                Steps = listed,
                 Facts = facts,
                 Known = result,
                 Card = card,

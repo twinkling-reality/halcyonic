@@ -476,8 +476,9 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void ShowWork(RoomBar room, float zoom)
         {
-            // Watch It Work's arc, where it stands drawn, holds the panel's place instead of the field and the cursor.
-            if (!room.Working || watchDrawn)
+            // The steps list (its Now step says the step), or Watch It Work's arc where it stands drawn, holds the panel's place
+            // instead of the field and the cursor.
+            if (!room.Working || watchDrawn || room.Steps.Count > 0)
             {
                 field.Leave();
                 cursor.Leave();

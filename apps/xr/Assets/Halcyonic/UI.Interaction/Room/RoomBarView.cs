@@ -334,6 +334,7 @@ namespace Halcyonic.XR.UI
                 if (card != null && !fixing) card.Hide();
                 locking = null;
                 panel.gameObject.SetActive(false);
+                HideSteps();
                 foreach (var button in column) button.Hide();
                 if (fixing) LayFixing(bar);
                 else if (bar.Working) LayWork(bar);
@@ -439,9 +440,25 @@ namespace Halcyonic.XR.UI
             // From the foot line: the column above it, the row's feet, or the plate's, under it. With nothing
             // to press and nothing to name (a recorded run at work), the row's place still stands under the foot line, so
             // the working field has its place and the view is never a part of no height (JUDGE's walk 9, 2026-11-11).
-            var above = stops ? columnHeight : 0f;
+            // The task's steps list in the panel's place (place (a)): on the information panel, its foot on the foot line beside the
+            // column; the working field and the cursor give it the place (KitWorkspaceHost.ShowWork).
+            var listed = bar.Steps.Count > 0;
+            var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
+            var stepsTall = listed ? LaySteps(bar.Steps, panelWidth - 2f * pad) : 0f;
+            if (!listed) HideSteps();
+            var panelHeight = listed ? stepsTall + 2f * pad : 0f;
+            var above = Mathf.Max(stops ? columnHeight : 0f, panelHeight);
             var below = rowed || plated || !stops ? RoomType.Units(RowFeetDp) : 0f;
             var foot = (below - above) / 2f;
+            if (listed)
+            {
+                panel.InnerBar = null;
+                panel.Ring = null;
+                panel.Draw(new Vector2(panelWidth, panelHeight));
+                panel.transform.localPosition = new Vector3(-total / 2f + panelWidth / 2f, foot + panelHeight / 2f, 0f);
+                panel.gameObject.SetActive(true);
+                steps!.transform.localPosition = new Vector3(-panelWidth / 2f + pad, panelHeight / 2f - pad, -RoomType.Units(0.5f));
+            }
             if (rowed) LayRow(bar, foot - below + target / 2f);
             else
             {

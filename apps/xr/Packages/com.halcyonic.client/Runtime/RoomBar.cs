@@ -254,6 +254,12 @@ namespace Halcyonic.Client
         public RoomWorkStep? Step { get; private set; }
 
         /// <summary>
+        /// The task's steps list where it stands in the panel's place (SCREENS's TaskSteps, XR's places (a) and (b), SCREENS's 08:52Z yes):
+        /// at work in place of the working field, and at rest where the result says nothing in place of how the run stands. Empty otherwise.
+        /// </summary>
+        public IReadOnlyList<TaskStep> Steps { get; private set; } = new TaskStep[0];
+
+        /// <summary>
         /// The result at rest (DESIGN 2.5 to 2.8): the pair stands over the row, holding what the computer knows of the task,
         /// its actions the result's own (<see cref="RoomResult.Actions"/>) beside the file's. The agent's newest message
         /// stands on the band, and is not something to read before the row takes a press.
@@ -555,6 +561,8 @@ namespace Halcyonic.Client
             if (loop.State == RoomBarState.Words && loop.Words.Text == FileScreens.RequestUnderWay) loop = new RoomBar(RoomBarState.Hidden);
             loop.Working = true;
             loop.Step = model.Step;
+            // The steps list holds the panel's place at work: the Now step's line says the step, so the field and cursor give way.
+            loop.Steps = model.Steps;
             if (binding[KitPlace.Stop] is { Available: true } stop) loop.Column = new[] { new RoomAction(stop, main: false) };
             // SCREENS's instructions waiting for this turn to end (RoomBar.Waiting.cs).
             if (model.Result?.Waiting is WaitingInstructions waiting) loop = Waited(loop, waiting, binding.Frame);

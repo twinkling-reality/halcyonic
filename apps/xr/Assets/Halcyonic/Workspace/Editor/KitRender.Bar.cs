@@ -63,7 +63,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// At work (DESIGN 2.3): the working field and the agent's cursor with Stop alone; the same where the runtime still
         /// takes an instruction, the row under the foot line; and Stop's own confirmation.
         /// </summary>
-        private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm", "36-work-recorded", "36-work-fixing", "36-work-watch" };
+        private static readonly string[] WorkStates = { "36-work", "36-work-row", "36-stop-confirm", "36-work-recorded", "36-work-fixing", "36-work-watch", "36-work-steps" };
 
         /// <summary>A page of the file with no moment of its own, drawn by the general rule (RoomBar.OfFrame): Checks while its answer is read.</summary>
         private static readonly string[] PageStates = { "37-page", "37-more" };
@@ -326,6 +326,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-result-play" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the project's checked preview can open on the headset: Play in Headset beside Try Build, synthetic data"),
                 "38-result-play-refused" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the preview reads outside its project: no Play in Headset, its reason at the card's foot, synthetic data"),
                 "38-result-play-not-in-build" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result on a paired release build, which carries no relay: no Play in Headset, its reason at the card's foot, synthetic data"),
+                "36-work-steps" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work: the task's steps list in the panel's place beside Stop, Working now, synthetic data"),
                 "36-work-watch" => (VoiceStage.Idle, false, RoomBarState.Hidden, "Watch It Work open on live work: Done Watching over Stop, the turn's three files on the arc in the panel's place, synthetic data"),
                 "36-work-fixing" => (VoiceStage.Idle, false, RoomBarState.Hidden, "At work while the agent's first try at a failed check runs: the failure and the try in the panel beside Stop, synthetic data"),
                 "38-project" => (VoiceStage.Idle, false, RoomBarState.Rest, "A project with a check and no observed turn: Build Passed, Make VR Copy and Try Build, synthetic data"),
@@ -381,7 +382,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 _ when asking => SelectedWorkspace(waiting: true, command: AskCommand),
                 _ when questioning => SelectedWorkspace(waiting: true, asked: QuestionFor(state), confirmAnswers: state == "34-question-confirm"),
                 // At work, on an agent that takes no instruction while it works, and on one that does.
-                "36-work" or "36-stop-confirm" or "36-work-fixing" or "36-work-watch" => WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()),
+                "36-work" or "36-stop-confirm" or "36-work-fixing" or "36-work-watch" or "36-work-steps" => WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()),
                 // Nothing to press: no Stop and no instruction while it works, as a recorded run offers.
                 "36-work-recorded" => Recorded(WithActions(WithActivity(SelectedWorkspace(waiting: false, instructWhileRunning: false), ShortReport()), new WorkspaceAction[0])),
                 "36-work-row" => Running(ShortReport()),
@@ -564,7 +565,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows, chooses: choosing,
                 asking: screen.Question.Draft != null && !screen.Question.Reviewing ? screen.Question.Prompt : (int?)null,
                 writing: screen.Question.Writing ? screen.Question.Input : null, result: ResultFor(state),
-                selectors: state == "38-result-agent" ? new KitSelectors("This Mac", false, "Synthetic Agent", agentChangeable: true, offersNeverAsk: true, neverAsk: true) : null);
+                selectors: state == "38-result-agent" ? new KitSelectors("This Mac", false, "Synthetic Agent", agentChangeable: true, offersNeverAsk: true, neverAsk: true) : null,
+                steps: state == "36-work-steps" ? StepsOf("46-steps-working") : null);
             // As the director does: a frame the task's binding has no place for is carried plain where a reader of the redesign takes it.
             if (binding == null && state == "37-page" && RoomBar.OfFrame(frame, VoiceStage.Idle) != null) binding = KitFileBinding.PlainOf(frame);
             if (binding == null)
@@ -728,7 +730,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 // The working field and the agent's cursor stand only at work; Stop's confirmation and every other moment have neither.
-                var working = state is "36-work" or "36-work-row" or "36-work-recorded" or "36-work-fixing" or "36-work-watch";
+                var working = state is "36-work" or "36-work-row" or "36-work-recorded" or "36-work-fixing" or "36-work-watch" or "36-work-steps";
+                // The steps list holds the panel's place at work, as Watch It Work's arc does: the field and the cursor give it up.
+                var listing = state == "36-work-steps";
                 // Watch It Work's arc holds the panel's place: the field and the cursor give it up.
                 var watching = state == "36-work-watch";
                 // No frame leaves the plane a part of no height (JUDGE's walk 9): the host's footprint is never empty.
@@ -736,6 +740,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(shown.Working == working, working ? "the agent works and the redesign does not say so" : "at work is shown where nothing works");
                 Require((host.Field.gameObject.activeSelf && host.Field.Shown > 0.001f) == (working && !watching) && (host.Field.Shown > 0.999f) == (working && !watching),
                     watching ? "the working field stands under Watch It Work's arc" : working ? "the working field does not stand" : "the working field stands where nothing works");
+                if (listing)
+                {
+                    var list = bar.StepsShown;
+                    Require(list != null && list.Count == StepsOf("46-steps-working").Count && bar.Panel.gameObject.activeSelf,
+                        "the steps list does not stand on the panel at work: " + (list == null ? "none" : list.Count + " steps"));
+                    Require(!host.Field.gameObject.activeSelf || host.Field.Shown < 0.001f, "the working field stands under the steps list");
+                    if (list != null)
+                    {
+                        // On the panel, inside it, beside the column: the panel's foot on the foot line.
+                        var panelFoot = bar.Panel.transform.localPosition.y - bar.Panel.Size.y / 2f;
+                        Require(Mathf.Abs(panelFoot - bar.Foot) < Tolerance, "the list's panel does not stand on the foot line");
+                        Require(bar.Panel.transform.localPosition.x + bar.Panel.Size.x / 2f <= bar.PanelRight + Tolerance, "the list's panel reaches past the panel's place");
+                    }
+                }
                 Require(host.Cursor.Words == (state == "36-work" ? RoomWork.Editing + " score.js" : ""), "the cursor reads \"" + host.Cursor.Words + "\"");
                 if (working)
                 {
@@ -751,7 +769,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (card != null)
                             Require(card.Plates.Count(each => each.What == "pip used") == 1 && card.Plates.Count(each => each.What == "pip") == 1, "the card's pips are not the first of two tries");
                     }
-                    else Require(!bar.Panel.gameObject.activeSelf && host.Band.Words == null, "a panel or the band stands while the agent works");
+                    else if (!listing) Require(!bar.Panel.gameObject.activeSelf && host.Band.Words == null, "a panel or the band stands while the agent works");
                     var stop = bar.Column[0];
                     if (watching) WatchChecks(state, host, shown, eyes, actions, Require, Tolerance);
                     else if (state == "36-work-recorded") Require(shown.Column.Count == 0 && shown.Row.Count == 0 && bar.Column.All(button => !button.gameObject.activeSelf), "an action stands where nothing can be pressed");
@@ -765,7 +783,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(stop.transform.localPosition.x - stop.Core.x / 2f - (bar.PanelRight + RoomType.Units(RoomGeometry.PairGapDp))) < Tolerance, "Stop does not stand where the column stands");
                     }
                     var unit = RoomType.Units(1f);
-                    if (!watching)
+                    if (!watching && !listing)
                     {
                     // The field's inner box: the panel's place, 12 degrees up from the foot line.
                     var zoom = GlazeText.Scale;

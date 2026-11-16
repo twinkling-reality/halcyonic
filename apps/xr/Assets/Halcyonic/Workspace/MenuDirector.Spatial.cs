@@ -214,7 +214,18 @@ namespace Halcyonic.XR.Workspace
                 requestRows: file.Steering.ToRead(now) is string read && file.Screen.Measured(file.Steering, read) ? file.Screen.RequestRows : (int?)null,
                 chooses: file.ChoosesInstruction,
                 asking: file.Screen.Question.Draft != null && !file.Screen.Question.Reviewing ? file.Screen.Question.Prompt : (int?)null,
-                writing: file.Screen.Question.Writing ? file.Screen.Question.Input : null, result: ResultOf(now, selected));
+                writing: file.Screen.Question.Writing ? file.Screen.Question.Input : null, result: ResultOf(now, selected), steps: StepsOf(now, selected));
+        }
+
+        /// <summary>
+        /// For the redesign: the task's steps list (RoomSteps), read from the sources its result reads: the project, the commands under
+        /// way, and the last turn the computer observed of its run; empty with no project or no run.
+        /// </summary>
+        private IReadOnlyList<TaskStep> StepsOf(WorkspacePresentation now, string? projectId)
+        {
+            if (!RoomDesign.Enabled || projectId == null || State?.Projects.TryGetValue(projectId, out var project) != true) return new TaskStep[0];
+            var run = now.Execution?.ExecutionId;
+            return RoomSteps.Of(now.Execution, project, State, run != null ? setup.Observed(run).LastOrDefault() : null);
         }
 
         /// <summary>

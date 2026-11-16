@@ -3006,6 +3006,14 @@ in order, as before.
   Both leave with the moment (600 ms). The row stands at work only where the file still offers an instruction (a
   runtime that takes one while it works), centred under the pair with its feet 94.4 dp under the foot line
   (`RoomBarView.RowFeetDp`, DESIGN's pitch -23.5 under -17.6); where it takes none, DESIGN's page as drawn, Stop alone.
+  Where the task's steps list is read (`RoomSteps.Of`: SCREENS's `TaskSteps` from the project's check, an accepted
+  project.check command and the last observed turn, passed by the director as `KitFileBinding.Of(steps:)`), it holds the
+  panel's place instead of the field and the cursor: `RoomBar.Steps` at work, laid by `LayWork` on the information panel,
+  its foot on the foot line beside the column (render 36-work-steps); and at rest where the result says nothing, in place
+  of how the run stands (`RoomStanding`), so "Turn Finished" goes. Under Watch It Work the arc stands over the bar as before.
+  Watch It Work leads the working column where the host observes the folder (`RoomBar.WithWatch`: Done Watching over Stop,
+  `LayWork` laying every column action, the last on the foot line); its arc stands a gap over the bar's drawn top, tipped to
+  face the eyes (`KitWorkspaceHost.FaceWatch`; render 36-work-watch).
   The view says where its foot line and its panel's place stand (`RoomBarView.Foot`, `PanelRight`), and the host
   where that line stands in it (`KitWorkspaceHost.FootLine`): while the redesign draws, the plane no longer centres
   the host where the head pitched but tips so the foot line stands on DESIGN's pitch -17.6

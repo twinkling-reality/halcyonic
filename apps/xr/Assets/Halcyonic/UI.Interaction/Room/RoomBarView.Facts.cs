@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections.Generic;
 using Halcyonic.Client;
 using UnityEngine;
 
@@ -23,6 +24,14 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private float? LayFacts(RoomBar bar, float width)
         {
+            // The task's steps list where the bar gives it and no card: in the panel's place of a result that says nothing (place (b)).
+            if (bar.Steps.Count > 0 && bar.Card == null && !bar.Wide)
+            {
+                if (card != null) card.Hide();
+                if (facts != null) facts.Hide();
+                return LaySteps(bar.Steps, width);
+            }
+            HideSteps();
             if (LayCard(bar, width) is float tall)
             {
                 if (facts != null) facts.Hide();
@@ -90,8 +99,27 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>Puts the rows where the body's words start: the panel's top left, inside its padding.</summary>
+        private RoomStepsView? steps;
+
+        /// <summary>The steps list the panel shows now (<see cref="RoomBar.Steps"/>); null where none stands.</summary>
+        public RoomStepsView? StepsShown => steps != null && steps.gameObject.activeSelf ? steps : null;
+
+        /// <summary>Lays <paramref name="shown"/> <paramref name="width"/> wide on the panel and returns how tall it stands.</summary>
+        private float LaySteps(IReadOnlyList<TaskStep> shown, float width)
+        {
+            if (steps == null) steps = RoomStepsView.Create(panel.transform, KitType.Order.Words);
+            steps.gameObject.SetActive(true);
+            return steps.Show(shown, width);
+        }
+
+        private void HideSteps()
+        {
+            if (steps != null) steps.Hide();
+        }
+
         private void PlaceFacts(Vector3 bodyAt)
         {
+            if (steps != null && steps.gameObject.activeSelf) steps.transform.localPosition = bodyAt;
             if (facts != null && facts.gameObject.activeSelf) facts.transform.localPosition = bodyAt;
             if (card != null && card.gameObject.activeSelf) card.transform.localPosition = bodyAt;
         }
