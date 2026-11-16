@@ -408,9 +408,10 @@ namespace Halcyonic.Client
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
             KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false, string? stopsDoes = null,
             RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null, RoomResult? result = null,
-            Halcyonic.Contracts.AutoFixView? autoFix = null, RoomCard? standing = null, bool watch = false)
+            Halcyonic.Contracts.AutoFixView? autoFix = null, RoomCard? standing = null, bool watch = false, TaskStill? still = null)
         {
             Watch = watch;
+            Still = still;
             Standing = standing;
             Result = result;
             AutoFix = autoFix;
@@ -484,6 +485,9 @@ namespace Halcyonic.Client
         /// (WatchBuild.Offered), never a recorded run or the demonstration, which hold no file text (the lead's 03:52Z ruling).
         /// </summary>
         public bool Watch { get; }
+
+        /// <summary>The still of the first photo or video given to the task's run, for its card's picture head (TaskPicture.StillOf); null where there is none.</summary>
+        public TaskStill? Still { get; }
 
         /// <summary>The step the runtime reports under way, for the agent's cursor; null where it reports none.</summary>
         public RoomWorkStep? Step { get; }

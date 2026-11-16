@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -12,6 +13,18 @@ namespace Halcyonic.Client
     /// </summary>
     public static class TaskPicture
     {
+        /// <summary>
+        /// The still the task's card shows: the first photo or video given to <paramref name="execution"/>'s run for which the host
+        /// made one (TaskMedia), in its project; null where none was given or none has a still.
+        /// </summary>
+        public static TaskStill? StillOf(ExecutionView? execution)
+        {
+            if (execution == null || string.IsNullOrEmpty(execution.ProjectId)) return null;
+            foreach (var item in TaskMedia.Of(execution))
+                if (item.Still != null) return new TaskStill(execution.ProjectId, item.Still, item.Kind);
+            return null;
+        }
+
         /// <summary>The most bytes a picture may hold: the computer's own PICTURE_BYTES (TASKS's 02:32Z route answer).</summary>
         public const int MostBytes = 5_242_880;
 
@@ -37,5 +50,28 @@ namespace Halcyonic.Client
         /// <summary>Whether an answer of <paramref name="contentType"/> is a picture this headset decodes: PNG or JPEG.</summary>
         public static bool Drawn(string? contentType) =>
             contentType != null && (contentType.Equals("image/png", StringComparison.OrdinalIgnoreCase) || contentType.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>A still to draw on a card: its project, its path in the project's folder, and what it is a still of.</summary>
+    public sealed class TaskStill : IEquatable<TaskStill>
+    {
+        public TaskStill(string projectId, string path, TaskMediaKind kind)
+        {
+            ProjectId = projectId;
+            Path = path;
+            Kind = kind;
+        }
+
+        public string ProjectId { get; }
+
+        public string Path { get; }
+
+        public TaskMediaKind Kind { get; }
+
+        public bool Equals(TaskStill? other) => other != null && other.ProjectId == ProjectId && other.Path == Path && other.Kind == Kind;
+
+        public override bool Equals(object? other) => Equals(other as TaskStill);
+
+        public override int GetHashCode() => (ProjectId, Path, Kind).GetHashCode();
     }
 }

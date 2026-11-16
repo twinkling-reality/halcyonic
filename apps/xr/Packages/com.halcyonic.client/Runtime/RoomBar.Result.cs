@@ -179,6 +179,8 @@ namespace Halcyonic.Client
                     // Kept, said (the lead's R1): once the host recorded the add and nothing newer waits, the card's status says
                     // so, with no line, since nothing on the headset can undo it yet; a chain of tries that ended keeps its status.
                     if (result.Add?.State == RoomAddState.Added) card = Said(card, frame.SubjectRuns, new RoomCardStatus(RoomAdd.AddedWords, null, RoomTone.Good));
+                    // The photo or video the person gave the task heads its card, where the host made a still of it (ADR 0066).
+                    card = card?.WithStill(binding.Model.Still);
                     if (ranOut && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
                     // SCREENS's Carry Out Plan leads a plan at rest (FIELD's words; the glyph FIELD's).
                     if (result.Start is { CanCarryOut: true } && column.Count == 0) column.Add(Own(RoomResult.CarryOutPlan, RunStart.CarryOutPlan, main: true, GlazeIcon.Next));

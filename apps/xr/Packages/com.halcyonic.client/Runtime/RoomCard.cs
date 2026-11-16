@@ -429,7 +429,17 @@ namespace Halcyonic.Client
             : this(from.Title, from.Description, from.Head, from.Status, from.Slots, from.Steps, from.TrackAt, from.TrackOf, from.List, from.Gauges, from.More,
                 from.Code, from.Reading, from.DescriptionPage, from.TitleMono, from.Press, statusAfter: from.StatusAfter, descriptionMostLines: from.DescriptionMostLines)
         {
+            Still = from.Still;
         }
+
+        /// <summary>
+        /// The still a picture head draws: the photo or video the person gave the task (ADR 0066), read from the computer by the view;
+        /// null where none was given, and on any other head. Until it is read, or where it cannot be, the head draws its own glyph.
+        /// </summary>
+        public TaskStill? Still { get; private set; }
+
+        /// <summary>This card, its picture head drawing <paramref name="still"/>; a card with another head stays as it is.</summary>
+        public RoomCard WithStill(TaskStill? still) => Head != RoomCardHead.Picture || Equals(still, Still) ? this : new RoomCard(this) { Still = still };
 
         /// <summary>This card, its face now the way in to <paramref name="press"/> (a card built before the frame its press is of), or none.</summary>
         public RoomCard WithPress(KitControl? press) => new RoomCard(this) { Press = press };
