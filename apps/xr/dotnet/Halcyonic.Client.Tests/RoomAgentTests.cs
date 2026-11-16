@@ -299,7 +299,7 @@ public sealed class RoomAgentTests
             "Hold to Talk and Type stand as they did");
         var open = rest.Row[2];
         Assert.That((open.Words, open.Chip, open.Main, open.Place, open.Control.Action, open.Control.Key),
-            Is.EqualTo(("Glimmer 30B", (string?)level, false, KitPlace.Step, AgentColumn.Open, (string?)null)), "the level is the action's chip, apart from its words");
+            Is.EqualTo((AgentColumn.RoleWords, (string?)level, false, KitPlace.Step, AgentColumn.Open, (string?)null)), "the worker by its role, the level the action's chip, apart from its words");
         Assert.That(ReferenceEquals(open.Control.Frame, binding.Frame), "its press belongs to the file's own frame");
     }
 
@@ -308,9 +308,9 @@ public sealed class RoomAgentTests
     {
         var changeable = RoomBar.Of(AtRest(new KitSelectors(null, false, "Glimmer 30B", agentChangeable: true)), VoiceStage.Idle, sentAwaitingStart: false);
         Assert.That(changeable.Row.Count, Is.EqualTo(3));
-        Assert.That((changeable.Row[2].Words, changeable.Row[2].Icon), Is.EqualTo(("Glimmer 30B", (GlazeIcon?)GlazeIcon.CodeFile)));
+        Assert.That((changeable.Row[2].Words, changeable.Row[2].Icon), Is.EqualTo((AgentColumn.RoleWords, (GlazeIcon?)GlazeIcon.CodeFile)), "the role, never the agent app's own name");
         var offersOnly = RoomBar.Of(AtRest(new KitSelectors(null, false, "Glimmer 30B", agentChangeable: false, offersNeverAsk: true, neverAsk: false)), VoiceStage.Idle, sentAwaitingStart: false);
-        Assert.That((offersOnly.Row[2].Words, offersOnly.Row[2].Chip), Is.EqualTo(("Glimmer 30B", (string?)"Ask First")), "one agent, a level to choose");
+        Assert.That((offersOnly.Row[2].Words, offersOnly.Row[2].Chip), Is.EqualTo((AgentColumn.RoleWords, (string?)"Ask First")), "one agent, a level to choose");
         var nothing = RoomBar.Of(AtRest(new KitSelectors(null, false, "Glimmer 30B")), VoiceStage.Idle, sentAwaitingStart: false);
         Assert.That((nothing.Row.Count, nothing.FromMoment), Is.EqualTo((2, false)));
         var unnamed = RoomBar.Of(AtRest(new KitSelectors(null, false, null, agentChangeable: true, offersNeverAsk: true)), VoiceStage.Idle, sentAwaitingStart: false);
@@ -325,7 +325,7 @@ public sealed class RoomAgentTests
         var selectors = new KitSelectors(null, false, "Glimmer 30B", agentChangeable: true, offersNeverAsk: true, neverAsk: recorded != ApprovalLevel.NeverAsk);
         var working = RoomBar.Of(AtRest(selectors, recorded, WorkspaceAction.Interrupt), VoiceStage.Idle, sentAwaitingStart: false);
         Assume.That((working.Working, working.Row.Count), Is.EqualTo((true, 0)), "at work, its runtime taking no instruction");
-        Assert.That((working.Plate?.Text, working.PlateLevel), Is.EqualTo(("Glimmer 30B", (string?)level)));
+        Assert.That((working.Plate?.Text, working.PlateLevel), Is.EqualTo((AgentColumn.RoleWords, (string?)level)), "the plate names the worker by its role");
         Assert.That(working.FromMoment, Is.False, "the frame stays the task's own");
         var rowed = RoomBar.Of(AtRest(selectors, recorded), VoiceStage.Idle, sentAwaitingStart: false);
         Assert.That(rowed.Plate, Is.Null, "where the row stands there is no plate");

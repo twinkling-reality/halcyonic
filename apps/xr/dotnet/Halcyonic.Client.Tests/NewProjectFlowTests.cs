@@ -2501,8 +2501,11 @@ public class NewProjectFlowTests
         var card = flow.Frame!.Card;
         Assert.That(card, Is.Not.Null, "the recap gives its card beside its lines");
         Assert.That(card!.Head, Is.EqualTo(RoomCardHead.Project));
-        Assert.That(card.Description!.Text, Is.EqualTo("A page of race times for my running club"), "the first task is the card's line");
+        Assert.That(card.Title!.Text, Is.EqualTo("A page of race times for my running club"));
+        Assert.That(card.Description, Is.Null, "named after its first task, the card says the words once");
         Assert.That(card.Slots.Select(slot => slot.Kind), Does.Contain(RoomKind.Agent), "the agent is a slot of its own");
+        Assert.That(card.Slots.Where(slot => slot.Kind == RoomKind.Agent).Select(slot => slot.Value.Text), Does.Not.Contain("Glimmer 30B"),
+            "the worker by its role; the agent app and model stand one level down");
         Assert.That(card.AnyDot, Is.False, "no fact joined to another on a dot: " + string.Join(" | ", card.Words()));
         var bar = RoomBar.NewProject(flow.Frame!, VoiceStage.Idle)!;
         Assert.That((bar.Card!.Title, bar.Card.Description, bar.Card.Slots), Is.EqualTo((card.Title, card.Description, card.Slots)),

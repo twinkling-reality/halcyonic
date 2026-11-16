@@ -752,18 +752,19 @@ namespace Halcyonic.Client
             if (folderWords != null) slots.Add(new RoomSlot(RoomKind.Folder, folderWords));
             if (draft.Runtime is RuntimeDescriptor runtime)
             {
-                LineWords agent;
-                if (runtime.Synthetic) agent = LineWords.Ours(live ? "Practice Run" : "Simulated");
-                else agent = LineWords.TheirName(CaptureNames.AgentName(runtime.DisplayName));
-                // The agent app with the app's own mark (FIELD's words, 10:46Z), the model after it with the agent's.
-                slots.Add(new RoomSlot(runtime.Synthetic ? RoomKind.Agent : RoomKind.App, agent));
-                // The agent app and, where it lists models, the model, each its own slot: the recap is what Start Task sends (R1).
-                if (!runtime.Synthetic && runtime.ModelChoice == ModelChoice.Listed)
-                    slots.Add(new RoomSlot(RoomKind.Agent, draft.Model is RuntimeModel model ? LineWords.TheirName(CaptureNames.ModelName(model.DisplayName ?? model.ModelRef)) : LineWords.Ours("Not Chosen")));
+                // The worker by its role (the lead's product rule, 2026-11-16): the agent app's and the model's own names stand
+                // one level down, on the run settings a press away (Change) and on the review before the start is sent.
+                var agent = runtime.Synthetic ? LineWords.Ours(live ? "Practice Run" : "Simulated") : LineWords.Ours(AgentColumn.RoleWords);
+                slots.Add(new RoomSlot(RoomKind.Agent, agent));
+                // A model to choose that is not chosen yet still says so: the start waits on it.
+                if (!runtime.Synthetic && runtime.ModelChoice == ModelChoice.Listed && draft.Model == null)
+                    slots.Add(new RoomSlot(RoomKind.Agent, LineWords.Ours("Not Chosen")));
                 // The level, or Plan First where the start plans (SCREENS's PlanStart).
                 if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(PlanStart.LevelWords(draft))));
             }
-            return new RoomCard(title, idea.FirstTask.Length > 0 ? LineWords.TheirName(idea.FirstTask) : null, RoomCardHead.Project, slots: slots, more: note,
+            // The first task under the name, unless it is the name word for word: the card says it once (FIELD's trace, 2026-11-16).
+            var sameAsName = idea.Name.Trim().Length > 0 && string.Equals(idea.Name.Trim(), idea.FirstTask.Trim(), System.StringComparison.OrdinalIgnoreCase);
+            return new RoomCard(title, idea.FirstTask.Length > 0 && !sameAsName ? LineWords.TheirName(idea.FirstTask) : null, RoomCardHead.Project, slots: slots, more: note,
                 descriptionMostLines: RecapFirstTaskLines);
         }
 

@@ -31,6 +31,15 @@ added." (the host's own); a project at its most, "This project already holds as 
 keep. Add it to another project." (`WorkspaceText`, AUDIT2's words). On the task, each is its file's own name, as the person's, with the
 still the host made of it where it made one (`TaskMedia`).
 
+## The worker by its role
+
+On the headset's own surfaces the worker is named by its role, "Agent": on the agent action at rest, on the plate
+while it works and on New Project's recap card (the lead's product rule, 2026-11-16). A character stands for the
+work and the agent app is an interchangeable executor (AGENTS.md), so the agent app's and the model's own names
+stand one level down, where a person chooses them (the run settings, Use Model) and on the review that names what a
+start sends. A practice run still says Practice Run. The recap card names its first task under the name unless the
+two are the same words, which it says once.
+
 ## The voice
 
 Calm and plain, like a capable colleague who says what is true now, how sure it is, and what you

@@ -129,6 +129,13 @@ namespace Halcyonic.Client
         /// <summary>An agent or model's answer; its key is the option's own.</summary>
         public const string Pick = "agent-pick";
 
+        /// <summary>
+        /// The worker by its role on the headset's own surfaces (the lead's product rule, 2026-11-16 02:01Z): a character
+        /// stands for the work and the agent app is an interchangeable executor (AGENTS.md), so the chip, the plate and the
+        /// recap say "Agent"; the app's and the model's own names stand one level down, where a person chooses them.
+        /// </summary>
+        public const string RoleWords = "Agent";
+
         public const string AskFirstWords = "Ask First";
         public const string NeverAskWords = "Never Ask";
         public const string ChangeWords = "Change";

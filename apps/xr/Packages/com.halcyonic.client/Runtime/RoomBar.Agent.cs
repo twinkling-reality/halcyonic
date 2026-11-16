@@ -34,7 +34,7 @@ namespace Halcyonic.Client
             if (!tasks.Working || tasks.Row.Count != 0) return null;
             var (name, level) = AgentWords(binding.Model.Agent, binding.Model.RunNeverAsk);
             if (name == null) return null;
-            tasks.Plate = LineWords.TheirName(name);
+            tasks.Plate = LineWords.Ours(AgentColumn.RoleWords);
             tasks.PlateLevel = level;
             return null;
         }
@@ -54,7 +54,7 @@ namespace Halcyonic.Client
             if (!model.OffersNeverAsk && !model.AgentChangeable) return null;
             var (name, level) = AgentWords(model.Agent, model.OffersNeverAsk ? model.NeverAsk : (bool?)null);
             if (name == null) return null;
-            var open = new KitControl(KitPlace.Step, binding.Frame, AgentColumn.Open, null, name, GlazeIcon.CodeFile, available: true, reason: null, holds: false);
+            var open = new KitControl(KitPlace.Step, binding.Frame, AgentColumn.Open, null, AgentColumn.RoleWords, GlazeIcon.CodeFile, available: true, reason: null, holds: false);
             tasks.Row = tasks.Row.Concat(new[] { new RoomAction(open, main: false, chip: level) }).ToList();
             return null;
         }
