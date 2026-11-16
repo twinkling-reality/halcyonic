@@ -39,7 +39,8 @@ namespace Halcyonic.Client
         public const string Back = "usage-back";
 
         /// <summary>The list's words while the computer is read, and while a press waits for the computer's review or its result.</summary>
-        public const string ReadingModels = "Reading Models", Asking = "Asking the Computer", Choosing = "Choosing Model";
+        // AUDIT2, 2026-11-16 04:40Z: the person waits for the list, and the host is "your computer" (WORDS rule 11).
+        public const string ReadingModels = "Finding Models", Asking = "Asking Your Computer", Choosing = "Choosing Model";
 
         /// <summary>The note on the list's row the assistant runs on now, so the chosen row says why it is lit (FIELD's reader, 03:46Z).</summary>
         public const string InUse = "In Use";

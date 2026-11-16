@@ -35,6 +35,9 @@ namespace Halcyonic.Client
         /// <summary>What a usage card says of its numbers: at most what is left, as the provider reported it, never a current value.</summary>
         public const string UsageLine = "At most what is left, as last reported.";
 
+        /// <summary>The gauge's figure with its own word, so it never reads as used (AUDIT2, 2026-11-16 04:38Z): "62% Left". FIELD's view draws it.</summary>
+        public static string GaugeWords(int percentLeft) => percentLeft.ToString(System.Globalization.CultureInfo.InvariantCulture) + "% Left";
+
         /// <summary>
         /// The usage card's line with when the numbers were read (AUDIT's condition, 2026-11-16 04:23Z: numbers from an earlier
         /// read say when, never read as now), one sentence (AUDIT2): "At most what is left, as last reported Today 04:20."

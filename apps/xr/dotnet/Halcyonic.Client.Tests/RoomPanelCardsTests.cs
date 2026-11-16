@@ -166,6 +166,7 @@ public sealed class RoomPanelCardsTests
         Assume.That(card, Is.Not.Null);
         Assert.That(card!.Description!.Text, Is.EqualTo(RoomPanelCards.UsageLine), "the numbers are at most what is left, as reported");
         Assert.That(card.Gauges.Select(gauge => gauge.PercentLeft), Is.EqualTo(new[] { 62, 38 }));
+        Assert.That(RoomPanelCards.GaugeWords(62), Is.EqualTo("62% Left"), "the figure says it is what is left, never used");
         Assert.That(card.Gauges.All(gauge => !gauge.Label.Text.Contains("·")), Is.True, "a window's word alone, never joined on a dot");
         Assert.That(card.Gauges.Select(gauge => gauge.Kind), Is.EqualTo(new[] { RoomKind.Session, RoomKind.Week }));
         Assert.That(card.Gauges.Select(gauge => gauge.Note), Is.EqualTo(new[] { "Resets today at 18:40", "Resets Thursday at 09:00" }));

@@ -99,7 +99,7 @@ namespace Halcyonic.Client
             Model = null;
             ModelPreselected = false;
             PendingModel = null;
-            ModelProblem = runtime.ModelChoice == ModelChoice.Listed ? "Reading Models" : null;
+            ModelProblem = runtime.ModelChoice == ModelChoice.Listed ? UsageColumn.ReadingModels : null;
         }
 
         public void SetModels(RuntimeModelsResponse response)

@@ -84,7 +84,7 @@ public class NewWorkDraftTests
     {
         var draft = Draft();
         draft.ChooseRuntime(Runtime("opencode"));
-        Assert.That(draft.Problem, Is.EqualTo("Reading Models"));
+        Assert.That(draft.Problem, Is.EqualTo("Finding Models"));
         var model = Model("ollama/gpt-4o:latest", ModelServed.ThisMac);
         draft.SetModels(new RuntimeModelsResponse
         {
