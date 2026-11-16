@@ -66,12 +66,13 @@ public class RoomMoreTests
             var workspace = new WorkspacePresentation(now.Character, now.Objective, now.Execution, now.Runtime, offered,
                 offered.Where(now.RequiresConfirmation).ToList(), now.Commands, activity);
             var steering = new WorkspaceSteering(new CommandFactory(Samples.Client));
-            var frame = FileScreens.Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true, CharacterColourOffered = true, ShowTaskHereOffered = true },
+            var frame = FileScreens.Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true, CharacterColourOffered = true, ShowTaskHereOffered = true,
+                    WorkspaceRequestOffered = true, ShowScreenOffered = true },
                 new AnswerRoom(3));
             var binding = KitFileBinding.Of(frame, steering.Armed, workspace, "", new ConnectionStatus(ConnectionPhase.Live), "Storefront",
                 new[] { new KitSpineSection(new KitRowModel[0]) }, roomDesign: true)!;
-            Assert.That(RoomBar.MoreRoutes(binding).Select(route => route.Action), Is.SupersetOf(new[] { FileScreens.OpenCharacterColour, FileScreens.ShowTaskHere }),
-                "every route the file offers, on the page the kit binds");
+            Assert.That(RoomBar.MoreRoutes(binding).Select(route => route.Action), Is.EquivalentTo(new[] { FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenCharacterColour, FileScreens.ShowScreen }),
+                "every route the file offers, on the page the kit binds, though the page holds three rows (FIELD's 11:08Z)");
         }
         finally { RoomDesign.Enabled = was; }
     }

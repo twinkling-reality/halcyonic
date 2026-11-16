@@ -375,11 +375,12 @@ namespace Halcyonic.Client
                     lines.Add(ActivityLine(entry, screen.Zone, Math.Min(part, reportRows - from), from));
             }
             if (lines.Count == 0) lines.Add(new PageLine(NoActivityYet, tone: LineTone.Secondary));
-            // Under the redesign the routes stand first, so the page the kit binds holds every one at every text size: More lists
-            // them from it, and a route's press is the drawn page's own line (JUDGE's 08:31Z: at Larger, Character Colour stood on a
-            // later page and More never listed it). The older view keeps them after the activity.
-            if (RoomDesign.Enabled) lines.InsertRange(0, utilityLines);
-            else lines.AddRange(utilityLines);
+            // Under the redesign the routes take no room on the page: they join whichever page is shown, after the paging, so the page
+            // the kit binds holds every one at every text size and every page size (More lists them from it, and a route's press is
+            // the drawn page's own line; JUDGE's 08:31Z at Larger, FIELD's 11:08Z on a four-row page). The redesign draws them on
+            // More's page, never in this list. The older view keeps them paged after the activity.
+            var routesApart = RoomDesign.Enabled;
+            if (!routesApart) lines.AddRange(utilityLines);
             // Activity notices join the same paging allocation, rather than being appended
             // after packing on every page. Keep their complete words and normal two-row size.
             if (screen.Notice != null) lines.Insert(0, new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
@@ -422,6 +423,7 @@ namespace Halcyonic.Client
             screen.Pages = pages.Count;
             screen.Page = Math.Max(0, Math.Min(screen.Page, pages.Count - 1));
             var shown = pages[screen.Page];
+            if (routesApart) shown.AddRange(utilityLines);
             if (pages.Count > 1)
             {
                 if (bodyPager) shown.Add(new PageLine(Footer.NextPageWords(screen.Page, pages.Count), icon: GlazeIcon.Next, action: Footer.NextPage, control: LineControl.Action));
