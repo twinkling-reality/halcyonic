@@ -666,6 +666,9 @@ namespace Halcyonic.XR.UI
                         if (!character.isVisible || (line >= 0 && line < count)) continue;
                         var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
                         for (var corner = 0; corner < 4; corner++) vertices[character.vertexIndex + corner] = Vector3.zero;
+                        // Folded away, it is not shown, and the label says so: no other part's letter stands as text on a line
+                        // the band draws, such as its count's (XR 2026-11-16 13:31Z; KitRender's refusal of unshown label text).
+                        info.characterInfo[index].isVisible = false;
                     }
                 }
                 if (count == 0 || first >= info.lineCount) return;
