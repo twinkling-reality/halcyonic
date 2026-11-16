@@ -2860,8 +2860,9 @@ in order, as before.
 - **One surface and one button:** every redesign part stands on `RoomSurface` and presses through `RoomButton`
   (`UI.Interaction/Room`). The surface follows the owner's glass reference (the lead's 2026-11-16 13:33Z: equipped-test's
   ask panel): the shader `Halcyonic/Room Glass` (material `Resources/HalcyonicUI/RoomGlass`) draws black glass, a flat face
-  #0F111E at 0.918, a 1 dp hairline #313137, one long soft shadow (the reference's 0 24 60 at 0.35 to its 640 px, at the
-  panel's 440 dp), no sheen, squircle corners (exponent 4; panels 20 dp, a bar 22), and the panel's one sentence under a
+  #0F111E at 0.918, a 1 dp hairline #313137, its long soft shadow held back for now (the reference's 0 24 60 at 0.35, scaled to the panel's 440 dp, stands
+  ready in the looks; `RoomSurface.DrawsShadow` is false until the shadow has a renderer of its own that the measures of what
+  a panel draws leave out), no sheen, squircle corners (exponent 4; panels 20 dp, a bar 22), and the panel's one sentence under a
   1 dp hairline (white at 8 percent, from the words' left edge to their right, the sentence 12 dp under it on the body's
   own left edge), placed per surface by `InnerBar`: no strip, so nothing in a panel can be taken for a button (FIELD's F6,
   the owner's words of 2026-11-10). Unity has no backdrop blur and blends in linear, so the face and hairline are matched

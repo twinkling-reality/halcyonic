@@ -197,7 +197,7 @@ namespace Halcyonic.XR.UI
         /// (the owner's 2026-11-05 glass squircles). Every kind the same.
         /// </summary>
         public static RoomGlassLook DarkLook(RoomSurfaceKind kind) =>
-            new RoomGlassLook(WithAlpha(Hex(0x0F111E), DarkAlpha), WithAlpha(Hex(0x0F111E), DarkAlpha), Hex(0x313137), Hex(0x313137), 1f, shadow: true,
+            new RoomGlassLook(WithAlpha(Hex(0x0F111E), DarkAlpha), WithAlpha(Hex(0x0F111E), DarkAlpha), Hex(0x313137), Hex(0x313137), 1f, shadow: DrawsShadow,
                 shadowDropDp: 24f * ShadowScale, shadowBlurDp: 60f * ShadowScale, shadowAlpha: 0.35f, innerColour: new Color(1f, 1f, 1f, 0.08f), innerCornerDp: 0f);
 
         /// <summary>
@@ -206,8 +206,16 @@ namespace Halcyonic.XR.UI
         /// 0.18, matched the same way: the page's face over the three rooms (#CBCCCD, #EBE9E6, #F5F6F8) within 5 of 255.
         /// </summary>
         public static RoomGlassLook LightLook(RoomSurfaceKind kind) =>
-            new RoomGlassLook(WithAlpha(Hex(0xFBFCFE), LightAlpha), WithAlpha(Hex(0xFBFCFE), LightAlpha), Hex(0xE3E4E8), Hex(0xE3E4E8), 1f, shadow: true,
+            new RoomGlassLook(WithAlpha(Hex(0xFBFCFE), LightAlpha), WithAlpha(Hex(0xFBFCFE), LightAlpha), Hex(0xE3E4E8), Hex(0xE3E4E8), 1f, shadow: DrawsShadow,
                 shadowDropDp: 24f * ShadowScale, shadowBlurDp: 60f * ShadowScale, shadowAlpha: 0.18f, innerColour: new Color(12f / 255f, 14f / 255f, 22f / 255f, 0.08f), innerCornerDp: 0f);
+
+        /// <summary>
+        /// Whether the glass draws the reference's long soft shadow: not yet. It is drawn in the glass's own quad, so every measure of
+        /// what a panel draws (the bar's envelope, its crossings with the notice, Watch It Work's lift over the bar, the field)
+        /// would read 57 dp of shadow round each panel as panel (F220 on 36d10e286). It waits for a renderer of its own that those
+        /// measures leave out; its numbers stand ready in the looks.
+        /// </summary>
+        public const bool DrawsShadow = false;
 
         /// <summary>The dark face's alpha in Unity's linear blend, solved with its colour from the reference's pixels.</summary>
         public const float DarkAlpha = 0.918f;
