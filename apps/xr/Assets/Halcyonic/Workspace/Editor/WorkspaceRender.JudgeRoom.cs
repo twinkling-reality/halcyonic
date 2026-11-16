@@ -685,19 +685,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 ExecutionView? Current(string workstreamId) => Runs().FirstOrDefault(pair => pair.Task.WorkstreamId == workstreamId).Run;
                 void WatchCover(WorkstreamView watched)
                 {
-                    // The scratch plane's mock agent writes no file, and Watch It Work stands only for files the host sees change in the
-                    // run's folder: the walk writes one into the newest project folder while the agent works, standing in for its edit
-                    // (HALCYONIC_LIVE_ROOT, the scratch plane's own folder; never the owner's).
-                    if (Environment.GetEnvironmentVariable("HALCYONIC_LIVE_ROOT") is string liveRoot && Directory.Exists(Path.Combine(liveRoot, "projects")))
-                    {
-                        var folders = new[] { "projects", "tasks" }.Select(each => Path.Combine(liveRoot, each)).Where(Directory.Exists)
-                            .SelectMany(Directory.GetDirectories).OrderByDescending(Directory.GetLastWriteTimeUtc).Take(1).ToList();
-                        foreach (var folder in folders)
-                        {
-                            File.WriteAllText(Path.Combine(folder, "watch-it-work.txt"), "A line written while the agent works.\nA second line.\n");
-                            Debug.Log("Halcyonic: live walk: wrote watch-it-work.txt into the run's folder " + Path.GetFileName(folder) + " while the agent works");
-                        }
-                    }
+                    // Watch It Work stands only where the host observes the folder the run writes (WatchBuild.Offered): a run with no
+                    // folder, as the scratch plane's mock is (its execution's directory is null), never offers it, and the walk says so.
                     // A real agent may take minutes to write its first file; the mock run ends this wait at once (its approval).
                     var until = DateTime.UtcNow.AddSeconds(240);
                     RoomButton? watch = null;
@@ -709,7 +698,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     if (watch == null)
                     {
-                        Debug.Log("Halcyonic: live walk: Watch It Work was not drawn while the agent worked here: the open arc's cover is not measured on this plane");
+                        Debug.Log("Halcyonic: live walk: Watch It Work was not drawn while the agent worked here (a run whose folder the host does not observe, as the mock's, never offers it): the open arc's cover is not measured on this plane");
                         return;
                     }
                     if (!Press(RoomBar.Watch, null)) { failures.Add("live walk: Watch It Work is drawn and its press was not taken"); return; }
