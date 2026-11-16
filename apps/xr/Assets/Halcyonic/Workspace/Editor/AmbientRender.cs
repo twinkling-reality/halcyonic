@@ -31,6 +31,9 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static class AmbientRender
     {
+        /// <summary>A name as long as the film's runs give (JUDGE's live walk), laid beside a window whole on its two lines.</summary>
+        private const string AmbientLongName = "A page that says hello and counts my visits";
+
         private const int Size = 1024;
         private const float EyeHeight = 1.2f;
         private const float WindowDistance = 1.6f;
@@ -181,7 +184,9 @@ namespace Halcyonic.XR.Workspace.Editor
             state.Workstreams[slots[0]!].Title = "Add rate limiting to the sign-in endpoint";
             state.Workstreams[slots[1]!].Title = "Add rate limiting to the sign-up form";
             // A name as long as the film's runs give, which must stand whole on its two lines beside a window (AUDIT's film MUST, 2026-11-16).
-            if (slots.Count > 2) state.Workstreams[slots[2]!].Title = "A page that says hello and counts my visits";
+            // Always laid: a lineup of fewer than three would let the check pass without it (AUDIT, 04:25Z).
+            if (slots.Count < 3) throw new System.InvalidOperationException("the window's lineup holds " + slots.Count + " tasks; the long-name fixture needs a third");
+            state.Workstreams[slots[2]!].Title = AmbientLongName;
             var shown = lineup.Slots.Select(id => CharacterPresenter.Present(state.Workstreams[id!], state, live: true)).ToList();
             return new Beside(state, lineup, shown);
         }
@@ -284,6 +289,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Whole on at most the full label's two lines, never cut (AUDIT's film MUST, 2026-11-16): a filmed task's name is never ellipsed.
                 if (shortTitle.textInfo.lineCount > CharacterLabelView.TitleLines) yield return "beside a window, " + view.WorkstreamId + "'s short title takes " + shortTitle.textInfo.lineCount + " lines.";
                 if (shortTitle.isTextTruncated || shortTitle.isTextOverflowing) yield return "beside a window, " + view.WorkstreamId + "'s short title is cut: \"" + Visible(shortTitle) + "\".";
+                else if (Visible(shortTitle).Replace("\n", " ") == AmbientLongName)
+                    Debug.Log("Halcyonic: ambient render: beside a window, the long name stands whole on " + shortTitle.textInfo.lineCount + " lines at text size " + GlazeText.Scale.ToString("0.##") + ".");
                 // As designed, in units of the distance from the eyes, as the widest plate's 10.5 degrees are.
                 var wide = GlazeTokens.DegreesOf(view.Label.Plate.Size.x);
                 if (wide > CharacterLabelView.MaxWidthDegrees + 0.01f)
@@ -292,6 +299,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         + WorkspaceRender.Degrees(CharacterLabelView.MaxWidthDegrees) + ".";
                 }
             }
+            // The film's long name was laid, and stands whole (AUDIT, 04:25Z: never a check that passes without laying it).
+            if (!characters.Any(target => target.View.Label.ShortTitle.gameObject.activeSelf && !target.View.Label.ShortTitle.isTextTruncated
+                && Visible(target.View.Label.ShortTitle).Replace("\n", " ") == AmbientLongName))
+                yield return "beside a window, the long name \"" + AmbientLongName + "\" does not stand whole on any character's plate.";
         }
 
         /// <summary>
