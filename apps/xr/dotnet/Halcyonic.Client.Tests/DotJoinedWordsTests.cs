@@ -13,10 +13,10 @@ namespace Halcyonic.Client.Tests;
 public class DotJoinedWordsTests
 {
     /// <summary>
-    /// Lines of the client core that hold a string with a "·" in it. Lower it as more become sentences; never raise it. The
-    /// Editor-only WorkspacePanel (WorkspaceScreens) now lays its labels and values apart and holds none of them.
+    /// Lines of the client core that hold a string with a "·" in it. Lower it as more become sentences; never raise it. One is
+    /// left: KitMoment's own separator constant, which its moments lay between parts.
     /// </summary>
-    private const int MostDotJoinedLines = 25;
+    private const int MostDotJoinedLines = 1;
 
     private static readonly Regex DottedString = new("\"[^\"\\n]*·[^\"\\n]*\"", RegexOptions.CultureInvariant);
 
