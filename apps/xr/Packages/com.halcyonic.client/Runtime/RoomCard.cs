@@ -391,8 +391,9 @@ namespace Halcyonic.Client
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
             IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
             IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false, KitControl? press = null,
-            bool statusAfter = false, int descriptionMostLines = DescriptionPageLines)
+            bool statusAfter = false, int descriptionMostLines = DescriptionPageLines, IReadOnlyList<int>? readingLit = null)
         {
+            ReadingLit = readingLit ?? new int[0];
             DescriptionMostLines = descriptionMostLines < 1 ? 1 : descriptionMostLines > DescriptionPageLines ? DescriptionPageLines : descriptionMostLines;
             Press = press;
             TitleMono = titleMono;
@@ -497,6 +498,12 @@ namespace Halcyonic.Client
         /// <see cref="RoomReading.RowsAPage"/>. Empty for none.
         /// </summary>
         public IReadOnlyList<RoomReadingRow> Reading { get; }
+
+        /// <summary>
+        /// The rows of <see cref="Reading"/> a later read changed, lit with the one accent (Watch It Work, AUDIT's MUST 2: lit
+        /// means changed), by index; empty for none. Never the diff's own added or removed colours.
+        /// </summary>
+        public IReadOnlyList<int> ReadingLit { get; }
 
         public IReadOnlyList<RoomCardStep> Steps { get; }
 

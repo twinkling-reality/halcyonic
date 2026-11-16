@@ -494,7 +494,7 @@ namespace Halcyonic.XR.UI
             if (card.Reading.Count > 0)
             {
                 Gap(BlockGapDp);
-                down = LayReading(card.Reading, width, down);
+                down = LayReading(card.Reading, width, down, card.ReadingLit);
             }
             if (card.Steps.Count > 0)
             {
@@ -812,8 +812,9 @@ namespace Halcyonic.XR.UI
         /// hue the card's width, so a run of changed lines reads as one block; the words mono, theirs, stood their indent in,
         /// a line the change left a step quieter; a continued row hung in under its start; a gap a hairline across.
         /// </summary>
-        private float LayReading(IReadOnlyList<RoomReadingRow> rows, float width, float down)
+        private float LayReading(IReadOnlyList<RoomReadingRow> rows, float width, float down, IReadOnlyList<int>? litRows = null)
         {
+            var lit = new HashSet<int>(litRows ?? System.Array.Empty<int>());
             // A dark well under the whole page, near solid, so a band keeps one colour whatever the room shows behind the
             // panel (the critic, 2026-11-11), as a diff view sets its code apart.
             var blockTall = 0f;
@@ -848,6 +849,16 @@ namespace Halcyonic.XR.UI
                 }
                 var middle = down + pitch / 2f;
                 var changed = row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed;
+                // A row a later read changed (Watch It Work): the one accent's band and rule, as a run of lit rows, with no mark.
+                if (lit.Contains(index) && (index == 0 || !lit.Contains(index - 1)))
+                {
+                    var run = 0;
+                    for (var next = index; next < rows.Count && lit.Contains(next); next++) run++;
+                    var runTall = run * pitch;
+                    var centreY = -(down + runTall / 2f);
+                    Plate(new Vector2(width, runTall), 0f, Rgb(AccentGround), new Vector2(width / 2f, centreY), "reading lit band");
+                    Plate(new Vector2(S(3f), runTall), 0f, Rgb(Accent), new Vector2(S(1.5f), centreY), "reading lit rule", front: true);
+                }
                 if (changed && (index == 0 || rows[index - 1].Kind != row.Kind))
                 {
                     // One band for the whole run of rows of this change, so no seam parts them; solid, the hue mixed into the
@@ -875,7 +886,7 @@ namespace Halcyonic.XR.UI
                 if (row.Text != null && !row.Text.IsEmpty)
                 {
                     var left = S(RoomReading.TextLeftDp(1f, row.Continued)) + row.Indent * advance;
-                    var (label, _) = Text(KitRole.Mono, RoomReading.TypeDp, RoomReading.LineDp, White(changed ? 0.96f : 0.80f), row.Text, left, -down,
+                    var (label, _) = Text(KitRole.Mono, RoomReading.TypeDp, RoomReading.LineDp, White(changed || lit.Contains(index) ? 0.96f : 0.80f), row.Text, left, -down,
                         Mathf.Max(width - left - S(RoomReading.RightPadDp), advance), 1);
                     ReadingShown.Add(label);
                 }
