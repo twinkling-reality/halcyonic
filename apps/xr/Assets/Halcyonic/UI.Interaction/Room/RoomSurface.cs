@@ -145,26 +145,81 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Every kind's look, the one table DESIGN's numbers drop into. The fills carry their alpha, composited premultiplied over
-        /// passthrough; the edge, shadow and sentence bar are each a value here, none in the shader.
+        /// Every kind's look, the one table the glass's numbers drop into. The fills carry their alpha, composited premultiplied over
+        /// passthrough; the edge, shadow and sentence bar are each a value here, none in the shader. It follows <see cref="Theme"/>.
         /// </summary>
         public static System.Func<RoomSurfaceKind, RoomGlassLook> Looks { get; set; } = DefaultLook;
 
-        /// <summary>
-        /// DESIGN's FINISH-3 panel (2026-11-05): a neutral cool tint #3C4247 to #343A3F at 0.86 (the page's 0.72 as Unity blends
-        /// in linear), so the room shows through; a 1 dp white hairline at 10 percent over it (#505559 to #484E52, mixed in sRGB
-        /// as the page mixes it); no shadow; the sentence bar white at 10 percent over the tint, corner 10. Every kind the same.
-        /// </summary>
-        public static RoomGlassLook DefaultLook(RoomSurfaceKind kind) =>
-            new RoomGlassLook(WithAlpha(Hex(0x3C4247), TintAlpha), WithAlpha(Hex(0x343A3F), TintAlpha), Hex(0x505559), Hex(0x484E52), 1f, shadow: false,
-                innerColour: new Color(1f, 1f, 1f, 0.12f), innerCornerDp: 0f);
+        private static PanelTheme theme = PanelTheme.Dark;
 
         /// <summary>
-        /// The tint's alpha in Unity's linear blend: firmer than the page's 0.72 over a white wall (DESIGN's FINISH-3), since at
-        /// 0.86 a bright room's hard edges showed crisp behind the words and the quiet words' contrast hung on the wall behind
-        /// (the critic, 2026-11-12).
+        /// The panels' glass, Dark (the default) or Light: the one setter the person's Appearance choice calls, at start and on
+        /// choosing. Every surface drawn takes the new look at once (the change's ease is the caller's), with nothing else moved.
         /// </summary>
-        public const float TintAlpha = 0.91f;
+        public static PanelTheme Theme
+        {
+            get => theme;
+            set
+            {
+                if (theme == value) return;
+                theme = value;
+                Looks = value == PanelTheme.Light ? LightLook : DarkLook;
+                ThemeChanged?.Invoke();
+            }
+        }
+
+        /// <summary>Raised when <see cref="Theme"/> changes, after <see cref="Looks"/> follows it: every surface draws again, and inks that follow the glass read it.</summary>
+        public static event System.Action? ThemeChanged;
+
+        private void OnEnable() => ThemeChanged += DrawAgain;
+
+        private void OnDisable() => ThemeChanged -= DrawAgain;
+
+        /// <summary>The look changed under it: drawn again at its size, kind and sentence bar as they stand.</summary>
+        private void DrawAgain()
+        {
+            if (!(drawn is var (lastSize, _, _))) return;
+            drawn = null;
+            Draw(lastSize);
+        }
+
+        /// <summary>The default look: <see cref="DarkLook"/>.</summary>
+        public static RoomGlassLook DefaultLook(RoomSurfaceKind kind) => DarkLook(kind);
+
+        /// <summary>
+        /// The owner's reference (the lead's 2026-11-16 13:33Z: equipped-test's ask panel, .eq-ask-bar): black glass
+        /// rgba(12,14,22,0.72) under blur(40px) saturate(140%), one inset 1 px hairline of white 0.08, one long soft drop
+        /// 0 24px 60px black 0.35, dividers of white 0.08, no top light, no sheen, no glow. Unity has no backdrop blur and blends in
+        /// linear, so the PIXELS are matched, not the alphas: the reference rendered in Chrome over the kit's three rooms (#1E1C1A,
+        /// #B9AE9E, #EEEEEE) reads its face #121217, #3E3A3A, #4B4C52, and this face lands within 7 of 255 of each in Unity's
+        /// blend; the hairline within 13 (the page whitens a face whose colour follows the room, which one linear colour cannot
+        /// on all three). The shadow at the reference's proportion to its 640 px, at the panel's 440 dp. The squircle corners stay
+        /// (the owner's 2026-11-05 glass squircles). Every kind the same.
+        /// </summary>
+        public static RoomGlassLook DarkLook(RoomSurfaceKind kind) =>
+            new RoomGlassLook(WithAlpha(Hex(0x0F111E), DarkAlpha), WithAlpha(Hex(0x0F111E), DarkAlpha), Hex(0x313137), Hex(0x313137), 1f, shadow: true,
+                shadowDropDp: 24f * ShadowScale, shadowBlurDp: 60f * ShadowScale, shadowAlpha: 0.35f, innerColour: new Color(1f, 1f, 1f, 0.08f), innerCornerDp: 0f);
+
+        /// <summary>
+        /// Halcyonic's own Light, not the owner's reference (it has none; the lead's 13:33Z marks it ours): the same structure
+        /// inverted, a frosted near-white rgba(246,247,250,0.80), a hairline of rgb(12,14,22) at 0.08, a drop of rgb(12,14,22) at
+        /// 0.18, matched the same way: the page's face over the three rooms (#CBCCCD, #EBE9E6, #F5F6F8) within 5 of 255.
+        /// </summary>
+        public static RoomGlassLook LightLook(RoomSurfaceKind kind) =>
+            new RoomGlassLook(WithAlpha(Hex(0xFBFCFE), LightAlpha), WithAlpha(Hex(0xFBFCFE), LightAlpha), Hex(0xE3E4E8), Hex(0xE3E4E8), 1f, shadow: true,
+                shadowDropDp: 24f * ShadowScale, shadowBlurDp: 60f * ShadowScale, shadowAlpha: 0.18f, innerColour: new Color(12f / 255f, 14f / 255f, 22f / 255f, 0.08f), innerCornerDp: 0f);
+
+        /// <summary>The dark face's alpha in Unity's linear blend, solved with its colour from the reference's pixels.</summary>
+        public const float DarkAlpha = 0.918f;
+
+        /// <summary>The light face's alpha in Unity's linear blend, solved the same way.</summary>
+        public const float LightAlpha = 0.64f;
+
+        /// <summary>The panel's 440 dp to the reference's 640 px: what its shadow's drop and blur scale by.</summary>
+        public const float ShadowScale = RoomGeometry.PanelDp / 640f;
+
+        /// <summary>The tint's alpha the glass had before the reference (DESIGN's FINISH-3), kept for the readers that measure against it.</summary>
+        public const float TintAlpha = DarkAlpha;
 
         /// <summary>The kind's corner in dp (DESIGN's FINISH-3): panels 20, a bar 22, a name tag 14.</summary>
         public static float CornerDp(RoomSurfaceKind kind) => kind == RoomSurfaceKind.Bar ? 22f : kind == RoomSurfaceKind.Tag ? 14f : RoomGeometry.PanelCornerDp;
@@ -261,7 +316,8 @@ namespace Halcyonic.XR.UI
     {
         public const float PassSeconds = 2f;
         public const float RestSeconds = 8f;
-        public const float Peak = 0.05f;
+        /// <summary>None: the owner's reference has no sheen (the lead's 2026-11-16 13:33Z: no top light, no sheen, no glow).</summary>
+        public const float Peak = 0f;
         public const float WidthDegrees = 5f;
 
         /// <summary>Half the width the band crosses, in metres at the plane's 1 m: the pair's 43.5 degrees and a band beyond.</summary>

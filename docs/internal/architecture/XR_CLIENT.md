@@ -2858,17 +2858,20 @@ in order, as before.
   43.5 degrees wide (the panel 440 dp, a 16 dp gap, the column 240 dp), feet at pitch -17.6, the row's foot at -23.5, every word Inter Regular 20 dp on a 28 dp line
   (`RoomType`), larger text times 1.15. `RoomLayout` (ADR 0040's poses) is unchanged.
 - **One surface and one button:** every redesign part stands on `RoomSurface` and presses through `RoomButton`
-  (`UI.Interaction/Room`). The surface is DESIGN's FINISH-3 material (unit 1d): the shader `Halcyonic/Room Glass`
-  (material `Resources/HalcyonicUI/RoomGlass`) draws a translucent tonal layer, a neutral cool tint #3C4247 to #343A3F at
-  0.86 (the page's 0.72 as Unity blends in linear), a 1 dp white hairline at 10 percent, no shadow, squircle corners
-  (exponent 4; panels 20 dp, a bar 22), and the panel's one sentence under a 1 dp hairline (white at 12 percent, from
-  the words' left edge to their right, the sentence 12 dp under it on the body's own left edge), placed per surface by
-  `InnerBar`: no strip, so nothing in a panel can be taken for a button (FIELD's F6, the owner's words of 2026-11-10;
-  where this document says "sentence bar" below it means that sentence under its hairline). `RoomSheen` sets one sheen
-  band for every surface once a frame as shader globals: tilted 20 degrees, 5 degrees wide, a 2 s pass then 8 s of
-  rest, 5 percent at its peak, none kept still. Every value comes from one table, `RoomSurface.Looks`
-  (`RoomGlassLook`). A surface draws again only when its size, kind or sentence changed. The well and the muted grey
-  are retired: every word is white.
+  (`UI.Interaction/Room`). The surface follows the owner's glass reference (the lead's 2026-11-16 13:33Z: equipped-test's
+  ask panel): the shader `Halcyonic/Room Glass` (material `Resources/HalcyonicUI/RoomGlass`) draws black glass, a flat face
+  #0F111E at 0.918, a 1 dp hairline #313137, one long soft shadow (the reference's 0 24 60 at 0.35 to its 640 px, at the
+  panel's 440 dp), no sheen, squircle corners (exponent 4; panels 20 dp, a bar 22), and the panel's one sentence under a
+  1 dp hairline (white at 8 percent, from the words' left edge to their right, the sentence 12 dp under it on the body's
+  own left edge), placed per surface by `InnerBar`: no strip, so nothing in a panel can be taken for a button (FIELD's F6,
+  the owner's words of 2026-11-10). Unity has no backdrop blur and blends in linear, so the face and hairline are matched
+  by PIXEL: the reference rendered in Chrome over the kit's three rooms (#1E1C1A, #B9AE9E, #EEEEEE), and the face solved
+  to land within 7 of 255 of it over each. `RoomSurface.Theme` (the client's `PanelTheme`, Dark by default) is the one
+  setter the person's Appearance choice calls: Dark is the reference, Light Halcyonic's own inversion of it (#FBFCFE at
+  0.64, hairline #E3E4E8, drop 0.18), and every surface drawn takes the new look at once (`ThemeChanged`). `RoomSheen`
+  keeps its pass and rest at a peak of 0. Every value comes from one table, `RoomSurface.Looks` (`RoomGlassLook`). A
+  surface draws again only when its size, kind or sentence changed, or the theme. Inks are white on Dark; Light's inks
+  are still to follow (each view's words are white today).
 - **The actions** (BUILD-SPEC-v4 1.4; FIELD's F6, 2026-11-10) are `RoomButton`: no box and no edge, ever. A chip holds
   the glyph, the words follow in the one size, over a backing solid inside the core that feathers out over 6 dp
   (`Halcyonic/Room Halo`, material `RoomHalo`). Two sizes: the column's (a 48 dp core, 32 dp chip, 20 dp glyph) and

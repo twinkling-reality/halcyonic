@@ -42,15 +42,15 @@ public sealed class RoomRowsTests
     }
 
     [Test]
-    public void The_hairline_blended_in_linear_light_reads_as_the_pages_white_at_12_percent()
+    public void The_hairline_blended_in_linear_light_reads_as_the_references_white_at_8_percent()
     {
         static double Decode(double value) => value <= 0.04045 ? value / 12.92 : System.Math.Pow((value + 0.055) / 1.055, 2.4);
         static double Encode(double value) => value <= 0.0031308 ? value * 12.92 : 1.055 * System.Math.Pow(value, 1 / 2.4) - 0.055;
         var ground = RoomRows.PanelGround;
         var alpha = RoomRows.LightAlpha(RoomRows.HairlineAlpha, ground);
-        Assert.That(alpha, Is.InRange(0.03f, 0.07f));
+        Assert.That(alpha, Is.InRange(0.02f, 0.04f));
         var blended = Encode(alpha + (1 - alpha) * Decode(ground));
-        Assert.That(blended, Is.EqualTo(ground + (1 - ground) * 0.12).Within(0.002), "the same light as the page's mix in sRGB");
+        Assert.That(blended, Is.EqualTo(ground + (1 - ground) * 0.08).Within(0.002), "the same light as the page's mix in sRGB");
         Assert.That(RoomRows.LightAlpha(0f, ground), Is.EqualTo(0f).Within(1e-6f));
         Assert.That(RoomRows.LightAlpha(1f, ground), Is.EqualTo(1f).Within(1e-5f));
     }

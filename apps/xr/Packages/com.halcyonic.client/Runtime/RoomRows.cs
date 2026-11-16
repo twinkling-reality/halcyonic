@@ -64,8 +64,8 @@ namespace Halcyonic.Client
         public const float MarkDp = 20f;
         public const float MarkGapDp = 10f;
 
-        /// <summary>The hairline: white at 12 percent as the page draws it, over the panel.</summary>
-        public const float HairlineAlpha = 0.12f;
+        /// <summary>The hairline: white at 8 percent as the page draws it, over the panel (the owner's reference, 2026-11-16).</summary>
+        public const float HairlineAlpha = 0.08f;
 
         /// <summary>The panel's own tint the hairline stands on, in sRGB (the middle of the page's two, #383E43, by its green).</summary>
         public const float PanelGround = 0x3E / 255f;
@@ -73,7 +73,7 @@ namespace Halcyonic.Client
         /// <summary>
         /// The alpha that shows, blended in linear light as the headset blends, what the page shows with white at
         /// <paramref name="pageAlpha"/> mixed in sRGB over a ground of <paramref name="ground"/> (sRGB, 0 to 1): the
-        /// page's 0.12 over the panel comes to about 0.05.
+        /// page's 0.08 over the panel (the owner's reference, 2026-11-16) comes to about 0.03.
         /// </summary>
         public static float LightAlpha(float pageAlpha, float ground)
         {

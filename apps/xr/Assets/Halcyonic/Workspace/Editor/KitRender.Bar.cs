@@ -1150,7 +1150,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(shown.Wide || panel.Glass.gameObject.activeSelf && panel.Glass.sharedMaterial != null
                         && panel.Glass.sharedMaterial.shader.name == "Halcyonic/Room Glass", "the panel is not drawn in the room's material");
                     var look = Halcyonic.XR.UI.RoomSurface.Looks(panel.Kind);
-                    Require(look.FillTop.a < 1f && !look.Shadow && look.EdgeDp > 0f, "the panel is not DESIGN's translucent tonal layer with a hairline and no shadow");
+                    // The owner's reference glass (the lead's 13:33Z): translucent, a hairline, one long soft shadow, no sheen.
+                    Require(look.FillTop.a < 1f && look.Shadow && look.EdgeDp > 0f && look.ShadowAlpha > 0f && RoomSheen.Peak == 0f,
+                        "the panel is not the reference's translucent glass with a hairline, one soft shadow and no sheen");
                     Require(shown.Wide || Mathf.Abs(panel.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < Tolerance, "the panel is not 440 dp wide");
                     Whole(bar.Body, "the panel's words");
                     if (bar.NoticePlate != null)
