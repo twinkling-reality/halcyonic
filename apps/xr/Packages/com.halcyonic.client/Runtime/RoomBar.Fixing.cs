@@ -23,7 +23,7 @@ namespace Halcyonic.Client
 
         /// <summary>The fixing card's title and its quieter line while a try is under way (the addendum's A7 and A17).</summary>
         public const string FixingTitle = "Fixing";
-        public const string FixingLine = "Fixing What Failed";
+        public const string FixingLine = "The agent tries again on its own.";
 
         /// <summary>The ended chain's card: its title and line where the check passed after a try, and where the tries ran out.</summary>
         public const string FixedTitle = "All Passing";
