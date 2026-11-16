@@ -103,6 +103,13 @@ namespace Halcyonic.XR.UI
         public const float StepNameDp = 17f;
         public const float StepNameLineDp = 21f;
         public const float StepNameGapDp = 36f;
+        /// <summary>
+        /// Between a node and its name where no step carries tries' pips: the name reads as its node's own label, never as a line
+        /// standing below the row (AUDIT2's readers of 11-14 and 11-16: "labels sit below their boxes"). The 36 dp keeps the pips' room.
+        /// </summary>
+        public const float StepNameTightDp = 10f;
+        /// <summary>Under a step the run never reached, quiet: never an empty box alone (AUDIT2's W5, 2026-11-16).</summary>
+        public const string NotRun = "Not Run";
         public const float PipDp = 14f;
         public const float PipCornerDp = 4f;
         public const float PipGapDp = 4f;
@@ -1047,9 +1054,19 @@ namespace Halcyonic.XR.UI
                 var label = labels[index];
                 label.textWrappingMode = TextWrappingModes.Normal;
                 label.alignment = TextAlignmentOptions.Left;
-                var laid = KitType.Lay(label, width - left, 2);
+                var noteRoom = 0f;
+                if (step.Tone == RoomTone.Skipped)
+                {
+                    var (notRun, _) = Text(KitRole.Label, StepNameDp, StepNameLineDp, White(NoteAlpha), LineWords.Ours(NotRun), 0f, 0f, width / 2f, 1, TextAlignmentOptions.TopRight);
+                    var notRunWidth = RoomCursor.WordsWidth(notRun, 0f);
+                    notRun.rectTransform.sizeDelta = new Vector2(notRunWidth + S(1f), notRun.rectTransform.sizeDelta.y);
+                    notRun.rectTransform.pivot = new Vector2(1f, 1f);
+                    notRun.transform.localPosition = new Vector3(width - S(1f), -(top + (S(StepDp) - S(StepNameLineDp)) / 2f), -RoomType.Units(0.5f));
+                    noteRoom = notRunWidth + S(RowGapDp);
+                }
+                var laid = KitType.Lay(label, width - left - noteRoom, 2);
                 var tall = Mathf.Max(laid.Lines, 1) * S(StepNameLineDp);
-                label.rectTransform.sizeDelta = new Vector2(width - left, label.rectTransform.sizeDelta.y);
+                label.rectTransform.sizeDelta = new Vector2(width - left - noteRoom, label.rectTransform.sizeDelta.y);
                 label.transform.localPosition = new Vector3(left, -(top + (S(StepDp) - tall) / 2f), -RoomType.Units(0.5f));
             }
             return down + steps.Count * S(StepDp) + (steps.Count - 1) * S(StepRowGapDp);
@@ -1118,6 +1135,9 @@ namespace Halcyonic.XR.UI
             var join = joins > 0 ? Mathf.Max(S(10f), (width - sum - 2f * S(StepJoinGapDp) * joins) / joins) : 0f;
             var x = 0f;
             var middle = -(down + S(StepDp) / 2f);
+            // The name close under its node, unless a step's pips hang there.
+            var nameGap = steps.Any(each => each.TriesOf > 0) ? S(StepNameGapDp) : S(StepNameTightDp);
+            var notRunTall = 0f;
             for (var index = 0; index < steps.Count; index++)
             {
                 var step = steps[index];
@@ -1126,7 +1146,15 @@ namespace Halcyonic.XR.UI
                 // The name centred under its mark.
                 var label = labels[index];
                 label.rectTransform.sizeDelta = new Vector2(widths[index], label.rectTransform.sizeDelta.y);
-                label.transform.localPosition = new Vector3(x, -(down + S(StepDp) + S(StepNameGapDp)), -RoomType.Units(0.5f));
+                label.transform.localPosition = new Vector3(x, -(down + S(StepDp) + nameGap), -RoomType.Units(0.5f));
+                if (step.Tone == RoomTone.Skipped)
+                {
+                    // Not Run, quiet, centred under the name of a step the run never reached.
+                    label.ForceMeshUpdate(true);
+                    var nameTall = Mathf.Max(label.textInfo.lineCount, 1) * S(StepNameLineDp);
+                    var (notRun, notTall) = Text(KitRole.Label, StepNameDp, StepNameLineDp, White(NoteAlpha), LineWords.Ours(NotRun), x, -(down + S(StepDp) + nameGap + nameTall), widths[index], 2, TextAlignmentOptions.Top);
+                    notRunTall = Mathf.Max(notRunTall, nameTall + notTall - tallest);
+                }
                 x += widths[index];
                 if (index < joins)
                 {
@@ -1136,7 +1164,7 @@ namespace Halcyonic.XR.UI
                     x += join + 2f * S(StepJoinGapDp);
                 }
             }
-            return down + S(StepDp) + S(StepNameGapDp) + tallest;
+            return down + S(StepDp) + nameGap + tallest + Mathf.Max(0f, notRunTall);
         }
 
         private float LayList(IReadOnlyList<RoomListRow> rows, float width, float down)

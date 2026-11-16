@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-fixing", "47-card-usage", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-changes", "47-card-checks", "47-card-checks-plain", "47-card-fixing", "47-card-usage", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -166,6 +166,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-checks" => new RoomCard(status: new RoomCardStatus("Build Failed", RoomBar.StoppedLineFor(2), RoomTone.Bad), steps: new[]
                 {
                     new RoomCardStep("Types", RoomTone.Good), new RoomCardStep("Build", RoomTone.Bad, 2, 2), new RoomCardStep("Page", RoomTone.Skipped), new RoomCardStep("VR", RoomTone.Skipped),
+                }),
+                // No tries: each name close under its node; the step the run never reached says Not Run under its name.
+                "47-card-checks-plain" => new RoomCard(status: new RoomCardStatus("Build Failed", "The check stopped at Build.", RoomTone.Bad), steps: new[]
+                {
+                    new RoomCardStep("Types", RoomTone.Good), new RoomCardStep("Build", RoomTone.Bad), new RoomCardStep("Page", RoomTone.Skipped),
                 }),
                 "47-card-fixing" => RoomBar.FixingCard(new Halcyonic.Contracts.AutoFixView
                     {
@@ -443,6 +448,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 var pips = card.Steps.Sum(step => step.TriesOf);
                 Require(view.Plates.Count(each => each.What == "pip used") == used && view.Plates.Count(each => each.What.StartsWith("pip", StringComparison.Ordinal) && each.What != "pip ring") == pips,
                     "the steps' pips are not their tries");
+                // Every step the run never reached says Not Run, once, in words (AUDIT2's W5): never an empty box alone.
+                var notRun = view.Shown.Count(label => label.gameObject.activeInHierarchy && label.GetParsedText().Trim() == RoomCardView.NotRun);
+                Require(notRun == card.Steps.Count(step => step.Tone == RoomTone.Skipped), notRun + " Not Run under " + card.Steps.Count(step => step.Tone == RoomTone.Skipped) + " steps never run");
+                // Where no step carries tries, each name stands close under its node, its own label (AUDIT2's readers: "labels sit below their boxes").
+                if (pips == 0)
+                    foreach (var step in card.Steps)
+                    {
+                        var node = view.Plates.FirstOrDefault(each => each.What == "step " + step.Name).Plate;
+                        var name = view.Shown.FirstOrDefault(label => label.gameObject.activeInHierarchy && label.GetParsedText().Trim() == step.Name);
+                        if (node == null || name == null) { Require(false, "step " + step.Name + " has no node or no name"); continue; }
+                        var gap = (node.transform.localPosition.y - node.Size.y / 2f - name.transform.localPosition.y) / unit;
+                        Require(Mathf.Abs(gap - RoomCardView.StepNameTightDp * GlazeText.Scale) < 0.5f, "step " + step.Name + "'s name stands " + gap.ToString("0.0") + " dp under its node, not "
+                            + (RoomCardView.StepNameTightDp * GlazeText.Scale).ToString("0.0"));
+                    }
             }
             if (card.Status != null && card.TrackOf is int of)
                 Require(view.Plates.Count(each => each.What.StartsWith("pip", StringComparison.Ordinal) && each.What != "pip ring") == of, "the status's pips are not its tries");
