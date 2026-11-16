@@ -4,7 +4,7 @@
   Seatbelt profile do with it: run the tools a video needs, see a still, turn a HEIC into a picture, copy a playable
   copy into `public/`? And which tools keep where and on what a file was made?
 - **Date:** 2026-11-16.
-- **Versions:** main d53f69a32; macOS 26 (Darwin 25.6.0) on Apple silicon; ffmpeg and ffprobe 8.1.1 (Homebrew, with
+- **Versions:** main d53f69a32, and main 8d6e0944e for the last `iwsdk-vr` run; macOS 26 (Darwin 25.6.0) on Apple silicon; ffmpeg and ffprobe 8.1.1 (Homebrew, with
   libx265 and libx264); the system's `sips`, `avconvert` and `osascript`; Node 24.15.0 (Homebrew).
 - **Method:**
   - Part A, no model: a probe script built the closed profile exactly as the host does for a confined project
@@ -67,6 +67,7 @@ colours into files, and to copy the play copy into `public/`. The files were rea
 | Claude Agent, `claude-opus-5-5[1m]` | `world` | 25 s | match | match | match | present | 4, all answered by the host |
 | OpenCode, `meta/muse-wonder-1.0` (listed remote, takes pictures) | `world` | 45 s | match | match | match | present | 3, all answered by the host (`confined_command`) |
 | Claude Agent, `claude-opus-5-5[1m]` | `iwsdk-vr` | stopped at 600 s | unread | unread | unread | unread | 3: 2 answered by the host, 1 `Read` left for a person |
+| Claude Agent, `claude-opus-5-5[1m]`, main 8d6e0944e | `iwsdk-vr` | 17 s | match | match | match | present | 4, all answered by the host (3 `confined_command`, 1 `run_temp_read`) |
 
 - A first `world` run on Claude Agent matched the still, the frame and the play copy but not the photo; its bands
   were drawn with repeated colours, so neighbours could read as one band. The probe then drew four different colours.
@@ -79,6 +80,10 @@ colours into files, and to copy the play copy into `public/`. The files were rea
   one path, a read of an image in the run's own temporary folder (`claude-sandbox-<key>/tmp` in the data folder). The
   host answers a read only inside the task's copy, the starter's shared files or a declared original, so a frame the
   agent writes to its temporary folder and then looks at reaches the person.
+- On main 8d6e0944e the host answers a confined run's reads inside its own temporary folder, by its own record of that
+  folder, and refuses one the run has made a link. One `iwsdk-vr` run there: the turn completed in 17 s with all four
+  approvals answered by the host, one of them that read, and the still, the frame, the photo and the play copy all
+  matched. The answers were read from the task's copy through the file route's `workstream_id`.
 - The colours were drawn at random for each run, so a matching answer means the model saw the picture, not its name.
 - Codex was not run: the probe refuses a model served on this Mac, and the product's own choice prefers those.
 
