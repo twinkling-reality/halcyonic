@@ -342,7 +342,28 @@ namespace Halcyonic.XR.Workspace.Editor
                     var parts = newProject == null ? new List<Renderer>() : newProject.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
                         .Concat(newProject.Glyph.GetComponentsInChildren<Renderer>(false)).Where(part => part != null && part.enabled).ToList();
                     if (parts.Count == 0) failures.Add("New Project's place draws no words or glyph beside the shelf page, at text scale " + scale);
-                    else newProjectDrawn = GlazeChecks.Of("New Project's place", eyes, parts);
+                    else
+                    {
+                        newProjectDrawn = GlazeChecks.Of("New Project's place", eyes, parts);
+                        // Turned clear of the tag, the place must still stand whole in the field (AUDIT 18:12Z condition 1): its leftmost drawn
+                        // point, from the page's middle with the head turned there, inside the field's left side less its edge margin.
+                        var middle = Mathf.Atan2(pose.position.x, pose.position.z) * Mathf.Rad2Deg;
+                        var leftmost = float.PositiveInfinity;
+                        foreach (var part in parts)
+                        {
+                            var bounds = part.bounds;
+                            for (var corner = 0; corner < 8; corner++)
+                            {
+                                var point = new Vector3(corner % 2 == 0 ? bounds.min.x : bounds.max.x, 0f, corner % 4 < 2 ? bounds.min.z : bounds.max.z) - eyes;
+                                leftmost = Mathf.Min(leftmost, Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg);
+                            }
+                        }
+                        var field = ViewField.Current ?? FieldChecks.Quest3S;
+                        var margin = (float)field.Left - ViewField.EdgeMarginDegrees - (middle - leftmost);
+                        Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place reaches " + GlazeChecks.Degrees(middle - leftmost)
+                            + " degrees left of the page's middle; the field's left side less its margin leaves " + GlazeChecks.Degrees(margin) + " degrees.");
+                        if (margin < 0f) failures.Add("New Project's place stands " + GlazeChecks.Degrees(-margin) + " degrees past the field's left edge with the head on the page's middle, at text scale " + scale);
+                    }
                 }
                 for (var index = 0; index < capacity; index++)
                 {
