@@ -1945,18 +1945,26 @@ namespace Halcyonic.XR.Workspace.Editor
                         var toCharacter = standing.BodyPosition - eyes;
                         var side = Mathf.Sign(Vector3.SignedAngle(new Vector3(ahead.x, 0f, ahead.z), new Vector3(toCharacter.x, 0f, toCharacter.z), Vector3.up));
                         List<string>? least = null;
+                        float? bodyTurn = null;
                         foreach (var turn in new[] { 0f, 10f, 20f, 30f, 40f, 50f, 60f, 70f, 80f, 90f })
                         {
                             var toward = eyes + Quaternion.Euler(0f, side * turn, 0f) * ahead;
                             var outside = GlazeChecks.InsideField("the character on the stage (the head turned " + turn.ToString("0") + " degrees)", body, eyes, toward, 0f, field).ToList();
+                            if (outside.Count == 0) bodyTurn ??= turn;
                             // The character WHOLE: its body and its drawn name tag (words and plate glass) inside the field at one turn of the
                             // head, as a person turns toward a character to read its name (AUDIT 17:29Z, reading (ii) of its 16:48Z rule).
                             if (tagPoints.Count > 0)
                                 outside.AddRange(GlazeChecks.InsideField("the character's name tag (the head turned " + turn.ToString("0") + " degrees)", tagPoints, eyes, toward, 0f, field));
                             if (outside.Count == 0)
                             {
+                                // One turn of at most thirty degrees holds the body and its drawn tag together (AUDIT3 17:30Z); where the body
+                                // itself needs more (a place past thirty, the lead's ruling for the body), the tag needs no turn beyond the body's.
+                                var allowed = Mathf.Max(30f, bodyTurn ?? turn);
                                 Debug.Log("Halcyonic: the stage at " + moment + ": the character and its name tag stand whole in the field with the head turned "
-                                    + turn.ToString("0") + " degrees");
+                                    + turn.ToString("0") + " degrees" + (tagPoints.Count > 0 ? ", the tag's least margin " + GlazeChecks.Degrees(FieldMargin(tagPoints, eyes, toward, field)) + " degrees" : ""));
+                                if (tagPoints.Count > 0 && turn > allowed)
+                                    yield return "the stage: the character's name tag needs the head turned " + turn.ToString("0") + " degrees to stand whole in the field, past "
+                                        + allowed.ToString("0") + " (the body needs " + (bodyTurn ?? turn).ToString("0") + ")";
                                 if (turn > 30f) Debug.Log("Halcyonic: judge room: the character on the stage is seen with the head turned " + turn.ToString("0") + " degrees, past thirty");
                                 least = null;
                                 break;
@@ -1968,6 +1976,28 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// The least margin, in degrees, between <paramref name="points"/> and the field less its edge margin, seen with the head level and
+        /// turned toward <paramref name="toward"/> (the same view <see cref="GlazeChecks.InsideField"/> takes); negative where a point is outside.
+        /// </summary>
+        private static float FieldMargin(IReadOnlyList<Vector3> points, Vector3 eyes, Vector3 toward, ViewField field)
+        {
+            var flat = new Vector3(toward.x - eyes.x, 0f, toward.z - eyes.z);
+            var head = Quaternion.Euler(0f, Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg, 0f);
+            var edge = ViewField.EdgeMarginDegrees;
+            var least = float.MaxValue;
+            foreach (var point in points)
+            {
+                var local = Quaternion.Inverse(head) * (point - eyes);
+                var across = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
+                var up = Mathf.Atan2(local.y, new Vector2(local.x, local.z).magnitude) * Mathf.Rad2Deg;
+                least = Mathf.Min(least, Mathf.Min(
+                    Mathf.Min((float)(field.Right - edge) - across, (float)(field.Left - edge) + across),
+                    Mathf.Min((float)(field.Up - edge) - up, (float)(field.Down - edge) + up)));
+            }
+            return least;
         }
 
         /// <summary>
