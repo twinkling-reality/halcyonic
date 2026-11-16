@@ -286,8 +286,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     continue;
                 }
                 shortTitle.ForceMeshUpdate();
-                // Whole on at most the full label's two lines, never cut (AUDIT's film MUST, 2026-11-16): a filmed task's name is never ellipsed.
-                if (shortTitle.textInfo.lineCount > CharacterLabelView.TitleLines) yield return "beside a window, " + view.WorkstreamId + "'s short title takes " + shortTitle.textInfo.lineCount + " lines.";
+                // Whole on at most its plate's lines, never cut (AUDIT's film MUST, 2026-11-16): a filmed task's name is never ellipsed.
+                if (shortTitle.textInfo.lineCount > CharacterLabelView.ShortTitleLines) yield return "beside a window, " + view.WorkstreamId + "'s short title takes " + shortTitle.textInfo.lineCount + " lines.";
                 if (shortTitle.isTextTruncated || shortTitle.isTextOverflowing) yield return "beside a window, " + view.WorkstreamId + "'s short title is cut: \"" + Visible(shortTitle) + "\".";
                 else if (Visible(shortTitle).Replace("\n", " ") == AmbientLongName)
                     Debug.Log("Halcyonic: ambient render: beside a window, the long name stands whole on " + shortTitle.textInfo.lineCount + " lines at text size " + GlazeText.Scale.ToString("0.##") + ".");

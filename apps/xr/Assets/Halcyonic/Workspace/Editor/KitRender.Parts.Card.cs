@@ -177,9 +177,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         State = Halcyonic.Contracts.AutoFixViewState.Fixing, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = 1, Cap = 2,
                         FailedSteps = new List<Halcyonic.Contracts.AutoFixViewFailedStepsItem> { Halcyonic.Contracts.AutoFixViewFailedStepsItem.Build },
                     })!,
-                "47-card-usage" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
+                "47-card-usage" => new RoomCard(Ours("Usage"), Ours(RoomPanelCards.UsageLine), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
                 // A new reading lands while the page stands: Session from 62 to 40, drawn 0.3 s after it came (shown first at 62 below).
-                "47-card-usage-easing" => new RoomCard(Ours("Usage"), gauges: new[] { new RoomGauge(Ours("Session"), 40, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
+                "47-card-usage-easing" => new RoomCard(Ours("Usage"), Ours(RoomPanelCards.UsageLine), gauges: new[] { new RoomGauge(Ours("Session"), 40, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
                 // The assistant's row under the gauges: on this computer, on a provider's hosted model with a long id, and unable to run.
                 "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, null, CardRowControl("use-model")))!,
                 "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0", "Tidewater", null, CardRowControl("use-model")))!,
@@ -280,10 +280,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var easedAt = 0f;
             if (state == "47-card-usage-easing")
             {
-                // The page shown at the earlier reading, then the new one 0.3 s later, by a clock the render fixes.
+                // The page shown at the earlier reading; the new reading lands; the page drawn again 0.3 s later, by a clock the render fixes.
                 var clock = 100f;
                 view.Clock = () => clock;
-                view.Show(new RoomCard(LineWords.Ours("Usage"), gauges: new[] { new RoomGauge(LineWords.Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(LineWords.Ours("Week"), 38, "Resets Thu", RoomKind.Week) }), inner);
+                view.Show(new RoomCard(LineWords.Ours("Usage"), LineWords.Ours(RoomPanelCards.UsageLine), gauges: new[] { new RoomGauge(LineWords.Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(LineWords.Ours("Week"), 38, "Resets Thu", RoomKind.Week) }), inner);
+                view.Show(card, inner);
                 clock += 0.3f;
                 easedAt = 0.3f;
             }

@@ -19,7 +19,7 @@ namespace Halcyonic.XR.UI
     /// badge shows its icon only while it stays as narrow as the widest plate, 10.5 degrees; a longer
     /// word, such as Finished this round, shows alone. Beside a window the label shows its badge,
     /// under it the title on a plate of its own, as narrow as the widest plate's 10.5 degrees, on at
-    /// most the full label's two lines, so tasks can be told apart and a name stands whole, and under
+    /// most three lines, so tasks can be told apart and a name stands whole, and under
     /// that its mark (<see cref="BadgeOnly"/>): work that is not real always says so.
     /// </remarks>
     public sealed class CharacterLabelView : MonoBehaviour
@@ -47,6 +47,13 @@ namespace Halcyonic.XR.UI
         public const float MaxWidthDegrees = 10.5f;
 
         public const int TitleLines = 2;
+
+        /// <summary>
+        /// The most lines the title takes on its plate beside a window: one more than the full label's, since that plate is a
+        /// step smaller and 10.5 degrees wide, so a filmed name stands whole at the larger text size too (F136: two lines cut
+        /// "A page that says hello and counts..." at Larger). It grows only as the name needs.
+        /// </summary>
+        public const int ShortTitleLines = 3;
 
         private const float SideDegrees = 0.7f;
         private const float TitleGapDegrees = 0f;
@@ -106,7 +113,7 @@ namespace Halcyonic.XR.UI
 
         public TextMeshPro Title => title;
 
-        /// <summary>The title on its own plate beside a window, on at most two lines.</summary>
+        /// <summary>The title on its own plate beside a window, on at most <see cref="ShortTitleLines"/> lines.</summary>
         public TextMeshPro ShortTitle => shortTitle;
 
         public IReadOnlyList<MarkTag> Tags => tags;
@@ -251,11 +258,11 @@ namespace Halcyonic.XR.UI
             shortTitle.gameObject.SetActive(badgeOnly);
             if (badgeOnly)
             {
-                // The title on a plate of its own, as narrow as the widest plate, on as many as the full label's two lines,
+                // The title on a plate of its own, as narrow as the widest plate, on as many lines as it needs up to ShortTitleLines,
                 // so a filmed task's name stands whole (AUDIT's film MUST, 2026-11-16: "A page that says hello an..." cut to
                 // one line at Settings, Usage and Ask); then the marks in a row under it, a little apart.
                 GlazeText.SetLiteral(shortTitle, label.Title);
-                var (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, TitleLines);
+                var (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, ShortTitleLines);
                 var line = GlazeText.LineHeight(shortTitle);
                 var pad = GlazeTokens.Units(ShortTitlePaddingDegrees);
                 var shortTop = top - badgeHeight - GlazeTokens.Units(ShortTitleGapDegrees);
