@@ -21,7 +21,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] BarStates =
         {
             "31-bar-rest", "31-bar-listening", "31-bar-listening-no-level", "31-bar-typing", "31-bar-typed", "31-bar-heard", "31-bar-confirm", "31-bar-confirm-part",
-            "31-bar-confirm-escapes", "31-bar-confirm-part-escapes", "31-bar-sent",
+            "31-bar-confirm-escapes", "31-bar-confirm-part-escapes", "31-bar-sent", "31-bar-rest-agent",
         };
 
         /// <summary>
@@ -136,7 +136,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// band; a long message; Changes and its second page's way on; Checks passed and failed; and a project with a
         /// check and no observed turn.
         /// </summary>
-        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-checks-partly", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused", "38-result-play-not-in-build", "38-result-add", "38-add", "38-add-last", "38-conflict", "38-result-checking", "38-result-simulated", "38-result-unchecked" };
+        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-checks-partly", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused", "38-result-play-not-in-build", "38-result-add", "38-add", "38-add-last", "38-conflict", "38-result-checking", "38-result-simulated", "38-result-unchecked", "38-result-full" };
 
         /// <summary>The agent's newest message in the result's states, DESIGN's own, synthetic.</summary>
         private const string ResultSays = "I added the golden balloon and removed the old backup file.";
@@ -196,6 +196,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-checks-partly" => new RoomResult(false, true, true, null, ResultTurn(false), partly, RoomResultPage.Checks, partlyChecked: true, finding: PartlyFinding),
                 "38-result-stopped" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: false, ResultTurn(false), failing),
                 "38-result-play" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, ResultTurn(false), passing, play: PlayInHeadset.Offered),
+                // Every action a result offers at once: the column's six with Close, so the lowest acting one goes behind More (AUDIT's 13:41Z (b)).
+                "38-result-full" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, ResultTurn(false), passing, play: PlayInHeadset.Offered, canShare: true),
                 "38-result-play-refused" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, play: PlayInHeadset.NotConfined),
                 "38-result-play-not-in-build" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, play: PlayInHeadset.NotInThisBuild),
                 "38-project" => new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, null, passing),
@@ -331,6 +333,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-add" => (VoiceStage.Idle, false, RoomBarState.Rest, "Add to Project's review: the task, where its work goes, the first five of ten files, Add to Project, Next Page and Back, synthetic data"),
                 "38-add-last" => (VoiceStage.Idle, false, RoomBarState.Rest, "Add to Project's review, its last page: the last five files, Add to Project, one press, and Back, synthetic data"),
                 "38-conflict" => (VoiceStage.Idle, false, RoomBarState.Rest, "Where the project changed the same file: FIELD's card naming it, Let Agent Fix and Back, synthetic data"),
+                "38-result-full" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result offering every action at once: Close kept last in the column, Share behind More, synthetic data"),
                 "38-result-play" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the project's checked preview can open on the headset: Play in Headset beside Try Build, synthetic data"),
                 "38-result-play-refused" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the preview reads outside its project: no Play in Headset, its reason at the card's foot, synthetic data"),
                 "38-result-play-not-in-build" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result on a paired release build, which carries no relay: no Play in Headset, its reason at the card's foot, synthetic data"),
@@ -380,6 +383,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "31-bar-confirm-escapes" => (VoiceStage.Idle, false, RoomBarState.Confirm, "An instruction's confirmation, its words holding backslashes: Confirm and Cancel, synthetic data"),
                 "31-bar-confirm-part-escapes" => (VoiceStage.Idle, false, RoomBarState.Confirm, "A long instruction's confirmation with a backslash in its first part: Next Part and Cancel, synthetic data"),
                 "31-bar-sent" => (VoiceStage.Idle, true, RoomBarState.Sent, "Sent, the run not started yet, synthetic data"),
+                "31-bar-rest-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest with the agent and its level in the row: every action the row offers in a place of its own, synthetic data"),
                 _ => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest: Hold to Talk and Type, synthetic data"),
             };
             var shot = new Shot { Caption = caption };
@@ -578,7 +582,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 draftSpoken: screen.Instruction.Open && screen.Instruction.Spoken, requestRows: requestRows, chooses: choosing,
                 asking: screen.Question.Draft != null && !screen.Question.Reviewing ? screen.Question.Prompt : (int?)null,
                 writing: screen.Question.Writing ? screen.Question.Input : null, result: ResultFor(state),
-                selectors: state == "38-result-agent" ? new KitSelectors("This Mac", false, "Synthetic Agent", agentChangeable: true, offersNeverAsk: true, neverAsk: true) : null,
+                selectors: state is "38-result-agent" or "31-bar-rest-agent" ? new KitSelectors("This Mac", false, "Synthetic Agent", agentChangeable: true, offersNeverAsk: true, neverAsk: true) : null,
                 steps: state == "36-work-steps" ? StepsOf("46-steps-working") : null,
                 stepsUsage: state == "36-work-steps" ? WorkStepsUsage : null);
             // As the director does: a frame the task's binding has no place for is carried plain where a reader of the redesign takes it.
@@ -807,17 +811,33 @@ namespace Halcyonic.XR.Workspace.Editor
                     // The row: home-size actions in its order, the main one first, its core the hand target itself, 32 dp apart.
                     // The row's third and fourth places take the actions after Hold to Talk and Type, in order (More, then Projects).
                     var others = 0;
-                    var row = shown.Row.Select(action => action.Place == KitPlace.Talk ? bar.Talk : action.Place == KitPlace.Field ? bar.Type : others++ == 0 ? bar.More : bar.RowMore).ToList();
+                    var row = shown.Row.Select(action => action.Place == KitPlace.Talk ? bar.Talk : action.Place == KitPlace.Field ? bar.Type
+                        : others < bar.RowOthers.Count ? bar.RowOthers[others++] : null).Where(button => button != null).Select(button => button!).ToList();
+                    Require(row.Count == shown.Row.Count, "the row draws " + row.Count + " of its " + shown.Row.Count + " actions");
+                    if (state == "31-bar-rest-agent")
+                    {
+                        Debug.Log("Halcyonic: spatial kit: " + state + " row: " + string.Join(", ", shown.Row.Select(action => action.Words)));
+                        Require(shown.Row.Any(action => action.Control.Action == AgentColumn.Open) && shown.Row.Any(action => action.Control.Place == KitPlace.Close),
+                            "the row at rest does not hold the agent and the way back");
+                    }
                     actions.AddRange(row);
                     Require(row.All(button => button.gameObject.activeSelf), "a row action is not drawn");
                     Require(!bar.Type.gameObject.activeSelf || shown.Row.Any(action => action.Place == KitPlace.Field), "Type stands while it listens");
-                    Require(bar.More.gameObject.activeSelf == others >= 1 && bar.RowMore.gameObject.activeSelf == others >= 2,
-                        "the row's third or fourth action stands where the model gives none, or does not where it gives one");
+                    for (var other = 0; other < bar.RowOthers.Count; other++)
+                        Require(bar.RowOthers[other].gameObject.activeSelf == other < others,
+                            "the row's action " + (other + 3) + " stands where the model gives none, or does not where it gives one");
+                    // Each action in a place of its own (SCREENS's 13:41Z (a): a fifth once drew into More's place): no two drawn boxes meet, and each raises its own control.
+                    for (var index = 0; index < row.Count; index++)
+                        for (var next = index + 1; next < row.Count; next++)
+                            Require(Mathf.Abs(row[index].transform.localPosition.x - row[next].transform.localPosition.x) >= (row[index].Core.x + row[next].Core.x) / 2f - Tolerance,
+                                row[index].name + " and " + row[next].name + " are drawn in one place");
+                    for (var index = 0; index < row.Count; index++)
+                        if (row[index] != bar.Talk) Require(bar.ControlOf(row[index]) == shown.Row[index].Control, shown.Row[index].Words + " does not raise its own action");
                     for (var index = 0; index < row.Count; index++)
                     {
                         Require(row[index].LookNow() == (shown.Row[index].Main ? RoomButtonLook.Main : RoomButtonLook.Rest), row[index].name + " shows " + row[index].LookNow());
                         // Hold to Talk and Type are home size; a third action is action size, its target still Meta's.
-                        if (row[index] != bar.More && row[index] != bar.RowMore) Require(Mathf.Abs(row[index].Core.y - RoomType.Units(RoomButton.HeightDp)) < Tolerance, row[index].name + "'s core is not the hand target");
+                        if (!bar.RowOthers.Contains(row[index])) Require(Mathf.Abs(row[index].Core.y - RoomType.Units(RoomButton.HeightDp)) < Tolerance, row[index].name + "'s core is not the hand target");
                         Whole(row[index].Words, row[index].name + "'s words");
                         Require(row[index].Words.text == LabelText.ForTextMeshPro(shown.Row[index].Words), row[index].name + " reads \"" + row[index].Words.text + "\"");
                         // Where no keyboard is offered, the action that would open it says what it opens instead.
@@ -985,6 +1005,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         else if (state == "38-result-add") Require(shown.Column[0].Control.Action == RoomResult.ShowAdd && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1,
                             "Add to Project does not lead where the task holds work to add");
                         else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Copy does not lead");
+                        if (state == "38-result-full")
+                        {
+                            var drawnColumn = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
+                            Require(shown.Column.Count == RoomBar.ColumnMost && shown.Column[shown.Column.Count - 1].Control.Place == KitPlace.Close
+                                && drawnColumn.Count >= shown.Column.Count && bar.ControlOf(drawnColumn[shown.Column.Count - 1]) == shown.Column[shown.Column.Count - 1].Control,
+                                "a full result does not draw Close last in its column: " + string.Join(", ", shown.Column.Select(action => action.Words)));
+                            Require(shown.Overflow.Any(action => action.Control.Action == RoomResult.ShowShare) && shown.Row.Any(action => action.Control.Action == RoomBar.More),
+                                "the action a full column cannot hold is not reached by More");
+                        }
                     }
                     else
                     {

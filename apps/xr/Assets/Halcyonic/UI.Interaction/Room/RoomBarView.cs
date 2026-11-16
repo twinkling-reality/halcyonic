@@ -126,6 +126,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The row's second action after Hold to Talk and Type, where the model gives two (More, then the way back); hidden otherwise.</summary>
         public RoomButton RowMore => rowMore;
 
+        /// <summary>Every action of the row past Hold to Talk and Type, in the row's order, the first two More and RowMore; hidden past the row's count.</summary>
+        public IReadOnlyList<RoomButton> RowOthers => rowOthers;
+
         public RoomButton Type => type;
 
         public IReadOnlyList<RoomButton> Column => column;
