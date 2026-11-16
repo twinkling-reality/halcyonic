@@ -130,6 +130,21 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             finally { GlazeMotion.Still = stillWas; }
 
+            // Another action in a pressed action's place (JUDGE's walk, 2026-11-16: Approve drawn held and plain where the answer
+            // before it was pressed): the new action shows none of the last one's press, and as the main action it carries the accent.
+            var reused = RoomButton.Create(holder, "Reused");
+            reused.Show("Next Part", GlazeIcon.Next, false, true, Vector2.zero, 0f, doing: "next-part\n");
+            reused.Press.SettleForRender();
+            reused.Press.PressForRender(991);
+            reused.Settle();
+            Require(reused.LookNow() == RoomButtonLook.Pressed, "a pressed action does not show its press (" + reused.LookNow() + "), so the check below proves nothing");
+            reused.Show("Approve", GlazeIcon.Approve, true, true, Vector2.zero, 0f, doing: "approve\napproval-1");
+            reused.Settle();
+            Require(reused.LookNow() == RoomButtonLook.Main, "Approve in a pressed action's place shows " + reused.LookNow() + ", not Main");
+            Require(reused.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.AccentColour),
+                "Approve in a pressed action's place does not carry the accent on its chip");
+            reused.Hide();
+
             var height = (looks.Length - 1) * pitch + RoomType.Units(RoomButton.HeightDp);
             var widest = buttons.Max(button => button.Size.x);
             holder.localPosition = new Vector3(-widest / 2f, height / 2f - RoomType.Units(RoomButton.HeightDp) / 2f, 0f);
