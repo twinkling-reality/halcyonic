@@ -27,19 +27,18 @@ namespace Halcyonic.Client
 
     /// <summary>
     /// A picked project's screen and the bar beneath it (ADR 0040, rule 2). The screen shows a picture only from the computer's
-    /// own check screenshot, with its time; until one exists, a neutral two-letter mark. The project's name, the runtime and
-    /// the state stand on the screen's own title chip. The bar holds one primary action, Try it only after a passed check of
+    /// own check screenshot, with its time; until one exists, a neutral two-letter mark. The project's name and its state
+    /// stand on the screen's own title chip, never the agent app's name (AUDIT 2026-11-16T17:12Z; it stays on How It Runs). The bar holds one primary action, Try it only after a passed check of
     /// the computer's own and with a route to try it, and quiet doors to Steps, Why and How it went; it folds to a handle
     /// while nothing is wanted. Where it stands, and the way back to the gallery, are the placement's, never this model's.
     /// </summary>
     public sealed class KitScreenModel
     {
-        public KitScreenModel(string project, string runtime, string state, bool isVr, KitMoment? lastCheck, bool tryRoute,
+        public KitScreenModel(string project, string state, bool isVr, KitMoment? lastCheck, bool tryRoute,
             DateTimeOffset? pictureTakenAt, bool barOpen, bool working, DateTimeOffset? newestChangeAt)
         {
             NewestChangeAt = newestChangeAt;
             Project = project;
-            Runtime = runtime;
             State = state;
             IsVr = isVr;
             LastCheck = lastCheck;
@@ -51,9 +50,6 @@ namespace Halcyonic.Client
 
         /// <summary>The project's name, theirs.</summary>
         public string Project { get; }
-
-        /// <summary>The agent app's name.</summary>
-        public string Runtime { get; }
 
         /// <summary>The task's state in StateLanguage's words.</summary>
         public string State { get; }

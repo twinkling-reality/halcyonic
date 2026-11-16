@@ -26,8 +26,9 @@ public class CaptureNamesTests
 
         Assert.That(KitPresenter.AgentOf(runtime, execution), Is.EqualTo(CaptureNames.Agent), "the Agent chip");
         Assert.That(KitPresenter.AgentOf(runtime, execution, "qwen3.6:35b-a3b-nvfp4"), Is.EqualTo(CaptureNames.Model), "the Agent chip's model");
-        Assert.That(WorkspacePresentationState.ScreenOf(state.Projects.Values.Single(), state, barOpen: false).Runtime, Is.EqualTo(CaptureNames.Agent),
-            "the screen's title chip");
+        var screen = WorkspacePresentationState.ScreenOf(state.Projects.Values.Single(), state, barOpen: false);
+        Assert.That(typeof(KitScreenModel).GetProperties().Where(property => property.PropertyType == typeof(string)).Select(property => (string?)property.GetValue(screen)),
+            Has.None.Contains(CaptureNames.Agent), "the screen's title chip names no agent app, not even the generic one");
         Assert.That(EntryText.RuntimeName(runtime), Is.EqualTo(CaptureNames.Agent), "Create's agent apps");
         Assert.That(KitMomentWords.ThisMac, Is.EqualTo("This Computer"), "the Host chip");
         Assert.That(KitMomentWords.YourComputer, Is.EqualTo("Observed on This Computer"));

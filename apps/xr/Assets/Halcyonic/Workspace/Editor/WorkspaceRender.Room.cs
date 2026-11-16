@@ -63,7 +63,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
                 var plane = MenuPlane.Create(root.transform);
                 var passed = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, new DateTimeOffset(2026, 10, 29, 10, 38, 0, TimeSpan.Zero));
-                var model = new KitScreenModel("Tower Toss", "Codex", "Ready for a change", true, passed, true, null, barOpen: open, working: false, newestChangeAt: null);
+                var model = new KitScreenModel("Tower Toss", "Ready for a change", true, passed, true, null, barOpen: open, working: false, newestChangeAt: null);
                 plane.ShowScreen(model, eyes, bearing);
                 var screen = plane.RoomScreen!;
                 var bar = plane.RoomBar!;

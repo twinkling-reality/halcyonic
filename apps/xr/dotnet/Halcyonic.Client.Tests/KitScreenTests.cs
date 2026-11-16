@@ -17,7 +17,7 @@ public class KitScreenTests
 
     private static KitScreenModel Screen(bool isVr = true, KitMoment? check = null, bool tryRoute = true, DateTimeOffset? picture = null, bool barOpen = true,
         bool working = false, DateTimeOffset? newestChange = null) =>
-        new KitScreenModel("Tower Toss", "Codex", "Ready for a change", isVr, check, tryRoute, picture, barOpen, working, newestChange);
+        new KitScreenModel("Tower Toss", "Ready for a change", isVr, check, tryRoute, picture, barOpen, working, newestChange);
 
     [Test]
     public void NoPictureWithoutTheChecksScreenshot()

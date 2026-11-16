@@ -66,7 +66,7 @@ namespace Halcyonic.XR.UI
             screen.chip = KitCarrier.Create(go.transform, "Title chip", KitType.Order.Plate);
             screen.title = KitType.Create(screen.chip.transform, "Title", KitRole.Title, KitType.Text, KitType.Order.Words, room: true);
             screen.title.textWrappingMode = TextWrappingModes.NoWrap;
-            screen.facts = KitType.Create(screen.chip.transform, "Runtime and state", KitRole.Body, KitType.Secondary, KitType.Order.Words, room: true);
+            screen.facts = KitType.Create(screen.chip.transform, "State", KitRole.Body, KitType.Secondary, KitType.Order.Words, room: true);
             screen.facts.textWrappingMode = TextWrappingModes.NoWrap;
             return screen;
         }
@@ -79,25 +79,24 @@ namespace Halcyonic.XR.UI
             Size = new Vector2(width, height);
             face.Draw(Size, KitType.Units(RadiusDegrees), SpatialKit.IdentityField(model.IdentityHue));
 
-            // The title chip: the project's name, then the runtime and the state, on one opaque carrier.
+            // The title chip: the project's name, then its state, on one opaque carrier; never the agent app's name (AUDIT, 17:12Z).
             var pad = KitType.Units(ChipPadDegrees);
             var inset = KitType.Units(ChipInsetDegrees);
             KitType.Size(title, KitRole.Title);
             // Body, not Label: the chip stands toward the screen's corner, where Label would read under the floor (STYLE, Type).
             KitType.Size(facts, KitRole.Body);
             GlazeText.SetLiteral(title, model.Project);
-            // The runtime over its state, each a line of its own, never joined on a dot (the owner's ban, 2026-11-11; this chip stands
-            // on the room's project screen, which More's Show Project Screen opens). Each part made literal on its own, then joined.
-            GlazeText.SetLiteral(facts, model.Runtime);
-            facts.text += "\n" + LabelText.ForTextMeshPro(model.State);
+            // The state alone beside the name (this chip stands on the room's project screen, which More's Show Project Screen opens),
+            // so the chip is one line high, with the same pad.
+            GlazeText.SetLiteral(facts, model.State);
             var room = width - 2f * inset - 3f * pad;
             var (titleLines, titleWidth, titleHeight) = KitType.Lay(title, room * 0.6f, 1);
-            var (factLines, factWidth, factHeight) = KitType.Lay(facts, room - titleWidth, 2);
+            var (factLines, factWidth, factHeight) = KitType.Lay(facts, room - titleWidth, 1);
             var chipSize = new Vector2(titleWidth + factWidth + 3f * pad, Mathf.Max(titleHeight, factHeight) + 2f * pad * 0.6f);
             chip.Draw(chipSize, KitType.Units(SpatialKit.ControlRadiusDegrees), SpatialKit.Carrier);
             chip.transform.localPosition = new Vector3(-width / 2f + inset + chipSize.x / 2f, height / 2f - inset - chipSize.y / 2f, -0.0004f);
             title.transform.localPosition = new Vector3(-chipSize.x / 2f + pad, chipSize.y / 2f - pad * 0.6f, -0.0003f);
-            // Both stand from the chip's top: the title's line, and beside it the two lines of the runtime and its state.
+            // Both stand from the chip's top: the title's line, and beside it the state's.
             facts.transform.localPosition = new Vector3(-chipSize.x / 2f + 2f * pad + titleWidth, chipSize.y / 2f - pad * 0.6f, -0.0003f);
             // No picture source exists yet: the project's identity stands in its place, the mark above its name.
             KitType.Size(name, KitRole.Display);
@@ -129,8 +128,8 @@ namespace Halcyonic.XR.UI
                 mark.transform.localPosition = new Vector3(0f, markY, -0.0006f);
             }
 
-            // The facts stand as the runtime over its state: two lines, each whole (never one line joined on a dot).
-            ReadsWhole = nameWhole && titleLines == 1 && factLines == 2 && !title.isTextTruncated && !facts.isTextTruncated;
+            // The state stands on one line, whole.
+            ReadsWhole = nameWhole && titleLines == 1 && factLines == 1 && !title.isTextTruncated && !facts.isTextTruncated;
             gameObject.SetActive(true);
         }
     }

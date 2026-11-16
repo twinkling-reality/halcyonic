@@ -723,7 +723,6 @@ namespace Halcyonic.Client
                 : (DateTimeOffset?)null;
             return new KitScreenModel(
                 project.Name,
-                runtime,
                 stateWords,
                 isVr,
                 lastCheck,

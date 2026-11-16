@@ -28,11 +28,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var passed = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, ScreenAt);
             var model = state switch
             {
-                "20-screen-picked" => new KitScreenModel("Tower Toss", "Codex", "Ready for a change", true, passed, true, null, barOpen: true, working: false, newestChangeAt: null),
-                "20-screen-idle" => new KitScreenModel("Tower Toss", "Codex", "Ready for a change", true, passed, true, null, barOpen: false, working: false, newestChangeAt: null),
-                "20-screen-working" => new KitScreenModel("Tower Toss", "Codex", "Working", true,
+                "20-screen-picked" => new KitScreenModel("Tower Toss", "Ready for a change", true, passed, true, null, barOpen: true, working: false, newestChangeAt: null),
+                "20-screen-idle" => new KitScreenModel("Tower Toss", "Ready for a change", true, passed, true, null, barOpen: false, working: false, newestChangeAt: null),
+                "20-screen-working" => new KitScreenModel("Tower Toss", "Working", true,
                     KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, ScreenAt), true, null, barOpen: true, working: true, newestChangeAt: null),
-                _ => new KitScreenModel("Recipe Box", "Codex", "Round Ended", false, null, true, null, barOpen: true, working: false, newestChangeAt: null),
+                _ => new KitScreenModel("Recipe Box", "Round Ended", false, null, true, null, barOpen: true, working: false, newestChangeAt: null),
             };
             var caption = state switch
             {
