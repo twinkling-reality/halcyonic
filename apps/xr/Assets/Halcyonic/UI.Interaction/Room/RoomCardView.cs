@@ -1148,7 +1148,7 @@ namespace Halcyonic.XR.UI
                     // A slot that changes its fact in place takes a press across its whole well, as a row picked from does.
                     if (slot.Press is KitControl change) RowTarget(change, new Vector2(x + tile / 2f, -(top + rowWell / 2f)), new Vector2(tile, rowWell));
                     // The glyph's drawn edge on the value's left edge: its box moved left by where its ink starts.
-                    var glyphOf = slot.Kind == RoomKind.Level ? (RoomGlyph?)null : slot.Kind == RoomKind.Passed ? RoomGlyph.Check : slot.Kind == RoomKind.Failed ? RoomGlyph.Alert : GlyphOf(slot.Kind);
+                    var glyphOf = slot.Kind == RoomKind.Level ? (RoomGlyph?)null : slot.Kind == RoomKind.Passed ? RoomGlyph.Check : slot.Kind == RoomKind.Failed ? RoomGlyph.AlertRing : GlyphOf(slot.Kind);
                     var ink = glyphOf is RoomGlyph drawn ? RoomGlyphs.InkLeft(drawn) / RoomGlyphs.Grid * S(SlotGlyphDp) : 0f;
                     var mark = new Vector2(x + S(SlotPadDp) + S(SlotGlyphDp) / 2f - ink, -(top + S(SlotPadDp) + S(SlotGlyphBoxDp) / 2f));
                     if (slot.Kind == RoomKind.Level) mark.x = x + S(SlotPadDp) + S(SlotLevelDp) / 2f;
@@ -1163,7 +1163,7 @@ namespace Halcyonic.XR.UI
                             Glyph(RoomGlyph.Check, SlotGlyphDp, Rgb(Passed), mark, "passed");
                             break;
                         case RoomKind.Failed:
-                            Glyph(RoomGlyph.Alert, SlotGlyphDp, Rgb(Failed), mark, "failed");
+                            Glyph(RoomGlyph.AlertRing, SlotGlyphDp, Rgb(Failed), mark, "failed");
                             break;
                         case RoomKind.Added:
                         case RoomKind.Removed:

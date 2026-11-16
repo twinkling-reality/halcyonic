@@ -115,6 +115,12 @@ namespace Halcyonic.XR.UI
         /// <summary>Three dots in a row: More, a task's other routes, as the system's own panels keep theirs.</summary>
         More,
 
+        /// <summary>
+        /// An exclamation in a ring: a failed outcome standing bare in a card's slot, beside the passed check, at the check's optical
+        /// size and weight (AUDIT's 10:39Z: the bare upright stroke read as a typed character). On a filled tile the plain one stands.
+        /// </summary>
+        AlertRing,
+
         /// <summary>Chevron right: a route that goes to a page of its own (the More page's rows; AUDIT's 10:09Z: the down chevron read as opening below).</summary>
         Opens,
 
@@ -306,6 +312,7 @@ namespace Halcyonic.XR.UI
             // Its top and its foot, and the two sides crossing at the waist.
             [RoomGlyph.Wait] = new[] { Line(7.5f, 4.5f, 16.5f, 4.5f), Line(7.5f, 19.5f, 16.5f, 19.5f), Line(8.5f, 5f, 15.5f, 19f), Line(15.5f, 5f, 8.5f, 19f) },
             [RoomGlyph.Alert] = new[] { Line(12f, 5.5f, 12f, 13.5f), Line(12f, 18f, 12f, 18f) },
+            [RoomGlyph.AlertRing] = new[] { Circle(12f, 12f, 8.25f), Line(12f, 7.75f, 12f, 12.75f), Line(12f, 16f, 12f, 16f) },
             // The open jaw at the upper right, its handle down to the lower left.
             [RoomGlyph.Wrench] = new[] { Arc(15f, 9f, 4.25f, 135f, 130f), Line(12f, 12f, 5.5f, 18.5f) },
             [RoomGlyph.File] = new[] { Outline(6f, 3.5f, 18f, 20.5f, 2f), Line(9f, 9f, 15f, 9f), Line(9f, 13f, 15f, 13f) },
@@ -388,7 +395,7 @@ namespace Halcyonic.XR.UI
         /// <summary>The card's kind marks (the addendum's A17), which stand in tiles and before list rows and never on an action.</summary>
         public static readonly RoomGlyph[] Marks =
         {
-            RoomGlyph.Minus, RoomGlyph.Wave, RoomGlyph.Swap, RoomGlyph.Wait, RoomGlyph.Alert, RoomGlyph.Wrench, RoomGlyph.File, RoomGlyph.Folder,
+            RoomGlyph.Minus, RoomGlyph.Wave, RoomGlyph.Swap, RoomGlyph.Wait, RoomGlyph.Alert, RoomGlyph.AlertRing, RoomGlyph.Wrench, RoomGlyph.File, RoomGlyph.Folder,
             RoomGlyph.Computer, RoomGlyph.App, RoomGlyph.Flag, RoomGlyph.Pin, RoomGlyph.Meter, RoomGlyph.Timer, RoomGlyph.Calendar, RoomGlyph.Rewind, RoomGlyph.Chevron, RoomGlyph.Link, RoomGlyph.Wifi,
         };
 
