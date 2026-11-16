@@ -1033,6 +1033,30 @@ namespace Halcyonic.XR.Workspace.Editor
                         }
                         Fresh();
                         Moment("room " + key.ToLowerInvariant());
+                        if (place != MenuPlace.Settings) continue;
+                        // Both of Settings' pages that ship, opened as a person opens them from the hub and framed, then Back to the hub
+                        // (AUDIT2 14:02Z: the judges may open them; one name per thing, a way on in every refusal, no dot).
+                        foreach (var category in new[] { Comfort.Heading, SettingsText.YourSpace })
+                        {
+                            if (Drawn(SettingsHubColumn.OpenCategory, category) is not RoomButton open)
+                            {
+                                failures.Add("the Settings page draws no " + category + " to open");
+                                continue;
+                            }
+                            open.Press.SettleForRender();
+                            open.Press.PressForRender(986);
+                            presses++;
+                            Fresh();
+                            Moment("room settings " + category.ToLowerInvariant());
+                            if (Drawn(SettingsHubColumn.Back, null) is RoomButton back)
+                            {
+                                back.Press.SettleForRender();
+                                back.Press.PressForRender(986);
+                                presses++;
+                                Fresh();
+                            }
+                            else failures.Add("the Settings page " + category + " draws no way back to the hub");
+                        }
                     }
                     if (live == null) return;
                     // Talking opens Ask beside the menu (MenuDirector.TalkAnywhere); a batch Editor has no microphone, so the walk opens
