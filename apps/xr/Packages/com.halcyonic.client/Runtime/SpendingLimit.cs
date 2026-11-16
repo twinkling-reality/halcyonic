@@ -78,6 +78,9 @@ namespace Halcyonic.Client
         /// <summary>A start's amount as its choice says it: "$5", a first limit (the composer's "$5 More" is new money on top).</summary>
         public static string First(double usd) => More(usd).Substring(0, More(usd).Length - " More".Length);
 
+        /// <summary>The recap card's slot for a start's limit, its one value carrying the estimate's caveat: "Stops Near $5.00" (AUDIT2, 23:30Z).</summary>
+        public static string StopsNear(double usd) => "Stops Near " + Dollars(usd);
+
         /// <summary>The review's line under the limit, the control plane's own (start.ts), whole.</summary>
         public static string StartLine(double usd) => "It stops near " + Dollars(usd) + " by the app's own estimate; it can go over on its last step";
 

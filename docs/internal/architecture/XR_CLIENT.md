@@ -4921,7 +4921,7 @@ presence, contextual moment cards and the on-demand project screen:
   (CORE's NEVER_PROPOSED), so this press is the only way to give one. At a start (New Project's page of changes), where
   the chosen runtime offers a limit (`offers_spending_cap`, never a practice run), "Spending Limit" offers "No Limit",
   "$1", "$5" and "$10". No Limit stands chosen while nothing else is, as the true state and not a preset. The recap card
-  shows "Limit $5.00" or "No Limit" before Start. The review shows the amount with the control plane's own line under it
+  shows "Stops Near $5.00" or "No Limit" before Start. The review shows the amount with the control plane's own line under it
   ("It stops near $5.00 by the app's own estimate; it can go over on its last step"). The build refuses a limit that is not
   the one reviewed (`BuildSequence`), and `execution.start` carries exactly it. A typed amount reads only as plain dollars
   and cents up to the host's own most (`SpendingLimit.Parse`); no screen takes one yet.

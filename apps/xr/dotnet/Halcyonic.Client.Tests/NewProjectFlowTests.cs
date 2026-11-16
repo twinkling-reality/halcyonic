@@ -3574,7 +3574,8 @@ public class NewProjectFlowTests
         Assert.That(Pages(flow).SelectMany(frame => frame.Lines).Any(line => line.Action == NewProjectScreens.ChooseLimit), Is.True, "an amount not offered is not taken");
         Press(flow, NewProjectScreens.ChooseLimit, "5.00");
         Assert.That(Actions(flow), Is.Empty, "kept at once: back on the facts");
-        Assert.That(flow.Frame!.Card!.Slots.Select(slot => slot.Value.Text), Does.Contain("Limit $5.00"), "the recap card says the amount whole before Start");
+        Assert.That(flow.Frame!.Card!.Slots.Select(slot => slot.Value.Text), Does.Contain("Stops Near $5.00"),
+            "the recap card says the amount whole, with the estimate's caveat, before Start");
         Press(flow, NewProjectScreens.StartBuilding, null);
         var project = host.Sent.Single();
         ClientProjection Both(params CommandView[] commands)

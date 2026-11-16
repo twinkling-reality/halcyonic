@@ -765,10 +765,10 @@ namespace Halcyonic.Client
                     slots.Add(new RoomSlot(RoomKind.Agent, LineWords.Ours("Not Chosen")));
                 // The level, or Show Plan First where the start plans (SCREENS's PlanStart).
                 if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(PlanStart.LevelWords(draft))));
-                // The spending limit the start will carry, where the runtime offers one, before Start is pressed: the amount whole, or
-                // No Limit (SCREENS's spending-limit unit; AUDIT2, 23:24Z; AUDIT3's S2).
+                // The spending limit the start will carry, where the runtime offers one, before Start is pressed: the amount whole with
+                // the estimate's caveat in its own value, or No Limit (SCREENS's spending-limit unit; AUDIT2, 23:30Z; AUDIT3's S2).
                 if (SpendingLimit.Offered(runtime))
-                    slots.Add(new RoomSlot(RoomKind.None, LineWords.Ours(draft.StartsLimit is double limit ? "Limit " + SpendingLimit.Dollars(limit) : SpendingLimit.NoLimit)));
+                    slots.Add(new RoomSlot(RoomKind.None, LineWords.Ours(draft.StartsLimit is double limit ? SpendingLimit.StopsNear(limit) : SpendingLimit.NoLimit)));
             }
             // The first task under the name, unless it is the name word for word: the card says it once (FIELD's trace, 2026-11-16).
             var sameAsName = idea.Name.Trim().Length > 0 && string.Equals(idea.Name.Trim(), idea.FirstTask.Trim(), System.StringComparison.OrdinalIgnoreCase);
