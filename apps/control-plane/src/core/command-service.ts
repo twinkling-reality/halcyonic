@@ -240,6 +240,11 @@ export const NO_COPIES_HERE =
 /** Why a task is refused when making its own copy failed unexpectedly, as under load (AUDIT3, 2026-11-16). */
 export const COPY_FAILED = 'The copy of the folder failed, so this task did not start. Try again.';
 
+/** What a start refused for its copy says: why the folder cannot be copied, then that nothing started. */
+export function copyRefusedStart(why: string): string {
+  return `${why} So this task did not start, and the folder is as it was.`;
+}
+
 /** A thrown error's kind, for a log line: its class, code and errno, never its message, which may name a path. */
 function errorKind(error: unknown): { error_class?: string; error_code?: string; errno?: number } {
   if (!(error instanceof Error)) return { error_class: typeof error };
@@ -1588,6 +1593,15 @@ export class CommandService {
       return {
         ok: false,
         failure: { code: 'copy_failed', message: COPY_FAILED, effect: 'none' },
+      };
+    // A copy refused for what the folder is refuses the start too, in its words (ADR 0045, amended 2026-11-16; AUDIT3
+    // W6): a task its agent would be held to in a copy never runs in the person's folder instead, where its work would
+    // reach the project before anyone added it. Nothing is held against the task, so a start once the folder can be
+    // copied gets its copy. Only an agent that cannot be held in a copy at all still works in the folder.
+    if (!made.ok && made.code !== 'runtime_unconfined')
+      return {
+        ok: false,
+        failure: { code: made.code, message: copyRefusedStart(made.message), effect: 'none' },
       };
     if (made.ok) {
       this.#deps.recorder.record(

@@ -359,31 +359,24 @@ describe('several agents on one project (ADR 0045)', {
     finish();
   });
 
-  test('a folder that cannot be copied keeps one task at a time, and says why', async () => {
+  test('a folder that cannot be copied refuses its tasks in words, never running one in the folder (ADR 0045, amended 2026-11-16)', async () => {
     const { folder, controlPlane, task, start, of } = setup('linked', { linkedRepository: true });
     const first = task('Lanterns');
     const second = task('Paths');
-    // Both admitted while neither was refused a copy; the host asks the folder rule again.
     assert.equal(start(first, 'lanterns').disposition, 'accepted');
     assert.equal(start(second, 'paths').disposition, 'accepted');
-    await until(() => of('command.failed').length === 1, 'the second start to fail');
-    assert.equal(of('workstream.copy_refused').length, 2);
-    assert.equal(of('workstream.copy_refused', first)[0]?.payload.code, 'linked_repository');
-    const created = of('execution.created');
-    assert.equal(created.length, 1, 'one agent in the folder');
-    assert.equal(created[0]?.payload.directory, realpathSync(folder));
-    const failed = of('command.failed')[0];
-    assert.equal(failed?.payload.failure.code, 'folder_in_use');
-    assert.equal(failed?.payload.failure.effect, 'none');
-    assert.match(
-      failed?.payload.failure.message ?? '',
-      /Another task is (starting|running) in this folder/,
-    );
-    assert.equal(controlPlane.projection.workstream(first)?.copy?.state, 'refused');
-    // Once refused, a start of another task there is refused at once, in words.
-    const third = task('Ponds');
-    const refused = start(third, 'ponds');
-    assert.equal(refused.disposition, 'rejected');
+    await until(() => of('command.failed').length === 2, 'both starts to fail');
+    for (const failed of of('command.failed')) {
+      assert.equal(failed.payload.failure.code, 'linked_repository');
+      assert.equal(failed.payload.failure.effect, 'none');
+      assert.match(failed.payload.failure.message, /\.git is a file/);
+      assert.match(failed.payload.failure.message, /did not start, and the folder is as it was/);
+    }
+    // No agent anywhere, nothing held against either task, the person's folder untouched.
+    assert.equal(of('execution.created').length, 0, 'an agent was started');
+    assert.equal(of('workstream.copy_refused').length, 0, 'a fallback was recorded');
+    assert.equal(controlPlane.projection.workstream(first)?.copy ?? null, null);
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person\n');
   });
 
   test("undoing a task's turn puts its own copy back, never the project's folder", async () => {
