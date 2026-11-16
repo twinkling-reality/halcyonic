@@ -1290,7 +1290,7 @@ class UnreportedRuntime extends RestingRuntime {
     if (this.#stopped.has(id)) {
       throw new RuntimeActionError(
         'invalid_state',
-        'This task stopped at its spending limit. Give it a new limit to carry on.',
+        'This task waits for a new spending limit, so nothing was sent. Give it a new limit to carry on.',
       );
     }
     await super.sendInstruction(request);

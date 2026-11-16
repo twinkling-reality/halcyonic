@@ -690,13 +690,14 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   async sendInstruction(request: InstructionRequest): Promise<void> {
     const session = this.#session(request.execution);
     if (request.leave_plan === true) await session.leavePlan();
-    // A task stopped at its limit carries on only under a new one, in a new query that counts from it.
+    // A task stopped at its limit, or re-attached with nothing it could be handed, carries on only under a new one, in
+    // a new query that counts from it. Its words say only what this app knows: which of the two, the host says.
     if (request.spending_cap_usd !== undefined) {
       await session.carryOnUnder(this.#query, request.spending_cap_usd);
     } else if (session.stoppedAtCap) {
       throw new RuntimeActionError(
         'invalid_state',
-        'This task stopped at its spending limit. Give it a new limit to carry on.',
+        'This task waits for a new spending limit, so nothing was sent. Give it a new limit to carry on.',
       );
     }
     await session.instruct(request.text, request.pictures ?? []);
