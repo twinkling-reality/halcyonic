@@ -17,6 +17,11 @@ public final class PanelBridge {
 
     private static volatile boolean motionPermitted;
     /** Exact tiny app-private preference; never uses a credential or continuation file. */
+    /** The immersive app allows the native panel to be captured, in this process only (PanelCapture); false in a release build. */
+    public static boolean allowCapture(Activity activity) {
+        return PanelCapture.allow(activity);
+    }
+
     public static void setMotionStill(Activity activity, boolean still) {
         motionPermitted = false;
         if (activity == null) return;

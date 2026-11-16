@@ -124,6 +124,8 @@ namespace Halcyonic.XR.Workspace
             {
                 CaptureNames.UseGeneric(true);
                 Debug.Log("Halcyonic: capture names generic.");
+                // The film records the real native panel beside the room: it may be captured in this process (ADR 0029 amendment).
+                AndroidPanelBridge.AllowCapture();
             }
             if (ReadIntent() is not Preset preset) return;
             new GameObject("Halcyonic capture preset").AddComponent<CapturePresets>().preset = preset;

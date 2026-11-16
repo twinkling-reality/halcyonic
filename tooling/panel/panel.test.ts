@@ -60,9 +60,10 @@ const ANDROID_ONLY = [
   'AgentPanelActivity.java',
   'PanelVoiceCapture.java',
   'PanelAppLauncher.java',
+  'PanelCapture.java',
 ];
 const DEVELOPMENT = join(PANEL, 'development/com/halcyonic/panel');
-const DEVELOPMENT_ONLY = ['PanelPreviewActivity.java'];
+const DEVELOPMENT_ONLY = ['PanelCaptureDevelopment.java', 'PanelPreviewActivity.java'];
 const classes = mkdtempSync(join(tmpdir(), 'halcyonic-panel-'));
 const fixtures = JSON.parse(
   readFileSync(join(ROOT, 'fixtures/workspace/continuation.json'), 'utf8'),
@@ -974,9 +975,46 @@ describe('production native agent panel', () => {
       'true',
     );
   });
-  test('real panel never clears secure window flags and preview is a separate internal development Activity', () => {
+  test('the real panel stays secure unless a development build allowed capture in its own process', () => {
     const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
+    // F3: never cleared; every FLAG_SECURE site reads the one decision taken at creation.
     assert.doesNotMatch(activity, /clearFlags/);
+    const secure = activity.match(/addFlags\(WindowManager\.LayoutParams\.FLAG_SECURE\)/g) ?? [];
+    const guarded = activity.match(/!capturable\)\s*(next\.)?getWindow\(\)\.addFlags\(WindowManager\.LayoutParams\.FLAG_SECURE\)/g) ?? [];
+    assert.equal(secure.length, 4, 'the panel sets FLAG_SECURE at its four places');
+    assert.equal(guarded.length, secure.length, 'every FLAG_SECURE site is guarded by the creation-time decision alone');
+    assert.deepEqual(activity.match(/capturable = [^;]*;/g), ['capturable = PanelCapture.allowed(this);']);
+    assert.ok(
+      activity.indexOf('capturable = PanelCapture.allowed(this);') < activity.indexOf('if (syntheticSurface()) {'),
+      'decided in onCreate, before anything is shown',
+    );
+    // F2 and F5: the panel reads no extra of its own intent, so an intent carrying halcyonic.generic does nothing.
+    assert.doesNotMatch(activity, /getExtras\(|get[A-Za-z]*Extra\(|halcyonic\.generic/);
+    // F1 and F1a: allowed only when debuggable AND the development-only class is packaged (a build-time gate).
+    const capture = readFileSync(join(SOURCES, 'PanelCapture.java'), 'utf8');
+    assert.match(capture, /FLAG_DEBUGGABLE\) == 0\) return false/);
+    assert.match(capture, /Class\.forName\("com\.halcyonic\.panel\.PanelCaptureDevelopment"\)/);
+    assert.match(capture, /public static boolean allowed\(Activity activity\) \{\s*return allowedByApp && eligible\(activity\);/);
+    assert.match(capture, /if \(!eligible\(activity\)\) return false;\s*allowedByApp = true;/);
+    assert.ok(!existsSync(join(SOURCES, 'PanelCaptureDevelopment.java')), 'the build-time marker is never in the release sources');
+    assert.ok(existsSync(join(DEVELOPMENT, 'PanelCaptureDevelopment.java')), 'the marker lives with the development-only classes');
+    // F4: one content-free log line.
+    assert.deepEqual(capture.match(/Log\.[a-z]\([^;]*;/g), ['Log.i("Halcyonic", "panel capture: allowed by the launch extra");']);
+    // The only caller sets it in-process from the person's capture extra, in code compiled into development builds alone.
+    const presets = readFileSync(join(ROOT, 'apps/xr/Assets/Halcyonic/Workspace/CapturePresets.cs'), 'utf8');
+    assert.match(presets, /^#if DEVELOPMENT_BUILD \|\| UNITY_EDITOR/);
+    assert.match(presets, /if \(ReadExtra\("halcyonic\.generic"\)\)\s*\{[^}]*AndroidPanelBridge\.AllowCapture\(\);[^}]*\}/);
+    const callers = execFileSync('git', ['grep', '-l', 'AllowCapture()', '--', 'apps/xr/Assets'], { cwd: ROOT, encoding: 'utf8' })
+      .trim()
+      .split('\n')
+      .sort();
+    assert.deepEqual(callers, [
+      'apps/xr/Assets/Halcyonic/Workspace/AndroidPanelBridge.cs',
+      'apps/xr/Assets/Halcyonic/Workspace/CapturePresets.cs',
+    ]);
+  });
+  test('preview is a separate internal development Activity', () => {
+    const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
     const fixedInitialization = activity.slice(
       activity.indexOf('if (syntheticSurface()) {'),
       activity.indexOf('// The real panel'),

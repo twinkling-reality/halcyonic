@@ -168,6 +168,28 @@ Horizon virtual displays in the sources reviewed. It is not a claim that every s
 physical-camera capture is prevented.
 [Android FLAG_SECURE](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE).
 
+Checked on a Quest 3 (Horizon OS 209, development APK of 8d6e0944e, 2026-11-16 22:50Z): with the
+native panel open beside the immersive app, the headset's own capture records the whole frame
+black, not only the panel. So the film cannot show the real panel while it is secure.
+
+The capture extra's exception (ADR 0029 amendment, 2026-11-16). A panel created after the
+immersive app allowed capture in this process stays capturable: it sets no `FLAG_SECURE` at any
+of its four places. That decision is taken once in `onCreate` and never cleared afterwards
+(`PanelCapture.allowed`). Three conditions must all hold:
+- The build is debuggable (`FLAG_DEBUGGABLE`).
+- It is a development build: `PanelCaptureDevelopment` is packaged, from the development-only
+  folder that `PanelInBuilds` copies only into development builds. This is a build-time gate a
+  release APK never passes.
+- The person launched the immersive app with the capture extra `halcyonic.generic`. Only then does
+  `CapturePresets` (compiled into development builds alone) call `PanelBridge.allowCapture` in this
+  process.
+
+The panel still reads no extra from its own intent, so an intent naming the extra does nothing.
+The allowance dies with the process. A capture of a capturable panel shows what it shows a person:
+the agent's words, file names and the person's own drafts on screen. So recordings are made only on
+demonstration or proving projects with nothing private on screen.
+`tooling/panel/panel.test.ts` holds every condition, failing on the source before this change.
+
 At this original checkpoint, no capture, microphone, accessibility, overlay, all-package inventory
 or notification permission was added. Development builds now have the separately consented held
 dictation consumer described in [native-panel-voice.md](native-panel-voice.md); release builds exclude

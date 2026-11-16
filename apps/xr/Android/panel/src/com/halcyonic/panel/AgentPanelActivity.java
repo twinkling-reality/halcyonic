@@ -64,6 +64,8 @@ public class AgentPanelActivity extends Activity {
     private PanelToolResults.Lease resultLease;
     private String projectId, workId, executionId, draft = "", commandId;
     private boolean spoken, busy, preview, developmentAllowed;
+    /** Decided once, at creation: whether this panel may stay capturable (PanelCapture). Every FLAG_SECURE site reads it. */
+    private boolean capturable;
     private volatile boolean visible;
     private volatile int generation;
     private final ExecutorService speechWorker = Executors.newSingleThreadExecutor();
@@ -86,6 +88,7 @@ public class AgentPanelActivity extends Activity {
         compactPanel = state != null && state.getBoolean("halcyonic.panel.compact", false);
         authority.compact(compactPanel);
         developmentAllowed = (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        capturable = PanelCapture.allowed(this);
         if (syntheticSurface()) {
             preview = true;
             if (!developmentAllowed) { finish(); return; }
@@ -101,7 +104,7 @@ public class AgentPanelActivity extends Activity {
         }
         // The real panel's window remains secure for its entire lifetime, including while the
         // separate preview is in front. No formerly private compositor buffer becomes capturable.
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        if (!capturable) getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         files = new PanelFiles(this); shell();
     }
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -132,7 +135,7 @@ public class AgentPanelActivity extends Activity {
         cancelVoice(); super.onNewIntent(intent);
         if (syntheticSurface()) { setIntent(new Intent()); closeReview(); return; }
         // Exported OS launcher entry never accepts selection, credential or command extras.
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        if (!capturable) getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (!preview && !saveState()) { restore.paused(editorRecord(), false); connection.setText("Your unsaved draft must be preserved before changing this view."); return; }
         preview = false; setIntent(new Intent());
         closeReview(); loadSaved();
@@ -270,7 +273,7 @@ public class AgentPanelActivity extends Activity {
     }
     private void cancelNetwork() { if (connection != null) connection.stop(); cancelVoice(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
     private void switchConnection(boolean usb) {
-        try { getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); preview = false; files.useDevelopmentUsb(usb); closeReview(); identity = null; snapshot = null; projectId = workId = executionId = null; instruction = null; draft = ""; continuation = null; generation++; busy = false; if (transport != null) transport.cancel(); loadSaved(); poll(true); }
+        try { if (!capturable) getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); preview = false; files.useDevelopmentUsb(usb); closeReview(); identity = null; snapshot = null; projectId = workId = executionId = null; instruction = null; draft = ""; continuation = null; generation++; busy = false; if (transport != null) transport.cancel(); loadSaved(); poll(true); }
         catch (Exception error) { connection.setText("That connection could not be selected."); }
     }
     private void previewSynthetic() {
@@ -1100,7 +1103,7 @@ public class AgentPanelActivity extends Activity {
         LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34)); text(root, title, 25);
         button(root, "Back", this::closeReview, true);
         ScrollView scroll = new ScrollView(this); LinearLayout body = column(); scroll.addView(body); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        next.setContentView(root); if (!preview) next.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); next.show(); next.getWindow().setLayout(-1, -1);
+        next.setContentView(root); if (!preview && !capturable) next.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); next.show(); next.getWindow().setLayout(-1, -1);
         return body;
     }
     /** Entire body, exact scope, current modal and focus lifetime precede deliberate confirmation. */

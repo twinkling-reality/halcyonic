@@ -98,3 +98,24 @@ Only the chosen component is retained; display labels and the catalog remain tra
 discovery or launch leaves the existing Home route available. The installed build's correspondence
 to source edits is always unknown in this scope. Implementation and headset acceptance remain
 separate checks; see [native-project-output.md](../validation/native-project-output.md).
+
+## Amendment: the panel may be captured for filming, 2026-11-16
+
+The native panel's secure window blacks out the headset's whole capture (checked on a Quest 3,
+22:50Z). So the competition film could not show the real panel beside another app, which is the
+product's work-while-you-watch promise.
+
+Decision: the real panel stays secure in every build except one case. A panel created after the
+immersive app, in the same process, allowed capture leaves its window capturable. The app allows
+it only when the person launched a development build with the capture extra `halcyonic.generic`
+(the same extra that makes names generic for footage).
+
+The gate has three conditions:
+- debuggable;
+- a development-only class packaged at build time;
+- the in-process call.
+
+The panel itself never reads the extra and never clears the flag. A release APK cannot reach any
+of this. Recordings use demonstration or proving projects only. See
+[native-agent-panel.md](../validation/native-agent-panel.md) "Privacy and capture boundary".
+

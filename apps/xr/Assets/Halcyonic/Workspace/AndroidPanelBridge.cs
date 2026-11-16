@@ -21,6 +21,22 @@ namespace Halcyonic.XR.Workspace
 #endif
         }
 
+        /// <summary>
+        /// Lets the native panel be captured by the headset's own recording, in this process only (PanelCapture, ADR 0029): called
+        /// only where the person launched a development build with the capture extra. The panel refuses it in a release build.
+        /// </summary>
+        public static void AllowCapture()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using var bridge = new AndroidJavaClass("com.halcyonic.panel.PanelBridge");
+                bridge.CallStatic<bool>("allowCapture", UnityEngine.Android.AndroidApplication.currentActivity);
+            }
+            catch (Exception) { /* The panel stays secure. */ }
+#endif
+        }
+
         public enum WorkspaceViewsStatus { Available, Absent, Failed }
         public readonly struct WorkspaceViewsRead
         {
