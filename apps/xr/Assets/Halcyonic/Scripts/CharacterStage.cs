@@ -164,6 +164,15 @@ namespace Halcyonic.XR
                 }
             }
             foreach (var renderer in shelfMeasure.GetComponentsInChildren<Renderer>(true)) renderer.enabled = false;
+            // Under the redesign New Project stands at the shelf's first place and turns left until it is clear of the widest tag beside
+            // it (RoomNewProjectPlace.StandClear): the envelope reaches as far left as that place can, so the field search counts it
+            // (XR 2026-11-16T18:35Z).
+            if (RoomDesign.Enabled && places is int all && all > ShelfCapacity && NewProjectReach is System.Func<float> reachOf)
+            {
+                var characterX = (all - ShelfCapacity - (all - 1) * 0.5f) * PitchOf(all, width);
+                var distance = Vector3.Distance(viewer, pose.position + pose.rotation * Vector3.right * characterX);
+                minimum.x = Mathf.Min(minimum.x, characterX - distance * Mathf.Tan(reachOf()));
+            }
             // Round the measured envelope outward in production. This strengthens clearance and
             // contains matrix/bounds roundoff without relaxing the actual-render containment guard.
             minimum -= Vector3.one * 0.002f; maximum += Vector3.one * 0.002f;
@@ -185,6 +194,13 @@ namespace Halcyonic.XR
         /// size changed is fitted at its own rest, never the last size's (JUDGE's landing walk: two fit numbers at Larger).
         /// </summary>
         public static System.Func<float>? PlaneRestHalfDegrees { get; set; }
+
+        /// <summary>
+        /// How far left of the first character's middle New Project's place can reach once it stands clear of the widest tag a name draws, as an
+        /// angle from the eyes in radians (<c>RoomNewProjectPlace.ReachLeft</c>, published by the room's parts, which this assembly cannot see);
+        /// null until they publish, when the envelope holds the labels alone.
+        /// </summary>
+        public static System.Func<float>? NewProjectReach { get; set; }
 
         private static (int Places, int Version, float RestHalf, float Field, float Width)? fitted;
 

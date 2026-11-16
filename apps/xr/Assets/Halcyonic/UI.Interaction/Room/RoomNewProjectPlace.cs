@@ -47,6 +47,38 @@ namespace Halcyonic.XR.UI
         /// <summary>How far New Project's drawn place stands from a character's drawn tag beside it, at the least, as the eyes see it, in degrees.</summary>
         public const float ClearOfTagDegrees = 1f;
 
+        private static RoomButton? reachMeasure;
+        private static int reachAt = -1;
+        private static float reach;
+
+        /// <summary>
+        /// The angle from the eyes, in radians, by which New Project's far edge can stand left of the first character's middle once clear of
+        /// the widest tag a name draws: half that tag (its words at their bound, its pads), <see cref="ClearOfTagDegrees"/>, and New Project's
+        /// own width. The shelf's envelope counts it (<see cref="CharacterStage.NewProjectReach"/>), so its field search holds the turned place.
+        /// </summary>
+        public static float ReachLeft()
+        {
+            if (reachMeasure == null || reachAt != GlazeText.Version)
+            {
+                if (reachMeasure == null)
+                {
+                    var model = new GameObject("New Project reach measurement") { hideFlags = HideFlags.HideAndDontSave };
+                    model.SetActive(false);
+                    reachMeasure = RoomButton.Create(model.transform, "New Project reach");
+                }
+                reachAt = GlazeText.Version;
+                reach = (RoomType.Scaled(RoomTag.NameWordsMostDp) + 2f * RoomType.Scaled(RoomTag.PadXDp)) / 2f + ClearOfTagDegrees * Mathf.Deg2Rad
+                    + reachMeasure.Measure(Words, 0f).x;
+            }
+            return reach;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+#endif
+        private static void PublishReach() => CharacterStage.NewProjectReach = ReachLeft;
+
         private static readonly List<RoomNameTag> NameTags = new();
         private static readonly List<TMPro.TMP_Text> Texts = new();
         private static readonly List<RoomSurface> Plates = new();
