@@ -460,8 +460,8 @@ namespace Halcyonic.Client
         /// <summary>A photo or video the computer no longer keeps (the host's own sentence).</summary>
         public const string MediaNotKept = "That photo or video is no longer kept on this computer. Add it again.";
 
-        /// <summary>A project at its most photos and videos (50, or 240 MB): AUDIT2 to line the way on.</summary>
-        public const string MediaFull = "This project keeps no more photos or videos. Add it to another project.";
+        /// <summary>A project at its most photos and videos (50, or 240 MB), AUDIT2's words: no remove exists, so the way on is another project.</summary>
+        public const string MediaFull = "This project already holds as many photos and videos as it can keep. Add it to another project.";
 
         /// <summary>The same photo or video already in the project (the host's own first sentence).</summary>
         public const string MediaPresent = "That photo or video is already in this project. Nothing was added.";

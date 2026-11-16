@@ -27,8 +27,8 @@ no project or execution is created until the full existing review and explicit c
 
 A photo or video the Mac's page adds (ADR 0066) is refused in sentences, never the dot cadence: "That photo or video
 is no longer kept on this computer. Add it again." and "That photo or video is already in this project. Nothing was
-added." (the host's own); a project at its most, "This project keeps no more photos or videos. Add it to another
-project." (`WorkspaceText`, AUDIT2 to line). On the task, each is its file's own name, as the person's, with the
+added." (the host's own); a project at its most, "This project already holds as many photos and videos as it can
+keep. Add it to another project." (`WorkspaceText`, AUDIT2's words). On the task, each is its file's own name, as the person's, with the
 still the host made of it where it made one (`TaskMedia`).
 
 ## The voice
