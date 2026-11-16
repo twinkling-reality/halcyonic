@@ -204,6 +204,9 @@ namespace Halcyonic.XR
 
         private static (int Places, int Version, float RestHalf, float Field, float Width)? fitted;
 
+        /// <summary>The narrowest a fitted shelf is laid, in metres: its places' margin (<see cref="PitchOf"/>) and nothing between them.</summary>
+        private const float MinimumFittedWidth = 0.1f;
+
         /// <summary>
         /// The width every shelf of <paramref name="places"/> takes (the lead's 2026-11-14T02:21Z ruling 1 (a): the shelf fits the room, one
         /// width for every shelf): its natural width, or narrower where its envelope (the shelf and its ends' widest labels, as
@@ -224,9 +227,13 @@ namespace Halcyonic.XR
             var fit = side - ViewField.EdgeMarginDegrees - rest - WorkspacePlacement.ClearanceDegrees;
             var most = 2f * AgentShelfSearch.MinimumDistance * Mathf.Tan(Mathf.Max(1f, fit) * Mathf.Deg2Rad / 2f);
             var width = natural;
-            if (Envelope(natural, places) > most)
+            // Where even the narrowest shelf's envelope would not fit, narrowing cannot help: with one character a page the envelope's
+            // left end is New Project's turn clear of the tag, which no width moves, and a shelf narrowed to its floor only crowds its places
+            // onto each other (b208's parts, XR 2026-11-16T21:21Z). It keeps its natural width, and the search places it as it can.
+            var narrows = Envelope(natural, places) > most && Envelope(MinimumFittedWidth, places) <= most;
+            if (narrows)
             {
-                float low = 0.1f, high = natural;
+                float low = MinimumFittedWidth, high = natural;
                 for (var step = 0; step < 14; step++)
                 {
                     var middle = (low + high) / 2f;
@@ -236,7 +243,8 @@ namespace Halcyonic.XR
             }
             fitted = (places, GlazeText.Version, rest, side, width);
             Debug.Log("Halcyonic: the shelf fits " + fit.ToString("0.0") + " degrees wide beside the plane at rest at text size " + GlazeText.Scale.ToString("0.##")
-                + ": laid " + width.ToString("0.000") + " m wide (natural " + natural.ToString("0.000") + "), its places " + PitchOf(places, width).ToString("0.000") + " m apart.");
+                + ": laid " + width.ToString("0.000") + " m wide (natural " + natural.ToString("0.000") + "), its places " + PitchOf(places, width).ToString("0.000") + " m apart"
+                + (!narrows && Envelope(natural, places) > most ? "; no narrower shelf fits, so the natural width stands." : "."));
             return width;
         }
 
