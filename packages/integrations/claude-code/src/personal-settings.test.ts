@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
@@ -309,6 +318,31 @@ describe("Seorak's older hook form (before its shell-safe paths), recognised as 
       });
       assert.equal(kept[event]?.[0]?.hooks[0]?.command, old(file), event);
     }
+  });
+
+  test('a node planted first on PATH is never what the carried hook runs (AUDIT3)', () => {
+    const planted = join(root, 'planted');
+    mkdirSync(planted, { recursive: true });
+    const marker = join(root, 'planted-ran');
+    writeFileSync(join(planted, 'node'), `#!/bin/sh\ntouch '${marker}'\n`);
+    chmodSync(join(planted, 'node'), 0o755);
+    const carried = seorakOlderAsMarked(
+      `node ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      'UserPromptSubmit',
+    );
+    assert.ok(carried?.startsWith(`'${process.execPath}' `), "the plane's own node, quoted, first");
+    // Claude Code runs a hook's command through the shell; with the planted node first on PATH, it still runs the real one.
+    const run = spawnSync('/bin/sh', ['-c', carried as string], {
+      env: { PATH: `${planted}:/usr/bin:/bin` },
+      encoding: 'utf8',
+    });
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(existsSync(marker), false, 'the planted node never ran');
+    // The bare form as written would have run it: the planted node is what the probe would catch.
+    spawnSync('/bin/sh', ['-c', `node ${join(install, 'bin', 'hook-user-prompt.mjs')}`], {
+      env: { PATH: `${planted}:/usr/bin:/bin` },
+    });
+    assert.equal(existsSync(marker), true, 'the probe sees a planted node when one runs');
   });
 
   test('any change reads false: another script, a relative path, a word more, another package, the wrong event, no node', () => {
