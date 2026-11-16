@@ -73,6 +73,10 @@ main {
   object-fit: contain;
   user-select: none;
 }
+/* Before the first frame there is no picture to show, so no broken-image mark either. */
+#screen:not([src]) {
+  visibility: hidden;
+}
 #start {
   position: absolute;
   inset: 50% auto auto 50%;
