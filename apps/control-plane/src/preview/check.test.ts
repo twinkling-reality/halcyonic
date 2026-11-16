@@ -316,16 +316,11 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     const outside = await check(t, boxAt(1180, 80));
     const edges = (result: { page: PageFindings | null }) => result.page?.edges.at_3s ?? 0;
     const said = `pristine ${edges(pristine)}, inside ${edges(inside)}, outside ${edges(outside)}`;
-    // Inside the region: left out. 3 s by the wall clock lands at slightly different game times in each load, so the
-    // frame's own noise reaches a few hundred edges; the bound sits between that noise and the box's counted size in
-    // this very run (AUDIT3, 2026-11-16): a box the region did not leave out adds its whole count, about 1700.
-    const leftOutBound = Math.max(3 * DRAWN_EDGES, (edges(outside) - edges(pristine)) / 2);
-    assert.ok(
-      edges(inside) - edges(pristine) <= leftOutBound,
-      `${said}; inside adds ${edges(inside) - edges(pristine)} against max(${3 * DRAWN_EDGES}, ${(edges(outside) - edges(pristine)) / 2})`,
-    );
-    // The same box outside it: counted, against the box inside and against the pristine page.
-    assert.ok(edges(outside) > edges(inside) + DRAWN_EDGES, said);
+    // Inside the region: left out. The two loads are like for like (the same box, mirrored), so the only difference is
+    // whether CARD_REGION leaves the box out (AUDIT, AUDIT3, 2026-11-16): the box left out adds only the frame's own
+    // wall-clock noise (a few hundred edges at most), the box counted adds its whole count, about 1700 here.
+    assert.ok(edges(inside) < edges(outside) - 3 * DRAWN_EDGES, said);
+    // And counted against an empty frame.
     assert.ok(edges(outside) > edges(pristine) + DRAWN_EDGES, said);
   });
 
