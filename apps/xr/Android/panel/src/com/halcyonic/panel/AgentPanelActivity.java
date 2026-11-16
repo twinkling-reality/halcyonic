@@ -276,6 +276,7 @@ public class AgentPanelActivity extends Activity {
         who.addView(PanelHud.mark(this, PanelJson.text(summary.get("mark")), density), new LinearLayout.LayoutParams(dp(76), dp(76)));
         LinearLayout words = new LinearLayout(this); words.setOrientation(LinearLayout.VERTICAL); words.setPadding(dp(16), 0, 0, 0);
         TextView title = new TextView(this); title.setText(PanelJson.text(summary.get("task"))); title.setTextSize(22); title.setTextColor(PanelHud.TEXT);
+        title.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
         words.addView(title, new LinearLayout.LayoutParams(-1, -2));
         Object need = summary.get("need");
         if (needs && need != null) {

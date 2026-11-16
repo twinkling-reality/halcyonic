@@ -59,7 +59,9 @@ final class PanelHud {
 
     /** A press on the card: the one orange where it is the main action, otherwise a quiet outline. */
     static void action(TextView button, String label, boolean main, float density) {
-        button.setText(label); button.setAllCaps(true); button.setLetterSpacing(0.06f); button.setTextSize(17); button.setGravity(Gravity.CENTER);
+        // Title Case, the headset's actions (AUDIT's mend 1, 23:48Z): spaced capitals are the state word's alone.
+        button.setText(label); button.setAllCaps(false); button.setTextSize(17); button.setGravity(Gravity.CENTER);
+        button.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
         button.setTextColor(main ? TEXT : SECOND); button.setSingleLine(true); button.setContentDescription(label);
         button.setMinHeight(px(44, density)); button.setMinimumHeight(px(44, density));
         button.setPadding(px(16, density), 0, px(16, density), 0);
@@ -84,11 +86,11 @@ final class PanelHud {
             else card.setStroke(Math.max(1, px(1, density)), Color.argb(20, 255, 255, 255));
             Drawable background = card;
             if (needs) {
-                // One soft glow, as two faint rings outside the hairline: never animated.
+                // One faint glow, as two rings no wider than the ticks (AUDIT's mend 2): never animated.
                 GradientDrawable far = new GradientDrawable(); far.setCornerRadius(px(20, density)); far.setColor(Color.TRANSPARENT);
-                far.setStroke(px(4, density), Color.argb(26, 237, 120, 51));
+                far.setStroke(px(4, density), Color.argb(14, 237, 120, 51));
                 GradientDrawable near = new GradientDrawable(); near.setCornerRadius(px(17, density)); near.setColor(Color.TRANSPARENT);
-                near.setStroke(px(3, density), Color.argb(46, 237, 120, 51));
+                near.setStroke(px(3, density), Color.argb(28, 237, 120, 51));
                 LayerDrawable layers = new LayerDrawable(new Drawable[] {far, near, card});
                 layers.setLayerInset(0, inset - px(6, density), inset - px(6, density), inset - px(6, density), inset - px(6, density));
                 layers.setLayerInset(1, inset - px(3, density), inset - px(3, density), inset - px(3, density), inset - px(3, density));
