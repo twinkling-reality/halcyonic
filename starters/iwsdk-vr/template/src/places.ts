@@ -224,10 +224,16 @@ export function openLand(
     for (let s = 1; s <= 18 && shade < 1; s++) {
       const d = s * 0.7 + s * s * 0.16;
       const over = height(x + sun.x * d, z + sun.z * d) - (y + sun.y * d);
-      if (over > 0) shade = Math.max(shade, Math.min(1, over / 0.3));
+      if (over > 0) shade = Math.max(shade, Math.min(1, over / 0.7));
     }
-    const k = Math.min(1, Math.max(0, (facing + 0.06) / 0.26)) * (1 - 0.9 * shade);
+    // A soft turn from light to shade across each slope, never a line drawn across the sand.
+    const k = Math.min(1, Math.max(0, (facing + 0.12) / 0.5)) * (1 - 0.85 * shade);
     into.copy(shadow).lerp(lit, k * k * (3 - 2 * k));
+    // A warm rim along a crest turned toward the sun: where the ground bends over (its heights round it lower than
+    // it), lit, and facing the sun's side.
+    const bend = (4 * y - height(x + 1, z) - height(x - 1, z) - height(x, z + 1) - height(x, z - 1)) / 4;
+    const rim = Math.min(1, Math.max(0, bend * 3)) * Math.min(1, facing / 0.25) * (1 - shade);
+    into.lerp(sunColour, rim * 0.35);
     // Only far off does the ground go into the haze, so far crests still stand against the sky.
     return into.lerp(horizon, Math.min(1, Math.max(0, (r - 30) / 80)) ** 1.6 * 0.92);
   };
@@ -257,18 +263,45 @@ export function openLand(
   // pixel: the ring of vertices alone smears light and shadow into streaks round the person.
   const span = 36;
   const cells = 256;
-  const nearLight = new Uint8Array(cells * cells * 4);
-  const srgb = { r: 0, g: 0, b: 0 };
+  let light = new Float32Array(cells * cells * 3);
   for (let row = 0; row < cells; row++) {
     for (let col = 0; col < cells; col++) {
       sandAt(((col + 0.5) / cells) * 2 * span - span, ((row + 0.5) / cells) * 2 * span - span, c);
-      c.getRGB(srgb, SRGBColorSpace);
-      const o = (row * cells + col) * 4;
-      nearLight[o] = Math.round(Math.min(1, srgb.r) * 255);
-      nearLight[o + 1] = Math.round(Math.min(1, srgb.g) * 255);
-      nearLight[o + 2] = Math.round(Math.min(1, srgb.b) * 255);
-      nearLight[o + 3] = 255;
+      light.set([c.r, c.g, c.b], (row * cells + col) * 3);
     }
+  }
+  // Softened twice over its neighbours (about half a metre), so no edge of light or shadow steps from cell to cell.
+  for (let pass = 0; pass < 2; pass++) {
+    const soft = new Float32Array(light.length);
+    for (let row = 0; row < cells; row++) {
+      for (let col = 0; col < cells; col++) {
+        for (let k = 0; k < 3; k++) {
+          let sum = 0;
+          let n = 0;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const rr = row + dr;
+              const cc = col + dc;
+              if (rr < 0 || rr >= cells || cc < 0 || cc >= cells) continue;
+              sum += light[(rr * cells + cc) * 3 + k] as number;
+              n++;
+            }
+          }
+          soft[(row * cells + col) * 3 + k] = sum / n;
+        }
+      }
+    }
+    light = soft;
+  }
+  const nearLight = new Uint8Array(cells * cells * 4);
+  const srgb = { r: 0, g: 0, b: 0 };
+  for (let i = 0; i < cells * cells; i++) {
+    c.setRGB(light[i * 3] as number, light[i * 3 + 1] as number, light[i * 3 + 2] as number);
+    c.getRGB(srgb, SRGBColorSpace);
+    nearLight[i * 4] = Math.round(Math.min(1, srgb.r) * 255);
+    nearLight[i * 4 + 1] = Math.round(Math.min(1, srgb.g) * 255);
+    nearLight[i * 4 + 2] = Math.round(Math.min(1, srgb.b) * 255);
+    nearLight[i * 4 + 3] = 255;
   }
   const nearPicture = new DataTexture(nearLight, cells, cells, RGBAFormat);
   nearPicture.colorSpace = SRGBColorSpace;
