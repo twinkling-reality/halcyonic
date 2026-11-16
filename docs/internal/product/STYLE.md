@@ -225,7 +225,8 @@ glass passes is hidden, so no words stand on the room; 80 ms into the shrink the
 cue, through a player its owner gives; at 1600 ms the card retires as any moment does. A retirement or an arrival begun
 before then lands the receipt at once and plays from it, never the question back; from the answer on, no answer on the card
 takes a press until the card is shown again. The receipt is the card's own
-shrunk form: its eyebrow, then "Sent · Awaiting Start" or "Sent · Declined" in Body, "Sent" in n7 and the rest n6. It
+shrunk form: its eyebrow, then "Sent" and under it, on its own line, "Waiting for the agent to start." or "Declined", in Body,
+never joined on a dot, "Sent" in n7 and the rest n6. It
 never says "Started": an accepted command is not a start. Kept still, the parts fade out over 120 ms at the card's full
 height, the receipt's size lands, and the receipt fades in over 120 ms.
 

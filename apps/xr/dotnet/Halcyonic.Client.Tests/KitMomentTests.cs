@@ -21,7 +21,9 @@ public class KitMomentTests
         var sent = KitMoment.Sent(Codex);
         Assert.That(sent.Provenance, Is.EqualTo(KitProvenance.Observed));
         Assert.That(sent.Source, Is.EqualTo("Observed on This Mac"), "your computer sent it; the agent app has seen nothing yet");
-        Assert.That(Text(sent.Headline), Is.EqualTo("Sent · Codex · Awaiting Start"));
+        Assert.That(Text(sent.Headline), Is.EqualTo("Sent"), "no joining dot (AUDIT's MUST, 08:53Z)");
+        Assert.That(sent.Meta.Select(segment => segment.ToString()), Is.EqualTo(new[] { "Waiting for the agent to start." }),
+            "what waits, the agent by its role, never the runtime's own name, and one part so nothing is joined");
         Assert.That(sent.Source + Text(sent.Headline), Does.Not.Contain("Started").And.Not.Contain("Starting"), "accepted is not started");
     }
 
@@ -216,7 +218,7 @@ public class KitMomentTests
         string? Title(KitMoment moment) => moment.Title?.ToString();
         string[] Meta(KitMoment moment) => moment.Meta.Select(segment => segment.ToString()).ToArray();
         var sent = KitMoment.Sent(Codex);
-        Assert.That((Title(sent), Meta(sent), sent.Well), Is.EqualTo(("Sent", new[] { "[Codex]", "Awaiting Start" }, (string?)null)));
+        Assert.That((Title(sent), Meta(sent), sent.Well), Is.EqualTo(("Sent", new[] { "Waiting for the agent to start." }, (string?)null)));
         var edit = KitMoment.ReportedEdit(Codex, KitFileChange.Changed, "src/towers.ts", At);
         Assert.That((Title(edit), Meta(edit)), Is.EqualTo(("Edit Reported", new[] { "[src/towers.ts]" })));
         var seen = KitMoment.ObservedChange(KitFileChange.Changed, "src/towers.ts", 41, 54, At);

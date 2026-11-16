@@ -219,11 +219,15 @@ namespace Halcyonic.Client
 
         private static readonly IReadOnlyList<KitMomentAction> NoActions = Array.Empty<KitMomentAction>();
 
-        /// <summary>The person's request went to <paramref name="runtime"/>: accepted is not started, so it waits.</summary>
+        /// <summary>
+        /// The person's request went to <paramref name="runtime"/>: accepted is not started, so it waits. Its parts apart, never joined on
+        /// a dot (the owner, 2026-11-11; AUDIT's MUST, 08:53Z): the title "Sent" and under it "Waiting for the agent to start.", the agent
+        /// by its role, never the runtime's own name on the moment (AUDIT2's 08:54Z, the lead's 02:01Z Q3).
+        /// </summary>
         public static KitMoment Sent(string runtime) => new KitMoment(KitMomentKind.Sent, KitProvenance.Observed,
-            KitMomentWords.YourComputer, LineWords.Ours(KitMomentWords.SentTitle + KitMomentWords.Dot) + LineWords.TheirName(runtime) + LineWords.Ours(KitMomentWords.Dot + KitMomentWords.WaitingToStart),
+            KitMomentWords.YourComputer, LineWords.Ours(KitMomentWords.SentTitle),
             null, NoLines, KitMomentTone.Neutral, NoActions, null)
-            .Parts(LineWords.Ours(KitMomentWords.SentTitle), new[] { LineWords.TheirName(runtime), LineWords.Ours(KitMomentWords.WaitingToStart) });
+            .Parts(LineWords.Ours(KitMomentWords.SentTitle), new[] { LineWords.Ours(KitMomentWords.WaitingToStart) });
 
         /// <summary>A file <paramref name="runtime"/> says it changed: its report, in the past tense, not seen yet.</summary>
         public static KitMoment ReportedEdit(string runtime, KitFileChange change, string file, DateTimeOffset? at) =>
@@ -427,15 +431,15 @@ namespace Halcyonic.Client
 
         public const string SentTitle = "Sent";
 
-        /// <summary>Accepted is not started (T1).</summary>
-        public const string WaitingToStart = "Awaiting Start";
+        /// <summary>Accepted is not started (T1): what waits is the agent, in the one sentence the bar says too (RoomBar.SentWaits).</summary>
+        public const string WaitingToStart = RoomBar.SentWaits;
 
         /// <summary>The person's decline went out; never that the agent took it (XR, 2026-10-31: "Sent" leads, T1).</summary>
         public const string Declined = "Declined";
 
         /// <summary>
-        /// An answered card's receipt (the handoff's Receipt): "Sent · Awaiting Start" or "Sent · Declined", "Sent" leading in the
-        /// primary text and the rest secondary. Never "Started": an accepted command is not a start (T1). <paramref name="ran"/> is
+        /// An answered card's receipt (the handoff's Receipt): "Sent" over "Waiting for the agent to start." or over "Declined", each its
+        /// own line, never joined on a dot, "Sent" in the primary text and the rest secondary. Never "Started": an accepted command is not a start (T1). <paramref name="ran"/> is
         /// the person's choice, Run or Decline, never the control plane's answer to it.
         /// </summary>
         public static (string Lead, string Then) Receipt(bool ran) => (SentTitle, ran ? WaitingToStart : Declined);

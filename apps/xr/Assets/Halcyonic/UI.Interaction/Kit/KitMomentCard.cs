@@ -552,9 +552,9 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Lays the receipt an answer leaves (the handoff's Receipt): "Sent · Awaiting Start" or "Sent · Declined" under the eyebrow,
-        /// in Body, "Sent" in the primary text and " · " and the rest secondary, the rest at the pen's end of "Sent" so the dot
-        /// stands a space from each side (KitFlow); never "Started" (T1). Its opacity is the choreography's.
+        /// Lays the receipt an answer leaves (the handoff's Receipt) under the eyebrow, in Body: "Sent" in the primary text and under it,
+        /// on its own line, "Waiting for the agent to start." or "Declined", secondary, never after a joining dot; never "Started" (T1).
+        /// Its opacity is the choreography's.
         /// </summary>
         public void ShowReceipt(bool ran)
         {
@@ -566,15 +566,15 @@ namespace Halcyonic.XR.UI
             KitType.Size(receiptLead, KitRole.Body);
             GlazeText.SetLiteral(receiptLead, lead);
             var (_, _, tall) = KitType.Lay(receiptLead, Size.x - 2f * pad, 1);
-            var leadWidth = KitFlow.Advance(receiptLead);
             receiptLead.transform.localPosition = new Vector3(left, top, -0.0005f);
+            // The rest on its own line under "Sent", never after a joining dot (the owner, 2026-11-11; AUDIT's MUST, 08:53Z).
             KitType.Size(receiptThen, KitRole.Body);
-            GlazeRuns.Of(receiptThen).Set(LineWords.Ours(KitMomentWords.Dot + then));
-            KitType.Lay(receiptThen, Size.x - 2f * pad - leadWidth, 1);
-            receiptThen.transform.localPosition = new Vector3(left + leadWidth, top, -0.0005f);
+            GlazeRuns.Of(receiptThen).Set(LineWords.Ours(then));
+            var (_, _, thenTall) = KitType.Lay(receiptThen, Size.x - 2f * pad, 2);
+            receiptThen.transform.localPosition = new Vector3(left, top - tall, -0.0005f);
             receiptLead.gameObject.SetActive(true);
             receiptThen.gameObject.SetActive(true);
-            ReceiptHeight = -(top - tall - pad);
+            ReceiptHeight = -(top - tall - thenTall - pad);
         }
 
         /// <summary>Draws the glass <paramref name="height"/> tall from the card's top, lit in the moment's tone or not.</summary>

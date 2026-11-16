@@ -163,7 +163,7 @@ public class KitMomentTimelineTests
     [Test]
     public void TheReceiptSaysSentNeverStarted()
     {
-        Assert.That((KitMomentWords.Receipt(true), KitMomentWords.Receipt(false)), Is.EqualTo((("Sent", "Awaiting Start"), ("Sent", "Declined"))));
+        Assert.That((KitMomentWords.Receipt(true), KitMomentWords.Receipt(false)), Is.EqualTo((("Sent", "Waiting for the agent to start."), ("Sent", "Declined"))));
         foreach (var (lead, then) in new[] { KitMomentWords.Receipt(true), KitMomentWords.Receipt(false) })
             Assert.That((lead + then).Contains("Started", StringComparison.OrdinalIgnoreCase), Is.False);
     }
