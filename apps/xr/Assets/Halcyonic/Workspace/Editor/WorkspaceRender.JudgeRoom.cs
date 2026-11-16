@@ -1798,6 +1798,9 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 if (filter.GetComponent<Renderer>() is not Renderer renderer || !renderer.enabled || filter.sharedMesh == null) continue;
                 if (OwnerOf(filter.transform)?.StartsWith("Room", StringComparison.Ordinal) != true) continue;
+                // A character's own name tag stands with the character on its shelf, which may stand aside of the field by design:
+                // the stage's own checks hold it (StageClear, OutsideItsShelf), not the workspace's field.
+                if (filter.GetComponentInParent<CharacterView>() != null) continue;
                 points.AddRange(filter.sharedMesh.vertices.Select(vertex => filter.transform.TransformPoint(vertex)));
             }
             if (points.Count > 0 && ViewField.Current is ViewField field)
@@ -1875,10 +1878,20 @@ namespace Halcyonic.XR.Workspace.Editor
             return off;
         }
 
+        /// <summary>How far in front of its plate a label may stand: the kit lifts words toward the eye by design (a name tag's 1.0 mm);
+        /// the words bent off their flat plates stood 19 mm (2026-11-16, before 86e3d194f).</summary>
+        private const float LabelOffPlateMetres = 0.002f;
+
+        /// <summary>How deep a plate found only by lining up with a label may stand from it and still be its own: 5 cm, far beyond any
+        /// lift, far short of the room.</summary>
+        private const float PlateReachMetres = 0.05f;
+
         /// <summary>
-        /// Each redesign label standing on a plate (a RoomSurface whose glass holds the label's centre across) whose drawn depth along
-        /// the plate's facing is more than 1 mm from the glass: the words floating off a flat plate, as a curve bending the words and
-        /// not the plate leaves them (2 cm on 2026-11-16, before 86e3d194f).
+        /// Each redesign label standing on a plate whose drawn depth along the plate's facing is more than 2 mm from the glass: the words
+        /// floating off a flat plate, as a curve bending the words and not the plate leaves them (2 cm on 2026-11-16, before 86e3d194f).
+        /// A label's plate is its own first, a RoomSurface in its own part (its parent's, or up to three levels up) whose glass holds the
+        /// label's centre across, held at 2 mm however far it floats; only a label with none is matched to a plate it lines up with
+        /// within 5 cm in depth (AUDIT 09:29Z).
         /// </summary>
         private static List<string> LabelsOffTheirPlates(GameObject root)
         {
@@ -1890,14 +1903,29 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (OwnerOf(label.transform)?.StartsWith("Room", StringComparison.Ordinal) != true) continue;
                 var centre = drawn.bounds.center;
                 Halcyonic.XR.UI.RoomSurface? under = null; var nearest = float.MaxValue;
+                bool Holds(Halcyonic.XR.UI.RoomSurface plate)
+                {
+                    var local = plate.transform.InverseTransformPoint(centre);
+                    return Mathf.Abs(local.x) <= plate.Size.x / 2f && Mathf.Abs(local.y) <= plate.Size.y / 2f;
+                }
+                float DepthFrom(Halcyonic.XR.UI.RoomSurface plate) => Mathf.Abs(Vector3.Dot(centre - plate.Glass.bounds.center, plate.transform.forward));
+                // Its own plate first: a RoomSurface of its own part, held however far the words float.
+                var part = label.transform.parent;
+                for (var level = 0; level < 3 && part != null && under == null; level++, part = part.parent)
+                    foreach (var own in plates.Where(plate => plate.transform.IsChildOf(part) && Holds(plate)))
+                        if (DepthFrom(own) < nearest) { nearest = DepthFrom(own); under = own; }
+                if (under == null)
                 foreach (var plate in plates)
                 {
                     var local = plate.transform.InverseTransformPoint(centre);
                     if (Mathf.Abs(local.x) > plate.Size.x / 2f || Mathf.Abs(local.y) > plate.Size.y / 2f) continue;
                     var depth = Mathf.Abs(Vector3.Dot(centre - plate.Glass.bounds.center, plate.transform.forward));
+                    // A label's plate stands where the label does: a plate across the room that only lines up with it (the shelf's
+                    // name tag behind the bar, 2 m deeper) is not its plate.
+                    if (depth > PlateReachMetres) continue;
                     if (depth < nearest) { nearest = depth; under = plate; }
                 }
-                if (under != null && nearest > 0.001f)
+                if (under != null && nearest > LabelOffPlateMetres)
                     off.Add(PathOf(label.transform) + " stands " + (nearest * 1000f).ToString("0.0") + " mm off its plate " + PathOf(under.transform));
             }
             return off.ToList();
