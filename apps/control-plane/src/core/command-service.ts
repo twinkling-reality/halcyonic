@@ -567,7 +567,6 @@ export class CommandService {
     return admission;
   }
 
-  /** Rejects a command from a device that is no longer paired, whatever its admission. */
   /**
    * The review a command that changes a project's files or folder rests on (ADR 0051): a paired
    * device's `project.restore`, or its `project.set_location` that rebinds a project that has a
@@ -680,6 +679,10 @@ export class CommandService {
       : refuse('review_stale', 'The project changed since the review was read. Read it again.');
   }
 
+  /**
+   * Rejects a command from a device that is no longer paired, and a workspace request's resume or cancel from anyone
+   * but the request's own principal, whatever its admission.
+   */
   #authorize(
     principal: Principal | null,
     admission: Admission,
