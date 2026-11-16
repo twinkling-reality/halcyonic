@@ -300,6 +300,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var tracks = view.Plates.Where(each => each.What == "gauge track").Select(each => each.Plate.Size.x).ToList();
                 Require(fills.Count == 2 && tracks.Count == 2 && Mathf.Abs(fills[0] / tracks[0] * 100f - wanted) < 0.5f,
                     "the Session fill is not drawn where its bar stands mid-move");
+                // The number follows its bar in whole percents (AUDIT's SHOULD): never the new reading while the bar still moves.
+                Require(view.Shown.Any(label => label.gameObject.activeInHierarchy && label.GetParsedText().Trim() == RoomCardView.GaugeWords(wanted)),
+                    "the Session number does not read " + RoomCardView.GaugeWords(wanted) + " where its bar stands mid-move");
             }
             panel.InnerBar = null;
             panel.Ring = view.PanelRing;

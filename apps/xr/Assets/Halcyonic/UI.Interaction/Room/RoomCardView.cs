@@ -371,6 +371,7 @@ namespace Halcyonic.XR.UI
             foreach (var role in new List<KitRole>(textsUsed.Keys)) textsUsed[role] = 0;
             platesUsed = 0;
             gaugeFills.Clear();
+            gaugeNumbers.Clear();
             glyphsUsed = 0;
             rowPressesUsed = 0;
             codeUsed = false;
@@ -564,6 +565,23 @@ namespace Halcyonic.XR.UI
         private readonly Dictionary<RoomKind, (float From, float To, float Since)> gaugeEases = new Dictionary<RoomKind, (float, float, float)>();
         // The fills laid this show, so a move is drawn each frame until it ends.
         private readonly List<(RoomShape Fill, RoomKind Kind, float Bar, float Middle)> gaugeFills = new List<(RoomShape, RoomKind, float, float)>();
+        // Each gauge's number, which follows its bar in whole percents while it moves (AUDIT's SHOULD, 2026-11-16).
+        private readonly List<(TextMeshPro Number, RoomKind Kind)> gaugeNumbers = new List<(TextMeshPro, RoomKind)>();
+
+        /// <summary>A gauge's number as it reads now: its bar's place, in whole percents.</summary>
+        public static string GaugeWords(float percent) => Mathf.RoundToInt(Mathf.Clamp(percent, 0f, 100f)) + "%";
+
+        /// <summary>The reading a gauge's number shows as it is laid: where its bar stands, the move started first where its reading changed.</summary>
+        private float GaugeShownBefore(RoomGauge gauge)
+        {
+            var now = Clock();
+            if (!gaugeEases.TryGetValue(gauge.Kind, out var ease) || !Mathf.Approximately(ease.To, gauge.PercentLeft))
+            {
+                var from = gaugeEases.ContainsKey(gauge.Kind) ? GaugeShown(gauge.Kind) : gauge.PercentLeft;
+                gaugeEases[gauge.Kind] = (from, gauge.PercentLeft, now);
+            }
+            return GaugeShown(gauge.Kind);
+        }
 
         /// <summary>A gauge's bar as it stands now, in percent left: its new reading, or on its way there from the one it showed.</summary>
         public float GaugeShown(RoomKind kind) =>
@@ -574,6 +592,14 @@ namespace Halcyonic.XR.UI
             foreach (var (fill, kind, bar, middle) in gaugeFills)
                 if (gaugeEases.TryGetValue(kind, out var ease) && !GlazeMotion.Still && Clock() - ease.Since <= RoomMotion.GaugeSeconds + 0.05f)
                     DrawGaugeFill(fill, bar, middle, GaugeShown(kind));
+            foreach (var (number, kind) in gaugeNumbers)
+            {
+                if (!gaugeEases.TryGetValue(kind, out var ease) || GlazeMotion.Still || Clock() - ease.Since > RoomMotion.GaugeSeconds + 0.05f) continue;
+                var words = GaugeWords(GaugeShown(kind));
+                if (number.text == words) continue;
+                GlazeRuns.Of(number).Set(LineWords.Ours(words));
+                number.ForceMeshUpdate(true);
+            }
         }
 
         private void DrawGaugeFill(RoomShape fill, float bar, float middle, float percent)
@@ -921,20 +947,25 @@ namespace Halcyonic.XR.UI
                 var line = top + S(GaugePadTopDp);
                 Glyph(GlyphOf(gauge.Kind), SlotGlyphDp, Rgb(TileInk, 0.86f), new Vector2(x + S(SlotGlyphBoxDp) / 2f, -(line + S(GaugeNumberLineDp) / 2f)), "gauge " + gauge.Kind);
                 x += S(SlotGlyphBoxDp) + S(10f);
-                var (number, _) = Text(KitRole.Title, GaugeNumberDp, GaugeNumberLineDp, Color.white, LineWords.Ours(gauge.PercentLeft + "%"), x, -line, inner, 1);
-                x += RoomCursor.WordsWidth(number, 0f) + S(10f);
+                // The number reads where its bar stands; the window's word stands after the wider of the reading it leaves and the
+                // one it goes to, so it never moves while the digits follow the bar.
+                var shownNow = GaugeShownBefore(gauge);
+                var leaving = GaugeWords(gaugeEases[gauge.Kind].From);
+                var (number, _) = Text(KitRole.Title, GaugeNumberDp, GaugeNumberLineDp, Color.white, LineWords.Ours(leaving), x, -line, inner, 1);
+                var numberWide = RoomCursor.WordsWidth(number, 0f);
+                GlazeRuns.Of(number).Set(LineWords.Ours(GaugeWords(gauge.PercentLeft)));
+                KitType.Lay(number, inner, 1);
+                numberWide = Mathf.Max(numberWide, RoomCursor.WordsWidth(number, 0f));
+                GlazeRuns.Of(number).Set(LineWords.Ours(GaugeWords(shownNow)));
+                KitType.Lay(number, inner, 1);
+                gaugeNumbers.Add((number, gauge.Kind));
+                x += numberWide + S(10f);
                 // The window's word on the number's baseline: its line's foot against the number's.
                 Text(KitRole.Label, GaugeLabelDp, GaugeLabelLineDp, White(NoteAlpha), gauge.Label, x, -(line + S(GaugeNumberLineDp) - S(GaugeLabelLineDp) - S(4f)), inner, 1);
                 var middle = line + S(GaugeNumberLineDp) + S(14f) + Mathf.Max(S(TrackTallDp), S(GaugeResetLineDp)) / 2f;
                 Plate(new Vector2(bar, S(TrackTallDp)), S(TrackTallDp) / 2f, White(0.10f), new Vector2(S(GaugePadXDp) + bar / 2f, -middle), "gauge track");
-                // A new reading moves the bar from where it stood, on the standard curve; the number says the new reading at once.
-                var now = Clock();
-                if (!gaugeEases.TryGetValue(gauge.Kind, out var ease) || !Mathf.Approximately(ease.To, gauge.PercentLeft))
-                {
-                    var from = gaugeEases.ContainsKey(gauge.Kind) ? GaugeShown(gauge.Kind) : gauge.PercentLeft;
-                    gaugeEases[gauge.Kind] = (from, gauge.PercentLeft, now);
-                }
-                var shownPercent = GaugeShown(gauge.Kind);
+                // A new reading moves the bar from where it stood, on the standard curve, its number with it (started above).
+                var shownPercent = GaugeShownBefore(gauge);
                 var filled = bar * Mathf.Clamp(shownPercent, 0f, 100f) / 100f;
                 if (filled > 0f || gauge.PercentLeft > 0f)
                 {
