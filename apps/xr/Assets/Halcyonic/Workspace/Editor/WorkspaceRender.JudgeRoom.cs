@@ -263,6 +263,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     try
                     {
                         var agent = ConfirmedPlaneAgent(root.transform, plane, eyes, CharacterPresenter.Present(work, state, live != null), failures, "judge room");
+                        // The redesign's name tag, as the player attaches it to every character on the shelf (WorkspaceDirector.Attach;
+                        // FIELD 06:21Z): under RoomDesign it hides the older label, so the walk's frames show what a person sees.
+                        RoomNameTag.On(agent.View);
                         stood.Add(agent.Target);
                         stageParts.Add(agent.View.transform.parent);
                         shelfEnvelope = new Vector3[8];
@@ -592,6 +595,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (live == null && fallback.Line != null && plane.KitShows && plane.Kit.Bar.NoticeWords is TMP_Text noticeWords
                         && plane.Kit.Bar.NoticePlate is Halcyonic.XR.UI.RoomSurface noticePlate)
                         found.AddRange(NoticeCovered(root, camera, noticeWords, noticePlate.transform).Select(part => "the recording's line is covered by " + part));
+                    // Any notice the bar shows stands inside its own plate, as a person sees it (the lead's 06:09Z, after the recorded
+                    // line was drawn up and left of its plate on every recorded frame).
+                    if (plane.KitShows && plane.Kit.Bar.NoticeWords is TMP_Text shownWords && plane.Kit.Bar.NoticePlate is Halcyonic.XR.UI.RoomSurface shownPlate)
+                        found.AddRange(NoticeOffPlate(camera, shownWords, shownPlate).Select(edge => "a notice's words stand off their plate: " + edge));
+                    // Under the redesign its words stand flat on their flat plates (the lead's 06:19Z, XR's 86e3d194f): every label on a plate
+                    // within 1 mm of the plate's glass in depth; and every drawn button's press target meets a ray through its drawn centre
+                    // within 2 dp (XR 06:21Z). The shelf's older label is never drawn under the redesign (FIELD 06:21Z).
+                    if (RoomDesign.Enabled)
+                    {
+                        found.AddRange(LabelsOffTheirPlates(root));
+                        found.AddRange(PressesOffTheirButtons(root, eyes, name));
+                        foreach (var olderLabel in root.GetComponentsInChildren<Renderer>(false)
+                            .Where(part => part.enabled && part.GetComponentInParent<CharacterLabelView>() != null && (part.name == "Pill" || part.name == "Word")
+                                && (part.transform.parent?.name == "Badge" || part.transform.parent?.name.StartsWith("Mark", StringComparison.Ordinal) == true))
+                            .Select(part => PathOf(part.transform)).Distinct())
+                            found.Add("the older label draws on the shelf under the redesign: " + olderLabel);
+                    }
                     // A part of the frame not on screen at all, apart from one not yet paged to (SCREENS's RoomBar.LostPart, AUDIT 18:00Z):
                     // read by name, since the bar has it only where the general reader stands.
                     if (plane.KitShows && plane.Kit.Bar.Shown is RoomBar laid && typeof(RoomBar).GetProperty("LostPart")?.GetValue(laid) is true)
@@ -1674,14 +1694,17 @@ namespace Halcyonic.XR.Workspace.Editor
         private static IEnumerable<string> StageClear(GameObject root, Vector3 eyes, MenuPlane plane, IReadOnlyList<CharacterTarget> stood)
         {
             if (stood.Count == 0) yield break;
+            // A character's own name tag (RoomNameTag, under its Labels, as the player attaches it) is part of the character, never
+            // a part of the room it must keep clear of: it is measured below as the character's label.
             var drawn = root.GetComponentsInChildren<Renderer>(false)
-                .Where(renderer => renderer.enabled && OwnerOf(renderer.transform)?.StartsWith("Room", StringComparison.Ordinal) == true)
+                .Where(renderer => renderer.enabled && OwnerOf(renderer.transform)?.StartsWith("Room", StringComparison.Ordinal) == true
+                    && !stood.Any(standing => standing?.View != null && renderer.transform.IsChildOf(standing.View.transform)))
                 .Select(renderer => GlazeChecks.Of(OwnerOf(renderer.transform) + "/" + renderer.name, eyes, new[] { renderer }))
                 .Where(extent => !extent.IsEmpty).ToList();
             foreach (var standing in stood)
             {
                 if (standing == null || standing.View == null || !standing.View.gameObject.activeInHierarchy) continue;
-                var parts = new[] { BodyExtent(standing.View, eyes), GlazeChecks.Of("the character's label", eyes, standing.View.Label.gameObject) };
+                var parts = new[] { BodyExtent(standing.View, eyes), GlazeChecks.Of("the character's label", eyes, standing.View.Labels.gameObject) };
                 foreach (var part in parts.Where(each => !each.IsEmpty))
                     foreach (var near in drawn.Where(each => each.Apart(part) < GlazeChecks.GapDegrees - 1e-3f).Take(1))
                         yield return "the stage: " + part + " is " + GlazeChecks.Degrees(near.Apart(part)) + " degrees from " + near + ", under a degree";
@@ -1791,6 +1814,105 @@ namespace Halcyonic.XR.Workspace.Editor
         /// crosses theirs by more than half a dp, named by its owner and part; empty where nothing does. The notice's own plate
         /// and words are left out.
         /// </summary>
+        /// <summary>
+        /// Each edge where a notice's words pass their plate as a person sees them, by more than half a dp, with how far in
+        /// pixels of the render; empty where the words stand inside it. The plate is the surface drawn <see cref="RoomSurface.Size"/>
+        /// big, centred on its transform.
+        /// </summary>
+        private static List<string> NoticeOffPlate(Camera camera, TMP_Text words, Halcyonic.XR.UI.RoomSurface plate)
+        {
+            var off = new List<string>();
+            words.ForceMeshUpdate(true);
+            var bounds = words.textBounds;
+            if (bounds.size.x <= 0f || bounds.size.y <= 0f) return off;
+            Rect? ScreenRect(IEnumerable<Vector3> world)
+            {
+                var points = world.Select(point => camera.WorldToScreenPoint(point)).ToList();
+                if (points.Any(point => point.z <= 0f)) return null;
+                return Rect.MinMaxRect(points.Min(point => point.x), points.Min(point => point.y), points.Max(point => point.x), points.Max(point => point.y));
+            }
+            var text = ScreenRect(new[] { new Vector3(bounds.min.x, bounds.min.y), new Vector3(bounds.max.x, bounds.max.y),
+                new Vector3(bounds.min.x, bounds.max.y), new Vector3(bounds.max.x, bounds.min.y) }.Select(corner => words.transform.TransformPoint(corner)));
+            var half = plate.Size / 2f;
+            var plateRect = ScreenRect(new[] { new Vector3(-half.x, -half.y), new Vector3(half.x, half.y), new Vector3(-half.x, half.y), new Vector3(half.x, -half.y) }
+                .Select(corner => plate.transform.TransformPoint(corner)));
+            if (text is not Rect t || plateRect is not Rect p) return off;
+            var middle = words.transform.TransformPoint(bounds.center);
+            var touch = Vector3.Distance(camera.WorldToScreenPoint(middle), camera.WorldToScreenPoint(middle + words.transform.right * RoomType.Units(0.5f)));
+            void Edge(string name, float past) { if (past > touch) off.Add(name + " by " + past.ToString("0.0") + " px"); }
+            // As DRAWN, not only as laid: a curve that bends the words' mesh (and not their plate) moves them off it on the render
+            // while their layout stands inside (XR 06:19Z, FIELD 06:18Z). The drawn glyphs' centre stands where the laid words' does;
+            // the glyph quads' own padding is even on every side, so it moves no centre.
+            if (words.mesh is Mesh drawnMesh && drawnMesh.vertexCount > 0
+                && ScreenRect(drawnMesh.vertices.Select(vertex => words.transform.TransformPoint(vertex))) is Rect drawnRect)
+            {
+                var moved = drawnRect.center - t.center;
+                if (Mathf.Abs(moved.x) > touch) off.Add("drawn " + (moved.x < 0 ? "left" : "right") + " of where laid by " + Mathf.Abs(moved.x).ToString("0.0") + " px");
+                if (Mathf.Abs(moved.y) > touch) off.Add("drawn " + (moved.y < 0 ? "below" : "above") + " where laid by " + Mathf.Abs(moved.y).ToString("0.0") + " px");
+            }
+            Edge("left", p.xMin - t.xMin);
+            Edge("right", t.xMax - p.xMax);
+            Edge("bottom", p.yMin - t.yMin);
+            Edge("top", t.yMax - p.yMax);
+            return off;
+        }
+
+        /// <summary>
+        /// Each redesign label standing on a plate (a RoomSurface whose glass holds the label's centre across) whose drawn depth along
+        /// the plate's facing is more than 1 mm from the glass: the words floating off a flat plate, as a curve bending the words and
+        /// not the plate leaves them (2 cm on 2026-11-16, before 86e3d194f).
+        /// </summary>
+        private static List<string> LabelsOffTheirPlates(GameObject root)
+        {
+            var off = new SortedSet<string>();
+            var plates = root.GetComponentsInChildren<Halcyonic.XR.UI.RoomSurface>(false).Where(plate => plate.Glass != null && plate.Glass.enabled).ToList();
+            foreach (var label in root.GetComponentsInChildren<TMP_Text>(false))
+            {
+                if (string.IsNullOrWhiteSpace(label.text) || label.GetComponent<Renderer>() is not Renderer drawn || !drawn.enabled) continue;
+                if (OwnerOf(label.transform)?.StartsWith("Room", StringComparison.Ordinal) != true) continue;
+                var centre = drawn.bounds.center;
+                Halcyonic.XR.UI.RoomSurface? under = null; var nearest = float.MaxValue;
+                foreach (var plate in plates)
+                {
+                    var local = plate.transform.InverseTransformPoint(centre);
+                    if (Mathf.Abs(local.x) > plate.Size.x / 2f || Mathf.Abs(local.y) > plate.Size.y / 2f) continue;
+                    var depth = Mathf.Abs(Vector3.Dot(centre - plate.Glass.bounds.center, plate.transform.forward));
+                    if (depth < nearest) { nearest = depth; under = plate; }
+                }
+                if (under != null && nearest > 0.001f)
+                    off.Add(PathOf(label.transform) + " stands " + (nearest * 1000f).ToString("0.0") + " mm off its plate " + PathOf(under.transform));
+            }
+            return off.ToList();
+        }
+
+        /// <summary>
+        /// Each drawn redesign button whose press target a ray from the eyes through the button's drawn centre does not meet, or
+        /// meets more than 2 dp from that centre; every button's offset is logged in dp.
+        /// </summary>
+        private static List<string> PressesOffTheirButtons(GameObject root, Vector3 eyes, string moment)
+        {
+            var off = new List<string>();
+            var offsets = new List<string>();
+            foreach (var button in root.GetComponentsInChildren<Halcyonic.XR.UI.RoomButton>(false))
+            {
+                if (button.Press == null || button.Press.Target == null || !button.isActiveAndEnabled) continue;
+                var target = button.Press.Target;
+                var glass = button.GetComponentInChildren<Halcyonic.XR.UI.RoomSurface>(false);
+                var centre = glass != null && glass.Glass != null ? glass.Glass.bounds.center : button.Press.transform.position;
+                var dp = Vector3.Distance(button.transform.TransformPoint(Vector3.zero), button.transform.TransformPoint(Vector3.right * RoomType.Units(1f)));
+                Oculus.Interaction.Surfaces.ISurface? patch = target.OnCurve ? target.CurvedPatch : target.FlatPatch;
+                var ray = new Ray(eyes, (centre - eyes).normalized);
+                var name = PathOf(button.transform);
+                if (patch == null) continue;
+                if (!patch.Raycast(ray, out var hit)) { off.Add("a ray through " + name + "'s drawn centre misses its press target"); offsets.Add(name + " missed"); continue; }
+                var away = Vector3.Distance(hit.Point, centre) / Mathf.Max(dp, 1e-6f);
+                offsets.Add(name + " " + away.ToString("0.0") + " dp");
+                if (away > 2f) off.Add("a press at " + name + " lands " + away.ToString("0.0") + " dp from its drawn centre");
+            }
+            if (offsets.Count > 0) Debug.Log("Halcyonic: judge room: " + moment + ": press offsets " + string.Join("; ", offsets));
+            return off;
+        }
+
         private static List<string> NoticeCovered(GameObject root, Camera camera, TMP_Text words, Transform plate)
         {
             var covered = new SortedSet<string>();
