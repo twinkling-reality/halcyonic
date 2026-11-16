@@ -282,8 +282,29 @@ namespace Halcyonic.XR
                 }
             }
             AttachTop();
-            // Measure the actual transformed em, including the mark's lower distance and tilt.
-            // Scaling the entire label preserves its type hierarchy and provenance treatment.
+            GrowLabelToFloor(viewer, words, AttachTop);
+        }
+
+        /// <summary>
+        /// Grows the whole label, as the shelf's does, until its smallest word reads at 14 dp or more from
+        /// <paramref name="viewer"/>: for the stage in front of the person, where a name on four lines hangs its mark low
+        /// enough to read under the floor from above (AUDIT 2026-11-16 11:55Z). A label that already reads at its size is
+        /// left as it is.
+        /// </summary>
+        public void HoldLabelWordsAsSeen(Vector3 viewer)
+        {
+            var words = label.GetComponentsInChildren<TMP_Text>(true);
+            foreach (var word in words) word.ForceMeshUpdate(ignoreActiveState: true);
+            GrowLabelToFloor(viewer, words, null);
+        }
+
+        /// <summary>
+        /// Measures each word's actual transformed em, including the mark's lower distance and tilt, and scales the
+        /// entire label so the smallest reads at the floor, which keeps its type hierarchy and provenance treatment;
+        /// <paramref name="after"/> puts it back in place after each pass.
+        /// </summary>
+        private void GrowLabelToFloor(Vector3 viewer, TMP_Text[] words, System.Action? after)
+        {
             for (var pass = 0; pass < 3; pass++)
             {
                 var grow = 1f;
@@ -297,7 +318,7 @@ namespace Halcyonic.XR
                 }
                 if (grow <= 1f) break;
                 labels.localScale *= grow;
-                AttachTop();
+                after?.Invoke();
             }
         }
 

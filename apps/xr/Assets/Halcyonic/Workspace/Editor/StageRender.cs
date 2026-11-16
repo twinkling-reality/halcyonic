@@ -114,6 +114,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
                 failures.AddRange(Render("recorded", folder, Marked(synthetic: false, recorded: true), desk: false, BannerKind.Practice,
                     DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
+                // A name past four lines, never in a filmed or fixture state: its last line stops at a word with its tail faded.
+                failures.AddRange(Render(LongNameScene, folder, LongName(), desk: false, BannerKind.Practice,
+                    DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
                 // Built and shown before the stage is placed, under its hidden arc, as on the headset when
                 // the work arrives first: every badge, mark, banner and peek measured all the same.
                 failures.AddRange(RenderBuiltHidden("built-hidden", folder, Demo(), StatesA(), peekSlot: 4));
@@ -182,6 +185,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var radius = desk ? DeskRadius : CharacterStage.DefaultDistance;
                 // In front of the person at the stage's height; on a desk, each label resting on it.
                 var characters = WorkspaceRender.Lineup(root.transform, eyes, radius, desk ? DeskDrop : (float?)null, (_, slot) => shown[slot]);
+                foreach (var (view, _) in characters) view.HoldLabelWordsAsSeen(eyes);
 
                 // The banner, where the stage puts it, reading away from the person as the arc does.
                 var bannerRoot = new GameObject("Banner root").transform;
@@ -189,7 +193,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var surface = eyes.y - DeskDrop;
                 bannerRoot.position = desk
                     ? new Vector3(0f, surface + CharacterStage.BannerBottomOnSurface(radius, DeskDrop), radius)
-                    : new Vector3(eyes.x, BannerTopUnderLabels(characters, eyes, radius), eyes.z + radius);
+                    : eyes + new Vector3(0f, CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes), radius);
                 bannerRoot.localScale = Vector3.one * radius;
                 var banner = StageBanner.Create(bannerRoot);
                 banner.Show(bannerText, kind, waiting);
@@ -197,6 +201,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 banner.gameObject.SetActive(!AmbientCover.Any);
 
                 WorkspaceRender.ForceMeshes(root);
+                if (!desk) KeepBannerClearOfLabels(bannerRoot, banner, characters, eyes, radius);
                 failures.AddRange(Checks(name, root, eyes, characters, banner, null));
                 var whole = WorkspaceRender.Render(camera, texture);
                 File.WriteAllBytes(Path.Combine(folder, name + ".png"), whole.EncodeToPNG());
@@ -256,9 +261,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 arc.SetActive(false);
                 var radius = CharacterStage.DefaultDistance;
                 var characters = WorkspaceRender.Lineup(arc.transform, eyes, radius, null, (_, slot) => shown[slot]);
+                // Each label held to 14 dp as it is placed, which is when the stage shows: measured shown, then hidden again.
+                arc.SetActive(true);
+                foreach (var (view, _) in characters) view.HoldLabelWordsAsSeen(eyes);
+                arc.SetActive(false);
                 var bannerRoot = new GameObject("Banner root").transform;
                 bannerRoot.SetParent(arc.transform, false);
-                bannerRoot.position = new Vector3(eyes.x, BannerTopUnderLabels(characters, eyes, radius), eyes.z + radius);
+                bannerRoot.position = eyes + new Vector3(0f, CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes), radius);
                 bannerRoot.localScale = Vector3.one * radius;
                 var banner = StageBanner.Create(bannerRoot);
                 banner.Show("Practice: nothing here runs on " + HostText.Your, BannerKind.Practice, null);
@@ -270,6 +279,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The banner steps aside for the peek, as on the stage.
                 banner.gameObject.SetActive(!AmbientCover.Any);
                 WorkspaceRender.ForceMeshes(root);
+                KeepBannerClearOfLabels(bannerRoot, banner, characters, eyes, radius);
                 failures.AddRange(PillsHoldTheirWords(name, root));
                 failures.AddRange(Checks(name, root, eyes, characters, banner, peek.Card));
                 var whole = WorkspaceRender.Render(camera, texture);
@@ -323,21 +333,30 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// Where the stage's banner tops out in the world: where the stage puts it, or lower where a long name's label stands
-        /// lower, the banner's gap under the lowest label actually drawn, so a whole name never meets it (AUDIT's 11:49Z: measured,
-        /// not the worst case; short names leave it where it stands).
+        /// Lowers the banner from where the stage puts it until it stands <see cref="BannerClearDegrees"/> from every label as
+        /// the eyes see it, its flat ends included, measured as the stage's apart check measures: a name on four lines hangs
+        /// lower than the stage's place allows for (AUDIT 2026-11-16 11:49Z and 11:55Z: measured by the labels drawn, not the
+        /// worst case). Short names leave it where it stands. The product draws no banner; this is the render's.
         /// </summary>
-        private static float BannerTopUnderLabels(List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, float radius)
+        private static void KeepBannerClearOfLabels(Transform bannerRoot, StageBanner banner, List<(CharacterView View, CharacterTarget Target)> characters,
+            Vector3 eyes, float radius)
         {
-            var top = eyes.y + CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes);
-            var lowest = float.PositiveInfinity;
-            foreach (var (view, _) in characters)
-                foreach (var drawn in view.Label.GetComponentsInChildren<Renderer>(false))
-                    if (drawn.enabled) lowest = Mathf.Min(lowest, drawn.bounds.min.y);
-            if (float.IsPositiveInfinity(lowest)) return top;
-            var under = lowest - Mathf.Tan(CharacterStage.BannerGapDegrees * Mathf.Deg2Rad) * radius;
-            return Mathf.Min(top, under);
+            if (!banner.gameObject.activeInHierarchy) return;
+            for (var pass = 0; pass < 8; pass++)
+            {
+                var drawn = GlazeChecks.Of("the banner", eyes, banner.gameObject);
+                var nearest = characters.Min(character => GlazeChecks.Of("label", eyes, character.View.Label.gameObject).Apart(drawn));
+                if (nearest >= BannerClearDegrees) return;
+                bannerRoot.position += Vector3.down * (Mathf.Tan((BannerClearDegrees - nearest + 0.05f) * Mathf.Deg2Rad) * radius * 1.2f);
+                WorkspaceRender.ForceMeshes(bannerRoot.gameObject);
+            }
         }
+
+        /// <summary>How far the banner keeps from every label in the render: the stage's degree apart and a quarter more.</summary>
+        private const float BannerClearDegrees = 1.25f;
+
+        /// <summary>The one scene whose name is over the four-line measure, so its label stops at a word and fades its tail.</summary>
+        private const string LongNameScene = "long-name";
 
         /// <summary>The interface's rules on the stage as built: apart, large enough, opaque, every state in words.</summary>
         private static IEnumerable<string> Checks(string name, GameObject root, Vector3 eyes, List<(CharacterView View, CharacterTarget Target)> characters,
@@ -372,11 +391,32 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     if (lastWords == 1) failures.Add(name + ": the peek's line \"" + shownText + "\" ends on one word alone");
                 }
-            // Every character's name on the stage whole, never ending in an ellipsis (AUDIT's 11:42Z).
+            // Every character's name on the stage whole, never ending in an ellipsis (AUDIT's 11:42Z), on up to four lines; only
+            // the long-name scene's name, over that measure, stops at a word break with its tail faded (11:55Z).
             foreach (var (view, _) in characters)
                 foreach (var text in view.Label.GetComponentsInChildren<TMPro.TextMeshPro>(false))
                 {
                     text.ForceMeshUpdate(true);
+                    var isName = text == view.Label.Title || text == view.Label.ShortTitle;
+                    if (isName && view.Label.NameFaded)
+                    {
+                        var info = text.textInfo;
+                        var last = -1;
+                        for (var index = info.characterCount - 1; index >= 0; index--)
+                            if (info.characterInfo[index].isVisible) { last = index; break; }
+                        var drawnText = last < 0 ? "" : text.text.Substring(0, info.characterInfo[last].index + 1);
+                        var next = last < 0 ? -1 : info.characterInfo[last].index + 1;
+                        if (name != LongNameScene)
+                            failures.Add(name + ": " + view.WorkstreamId + "'s name \"" + text.text + "\" is over four lines and fades, in a fixture state");
+                        else if (next >= text.text.Length || !char.IsWhiteSpace(text.text[next]))
+                            failures.Add(name + ": the long name's last drawn line \"" + drawnText + "\" stops inside a word");
+                        else if (info.lineCount > CharacterLabelView.MostTitleLines || drawnText.Contains("…"))
+                            failures.Add(name + ": the long name is drawn on " + info.lineCount + " lines or with an ellipsis");
+                        else
+                            Debug.Log("Halcyonic: " + name + ": the name over four lines, \"" + text.text + "\", stops at \"" + drawnText
+                                + "\" on " + info.lineCount + " lines, its tail faded.");
+                        continue;
+                    }
                     if (text.isTextTruncated || text.GetParsedText().Contains("…"))
                         failures.Add(name + ": " + view.WorkstreamId + "'s label \"" + text.GetParsedText() + "\" is cut");
                 }
@@ -707,7 +747,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Character(5, "Upgrade the image pipeline", CharacterActivity.TurnFinished),
         };
 
-        /// <summary>The rest of the states, a practice run, a last known state, and a title too long for two lines.</summary>
+        /// <summary>The rest of the states, a practice run, a last known state, and a title too long for two lines, as long as a person would give.</summary>
         private static IReadOnlyList<CharacterPresentation> StatesB() => new[]
         {
             Character(0, "Refresh the checkout copy", CharacterActivity.TurnFinished, AttentionLevel.Notice,
@@ -718,7 +758,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Character(3, "Migrate the user table", CharacterActivity.Unknown, AttentionLevel.Notice, new[] { "Can't tell what it's doing right now." }, new[] { "" },
                 synthetic: true),
             Character(4, "Rename the billing module", CharacterActivity.Working, stale: true),
-            Character(5, "Write the onboarding guide for new contributors to the payments service and its webhooks", CharacterActivity.TurnFinished),
+            Character(5, "Write the onboarding guide for the payments service webhooks", CharacterActivity.TurnFinished),
         };
 
         /// <summary>The recorded demonstration's kind of stage: every character marked Demo, two-line titles, the deepest labels.</summary>
@@ -733,6 +773,16 @@ namespace Halcyonic.XR.Workspace.Editor
             Character(4, "Upgrade the image pipeline to the new encoder", CharacterActivity.Verifying, synthetic: synthetic, recorded: recorded),
             Character(5, "Tidy the release notes before the next version", CharacterActivity.Working, synthetic: synthetic, recorded: recorded),
         };
+
+        /// <summary>The demo's tasks, one of them named past the four-line measure: never filmed, drawn once to show its fade.</summary>
+        private static IReadOnlyList<CharacterPresentation> LongName()
+        {
+            var tasks = Demo().ToArray();
+            tasks[4] = Character(4, "Move every payment, refund and payout report from the nightly batch job onto the streaming pipeline, keep the old"
+                + " exports running until finance signs off on the new numbers, and write the runbook for both", CharacterActivity.Verifying,
+                synthetic: true, recorded: true);
+            return tasks;
+        }
 
         private static IReadOnlyList<CharacterPresentation> Demo() => new[]
         {

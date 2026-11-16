@@ -55,8 +55,11 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public const int ShortTitleLines = 3;
 
-        /// <summary>How many lines past its own a task's name may take, on the stage or its own plate, so it stands whole.</summary>
-        public const int MoreTitleLines = 4;
+        /// <summary>
+        /// The most lines a task's name takes, on the stage or on its own plate, so a name a person would give stands whole
+        /// (AUDIT 2026-11-16 11:55Z); a longer one ends its last line at a word break and fades its tail (<see cref="NameFaded"/>).
+        /// </summary>
+        public const int MostTitleLines = 4;
 
         private const float SideDegrees = 0.7f;
         private const float TitleGapDegrees = 0f;
@@ -75,6 +78,8 @@ namespace Halcyonic.XR.UI
         private Surface plate = null!;
         private TextMeshPro title = null!;
         private TextMeshPro shortTitle = null!;
+        private bool titleFaded;
+        private bool shortTitleFaded;
         private StateBadgeView badge = null!;
         private string shownTitle = "";
         private string shownMark = "";
@@ -115,6 +120,12 @@ namespace Halcyonic.XR.UI
         public StateBadgeView Badge => badge;
 
         public TextMeshPro Title => title;
+
+        /// <summary>
+        /// Whether the name shown runs past <see cref="MostTitleLines"/>, so its last line stops at a word break with its tail
+        /// faded rather than an ellipsis: for checks, which allow it only for a name over that measure.
+        /// </summary>
+        public bool NameFaded => badgeOnly ? shortTitleFaded : titleFaded;
 
         /// <summary>The title on its own plate beside a window, on at most <see cref="ShortTitleLines"/> lines.</summary>
         public TextMeshPro ShortTitle => shortTitle;
@@ -159,6 +170,9 @@ namespace Halcyonic.XR.UI
             view.title = GlazeText.Create(go.transform, "Title", GlazeType.Title, GlazeTokens.Text, TextAlignmentOptions.Top, 2, scaled: true);
             view.shortTitle = GlazeText.Create(go.transform, "Short title", GlazeType.Caption, GlazeTokens.Text, TextAlignmentOptions.Top, 2, scaled: true);
             view.shortTitle.gameObject.SetActive(false);
+            // A name too long for MostTitleLines fades out at its last line's end each time its mesh is made.
+            view.title.OnPreRenderText += info => { if (view.titleFaded) GlazeText.FadeTail(info); };
+            view.shortTitle.OnPreRenderText += info => { if (view.shortTitleFaded) GlazeText.FadeTail(info); };
             view.badge = StateBadgeView.Create(go.transform, "Badge", 1);
             // No wider with its icon than the widest plate, so a badge never reaches a neighbour's; a
             // longer one shows its word alone.
@@ -243,11 +257,8 @@ namespace Halcyonic.XR.UI
             var maxWidth = GlazeTokens.Units(MaxWidthDegrees);
             GlazeText.SetLiteral(title, label.Title);
             var titleTop = top - badgeHeight - GlazeTokens.Units(TitleGapDegrees);
-            var (lines, titleWidth) = GlazeText.Lay(title, maxWidth - 2f * side, TitleLines);
-            // A task's name whole, never ending in an ellipsis (AUDIT's 11:42Z on the stage: "Add rate limiting to the..."): it takes
-            // the lines it needs, up to MoreTitleLines past its own.
-            for (var more = TitleLines + 1; (title.isTextTruncated || title.isTextOverflowing) && more <= TitleLines + MoreTitleLines; more++)
-                (lines, titleWidth) = GlazeText.Lay(title, maxWidth - 2f * side, more);
+            var (lines, titleWidth, faded) = LayName(title, maxWidth - 2f * side, TitleLines);
+            if (faded != titleFaded) { titleFaded = faded; title.ForceMeshUpdate(true); }
             title.transform.localPosition = new Vector3(0f, titleTop, -0.001f);
 
             while (tags.Count < label.Marks.Count) tags.Add(MarkTag.Create(transform, "Mark " + tags.Count, 1));
@@ -269,14 +280,12 @@ namespace Halcyonic.XR.UI
                 // so a filmed task's name stands whole (AUDIT's film MUST, 2026-11-16: "A page that says hello an..." cut to
                 // one line at Settings, Usage and Ask); then the marks in a row under it, a little apart.
                 GlazeText.SetLiteral(shortTitle, label.Title);
-                var (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, ShortTitleLines);
-                // Whole, never ending in an ellipsis: the lines it needs, up to MoreTitleLines past its own (AUDIT's 11:42Z).
-                var shortMost = ShortTitleLines;
-                for (var more = ShortTitleLines + 1; (shortTitle.isTextTruncated || shortTitle.isTextOverflowing) && more <= ShortTitleLines + MoreTitleLines; more++)
-                    (shortLines, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, shortMost = more);
+                var (shortLines, shortWidth, shortFaded) = LayName(shortTitle, maxWidth - 2f * side, ShortTitleLines);
+                if (shortFaded != shortTitleFaded) { shortTitleFaded = shortFaded; shortTitle.ForceMeshUpdate(true); }
+                var shortMost = Mathf.Max(ShortTitleLines, shortLines);
                 // No word alone on its last line ("Upgrade the image / pipeline", the reader of 04:48Z): laid a little narrower,
                 // never on more lines, never cut; where none holds, as first laid.
-                if (shortLines >= 2 && LastLineIsOneWord(shortTitle))
+                if (shortLines >= 2 && !shortFaded && LastLineIsOneWord(shortTitle))
                 {
                     for (var step = 1; step <= 6; step++)
                     {
@@ -333,6 +342,24 @@ namespace Halcyonic.XR.UI
             bottom = marked ? plateBottom - MarkTag.Height / 2f : plateBottom;
             HalfWidth = Mathf.Max(plateWidth, Mathf.Max(widest, row)) / 2f;
             PresentSharedIdentity(label, top - badgeHeight);
+        }
+
+        /// <summary>
+        /// Lays a task's name whole, never ending in an ellipsis (AUDIT 2026-11-16 11:42Z on the stage: "Add rate limiting to the..."):
+        /// on <paramref name="lines"/> lines, or as many more as it needs up to <see cref="MostTitleLines"/>. Past those it stops
+        /// at the last whole word that fits, with no ellipsis, and says so, so its tail is faded (11:55Z).
+        /// </summary>
+        private static (int Lines, float Width, bool Faded) LayName(TextMeshPro name, float width, int lines)
+        {
+            name.overflowMode = TextOverflowModes.Ellipsis;
+            var (laid, widest) = GlazeText.Lay(name, width, lines);
+            // Truncated, not overflowing: a whole last line can overflow its box by its descenders and lose nothing.
+            for (var more = lines + 1; name.isTextTruncated && more <= MostTitleLines; more++)
+                (laid, widest) = GlazeText.Lay(name, width, more);
+            if (!name.isTextTruncated) return (laid, widest, false);
+            name.overflowMode = TextOverflowModes.Truncate;
+            (laid, widest) = GlazeText.Lay(name, width, Mathf.Max(lines, MostTitleLines));
+            return (laid, widest, true);
         }
 
         /// <summary>Whether the label's last laid line holds a single word.</summary>

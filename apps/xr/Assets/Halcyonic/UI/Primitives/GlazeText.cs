@@ -202,6 +202,53 @@ namespace Halcyonic.XR.UI
             return (Mathf.Clamp(info.lineCount, 1, maxLines), Mathf.Min(width, label.textBounds.size.x));
         }
 
+        /// <summary>How many letters a cut line's tail fades over (<see cref="FadeTail"/>).</summary>
+        public const int TailLetters = 7;
+
+        /// <summary>What is left of the last letter of a faded tail: nearly gone, so the line reads as going on, never as ending.</summary>
+        public const float TailFloor = 0.08f;
+
+        /// <summary>
+        /// Fades the last drawn line's last <paramref name="letters"/> letters out toward its end, each corner by where it stands
+        /// along them, so a line cut at a word break reads as going on rather than as finished: called from the label's
+        /// OnPreRenderText, on a label laid with <see cref="TMPro.TextOverflowModes.Truncate"/>, which stops at the last whole
+        /// word that fits and draws no ellipsis (AUDIT 2026-11-16 11:27Z and 11:55Z).
+        /// </summary>
+        public static void FadeTail(TMP_TextInfo info, int letters = TailLetters)
+        {
+            var last = -1;
+            for (var index = Mathf.Min(info.characterCount, info.characterInfo.Length) - 1; index >= 0; index--)
+                if (info.characterInfo[index].isVisible) { last = index; break; }
+            if (last < 0) return;
+            var line = info.characterInfo[last].lineNumber;
+            var first = last;
+            var counted = 1;
+            for (var index = last - 1; index >= 0 && counted < letters; index--)
+            {
+                var character = info.characterInfo[index];
+                if (character.lineNumber != line) break;
+                if (!character.isVisible) continue;
+                first = index;
+                counted++;
+            }
+            var from = info.characterInfo[first].bottomLeft.x;
+            var to = info.characterInfo[last].topRight.x;
+            if (to - from < 1e-6f) return;
+            for (var index = first; index <= last; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible) continue;
+                var colours = info.meshInfo[character.materialReferenceIndex].colors32;
+                var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
+                for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
+                {
+                    var along = Mathf.Clamp01((vertices[corner].x - from) / (to - from));
+                    var keep = Mathf.Lerp(1f, TailFloor, along * along * (3f - 2f * along));
+                    colours[corner].a = (byte)Mathf.RoundToInt(colours[corner].a * keep);
+                }
+            }
+        }
+
         /// <summary>
         /// Leans a label's letters, as an agent's words lean so they never read as Halcyonic's or as
         /// fact: called from the label's OnPreRenderText. TextMeshPro's own italics would find no
