@@ -1061,6 +1061,68 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <param name="arrange">Arranges the stage beside a window or not, on a surface this high or none.</param>
         /// <param name="surfaceNow">The surface the stage stands on now.</param>
         /// <param name="extra">Makes a character standing in for one that comes or goes.</param>
+        /// <summary>The least dark gap a drag toward a character leaves between the plane's drawn glass and that character's drawn body and tag (AUDIT 2026-11-16T21:11Z).</summary>
+        private const float DragGapDegrees = 1.0f;
+
+        /// <summary>
+        /// The least gap, in degrees as the camera sees them, between the pixels <paramref name="first"/> draws and the pixels <paramref name="second"/> draws:
+        /// each drawn alone into the frame (every other renderer off for that shot, then restored), then the nearest pair of lit pixels by a chamfer
+        /// distance. Zero where they meet or overlap; infinite where either draws nothing in the frame.
+        /// </summary>
+        private static float DrawnGapDegrees(Camera camera, RenderTexture texture, IEnumerable<Renderer> first, IEnumerable<Renderer> second)
+        {
+            var all = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            var was = all.ToDictionary(part => part, part => part.enabled);
+            bool[] Lit(HashSet<Renderer> only)
+            {
+                foreach (var part in all) part.enabled = was[part] && only.Contains(part);
+                var image = Render(camera, texture);
+                var pixels = image.GetPixels32();
+                UnityEngine.Object.DestroyImmediate(image);
+                var lit = new bool[pixels.Length];
+                for (var index = 0; index < pixels.Length; index++) lit[index] = pixels[index].r + pixels[index].g + pixels[index].b > 24;
+                return lit;
+            }
+            try
+            {
+                var from = Lit(new HashSet<Renderer>(first));
+                var to = Lit(new HashSet<Renderer>(second));
+                int width = texture.width, height = texture.height;
+                const int far = int.MaxValue / 4;
+                var distance = new int[width * height];
+                for (var index = 0; index < distance.Length; index++) distance[index] = from[index] ? 0 : far;
+                for (var y = 0; y < height; y++)
+                for (var x = 0; x < width; x++)
+                {
+                    var at = y * width + x;
+                    if (x > 0) distance[at] = Math.Min(distance[at], distance[at - 1] + 3);
+                    if (y > 0)
+                    {
+                        distance[at] = Math.Min(distance[at], distance[at - width] + 3);
+                        if (x > 0) distance[at] = Math.Min(distance[at], distance[at - width - 1] + 4);
+                        if (x + 1 < width) distance[at] = Math.Min(distance[at], distance[at - width + 1] + 4);
+                    }
+                }
+                for (var y = height - 1; y >= 0; y--)
+                for (var x = width - 1; x >= 0; x--)
+                {
+                    var at = y * width + x;
+                    if (x + 1 < width) distance[at] = Math.Min(distance[at], distance[at + 1] + 3);
+                    if (y + 1 < height)
+                    {
+                        distance[at] = Math.Min(distance[at], distance[at + width] + 3);
+                        if (x + 1 < width) distance[at] = Math.Min(distance[at], distance[at + width + 1] + 4);
+                        if (x > 0) distance[at] = Math.Min(distance[at], distance[at + width - 1] + 4);
+                    }
+                }
+                var least = far;
+                for (var index = 0; index < to.Length; index++) if (to[index]) least = Math.Min(least, distance[index]);
+                if (least >= far) return float.PositiveInfinity;
+                return least / 3f * camera.fieldOfView / height;
+            }
+            finally { foreach (var part in all) part.enabled = was[part]; }
+        }
+
         private static IEnumerable<string> DragMenu(string name, string folder, Camera camera, RenderTexture texture, MenuDirector director,
             List<(CharacterView View, CharacterTarget Target)> characters, List<CharacterTarget> targets, Vector3 eyes, Action<string> retitle, Action<bool> confirm,
             Action<float> textAt, Action<bool, float?> arrange, Func<float?> surfaceNow, Func<string, CharacterTarget> extra)
@@ -1086,7 +1148,28 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.HoldSubjectForRender(held);
                 if (!director.Dragging) failures.Add(name + ": held to drag it toward the character beside it, the file's subject took no hold of the plane.");
                 director.DragSubjectForRender(Turned(held, 4f, 0f));
-                if (!plane.Direction.Equals(placed)) failures.Add(name + ": dragged toward the character beside it, the plane moved " + GlazeChecks.Degrees(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw)) + " degrees in front of it.");
+                // Toward a character the drag takes only the tenths of the step that still clear it (MenuDrag.Follow, AUDIT's 2026-11-14T02:09Z),
+                // never the whole step; and where it stops, the plane AS DRAWN stands a dark gap off every character's drawn body and tag
+                // (AUDIT 2026-11-16T21:11Z: the shelf's label gap), measured in the frame itself, never by the plane's own keep-out.
+                var stepped = Mathf.Abs(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw));
+                if (stepped >= 3.99f) failures.Add(name + ": dragged toward the character beside it, the plane took the whole step, " + GlazeChecks.Degrees(stepped) + " degrees.");
+                director.DrawNow();
+                var glass = plane.GetComponentsInChildren<Renderer>(false).Where(part => !(part is LineRenderer)).ToList();
+                foreach (var (view, _) in characters)
+                {
+                    if (view == null || !view.gameObject.activeInHierarchy) continue;
+                    var drawn = view.Body.GetComponentsInChildren<Renderer>(false).ToList();
+                    var tag = view.GetComponent<RoomNameTag>()?.Tag;
+                    if (tag != null)
+                        drawn.AddRange(tag.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
+                            .Concat(tag.GetComponentsInChildren<Halcyonic.XR.UI.RoomSurface>(false).Select(plate => (Renderer)plate.Glass)).Where(part => part != null));
+                    var gap = DrawnGapDegrees(camera, texture, glass, drawn);
+                    Debug.Log("Halcyonic: workspace render: " + name + ": dragged toward " + view.name + ", the plane stopped " + GlazeChecks.Degrees(stepped)
+                        + " degrees along, its drawn glass " + GlazeChecks.Degrees(gap) + " degrees from that character's drawn body and tag.");
+                    if (gap < DragGapDegrees)
+                        failures.Add(name + ": dragged toward the character beside it, the plane's drawn glass stands " + GlazeChecks.Degrees(gap) + " degrees from " + view.name
+                            + "'s drawn body or tag, under " + GlazeChecks.Degrees(DragGapDegrees) + ".");
+                }
                 director.LetGoForRender();
                 director.ResetPosition();
                 director.DrawNow();
