@@ -169,10 +169,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 "47-card-recap" => new RoomCard(Theirs("Kite Run"), Theirs("Make a kite that follows my hand, and climbs when I raise it."), RoomCardHead.Project,
                     slots: new[] { new RoomSlot(RoomKind.Starter, Ours("VR Game")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Don't Ask Me")) }),
                 "47-card-result" => new RoomCard(Theirs("Tail"), Theirs("I added a tail that streams behind the kite."), RoomCardHead.Picture,
-                    slots: new[] { new RoomSlot(RoomKind.Passed, Ours("Passed")), new RoomSlot(RoomKind.ToAdd, Ours("4 Files")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")) }),
+                    slots: new[] { new RoomSlot(RoomKind.Passed, Ours(RoomPanelCards.AllPassing)), new RoomSlot(RoomKind.ToAdd, Ours("4 Files")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")) }),
                 // The same result where the person gave the task a video: its still heads the card (ADR 0066).
                 "47-card-still" => new RoomCard(Theirs("Tail"), Theirs("I added a tail that streams behind the kite."), RoomCardHead.Picture,
-                    slots: new[] { new RoomSlot(RoomKind.Passed, Ours("Passed")), new RoomSlot(RoomKind.ToAdd, Ours("4 Files")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")) })
+                    slots: new[] { new RoomSlot(RoomKind.Passed, Ours(RoomPanelCards.AllPassing)), new RoomSlot(RoomKind.ToAdd, Ours("4 Files")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")) })
                     .WithStill(new TaskStill("synthetic-project", ".halora/media/kite.still.png", TaskMediaKind.Video)),
                 "47-card-changes" => new RoomCard(Ours("Changes"), Ours("What Tail did to the project"), list: tail),
                 "47-card-checks" => new RoomCard(status: new RoomCardStatus("Build Failed", RoomBar.StoppedLineFor(2), RoomTone.Bad), steps: new[]

@@ -62,7 +62,10 @@ namespace Halcyonic.Client
             if (fix?.Reason == AutoFixEndReason.Passed && result.Passed != true) ended = null;
             if (!result.Any && ended == null) return null;
             var slots = new List<RoomSlot>();
-            if (result.Passed is bool passed) slots.Add(new RoomSlot(passed ? RoomKind.Passed : RoomKind.Failed, LineWords.Ours(passed ? Passed : Failed)));
+            // The check's outcome in the Checks page's own words, one word per state (AUDIT2 2026-11-16 10:05Z W1); where the card's
+            // status already names it (a chain of tries that ended), the slot does not say it twice (W2).
+            if (result.Passed is bool passed && ended?.Status == null)
+                slots.Add(new RoomSlot(passed ? RoomKind.Passed : RoomKind.Failed, LineWords.Ours(passed ? AllPassing : ChecksFailed)));
             // A check whose verdict is not known: said as such, with no mark of passed or failed (VRIFY, AUDIT2's words).
             else if (result.PartlyChecked) slots.Add(new RoomSlot(RoomKind.None, LineWords.Ours(KitMomentWords.PartlyChecked)));
             if (toAdd is RoomSlot waiting) slots.Add(new RoomSlot(waiting.Kind, waiting.Value, waiting.Mono, waiting.Press ?? changes));

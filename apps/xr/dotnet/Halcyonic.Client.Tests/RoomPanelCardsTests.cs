@@ -62,7 +62,7 @@ public sealed class RoomPanelCardsTests
         var card = RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps()), Task)!;
         Assert.That((card.Title!.Text, card.Head), Is.EqualTo(("Golden Balloon", RoomCardHead.Picture)));
         Assert.That(card.Title.Runs.All(run => run.Theirs), "the task's name is theirs");
-        Assert.That(card.Slots.Select(slot => (slot.Kind, slot.Value.Text)), Is.EqualTo(new[] { (RoomKind.Passed, "Passed"), (RoomKind.ToAdd, "5 Files") }));
+        Assert.That(card.Slots.Select(slot => (slot.Kind, slot.Value.Text)), Is.EqualTo(new[] { (RoomKind.Passed, "All Passing"), (RoomKind.ToAdd, "5 Files") }));
         Assert.That((card.Status, card.Description), Is.EqualTo(((RoomCardStatus?)null, (LineWords?)null)), "the agent's words stand on the band, never here");
         Assert.That(card.AnyDot, Is.False);
         var waiting = RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps()), Task, toAdd: new RoomSlot(RoomKind.ToAdd, LineWords.Ours("4 Files")))!;

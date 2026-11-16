@@ -836,8 +836,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         // sentence, nothing joined on a dot, every label of the card whole.
                         var stopped = state == "38-result-stopped";
                         var unclaimed = state is "38-result-checking" or "38-result-simulated" or "38-result-unchecked";
-                        var slots = state == "38-project" ? new[] { "Passed" } : stopped ? new[] { "Failed", "4 Files" } : state == "38-result-add" ? new[] { "Passed", "10 Files" }
-                            : unclaimed ? new[] { "4 Files" } : new[] { "Passed", "4 Files" };
+                        // The outcome in the Checks page's own word, and never twice where the status already names it (AUDIT2 10:05Z W1, W2).
+                        var all = RoomPanelCards.AllPassing;
+                        var slots = state == "38-project" ? new[] { all } : stopped ? new[] { "4 Files" } : state == "38-result-add" ? new[] { all, "10 Files" }
+                            : unclaimed ? new[] { "4 Files" } : new[] { all, "4 Files" };
                         var statusTitle = stopped ? RoomBar.StoppedTitle : state == "38-result-checking" ? TaskSteps.Checking : state == "38-result-simulated" ? SimulatedChecks.Title : null;
                         Require(shown.Card != null && !shown.Card.AnyDot && shown.Card.Slots.Select(slot => slot.Value.Text).SequenceEqual(slots) && shown.Sentence == null
                             && (shown.Card.Status?.Title == statusTitle) && (state != "38-result-simulated" || shown.Card.Status?.Line == SimulatedChecks.Line),
