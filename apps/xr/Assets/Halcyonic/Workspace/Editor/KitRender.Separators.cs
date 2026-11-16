@@ -97,13 +97,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 var em = (InParent(label.fontSize * 0.1f, 0f) - InParent(0f, 0f)).magnitude;
                 var theirs = label.TryGetComponent<GlazeRuns>(out var runs) ? runs.Theirs : new List<(int Start, int End)>();
                 if (!byParent.TryGetValue(parent, out var glyphs)) byParent[parent] = glyphs = new List<Inked>();
+                // The agent's words band draws only its part, lifted (and centred) from where its lines were laid: read as drawn.
+                var bandOf = label.GetComponentInParent<RoomBand>();
+                var part = bandOf != null && bandOf.Label == label ? bandOf.Drawn : ((int First, int Count, float Down)?)null;
                 for (var index = 0; index < info.characterCount; index++)
                 {
                     var character = info.characterInfo[index];
                     if (!character.isVisible || character.textElement == null) continue;
+                    var down = 0f;
+                    if (part is (int first, int count, float lower))
+                    {
+                        if (character.lineNumber < first || character.lineNumber >= first + count) continue;
+                        down = lower;
+                    }
                     var metrics = character.textElement.glyph.metrics;
-                    var left = InParent(character.origin + metrics.horizontalBearingX * character.scale, character.baseLine);
-                    var right = InParent(character.origin + (metrics.horizontalBearingX + metrics.width) * character.scale, character.baseLine);
+                    var left = InParent(character.origin + metrics.horizontalBearingX * character.scale, character.baseLine - down);
+                    var right = InParent(character.origin + (metrics.horizontalBearingX + metrics.width) * character.scale, character.baseLine - down);
                     glyphs.Add(new Inked
                     {
                         Label = label, Character = character.character, Left = Mathf.Min(left.x, right.x),
