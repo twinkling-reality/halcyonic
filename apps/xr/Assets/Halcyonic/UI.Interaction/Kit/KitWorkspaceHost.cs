@@ -587,6 +587,28 @@ namespace Halcyonic.XR.UI
             var turn = Quaternion.Euler(Mathf.Atan2(to.y, -to.z) * Mathf.Rad2Deg, 0f, 0f);
             writingArc.transform.localRotation = turn;
             writingArc.transform.localPosition = foot - turn * new Vector3(0f, -watchSize.y, 0f);
+            // The arc bends round the person, so tipping it brings its side panels' lower corners down: it is lifted by what its
+            // drawn parts fall short of the foot, so no part ever stands under the gap over the bar (36-work-watch: 6 dp at Standard).
+            var low = LowestIn(bar.transform, writingArc);
+            if (low < watchFoot) writingArc.transform.localPosition += new Vector3(0f, watchFoot - low, 0f);
+        }
+
+        /// <summary>The lowest point of the arc's drawn parts in <paramref name="space"/>'s units, over the parts found at its last show.</summary>
+        private float LowestIn(Transform space, RoomWritingArc arc)
+        {
+            var into = space.worldToLocalMatrix;
+            var low = float.PositiveInfinity;
+            foreach (var part in watchParts)
+            {
+                if (part == null || !part.enabled || !part.gameObject.activeInHierarchy) continue;
+                var bounds = part.localBounds;
+                if (bounds.size == Vector3.zero) continue;
+                var to = into * part.transform.localToWorldMatrix;
+                for (var corner = 0; corner < 8; corner++)
+                    low = Mathf.Min(low, to.MultiplyPoint3x4(new Vector3((corner & 1) == 0 ? bounds.min.x : bounds.max.x,
+                        (corner & 2) == 0 ? bounds.min.y : bounds.max.y, (corner & 4) == 0 ? bounds.min.z : bounds.max.z)).y);
+            }
+            return float.IsPositiveInfinity(low) ? watchFoot : low;
         }
 
         /// <summary>How far the arc's drawn parts reach under its laid foot, in its own units: its glass's rim and shade.</summary>
@@ -605,7 +627,7 @@ namespace Halcyonic.XR.UI
                     low = Mathf.Min(low, to.MultiplyPoint3x4(new Vector3((corner & 1) == 0 ? bounds.min.x : bounds.max.x,
                         (corner & 2) == 0 ? bounds.min.y : bounds.max.y, (corner & 4) == 0 ? bounds.min.z : bounds.max.z)).y);
             }
-            watchParts.Clear();
+            // The parts are kept for FaceWatch's lift each frame until the next show finds them again.
             return Mathf.Clamp(-size.y - low, 0f, RoomType.Units(8f));
         }
 
