@@ -1,4 +1,4 @@
-import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { type ChildProcess, execFile, execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   constants,
@@ -159,6 +159,33 @@ export function refusedAtEnd(log: string): boolean {
   );
 }
 
+/**
+ * The TCP ports listening on this computer now, every owner's, from `netstat -anp tcp` (its local address ends in
+ * `.<port>`); null when netstat could not be run or said nothing readable.
+ */
+export function listeningPorts(): Promise<readonly number[] | null> {
+  return new Promise((resolvePorts) => {
+    execFile(
+      '/usr/sbin/netstat',
+      ['-anp', 'tcp'],
+      { env: { PATH: '/usr/bin:/bin:/usr/sbin', LC_ALL: 'C' }, timeout: 10_000 },
+      (error, stdout) => resolvePorts(error === null ? portsListening(String(stdout)) : null),
+    );
+  });
+}
+
+/** The ports of the LISTEN lines of `netstat -anp tcp`'s output; null when there is no such line to read. */
+export function portsListening(output: string): readonly number[] | null {
+  const ports = new Set<number>();
+  for (const line of output.split('\n')) {
+    const fields = line.trim().split(/\s+/);
+    if (fields[fields.length - 1] !== 'LISTEN') continue;
+    const port = Number(/\.(\d+)$/.exec(fields[3] ?? '')?.[1]);
+    if (Number.isInteger(port) && port > 0 && port < 65536) ports.add(port);
+  }
+  return ports.size === 0 ? null : [...ports].sort((a, b) => a - b);
+}
+
 export interface OwnChecksDeps {
   readonly dataDir: string;
   readonly projection: Projection;
@@ -178,6 +205,11 @@ export interface OwnChecksDeps {
   readonly settleMs?: number;
   /** Takes out any secret Halcyonic holds from a command before it is journaled or shown. */
   readonly redact?: (text: string) => string;
+  /**
+   * The TCP ports listening on this computer now, for a check the person let open ports; null when they could not be read,
+   * and then the check runs with no port at all. By default `netstat -anp tcp`, which lists every owner's listeners.
+   */
+  readonly listening?: () => Promise<readonly number[] | null>;
 }
 
 /** Each manager's binary on `path`, as the host's own PATH names it, or null. */
@@ -475,7 +507,11 @@ export class OwnChecks {
       controlPlaneDraft(
         'project.own_check.chosen',
         scope(projectId),
-        { manager: found.manager, scripts },
+        {
+          manager: found.manager,
+          scripts,
+          ...(command.payload.open_ports === true ? { open_ports: true } : {}),
+        },
         this.#now(),
         causedBy(command.command_id),
       ),
@@ -512,7 +548,14 @@ export class OwnChecks {
     this.#checking.add(projectId);
     try {
       const checkId = this.#deps.ids.next() as CheckId;
-      const findings = await this.#findings(projectId, checkId, folder, own.manager, own.scripts);
+      const findings = await this.#findings(
+        projectId,
+        checkId,
+        folder,
+        own.manager,
+        own.scripts,
+        own.open_ports === true,
+      );
       this.#deps.recorder.record(
         controlPlaneDraft(
           'project.own_check.recorded',
@@ -539,6 +582,7 @@ export class OwnChecks {
     folder: string,
     manager: OwnCheckManager,
     chosen: readonly OwnCheckScript[],
+    openPorts: boolean,
   ): Promise<OwnCheckFindings> {
     const stopped = (outcome: OwnCheckFindings['outcome']): OwnCheckFindings => ({
       outcome,
@@ -555,7 +599,7 @@ export class OwnChecks {
         return stopped('command_changed');
     const binary = this.#deps.managers[manager];
     if (binary === null) return stopped('manager_missing');
-    const place = await this.#place(projectId, folder, binary);
+    const place = await this.#place(projectId, folder, binary, openPorts);
     const cache = this.cacheOf(projectId, checkId);
     await mkdir(cache, { recursive: true });
     const before = await readFolder(folder);
@@ -591,11 +635,27 @@ export class OwnChecks {
     };
   }
 
+  /** Loopback for a check the person let open ports: every port listening now refused; none at all when they cannot be read. */
+  async #ownLoopback(): Promise<
+    { ownLoopback: { denied: readonly number[] } } | Record<never, never>
+  > {
+    const listening = await (this.#deps.listening ?? listeningPorts)().catch(() => null);
+    if (listening === null) {
+      this.#deps.logger.warn(
+        {},
+        'the ports listening now could not be read, so the check opens none',
+      );
+      return {};
+    }
+    return { ownLoopback: { denied: listening } };
+  }
+
   /** The profile and the own folders of the check of `folder`, written fresh for each run. */
   async #place(
     projectId: ProjectId,
     folder: string,
     binary: string,
+    openPorts: boolean,
   ): Promise<{ profile: string; home: string; temp: string; path: string }> {
     const base = join(this.#deps.dataDir, 'own-checks', confinementKey(folder));
     const home = join(base, 'home');
@@ -624,6 +684,8 @@ export class OwnChecks {
       runtimeFolder: dirname(dirname(real)),
       toolFolders: [...new Set([...toolFoldersFor(this.#deps.node), ...toolFoldersFor(real)])],
       loopbackPorts: [],
+      // Ports only where the person chose them, and never one listening now: read fresh for every run.
+      ...(openPorts ? await this.#ownLoopback() : {}),
     });
     const profile = join(base, 'profile.sb');
     const draft = `${profile}.${process.pid}.new`;

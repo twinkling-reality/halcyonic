@@ -19,6 +19,7 @@ import {
   confinementKey,
   gitDataOutside,
   hostFoldersDeniedProfile,
+  OWN_LOOPBACK_ALWAYS_DENIED,
   RUNS_LATER,
   runsLater,
   SANDBOX_EXEC,
@@ -641,6 +642,77 @@ describe('a server of its own port, listening on it alone (BOX-3b)', () => {
       assert.equal(await bind(own), 'bound');
       assert.match(await bind(other), /bind: Operation not permitted/);
     } finally {
+      cleanup();
+    }
+  });
+});
+
+describe("a person's own check that may open ports: loopback, never a port listening at its start (ADR 0055, 2026-11-16)", () => {
+  test('absent, no port at all; present, loopback then every denied port refused after it, the fixed set included', () => {
+    const { scope, cleanup } = scene();
+    try {
+      const closed = confinedProfile(scope);
+      assert.doesNotMatch(closed, /localhost:\*/);
+      const open = confinedProfile({ ...scope, ownLoopback: { denied: [47957, 5038, 0, 70000] } });
+      const allow = open.indexOf('(allow network-outbound (remote ip "localhost:*"))');
+      const listen = open.indexOf('(allow network-bind network-inbound (local ip "localhost:*"))');
+      assert.ok(allow > 0 && listen > 0);
+      for (const port of [47957, ...OWN_LOOPBACK_ALWAYS_DENIED]) {
+        const deny = open.indexOf(`(deny network-outbound (remote ip "localhost:${port}"))`);
+        assert.ok(deny > allow, `${port} is refused after loopback is allowed`);
+      }
+      assert.doesNotMatch(open, /localhost:0\)|localhost:70000/, 'no port outside 1 to 65535');
+      assert.equal(open.match(/localhost:5038"/g)?.length, 1, 'each port once');
+      for (const port of [5037, 5038, 5039, 9222, 4317, 11434, 47800, 47999])
+        assert.ok(OWN_LOOPBACK_ALWAYS_DENIED.includes(port), String(port));
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('on this Mac: its own listen and connect work; a listener that was up before, and the outside network, are refused', {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { scope, cleanup } = scene();
+    // A listener of the test's own, up before the check, standing for another service on this Mac.
+    const before = createServer((socket) => {
+      // The probe closes at once; a reset on its side is not this test's failure.
+      socket.on('error', () => undefined);
+      socket.end('before\n');
+    });
+    await new Promise<void>((resolve) => before.listen(0, '127.0.0.1', resolve));
+    const port = (before.address() as AddressInfo).port;
+    try {
+      const probe = [
+        'use Socket;',
+        'socket(L, PF_INET, SOCK_STREAM, 0) or die; bind(L, sockaddr_in(0, INADDR_LOOPBACK)) or do { print "own listen: $!\\n"; exit };',
+        'listen(L, 1) or do { print "own listen: $!\\n"; exit }; my ($own) = sockaddr_in(getsockname(L)); print "own listen: ok\\n";',
+        'sub try { my ($p, $a) = @_; socket(my $c, PF_INET, SOCK_STREAM, 0); connect($c, sockaddr_in($p, $a)) ? "ok" : "$!" }',
+        'print "own connect: ", try($own, INADDR_LOOPBACK), "\\n";',
+        `print "before connect: ", try(${port}, INADDR_LOOPBACK), "\\n";`,
+        'print "outside connect: ", try(80, inet_aton("1.1.1.1")), "\\n";',
+      ].join(' ');
+      const said = async (profile: string) => {
+        const file = join(scope.temp, 'profile.sb');
+        writeFileSync(file, profile);
+        return run(SANDBOX_EXEC, ['-f', file, '/usr/bin/perl', '-e', probe]).then(
+          ({ stdout }) => stdout,
+          (error: { stdout?: string; stderr?: string }) =>
+            `${error.stdout ?? ''}${error.stderr ?? ''}`,
+        );
+      };
+      // Fail-first: without the person's choice, no port at all.
+      assert.match(await said(confinedProfile(scope)), /own listen: Operation not permitted/);
+      const open = await said(confinedProfile({ ...scope, ownLoopback: { denied: [port] } }));
+      assert.match(open, /own listen: ok/);
+      assert.match(open, /own connect: ok/);
+      assert.match(open, /before connect: Operation not permitted/);
+      assert.match(open, /outside connect: Operation not permitted/);
+      // The rule is what refuses it: not denied, the listener that was up before is reached.
+      const undenied = await said(confinedProfile({ ...scope, ownLoopback: { denied: [] } }));
+      assert.match(undenied, /before connect: ok/);
+    } finally {
+      before.close();
       cleanup();
     }
   });

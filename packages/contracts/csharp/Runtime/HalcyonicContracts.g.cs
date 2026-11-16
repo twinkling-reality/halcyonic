@@ -2380,6 +2380,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("ever_passed", Required = global::Newtonsoft.Json.Required.Always)]
         public bool EverPassed { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("open_ports", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? OpenPorts { get; set; }
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -4308,6 +4311,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<OwnCheckScript> Scripts { get; set; } = new global::System.Collections.Generic.List<OwnCheckScript>();
+
+        [global::Newtonsoft.Json.JsonProperty("open_ports", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? OpenPorts { get; set; }
     }
 
     public sealed class ProjectOwnCheckRecordedPayload
@@ -5324,6 +5330,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("scripts", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<OwnCheckChoice> Scripts { get; set; } = new global::System.Collections.Generic.List<OwnCheckChoice>();
+
+        [global::Newtonsoft.Json.JsonProperty("open_ports", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? OpenPorts { get; set; }
     }
 
     public sealed class ProjectPreviewStartPayload

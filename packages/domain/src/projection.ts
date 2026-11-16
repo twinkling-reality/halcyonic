@@ -197,6 +197,8 @@ interface MediaState {
 interface OwnCheckState {
   readonly manager: OwnCheckManager;
   readonly scripts: readonly OwnCheckScript[];
+  /** The person let the check open ports on this computer (ADR 0055, amended 2026-11-16). */
+  readonly openPorts: boolean;
   readonly chosenAt: Timestamp;
   latest: (CheckState<OwnCheckFindings> & { readonly first: boolean }) | null;
   /** Whether any run of this choice passed, the latest included. */
@@ -1281,6 +1283,7 @@ export class Projection {
               ...(latest.workstreamId === null ? {} : { workstream_id: latest.workstreamId }),
             },
       ever_passed: own.everPassed,
+      ...(own.openPorts ? { open_ports: true as const } : {}),
       passed_before: own.passedBefore,
       passed_earlier: own.passedEarlier,
     };
@@ -1842,6 +1845,7 @@ export class Projection {
         this.#ownChecks.set(event.project_id, {
           manager: event.payload.manager,
           scripts: event.payload.scripts,
+          openPorts: event.payload.open_ports === true,
           chosenAt: event.occurred_at,
           latest: null,
           everPassed: false,

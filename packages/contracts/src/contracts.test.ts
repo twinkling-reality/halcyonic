@@ -750,8 +750,11 @@ describe('the C# bindings', () => {
     'ProjectCheckedResult.ready', // project_checked's ready
     'ProjectCheckpointRecordedPayload.turn_id', // History
     'ProjectCreatedResult.returned', // a project taken off the list, brought back (ADR 0063)
+    'ProjectOwnCheckChoosePayload.open_ports', // the person let the check open ports; absent is no port (ADR 0055, 2026-11-16)
+    'ProjectOwnCheckChosenPayload.open_ports',
     'ProjectOwnCheckRecordedPayload.workstream_id', // ADR 0055, as ADR 0045
     'ProjectOwnCheckRunView.workstream_id', // ADR 0055
+    'ProjectOwnCheckView.open_ports',
     'ProjectPublishPayload.make_public', // ADR 0039, amended: the first Send, its title, Make Public
     'ProjectRemoveFromListPayload.review', // the review a removal carries (ADR 0063)
     'ProjectRestorePayload.review', // the review a restore carries (ADR 0051)

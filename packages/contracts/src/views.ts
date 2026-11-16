@@ -143,6 +143,8 @@ export const ProjectOwnCheckView = Type.Object(
     chosen_at: Timestamp,
     latest: Nullable(ProjectOwnCheckRunView),
     ever_passed: Type.Boolean(),
+    /** True only when the person let the check open ports on this computer (ADR 0055, amended 2026-11-16); absent otherwise. */
+    open_ports: Type.Optional(Type.Boolean()),
   },
   strict,
 );

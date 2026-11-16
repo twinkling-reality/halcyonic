@@ -3952,6 +3952,9 @@
                   },
                   "minItems": 1,
                   "maxItems": 5
+                },
+                "open_ports": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -14689,6 +14692,9 @@
                   },
                   "minItems": 1,
                   "maxItems": 5
+                },
+                "open_ports": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -20590,6 +20596,9 @@
           ]
         },
         "ever_passed": {
+          "type": "boolean"
+        },
+        "open_ports": {
           "type": "boolean"
         }
       },

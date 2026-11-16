@@ -157,6 +157,12 @@ export const ProjectOwnCheckChooseCommand = defineCommand(
         minItems: 1,
         maxItems: OWN_CHECK_SCRIPT_NAMES.length,
       }),
+      /**
+       * True when the person let the check's scripts open ports on this computer (ADR 0055, amended 2026-11-16): they may
+       * listen and connect on loopback, never to a port listening when the check starts nor Halora's own, and still reach
+       * no outside network. Absent or false: no port at all, as before.
+       */
+      open_ports: Type.Optional(Type.Boolean()),
     },
     strict,
   ),

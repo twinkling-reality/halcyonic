@@ -10,6 +10,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { type AddressInfo, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
@@ -37,6 +38,7 @@ import {
   managerOf,
   managersOn,
   OwnChecks,
+  portsListening,
   readManifest,
   refusedAtEnd,
   writtenBetween,
@@ -182,7 +184,12 @@ async function until(check: () => boolean, what: string): Promise<void> {
 function plane(
   t: TestContext,
   scripts: Record<string, string> = { test: SCRIPT },
-  options: { scriptMs?: number; settleMs?: number; go?: boolean } = {},
+  options: {
+    scriptMs?: number;
+    settleMs?: number;
+    go?: boolean;
+    listening?: () => Promise<readonly number[] | null>;
+  } = {},
 ) {
   const dataDir = scratch(t, 'data');
   const folder = scratch(t, 'project');
@@ -202,6 +209,7 @@ function plane(
       node: process.execPath,
       managers,
       ...(options.scriptMs === undefined ? {} : { scriptMs: options.scriptMs }),
+      ...(options.listening === undefined ? {} : { listening: options.listening }),
       // The folder is read again after a run; a short settle keeps the suite quick.
       settleMs: options.settleMs ?? 50,
     },
@@ -229,7 +237,7 @@ function plane(
     });
   const person = (command: CommandEnvelope) => controlPlane.commands.submit(command, 'websocket');
   /** The person's choice, carrying each command's SHA-256 as the host offers it now (AUDIT3 S1). */
-  const choose = (names: string[] = ['test'], sha?: string) => {
+  const choose = (names: string[] = ['test'], sha?: string, openPorts?: boolean) => {
     // A Go module's commands are the host's own; a package.json's are the project's.
     const manifest = existsSync(join(folder, 'package.json'))
       ? (JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')) as {
@@ -245,6 +253,7 @@ function plane(
           name,
           command_sha256: sha ?? commandSha256(manifest.scripts[name] ?? ''),
         })),
+        ...(openPorts === undefined ? {} : { open_ports: openPorts }),
       },
     } as unknown as CommandEnvelope);
   };
@@ -313,6 +322,7 @@ function plane(
     turnChanged,
     ended,
     sent,
+    ofType,
   };
 }
 
@@ -402,6 +412,39 @@ describe("a project's own check, run inside the agents' sandbox on this Mac (ADR
     assert.equal(last?.payload.findings.outcome, 'command_changed');
     assert.deepEqual(last?.payload.findings.runs, []);
     assert.equal(p.ended()[0]?.payload.reason, 'check_refused');
+  });
+
+  test('ports the person let it open: its own on loopback; a port listening at its start and the outside network refused (ADR 0055, 2026-11-16)', async (t) => {
+    // A listener of the test's own, up before the check, standing for another service on this Mac.
+    const before = createServer((socket) => {
+      socket.on('error', () => undefined);
+      socket.end('before');
+    });
+    await new Promise<void>((resolve) => before.listen(0, '127.0.0.1', resolve));
+    t.after(() => before.close());
+    const port = (before.address() as AddressInfo).port;
+    // Passes only when its own listen and connect work and the listener that was up before is refused.
+    const probe = `node -e "const n=require('net');const s=n.createServer(c=>c.end()).listen(0,'127.0.0.1',()=>{const t=(p,f)=>{const c=n.connect(p,'127.0.0.1',()=>{c.end();f('ok')});c.on('error',e=>f(e.code))};t(s.address().port,own=>t(${port},prior=>{console.log('own',own,'prior',prior);process.exit(own==='ok'&&prior==='EPERM'?0:5)}))});s.on('error',e=>{console.error('listen',e.code);process.exit(4)})"`;
+    const opened = plane(t, { test: probe }, { listening: async () => [port] });
+    opened.choose(['test'], undefined, true);
+    await until(() => opened.recorded().length === 1, 'the run with ports');
+    const run = opened.recorded()[0]?.payload.findings;
+    assert.equal(run?.passed, true, JSON.stringify(run));
+    assert.equal(opened.ofType('project.own_check.chosen')[0]?.payload.open_ports, true);
+    assert.equal(opened.controlPlane.projection.ownCheck(opened.projectId)?.open_ports, true);
+    // Fail-first: the same script with no choice, and with the listeners unreadable, gets no port at all.
+    for (const [what, listening, openPorts] of [
+      ['not chosen', async () => [port], undefined],
+      ['listeners unreadable', async () => null, true],
+    ] as const) {
+      const closed = plane(t, { test: probe }, { listening });
+      closed.choose(['test'], undefined, openPorts);
+      await until(() => closed.recorded().length === 1, what);
+      const findings = closed.recorded()[0]?.payload.findings;
+      assert.equal(findings?.passed, false, what);
+      assert.equal(findings?.runs[0]?.exit, 4, what);
+      assert.equal(findings?.runs[0]?.refused, true, what);
+    }
   });
 
   test('the network, a write outside the folder and a port are refused, and read as refused', async (t) => {
@@ -741,5 +784,21 @@ describe('a socket the sandbox refused is read anywhere in the log (LINK, 2026-1
       false,
     );
     assert.equal(refusedAtEnd(at('sh: ./script.sh: Permission denied')), false);
+  });
+});
+
+describe("the ports listening on this computer, read from netstat's output (ADR 0055, 2026-11-16)", () => {
+  test("every LISTEN line's port, IPv4 and IPv6, any address; no other state; nothing readable is null", () => {
+    const output = [
+      'Active Internet connections (including servers)',
+      'Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)',
+      'tcp4       0      0  127.0.0.1.47800        *.*                    LISTEN',
+      'tcp6       0      0  ::1.631                *.*                    LISTEN',
+      'tcp46      0      0  *.5000                 *.*                    LISTEN',
+      'tcp4       0      0  192.168.1.20.52344     17.57.146.20.443       ESTABLISHED',
+      'tcp4       0      0  127.0.0.1.47800        *.*                    LISTEN',
+    ].join('\n');
+    assert.deepEqual(portsListening(output), [631, 5000, 47800]);
+    assert.equal(portsListening('Active Internet connections\n'), null);
   });
 });

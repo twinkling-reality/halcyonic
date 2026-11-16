@@ -59,7 +59,30 @@ export interface ConfinedScope extends Confinement {
    * OpenCode's (BOX-3b). None for a server spoken to over its standard input, as Codex's is.
    */
   readonly listenPorts?: readonly number[];
+  /**
+   * A project's own check that the person let open ports on this computer (ADR 0055, amended 2026-11-16): it may listen
+   * on loopback and connect to loopback, and to none of `denied`, every port listening when the check started and the
+   * fixed set (`OWN_LOOPBACK_ALWAYS_DENIED`). Seatbelt cannot hold a listen to loopback alone: a listen on every
+   * interface is allowed and reachable from the network while the check runs, and a service that starts listening after
+   * the check started is reachable on loopback. Both are said to the person before they choose it. Absent: no port at all.
+   */
+  readonly ownLoopback?: { readonly denied: readonly number[] };
 }
+
+/**
+ * Ports a check that may open ports never reaches, whatever listens at its start: the Android debug bridge (5037 to
+ * 5039), a browser's remote debugging (9222), Ollama (11434), Seorak's local plane (4317), and Halora's own family (the
+ * control plane, its network listener, the pairing and setup pages, previews and checks, 47800 to 47999) (AUDIT3, 15:09Z).
+ */
+export const OWN_LOOPBACK_ALWAYS_DENIED: readonly number[] = [
+  5037,
+  5038,
+  5039,
+  9222,
+  4317,
+  11434,
+  ...Array.from({ length: 200 }, (_, i) => 47800 + i),
+];
 
 /**
  * Codex 0.157.0's own Seatbelt base policy and its minimal macOS platform defaults, as the pinned
@@ -676,6 +699,17 @@ export function confinedProfile(scope: ConfinedScope): string {
     ...(scope.listenPorts ?? []).map(
       (port) => `(allow network-bind network-inbound (local ip "localhost:${port}"))`,
     ),
+    // A person's own check that may open ports: loopback, then every denied port refused after it (later rules win).
+    ...(scope.ownLoopback === undefined
+      ? []
+      : [
+          '(allow network-bind network-inbound (local ip "localhost:*"))',
+          '(allow network-outbound (remote ip "localhost:*"))',
+          ...[...new Set([...OWN_LOOPBACK_ALWAYS_DENIED, ...scope.ownLoopback.denied])]
+            .filter((port) => Number.isInteger(port) && port > 0 && port < 65536)
+            .sort((x, y) => x - y)
+            .map((port) => `(deny network-outbound (remote ip "localhost:${port}"))`),
+        ]),
     // Later rules win: an original's secret shapes, then the hidden folders, are refused after the
     // allowances above; the scope's own folders are allowed again last, so nothing of theirs is lost.
     ...(originals.length === 0

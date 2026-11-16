@@ -185,3 +185,26 @@ from the last 20 lines. A project's own test that prints such a socket line for 
 failed: never a pass, since refused is not passed; it only shifts who is told the fault (AUDIT3, 15:07Z). Whether a check may open a port on loopback stays open (OPEN_QUESTIONS.md): the loopback on a
 developer's Mac holds unauthenticated listeners, so a design needs bind and listen on loopback only, connect only to ports
 the same run bound, and a fail-first test that the check cannot reach a listener outside the run.
+
+## Amendment, 2026-11-16 (later): ports the person lets the check open
+
+The open question above is answered for the check, not for the agent. A person may let their project's own check open ports
+(`open_ports` on `project.own_check.choose`, journaled on `project.own_check.chosen`, shown on the project's own check), so a web
+project's own tests, which start a server on a local port, can pass. Never by default, never chosen by an agent or a lane,
+and never for the agent's own run, whose profile is unchanged.
+- The check's profile then allows a listen on loopback and a connect to loopback (`ownLoopback` in `confinedProfile`), and after
+  them, since Seatbelt's later rules win, refuses a connect to every port listening when that run starts and to a fixed set
+  (`OWN_LOOPBACK_ALWAYS_DENIED`: adb 5037 to 5039, a browser's remote debugging 9222, Seorak's 4317, Ollama 11434, and Halora's
+  own 47800 to 47999). The listeners are read fresh for every run from `netstat -anp tcp`, which lists every owner's; where they
+  cannot be read, that run opens no port. The outside network stays refused.
+- What Seatbelt cannot hold, probed on this Mac (LINK, 2026-11-16, its own listeners only), and said to the person before they
+  choose it: a listen on every interface is allowed, so a test server listening on all of them is reachable from the network
+  for as long as the check runs; and a service that starts listening on this Mac after the run starts is reachable on loopback.
+- Tests, fail-first: the profile's text (no port without the choice; each refused port after the allow); on this Mac, a run's
+  own listen and connect work, a listener that was up before and the outside network are refused, and with the deny lifted the
+  listener that was up before is reached; through the plane, a check chosen with ports passes such a probe, and the same check
+  not chosen, or with the listeners unreadable, gets no port and reads refused.
+- The headset and the Mac's words for the choice and its two gaps are AUDIT2's and the client half's; until they ship, no client
+  sends `open_ports` and nothing changes for anyone. An older generated C# client meets the new optional field; the plane and
+  the headset move together.
+- The real fix for both gaps is a check outside the person's own login (a separate macOS user or a VM), a unit of its own.
