@@ -138,7 +138,8 @@ export function coloursOfPicture(url: string, options: { hour?: Hour } = {}): Pr
 async function read(url: string, options: { hour?: Hour }): Promise<PictureColours> {
   if (isVideo(url)) {
     const video = await loadedVideo(url);
-    await seek(video, Math.min(2, (video.duration || 0) * 0.1));
+    // A video already playing on a window is read where it is, never jumped; otherwise from a tenth of the way in.
+    if (video.paused) await seek(video, Math.min(2, (video.duration || 0) * 0.1));
     const { data, w, h } = pixelsOf(video, video.videoWidth, video.videoHeight);
     // Kept loaded: the window shows this same video.
     return pictureColours(data, w, h, options);
@@ -349,10 +350,6 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
         ground.light(fx, ground.height(fx, fz) + 0.35, fz, own, 0.9 * eased);
       }
       ground?.shade?.(at.x, at.z, 0.5 * eased);
-      if (ground !== null) {
-        const sand = ground.height(at.x, at.z);
-        ground.castShadow?.(at.x, at.z, body.position.y - sand, body.position.y - sand + height, width, 0.2 * eased);
-      }
     },
   };
 }

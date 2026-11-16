@@ -494,8 +494,9 @@ export function openLand(
   // mip-mapped, so far off it averages to plain sand and never shimmers into lines.
   const rippleCells = 128;
   const rippleSlopes = new Uint8Array(rippleCells * rippleCells * 4);
+  // Crests that bend gently along their length (a strong bend over a short span draws chevrons, not sand).
   const rippleAt = (u: number, v: number) =>
-    Math.sin(Math.PI * 2 * (9 * u + 0.5 * Math.sin(Math.PI * 2 * v) + 0.22 * Math.sin(Math.PI * 2 * (3 * v + u)))) *
+    Math.sin(Math.PI * 2 * (9 * u + 0.12 * Math.sin(Math.PI * 2 * v) + 0.08 * Math.sin(Math.PI * 2 * (2 * v + u)))) *
     (0.75 + 0.25 * Math.sin(Math.PI * 2 * (2 * v - u)));
   for (let row = 0; row < rippleCells; row++) {
     for (let col = 0; col < rippleCells; col++) {
@@ -626,10 +627,16 @@ export function openLand(
       vec3 n = normalize(vec3(ns.r * 2.0 - 1.0, ns.b, ns.g * 2.0 - 1.0));
       float faceSun = max(0.0, dot(n, sandSun3));
       vec3 base = mix(sandBaseNear, sandBaseFar, pow(min(1.0, length(p) / sandReach), 0.6));
-      vec3 shadeC = mix(base * 0.32, sandShadeSky, 0.4);
+      vec3 shadeC = mix(base * 0.3, sandShadeSky, 0.55);
       vec3 litC = mix(base, sandGold, 0.55) * 1.9;
       float k = clamp((faceSun + 0.12) / 0.5, 0.0, 1.0);
-      outgoingLight = mix(outgoingLight, mix(shadeC, litC, k * k * (3.0 - 2.0 * k)), farOff);
+      vec3 farLight = mix(shadeC, litC, k * k * (3.0 - 2.0 * k));
+      // A crest seen toward the low sun catches a bright rim where its slope turns away from the eye.
+      vec3 toEye = normalize(cameraPosition - vSand);
+      float edgeOn = pow(1.0 - max(dot(n, toEye), 0.0), 3.0);
+      float towardSun = max(0.0, dot(normalize(-toEye.xz), sandSun));
+      farLight += sandGold * edgeOn * towardSun * towardSun * 0.9;
+      outgoingLight = mix(outgoingLight, farLight, farOff);
     }
     // Near the person, the sand's light from its picture, blending into the rings' own colour by its edge.
     vec2 cell = p / (2.0 * sandSpan) + 0.5;
@@ -638,16 +645,17 @@ export function openLand(
     if (inside > 0.0) outgoingLight = mix(outgoingLight, textureGrad(sandNear, vec2(cell.x, cell.y), vec2(grad / (2.0 * sandSpan), 0.0), vec2(0.0, grad / (2.0 * sandSpan))).rgb, inside);
     // Ripples across the wind, a tile 2.4 m across: lighter on the side of each that faces the sun, darker on the
     // other, faintly in shade as well; strongest at the feet and gone by 30 m.
-    // Two sizes of ripple at slightly different angles, so they never repeat like a pattern.
+    // Ripples from the tile, across the wind (near the feet the exact ripples below take over).
     vec2 q = vec2(dot(p, sandWind), dot(p, vec2(-sandWind.y, sandWind.x))) / 2.4;
-    vec2 q2 = vec2(q.x * 0.96 + q.y * 0.28, q.y * 0.96 - q.x * 0.28) * 0.62 + vec2(0.37, 0.71);
-    vec2 slope = (textureGrad(sandRipples, q, vec2(grad / 2.4, 0.0), vec2(0.0, grad / 2.4)).rg - 0.5) * 1.3 + (textureGrad(sandRipples, q2, vec2(grad * 0.26, 0.0), vec2(0.0, grad * 0.26)).rg - 0.5) * 0.9;
+    // One tile only, read at the slanted footprint's full length: two tiles at different angles over each other
+    // draw a herringbone moire, and a finer read shimmers.
+    vec2 slope = (textureGrad(sandRipples, q, vec2(footprint / 2.4, 0.0), vec2(0.0, footprint / 2.4)).rg - 0.5) * 1.0;
     // And a finer one at the feet, so the sand close by stays crisp.
     vec2 q3 = vec2(q.x * 0.9 - q.y * 0.43, q.y * 0.9 + q.x * 0.43) * 2.3 + vec2(0.13, 0.52);
-    slope += (textureGrad(sandRipples, q3, vec2(grad * 0.96, 0.0), vec2(0.0, grad * 0.96)).rg - 0.5) * 0.8 * (1.0 - smoothstep(1.5, 5.0, length(p)));
+    slope += (textureGrad(sandRipples, q3, vec2(footprint * 0.96, 0.0), vec2(0.0, footprint * 0.96)).rg - 0.5) * 0.8 * (1.0 - smoothstep(1.5, 5.0, length(p)));
     float sunAlong = dot(sandSun, sandWind);
     float sunAcross = dot(sandSun, vec2(-sandWind.y, sandWind.x));
-    float rippleNear = 1.0 - smoothstep(2.5, 16.0, length(p));
+    float rippleNear = 1.0 - smoothstep(2.5, 12.0, length(p));
     float atFeet = 1.0 - smoothstep(2.0, 7.0, length(p));
     // Close to the person, ripples worked out exactly at every pixel (no texture to blur at a slant): sharp-crested,
     // bending across their length, faded only where one would be finer than a couple of pixels.
@@ -664,7 +672,7 @@ export function openLand(
     float other = ra * 53.0 + 6.0 * sin(ra * 0.9 - rc * 0.7 + 2.0) + 2.2 * sin(rc * 6.1 - ra * 0.8) + 5.0 * warp;
     float blend = smoothstep(0.25, 0.75, 0.5 + 0.3 * sin(rc * 4.6 + ra * 2.1 + 1.0) + 0.2 * sin(ra * 5.3 - rc * 3.7));
     float phase1 = mix(drift, other, blend);
-    float crisp = (1.0 - smoothstep(0.7, 2.0, footprint * 66.0)) * (1.0 - smoothstep(1.0, 7.0, length(p)));
+    float crisp = (1.0 - smoothstep(0.25, 0.7, footprint * 66.0)) * (1.0 - smoothstep(1.0, 7.0, length(p)));
     // A ripple's face: a long slope lit as it rises into the wind, then a sharp crest and a short steep side in
     // shade, as wind-blown sand lies (never a smooth wave).
     float s1 = fract(phase1 / 6.2832);
