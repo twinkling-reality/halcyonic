@@ -15,7 +15,7 @@ import type {
   SendReviewRequest,
   SendReviewResponse,
 } from '@halcyonic/contracts';
-import { COMMAND_FIELDS } from '@halcyonic/domain';
+import { ALLOW_TEST_SERVERS, COMMAND_FIELDS } from '@halcyonic/domain';
 import type { HostedProvider } from '@halcyonic/runtime-core';
 import { declarationProblem } from '../providers.ts';
 import { sendTitle } from '../sending/github.ts';
@@ -562,7 +562,11 @@ export async function buildReview(
         digest: reviewDigest(
           'project.own_check.choose',
           { project_id: command.payload.project_id },
-          { scripts: command.payload.scripts },
+          {
+            scripts: command.payload.scripts,
+            // The person's yes to test servers is part of what they read and press (ADR 0055, amended 2026-11-16).
+            ...(command.payload.open_ports === true ? { open_ports: true } : {}),
+          },
         ),
         confirm_words: 'Choose Check',
         what_happens: "These commands of the project's own become its check, run confined",
@@ -574,7 +578,11 @@ export async function buildReview(
           theirs: true,
         })),
         items_total: command.payload.scripts.length,
-        warnings: [],
+        // Both gaps in view beside the yes, never behind a press (AUDIT2, 16:24Z).
+        warnings:
+          command.payload.open_ports === true
+            ? [{ code: 'test_servers', line: ALLOW_TEST_SERVERS.line }]
+            : [],
       });
     case 'assistant.model.choose': {
       // Where the assistant will run, read before the one press (the lead's D1, 2026-11-12), in HOSTED_COST's words:

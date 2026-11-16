@@ -24,7 +24,7 @@ import {
   type WorkspaceRequestView,
   type WorkstreamId,
 } from '@halcyonic/contracts';
-import { admitCommand, commandEntry } from '@halcyonic/domain';
+import { ASSISTANT_CLIENT, admitCommand, commandEntry, NEVER_PROPOSED } from '@halcyonic/domain';
 import {
   checkProjectLocation,
   RuntimeActionError,
@@ -1498,7 +1498,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
           schema_version: 1,
           command_id: this.#o.ids.next() as CommandId,
           issued_at: this.#now(),
-          client: { name: 'workspace-agent', version: null, device_label: null },
+          client: { name: ASSISTANT_CLIENT, version: null, device_label: null },
           command_type: 'execution.send_instruction',
           payload: { execution_id: request.execution_id, text: plane.redaction.held(text) },
         });
@@ -1659,6 +1659,19 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       return { data: { availability: 'unavailable', reason: 'not_here' } };
     }
     const values = (args.values ?? {}) as Record<string, string | boolean | number | number[]>;
+    // What the person starts on their own screen is never proposed, whatever the model sends (AUDIT3, CORE 16:22Z).
+    const never = (NEVER_PROPOSED[entry.command_type] ?? []).find(
+      (field) => values[field] !== undefined,
+    );
+    if (never !== undefined) {
+      this.#step(
+        request,
+        name,
+        'rejected',
+        `${never} is the person's to choose on their own screen, never proposed.`,
+      );
+      return { data: { availability: 'unavailable', reason: 'person_only' } };
+    }
     // Indices name rows of the list as this request read it: never a list unread.
     const read: Record<string, string> = {};
     for (const need of entry.needs) {
@@ -1764,7 +1777,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       read: read as Partial<Record<ChoiceList, string>>,
       command_id: this.#o.ids.next() as CommandId,
       issued_at: this.#now(),
-      client: { name: 'workspace-agent', version: null, device_label: null },
+      client: { name: ASSISTANT_CLIENT, version: null, device_label: null },
     });
     if (!prepared.ok) return { ok: false, code: prepared.code, message: prepared.message };
     // The domain's admission, as a dry run, before anything waits for a press (the 30B window at 06:36Z: a version
@@ -2492,7 +2505,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       lists: act.lists,
       id: () => this.#o.ids.next() as CommandId,
       now: this.#now(),
-      client: { name: 'workspace-agent', version: null, device_label: null },
+      client: { name: ASSISTANT_CLIENT, version: null, device_label: null },
     });
     if (!prepared.ok) {
       this.#step(request, 'act', 'rejected', `Nothing was made: ${prepared.message}`, null, null, {
@@ -2628,7 +2641,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       read: { assistant_models: list.digest },
       command_id: this.#o.ids.next() as CommandId,
       issued_at: this.#now(),
-      client: { name: 'workspace-agent', version: null, device_label: null },
+      client: { name: ASSISTANT_CLIENT, version: null, device_label: null },
     });
     if (!prepared.ok) return false;
     // The host's own offer, never the model's: this computer's model only (row 0), and one press with no review, since
@@ -2749,7 +2762,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
               command_type: entry.command_type,
               title: entry.title,
               does: entry.description,
+              // A need the person starts on their own screen is never offered to the model (AUDIT3, CORE 16:22Z).
               needs: entry.needs
+                .filter((need) => !(NEVER_PROPOSED[entry.command_type] ?? []).includes(need.name))
                 .map(
                   (need) =>
                     `${need.name}: ${need.list ? `${need.kind === 'choices' ? `up to ${need.max ?? 1} rows` : 'a row'} of ${need.list}` : need.kind}${need.required ? ', required' : ', optional'}`,

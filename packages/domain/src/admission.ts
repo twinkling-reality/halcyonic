@@ -24,6 +24,7 @@ import {
   QUEUED_INSTRUCTIONS_MAX,
   WORLD_STARTER_ID,
 } from '@halcyonic/contracts';
+import { ALLOW_TEST_SERVERS, ASSISTANT_CLIENT } from './command-fields.ts';
 import { checkServable, fitPasses, readingPasses } from './fix-steps.ts';
 import { foldersOverlap } from './folders.ts';
 import { COMMAND_POLICY, COMMAND_SAYING } from './policy.ts';
@@ -1209,6 +1210,13 @@ function admit(
         );
       if (project.location === null)
         return reject(scope, 'invalid_state', 'This project has no folder to check.');
+      // Test servers are the person's own yes, started from their own screen, never the assistant's (AUDIT3, CORE 16:22Z).
+      if (command.payload.open_ports === true && command.client.name === ASSISTANT_CLIENT)
+        return reject(
+          scope,
+          'invalid_state',
+          `${ALLOW_TEST_SERVERS.label} is chosen by you on your own screen, never proposed for you.`,
+        );
       // Choosing runs the check once: never over files a runtime is still writing.
       const busy = projection.projectBusyReason(projectId);
       if (busy !== null)

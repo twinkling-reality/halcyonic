@@ -206,7 +206,12 @@ and never for the agent's own run, whose profile is unchanged.
   run's folders are refused, and with the deny lifted the
   listener that was up before is reached; through the plane, a check chosen with ports passes such a probe, and the same check
   not chosen, or with the listeners unreadable, gets no port and reads refused.
-- The headset and the Mac's words for the choice and its two gaps are AUDIT2's and the client half's; until they ship, no client
-  sends `open_ports` and nothing changes for anyone. An older generated C# client meets the new optional field; the plane and
+- It is the person's own yes, started from their own screen: admission refuses `open_ports` true from the assistant's client
+  (`ASSISTANT_CLIENT`), the assistant's list never offers it and a value for it is refused before anything is prepared
+  (`NEVER_PROPOSED`; AUDIT3 and CORE, 16:22Z), since a repository's own text could talk an assistant into proposing it and one
+  press is too easy a yes. Its words are AUDIT2's (`ALLOW_TEST_SERVERS`): the label "Allow Test Servers" and, beside the yes on the
+  review card as a warning and in its digest, "Its tests may start servers. While they run, devices on your network can reach
+  them, and the tests can reach any service that starts on this computer meanwhile." A test pins the line to the profile's rules.
+- The client half draws the choice with those words; until it ships, no client sends `open_ports` and nothing changes for anyone. An older generated C# client meets the new optional field; the plane and
   the headset move together.
 - The real fix for both gaps is a check outside the person's own login (a separate macOS user or a VM), a unit of its own.

@@ -60,6 +60,24 @@ const need = (
 const optional = { required: false } as const;
 
 /**
+ * The person's own yes that lets a project's own check start test servers (`open_ports`, ADR 0055 amended 2026-11-16), in
+ * AUDIT2's words: the label, and the line beside the yes that says both gaps of the rule as built, no more (16:24Z). A test
+ * pins the line to the check's profile, so neither moves alone.
+ */
+export const ALLOW_TEST_SERVERS = {
+  label: 'Allow Test Servers',
+  line: 'Its tests may start servers. While they run, devices on your network can reach them, and the tests can reach any service that starts on this computer meanwhile.',
+} as const;
+
+/** The client name of a command the assistant prepares (ADR 0060): never the person's own client. */
+export const ASSISTANT_CLIENT = 'workspace-agent';
+
+/** Payload fields the assistant may never fill or propose, by command: the person starts them from their own client. */
+export const NEVER_PROPOSED: Readonly<Partial<Record<CommandType, readonly string[]>>> = {
+  'project.own_check.choose': ['open_ports'],
+};
+
+/**
  * Every payload field of every command but the workspace request's own, which the assistant is and
  * never proposes. A test holds this to the contracts' schemas, field for field.
  */
@@ -94,8 +112,9 @@ export const COMMAND_FIELDS: Readonly<
   'project.own_check.choose': {
     project_id: project,
     scripts: need('choices', 'Commands', { list: 'own_check_scripts', max: 5 }),
-    // The person's own yes, read with the two gaps beside it (ADR 0055, amended 2026-11-16); absent is no port.
-    open_ports: need('yes_no', 'Open Ports', optional),
+    // The person's own yes, read with the two gaps beside it (ADR 0055, amended 2026-11-16); absent is no port. Never the
+    // assistant's to fill: admission refuses it from the assistant, and its list never offers it (AUDIT3, CORE 16:22Z).
+    open_ports: need('yes_no', ALLOW_TEST_SERVERS.label, optional),
   },
   'project.preview.start': { project_id: project },
   'project.preview.stop': { project_id: project },
