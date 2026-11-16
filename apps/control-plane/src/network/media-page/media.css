@@ -372,7 +372,7 @@ h2.media-name {
 .media-incoming.media-framed .media-sheen {
   background-image:
     linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.08) 50%, transparent 70%),
-    linear-gradient(rgb(8 12 14 / 0.16), rgb(8 12 14 / 0.16));
+    linear-gradient(rgb(8 12 14 / 0.06), rgb(8 12 14 / 0.06));
   background-size:
     250% 100%,
     100% 100%;
@@ -388,8 +388,10 @@ h2.media-name {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: rgb(20 22 24 / 0.92);
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
+  background: rgb(0 0 0 / 0.48);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.2);
 }
 .media-ring svg {
   width: 56px;
@@ -397,21 +399,29 @@ h2.media-name {
 }
 .media-ring-track {
   fill: none;
-  stroke: rgb(255 255 255 / 0.16);
-  stroke-width: 3;
+  stroke: rgb(255 255 255 / 0.22);
+  stroke-width: 2.5;
 }
 .media-ring-arc {
   fill: none;
   stroke: var(--accent);
-  stroke-width: 3;
+  stroke-width: 2.5;
   stroke-linecap: round;
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
   transition: stroke-dashoffset 160ms linear;
 }
-/* Every byte has gone: the ring is faintly full in the accent, and a short arc turns while the host prepares it. */
-.media-incoming.media-framed:not(.media-sending) .media-ring-track {
-  stroke: color-mix(in srgb, var(--accent) 40%, transparent);
+/* Every byte has gone: the ring stays full, and a short bright spark circles it while the host prepares the file. */
+.media-ring-spark {
+  display: none;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 18 200 !important;
+}
+.media-incoming.media-framed:not(.media-sending) .media-ring-spark {
+  display: block;
 }
 .media-incoming.media-framed:not(.media-sending) .media-ring svg {
   animation: media-turn 1.2s linear infinite;
@@ -464,8 +474,13 @@ h2.media-name {
   }
 }
 
-/* A phone's width: shorter tiles, the button under the name. */
+/* A phone's width: shorter tiles, the button under the name, a smaller ring. */
 @media (max-width: 520px) {
+  .media-incoming.media-framed .media-ring,
+  .media-ring svg {
+    width: 44px;
+    height: 44px;
+  }
   .media-project {
     margin-inline: -10px;
     padding: 10px;

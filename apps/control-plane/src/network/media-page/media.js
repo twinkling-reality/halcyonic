@@ -179,7 +179,7 @@ function ring() {
   svg.setAttribute('viewBox', '0 0 56 56');
   svg.setAttribute('aria-hidden', 'true');
   disc.append(svg);
-  for (const kind of ['media-ring-track', 'media-ring-arc']) {
+  for (const kind of ['media-ring-track', 'media-ring-arc', 'media-ring-spark']) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('class', kind);
     circle.setAttribute('cx', '28');
@@ -222,12 +222,9 @@ function setIncoming(node, fraction, file) {
   // Over a first frame the ring alone shows the state, so the tile carries its word for a screen reader.
   node.setAttribute('role', 'img');
   node.setAttribute('aria-label', file?.name ? `${words} ${file.name}` : words);
-  // Preparing has no measure: the bar's short run travels, and over a ring now faintly full a short arc turns.
-  if (sent) progress(node, fraction);
-  else {
-    node.querySelector('.media-bar-fill').style.transform = 'scaleX(1)';
-    node.querySelector('.media-ring-arc').style.strokeDashoffset = String(RING_EDGE * 0.78);
-  }
+  // Preparing has no measure: the bar's short run travels, and the ring stays full while a bright spark circles it,
+  // so it never reads as less than every byte sent.
+  progress(node, sent ? fraction : 1);
 }
 
 function tile(projectId, medium, shape) {
