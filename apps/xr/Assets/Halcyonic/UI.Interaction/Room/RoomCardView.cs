@@ -179,6 +179,9 @@ namespace Halcyonic.XR.UI
         public const float ReadingWellAlpha = 1f;
         public const float ReadingWellPadDp = 8f;
 
+        /// <summary>How strong the accent's tint stands under rows a later read changed: a wash, never a slab.</summary>
+        public const float LitTintAlpha = 0.14f;
+
         /// <summary>The colours of the language: the pass, failure and accent hues, and their deep grounds.</summary>
         public const int Passed = 0x69D98D;
         public const int PassedInk = 0x9CF0B6;
@@ -849,14 +852,15 @@ namespace Halcyonic.XR.UI
                 }
                 var middle = down + pitch / 2f;
                 var changed = row.Kind == RoomLineKind.Added || row.Kind == RoomLineKind.Removed;
-                // A row a later read changed (Watch It Work): the one accent's band and rule, as a run of lit rows, with no mark.
+                // A row a later read changed (Watch It Work): a light tint of the one accent under the run of lit rows, its ends
+                // rounded inside the well, and the accent's rule at its left, with no mark (the reader of 07:15Z: an opaque band was a slab).
                 if (lit.Contains(index) && (index == 0 || !lit.Contains(index - 1)))
                 {
                     var run = 0;
                     for (var next = index; next < rows.Count && lit.Contains(next); next++) run++;
                     var runTall = run * pitch;
                     var centreY = -(down + runTall / 2f);
-                    Plate(new Vector2(width, runTall), 0f, Rgb(AccentGround), new Vector2(width / 2f, centreY), "reading lit band");
+                    Plate(new Vector2(width, runTall), S(4f), Rgb(Accent, LitTintAlpha), new Vector2(width / 2f, centreY), "reading lit band");
                     Plate(new Vector2(S(3f), runTall), 0f, Rgb(Accent), new Vector2(S(1.5f), centreY), "reading lit rule", front: true);
                 }
                 if (changed && (index == 0 || rows[index - 1].Kind != row.Kind))

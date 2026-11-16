@@ -20,6 +20,121 @@ namespace Halcyonic.XR.Workspace.Editor
     {
         private static readonly string[] BuildStates = { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held" };
 
+        /// <summary>The arc's states: three files standing, and a fourth that folds the oldest into the files so far, caught mid-move.</summary>
+        private static readonly string[] BuildArcStates = { "47-build-three", "47-build-most" };
+
+        /// <summary>The kite game's files, in the order the agent writes them.</summary>
+        private static readonly (string Name, string Folder, string[] Lines)[] BuildFiles =
+        {
+            ("kite.js", "src/game", new[] { "export class Kite {", "  constructor({ tail, lift }) {", "    this.tail = tail;", "  }", "}" }),
+            ("follow.js", "src/game", new[] { "import { Kite } from './kite.js';", "", "export function follow(hand) {", "  kite.pullTowards(hand.position);", "}" }),
+            ("score.js", "src/game", new[] { "let highest = 0;", "", "export function climb(height) {", "  highest = Math.max(highest, height);", "}" }),
+            ("index.html", "public", new[] { "<canvas id=\"sky\"></canvas>", "<script type=\"module\" src=\"/src/main.js\"></script>" }),
+        };
+
+        private const string BuildListWords = "Files So Far";
+
+        private static WritingPanel BuildFilePanel(int index)
+        {
+            var (name, folder, lines) = BuildFiles[index];
+            return new WritingPanel(folder + "/" + name, LineWords.Theirs(name), LineWords.Theirs(folder), WritingState.Changing,
+                lines.SelectMany(RoomWritingPanel.Wrap).ToList(), new int[0], 120, isNew: true);
+        }
+
+        /// <summary>The arc after <paramref name="files"/> of the kite's files: the last three standing, every one named so far.</summary>
+        private static WritingArc BuildArcOf(int files)
+        {
+            var all = Enumerable.Range(0, files).Select(BuildFilePanel).ToList();
+            return new WritingArc(all.Skip(System.Math.Max(0, files - WritingArc.MostPanels)).ToList(), all, files);
+        }
+
+        private static PartShot BuildArcShot(string state, Transform root, Vector3 eyes, string name)
+        {
+            var shot = new PartShot { Elevation = 0f };
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            var unit = RoomType.Units(1f);
+            var plane = new GameObject("Plane").transform;
+            plane.SetParent(root, false);
+            var arc = RoomWritingArc.Create(plane);
+            var clock = 100f;
+            arc.Clock = () => clock;
+            var titleWas = RoomWritingArc.ListTitle;
+            RoomWritingArc.ListTitle = _ => BuildListWords;
+            try
+            {
+                // The files arrive one a second, as a turn writes them.
+                for (var files = 1; files <= 3; files++)
+                {
+                    arc.Show(BuildArcOf(files));
+                    clock += 1f;
+                    arc.Settle();
+                }
+                var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
+                var gap = RoomType.Units(RoomWritingArc.GapDp);
+                if (state == "47-build-most")
+                {
+                    var before = arc.Panels.Select(panel => arc.FlatOf(panel).x).ToList();
+                    var oldest = arc.Panels[0];
+                    arc.Show(BuildArcOf(4));
+                    // 0.3 s in: the oldest folds toward the list, smaller and fainter; the others stand between their places.
+                    clock += 0.3f;
+                    arc.Show(BuildArcOf(4));
+                    var moved = RoomMotion.Standard(0.3f / RoomWritingArc.MoveSeconds);
+                    Require(oldest.gameObject.activeSelf && oldest.transform.localScale.x < 0.99f && oldest.transform.localScale.x > RoomWritingPanel.FoldTo,
+                        "the oldest panel is not folding mid-way: its scale " + oldest.transform.localScale.x.ToString("0.00"));
+                    var next = arc.Panels[0];
+                    Require(arc.FlatOf(next).x < before[1] - unit && arc.FlatOf(next).x > before[0] - panelWidth,
+                        "the second panel is not moving left: it stands at " + (arc.FlatOf(next).x / unit).ToString("0") + " dp, was " + (before[1] / unit).ToString("0"));
+                    Require(moved > 0.05f && moved < 0.95f, "0.3 s is not mid-move on the standard curve: " + moved.ToString("0.00"));
+                    clock += RoomWritingArc.MoveSeconds;
+                    arc.Show(BuildArcOf(4));
+                    arc.Settle();
+                    Require(!oldest.gameObject.activeSelf || arc.Panels.Contains(oldest), "the folded panel still stands once its row is shown");
+                }
+                // The arc's middle at the eyes' level, as XR stands it: its origin is its top.
+                arc.transform.localPosition = new Vector3(0f, arc.Size.y / 2f, 0f);
+                Place(plane, eyes, 0f, shot.Elevation);
+
+                var final = BuildArcOf(state == "47-build-most" ? 4 : 3);
+                var panels = arc.Panels;
+                Require(panels.Count == final.Panels.Count, "the arc stands " + panels.Count + " panels, not " + final.Panels.Count);
+                for (var index = 0; index < panels.Count; index++)
+                {
+                    Require(panels[index].Path == final.Panels[index].Path, "panel " + index + " shows " + panels[index].Path + ", not " + final.Panels[index].Path);
+                    Require(Mathf.Abs(panels[index].transform.localPosition.y + panels[index].Size.y / 2f) < unit * 0.05f, "panel " + index + "'s top is not the arc's");
+                    if (index == 0) continue;
+                    var apart = arc.FlatOf(panels[index]).x - arc.FlatOf(panels[index - 1]).x;
+                    Require(Mathf.Abs(apart - panelWidth - gap) < unit * 0.05f, "panel " + index + " stands " + ((apart - panelWidth) / unit).ToString("0.0") + " dp after the one before, not " + RoomWritingArc.GapDp.ToString("0"));
+                }
+                var rows = RoomWritingArc.ListRows(final);
+                Require(arc.ListGlass.gameObject.activeSelf == rows.Count > 0, rows.Count > 0 ? "the files so far are not shown" : "an empty list stands");
+                if (rows.Count > 0)
+                {
+                    Require(arc.List.Count == rows.Count, "the list shows " + arc.List.Count + " rows, not " + rows.Count);
+                    var listRight = arc.ListFlat.x + RoomType.Units(RoomWritingArc.ListDp) / 2f;
+                    var firstLeft = arc.FlatOf(panels[0]).x - panelWidth / 2f;
+                    Require(Mathf.Abs(firstLeft - listRight - gap) < unit * 0.05f, "the list stands " + ((firstLeft - listRight) / unit).ToString("0.0") + " dp before the first panel");
+                }
+                // On the bend every panel's middle stands as far from the eyes as the arc's, and faces them.
+                var eyeAt = new Vector3(0f, 0f, -arc.Radius);
+                foreach (var panel in panels)
+                {
+                    var away = panel.transform.localPosition - new Vector3(0f, panel.transform.localPosition.y, 0f) - eyeAt;
+                    Require(Mathf.Abs(away.magnitude - arc.Radius) < 1e-4f, panel.Path + " stands " + away.magnitude.ToString("0.000") + " from the eyes, not " + arc.Radius.ToString("0.000"));
+                    Require(Vector3.Angle(panel.transform.localRotation * Vector3.back, -away) < 0.5f, panel.Path + " does not face the eyes");
+                }
+                Require(Mathf.Abs(arc.Size.x - (panels.Count * panelWidth + (panels.Count - 1) * gap + (rows.Count > 0 ? RoomType.Units(RoomWritingArc.ListDp) + gap : 0f))) < unit * 0.05f,
+                    "the arc says it stands " + (arc.Size.x / unit).ToString("0") + " dp wide");
+                shot.Read = (camera, eye, white, dark, bright, failures) =>
+                {
+                    Debug.Log("Halcyonic: parts: " + name + ": " + (arc.Size.x / unit).ToString("0", CultureInfo.InvariantCulture) + "x" + (arc.Size.y / unit).ToString("0", CultureInfo.InvariantCulture)
+                        + " dp, " + panels.Count + " panels, " + rows.Count + " rows so far.");
+                };
+            }
+            finally { RoomWritingArc.ListTitle = titleWas; }
+            return shot;
+        }
+
         /// <summary>The file a person's kite game is written into, as the agent writes it.</summary>
         private static readonly string[] BuildFile =
         {

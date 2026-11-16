@@ -46,6 +46,10 @@ namespace Halcyonic.XR.UI
         private readonly List<(TMP_Text Label, float Alpha, int Row)> words = new List<(TMP_Text, float, int)>();
         private readonly List<(RoomShape Shape, Color Fill, Color Edge)> plates = new List<(RoomShape, Color, Color)>();
         private float platesAt = -1f;
+        private float folded = 1f;
+
+        /// <summary>How small a panel folds to as it reaches its row.</summary>
+        public const float FoldTo = 0.3f;
 
         /// <summary>The clock the panel moves by; renders fix it.</summary>
         public Func<float> Clock { get; set; } = () => Time.unscaledTime;
@@ -102,6 +106,7 @@ namespace Halcyonic.XR.UI
             if (path != panel.Path)
             {
                 path = panel.Path;
+                folded = 1f;
                 arrivedAt = now;
                 shownRows = Array.Empty<string>();
             }
@@ -150,13 +155,16 @@ namespace Halcyonic.XR.UI
             var still = GlazeMotion.Still;
             var since = Clock() - arrivedAt;
             var arrived = still ? Mathf.Clamp01(since / StillFadeSeconds) : RoomMotion.Standard(since / ArriveSeconds);
-            transform.localScale = Vector3.one * (still ? 1f : Mathf.Lerp(ArriveFrom, 1f, arrived));
+            // Folding into its row, its code goes first (the fold's first third), then its glass shrinks and fades.
+            var code = Mathf.Clamp01((folded - 2f / 3f) * 3f);
+            transform.localScale = Vector3.one * (still ? 1f : Mathf.Lerp(ArriveFrom, 1f, arrived) * Mathf.Lerp(FoldTo, 1f, folded));
+            arrived *= folded;
             glass.transform.localPosition = new Vector3(0f, 0f, still ? 0f : RoomType.Units(ArriveBackDp) * (1f - arrived));
             glass.Shown = arrived;
             foreach (var (label, own, row) in words)
             {
                 if (label == null) continue;
-                var alpha = own * arrived * (row >= 0 ? RowShown(row) : 1f);
+                var alpha = own * arrived * (row >= 0 ? RowShown(row) * code : 1f);
                 if (!Mathf.Approximately(label.alpha, alpha)) label.alpha = alpha;
             }
             if (Mathf.Approximately(platesAt, arrived)) return;
@@ -186,6 +194,21 @@ namespace Halcyonic.XR.UI
             Follow();
         }
 
-        public void Hide() => gameObject.SetActive(false);
+        /// <summary>
+        /// Folds the panel toward its row: <paramref name="left"/> runs from 1, whole, to 0, gone into the row. Kept still
+        /// it only fades where it stands.
+        /// </summary>
+        public void Fold(float left, bool still)
+        {
+            folded = Mathf.Clamp01(left);
+            Follow();
+        }
+
+        public void Hide()
+        {
+            folded = 1f;
+            path = null;
+            gameObject.SetActive(false);
+        }
     }
 }

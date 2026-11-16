@@ -3284,14 +3284,22 @@ in order, as before.
   the panel's width holding a card (`RoomCard`) with the file's name as its mono title, its folder quiet under it, and its
   window's rows in the reading's dark well, each row keeping its line's indent (`RoomWritingPanel.Wrap` writes a row's
   indent as leading spaces, a continued row two columns more, and `RowOf` lays them as the row's indent again). The rows a
-  later read changed are lit (`RoomCard.ReadingLit`: the accent's ground under them and a 3 dp accent rule at their left,
-  their text at 0.96). It arrives with its first read over 600 ms on the standard curve, from 0.92 of its size and 2 dp
+  later read changed are lit (`RoomCard.ReadingLit`: a light tint of the accent under them, `LitTintAlpha` 0.14, its ends
+  rounded inside the well, and a 3 dp accent rule at their left, their text at 0.96). It arrives with its first read over 600 ms on the standard curve, from 0.92 of its size and 2 dp
   back, its glass, plates and words together, each word at its own alpha scaled, never overwritten; each read's new rows
   pour in top down at 18 a second, or all within a second, each over 120 ms, rows already shown staying shown. Under
   Still it cross-fades in over 200 ms where it stands and each read stands whole. A file whose text is not shown says why
   in one line (`RoomWritingPanel.NotShownWords`, the product's words) with no rows. It takes no press. Checks:
   `47-build-one`, `47-build-edited` (mid-pour, lit), `47-build-arriving` (mid-rise) and `47-build-held` in
-  `KitRender.PartsCheck`.
+  `KitRender.PartsCheck`. The arc (`RoomWritingArc`, one `WritingArc`) lays at most three panels, oldest left, 24 dp apart
+  along it with their tops level, bent round the eyes (`Radius`, 1 at the plane's distance: each panel's middle as far
+  from the eyes as the arc's, turned to face them, since a flat 1652 dp row read its outer code under 14 dp); its origin
+  is its top middle and XR places it: the newest arrives at the right end while the others move left
+  one place over 600 ms on the standard curve; once a file leaves the panels, the turn's files so far stand at the left as
+  the rows draw them (`RoomWritingArc.ListRows`: each file not in a panel, in the result's Changes order, with its check,
+  under the product's title, `RoomWritingArc.ListTitle`), and the leaving panel folds toward the list over 600 ms (its code
+  gone in the first third, its glass shrinking to 0.3 and fading). Under Still panels take their places at once and fade.
+  Checks: `47-build-three` and `47-build-most` (a fourth file, caught mid-fold and mid-move, then settled).
 - **The level is the microphone's** (the lead's truth rule): `HoldToTalk` reads the last 50 ms it recorded every 50 ms
   into `LevelHistory` (client core: the RMS, -54 to -12 dBFS, 26 bars, newest at the right), and Listening draws 26 bars
   of it 4 dp after its words inside its halo, drawn once and scaled so a frame draws nothing. A release build records
