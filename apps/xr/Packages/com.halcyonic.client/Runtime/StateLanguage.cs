@@ -209,7 +209,7 @@ namespace Halcyonic.Client
     {
         /// <summary>A practice run: live, on a simulated agent app.</summary>
         Practice,
-        /// <summary>The demonstration: recorded work played on the headset; nothing is live.</summary>
+        /// <summary>The demonstration: a scripted run on the headset that answers the person; nothing is live.</summary>
         Demo,
         /// <summary>A recorded run: real agent work played back; nothing is live.</summary>
         Recorded,

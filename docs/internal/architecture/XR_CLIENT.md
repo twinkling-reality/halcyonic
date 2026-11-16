@@ -1631,8 +1631,8 @@ launch/return, process recreation and current-frame action behavior need separat
   is tried again behind it. Once the control plane is live the demonstration stops for good, and a
   control plane that drops later shows its last known state as usual. Each switch reaches consumers
   as a resynchronization, like a journal change. Its `Line` is what the line above the stage says
-  while the demonstration is shown: "Demo: recorded work played on this headset. Nothing here is
-  live." and "It follows your answers. Nothing reaches an agent." While a recorded run plays it
+  while the demonstration is shown: "Demo: a scripted run that answers you, on this headset.
+  Nothing here is live." and "It follows your answers. Nothing reaches an agent." While a recorded run plays it
   says "Recorded: real agent work, played back here. Nothing here is live." and "It waits only
   where the agent waited. Nothing reaches an agent." At an end an end line takes the second
   sentence's place and still says "Nothing reaches an agent.": alone, "Demo ended. It starts again

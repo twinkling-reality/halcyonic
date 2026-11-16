@@ -175,7 +175,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string Notice(bool recordedRun) => recordedRun
             ? "Recorded: real agent work, played back here. Nothing here is live."
-            : "Demo: recorded work played on this headset. Nothing here is live.";
+            : "Demo: a scripted run that answers you, on this headset. Nothing here is live.";
 
         /// <summary>
         /// The line above the stage while the demonstration is shown. Its first sentence names what plays

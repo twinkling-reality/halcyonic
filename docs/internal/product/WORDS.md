@@ -196,7 +196,7 @@ nothing says no count.
 | agent app | The runtime, such as OpenCode or Codex, named as data | runtime, adapter |
 | sandbox | What keeps an agent app's commands to what it allows, said only where an approval can change that | seatbelt, permission profile |
 | practice run | Work on the simulated runtime: nothing is built | mock, simulated |
-| demo | The recorded demonstration | interactive example |
+| demo | The scripted demonstration, which answers the person; never "recorded", which names a real agent run played back | interactive example |
 | assistant | The AI helping shape an idea; it builds nothing until a task starts | |
 
 A person never reads: execution, journal, command, principal, scenario, capability, projection,

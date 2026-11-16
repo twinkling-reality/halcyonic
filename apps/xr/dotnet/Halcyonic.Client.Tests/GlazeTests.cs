@@ -441,7 +441,7 @@ public class CharacterLabelTests
         Assert.That(checks.Reason, Is.EqualTo("1 failed, 23 passed"));
         Assert.That(checks.Next, Is.EqualTo("See Failures"));
         var demo = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, synthetic: true, recorded: true)));
-        Assert.That(demo.MarkLine, Is.EqualTo("A recorded demo, with no real agent."));
+        Assert.That(demo.MarkLine, Is.EqualTo("A scripted demo, with no real agent."));
         Assert.That(demo.Next, Is.Null, "nothing to open for while it works");
         Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, recorded: true))).MarkLine, Is.EqualTo("Real agent work, played back. Not live."));
         Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working))).MarkLine, Is.Null);

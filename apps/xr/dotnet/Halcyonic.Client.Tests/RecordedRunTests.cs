@@ -339,7 +339,7 @@ public class RecordedRunHandOffTests
 
         var pumped = await Until(fallback, () => Playing(fallback, recordedRun: false), "the demonstration follows");
         Assert.That(pumped[^1].Resynchronized, Is.True, "consumers redraw everything");
-        Assert.That(fallback.Line, Does.StartWith("Demo: recorded work"));
+        Assert.That(fallback.Line, Does.StartWith("Demo: a scripted run"));
 
         await Until(fallback, () => Playing(fallback, recordedRun: true), "the recorded run comes back");
         Assert.That(runs, Is.EqualTo(2), "a new player each time, from its beginning");
@@ -381,10 +381,10 @@ public class RecordedRunHandOffTests
             "Recorded: real agent work, played back here. Nothing here is live.\n"
             + "Run ended. It starts again soon. Nothing reaches an agent."));
         Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: false, next: true), Is.EqualTo(
-            "Demo: recorded work played on this headset. Nothing here is live.\n"
+            "Demo: a scripted run that answers you, on this headset. Nothing here is live.\n"
             + "Demo ended. Next, the recorded run. Nothing reaches an agent."));
         Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true), Is.EqualTo(
-            "Demo: recorded work played on this headset. Nothing here is live.\n"
+            "Demo: a scripted run that answers you, on this headset. Nothing here is live.\n"
             + "Demo ended. It starts again soon. Nothing reaches an agent."), "alone, the demonstration starts again");
         await Task.CompletedTask;
     }
@@ -395,7 +395,7 @@ public class RecordedRunHandOffTests
         var unreadable = Task.FromException<DemonstrationRecording>(new InvalidDataException("not a recording"));
         var fallback = Start(ShortDemonstration, () => new DemonstrationPlayer(unreadable, Samples.Client, Once()));
         await Until(fallback, () => Playing(fallback, recordedRun: false), "the demonstration plays instead");
-        Assert.That(fallback.Line, Does.StartWith("Demo: recorded work"));
+        Assert.That(fallback.Line, Does.StartWith("Demo: a scripted run"));
     }
 
     [Test]
@@ -434,7 +434,7 @@ public class RecordedRunHandOffTests
         reading.SetException(new InvalidDataException("not a recording"));
         Assert.That(fallback.Line, Does.StartWith("Recorded: real agent work"), "once it has failed, until the demonstration takes its place");
         await Until(fallback, () => Playing(fallback, recordedRun: false), "the demonstration plays instead");
-        Assert.That(fallback.Line, Does.StartWith("Demo: recorded work"));
+        Assert.That(fallback.Line, Does.StartWith("Demo: a scripted run"));
     }
 
     [Test]
@@ -457,7 +457,7 @@ public class RecordedRunHandOffTests
     {
         var fallback = Start(() => new DemonstrationPlayer(Demonstration.Recording(), Samples.Client, Demonstration.Fast()), null);
         await Until(fallback, () => Playing(fallback, recordedRun: false), "the demonstration is read");
-        Assert.That(fallback.Line, Does.StartWith("Demo: recorded work"));
+        Assert.That(fallback.Line, Does.StartWith("Demo: a scripted run"));
     }
 }
 

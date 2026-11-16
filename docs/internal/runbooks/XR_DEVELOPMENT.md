@@ -1144,8 +1144,8 @@ Then, with hands only, through the menu (ADR 0026). This is intended behaviour, 
 `JudgeMenuWalkTests` and the judge walk render (`far-3s-judge-1-bar` to `far-3s-judge-12-closed` in
 `apps/xr/Builds/WorkspaceRenders`); it has not yet been walked on a headset.
 
-- **The line.** Above the stage: "Demo: recorded work played on this headset. Nothing here is
-  live." and "It follows your answers. Nothing reaches an agent." Every character carries the Demo
+- **The line.** Above the stage: "Demo: a scripted run that answers you, on this headset.
+  Nothing here is live." and "It follows your answers. Nothing reaches an agent." Every character carries the Demo
   mark. The line stands over the characters, a degree above the highest a risen one reaches, with the
   menu open or closed, and the peek still hides it.
 - **The welcome.** The demonstration opens closed: the recorded characters, the line above the

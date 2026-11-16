@@ -799,7 +799,7 @@ public class DemonstrationFallbackTests
         Assert.That(fallback.Player, Is.Not.Null);
         Assert.That(fallback.Reason, Is.EqualTo(DemonstrationReason.NotConfigured));
         Assert.That(fallback.Line, Is.EqualTo(
-            "Demo: recorded work played on this headset. Nothing here is live.\nIt follows your answers. Nothing reaches an agent."));
+            "Demo: a scripted run that answers you, on this headset. Nothing here is live.\nIt follows your answers. Nothing reaches an agent."));
         await Until(fallback, () => WaitingForThePerson(fallback), "the demonstration holds for the person");
         Assert.That(fallback.Current!.Status.IsLive, Is.True);
     }
@@ -955,7 +955,7 @@ public class DemonstrationFallbackTests
         foreach (var line in new[] { waiting, refused, token, DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null) })
         {
             Assert.That(line, Does.StartWith(
-                "Demo: recorded work played on this headset. Nothing here is live.\nIt follows your answers. Nothing reaches an agent."));
+                "Demo: a scripted run that answers you, on this headset. Nothing here is live.\nIt follows your answers. Nothing reaches an agent."));
         }
     }
 }
