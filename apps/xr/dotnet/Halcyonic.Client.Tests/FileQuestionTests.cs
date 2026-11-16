@@ -190,7 +190,7 @@ public class FileQuestionTests
         screen.Question.MeasureReview(new[] { 3, 3 });
         var first = Screen(workspace, screen);
         Assert.That(first.Lines.Select(line => line.Words), Is.EqualTo(new[] { FileScreens.YourAnswers, "Colour scheme: Dark" }));
-        Assert.That(first.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Part · 2 of 2"));
+        Assert.That(first.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Part"));
         Assert.That(first.Lines.Single(line => line.Action == FileScreens.GoToQuestion).Rows, Is.EqualTo(3), "an answer shows whole, in the rows it takes");
         Draw(screen);
         Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(FileScreens.MoreAnswers), "review navigation is the only forward action before its final part");
@@ -418,7 +418,7 @@ public class FileQuestionTests
         Assert.That(screen.Question.QuestionPart, Is.EqualTo(0));
         var first = Screen(workspace, screen);
         Assert.That((first.Lines.Single(line => line.Runs.AllTheirs).Rows, first.Lines.Single(line => line.Runs.AllTheirs).FromRow), Is.EqualTo((4, (int?)0)));
-        Assert.That((first.Footer[PromptSlot.FarRight]!.Words, first.Footer[PromptSlot.FarRight]!.Id), Is.EqualTo(("Next Part · 2 of 3", FileScreens.NextPart)));
+        Assert.That((first.Footer[PromptSlot.FarRight]!.Words, first.Footer[PromptSlot.FarRight]!.Id), Is.EqualTo(("Next Part", FileScreens.NextPart)));
         Assert.That(first.Side, Is.Null, "the question has pages of its own, not a side panel");
         Assert.That(first.Lines.Any(line => line.Choice), Is.False, "nothing to answer before it is read");
 
@@ -452,7 +452,7 @@ public class FileQuestionTests
         screen.ReadQuestion(draft, new[] { new PromptMeasure(9, new[] { 1, 1 }, new[] { 1, 1 }) }, new RowBudget(6), new RowBudget(3));
         Assert.That(screen.Question.QuestionPart, Is.EqualTo(0), "laid out long before it was read, its first part shows");
         var frame = Screen(workspace, screen);
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Part · 2 of 3"), "with a visible way on through the complete question");
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Part"), "with a visible way on through the complete question");
         for (var part = 0; part < 3; part++) screen.Question.NextPart(Later(screen));
         Assert.That(draft.WasShownWhole(0), Is.True);
         screen.ReadQuestion(draft, new[] { new PromptMeasure(12, new[] { 1, 1 }, new[] { 1, 1 }) }, new RowBudget(6), new RowBudget(3));

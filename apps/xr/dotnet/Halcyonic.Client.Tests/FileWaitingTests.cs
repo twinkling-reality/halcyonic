@@ -80,7 +80,7 @@ public class FileWaitingTests
         var first = Screen(workspace, steering, screen);
         Assert.That(first.Lines[0].Words, Is.EqualTo(Migration));
         Assert.That((first.Lines[0].Rows, first.Lines[0].FromRow), Is.EqualTo((3, (int?)0)));
-        Assert.That((first.Lines[1].Words, first.Lines[1].Action, first.Lines[1].Key), Is.EqualTo(("Next Part · 2 of 3", FileScreens.NextPart, FileScreens.RequestKey)));
+        Assert.That((first.Lines[1].Words, first.Lines[1].Action, first.Lines[1].Key), Is.EqualTo(("Next Part", FileScreens.NextPart, FileScreens.RequestKey)));
         Assert.That(first.Lines[2].Words, Is.EqualTo(WorkspaceText.ReadRequestFirst));
         Assert.That(first.Footer[PromptSlot.Free], Is.Null);
         Draw(screen, steering);
@@ -89,14 +89,14 @@ public class FileWaitingTests
 
         Turn(screen, steering);
         var second = Screen(workspace, steering, screen);
-        Assert.That((second.Lines[0].FromRow, second.Lines[1].Words), Is.EqualTo(((int?)3, "Next Part · 3 of 3")));
+        Assert.That((second.Lines[0].FromRow, second.Lines[1].Words), Is.EqualTo(((int?)3, "Next Part")));
         Assert.That(second.Footer[PromptSlot.Free], Is.Null);
 
         Turn(screen, steering);
         Assert.That(Screen(workspace, steering, screen).Footer[PromptSlot.Free], Is.Null, "the last part on the page is not yet the last part seen");
         Draw(screen, steering);
         var last = Screen(workspace, steering, screen);
-        Assert.That((last.Lines[0].FromRow, last.Lines[1].Words), Is.EqualTo(((int?)6, "First Part · 1 of 3")));
+        Assert.That((last.Lines[0].FromRow, last.Lines[1].Words), Is.EqualTo(((int?)6, "First Part")));
         Assert.That(last.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm"));
         Assert.That(last.Footer[PromptSlot.Free]!.Kind, Is.EqualTo(PromptKind.Yes));
         Assert.That(FileScreensTests.Slots(last.Footer), Is.EqualTo(new[] { Footer.Close, null, FileScreens.Yes, null, FileScreens.Cancel }),
@@ -332,7 +332,7 @@ public class FileWaitingTests
         steering.Press(WorkspaceAction.Deny, workspace);
         screen.ReadRequest(Migration, 6, 3, steering);
         var frame = Screen(workspace, steering, screen);
-        Assert.That((frame.Lines[0].FromRow, frame.Lines[1].Words), Is.EqualTo(((int?)0, "Next Part · 2 of 2")), "on the first of two parts");
+        Assert.That((frame.Lines[0].FromRow, frame.Lines[1].Words), Is.EqualTo(((int?)0, "Next Part")), "on the first of two parts");
         Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, FileScreens.Yes, FileScreens.Cancel, null }));
         Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm"));
         Assert.That(frame.Lines.Last().Words, Is.EqualTo("Deny Request?"));

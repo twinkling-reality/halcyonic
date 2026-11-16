@@ -362,7 +362,7 @@ public class RoomBarTests
 
         var first = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
         Assert.That((first.Part!.Rows, first.Part.FromRow, first.Sentence), Is.EqualTo((3, (int?)0, (string?)WorkspaceText.ReadRequestFirst)));
-        Assert.That(Actions(first.Column), Is.EqualTo(new[] { (KitPlace.Step, "Next Part · 2 of 3", true), (KitPlace.Cancel, "Cancel", false) }));
+        Assert.That(Actions(first.Column), Is.EqualTo(new[] { (KitPlace.Step, "Next Part", true), (KitPlace.Cancel, "Cancel", false) }));
         Assert.That((first.Column[0].Control.Action, first.Column[0].Control.Key), Is.EqualTo((FileScreens.NextPart, (string?)FileScreens.RequestKey)));
         Assert.That(first.Body.Text, Is.EqualTo("Run the migration"), "the panel reads the request alone, whole, and shows the rows the part names");
         // What is read, and how: an approval's request without the tool's name its line leads with, in mono; a line that is not

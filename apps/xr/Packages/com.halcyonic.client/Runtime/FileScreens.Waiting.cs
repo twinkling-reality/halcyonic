@@ -33,9 +33,9 @@ namespace Halcyonic.Client
             : LineWords.Ours(part + 1 < parts ? EntryText.PartOf(part + 2, parts) : EntryText.PartOf(1, parts));
 
         /// <summary>The words on a part's last row: the next part, or from the last back to the first, as a list's pager goes.</summary>
-        public static string NextPartWords(int part, int parts) => part + 1 < parts
-            ? "Next Part · " + (part + 2).ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture)
-            : "First Part · 1 of " + parts.ToString(CultureInfo.InvariantCulture);
+        /// The button says the action alone, everywhere, and the position stands where you are (AUDIT2's M2, 2026-11-16 12:22Z and
+        /// 13:41Z: "Part 1 of 3" at the band's foot, EntryText.PartOf; never the count on the button).
+        public static string NextPartWords(int part, int parts) => part + 1 < parts ? EntryText.NextPartLabel : FirstPartWords;
 
         /// <summary>Said, with the page's source line, while nothing waits for the person.</summary>
         public const string NothingWaits = "Nothing Waiting";
@@ -246,19 +246,19 @@ namespace Halcyonic.Client
         /// <summary>The words on the row for more answers: the next page, or from the last back to the first.</summary>
         public static string MoreAnswersWords(int page, int pages) => page + 1 < pages ? "More Choices" : "First Choices";
 
+        /// <summary>The way back to the first part, and the next question, said alone (the redesign's pager: the position stands apart).</summary>
+        public const string FirstPartWords = "First Part";
+
+        public const string NextQuestionLabel = "Next Question";
+
         /// <summary>The words on the row turning the person's answers, where they take more than one page.</summary>
-        public static string YourAnswersWords(int page, int pages) =>
-            YourAnswers + " · " + (page + 1 < pages ? page + 2 : 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture);
+        public static string YourAnswersWords(int page, int pages) => YourAnswers;
 
         /// <summary>The words on the row after a prompt: the next question, or after the last, the person's answers.</summary>
-        public static string NextQuestionWords(int prompt, int prompts) => prompt + 1 < prompts
-            ? "Next Question · " + (prompt + 2).ToString(CultureInfo.InvariantCulture) + " of " + prompts.ToString(CultureInfo.InvariantCulture)
-            : YourAnswers;
+        public static string NextQuestionWords(int prompt, int prompts) => prompt + 1 < prompts ? NextQuestionLabel : YourAnswers;
 
         /// <summary>The words on the row ending a long question's part: the next part, or after the last, on to its answers.</summary>
-        public static string QuestionPartWords(int part, int parts, int answerPages) => part + 1 < parts
-            ? NextPartWords(part, parts)
-            : answerPages > 1 ? OnToTheAnswers + " · 1 of " + answerPages.ToString(CultureInfo.InvariantCulture) : OnToTheAnswers;
+        public static string QuestionPartWords(int part, int parts, int answerPages) => part + 1 < parts ? NextPartWords(part, parts) : OnToTheAnswers;
 
         /// <summary>The row for the person's own answer: Type my answer, or once typed, their words as written, chosen.</summary>
         public static string TypedWords(string? typed) => TypedRuns(typed).Text;

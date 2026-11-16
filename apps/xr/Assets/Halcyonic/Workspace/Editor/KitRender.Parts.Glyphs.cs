@@ -26,7 +26,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             (RoomGlyph.Send, "Send Instruction"), (RoomGlyph.Microphone, "Hold to Talk"), (RoomGlyph.Keyboard, "Type"), (RoomGlyph.Stop, "Stop"),
             (RoomGlyph.Check, "Approve"), (RoomGlyph.Barred, "Deny"), (RoomGlyph.Cross, "Cancel"), (RoomGlyph.Cube, "Make VR Copy"),
-            (RoomGlyph.Changes, "Changes"), (RoomGlyph.Checks, "Checks"), (RoomGlyph.Back, "Back"), (RoomGlyph.Next, "Next Part · 2 of 3"),
+            (RoomGlyph.Changes, "Changes"), (RoomGlyph.Checks, "Checks"), (RoomGlyph.Back, "Back"), (RoomGlyph.Next, "Next Part"),
             (RoomGlyph.Previous, "Previous Part"), (RoomGlyph.Play, "Try Build"), (RoomGlyph.Plus, "New Project"), (RoomGlyph.Pencil, "Request Change"),
             (RoomGlyph.Continue, "Continue"), (RoomGlyph.Lines, "Summarize"), (RoomGlyph.Again, "Run Checks Again"),
             (RoomGlyph.Agent, AgentColumn.RoleWords), (RoomGlyph.Settings, "Settings"), (RoomGlyph.Bubble, "Write Instruction"), (RoomGlyph.Undo, "Restore"), (RoomGlyph.Clock, "History"),

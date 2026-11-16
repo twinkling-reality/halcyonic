@@ -251,7 +251,7 @@ namespace Halcyonic.Client
         public static string ReadToPart(int pages) => "Read to Part " + Count(pages);
 
         /// <summary>New project's row to the review's next part, which replaces <see cref="ReadToPart"/> (ADR 0026).</summary>
-        public static string NextPart(int part, int parts) => "Next Part · " + Count(part) + " of " + Count(parts);
+        public static string NextPart(int part, int parts) => NextPartLabel;
 
         /// <summary>A pager's words where its count is given apart (JUDGE's dot list, 2026-11-13T1203Z, item 2): the action alone.</summary>
         public const string NextPartLabel = "Next Part";
