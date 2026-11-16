@@ -308,7 +308,7 @@ describe('reading an understanding from Salidium', () => {
     assert.deepEqual(reason(tooLarge), ['incompatible', 'answer_too_large']);
     assert.equal(
       'reason' in tooLarge ? tooLarge.reason.message : '',
-      'The session report answer ran past 8192 KiB, the most Halcyonic reads of it, so it was not read.',
+      'The session report answer ran past 8192 KiB, the most Halora reads of it, so it was not read.',
       "the limit is said to be Halcyonic's own, not the contract's",
     );
   });

@@ -199,6 +199,6 @@ function invalid(path: string | undefined): CatalogFailure {
   return fail(
     'incompatible',
     'invalid_catalog',
-    `Omnorium's catalog is outside version 1 as Halcyonic reads it${path ? ` (at ${path})` : ''}.`,
+    `Omnorium's catalog is outside version 1 as Halora reads it${path ? ` (at ${path})` : ''}.`,
   );
 }

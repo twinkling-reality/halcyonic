@@ -57,7 +57,7 @@ export function personalSettings(environment: Readonly<Record<string, string>>):
     } catch {
       throw new RuntimeActionError(
         'runtime_start_failed',
-        `Claude Agent was not started: ${path} is not JSON, so Halcyonic cannot tell which of its hooks are Salidium's and Seorak's.`,
+        `Claude Agent was not started: ${path} is not JSON, so Halora cannot tell which of its hooks are Salidium's and Seorak's.`,
       );
     }
     hooks = observationHooks(parsed);
@@ -71,7 +71,7 @@ export function personalSettings(environment: Readonly<Record<string, string>>):
   if (instructions !== null && Buffer.byteLength(instructions) > INSTRUCTIONS_LIMIT) {
     throw new RuntimeActionError(
       'runtime_start_failed',
-      `Claude Agent was not started: ${join(folder, INSTRUCTIONS_FILE)} is over ${INSTRUCTIONS_LIMIT / 1024} KB, more than Halcyonic passes to a task.`,
+      `Claude Agent was not started: ${join(folder, INSTRUCTIONS_FILE)} is over ${INSTRUCTIONS_LIMIT / 1024} KB, more than Halora passes to a task.`,
     );
   }
   return { hooks, instructions: instructions?.trim() === '' ? null : instructions };

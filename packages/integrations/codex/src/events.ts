@@ -590,7 +590,7 @@ export function settleResumed(
       settled,
       unsettled:
         turn?.status === 'inProgress'
-          ? 'Codex reported a turn in progress that Halcyonic did not start.'
+          ? 'Codex reported a turn in progress that Halora did not start.'
           : null,
     };
   }

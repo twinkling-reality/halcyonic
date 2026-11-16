@@ -1729,7 +1729,7 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
   });
 });
 
-describe('OpenCode tasks stop when something other than Halcyonic changes what they may do', {
+describe('OpenCode tasks stop when something other than Halora changes what they may do', {
   skip: SKIP,
 }, () => {
   const tampered = (execution: Execution) =>

@@ -250,7 +250,7 @@ export const DENIED_TOOLS: readonly string[] = ['execute', 'webfetch', 'websearc
  * folder's server writes that folder alone, so a command run unasked reaches no other project.
  */
 const NEVER_ASK_UNSANDBOXED =
-  "OpenCode works without asking only inside Halcyonic's sandbox, which this server does not run in.";
+  "OpenCode works without asking only inside Halora's sandbox, which this server does not run in.";
 
 /** Every spelling of a name by the case of its letters, for a disk that ignores case. */
 function caseSpellings(name: string): string[] {
@@ -1006,7 +1006,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       );
     }
     if (!isRecord(active) || Object.hasOwn(active, request.native_id)) {
-      throw refuse('OpenCode reports a turn of the session running that Halcyonic did not start.');
+      throw refuse('OpenCode reports a turn of the session running that Halora did not start.');
     }
     if (this.#closing !== null) throw closedError();
     const session: HostedSession = {
@@ -1370,7 +1370,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       if (process.platform === 'darwin') {
         throw new RuntimeActionError(
           'runtime_unavailable',
-          "OpenCode runs on this Mac only inside Halcyonic's sandbox, and none was set up for it.",
+          "OpenCode runs on this Mac only inside Halora's sandbox, and none was set up for it.",
         );
       }
       return null;
@@ -1714,7 +1714,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       }
       void this.#giveUp(
         connection,
-        'Something other than Halcyonic opened a session on its OpenCode server.',
+        'Something other than Halora opened a session on its OpenCode server.',
       );
     }
   }
@@ -1726,7 +1726,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    */
   #tamper(session: HostedSession, nativeType: string, what: string): void {
     if (session.lost) return;
-    const message = `Something other than Halcyonic ${what}, so Halcyonic stopped it.`;
+    const message = `Something other than Halora ${what}, so Halora stopped it.`;
     const path = `/api/session/${encodeURIComponent(session.sessionId)}/interrupt`;
     void send(session.connection, 'POST', path, undefined, 'runtime_unreachable').catch(
       () => undefined,

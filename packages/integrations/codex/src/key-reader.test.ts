@@ -48,10 +48,7 @@ describe('Codex on a hosted provider through the key gate (VRIFY, 2026-11-13)', 
     assert.equal(gatedEntriesProblem({}, new Map()), null);
     // Each way it can be other than passed, refused by name.
     const refused: [Record<string, unknown>, RegExp][] = [
-      [
-        { halcyonic_meta: entry, halcyonic_other: entry },
-        /halcyonic_other is not one Halcyonic made/,
-      ],
+      [{ halcyonic_meta: entry, halcyonic_other: entry }, /halcyonic_other is not one Halora made/],
       [
         { halcyonic_meta: { ...entry, base_url: 'https://elsewhere.example' } },
         /does not point at its key gate/,
@@ -81,7 +78,7 @@ describe('Codex on a hosted provider through the key gate (VRIFY, 2026-11-13)', 
     // An open server, with no gates, refuses any halcyonic_ entry in the home's configuration.
     assert.match(
       gatedEntriesProblem(with_({ halcyonic_meta: entry }), new Map()) ?? 'none',
-      /not one Halcyonic made/,
+      /not one Halora made/,
     );
   });
 });

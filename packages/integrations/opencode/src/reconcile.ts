@@ -139,7 +139,7 @@ export function reconcileSession(
     for (const id of state.approvals) {
       if (!pending.has(id) && !state.replies.has(id)) {
         return unsettled(
-          `Approval ${id} was settled while the OpenCode event stream was disconnected, not by a decision Halcyonic sent.`,
+          `Approval ${id} was settled while the OpenCode event stream was disconnected, not by a decision Halora sent.`,
         );
       }
     }

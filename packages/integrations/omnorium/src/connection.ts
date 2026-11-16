@@ -202,7 +202,7 @@ export async function connect(
   );
   if (!isReply(reply)) return unanswered(reply);
   if (reply.status === 400)
-    return fail('incompatible', 'bad_request', 'Omnorium refused the challenge Halcyonic sent.');
+    return fail('incompatible', 'bad_request', 'Omnorium refused the challenge Halora sent.');
   if (reply.status !== 200) return refusal(reply.status, reply.body);
   const answer = readDiscoveryAnswer(reply.body);
   const mismatch = () =>
@@ -358,7 +358,7 @@ export function refusal(status: number, body: unknown): CatalogFailure {
     return fail(
       'unauthorized',
       'unauthorized',
-      'Omnorium refused the credential set up for Halcyonic.',
+      'Omnorium refused the credential set up for Halora.',
     );
   if (status === 503 && code === 'not_ready')
     return fail('unavailable', 'not_ready', 'Omnorium has not gathered your projects yet.');
@@ -369,23 +369,19 @@ export function refusal(status: number, body: unknown): CatalogFailure {
       'Omnorium asked for a pause after too many refused credentials.',
     );
   if (status === 421)
-    return fail(
-      'unavailable',
-      'host_not_allowed',
-      'Omnorium turned away the address Halcyonic used.',
-    );
+    return fail('unavailable', 'host_not_allowed', 'Omnorium turned away the address Halora used.');
   if (status === 403)
     return fail(
       'unavailable',
       'origin_not_allowed',
-      "Omnorium took Halcyonic's request for a web page's.",
+      "Omnorium took Halora's request for a web page's.",
     );
   if (status === 500) return fail('unavailable', 'internal', 'Omnorium failed while answering.');
   if (status === 404 || status === 405)
     return fail(
       'incompatible',
       status === 404 ? 'not_found' : 'method_not_allowed',
-      'This Omnorium does not serve the catalog Halcyonic reads.',
+      'This Omnorium does not serve the catalog Halora reads.',
     );
   return fail(
     'unavailable',
@@ -403,7 +399,7 @@ export function checkCredential(
     return fail(
       'unauthorized',
       'credential_missing',
-      'No Omnorium credential is set up for Halcyonic.',
+      'No Omnorium credential is set up for Halora.',
     );
   if (
     !/^(?:omc|ppc)_[A-Za-z0-9_-]{43}$/.test(credential) ||
@@ -412,7 +408,7 @@ export function checkCredential(
     return fail(
       'unauthorized',
       'credential_malformed',
-      "The Omnorium credential set up for Halcyonic isn't the right kind, so it wasn't sent.",
+      "The Omnorium credential set up for Halora isn't the right kind, so it wasn't sent.",
     );
   return credential;
 }

@@ -56,7 +56,7 @@ export function gatedEntriesProblem(
       continue;
     }
     const url = gated.get(id);
-    if (url === undefined) return `the provider ${id} is not one Halcyonic made for this server`;
+    if (url === undefined) return `the provider ${id} is not one Halora made for this server`;
     if (entry.base_url !== url) return `the provider ${id} does not point at its key gate`;
     if (entry.env_key !== gatedCredentialVariable(id.slice(GATED_PROVIDER_PREFIX.length)))
       return `the provider ${id} names another credential`;

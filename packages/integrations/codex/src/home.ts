@@ -27,24 +27,24 @@ export async function prepareHome(home: string): Promise<void> {
   }
   if (stats === null || !stats.isDirectory()) {
     throw refused(
-      `Codex's home ${home} is not a folder, or is a link. Move it away; Halcyonic makes a new one.`,
+      `Codex's home ${home} is not a folder, or is a link. Move it away; Halora makes a new one.`,
     );
   }
   const uid = process.getuid?.();
   if (uid !== undefined && stats.uid !== uid) {
     throw refused(
-      `Codex's home ${home} belongs to another user. Move it away; Halcyonic makes a new one.`,
+      `Codex's home ${home} belongs to another user. Move it away; Halora makes a new one.`,
     );
   }
   if ((stats.mode & 0o077) !== 0) {
     // Never made private again here: what others could reach while it was open can't be told.
     throw refused(
-      `Other users can open Codex's home ${home}, so it may hold what they put there. Move it away; Halcyonic makes a new one.`,
+      `Other users can open Codex's home ${home}, so it may hold what they put there. Move it away; Halora makes a new one.`,
     );
   }
   if ((await lstatOrNull(join(home, 'auth.json'))) !== null) {
     throw refused(
-      `Codex's home ${home} holds a sign-in (auth.json). Halcyonic runs Codex only on models served on this Mac, without one: move the file away.`,
+      `Codex's home ${home} holds a sign-in (auth.json). Halora runs Codex only on models served on this Mac, without one: move the file away.`,
     );
   }
 }

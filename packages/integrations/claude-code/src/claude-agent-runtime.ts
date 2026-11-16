@@ -206,7 +206,7 @@ export const CLAUDE_CODE_KEY_GATE: KeyGateDeclaration = {
 };
 
 const NEVER_ASK_REFUSED =
-  "Claude Code does not work without asking yet: Halcyonic's sandbox for it has not been tried on a real run.";
+  "Claude Code does not work without asking yet: Halora's sandbox for it has not been tried on a real run.";
 
 /**
  * Permission modes a start may choose. `bypassPermissions` and `auto` are refused because they
@@ -560,7 +560,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     const parsed = withPlan(parseStartOptions(request.options, request.model_ref), request.plan);
     if (!parsed.ok) throw refuse(parsed.message);
     if (!SESSION_ID.test(request.native_id)) {
-      throw refuse(`${request.native_id} is not a session id Halcyonic chose.`);
+      throw refuse(`${request.native_id} is not a session id Halora chose.`);
     }
     const cwd = confirmProjectLocation(this.#directoryPolicy, request.directory);
     const executionId = request.execution.execution_id;
@@ -574,7 +574,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (record.confined !== (request.confined === true)) {
       throw refuse(
         record.confined
-          ? "The session ran outside Halcyonic's sandbox, and its folder is now confined: it is not moved."
+          ? "The session ran outside Halora's sandbox, and its folder is now confined: it is not moved."
           : `The session was recorded confined, and here it would not be${record.unconfined_reason === undefined ? '' : ` (${record.unconfined_reason})`}: it is not re-attached.`,
       );
     }
@@ -736,14 +736,14 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (process.platform !== 'darwin') {
       return {
         folder: null,
-        reason: "Halcyonic's sandbox is on macOS only, so this run is not confined.",
+        reason: "Halora's sandbox is on macOS only, so this run is not confined.",
       };
     }
     const provider = cloudProvider(this.#environment);
     if (provider !== null) {
       return {
         folder: null,
-        reason: `Claude Code runs on ${provider} here, whose hosts Halcyonic cannot know ahead, so this run is not confined.`,
+        reason: `Claude Code runs on ${provider} here, whose hosts Halora cannot know ahead, so this run is not confined.`,
       };
     }
     return { folder: confinedFolder(settings, cwd, reads) };
@@ -814,7 +814,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       if (withinHostFolders(temp, this.#hostFolders)) {
         throw new RuntimeActionError(
           'runtime_unavailable',
-          `Claude Agent can't run here: this Halcyonic's temporary folder ${temp} is inside one of Halcyonic's own folders, which no agent app reaches. Start Halcyonic with TMPDIR set to a folder outside them.`,
+          `Claude Agent can't run here: this Halora's temporary folder ${temp} is inside one of Halora's own folders, which no agent app reaches. Start Halora with TMPDIR set to a folder outside them.`,
         );
       }
     }
@@ -825,7 +825,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (this.#hostFolders !== null && withinHostFolders(cwd, this.#hostFolders)) {
       throw new RuntimeActionError(
         'runtime_start_failed',
-        `Claude Agent was not started: ${cwd} is one of Halcyonic's own folders, which no task reaches.`,
+        `Claude Agent was not started: ${cwd} is one of Halora's own folders, which no task reaches.`,
       );
     }
   }
@@ -1102,9 +1102,9 @@ interface PendingQuestion {
 /** The tool through which Claude Code asks the person questions. */
 const ASK_USER_QUESTION = 'AskUserQuestion';
 
-const DENIED_MESSAGE = 'The person supervising this session in Halcyonic denied this request.';
+const DENIED_MESSAGE = 'The person supervising this session in Halora denied this request.';
 const WITHDRAWN_MESSAGE =
-  'The question was withdrawn: the person stopped the work in Halcyonic before answering it.';
+  'The question was withdrawn: the person stopped the work in Halora before answering it.';
 
 /** One Claude Code session: one SDK query, fed one user message per turn. */
 /** A folder as lsof names a process's working folder: its real path, or as given where that cannot be read. */
@@ -2161,7 +2161,7 @@ function approvalRequest(
 
 /** What a confined agent is told when it tries to write a file Halcyonic keeps (`RUNS_LATER`). */
 export const KEPT_BY_HALCYONIC =
-  "This app's version control, editor, agent and CI settings (.git and other version control, .envrc, .vscode, .idea, .devcontainer, *.code-workspace, other agent apps' settings such as .claude and .mcp.json, and CI files such as .github/workflows, in any folder) are kept by Halcyonic and cannot be written here. Leave them as they are and go on with the app: Halcyonic keeps the versions of your work itself.";
+  "This app's version control, editor, agent and CI settings (.git and other version control, .envrc, .vscode, .idea, .devcontainer, *.code-workspace, other agent apps' settings such as .claude and .mcp.json, and CI files such as .github/workflows, in any folder) are kept by Halora and cannot be written here. Leave them as they are and go on with the app: Halora keeps the versions of your work itself.";
 
 /** Whether a file tool's input writes one of `RUNS_LATER` in `folder`, as the SDK's tool schemas name the file. */
 export function keptPath(

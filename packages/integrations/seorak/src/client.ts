@@ -471,7 +471,7 @@ export class SeorakClient {
       return fail(
         'unauthorized',
         'credential_forbidden',
-        `Seorak refused the ${what} request (HTTP 403): the credential lacks the ${scope} scope it needs. Halcyonic needs one credential with ${SESSIONS}, ${REPLAY} and ${LIMITS}.`,
+        `Seorak refused the ${what} request (HTTP 403): the credential lacks the ${scope} scope it needs. Halora needs one credential with ${SESSIONS}, ${REPLAY} and ${LIMITS}.`,
       );
     if (reply.status === 429) {
       const until = retryTime(reply.retryAfter, Date.now());

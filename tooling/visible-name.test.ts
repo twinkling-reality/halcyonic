@@ -1,9 +1,9 @@
 /**
  * The product's name where a person reads it (the owner, 2026-11-16: "Use Halora"). The code keeps its root
- * name, halcyonic: package names, identifiers, data folders, environment variables, the command file at the
- * repository's root and log tags stay, and only shown words changed. This holds the shown words of every listed
- * source to the new name, so the old one is never shown anywhere new. A part that shows the name adds its
- * source here in the commit that renames it (the headset's words with the film batch).
+ * name, halcyonic: package names, identifiers, data folders, environment variables and log tags stay, and
+ * only shown words changed (the start file is Start Halora.command). This holds the shown words of every
+ * listed source to the new name, so the old one is never shown anywhere new. A part that shows the name
+ * adds its source here in the commit that renames it (the headset's words with the film batch).
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -42,6 +42,20 @@ const SOURCES: readonly string[] = [
   'apps/control-plane/src/workspace-agent/requests.ts',
   'packages/domain/src/admission.ts',
   'packages/domain/src/policy.ts',
+  'packages/integrations/claude-code/src/claude-agent-runtime.ts',
+  'packages/integrations/claude-code/src/personal-settings.ts',
+  'packages/integrations/codex/src/codex-runtime.ts',
+  'packages/integrations/codex/src/events.ts',
+  'packages/integrations/codex/src/home.ts',
+  'packages/integrations/codex/src/key-reader.ts',
+  'packages/integrations/omnorium/src/connection.ts',
+  'packages/integrations/omnorium/src/wire.ts',
+  'packages/integrations/opencode/src/ollama-gate.ts',
+  'packages/integrations/opencode/src/opencode-runtime.ts',
+  'packages/integrations/opencode/src/reconcile.ts',
+  'packages/integrations/salidium/src/connection.ts',
+  'packages/integrations/seorak/src/client.ts',
+  'packages/seatbelt/src/profile.ts',
 ];
 
 /** What names the code, never the product to a person: dropped before a line is read for the old name. */
@@ -52,8 +66,9 @@ const NOT_SHOWN: readonly RegExp[] = [
   /halcyonic[_-]\w*/g, // cookie, key and folder names
   /refs\/halcyonic\S*/g, // git refs
   /\w+Halcyonic\w*|Halcyonic\w+/g, // identifiers and file names
-  /Start Halcyonic\b/g, // the command file at the repository's root, named as it is
   /Halcyonic(?=\/)|\/Halcyonic\b/g, // paths
+  /`Halcyonic execution /g, // the session title an agent app keeps for the host: seen only in that app's own list
+  /"; Halcyonic.s confinement/g, // a comment inside the sandbox profile
 ];
 
 /** The lines of `text` that show the old name: none of a comment, after what names the code is dropped. */
@@ -79,7 +94,7 @@ describe("the product's shown name", () => {
       "import { x } from '@halcyonic/contracts';",
       'const dir = env.HALCYONIC_DATA_DIR ?? `${home}/.halcyonic`;',
       "await inHalcyonicsCodexHome('x');",
-      "'Halora was not started from the file Start Halcyonic.command, so it cannot start itself again.'",
+      "'Halora was not started from the file Start Halora.command, so it cannot start itself again.'",
       '// Halcyonic keeps this in its own folder.',
       "const path = 'apps/xr/Assets/Halcyonic/Resources/run.json';",
     ])

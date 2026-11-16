@@ -2321,7 +2321,7 @@ describe("Claude Agent outside the closed profile, kept out of the host's own fo
     await assert.rejects(start(), (error: unknown) => {
       assert.ok(error instanceof RuntimeActionError);
       assert.equal(error.code, 'runtime_start_failed');
-      assert.match(error.message, /one of Halcyonic's own folders/);
+      assert.match(error.message, /one of Halora's own folders/);
       return true;
     });
     assert.equal(runs.length, 0, 'a query was started');
@@ -2345,7 +2345,7 @@ describe("Claude Agent whose temporary folder is one of the host's own (VRIFY, 2
     const words = (error: unknown) => {
       assert.ok(error instanceof RuntimeActionError);
       assert.equal(error.code, 'runtime_unavailable');
-      assert.match(error.message, /temporary folder .* is inside one of Halcyonic's own folders/);
+      assert.match(error.message, /temporary folder .* is inside one of Halora's own folders/);
       assert.match(error.message, /TMPDIR/);
       return true;
     };
@@ -2380,7 +2380,7 @@ describe('a confined session never writes what Halcyonic keeps, and says so (the
       ['Write', { file_path: 'notes.envrc.txt' }],
     ] as const)
       assert.equal(keptPath(folder, tool, input), false, `${tool} ${JSON.stringify(input)}`);
-    assert.match(KEPT_BY_HALCYONIC, /kept by Halcyonic and cannot be written here/);
+    assert.match(KEPT_BY_HALCYONIC, /kept by Halora and cannot be written here/);
   });
 });
 

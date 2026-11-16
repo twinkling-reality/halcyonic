@@ -458,8 +458,7 @@ export function runsLater(relativePath: string): boolean {
 /** Seatbelt rules refusing every write to `RUNS_LATER` in `project`, at any depth, every letter in either case. */
 export function runsLaterUnder(project: string): string {
   const root = resolved(project);
-  if (/["\n\r]/.test(root))
-    throw new Error(`a folder Halcyonic cannot name in its profile: ${root}`);
+  if (/["\n\r]/.test(root)) throw new Error(`a folder Halora cannot name in its profile: ${root}`);
   const under = `^${root.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&')}/(.*/)?`;
   return [
     ...RUNS_LATER.folders.map((name) => `${under}${anyCase(name)}(/|$)`),
@@ -489,8 +488,7 @@ function anyCase(text: string): string {
  */
 export function secretsUnder(path: string): string {
   const root = resolved(path);
-  if (/["\n\r]/.test(root))
-    throw new Error(`a folder Halcyonic cannot name in its profile: ${root}`);
+  if (/["\n\r]/.test(root)) throw new Error(`a folder Halora cannot name in its profile: ${root}`);
   const literal = root.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&');
   // Each word quoted for the regex, then every letter in either case.
   const word = (text: string) =>

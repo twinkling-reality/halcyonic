@@ -347,7 +347,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
     if (!fromOpenCode(req, ownHost)) {
       res.setHeader('connection', 'close');
       req.resume();
-      refuse(res, 403, 'Halcyonic passes on requests from OpenCode only.');
+      refuse(res, 403, 'Halora passes on requests from OpenCode only.');
       return;
     }
     const route = `${req.method} ${req.url}`;
@@ -360,13 +360,13 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       // Answered without reading the body, so the connection is not used again.
       res.setHeader('connection', 'close');
       req.resume();
-      refuse(res, 404, 'Halcyonic passes on only the model list, model details and chat.');
+      refuse(res, 404, 'Halora passes on only the model list, model details and chat.');
       return;
     }
     if (!sentAsJson(req)) {
       res.setHeader('connection', 'close');
       req.resume();
-      refuse(res, 415, 'Halcyonic passes on only a body sent as JSON.');
+      refuse(res, 415, 'Halora passes on only a body sent as JSON.');
       return;
     }
     const raw = await read(req);
@@ -379,7 +379,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
     }
     const body = parseBody(raw);
     if (body === null) {
-      refuse(res, 400, 'The request is not a JSON object Halcyonic passes on.');
+      refuse(res, 400, 'The request is not a JSON object Halora passes on.');
       return;
     }
     const model = body.model;

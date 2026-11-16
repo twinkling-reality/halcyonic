@@ -868,7 +868,7 @@ describe('Codex runtime against a stand-in binary', () => {
   });
 
   test("refuses to launch Codex in a home that is a link, a file, another user's, open to others, or holds a sign-in", async (t) => {
-    const moveAway = /Move it away; Halcyonic makes a new one\./;
+    const moveAway = /Move it away; Halora makes a new one\./;
     const cases: [string, (home: string) => void, RegExp[]][] = [
       [
         'open to all',
@@ -1016,7 +1016,7 @@ describe('Codex runtime against a stand-in binary', () => {
         assert.ok(actionError('runtime_refused')(error));
         assert.ok(
           (error as Error).message.includes(
-            `configuration that applies whatever Halcyonic sets: ${present}.`,
+            `configuration that applies whatever Halora sets: ${present}.`,
           ),
         );
         assert.doesNotMatch((error as Error).message, /absent\.toml/);
@@ -1044,7 +1044,7 @@ describe('Codex runtime against a stand-in binary', () => {
     const { runtime, launched } = fake(t, [], { systemConfiguration: [present] });
     await assert.rejects(runtime.listModels(), (error: unknown) => {
       assert.ok(actionError('runtime_refused')(error));
-      assert.match((error as Error).message, /has, or Halcyonic can't check, Codex configuration/);
+      assert.match((error as Error).message, /has, or Halora can't check, Codex configuration/);
       assert.match((error as Error).message, /Remove it, then try again\./);
       return true;
     });
@@ -1075,7 +1075,7 @@ describe('Codex runtime against a stand-in binary', () => {
     );
   });
 
-  test('refuses a configuration layer that applies whatever Halcyonic sets, and a system file with content', async (t) => {
+  test('refuses a configuration layer that applies whatever Halora sets, and a system file with content', async (t) => {
     const layer = (name: Record<string, unknown>, config: Record<string, unknown> = {}) => ({
       name,
       version: '1',
@@ -1603,7 +1603,7 @@ describe('Codex runtime against a stand-in binary', () => {
     const refusal = received().find((message) => message.id === 0 && message.method === undefined);
     assert.deepEqual(refusal?.error, {
       code: -32601,
-      message: 'Halcyonic does not handle mcpServer/elicitation/request requests.',
+      message: 'Halora does not handle mcpServer/elicitation/request requests.',
     });
   });
 

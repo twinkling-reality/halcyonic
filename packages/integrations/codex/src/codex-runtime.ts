@@ -531,7 +531,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     ) {
       throw new RuntimeActionError(
         'invalid_runtime_options',
-        "Codex works without asking here only where its sandbox keeps it out of the other projects inside this folder, and here it runs without Halcyonic's sandbox.",
+        "Codex works without asking here only where its sandbox keeps it out of the other projects inside this folder, and here it runs without Halora's sandbox.",
       );
     }
     const options = askingInside(chosen, slot.confinement);
@@ -992,13 +992,13 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     const gatedProblem = gatedEntriesProblem(config, connection.gated);
     if (gatedProblem !== null) {
       throw notLocalOnly(
-        `Codex's configuration does not hold its hosted providers as Halcyonic set them: ${gatedProblem}.`,
+        `Codex's configuration does not hold its hosted providers as Halora set them: ${gatedProblem}.`,
       );
     }
     const managed = layers.flatMap(managedLayer);
     if (managed.length > 0) {
       throw notLocalOnly(
-        `Codex reads configuration on this Mac that applies whatever Halcyonic sets: ${managed.join(', ')}.`,
+        `Codex reads configuration on this Mac that applies whatever Halora sets: ${managed.join(', ')}.`,
       );
     }
     const answer = await send(
@@ -1052,7 +1052,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       );
       throw new RuntimeActionError(
         'runtime_refused',
-        `Codex would load the project's own Codex settings from ${folders.join(', ')}, which can add MCP servers, hooks and network access, because Codex's configuration trusts the project, as an entry in Halcyonic's Codex home config.toml can. Remove that entry. Nothing was started.`,
+        `Codex would load the project's own Codex settings from ${folders.join(', ')}, which can add MCP servers, hooks and network access, because Codex's configuration trusts the project, as an entry in Halora's Codex home config.toml can. Remove that entry. Nothing was started.`,
       );
     }
   }
@@ -1103,7 +1103,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     if (served !== 'this_mac' && !connection.gated.has(provider)) {
       throw new RuntimeActionError(
         'model_unavailable',
-        `Codex runs only on models served on this Mac through Halcyonic, and the provider ${provider} ${served === 'remote' ? 'is a remote service' : 'is not known to be on this Mac'}.`,
+        `Codex runs only on models served on this Mac through Halora, and the provider ${provider} ${served === 'remote' ? 'is a remote service' : 'is not known to be on this Mac'}.`,
       );
     }
     return { ...options, modelProvider: provider };
@@ -1142,7 +1142,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     if (confinement.project !== directory) {
       throw new RuntimeActionError(
         'runtime_refused',
-        "Halcyonic could not confine Codex to this project's folder, so nothing was started.",
+        "Halora could not confine Codex to this project's folder, so nothing was started.",
       );
     }
     const known = this.#confined.get(directory);
@@ -1230,7 +1230,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     if (!(await makeTemp(temp))) {
       throw new RuntimeActionError(
         'runtime_unavailable',
-        `Halcyonic could not empty this project's temporary folder for Codex, ${temp}, so Codex was not started. Remove the folder, then try again.`,
+        `Halora could not empty this project's temporary folder for Codex, ${temp}, so Codex was not started. Remove the folder, then try again.`,
       );
     }
     const profile = `${slot.recordFile}.sb`;
@@ -1269,7 +1269,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       // Not kept: once it is gone, the next request launches Codex.
       throw new RuntimeActionError(
         'runtime_refused',
-        `This Mac has, or Halcyonic can't check, Codex configuration that applies whatever Halcyonic sets: ${system.join(', ')}. Halcyonic runs Codex only without it, so Codex was not started. Remove it, then try again.`,
+        `This Mac has, or Halora can't check, Codex configuration that applies whatever Halora sets: ${system.join(', ')}. Halora runs Codex only without it, so Codex was not started. Remove it, then try again.`,
       );
     }
     // Checked before every launch: the home may have changed since the last one.
@@ -1418,7 +1418,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     const notPermitted = ({ code, out }: { code: unknown; out: string }) =>
       code !== 0 && /Operation not permitted/.test(out);
     const checks: [string, string[], (ran: { code: unknown; out: string }) => boolean][] = [
-      ["read a file of Halcyonic's data", ['/bin/cat', canary], notPermitted],
+      ["read a file of Halora's data", ['/bin/cat', canary], notPermitted],
       ["write to the other Codex server's home", ['/usr/bin/touch', planted], notPermitted],
       ['read the shared temporary folder', ['/bin/ls', '/private/tmp'], notPermitted],
       // Its contents, if it could be read, go nowhere: only the exit code is looked at.
@@ -1449,7 +1449,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       if (!refused(await run(command))) {
         throw new RuntimeActionError(
           'runtime_refused',
-          `Codex's server for this project could ${way}, so Halcyonic stopped it and started nothing.`,
+          `Codex's server for this project could ${way}, so Halora stopped it and started nothing.`,
         );
       }
     }
@@ -1490,11 +1490,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         // answer as a denial, an empty grant, a declined elicitation or an empty answer
         // (codex-rs/app-server/src/bespoke_event_handling.rs at rust-v0.157.0).
         if (observed?.requested === undefined && observed?.question === undefined) {
-          rpc.respondError(
-            id,
-            UNSUPPORTED_REQUEST,
-            `Halcyonic does not handle ${method} requests.`,
-          );
+          rpc.respondError(id, UNSUPPORTED_REQUEST, `Halora does not handle ${method} requests.`);
         }
       },
     };
@@ -1810,7 +1806,7 @@ export const NOT_LOCAL_ONLY = 'runtime_not_local_only';
 function notLocalOnly(reason: string): RuntimeActionError {
   return new RuntimeActionError(
     NOT_LOCAL_ONLY,
-    `${reason} Halcyonic runs Codex only without it, so nothing was started. Restart Halcyonic on your computer to try again.`,
+    `${reason} Halora runs Codex only without it, so nothing was started. Restart Halora on your computer to try again.`,
   );
 }
 
@@ -1879,7 +1875,7 @@ function neverAskingWithoutMcp(
   if (count === 0) return;
   throw new RuntimeActionError(
     'runtime_refused',
-    `Codex works without asking only with no MCP servers, and Halcyonic's Codex home config.toml names ${count}. Nothing was started.`,
+    `Codex works without asking only with no MCP servers, and Halora's Codex home config.toml names ${count}. Nothing was started.`,
   );
 }
 

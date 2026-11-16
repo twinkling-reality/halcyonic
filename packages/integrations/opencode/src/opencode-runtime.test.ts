@@ -78,7 +78,7 @@ describe('OpenCode runtime descriptor', () => {
     assert.deepEqual(runtime.validateStartOptions({}, null, 'never_ask'), {
       ok: false,
       message:
-        "OpenCode works without asking only inside Halcyonic's sandbox, which this server does not run in.",
+        "OpenCode works without asking only inside Halora's sandbox, which this server does not run in.",
     });
     assert.deepEqual(runtime.validateStartOptions({}, null, 'ask'), { ok: true });
     assert.equal(typeof runtime.listModels, 'function');
@@ -422,7 +422,7 @@ describe('OpenCode start failures', () => {
         error instanceof RuntimeActionError &&
         error.code === 'runtime_unavailable' &&
         error.effect === 'none' &&
-        /only inside Halcyonic's sandbox/.test(error.message),
+        /only inside Halora's sandbox/.test(error.message),
     );
     assert.equal(existsSync(ran), false, 'the binary ran');
   });
