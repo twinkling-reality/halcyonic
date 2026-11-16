@@ -40,6 +40,10 @@ namespace Halcyonic.XR.UI
         private static readonly int InnerId = Shader.PropertyToID("_Inner");
         private static readonly int InnerColourId = Shader.PropertyToID("_InnerColour");
         private static readonly int ShownId = Shader.PropertyToID("_Shown");
+        private static readonly int LitEdgeId = Shader.PropertyToID("_LitEdge");
+
+        /// <summary>A lit left edge, its width in dp and its strength (the question's dialog, after Mirror's Edge's); null for none.</summary>
+        public (float WidthDp, float Strength)? LitEdge { get; set; }
         private float shown = 1f;
 
         /// <summary>
@@ -134,6 +138,7 @@ namespace Halcyonic.XR.UI
             block.SetVector(EdgeTopId, Ring is var (ring, ringDp) ? Srgb(ring, ringDp) : Srgb(look.EdgeTop, look.EdgeDp));
             block.SetVector(EdgeFootId, Ring is var (ringFoot, _) ? Srgb(ringFoot, 1f) : Srgb(look.EdgeFoot, look.EdgeDp > 0f ? 1f : 0f));
             block.SetVector(ShadeId, new Vector4(look.ShadowDropDp, look.ShadowBlurDp, look.ShadowAlpha, look.Shadow ? 1f : 0f));
+            block.SetVector(LitEdgeId, LitEdge is var (litDp, litStrength) ? new Vector4(litDp, litStrength, 0f, 0f) : Vector4.zero);
             // The panel's one sentence stands under a hairline, never in a strip of its own (F6, 2026-11-10: a lighter strip read as a
             // button): a 1 dp rule where the sentence's place starts, from the words' left edge to their right.
             block.SetVector(InnerId, InnerBar is var (innerTop, _, _) && look.InnerColour.a > 0f

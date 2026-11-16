@@ -1012,6 +1012,8 @@ namespace Halcyonic.XR.UI
             body.gameObject.SetActive(false);
             request.gameObject.SetActive(false);
             panel.InnerBar = null;
+            // The dialog's light: a lit left edge 3 dp wide, a third of the way to white at its brightest.
+            panel.LitEdge = (3f, 0.35f);
             var unit = RoomType.Units(1f);
             var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
@@ -1124,6 +1126,7 @@ namespace Halcyonic.XR.UI
                 return;
             }
             ask.gameObject.SetActive(false);
+            panel.LitEdge = null;
             // At work while a try runs, the sentence bar says which try, sweeping; anywhere else the bar's own sentence.
             var said = fixing ?? bar.Sentence;
             var saidWaits = fixing != null ? waits : bar.Waits;

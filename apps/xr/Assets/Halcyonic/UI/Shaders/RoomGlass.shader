@@ -17,6 +17,7 @@ Shader "Halcyonic/Room Glass"
         _Inner ("A lighter inner bar: its top from the panel's top and its height in dp, its corner in dp, and its inset from the sides in dp where it shows (0: none)", Vector) = (0, 0, 0, 0)
         _InnerColour ("The inner bar's colour, sRGB, and its alpha", Vector) = (1, 1, 1, 0)
         _Shown ("How far the surface is in view, 0 to 1: everything it draws, its shadow too, scaled by it", Float) = 1
+        _LitEdge ("A lit left edge (Mirror's Edge's dialog): its width in dp and its strength, 0 for none", Vector) = (0, 0, 0, 0)
     }
 
     SubShader
@@ -47,6 +48,7 @@ Shader "Halcyonic/Room Glass"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Inner)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _InnerColour)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Shown)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _LitEdge)
             UNITY_INSTANCING_BUFFER_END(Props)
 
             // The sheen, once a frame for every surface (RoomSheen): the plane's origin and its right and up in the world,
@@ -148,6 +150,16 @@ Shader "Halcyonic/Room Glass"
                 // The edge: a line of its own colour just inside the outline.
                 float edge = edgeFoot.a > 0.5 ? cover * saturate(0.5 + (outer + edgeTop.a) / aa) : 0.0;
                 face = lerp(face, lerp(edgeTop.rgb, edgeFoot.rgb, tf), edge);
+                // A lit left edge, brightest a third of the way down and fading toward the top and the foot (the dialog's light).
+                float4 litEdge = UNITY_ACCESS_INSTANCED_PROP(Props, _LitEdge);
+                if (litEdge.y > 0.0)
+                {
+                    float fromLeft = p.x + extent.x;
+                    float across = saturate(1.0 - fromLeft / max(litEdge.x, 1e-3));
+                    float down = saturate((extent.y - p.y) / max(2.0 * extent.y, 1e-4));
+                    float along = smoothstep(0.0, 0.3, down) * (1.0 - smoothstep(0.35, 1.0, down) * 0.6);
+                    face = lerp(face, float3(1, 1, 1), litEdge.y * across * across * along);
+                }
                 // The sheen: one band tilted 20 degrees from vertical, in the plane's metres, white at its strength.
                 float3 rel = i.world - _RoomSheenOrigin.xyz;
                 float across = dot(rel, _RoomSheenRight.xyz) * 0.9396926 - dot(rel, _RoomSheenUp.xyz) * 0.3420201;
