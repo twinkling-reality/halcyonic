@@ -162,7 +162,7 @@ async function openInside(
 }
 
 /** Whether a path is, or lies in or around, a folder of the host's own (compared without case). */
-function holdsHostFolder(full: string, protectedFolders: readonly string[]): boolean {
+export function holdsHostFolder(full: string, protectedFolders: readonly string[]): boolean {
   const lower = full.toLowerCase();
   return protectedFolders.some((own) => {
     const mine = (realpathOr(own) ?? own).toLowerCase();
@@ -248,6 +248,8 @@ export async function readPictures(
 
 /** Folders the list never walks into: tools' own, and anything hidden. */
 const SKIPPED_FOLDERS = new Set(['node_modules']);
+/** The folders of stills the host makes of a project's photos and videos (ADR 0066). */
+const MEDIA_STILLS = /^media\/(?:photo|video)-[0-9a-f]{12}-stills$/;
 const PICTURE_NAME = /\.(?:png|jpe?g|webp)$/i;
 /** The list walks this deep, and looks at this many entries, at most. */
 const LIST_DEPTH = 8;
@@ -280,6 +282,8 @@ export async function listPictures(
       // `withFileTypes` reads the entry itself: a link is neither a folder nor a file here.
       if (entry.isDirectory()) {
         if (SKIPPED_FOLDERS.has(entry.name)) continue;
+        // A photo's or video's stills come with it (ADR 0066), never as pictures of their own.
+        if (MEDIA_STILLS.test(path)) continue;
         if (holdsHostFolder(join(folder, path), protectedFolders)) continue;
         await walk(path, depth + 1);
       } else if (entry.isFile() && PICTURE_NAME.test(entry.name)) {

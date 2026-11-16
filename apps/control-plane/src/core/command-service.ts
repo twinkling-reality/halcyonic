@@ -19,10 +19,12 @@ import type {
   HereAction,
   HereScope,
   InstructionAttachment,
+  MediaType,
   Principal,
   ProjectId,
   ProjectLocation,
   ProjectLocationChoice,
+  ProjectMediaView,
   ProjectRulesFile,
   ReceivedVia,
   RejectionCode,
@@ -32,7 +34,7 @@ import type {
   Timestamp,
   WorkstreamId,
 } from '@halcyonic/contracts';
-import { PAGES_BRANCH, WORLD_STARTER_ID } from '@halcyonic/contracts';
+import { MEDIA_FOLDER_BYTES, PAGES_BRANCH, WORLD_STARTER_ID } from '@halcyonic/contracts';
 import {
   type Admission,
   admitCommand,
@@ -95,6 +97,7 @@ import {
 } from './drafts.ts';
 import type { GivenPictures } from './given-pictures.ts';
 import { unrecordedRequests } from './host-denials.ts';
+import type { AddRefusal, MediaPlacer } from './media.ts';
 import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
 import { listPictures, readPictures } from './pictures.ts';
 
@@ -170,6 +173,8 @@ export interface CommandServiceDeps {
   readonly protectedFolders?: readonly string[];
   /** Pictures the person gave the host to go with an instruction (ADR 0058, amended), or none. */
   readonly givenPictures?: GivenPictures | null;
+  /** Where a person's photos and videos are placed into a project's folder (ADR 0066), or none. */
+  readonly media?: MediaPlacer | null;
   readonly ids: IdGenerator;
   readonly clock: Clock;
   readonly scheduler: Scheduler;
@@ -1009,6 +1014,10 @@ export class CommandService {
       case 'project.secret.set':
       case 'project.secret.remove':
         return this.#deps.projectSecrets ? null : 'Secrets are not kept on this computer.';
+      case 'project.media.add':
+        return this.#deps.media
+          ? null
+          : 'Adding photos and videos is off on this computer. Turn it on with pnpm mac-setup ffmpeg and its path.';
       default:
         return null;
     }
@@ -2180,6 +2189,101 @@ export class CommandService {
         this.#complete(command, scope, null);
         return;
       }
+      case 'project.media.add': {
+        // The kept upload is placed by the host under its own name; the command completes only once
+        // what is made from it is recorded too, so the folder stays busy until then (ADR 0066).
+        const scope = admission.scope;
+        const { project_id: projectId, media } = command.payload;
+        const where = { project_id: projectId, workstream_id: null, execution_id: null };
+        const placer = this.#deps.media ?? null;
+        const folder = this.#deps.projection.project(projectId)?.location?.path ?? null;
+        if (placer === null || folder === null) {
+          this.#fail(command, scope, {
+            code: 'unavailable',
+            message:
+              'Adding photos and videos is off on this computer. Turn it on with pnpm mac-setup ffmpeg and its path.',
+            effect: 'none',
+          });
+          return;
+        }
+        let added: { readonly path: string; readonly video: boolean } | null = null;
+        void placer
+          .add({
+            projectId,
+            commandId: command.command_id,
+            folder,
+            id: media,
+            bytes: this.#deps.projection.mediaBytes(projectId),
+            added: (file) => {
+              added = {
+                path: file.path,
+                video: file.media_type === 'video/mp4' || file.media_type === 'video/quicktime',
+              };
+              recorder.record(
+                controlPlaneDraft(
+                  'project.media.added',
+                  where,
+                  { command_id: command.command_id, ...file },
+                  this.#now(),
+                  cause,
+                ),
+              );
+            },
+          })
+          .then(
+            (outcome) => {
+              if (!outcome.ok) {
+                this.#fail(command, scope, {
+                  code: outcome.refusal,
+                  message: MEDIA_REFUSED[outcome.refusal],
+                  effect: 'none',
+                });
+                return;
+              }
+              recorder.record(
+                controlPlaneDraft(
+                  'project.media.prepared',
+                  where,
+                  { ...outcome.prepared, stills: [...outcome.prepared.stills] },
+                  this.#now(),
+                  cause,
+                ),
+              );
+              this.#complete(command, scope, { kind: 'media_added', path: outcome.prepared.path });
+            },
+            () => {
+              if (added === null) {
+                this.#fail(command, scope, {
+                  code: 'unavailable',
+                  message: 'The photo or video could not be added. Try again.',
+                  effect: 'none',
+                });
+                return;
+              }
+              // It is in the folder; only what is made from it was not finished, and the journal says so.
+              recorder.record(
+                controlPlaneDraft(
+                  'project.media.prepared',
+                  where,
+                  {
+                    path: added.path,
+                    stills: [],
+                    stills_not_made: 'unreadable',
+                    play: null,
+                    play_not_made: added.video ? 'unreadable' : null,
+                    width: null,
+                    height: null,
+                    duration_ms: null,
+                  },
+                  this.#now(),
+                  cause,
+                ),
+              );
+              this.#complete(command, scope, { kind: 'media_added', path: added.path });
+            },
+          );
+        return;
+      }
       case 'project.link_catalog':
       case 'project.unlink_catalog': {
         // The person's own link (ADR 0039): a local fact, complete as soon as it is recorded.
@@ -2385,8 +2489,12 @@ export class CommandService {
       }
       case 'execution.start': {
         // The pictures are read first, so one that cannot be read starts nothing (A4).
-        this.#withPictures(command, admission.scope, command.payload.attachments, (pictures) =>
-          this.#start(command, admission, pictures, cause),
+        this.#withPictures(
+          command,
+          admission.scope,
+          command.payload.attachments,
+          this.#runtimeFor(admission).runtime.takes_pictures === true,
+          (pictures, media) => this.#start(command, admission, pictures, cause, media),
         );
         return;
       }
@@ -2515,7 +2623,10 @@ export class CommandService {
           return;
         }
         // The pictures are read first, so one that cannot be read sends nothing (A4).
-        const proceed = (pictures: readonly InstructionPicture[] | undefined): void => {
+        const proceed = (
+          pictures: readonly InstructionPicture[] | undefined,
+          media: MediaGiven | null,
+        ): void => {
           const { adapter } = this.#runtimeFor(admission);
           const execution = toExecutionContext(admission.scope);
           // A failed check's first lines go after the person's words, once per check (FX1).
@@ -2523,8 +2634,10 @@ export class CommandService {
             command.command_type === 'execution.send_instruction'
               ? this.#checkOutputFor(execution.project_id, execution.workstream_id)
               : null;
-          if (pictures !== undefined) this.#recordPicturesRead(command, execution, pictures, cause);
-          const action = actionFor(command, adapter, execution, checked, pictures);
+          if (pictures !== undefined)
+            this.#recordPicturesRead(command, execution, pictures, cause, media?.attachments);
+          if (media !== null) this.#recordMediaGiven(command, execution, media, cause);
+          const action = actionFor(command, adapter, execution, checked, pictures, media);
           const outcome: ActionOutcome = {
             succeeded: () => {
               this.#recordCheckOutput(execution, checked, cause);
@@ -2586,6 +2699,7 @@ export class CommandService {
           command.command_type === 'execution.send_instruction'
             ? command.payload.attachments
             : undefined,
+          this.#runtimeFor(admission).runtime.takes_pictures === true,
           proceed,
         );
         return;
@@ -2605,6 +2719,7 @@ export class CommandService {
     admission: Admitted,
     pictures: readonly InstructionPicture[] | undefined,
     cause: Cause,
+    media: MediaGiven | null = null,
   ): void {
     const { recorder } = this.#deps;
     const { runtime, adapter } = this.#runtimeFor(admission);
@@ -2651,7 +2766,9 @@ export class CommandService {
         ),
       );
       this.#deps.reattacher?.started(execution.execution_id);
-      if (pictures !== undefined) this.#recordPicturesRead(command, scope, pictures, cause);
+      if (pictures !== undefined)
+        this.#recordPicturesRead(command, scope, pictures, cause, media?.attachments);
+      if (media !== null) this.#recordMediaGiven(command, scope, media, cause);
       // The project's own rules go before a task's first instruction, as the person chose them (E5).
       const rules = this.#rulesForStart(project_id, cause);
       if (rules !== null)
@@ -2696,7 +2813,10 @@ export class CommandService {
               execution,
               instruction: (() => {
                 const words = withCheckOutput(
-                  withVersionNote(command.payload.instruction, firstFromVersion),
+                  withMediaNote(
+                    withVersionNote(command.payload.instruction, firstFromVersion),
+                    media,
+                  ),
                   checked,
                 );
                 return rules === null ? words : withRules(words, rules.file, rules.text);
@@ -2792,10 +2912,22 @@ export class CommandService {
     command: CommandEnvelope,
     scope: CommandScope,
     attachments: readonly InstructionAttachment[] | undefined,
-    go: (pictures: readonly InstructionPicture[] | undefined) => void,
+    takesPictures: boolean,
+    go: (pictures: readonly InstructionPicture[] | undefined, media: MediaGiven | null) => void,
   ): void {
     if (attachments === undefined) {
-      go(undefined);
+      go(undefined, null);
+      return;
+    }
+    // A photo or video of the project goes as its stills, for a runtime that takes pictures, and as
+    // the host's line about it (ADR 0066); admission checked it is the project's and counted them.
+    const media =
+      scope.project_id === null
+        ? null
+        : this.#expandMedia(scope.project_id, attachments, takesPictures);
+    const pictured = media?.attachments ?? attachments;
+    if (pictured.length === 0) {
+      go(undefined, media);
       return;
     }
     const refuse = (code: string, message: string) =>
@@ -2805,11 +2937,11 @@ export class CommandService {
         ? null
         : (this.#deps.projection.project(scope.project_id)?.location?.path ?? null);
     const given = this.#deps.givenPictures;
-    void readPictures(folder, attachments, this.#deps.protectedFolders ?? [], (id) =>
+    void readPictures(folder, pictured, this.#deps.protectedFolders ?? [], (id) =>
       given ? given.read(id) : Promise.resolve(null),
     ).then(
       (read) => {
-        if (read.ok) go(read.pictures);
+        if (read.ok) go(read.pictures, media);
         else refuse(read.code, read.message);
       },
       () =>
@@ -2820,19 +2952,73 @@ export class CommandService {
     );
   }
 
+  /**
+   * An instruction's attachments with each of the project's photos and videos in it (ADR 0066) put as
+   * its stills, for a runtime that takes pictures, and what the host says of them. Null when it
+   * carries none.
+   */
+  #expandMedia(
+    projectId: ProjectId,
+    attachments: readonly InstructionAttachment[],
+    takesPictures: boolean,
+  ): MediaGiven | null {
+    if (!attachments.some((attachment) => attachment.kind === 'media')) return null;
+    const views = this.#deps.projection.media(projectId);
+    const pictured: InstructionAttachment[] = [];
+    const media: MediaGiven['media'][number][] = [];
+    const lines: string[] = [];
+    for (const attachment of attachments) {
+      if (attachment.kind !== 'media') {
+        pictured.push(attachment);
+        continue;
+      }
+      const view = views.find((each) => each.path === attachment.path);
+      const stills = this.#deps.projection.mediaStills(projectId, attachment.path) ?? [];
+      if (view === undefined) continue;
+      if (takesPictures) for (const still of stills) pictured.push({ kind: 'image', path: still });
+      media.push({
+        path: view.path,
+        media_type: view.media_type,
+        stills_given: takesPictures ? stills.length : 0,
+      });
+      lines.push(mediaLine(view, stills));
+    }
+    return media.length === 0 ? null : { media, attachments: pictured, note: lines.join('\n') };
+  }
+
+  /** Which photos and videos the instruction carries, recorded before the runtime is handed it (ADR 0066). */
+  #recordMediaGiven(
+    command: CommandEnvelope,
+    scope: { project_id: ProjectId; workstream_id: WorkstreamId; execution_id: ExecutionId },
+    media: MediaGiven,
+    cause: Cause,
+  ): void {
+    this.#deps.recorder.record(
+      controlPlaneDraft(
+        'execution.instruction.media_given',
+        scope,
+        { command_id: command.command_id, media: [...media.media], line_added: true },
+        this.#now(),
+        cause,
+      ),
+    );
+  }
+
   /** What the host read and is about to hand the runtime: paths, kinds, sizes and digests (A4). */
   #recordPicturesRead(
     command: CommandEnvelope,
     scope: { project_id: ProjectId; workstream_id: WorkstreamId; execution_id: ExecutionId },
     pictures: readonly InstructionPicture[],
     cause: Cause,
+    expanded?: readonly InstructionAttachment[],
   ): void {
     if (pictures.length === 0) return;
     // In the attachments' order: a given picture has no path, its digest names it (ADR 0058, amended).
     const attached =
-      'attachments' in command.payload
+      expanded ??
+      ('attachments' in command.payload
         ? ((command.payload.attachments as readonly InstructionAttachment[] | undefined) ?? [])
-        : [];
+        : []);
     this.#deps.recorder.record(
       controlPlaneDraft(
         'execution.instruction.pictures_read',
@@ -3297,11 +3483,12 @@ function actionFor(
   execution: ExecutionContext,
   checked: Checked | null,
   pictures: readonly InstructionPicture[] | undefined,
+  media: MediaGiven | null = null,
 ): (() => Promise<void>) | undefined {
   switch (command.command_type) {
     case 'execution.send_instruction': {
       const send = adapter.sendInstruction;
-      const text = withCheckOutput(command.payload.text, checked);
+      const text = withCheckOutput(withMediaNote(command.payload.text, media), checked);
       const leave = command.payload.leave_plan === true;
       return (
         send &&
@@ -3364,6 +3551,42 @@ interface Checked {
 function withVersionNote(words: string, recordedAt: string | null | undefined): string {
   if (recordedAt === undefined || recordedAt === null) return words;
   return `${words}\n\nFrom Halora: this task's folder is a copy of the project as it was in the version of ${recordedAt}, not as it is now. The project's own folder changes only when the person adds this task's work.`;
+}
+
+/**
+ * The project's photos and videos an instruction carries (ADR 0066): which, what was made of them,
+ * the attachments with each put as its stills, and the host's line about them.
+ */
+interface MediaGiven {
+  readonly media: readonly {
+    readonly path: string;
+    readonly media_type: MediaType;
+    readonly stills_given: number;
+  }[];
+  readonly attachments: readonly InstructionAttachment[];
+  readonly note: string;
+}
+
+/**
+ * The host's line about one photo or video, made only from its path, the paths the host made and
+ * the length the host read, never anything else of the file (ADR 0066).
+ */
+function mediaLine(view: ProjectMediaView, stills: readonly string[]): string {
+  const video = view.media_type === 'video/mp4' || view.media_type === 'video/quicktime';
+  const seconds =
+    view.duration_ms === null ? null : Math.max(1, Math.round(view.duration_ms / 1000));
+  const what = video ? (seconds === null ? 'a video' : `a ${seconds}-second video`) : 'a photo';
+  const parts = [`the person gave this task ${view.path}, ${what}, in the project's folder`];
+  if (view.play !== null) parts.push(`a copy any browser plays is ${view.play}`);
+  if (stills.length === 1) parts.push(`its still is ${stills[0]}`);
+  else if (stills.length > 1)
+    parts.push(`its stills are in ${stills[0]?.slice(0, stills[0].lastIndexOf('/') + 1)}`);
+  return `From Halora: ${parts.join('; ')}.`;
+}
+
+/** The person's words, then, apart, the host's line about the photos and videos they gave. */
+function withMediaNote(words: string, media: MediaGiven | null): string {
+  return media === null ? words : `${words}\n\n${media.note}`;
 }
 
 /** The person's words, then, apart, the Mac's own check when there is one to give. */
@@ -3474,3 +3697,18 @@ export function fitInstruction(conflicts: readonly MergeConflict[]): string | nu
     );
   return lines.join(' ').slice(0, 32000);
 }
+
+/** What the person reads when a photo or video was not added (ADR 0066); nothing was written. */
+const MEDIA_REFUSED: Readonly<Record<AddRefusal, string>> = {
+  media_not_kept: 'That photo or video is no longer kept on this computer. Add it again.',
+  not_a_media: "That file isn't a whole photo or video this computer takes, so nothing was added.",
+  tool_missing:
+    'Photos and videos need ffmpeg on this computer, so nothing was added. Set it up with pnpm mac-setup ffmpeg and its path.',
+  tool_changed:
+    'ffmpeg on this computer has changed since it was recorded, so nothing was added. Record it again with pnpm mac-setup ffmpeg and its path.',
+  unreadable: "That photo or video couldn't be read, so nothing was added.",
+  media_full: `This project's photos and videos would take more than ${Math.round(MEDIA_FOLDER_BYTES / 1_000_000)} MB, the most it keeps, so nothing was added.`,
+  media_present: 'That photo or video is already in this project.',
+  folder_refused:
+    "The project's media folder isn't a plain folder in the project, so nothing was added. Rename the project's media folder, then try again.",
+};

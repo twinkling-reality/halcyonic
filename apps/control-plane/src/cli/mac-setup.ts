@@ -21,6 +21,7 @@
  * for the person to run.
  */
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   accessSync,
   chmodSync,
@@ -330,6 +331,8 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
       return setup.undo(argument);
     case 'tunnel':
       return setup.tunnel(argument);
+    case 'ffmpeg':
+      return setup.ffmpeg(argument);
     case 'login':
       return argument === 'on' || argument === 'off'
         ? runLogin(argument, io.env, io.home, localLoginIo(io.print))
@@ -355,6 +358,7 @@ function usage(io: MacSetupIo): number {
     "  pnpm mac-setup starter              record the VR starter's pinned set, or say how to install it",
     '  pnpm mac-setup undo [git|off]       let Halora undo a task, with /usr/bin/git or the git you name',
     '  pnpm mac-setup tunnel [path|off]    record the checked tunnel program that shares a game at a link',
+    '  pnpm mac-setup ffmpeg <path|off>    record the ffmpeg photos and videos are added with, and its hash',
     '  pnpm mac-setup login on|off         start Halora whenever you log in, or stop that',
     'Add --with-token to ask the running Halora what it uses: the check then reads its access',
     'token, and sends it only after Halora proves it holds it.',
@@ -1078,6 +1082,42 @@ class MacSetup {
       status: 'ready',
       lines: [`Sharing a link uses the checked tunnel program ${TUNNEL_PIN.version}.`, about],
     };
+  }
+
+  /**
+   * Records the ffmpeg a person's photos and videos are copied and made into stills by (ADR 0066), and
+   * the SHA-256 of its executable's real bytes: the host runs only that file, so after an upgrade the
+   * person records it again here, never the host by itself.
+   */
+  async ffmpeg(argument: string | undefined): Promise<number> {
+    const io = this.#io;
+    if (argument === undefined) return usage(io);
+    const settings = this.#settingsOrPrint();
+    if (settings === null) return 1;
+    if (argument === 'off') {
+      const next = { ...settings, HALCYONIC_FFMPEG: undefined, HALCYONIC_FFMPEG_SHA256: undefined };
+      this.#save(next);
+      io.print("Adding photos and videos is off from Halora's next start.");
+      await this.#afterChange(next);
+      return 0;
+    }
+    const program = resolve(expandHome(argument, io.home));
+    let real: string;
+    try {
+      real = realpathSync(program);
+      if (!statSync(real).isFile()) throw new Error('not a file');
+    } catch {
+      io.print(`${this.#tilde(program)} isn't a program on this Mac.`);
+      return 1;
+    }
+    const sha256 = createHash('sha256').update(readFileSync(real)).digest('hex');
+    const next = { ...settings, HALCYONIC_FFMPEG: program, HALCYONIC_FFMPEG_SHA256: sha256 };
+    this.#save(next);
+    io.print(
+      `Adding photos and videos is on from Halora's next start, with ${this.#tilde(program)}. If ffmpeg is updated, run this again; until then no photo or video can be added.`,
+    );
+    await this.#afterChange(next);
+    return 0;
   }
 
   /**

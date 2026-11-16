@@ -41,6 +41,9 @@ import { GivenPictures } from './given-pictures.ts';
 import { type ConfinedReads, HostAnswers } from './host-answers.ts';
 import { HostDenials, requestOutcome } from './host-denials.ts';
 import { InstructionQueue } from './instruction-queue.ts';
+import { MediaPlacer } from './media.ts';
+import { MediaStore } from './media-store.ts';
+import { MediaTool } from './media-tool.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
 import { Reattacher } from './reattach.ts';
@@ -157,6 +160,15 @@ export interface ControlPlaneOptions {
    */
   readonly givenPictures?: { readonly dataDir: string };
   /**
+   * Where a person's photos and videos wait, are made and noted (ADR 0066): `<dataDir>/media`,
+   * `media-work` and `media-placing`, and the tool that copies them, or none. Absent, nothing is added.
+   */
+  readonly media?: {
+    readonly dataDir: string;
+    /** The person's ffmpeg and its recorded hash, or a tool of a test's own making. */
+    readonly tool: { readonly ffmpeg: string; readonly sha256: string } | MediaTool | null;
+  };
+  /**
    * Unloads a local Ollama model that Halcyonic loaded once no active execution in Halcyonic uses
    * it (UL1); none by default, so tests do not touch loopback Ollama unless they pass one.
    */
@@ -206,6 +218,9 @@ export class ControlPlane {
   /** The person's project secrets (ADR 0057), or null where none are kept. */
   readonly projectSecrets: SecretStore | null;
   readonly givenPictures: GivenPictures | null;
+  /** The photos and videos the Mac's page received, waiting to be placed (ADR 0066), or none. */
+  readonly mediaStore: MediaStore | null;
+  readonly #media: MediaPlacer | null;
   /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1), or null. */
   readonly ollamaUnload: OllamaUnloader | null;
   /** Re-attaches what an earlier control plane started (ADR 0046); null for a fixture journal. */
@@ -257,6 +272,8 @@ export class ControlPlane {
       options.givenPictures === undefined
         ? null
         : new GivenPictures(join(options.givenPictures.dataDir, 'pictures'));
+    this.mediaStore =
+      options.media === undefined ? null : new MediaStore(join(options.media.dataDir, 'media'));
     // A project secret is known to redaction from the moment the page stages it (ADR 0057).
     this.redaction = redaction(() => [
       ...(options.secrets?.() ?? []),
@@ -320,6 +337,19 @@ export class ControlPlane {
             logger: options.logger,
           });
     this.protectedFolders = options.observeFiles?.protect ?? [];
+    // After the host's own folders are known: media is never placed in one (ADR 0066).
+    this.#media =
+      options.media === undefined || this.mediaStore === null
+        ? null
+        : new MediaPlacer({
+            store: this.mediaStore,
+            tool:
+              options.media.tool instanceof MediaTool
+                ? options.media.tool
+                : new MediaTool(options.media.tool, join(options.media.dataDir, 'media-work')),
+            notes: join(options.media.dataDir, 'media-placing'),
+            protectedFolders: this.protectedFolders,
+          });
     // What the host holds as secrets, as redaction reads them: none of it is sent, published or saved aside.
     const held = () => [...(options.secrets?.() ?? []), ...(this.projectSecrets?.held() ?? [])];
     this.github =
@@ -419,6 +449,7 @@ export class ControlPlane {
       locations: this.locations,
       protectedFolders: this.protectedFolders,
       givenPictures: this.givenPictures,
+      media: this.#media,
       ids: options.ids,
       clock: options.clock,
       scheduler: options.scheduler,
@@ -743,6 +774,16 @@ export class ControlPlane {
     void this.#worlds
       ?.readUnread()
       .catch((error: unknown) => this.#logger.warn({ err: error }, 'worlds not read'));
+    // What a stopped host was writing into a project's media folder is removed first, and only that (ADR 0066).
+    void this.#media
+      ?.reconcile((projectId, path) => this.projection.mediaStills(projectId, path) !== undefined)
+      .then(
+        (swept) => {
+          if (swept.removed > 0 || swept.left > 0)
+            this.#logger.warn(swept, 'media writes cut off by a stop');
+        },
+        () => this.#logger.warn({}, 'media writes cut off by a stop were not read'),
+      );
     const { cut, ...result } = this.commands.reconcileAfterRestart();
     if (result.executions > 0 || result.commands > 0) {
       this.#logger.warn(result, 'marked in-flight work unknown after restart');

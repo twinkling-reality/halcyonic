@@ -37,6 +37,7 @@ import { openSqliteJournal } from './journal/sqlite-journal.ts';
 import { keysReadAtStart, ProviderKeys } from './keys/provider-keys.ts';
 import { createHostLocations } from './locations.ts';
 import { DeviceAccess } from './network/devices.ts';
+import { MediaPage, mountMedia } from './network/media-page.ts';
 import { OPEN_LINK_KEEP_MS, openLinkPrivately, sweepOpenLinks } from './network/open-link.ts';
 import { PairingPage, pairingControls } from './network/pairing-page.ts';
 import { confinedPreviewTarget } from './network/preview-relay.ts';
@@ -351,6 +352,8 @@ async function main(): Promise<void> {
     projectSecrets: { dataDir: config.dataDir },
     // Pictures the person gives to go with an instruction (ADR 0058, amended).
     givenPictures: { dataDir: config.dataDir },
+    // A person's photos and videos, added on this Mac's setup page (ADR 0066).
+    media: { dataDir: config.dataDir, tool: config.mediaTool },
     secrets: heldSecrets(
       config,
       { environment: process.env, dataDir: config.dataDir },
@@ -519,6 +522,38 @@ async function main(): Promise<void> {
         // The setup view beside pairing (ADR 0053): every step `pnpm mac-setup` checks, with its presses; and the
         // Usage page under its paths: what each listed project's tasks used, read from the projection alone.
         mount: alongside(
+          // The Photos and Videos page (ADR 0066): Add Media for each project with a folder.
+          ...(controlPlane.mediaStore === null
+            ? []
+            : [
+                mountMedia(
+                  new MediaPage({
+                    store: controlPlane.mediaStore,
+                    projects: () =>
+                      controlPlane.projection.listedProjects().flatMap((project) =>
+                        project.location?.path == null
+                          ? []
+                          : [
+                              {
+                                project_id: project.project_id,
+                                name: project.name,
+                                folder: project.location.path,
+                              },
+                            ],
+                      ),
+                    media: (projectId) => controlPlane.projection.media(projectId),
+                    stills: (projectId, path) =>
+                      controlPlane.projection.mediaStills(projectId, path),
+                    command: (commandId) => controlPlane.projection.command(commandId),
+                    pending: () => controlPlane.projection.pendingCommands(),
+                    submit: (command, via, principal) =>
+                      controlPlane.commands.submit(command, via, principal),
+                    protectedFolders: controlPlane.protectedFolders,
+                    nextId: () => ids.next(),
+                    now: () => new Date(),
+                  }),
+                ),
+              ]),
           mountUsage(
             projectionSources(controlPlane.projection, () => controlPlane.registry.descriptors()),
           ),

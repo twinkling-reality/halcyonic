@@ -120,6 +120,11 @@ export interface ControlPlaneConfig {
    * after checking its whole folder against the pin (a manifest of every entry), never this folder and never the person's own Chrome.
    */
   readonly browser: { readonly folder: string; readonly sha256: string } | null;
+  /**
+   * The ffmpeg a person's photos and videos are copied and made into stills by (ADR 0066), and the
+   * SHA-256 the person recorded for its executable's real bytes, or null: then nothing is added.
+   */
+  readonly mediaTool: { readonly ffmpeg: string; readonly sha256: string } | null;
   /** Null, and voice off, unless the owner set all three HALCYONIC_WHISPER_ variables. */
   readonly speech: SpeechConfig | null;
   /** Null, and the companion off, unless the owner named its model in HALCYONIC_COMPANION_MODEL. */
@@ -339,6 +344,7 @@ export function loadConfig(
     tunnelBinary: parseExecutable('HALCYONIC_TUNNEL_BIN', env.HALCYONIC_TUNNEL_BIN),
     ghBinary: parseExecutable('HALCYONIC_GH_BIN', env.HALCYONIC_GH_BIN),
     browser: parseBrowser(env, pins),
+    mediaTool: parseMediaTool(env),
     speech: parseSpeech(env),
     companion: parseCompanion(env),
     assistant: parseAssistant(env, parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME)),
@@ -425,6 +431,24 @@ function parseBrowser(
   }
   if (!isDirectory) throw new ConfigError(`HALCYONIC_BROWSER ${shown(folder)} is not a folder.`);
   return { folder, sha256: pin };
+}
+
+/** HALCYONIC_FFMPEG and its recorded HALCYONIC_FFMPEG_SHA256, both or neither (ADR 0066). */
+function parseMediaTool(
+  env: NodeJS.ProcessEnv,
+): { readonly ffmpeg: string; readonly sha256: string } | null {
+  const ffmpeg = parseExecutable('HALCYONIC_FFMPEG', env.HALCYONIC_FFMPEG);
+  const sha256 = env.HALCYONIC_FFMPEG_SHA256 ?? '';
+  if (ffmpeg === null) {
+    if (sha256 !== '')
+      throw new ConfigError('HALCYONIC_FFMPEG_SHA256 is set without HALCYONIC_FFMPEG.');
+    return null;
+  }
+  if (!/^[0-9a-f]{64}$/.test(sha256))
+    throw new ConfigError(
+      'HALCYONIC_FFMPEG_SHA256 must be the hash pnpm mac-setup ffmpeg records for HALCYONIC_FFMPEG.',
+    );
+  return { ffmpeg, sha256 };
 }
 
 function parseExecutable(name: string, raw: string | undefined): string | null {

@@ -104,6 +104,7 @@ export interface TestControlPlaneOptions {
   readonly projectSecrets?: ControlPlaneOptions['projectSecrets'];
   /** Pictures the person gives (ADR 0058, amended); none by default. */
   readonly givenPictures?: ControlPlaneOptions['givenPictures'];
+  readonly media?: ControlPlaneOptions['media'];
   /** A confined app's reads besides its folder, for the host's own answers; off by default. */
   readonly confinedReads?: ControlPlaneOptions['confinedReads'];
 }
@@ -135,6 +136,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.github !== undefined && { github: options.github }),
     ...(options.projectSecrets !== undefined && { projectSecrets: options.projectSecrets }),
     ...(options.givenPictures !== undefined && { givenPictures: options.givenPictures }),
+    ...(options.media !== undefined && { media: options.media }),
     ...(options.confinedReads !== undefined && { confinedReads: options.confinedReads }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
     ...(options.providers !== undefined && { providers: options.providers }),

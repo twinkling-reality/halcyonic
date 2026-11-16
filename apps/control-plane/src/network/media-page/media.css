@@ -1,0 +1,113 @@
+/* The Photos and Videos page, on the Mac pages' kit (page.css): one block per project, its name beside Add Media, then
+   its photos and videos as a grid of stills, each shown only once whole. */
+body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.card,
+.card * {
+  min-width: 0;
+}
+
+.media-empty {
+  margin: 0;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.media-line {
+  margin: 12px 0 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--secondary);
+  text-wrap: pretty;
+}
+
+.media-project {
+  transition: box-shadow 160ms ease;
+}
+.media-project.media-drop {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.media-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+/* The kit's main button fills its row; here it sits beside the project's name at its own width. */
+.media-head .main {
+  width: auto;
+  flex: none;
+}
+h2.media-name {
+  flex: 1;
+  margin: 0;
+  font-size: 20px;
+  line-height: 26px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.media-said {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--bad-ink);
+  text-wrap: pretty;
+}
+.media-said[hidden] {
+  display: none;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.media-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--tile);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.media-tile.media-shown {
+  opacity: 1;
+}
+.media-bare {
+  display: grid;
+  place-items: center;
+  color: var(--quiet);
+}
+.media-still {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.media-mark {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 4px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.55);
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.media-mark .glyph {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}

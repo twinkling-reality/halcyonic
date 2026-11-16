@@ -51,6 +51,9 @@ export const SETTING_NAMES = [
   'HALCYONIC_GH_BIN',
   // Where task copies go, when not beside the data folder: kept for a plane started by a login service.
   'HALCYONIC_TASKS_DIR',
+  // The ffmpeg photos and videos are made with, and the hash the person recorded for it (ADR 0066).
+  'HALCYONIC_FFMPEG',
+  'HALCYONIC_FFMPEG_SHA256',
 ] as const;
 export type SettingName = (typeof SETTING_NAMES)[number];
 

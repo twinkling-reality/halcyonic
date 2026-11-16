@@ -550,6 +550,11 @@ Every text in them is outside words, from the project's files or its build, as `
   (ADR 0058), sorted by path: the first 200 with their path, `media_type` (PNG, JPEG or WebP by their first
   bytes), size and modification time, and `pictures_total`. Never larger than 5 MB, through a link, a hidden
   or withheld name, `node_modules`, or Halcyonic's own data.
+- `GET /api/projects/:project_id/picture?journal_id&path`: one picture of the project's folder as its bytes, with its
+  type, read as an instruction's picture is (ADR 0058: whole PNG, JPEG or WebP, at most 5 MB, never through a link, a
+  withheld name or the host's own data), for a still of a photo or video the headset draws (ADR 0066). 404
+  `media_gone` for one of the project's photos or videos or their stills whose file is no longer there, 404
+  `picture_not_found` for anything else it does not read.
 - `GET /api/projects/:project_id/checks/:check_id/output?step=typecheck|build`: a step of one of the
   project's checks as its own folder holds it, its exit (null when it did not run) and at most 200
   lines of at most 300 characters, cleaned as the agent's copy is: no terminal sequences or unseen

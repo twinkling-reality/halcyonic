@@ -470,6 +470,28 @@ export function registerRoutes(
     if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
     return (await reads.pictures(projectId, query.value, request.principal)) ?? unavailable(reply);
   });
+  // One picture of the folder as its bytes, a still of a photo or video for the headset (ADR 0066).
+  app.get('/api/projects/:project_id/picture', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    const query = validateProjectFileQuery(request.query);
+    if (!validateProjectId(projectId).ok || !query.ok) return invalid(reply);
+    const read = await reads.picture(projectId, query.value, request.principal);
+    if (read === undefined) return unavailable(reply);
+    if (read === 'gone')
+      return reply
+        .code(404)
+        .send(errorBody('media_gone', 'That photo or video is no longer in the project.'));
+    if (read === 'unreadable')
+      return reply
+        .code(404)
+        .send(
+          errorBody(
+            'picture_not_found',
+            "That isn't a picture this computer reads in the project.",
+          ),
+        );
+    return reply.type(read.type).header('cache-control', 'no-store').send(read.body);
+  });
   // The project's own rules, to read before choosing them (E5).
   app.get('/api/projects/:project_id/rules', async (request, reply) => {
     const projectId = (request.params as { project_id: string }).project_id;

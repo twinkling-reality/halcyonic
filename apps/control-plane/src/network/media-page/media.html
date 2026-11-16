@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Photos and Videos</title>
+<link rel="stylesheet" href="/page.css">
+<link rel="stylesheet" href="/setup/media.css">
+<script src="/setup/media.js" defer></script>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="g-photo" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M3.5 15.5l4.5-4 3.5 3 3-2.5 6 4.5"/><circle cx="15.5" cy="9.5" r="1.4"/></symbol>
+  <symbol id="g-plus" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></symbol>
+  <symbol id="g-play" viewBox="0 0 24 24"><path d="M9 7.5v9l7-4.5z"/></symbol>
+  <symbol id="g-hourglass" viewBox="0 0 24 24"><path d="M7 3.5h10M7 20.5h10"/><path d="M8 3.5c0 4 8 5 8 8.5s-8 4.5-8 8.5"/><path d="M16 3.5c0 4-8 5-8 8.5s8 4.5 8 8.5"/></symbol>
+  <symbol id="g-alert" viewBox="0 0 24 24"><path d="M12 5v9.5"/><path d="M12 19v.1"/></symbol>
+  <symbol id="g-back" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+</svg>
+
+<main class="card">
+  <header class="head">
+    <span class="emblem"><svg class="glyph" aria-hidden="true"><use href="#g-photo"/></svg></span>
+    <div class="head-words">
+      <h1>Photos and Videos</h1>
+      <p class="description">Add a photo or video to a project, so the agents working on it can use it.</p>
+    </div>
+    <a class="page-link" href="/setup"><svg class="glyph" aria-hidden="true"><use href="#g-back"/></svg>Setup</a>
+  </header>
+
+  <section class="block" id="nothing" hidden>
+    <p class="media-empty">No Projects Yet</p>
+    <p class="media-line">A project shows here once it has a folder on this computer.</p>
+  </section>
+
+  <div id="projects"></div>
+</main>
+</body>
+</html>

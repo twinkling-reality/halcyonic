@@ -34,7 +34,7 @@ import { WindowCounter } from '../network/limits.ts';
 import { NO_LINK } from '../observer/file-observer.ts';
 import { checkLogLines } from '../preview/check-output.ts';
 import type { ControlPlane } from './control-plane.ts';
-import { listPictures } from './pictures.ts';
+import { listPictures, readPictures } from './pictures.ts';
 import { readRules, rulesReview } from './project-rules.ts';
 
 /**
@@ -245,6 +245,48 @@ export class ProjectReads {
       pictures_total: total,
       source: 'project_files',
     };
+  }
+
+  /**
+   * One picture of the project's folder as its bytes (ADR 0066, for a still the headset draws), read
+   * as an instruction's picture is: whole, at most PICTURE_BYTES, never through a link, never a name
+   * that may hold secrets or a folder of the host's own. `gone` for one of the project's own photos
+   * or videos whose file is no longer there; undefined where the project or the read is refused.
+   */
+  async picture(
+    projectId: string,
+    query: ProjectFileQuery,
+    principal: Principal | null,
+  ): Promise<{ readonly type: string; readonly body: Buffer } | 'gone' | 'unreadable' | undefined> {
+    if (!this.#allowed(projectId, query.journal_id, principal)) return undefined;
+    const folder = this.#plane.projection.project(projectId)?.location?.path;
+    if (folder === undefined) return undefined;
+    const read = await readPictures(
+      folder,
+      [{ kind: 'image', path: query.path }],
+      this.#plane.protectedFolders,
+    ).catch(() => null);
+    const picture = read?.ok === true ? read.pictures[0] : undefined;
+    if (picture !== undefined)
+      return { type: picture.media_type, body: Buffer.from(picture.bytes) };
+    const ours = this.#plane.projection
+      .media(projectId)
+      .some(
+        (medium) =>
+          medium.path === query.path ||
+          (this.#plane.projection.mediaStills(projectId, medium.path) ?? []).includes(query.path),
+      );
+    if (!ours) return 'unreadable';
+    const real = realpathSync(folder);
+    let there = false;
+    try {
+      const handle = await open(join(real, query.path), constants.O_RDONLY | NO_LINK);
+      await handle.close();
+      there = true;
+    } catch (error) {
+      there = (error as NodeJS.ErrnoException).code !== 'ENOENT';
+    }
+    return there ? 'unreadable' : 'gone';
   }
 
   /**

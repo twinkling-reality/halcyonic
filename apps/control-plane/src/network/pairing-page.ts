@@ -130,6 +130,33 @@ export interface PageRoutes {
   ): void;
   /** A static file behind the session. */
   asset(path: string, type: string, body: Buffer): void;
+  /**
+   * A file the view reads when asked, behind the session: its type and bytes, or null for 404. For
+   * a still of a project's photo or video (ADR 0066).
+   */
+  file(
+    path: string,
+    handler: (
+      request: FastifyRequest,
+      session: string,
+    ) => Promise<{ readonly type: string; readonly body: Buffer } | null>,
+  ): void;
+  /**
+   * A POST of raw bytes from the page's own origin (ADR 0066), in a scope of its own: the session,
+   * Host, Origin and Sec-Fetch-Site are checked before one byte is read, the body is
+   * `application/octet-stream` only, its declared length at most `limit`, and the handler is given
+   * the body as it streams, never parsed or held whole. Every other route keeps the page's 1 KiB.
+   */
+  upload(
+    path: string,
+    limit: number,
+    handler: (
+      request: FastifyRequest,
+      body: AsyncIterable<Uint8Array>,
+      declared: number,
+      session: string,
+    ) => Promise<unknown>,
+  ): void;
 }
 
 /** The only paths a mounted view may add. */
@@ -341,7 +368,7 @@ export class PairingPage {
         'referrer-policy': 'no-referrer',
         'x-content-type-options': 'nosniff',
         'content-security-policy':
-          "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+          "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
       });
       const refusal = this.#refusal(request);
       if (refusal !== null) return reply.code(403).type('text/plain').send(refusal);
@@ -425,6 +452,47 @@ export class PairingPage {
         app.get(path, async (request, reply) => {
           if (!this.#hasSession(request)) return reply.code(403).type('text/plain').send(AGAIN);
           return reply.type(type).send(body);
+        });
+      },
+      file: (path, handler) => {
+        under(path);
+        app.get(path, async (request, reply) => {
+          const session = this.#sessionKey(request);
+          if (session === null) return reply.code(403).type('text/plain').send(AGAIN);
+          const found = await handler(request, session);
+          if (found === null) return reply.code(404).type('text/plain').send('Not here.');
+          return reply.type(found.type).send(found.body);
+        });
+      },
+      upload: (path, limit, handler) => {
+        under(path);
+        // Its own scope: the page's hooks above (Host, Origin, Sec-Fetch-Site) are the parent's, run
+        // before the body; this scope's parser hands the body on unread, and only for raw bytes.
+        void app.register(async (scope) => {
+          scope.removeAllContentTypeParsers();
+          scope.addContentTypeParser('application/octet-stream', (_request, payload, done) =>
+            done(null, payload),
+          );
+          scope.post(
+            path,
+            {
+              bodyLimit: limit,
+              onRequest: async (request, reply) => {
+                if (this.#sessionKey(request) === null)
+                  return reply.code(403).type('text/plain').send(AGAIN);
+                const declared = Number(request.headers['content-length']);
+                if (!Number.isSafeInteger(declared) || declared < 1)
+                  return reply.code(411).type('text/plain').send('A length is needed.');
+                if (declared > limit) return reply.code(413).type('text/plain').send('Too large.');
+              },
+            },
+            async (request, reply) => {
+              const session = this.#sessionKey(request);
+              if (session === null) return reply.code(403).type('text/plain').send(AGAIN);
+              const declared = Number(request.headers['content-length']);
+              return handler(request, request.body as AsyncIterable<Uint8Array>, declared, session);
+            },
+          );
         });
       },
     };

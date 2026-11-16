@@ -97,3 +97,13 @@ goes with an instruction as a desk session pastes a screenshot (CORE's first rep
   reads it again, checks its digest and that it is a whole picture, and hands the runtime those bytes, as for the
   folder's. A given picture needs no project folder. `PictureRead.path` is null for one; its `sha256` names it.
 
+## Amended 2026-11-16: a photo or video of the project (ADR 0066)
+
+An attachment may be `{kind: 'media', path}`, one of the project's photos and videos as the journal has them. The host
+expands it to that medium's stills, each read and handed as the bytes above and counted in the four after expansion,
+and adds one line after the person's words, marked as Halora's own, naming the medium's path, its play copy and
+its stills. That line names paths, which "never a path" above excludes for the pictures themselves: the pictures are
+still handed as bytes, and the paths are of files in the task's own copy that its agent may open, as it may any file
+there. `execution.instruction.media_given` records the media and that the line was added, before the runtime is
+handed the instruction; the line itself is never journaled.
+
