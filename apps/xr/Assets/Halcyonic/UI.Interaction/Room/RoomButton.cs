@@ -586,8 +586,14 @@ namespace Halcyonic.XR.UI
             // A chosen answer: a white ring and a white check, never a filled disc (the lead's 2026-11-17 01:56Z MUST 1: no orange fill).
             if (mark != AnswerMark.None) (chip, glyphColour) = (new Color(1f, 1f, 1f, 0f), Color.white);
             else (chip, glyphColour) = (plate, leads ? RimNow : Color.white);
-            return (new Vector4(chip.r, chip.g, chip.b, chip.a), new Vector4(plate.r, plate.g, plate.b, PlateAlpha), glyphColour, RoomMotion.ActionScale(pointed ? 1f : 0f, held));
+            // A quiet action (the dialog's others) stands without its plate at rest: its glyph and words alone, the plate only while pointed or held.
+            var plateAlpha = Quiet && !leads && !pointed && !held ? 0f : PlateAlpha;
+            if (Quiet && !leads && !pointed && !held && mark == AnswerMark.None) chip = new Color(plate.r, plate.g, plate.b, 0f);
+            return (new Vector4(chip.r, chip.g, chip.b, chip.a), new Vector4(plate.r, plate.g, plate.b, plateAlpha), glyphColour, RoomMotion.ActionScale(pointed ? 1f : 0f, held));
         }
+
+        /// <summary>A quiet action (the dialog's others): its glyph and words alone at rest, its plate only while pointed or held.</summary>
+        public bool Quiet { get; set; }
 
         /// <summary>Whether the accent's lit rim stands round it: the moment's one main action, and Confirm behind its lock.</summary>
         public bool Lit => gameObject.activeSelf && (main || LockProgress != null) && mark == AnswerMark.None;

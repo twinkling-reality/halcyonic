@@ -94,12 +94,16 @@ namespace Halcyonic.XR.UI
         private TextMeshPro body = null!;
         private TextMeshPro request = null!;
         private TextMeshPro ask = null!;
+        private TextMeshPro kicker = null!;
 
         /// <summary>The agent's words at the top of the question's dialog, the dialog's largest text: 28 dp against the body's 20 (1.75 degrees).</summary>
         public const float DialogWordsDp = 28f;
 
         /// <summary>Between the agent's words and the answers, and between the answers and the actions' row, in dp.</summary>
         public const float DialogGapDp = 20f;
+
+        /// <summary>The moment's title over the agent's words, small spaced capitals: 15 dp (0.94 degree).</summary>
+        public const float DialogKickerDp = 15f;
         private TextMeshPro measureBody = null!;
         private TextMeshPro measureRequest = null!;
         private TextMeshPro sentence = null!;
@@ -280,6 +284,9 @@ namespace Halcyonic.XR.UI
             view.ask = RoomType.Create(view.panel.transform, "Agent words", Color.white, KitType.Order.Words);
             view.ask.textWrappingMode = TextWrappingModes.Normal;
             view.ask.gameObject.SetActive(false);
+            view.kicker = RoomType.Create(view.panel.transform, "Moment title", Color.white, KitType.Order.Words);
+            view.kicker.textWrappingMode = TextWrappingModes.NoWrap;
+            view.kicker.gameObject.SetActive(false);
             view.request = RoomType.CreateMono(view.panel.transform, "Request", Color.white, KitType.Order.Words);
             view.request.textWrappingMode = TextWrappingModes.Normal;
             view.request.overflowMode = TextOverflowModes.Overflow;
@@ -1022,6 +1029,14 @@ namespace Halcyonic.XR.UI
 
             // The agent's words, theirs, at the dialog's own size; never one word alone on their last line.
             ask.gameObject.SetActive(true);
+            // The moment's title over it, small spaced capitals (Mirror's Edge's title line, AUDIT's MUST 3): Question, or Request.
+            kicker.gameObject.SetActive(true);
+            RoomType.Size(kicker);
+            GlazeText.SetLiteral(kicker, bar.State == RoomBarState.Request ? "REQUEST" : "QUESTION");
+            kicker.fontSize *= DialogKickerDp / RoomGeometry.TypeDp;
+            kicker.characterSpacing = 18f;
+            kicker.alpha = 0.72f;
+            var kickerHeight = KitType.Lay(kicker, wordsWidth, 1).Height;
             // A question's words are the agent's; an approval's question is ours (Run Command?).
             Set(ask, bar.Band != null ? LineWords.Theirs(bar.Band) : LineWords.Ours(bar.Sentence!), false);
             ask.fontSize *= DialogWordsDp / RoomGeometry.TypeDp;
@@ -1051,7 +1066,8 @@ namespace Halcyonic.XR.UI
             }
             rowHeight = Mathf.Max(rowHeight, RoomType.Units(RoomButton.HeightDp));
 
-            var panelHeight = pad + askHeight + (cardHeight > 0f ? gapIn + cardHeight : 0f) + (count > 0 ? gapIn + rowHeight : 0f) + pad;
+            var kickerGap = RoomType.Scaled(10f);
+            var panelHeight = pad + kickerHeight + kickerGap + askHeight + (cardHeight > 0f ? gapIn + cardHeight : 0f) + (count > 0 ? gapIn + rowHeight : 0f) + pad;
             panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
             panel.Draw(new Vector2(panelWidth, panelHeight));
             panel.gameObject.SetActive(true);
@@ -1063,8 +1079,9 @@ namespace Halcyonic.XR.UI
             PanelHung = false;
             var top = panelHeight / 2f;
             var left = -panelWidth / 2f;
-            ask.transform.localPosition = new Vector3(left + pad, top - pad, -RoomType.Units(0.5f));
-            var cardAt = new Vector3(left + pad, top - pad - askHeight - gapIn, -RoomType.Units(0.5f));
+            kicker.transform.localPosition = new Vector3(left + pad, top - pad, -RoomType.Units(0.5f));
+            ask.transform.localPosition = new Vector3(left + pad, top - pad - kickerHeight - kickerGap, -RoomType.Units(0.5f));
+            var cardAt = new Vector3(left + pad, top - pad - kickerHeight - kickerGap - askHeight - gapIn, -RoomType.Units(0.5f));
             body.transform.localPosition = cardAt;
             request.transform.localPosition = cardAt;
             PlaceFacts(cardAt);
@@ -1086,7 +1103,9 @@ namespace Halcyonic.XR.UI
                 var width = cores[index].x;
                 var centreX = shift + (index == mainIndex ? -left - pad - width / 2f : x + width / 2f);
                 if (index != mainIndex) x += width + KitType.Units(SpatialKit.TargetGapDegrees);
-                button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(centreX, rowY), width, action.Mark, action.Chosen,
+                // Every other action quiet: its words and glyph, no plate until pointed (the reference's LATER, AUDIT's MUST 6).
+                button.Quiet = !action.Main;
+                button.Show(action.Words, action.Icon, action.Main, available: action.Control.Available, new Vector2(centreX, rowY), width, action.Mark, action.Chosen,
                     0f, doing: RoomButton.Doing(action.Control), detail: action.Detail, destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
                 controls[button] = action.Control;
                 button.Press.ActsOnPinch = action.Control.Holds;
@@ -1126,6 +1145,7 @@ namespace Halcyonic.XR.UI
                 return;
             }
             ask.gameObject.SetActive(false);
+            kicker.gameObject.SetActive(false);
             panel.LitEdge = null;
             // At work while a try runs, the sentence bar says which try, sweeping; anywhere else the bar's own sentence.
             var said = fixing ?? bar.Sentence;
@@ -1332,7 +1352,8 @@ namespace Halcyonic.XR.UI
                     continue;
                 }
                 var action = bar.Column[index];
-                button.Show(action.Words, action.Icon, action.Main, available: true, centre, cores[index].x, action.Mark, action.Chosen,
+                button.Quiet = false;
+                button.Show(action.Words, action.Icon, action.Main, available: action.Control.Available, centre, cores[index].x, action.Mark, action.Chosen,
                     action.Mark != AnswerMark.None ? wrap : 0f, doing: RoomButton.Doing(action.Control), detail: action.Detail,
                     destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
                 controls[button] = action.Control;

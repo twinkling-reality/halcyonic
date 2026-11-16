@@ -374,6 +374,9 @@ namespace Halcyonic.Client
             }
             if (Available(KitPlace.Yes) is KitControl yes) column.Add(new RoomAction(yes, main: true, locks: true));
             if (Available(KitPlace.Forward) is KitControl forward) column.Add(new RoomAction(forward, main: true));
+            // The way on stands from the start, locked, its reason under it ("Choose Answer First"), in the place it lights (AUDIT's
+            // 2026-11-16T2258Z MUST 1): never a moment with nothing to press.
+            else if (binding[KitPlace.Forward] is { Available: false, Reason: string why } waiting) column.Add(new RoomAction(waiting, main: true, detail: why));
             if (Available(KitPlace.Back) is KitControl back) column.Add(new RoomAction(back, main: false));
             if (Available(KitPlace.Cancel) is KitControl cancel) column.Add(new RoomAction(cancel, main: false));
             if (Available(KitPlace.Stop) is KitControl stop) column.Add(new RoomAction(stop, main: false));

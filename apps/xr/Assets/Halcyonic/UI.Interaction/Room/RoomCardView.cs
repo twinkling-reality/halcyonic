@@ -930,7 +930,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// Whether the card stands under the agent's words in the question's dialog (RoomBar.AsDialog): its title then takes the
-        /// final title size (22 dp), so the question over it stays the dialog's largest text.
+        /// caption's size (16 dp), so the question over it stays the dialog's largest text (AUDIT's MUST 4).
         /// </summary>
         public bool TitleUnderWords { get; set; }
 
@@ -949,7 +949,7 @@ namespace Halcyonic.XR.UI
                 (float Dp, float Line, int Lines) chosen = (LongTitleTypeDp, LongTitleLineDp, 3);
                 // A file's name in the mono face, as the list of changes sets it.
                 var titleRole = card.TitleMono ? KitRole.Mono : KitRole.Title;
-                if (TitleUnderWords) chosen = (FinalTitleTypeDp, FinalTitleLineDp, 3);
+                if (TitleUnderWords) chosen = (CaptionTypeDp, CaptionLineDp, 2);
                 else foreach (var (dp, line, lines) in new[] { (TitleTypeDp, TitleLineDp, 2) })
                 {
                     var (probe, _) = Text(titleRole, dp, line, Color.white, card.Title, left, 0f, column, lines);
