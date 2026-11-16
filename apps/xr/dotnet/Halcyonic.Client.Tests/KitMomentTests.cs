@@ -32,7 +32,7 @@ public class KitMomentTests
     {
         var edit = KitMoment.ReportedEdit(Codex, KitFileChange.Changed, "src/towers.ts", At);
         Assert.That(edit.Provenance, Is.EqualTo(KitProvenance.Reported));
-        Assert.That(edit.Source, Is.EqualTo("Codex (Reported)"));
+        Assert.That(edit.Source, Is.EqualTo(KitMomentWords.TheAgentSays));
         Assert.That(edit.Headline.ToString(), Is.EqualTo("Edit Reported · [src/towers.ts]"), "its report, the file theirs");
         Assert.That(edit.Fact, Is.EqualTo("Not Yet Observed"));
         Assert.That(edit.Tone, Is.EqualTo(KitMomentTone.Neutral));
@@ -68,7 +68,7 @@ public class KitMomentTests
     {
         var says = KitMoment.AgentSays(Codex, "I'll import Body from matter-js.");
         Assert.That(says.Provenance, Is.EqualTo(KitProvenance.Reported));
-        Assert.That(says.Source, Is.EqualTo("Codex (Reported)"));
+        Assert.That(says.Source, Is.EqualTo(KitMomentWords.TheAgentSays));
         Assert.That(says.Headline.Runs.All(run => run.Theirs), Is.True);
     }
 
@@ -111,7 +111,7 @@ public class KitMomentTests
         Assert.That(host.Source, Is.EqualTo("Observed on This Mac"));
         Assert.That(host.Tone, Is.EqualTo(KitMomentTone.Failure));
         Assert.That(agent.Provenance, Is.EqualTo(KitProvenance.Reported));
-        Assert.That(agent.Source, Is.EqualTo("Codex (Reported)"));
+        Assert.That(agent.Source, Is.EqualTo(KitMomentWords.TheAgentSays));
         Assert.That(agent.Source + agent.Headline, Does.Not.Contain("your computer").IgnoreCase);
         Assert.That(agent.Headline.ToString(), Is.EqualTo("Check Reported · [npm run build · exit 1]"), "a separator between two of theirs stays theirs");
         Assert.That(agent.Tone, Is.EqualTo(KitMomentTone.Neutral), "colour is for what the computer knows; the agent's outcome is its words");

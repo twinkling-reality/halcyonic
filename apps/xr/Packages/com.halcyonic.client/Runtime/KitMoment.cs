@@ -231,7 +231,7 @@ namespace Halcyonic.Client
 
         /// <summary>A file <paramref name="runtime"/> says it changed: its report, in the past tense, not seen yet.</summary>
         public static KitMoment ReportedEdit(string runtime, KitFileChange change, string file, DateTimeOffset? at) =>
-            new KitMoment(KitMomentKind.ReportedEdit, KitProvenance.Reported, Says(runtime),
+            new KitMoment(KitMomentKind.ReportedEdit, KitProvenance.Reported, KitMomentWords.TheAgentSays,
                 LineWords.Ours(KitMomentWords.Reported(change) + KitMomentWords.Dot) + LineWords.TheirName(file), KitMomentWords.NotSeenYet, NoLines,
                 KitMomentTone.Neutral, new[] { KitMomentAction.ReadIt }, at)
             .Parts(LineWords.Ours(KitMomentWords.Reported(change)), new[] { LineWords.TheirName(file) });
@@ -258,7 +258,7 @@ namespace Halcyonic.Client
 
         /// <summary>What <paramref name="runtime"/> says of its work, its own words.</summary>
         public static KitMoment AgentSays(string runtime, string text, DateTimeOffset? at = null) => new KitMoment(KitMomentKind.AgentSays, KitProvenance.Reported,
-            Says(runtime), LineWords.Theirs(text), null, NoLines, KitMomentTone.Neutral, NoActions, at).Parts(LineWords.Ours(KitMomentWords.AgentNote), prose: LineWords.Theirs(text));
+            KitMomentWords.TheAgentSays, LineWords.Theirs(text), null, NoLines, KitMomentTone.Neutral, NoActions, at).Parts(LineWords.Ours(KitMomentWords.AgentNote), prose: LineWords.Theirs(text));
 
         /// <summary>
         /// <paramref name="runtime"/> asks to run <paramref name="command"/>: its declared <see cref="Sandbox"/> stays on the
@@ -321,7 +321,7 @@ namespace Halcyonic.Client
 
         /// <summary>A command <paramref name="runtime"/> says it ran and the outcome it reports: its words, no colour.</summary>
         public static KitMoment AgentCheck(string runtime, string command, string outcome, DateTimeOffset? at) =>
-            new KitMoment(KitMomentKind.AgentCheck, KitProvenance.Reported, Says(runtime),
+            new KitMoment(KitMomentKind.AgentCheck, KitProvenance.Reported, KitMomentWords.TheAgentSays,
                 LineWords.Ours(KitMomentWords.CheckReported + KitMomentWords.Dot) + LineWords.TheirName(command) + LineWords.Ours(KitMomentWords.Dot) + LineWords.Theirs(outcome),
                 null, NoLines, KitMomentTone.Neutral, new[] { KitMomentAction.SeeTheOutput }, at)
             .Parts(LineWords.Ours(KitMomentWords.CheckReported), new[] { LineWords.Theirs(outcome) }, LabelText.Plain(command));
@@ -351,8 +351,6 @@ namespace Halcyonic.Client
                 KitMomentTone.Passed, actions, check.At, null, true, scope)
                 .Parts(LineWords.Ours(KitMomentWords.BuildReady), new[] { LineWords.TheirName(project) });
         }
-
-        private static string Says(string runtime) => LabelText.Name(runtime) + KitMomentWords.ReportedSuffix;
 
         /// <summary>Sets the card's parts (<see cref="Title"/>, <see cref="Meta"/>, <see cref="Well"/>, <see cref="Prose"/>) and returns the moment.</summary>
         private KitMoment WithSteps(IReadOnlyList<CheckStepOutcome>? steps)
@@ -428,8 +426,11 @@ namespace Halcyonic.Client
         /// <summary>The cadence's join between a line's segments (the owner's voice standard, 2026-10-30).</summary>
         public const string Dot = " · ";
 
-        /// <summary>After a runtime's name on the eyebrow: what it says is its report.</summary>
-        public const string ReportedSuffix = " (Reported)";
+        /// <summary>
+        /// The eyebrow of what the agent reports, its own words and not something seen: the agent by its role, whichever app runs
+        /// it, never the app's name (AUDIT2 2026-11-16T20:02Z; no vendor name on a headset screen). The app stays on How It Runs.
+        /// </summary>
+        public const string TheAgentSays = "The Agent Says";
 
         /// <summary>The eyebrow of what the computer itself saw or ran, naming the host as the Host chip does (the owner, 2026-11-03).</summary>
         public static string YourComputer => "Observed on " + ThisMac;
