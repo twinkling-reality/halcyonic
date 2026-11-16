@@ -47,4 +47,16 @@ public class PathWrapTests
         Assert.That(PathWrap.Pieces("a.b"), Is.EqualTo(new[] { "a.", "b" }));
         Assert.That(PathWrap.Pieces("name."), Is.EqualTo(new[] { "name." }));
     }
+
+    [Test]
+    public void APieceNoLineHoldsBreaksAfterAHyphenOrBeforeACapitalNeverInsideLetters()
+    {
+        Assert.That(PathWrap.FinerPieces("welcomeScreen.uikitml"), Is.EqualTo(new[] { "welcome", "Screen.uikitml" }));
+        Assert.That(PathWrap.FinerPieces("golden-balloon_test"), Is.EqualTo(new[] { "golden-", "balloon_", "test" }));
+        Assert.That(PathWrap.FinerPieces("README"), Is.EqualTo(new[] { "README" }), "capitals in a row are one word");
+        Assert.That(PathWrap.FinerPieces("averyveryverylongname"), Is.EqualTo(new[] { "averyveryverylongname" }), "no break point: whole");
+        Assert.That(PathWrap.FinerPieces("-x"), Is.EqualTo(new[] { "-x" }), "a leading hyphen is part of the name");
+        foreach (var piece in new[] { "welcomeScreen.uikitml", "golden-balloon_test", "a-B-c" })
+            Assert.That(string.Concat(PathWrap.FinerPieces(piece)), Is.EqualTo(piece), "nothing dropped or added");
+    }
 }

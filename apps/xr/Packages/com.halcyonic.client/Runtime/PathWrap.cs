@@ -32,6 +32,31 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// A piece no line holds even at the body minimum, in finer parts (AUDIT's condition, 2026-11-16 06:15Z; FIELD's view asks
+        /// for them only then): after a hyphen or an underscore, or before a capital that follows a small letter
+        /// ("welcomeScreen" to "welcome", "Screen"); never inside letters. A piece with none of them stays whole.
+        /// </summary>
+        public static IReadOnlyList<string> FinerPieces(string piece)
+        {
+            var parts = new List<string>();
+            if (string.IsNullOrEmpty(piece)) return parts;
+            var start = 0;
+            for (var index = 1; index < piece.Length; index++)
+            {
+                var before = piece[index - 1];
+                var breaksAfter = (before == '-' || before == '_') && index - 1 > start;
+                var breaksBefore = char.IsUpper(piece[index]) && char.IsLower(before);
+                if (breaksAfter || breaksBefore)
+                {
+                    parts.Add(piece.Substring(start, index - start));
+                    start = index;
+                }
+            }
+            parts.Add(piece.Substring(start));
+            return parts;
+        }
+
+        /// <summary>
         /// The path in lines, each breaking only after a slash or a dot, as many pieces a line as <paramref name="fits"/> holds.
         /// A path that fits whole is one line.
         /// </summary>
