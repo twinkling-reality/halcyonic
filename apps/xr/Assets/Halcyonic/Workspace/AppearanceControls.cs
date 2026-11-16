@@ -18,9 +18,16 @@ namespace Halcyonic.XR.Workspace
             CharacterColours = CharacterColourSettings.Load(PlayerPrefs.GetString(CharacterPreference, ""));
             settings = AppearanceSettings.Load(PlayerPrefs.GetString(Preference, ""));
             Glaze.SetPalette(settings.Applied);
-            // The redesign's panel glass in force from the first frame, as kept (Dark where nothing is).
+            // The redesign's panel glass in force from the first frame, as kept (Dark where nothing is), and the glass follows the
+            // choice at once: FIELD's one setter (RoomSurface.Theme) redraws every surface.
+            PanelThemes.Changed += Follow;
             PanelThemes.Set(settings.Panels);
+            Follow(PanelThemes.Current);
         }
+
+        private static void Follow(PanelTheme theme) => Halcyonic.XR.UI.RoomSurface.Theme = theme;
+
+        private void OnDestroy() => PanelThemes.Changed -= Follow;
 
         public bool KeepCharacterColours(string encoded)
         {
