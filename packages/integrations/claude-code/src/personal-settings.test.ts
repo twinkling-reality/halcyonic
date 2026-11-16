@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
@@ -8,6 +8,7 @@ import {
   credentialSettings,
   isSalidiumHook,
   isSeorakHook,
+  isSeorakOlderHook,
   observationHooks,
   personalConfigFolder,
   personalSettings,
@@ -255,6 +256,68 @@ describe("the person's own Claude Code set-up, as an unconfined run takes it (VR
         error instanceof RuntimeActionError &&
         /ANTHROPIC_AUTH_TOKEN/.test(error.message) &&
         !error.message.includes('fake-secret-value'),
+    );
+  });
+});
+
+describe("Seorak's older hook form (before its shell-safe paths), recognised as tightly as the marked one", () => {
+  // A stand-in install: a package named seorak with its hook scripts in bin, and this process's own node.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-seorak-old-')));
+  const install = join(root, 'collector');
+  const other = join(root, 'elsewhere');
+  for (const folder of [install, other]) mkdirSync(join(folder, 'bin'), { recursive: true });
+  writeFileSync(join(install, 'package.json'), JSON.stringify({ name: 'seorak' }));
+  writeFileSync(join(other, 'package.json'), JSON.stringify({ name: 'not-seorak' }));
+  const scripts = {
+    SessionStart: 'hook-session-start.mjs',
+    SessionEnd: 'hook-session-end.mjs',
+    PostToolUse: 'hook-tool-use.mjs',
+    PostToolUseFailure: 'hook-tool-use.mjs',
+    Notification: 'hook-notification.mjs',
+    UserPromptSubmit: 'hook-user-prompt.mjs',
+  } as const;
+  for (const file of new Set(Object.values(scripts))) {
+    writeFileSync(join(install, 'bin', file), '');
+    writeFileSync(join(other, 'bin', file), '');
+  }
+  const node = realpathSync(process.execPath);
+  const old = (file: string, folder = install) => `${node} ${join(folder, 'bin', file)}`;
+  after(() => rmSync(root, { recursive: true, force: true }));
+
+  test("each of the six events in the old form reads true, and passes as Seorak's", () => {
+    for (const [event, file] of Object.entries(scripts)) {
+      assert.equal(isSeorakOlderHook(old(file), event), true, event);
+      const kept = observationHooks({
+        hooks: { [event]: [{ hooks: [{ type: 'command', command: old(file) }] }] },
+      });
+      assert.equal(kept[event]?.[0]?.hooks[0]?.command, old(file), event);
+    }
+  });
+
+  test('any change reads false: another script, a relative path, a word more, another package, the wrong event, no node', () => {
+    for (const near of [
+      old('hook-turn-end.mjs'),
+      `node ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `${node} bin/hook-user-prompt.mjs`,
+      `${old('hook-user-prompt.mjs')} --flag`,
+      `${old('hook-user-prompt.mjs')}; id`,
+      `${old('hook-user-prompt.mjs')} && id`,
+      `${node}  ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `'${node}' '${join(install, 'bin', 'hook-user-prompt.mjs')}'`,
+      old('hook-user-prompt.mjs', other),
+      `/bin/sh ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `${node} ${join(install, 'bin', 'missing.mjs')}`,
+    ])
+      assert.equal(isSeorakOlderHook(near, 'UserPromptSubmit'), false, near);
+    assert.equal(
+      isSeorakOlderHook(old('hook-user-prompt.mjs'), 'Stop'),
+      false,
+      'the right script on the wrong event',
+    );
+    assert.equal(
+      isSeorakOlderHook(old('hook-tool-use.mjs'), 'PreToolUse'),
+      false,
+      'an event Seorak does not observe',
     );
   });
 });

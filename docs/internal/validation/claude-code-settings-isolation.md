@@ -50,7 +50,10 @@ Claude Code's own install step.
     at both ends, so nothing can come before or after it (AUDIT3 F1): Salidium,
     `SALIDIUM_HOOK=1 '<absolute>/hooks/relay.sh' claude-code <that event> <one of its four pressures>`; Seorak,
     `'<absolute node>' '<absolute script>' --seorak-hook-path=<base64url file URL>`, the script that event's own and
-    the marker naming the very same file. Each entry's type, command, async and timeout are copied and passed in the
+    the marker naming the very same file; and Seorak's older installer form (before 2026-07-27, found in a person's
+    settings on 2026-11-16 for six of its eight events), exactly `<absolute node> <absolute script>`, plain characters
+    only, the node's real path a runnable `node`, the script that event's own whose real path lies in the `bin` folder
+    of a package named `seorak` (AUDIT3, 2026-11-16). Each entry's type, command, async and timeout are copied and passed in the
     flag tier as `settings: { hooks }`. Salidium's older form (a `/.salidium/hooks/` path through `/bin/sh`) is not
     recognised, so not passed. A listing is no task and carries none.
   - The person's own `CLAUDE.md`, appended to Claude Code's preset system prompt, at most 64 KB (larger refuses the run

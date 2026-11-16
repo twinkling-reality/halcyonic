@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { isAbsolute, join } from 'node:path';
+import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
 
@@ -123,7 +123,11 @@ const OBSERVERS: readonly {
   readonly recognises: (command: string, event: string) => boolean;
 }[] = [
   { name: 'Salidium', recognises: (command, event) => isSalidiumHook(command, event) },
-  { name: 'Seorak', recognises: (command, event) => isSeorakHook(command, event) },
+  {
+    name: 'Seorak',
+    recognises: (command, event) =>
+      isSeorakHook(command, event) || isSeorakOlderHook(command, event),
+  },
 ];
 
 /**
@@ -213,6 +217,77 @@ export function isSeorakHook(command: string, event: string): boolean {
     return false;
   }
   return isAbsolute(marked) && marked === path;
+}
+
+/** What the older form's check reads of the disk, so tests stand in for it. */
+export interface SeorakDisk {
+  /** The path after every link, or null when it does not resolve. */
+  realpath(path: string): string | null;
+  /** Whether the path is a file its owner may run. */
+  runnable(path: string): boolean;
+  /** The file's text, or null when it cannot be read. */
+  read(path: string): string | null;
+}
+
+const SEORAK_DISK: SeorakDisk = {
+  realpath: (path) => {
+    try {
+      return realpathSync.native(path);
+    } catch {
+      return null;
+    }
+  },
+  runnable: (path) => {
+    try {
+      const stats = statSync(path);
+      return stats.isFile() && (stats.mode & 0o100) !== 0;
+    } catch {
+      return false;
+    }
+  },
+  read: (path) => {
+    try {
+      return readFileSync(path, 'utf8');
+    } catch {
+      return null;
+    }
+  },
+};
+
+/** An absolute path of plain characters only: no space, quote, `$`, `;`, `&`, `|`, `<`, `>`, `(`, `)` or backslash. */
+const PLAIN_PATH = '(/[A-Za-z0-9._/@+-]+)';
+
+/**
+ * Seorak's command in its older installer's form (before its shell-safe paths, 2026-07-27: `${runner} ${script}`),
+ * recognised only as tightly as the marked form (AUDIT3, 2026-11-16): exactly two words, the absolute path of a
+ * runnable `node` and the absolute path of the script Seorak's installer names for that very event, whose real path
+ * lies in the `bin` folder of a package named `seorak`. Anything else, another word, a shell character, a relative
+ * path, another script or another package, reads false.
+ */
+export function isSeorakOlderHook(
+  command: string,
+  event: string,
+  disk: SeorakDisk = SEORAK_DISK,
+): boolean {
+  const script = SEORAK_SCRIPTS[event];
+  if (script === undefined) return false;
+  const found = new RegExp(`^${PLAIN_PATH} ${PLAIN_PATH}$`).exec(command);
+  if (found === null) return false;
+  const node = disk.realpath(found[1] as string);
+  if (node === null || basename(node) !== 'node' || !disk.runnable(node)) return false;
+  const real = disk.realpath(found[2] as string);
+  if (real === null || basename(real) !== script || basename(dirname(real)) !== 'bin') return false;
+  let name: unknown;
+  try {
+    name = (
+      JSON.parse(disk.read(join(dirname(dirname(real)), 'package.json')) ?? 'null') as {
+        name?: unknown;
+      } | null
+    )?.name;
+  } catch {
+    return false;
+  }
+  return name === 'seorak';
 }
 
 /**
