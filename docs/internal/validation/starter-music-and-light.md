@@ -62,19 +62,24 @@
 
 What it is: an agent asked for a place to stand in from a photo or video the person added reads the picture's colours
 in the browser (`coloursOfPicture`, the sky from its top rows, the horizon where it darkens most going down, the ground
-below; moved to dusk on request), stands the person in open land in those colours (`openLand`: long swells of dunes or
-soft hills to the horizon, lit by a low sun with long shadows marched once when it is built, the near sand lit at every
-pixel from a picture of its light made then), and shows the picture itself on a window on two posts in the sand
-(`pictureWindow`, hidden until its first frame is ready, a video playing muted by itself). The colour reading and the
-land's shape are pure and tested (`apps/control-plane/src/starter-memory.test.ts`).
+below; moved to dusk on request; only the app's own files, never another site's), stands the person on the crest of a
+dune over open land in those colours (`openLand`: a field of dunes or soft hills to the horizon, lit by a low sun with
+long shadows worked out once when it is built, the near sand lit at every pixel from a picture of its light made then,
+wind ripples and grain in its shader, the far sand hazed into the sky's own colour), and floats the picture itself on a
+window over the sand (`pictureWindow`, hidden until its first frame is ready, a video playing muted by itself, its own
+light and a soft shade on the sand under it). The colour reading and the land's shape are pure and tested
+(`apps/control-plane/src/starter-memory.test.ts`).
 
 Measured in headless Chrome on this Mac (ANGLE Metal), a scratch app made from the template, 1832 by 1920, the eye at
 1.62 m (its world height read back from the camera), with a synthetic 8 s clip made by ffmpeg, never a person's own:
-10 to 12 draw calls; about 114,000 triangles (the ground about 92,000, the sky about 20,000); frames 16.7 ms median and
-16.8 to 18.3 ms at the 95th percentile; no page errors; the window ready within 2 s. Building the place took 330 ms
-unslowed and 1.9 s with the CPU slowed six times: the headset may show only the sky's colour for that long when the app
-opens. Eight fresh readers judged its frames in rounds; the last scored it 4 of 10 against the film's bar (light and
-shadow read as dunes; the sand has no ripples, shadow edges step, the window does not take the scene's light).
+8 to 12 draw calls; about 114,000 triangles; frames 16.7 ms median and 16.8 to 18.3 ms at the 95th percentile; no page
+errors; the window ready within 2 s. Building the place took 0.3 to 0.55 s unslowed and 1.9 s with the CPU slowed six
+times (measured before its last changes): the headset may show only the sky's colour for that long when the app
+opens. In the shadowed lower half of a view the luma's spread in 32 px tiles rose from a median of 0.57 to 4.7 to 8.7
+once the person stood on a crest with ripples at their feet. Fresh readers judged its frames in rounds against the
+film's bar: 4 of 10 for the first eight, 6 of 10 for the last seven (it reads as a calm place at dusk with nothing
+half drawn; what they still named: the window reads as pasted on, the sand at the feet soft, far dune lines, an empty
+sky).
 
 ## What is not known
 
