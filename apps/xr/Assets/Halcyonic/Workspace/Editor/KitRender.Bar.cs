@@ -754,6 +754,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!(bandWords >= 4 && bandLabel.textInfo.lineCount >= 2 && RoomCardView.LastLineIsOneWord(bandLabel)),
                     "the band's last line holds one word alone: \"" + bandLabel.GetParsedText() + "\"");
             }
+            // Nor on the last line of the card's title or the panel's words where they run four words or more, the person's words
+            // included (AUDIT 2026-11-16T15:23Z, "points" alone under the result's title; 16:57Z, "chosen" alone in the panel).
+            if (bar.Shown is RoomBar lonely)
+            {
+                var whole = new[] { lonely.Card?.Title?.Text, lonely.Mono ? null : lonely.Body?.Text }.Where(text => !string.IsNullOrWhiteSpace(text)).ToList();
+                foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                {
+                    label.ForceMeshUpdate(true);
+                    var read = string.Join(" ", label.GetParsedText().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+                    if (!whole.Contains(read) || read.Split(' ').Length < 4 || label.textInfo.lineCount < 2) continue;
+                    Require(!RoomCardView.LastLineIsOneWord(label), "the words \"" + read + "\" leave one word alone on their last line");
+                }
+            }
             if (state == "37-more" && bar.Shown is RoomBar morePage)
             {
                 // Its title the task's name; a row per route the file offers, in its order, each with its chevron; Back last; never the results line.

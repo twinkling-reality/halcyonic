@@ -1624,8 +1624,10 @@ namespace Halcyonic.XR.UI
             runs.Set(words);
             runs.SetProseMode(true);
             var laid = KitType.Lay(label, width, lines);
-            // No word of ours alone on a paragraph's last line (a widow: SCREENS's reader 3 on 38-checks-failed, "stopped on a / step").
-            if (lines > 1 && laid.Lines >= 2 && words.Runs.All(run => !run.Theirs)) laid = WithoutWidow(label, width, lines, laid);
+            // No word alone on a paragraph's last line (a widow: SCREENS's reader 3 on 38-checks-failed, "stopped on a / step"), the
+            // person's words included, a title among them (AUDIT 2026-11-16T15:23Z: "points" alone): only the measure narrows, so
+            // the words and any line end of theirs stand as written.
+            if (lines > 1 && laid.Lines >= 2 && label.text.IndexOf('\n') < 0) laid = WithoutWidow(label, width, lines, laid);
             label.transform.localPosition = new Vector3(x, y, -RoomType.Units(0.5f));
             Shown.Add(label);
             return (label, Mathf.Max(laid.Lines, 1) * S(lineDp));
@@ -1634,7 +1636,7 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// Lays our own words a little narrower, a twentieth at a time down to six tenths of <paramref name="width"/>, until their
         /// last line holds two words, never on more lines than they took and never cut; where no narrower lay does that, the words
-        /// stand as first laid. The person's words and an outside source's are never re-laid: their breaks are theirs.
+        /// stand as first laid. Only the measure narrows: the words, theirs or ours, and any line end in them stand as written.
         /// </summary>
         private static (int Lines, float Width, float Height) WithoutWidow(TextMeshPro label, float width, int lines, (int Lines, float Width, float Height) laid)
         {

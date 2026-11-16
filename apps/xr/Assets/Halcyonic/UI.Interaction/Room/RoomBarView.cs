@@ -1000,6 +1000,22 @@ namespace Halcyonic.XR.UI
                 Set(reading, LineWords.Theirs(LabelText.FromTextMeshPro(Rows(reading, from, most))), bar.Mono);
                 laid = KitType.Lay(reading, wordsWidth, 200);
             }
+            // No word alone on the words' last line (AUDIT 2026-11-16T16:57Z: "chosen" alone at Standard): the measure narrows a twentieth
+            // at a time, down to six tenths, until the last line holds two words, never on more lines; where none does, as first laid.
+            if (!bar.Mono && bar.Lines == null && bar.Part == null && laid.Lines >= 2 && RoomCardView.LastLineIsOneWord(reading)
+                && reading.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Length >= 4)
+            {
+                var ours = GlazeRuns.Of(reading).Theirs.Count == 0;
+                (int Lines, float Width, float Height) Again(float width) => ours ? BreakAtSeparators(reading, width, 200) : KitType.Lay(reading, width, 200);
+                var mended = false;
+                for (var step = 1; step <= 8 && !mended; step++)
+                {
+                    var tried = Again(wordsWidth * (1f - 0.05f * step));
+                    if (tried.Lines != laid.Lines) break;
+                    if (!RoomCardView.LastLineIsOneWord(reading)) { laid = tried; mended = true; }
+                }
+                if (!mended) laid = Again(wordsWidth);
+            }
             var empty = bar.Body.Text.Length == 0;
             var bodyHeight = Mathf.Max(line, empty ? line : laid.Height);
             // Where the bar gives rows, FIELD's rows draw them (each under a hairline, a mark before a step's words) and decide the height.
