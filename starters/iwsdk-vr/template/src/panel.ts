@@ -7,7 +7,7 @@
 
 import { createSystem, UIKitMLAsset, VisibilityState } from '@iwsdk/core';
 import { MeshBasicMaterial } from 'three';
-import { CARD_FROM, CARD_SECONDS, cardOpacity, cardWait } from './card-fade.js';
+import { CARD_FROM, CARD_SECONDS, cardOpacity, cardWait, FIRST_CARD_END } from './card-fade.js';
 import { helpPressed } from './play-input.js';
 
 /**
@@ -31,9 +31,9 @@ function wordsReady(card: { traverse(visit: (each: object) => void): void } | un
 }
 
 /*
- * The card's words stay CARD_SECONDS of game time, fading in and out by game time (card-fade.ts), never a timer or a
- * press: a checked page then draws the same frames in every load, and a press is seen only when the game itself
- * answers it. On a laptop H shows them again for as long (`helpPressed`); in a headset they stay gone.
+ * The first card's words have gone by FIRST_CARD_END of game time, fading in and out by game time (card-fade.ts), never
+ * a timer or a press: a checked page then draws the same frames in every load, and a press is seen only when the game
+ * itself answers it. On a laptop H shows them again for CARD_SECONDS (`helpPressed`); in a headset they stay gone.
  */
 
 export class PanelSystem extends createSystem({}) {
@@ -41,6 +41,8 @@ export class PanelSystem extends createSystem({}) {
   #shownAt = 0;
   /** The first card waits for the place to open from black; H's card comes at once. */
   #from = CARD_FROM;
+  /** The first card has gone by FIRST_CARD_END, before the check's twin frames; H's card stays CARD_SECONDS. */
+  #end = FIRST_CARD_END;
   /** The game time every text in the card first had its font, or null while one is still loading. */
   #readyAt: number | null = null;
   #card: { traverse(visit: (each: object) => void): void } | undefined;
@@ -121,14 +123,17 @@ export class PanelSystem extends createSystem({}) {
       this.#wordsShown = true;
       this.#shownAt = time;
       this.#from = 0;
+      this.#end = CARD_SECONDS;
       this.#showWords();
     }
     if (!this.#wordsShown || this.#dropWords === null) return;
     if (!immersive) {
       if (this.#readyAt === null && wordsReady(this.#card)) this.#readyAt = time;
-      this.#fade?.(cardOpacity(time, this.#shownAt, cardWait(this.#shownAt, this.#from, this.#readyAt)));
+      this.#fade?.(
+        cardOpacity(time, this.#shownAt, cardWait(this.#shownAt, this.#from, this.#readyAt), this.#end),
+      );
       // Gone only once fully faded: never a cut.
-      if (time < this.#shownAt + CARD_SECONDS) return;
+      if (time < this.#shownAt + this.#end) return;
     }
     this.#wordsShown = false;
     this.#dropWords();

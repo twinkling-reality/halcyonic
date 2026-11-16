@@ -51,6 +51,18 @@ const page = (findings: Partial<PageFindings>): PageFindings => ({
 });
 
 describe('the check of a project from a starter (ADR 0037)', () => {
+  test("what the check leaves out of a picture is only the host's own CARD_REGION, never a region a page gives (AUDIT3 C1)", () => {
+    const source = readFileSync(new URL('./check.ts', import.meta.url), 'utf8');
+    assert.match(
+      source,
+      /if \(x >= CARD_REGION\.x0 && x < CARD_REGION\.x1 && y >= CARD_REGION\.y0 && y < CARD_REGION\.y1\)\n\s*continue;/,
+    );
+    assert.match(source, /changedShare\(frame, reference\.png, CARD_REGION\)/);
+    // Every skip in an edge count or a comparison names CARD_REGION, and nothing else is passed as a region.
+    for (const call of source.match(/changedShare\([^)]*\)/g) ?? [])
+      assert.match(call, /CARD_REGION\)$/, call);
+    assert.equal((source.match(/CARD_REGION\.x0/g) ?? []).length, 1);
+  });
   test('passes only with type check 0, build 0, the page opened, no uncaught exception, and something drawn', () => {
     assert.ok(passes(ok, ok, page({})));
     assert.ok(!passes({ exit: 2, seconds: 1 }, ok, page({})));
@@ -283,31 +295,32 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     );
   });
 
-  test("the welcome card's region is the host's own: the starter's two loads match outside it, and a card the app moves elsewhere is counted (AUDIT3 C1, C2, 2026-11-16)", {
-    timeout: 180_000,
+  test("the welcome card's region is the host's own: a box drawn inside it is left out, the same box outside it is counted (AUDIT3 C1, C2, 2026-11-16)", {
+    timeout: 300_000,
   }, async (t) => {
     // The pristine starter against its own reference: two loads by game time, the same pixels outside the region.
     const pristine = await check(t, () => undefined);
     assert.equal(pristine.page?.own.reference, 'compared');
     assert.equal(pristine.page?.own.share, 0, String(pristine.page?.own.share));
-    // The card moved to the top right by the app: the host's region stays at the bottom left, so the card counts.
-    const moved = await check(t, (project) => {
-      const file = join(project, 'public', 'scenes', 'main.iwsdk.scene.json');
-      const before = readFileSync(file, 'utf8');
-      const after = before.replace(
-        '"bottom": "20px",\n          "left": "20px"',
-        '"top": "20px",\n          "right": "20px"',
+    // One flat unlit magenta box, 160 by 120 px, held to the camera so the view's drift cannot move it on the
+    // screen, centred at (px, py) of the check's 1280 by 800: no font and no texture, so it is drawn from the first
+    // frame. Inside the region it stands at (160, 630), 80 px clear of its sides; outside, at the mirror spot top right.
+    const boxAt = (px: number, py: number) => (project: string) =>
+      addToIndex(
+        project,
+        "import { Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';",
+        `{ const camera = world.camera; const halfH = Math.tan((camera.fov * Math.PI) / 360); const halfW = halfH * (1280 / 800); const box = new Mesh(new PlaneGeometry((160 / 640) * halfW, (120 / 400) * halfH), new MeshBasicMaterial({ color: 0xff00ff, depthTest: false })); box.renderOrder = 999; box.position.set((${px} / 640 - 1) * halfW, (1 - ${py} / 400) * halfH, -1); camera.add(box); if (camera.parent === null) world.scene.add(camera); }`,
       );
-      assert.notEqual(after, before, 'the card was moved');
-      writeFileSync(file, after);
-    });
-    // The own picture is taken at 6 s, when the card has faded out wherever it stands: it is never in it. At 3 s the
-    // card is up: the host's region leaves out only the bottom left, so a card moved to the top right adds edges.
-    assert.equal(moved.page?.own.reference, 'compared');
-    assert.ok(
-      (moved.page?.edges.at_3s ?? 0) > (pristine.page?.edges.at_3s ?? 0) + DRAWN_EDGES,
-      `${moved.page?.edges.at_3s} against ${pristine.page?.edges.at_3s}`,
-    );
+    const inside = await check(t, boxAt(160, 630));
+    const outside = await check(t, boxAt(1120, 170));
+    const edges = (result: { page: PageFindings | null }) => result.page?.edges.at_3s ?? 0;
+    const said = `pristine ${edges(pristine)}, inside ${edges(inside)}, outside ${edges(outside)}`;
+    // Inside the region: left out, adding no edges (only an upper bound: 3 s by the wall clock lands at slightly
+    // different game times, so the drift moves the scene a little).
+    assert.ok(edges(inside) <= edges(pristine) + DRAWN_EDGES, said);
+    // The same box outside it: counted, against the box inside and against the pristine page.
+    assert.ok(edges(outside) > edges(inside) + DRAWN_EDGES, said);
+    assert.ok(edges(outside) > edges(pristine) + DRAWN_EDGES, said);
   });
 
   test("the welcome card is never an empty box: while its words' font is loading there is no card at all (AUDIT, 2026-11-16)", {
@@ -339,7 +352,10 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
         if (Math.abs(r - 25) < 14 && Math.abs(g - 33) < 14 && Math.abs(b - 51) < 14) dark += 1;
       }
     }
-    assert.ok(dark < 2_000, `${dark} pixels of the card's dark in its corner at 3 s`);
+    assert.ok(
+      dark < 2_000,
+      `${dark} pixels of the card's dark in its corner at game time 3 s; its words' font ready: never (held back 60 s)`,
+    );
   });
 
   test('a box in front of the camera is drawn, and the check passes', {

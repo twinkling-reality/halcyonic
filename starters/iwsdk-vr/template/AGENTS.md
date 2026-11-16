@@ -100,8 +100,9 @@ Make it fun to look at:
   or any object between that camera and them as words a person cannot read.
 - Name the game on its welcome card, `public/ui/welcome.uikitml`: its name in `card-title` and one short line on how
   to play in `card-line`, with nothing else on the card; put the same name in `index.html`'s `<title>`. The welcome
-  card stands at the bottom left on a laptop and low beside the person in a headset; it fades in, then fades out by
-  6 s, and H shows it again on a laptop (`src/panel.ts`, `src/card-fade.ts`); leave that as it is. Rewrite the card's laptop line (`laptop-help` in `welcome.uikitml`) to the keys and mouse your game really
+  card stands at the bottom left on a laptop and low beside the person in a headset. It fades in once its words are
+  ready and is gone by about 5 s; H shows it again on a laptop, for 6 s (`src/panel.ts`, `src/card-fade.ts`); leave
+  that as it is. Rewrite the card's laptop line (`laptop-help` in `welcome.uikitml`) to the keys and mouse your game really
   uses, for example "A and D or the arrows to move"; the headset's line stays as it is.
 - Before you finish, delete any scratch or helper files you made, anywhere in the project: no `.py`, `.txt`, `.sh` or
   `.patch` files.

@@ -399,8 +399,10 @@ Every critic of the showcase pieces read the starter's welcome card as a white w
 6 s. The card is now the kit's dark glass, smaller, at the bottom left on a laptop (ScreenSpace bottom 20px, left
 20px) and low beside the person in a headset ([0.75, 1.05, -1.1], turned 35 degrees to face them, scale 0.3); it waits
 1 s (`CARD_FROM`) so it never stands on the black a place opens from (the kit's veil lifts over game time 0.1 to 0.9 s),
-fades in over 0.4 s and out over 0.8 s ending at 6 s, by game time (`src/card-fade.ts`), and is dropped only once faded,
-so every check load draws the same frames. H's card on a laptop comes at once and also ends 6 s after the press. It is
+waits until every text in it has its font (never an empty box), fades in over 0.4 s and out over 0.8 s, and has gone
+by game time 4.9 s (`FIRST_CARD_END`), before the check's twin loads take their first frame at 5 s, so no twin frame
+sees the card whenever its font arrives; a card whose words are ready too late to hold 1.5 s (`MIN_HOLD`) does not
+show at all. It is dropped only once faded. H's card on a laptop comes at once and ends 6 s after the press. It is
 drawn with a material class of its own (`CardGlass`, a plain colour), so it sits alone in its own group as the kit's
 Panel did. In the library's shared group, the check's fake-pixels page (AUDIT M18B-M1, which replaces `Math.abs`)
 threw "offset is out of bounds" from a typed array's set, most likely in the library's shared buffer allocator, which

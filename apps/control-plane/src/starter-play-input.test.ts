@@ -123,13 +123,14 @@ describe("the IWSDK starter's input layer", () => {
     assert.match(read('public/ui/welcome.uikitml'), /id="laptop-help"/);
   });
 
-  test("the card's words go after 6 s of game time or when VR starts, never at a press (GQ1a)", () => {
+  test("the card's words go by game time (the first card by 4.9 s, H's after 6 s) or when VR starts, never at a press (GQ1a)", () => {
     const panel = read('src/panel.ts');
     // Game time, so a checked page drops them at the same frame in every load, with or without a press; since
     // 2026-11-16 they fade by that same game time (card-fade.ts) and go only once faded.
     assert.match(read('src/card-fade.ts'), /export const CARD_SECONDS = 6;/);
+    assert.match(read('src/card-fade.ts'), /export const FIRST_CARD_END = 4\.9;/);
     assert.match(panel, /update\(_delta: number, time: number\): void \{/);
-    assert.match(panel, /if \(time < this\.#shownAt \+ CARD_SECONDS\) return;/);
+    assert.match(panel, /if \(time < this\.#shownAt \+ this\.#end\) return;/);
     // Not on a press or a game key: then a press would always seem to change the screen. Only H brings them back.
     assert.doesNotMatch(panel, /\bpressed\(|onSelect\(|setTimeout|setInterval/);
     const card = read('public/ui/welcome.uikitml');
