@@ -138,10 +138,13 @@ namespace Halcyonic.XR.Workspace.Editor
             + " Use the wind from https://example.com/wind.json to pull it.", folder: "kite-run", neverAsk: false);
 
         /// <summary>Two windows read, as the usage card's gauges take them.</summary>
+        /// <summary>When the card's numbers were last reported, so the line says it (AUDIT's condition, 2026-11-16 04:23Z), synthetic.</summary>
+        private const string CardSeen = "Today 04:20";
+
         private static IReadOnlyList<UsageLeftRow> CardUsage() => new[]
         {
-            new UsageLeftRow(LineWords.Ours(UsageLeftPresenter.FiveHourWindow), "At most 62% left", 62, resets: "18:40", window: UsageLeftPresenter.FiveHourWindow),
-            new UsageLeftRow(LineWords.Ours(UsageLeftPresenter.Weekly), "At most 38% left", 38, resets: "Thursday", window: UsageLeftPresenter.Weekly),
+            new UsageLeftRow(LineWords.Ours(UsageLeftPresenter.FiveHourWindow), "At most 62% left", 62, seen: CardSeen, resets: "18:40", window: UsageLeftPresenter.FiveHourWindow),
+            new UsageLeftRow(LineWords.Ours(UsageLeftPresenter.Weekly), "At most 38% left", 38, seen: CardSeen, resets: "Thursday", window: UsageLeftPresenter.Weekly),
         };
 
         /// <summary>The host's list of where the assistant may run, as it gives it: this computer's model, a hosted one, one whose key was refused.</summary>
@@ -186,9 +189,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         State = Halcyonic.Contracts.AutoFixViewState.Fixing, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = 1, Cap = 2,
                         FailedSteps = new List<Halcyonic.Contracts.AutoFixViewFailedStepsItem> { Halcyonic.Contracts.AutoFixViewFailedStepsItem.Build },
                     })!,
-                "47-card-usage" => new RoomCard(Ours("Usage"), Ours(RoomPanelCards.UsageLine), gauges: new[] { new RoomGauge(Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
+                "47-card-usage" => new RoomCard(Ours("Usage"), Ours(RoomPanelCards.UsageLineSeen(CardUsage())), gauges: new[] { new RoomGauge(Ours(RoomPanelCards.SessionWords), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours(RoomPanelCards.WeekWords), 38, "Resets Thursday", RoomKind.Week) }),
                 // A new reading lands while the page stands: Session from 62 to 40, drawn 0.3 s after it came (shown first at 62 below).
-                _ when UsageEasedAt(state) != null => new RoomCard(Ours("Usage"), Ours(RoomPanelCards.UsageLine), gauges: new[] { new RoomGauge(Ours("Session"), 40, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours("Week"), 38, "Resets Thu", RoomKind.Week) }),
+                _ when UsageEasedAt(state) != null => new RoomCard(Ours("Usage"), Ours(RoomPanelCards.UsageLineSeen(CardUsage())), gauges: new[] { new RoomGauge(Ours(RoomPanelCards.SessionWords), 40, "Resets 18:40", RoomKind.Session), new RoomGauge(Ours(RoomPanelCards.WeekWords), 38, "Resets Thursday", RoomKind.Week) }),
                 // The assistant's row under the gauges: on this computer, on a provider's hosted model with a long id, and unable to run.
                 "47-card-usage-here" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("glimmer-30b-q4", null, null, CardRowControl("use-model")))!,
                 "47-card-usage-hosted" => RoomPanelCards.Usage(CardUsage(), RoomPanelCards.Assistant("muse-wonder-1.0", "Tidewater", null, CardRowControl("use-model")))!,
@@ -293,7 +296,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // 0, 0.15, 0.3 and 0.6 s), by a clock the render fixes.
                 var clock = 100f;
                 view.Clock = () => clock;
-                view.Show(new RoomCard(LineWords.Ours("Usage"), LineWords.Ours(RoomPanelCards.UsageLine), gauges: new[] { new RoomGauge(LineWords.Ours("Session"), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(LineWords.Ours("Week"), 38, "Resets Thu", RoomKind.Week) }), inner);
+                view.Show(new RoomCard(LineWords.Ours("Usage"), LineWords.Ours(RoomPanelCards.UsageLineSeen(CardUsage())), gauges: new[] { new RoomGauge(LineWords.Ours(RoomPanelCards.SessionWords), 62, "Resets 18:40", RoomKind.Session), new RoomGauge(LineWords.Ours(RoomPanelCards.WeekWords), 38, "Resets Thursday", RoomKind.Week) }), inner);
                 view.Show(card, inner);
                 clock += easing;
                 easedAt = easing;
