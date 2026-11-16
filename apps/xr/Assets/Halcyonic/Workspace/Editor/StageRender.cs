@@ -86,7 +86,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 ViewField.Current = FieldChecks.Quest3S;
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                var widths = StandInHoldsTheTag();
+                var widths = StandInHoldsTheTag(folder);
                 var cases = CharacterShelfCases(folder, features: false);
                 cases.InsertRange(0, widths);
                 return cases;
@@ -108,11 +108,24 @@ namespace Halcyonic.XR.Workspace.Editor
         /// stands half a degree or more from its neighbours' tags and from New Project's words and glyph, and clear of every character's body, as the eyes see
         /// them. The least gaps are logged in degrees; any overlap fails. Raising the capacity makes this same check judge the new count.
         /// </summary>
-        private static List<string> StandInHoldsTheTag()
+        private static List<string> StandInHoldsTheTag(string folder)
+        {
+            var failures = new List<string>();
+            // The ruled case, and the film's sentence working and needing the person, each drawn into a frame for the look (AUDIT 17:47Z).
+            foreach (var (name, title, needs) in new[] { ("page-long-needs", LongShelfName, true), ("page-film-working", FilmShelfName, false), ("page-film-needs", FilmShelfName, true) })
+                failures.AddRange(ShelfPageHoldsTheTag(folder, name, title, needs));
+            return failures;
+        }
+
+        /// <summary>The longest filmed task name (FILM's run sheet), drawn beside New Project's place for the look.</summary>
+        private const string FilmShelfName = "Make a game where I catch falling stars.";
+
+        private static List<string> ShelfPageHoldsTheTag(string folder, string name, string title, bool needs)
         {
             var failures = new List<string>();
             var holder = new GameObject("Drawn tags on a shelf page");
             var designWas = RoomDesign.Enabled;
+            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
             try
             {
                 RoomDesign.Enabled = true;
@@ -131,8 +144,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     view.transform.SetPositionAndRotation(pose.position + Vector3.right * PlaceX(first + index), Quaternion.Euler(0f, 180f, 0f));
                     view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
                     var tag = RoomNameTag.On(view);
-                    view.Show(new CharacterPresentation("shelf-tag-" + index, LongShelfName, CharacterActivity.WaitingForHuman, "Needs You",
-                        AttentionLevel.ActionRequired, Array.Empty<string>(), 2, false, false, false));
+                    view.Show(needs
+                        ? new CharacterPresentation("shelf-tag-" + index, title, CharacterActivity.WaitingForHuman, "Needs You", AttentionLevel.ActionRequired, Array.Empty<string>(), 2, false, false, false)
+                        : new CharacterPresentation("shelf-tag-" + index, title, CharacterActivity.Working, CharacterPresenter.LabelOf(CharacterActivity.Working), AttentionLevel.None, Array.Empty<string>(), 0, false, false, false));
                     view.PlaceShelfLabel(eyes);
                     // Picked, the widest a tag draws: its ring is the one a person sees on the task they point at (AUDIT3's D1).
                     tag.Picked = true;
@@ -169,7 +183,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var leastNeighbour = float.PositiveInfinity;
                 var leastBody = float.PositiveInfinity;
                 var leastNewProject = float.PositiveInfinity;
-                var scale = GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture);
+                var scale = GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture) + " (" + name + ")";
                 GlazeChecks.Extent? newProjectDrawn = null;
                 if (first > 0)
                 {
@@ -201,13 +215,22 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 string Least(float degrees) => float.IsPositiveInfinity(degrees) ? "none on the page" : GlazeChecks.Degrees(degrees) + " degrees";
-                Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", a page of " + capacity + " (its places " + places + " with New Project's) of 64-character tags needing the person: least gap between neighbouring tags "
+                Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", a page of " + capacity + " (its places " + places + " with New Project's) of " + title.Length + "-character tags " + (needs ? "needing the person" : "working") + ": least gap between neighbouring tags "
                     + Least(leastNeighbour) + ", least gap from a tag to New Project's place " + Least(leastNewProject) + ", least gap from a tag to any character " + Least(leastBody) + ".");
+                // The frame, from the eyes, toward the page and New Project's place together.
+                var camera = WorkspaceRender.MakeCamera(holder.transform, eyes, texture);
+                camera.transform.LookAt(pose.position + Vector3.right * (PlaceX(0) + PlaceX(places - 1)) / 2f + Vector3.down * 0.05f);
+                camera.fieldOfView = 30f;
+                var image = WorkspaceRender.Render(camera, texture);
+                File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(image);
             }
             finally
             {
                 RoomDesign.Enabled = designWas;
                 UnityEngine.Object.DestroyImmediate(holder);
+                texture.Release();
+                UnityEngine.Object.DestroyImmediate(texture);
             }
             return failures;
         }
