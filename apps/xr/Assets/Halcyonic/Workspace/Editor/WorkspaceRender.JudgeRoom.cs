@@ -962,15 +962,14 @@ namespace Halcyonic.XR.Workspace.Editor
                             }
                             if (opening != null) break;
                         }
-                        // An answer beside its page is a moment only where the redesign draws the control that opens it, as a person
-                        // presses it; where it draws none, no person meets the moment, and the walk says so rather than forcing it
-                        // through the frame of record (the lead's way 1, 2026-11-16; the drawn control is the film batch's).
+                        // An answer beside its page is reached by the control the redesign draws for it, as a person presses it. Since
+                        // the film batch draws Read All on Changes and Checks, a line that opens an answer with no drawn control is a
+                        // fault, not a skip (AUDIT's film-batch item 8; the lead's way 1 of 2026-11-16 is retired).
                         var drawnOpen = opening != null && (Drawn(FileScreens.Open, opening.Key) != null || plane.KitShows
                             && plane.Kit.Bar.Card?.RowTargets.Any(row => row.Control.Action == FileScreens.Open && row.Control.Key == opening.Key) == true);
                         if (opening != null && !drawnOpen)
                         {
-                            Debug.Log("Halcyonic: judge room: not reached here: the redesign draws no control that opens an answer beside its page ("
-                                + FileScreens.Open + "/" + opening.Key + ")");
+                            failures.Add("judge room: the redesign draws no control that opens the answer beside its page (" + FileScreens.Open + "/" + opening.Key + ")");
                             // The walk leaves the section it opened itself, which no person reaches under the redesign, and opens the task
                             // again as a person does, so the stage is crossed from a page a person stands on.
                             CloseFile();
