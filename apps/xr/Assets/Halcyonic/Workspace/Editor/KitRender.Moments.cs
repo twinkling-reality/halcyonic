@@ -253,6 +253,9 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(card.Meta.Where(label => GlazeRuns.Of(label).Theirs.Count > 0 && GlazeRuns.Of(label).Theirs[0].Start == 0 && GlazeRuns.Of(label).Theirs[0].End == label.text.Length)
                 .All(label => label.font == KitType.Face(KitRole.Mono)), "a path or name of theirs in the metadata is not in their monospace");
             var everything = card.Words.Select(label => label.text ?? "").ToList();
+            // No fact joined on a dot on any drawn moment (the owner's ban, 2026-11-11; AUDIT's MUST, 09:34Z), so no join comes back.
+            Require(!everything.Any(text => text.Contains(KitMomentWords.Dot.Trim())), "a moment joins its parts on a dot: "
+                + string.Join(" / ", everything.Where(text => text.Contains(KitMomentWords.Dot.Trim()))));
             Require(!everything.Any(text => text.IndexOf("no change", StringComparison.OrdinalIgnoreCase) >= 0), "something reads as no changes");
             // Every part reads whole, by name; only the long command shows cut, in its well, with what is left said.
             Require(card.CutParts.Count == 0, "cut: " + string.Join(", ", card.CutParts));

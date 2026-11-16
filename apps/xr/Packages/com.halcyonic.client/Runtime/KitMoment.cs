@@ -289,7 +289,7 @@ namespace Halcyonic.Client
             var actions = ended ? new[] { KitMomentAction.SeeTheOutput } : NoActions;
             return new KitMoment(KitMomentKind.HostCheck, KitProvenance.Observed, KitMomentWords.YourComputer,
                 LineWords.Ours(KitMomentWords.Check(scope, ended, passed)), null, NoLines, tone, actions, at, null, passed, scope)
-                .Parts(LineWords.Ours(KitMomentWords.CheckTitle(scope, ended, passed)), new[] { LineWords.Ours(KitMomentWords.CheckOutcome(scope, ended, passed)) })
+                .Parts(LineWords.Ours(KitMomentWords.CheckTitle(scope, ended, passed)), KitMomentWords.CheckOutcomeParts(scope, ended, passed).Select(part => (LineWords?)LineWords.Ours(part)))
                 .WithSteps(steps);
         }
 
@@ -540,6 +540,16 @@ namespace Halcyonic.Client
             ended && passed == null ? "Result Unknown" : Covered(scope) + (ended ? "" : Dot + "Under Way");
 
         private static string Covered(KitCheckScope scope) => scope == KitCheckScope.BuildsAndOpens ? "Builds" + Dot + "Opens" : "Builds";
+
+        /// <summary>The check's metadata as parts, each drawn on a line of its own, never joined on a dot (AUDIT's MUST, 09:34Z).</summary>
+        public static IReadOnlyList<string> CheckOutcomeParts(KitCheckScope scope, bool ended, bool? passed)
+        {
+            if (ended && passed == null) return new[] { "Result Unknown" };
+            var parts = new List<string> { "Builds" };
+            if (scope == KitCheckScope.BuildsAndOpens) parts.Add("Opens");
+            if (!ended) parts.Add("Under Way");
+            return parts;
+        }
 
         /// <summary>The ready line: what the passed check covered, then the time it took where known, and no more.</summary>
         public static string Reward(TimeSpan? elapsed, KitCheckScope scope) => Covered(scope) + (elapsed is TimeSpan taken ? Dot + Time(taken) : "");

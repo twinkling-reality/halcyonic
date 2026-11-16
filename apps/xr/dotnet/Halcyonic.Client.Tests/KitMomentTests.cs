@@ -233,11 +233,11 @@ public class KitMomentTests
         var asks = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.MayLeave, complete: true, At);
         Assert.That((Title(asks), asks.Well, Meta(asks)), Is.EqualTo(("Run Command?", "npm install matter-js", new string[0])));
         var check = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
-        Assert.That((Title(check), Meta(check)), Is.EqualTo(("Build Passed", new[] { "Builds · Opens" })), "the outcome in the Title (ART's review), what it covered in the metadata");
+        Assert.That((Title(check), Meta(check)), Is.EqualTo(("Build Passed", new[] { "Builds", "Opens" })), "the outcome in the Title (ART's review), what it covered in the metadata, each part apart");
         var unknown = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: null, At);
         Assert.That((Title(unknown), Meta(unknown)), Is.EqualTo(("Check Ran", new[] { "Result Unknown" })));
         var running = KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, At);
-        Assert.That((Title(running), Meta(running)), Is.EqualTo(("Computer Check", new[] { "Builds · Under Way" })));
+        Assert.That((Title(running), Meta(running)), Is.EqualTo(("Computer Check", new[] { "Builds", "Under Way" })), "each part apart, never joined on a dot");
         var ran = KitMoment.AgentCheck(Codex, "npm run build", "exit 1", At);
         Assert.That((Title(ran), ran.Well, Meta(ran)), Is.EqualTo(("Check Reported", "npm run build", new[] { "[exit 1]" })), "their command in the well, their outcome theirs");
         var refused = KitMoment.PackageRefused("matter-js", At);

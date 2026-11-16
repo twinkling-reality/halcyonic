@@ -385,16 +385,22 @@ namespace Halcyonic.XR.UI
                 y -= titleHeight;
             }
 
-            // The metadata line: segments joined by " · ", theirs in their monospace, flowing onto a second line where needed, by
-            // each label's pen and never between a segment and its dot (KitFlow). Segment i is meta[2i], the dot before it meta[2i-1].
+            // The metadata: each segment on a line of its own, theirs in their monospace, never joined on a dot (the owner's ban,
+            // 2026-11-11; AUDIT's MUST, 09:34Z). Segment i is meta[2i]; the label once kept for the dot before it, meta[2i-1], stays hidden.
             if (moment.Meta.Count > 0)
             {
                 y -= Dp(SpatialKit.MarkGapDp);
-                var (metaHeight, metaCut) = KitFlow.Lay(moment.Meta,
-                    i => MetaAt(2 * i, moment.Meta[i].AllTheirs ? KitRole.Mono : KitRole.Label), i => MetaAt(2 * i - 1, KitRole.Label),
-                    left, y, width / 2f - pad, -0.0005f);
-                foreach (var i in metaCut) cut.Add("meta " + i);
-                y -= metaHeight;
+                for (var i = 0; i < moment.Meta.Count; i++)
+                {
+                    if (i > 0) MetaAt(2 * i - 1, KitRole.Label).gameObject.SetActive(false);
+                    var segment = MetaAt(2 * i, moment.Meta[i].AllTheirs ? KitRole.Mono : KitRole.Label);
+                    segment.gameObject.SetActive(true);
+                    GlazeRuns.Of(segment).Set(moment.Meta[i]);
+                    var (_, _, segmentHeight) = KitType.Lay(segment, width - 2f * pad, 2);
+                    if (segment.isTextTruncated) cut.Add("meta " + i);
+                    segment.transform.localPosition = new Vector3(left, y, -0.0005f);
+                    y -= segmentHeight;
+                }
             }
 
             // Their own words, as written: a runtime's prose.
@@ -433,8 +439,8 @@ namespace Halcyonic.XR.UI
             }
             else well.Hide();
 
-            // The risk line: what answering may do, Halcyonic's words. A line of " · " segments flows as its segments (KitFlow), wrapping
-            // only between them, so a phrase such as "Your Access" never splits (ART's A3b review; a no-break space cannot reach the label).
+            // The risk line: what answering may do, Halcyonic's words. A line given as " · " segments stands as its segments, each on a
+            // line of its own, never joined on the dot (the owner's ban, 2026-11-11; AUDIT's MUST, 09:34Z), so a phrase never splits.
             var segmentsUsed = 0;
             var dotsUsed = 0;
             for (var i = 0; i < moment.Lines.Count; i++)
@@ -445,13 +451,19 @@ namespace Halcyonic.XR.UI
                     var first = segmentsUsed;
                     var firstDot = dotsUsed;
                     var segments = KitFlow.Segments(LineWords.Ours(moment.Lines[i]));
-                    // Segment p is the line's p-th; the dot before it, from its second on, the line's (p - 1)-th.
-                    var (riskHeight, riskCut) = KitFlow.Lay(segments, p => RiskAt(riskSegments, first + p, "Risk segment"),
-                        p => RiskAt(riskDots, firstDot + p - 1, "Risk dot"), left, y, width / 2f - pad, -0.0005f);
-                    foreach (var p in riskCut) cut.Add("risk " + i + " segment " + p);
+                    for (var p = 0; p < segments.Count; p++)
+                    {
+                        if (p > 0) RiskAt(riskDots, firstDot + p - 1, "Risk dot").gameObject.SetActive(false);
+                        var segment = RiskAt(riskSegments, first + p, "Risk segment");
+                        segment.gameObject.SetActive(true);
+                        GlazeRuns.Of(segment).Set(segments[p]);
+                        var (_, _, segmentHeight) = KitType.Lay(segment, inner, RiskLines);
+                        if (segment.isTextTruncated) cut.Add("risk " + i + " segment " + p);
+                        segment.transform.localPosition = new Vector3(left, y, -0.0005f);
+                        y -= segmentHeight;
+                    }
                     segmentsUsed += segments.Count;
                     dotsUsed += Mathf.Max(0, segments.Count - 1);
-                    y -= riskHeight;
                     continue;
                 }
                 var line = LineAt(i);
