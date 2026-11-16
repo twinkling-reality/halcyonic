@@ -168,7 +168,7 @@ namespace Halcyonic.Client
         /// <summary>A mark's meaning: practice builds nothing, and neither a demo nor a recording reaches an agent.</summary>
         public static string MeaningOf(WorkMark mark) => mark.Word switch
         {
-            StateLanguage.Practice => "Practice: nothing is built.",
+            StateLanguage.Practice => "Nothing is built here.",
             StateLanguage.Demo => "A recorded demo, with no real agent.",
             StateLanguage.Recorded => "Real agent work, played back. Not live.",
             _ => throw new ArgumentOutOfRangeException(nameof(mark), mark.Word, "Unhandled mark."),
