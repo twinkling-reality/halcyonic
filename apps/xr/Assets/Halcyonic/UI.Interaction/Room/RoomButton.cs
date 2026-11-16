@@ -475,6 +475,7 @@ namespace Halcyonic.XR.UI
                 GlazeIcon.Type or GlazeIcon.TellIt => RoomGlyph.Keyboard,
                 GlazeIcon.Next => RoomGlyph.Next,
                 GlazeIcon.Back => RoomGlyph.Back,
+                GlazeIcon.OpensMore => RoomGlyph.More,
                 GlazeIcon.Refresh => RoomGlyph.Again,
                 // Starting over turns back to the beginning; starting a task plays it (the addendum's A3, the critic of 2026-11-12).
                 GlazeIcon.StartOver => RoomGlyph.Again,

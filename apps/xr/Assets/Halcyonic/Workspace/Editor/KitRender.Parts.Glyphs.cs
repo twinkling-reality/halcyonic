@@ -30,6 +30,7 @@ namespace Halcyonic.XR.Workspace.Editor
             (RoomGlyph.Previous, "Previous Part"), (RoomGlyph.Play, "Try Build"), (RoomGlyph.Plus, "New Project"), (RoomGlyph.Pencil, "Request Change"),
             (RoomGlyph.Continue, "Continue"), (RoomGlyph.Lines, "Summarize"), (RoomGlyph.Again, "Run Checks Again"),
             (RoomGlyph.Agent, AgentColumn.RoleWords), (RoomGlyph.Settings, "Settings"), (RoomGlyph.Bubble, "Write Instruction"), (RoomGlyph.Undo, "Restore"), (RoomGlyph.Clock, "History"),
+            (RoomGlyph.More, RoomBar.MoreWords),
         };
 
         /// <summary>How many actions stand in each pair of the sheet's columns; the two home-size actions stand under the second pair.</summary>

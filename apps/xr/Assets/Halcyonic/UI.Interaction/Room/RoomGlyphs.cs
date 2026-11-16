@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using Halcyonic.Client;
 using UnityEngine;
 
 namespace Halcyonic.XR.UI
@@ -110,6 +111,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A window with its bar: the app an agent runs in.</summary>
         App,
+
+        /// <summary>Three dots in a row: More, a task's other routes, as the system's own panels keep theirs.</summary>
+        More,
 
         /// <summary>A flag: a moment after a task worked.</summary>
         Flag,
@@ -252,6 +256,8 @@ namespace Halcyonic.XR.UI
             [RoomGlyph.Check] = new[] { Line(5f, 12.5f, 9.5f, 17f), Line(9.5f, 17f, 19f, 7.5f) },
             [RoomGlyph.Barred] = new[] { Circle(12f, 12f, 8.25f), Line(6.2f, 17.8f, 17.8f, 6.2f) },
             [RoomGlyph.Cross] = new[] { Line(7f, 7f, 17f, 17f), Line(17f, 7f, 7f, 17f) },
+            // Three dots on the middle line (strokes of no length, round capped), as the keyboard's keys.
+            [RoomGlyph.More] = new[] { Line(6f, 12f, 6f, 12f), Line(12f, 12f, 12f, 12f), Line(18f, 12f, 18f, 12f) },
             // The hexagon, then the three edges that meet at its middle.
             [RoomGlyph.Cube] = new[]
             {
@@ -366,7 +372,7 @@ namespace Halcyonic.XR.UI
             ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings,
             ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock, ["Earlier Versions"] = RoomGlyph.Clock,
             ["Previous Page"] = RoomGlyph.Previous, ["First Page"] = RoomGlyph.Previous, ["First Part"] = RoomGlyph.Previous, ["Compact"] = RoomGlyph.Next, ["Open Workspace"] = RoomGlyph.Previous, ["Projects"] = RoomGlyph.Back,
-            ["Carry Out Plan"] = RoomGlyph.Continue,
+            ["Carry Out Plan"] = RoomGlyph.Continue, [RoomBar.MoreWords] = RoomGlyph.More,
             // SCREENS's Start From takes the cube, as Make VR Copy (the addendum's A16).
             ["Start From"] = RoomGlyph.Cube,
         };
