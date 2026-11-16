@@ -272,7 +272,11 @@ export class HostPreviews {
       const refused: CheckFindings =
         refusals.length === 0 ? observed : { ...observed, passed: false, ready: false, refusals };
       // The whole answer beside `passed`: a reference the product could not make is never the app's failure (VRIFY).
-      const findings: CheckFindings = { ...refused, verdict: checkVerdict(refused) };
+      // The starter's picture alone reads Starter Only only in the project's own folder; in a task's copy it is a miss.
+      const findings: CheckFindings = {
+        ...refused,
+        verdict: checkVerdict(refused, taskId === undefined ? 'project' : 'task'),
+      };
       this.#deps.recorder.record(
         controlPlaneDraft(
           'project.check.recorded',

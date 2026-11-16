@@ -406,6 +406,17 @@ describe("the untouched starter's check reads starter_only, never failed (LINK, 
       assert.equal(checkVerdict(findings), 'failed', JSON.stringify(findings));
   });
 
+  test("only the project's own folder reads starter_only: a task's copy with the same findings is a miss, failed (AUDIT2, 14:29Z)", () => {
+    assert.equal(checkVerdict(bare(), 'project'), 'starter_only');
+    assert.equal(
+      checkVerdict(bare()),
+      'starter_only',
+      "a check names the project's own folder unless told otherwise",
+    );
+    assert.equal(checkVerdict(bare(), 'task'), 'failed');
+    assert.equal(checkVerdict(passed(), 'task'), 'passed');
+  });
+
   test('a picture of its own past the threshold, another template, no reference, or none recorded never reads starter_only', () => {
     const page = bare().page;
     assert.ok(page !== null);

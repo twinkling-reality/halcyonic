@@ -426,8 +426,10 @@ reference. Any other failure stays `failed`, `drawn` false or not; another templ
 `starter_only`. `passed` and `ready` stay false, so preview, Play on Mac, publish and share stay refused as before, and
 AutoFix sends nothing for it, as it already sent nothing for a page showing only the starter's scene (ADR 0044). The two
 thresholds moved from the host's check into the domain beside the verdict, one number for the measure and the verdict.
-The same reading holds on a task's own copy whose page still shows only the starter's picture after an agent's turn, so
-the words say what was measured and nothing about code written: AUDIT2's Starter Only, "Nothing new is drawn yet. Say what you want to see." A New App
+It is recorded only for a check of the project's own folder. A task's own copy whose page still shows only the starter's
+picture after its agent's turn drew nothing of what was asked: that is a real miss and stays `failed`, so the task
+reads Checks Failed (AUDIT2, 2026-11-16). The words say what was measured and nothing about code written: AUDIT2's
+Starter Only, "Nothing new is drawn yet. Say what you want to see." A New App
 is never checked by itself (the host checks on its own only after a task's turn changed files), so it reads "Nothing
 checked yet" until someone presses Check Project or a task makes something.
 
