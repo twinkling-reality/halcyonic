@@ -494,7 +494,7 @@ public class WorkspaceScreensTests
             ("Agent App", false),
             (work.Present().Runtime!.DisplayName + ", on your computer", true),
             ("Model", false),
-            ("ollama/qwen3.6, location unknown", true),
+            ("ollama/qwen3.6", true),
             ("Folder", false),
             ("shop in HalcyonicProjects", true),
             ("Started", false),
@@ -515,7 +515,7 @@ public class WorkspaceScreensTests
         }, WorkstreamStatus.Running);
         Assert.That(Lines(Screen(work.Present(), steering, new WorkspaceScreen { Details = true })).Skip(2), Is.EqualTo(new[]
         {
-            "Model", "The app's choice, location unknown", "Folder", "None given", "Not Started",
+            "Model", "The app's choice", "Folder", "None given", "Not Started",
         }));
         Assert.That(Lines(Screen(new WaitingWork().Present(live: false), steering, new WorkspaceScreen { Details = true })).All(line => line.Length > 0), Is.True);
     }

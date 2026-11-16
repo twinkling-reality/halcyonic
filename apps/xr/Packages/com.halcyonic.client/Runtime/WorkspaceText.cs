@@ -610,10 +610,10 @@ namespace Halcyonic.Client
             {
                 var name = CaptureNames.AgentName(OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName));
                 lines.Add(("Agent App", name + (workspace.Runtime == null ? ", unavailable" : ", on your computer"), true));
-                // Where a model runs the workspace is never told, so it never says "on your computer" of a model.
+                // Where a model runs the workspace is never told, so its value names the model alone and claims no place (AUDIT2 15:23Z).
                 lines.Add(execution.ModelRef == null
-                    ? ("Model", "The app's choice, " + ModelPlaceUnknown, false)
-                    : ("Model", CaptureNames.ModelName(OneLine(execution.ModelRef)) + ", " + ModelPlaceUnknown, true));
+                    ? ("Model", "The app's choice", false)
+                    : ("Model", CaptureNames.ModelName(OneLine(execution.ModelRef)), true));
             }
             lines.Add(FolderOf(execution.Directory) is string folder ? ("Folder", folder, true) : ("Folder", "None given", false));
             var started = StartedAt(execution.StartedAt, zone);
@@ -623,8 +623,6 @@ namespace Halcyonic.Client
             return lines;
         }
 
-        /// <summary>Said under the model: the workspace is not told where it runs.</summary>
-        public const string ModelPlaceUnknown = "location unknown";
 
         /// <summary>
         /// A folder by its name and the folder it is in, "shop, in Projects"; null for none. The path is
