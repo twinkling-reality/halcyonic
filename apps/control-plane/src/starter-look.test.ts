@@ -1071,6 +1071,19 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
     );
   });
 
+  test('the drift never moves a camera the game placed itself: placed away from VIEW_CAMERA, it stands down for good', () => {
+    const placed = new ViewDrift();
+    assert.equal(placed.step(0, false, { position: [0, 1.3, 0.2], lookAt: [0, 1.05, -1.1] }), null);
+    for (let t = 0.1; t < 10; t += 0.5) assert.equal(placed.step(t, false), null, `${t}`);
+    assert.equal(placed.restPose(), null, 'read through the camera the game placed');
+    const kept = new ViewDrift();
+    assert.deepEqual(
+      kept.step(0, false, VIEW_CAMERA),
+      VIEW_CAMERA,
+      'a camera still at VIEW_CAMERA drifts',
+    );
+  });
+
   test('after a stop the drift never moves the camera again, and once back home it lets the camera be', () => {
     const drift = new ViewDrift();
     assert.deepEqual(
@@ -1099,7 +1112,7 @@ describe('what Make VR Version builds reads on a laptop, and the kit says what i
     const body = look.slice(look.indexOf('export function setupScene('));
     assert.match(
       body,
-      /ambientMotion\(\(time\) => \{\n\s+const pose = viewDrift\.step\(time, inHeadset\(\) \|\| renderer\.xr\.isPresenting\);\n\s+if \(pose === null\) return;\n\s+world\.camera\.position\.set\(\.\.\.pose\.position\);\n\s+world\.camera\.lookAt\(\.\.\.pose\.lookAt\);/,
+      /ambientMotion\(\(time\) => \{[\s\S]*?\n\s+const pose = viewDrift\.step\(time, inHeadset\(\) \|\| renderer\.xr\.isPresenting, placed\);\n\s+if \(pose === null\) return;\n\s+world\.camera\.position\.set\(\.\.\.pose\.position\);\n\s+world\.camera\.lookAt\(\.\.\.pose\.lookAt\);/,
     );
     // A game keeps its camera: only a view drifts.
     assert.equal(look.split('viewDrift.').length, 2);

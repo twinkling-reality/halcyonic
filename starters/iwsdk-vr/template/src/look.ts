@@ -27,7 +27,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { VIEW_CAMERA, viewDrift } from './legible.js';
+import { VIEW_CAMERA, type ViewPose, viewDrift } from './legible.js';
 import { drift } from './motion.js';
 import { toyMaterial } from './palette.js';
 import { startAmbience } from './sound.js';
@@ -595,8 +595,23 @@ export function setupScene(world: World, background = '#000000'): { root: Group 
   const renderer = world.renderer;
   // On a laptop it drifts a few degrees round the pages and back over its first seconds, on the game's time (`DRIFT`),
   // until the person's first drag, key or press stops it where it is; in a headset it never moves.
+  // A game that places its own laptop camera after this (a piano seen from inside its curve) keeps it: the drift
+  // stands down when its first frame finds the camera away from VIEW_CAMERA.
+  let first = true;
   ambientMotion((time) => {
-    const pose = viewDrift.step(time, inHeadset() || renderer.xr.isPresenting);
+    let placed: ViewPose | undefined;
+    if (first) {
+      first = false;
+      const camera = world.camera;
+      const look = camera.getWorldDirection(new Vector3());
+      const at = camera.position;
+      const reach = Math.hypot(VIEW_CAMERA.lookAt[0] - at.x, VIEW_CAMERA.lookAt[1] - at.y, VIEW_CAMERA.lookAt[2] - at.z);
+      placed = {
+        position: [at.x, at.y, at.z],
+        lookAt: [at.x + look.x * reach, at.y + look.y * reach, at.z + look.z * reach],
+      };
+    }
+    const pose = viewDrift.step(time, inHeadset() || renderer.xr.isPresenting, placed);
     if (pose === null) return;
     world.camera.position.set(...pose.position);
     world.camera.lookAt(...pose.lookAt);

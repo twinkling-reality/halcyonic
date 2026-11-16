@@ -118,14 +118,16 @@ export function driftPose(seconds: number): ViewPose {
 /**
  * The drift as `setupScene` runs it, on the game's time: `step` gives the pose for this frame, or null to leave the
  * camera be: once the drift is home, once `stop` was called (the person's first drag, key or press, `stopOnInput` in
- * play-input-core.ts), and in a presenting session or ever after one began, each for good.
+ * play-input-core.ts), in a presenting session or ever after one began, and when its first frame finds the camera
+ * already placed away from `VIEW_CAMERA` by the game itself (`camera`, the camera's pose then), each for good.
  */
 export class ViewDrift {
   #start: number | null = null;
   #over = false;
 
-  step(time: number, presenting: boolean): ViewPose | null {
+  step(time: number, presenting: boolean, camera?: ViewPose): ViewPose | null {
     if (presenting) this.#over = true;
+    if (this.#start === null && camera !== undefined && !atHome(camera)) this.#over = true;
     if (this.#over) return null;
     this.#start ??= time;
     const seconds = time - this.#start;
@@ -145,6 +147,12 @@ export class ViewDrift {
   restPose(): ViewPose | null {
     return this.#start !== null && !this.#over ? driftPose(0) : null;
   }
+}
+
+/** Whether a camera pose is `VIEW_CAMERA`'s, within a millimetre. */
+function atHome(pose: ViewPose): boolean {
+  const near = (a: readonly number[], b: readonly number[]) => a.every((v, i) => Math.abs(v - (b[i] ?? 0)) < 1e-3);
+  return near(pose.position, VIEW_CAMERA.position) && near(pose.lookAt, VIEW_CAMERA.lookAt);
 }
 
 /** The laptop view's one drift: `setupScene` steps it, the input layer stops it and reads at its rest pose. */
