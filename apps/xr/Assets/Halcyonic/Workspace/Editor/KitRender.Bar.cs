@@ -753,6 +753,21 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(shown.Card != null && !shown.Card.AnyDot && shown.Facts == null, "the page is not a card, or joins facts on a dot");
                         if (state is "38-changes" or "38-changes-long")
                             Require(shown.Card!.List.Count == (state == "38-changes-long" ? RoomCard.ListAPage : known.Changes.Count), "the Changes card lists " + shown.Card.List.Count + " files");
+                        // A wrapped path breaks after its last slash: its file's name starts a line, never broken at a hyphen inside it
+                        // (AUDIT2's reader 4, F2: "assets/golden-" over "balloon.png").
+                        if (state is "38-changes" or "38-changes-long")
+                            foreach (var label in host.Bar.Card!.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                            {
+                                label.ForceMeshUpdate(true);
+                                var info = label.textInfo;
+                                if (info.lineCount < 2 || !shown.Card.List.Any(row => row.Name.AllTheirs && row.Name.Text.Contains('/') && label.GetParsedText().Replace("\n", "") == row.Name.Text)) continue;
+                                var slash = -1;
+                                for (var each = 0; each < info.characterCount; each++) if (info.characterInfo[each].character == '/') slash = each;
+                                var next = slash + 1;
+                                while (next < info.characterCount && info.characterInfo[next].character == '\n') next++;
+                                Require(Enumerable.Range(0, info.lineCount).Any(line => info.lineInfo[line].firstCharacterIndex == next),
+                                    "the path \"" + label.GetParsedText().Replace("\n", "") + "\" wraps inside its file's name, not after its last slash");
+                            }
                         if (state is "38-checks" or "38-checks-failed" or "38-checks-partly")
                             Require(shown.Card!.Steps.Count == known.Steps.Count && shown.Card.Steps.Count(step => step.Tone == RoomTone.Bad) == (state == "38-checks-failed" ? 1 : 0),
                                 "the Checks card's steps are not the check's, the failed one marked");

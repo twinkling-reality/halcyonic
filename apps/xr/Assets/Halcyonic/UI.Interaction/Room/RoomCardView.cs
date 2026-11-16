@@ -1215,6 +1215,9 @@ namespace Halcyonic.XR.UI
                     : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines);
                 // The person's own words of any length, on a row that opens them whole: their lead, cut at a word.
                 if (row.Excerpt) nameTall = Excerpt(nameLabel, row.Name, nameWidth, nameLines, RowNameLineDp);
+                // A path of theirs that wraps breaks after its last slash, the folder over the file's name whole, never inside the name
+                // at a hyphen (AUDIT2's reader 4, F2: "assets/golden-" over "balloon.png"; AUDIT's long-path rule).
+                else if (row.Name.AllTheirs) nameTall = BreakAtFolder(nameLabel, nameWidth, nameLines, row.Mono || !plain ? RowNameLineDp : RowNoteLineDp, nameTall);
                 // What the row belongs to, a quieter line under its name.
                 TextMeshPro? underLabel = null;
                 var underTall = 0f;
@@ -1435,6 +1438,34 @@ namespace Halcyonic.XR.UI
                 if (!LastLineIsOneWord(label)) return tried;
             }
             return KitType.Lay(label, width, lines);
+        }
+
+        /// <summary>
+        /// Where a path laid on two lines or more breaks anywhere but after its last slash, puts the break there: the folder on its
+        /// line or lines, the file's name whole under it, its outside words' places moved with the text. Only where that takes no
+        /// more lines than the words took; else they stand as laid. Returns their height.
+        /// </summary>
+        private float BreakAtFolder(TextMeshPro label, float width, int lines, float lineDp, float tall)
+        {
+            label.ForceMeshUpdate(true);
+            var info = label.textInfo;
+            var text = label.text;
+            var at = text.LastIndexOf('/');
+            if (info.lineCount < 2 || at < 1 || at >= text.Length - 1 || text[at + 1] == '\n') return tall;
+            var was = info.lineCount;
+            var runs = GlazeRuns.Of(label);
+            var before = runs.Theirs.ToList();
+            label.text = text.Substring(0, at + 1) + "\n" + text.Substring(at + 1);
+            runs.Lean(before.Select(run => run.Start > at ? (run.Start + 1, run.End + 1) : run.End > at ? (run.Start, run.End + 1) : run).ToList());
+            var laid = KitType.Lay(label, width, lines);
+            if (label.textInfo.lineCount > was || label.isTextOverflowing)
+            {
+                label.text = text;
+                runs.Lean(before);
+                KitType.Lay(label, width, lines);
+                return tall;
+            }
+            return Mathf.Max(laid.Lines, 1) * S(lineDp);
         }
 
         /// <summary>Whether the label's last laid line holds a single word.</summary>
