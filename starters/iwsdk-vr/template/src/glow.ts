@@ -1154,9 +1154,10 @@ const AROUND = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0')
 /**
  * Makes a hall of light round the person that answers a score (`playScore`) and builds with it: `columns` columns of
  * light stand round the person about `radius` metres out, each at its own distance and width, rising from the floor and
- * leaning in to meet in a warm crown of light just beyond the ring in front of the person, about 18 degrees above
- * their eye, so the keys and the crown are seen together with the head level, each faintly its own colour (deep blue ahead, sea blue and violet
- * beside, rose behind). Each note's light falls down one column, climbs back up it, and climbs, fainter, the column
+ * leaning in toward a warm crown of light just beyond the ring in front of the person, about 18 degrees above their
+ * eye (so the keys and the crown are seen together with the head level), fading as they rise; from each column's foot
+ * a fine rib of light arches on into the crown, so the hall is a vault over the person. Each column is faintly its
+ * own colour (deep blue ahead, sea blue and violet beside, rose behind). Each note's light falls down one column, climbs back up it, and climbs, fainter, the column
  * facing it too (each octave runs once round the ring, C ahead and rising to the right, so a scale stands on every side
  * and a run circles the person); when it reaches the top, it lights a point of a slowly turning galaxy overhead, which
  * grows from its middle outward as the music goes on. Over the first `rise` seconds of the music the columns and the

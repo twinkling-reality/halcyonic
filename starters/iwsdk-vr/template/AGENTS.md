@@ -226,8 +226,8 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   it, not the keys themselves; give `fallingNotes` `{ floor }`, the floor's height in the keys' group's own frame, and
   each note's light pools on the floor under its key and runs out across it as a ring. `lightHall(player)` makes the
   hall itself answer, all round the person: soft columns of light stand round the person, each at its own distance and
-  width, leaning in to meet in a warm crown of light in front of them, about 18 degrees up, in view with the head
-  level (a fainter, upright ring beyond, and light drifting near the person), two bands of warm amber light circling round
+  width, leaning in toward a warm crown of light in front of them, about 18 degrees up, in view with the head level,
+  with a fine rib of light arching from each column's foot into the crown (a fainter, upright ring beyond, and light drifting near the person), two bands of warm amber light circling round
   them, each note's light falls down one and climbs back up it (each octave runs once round the person, C ahead and
   rising to the right, so a chord spreads round them and a run circles them) with sparks and a ring at its foot, a low
   note sends a ring of light out across the floor that lights each column as it passes, and each note lights a point of
