@@ -1848,6 +1848,19 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (nearest.Apart(part) < GlazeChecks.GapDegrees - 1e-3f)
                         yield return "the stage: " + part + " is " + GlazeChecks.Degrees(nearest.Apart(part)) + " degrees from " + nearest + ", under a degree";
                 }
+                // The name tag grows downward without a bound in lines (up to twelve), so its foot is said against the nearest drawn part
+                // below it, across its width, at every moment: a long real name reaching down is found here, not on camera (AUDIT 13:23Z).
+                if (standing.View.GetComponentsInChildren<Halcyonic.XR.UI.RoomNameTag>(false).FirstOrDefault() is Halcyonic.XR.UI.RoomNameTag nameTag)
+                {
+                    var tagReach = GlazeChecks.Of("the name tag", eyes, nameTag.gameObject);
+                    if (!tagReach.IsEmpty)
+                    {
+                        var under = drawn.Where(each => each.Top <= tagReach.Bottom + 1e-3f && each.Right > tagReach.Left && each.Left < tagReach.Right)
+                            .OrderByDescending(each => each.Top).ToList();
+                        Debug.Log("Halcyonic: the stage at " + moment + ": the name tag's foot stands at " + GlazeChecks.Degrees(tagReach.Bottom) + " up, "
+                            + (under.Count > 0 ? GlazeChecks.Degrees(tagReach.Bottom - under[0].Top) + " degrees above " + under[0].Name : "nothing drawn below it across its width"));
+                    }
+                }
                 if (ViewField.Current is ViewField field)
                 {
                     var body = standing.View.Body.GetComponentsInChildren<MeshFilter>(false)
