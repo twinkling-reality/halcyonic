@@ -133,4 +133,39 @@ public sealed class SpendingLimitTests
         Assert.That(reached.Screen.Instruction.NewLimit, Is.Null, "pressing the chosen amount again takes it back");
         Assert.That(SpendingLimit.FromKey("7.00"), Is.Null, "only an offered amount is ever chosen");
     }
+
+    [TestCase("5", 5d)]
+    [TestCase("5.5", 5.5d)]
+    [TestCase("12.34", 12.34d)]
+    [TestCase("0.01", 0.01d)]
+    [TestCase("1000000", 1000000d)]
+    public void ATypedAmountIsPlainDollarsAndCents(string typed, double usd)
+    {
+        Assert.That(SpendingLimit.Parse(typed), Is.EqualTo(usd));
+        Assert.That(SpendingLimit.Dollars(SpendingLimit.Parse(typed)!.Value), Is.EqualTo("$" + usd.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)),
+            "the value read is shown back exactly as sent");
+    }
+
+    [TestCase(null)]
+    [TestCase("")]
+    [TestCase("0")]
+    [TestCase("0.00")]
+    [TestCase("-5")]
+    [TestCase("+5")]
+    [TestCase("1e3")]
+    [TestCase("1E3")]
+    [TestCase("1,000")]
+    [TestCase("5,50")]
+    [TestCase("5.")]
+    [TestCase(".5")]
+    [TestCase("5.555")]
+    [TestCase("$5")]
+    [TestCase(" 5")]
+    [TestCase("5 ")]
+    [TestCase("1000000.01")]
+    [TestCase("99999999")]
+    [TestCase("NaN")]
+    [TestCase("Infinity")]
+    [TestCase("\u0665")]
+    public void EveryOtherFormIsRefused(string? typed) => Assert.That(SpendingLimit.Parse(typed), Is.Null, typed);
 }

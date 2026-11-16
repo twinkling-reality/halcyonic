@@ -65,6 +65,26 @@ namespace Halcyonic.Client
             };
         }
 
+        /// <summary>The host's own most for any amount of money (contracts' USAGE_USD_MAX): no typed amount passes it.</summary>
+        public const double MostUsd = 1_000_000;
+
+        /// <summary>
+        /// A typed amount as plain dollars and cents, or null for anything else (AUDIT3's S2 and 23:3xZ terms): digits, then at most two
+        /// decimals after one point, more than zero and no more than <see cref="MostUsd"/>. No sign, exponent, grouping, locale comma,
+        /// space or currency mark is taken; the value read is the value sent, shown back by <see cref="Dollars"/>.
+        /// </summary>
+        public static double? Parse(string? typed)
+        {
+            if (typed == null || typed.Length == 0 || typed.Length > 10) return null;
+            var point = typed.IndexOf('.');
+            var whole = point < 0 ? typed : typed.Substring(0, point);
+            var cents = point < 0 ? "" : typed.Substring(point + 1);
+            if (whole.Length == 0 || (point >= 0 && (cents.Length == 0 || cents.Length > 2))) return null;
+            foreach (var c in whole + cents) if (c < '0' || c > '9') return null;
+            var value = double.Parse(typed, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture);
+            return value > 0 && value <= MostUsd ? value : (double?)null;
+        }
+
         /// <summary>An amount whole in dollars and cents, as sent: "$5.00" (S2).</summary>
         public static string Dollars(double usd) => "$" + usd.ToString("0.00", CultureInfo.InvariantCulture);
 
