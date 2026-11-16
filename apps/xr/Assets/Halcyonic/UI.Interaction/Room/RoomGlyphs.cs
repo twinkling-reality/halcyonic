@@ -383,19 +383,15 @@ namespace Halcyonic.XR.UI
             RoomGlyph.Ring,
         };
 
-        /// <summary>The two levels an agent works at, as the action that names the agent ends: "{agent} · Ask First", "{agent} · Never Ask".</summary>
-        private static readonly string[] levels = { " · Ask First", " · Never Ask" };
-
         /// <summary>
         /// The glyph the design gives an action, by the action's own words; a paging action's count (" · 2 of 3") is left
-        /// out. The action that names the agent and its level ("{agent} · Ask First") takes the agent's own glyph, whatever
-        /// the agent is called; a level alone is an answer with its mark, and has none. Null for words the table does not
-        /// name: Confirm takes the glyph of what it confirms, which its owner knows.
+        /// out. The agent's own action takes the agent's glyph from its icon (RoomButton.GlyphOf, GlazeIcon.CodeFile), never from
+        /// its words or its level's, so the levels' words can change without a key here (SCREENS's 2026-11-16 levels unit); a
+        /// level alone is an answer with its mark, and has none. Null for words the table does not name: Confirm takes the glyph
+        /// of what it confirms, which its owner knows.
         /// </summary>
         public static RoomGlyph? Named(string action)
         {
-            foreach (var level in levels)
-                if (action.Length > level.Length && action.EndsWith(level, System.StringComparison.Ordinal)) return RoomGlyph.Agent;
             var cut = action.IndexOf(" · ", System.StringComparison.Ordinal);
             return named.TryGetValue(cut >= 0 ? action.Substring(0, cut) : action, out var glyph) ? glyph : (RoomGlyph?)null;
         }

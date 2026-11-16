@@ -29,7 +29,7 @@ namespace Halcyonic.XR.Workspace.Editor
             (RoomGlyph.Changes, "Changes"), (RoomGlyph.Checks, "Checks"), (RoomGlyph.Back, "Back"), (RoomGlyph.Next, "Next Part · 2 of 3"),
             (RoomGlyph.Previous, "Previous Part"), (RoomGlyph.Play, "Try Build"), (RoomGlyph.Plus, "New Project"), (RoomGlyph.Pencil, "Request Change"),
             (RoomGlyph.Continue, "Continue"), (RoomGlyph.Lines, "Summarize"), (RoomGlyph.Again, "Run Checks Again"),
-            (RoomGlyph.Agent, "Tide 12B · Ask First"), (RoomGlyph.Settings, "Settings"), (RoomGlyph.Bubble, "Write Instruction"), (RoomGlyph.Undo, "Restore"), (RoomGlyph.Clock, "History"),
+            (RoomGlyph.Agent, AgentColumn.RoleWords), (RoomGlyph.Settings, "Settings"), (RoomGlyph.Bubble, "Write Instruction"), (RoomGlyph.Undo, "Restore"), (RoomGlyph.Clock, "History"),
         };
 
         /// <summary>How many actions stand in each pair of the sheet's columns; the two home-size actions stand under the second pair.</summary>
@@ -62,7 +62,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(middle.x >= RoomGlyphs.Stroke / 2f && middle.y >= RoomGlyphs.Stroke / 2f && middle.x <= RoomGlyphs.Grid - RoomGlyphs.Stroke / 2f && middle.y <= RoomGlyphs.Grid - RoomGlyphs.Stroke / 2f,
                         glyph + " reaches past its 24-unit box");
             }
-            foreach (var (glyph, words) in GlyphActions) Require(RoomGlyphs.Named(words) == glyph, "\"" + words + "\" is not named " + glyph);
+            // Every action is named by its words, but the agent's own, which carries its glyph by its icon.
+            foreach (var (glyph, words) in GlyphActions)
+                Require(glyph == RoomGlyph.Agent ? RoomButton.GlyphOf(words, GlazeIcon.CodeFile) == glyph : RoomGlyphs.Named(words) == glyph, "\"" + words + "\" is not named " + glyph);
             // Confirm carries the glyph of what it confirms: an approval's check, a denial's barred circle, a stop's square, and an
             // instruction's or an answer's Send arrow, never the keyboard of Type (AUDIT2's reader 4, F1).
             var confirm = WorkspaceText.ConfirmLabel(WorkspaceAction.Instruct);
@@ -73,9 +75,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 && RoomGlyphs.Named("Choose Instruction") == RoomGlyph.Lines && RoomGlyphs.Named("Send Answer") == RoomGlyph.Send && RoomGlyphs.Named("Confirm") == null
                 && RoomGlyphs.Named("Compact") == RoomGlyph.Next && RoomGlyphs.Named("Open Workspace") == RoomGlyph.Previous && RoomGlyphs.Named("Previous Page") == RoomGlyph.Previous
                 && RoomGlyphs.Named("Projects") == RoomGlyph.Back && RoomGlyphs.Named("Carry Out Plan") == RoomGlyph.Continue, "an action's glyph is misnamed");
-            // The agent's own glyph goes with the action that names an agent and its level, whatever the agent is called; a level alone is an answer.
-            Require(RoomGlyphs.Named("Kite Run · Never Ask") == RoomGlyph.Agent && RoomGlyphs.Named("Ember 7B · Next · Ask First") == RoomGlyph.Agent && RoomGlyphs.Named("Ask First") == null
-                && RoomGlyphs.Named("Never Ask") == null && RoomGlyphs.Named(" · Ask First") == null && RoomGlyphs.Named("Tide 12B · Ask") == null, "the agent's glyph is misnamed");
+            // The agent's own glyph comes from its action's icon, whatever the agent or its level is called; no level's words name a glyph
+            // (a level alone is an answer), so renaming the levels moves no key here (SCREENS's levels unit, 2026-11-16).
+            Require(RoomButton.GlyphOf("Kite Run", GlazeIcon.CodeFile) == RoomGlyph.Agent && RoomButton.GlyphOf(AgentColumn.RoleWords, GlazeIcon.CodeFile) == RoomGlyph.Agent
+                && RoomGlyphs.Named("Ask First") == null && RoomGlyphs.Named("Never Ask") == null && RoomGlyphs.Named("Kite Run · Never Ask") == null
+                && RoomGlyphs.Named("Ember 7B · Next · Ask First") == null, "the agent's glyph is not its icon's, or a level's words name one");
 
             if (state == "43-glyphs-large" || state == "43-glyphs-marks")
             {
@@ -97,8 +101,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var button = RoomButton.Create(plane, words + (main ? " main" : " rest"), size);
                     var width = button.Measure(words);
-                    // The action draws its own glyph, named by its words; no icon is handed to it.
-                    button.Show(words, null, main, true, new Vector2((col - 2) * column + width / 2f, (GlyphRows / 2f - row) * pitch), 0f);
+                    // The action draws its own glyph, named by its words; only the agent's own is handed its icon, which carries its glyph.
+                    button.Show(words, glyph == RoomGlyph.Agent ? GlazeIcon.CodeFile : (GlazeIcon?)null, main, true, new Vector2((col - 2) * column + width / 2f, (GlyphRows / 2f - row) * pitch), 0f);
                     button.Press.SettleForRender();
                     button.Settle();
                     var home = size == RoomButtonSize.Home;
