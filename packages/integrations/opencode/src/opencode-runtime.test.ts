@@ -20,7 +20,7 @@ import {
 } from '@halcyonic/runtime-core';
 import { toolFoldersFor } from '@halcyonic/seatbelt';
 import type { OpenCodeClient } from './client.ts';
-import { createSessionState, shellCallKey } from './events.ts';
+import { createSessionState, shellCallKey, shellSummary } from './events.ts';
 import {
   folderKey,
   OPENCODE_CAPABILITIES,
@@ -163,10 +163,12 @@ describe('OpenCode start options', () => {
 describe('reading a session back after the event stream reconnected', () => {
   test("a pending shell request is matched to its call by message and call id, and shows that call's request", async () => {
     const state = createSessionState();
-    state.shellCalls.set(
-      shellCallKey('msg_gone', 'call_9') ?? '',
-      "[in the task's folder] from the stream",
-    );
+    state.shellCalls.set(shellCallKey('msg_gone', 'call_9') ?? '', {
+      text: 'from the stream',
+      runs_in: { kind: 'task_folder' },
+      background: false,
+      input_to_running: false,
+    });
     const data: Record<string, unknown> = {
       '/api/session/s/permission': [
         ['per_1', 'msg_new', 'call_1'],
@@ -222,7 +224,10 @@ describe('reading a session back after the event stream reconnected', () => {
     } as unknown as Pick<OpenCodeClient, 'request'>;
     const snapshot = await readSnapshot(client, { sessionId: 's', state });
     assert.deepEqual(
-      snapshot.permissions.map((permission) => [permission.id, permission.command]),
+      snapshot.permissions.map((permission) => [
+        permission.id,
+        permission.command === null ? null : shellSummary(permission.command),
+      ]),
       [
         ['per_1', '[in "sub"] echo one > f'],
         ['per_2', "[in the task's folder] echo old"],

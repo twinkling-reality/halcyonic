@@ -236,6 +236,12 @@ describe('Codex 0.157.0 event mapping', () => {
             tool_name: 'commandExecution',
             summary:
               "/bin/zsh -lc 'touch approved.txt && echo created-approved'\nin /workspace/as-b",
+            command: {
+              text: "/bin/zsh -lc 'touch approved.txt && echo created-approved'",
+              runs_in: { kind: 'folder', path: '/workspace/as-b' },
+              background: false,
+              input_to_running: false,
+            },
           },
           complete: true,
         },
@@ -503,6 +509,49 @@ describe('Codex approval summaries', () => {
     );
     return { state, observed };
   };
+
+  test('hand the command apart in its parts, from which the summary is built (2026-11-16)', () => {
+    const asked = (params: Record<string, unknown>) => {
+      const item = request('item/commandExecution/requestApproval', params).observed
+        .observations[0];
+      if (item?.type !== 'runtime.approval.requested') return null;
+      return { summary: item.payload.subject.summary, command: item.payload.subject.command };
+    };
+    assert.deepEqual(
+      asked({
+        command: 'curl x',
+        cwd: '/w',
+        networkApprovalContext: { host: 'example.com', protocol: 'https' },
+      }),
+      {
+        summary: 'curl x\nin /w\nand network access to example.com (https)',
+        command: {
+          text: 'curl x',
+          runs_in: { kind: 'folder', path: '/w' },
+          background: false,
+          input_to_running: false,
+          network: { host: 'example.com', protocol: 'https' },
+        },
+      },
+    );
+    assert.deepEqual(asked({ kind: 'writeStdin', command: 'yes', cwd: null }), {
+      summary: 'Send input to a running command: yes',
+      command: {
+        text: 'yes',
+        runs_in: { kind: 'unknown' },
+        background: false,
+        input_to_running: true,
+      },
+    });
+    // Network access alone runs no command.
+    assert.deepEqual(
+      asked({ networkApprovalContext: { host: 'example.com', protocol: 'https' } }),
+      {
+        summary: 'Network access to example.com (https)',
+        command: undefined,
+      },
+    );
+  });
 
   test('come from the structured request: command, input, network access or nothing', () => {
     const completeness = new Map<string, boolean>();

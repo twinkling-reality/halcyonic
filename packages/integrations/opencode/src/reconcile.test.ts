@@ -223,14 +223,29 @@ describe('reconciling a session after the event stream reconnected', () => {
             id: 'per_3',
             action: 'shell',
             resources: ['echo one', 'echo two'],
-            command: 'echo one && echo two > two.txt',
+            command: {
+              text: 'echo one && echo two > two.txt',
+              runs_in: { kind: 'task_folder' },
+              background: false,
+              input_to_running: false,
+            },
           },
         ],
       }),
     );
     assert.deepEqual(requested?.payload, {
       approval_id: 'per_3',
-      subject: { kind: 'tool_use', tool_name: 'shell', summary: 'echo one && echo two > two.txt' },
+      subject: {
+        kind: 'tool_use',
+        tool_name: 'shell',
+        summary: "[in the task's folder] echo one && echo two > two.txt",
+        command: {
+          text: 'echo one && echo two > two.txt',
+          runs_in: { kind: 'task_folder' },
+          background: false,
+          input_to_running: false,
+        },
+      },
       complete: true,
     });
   });

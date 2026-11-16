@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import {
+  type ApprovalCommand,
   compileValidator,
   QUESTION_TEXT_LIMIT,
   type QuestionPrompt,
@@ -515,6 +516,74 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
       visible('a\u200Bb\u2066c\uFEFFd\re\u0007f\tg\nh'),
       'a\\u{200B}b\\u{2066}c\\u{FEFF}d\\u{000D}e\\u{0007}f\tg\nh',
     );
+  });
+
+  test("a command's parts lose what Halcyonic holds and show what a card does not draw, as its summary does (2026-11-16)", () => {
+    const { sink, recorded } = recordingSink();
+    const text = `curl -u me:${held} https://x.test \u202E#gnp.txt`;
+    const path = `/work/${held}`;
+    sink(
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: {
+          kind: 'tool_use',
+          tool_name: 'commandExecution',
+          summary: `${text}\nin ${path}\nand network access to ${held}.test (https)`,
+          command: {
+            text,
+            runs_in: { kind: 'folder', path },
+            background: false,
+            input_to_running: false,
+            network: { host: `${held}.test`, protocol: 'https' },
+          },
+        },
+        complete: true,
+      }),
+    );
+    const asked = recorded[0]?.payload as {
+      subject: { summary: string; command: ApprovalCommand };
+      complete: boolean;
+    };
+    assert.deepEqual(asked.subject.command, {
+      text: `curl -u me:${MARK} https://x.test \\u{202E}#gnp.txt`,
+      runs_in: { kind: 'folder', path: `/work/${MARK}` },
+      background: false,
+      input_to_running: false,
+      network: { host: `${MARK}.test`, protocol: 'https' },
+    });
+    assert.equal(
+      asked.subject.summary,
+      `${asked.subject.command.text}\nin /work/${MARK}\nand network access to ${MARK}.test (https)`,
+    );
+    assert.equal(asked.complete, true);
+    assert.equal(JSON.stringify(asked).includes(held), false);
+  });
+
+  test('a command whose part is cut to the contract is never approvable (2026-11-16)', () => {
+    const { sink, recorded } = recordingSink();
+    sink(
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: {
+          kind: 'tool_use',
+          tool_name: 'commandExecution',
+          summary: 'ls',
+          command: {
+            text: 'ls',
+            runs_in: { kind: 'folder', path: `/${'d'.repeat(5000)}` },
+            background: false,
+            input_to_running: false,
+          },
+        },
+        complete: true,
+      }),
+    );
+    const asked = recorded[0]?.payload as {
+      subject: { command: ApprovalCommand };
+      complete: boolean;
+    };
+    assert.equal(asked.complete, false);
+    assert.equal(asked.subject.command.runs_in.kind, 'folder');
   });
 
   test("a request longer than a person can approve is kept whole up to the record's bound and marked too long", () => {

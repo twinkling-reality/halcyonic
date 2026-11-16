@@ -128,6 +128,8 @@ import {
 } from './evaluation.ts';
 import {
   ApprovalChange,
+  ApprovalCommand,
+  ApprovalCommandPlace,
   ApprovalSubject,
   ControlPlaneSource,
   EventEnvelope,
@@ -402,6 +404,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   RuntimeSource,
   Provenance,
   ApprovalChange,
+  ApprovalCommand,
+  ApprovalCommandPlace,
   ApprovalSubject,
   CommandEnvelope,
   CommandRejection,

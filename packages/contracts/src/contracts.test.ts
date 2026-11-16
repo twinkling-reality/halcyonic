@@ -700,6 +700,7 @@ describe('the C# bindings', () => {
    * listed and no longer optional, fails the test by name.
    */
   const OPTIONAL_MEMBERS = [
+    'ApprovalCommand.network', // network access the same command request asks for, absent where it asks none
     'AutoFixView.failed_steps', // the steps that failed in the check a fix chain answered
     'AvailableWorkspaceAgent.provider', // where a remote assistant runs, by its declared provider (ADR 0030, 2026-11-12)
     'CheckFindings.laptop', // M1.8b
@@ -799,6 +800,7 @@ describe('the C# bindings', () => {
     'RuntimeToolCompletedPayload.turn_id', // a completed tool's turn
     'SendReview.one_change', // Send One Change's own facts (ADR 0039, amended)
     'ToolUseSubject.changes', // every file a request would change, whole (ADR 0065)
+    'ToolUseSubject.command', // the command a request would run, in its parts, absent where it runs none
     'ToolUseSubject.paths', // the places a request names, as structure, absent where they are not known
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
     'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came

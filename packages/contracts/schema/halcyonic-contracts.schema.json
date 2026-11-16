@@ -14277,6 +14277,118 @@
       },
       "additionalProperties": false
     },
+    "ApprovalCommand": {
+      "type": "object",
+      "required": [
+        "text",
+        "runs_in",
+        "background",
+        "input_to_running"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32000,
+          "pattern": "\\S"
+        },
+        "runs_in": {
+          "$ref": "#/$defs/ApprovalCommandPlace"
+        },
+        "background": {
+          "type": "boolean"
+        },
+        "input_to_running": {
+          "type": "boolean"
+        },
+        "network": {
+          "type": "object",
+          "required": [
+            "host",
+            "protocol"
+          ],
+          "properties": {
+            "host": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "pattern": "\\S"
+            },
+            "protocol": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ApprovalCommandPlace": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "session_shell"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "task_folder"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "path"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "folder"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "unknown"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "ApprovalSubject": {
       "anyOf": [
         {
@@ -14341,6 +14453,9 @@
                 "$ref": "#/$defs/ApprovalChange"
               },
               "maxItems": 16
+            },
+            "command": {
+              "$ref": "#/$defs/ApprovalCommand"
             }
           },
           "additionalProperties": false

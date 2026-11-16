@@ -22,6 +22,7 @@ import {
 } from '@anthropic-ai/claude-agent-sdk';
 import type {
   ApprovalChange,
+  ApprovalCommand,
   ApprovalDecision,
   ApprovalLevel,
   ApprovalSubject,
@@ -2201,8 +2202,17 @@ function approvalRequest(
   // A Bash command names no folder: it runs in the session's shell, which started in the task's
   // folder (the session's cwd) and keeps where an earlier command moved it. Said in a bracket that
   // always comes first, so a command that starts with a bracket of its own follows the real one.
+  const command: ApprovalCommand | null =
+    toolName === 'Bash' && described !== null && field === 'command'
+      ? {
+          text: described,
+          runs_in: { kind: 'session_shell' },
+          background: input.run_in_background === true,
+          input_to_running: false,
+        }
+      : null;
   const where =
-    toolName === 'Bash' && described !== null
+    toolName === 'Bash' && described !== null && command === null
       ? `[in its shell, which started in the task's folder${input.run_in_background === true ? ', in the background' : ''}] `
       : '';
   const paths = requestPaths(toolName, input);
@@ -2210,9 +2220,15 @@ function approvalRequest(
     subject: {
       kind: 'tool_use',
       tool_name: toolName.slice(0, 128),
-      summary: described === null ? JSON.stringify(input) : `${where}${described}`,
+      summary:
+        command !== null
+          ? commandSummary(command)
+          : described === null
+            ? JSON.stringify(input)
+            : `${where}${described}`,
       ...(paths !== null && { paths }),
       ...(changes !== null && { changes }),
+      ...(command !== null && { command }),
     },
     // A tool's name cut to the contract could read as another's; a file tool without its change carried is not whole.
     complete:
@@ -2241,6 +2257,14 @@ export const OPEN_RUN_ASKS: readonly string[] = [
   'Bash(git credential:*)',
   'Bash(git var:*)',
 ];
+
+/**
+ * A Bash command's summary, from its parts alone, so a card that draws the parts shows what the summary says: the
+ * bracket on where it runs first, then the command whole.
+ */
+function commandSummary(command: ApprovalCommand): string {
+  return `[in its shell, which started in the task's folder${command.background ? ', in the background' : ''}] ${command.text}`;
+}
 
 /** What a confined agent is told when it tries to write a file Halcyonic keeps (`RUNS_LATER`). */
 export const KEPT_BY_HALCYONIC =

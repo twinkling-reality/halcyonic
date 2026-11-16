@@ -1313,6 +1313,34 @@ export const WorkspaceRequestStepRecorded = requestEvent(
 
 // Runtime observations -----------------------------------------------------------------------
 
+/**
+ * A command a request would run, apart from Halora's words around it, so a card draws the command whole and where and
+ * how it runs beside it (2026-11-16). `text` is the command exactly as it would run. `runs_in`: `session_shell`, the
+ * session's own shell, which started in the task's folder and keeps where an earlier command moved it; `task_folder`,
+ * the task's folder; `folder`, the folder the app named; `unknown`, where the app did not say. `input_to_running`:
+ * input to a command already running, which starts nothing new. `network`: network access the same request asks for.
+ * The adapter builds the summary from these parts, so they say what the summary says, never less.
+ */
+export const ApprovalCommandPlace = Type.Union([
+  Type.Object({ kind: Type.Literal('session_shell') }, strict),
+  Type.Object({ kind: Type.Literal('task_folder') }, strict),
+  Type.Object({ kind: Type.Literal('folder'), path: Text(4096) }, strict),
+  Type.Object({ kind: Type.Literal('unknown') }, strict),
+]);
+export type ApprovalCommandPlace = Static<typeof ApprovalCommandPlace>;
+
+export const ApprovalCommand = Type.Object(
+  {
+    text: Text(32000),
+    runs_in: ApprovalCommandPlace,
+    background: Type.Boolean(),
+    input_to_running: Type.Boolean(),
+    network: Type.Optional(Type.Object({ host: Text(500), protocol: Text(100) }, strict)),
+  },
+  strict,
+);
+export type ApprovalCommand = Static<typeof ApprovalCommand>;
+
 export const ApprovalSubject = Type.Union([
   Type.Object(
     {
@@ -1330,6 +1358,8 @@ export const ApprovalSubject = Type.Union([
        * which never reads as no change: a file tool's request without it is not approvable.
        */
       changes: Type.Optional(Type.Array(ApprovalChange, { maxItems: 16 })),
+      /** The command the request would run, in its parts, where it runs one; absent otherwise and on older events. */
+      command: Type.Optional(ApprovalCommand),
     },
     strict,
   ),

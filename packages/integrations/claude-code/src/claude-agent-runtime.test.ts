@@ -1052,6 +1052,12 @@ describe('approvals', () => {
         kind: 'tool_use',
         tool_name: 'Bash',
         summary: "[in its shell, which started in the task's folder] pnpm db:migrate",
+        command: {
+          text: 'pnpm db:migrate',
+          runs_in: { kind: 'session_shell' },
+          background: false,
+          input_to_running: false,
+        },
       },
       complete: true,
     });

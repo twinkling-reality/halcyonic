@@ -3156,6 +3156,103 @@ namespace Halcyonic.Contracts
         public ApprovalChangeCell? Cell { get; set; }
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(ApprovalCommandPlaceConverter))]
+    public abstract class ApprovalCommandPlace
+    {
+        [global::Newtonsoft.Json.JsonProperty("kind", Order = -2)]
+        public string Kind => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class ApprovalCommandPlaceConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(ApprovalCommandPlace).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["kind"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            ApprovalCommandPlace value = tag switch
+            {
+                "session_shell" => new SessionShellCommandPlace(),
+                "task_folder" => new TaskFolderCommandPlace(),
+                "folder" => new FolderCommandPlace(),
+                "unknown" => new UnknownCommandPlace(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "ApprovalCommandPlace has no string kind."
+                    : "Unknown kind \"" + tag + "\" for ApprovalCommandPlace."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but kind is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class SessionShellCommandPlace : ApprovalCommandPlace
+    {
+        protected override string Discriminator => "session_shell";
+    }
+
+    public sealed class TaskFolderCommandPlace : ApprovalCommandPlace
+    {
+        protected override string Discriminator => "task_folder";
+    }
+
+    public sealed class FolderCommandPlace : ApprovalCommandPlace
+    {
+        protected override string Discriminator => "folder";
+
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+    }
+
+    public sealed class UnknownCommandPlace : ApprovalCommandPlace
+    {
+        protected override string Discriminator => "unknown";
+    }
+
+    public sealed class ApprovalCommandNetwork
+    {
+        [global::Newtonsoft.Json.JsonProperty("host", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Host { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("protocol", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Protocol { get; set; } = default!;
+    }
+
+    public sealed class ApprovalCommand
+    {
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Text { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("runs_in", Required = global::Newtonsoft.Json.Required.Always)]
+        public ApprovalCommandPlace RunsIn { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("background", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool Background { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("input_to_running", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool InputToRunning { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("network", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public ApprovalCommandNetwork? Network { get; set; }
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(ApprovalSubjectConverter))]
     public abstract class ApprovalSubject
     {
@@ -3215,6 +3312,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("changes", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<ApprovalChange>? Changes { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("command", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public ApprovalCommand? Command { get; set; }
     }
 
     public sealed class ApprovalView

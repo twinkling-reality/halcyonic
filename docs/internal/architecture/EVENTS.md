@@ -155,6 +155,17 @@ named, then cuts each to the contract before it is journaled. A credential it do
 so the person reads the command as it would run ([SECURITY.md](SECURITY.md), "Logs and error
 text").
 
+Where a request runs a command, its subject also carries `command`, the same request in its parts
+(2026-11-16): `text`, the command exactly as it would run; `runs_in`, where (`session_shell` for
+Claude Code's Bash, whose shell started in the task's folder and keeps where an earlier command
+moved it; `task_folder` or `folder` with its `path` for OpenCode and Codex; `unknown` where the app
+did not say); `background`; `input_to_running` (Codex's input to a command already running); and
+`network`, the host and protocol a Codex command also asks for. Each adapter builds the summary
+from these parts alone, so a card that draws them in its place shows exactly what the summary says;
+the control plane takes secrets out of each part and escapes it as it does the summary, and a part
+cut to the contract makes the request not complete. A file tool, a fetch, a network-only request
+and every older event carry none, and a card draws the summary.
+
 An execution view's `usage` sums its reported turns: `turns` counts them, each token part is the
 sum, and stays null once any turn left it null, and `cost` is the sum of the runtime's estimates
 while every turn gave one by the same prices, null from the first that did not; a turn that used

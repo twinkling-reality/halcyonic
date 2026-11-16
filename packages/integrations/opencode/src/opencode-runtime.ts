@@ -6,6 +6,7 @@ import { basename, dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { isDeepStrictEqual } from 'node:util';
 import type {
+  ApprovalCommand,
   ApprovalDecision,
   ApprovalLevel,
   Provenance,
@@ -58,7 +59,7 @@ import {
   type SessionState,
   SHELL_TOOL,
   shellCallKey,
-  shellRequest,
+  shellCommand,
   toTimestamp,
 } from './events.ts';
 import {
@@ -2291,7 +2292,7 @@ export async function readSnapshot(
   const toolStatus = new Map<string, string>();
   const toolNames = new Map<string, string>();
   // Newest first, as OpenCode lists messages; a call id seen again in an older message is not it.
-  const commands = new Map<string, string | null>();
+  const commands = new Map<string, ApprovalCommand | null>();
   // Read whenever the session runs: a call that started while the stream was down is only there.
   if (running || askedBy.size > 0) {
     const messages = await readData(client, `${base}/message`);
@@ -2313,7 +2314,7 @@ export async function readSnapshot(
         commands.set(
           call,
           part.name === SHELL_TOOL && isRecord(part.state) && isRecord(part.state.input)
-            ? shellRequest(part.state.input)
+            ? shellCommand(part.state.input)
             : null,
         );
       }

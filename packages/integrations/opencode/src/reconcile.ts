@@ -1,4 +1,4 @@
-import type { Provenance } from '@halcyonic/contracts';
+import type { ApprovalCommand, Provenance } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 import {
   approvalRequest,
@@ -50,7 +50,7 @@ export interface PendingPermission {
   readonly action: unknown;
   readonly resources: unknown;
   /** For a shell request, what the tool call it was raised for asks to run, when that is known. */
-  readonly command: string | null;
+  readonly command: ApprovalCommand | null;
 }
 
 export type Reconciliation =

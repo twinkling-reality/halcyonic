@@ -1,5 +1,6 @@
 import type {
   ApprovalChange,
+  ApprovalCommand,
   ApprovalSubject,
   ErrorInfo,
   EventOf,
@@ -96,7 +97,7 @@ export interface SessionState {
    * shows (`shellRequest`) once OpenCode published the call (`session.tool.called`, which it does
    * before the tool runs), in place of the parts OpenCode's parse found in it.
    */
-  readonly shellCalls: Map<string, string | null>;
+  readonly shellCalls: Map<string, ApprovalCommand | null>;
   /** Pending forms, the agent's questions (ADR 0022), with what answering them needs. */
   readonly questions: Map<string, FormFields>;
   /** Forms OpenCode confirmed answering with a 204, kept until `form.replied` arrives. */
@@ -228,7 +229,7 @@ export function observeEvent(
     if (data.name === SHELL_TOOL) state.shellCalls.set(call, null);
     else state.shellCalls.delete(call);
   } else if (event.type === 'session.tool.called' && call !== null && state.shellCalls.has(call)) {
-    state.shellCalls.set(call, isRecord(data.input) ? shellRequest(data.input) : null);
+    state.shellCalls.set(call, isRecord(data.input) ? shellCommand(data.input) : null);
   }
   // Agent text is history, not state, so it is reported even from a settled stretch.
   if (
@@ -530,18 +531,37 @@ const PATH_ACTIONS: ReadonlySet<string> = new Set([
  * takes, which it could repair into one after the ask, or a workdir with a bracket in it.
  */
 export function shellRequest(input: Readonly<Record<string, unknown>>): string | null {
+  const command = shellCommand(input);
+  return command === null ? null : shellSummary(command);
+}
+
+/** What a shell tool call's input asks to run, in its parts (`shellRequest` says when it is null). */
+export function shellCommand(input: Readonly<Record<string, unknown>>): ApprovalCommand | null {
   const command = input.command;
   const workdir = input.workdir;
   const background = input.background;
   if (typeof command !== 'string' || !/\S/.test(command)) return null;
   if (workdir !== undefined && (typeof workdir !== 'string' || /[[\]]/.test(workdir))) return null;
   if (background !== undefined && typeof background !== 'boolean') return null;
+  return {
+    text: command,
+    runs_in:
+      workdir === undefined || workdir === ''
+        ? { kind: 'task_folder' }
+        : { kind: 'folder', path: workdir },
+    background: background === true,
+    input_to_running: false,
+  };
+}
+
+/** A shell request's summary from its parts alone, so a card that draws the parts shows what it says. */
+export function shellSummary(command: ApprovalCommand): string {
   // Quoted, so no folder's name can read as the task's folder.
   const where =
-    workdir === undefined || workdir === ''
-      ? "in the task's folder"
-      : `in ${JSON.stringify(workdir)}`;
-  return `[${where}${background === true ? ', in the background' : ''}] ${command}`;
+    command.runs_in.kind === 'folder'
+      ? `in ${JSON.stringify(command.runs_in.path)}`
+      : "in the task's folder";
+  return `[${where}${command.background ? ', in the background' : ''}] ${command.text}`;
 }
 
 /** A tool call's key: its assistant message's id and its own, or null without either. */
@@ -561,7 +581,11 @@ export function askedCall(action: unknown, source: unknown): string | null {
 }
 
 /** What the shell call a permission request names asks to run, when it is known. */
-function askedCommand(state: SessionState, action: unknown, source: unknown): string | null {
+function askedCommand(
+  state: SessionState,
+  action: unknown,
+  source: unknown,
+): ApprovalCommand | null {
   const call = askedCall(action, source);
   return call === null ? null : (state.shellCalls.get(call) ?? null);
 }
@@ -577,7 +601,7 @@ function askedCommand(state: SessionState, action: unknown, source: unknown): st
 export function approvalRequest(
   action: unknown,
   resources: unknown,
-  request: string | null = null,
+  request: ApprovalCommand | null = null,
   metadata: unknown = undefined,
 ): { readonly subject: ApprovalSubject; readonly complete: boolean } | null {
   const tool = nonBlank(action);
@@ -591,8 +615,10 @@ export function approvalRequest(
       kind: 'tool_use',
       tool_name: clip(tool, 128),
       // Whole: the control plane takes credentials out, then cuts it to the contract.
-      summary: request ?? (listed.length > 0 ? listed.join('\n') : tool),
+      summary:
+        request !== null ? shellSummary(request) : listed.length > 0 ? listed.join('\n') : tool,
       ...(changes !== null && { changes }),
+      ...(request !== null && { command: request }),
     },
     // A tool's name cut to the contract could read as another's; an edit without its change carried is not whole.
     complete:

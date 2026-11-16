@@ -1,5 +1,5 @@
 import { isAbsolute, join } from 'node:path';
-import type { ApprovalChange, ToolResult } from '@halcyonic/contracts';
+import type { ApprovalChange, ApprovalCommand, ToolResult } from '@halcyonic/contracts';
 import {
   type CommandId,
   type ControlPlaneEvent,
@@ -158,6 +158,38 @@ export function visible(text: string): string {
 }
 
 /**
+ * A request's command in its parts, each with what Halcyonic holds taken out and what a card does not draw escaped, as
+ * the summary they make is, then fitted to the contract; `cut` where any part was cut.
+ */
+function fittedCommand(
+  command: ApprovalCommand,
+  redaction: Redaction,
+): { readonly fitted: ApprovalCommand; readonly cut: boolean } {
+  let cut = false;
+  const part = (text: string, limit: number) => {
+    const shown = visible(redaction.held(text));
+    const kept = fitted(shown, limit);
+    if (kept !== shown) cut = true;
+    return kept;
+  };
+  const fittedOne: ApprovalCommand = {
+    ...command,
+    text: part(command.text, SUMMARY_LIMIT),
+    runs_in:
+      command.runs_in.kind === 'folder'
+        ? { kind: 'folder', path: part(command.runs_in.path, 4096) }
+        : command.runs_in,
+    ...(command.network !== undefined && {
+      network: {
+        host: part(command.network.host, 500),
+        protocol: part(command.network.protocol, 100),
+      },
+    }),
+  };
+  return { fitted: fittedOne, cut };
+}
+
+/**
  * One change of a request, each text part with what Halcyonic holds taken out and what a card does not draw escaped,
  * kept whole up to the record's bound (`whole` before fitting, `fitted` after, `cut` where any part was cut), and
  * `real_path` set by the host where the path, or a folder on it, is a link (AUDIT3 W1).
@@ -239,7 +271,9 @@ function withoutCredentials(
     case 'runtime.approval.requested': {
       // `too_long` is the host's own fact, never an adapter's: whatever the observation carried is dropped here.
       const { too_long: _adapters, ...given } = payload;
-      const subject = given.subject as { summary?: unknown; changes?: unknown } | undefined;
+      const subject = given.subject as
+        | { summary?: unknown; changes?: unknown; command?: unknown }
+        | undefined;
       if (typeof subject?.summary !== 'string') return given;
       // What a card does not draw is drawn as its escape, so what is shown is what runs (AUDIT3 L1).
       const held = visible(redaction.held(subject.summary));
@@ -249,6 +283,11 @@ function withoutCredentials(
       const changes = Array.isArray(subject.changes)
         ? subject.changes.map((change) => fittedChange(change as ApprovalChange, redaction, folder))
         : undefined;
+      // The command's parts, taken out and escaped as the summary they make is (2026-11-16).
+      const command =
+        typeof subject.command === 'object' && subject.command !== null
+          ? fittedCommand(subject.command as ApprovalCommand, redaction)
+          : undefined;
       const parts = [
         held,
         ...(changes ?? []).flatMap((change) => [
@@ -261,7 +300,8 @@ function withoutCredentials(
       ];
       // One bound for all a person reads before Approve, counted in code points as the contract counts text.
       const length = parts.reduce((sum, part) => sum + [...part].length, 0);
-      const cut = summary !== held || (changes ?? []).some((change) => change.cut);
+      const cut =
+        summary !== held || (changes ?? []).some((change) => change.cut) || command?.cut === true;
       const tooLong = length > APPROVABLE_LIMIT;
       return {
         ...given,
@@ -269,6 +309,7 @@ function withoutCredentials(
           ...subject,
           summary,
           ...(changes !== undefined && { changes: changes.map((change) => change.fitted) }),
+          ...(command !== undefined && { command: command.fitted }),
         },
         complete: given.complete === true && !cut && !tooLong,
         ...(tooLong && { too_long: { length, reported_complete: given.complete === true } }),

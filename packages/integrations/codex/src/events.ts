@@ -1,5 +1,6 @@
 import type {
   ApprovalChange,
+  ApprovalCommand,
   ApprovalSubject,
   ErrorInfo,
   EventOf,
@@ -445,6 +446,7 @@ function observeRequest(
     tool_name: asked.tool,
     summary: asked.summary,
     ...('changes' in asked && asked.changes !== null && { changes: asked.changes }),
+    ...('command' in asked && asked.command !== null && { command: asked.command }),
   };
   state.sequence += 1;
   return {
@@ -702,24 +704,30 @@ export function endTurn(state: ThreadState, turnId: string): Observed['settled']
 function commandSummary(params: Readonly<Record<string, unknown>>): {
   readonly summary: string;
   readonly complete: boolean;
+  readonly command: ApprovalCommand | null;
 } {
   const command = nonBlank(params.command);
   const network = isRecord(params.networkApprovalContext) ? params.networkApprovalContext : {};
   const host = nonBlank(network.host);
-  let summary =
-    command !== null
-      ? params.kind === 'writeStdin'
-        ? `Send input to a running command: ${command}`
-        : command
+  const cwd = nonBlank(params.cwd);
+  // The command in its parts; the summary is built from them alone, so the parts say what it says.
+  const parts: ApprovalCommand | null =
+    command === null
+      ? null
+      : {
+          text: command,
+          runs_in: cwd === null ? { kind: 'unknown' } : { kind: 'folder', path: cwd },
+          background: false,
+          input_to_running: params.kind === 'writeStdin',
+          // A command that also asks for the network says so.
+          ...(host !== null && { network: { host, protocol: String(network.protocol) } }),
+        };
+  const summary =
+    parts !== null
+      ? partsSummary(parts)
       : host !== null
         ? `Network access to ${host} (${String(network.protocol)})`
         : 'Codex did not say which command it wants to run.';
-  const cwd = nonBlank(params.cwd);
-  if (command !== null && cwd !== null) summary += `\nin ${cwd}`;
-  // A command that also asks for the network says so.
-  if (command !== null && host !== null) {
-    summary += `\nand network access to ${host} (${String(network.protocol)})`;
-  }
   // Whole: the control plane takes credentials out, then cuts it to the contract.
   // Input to a running command runs nothing new, so it needs no folder to be complete. A command
   // in an environment other than this computer's runs somewhere the summary does not say.
@@ -730,7 +738,19 @@ function commandSummary(params: Readonly<Record<string, unknown>>): {
     params.environmentId !== 'local';
   const complete =
     !elsewhere && (command !== null ? params.kind === 'writeStdin' || cwd !== null : host !== null);
-  return { summary, complete };
+  return { summary, complete, command: parts };
+}
+
+/** A command approval's summary from its parts alone: the command, the folder it runs in, the network it asks for. */
+function partsSummary(command: ApprovalCommand): string {
+  let summary = command.input_to_running
+    ? `Send input to a running command: ${command.text}`
+    : command.text;
+  if (command.runs_in.kind === 'folder') summary += `\nin ${command.runs_in.path}`;
+  if (command.network !== undefined) {
+    summary += `\nand network access to ${command.network.host} (${command.network.protocol})`;
+  }
+  return summary;
 }
 
 /**

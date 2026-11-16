@@ -20,6 +20,7 @@ import {
   observeEvent,
   replyOutcome,
   type SessionState,
+  shellCommand,
 } from './events.ts';
 import { SseParser } from './sse.ts';
 import { assertValidObservations } from './testing/observations.ts';
@@ -136,6 +137,12 @@ describe('OpenCode 2.0.18 event mapping', () => {
             kind: 'tool_use',
             tool_name: 'shell',
             summary: "[in the task's folder] echo halcyonic-smoke",
+            command: {
+              text: 'echo halcyonic-smoke',
+              runs_in: { kind: 'task_folder' },
+              background: false,
+              input_to_running: false,
+            },
           },
           complete: true,
         },
@@ -694,12 +701,18 @@ describe('OpenCode event decoding', () => {
       complete: false,
     });
     assert.deepEqual(
-      approvalRequest('shell', ['echo a'], "[in the task's folder] echo a | tee x"),
+      approvalRequest('shell', ['echo a'], shellCommand({ command: 'echo a | tee x' })),
       {
         subject: {
           kind: 'tool_use',
           tool_name: 'shell',
           summary: "[in the task's folder] echo a | tee x",
+          command: {
+            text: 'echo a | tee x',
+            runs_in: { kind: 'task_folder' },
+            background: false,
+            input_to_running: false,
+          },
         },
         complete: true,
       },
@@ -760,6 +773,15 @@ describe('OpenCode event decoding', () => {
     assert.equal(shown('call_1'), `[in the task's folder] ${command}`);
     call('call_2', 'shell', { command, workdir: '.git/hooks', background: true });
     assert.equal(shown('call_2'), `[in ".git/hooks", in the background] ${command}`);
+    call('call_parts', 'shell', { command, workdir: '.git/hooks', background: true });
+    const parts = asked('call_parts').subject;
+    assert.ok(parts.kind === 'tool_use');
+    assert.deepEqual(parts.command, {
+      text: command,
+      runs_in: { kind: 'folder', path: '.git/hooks' },
+      background: true,
+      input_to_running: false,
+    });
     // A command that starts with a bracket of its own always follows the real one.
     call('call_3', 'shell', { command: '[in /tmp] rm -rf x', workdir: 'build' });
     assert.equal(shown('call_3'), '[in "build"] [in /tmp] rm -rf x');

@@ -31,6 +31,7 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   AttentionReason: { discriminator: 'kind', suffix: 'Reason' },
   CommandResult: { discriminator: 'kind', suffix: 'Result' },
   ApprovalSubject: { discriminator: 'kind', suffix: 'Subject' },
+  ApprovalCommandPlace: { discriminator: 'kind', suffix: 'CommandPlace' },
   UnderstandingResult: { discriminator: 'availability', suffix: 'Understanding' },
   EvaluationResult: { discriminator: 'availability', suffix: 'Evaluation' },
   Principal: { discriminator: 'kind', suffix: 'Principal' },
