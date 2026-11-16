@@ -54,7 +54,8 @@ const VERTEX = /* glsl */ `
       // head tilts.
       vec3 centre = (modelMatrix * vec4(instanceMatrix[3].xyz, 1.0)).xyz;
       vec3 along = normalize(mat3(modelMatrix) * y);
-      vec3 side = normalize(cross(along, centre - cameraPosition) + vec3(1e-5, 0.0, 0.0));
+      // Its right to the eye's right, so the quad faces the eye and is never culled as a back face.
+      vec3 side = normalize(cross(centre - cameraPosition, along) + vec3(1e-5, 0.0, 0.0));
       at = viewMatrix * vec4(centre + side * vPoint.x + along * vPoint.y, 1.0);
     } else if (facing > 0.5) {
       // Always turned to the eye: the centre placed, the quad laid out in view space.
