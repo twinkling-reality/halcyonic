@@ -150,6 +150,27 @@ Display stayed the top resumed activity and Halcyonic stayed unfocused.
   a window in front (an inference to check on the headset). Moving a window above the characters,
   by its bar, is the person's.
 
+## The native panel on the owner's headset (2026-11-16, first attempt)
+
+- **Setup:** Quest 3 on Horizon OS 209 (Android 14, build UP1A.231005.007.A1), on the cable. The
+  development APK of main `8d6e0944e` was installed (SHA-256 `b05047a3…f0f4`). The control plane on
+  47800 ran the same commit. Nobody wore the headset: it lay on the desk with the proximity sensor
+  overridden (`pnpm quest:device -- awake`), from 22:10:25Z to 22:14:59Z UTC.
+- **Observed: without tracking, nothing opens, the panel included.** For two minutes the headset
+  reported that it could not find its position in the room. An explicit
+  `am start -W -n com.halcyonic.xr/com.halcyonic.panel.AgentPanelActivity` did not return within
+  120 seconds and was stopped. So a launch of the 2D panel waits on tracking just as the
+  immersive app does. A test of the panel needs the headset worn, or standing upright facing a lit
+  room.
+- **Read in source, not yet seen on the headset:** `AgentPanelActivity` sets `FLAG_SECURE` on its
+  window and dialogs (`AgentPanelActivity.java`, at 104, 135, 273 and 1103 on `8d6e0944e`). Android
+  draws a secure window black in `screencap` and `screenrecord`. Whether Meta's capture service also
+  draws it black is unverified. Only the development-only synthetic preview activity clears the flag.
+- **Still to check on the headset:** the panel opened from Minimize and from Other Apps, beside a
+  video playing in a system app; its USB development connection; the panel following a task to
+  Needs You; the return to the same task in the workspace; and whether a capture shows the panel or
+  black.
+
 ## Consequences
 
 - Halcyonic stays the immersive app, and the characters stay alive while it lacks input focus
