@@ -1017,6 +1017,14 @@ export function fallingNotes(
   };
 }
 
+/** The bloom's burst at each column: the height, how many sparks, their size, how far they rise, how long they live. */
+const BURST: readonly (readonly [number, number, number, number, number])[] = [
+  [1.2, 16, 0.03, 1.6, 5],
+  [3.0, 12, 0.05, 2.2, 6],
+  [5.0, 8, 0.08, 2.8, 7],
+  [7.5, 5, 0.13, 3.4, 8],
+];
+
 /** How many landings' rings are drawn at once at most. */
 const RIPPLES = 8;
 
@@ -1262,7 +1270,7 @@ export function lightHall(
   // The bloom's light overhead: one wide soft glow over the person, under the galaxy.
   const crownLight = glows(1, { facing: true, halo: 4, round: 1, core: 0 });
   // The crown itself: a small, hot, warm eye of light where every column meets, the place a look up arrives at.
-  const oculus = glows(2, { facing: true, halo: 1.2, round: 1, core: 0.8, whiten: 0.7 });
+  const oculus = glows(2, { facing: true, halo: 1.2, round: 1, core: 0.6, whiten: 1 });
   // The galaxy's points, the floor's light at each column's foot, and the bloom's ring running out across the floor.
   const points = glows(petals, { facing: true, halo: 0.025, round: 1, core: 0.9, whiten: 0.5, mirror: { level: 0, strength: 0.22, narrow: 1 } });
   const arms = glows(veils.length, { facing: true, halo: 0.7, round: 1, core: 0 });
@@ -1387,7 +1395,7 @@ export function lightHall(
         const a = (k / 96) * Math.PI * 2;
         const sa = Math.sin(a);
         const ca = -Math.cos(a);
-        floor.place(sa * r, 0.01, ca * r, -ca, 0, sa, sa, 0, ca, (2 * Math.PI * r) / 80, 0.9, c, 0.45 * fade);
+        floor.place(sa * r, 0.01, ca * r, -ca, 0, sa, sa, 0, ca, (2 * Math.PI * r) / 80, 0.25, c, 0.6 * fade);
       }
       const passing = Math.exp(-(((r - radius) / 0.8) ** 2)) * fade * 2;
       wave = Math.max(wave, passing);
@@ -1444,11 +1452,14 @@ export function lightHall(
       const since = now - rise;
       // The bloom heard: a pad swelling under the music for its last seconds, and bells running up at the moment.
       if (options.sound !== false) peakSound(since);
-      // The bloom seen all round: every column sheds a burst of sparks all along its height at once.
+      // The bloom seen all round: every column sheds a burst of sparks all along its height at once, many fine ones low
+      // and fewer, larger, slower ones higher up, so the burst has depth and never reads as even confetti.
       if (since >= 0 && !burst) {
         burst = true;
         for (const home of homes)
-          for (const y of [1.5, 3.5, 5.5, 7.5]) embers.emit(lineX(home.x, y), y, lineZ(home.z, y), home.colour, 12, { rise: 2.4, spread: 1.4, life: 7, size: 0.07 });
+          BURST.forEach(([y, count, size, rise, life]) =>
+            embers.emit(lineX(home.x, y), y, lineZ(home.z, y), home.colour, count, { rise, spread: 1.4, life, size }),
+          );
       }
       if (since < 0) burst = false;
       const bloom = swelling.bloom;
@@ -1477,7 +1488,8 @@ export function lightHall(
         const notes = Math.min(1, lit[i] ?? 0);
         const swept = sweeping(home.a);
         shade.copy(home.colour).lerp(litColour[i] as Color, notes > 0 ? 0.6 : 0).lerp(amber, Math.min(0.95, swept));
-        const strength = held * (rest + 1.1 * notes + swept) + 1.3 * bloom + wave;
+        // The bloom brightens the columns well short of white, so their colour holds at the peak.
+        const strength = held * (rest + 1.1 * notes + swept) + 0.75 * bloom + wave;
         const going = newest[i] as number;
         if (going < top) {
           // Climbing, its head at y and its tail below, fading as it goes.
@@ -1492,12 +1504,14 @@ export function lightHall(
         const crest = apex - 0.4;
         const mid = (foot + crest) / 2;
         pillars.place(lineX(home.x, mid), mid, lineZ(home.z, mid), 1, 0, 0, home.dx, home.dy, home.dz, home.wide, (crest - foot) / home.dy, shade, 1.4 * home.bright * strength);
-        // The bloom runs up every column at once from its foot into the light overhead.
-        if (since >= 0 && since < 2.5) {
-          const y = since * 5;
+        // The bloom runs up the columns from their feet into the light overhead, the ones ahead first and round to
+        // those behind within half a second, so the hall is seen lighting up in turn round the person.
+        const after = since - 0.5 * (Math.min(home.a, Math.PI * 2 - home.a) / Math.PI);
+        if (after >= 0 && after < 2.5) {
+          const y = after * 5;
           const tail = Math.min(y, 7);
           const h = Math.min(apex - 0.3, y - tail / 2);
-          climbs.place(lineX(home.x, h), h, lineZ(home.z, h), 1, 0, 0, -home.dx, -home.dy, -home.dz, 0.14, tail / home.dy, home.colour, 0.9 * (1 - since / 2.5));
+          climbs.place(lineX(home.x, h), h, lineZ(home.z, h), 1, 0, 0, -home.dx, -home.dy, -home.dz, 0.14, tail / home.dy, home.colour, 0.9 * (1 - after / 2.5));
         }
       }
       for (const far of detail > 0 ? beyond : []) {
@@ -1542,7 +1556,7 @@ export function lightHall(
         const shown = Math.min(1, Math.max(0, grown - k) / 40);
         const lit = flash[k] ?? 0;
         const glint = 0.7 + 0.3 * Math.sin(time * p.twinkle + p.phase);
-        const strength = p.own * glint * ((1 - 0.85 * swelling.hush) * shown * (0.3 + 0.5 * built) + 1.6 * bloom) + lit;
+        const strength = p.own * glint * ((1 - 0.85 * swelling.hush) * shown * (0.3 + 0.5 * built) + 1.0 * bloom) + lit;
         if (strength <= 0.002) continue;
         const a = p.a + turn;
         shade.copy(p.colour);
@@ -1563,8 +1577,10 @@ export function lightHall(
       crownLight.add(0, crown + 0.5, 0, 1, 1, ring, 0.04 * built + 0.25 * bloom);
       crownLight.end();
       oculus.begin();
-      oculus.add(0, apex, crownZ, 0.35, 0.35, amber, (1 - 0.9 * swelling.hush) * 0.25 * built + 1.4 * bloom);
-      oculus.add(0, apex, crownZ, 1.4, 1.4, amber, (1 - 0.9 * swelling.hush) * 0.05 * built + 0.25 * bloom);
+      // The warm eye: a hot white heart in a broad warm halo, so it reads as the light itself, never a bead or a
+      // dull ball; at the peak the heart is the brightest thing in view.
+      oculus.add(0, apex, crownZ, 0.5, 0.5, amber, (1 - 0.7 * swelling.hush) * 0.35 * built + 1.3 * bloom);
+      oculus.add(0, apex, crownZ, 3.2, 3.2, amber, (1 - 0.9 * swelling.hush) * 0.05 * built + 0.25 * bloom);
       oculus.end();
     },
   };
