@@ -1053,7 +1053,11 @@ namespace Halcyonic.XR.UI
             panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
             panel.Draw(new Vector2(panelWidth, panelHeight));
             panel.gameObject.SetActive(true);
-            panel.transform.localPosition = Vector3.zero;
+            // The panel stands where the pair's panel stands, and the bar keeps the pair's footprint (the panel, its gap and the
+            // column's width), so the plane places it as it placed the pair and every clearance it keeps holds.
+            var total = panelWidth + RoomType.Units(RoomGeometry.PairGapDp) + RoomType.Units(RoomGeometry.ColumnDp);
+            var shift = -total / 2f + panelWidth / 2f;
+            panel.transform.localPosition = new Vector3(shift, 0f, 0f);
             PanelHung = false;
             var top = panelHeight / 2f;
             var left = -panelWidth / 2f;
@@ -1078,7 +1082,7 @@ namespace Halcyonic.XR.UI
                 var action = bar.Column[index];
                 var button = column[index];
                 var width = cores[index].x;
-                var centreX = index == mainIndex ? -left - pad - width / 2f : x + width / 2f;
+                var centreX = shift + (index == mainIndex ? -left - pad - width / 2f : x + width / 2f);
                 if (index != mainIndex) x += width + KitType.Units(SpatialKit.TargetGapDegrees);
                 button.Show(action.Words, action.Icon, action.Main, available: true, new Vector2(centreX, rowY), width, action.Mark, action.Chosen,
                     0f, doing: RoomButton.Doing(action.Control), detail: action.Detail, destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
@@ -1099,11 +1103,11 @@ namespace Halcyonic.XR.UI
 
             ArrivePanel(bar);
             Foot = foot;
-            PanelRight = left + panelWidth;
-            Size = new Vector2(panelWidth, panelHeight);
+            PanelRight = shift + left + panelWidth;
+            Size = new Vector2(total, panelHeight);
             LaidPanelDp = panelWidth / unit;
             var largest = LargestAt(LaidPanelDp);
-            var passed = panelWidth > largest.x + unit * 0.5f || panelHeight > largest.y + unit * 0.5f;
+            var passed = total > largest.x + unit * 0.5f || panelHeight > largest.y + unit * 0.5f;
             if (passed && !PassedLargest)
                 Debug.LogWarning("Halcyonic: the dialog laid past the bar's largest footprint, " + (panelWidth / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
                     + " by " + (panelHeight / unit).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " dp.");
