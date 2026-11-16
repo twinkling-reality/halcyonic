@@ -91,25 +91,6 @@ namespace Halcyonic.Client
         /// <summary>What opening the character is for, in Halcyonic's words, or null when there is nothing to do.</summary>
         public string? Next { get; }
 
-        /// <summary>
-        /// The words on the card's foot, each a quiet part of its own, apart from the reason (AUDIT's 11:31Z and AUDIT2's 11:33Z: no
-        /// count or state joined to the reason on a dot): "Last Known" while the state is only the last known one, then how many
-        /// more wait behind the first. Empty where neither holds.
-        /// </summary>
-        public IReadOnlyList<string> FootParts
-        {
-            get
-            {
-                var parts = new List<string>();
-                if (Badge.LastKnown) parts.Add(LastKnown);
-                if (MoreReasons > 0) parts.Add(MoreWaiting(MoreReasons));
-                return parts;
-            }
-        }
-
-        /// <summary>How many more wait behind the first reason, said apart: "1 More Waiting", never a sign for a word.</summary>
-        public static string MoreWaiting(int more) => more.ToString(System.Globalization.CultureInfo.InvariantCulture) + " More Waiting";
-
 
         /// <summary>
         /// The reason as the card shows it: with how many more wait, "… (+1 more)", and after

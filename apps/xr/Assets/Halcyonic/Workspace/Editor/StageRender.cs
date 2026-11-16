@@ -349,6 +349,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     if (lastWords == 1) failures.Add(name + ": the peek's line \"" + shownText + "\" ends on one word alone");
                 }
+            // No two of the peek's drawn texts cross (AUDIT's 11:42Z: "Open to Answer" ran into "1 More Waiting"), each read by its
+            // drawn letters' bounds in the peek's own space.
+            if (peek != null)
+            {
+                var drawn = peek.GetComponentsInChildren<TMPro.TextMeshPro>(false).Where(each => each.textInfo.characterCount > 0).ToList();
+                Rect Box(TMPro.TextMeshPro each)
+                {
+                    var bounds = each.textBounds;
+                    var low = peek.transform.InverseTransformPoint(each.transform.TransformPoint(bounds.min));
+                    var high = peek.transform.InverseTransformPoint(each.transform.TransformPoint(bounds.max));
+                    return Rect.MinMaxRect(Mathf.Min(low.x, high.x), Mathf.Min(low.y, high.y), Mathf.Max(low.x, high.x), Mathf.Max(low.y, high.y));
+                }
+                for (var first = 0; first < drawn.Count; first++)
+                for (var second = first + 1; second < drawn.Count; second++)
+                    if (Box(drawn[first]).Overlaps(Box(drawn[second])))
+                        failures.Add(name + ": the peek's \"" + drawn[first].GetParsedText() + "\" and \"" + drawn[second].GetParsedText() + "\" draw over each other");
+            }
             failures.AddRange(GlazeChecks.Apart(apart).Select(failure => name + ": " + failure));
             for (var index = 0; index < characters.Count; index++)
             {

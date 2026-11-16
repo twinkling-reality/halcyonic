@@ -407,12 +407,14 @@ public class CharacterLabelTests
         var character = StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
             new[] { "Run Command · Run the migration", "Asks you: Which colour?" }, approvals: 1);
         var peek = PeekCard.Of(Workspace(character));
-        Assert.That(peek.FootParts, Is.EqualTo(new[] { "1 More Waiting" }), "the count stands apart from the reason, in words");
+        Assert.That(peek.MoreLine, Is.EqualTo("1 More Waiting"), "the count stands apart from the reason, in words");
         Assert.That(peek.Reason, Does.Not.Contain("More"), "the reason carries only the reason");
         var stale = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
             new[] { "Approval Requested" }, approvals: 1, stale: true)));
-        Assert.That(stale.FootParts, Is.EqualTo(new[] { PeekCard.LastKnown }));
-        Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working))).FootParts, Is.Empty);
+        Assert.That(stale.LastKnownLine, Is.EqualTo(PeekCard.LastKnown));
+        var live = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working)));
+        Assert.That(live.MoreLine, Is.Null);
+        Assert.That(live.LastKnownLine, Is.Null);
     }
 
     [Test]

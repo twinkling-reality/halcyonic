@@ -29,6 +29,7 @@ namespace Halcyonic.XR.UI
         private TextMeshPro markLine = null!;
         private TextMeshPro next = null!;
         private readonly List<TextMeshPro> feet = new List<TextMeshPro>();
+        private TextMeshPro probe = null!;
 
         /// <summary>The gap between the foot's quiet parts, in degrees.</summary>
         private const float FootGapDegrees = 0.5f;
@@ -58,6 +59,8 @@ namespace Halcyonic.XR.UI
             view.markLine = GlazeText.Create(go.transform, "Mark line", GlazeType.Caption, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Simulated).Foreground),
                 TextAlignmentOptions.TopLeft, 2, scaled: true);
             view.next = GlazeText.Create(go.transform, "Next", GlazeType.Caption, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, 2, scaled: true);
+            view.probe = GlazeText.Create(go.transform, "Foot measure", GlazeType.Caption, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, 2, scaled: true);
+            view.probe.gameObject.SetActive(false);
             return view;
         }
 
@@ -112,13 +115,27 @@ namespace Halcyonic.XR.UI
             }
             y = rowBottom;
 
-            y = Line(reason, peek.Reason, PeekCard.ReasonLines, left, content, y, gap);
+            y = Line(reason, peek.ReasonLine, PeekCard.ReasonLines, left, content, y, gap);
             y = Line(markLine, peek.MarkLine ?? "", 2, left, content, y, gap);
             // The foot row: what opening is for at its left, and what waits behind the reason apart at its right, each a quiet
             // part of its own, right to left (AUDIT's 11:31Z: never joined to the reason on a dot).
             var footTop = y - gap;
             y = Line(next, peek.Next ?? "", 1, left, content, y, gap);
-            var parts = peek.FootParts;
+            var parts = new List<string>();
+            if (peek.LastKnownLine is string lastKnown) parts.Add(lastKnown);
+            if (peek.MoreLine is string more) parts.Add(more);
+            // Beside what opening is for where both fit with a gap between; else on a row of their own under it, never over it
+            // (AUDIT's 11:42Z: "Open to Answer" ran into "1 More Waiting" at the larger size).
+            var nextWide = next.gameObject.activeSelf ? Mathf.Min(content, next.textBounds.size.x) : 0f;
+            var partsWide = 0f;
+            foreach (var each in parts)
+            {
+                GlazeText.SetLiteral(probe, each);
+                GlazeText.Lay(probe, content, 1);
+                partsWide += Mathf.Min(content, probe.textBounds.size.x) + GlazeTokens.Units(FootGapDegrees);
+            }
+            probe.gameObject.SetActive(false);
+            if (parts.Count > 0 && next.gameObject.activeSelf && nextWide + partsWide > content) footTop = y - gap;
             var right = left + content;
             var footBottom = y;
             for (var index = 0; index < feet.Count || index < parts.Count; index++)
@@ -194,7 +211,9 @@ namespace Halcyonic.XR.UI
                 if (!mended) (lines, _) = GlazeText.Lay(label, width, laidLines);
                 else lines = label.textInfo.lineCount;
             }
-            label.transform.localPosition = new Vector3(left + width / 2f, top, -0.001f);
+            // Its left edge on the card's text edge whatever measure it took: a narrowed line narrows from its right only (AUDIT's
+            // 11:42Z: the demo line stood indented).
+            label.transform.localPosition = new Vector3(left + label.rectTransform.sizeDelta.x / 2f, top, -0.001f);
             return top - lines * GlazeText.LineHeight(label);
         }
     }
