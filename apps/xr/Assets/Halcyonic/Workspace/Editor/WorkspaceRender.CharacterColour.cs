@@ -32,14 +32,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                     var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "CharacterColourRenders", variant));
                     Directory.CreateDirectory(folder);
-                    // The colour panel is a side panel the file's own views draw, the kit's fallback: the kit stands aside.
-                    return KitAside(() => RenderCharacterColour(folder));
+                    // Ruling (a), 2026-11-16T01:42Z: colour is drawn wholly under the product's design, the redesign with the kit, as
+                    // every player build draws it (MenuDirector.Spatial's one rule: a local overlay's frame goes to the kit too).
+                    return RenderCharacterColour(folder);
                 }));
             }
             catch (Exception error)
             {
                 var cause = error.GetBaseException();
                 failures.Add("colour fixture threw " + cause.GetType().Name + ": " + cause.Message);
+                Debug.LogError("Halcyonic: character colour: where it threw: " + cause.StackTrace);
             }
             finally
             {
@@ -57,6 +59,8 @@ namespace Halcyonic.XR.Workspace.Editor
             // AppearanceControls reads these typed string preferences; only its colour save writes one.
             var preferences = new[] { "halcyonic.character-colours", "halcyonic.appearance" }
                 .Select(key => (Key: key, Had: PlayerPrefs.HasKey(key), Value: PlayerPrefs.GetString(key, ""))).ToArray();
+            var designWas = RoomDesign.Enabled; var kitWas = KitWorkspaceHost.Enabled;
+            RoomDesign.Enabled = true; KitWorkspaceHost.Enabled = true;
             var root = new GameObject("Synthetic colour flow with real character");
             var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
             var images = new List<Texture2D>();
@@ -107,33 +111,98 @@ namespace Halcyonic.XR.Workspace.Editor
                     CharacterOf = id => presentation.AgentsVisible ? targets.FirstOrDefault(target => target.View.WorkstreamId == id) : null,
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, presentation.AgentsVisible ? targets : new List<CharacterTarget>(), null, false),
                 });
-                void Draw() { for (var pass = 0; pass < 4; pass++) { director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds); } }
-                void Press(string action, string? key = null)
+                void Draw()
                 {
-                    Draw();
+                    for (var pass = 0; pass < 4; pass++)
+                    {
+                        director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds);
+                        if (director.Plane.KitShows) { director.Plane.Kit.SettleForRender(); director.Plane.Kit.DrawnForRender(); }
+                    }
+                }
+                // The kit's drawn control for an action: a bar button, else a row of the card that carries the press.
+                KitPress? DrawnPress(string action, string? key)
+                    => !director.Plane.KitShows ? null : director.Plane.Kit.Bar.Button(action, key)?.Press ?? director.Plane.Kit.Bar.Row(action, key);
+                // The way into the panel from the frame of record, a page at a time as the file's own pager turns: only for the
+                // one route the redesign does not draw yet (the lead's ruling B, 2026-11-16T03:03Z).
+                bool OpenThroughRecord(string action)
+                {
                     for (var page = 0; page < 8; page++)
                     {
                         var current = director.Plane.Shown.LastOrDefault(each => each.View.Frame is MenuFrame frame
-                            && (frame.Footer.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available)
-                                || frame.Lines.Any(line => line.Action == action && line.Key == key && line.Available)));
-                        if (current.View != null) break;
+                            && frame.Lines.Any(line => line.Action == action && line.Available));
+                        if (current.View != null) return director.PressForRender(current.Kind, action, null, current.View.Frame, null);
+                        if (file?.Frame is MenuFrame record && record.Lines.Any(line => line.Action == action && line.Available))
+                            return director.PressForRender(MenuColumn.File, action, null, record, null);
                         var paged = director.Plane.Shown.LastOrDefault(each => each.View.Frame is MenuFrame frame
                             && (frame.Footer.All.Any(slot => slot.Prompt.Id == Footer.NextPage && slot.Prompt.Available)
                                 || frame.Lines.Any(line => line.Action == Footer.NextPage && line.Available)));
-                        if (paged.View == null || !director.PressForRender(paged.Kind, Footer.NextPage, null, paged.View.Frame, null)) break;
-                        Draw();
+                        if (paged.View != null && director.PressForRender(paged.Kind, Footer.NextPage, null, paged.View.Frame, null)) { Draw(); continue; }
+                        if (file?.Frame is MenuFrame turn && (turn.Footer.All.Any(slot => slot.Prompt.Id == Footer.NextPage && slot.Prompt.Available)
+                                || turn.Lines.Any(line => line.Action == Footer.NextPage && line.Available))
+                            && director.PressForRender(MenuColumn.File, Footer.NextPage, null, turn, null)) { Draw(); continue; }
+                        return false;
                     }
-                    var shown = director.Plane.Shown.LastOrDefault(each => each.View.Frame is MenuFrame frame
-                        && (frame.Footer.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available)
-                            || frame.Lines.Any(line => line.Action == action && line.Key == key && line.Available)));
-                    if (shown.View == null || !director.PressForRender(shown.Kind, action, key, shown.View.Frame, null))
-                        failures.Add("no current drawn colour control accepted " + action);
+                    return false;
+                }
+                void Press(string action, string? key = null)
+                {
+                    Draw();
+                    var drawn = DrawnPress(action, key);
+                    // Further pages through the kit's own drawn pager, as a person turns them.
+                    for (var page = 0; drawn == null && page < 8; page++)
+                    {
+                        var next = DrawnPress(Footer.NextPage, null) ?? director.Plane.Kit.Bar.BandNextButton?.Press;
+                        if (!director.Plane.KitShows || next == null) break;
+                        next.SettleForRender(); next.PressForRender(990); Draw();
+                        drawn = DrawnPress(action, key);
+                    }
+                    if (drawn == null && action == FileScreens.OpenCharacterColour)
+                    {
+                        // RULING B: the one named gap. Under the redesign no drawn control opens the colour panel yet (the film batch's
+                        // routes); the check says so, opens it through the frame of record, and holds the panel the kit draws to every
+                        // check. Once a drawn control exists this branch is never taken, and the press above is the person's.
+                        Debug.Log("Halcyonic: character colour: not reached here: no drawn control opens the colour panel under the redesign ("
+                            + action + "); opened through the frame of record, every check run on the panel the kit draws");
+                        if (!OpenThroughRecord(action)) failures.Add("neither a drawn control nor the frame of record opens " + action);
+                        Draw();
+                        return;
+                    }
+                    if (drawn == null)
+                    {
+                        // Say whether the frame of record offers it, so a control the kit does not draw is told from one not offered.
+                        var offered = director.Plane.Shown.Any(each => each.View.Frame is MenuFrame frame
+                            && (frame.Footer.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available)
+                                || frame.Lines.Any(line => line.Action == action && (key == null || line.Key == key) && line.Available)))
+                            || file?.Frame is MenuFrame record && record.Lines.Any(line => line.Action == action && (key == null || line.Key == key) && line.Available);
+                        var reader = director.Plane.KitShows ? director.Plane.Kit.Bar.Shown?.GetType().Name ?? "no bar" : "no kit";
+                        failures.Add("the kit draws no colour control for " + action + (key == null ? "" : " " + key)
+                            + " (the frame of record " + (offered ? "offers it" : "does not offer it") + "; the bar shows " + reader + ")");
+                        return;
+                    }
+                    drawn.SettleForRender(); drawn.PressForRender(990);
                     Draw();
                 }
+                // Each shot is held to the redesign's frame checks, as the judge room's moments are (every word whole, inside the
+                // Quest 3S field, at least 4.5:1), and fails where any older view draws: under ruling (a) colour is drawn wholly by
+                // the kit, so the older plane's own geometry checks (SpatialState) have nothing of it to measure.
                 Texture2D Shot(string step)
                 {
-                    Draw(); failures.AddRange(SpatialState("colour " + step, folder, root, camera, texture, director, characters, eyes));
-                    var image = Render(camera, texture); images.Add(image); return image;
+                    Draw();
+                    foreach (var button in root.GetComponentsInChildren<RoomButton>(false)) button.Settle();
+                    foreach (var band in root.GetComponentsInChildren<RoomBand>(false)) band.Settle();
+                    ForceMeshes(root);
+                    var image = Render(camera, texture); images.Add(image);
+                    File.WriteAllBytes(Path.Combine(folder, "colour-" + step.Replace(' ', '-') + ".png"), image.EncodeToPNG());
+                    failures.AddRange(RoomFrameChecks(root, camera, image, eyes, director.Plane).Select(each => "colour " + step + ": " + each));
+                    var shelf = characters.Count > 0 ? characters[0].View.transform.parent : null;
+                    var older = root.GetComponentsInChildren<Renderer>(false)
+                        .Where(renderer => renderer.enabled && (shelf == null || !renderer.transform.IsChildOf(shelf)))
+                        .Select(renderer => OwnerOf(renderer.transform))
+                        .Where(owner => owner != null && !owner.StartsWith("Room", StringComparison.Ordinal) && !owner.StartsWith("Character", StringComparison.Ordinal))
+                        .Distinct().OrderBy(owner => owner, StringComparer.Ordinal).ToList();
+                    if (older.Count > 0) failures.Add("colour " + step + ": the older view draws " + string.Join(", ", older));
+                    Debug.Log("Halcyonic: colour: " + step + ": drawn by the kit" + (older.Count > 0 ? ", and by the older view: " + string.Join(", ", older) : " alone"));
+                    return image;
                 }
                 // Fit the explicit optional body beside the selected task, not the wider project chooser.
                 Draw(); director.OpenFile(ResultsTask); Draw();
@@ -141,11 +210,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The shelf is placed as a person places it (the lead's 2026-11-14T07:12Z ruling 1; JUDGE's readE5, XR's and AUDIT's
                 // 07:32Z): under the redesign with the kit, so the plane's console and ClearsShelf are the product's keep-out at rest
                 // (17.9 degrees either side at Larger), never the older view's widest file column (31.8) that no person meets. The
-                // colour panel itself is still the file's own view, with the kit aside, as before.
-                var designWas = RoomDesign.Enabled; var kitWas = KitWorkspaceHost.Enabled;
-                RoomDesign.Enabled = true; KitWorkspaceHost.Enabled = true;
+                // colour panel is drawn by the kit too (ruling (a)).
                 (CharacterView View, CharacterTarget Target) agent;
-                try
                 {
                     if (director.Plane.ConsoleExtentFrom(eyes) is ConsoleExtent keptClear)
                         Debug.Log("Halcyonic: colour: placing at text size " + GlazeText.Scale.ToString("0.##") + ", the search keeps clear of the console "
@@ -154,7 +220,6 @@ namespace Halcyonic.XR.Workspace.Editor
                             + GlazeChecks.Degrees(keptClear.BottomElevation) + " up; clearance " + GlazeChecks.Degrees(WorkspacePlacement.ClearanceDegrees) + " degrees");
                     agent = ConfirmedDirectorAgent(root.transform, director, eyes, Present().Character, failures, "colour");
                 }
-                finally { RoomDesign.Enabled = designWas; KitWorkspaceHost.Enabled = kitWas; }
                 var placedExtent = GlazeChecks.Of("the colour shelf", eyes, agent.View.transform.parent.GetComponentsInChildren<Renderer>(false));
                 Debug.Log("Halcyonic: colour: the shelf placed stands " + GlazeChecks.Degrees(placedExtent.Left) + " to " + GlazeChecks.Degrees(placedExtent.Right)
                     + " across, " + GlazeChecks.Degrees(placedExtent.Bottom) + " to " + GlazeChecks.Degrees(placedExtent.Top) + " up, inside the field");
@@ -226,6 +291,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 finally
                 {
+                    RoomDesign.Enabled = designWas; KitWorkspaceHost.Enabled = kitWas;
                     foreach (var preference in preferences)
                         if (preference.Had) PlayerPrefs.SetString(preference.Key, preference.Value); else PlayerPrefs.DeleteKey(preference.Key);
                     PlayerPrefs.Save();
