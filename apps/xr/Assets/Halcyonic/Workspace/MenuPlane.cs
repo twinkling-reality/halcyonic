@@ -1189,6 +1189,10 @@ namespace Halcyonic.XR.Workspace
             }
             // A project's screen and its bar stand in the room where ShowScreen stood them, never on the console's curve.
             if (room != null) curvedBodies.Add(room);
+            // The redesign's plates are flat glass (RoomSurface, which the curve never bends): its words and targets stand flat on
+            // them too, never bent round the console's curve (JUDGE's 06:17Z: the notice's words drawn 2 cm nearer the eye than
+            // their plate, and off it up and left, at every recorded moment).
+            if (RoomDesign.Enabled && Kit != null) curvedBodies.Add(Kit.transform);
             Curved.Refresh(curvedBodies);
             DrawTargetsOnCurve();
         }
