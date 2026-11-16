@@ -684,7 +684,7 @@ export function openLand(
   // The sky, worked out at every pixel; its under side the ground's own colour at its rim, so nothing shows where the
   // ground ends. The sun stands 5 degrees up, just clear of the far dunes.
   rim.multiplyScalar(1 / around);
-  const sunUp = 0.05;
+  const sunUp = 0.1;
   const sunDir = new Vector3(Math.sin(sunAt) * Math.cos(sunUp), Math.sin(sunUp), -Math.cos(sunAt) * Math.cos(sunUp));
   const air = airSky({ top, middle, horizon, below: rim, sun: sunColour }, sunDir, 120);
   group.add(air.mesh);

@@ -38,19 +38,28 @@ export function isVideo(url: string): boolean {
   return VIDEO.test(url);
 }
 
+// One video per file, shared by the colours' reading and the window, so the window has its picture the moment the
+// place is built and the file is decoded once.
+const videos = new Map<string, Promise<HTMLVideoElement>>();
+
 function loadedVideo(url: string): Promise<HTMLVideoElement> {
+  const known = videos.get(url);
+  if (known !== undefined) return known;
   const video = document.createElement('video');
   video.muted = true;
   video.loop = true;
   video.playsInline = true;
   video.crossOrigin = 'anonymous';
   video.preload = 'auto';
-  return new Promise((resolve, reject) => {
+  const loading = new Promise<HTMLVideoElement>((resolve, reject) => {
     video.addEventListener('loadeddata', () => resolve(video), { once: true });
     video.addEventListener('error', () => reject(new Error(`the video ${url} did not load`)), { once: true });
     video.src = url;
     video.load();
   });
+  videos.set(url, loading);
+  loading.catch(() => videos.delete(url));
+  return loading;
 }
 
 function seek(video: HTMLVideoElement, seconds: number): Promise<void> {
@@ -131,8 +140,7 @@ async function read(url: string, options: { hour?: Hour }): Promise<PictureColou
     const video = await loadedVideo(url);
     await seek(video, Math.min(2, (video.duration || 0) * 0.1));
     const { data, w, h } = pixelsOf(video, video.videoWidth, video.videoHeight);
-    video.removeAttribute('src');
-    video.load();
+    // Kept loaded: the window shows this same video.
     return pictureColours(data, w, h, options);
   }
   const image = await loadedImage(url);
@@ -179,7 +187,7 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
   const lift = options.lift;
   const group = new Group();
   group.visible = false;
-  const face = new MeshBasicMaterial({ color: options.tint ?? '#B98C80', toneMapped: false, transparent: true, opacity: 0 });
+  const face = new MeshBasicMaterial({ color: options.tint ?? '#C2876F', toneMapped: false, transparent: true, opacity: 0 });
   // A frame of dark warm wood with some depth to it; its edge is lit by a soft warm rim of light, never a line.
   const frame = new MeshBasicMaterial({ color: '#3A2A20', toneMapped: false, transparent: true, opacity: 0 });
   const body = new Group();
