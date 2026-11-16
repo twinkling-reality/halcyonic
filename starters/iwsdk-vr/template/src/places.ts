@@ -16,6 +16,7 @@ import {
   RGBAFormat,
   SphereGeometry,
   SRGBColorSpace,
+  Vector3,
 } from 'three';
 import { glows } from './glow.js';
 import { landShape } from './memory.js';
@@ -183,7 +184,10 @@ export interface LandColours {
 export function openLand(
   colours: LandColours,
   options: { swell?: number; crest?: number; sun?: number; grains?: number; stars?: number; seed?: number } = {},
-): Place & { height(x: number, z: number): number } {
+): Place & {
+  height(x: number, z: number): number;
+  light(x: number, y: number, z: number, colour: Color, strength: number): void;
+} {
   const group = new Group();
   const top = new Color(colours.top);
   const middle = new Color(colours.middle);
@@ -354,12 +358,17 @@ export function openLand(
   geometry.setAttribute('color', new Float32BufferAttribute(tints, 3));
   geometry.setIndex(index);
   const sand = new MeshBasicMaterial({ vertexColors: true, toneMapped: false, dithering: true });
+  // Where a light near the sand is this frame, and its colour times its strength (none until one is given).
+  const lampAt = new Vector3(0, -1000, 0);
+  const lampColour = new Vector3(0, 0, 0);
   // The near sand's picture, a fine grain and a sheen toward the low sun, in the ground's own shader (no extra draw
   // call).
   sand.onBeforeCompile = (shader) => {
     shader.uniforms.sandNear = { value: nearPicture };
     shader.uniforms.sandRipples = { value: ripples };
     shader.uniforms.sandWind = { value: [wx, wz] };
+    shader.uniforms.sandLamp = { value: lampAt };
+    shader.uniforms.sandLampColour = { value: lampColour };
     shader.uniforms.sandSpan = { value: span };
     shader.uniforms.sandSun = { value: [Math.sin(sunAt), -Math.cos(sunAt)] };
     shader.uniforms.sandSheen = { value: [sunColour.r, sunColour.g, sunColour.b] };
@@ -367,7 +376,7 @@ export function openLand(
       .replace('void main() {', 'varying vec3 vSand;\nvoid main() {')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSand = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nvarying vec3 vSand;\nvoid main() {')
+      .replace('void main() {', 'uniform sampler2D sandNear;\nuniform sampler2D sandRipples;\nuniform vec2 sandWind;\nuniform vec3 sandLamp;\nuniform vec3 sandLampColour;\nuniform float sandSpan;\nuniform vec2 sandSun;\nuniform vec3 sandSheen;\nvarying vec3 vSand;\nvoid main() {')
       .replace(
         '#include <opaque_fragment>',
         `{
@@ -393,6 +402,9 @@ export function openLand(
     float toward = max(0.0, dot(normalize(look.xz), sandSun));
     float graze = 1.0 - abs(normalize(look).y);
     outgoingLight += sandSheen * pow(toward, 3.0) * graze * graze * 0.1;
+    // A light near the sand (a window's own), warming it in a pool that is gone within a few metres.
+    float lampDistance = length(sandLamp - vSand);
+    outgoingLight += sandLampColour * (0.5 / (1.0 + lampDistance * lampDistance * 0.9)) * (1.0 - smoothstep(2.0, 5.0, lampDistance));
   }
   #include <opaque_fragment>`,
       );
@@ -454,6 +466,11 @@ export function openLand(
     horizon,
     // The ground's height at any point, to stand things on it (a window on a crest).
     height,
+    // One light near the sand for this frame (a window's own): it warms the sand round (x, y, z).
+    light(x, y, z, colour, strength) {
+      lampAt.set(x, y, z);
+      lampColour.set(colour.r * strength, colour.g * strength, colour.b * strength);
+    },
     move(time) {
       glow.begin();
       glow.add(sx, sy, sz, 6.4, 6.4, sunColour, 0.6 + 0.03 * Math.sin(time * 0.4));

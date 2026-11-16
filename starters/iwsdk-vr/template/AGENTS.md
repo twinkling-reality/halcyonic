@@ -242,10 +242,10 @@ A place from the person's own photo or video (somewhere they were, a view they l
   Use it as any place: `setupScene(world, colours.top)`, its `group` added, its `move` to `ambientMotion`, the same
   colour in `index.html`'s `background`.
 - `const shown = pictureWindow('/media/<file>', { width: 2.4 })` shows the photo or video itself on a window in the
-  place: stand it on the sand four to six metres off, on the other side of the view from the sun, with
-  `shown.standOn(land, x, z)` (upright on two slim posts down to the sand, turned to the person), add its
-  `group` and pass its `move` to `ambientMotion`. A video plays by itself, muted and looping; the window stays hidden
-  until its first frame is ready, then fades in. One window is enough.
+  place: float it over the sand four to six metres off, on the other side of the view from the sun, with
+  `shown.standOn(land, x, z)` (it floats just over the sand, turned to the person, and its own light falls on the sand
+  in front of it), add its `group` and pass its `move` to `ambientMotion`. A video plays by itself, muted and looping;
+  the window stays hidden until its first frame is ready, then fades in. One window is enough.
 - `startAmbience({ wind: 0.35 }, ambientMotion)` gives the place its wind. Music from `playScore` as above, quiet
   under it, if the person asks for music.
 

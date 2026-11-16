@@ -1,7 +1,6 @@
 import {
   BoxGeometry,
-  CircleGeometry,
-  Float32BufferAttribute,
+  Color,
   Group,
   LinearFilter,
   LinearMipmapLinearFilter,
@@ -13,6 +12,7 @@ import {
   VideoTexture,
   CanvasTexture,
 } from 'three';
+import { glows } from './glow.js';
 import { type Hour, type PictureColours, pictureColours } from './memory.js';
 
 /**
@@ -23,6 +23,15 @@ import { type Hour, type PictureColours, pictureColours } from './memory.js';
  */
 
 const VIDEO = /\.(mp4|m4v|webm|mov)(\?|#|$)/i;
+
+/** Whether `url` is the app's own file: a picture from anywhere else is never fetched from the person's headset. */
+function sameOrigin(url: string): boolean {
+  try {
+    return new URL(url, location.href).origin === location.origin;
+  } catch {
+    return false;
+  }
+}
 
 /** Whether `url` names a video, by its ending. */
 export function isVideo(url: string): boolean {
@@ -109,9 +118,11 @@ function pixelsOf(source: CanvasImageSource, width: number, height: number) {
  * ('dusk': a deep blue overhead, a warm low glow, a dim ground). A video is read a tenth of the way in (at most 2 s),
  * past a first frame that may be dark. Wait for it before building the place, so the place never changes colour
  * once it shows. A JPEG, PNG or WebP photo or an MP4 video reads; one that cannot be read (a HEIC photo, a missing
- * file) or takes over 6 s answers with the kit's own dusk instead, so the place is still built.
+ * file, a file from another site, which is never fetched) or takes over 6 s answers with the kit's own dusk instead, so
+ * the place is still built.
  */
 export function coloursOfPicture(url: string, options: { hour?: Hour } = {}): Promise<PictureColours> {
+  if (!sameOrigin(url)) return Promise.resolve(DUSK);
   return within(read(url, options), 6, DUSK);
 }
 
@@ -129,55 +140,61 @@ async function read(url: string, options: { hour?: Hour }): Promise<PictureColou
   return pictureColours(data, w, h, options);
 }
 
+/** Ground a window can stand over: its height anywhere, and, if it has one, a light it lets the window cast on it. */
+export interface WindowGround {
+  height(x: number, z: number): number;
+  light?(x: number, y: number, z: number, colour: Color, strength: number): void;
+}
+
 /** A picture on a window in the scene. */
 export interface PictureWindow {
-  /** What to add to the scene: the window, its frame and the two posts it stands on. Place and turn it as a whole. */
+  /** What to add to the scene: the window, its frame and its soft glow. Place and turn it as a whole. */
   readonly group: Group;
   /** False until the picture's first frame is ready; the window is hidden until then, never half drawn. */
   readonly ready: boolean;
   /** How tall the picture is, in metres, once ready (its width is the `width` given). */
   readonly height: number;
   /**
-   * Stands the window on its two posts on `ground` (a place with a `height(x, z)`, such as `openLand`'s) at (x, z),
-   * upright and turned to the person at the origin, each post down to the sand under it, the window's lower edge
-   * `lift` metres above the middle of the two (stand it where the sand is fairly level).
+   * Floats the window over `ground` (a place with a `height(x, z)`, such as `openLand`'s) at (x, z), upright and turned
+   * to the person at the origin, its lower edge `lift` metres over the sand under it; if the ground takes light, the
+   * window's own light falls on it in front, warm or cool, bright or dim as the picture is.
    */
-  standOn(ground: { height(x: number, z: number): number }, x: number, z: number): void;
-  /** Fades the window in once ready; pass it to `ambientMotion`. */
+  standOn(ground: WindowGround, x: number, z: number): void;
+  /** Fades the window in once ready and keeps its light on the sand; pass it to `ambientMotion`. */
   move(time: number): void;
 }
 
 /**
- * The photo or video at `url` on a window `width` metres wide (1.6 by default), its height from the picture's own
- * shape, in a thin dark frame on two slim posts that hold its lower edge `lift` metres above the ground (0.2), its
- * picture seen through `tint` (a warm dim light by default, so a daytime picture sits in a dusk place; '#FFFFFF' for
- * none). A
- * video plays by itself, muted and looping (a browser that holds it back until the person's first press plays it
- * then, as the starter's sound does). Stand it in the place a few metres off, turned to the person:
- * `standOn(place, x, z)`.
+ * The photo or video at `url` floating on a window `width` metres wide (1.6 by default), its height from the
+ * picture's own shape, in a thin dark frame, its edges glowing softly in the picture's own colour, its lower edge
+ * `lift` metres over the ground (0.45), the picture seen through `tint` (a warm dim light by default, so a daytime
+ * picture sits in a dusk place; '#FFFFFF' for none). A video plays by itself, muted and looping (a browser that holds
+ * it back until the person's first press plays it then, as the starter's sound does). Float it in the place a few
+ * metres off, turned to the person: `standOn(place, x, z)`.
  */
 export function pictureWindow(url: string, options: { width?: number; lift?: number; tint?: string } = {}): PictureWindow {
   const width = options.width ?? 1.6;
-  const lift = options.lift ?? 0.2;
+  const lift = options.lift ?? 0.45;
   const group = new Group();
   group.visible = false;
   const face = new MeshBasicMaterial({ color: options.tint ?? '#C49E84', toneMapped: false, transparent: true, opacity: 0 });
-  // Weathered wood, darkened by the dusk.
-  const frame = new MeshBasicMaterial({ color: '#4A3A2C', toneMapped: false, transparent: true, opacity: 0 });
-  const posts = [new Mesh(new BoxGeometry(0.09, 1, 0.09), frame), new Mesh(new BoxGeometry(0.09, 1, 0.09), frame)];
+  const frame = new MeshBasicMaterial({ color: '#2C221C', toneMapped: false, transparent: true, opacity: 0 });
   const body = new Group();
-  // Where each post goes into the sand, the sand a little darker round it, softly.
-  const meeting = new CircleGeometry(0.16, 20);
-  meeting.rotateX(-Math.PI / 2);
-  const fade: number[] = [];
-  const at = meeting.getAttribute('position');
-  for (let i = 0; i < at.count; i++) fade.push(0, 0, 0, Math.hypot(at.getX(i), at.getZ(i)) < 0.01 ? 0.5 : 0);
-  meeting.setAttribute('color', new Float32BufferAttribute(fade, 4));
-  const dark = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, toneMapped: false });
-  const marks = [new Mesh(meeting, dark), new Mesh(meeting, dark)];
-  group.add(body, ...posts, ...marks);
-  // Where the posts meet the ground, as heights under each, once the window is stood on something.
-  const feet = [0, 0];
+  group.add(body);
+  // The picture's own light: its mean colour, read from it now and then, for the glow round its edges and the light
+  // it casts on the sand.
+  const glow = glows(1, { halo: 0.22, round: 0.2, core: 0 });
+  glow.object.position.z = -0.05;
+  body.add(glow.object);
+  const own = new Color('#FFD9B0');
+  const sample = document.createElement('canvas');
+  sample.width = 8;
+  sample.height = 8;
+  const sampler = sample.getContext('2d', { willReadFrequently: true });
+  let sampledAt = -1;
+  let source: CanvasImageSource | null = null;
+  let ground: WindowGround | null = null;
+  const at = { x: 0, y: 0, z: 0, turn: 0 };
   let video: HTMLVideoElement | null = null;
   let height = width * (9 / 16);
   let ready = false;
@@ -192,7 +209,7 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
     });
   };
 
-  const build = (texture: Texture, w: number, h: number) => {
+  const build = (texture: Texture, w: number, h: number, from: CanvasImageSource) => {
     texture.colorSpace = SRGBColorSpace;
     // A video changes every frame: no mipmaps. A photo seen smaller than itself shimmers without them.
     const still = !(texture instanceof VideoTexture);
@@ -202,43 +219,35 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
     texture.needsUpdate = true;
     face.map = texture;
     face.needsUpdate = true;
+    source = from;
     height = (width * h) / Math.max(1, w);
     const border = Math.min(width, height) * 0.015;
-    // The frame well behind the picture, and drawn first, so the two never fight for the same pixels.
-    // A frame with some depth to it, a few centimetres deep.
-    const back = new Mesh(new BoxGeometry(width + border * 2, height + border * 2, 0.05), frame);
-    back.position.set(0, border + height / 2, -0.03);
+    // A thin frame with a little depth, well behind the picture and drawn first, so the two never fight for pixels.
+    const back = new Mesh(new BoxGeometry(width + border * 2, height + border * 2, 0.03), frame);
+    back.position.set(0, height / 2, -0.025);
     back.renderOrder = -0.1;
     const picture = new Mesh(new PlaneGeometry(width, height), face);
-    picture.position.set(0, border + height / 2, 0);
+    picture.position.set(0, height / 2, 0);
+    glow.object.position.y = 0;
     body.add(back, picture);
     ready = true;
-    layout();
+    place();
   };
-  // The window's lower edge `lift` above the middle of its two feet; each post from 5 cm under its own foot up to the frame's
-  // middle, behind it.
-  function layout() {
-    const base = ((feet[0] as number) + (feet[1] as number)) / 2 + lift;
-    body.position.y = base;
-    for (let i = 0; i < 2; i++) {
-      const post = posts[i] as Mesh;
-      const foot = (feet[i] as number) - 0.05;
-      const top = base + height / 2;
-      post.scale.y = top - foot;
-      post.position.set((i === 0 ? -1 : 1) * width * 0.36, (top + foot) / 2, -0.05);
-      (marks[i] as Mesh).position.set((i === 0 ? -1 : 1) * width * 0.36, (feet[i] as number) + 0.015, -0.05);
-    }
+  // Over the sand under the window's middle, the lower edge `lift` above it.
+  function place() {
+    if (ground === null) return;
+    body.position.y = ground.height(at.x, at.z) + lift;
   }
 
-  if (isVideo(url)) {
+  if (sameOrigin(url) && isVideo(url)) {
     loadedVideo(url)
       .then((v) => {
         video = v;
-        build(new VideoTexture(v), v.videoWidth, v.videoHeight);
+        build(new VideoTexture(v), v.videoWidth, v.videoHeight, v);
         play();
       })
       .catch(() => {});
-  } else {
+  } else if (sameOrigin(url)) {
     loadedImage(url)
       .then((image) => {
         // A phone's photo is far larger than a window needs: at most 2048 on its longer side.
@@ -247,7 +256,7 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
         canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
         canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
         canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
-        build(new CanvasTexture(canvas), canvas.width, canvas.height);
+        build(new CanvasTexture(canvas), canvas.width, canvas.height, canvas);
       })
       .catch(() => {});
   }
@@ -260,16 +269,14 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
     get height() {
       return height;
     },
-    standOn(ground, x, z) {
-      const turn = Math.atan2(-x, -z);
+    standOn(on, x, z) {
+      ground = on;
+      at.x = x;
+      at.z = z;
+      at.turn = Math.atan2(-x, -z);
       group.position.set(x, 0, z);
-      group.rotation.set(0, turn, 0);
-      // The posts stand at +-0.36 of the width along the window's own x, which points along (cos turn, -sin turn).
-      for (let i = 0; i < 2; i++) {
-        const side = (i === 0 ? -1 : 1) * width * 0.36;
-        feet[i] = ground.height(x + side * Math.cos(turn), z - side * Math.sin(turn));
-      }
-      layout();
+      group.rotation.set(0, at.turn, 0);
+      place();
     },
     move(time: number) {
       if (!ready) return;
@@ -281,13 +288,42 @@ export function pictureWindow(url: string, options: { width?: number; lift?: num
         shownAt = time;
         group.visible = true;
       }
-      if (face.opacity >= 1) return;
       const fade = Math.min(1, (time - shownAt) / 1.2);
       const eased = fade * fade * (3 - 2 * fade);
-      face.opacity = eased;
-      frame.opacity = eased;
-      face.transparent = eased < 1;
-      frame.transparent = eased < 1;
+      if (face.opacity < 1) {
+        face.opacity = eased;
+        frame.opacity = eased;
+        face.transparent = eased < 1;
+        frame.transparent = eased < 1;
+      }
+      // The picture's light, read from 8 by 8 of it a few times a second (a video's changes as it plays).
+      if (sampler !== null && source !== null && time - sampledAt > 0.4) {
+        sampledAt = time;
+        try {
+          sampler.drawImage(source, 0, 0, 8, 8);
+          const data = sampler.getImageData(0, 0, 8, 8).data;
+          let r = 0;
+          let g = 0;
+          let b = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            r += data[i] as number;
+            g += data[i + 1] as number;
+            b += data[i + 2] as number;
+          }
+          own.setRGB(r / 16320, g / 16320, b / 16320, SRGBColorSpace).multiply(face.color);
+        } catch {
+          // A picture the canvas cannot read keeps its last light.
+        }
+      }
+      glow.begin();
+      glow.add(0, height / 2, 0, width, height, own, 0.14 * eased);
+      glow.end();
+      if (ground?.light !== undefined) {
+        // Its light on the sand a metre in front of it, toward the person.
+        const fx = at.x + Math.sin(at.turn);
+        const fz = at.z + Math.cos(at.turn);
+        ground.light(fx, ground.height(fx, fz) + 0.6, fz, own, eased);
+      }
     },
   };
 }
