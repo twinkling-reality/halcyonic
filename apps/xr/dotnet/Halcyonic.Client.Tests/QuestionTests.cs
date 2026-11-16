@@ -92,13 +92,13 @@ public class QuestionTests
         var work = new AskingWork();
         var workspace = work.Present();
         Assert.That(workspace.Character.StatusLabel, Is.EqualTo("Needs You"));
-        Assert.That(PeekCard.Of(workspace).ReasonLine, Is.EqualTo("Agent · Question · 2 Questions · Colour scheme; Pages"),
+        Assert.That(PeekCard.Of(workspace).ReasonLine, Is.EqualTo("2 Questions: Colour scheme; Pages"),
             "the whole question, never only the prompt the body may not show");
         Assert.That(WorkspaceText.FirstQuestion(workspace), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
         Assert.That(workspace.QuestionToAnswer, Is.SameAs(work.Question));
         Assert.That(workspace.Actions, Does.Contain(WorkspaceAction.Answer).And.Contain(WorkspaceAction.Interrupt));
         Assert.That(WorkspaceText.QuestionLead(workspace), Is.Empty, "the answer line already names one question");
-        Assert.That(WorkspaceText.PromptHeading(work.Question, 0), Is.EqualTo("Question 1 of 2 · Colour scheme"));
+        Assert.That(WorkspaceText.PromptHeading(work.Question, 0), Is.EqualTo("Question 1 of 2, Colour scheme"));
         // One phrase, never two facts on a dot (AUDIT2's 2026-11-14T05:36Z words).
         Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[0]), Is.EqualTo("Choose One or Write"));
         Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[1]), Is.EqualTo("Choose Any"));
@@ -285,15 +285,15 @@ public class QuestionTests
     public void TheAnswerLineNamesTheWholeQuestionWhicheverPromptShows()
     {
         var question = AskingWork.Scripted();
-        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Agent · Question · 2 Questions · Colour scheme; Pages"));
+        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("2 Questions: Colour scheme; Pages"));
         question.Prompts[1].Header = null;
-        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Agent · Question · 2 Questions"), "no header named unless every prompt has one");
+        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("2 Questions"), "no header named unless every prompt has one");
         question.Prompts.RemoveAt(1);
-        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Agent · Question · Colour scheme · Which colour scheme should the dashboard use?"));
+        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Agent\'s Question: Colour scheme, Which colour scheme should the dashboard use?"));
         var work = new AskingWork();
         Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Question Asked · See Needs You" }),
             "the answer line points to the tab; the tab's heading names the whole question");
-        Assert.That(CharacterPresenter.AsksYou(work.Present().QuestionToAnswer!), Is.EqualTo("Agent · Question · 2 Questions · Colour scheme; Pages"));
+        Assert.That(CharacterPresenter.AsksYou(work.Present().QuestionToAnswer!), Is.EqualTo("2 Questions: Colour scheme; Pages"));
     }
 
     private ExecutionAnswerQuestionCommand Answer(AskingWork work)

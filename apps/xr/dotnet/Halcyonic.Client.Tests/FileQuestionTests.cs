@@ -822,7 +822,7 @@ public class FileQuestionTests
         screen.Question.NextQuestion(Later(screen));
         Assert.That(steering.SendAnswer(draft, workspace).Step, Is.EqualTo(SteeringStep.Confirm));
         var frame = Screen(workspace, screen, steering);
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Question 1 of 2 · Colour scheme: Dark", "Question 2 of 2 · Pages: Orders", "Send Answers?" }));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Question 1 of 2, Colour scheme: Dark", "Question 2 of 2, Pages: Orders", "Send Answers?" }));
         Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, FileScreens.Yes, null, FileScreens.Cancel }));
         Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.Send));
         Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.None), "Yes sends once");

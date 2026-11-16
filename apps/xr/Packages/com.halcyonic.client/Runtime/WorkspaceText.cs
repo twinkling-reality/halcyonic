@@ -166,9 +166,9 @@ namespace Halcyonic.Client
         public static LineWords PromptHeadingRuns(QuestionView question, int prompt)
         {
             var heading = LineWords.Theirs(question.Prompts[prompt].Header);
-            if (question.Prompts.Count <= 1) return heading.IsEmpty ? LineWords.Ours("Agent · Question") : heading;
+            if (question.Prompts.Count <= 1) return heading.IsEmpty ? LineWords.Ours(CharacterPresenter.AsksYouWords) : heading;
             var count = LineWords.Ours("Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture) + " of " + question.Prompts.Count.ToString(CultureInfo.InvariantCulture));
-            return heading.IsEmpty ? count : count + LineWords.Ours(" · ") + heading;
+            return heading.IsEmpty ? count : count + LineWords.Ours(", ") + heading;
         }
 
         /// <summary>How a prompt is answered, in a few words.</summary>
