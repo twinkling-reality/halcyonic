@@ -64,6 +64,10 @@ namespace Halcyonic.XR.Workspace.Editor
             var previousPalette = Glaze.Palette;
             var previousField = ViewField.Current;
             var previousScale = GlazeText.Scale;
+            // The palettes' page is the older kit's: under the redesign Settings offers no Appearance until Dark and Light are whole
+            // (PanelThemes.Offered; AUDIT2's 14:01Z), so the flow is walked where it is still offered.
+            var designWas = RoomDesign.Enabled;
+            RoomDesign.Enabled = false;
             var failures = new List<string>();
             try
             {
@@ -95,6 +99,7 @@ namespace Halcyonic.XR.Workspace.Editor
             catch (Exception error) { failures.Add(error.ToString()); }
             finally
             {
+                RoomDesign.Enabled = designWas;
                 Glaze.SetPalette(previousPalette);
                 GlazeText.SetScale(previousScale);
                 ViewField.Current = previousField;
