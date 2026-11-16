@@ -7,9 +7,11 @@ namespace Halcyonic.Client
     /// <summary>
     /// The agent's own words on the faded band low in the view (DESIGN's BUILD-SPEC-v4 1.6): the band's numbers, the words
     /// made ready to lay, and their paging. The band holds only what the agent said, or its question's prompt, in the one type
-    /// size, at most <see cref="LinesAPart"/> lines a part; longer words page by parts, and the way on is the product's
-    /// "Next Part · 2 of 3". The lines are counted where they are laid (the view lays them at the measure and at the person's
-    /// text size); this says which of them a part holds. Lengths are Meta's dp, 16 a degree at the eye.
+    /// size, at most <see cref="LinesAPart"/> lines a part; longer words page by parts, each but the last ending at a sentence's
+    /// end where one falls in its lines (AUDIT 2026-11-16 11:29Z), the way on "Next Part" alone, and where the person is, "Part 1
+    /// of 2", the band's own quiet foot (AUDIT2's M2, 12:22Z). The lines are counted where they are laid (the view lays them at
+    /// the measure and at the person's text size, and says where each part starts); this says which of them a part holds.
+    /// Lengths are Meta's dp, 16 a degree at the eye.
     /// </summary>
     public sealed class RoomWords
     {
@@ -43,11 +45,27 @@ namespace Halcyonic.Client
         /// <summary>Every character that ends a line: the line feed and carriage return, the vertical tab, the form feed, the next line, and the line and paragraph separators.</summary>
         private static readonly char[] LineBreaks = { '\n', '\r', (char)0x0B, (char)0x0C, (char)0x85, (char)0x2028, (char)0x2029 };
 
-        private RoomWords(int lines, int part)
+        /// <summary>The foot's count of where the person is, "Part 1 of 2": its type and its line, in dp.</summary>
+        public const float CountTypeDp = 15f;
+
+        public const float CountLineDp = 19f;
+
+        private readonly int[] starts;
+
+        private RoomWords(int lines, int part, int[]? partStarts)
         {
             Lines = Math.Max(0, lines);
-            Parts = (Lines + LinesAPart - 1) / LinesAPart;
+            starts = partStarts != null && partStarts.Length > 0 && Lines > 0 ? partStarts : EveryThree(Lines);
+            Parts = Lines == 0 ? 0 : starts.Length;
             Part = Math.Max(0, Math.Min(part, Parts - 1));
+        }
+
+        private static int[] EveryThree(int lines)
+        {
+            var parts = (lines + LinesAPart - 1) / LinesAPart;
+            var result = new int[parts];
+            for (var index = 0; index < parts; index++) result[index] = index * LinesAPart;
+            return result;
         }
 
         /// <summary>The lines the words take as laid, every part's together.</summary>
@@ -60,24 +78,74 @@ namespace Halcyonic.Client
         public int Part { get; }
 
         /// <summary>The part's first line among the laid ones, and how many lines it holds, one to three.</summary>
-        public int First => Part * LinesAPart;
+        public int First => Parts == 0 ? 0 : starts[Part];
 
-        public int Count => Math.Max(0, Math.Min(LinesAPart, Lines - First));
+        public int Count => Parts == 0 ? 0 : Math.Max(0, Math.Min(LinesAPart, (Part + 1 < Parts ? starts[Part + 1] : Lines) - First));
 
         /// <summary>Whether a later part waits.</summary>
         public bool More => Part + 1 < Parts;
 
-        /// <summary>The way to the next part in the product's words, "Next Part", or null on the last part; its count is <see cref="NextCount"/>.</summary>
-        public string? Next => More ? EntryText.NextPartLabel : null;
+        /// <summary>
+        /// The way on, alone in its words, its place kept on every part: "Next Part", and on the last part "First Part", back to
+        /// the start; null where the words are one part.
+        /// </summary>
+        public string? Next => Parts < 2 ? null : More ? EntryText.NextPartLabel : FirstPartLabel;
 
-        /// <summary>Which part the way leads to, given apart from its words (JUDGE's dot list, item 2): "2 of 3", or null on the last part.</summary>
-        public string? NextCount => More ? EntryText.PartOf(Part + 2, Parts) : null;
+        /// <summary>The way back to the first part, on the last.</summary>
+        public const string FirstPartLabel = "First Part";
 
-        /// <summary>The paging of <paramref name="lines"/> laid lines at <paramref name="part"/>, held inside the parts there are.</summary>
-        public static RoomWords Of(int lines, int part = 0) => new RoomWords(lines, part);
+        /// <summary>
+        /// Where the person is, the band's own quiet foot (AUDIT2's M2: "2 of 2" under Next Part read as already showing): "Part 1
+        /// of 2", or null where the words are one part. The way on carries no count.
+        /// </summary>
+        public string? Where => Parts < 2 ? null : "Part " + EntryText.PartOf(Part + 1, Parts);
+
+        /// <summary>
+        /// The paging of <paramref name="lines"/> laid lines at <paramref name="part"/>, held inside the parts there are: three
+        /// lines a part, or each part from the line <paramref name="partStarts"/> gives, as the view laid them at sentence ends.
+        /// </summary>
+        public static RoomWords Of(int lines, int part = 0, int[]? partStarts = null) => new RoomWords(lines, part, partStarts);
 
         /// <summary>The next part, or this one where it is the last.</summary>
-        public RoomWords Following() => More ? new RoomWords(Lines, Part + 1) : this;
+        public RoomWords Following() => More ? new RoomWords(Lines, Part + 1, starts) : this;
+
+        /// <summary>The first part again, as the last part's way on turns to.</summary>
+        public RoomWords Start() => new RoomWords(Lines, 0, starts);
+
+        /// <summary>
+        /// Where sentences end in <paramref name="text"/>: the place just after each stop, question mark or exclamation mark
+        /// that a space or the text's end follows, past any closing quote or bracket after it (AUDIT2 2026-11-16 11:29Z). A stop
+        /// inside a word never ends one (index.html, 1.2.3, src/game/kite.js), and neither does a short abbreviation's (e.g.,
+        /// i.e., vs., Dr.).
+        /// </summary>
+        public static int[] SentenceEnds(string text)
+        {
+            var ends = new System.Collections.Generic.List<int>();
+            for (var index = 0; index < text.Length; index++)
+            {
+                var mark = text[index];
+                if (mark != '.' && mark != '?' && mark != '!') continue;
+                var after = index + 1;
+                while (after < text.Length && (text[after] == '"' || text[after] == '\'' || text[after] == ')' || text[after] == ']'
+                    || text[after] == (char)0x201D || text[after] == (char)0x2019)) after++;
+                if (after < text.Length && !char.IsWhiteSpace(text[after])) continue;
+                if (mark == '.' && Abbreviated(text, index)) continue;
+                ends.Add(after);
+            }
+            return ends.ToArray();
+        }
+
+        private static readonly string[] Abbreviations = { "e.g", "i.e", "vs", "cf", "dr", "mr", "mrs", "ms", "st", "approx", "fig", "no" };
+
+        /// <summary>Whether the stop at <paramref name="stop"/> closes a short abbreviation rather than a sentence.</summary>
+        private static bool Abbreviated(string text, int stop)
+        {
+            var start = stop;
+            while (start > 0 && !char.IsWhiteSpace(text[start - 1]) && text[start - 1] != '(') start--;
+            var word = text.Substring(start, stop - start).ToLowerInvariant();
+            foreach (var each in Abbreviations) if (word == each) return true;
+            return false;
+        }
 
         /// <summary>
         /// The band's height with <paramref name="lines"/> lines at the person's text size: the room above and below and a 28 dp
@@ -91,7 +159,13 @@ namespace Halcyonic.Client
         /// stands <see cref="WidthDp"/> wide, centred under the pair. What the plane's footprint holds under the bar, so a shelf
         /// never stands under the band (JUDGE's charR, 2026-11-13T2228Z: the bar's record alone missed it).
         /// </summary>
-        public static float UnderFootMostDp(float textScale = 1f) => (RoomGeometry.FeetPitch - TopPitch) * RoomGeometry.DpPerDegree + HeightDp(LinesAPart, textScale);
+        public static float UnderFootMostDp(float textScale = 1f) => (RoomGeometry.FeetPitch - TopPitch) * RoomGeometry.DpPerDegree + MostHeightDp(textScale);
+
+        /// <summary>
+        /// The band's height at its tallest: a part's three lines with their room, and the count's foot line where the last line
+        /// of a part would run under the count (AUDIT 2026-11-16 12:23Z: the band never grows between parts).
+        /// </summary>
+        public static float MostHeightDp(float textScale = 1f) => HeightDp(LinesAPart, textScale) + CountLineDp * textScale;
 
         /// <summary>
         /// What someone else wrote, ready for a label that reads no markup: each of the text's own lines by the one rule for

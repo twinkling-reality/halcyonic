@@ -146,9 +146,9 @@ namespace Halcyonic.XR.UI
         public bool BodyWaits => bodySweep.Waits;
 
         /// <summary>
-        /// The words of the way to the next part of the agent's words on the band (the band's own, as "Next Part · 2 of 3"),
-        /// set by the band's owner before <see cref="Show"/>; null where the band shows its last part or nothing. It stands
-        /// as the column's last action and raises <see cref="BandNextPressed"/>.
+        /// The words of the way on through the agent's words on the band, "Next Part", or "First Part" on the last part, set by
+        /// the band's owner before <see cref="Show"/>; null where the band holds one part or nothing. It stands as the column's
+        /// last action, in the same place on every part, and raises <see cref="BandNextPressed"/>.
         /// </summary>
         public string? BandNext { get; set; }
 
@@ -1093,7 +1093,9 @@ namespace Halcyonic.XR.UI
                 if (index >= count)
                 {
                     // The band's next part: the way on while no other stands, since the agent's words are read before they are answered.
-                    button.Show(BandNext!, GlazeIcon.Next, !bar.Column.Any(each => each.Main), available: true, centre, cores[index].x, detail: BandNextDetail);
+                    // Back to the first part, on the last, it keeps its place but never the accent: the words are read by then.
+                    button.Show(BandNext!, GlazeIcon.Next,
+                        BandNext != RoomWords.FirstPartLabel && !bar.Column.Any(each => each.Main), available: true, centre, cores[index].x, detail: BandNextDetail);
                     bandNext = button;
                     continue;
                 }

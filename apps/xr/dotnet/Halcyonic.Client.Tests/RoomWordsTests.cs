@@ -19,6 +19,7 @@ public class RoomWordsTests
             Assert.That(words.Count, Is.EqualTo(lines));
             Assert.That(words.More, Is.False);
             Assert.That(words.Next, Is.Null);
+            Assert.That(words.Where, Is.Null, "one part shows no count");
         }
     }
 
@@ -28,16 +29,17 @@ public class RoomWordsTests
         var first = RoomWords.Of(7);
         Assert.That(first.Parts, Is.EqualTo(3));
         Assert.That((first.First, first.Count), Is.EqualTo((0, 3)));
-        Assert.That((first.Next, first.NextCount), Is.EqualTo(("Next Part", "2 of 3")), "the way and its count given apart, never joined on a dot");
+        Assert.That((first.Next, first.Where), Is.EqualTo(("Next Part", "Part 1 of 3")), "the way on alone, where the person is on the band's foot");
 
         var second = first.Following();
         Assert.That((second.Part, second.First, second.Count), Is.EqualTo((1, 3, 3)));
-        Assert.That((second.Next, second.NextCount), Is.EqualTo(("Next Part", "3 of 3")));
+        Assert.That((second.Next, second.Where), Is.EqualTo(("Next Part", "Part 2 of 3")));
 
         var last = second.Following();
         Assert.That((last.Part, last.First, last.Count), Is.EqualTo((2, 6, 1)));
-        Assert.That(last.Next, Is.Null);
+        Assert.That((last.Next, last.Where), Is.EqualTo(("First Part", "Part 3 of 3")), "the way on keeps its place on the last part, back to the start");
         Assert.That(last.Following(), Is.SameAs(last), "the last part has no next one");
+        Assert.That(last.Start().Part, Is.EqualTo(0));
     }
 
     [Test]
@@ -56,6 +58,37 @@ public class RoomWordsTests
             }
             Assert.That(seen, Is.EqualTo(lines));
         }
+    }
+
+    [Test]
+    public void PartsStartWhereTheViewLaidThemAtSentenceEnds()
+    {
+        // Seven lines laid in three parts of two, three and two lines, each but the last ending at a sentence's end.
+        var first = RoomWords.Of(7, 0, new[] { 0, 2, 5 });
+        Assert.That((first.Parts, first.First, first.Count), Is.EqualTo((3, 0, 2)));
+        var second = first.Following();
+        Assert.That((second.First, second.Count, second.Where), Is.EqualTo((2, 3, "Part 2 of 3")));
+        var last = second.Following();
+        Assert.That((last.First, last.Count, last.Next), Is.EqualTo((5, 2, "First Part")));
+        Assert.That(RoomWords.Of(7, 9, new[] { 0, 2, 5 }).Part, Is.EqualTo(2), "a part stays inside the parts given");
+    }
+
+    [Test]
+    public void SentencesEndAtAStopAQuestionOrAnExclamationBeforeASpaceOrTheEnd()
+    {
+        const string Said = "I added the balloon. Does it float? Yes!";
+        Assert.That(RoomWords.SentenceEnds(Said), Is.EqualTo(new[] { 20, 35, 40 }));
+        Assert.That(RoomWords.SentenceEnds("It said \"done.\" Then it stopped."), Is.EqualTo(new[] { 15, 32 }), "past a closing quote");
+    }
+
+    [Test]
+    public void AStopInsideAWordOrAnAbbreviationEndsNoSentence()
+    {
+        Assert.That(RoomWords.SentenceEnds("I edited index.html and the page"), Is.Empty, "a file's name");
+        Assert.That(RoomWords.SentenceEnds("It needs version 1.2.3 or later"), Is.Empty, "a version");
+        Assert.That(RoomWords.SentenceEnds("Some colours, e.g. gold, read well"), Is.Empty, "an abbreviation");
+        Assert.That(RoomWords.SentenceEnds("I moved src/game/kite.js and backup/old-game.js, both"), Is.Empty, "a path");
+        Assert.That(RoomWords.SentenceEnds("I moved src/game/kite.js. Then I stopped."), Is.EqualTo(new[] { 25, 41 }), "a path that ends a sentence");
     }
 
     [Test]
@@ -121,10 +154,11 @@ public class RoomWordsTests
     public void TheBandReachesUnderTheFootLineToItsTopAndThenItsTallestPart()
     {
         // JUDGE's charR: the band hangs under the bar's foot line and the footprint must hold it. Its top is fixed by pitch; its
-        // tallest part is three lines with their room, scaled at the larger text size.
+        // tallest part is three lines with their room and the part count's foot line under them, scaled at the larger text size.
         var top = (RoomGeometry.FeetPitch - RoomWords.TopPitch) * RoomGeometry.DpPerDegree;
-        Assert.That(RoomWords.UnderFootMostDp(), Is.EqualTo(top + RoomWords.HeightDp(RoomWords.LinesAPart)).Within(0.001f));
-        Assert.That(RoomWords.UnderFootMostDp(1.15f), Is.EqualTo(top + RoomWords.HeightDp(RoomWords.LinesAPart, 1.15f)).Within(0.001f));
+        Assert.That(RoomWords.MostHeightDp(), Is.EqualTo(RoomWords.HeightDp(RoomWords.LinesAPart) + RoomWords.CountLineDp).Within(0.001f));
+        Assert.That(RoomWords.UnderFootMostDp(), Is.EqualTo(top + RoomWords.MostHeightDp()).Within(0.001f));
+        Assert.That(RoomWords.UnderFootMostDp(1.15f), Is.EqualTo(top + RoomWords.MostHeightDp(1.15f)).Within(0.001f));
         Assert.That(top, Is.GreaterThan(0f), "the band hangs under the foot line");
         Assert.That(RoomWords.UnderFootMostDp(1.15f), Is.GreaterThan(RoomWords.UnderFootMostDp()), "the larger text reaches further down");
     }

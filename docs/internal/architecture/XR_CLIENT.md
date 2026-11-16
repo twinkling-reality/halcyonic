@@ -2825,8 +2825,17 @@ whole and its send held only once every page was shown (one pager, the kit's cou
 answers stay in the column where the whole column (answers and every way the file offers on the page) fits four in all (the lead's
 ruling of 2026-11-14T00:24Z: the spec's four, one number for every reader and for the recorded envelope), else they stand on the card too (a question handed in one part may give a plain prompt seven answers: never a column past it, never a
 second pager); the question still measures the two together (`FileScreens.OptionMeasured`), so a description too long for its rows
-is cut and opens whole in its side panel as before; the band's pager is `RoomWords.Next` ("Next Part") with `RoomWords.NextCount` ("2 of 3") as its detail
-(`RoomBarView.BandNextDetail`); and every other part pager under the redesign, a request's, a question's, its typed answer's,
+is cut and opens whole in its side panel as before; the band's pager is `RoomWords.Next`, "Next Part" alone, "First Part" on the last part back to the start, in the
+same place on every part and without the accent there, and where the person is stands on the band's own quiet foot,
+`RoomWords.Where` ("Part 1 of 2"), in its lower right on the last row's baseline or on a foot line kept under the rows on
+every part where a part's words would meet it (`RoomBand.Where`, `FootReserved`; AUDIT2's M2 and AUDIT's 2026-11-16T12:23Z).
+The band pages at sentence ends (AUDIT's 11:29Z): `RoomBand` lays the words once, and each part but the last ends at the last
+sentence end in its three lines (`RoomWords.SentenceEnds`: a stop, question or exclamation mark before a space or the end,
+never inside index.html, 1.2.3 or a path, nor after e.g.), the space after it turned to a line's end so the next part starts on
+its own line; a part with no sentence end in its lines takes its three and fades its last line's tail (`RoomBand.PartCut`).
+No part's last line holds one word alone where its line above can lend one, and words of parts stand a part's three lines
+tall on every part, a shorter part centred in them, so the band never moves under the pointer (`RoomWords.MostHeightDp`, which
+`UnderFootMostDp` holds). And every other part pager under the redesign, a request's, a question's, its typed answer's,
 its answers' review, New Project's review and an unknown start's, is "Next Part" or "First Part" with its count as the row's
 or the prompt's `Under` (`FileScreens.NextPartShown`, `NextPartCount`; `EntryText.NextPartShown`, `NextPartCount`;
 `Prompt.WithUnder`, which `KitControl.Under` carries), the older view keeping its whole words. Checks that walk

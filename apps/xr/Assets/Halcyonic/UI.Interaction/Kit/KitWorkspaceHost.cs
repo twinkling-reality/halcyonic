@@ -398,7 +398,8 @@ namespace Halcyonic.XR.UI
             if (room.Band != null) band.Show(room.Band);
             else band.Hide();
             bar.BandNext = band.Words?.Next;
-            bar.BandNextDetail = band.Words?.NextCount;
+            // The way on alone, "Next Part" or "First Part": where the person is stands on the band's own foot (AUDIT2's M2).
+            bar.BandNextDetail = null;
             bar.Show(room);
             // Measured, never guessed (the plane's rule, 2026-11-13): where what the bar laid does not stand whole at the width it had, or
             // passes its largest footprint, the reader is asked again for one row fewer a page, down to one; at one, still not whole, one

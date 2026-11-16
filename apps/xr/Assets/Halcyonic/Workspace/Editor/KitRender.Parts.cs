@@ -447,9 +447,12 @@ namespace Halcyonic.XR.Workspace.Editor
 
             // The band holds the words given, and nothing else: one label, one ground, the one type size, white, never cut.
             Require(band.Text == laid && label.text.Replace('\n', ' ') == laid.Replace('\n', ' '), "the band's words are not the words given");
-            var labels = band.GetComponentsInChildren<TMP_Text>(false);
+            var labels = band.GetComponentsInChildren<TMP_Text>(false).Where(each => each != band.Where).ToArray();
             Require(labels.Length == 1 && labels[0] == label, "the band holds " + labels.Length + " labels, not its words alone");
-            Require(band.GetComponentsInChildren<Renderer>(false).Length == 2, "the band draws more than its ground and its words");
+            Require(band.GetComponentsInChildren<Renderer>(false).Length == 2 + (band.Where != null ? 1 : 0), "the band draws more than its ground, its words and its part's count");
+            // Where the person is, "Part 1 of 2", the band's own quiet foot, only where its words have two parts or more (AUDIT2's M2).
+            Require((band.Where != null) == (words.Parts >= 2) && (band.Where == null || band.Where.text == words.Where),
+                "the band's foot reads \"" + (band.Where?.text ?? "nothing") + "\" on part " + (words.Part + 1) + " of " + words.Parts);
             Require(band.Ground.sharedMaterial != null && band.Ground.sharedMaterial.shader.name == "Halcyonic/Room Band", "the ground is not drawn in the band's fade");
             Require(Mathf.Approximately(label.fontSize, GlazeTokens.FontSize(RoomType.Scaled(RoomGeometry.TypeDp))), "the words are not in the one type size");
             Require(KitType.IsRoomFace(label.font) && Mathf.Approximately(label.characterSpacing, RoomWords.Tracking), "the words are not in the room's face at its tracking");
@@ -463,32 +466,32 @@ namespace Halcyonic.XR.Workspace.Editor
             switch (state)
             {
                 case "40-band-parts":
-                    Require(words.Parts >= 2 && words.Part == 0 && words.Next == EntryText.NextPartLabel && words.NextCount == "2 of " + words.Parts.ToString(CultureInfo.InvariantCulture),
-                        "the first of " + words.Parts + " parts offers \"" + words.Next + "\" and \"" + words.NextCount + "\"");
+                    Require(words.Parts >= 2 && words.Part == 0 && words.Next == EntryText.NextPartLabel && words.Where == "Part 1 of " + words.Parts.ToString(CultureInfo.InvariantCulture),
+                        "the first of " + words.Parts + " parts offers \"" + words.Next + "\" and says \"" + words.Where + "\"");
                     break;
                 case "40-band-parts-next":
-                    Require(words.Part == 1 && words.First == RoomWords.LinesAPart, "Next Part turned to part " + (words.Part + 1));
-                    Require((words.Next, words.NextCount) == (words.Parts > 2 ? (EntryText.NextPartLabel, "3 of " + words.Parts.ToString(CultureInfo.InvariantCulture)) : ((string?)null, (string?)null)),
-                        "the second of " + words.Parts + " parts offers \"" + words.Next + "\" and \"" + words.NextCount + "\"");
+                    Require(words.Part == 1 && words.First > 0, "Next Part turned to part " + (words.Part + 1));
+                    Require(words.Next == (words.Parts > 2 ? EntryText.NextPartLabel : RoomWords.FirstPartLabel) && words.Where == "Part 2 of " + words.Parts.ToString(CultureInfo.InvariantCulture),
+                        "the second of " + words.Parts + " parts offers \"" + words.Next + "\" and says \"" + words.Where + "\"");
                     break;
                 case "40-band-question":
                 case "40-band-arriving":
                     Require(words.Lines == 1 && words.Parts == 1 && words.Next == null, "the question takes " + words.Lines + " lines in " + words.Parts + " parts");
                     break;
                 default:
-                    Require((words.Next, words.NextCount) == (words.Parts > 1 ? (EntryText.NextPartLabel, "2 of " + words.Parts.ToString(CultureInfo.InvariantCulture)) : ((string?)null, (string?)null)),
-                        "the way on does not follow the parts");
+                    Require(words.Next == (words.Parts > 1 ? EntryText.NextPartLabel : null), "the way on does not follow the parts");
                     break;
             }
 
-            // Size: 880 dp wide whatever the text size, 26 dp above and below its lines.
-            var height = RoomWords.HeightDp(words.Count, scale) * unit;
+            // Size: 880 dp wide whatever the text size, 26 dp above and below its lines; words of parts stand a part's three lines
+            // tall on every part, and the count's foot line under them where it is kept.
+            var height = (words.Parts >= 2 ? RoomWords.HeightDp(RoomWords.LinesAPart, scale) + (band.FootReserved ? RoomWords.CountLineDp * scale : 0f) : RoomWords.HeightDp(words.Count, scale)) * unit;
             Require(Mathf.Abs(band.Size.x - RoomWords.WidthDp * unit) < Tolerance && Mathf.Abs(band.Size.y - height) < Tolerance,
                 "the band is " + (band.Size.x / unit).ToString("0.0") + " by " + (band.Size.y / unit).ToString("0.0") + " dp, not 880 by " + (height / unit).ToString("0.0"));
             Require(Mathf.Abs(band.Height - height) < Tolerance, "the ground is drawn " + (band.Height / unit).ToString("0.0") + " dp tall");
             // The footprint holds the band at its tallest (RoomWords.UnderFootMostDp, JUDGE's charR): no part ever stands taller.
-            Require(band.Size.y <= RoomWords.HeightDp(RoomWords.LinesAPart, scale) * unit + Tolerance,
-                "the band stands " + (band.Size.y / unit).ToString("0.0") + " dp tall, past the footprint's " + RoomWords.HeightDp(RoomWords.LinesAPart, scale).ToString("0.0"));
+            Require(band.Size.y <= RoomWords.MostHeightDp(scale) * unit + Tolerance,
+                "the band stands " + (band.Size.y / unit).ToString("0.0") + " dp tall, past the footprint's " + RoomWords.MostHeightDp(scale).ToString("0.0"));
 
             // Motion at the fixed time: the ground and each line where the formulas put them.
             var groundExpected = arriving ? RoomMotion.BandArrives(ArrivingSeconds) : 1f;
@@ -548,7 +551,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (high > Tolerance || low < -height - Tolerance) failures.Add("\"" + character.character + "\" on line " + character.lineNumber + " stands outside the band");
                     var alpha = mesh.colors32[character.vertexIndex].a;
                     var expected = Mathf.RoundToInt(255f * band.LineMove(line).Shown);
-                    if (Mathf.Abs(alpha - expected) > 1) failures.Add("\"" + character.character + "\" is drawn at alpha " + alpha + ", not " + expected);
+                    // A cut part's last letters fade by design; the rest stand at their line's.
+                    var tail = band.PartCut && line == words.Count - 1 && index > info.lineInfo[character.lineNumber].lastVisibleCharacterIndex - 2 * GlazeText.TailLetters;
+                    if (!tail && Mathf.Abs(alpha - expected) > 1) failures.Add("\"" + character.character + "\" is drawn at alpha " + alpha + ", not " + expected);
                 }
                 if (inside == 0) failures.Add("no letter of the part is drawn");
 
@@ -652,7 +657,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 band.Clock = () => clock;
                 var unit = RoomType.Units(1f);
                 const float Close = 1e-4f;
-                int Labels() => band.GetComponentsInChildren<TMP_Text>(false).Length;
+                // The words' labels, the part's count apart.
+                int Labels() => band.GetComponentsInChildren<TMP_Text>(false).Count(each => each != band.Where);
                 void After(float seconds)
                 {
                     clock += seconds;
@@ -678,7 +684,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 band.Show(BandParts);
                 var parts = band.Words;
                 Require(band.Moving && band.Text == RoomWords.Laid(BandParts) && parts != null && parts.Parts >= 2 && parts.Next != null, "newer words are not paged at once");
-                var three = RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale) * unit;
+                var three = (RoomWords.HeightDp(RoomWords.LinesAPart, GlazeText.Scale) + (band.FootReserved ? RoomWords.CountLineDp * GlazeText.Scale : 0f)) * unit;
                 Require(Labels() == 2 && Mathf.Abs(band.Height - one) < Close && band.LineMove(0).Shown < Close, "the old line does not leave before the new ones come");
                 After(0.06f);
                 Require(Labels() == 2 && Mathf.Abs(band.Height - one) < Close, "60 ms in, the old line is gone or the height moved");
@@ -692,17 +698,63 @@ namespace Halcyonic.XR.Workspace.Editor
                 After(1f);
                 Require(!band.Moving && band.LineMove(2).Shown == 1f && Mathf.Abs(band.Size.y - three) < Close, "the newer words did not settle");
 
-                // Next Part walks every part once and stops on the last.
-                var seen = parts?.Count ?? 0;
+                // Next Part walks every part once to the last, whose way on is First Part, back to the start. On every part: the
+                // band one height; each part but the last ending at a sentence's end wherever one falls in its lines (AUDIT 11:29Z),
+                // else cut with its tail faded; and the count clear of every word drawn (AUDIT 12:23Z).
+                var seen = 0;
                 var turns = 0;
-                while (band.Next())
+                var heights = new List<float>();
+                void ReadPart()
+                {
+                    var shownPart = band.Words;
+                    if (shownPart == null) return;
+                    seen += shownPart.Count;
+                    heights.Add(band.Size.y);
+                    var partInfo = band.Label.textInfo;
+                    var partText = band.Label.text;
+                    var partFirstChar = partInfo.lineInfo[shownPart.First].firstCharacterIndex;
+                    var partLastRow = partInfo.lineInfo[shownPart.First + shownPart.Count - 1];
+                    var partFrom = partInfo.characterInfo[partFirstChar].index;
+                    var partTo = partInfo.characterInfo[partLastRow.lastVisibleCharacterIndex].index + 1;
+                    var partEnds = RoomWords.SentenceEnds(partText);
+                    if (shownPart.More)
+                    {
+                        var partEndsAt = partEnds.Any(end => end >= partTo && end <= partTo + 3 && partText.Substring(partTo, end - partTo).All(ch => ch == '"' || ch == '\'' || ch == ')' || ch == ']' || ch == (char)0x201D));
+                        var partInside = partEnds.Any(end => end > partFrom && end < partTo);
+                        if (!partEndsAt && !(band.PartCut && !partInside && shownPart.Count == RoomWords.LinesAPart))
+                            Require(false, "part " + (shownPart.Part + 1) + " of " + shownPart.Parts + " ends \"" + partText.Substring(Mathf.Max(partFrom, partTo - 24), partTo - Mathf.Max(partFrom, partTo - 24)) + "\", not at a sentence's end");
+                    }
+                    if (band.Where is TMP_Text partCount)
+                    {
+                        partCount.ForceMeshUpdate(true);
+                        var countBox = Rect.MinMaxRect(partCount.transform.localPosition.x + partCount.textBounds.min.x, partCount.transform.localPosition.y + partCount.textBounds.min.y,
+                            partCount.transform.localPosition.x + partCount.textBounds.max.x, partCount.transform.localPosition.y + partCount.textBounds.max.y);
+                        for (var partIndex = 0; partIndex < partInfo.characterCount; partIndex++)
+                        {
+                            var partCharacter = partInfo.characterInfo[partIndex];
+                            var partLine = partCharacter.lineNumber - shownPart.First;
+                            if (!partCharacter.isVisible || partLine < 0 || partLine >= shownPart.Count) continue;
+                            var partVertices = partInfo.meshInfo[partCharacter.materialReferenceIndex].vertices;
+                            var partA = partVertices[partCharacter.vertexIndex];
+                            var partC = partVertices[partCharacter.vertexIndex + 2];
+                            var labelAt0 = band.Label.transform.localPosition;
+                            var letterBox = Rect.MinMaxRect(labelAt0.x + Mathf.Min(partA.x, partC.x), labelAt0.y + Mathf.Min(partA.y, partC.y), labelAt0.x + Mathf.Max(partA.x, partC.x), labelAt0.y + Mathf.Max(partA.y, partC.y));
+                            if (letterBox.Overlaps(countBox)) { Require(false, "on part " + (shownPart.Part + 1) + ", \"" + partCount.text + "\" stands over \"" + partCharacter.character + "\""); break; }
+                        }
+                    }
+                }
+                ReadPart();
+                while (band.Words is { More: true } && band.Next())
                 {
                     Require(band.Moving, "Next Part did not move");
                     After(1f);
-                    seen += band.Words?.Count ?? 0;
+                    ReadPart();
                     if (++turns > 50) break;
                 }
-                Require(parts != null && turns == parts.Parts - 1 && seen == parts.Lines && band.Words?.Next == null, "Next Part walked " + turns + " turns and " + seen + " lines of " + parts?.Lines);
+                Require(parts != null && turns == parts.Parts - 1 && seen == parts.Lines && band.Words?.Next == RoomWords.FirstPartLabel, "Next Part walked " + turns + " turns and " + seen + " lines of " + parts?.Lines);
+                Require(heights.Count > 0 && heights.All(each => Mathf.Abs(each - heights[0]) < Close), "the band's height moves between parts: " + string.Join(", ", heights.Select(each => (each / unit).ToString("0.0"))));
+                Require(band.Next() && band.Words?.Part == 0, "First Part did not turn back to the first part");
+                After(1f);
 
                 // It leaves by fading, its words with it, and holds none after.
                 band.Leave();
