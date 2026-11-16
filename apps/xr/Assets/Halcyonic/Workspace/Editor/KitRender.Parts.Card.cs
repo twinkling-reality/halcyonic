@@ -462,7 +462,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 // An excerpt row's outside words show their lead cut at a word, the ellipsis theirs; nothing else is ever cut.
                 var excerpt = view.Excerpts.Contains(label);
                 Require(label.textInfo.characterCount > 0 && (label == view.PagedDescription || !label.isTextOverflowing) && (excerpt || !words.Contains("…")), "\"" + words + "\" is cut");
-                if (excerpt) Require(words.EndsWith("…", StringComparison.Ordinal) && !words.EndsWith(" …", StringComparison.Ordinal), "\"" + words + "\" is an excerpt not ended at a word");
+                // A faded title is an excerpt with no ellipsis at all (its own check above holds it to a word and its fade).
+                if (excerpt && !view.FadedTails.Contains(label))
+                    Require(words.EndsWith("…", StringComparison.Ordinal) && !words.EndsWith(" …", StringComparison.Ordinal), "\"" + words + "\" is an excerpt not ended at a word");
                 // A file's own line may hold any character: only the card's own words are read for the separator.
                 Require(view.ReadingShown.Contains(label) || !words.Contains(KitMomentWords.Dot.Trim()), "\"" + words + "\" joins facts on a dot");
                 var bounds = label.textBounds;

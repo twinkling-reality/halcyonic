@@ -67,7 +67,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         Advance(view, 1f);
                         WorkspaceRender.ForceMeshes(root);
                         if (nameTag.Tag is not RoomTag tag) { failures.Add(name + ": no name tag stands under the character"); continue; }
-                        var reads = needs ? shown.Title + " · Needs You" : shown.Title;
+                        // The name alone in the tag's words; Needs You is its own chip, never joined to the name on a dot.
+                        var reads = shown.Title;
+                        if (needs != (tag.Chipped && tag.ChipWords.GetParsedText() == StateLanguage.WordOf(WorkState.WaitingForYou)))
+                            failures.Add(name + ": the tag's chip " + (needs ? "does not say Needs You though the task needs the person" : "says Needs You though nothing waits"));
                         if (Squeezed(tag.Words.GetParsedText()) != reads) failures.Add(name + ": the tag reads \"" + tag.Words.GetParsedText() + "\", not \"" + reads + "\"");
                         if (tag.NeedsYou != needs) failures.Add(name + ": the tag's dot " + (needs ? "does not stand though the task needs the person" : "stands though nothing waits"));
                         if (tag.Picked != picked) failures.Add(name + ": the tag " + (picked ? "wears no ring though picked" : "wears the ring though not picked"));

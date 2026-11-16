@@ -130,7 +130,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var inside = Light(At(dark, tag.transform.TransformPoint(new Vector3(-tag.Size.x / 2f + unit * 6f, 0f, 0f))));
                 if (picked && edge < 190) failures.Add("the picked tag's ring reads " + edge + " of 255 at its edge");
                 if (!picked && edge > 130) failures.Add("the plate has a ring: its edge reads " + edge + " of 255");
-                if (!plated && (inside > 110 || inside < 25)) failures.Add("the tag's ground reads " + inside + " of 255 inside its edge");
+                // The panels' glass over the dark room: the owner's reference black reads about 18 there (the lead's 13:33Z), never
+                // clear (the room's own 30) nor a light plate.
+                if (!plated && (inside > 110 || inside < 8)) failures.Add("the tag's ground reads " + inside + " of 255 inside its edge");
                 var bounds = tag.Words.textBounds;
                 var most = 0;
                 for (var step = 0; step <= 80; step++)
