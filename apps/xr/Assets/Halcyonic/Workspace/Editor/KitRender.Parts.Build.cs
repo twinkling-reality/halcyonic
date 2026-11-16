@@ -198,7 +198,6 @@ namespace Halcyonic.XR.Workspace.Editor
             "}",
         };
 
-        private const string BuildHeldWords = "Kept Private";
 
         private static WritingPanel BuildPanel(IReadOnlyList<string> file, WritingState state = WritingState.Changing, IReadOnlyList<int>? lit = null)
         {
@@ -218,7 +217,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var clock = 100f;
             view.Clock = () => clock;
             var notShownWas = RoomWritingPanel.NotShownWords;
-            RoomWritingPanel.NotShownWords = panel => panel.State == WritingState.KeptPrivate ? BuildHeldWords : null;
+            RoomWritingPanel.NotShownWords = RoomWritingPanel.NotShownOf;
             try
             {
                 WritingPanel shown;
@@ -325,7 +324,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (state == "47-build-held")
                 {
                     Require(rows.Count == 0, "a held file shows " + rows.Count + " rows of its text");
-                    Require(labels.Any(each => each.GetParsedText().Trim() == BuildHeldWords), "a held file does not say why it shows no text");
+                    // The product's own words, the Changes reading's, title and line.
+                    Require(labels.Any(each => each.GetParsedText().Trim() == FileChangeText.KeptPrivate), "a held file does not say why it shows no text");
+                    Require(labels.Any(each => string.Join(" ", each.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries)) == FileChangeText.KeptPrivateLine), "a held file does not say its line");
                 }
                 else
                 {

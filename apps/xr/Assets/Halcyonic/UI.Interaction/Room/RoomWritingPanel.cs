@@ -123,8 +123,22 @@ namespace Halcyonic.XR.UI
             return new RoomReadingRow(RoomLineKind.Same, null, words.Length == 0 ? null : LineWords.Theirs(words), indent: row.Length - words.Length);
         }
 
-        /// <summary>The words that stand in place of a file's text it does not show, from the product's words; null where it shows its text.</summary>
-        public static Func<WritingPanel, string?> NotShownWords { get; set; } = _ => null;
+        /// <summary>
+        /// The words that stand in place of a file's text it does not show, its title and its quieter line: the Changes
+        /// reading's own (<see cref="FileChangeText"/>), so a file reads the same while it is written and in the result;
+        /// null where it shows its text.
+        /// </summary>
+        public static Func<WritingPanel, (string Title, string? Line)?> NotShownWords { get; set; } = NotShownOf;
+
+        public static (string Title, string? Line)? NotShownOf(WritingPanel panel) => panel.State switch
+        {
+            WritingState.Changing or WritingState.Settled => panel.Lines.Count == 0 ? (FileChangeText.Empty, null) : null,
+            WritingState.KeptPrivate => (FileChangeText.KeptPrivate, FileChangeText.KeptPrivateLine),
+            WritingState.NotText => (FileChangeText.NotText, null),
+            WritingState.TooLarge => (FileChangeText.TooLarge, FileChangeText.TooLargeLine),
+            WritingState.Unreadable => (FileChangeText.UnknownLine, null),
+            _ => (FileChangeText.UnknownLine, null),
+        };
 
         /// <summary>Lays <paramref name="panel"/>; a new file arrives, a newer read of the same file pours in its new rows. Returns the panel's size.</summary>
         public Vector2 Show(WritingPanel panel)
@@ -153,7 +167,7 @@ namespace Halcyonic.XR.UI
             var width = RoomType.Units(RoomGeometry.PanelDp);
             var reading = panel.Lines.Select(RowOf).ToList();
             var notShown = NotShownWords(panel);
-            var laid = new RoomCard(panel.Name, panel.Folder, status: notShown == null ? null : new RoomCardStatus(notShown, null, RoomTone.Quiet),
+            var laid = new RoomCard(panel.Name, panel.Folder, status: notShown is var (said, line) ? new RoomCardStatus(said, line, RoomTone.Quiet) : null,
                 reading: notShown == null ? reading : null, titleMono: true, readingLit: notShown == null ? panel.Lit : null);
             var tall = card.Show(laid, width - 2f * pad);
             Size = new Vector2(width, tall + 2f * pad);
