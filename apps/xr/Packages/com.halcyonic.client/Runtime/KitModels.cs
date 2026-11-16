@@ -408,8 +408,9 @@ namespace Halcyonic.Client
             string? environment = null, string? agent = null, bool environmentChangeable = false, bool agentChangeable = false,
             KitInstruction? instruction = null, bool draftSpoken = false, bool chooses = false, string? stops = null, bool working = false, string? stopsDoes = null,
             RoomWorkStep? step = null, bool offersNeverAsk = false, bool neverAsk = false, bool? runNeverAsk = null, RoomResult? result = null,
-            Halcyonic.Contracts.AutoFixView? autoFix = null, RoomCard? standing = null)
+            Halcyonic.Contracts.AutoFixView? autoFix = null, RoomCard? standing = null, bool watch = false)
         {
+            Watch = watch;
             Standing = standing;
             Result = result;
             AutoFix = autoFix;
@@ -477,6 +478,12 @@ namespace Halcyonic.Client
 
         /// <summary>Whether the agent or its checks are at work now: the run is running or verifying (the redesign's at work, DESIGN 2.3).</summary>
         public bool Working { get; }
+
+        /// <summary>
+        /// Whether Watch It Work is offered on this task: live work at work, its host observing the folder it writes
+        /// (WatchBuild.Offered), never a recorded run or the demonstration, which hold no file text (the lead's 03:52Z ruling).
+        /// </summary>
+        public bool Watch { get; }
 
         /// <summary>The step the runtime reports under way, for the agent's cursor; null where it reports none.</summary>
         public RoomWorkStep? Step { get; }

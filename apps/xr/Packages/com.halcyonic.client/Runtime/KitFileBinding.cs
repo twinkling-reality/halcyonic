@@ -383,7 +383,9 @@ namespace Halcyonic.Client
                 result: roomDesign && (KitPresenter.AtRest(workspace) || result?.Waiting?.Any == true) ? result : null,
                 autoFix: roomDesign ? workspace.Execution?.AutoFix : null,
                 standing: roomDesign && KitPresenter.AtRest(workspace)
-                    ? RoomStanding.Card(workspace.Execution, LineWords.TheirName(work.TaskTitle)) : null);
+                    ? RoomStanding.Card(workspace.Execution, LineWords.TheirName(work.TaskTitle)) : null,
+                watch: roomDesign && WatchBuild.Offered(workspace.Execution, connection.IsLive
+                    && !work.Marks.Any(mark => mark.Kind is WorkMarkKind.Recorded or WorkMarkKind.Demo)));
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);
