@@ -113,7 +113,7 @@ describe("a kit text behind something goes back the same way, the reading's seco
     last_hidden_kind: null,
   });
   const camera =
-    "Look along the laptop camera's line to the words, not the person's own: what covers them may stand where the person would not look.";
+    "The laptop camera stands behind the person's place (a step behind for a view, further back and higher for a game), so something behind where the person stands can be between it and the words.";
 
   test('a text measured behind something is a step to fix, fails the verdict and the reading, named by its kind only', () => {
     assert.deepEqual(fixSteps(passed(behind('sign'))), ['reading']);
@@ -161,7 +161,7 @@ describe("a kit text behind something goes back the same way, the reading's seco
     assert.match(fix, /\n\nA page of the kit is behind something/);
   });
 
-  test("a game's try never says the camera stands behind the person, true only for a view (AUDIT2 M1)", () => {
+  test('the try says where the laptop camera stands, for a view and a game, and never at the person (AUDIT2, 2026-11-16)', () => {
     const tries = (['page', 'row', 'sign'] as const).flatMap((kind) => [
       readingFix(passed(behind(kind))) ?? '',
       readingFix(
@@ -174,8 +174,12 @@ describe("a kit text behind something goes back the same way, the reading's seco
       ) ?? '',
     ]);
     for (const words of tries) {
-      assert.match(words, /Look along the laptop camera's line to the words, not the person's own/);
-      assert.doesNotMatch(words, /stands behind/);
+      assert.match(words, /a step behind for a view, further back and higher for a game/);
+      // A game's camera stands 2.2 m behind and above the player (iwsdk.config.json): never at the person's place.
+      assert.doesNotMatch(
+        words,
+        /at the person's place|where the person stands, not behind|at it\)/,
+      );
     }
   });
 });

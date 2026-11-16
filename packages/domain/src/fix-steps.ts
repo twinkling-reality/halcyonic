@@ -90,9 +90,10 @@ export function readingFix(findings: CheckFindings): string | null {
 const BEHIND_KIND = { page: 'A page', row: 'A row of buttons', sign: 'The score sign' } as const;
 
 /**
- * A kit text behind something, in words for the agent: its kind, what to move, and where to look for the cover
- * (AUDIT2 M1): along the laptop camera's line, which is the view's camera behind the person's place for a view and
- * the game's own camera at that place for a game, so the words say neither. Null when no text is behind anything.
+ * A kit text behind something, in words for the agent: its kind, what to move, and where the cover may stand: the
+ * laptop camera is behind the person's place for both, 0.4 m back for a view (`VIEW_CAMERA`) and 2.2 m back and
+ * higher for a game (the template's `iwsdk.config.json`), so a cover may stand behind the person (AUDIT2, 2026-11-16,
+ * mending its own M1 of 11-14). Null when no text is behind anything.
  */
 function behindFix(findings: CheckFindings): string | null {
   const reading = findings.laptop?.reading;
@@ -100,7 +101,7 @@ function behindFix(findings: CheckFindings): string | null {
   if (reading === undefined || kind === null) return null;
   const what = BEHIND_KIND[kind];
   const camera =
-    "Look along the laptop camera's line to the words, not the person's own: what covers them may stand where the person would not look.";
+    "The laptop camera stands behind the person's place (a step behind for a view, further back and higher for a game), so something behind where the person stands can be between it and the words.";
   if (reading.state === 'measured')
     return `${what} of the kit is behind something at a laptop's 1280 by 800 view: move it in front, or move what covers it. ${camera}`;
   const why =
