@@ -2735,7 +2735,7 @@ They check, for every shot the kit draws:
 - everything drawn inside the Quest 3S field less its margin;
 - Read Results pressed on the kit's rail (a route row) opening the task's results beside it, the file's
   views drawing them, and their Close bringing the kit back;
-- Show Screen pressed on the kit's rail (the rail's pager turned to it where it sits on Activity's next
+- Show Project Screen pressed on the kit's rail (the rail's pager turned to it where it sits on Activity's next
   page, at Larger text) standing the task's project's screen in the room, as wide as the kit's screen and
   with nothing of the console in front of it, the bar's Close putting the screen away and bringing the task
   back in the kit, and nothing sent;
@@ -4748,7 +4748,7 @@ presence, contextual moment cards and the on-demand project screen:
   Summoning a project screen stands `KitScreen` and `KitScreenBar` in the room (`MenuPlane.ShowScreen`)
   with the project's current runtime, status words, latest host or agent check and neutral monogram
   fallback when no verified snapshot exists, and removes both when closed (`MenuPlane.HideScreen`).
-  A wearer brings it forward from a task: in the spatial workspace the task's Activity offers Show Screen
+  A wearer brings it forward from a task: in the spatial workspace the task's Activity offers Show Project Screen
   (`FileScreens.ShowScreen`, a route line, so the kit's rail shows it as a row, last of the routes) while
   the kit is on, while connected and while the task's project is in the projection (the file's own views,
   the kit off, offer none: there the line pushed Activity onto a second page whose paging prompt did not

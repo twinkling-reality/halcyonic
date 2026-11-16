@@ -31,14 +31,14 @@ namespace Halcyonic.Client
         public const string TellIt = WorkspaceScreens.TellIt;
 
         /// <summary>The Activity routes' words, one source for the page, its measure and the kit render's pin.</summary>
-        public const string ShowTaskHereWords = "Show Task Here";
+        public const string ShowTaskHereWords = "Place in Room";
 
         /// <summary>Shows the task's project's screen in the room (ADR 0040: a picked project comes forward as its screen).</summary>
         public const string ShowScreen = "file-show-screen";
 
-        public const string ShowScreenWords = "Show Screen";
+        public const string ShowScreenWords = "Show Project Screen";
 
-        public const string AskWorkspaceWords = "Ask Workspace";
+        public const string AskWorkspaceWords = "Ask About This Task";
 
         public const string CharacterColourWords = "Character Colour";
 
