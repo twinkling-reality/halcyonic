@@ -74,12 +74,22 @@ export interface ViewerMessage {
   readonly [field: string]: unknown;
 }
 
-/** The viewer page: Halcyonic's own three files, read once, the only things it serves. */
-const ASSETS: Readonly<Record<string, { readonly type: string; readonly body: string }>> = {
-  '/': { type: 'text/html; charset=utf-8', body: asset('index.html') },
-  '/viewer.js': { type: 'text/javascript; charset=utf-8', body: asset('viewer.js') },
-  '/viewer.css': { type: 'text/css; charset=utf-8', body: asset('viewer.css') },
-};
+/** The viewer page: Halcyonic's own five files, read once, the only things it serves. */
+const ASSETS: Readonly<Record<string, { readonly type: string; readonly body: string | Buffer }>> =
+  {
+    '/': { type: 'text/html; charset=utf-8', body: asset('index.html') },
+    '/viewer.js': { type: 'text/javascript; charset=utf-8', body: asset('viewer.js') },
+    '/viewer.css': { type: 'text/css; charset=utf-8', body: asset('viewer.css') },
+    // Halora's mark in the tab (BRAND, 2026-11-16).
+    '/icon-32.png': {
+      type: 'image/png',
+      body: readFileSync(new URL('./viewer/icon-32.png', import.meta.url)),
+    },
+    '/icon-64.png': {
+      type: 'image/png',
+      body: readFileSync(new URL('./viewer/icon-64.png', import.meta.url)),
+    },
+  };
 
 function asset(name: string): string {
   return readFileSync(new URL(`./viewer/${name}`, import.meta.url), 'utf8');
@@ -205,7 +215,7 @@ export class PlayViewer {
         'cache-control': 'no-store',
         'referrer-policy': 'no-referrer',
         'x-content-type-options': 'nosniff',
-        'content-security-policy': `default-src 'none'; script-src 'self'; style-src 'self'; img-src blob:; connect-src ws://127.0.0.1:${this.port}; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`,
+        'content-security-policy': `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src ws://127.0.0.1:${this.port}; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`,
       });
       const refusal = this.#refusal(request);
       if (refusal !== null) return reply.code(403).type('text/plain').send(refusal);

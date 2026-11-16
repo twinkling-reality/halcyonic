@@ -324,10 +324,10 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
     await assert.rejects(get(viewer.port, '/'));
   });
 
-  test("its page, script and styles are Halcyonic's own, served only to its session, with their types", async () => {
+  test("its page, script, styles and icon are Halcyonic's own, served only to its session, with their types", async () => {
     const viewer = await PlayViewer.open(standIn().play, { ports: await freePorts() });
     try {
-      for (const path of ['/', '/viewer.js', '/viewer.css'])
+      for (const path of ['/', '/viewer.js', '/viewer.css', '/icon-32.png', '/icon-64.png'])
         assert.equal(
           (await get(viewer.port, path, { 'sec-fetch-site': 'same-origin' })).status,
           403,
@@ -339,8 +339,8 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
       assert.match(String(page.headers['content-type']), /^text\/html/);
       assert.deepEqual(
         [...page.body.matchAll(/(?:src|href)="([^"]+)"/g)].map((match) => match[1]),
-        ['/viewer.css', '/viewer.js'],
-        'the page loads nothing but its own two files',
+        ['/icon-32.png', '/icon-64.png', '/viewer.css', '/viewer.js'],
+        'the page loads nothing but its own four files',
       );
       const script = await get(viewer.port, '/viewer.js', own);
       assert.equal(script.status, 200);
@@ -349,6 +349,12 @@ describe('the viewer of a play on the Mac: a server of its own, its one play onl
       const styles = await get(viewer.port, '/viewer.css', own);
       assert.equal(styles.status, 200);
       assert.match(String(styles.headers['content-type']), /^text\/css/);
+      for (const icon of ['/icon-32.png', '/icon-64.png']) {
+        const answer = await get(viewer.port, icon, own);
+        assert.equal(answer.status, 200, icon);
+        assert.equal(answer.headers['content-type'], 'image/png', icon);
+      }
+      assert.match(String(page.headers['content-security-policy']), /img-src 'self' blob:/);
       assert.equal((await get(viewer.port, '/other.js', own)).status, 404);
     } finally {
       await viewer.close();

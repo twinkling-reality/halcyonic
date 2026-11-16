@@ -436,6 +436,25 @@ describe('what the page will not show or serve', () => {
     assert.equal(font.status, 200);
     assert.equal(font.headers['content-type'], 'font/ttf');
     assert.match(String(font.headers['content-security-policy']), /font-src 'self'/);
+    // Halora's mark in the tab, the same file for every page this server shows (setup, usage, photos and videos).
+    for (const icon of ['/icon-32.png', '/icon-64.png']) {
+      const answer = await call(page(server).port, 'GET', icon, {
+        cookie,
+        'sec-fetch-site': 'same-origin',
+      });
+      assert.equal(answer.status, 200, icon);
+      assert.equal(answer.headers['content-type'], 'image/png', icon);
+    }
+    for (const html of [
+      'pairing-page/index.html',
+      'setup-page/setup.html',
+      'usage-page/usage.html',
+    ])
+      assert.match(
+        readFileSync(new URL(`./${html}`, import.meta.url), 'utf8'),
+        /<link rel="icon" href="\/icon-32.png" sizes="32x32" type="image\/png">/,
+        html,
+      );
   });
 });
 

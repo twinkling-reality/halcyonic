@@ -208,6 +208,9 @@ const ASSETS: Readonly<Record<string, { readonly type: string; readonly body: Bu
   // The product's reading face, with its licence (OFL.txt) beside it, never from the network.
   '/Inter-Regular.ttf': { type: 'font/ttf', body: asset('Inter-Regular.ttf') },
   '/Inter-SemiBold.ttf': { type: 'font/ttf', body: asset('Inter-SemiBold.ttf') },
+  // Halora's mark in the tab: the halcyon on its dawn-over-the-sea ground (BRAND, 2026-11-16), at 32 and 64 pixels.
+  '/icon-32.png': { type: 'image/png', body: asset('icon-32.png') },
+  '/icon-64.png': { type: 'image/png', body: asset('icon-64.png') },
 };
 
 function asset(name: string): Buffer {
