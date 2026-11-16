@@ -613,14 +613,15 @@ namespace Halcyonic.XR.UI
         public void SettleWatch() { if (writingArc != null) writingArc.Settle(); }
 
         /// <summary>The file column whose task's More page stands, or null: kept by column, so the page stays through the frame's refreshes.</summary>
-        private object? moreFor;
+        private MenuColumn? moreFor;
 
         /// <summary>The bar with More: the task's More page where it stands open for this column, else the row with More where it offers routes.</summary>
         private RoomBar WithMore(RoomBar room)
         {
             if (binding == null) return room;
-            if (moreFor != null && ReferenceEquals(moreFor, column) && room.State == RoomBarState.Rest && RoomBar.MorePage(binding) is RoomBar page) return page;
-            if (moreFor != null && !ReferenceEquals(moreFor, column)) moreFor = null;
+            // The column is a value: compared by value (a boxed column never equals another box of it, so the page never opened).
+            if (moreFor == column && room.State == RoomBarState.Rest && RoomBar.MorePage(binding) is RoomBar page) return page;
+            if (moreFor != null && moreFor != column) moreFor = null;
             return RoomBar.WithMore(binding, room);
         }
 
