@@ -328,6 +328,27 @@ namespace Halcyonic.XR.Workspace.Editor
             var apart = new List<GlazeChecks.Extent>(labels);
             if (banner.gameObject.activeInHierarchy) apart.Add(GlazeChecks.Of("the banner", eyes, banner.gameObject));
             if (peek != null) apart.Add(GlazeChecks.Of("the peek", eyes, peek.gameObject));
+            // The peek's lines whole and none ending on a word alone where they run four or more (AUDIT's 11:31Z BLOCK, a and b:
+            // "agent." alone at Standard, "make migr..." cut at the larger size).
+            if (peek != null)
+                foreach (var line in peek.GetComponentsInChildren<TMPro.TextMeshPro>(false))
+                {
+                    line.ForceMeshUpdate(true);
+                    var shownText = line.GetParsedText();
+                    var info = line.textInfo;
+                    if (line.isTextTruncated || shownText.Contains("…")) failures.Add(name + ": the peek's line \"" + shownText + "\" is cut");
+                    if (info.lineCount < 2 || shownText.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Length < 4) continue;
+                    var last = info.lineInfo[info.lineCount - 1];
+                    var lastWords = 0;
+                    var inWord = false;
+                    for (var index = last.firstCharacterIndex; index <= last.lastCharacterIndex && index < info.characterCount; index++)
+                    {
+                        var isSpace = char.IsWhiteSpace(info.characterInfo[index].character);
+                        if (!isSpace && !inWord) lastWords++;
+                        inWord = !isSpace;
+                    }
+                    if (lastWords == 1) failures.Add(name + ": the peek's line \"" + shownText + "\" ends on one word alone");
+                }
             failures.AddRange(GlazeChecks.Apart(apart).Select(failure => name + ": " + failure));
             for (var index = 0; index < characters.Count; index++)
             {

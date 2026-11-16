@@ -28,6 +28,10 @@ namespace Halcyonic.XR.UI
         private TextMeshPro reason = null!;
         private TextMeshPro markLine = null!;
         private TextMeshPro next = null!;
+        private readonly List<TextMeshPro> feet = new List<TextMeshPro>();
+
+        /// <summary>The gap between the foot's quiet parts, in degrees.</summary>
+        private const float FootGapDegrees = 0.5f;
         private PeekCard? shown;
         private int shownScale = -1;
         private float opacity = 1f;
@@ -108,9 +112,32 @@ namespace Halcyonic.XR.UI
             }
             y = rowBottom;
 
-            y = Line(reason, peek.ReasonLine, PeekCard.ReasonLines, left, content, y, gap);
+            y = Line(reason, peek.Reason, PeekCard.ReasonLines, left, content, y, gap);
             y = Line(markLine, peek.MarkLine ?? "", 2, left, content, y, gap);
+            // The foot row: what opening is for at its left, and what waits behind the reason apart at its right, each a quiet
+            // part of its own, right to left (AUDIT's 11:31Z: never joined to the reason on a dot).
+            var footTop = y - gap;
             y = Line(next, peek.Next ?? "", 1, left, content, y, gap);
+            var parts = peek.FootParts;
+            var right = left + content;
+            var footBottom = y;
+            for (var index = 0; index < feet.Count || index < parts.Count; index++)
+            {
+                while (feet.Count <= index)
+                    feet.Add(GlazeText.Create(transform, "Foot " + feet.Count, GlazeType.Caption, GlazeTokens.TextSecondary, TextAlignmentOptions.TopRight, 2, scaled: true));
+                var foot = feet[index];
+                var part = parts.Count - 1 - index;
+                foot.gameObject.SetActive(part >= 0);
+                if (part < 0) continue;
+                foot.color = GlazeTokens.TextSecondary;
+                GlazeText.SetLiteral(foot, parts[part]);
+                GlazeText.Lay(foot, content, 1);
+                var wide = Mathf.Min(content, foot.textBounds.size.x);
+                foot.transform.localPosition = new Vector3(right - content / 2f, footTop, -0.001f);
+                right -= wide + GlazeTokens.Units(FootGapDegrees);
+                footBottom = Mathf.Min(footBottom, footTop - GlazeText.LineHeight(foot));
+            }
+            y = footBottom;
             Height = -y + GlazeTokens.Units(EndDegrees);
             card.transform.localPosition = new Vector3(0f, -Height / 2f, 0f);
             card.Draw(new Vector2(width, Height), GlazeTokens.Units(RadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Opacity),
@@ -128,7 +155,11 @@ namespace Halcyonic.XR.UI
             reason.alpha = value;
             markLine.alpha = value;
             next.alpha = value;
+            foreach (var foot in feet) foot.alpha = value;
         }
+
+        /// <summary>How many lines past its own a peek's line may take so its words stand whole.</summary>
+        private const int MoreLines = 3;
 
         /// <summary>Lays a line of the card under <paramref name="y"/>, or hides it when it has nothing to say; returns the next line's top.</summary>
         private static float Line(TextMeshPro label, string text, int maxLines, float left, float width, float y, float gap)
@@ -137,7 +168,32 @@ namespace Halcyonic.XR.UI
             if (text.Length == 0) return y;
             GlazeText.SetLiteral(label, text);
             var top = y - gap;
+            // Whole, never cut (SCREENS's 11:30Z crop: "+1 More ..." stood cut to "make migr..." at the larger size): the line takes
+            // the lines its words need, up to a few more than its own; and no word alone on its last line, the measure narrowing a
+            // twentieth at a time, the same lines kept, as the card and the band do. The words are never changed.
             var (lines, _) = GlazeText.Lay(label, width, maxLines);
+            for (var more = maxLines + 1; (label.isTextOverflowing || label.isTextTruncated) && more <= maxLines + MoreLines; more++)
+                (lines, _) = GlazeText.Lay(label, width, more);
+            var laidLines = Mathf.Max(lines, maxLines);
+            if (lines >= 2 && CharacterLabelView.LastLineIsOneWord(label) && text.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries).Length >= 4)
+            {
+                var mended = false;
+                for (var step = 1; step <= 8 && !mended; step++)
+                {
+                    var tried = GlazeText.Lay(label, width * (1f - 0.05f * step), laidLines);
+                    if (tried.Lines != lines || label.isTextTruncated) break;
+                    mended = !CharacterLabelView.LastLineIsOneWord(label);
+                }
+                // Where no narrower measure keeps the lines, one more line rather than a word alone: the widest measure that
+                // breaks the words onto it with two words or more on its last.
+                for (var step = 1; step <= 8 && !mended; step++)
+                {
+                    var tried = GlazeText.Lay(label, width * (1f - 0.05f * step), laidLines + 1);
+                    if (tried.Lines == lines + 1 && !label.isTextTruncated) mended = !CharacterLabelView.LastLineIsOneWord(label);
+                }
+                if (!mended) (lines, _) = GlazeText.Lay(label, width, laidLines);
+                else lines = label.textInfo.lineCount;
+            }
             label.transform.localPosition = new Vector3(left + width / 2f, top, -0.001f);
             return top - lines * GlazeText.LineHeight(label);
         }

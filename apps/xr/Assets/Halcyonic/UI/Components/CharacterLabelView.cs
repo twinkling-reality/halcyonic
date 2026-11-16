@@ -325,7 +325,7 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>Whether the label's last laid line holds a single word.</summary>
-        private static bool LastLineIsOneWord(TMP_Text label)
+        internal static bool LastLineIsOneWord(TMP_Text label)
         {
             var info = label.textInfo;
             if (info.lineCount < 2) return false;
