@@ -820,7 +820,8 @@ namespace Halcyonic.XR.Workspace.Editor
             view.CloseUp("doing-details");
             failures.AddRange(view.Fits("doing-details"));
             if (view.Frame.ButtonFor(WorkspaceScreens.ShowLog) == null) failures.Add(view.Name + " doing-details: Show the log does not stand beside the question.");
-            if (view.Frame.ShownLines.Count != 4 || view.Frame.Dropped > 0) failures.Add(view.Name + " doing-details: " + view.Frame.ShownLines.Count + " of the run's 4 lines show.");
+            // Agent App, Model, Folder, Started and the round, each a fact of its own (AUDIT2 2026-11-16, the round apart from the time).
+            if (view.Frame.ShownLines.Count != 5 || view.Frame.Dropped > 0) failures.Add(view.Name + " doing-details: " + view.Frame.ShownLines.Count + " of the run's 5 lines show.");
             return failures;
         }
 
