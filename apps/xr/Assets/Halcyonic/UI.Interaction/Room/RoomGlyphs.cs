@@ -137,6 +137,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The Wi-Fi's arcs over its point: sharing on this Wi-Fi.</summary>
         Wifi,
+
+        /// <summary>An open ring: a step of a task not reached yet (<see cref="RoomStepsView"/>).</summary>
+        Ring,
     }
 
     /// <summary>
@@ -314,6 +317,7 @@ namespace Halcyonic.XR.UI
             [RoomGlyph.Link] = new[] { Outline(4f, 7.5f, 14f, 14.5f, 3.5f), Outline(10f, 9.5f, 20f, 16.5f, 3.5f) },
             // Three arcs opening up, their middle at the foot, and the point under them.
             [RoomGlyph.Wifi] = new[] { Arc(12f, 18.5f, 12f, 270f, 45f), Arc(12f, 18.5f, 8f, 270f, 45f), Arc(12f, 18.5f, 4f, 270f, 45f), Line(12f, 18.5f, 12f, 18.5f) },
+            [RoomGlyph.Ring] = new[] { Circle(12f, 12f, 6.5f) },
             [RoomGlyph.Rewind] = new[] { Line(12.5f, 7f, 7.5f, 12f), Line(7.5f, 12f, 12.5f, 17f), Line(18f, 7f, 13f, 12f), Line(13f, 12f, 18f, 17f) },
             [RoomGlyph.Meter] = new[] { Arc(12f, 16f, 7.5f, 270f, 90f), Line(12f, 16f, 15.5f, 11.5f) },
             [RoomGlyph.Pin] = new[] { Arc(12f, 10f, 6f, 270f, 125f), Line(7.1f, 13.4f, 12f, 20.5f), Line(16.9f, 13.4f, 12f, 20.5f), Circle(12f, 10f, 2f) },
@@ -376,6 +380,7 @@ namespace Halcyonic.XR.UI
         {
             RoomGlyph.Minus, RoomGlyph.Wave, RoomGlyph.Swap, RoomGlyph.Wait, RoomGlyph.Alert, RoomGlyph.Wrench, RoomGlyph.File, RoomGlyph.Folder,
             RoomGlyph.Computer, RoomGlyph.App, RoomGlyph.Flag, RoomGlyph.Pin, RoomGlyph.Meter, RoomGlyph.Timer, RoomGlyph.Calendar, RoomGlyph.Rewind, RoomGlyph.Chevron, RoomGlyph.Link, RoomGlyph.Wifi,
+            RoomGlyph.Ring,
         };
 
         /// <summary>The two levels an agent works at, as the action that names the agent ends: "{agent} · Ask First", "{agent} · Never Ask".</summary>
