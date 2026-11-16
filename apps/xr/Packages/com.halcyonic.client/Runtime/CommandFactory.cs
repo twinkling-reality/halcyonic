@@ -138,7 +138,8 @@ namespace Halcyonic.Client
             string? modelRef = null,
             ApprovalLevel? approvalLevel = null,
             IReadOnlyList<string>? pictures = null,
-            bool plan = false) =>
+            bool plan = false,
+            double? spendingCapUsd = null) =>
             Stamp(new ExecutionStartCommand
             {
                 Payload = new ExecutionStartPayload
@@ -152,6 +153,8 @@ namespace Halcyonic.Client
                     Attachments = AttachmentsOf(pictures),
                     // A plan (SCREENS's PlanStart): never with never ask, which the host refuses too.
                     Plan = plan ? true : (bool?)null,
+                    // The person's own spending limit, reviewed before the start (SpendingLimit); null leaves the field out.
+                    SpendingCapUsd = spendingCapUsd,
                 },
             });
 

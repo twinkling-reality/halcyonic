@@ -3542,6 +3542,75 @@ public class NewProjectFlowTests
         Assert.That(host.Sent, Is.Empty);
     });
 
+    /// <summary>
+    /// SCREENS's spending limit at a start (AUDIT2's words, 23:24Z; AUDIT3's S1 to S5): where the runtime offers a limit, the page
+    /// of changes offers No Limit, $1, $5 and $10, No Limit chosen while nothing else is; the review shows the amount with the
+    /// control plane's own line under it; the start carries exactly that amount.
+    /// </summary>
+    [Test]
+    public void In_the_redesign_a_spending_limit_chosen_before_the_start_is_reviewed_and_sent() => InTheRedesign(() =>
+    {
+        var capped = Offering(true);
+        capped.OffersSpendingCap = true;
+        var host = new Host { VoiceOffered = false, State = WithRuntimes(capped) };
+        var flow = Flow(host);
+        flow.RoomLines = _ => 1;
+        flow.RecapShownWhole = () => true;
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        PressOn(flow, NewProjectScreens.MoreOptions);
+        Press(flow, NewProjectScreens.ChooseRuntime, "real");
+        Press(flow, NewProjectScreens.Done, null);
+        Press(flow, NewProjectScreens.ChangeRecap, null);
+        var limits = Pages(flow).SelectMany(frame => frame.Lines).Where(line => line.Action == NewProjectScreens.ChooseLimit).ToList();
+        Assert.That(limits.Select(line => (line.Words, line.Key, line.Chosen)), Is.EqualTo(new[]
+        {
+            ("No Limit", (string?)"none", true), ("$1", "1.00", false), ("$5", "5.00", false), ("$10", "10.00", false),
+        }), "No Limit is the true state, never a preset amount");
+        Press(flow, NewProjectScreens.ChooseLimit, "7.00");
+        Assert.That(Pages(flow).SelectMany(frame => frame.Lines).Any(line => line.Action == NewProjectScreens.ChooseLimit), Is.True, "an amount not offered is not taken");
+        Press(flow, NewProjectScreens.ChooseLimit, "5.00");
+        Assert.That(Actions(flow), Is.Empty, "kept at once: back on the facts");
+        Assert.That(flow.Frame!.Card!.Slots.Select(slot => slot.Value.Text), Does.Contain("Limit $5.00"), "the recap card says the amount whole before Start");
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        var project = host.Sent.Single();
+        ClientProjection Both(params CommandView[] commands)
+        {
+            var state = new ClientProjection();
+            var snapshot = Samples.Snapshot(1);
+            snapshot.Runtimes = new() { capped };
+            snapshot.Commands = commands.ToList();
+            state.ApplySnapshot(snapshot, new StateChanges());
+            return state;
+        }
+        host.State = Both(Completed(project, new ProjectCreatedResult { ProjectId = "p1" }));
+        flow.Tick();
+        var workstream = host.Sent.Last();
+        host.State = Both(Completed(project, new ProjectCreatedResult { ProjectId = "p1" }), Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" }));
+        flow.Tick();
+        var start = (ExecutionStartCommand)host.Sent.Last();
+        Assert.That(start.Payload.SpendingCapUsd, Is.EqualTo(5), "exactly the reviewed amount");
+    });
+
+    /// <summary>Every list row's words on every part of a review's card, as a person turns them.</summary>
+    private static string[] ReviewRows(NewWorkReview review) =>
+        Enumerable.Range(0, RoomReview.Parts(review, 1)).SelectMany(part => RoomReview.Card(review, part, 1).List.Select(row => row.Name.Text)).ToArray();
+
+    [Test]
+    public void A_start_says_No_Limit_where_a_limit_is_offered_and_nothing_where_none_is()
+    {
+        NewWorkReview Review(bool offered, double? limit) => new("Kite", "Kite", LineWords.Ours("Agent"), LineWords.Ours("Model"), LineWords.Ours("Here"), LineWords.Ours("m1"),
+            "Make a kite.", limitOffered: offered, limit: limit);
+        Assert.That(ReviewRows(Review(true, 5)), Is.SupersetOf(new[] { "Limit $5.00", "It stops near $5.00 by the app's own estimate; it can go over on its last step" }),
+            "the review's amount whole, the control plane's line under it");
+        Assert.That(ReviewRows(Review(true, null)), Does.Contain("No Limit"));
+        Assert.That(ReviewRows(Review(false, 5)), Has.None.Contains("Limit"), "no choice, nothing said");
+        Assert.That(Review(false, 5).Limit, Is.Null, "a limit the runtime does not offer is never sent");
+    }
+
     [Test]
     public void Plan_First_is_not_offered_where_the_runtime_offers_no_plan() => InTheRedesign(() =>
     {

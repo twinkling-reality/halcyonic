@@ -161,6 +161,9 @@ namespace Halcyonic.Client
         /// <summary>SCREENS's Show Plan First chosen on the page of changes (<see cref="PlanStart"/>); forgotten with the level.</summary>
         private bool planChosen;
 
+        /// <summary>The spending limit the person pressed on the page of changes, or null for No Limit (SCREENS's spending-limit unit).</summary>
+        private double? limitChosen;
+
         /// <summary>The review's parts were cut by the redesign's rows' own lines, not the older page's (AUDIT, 2026-11-10).</summary>
         private bool reviewCutForRoom;
 
@@ -751,6 +754,13 @@ namespace Halcyonic.Client
                     planChosen = key == PlanStart.Key;
                     Show(NewProjectStep.Recap);
                     break;
+                // A spending limit on the page of changes, kept at once, only where the runtime offers one and only an offered amount
+                // or No Limit (SCREENS's spending-limit unit; AUDIT3's S1, S2).
+                case NewProjectScreens.ChooseLimit when RoomDesign.Enabled && step == NewProjectStep.Recap && recapPage == RecapPage.Change && !confirmingStartOver
+                    && SpendingLimit.Offered(draft.Runtime) && (key == SpendingLimit.NoLimitKey || SpendingLimit.FromKey(key) != null):
+                    limitChosen = key == SpendingLimit.NoLimitKey ? null : SpendingLimit.FromKey(key);
+                    Show(NewProjectStep.Recap);
+                    break;
                 // The recap card, pressed: the person's own words read whole; Back returns to the facts.
                 case NewProjectScreens.ReadRecap when RoomDesign.Enabled && step == NewProjectStep.Recap && recapPage == RecapPage.Facts:
                     Show(NewProjectStep.Recap, page: RecapPage.Read);
@@ -769,6 +779,7 @@ namespace Halcyonic.Client
                     idea = new ProjectIdea(current.ExistingProjectId, current.ExistingProjectId == null ? null : current.Name);
                     levelChosen = null;
                     planChosen = false;
+                    limitChosen = null;
                     LeaveCompanion(exchange);
                     review = null;
                     sequence = null;
@@ -876,6 +887,7 @@ namespace Halcyonic.Client
                     ownId = null;
                     levelChosen = null;
                     planChosen = false;
+                    limitChosen = null;
                     idea = new ProjectIdea();
                     said = (NewProjectStep.YourIdea, EntryText.Cleared);
                     Show(NewProjectStep.YourIdea);
@@ -1873,6 +1885,7 @@ namespace Halcyonic.Client
             {
                 draft.NeverAsk = !planChosen && (levelChosen ?? RoomDesign.Enabled);
                 draft.Plan = planChosen;
+                draft.Limit = limitChosen;
             }
             return draft;
         }

@@ -259,6 +259,17 @@ namespace Halcyonic.Client
             else if (Value(ReviewItemKind.AgentApp) is LineWords agent) facts.Add(new ReviewFact(RoomKind.Agent, agent, slot: true));
             // The level as the review recorded it, Show Plan First included (SCREENS's PlanStart; AUDIT's MUST 4: never on the model's row).
             facts.Add(new ReviewFact(RoomKind.Level, LineWords.Ours(PlanStart.LevelWords(review.Plan, review.NeverAsk)), slot: true));
+            // The spending limit, where the runtime offers one: the amount whole with the control plane's own line under it, or No Limit,
+            // so the person sees that choice before Start (SCREENS's spending-limit unit; AUDIT2, 23:24Z).
+            if (review.LimitOffered)
+            {
+                if (review.Limit is double limit)
+                {
+                    facts.Add(new ReviewFact(RoomKind.None, LineWords.Ours("Limit " + SpendingLimit.Dollars(limit))));
+                    facts.Add(new ReviewFact(RoomKind.None, LineWords.Ours(SpendingLimit.StartLine(limit))));
+                }
+                else facts.Add(new ReviewFact(RoomKind.None, LineWords.Ours(SpendingLimit.NoLimit)));
+            }
             if (Value(ReviewItemKind.TaskName) is LineWords name) facts.Add(new ReviewFact(RoomKind.Task, name));
             // What the new folder starts from, by its own name (SCREENS's Start From): nothing the start sends goes unshown.
             if (Value(ReviewItemKind.Starter) is LineWords starter) facts.Add(new ReviewFact(RoomKind.Starter, starter));

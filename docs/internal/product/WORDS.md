@@ -483,6 +483,8 @@ A task at its spending limit says "At Spending Limit" with "Spent $0.30 of $1.00
 known after a restart says "Spending Not Known" with "Limit $1.00", never a figure; an open limit is "Limit $1.00". Its composer asks
 "Spend Up To" over "$1 More", "$5 More" and "$10 More", with "Counts from now." under the first, none chosen until pressed. Send's
 reason until then is "Choose an Amount First", and the confirm reads "Send Instruction, Spend Up To $5.00 More" (AUDIT2, 2026-11-16).
+At a start where the runtime offers a limit, "Spending Limit" offers "No Limit", "$1", "$5" and "$10"; the recap and review say
+"Limit $5.00" or "No Limit", the review with the control plane's line under it (AUDIT2, 2026-11-16T2324Z).
 
 Next Choices names the preset chooser's body pager, and the model and starter choosers'; from the last page it says First Choices, as it goes back to the first. Back to Choices acknowledges the full notice
 and returns to the preserved selection. Task unavailable is the compact fallback only when the

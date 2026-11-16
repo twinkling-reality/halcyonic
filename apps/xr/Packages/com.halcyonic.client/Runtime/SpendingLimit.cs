@@ -65,6 +65,22 @@ namespace Halcyonic.Client
             };
         }
 
+        /// <summary>A start's choice, where the chosen runtime offers a limit (AUDIT2, 2026-11-16T2324Z): the heading, and the true state while no amount is chosen.</summary>
+        public const string StartHeading = "Spending Limit";
+        public const string NoLimit = "No Limit";
+
+        /// <summary>The key of No Limit on a start's choice; an amount's key is <see cref="Key"/>.</summary>
+        public const string NoLimitKey = "none";
+
+        /// <summary>Whether a start on <paramref name="runtime"/> may carry a limit: its descriptor offers one, never a practice run.</summary>
+        public static bool Offered(RuntimeDescriptor? runtime) => runtime != null && !runtime.Synthetic && runtime.OffersSpendingCap == true;
+
+        /// <summary>A start's amount as its choice says it: "$5", a first limit (the composer's "$5 More" is new money on top).</summary>
+        public static string First(double usd) => More(usd).Substring(0, More(usd).Length - " More".Length);
+
+        /// <summary>The review's line under the limit, the control plane's own (start.ts), whole.</summary>
+        public static string StartLine(double usd) => "It stops near " + Dollars(usd) + " by the app's own estimate; it can go over on its last step";
+
         /// <summary>The host's own most for any amount of money (contracts' USAGE_USD_MAX): no typed amount passes it.</summary>
         public const double MostUsd = 1_000_000;
 

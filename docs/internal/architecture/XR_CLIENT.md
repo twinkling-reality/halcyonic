@@ -4918,7 +4918,13 @@ presence, contextual moment cards and the on-demand project screen:
   draft and never carried over; an open limit or none asks for nothing and sends none. `SpendingLimit.Of` says a limit as
   label and fact: "At Spending Limit" with "Spent $0.30 of $1.00" where the spend is known, "Spending Not Known" with
   "Limit $1.00" while waiting (never a figure), and "Limit $1.00" for an open one. The assistant never sets a limit
-  (CORE's NEVER_PROPOSED), so this press is the only way to give one.
+  (CORE's NEVER_PROPOSED), so this press is the only way to give one. At a start (New Project's page of changes), where
+  the chosen runtime offers a limit (`offers_spending_cap`, never a practice run), "Spending Limit" offers "No Limit",
+  "$1", "$5" and "$10". No Limit stands chosen while nothing else is, as the true state and not a preset. The recap card
+  shows "Limit $5.00" or "No Limit" before Start. The review shows the amount with the control plane's own line under it
+  ("It stops near $5.00 by the app's own estimate; it can go over on its last step"). The build refuses a limit that is not
+  the one reviewed (`BuildSequence`), and `execution.start` carries exactly it. A typed amount reads only as plain dollars
+  and cents up to the host's own most (`SpendingLimit.Parse`); no screen takes one yet.
 - **Instructions waiting for the turn to end, and Drop (CORE's queue, ADR 0056; SCREENS 2026-11-11, `WaitingInstructions`)**:
   `ExecutionView.queued_instructions` lists them oldest first without words; the headset shows the words it sent
   (`CommandSubmissions.InstructionOf`, in memory only, never logged), else the placeholder "Your Instruction". While

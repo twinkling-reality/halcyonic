@@ -49,6 +49,12 @@ namespace Halcyonic.Client
         /// <summary>The start will be a plan: the person chose Show Plan First and the chosen runtime offers a plan. A plan always asks.</summary>
         public bool StartsPlan => Plan && PlanStart.Offered(Runtime);
 
+        /// <summary>The spending limit the person chose for this start, in US dollars, or null for No Limit; only ever their press (AUDIT3's S1).</summary>
+        public double? Limit { get; set; }
+
+        /// <summary>The limit the start will carry: the chosen one where the runtime offers a limit (<see cref="SpendingLimit.Offered"/>), else none.</summary>
+        public double? StartsLimit => SpendingLimit.Offered(Runtime) ? Limit : null;
+
         public string? ModelProblem { get; private set; }
 
         /// <summary>The model was chosen for the person, because it runs on this Mac; they have not chosen it themselves.</summary>

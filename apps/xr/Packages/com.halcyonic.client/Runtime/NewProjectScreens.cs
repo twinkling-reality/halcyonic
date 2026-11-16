@@ -166,6 +166,8 @@ namespace Halcyonic.Client
 
         /// <summary>The redesign's page of changes: a level for the start as an answer; its key is the start's own value, ask or never_ask.</summary>
         public const string ChooseLevel = "choose-level";
+        /// <summary>The press on a spending limit on the page of changes; its key is SpendingLimit.Key or SpendingLimit.NoLimitKey.</summary>
+        public const string ChooseLimit = "choose-limit";
         public const string BackToRecap = "back-to-recap";
 
         /// <summary>The redesign's recap card, pressed: the person's own name and first task read whole (the lead's 2026-11-14T01:19Z next unit).</summary>
@@ -763,6 +765,10 @@ namespace Halcyonic.Client
                     slots.Add(new RoomSlot(RoomKind.Agent, LineWords.Ours("Not Chosen")));
                 // The level, or Show Plan First where the start plans (SCREENS's PlanStart).
                 if (!runtime.Synthetic) slots.Add(new RoomSlot(RoomKind.Level, LineWords.Ours(PlanStart.LevelWords(draft))));
+                // The spending limit the start will carry, where the runtime offers one, before Start is pressed: the amount whole, or
+                // No Limit (SCREENS's spending-limit unit; AUDIT2, 23:24Z; AUDIT3's S2).
+                if (SpendingLimit.Offered(runtime))
+                    slots.Add(new RoomSlot(RoomKind.None, LineWords.Ours(draft.StartsLimit is double limit ? "Limit " + SpendingLimit.Dollars(limit) : SpendingLimit.NoLimit)));
             }
             // The first task under the name, unless it is the name word for word: the card says it once (FIELD's trace, 2026-11-16).
             var sameAsName = idea.Name.Trim().Length > 0 && string.Equals(idea.Name.Trim(), idea.FirstTask.Trim(), System.StringComparison.OrdinalIgnoreCase);
@@ -818,6 +824,16 @@ namespace Halcyonic.Client
                 // SCREENS's Show Plan First, where the runtime offers a plan.
                 if (PlanStart.Offered(offering))
                     lines.Add(new PageLine(PlanStart.PlanFirst, action: ChooseLevel, key: PlanStart.Key, choice: true, chosen: draft.StartsPlan, answerMark: AnswerMark.Single));
+            }
+            // A spending limit, where the chosen runtime offers one: No Limit is the true state while no amount is chosen (AUDIT2, 23:24Z).
+            if (draft?.Runtime is RuntimeDescriptor limited && SpendingLimit.Offered(limited) && !confirmingStartOver)
+            {
+                lines.Add(new PageLine(SpendingLimit.StartHeading).AsHeading());
+                lines.Add(new PageLine(SpendingLimit.NoLimit, action: ChooseLimit, key: SpendingLimit.NoLimitKey, choice: true, chosen: draft.Limit == null,
+                    answerMark: AnswerMark.Single));
+                foreach (var amount in SpendingLimit.Amounts)
+                    lines.Add(new PageLine(SpendingLimit.First(amount), action: ChooseLimit, key: SpendingLimit.Key(amount), choice: true, chosen: draft.Limit == amount,
+                        answerMark: AnswerMark.Single));
             }
             // Each thing to change says what it is about, so the page of changes marks it without knowing its action (R3).
             if (!existing && words) lines.Add(new PageLine(EntryText.ProjectName, icon: GlazeIcon.Change, action: Rename, opens: true).Marked(RoomKind.Project));

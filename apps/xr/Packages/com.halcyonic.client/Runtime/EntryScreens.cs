@@ -86,7 +86,9 @@ namespace Halcyonic.Client
                 tools: model == null ? null : LineWords.Written(EntryText.Tools(model.ToolCalling)),
                 // The starter the start sends, by its own name; one the computer no longer lists by its id, so it is never sent unnamed (AUDIT's SHOULD).
                 startFrom: sends?.StarterId is string sent ? (starter?.StarterId == sent ? StarterChoice.Title(starter) : Raw(sent)) : null,
-                plan: draft.StartsPlan);
+                plan: draft.StartsPlan,
+                limitOffered: SpendingLimit.Offered(runtime),
+                limit: draft.StartsLimit);
         }
 
         /// <summary>
