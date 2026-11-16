@@ -21,7 +21,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] BarStates =
         {
             "31-bar-rest", "31-bar-listening", "31-bar-listening-no-level", "31-bar-typing", "31-bar-typed", "31-bar-heard", "31-bar-confirm", "31-bar-confirm-part",
-            "31-bar-sent",
+            "31-bar-confirm-escapes", "31-bar-confirm-part-escapes", "31-bar-sent",
         };
 
         /// <summary>
@@ -279,7 +279,19 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The design's own draft, synthetic.</summary>
         private const string BarDraft = "Add a golden balloon worth five points, and remove the old backup file.";
 
-        /// <summary>A heard instruction holding backslashes, synthetic: the confirmation must read exactly the words that will be sent.</summary>
+        /// <summary>A heard instruction in plain words, synthetic: the confirmation a person and a fresh reader see, telling the balloon story.</summary>
+        private const string BarConfirmPlain = "Add a golden balloon worth five points that pops with a short sound.";
+
+        /// <summary>A long heard instruction in plain words, synthetic: the same story, long enough for the file to cut in parts.</summary>
+        private const string BarLongPlain = "Add a golden balloon worth five points to the game, then a silver one worth three, then a bomb that ends the round "
+            + "when it is popped. Keep the score in the top corner, count each pop once, play the short pop sound for every balloon and the low one for the bomb, "
+            + "and show the best score of the day under it. When the round ends, show the three best scores with the time each was made, let the player start again "
+            + "with one press, and keep every balloon inside the play area at both screen sizes. Then remove the old backup file and run the tests again.";
+
+        /// <summary>
+        /// A heard instruction holding backslashes, synthetic: the confirmation must read exactly the words that will be sent. Its own
+        /// state (31-bar-confirm-escapes, the same checks), so the frames a person reads tell the plain story (AUDIT2 and the lead, 2026-11-16).
+        /// </summary>
         private const string BarConfirmWords = @"Add a golden balloon worth five points in games\balloon.js, matching \d+ points.";
 
         /// <summary>A heard instruction long enough for the file to cut in parts, with a backslash in its first, synthetic.</summary>
@@ -351,6 +363,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "31-bar-heard" => (VoiceStage.Idle, false, RoomBarState.Draft, "A heard draft read: Send Heard Instruction?, Send Instruction, Talk Again and Cancel, synthetic data"),
                 "31-bar-confirm" => (VoiceStage.Idle, false, RoomBarState.Confirm, "An instruction's confirmation read: Confirm and Cancel, synthetic data"),
                 "31-bar-confirm-part" => (VoiceStage.Idle, false, RoomBarState.Confirm, "A long instruction's confirmation, its first part: Next Part and Cancel, synthetic data"),
+                "31-bar-confirm-escapes" => (VoiceStage.Idle, false, RoomBarState.Confirm, "An instruction's confirmation, its words holding backslashes: Confirm and Cancel, synthetic data"),
+                "31-bar-confirm-part-escapes" => (VoiceStage.Idle, false, RoomBarState.Confirm, "A long instruction's confirmation with a backslash in its first part: Next Part and Cancel, synthetic data"),
                 "31-bar-sent" => (VoiceStage.Idle, true, RoomBarState.Sent, "Sent, the run not started yet, synthetic data"),
                 _ => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest: Hold to Talk and Type, synthetic data"),
             };
@@ -504,14 +518,20 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             // What the confirmation's panel must read: the armed words, or the part of them the file shows first.
             string? armedWords = null;
-            if (state is "31-bar-confirm" or "31-bar-confirm-part")
+            if (state is "31-bar-confirm" or "31-bar-confirm-part" or "31-bar-confirm-escapes" or "31-bar-confirm-part-escapes")
             {
-                var heard = state == "31-bar-confirm" ? BarConfirmWords : BarLongWords;
+                var heard = state switch
+                {
+                    "31-bar-confirm" => BarConfirmPlain,
+                    "31-bar-confirm-part" => BarLongPlain,
+                    "31-bar-confirm-escapes" => BarConfirmWords,
+                    _ => BarLongWords,
+                };
                 if (steering.Spoken(heard, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("the heard instruction did not arm its confirmation");
                 var request = steering.ToRead(workspace)!;
                 // A part is eight of the panel's own lines, as the director gives the file while the redesign draws it.
                 Read(request, instruction: true, RoomBar.RequestLines);
-                if (state == "31-bar-confirm-part" && screen.RequestParts < 2) shot.Failures.Add("the long instruction is one part of " + screen.RequestRows + " lines");
+                if (state is "31-bar-confirm-part" or "31-bar-confirm-part-escapes" && screen.RequestParts < 2) shot.Failures.Add("the long instruction is one part of " + screen.RequestRows + " lines");
                 armedWords = request;
             }
             // A question's page laid as the redesign lays it, as the headset always does: each answer's label and description apart
@@ -906,10 +926,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         // The confirmation reads exactly the words that will be sent: as the label parses them, each backslash once (AUDIT, 2026-11-10).
                         bar.Body.ForceMeshUpdate(true);
                         var read = bar.Body.GetParsedText();
-                        Require(read.Contains("\\") && !read.Contains("\\\\"), "the panel reads \"" + read + "\", its backslashes not as written");
-                        Require(state == "31-bar-confirm" ? read == armedWords : read.Length > 0 && armedWords.StartsWith(read.TrimEnd(), StringComparison.Ordinal),
+                        var whole = state is "31-bar-confirm" or "31-bar-confirm-escapes";
+                        if (state.EndsWith("-escapes", StringComparison.Ordinal))
+                            Require(read.Contains("\\") && !read.Contains("\\\\"), "the panel reads \"" + read + "\", its backslashes not as written");
+                        Require(whole ? read == armedWords : read.Length > 0 && armedWords.StartsWith(read.TrimEnd(), StringComparison.Ordinal),
                             "the panel reads \"" + read + "\", not the armed words \"" + armedWords + "\"");
-                        Require(bar.Body.textInfo.lineCount <= RoomBar.RequestLines && (state == "31-bar-confirm" || bar.Body.textInfo.lineCount == RoomBar.RequestLines),
+                        Require(bar.Body.textInfo.lineCount <= RoomBar.RequestLines && (whole || bar.Body.textInfo.lineCount == RoomBar.RequestLines),
                             "the instruction's part stands " + bar.Body.textInfo.lineCount + " lines, not the panel's eight at most");
                     }
                     Require(bar.Request.gameObject.activeSelf == shown.Mono, shown.Mono ? "the request does not stand in mono" : "mono stands where no request is");
