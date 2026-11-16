@@ -77,9 +77,9 @@ public class RoomWorkTests
     [Test]
     public void AnyOtherToolReadsTheProductsWordAndNeverItsTitle()
     {
-        Assert.That(Label(Execution(Tool("a", "Grep", "balloon"))), Is.EqualTo("Running"));
-        Assert.That(Label(Execution(Tool("b", "webSearch", "how to draw a balloon"))), Is.EqualTo("Running"));
-        Assert.That(Label(Execution(Tool("c", "mcpToolCall", "server tool"))), Is.EqualTo("Running"));
+        Assert.That(Label(Execution(Tool("a", "Grep", "balloon"))), Is.EqualTo("Working"));
+        Assert.That(Label(Execution(Tool("b", "webSearch", "how to draw a balloon"))), Is.EqualTo("Working"));
+        Assert.That(Label(Execution(Tool("c", "mcpToolCall", "server tool"))), Is.EqualTo("Working"));
     }
 
     [Test]

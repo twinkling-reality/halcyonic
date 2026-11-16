@@ -54,7 +54,7 @@ namespace Halcyonic.Client
         public const string Editing = "Editing";
 
         /// <summary>A tool with no verb of its own: the product's word for a task at work (<see cref="StateLanguage"/>).</summary>
-        public const string Running = "Running";
+        public const string Running = "Working";
 
         /// <summary>The tools that read a file, and the ones that change one, as the agent apps name them.</summary>
         private static readonly string[] ReadingTools = { "read", "notebookread" };

@@ -1955,7 +1955,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     new[] { "It wants to run: Run make migrate" }, 1, true, false, false),
                 1 or 4 => new CharacterPresentation(id, titles[slot], CharacterActivity.TurnFinished, "Round Ended", AttentionLevel.None,
                     Array.Empty<string>(), 0, true, false, false),
-                _ => new CharacterPresentation(id, titles[slot], CharacterActivity.Working, "Running", AttentionLevel.None,
+                _ => new CharacterPresentation(id, titles[slot], CharacterActivity.Working, "Working", AttentionLevel.None,
                     Array.Empty<string>(), 0, true, false, false),
             };
         }

@@ -76,7 +76,7 @@ namespace Halcyonic.Client
         public static ProjectState StateOf(ProjectSummary project) =>
             project.NeedsYou > 0 ? new ProjectState("Needs You", project.NeedsYou, project.Shown, project.Work, needsYou: true)
             : project.Notice > 0 ? new ProjectState("Ready", project.Notice, project.Shown, project.Work)
-            : project.Active > 0 ? new ProjectState("Running", project.Active, project.Shown, project.Work, running: true)
+            : project.Active > 0 ? new ProjectState("Working", project.Active, project.Shown, project.Work, running: true)
             : project.Work == 0 ? new ProjectState(NoWork, 0, project.Shown, 0)
             : project.Work > project.NotStarted ? new ProjectState("Paused", project.Work - project.NotStarted, project.Shown, project.Work)
             : new ProjectState("Not Started", project.NotStarted, project.Shown, project.Work);
@@ -85,7 +85,7 @@ namespace Halcyonic.Client
         {
             var most = project.NeedsYou > 0 ? "Needs You · " + Tasks(project.NeedsYou)
                 : project.Notice > 0 ? "Ready · " + Tasks(project.Notice)
-                : project.Active > 0 ? "Running · " + Tasks(project.Active)
+                : project.Active > 0 ? "Working · " + Tasks(project.Active)
                 : project.Work == 0 ? NoWork
                 : project.Work > project.NotStarted ? "Paused · " + Tasks(project.Work - project.NotStarted)
                 : "Not Started · " + Tasks(project.NotStarted);
@@ -107,7 +107,7 @@ namespace Halcyonic.Client
             var paused = project.Work - project.NeedsYou - project.Notice - project.Active - project.NotStarted;
             if (project.NeedsYou > 0) parts.Add("Needs You · " + Counted(project.NeedsYou));
             if (project.Notice > 0) parts.Add("Ready · " + Counted(project.Notice));
-            if (project.Active > 0) parts.Add("Running · " + Counted(project.Active));
+            if (project.Active > 0) parts.Add("Working · " + Counted(project.Active));
             if (paused > 0) parts.Add("Paused · " + Counted(paused));
             if (project.NotStarted > 0) parts.Add("Not Started · " + Counted(project.NotStarted));
             return string.Join(" · ", parts);
@@ -168,7 +168,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The row's one note on the Projects card (FIELD's parts note): "Needs You" where a task waits on the person, else
-        /// "Running" where one is under way, else the count of its tasks, else none. Never a state and a count together.
+        /// "Working" where one is under way, else the count of its tasks, else none. Never a state and a count together.
         /// </summary>
         public string? Note => NeedsYou ? Word : Running ? Word : Work > 0 ? ProjectsText.Tasks(Work) : null;
 

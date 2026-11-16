@@ -237,7 +237,7 @@ public class StateLanguageTests
     {
         Assert.That(States.Select(StateLanguage.WordOf), Is.EqualTo(new[]
         {
-            "Not Started", "Starting", "Running", "Checking", "Needs You", "Round Ended",
+            "Not Started", "Starting", "Working", "Checking", "Needs You", "Round Ended",
             "Checks Failed", "Failed", "Stopped", "Unknown",
         }));
     }
@@ -303,7 +303,7 @@ public class StateLanguageTests
     public void ALastKnownBadgeKeepsItsWordGhostsAndStandsStill()
     {
         var badge = StateLanguage.BadgeOf(Character(CharacterActivity.Working, stale: true));
-        Assert.That(badge.Word, Is.EqualTo("Running"));
+        Assert.That(badge.Word, Is.EqualTo("Working"));
         Assert.That(badge.LastKnown, Is.True);
         Assert.That(badge.Icon, Is.EqualTo(GlazeIcon.LastKnown));
         Assert.That(badge.Turns, Is.False);
@@ -326,7 +326,7 @@ public class StateLanguageTests
         Assert.That(StateLanguage.MarksOf(Character(CharacterActivity.Working, synthetic: true)).Single().Word, Is.EqualTo("Practice"));
         Assert.That(StateLanguage.MarksOf(Character(CharacterActivity.Working, synthetic: true, recorded: true)).Single().Word, Is.EqualTo("Demo"));
         Assert.That(StateLanguage.MarksOf(Character(CharacterActivity.Working, recorded: true)).Single().Word, Is.EqualTo("Recorded"));
-        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.Working, synthetic: true, recorded: true)).Word, Is.EqualTo("Running"));
+        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.Working, synthetic: true, recorded: true)).Word, Is.EqualTo("Working"));
     }
 
     [Test]

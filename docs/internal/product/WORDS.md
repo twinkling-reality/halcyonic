@@ -90,7 +90,7 @@ One word per state, the same on the badge, in the peek, in the workspace and in 
 | --- | --- | --- |
 | No run yet | Not Started | Not Started |
 | Asked to start, not yet confirmed | Starting | Starting · Unconfirmed |
-| Running | Running | Running · 2 Tasks |
+| The agent is at work | Working | Working · 2 Tasks |
 | A test run in progress | Checking | Checking · Reported |
 | An approval or a question waits | Needs You | Needs You · 1 Task; Needs You · {title} |
 | The round ended | Round Ended | Round Ended · Ready to Review |
@@ -101,7 +101,7 @@ One word per state, the same on the badge, in the peek, in the workspace and in 
 
 The badges and lines follow the owner's voice standard (2026-10-30). The file and the workspace say
 Round Failed, Status Unknown and, in Latest, Checking · Reported so; the menu's counts, lists and
-sentences still read "2 tasks running" and the like until the menu's words move. A finished round never says Done or Complete. Checking is the agent's
+sentences still read "2 tasks running" and the like until the menu's words move. The state's word was Running until 2026-11-16, when it became Working everywhere a person reads the state (AUDIT2: "Working" is what a child says of a person at work; "Running" is a computer's word); "Running Tests" and "Running Command" stay the steps' verbs. A finished round never says Done or Complete. Checking is the agent's
 report: wherever its line stands it says Reported, so it never reads as your computer's own check.
 
 The state badge also counts what waits when more than one thing does ("Needs You · 2"). In

@@ -1235,8 +1235,8 @@ public class QuestionLedWorkspaceTests
             execution.PendingApprovals.Clear();
             execution.Status = ExecutionStatus.Running;
         }, WorkstreamStatus.Running);
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing Waiting", "Latest · Running" }));
-        Assert.That(WorkspaceText.Answer(work.Present(live: false))[1], Is.EqualTo("Last Known · Latest · Running"));
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing Waiting", "Latest · Working" }));
+        Assert.That(WorkspaceText.Answer(work.Present(live: false))[1], Is.EqualTo("Last Known · Latest · Working"));
 
         // While the agent checks its own work, the line says the agent reported it (AUDIT's X17A-S1).
         work.Change(execution => execution.Status = ExecutionStatus.Verifying, WorkstreamStatus.Verifying);

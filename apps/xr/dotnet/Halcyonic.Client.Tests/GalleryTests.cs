@@ -139,7 +139,7 @@ public class GalleryTests
             Assert.That(GalleryText.State(state), Is.EqualTo((section, line)), state);
         }
         // A reported state never borrows the words of a task's own observed state.
-        foreach (var ours in new[] { "Needs You", "Checks Failed", "Running", "Round Ended", "Failed" })
+        foreach (var ours in new[] { "Needs You", "Checks Failed", "Working", "Round Ended", "Failed" })
         {
             Assert.That(expected.Values.Select(value => value.Item2), Has.None.EqualTo(ours), ours);
         }
@@ -170,9 +170,9 @@ public class GalleryTests
         Assert.That(item.Owner?.Text, Is.EqualTo("harbor-labs"));
         Assert.That(item.Section, Is.EqualTo(GallerySection.NeedsYou), "the more urgent of the two");
         Assert.That(item.SectionFrom, Is.EqualTo(GallerySectionSource.Catalog));
-        Assert.That(item.ObservedLine?.Text, Is.EqualTo("Running · 1"), "this computer's own tasks keep their line");
+        Assert.That(item.ObservedLine?.Text, Is.EqualTo("Working · 1"), "this computer's own tasks keep their line");
         Assert.That(item.ReportedLine?.Text, Is.EqualTo("Review Requested"));
-        Assert.That(item.Line.Text, Is.EqualTo("Running · 1"));
+        Assert.That(item.Line.Text, Is.EqualTo("Working · 1"));
         Assert.That(item.LineReported, Is.False);
         Assert.That(item.HasCharacter, Is.True);
         Assert.That(item.OnYourComputer, Is.True);

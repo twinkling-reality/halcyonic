@@ -336,7 +336,7 @@ namespace Halcyonic.Client
         {
             WorkState.NotStarted => "Not Started",
             WorkState.Starting => "Starting",
-            WorkState.Working => "Running",
+            WorkState.Working => "Working",
             WorkState.CheckingItsWork => "Checking",
             WorkState.WaitingForYou => "Needs You",
             WorkState.FinishedThisRound => "Round Ended",

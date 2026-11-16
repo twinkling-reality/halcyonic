@@ -182,7 +182,7 @@ public class ProjectsScreensTests
         Assert.That(frame.Side.SubjectIsData, Is.True);
         Assert.That(frame.Side.Facts.Select(fact => (fact.Name, fact.Value)), Is.EqualTo(new[]
         {
-            (ProjectsText.ItsWork, "Needs You · 1 · Running · 1"),
+            (ProjectsText.ItsWork, "Needs You · 1 · Working · 1"),
             (ProjectsText.OnTheStage, ProjectsText.Shown),
         }));
         Assert.That((frame.Footer[PromptSlot.Secondary]!.Id, frame.Footer[PromptSlot.Secondary]!.Words), Is.EqualTo((ProjectsScreens.HideProject, ProjectsText.HideFromStage)));
@@ -383,7 +383,7 @@ public class ProjectsScreensTests
         Assert.That((ProjectsText.ProjectFact(rested), ProjectsText.Work(rested)), Is.EqualTo(("Paused · 2 Tasks", "Paused · 2")));
         var one = Of(WorkstreamStatus.Created);
         Assert.That((ProjectsText.ProjectFact(one), ProjectsText.Work(one)), Is.EqualTo(("Not Started · 1 Task", "Not Started · 1")));
-        Assert.That(ProjectsText.ProjectFact(Of(WorkstreamStatus.Running, WorkstreamStatus.Created)), Is.EqualTo("Running · 1 Task"), "running still comes first");
+        Assert.That(ProjectsText.ProjectFact(Of(WorkstreamStatus.Running, WorkstreamStatus.Created)), Is.EqualTo("Working · 1 Task"), "running still comes first");
         var single = Of(WorkstreamStatus.Created);
         Assert.That(ProjectsText.ProjectFact(new ProjectSummary("p", "Storefront API", shown: false, single.Work, 0, 0, 0, 0, single.NotStarted)),
             Is.EqualTo("Hidden · Not Started · 1 Task"));
@@ -400,15 +400,15 @@ public class ProjectsScreensTests
         }
         // The demonstration's first seconds: two working, the third not started yet.
         var starting = Of(WorkstreamStatus.Running, WorkstreamStatus.Running, WorkstreamStatus.Created);
-        Assert.That((ProjectsText.ProjectFact(starting), ProjectsText.Work(starting)), Is.EqualTo(("Running · 2 Tasks", "Running · 2 · Not Started · 1")));
+        Assert.That((ProjectsText.ProjectFact(starting), ProjectsText.Work(starting)), Is.EqualTo(("Working · 2 Tasks", "Working · 2 · Not Started · 1")));
         // Then the third waits and the two have finished.
         var asked = Of(WorkstreamStatus.WaitingForHuman, WorkstreamStatus.Completed, WorkstreamStatus.Completed);
         Assert.That((ProjectsText.ProjectFact(asked), ProjectsText.Work(asked)), Is.EqualTo(("Needs You · 1 Task", "Needs You · 1 · Paused · 2")));
         var every = Of(WorkstreamStatus.WaitingForHuman, WorkstreamStatus.Failed, WorkstreamStatus.Running, WorkstreamStatus.Interrupted, WorkstreamStatus.Created);
-        Assert.That((ProjectsText.ProjectFact(every), ProjectsText.Work(every)), Is.EqualTo(("Needs You · 1 Task", "Needs You · 1 · Ready · 1 · Running · 1 · Paused · 1 · Not Started · 1")),
+        Assert.That((ProjectsText.ProjectFact(every), ProjectsText.Work(every)), Is.EqualTo(("Needs You · 1 Task", "Needs You · 1 · Ready · 1 · Working · 1 · Paused · 1 · Not Started · 1")),
             "every kind, in order, the noun on the first count only");
         var many = Of(WorkstreamStatus.Running, WorkstreamStatus.Running, WorkstreamStatus.Completed, WorkstreamStatus.Completed, WorkstreamStatus.Completed);
-        Assert.That(ProjectsText.Work(many), Is.EqualTo("Running · 2 · Paused · 3"));
+        Assert.That(ProjectsText.Work(many), Is.EqualTo("Working · 2 · Paused · 3"));
         Assert.That(ProjectsText.Work(Of()), Is.EqualTo("No Work"));
     }
 
