@@ -803,8 +803,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         var drawnOpen = opening != null && (Drawn(FileScreens.Open, opening.Key) != null || plane.KitShows
                             && plane.Kit.Bar.Card?.RowTargets.Any(row => row.Control.Action == FileScreens.Open && row.Control.Key == opening.Key) == true);
                         if (opening != null && !drawnOpen)
+                        {
                             Debug.Log("Halcyonic: judge room: not reached here: the redesign draws no control that opens an answer beside its page ("
                                 + FileScreens.Open + "/" + opening.Key + ")");
+                            // The walk leaves the section it opened itself, which no person reaches under the redesign, and opens the task
+                            // again as a person does, so the stage is crossed from a page a person stands on.
+                            CloseFile();
+                            OpenSection(workstreamId, null);
+                            reachedBy = "no drawn control opens an answer beside the page: the walk closed the section it opened and opened the task again";
+                        }
                         else if (opening != null && Press(FileScreens.Open, opening.Key))
                         {
                             reachedBy += (reachedBy.Length > 0 ? ", then " : "") + "pressed " + FileScreens.Open + "/" + opening.Key;
