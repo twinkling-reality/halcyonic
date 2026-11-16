@@ -476,7 +476,7 @@ describe("checking a task's own copy (ADR 0045)", () => {
     assert.equal(admitted.scope.workstream_id, first);
     assert.match(
       refusal(check()) ?? '',
-      /^The task Second is running in this project, so Check was not done\. Check the project once it stops\.$/,
+      /^The task Second is running in this project, so Check Project was not done\. Check the project once it stops\.$/,
       "the project's own check still waits",
     );
     assert.equal(refusal(check(second)), 'This task is running. Check it once it stops.');

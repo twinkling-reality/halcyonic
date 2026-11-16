@@ -131,7 +131,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
     confirm: 'review',
   },
   'project.check': {
-    title: 'Check',
+    title: 'Check Project',
     underWay: 'A check',
     description: 'Check the project now: build it and try it, or run the check it was given.',
     sayable: true,
