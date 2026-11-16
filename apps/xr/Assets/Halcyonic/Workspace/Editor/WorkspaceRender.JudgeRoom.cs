@@ -683,6 +683,55 @@ namespace Halcyonic.XR.Workspace.Editor
                 string Outcome(ExecutionView run) => run.LastTestRun?.Outcome.ToString().ToLowerInvariant() ?? "unchecked";
                 bool SentSince<T>(int before) => sent.Skip(before).OfType<T>().Any();
                 ExecutionView? Current(string workstreamId) => Runs().FirstOrDefault(pair => pair.Task.WorkstreamId == workstreamId).Run;
+                void WatchCover(WorkstreamView watched)
+                {
+                    // The scratch plane's mock agent writes no file, and Watch It Work stands only for files the host sees change in the
+                    // run's folder: the walk writes one into the newest project folder while the agent works, standing in for its edit
+                    // (HALCYONIC_LIVE_ROOT, the scratch plane's own folder; never the owner's).
+                    if (Environment.GetEnvironmentVariable("HALCYONIC_LIVE_ROOT") is string liveRoot && Directory.Exists(Path.Combine(liveRoot, "projects")))
+                    {
+                        var folders = new[] { "projects", "tasks" }.Select(each => Path.Combine(liveRoot, each)).Where(Directory.Exists)
+                            .SelectMany(Directory.GetDirectories).OrderByDescending(Directory.GetLastWriteTimeUtc).Take(1).ToList();
+                        foreach (var folder in folders)
+                        {
+                            File.WriteAllText(Path.Combine(folder, "watch-it-work.txt"), "A line written while the agent works.\nA second line.\n");
+                            Debug.Log("Halcyonic: live walk: wrote watch-it-work.txt into the run's folder " + Path.GetFileName(folder) + " while the agent works");
+                        }
+                    }
+                    // A real agent may take minutes to write its first file; the mock run ends this wait at once (its approval).
+                    var until = DateTime.UtcNow.AddSeconds(240);
+                    RoomButton? watch = null;
+                    while (DateTime.UtcNow < until && (watch = Drawn(RoomBar.Watch, null)) == null
+                        && Current(watched.WorkstreamId) is ExecutionView working && working.Status != ExecutionStatus.Completed && working.PendingApprovals.Count == 0)
+                    {
+                        Draw();
+                        Thread.Sleep(200);
+                    }
+                    if (watch == null)
+                    {
+                        Debug.Log("Halcyonic: live walk: Watch It Work was not drawn while the agent worked here: the open arc's cover is not measured on this plane");
+                        return;
+                    }
+                    if (!Press(RoomBar.Watch, null)) { failures.Add("live walk: Watch It Work is drawn and its press was not taken"); return; }
+                    Draw();
+                    var arc = root.GetComponentsInChildren<Halcyonic.XR.UI.RoomWritingArc>(false).FirstOrDefault();
+                    var character = stood.FirstOrDefault(each => each.WorkstreamId == watched.WorkstreamId);
+                    if (arc == null) { failures.Add("live walk: Watch It Work was pressed and no arc stands"); return; }
+                    if (character?.View == null || !character.View.gameObject.activeInHierarchy)
+                        Debug.Log("Halcyonic: live walk: the working task's character is not on the stage: the arc's cover of it is not measured");
+                    else
+                    {
+                        var share = CoveredShare(camera, character.View, arc.transform);
+                        Debug.Log("Halcyonic: live walk: the open Watch It Work arc covers " + (share * 100f).ToString("0.0") + "% of the working character's body and name tag");
+                        if (share > 0f)
+                            failures.Add("live walk: the open Watch It Work arc covers " + (share * 100f).ToString("0.0") + "% of the working character's body and name tag");
+                    }
+                    Moment("watch it work");
+                    if (Drawn(RoomBar.Watch, null) != null) Press(RoomBar.Watch, null);
+                    Draw();
+                    if (root.GetComponentsInChildren<Halcyonic.XR.UI.RoomWritingArc>(false).Any(each => each.GetComponentsInChildren<Renderer>(false).Any(part => part.enabled)))
+                        failures.Add("live walk: Done Watching left the arc standing");
+                }
                 void Answer(WorkstreamView task, ExecutionView run, QuestionView question)
                 {
                     OpenSection(task.WorkstreamId, FileSection.Waiting);
@@ -1295,6 +1344,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     var task = State()!.Workstreams.Values.FirstOrDefault(each => State()!.CurrentExecution(each) != null);
                     EndJourney();
                     if (task == null) return;
+
+                    // Watch It Work while the agent works (AUDIT's film-batch item 2): the open arc never covers the working task's own
+                    // character (its body and its name tag), which the person watches beside the code; Done Watching takes the arc away.
+                    WatchCover(task);
 
                     Journey("answer an approval", "1: one key");
                     // A real agent may finish without asking: the wait ends at its result too.
@@ -1957,6 +2010,43 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             if (offsets.Count > 0) Debug.Log("Halcyonic: judge room: " + moment + ": press offsets " + string.Join("; ", offsets));
             return off;
+        }
+
+        /// <summary>
+        /// The share of a character's body and name tag, as the eyes see them, that the drawn parts under <paramref name="cover"/> stand
+        /// in front of: sampled on a 24 by 24 grid over the character's box on the render; 0 where nothing of the cover is nearer.
+        /// </summary>
+        private static float CoveredShare(Camera camera, CharacterView character, Transform cover)
+        {
+            Rect? ScreenRect(IEnumerable<Vector3> world, out float nearest)
+            {
+                var points = world.Select(point => camera.WorldToScreenPoint(point)).ToList();
+                nearest = points.Count > 0 ? points.Min(point => point.z) : float.MaxValue;
+                if (points.Count == 0 || points.Any(point => point.z <= 0f)) return null;
+                return Rect.MinMaxRect(points.Min(point => point.x), points.Min(point => point.y), points.Max(point => point.x), points.Max(point => point.y));
+            }
+            IEnumerable<Vector3> Corners(Bounds box)
+            {
+                for (var i = 0; i < 8; i++)
+                    yield return new Vector3(i % 2 == 0 ? box.min.x : box.max.x, i / 2 % 2 == 0 ? box.min.y : box.max.y, i / 4 == 0 ? box.min.z : box.max.z);
+            }
+            var own = character.Body.GetComponentsInChildren<Renderer>(false).Concat(character.Labels.GetComponentsInChildren<Renderer>(false))
+                .Where(part => part.enabled).SelectMany(part => Corners(part.bounds)).ToList();
+            if (ScreenRect(own, out var characterNear) is not Rect target || target.width <= 0f || target.height <= 0f) return 0f;
+            var characterFar = own.Select(point => camera.WorldToScreenPoint(point).z).Max();
+            var covers = new List<Rect>();
+            foreach (var part in cover.GetComponentsInChildren<Renderer>(false).Where(part => part.enabled))
+                if (ScreenRect(Corners(part.bounds), out var near) is Rect rect && near < characterFar) covers.Add(rect);
+            if (covers.Count == 0) return 0f;
+            var hit = 0;
+            const int grid = 24;
+            for (var i = 0; i < grid; i++)
+                for (var j = 0; j < grid; j++)
+                {
+                    var point = new Vector2(target.xMin + (i + 0.5f) * target.width / grid, target.yMin + (j + 0.5f) * target.height / grid);
+                    if (covers.Any(rect => rect.Contains(point))) hit++;
+                }
+            return hit / (float)(grid * grid);
         }
 
         private static List<string> NoticeCovered(GameObject root, Camera camera, TMP_Text words, Transform plate)
