@@ -136,6 +136,12 @@ now, not yet) and at most one line under it.
 Where no check exists (a world, or a starter that declares no build) there is no Check and no Ready step: the list
 ends at Working, never at a step nobody can reach (AUDIT2, 2026-11-16).
 
+Once the turn ended, what the task used stands under the list (`TaskUsage`, the same rules as the Mac's Usage page):
+"Tokens Used" with the agent app's own count in whole digits ("210,700"), "At least this much" and why where it is
+short ("Some parts not reported", "2 of 3 turns reported"), "Not Reported Yet" or "Not Reported by This App" where
+there is none, never 0; and "Cost" only where the agent gave its own estimate, "By the agent's count" under it, money
+under a cent keeping its first figures. No agent app's name stands beside it.
+
 An approval or a question marks the step that is now, which keeps its word: its line is "Needs You: Run Command?"
 for a command and "Needs You" for anything else (never a tool's own name). A task that ends short of Ready ends the
 list where it stood: Checks Failed, Partly Checked (the check's verdict is not known), Stopped, Failed, or Can't Tell
