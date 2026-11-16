@@ -2062,10 +2062,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 // lines, until the last line holds two words). Read from the label's own laid lines; code in Watch It Work is not words.
                 if (label.GetComponentInParent<Halcyonic.XR.UI.RoomWritingArc>() == null && label.textInfo.lineCount >= 2)
                 {
+                    // Words are what spaces part, as a reader counts them: TMP's own count splits a path at each slash and dot.
                     var laid = label.textInfo;
-                    var words = laid.wordCount;
+                    var parsed = label.GetParsedText();
+                    var words = parsed.Split((char[])null, StringSplitOptions.RemoveEmptyEntries).Length;
                     var lastLine = laid.lineInfo[laid.lineCount - 1];
-                    if (words >= 4 && lastLine.wordCount == 1 && lastLine.characterCount > 0)
+                    var lastStart = Math.Clamp(lastLine.firstCharacterIndex, 0, parsed.Length);
+                    var lastWords = parsed.Substring(lastStart, Math.Clamp(lastLine.lastCharacterIndex + 1, lastStart, parsed.Length) - lastStart)
+                        .Split((char[])null, StringSplitOptions.RemoveEmptyEntries).Length;
+                    if (words >= 4 && lastWords == 1 && lastLine.characterCount > 0)
                         failures.Add(PathOf(label.transform) + " \"" + Codes(label.text) + "\" ends on one word alone on its last line");
                 }
                 // The label's rectangle on the render: its strokes against the most common colour under them.
