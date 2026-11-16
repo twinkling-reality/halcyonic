@@ -376,3 +376,19 @@ checks.
 On this Mac the stepped clock draws the same page to the same pixel. The empty starter, a game that only names itself
 on its card and the fake page differ from the starter's picture by 0; the smallest game tried, a 60 cm box 4 m away,
 by 0.9% ([validation/iwsdk-starter.md](../validation/iwsdk-starter.md)). Drawn still never means the game works.
+
+## Amendment, 2026-11-16: a kit the starter released stays the kit's own after the kit moves on
+
+The laptop step compared a project's kit files (the input layer's two, and the files the reading and the fit read)
+with the template as it stands, so every change to the kit made every older, untouched project read `changed` at its
+next check: not ready on a laptop, Play on Laptop refused (seen on the proving plane on 2026-11-16, a lake made on
+2026-11-14 whose own kit was untouched). The starter now keeps `kit-versions.json` beside its template in the host's
+tracked starter tree, never in a project: the SHA-256 of each kit file as main held it after every commit that changed
+one, oldest first, seeded from git history and grown by `node tooling/kit-versions.ts --add` in the same commit as the
+kit change (a test fails when the template's set is not the list's last). A comparison reads the project's files as
+the starter's own when they are the template's now, or when every one of them equals one released set, byte for byte;
+files from two released sets mixed, or any edit, read `changed`; a list missing, behind a link, over 256 KB or of
+another shape leaves the template alone as the measure. A project holding an older released kit is trusted for that
+kit's own readings as they were then; an agent can restore an older released set, which is the kit's own code as
+shipped, never its own invention. The own picture's reference (`other_template`) still reads only the current
+template's projects; the same rule may follow.

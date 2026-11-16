@@ -134,25 +134,80 @@ export async function fitFiles(project: string, template: string): Promise<Check
   return sameAsTemplate(project, template, FIT_FILES);
 }
 
+/** The largest list of released kit versions the host reads (AUDIT3, 2026-11-16). */
+const KIT_VERSIONS_BYTES = 256 * 1024;
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
+/**
+ * The kit sets the starter has released (starters/<id>/kit-versions.json, beside its template in the host's own tracked
+ * starter tree, never a project's: AUDIT3 K1), each a file's SHA-256 by its name; null when the list is missing, a link,
+ * too large or not of the strict shape, so the comparison falls back to the current template alone.
+ */
+async function releasedSets(
+  template: string,
+): Promise<readonly Readonly<Record<string, string>>[] | null> {
+  const path = join(template, '..', 'kit-versions.json');
+  const info = await lstat(path).catch(() => null);
+  if (info === null || info.isSymbolicLink() || !info.isFile() || info.size > KIT_VERSIONS_BYTES)
+    return null;
+  const bytes = await readNoLink(path, info, KIT_VERSIONS_BYTES);
+  if (bytes === null) return null;
+  try {
+    const list = JSON.parse(bytes.toString('utf8')) as { versions?: unknown };
+    if (!Array.isArray(list.versions)) return null;
+    const sets: Record<string, string>[] = [];
+    for (const version of list.versions) {
+      const sha = (version as { sha256?: unknown } | null)?.sha256;
+      if (sha === null || typeof sha !== 'object' || Array.isArray(sha)) return null;
+      const entries = Object.entries(sha as Record<string, unknown>);
+      if (
+        !entries.every(
+          ([file, hex]) =>
+            READING_FILES.includes(file as never) &&
+            typeof hex === 'string' &&
+            SHA256_HEX.test(hex),
+        )
+      )
+        return null;
+      sets.push(Object.fromEntries(entries) as Record<string, string>);
+    }
+    return sets;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether the project's kit files are the starter's own: byte for byte the template's now, or, every one of them
+ * together, one set the starter released (kit-versions.json; VRIFY and AUDIT3 K2, K3, 2026-11-16), so an untouched
+ * project made from an earlier kit is not read as changed after the kit moves on. Exact bytes, no normalising; files
+ * from two released sets mixed, or any edit, read changed.
+ */
 async function sameAsTemplate(
   project: string,
   template: string,
   files: readonly string[],
 ): Promise<CheckLaptop['layer']> {
+  const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
+  const theirs: Record<string, string> = {};
   let changed = false;
   for (const file of files) {
-    const theirs = join(project, 'src', file);
-    const info = await lstat(theirs).catch(() => null);
+    const path = join(project, 'src', file);
+    const info = await lstat(path).catch(() => null);
     if (info === null || info.isSymbolicLink() || !info.isFile() || info.size > 1024 * 1024)
       return 'missing';
     // Read through the handle that opened the file looked at, never a link swapped in after (AUDIT S3).
-    const a = await readNoLink(theirs, info, 1024 * 1024);
+    const a = await readNoLink(path, info, 1024 * 1024);
     if (a === null) return 'missing';
+    theirs[file] = hash(a);
     const b = await readFile(join(template, 'src', file));
-    const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
-    if (hash(a) !== hash(b)) changed = true;
+    if (theirs[file] !== hash(b)) changed = true;
   }
-  return changed ? 'changed' : 'starter';
+  if (!changed) return 'starter';
+  const released = await releasedSets(template);
+  return released?.some((set) => files.every((file) => set[file] === theirs[file])) === true
+    ? 'starter'
+    : 'changed';
 }
 
 /** Reads the hook in the page: what reached the layer and where its targets are, as one string. */

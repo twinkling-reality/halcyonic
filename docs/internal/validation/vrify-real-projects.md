@@ -320,3 +320,13 @@ gain into the `AudioDestination` node; a page that makes its context at load, wi
 `OfflineAudioContext` connects nothing to a destination. So the check reads `sound` from the browser's own record,
 never from the page, and a running context needs no audio output on the Mac. What it does not say: that anything is
 heard (a context may run at no volume), or anything of sound an app makes without Web Audio.
+
+## A kit update left older projects not ready (2026-11-16)
+
+Round l2-d4 on the proving plane (tree 273aba926) changed only `src/index.ts` of a lake made on 2026-11-14, and its
+check read the layer, the reading and the fit as `changed`, laptop not ready; at 03:47Z the same project had read
+ready on the plane's earlier tree. `cmp` of its kit files against the newer template: `play-input.ts`, `legible.ts`,
+`pages.ts`, `rows.ts` and `decor.ts` differed (the kit had changed in 1111-b180), `play-input-core.ts` and `look.ts`
+did not. The project's seven kit files together equal the released set after commit b9d2a29e4 in
+`starters/iwsdk-vr/kit-versions.json` (23 versions seeded from main's history), so it now reads as the kit's own.
+

@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import { cpSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -263,6 +272,93 @@ describe("the check's laptop step (M1.8b)", () => {
       join(project, 'src', 'play-input-core.ts'),
     );
     assert.equal(await layerState(project, template), 'missing');
+  });
+
+  test("an untouched project from a kit the starter released reads as the kit's own; an edit or a mix of two never does (VRIFY, AUDIT3 K1 to K5, 2026-11-16)", async (t) => {
+    const tracked = new URL('../../../../starters/iwsdk-vr/template/', import.meta.url).pathname;
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-kit-versions-')));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    // A starter of the test's own: the kit as it stands now, and two earlier kits of its making.
+    const starter = join(root, 'starter');
+    const template = join(starter, 'template');
+    cpSync(join(tracked, 'src'), join(template, 'src'), { recursive: true });
+    const sha = (text: string | Buffer) => createHash('sha256').update(text).digest('hex');
+    const now = Object.fromEntries(
+      READING_FILES.map((file) => [file, readFileSync(join(template, 'src', file))]),
+    );
+    const older = (mark: string) =>
+      Object.fromEntries(
+        READING_FILES.map((file) => [
+          file,
+          Buffer.concat([now[file] as Buffer, Buffer.from(`// ${mark}\n`)]),
+        ]),
+      );
+    const first = older('first');
+    const second = older('second');
+    const set = (files: Record<string, Buffer>) =>
+      Object.fromEntries(Object.entries(files).map(([file, bytes]) => [file, sha(bytes)]));
+    const list = (versions: unknown) =>
+      writeFileSync(
+        join(starter, 'kit-versions.json'),
+        JSON.stringify({ files: READING_FILES, versions }),
+      );
+    const project = join(root, 'project');
+    const make = (files: Record<string, Buffer>) => {
+      rmSync(project, { recursive: true, force: true });
+      cpSync(join(template, 'src'), join(project, 'src'), { recursive: true });
+      for (const [file, bytes] of Object.entries(files))
+        writeFileSync(join(project, 'src', file), bytes);
+    };
+    const all = async () => [
+      await layerState(project, template),
+      await readingFiles(project, template),
+      await fitFiles(project, template),
+    ];
+    make(first);
+    // Main's rule, with no list: an untouched project from the first kit reads changed.
+    assert.deepEqual(await all(), ['changed', 'changed', 'changed']);
+    list([
+      { from: 'first', sha256: set(first) },
+      { from: 'second', sha256: set(second) },
+      { from: 'now', sha256: set(now) },
+    ]);
+    assert.deepEqual(await all(), ['starter', 'starter', 'starter'], 'a released kit, untouched');
+    make({
+      ...first,
+      'pages.ts': Buffer.concat([first['pages.ts'] as Buffer, Buffer.from('// edited\n')]),
+    });
+    assert.deepEqual(
+      await all(),
+      ['starter', 'changed', 'changed'],
+      'an edited kit file, the layer untouched',
+    );
+    make({ ...first, 'play-input-core.ts': second['play-input-core.ts'] as Buffer });
+    assert.equal(
+      await layerState(project, template),
+      'changed',
+      'two released kits mixed (AUDIT3 K3)',
+    );
+    // A list the host cannot trust falls back to the template alone, never to own.
+    make(first);
+    for (const broken of [
+      'not json',
+      JSON.stringify({ versions: [{ sha256: { 'pages.ts': 'xyz' } }] }),
+      JSON.stringify({ versions: [{ sha256: { 'index.ts': sha('x') } }] }),
+    ]) {
+      writeFileSync(join(starter, 'kit-versions.json'), broken);
+      assert.deepEqual(await all(), ['changed', 'changed', 'changed'], broken);
+    }
+    rmSync(join(starter, 'kit-versions.json'));
+    symlinkSync(join(root, 'elsewhere.json'), join(starter, 'kit-versions.json'));
+    writeFileSync(
+      join(root, 'elsewhere.json'),
+      JSON.stringify({ versions: [{ sha256: set(first) }] }),
+    );
+    assert.deepEqual(
+      await all(),
+      ['changed', 'changed', 'changed'],
+      'a list behind a link is not read',
+    );
   });
 
   test('presses where the target is right before the press, not where it was before the control pair (M1.8g)', async () => {
