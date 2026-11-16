@@ -244,6 +244,12 @@ namespace Halcyonic.Client
         /// <summary>The words on the row for more answers: the next page, or from the last back to the first.</summary>
         public static string MoreAnswersWords(int page, int pages) => page + 1 < pages ? "More Choices" : "First Choices";
 
+        /// <summary>
+        /// The words on a chooser's pager (a model, a starter, a recorded instruction): the next page, or from the last back to
+        /// the first, as every other pager says where it goes (AUDIT2's SHOULD, 2026-11-16T1446Z: one name per place).
+        /// </summary>
+        public static string ChoicesPagerWords(int page, int pages) => page + 1 < pages ? "Next Choices" : "First Choices";
+
         /// <summary>The way back to the first part, and the next question, said alone (the redesign's pager: the position stands apart).</summary>
         public const string FirstPartWords = "First Part";
 

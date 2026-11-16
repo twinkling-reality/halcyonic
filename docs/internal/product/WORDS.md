@@ -478,7 +478,7 @@ that draft locally. A spoken draft retains its additional reviewed Confirm after
 including after a keyboard edit. Read Full Instruction explains an unread draft, as the locked Send's own word in the kit; Answer Approval
 First explains approval preemption. A changed execution says Nothing was sent: the task changed..
 
-Next Choices names the preset chooser's body pager. Back to Choices acknowledges the full notice
+Next Choices names the preset chooser's body pager, and the model and starter choosers'; from the last page it says First Choices, as it goes back to the first. Back to Choices acknowledges the full notice
 and returns to the preserved selection. Task unavailable is the compact fallback only when the
 retained task is missing and no verified last title is available.
 

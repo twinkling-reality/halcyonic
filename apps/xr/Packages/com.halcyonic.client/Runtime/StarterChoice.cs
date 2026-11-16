@@ -11,7 +11,7 @@ namespace Halcyonic.Client
     /// What a new project starts from (the addendum's A16; the Mac's starters, ADR 0037, read at <c>GET /api/starters</c>):
     /// one moment of New Project's page of changes. Start From stands only for a new project in a new folder, and only where
     /// a starter is ready (an action that cannot act is not drawn); its page holds the ready starters as answers with
-    /// single marks in the host's order, the one chosen marked, three a page with Next Choices for more; a pick is kept at
+    /// single marks in the host's order, the one chosen marked, three a page with Next Choices for more (First Choices on the last); a pick is kept at
     /// once and the page leaves for the facts, whose card shows the starter as a slot under the cube, and the review names
     /// it before its Confirm. Where the person chooses nothing, the default stands as today. The titles are the host's
     /// own starters' (Halcyonic's words, upright).
@@ -56,7 +56,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The choice (A16's <c>start-from</c>): its one line, Start From, in the panel; the ready starters of page
-        /// <paramref name="page"/> as answers, the chosen one marked; Next Choices where more follow; Back to the page of changes.
+        /// <paramref name="page"/> as answers, the chosen one marked; Next Choices where more follow, First Choices on the last; Back to the page of changes.
         /// </summary>
         public static MenuFrame Page(ProjectIdea idea, IReadOnlyList<StarterView> ready, int page, bool startReached)
         {
@@ -68,7 +68,7 @@ namespace Halcyonic.Client
                     answerMark: AnswerMark.Single));
             if (pages > 1)
                 // The page's place stands apart as the line's fact, never joined to the action's words on a dot (AUDIT's MUST 4).
-                lines.Add(new PageLine("Next Choices", fact: (at + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture),
+                lines.Add(new PageLine(FileScreens.ChoicesPagerWords(at, pages), fact: (at + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture),
                     icon: GlazeIcon.Next, action: NextChoices));
             var footer = new Footer(new Prompt(Footer.Close, EntryText.Close, GlazeIcon.Close, PromptKind.Close), farRight: new Prompt(NewProjectScreens.Done, EntryText.Back, GlazeIcon.Back));
             return new MenuFrame(NewProjectScreens.Subject(idea), footer, sections: NewProjectScreens.Sections(NewProjectStep.Recap, idea, startReached), lines: lines);

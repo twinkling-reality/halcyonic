@@ -3468,7 +3468,10 @@ public class NewProjectFlowTests
         // The page's place stands apart from the action's words, never joined on a dot (AUDIT's MUST 4).
         var next = first.Lines.Single(line => line.Action == StarterChoice.NextChoices);
         Assert.That((next.Words, next.Fact), Is.EqualTo(("Next Choices", (string?)"1 of 2")));
-        Assert.That(StarterChoice.Page(idea, ready, 1, startReached: false).Lines.Where(line => line.Action == StarterChoice.Choose).Select(line => line.Key), Is.EqualTo(new[] { "s5" }));
+        var last = StarterChoice.Page(idea, ready, 1, startReached: false);
+        Assert.That(last.Lines.Where(line => line.Action == StarterChoice.Choose).Select(line => line.Key), Is.EqualTo(new[] { "s5" }));
+        var back = last.Lines.Single(line => line.Action == StarterChoice.NextChoices);
+        Assert.That((back.Words, back.Fact), Is.EqualTo(("First Choices", (string?)"2 of 2")), "the last page's pager says it goes back to the first");
         Assert.That(StarterChoice.Pick(idea, ready, "s2"), Is.Null, "a starter not ready is never picked");
         Assert.That(StarterChoice.Pick(idea, ready, "s4")!.StarterId, Is.EqualTo("s4"));
         Assert.That(StarterChoice.Offered(idea, Array.Empty<StarterView>()), Is.False, "where none is ready, Start From is not offered");

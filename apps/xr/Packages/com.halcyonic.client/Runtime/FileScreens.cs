@@ -321,7 +321,7 @@ namespace Halcyonic.Client
                 var indices = screen.PresetRows.Count == presets.Count ? screen.PresetIndices : Enumerable.Range(0, presets.Count).ToList();
                 var rows = indices.Select(index => PresetLine(presets[index], index, recorded, screen.ChosenPreset == index,
                     screen.PresetRows.Count == presets.Count ? screen.PresetRows[index] : 2)).ToList();
-                if (screen.PresetPages > 1) rows.Add(new PageLine("Next Choices",
+                if (screen.PresetPages > 1) rows.Add(new PageLine(ChoicesPagerWords(screen.PresetPage, screen.PresetPages),
                     icon: GlazeIcon.Next, action: NextPresetPage, control: LineControl.Action));
                 var chosen = screen.ChosenPreset != null;
                 var tell = new Prompt(TellIt, "Review Instruction", WorkspaceText.IconOf(WorkspaceAction.Instruct), main: true,

@@ -32,7 +32,8 @@ public class PresetPagingTests
         {
             var frame = column.Frame!;
             Assert.That(frame.Footer.All.Count(), Is.LessThanOrEqualTo(3));
-            Assert.That(frame.Lines.Any(line => line.Action == FileScreens.NextPresetPage), Is.True);
+            Assert.That(frame.Lines.Single(line => line.Action == FileScreens.NextPresetPage).Words,
+                Is.EqualTo(pageIndex + 1 < column.Screen.PresetPages ? "Next Choices" : "First Choices"), "the last page's pager says it goes back to the first");
             foreach (var line in frame.Lines.Where(line => line.Action == FileScreens.Preset)) seen.Add(line.Words);
             var budget = new HeightBudget(host.PageHeight(1, false, focused: true));
             var height = frame.Lines.Sum(line => budget.Target(line.Rows)) + (frame.Lines.Count - 1) * budget.TargetGap

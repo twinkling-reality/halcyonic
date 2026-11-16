@@ -151,7 +151,7 @@ namespace Halcyonic.Client
         public const string ModelWords = "Model";
         public const string AgentAppWords = "Agent App";
 
-        /// <summary>The agents and models a page holds as answers; more page by Next Choices.</summary>
+        /// <summary>The agents and models a page holds as answers; more page by Next Choices, back from the last by First Choices.</summary>
         public const int OptionsAPage = 3;
 
         private readonly Func<AgentOffer?> offer;
@@ -195,7 +195,7 @@ namespace Halcyonic.Client
                     foreach (var option in now.Options.Skip(at * OptionsAPage).Take(OptionsAPage))
                         lines.Add(new PageLine(LineWords.TheirName(option.Name), action: Pick, key: option.Key, choice: true, chosen: option.Chosen, answerMark: AnswerMark.Single));
                     if (pages > 1)
-                        lines.Add(new PageLine("Next Choices",
+                        lines.Add(new PageLine(FileScreens.ChoicesPagerWords(at, pages),
                             icon: GlazeIcon.Next, action: Footer.NextPage, opens: true, control: LineControl.Action));
                     return new MenuFrame(subject, footer, lines: lines);
                 }

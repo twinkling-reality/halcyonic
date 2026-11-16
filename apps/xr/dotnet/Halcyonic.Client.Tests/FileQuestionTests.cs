@@ -228,6 +228,8 @@ public class FileQuestionTests
         }
         Assert.That(seen, Is.EqualTo(Enumerable.Range(0, labels.Length)), "every answer the agent offered, in its order");
         Assert.That(FileScreens.MoreAnswersWords(4, 5), Is.EqualTo("First Choices"));
+        Assert.That((FileScreens.ChoicesPagerWords(0, 2), FileScreens.ChoicesPagerWords(1, 2)), Is.EqualTo(("Next Choices", "First Choices")),
+            "a chooser's pager says where it goes from its last page, as the answers' does");
 
         Draw(screen);
         screen.Question.Choose(0);

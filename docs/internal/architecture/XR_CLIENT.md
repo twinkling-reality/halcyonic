@@ -4892,7 +4892,7 @@ presence, contextual moment cards and the on-demand project screen:
   the page of changes after First Task only for a new project in a new folder (not one whose place is gone) and only
   where a starter is ready (`installed`; an action that cannot act is not drawn). Its page (`RecapPage.StartFrom`,
   `StarterChoice.Page`) holds its one line, Start From, in the panel, and the ready starters as answers with single
-  marks in the host's order, the chosen one marked, three a page with Next Choices for more (the page's place as the line's own fact, never on a dot), then Back to the page of
+  marks in the host's order, the chosen one marked, three a page with Next Choices for more, First Choices on the last page (the page's place as the line's own fact, never on a dot), then Back to the page of
   changes. A pick is kept at once (`ProjectFolder.WithStarter`, only a starter the listing has ready) and the page
   leaves for the facts. The recap's card names the starter as a slot after the folder where the card has room
   (`StarterChoice.WithStarter`; a full card of four keeps its level, and the review alone names the starter), the review names it before its Confirm by its own name ("Starts From {title}",

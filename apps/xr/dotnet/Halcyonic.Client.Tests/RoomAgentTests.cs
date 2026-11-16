@@ -128,7 +128,8 @@ public sealed class RoomAgentTests
         var stand = new Stand(Offer(options: 5, chosen: 4));
         Assert.That(AgentColumn.Pages(5), Is.EqualTo(2));
         stand.Column.Act(AgentColumn.Change, null);
-        Assert.That(Words(stand.Column.Frame!), Is.EqualTo(new[] { "Kite 4B", "Lantern 9B", "Next Choices" }), "it opens on the page that holds the one chosen");
+        Assert.That(Words(stand.Column.Frame!), Is.EqualTo(new[] { "Kite 4B", "Lantern 9B", "First Choices" }),
+            "it opens on the page that holds the one chosen, the last, whose pager goes back to the first");
         stand.Column.Act(Footer.NextPage, null);
         Assert.That(Words(stand.Column.Frame!), Is.EqualTo(new[] { "Glimmer 30B", "Ember 7B", "Tide 12B", "Next Choices" }));
         Assert.That(stand.Column.Frame!.Lines.Last().Action, Is.EqualTo(Footer.NextPage));
