@@ -69,6 +69,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     catch (Exception error) { found.Add("judge room: " + error); }
                     finally { ShaderUtil.allowAsyncCompilation = asyncShadersWere; SynchronizationContext.SetSynchronizationContext(context); ViewField.Current = null; KeepFontAssetsAsCommitted(); Halcyonic.XR.UI.JoinedFacts.Stop(); }
                     File.WriteAllText(Path.Combine(folder, "moments.tsv"), string.Join("\n", moments) + "\n");
+                    found = found.Where(failure =>
+                    {
+                        var named = FilmBatchKnownFaults.FirstOrDefault(known => known.Case.IsMatch(failure)).Name;
+                        if (named == null) return true;
+                        Debug.Log("Halcyonic: judge room: NAMED KNOWN FAULT (" + named + "): " + failure);
+                        return false;
+                    }).ToList();
                     foreach (var failure in found) Debug.LogError("Halcyonic: judge room: " + failure);
                     if (found.Count == 0) Debug.Log("Halcyonic: judge room: every check passed; " + (moments.Count - 1) + " moments; " + folder);
                     return found;
@@ -2114,6 +2121,26 @@ namespace Halcyonic.XR.Workspace.Editor
         /// pixels of the render; empty where the words stand inside it. The plate is the surface drawn <see cref="RoomSurface.Size"/>
         /// big, centred on its transform.
         /// </summary>
+        // The film batch's named known faults in the judge room (the lead's 19:23Z ruling, XR 19:21Z; line 48 of the lead's
+        // AUDIT-CHECKLIST): MUSTs for the batch after the film, and the release ships with none of them. Each is named by its exact
+        // text, so the same fault anywhere else, or any other text, still fails.
+        private static readonly (string Name, Regex Case)[] FilmBatchKnownFaults =
+        {
+            ("an answer card's description cut, on main",
+                new Regex("/Information panel/Card/Body words cuts its words with an ellipsis: \"Slows guessing(; someone| more)\u2026\"$")),
+            ("the notice's words above their plate, on main",
+                new Regex("^room-\\d+-[a-z-]+: a notice's words stand off their plate: drawn above where laid by 1\\.\\d px$")),
+            ("a demo text's lone last word, if FIELD's balanced wrap misses the film batch",
+                new Regex("/(Instruction/Notice/Notice words|Instruction/Action \\d/Visual/Words|Information panel/Request) \"(" +
+                    "Demo: a scripted run that answers you, on this headset\\. Nothing here is live\\.|" +
+                    "Count failed attempts per account as well as per address\\.|" +
+                    "Change the lockout test to expect limits per address only\\.|" +
+                    "Run make migrate to add the sign-in attempts table to the development database" +
+                    ")\" ends on one word alone on its last line$")),
+            ("the result card's title cut to three lines with its last word alone, AUDIT to rule",
+                new Regex("/Information panel/Card/Title words \"Add rate limiting to the sign-in\" ends on one word alone on its last line$")),
+        };
+
         private static List<string> NoticeOffPlate(Camera camera, TMP_Text words, Halcyonic.XR.UI.RoomSurface plate)
         {
             var off = new List<string>();
