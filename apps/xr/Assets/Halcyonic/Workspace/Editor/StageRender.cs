@@ -95,12 +95,15 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>The longest name a walk gives a task (JUDGE's 64 characters), the widest tag a real name draws on the shelf.</summary>
+        /// <summary>The least gap between neighbouring drawn tags that reads as two plates on Quest 3, in degrees (AUDIT's 16:46Z).</summary>
+        private const float NeighbourTagsApartDegrees = 0.5f;
+
         private const string LongShelfName = "A page that greets each visitor by name and counts their visits!";
 
         /// <summary>
-        /// The real condition behind the shelf's envelope (the lead's 16:4xZ): on a full shelf of six, every name a long one (64 characters)
-        /// and every task needing the person, each DRAWN tag (its words and its plate's glass, as JUDGE's walk measures it, never the
-        /// plate's soft shadow) stands clear of its neighbours' tags and of every character's body as the eyes see them. The least gaps
+        /// The real condition behind the shelf's envelope (the lead's 16:4xZ): on a full shelf of six, every name a long one (64 characters),
+        /// every task needing the person and every tag picked (its ring, the widest it draws), each DRAWN tag (its words and its plate's glass, as JUDGE's walk measures it, never the
+        /// plate's soft shadow) stands half a degree or more from its neighbours' tags and clear of every character's body as the eyes see them. The least gaps
         /// are logged in degrees; any overlap fails.
         /// </summary>
         private static List<string> StandInHoldsTheTag()
@@ -127,6 +130,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     view.Show(new CharacterPresentation("shelf-tag-" + index, LongShelfName, CharacterActivity.WaitingForHuman, "Needs You",
                         AttentionLevel.ActionRequired, Array.Empty<string>(), 2, false, false, false));
                     view.PlaceShelfLabel(eyes);
+                    // Picked, the widest a tag draws: its ring is the one a person sees on the task they point at (AUDIT3's D1).
+                    tag.Picked = true;
                     views.Add(view);
                 }
                 WorkspaceRender.ForceMeshes(holder);
@@ -148,7 +153,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         var apart = tags[index].Apart(tags[index + 1]);
                         leastNeighbour = Mathf.Min(leastNeighbour, apart);
-                        if (apart <= 0f) failures.Add("the drawn tags of places " + index + " and " + (index + 1) + " meet, " + GlazeChecks.Degrees(apart) + " degrees apart, at text scale "
+                        // Under half a degree two plates read as one joined plate on the headset (AUDIT's 16:46Z floor).
+                        if (apart < NeighbourTagsApartDegrees) failures.Add("the drawn tags of places " + index + " and " + (index + 1) + " meet, " + GlazeChecks.Degrees(apart) + " degrees apart, at text scale "
                             + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture));
                     }
                     for (var other = 0; other < places; other++)
