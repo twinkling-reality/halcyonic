@@ -118,6 +118,62 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var (name, title, needs) in new[] { ("page-long-needs", LongShelfName, true), ("page-film-working", FilmShelfName, false), ("page-film-needs", FilmShelfName, true) })
                 failures.AddRange(ShelfPageHoldsTheTag(folder, name, title, needs));
             failures.AddRange(NewProjectEasesClear(folder));
+            failures.AddRange(FittedPageHoldsTheTag(folder));
+            return failures;
+        }
+
+        /// <summary>The narrowest shelf FittedWidth lays, in metres: its places' margin with nothing between them (PitchOf).</summary>
+        private const float FittedWidthFloor = 0.1f;
+
+        /// <summary>
+        /// The same page at the width the ROOM lays the shelf (the lead's 2026-11-16T21:2xZ; AUDIT3's second condition on FIELD's fit line): a real plane
+        /// at rest publishes its half-width (MenuPlane.ConsiderForm, as the headset's plane does), so CharacterStage.FittedWidth fits the shelf beside it as
+        /// the room does, never the natural width a scene without a plane reads. The fitted width must stand above its floor, where the places would
+        /// crowd onto one point (b208's parts: 0.100 m, its places 0.000 m apart), and at that width every drawn tag holds New Project's key a degree
+        /// and a half off and stands clear of every character, judged by <see cref="ShelfPageHoldsTheTag"/> on the same three pages.
+        /// </summary>
+        private static List<string> FittedPageHoldsTheTag(string folder)
+        {
+            var failures = new List<string>();
+            var scale = GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture);
+            var designWas = RoomDesign.Enabled;
+            var restWas = CharacterStage.PlaneRestHalfDegrees;
+            var planeRoot = new GameObject("A plane at rest for the shelf's fit");
+            try
+            {
+                RoomDesign.Enabled = true;
+                var eyes = Vector3.zero;
+                var places = CharacterStage.ShelfPlaces;
+                var plane = MenuPlane.Create(planeRoot.transform);
+                plane.Show(new MenuBar(MenuPlace.Tasks, "One synthetic task"), null, null, null, Array.Empty<CharacterTarget>(), eyes, Vector3.forward, null, immediately: true);
+                CharacterStage.PlaneRestHalfDegrees = null;
+                plane.ConsiderForm(null, eyes, places, open: false);
+                if (CharacterStage.PlaneRestHalfDegrees is not Func<float> restOf)
+                {
+                    failures.Add("the plane at rest published no half-width, so the shelf was never fitted, at text scale " + scale);
+                    return failures;
+                }
+                // The plane's rest as a number, so the pages below are laid without the plane in their frames.
+                var rest = restOf();
+                CharacterStage.PlaneRestHalfDegrees = () => rest;
+                UnityEngine.Object.DestroyImmediate(planeRoot);
+                var natural = AgentShelfDraft.Width(places);
+                var width = CharacterStage.FittedWidth(places);
+                Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", the plane at rest " + rest.ToString("0.0", CultureInfo.InvariantCulture) + " degrees each side fits the shelf "
+                    + width.ToString("0.000", CultureInfo.InvariantCulture) + " m wide (natural " + natural.ToString("0.000", CultureInfo.InvariantCulture) + "), its " + places + " places "
+                    + CharacterStage.PitchOf(places, width).ToString("0.000", CultureInfo.InvariantCulture) + " m apart.");
+                if (width <= FittedWidthFloor + 1e-4f)
+                    failures.Add("the room fits the shelf to its floor, " + width.ToString("0.000", CultureInfo.InvariantCulture) + " m wide, its " + places + " places "
+                        + CharacterStage.PitchOf(places, width).ToString("0.000", CultureInfo.InvariantCulture) + " m apart, at text scale " + scale);
+                foreach (var (name, title, needs) in new[] { ("fitted-page-long-needs", LongShelfName, true), ("fitted-page-film-working", FilmShelfName, false), ("fitted-page-film-needs", FilmShelfName, true) })
+                    failures.AddRange(ShelfPageHoldsTheTag(folder, name, title, needs).Select(failure => "at the room's fitted width, " + failure));
+            }
+            finally
+            {
+                CharacterStage.PlaneRestHalfDegrees = restWas;
+                RoomDesign.Enabled = designWas;
+                if (planeRoot != null) UnityEngine.Object.DestroyImmediate(planeRoot);
+            }
             return failures;
         }
 
