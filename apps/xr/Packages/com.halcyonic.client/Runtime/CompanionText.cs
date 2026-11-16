@@ -81,9 +81,10 @@ namespace Halcyonic.Client
         public const string YourOwnWords = "Your Words";
 
         // FIELD's words (2026-11-12), each a title and its line as one phrase (Notice.Phrase), never joined on a dot; Retry and
-        // Continue Without are buttons, so no line repeats them.
-        public const string NotSetUp = "Companion Not Set Up, type your idea or answer the questions";
-        public const string CantRun = "Companion Unavailable, type your idea or answer the questions";
+        // Continue Without are buttons, so no line repeats them. Where the companion is not there at all, the line is the family's
+        // sentence and its way on, "{Why}. {Way on}.", as Voice's is, never a Title Case state joined to a sentence (AUDIT2, 2026-11-16).
+        public const string NotSetUp = "The companion isn't set up. Type your idea or answer the questions.";
+        public const string CantRun = "The companion isn't available. Type your idea or answer the questions.";
         public const string TooSlow = "Companion Timed Out, the model may be busy";
         public const string Unreadable = "Answer Unreadable, it was not shown";
         public const string Busy = "Companion Busy";

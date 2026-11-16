@@ -384,7 +384,8 @@ public class CompanionWordsTests
             foreach (var brand in new[] { "Mac", "Ollama", "qwen", "OpenCode", "Codex", "Claude" })
                 Assert.That(words, Does.Not.Contain(brand), words);
         }
-        Assert.That(CompanionText.NotSetUp, Does.Contain("Not Set Up"));
+        Assert.That((CompanionText.NotSetUp, CompanionText.CantRun), Is.EqualTo(("The companion isn't set up. Type your idea or answer the questions.",
+            "The companion isn't available. Type your idea or answer the questions.")), "why, then the way on, each its own sentence");
         Assert.That(CompanionText.WaitingLong, Does.StartWith("Model May Be Busy"));
         foreach (var button in new[] { CompanionText.MakeTheRecap, CompanionText.GoOnWithout, CompanionText.UseMyWords, CompanionText.TypeAnswer })
             Assert.That(button.Split(' ').Length, Is.InRange(1, 4), button);
