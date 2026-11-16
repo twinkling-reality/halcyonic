@@ -50,8 +50,9 @@ namespace Halcyonic.Client
                 var room = host.PageHeight(host.TitleRows(subject, Glaze.Menu.FileColumnDegrees), false, focused: true);
                 // Two instructions, two lines, never joined on a dot (the owner's 2026-11-11; the lead's 21:11Z), the words as they
                 // were: each a line of its own, which every reader draws (an under line some readers drop: AUDIT's 21:14Z).
-                var (first, then) = taskTitle == null ? ("Hold Move Shelf to Drag", "Apply for This Session")
-                    : ("Apply Shows Task This Session", "Cancel Keeps Shelf");
+                var (first, then) = taskTitle == null ? ("Hold Move Shelf to drag it.", "Apply keeps this place for this session.")
+                    // Sentences, as sentences read (AUDIT2 2026-11-16 17:48Z), never labels' Title Case.
+                    : ("Apply shows this task on the shelf for this session.", "Cancel keeps the shelf as it is.");
                 var note = new PageLine(first, rows: host.RowsOf(first, Glaze.Menu.FileColumnDegrees), tone: LineTone.Secondary);
                 var noteThen = new PageLine(then, rows: host.RowsOf(then, Glaze.Menu.FileColumnDegrees), tone: LineTone.Secondary);
                 var used = MenuPage.Words(host.RowsOf(note, Glaze.Menu.FileColumnDegrees) + host.RowsOf(noteThen, Glaze.Menu.FileColumnDegrees)) + MenuPage.TargetGap;

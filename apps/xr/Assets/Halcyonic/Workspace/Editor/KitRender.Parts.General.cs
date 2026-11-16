@@ -102,7 +102,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (state == "52-general-shelf")
                 {
                     // The shelf's shape (XR's a46dc4651): its two instructions each a line of its own, then its moves in pairs.
-                    var moves = new List<PageLine> { new PageLine("Hold Move Shelf to Drag", tone: LineTone.Secondary), new PageLine("Apply for This Session", tone: LineTone.Secondary) };
+                    var moves = new List<PageLine> { new PageLine("Hold Move Shelf to drag it.", tone: LineTone.Secondary), new PageLine("Apply keeps this place for this session.", tone: LineTone.Secondary) };
                     foreach (var (a, b) in GeneralShelfPairs)
                     {
                         moves.Add(new PageLine(a, action: "move", key: a, control: LineControl.Action).WithGroup(a));
