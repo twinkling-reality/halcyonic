@@ -1067,12 +1067,19 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// The least gap, in degrees as the camera sees them, between the pixels <paramref name="first"/> draws and the pixels <paramref name="second"/> draws:
         /// each drawn alone into the frame (every other renderer off for that shot, then restored), then the nearest pair of lit pixels by a chamfer
-        /// distance. Zero where they meet or overlap; infinite where either draws nothing in the frame.
+        /// distance. Zero where they meet or overlap; infinite where either draws nothing in the frame; not a number where the frame kept no
+        /// clear colour to tell drawn from undrawn. The caller fails the last two: an unmeasured gap is never a pass.
         /// </summary>
         private static float DrawnGapDegrees(Camera camera, RenderTexture texture, IEnumerable<Renderer> first, IEnumerable<Renderer> second)
         {
             var all = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             var was = all.ToDictionary(part => part, part => part.enabled);
+            var clearWas = (camera.clearFlags, camera.backgroundColor);
+            var clearLost = false;
+            // A flat mask: the frame cleared to a colour nothing in the room draws (full magenta), and a pixel counts as drawn wherever it
+            // differs from that colour at all, so dark translucent glass over the clear counts as glass (AUDIT3 21:5xZ), not by brightness.
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(1f, 0f, 1f, 1f);
             bool[] Lit(HashSet<Renderer> only)
             {
                 foreach (var part in all) part.enabled = was[part] && only.Contains(part);
@@ -1080,13 +1087,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 var pixels = image.GetPixels32();
                 UnityEngine.Object.DestroyImmediate(image);
                 var lit = new bool[pixels.Length];
-                for (var index = 0; index < pixels.Length; index++) lit[index] = pixels[index].r + pixels[index].g + pixels[index].b > 24;
+                var count = 0;
+                for (var index = 0; index < pixels.Length; index++)
+                    if (lit[index] = Math.Abs(pixels[index].r - 255) + pixels[index].g + Math.Abs(pixels[index].b - 255) > 6) count++;
+                // Every pixel lit means the clear colour was not kept (a post effect, a sky): the mask says nothing, and the gap is unknown.
+                if (count == pixels.Length) clearLost = true;
                 return lit;
             }
             try
             {
                 var from = Lit(new HashSet<Renderer>(first));
                 var to = Lit(new HashSet<Renderer>(second));
+                if (clearLost) return float.NaN;
                 int width = texture.width, height = texture.height;
                 const int far = int.MaxValue / 4;
                 var distance = new int[width * height];
@@ -1120,7 +1132,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (least >= far) return float.PositiveInfinity;
                 return least / 3f * camera.fieldOfView / height;
             }
-            finally { foreach (var part in all) part.enabled = was[part]; }
+            finally
+            {
+                foreach (var part in all) part.enabled = was[part];
+                (camera.clearFlags, camera.backgroundColor) = clearWas;
+            }
         }
 
         private static IEnumerable<string> DragMenu(string name, string folder, Camera camera, RenderTexture texture, MenuDirector director,
@@ -1155,6 +1171,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (stepped >= 3.99f) failures.Add(name + ": dragged toward the character beside it, the plane took the whole step, " + GlazeChecks.Degrees(stepped) + " degrees.");
                 director.DrawNow();
                 var glass = plane.GetComponentsInChildren<Renderer>(false).Where(part => !(part is LineRenderer)).ToList();
+                // The measure bites: the glass against itself meets, so it must read no gap (a mask or a distance that saw nothing reads infinite).
+                if (DrawnGapDegrees(camera, texture, glass, glass) != 0f) failures.Add(name + ": the drawn-gap measure finds a gap between the plane's glass and itself, so it checks nothing.");
                 foreach (var (view, _) in characters)
                 {
                     if (view == null || !view.gameObject.activeInHierarchy) continue;
@@ -1164,6 +1182,16 @@ namespace Halcyonic.XR.Workspace.Editor
                         drawn.AddRange(tag.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
                             .Concat(tag.GetComponentsInChildren<Halcyonic.XR.UI.RoomSurface>(false).Select(plate => (Renderer)plate.Glass)).Where(part => part != null));
                     var gap = DrawnGapDegrees(camera, texture, glass, drawn);
+                    if (float.IsNaN(gap))
+                    {
+                        failures.Add(name + ": dragged toward the character beside it, the frame kept no clear colour, so the drawn gap is unmeasured.");
+                        continue;
+                    }
+                    if (float.IsPositiveInfinity(gap))
+                    {
+                        failures.Add(name + ": dragged toward the character beside it, the plane's glass or " + view.name + "'s body and tag draws nothing in the frame, so the gap between them is unmeasured.");
+                        continue;
+                    }
                     Debug.Log("Halcyonic: workspace render: " + name + ": dragged toward " + view.name + ", the plane stopped " + GlazeChecks.Degrees(stepped)
                         + " degrees along, its drawn glass " + GlazeChecks.Degrees(gap) + " degrees from that character's drawn body and tag.");
                     if (gap < DragGapDegrees)
