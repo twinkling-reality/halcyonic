@@ -85,23 +85,6 @@ namespace Halcyonic.XR.UI
         /// <summary>Where the person is in the words' parts, "Part 1 of 2", the band's quiet foot; null where the words are one part.</summary>
         public TextMeshPro? Where => where != null && where.gameObject.activeSelf ? where : null;
 
-        /// <summary>
-        /// For checks that read the label's own layout: the lines the band draws now, and how far under where they were laid it
-        /// draws them, in the label's units (the part lifted to the band's first rows, a shorter one centred in its three).
-        /// Every other line's letters are folded away and draw nothing.
-        /// </summary>
-        public (int First, int Count, float Down) Drawn
-        {
-            get
-            {
-                if (front.Words is not RoomWords words || front.Label.textInfo.lineCount == 0 || words.First >= front.Label.textInfo.lineCount) return (0, 0, 0f);
-                var info = front.Label.textInfo;
-                var lift = info.lineInfo[0].baseline - info.lineInfo[words.First].baseline;
-                var centre = words.Parts >= 2 ? (RoomWords.LinesAPart - words.Count) / 2f * KitType.LinePitch(front.Label) : 0f;
-                return (words.First, words.Count, centre - lift);
-            }
-        }
-
         /// <summary>Whether a part ends cut inside a sentence (no stop in its lines), its last line's tail faded.</summary>
         public bool PartCut => front.Words is RoomWords words && front.CutAt(words.Part);
 
