@@ -65,9 +65,21 @@ export function confinedFolder(
   project: string,
   reads: Pick<Confinement, 'readable' | 'originals'>,
 ): ConfinedFolder {
-  const root = join(options.dataFolder, `claude-sandbox-${confinementKey(project)}`);
+  const root = confinedRoot(options.dataFolder, project);
   const home = join(root, 'home');
   return { project, root, home, config: join(home, '.claude'), temp: join(root, 'tmp'), reads };
+}
+
+function confinedRoot(dataFolder: string, project: string): string {
+  return join(dataFolder, `claude-sandbox-${confinementKey(project)}`);
+}
+
+/**
+ * The temporary folder a confined run in `project` is given (its TMPDIR), as this module makes it: the host's own
+ * record of that one folder, which its profile confines, for the host's answers to that run's reads there.
+ */
+export function confinedTempFolder(dataFolder: string, project: string): string {
+  return join(confinedRoot(dataFolder, project), 'tmp');
 }
 
 /** Makes the folder's own folders, readable by this user only. */

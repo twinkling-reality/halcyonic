@@ -64,3 +64,13 @@ request's places as structure does not get the host's answer. AUDIT3 read the sh
   reads every change to the profile with that in mind.
 - A Claude Agent tool added in a later SDK asks until it is named here with its places verified.
 - Not yet drawn on the headset: the count and each step as "went ahead" are in the projection for the clients.
+
+## Amended 2026-11-16: reads in the run's own temporary folder
+
+A confined Claude Agent run that pulls a frame from a video with a command writes it into its TMPDIR, the folder the
+host made for runs in that folder (`claude-sandbox-<key>/tmp` under the data folder), then reads it to look at it.
+That read was left for a person, so a task with media stalled on a VR app's copy (LOOP, 2026-11-16). The host now
+answers a complete request whose every place is a read strictly inside that one folder, by the host's own record of it
+(`confinedTempFolder`, never a path from the agent), resolved through links, with the reason `run_temp_read`. A write
+there, a link out of it, the folder itself, a sibling under the run's sandbox, another folder's temporary folder, or a
+request naming it with any other place still reaches the person (AUDIT3 T1 to T6). It rides protocol 3.

@@ -5065,6 +5065,7 @@ namespace Halcyonic.Contracts
         [global::System.Runtime.Serialization.EnumMember(Value = "inside_copy")] InsideCopy,
         [global::System.Runtime.Serialization.EnumMember(Value = "reads_original")] ReadsOriginal,
         [global::System.Runtime.Serialization.EnumMember(Value = "confined_command")] ConfinedCommand,
+        [global::System.Runtime.Serialization.EnumMember(Value = "run_temp_read")] RunTempRead,
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]

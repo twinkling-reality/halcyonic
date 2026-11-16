@@ -3,6 +3,7 @@ import { chmod, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { confinedTempFolder } from '@halcyonic/integration-claude-code';
 import { CODEX_KEY_READER } from '@halcyonic/integration-codex';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
@@ -238,7 +239,11 @@ async function main(): Promise<void> {
     confinedReads: (directory) =>
       starterOf(directory) === null
         ? null
-        : folderReads({ starterOf, originalOf, dataDir: config.dataDir }, directory),
+        : {
+            ...folderReads({ starterOf, originalOf, dataDir: config.dataDir }, directory),
+            // The temporary folder Claude Agent's confinement makes for a run in this folder, by its own rule.
+            runTemp: { 'claude-agent': confinedTempFolder(config.dataDir, directory) },
+          },
     ...(config.gitBinary === null
       ? {}
       : {

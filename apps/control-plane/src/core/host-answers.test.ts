@@ -145,6 +145,62 @@ describe("the host's answer in a confined app (judgeRequest)", () => {
     );
   });
 
+  test("a read inside the run's own temporary folder goes ahead; anything wider, or a write there, asks (AUDIT3 T1 to T5)", () => {
+    const data = join(root, 'data');
+    const sandbox = join(data, 'claude-sandbox-0123456789abcdef');
+    const temp = join(sandbox, 'tmp');
+    const otherTemp = join(data, 'claude-sandbox-fedcba9876543210', 'tmp');
+    for (const folder of [temp, join(sandbox, 'home'), otherTemp])
+      mkdirSync(folder, { recursive: true });
+    // A link in the run's temporary folder that leads to the data folder.
+    symlinkSync(data, join(temp, 'up'));
+    const withTemp = { ...reads, runTemp: { 'claude-agent': temp } };
+    const read = (path: string) => claude('Read', [{ path, access: 'read' }]);
+    assert.equal(
+      judgeRequest(read(join(temp, 'frame.jpg')), copy, withTemp)?.because,
+      'run_temp_read',
+    );
+    for (const [path, why] of [
+      [join(temp, 'up', 'access-token'), 'through a link to the data folder'],
+      [join(sandbox, 'home', '.claude', 'settings.json'), 'a sibling of the temporary folder'],
+      [join(otherTemp, 'frame.jpg'), "another folder's run"],
+      [temp, 'the folder itself, not inside it'],
+    ] as const) {
+      assert.equal(judgeRequest(read(path), copy, withTemp), null, why);
+    }
+    assert.equal(
+      judgeRequest(
+        claude('Write', [{ path: join(temp, 'frame.jpg'), access: 'write' }]),
+        copy,
+        withTemp,
+      ),
+      null,
+      'a write there follows the usual rule',
+    );
+    assert.equal(
+      judgeRequest(read(join(temp, 'frame.jpg')), copy, reads),
+      null,
+      'no recorded folder, no answer',
+    );
+    assert.equal(
+      judgeRequest({ ...read(join(temp, 'frame.jpg')), runtimeKind: 'opencode' }, copy, withTemp),
+      null,
+      "another runtime's request is not this run's temporary folder",
+    );
+    assert.equal(
+      judgeRequest(
+        claude('Read', [
+          { path: join(temp, 'frame.jpg'), access: 'read' },
+          { path: join(copy, 'package.json'), access: 'read' },
+        ]),
+        copy,
+        withTemp,
+      ),
+      null,
+      'one reason a request: the temporary folder with the copy stays asked',
+    );
+  });
+
   test('the record holds the places as resolved', () => {
     assert.deepEqual(
       judgeRequest(claude('Edit', [{ path: 'src/../src/index.ts', access: 'write' }]), copy, reads)

@@ -42,6 +42,11 @@ const ANSWERABLE: Readonly<
 export interface ConfinedReads {
   readonly readable: readonly string[];
   readonly originals?: readonly string[];
+  /**
+   * Per runtime kind, the temporary folder the host made for a confined run in this folder (its TMPDIR), from the
+   * host's own record of it, never the agent's: reads strictly inside it are answered (AUDIT3 T1 to T4).
+   */
+  readonly runTemp?: Readonly<Record<string, string>>;
 }
 
 export interface HostAnswersDeps {
@@ -103,11 +108,21 @@ export function judgeRequest(
   if (named === undefined || named.length === 0) return null;
   const copy = resolvedPath(directory);
   const readFolders = [...reads.readable, ...(reads.originals ?? [])].map(resolvedPath);
+  const given = Object.hasOwn(reads.runTemp ?? {}, request.runtimeKind)
+    ? reads.runTemp?.[request.runtimeKind]
+    : undefined;
+  const temp = given === undefined ? null : resolvedPath(given);
   const judged: ApprovalPath[] = [];
   let outsideCopy = false;
+  let inTemp = false;
   for (const each of named) {
     const path = resolvedPath(isAbsolute(each.path) ? each.path : join(directory, each.path));
     judged.push({ path, access: each.access });
+    // A read strictly inside the run's own temporary folder, resolved through links (AUDIT3 T2, T3).
+    if (temp !== null && each.access === 'read' && path !== temp && inside(path, temp)) {
+      inTemp = true;
+      continue;
+    }
     if (inside(path, copy)) {
       if (each.access === 'write' && runsLater(relative(copy, path).split(sep).join('/')))
         return null;
@@ -122,6 +137,11 @@ export function judgeRequest(
     }
     return null;
   }
+  // One reason a request: one naming the run's temporary folder and also an original or the copy stays asked.
+  if (inTemp)
+    return judged.every((each) => inside(each.path, temp as string))
+      ? { because: 'run_temp_read', paths: judged }
+      : null;
   return { because: outsideCopy ? 'reads_original' : 'inside_copy', paths: judged };
 }
 

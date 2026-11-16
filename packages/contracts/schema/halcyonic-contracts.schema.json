@@ -9032,6 +9032,10 @@
                     {
                       "type": "string",
                       "const": "confined_command"
+                    },
+                    {
+                      "type": "string",
+                      "const": "run_temp_read"
                     }
                   ]
                 },

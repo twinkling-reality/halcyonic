@@ -1076,6 +1076,8 @@ export const HostApprovalReason = Type.Union([
   Type.Literal('inside_copy'),
   Type.Literal('reads_original'),
   Type.Literal('confined_command'),
+  /** Every place is read inside the run's own temporary folder, the one the host made for it (protocol 3). */
+  Type.Literal('run_temp_read'),
 ]);
 export type HostApprovalReason = Static<typeof HostApprovalReason>;
 
