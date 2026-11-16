@@ -31,8 +31,11 @@ namespace Halcyonic.XR
         private const float spanDegrees = 60f; // Internal slot interpolation, not an eye-relative arc.
 
         /// <summary>
-        /// How many characters stand at once on the shelf: one, the shelf paging through the rest. Two drawn tags at the shelf's
-        /// pitch meet once their names run past a few words (FIELD F234), so a page holds one until a page takes its pitch from its tags.
+        /// How many characters stand at once on the shelf: one, the shelf paging through the rest (the lead, 2026-11-16T17:37Z). The shelf's
+        /// places stand at a fixed pitch, about 9.7 degrees, so two stand as close as six, and their drawn tags meet once names run past a few
+        /// words: FIELD's F234 measured two places on 3c5b69b6a, the film's sentences -3.8 / -4.3 degrees apart and even "Kite Run" -2.3 / -2.7
+        /// when both need the person (Standard / Larger; the floor is 0.5). Raising it needs a page that
+        /// takes its pitch from its widest drawn tag, and StageRender's shelf-page check passing at the new count, which it reads from here.
         /// </summary>
         public static int ShelfCapacity => 1;
 

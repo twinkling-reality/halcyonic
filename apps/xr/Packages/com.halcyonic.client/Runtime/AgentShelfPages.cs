@@ -28,7 +28,7 @@ namespace Halcyonic.Client
         public string? SelectedId { get; private set; }
         public string? ShownId => ordered.Any(work => work.WorkstreamId == SelectedId) ? SelectedId : null;
 
-        /// <summary>How many stand at once: one, or two on the redesign's shelf (DESIGN 2.2; the lead, 2026-11-11).</summary>
+        /// <summary>How many stand at once: the shelf's capacity, one (the lead, 2026-11-16T17:37Z, after two drawn tags met at the shelf's pitch).</summary>
         public int PerPage { get; set; } = 1;
 
         /// <summary>
