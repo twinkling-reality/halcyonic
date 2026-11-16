@@ -133,7 +133,7 @@ describe("the IWSDK starter's input layer", () => {
     // Not on a press or a game key: then a press would always seem to change the screen. Only H brings them back.
     assert.doesNotMatch(panel, /\bpressed\(|onSelect\(|setTimeout|setInterval/);
     const card = read('public/ui/welcome.uikitml');
-    assert.match(card, /<Panel id="card" class="panel-root">/);
+    assert.match(card, /<div id="card" class="panel-root">/);
     assert.match(card, /<div id="card-words" class="panel-content">/);
   });
 

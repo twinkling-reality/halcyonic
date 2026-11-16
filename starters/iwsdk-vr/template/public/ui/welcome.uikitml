@@ -1,21 +1,24 @@
 <!--
-  Panel, Divider, Button, ButtonIcon, and ButtonLabel come from the bundled
+  Divider, Button, ButtonIcon, and ButtonLabel come from the bundled
   Horizon kit. RectangleGoggles and LogIn are bundled Lucide icon components.
 -->
 <!--
-  The card is the kit's dark glass, never a white page: it is part of the place (VRIFY, 2026-11-16).
+  The card is the kit's dark glass, never a white page: it is part of the place (VRIFY, 2026-11-16). A plain container,
+  not the Horizon Panel, whose own light material ignores the background colour and draws pale frosted glass.
   The stylesheet below takes no comments: UIKitML's parser refuses them.
 -->
 <style>
   .panel-root {
     flex-direction: column;
     width: 280px;
-    background-color: rgba(16, 18, 34, 0.72);
+    background-color: rgba(2, 3, 8, 0.97);
     border-radius: 16px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.18);
   }
 
   .panel-content {
-    align-items: center;
+    align-items: flex-start;
     flex-direction: column;
     padding-top: 16px;
     padding-left: 24px;
@@ -23,8 +26,8 @@
   }
 
   .heading {
-    height: 48px;
-    text-align: center;
+    height: 30px;
+    text-align: left;
     font-size: 20px;
     font-weight: 700;
     line-height: 22px;
@@ -60,14 +63,14 @@
   .laptop-help {
     padding-left: 24px;
     padding-right: 24px;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
   }
 
   .button-label {
     transform-translate-y: 1px;
   }
 </style>
-<Panel id="card" class="panel-root">
+<div id="card" class="panel-root">
   <div id="card-words" class="panel-content">
     <div id="card-title" class="heading">Untitled Game</div>
     <Divider></Divider>
@@ -90,4 +93,4 @@
     </ButtonIcon>
     <ButtonLabel class="button-label">Exit to Browser</ButtonLabel>
   </Button>
-</Panel>
+</div>

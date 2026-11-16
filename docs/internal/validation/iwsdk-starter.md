@@ -667,4 +667,11 @@ share against its own reference is still 0 (two loads by game time, the check's 
 and `OWN_DRAWN` and `DRAWN_EDGES` are unchanged; a page that moves its card elsewhere has the card counted (the same
 test). Not re-measured by hand: the margins of the calibration's cases at the new region; the real-Chrome tests are
 the check.
+The card is a plain UIKitML container, not the Horizon `Panel`: the Panel's own background material (a light or dark
+gradient by the page's colour scheme) ignores `background-color` and keeps only its alpha, so the first try drew pale
+frosted glass under light text. UIKitML's stylesheet also refuses comments (the whole card failed to parse) and has no
+`background-opacity`. Measured in the check's own browser at 3 s on the island: `rgba(14, 16, 30, 0.9)` drew about
+rgb(74, 82, 97), since the blend is made in linear light (a tenth of a bright background is about sRGB 70);
+`rgba(2, 3, 8, 0.97)` draws about rgb(25, 33, 51). Fresh readers (five, each given only the 3 s picture) read every
+line at a glance on the last, title and body on one left margin.
 

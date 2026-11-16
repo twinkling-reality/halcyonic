@@ -300,8 +300,13 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       assert.notEqual(after, before, 'the card was moved');
       writeFileSync(file, after);
     });
+    // The own picture is taken at 6 s, when the card has faded out wherever it stands: it is never in it. At 3 s the
+    // card is up: the host's region leaves out only the bottom left, so a card moved to the top right adds edges.
     assert.equal(moved.page?.own.reference, 'compared');
-    assert.ok((moved.page?.own.share ?? 0) > 0, String(moved.page?.own.share));
+    assert.ok(
+      (moved.page?.edges.at_3s ?? 0) > (pristine.page?.edges.at_3s ?? 0) + DRAWN_EDGES,
+      `${moved.page?.edges.at_3s} against ${pristine.page?.edges.at_3s}`,
+    );
   });
 
   test('a box in front of the camera is drawn, and the check passes', {

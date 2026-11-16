@@ -48,7 +48,7 @@ describe("the IWSDK starter's welcome card", () => {
 
   test("it is the kit's dark glass at the bottom left on a laptop, and low beside the person in a headset", () => {
     const card = read('public/ui/welcome.uikitml');
-    assert.match(card, /background-color: rgba\(16, 18, 34, 0\.72\)/);
+    assert.match(card, /background-color: rgba\(2, 3, 8, 0\.97\)/);
     assert.doesNotMatch(card, /#272727/, 'no dark-on-white text left');
     const scene = JSON.parse(read('public/scenes/main.iwsdk.scene.json')) as {
       nodes: {
