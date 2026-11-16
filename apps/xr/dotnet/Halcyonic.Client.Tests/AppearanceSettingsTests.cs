@@ -72,7 +72,7 @@ public class AppearanceSettingsTests
             var expected = leaving == "apply" ? GlazePalette.Neutral : GlazePalette.Glaze;
             Assert.That(Glaze.Palette, Is.SameAs(expected), leaving);
             Assert.That(settings.Applied, Is.SameAs(expected), leaving);
-            Assert.That(saved, Is.EqualTo(leaving == "apply" ? new[] { "version=1;theme=neutral" } : Array.Empty<string>()));
+            Assert.That(saved, Is.EqualTo(leaving == "apply" ? new[] { "version=2;theme=neutral;panels=dark" } : Array.Empty<string>()));
             Assert.That(AppearanceSettings.Load(settings.Save()).Applied, Is.SameAs(expected));
         }
     }
@@ -105,7 +105,7 @@ public class AppearanceSettingsTests
         {
             var settings = new AppearanceSettings();
             settings.Apply(palette);
-            Assert.That(settings.Save(), Is.EqualTo("version=1;theme=" + palette.Key));
+            Assert.That(settings.Save(), Is.EqualTo("version=2;theme=" + palette.Key + ";panels=dark"));
             Assert.That(AppearanceSettings.Load(settings.Save()).Applied, Is.SameAs(palette));
         }
     }
@@ -138,7 +138,7 @@ public class AppearanceSettingsTests
         Assert.That(column.Frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Apply Theme"));
         column.Act(AppearanceColumn.Apply, null);
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Graphite));
-        Assert.That(saved, Is.EqualTo(new[] { "version=1;theme=graphite" }));
+        Assert.That(saved, Is.EqualTo(new[] { "version=2;theme=graphite;panels=dark" }));
         column.FocusLeft();
         Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Graphite), "departure restores the newly applied appearance");
     }
@@ -628,5 +628,60 @@ public class AppearanceSettingsTests
         navigator.Drawn(MenuColumn.Menu, frame, null);
         Assert.That(navigator.Standing(MenuColumn.Menu, frame, null), Is.Not.Null);
         Assert.That(navigator.Act(MenuColumn.Menu, Footer.Close, null, frame, null), Is.True);
+    }
+
+    [TestCase(null, PanelTheme.Dark)]
+    [TestCase("version=1;theme=graphite", PanelTheme.Dark)]
+    [TestCase("version=2;theme=graphite;panels=light", PanelTheme.Light)]
+    [TestCase("version=2;theme=graphite;panels=dark", PanelTheme.Dark)]
+    [TestCase("version=2;theme=graphite;panels=Light", PanelTheme.Dark)]
+    [TestCase("version=2;theme=graphite;panels=", PanelTheme.Dark)]
+    [TestCase("version=2;theme=graphite;token=light", PanelTheme.Dark)]
+    public void PanelThemeIsKeptBesideThePaletteAndReadsDarkWhereNothingNamesLight(string? saved, PanelTheme expected)
+    {
+        var settings = AppearanceSettings.Load(saved);
+        Assert.That(settings.Panels, Is.EqualTo(expected));
+        Assert.That(AppearanceSettings.Load(settings.Save()).Panels, Is.EqualTo(expected), "the kept value reads back as it was");
+        if (saved == "version=1;theme=graphite") Assert.That(settings.Applied, Is.SameAs(GlazePalette.Graphite), "a first version keeps its palette");
+    }
+
+    [Test]
+    public void UnderTheRedesignAppearanceIsDarkAndLightChosenAtOnceAndKept()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        PanelThemes.Set(PanelTheme.Dark);
+        var heard = new List<PanelTheme>();
+        void Heard(PanelTheme theme) => heard.Add(theme);
+        PanelThemes.Changed += Heard;
+        try
+        {
+            var settings = new AppearanceSettings();
+            var saved = new List<string>();
+            var column = new AppearanceColumn(settings, () => saved.Add(settings.Save()));
+            var frame = column.Frame!;
+            Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Dark", "Light" }));
+            Assert.That(frame.Lines.Select(line => line.Chosen), Is.EqualTo(new[] { true, false }), "Dark is in force by default");
+            Assert.That(frame.Footer.All.Select(slot => slot.Prompt.Id), Is.EqualTo(new[] { Footer.Close }), "nothing to preview or apply");
+
+            column.Act(AppearanceColumn.ChoosePanels, "light");
+            Assert.That((settings.Panels, PanelThemes.Current), Is.EqualTo((PanelTheme.Light, PanelTheme.Light)));
+            Assert.That(saved, Is.EqualTo(new[] { "version=2;theme=neutral;panels=light" }), "kept once, the moment it is chosen");
+            Assert.That(heard, Is.EqualTo(new[] { PanelTheme.Light }));
+            Assert.That(column.Frame!.Lines.Select(line => line.Chosen), Is.EqualTo(new[] { false, true }));
+
+            column.Act(AppearanceColumn.ChoosePanels, "light");
+            column.Act(AppearanceColumn.ChoosePanels, "Light");
+            Assert.That((saved.Count, heard.Count), Is.EqualTo((1, 1)), "choosing it again, or a key it does not know, changes nothing");
+
+            column.Act(AppearanceColumn.ChoosePanels, "dark");
+            Assert.That((settings.Panels, PanelThemes.Current, saved.Count, heard.Count), Is.EqualTo((PanelTheme.Dark, PanelTheme.Dark, 2, 2)));
+        }
+        finally
+        {
+            PanelThemes.Changed -= Heard;
+            PanelThemes.Set(PanelTheme.Dark);
+            RoomDesign.Enabled = was;
+        }
     }
 }

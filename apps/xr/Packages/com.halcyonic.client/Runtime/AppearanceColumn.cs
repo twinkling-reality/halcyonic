@@ -14,6 +14,9 @@ namespace Halcyonic.Client
         public const string Cancel = "appearance-cancel";
         public const string ReadRestore = "appearance-read-restore";
         public const string Restore = "appearance-restore";
+
+        /// <summary>Under the redesign, a panel theme chosen (its key "dark" or "light"): applied, kept and in force at once.</summary>
+        public const string ChoosePanels = "appearance-panels";
         private const string Example = "appearance-example";
         private readonly AppearanceSettings settings;
         private readonly Action saved;
@@ -37,6 +40,14 @@ namespace Halcyonic.Client
             get
             {
                 var close = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
+                // The redesign's glass (the lead's 13:33Z): Dark and Light are the page's choice, the one in force chosen; choosing one
+                // applies it at once, so there is no preview or apply step for two looks a person sees by choosing.
+                if (RoomDesign.Enabled)
+                {
+                    var panels = new[] { PanelTheme.Dark, PanelTheme.Light }.Select(theme => new PageLine(PanelThemes.Words(theme),
+                        action: ChoosePanels, key: PanelThemes.Key(theme), choice: true, chosen: theme == settings.Panels, answerMark: AnswerMark.Single)).ToList();
+                    return new MenuFrame("Appearance", new Footer(close), lines: panels);
+                }
                 if (restoring)
                 {
                     return new MenuFrame("Restore Default?", new Footer(close,
@@ -94,6 +105,12 @@ namespace Halcyonic.Client
         {
             switch (id)
             {
+                case ChoosePanels when RoomDesign.Enabled && PanelThemes.Find(key) is PanelTheme theme:
+                    if (theme == settings.Panels) return;
+                    settings.ApplyPanels(theme);
+                    PanelThemes.Set(theme);
+                    saved();
+                    break;
                 case Choose when !preview && !restoring && key != null && GlazePalette.Find(key) is GlazePalette palette:
                     chosen = palette;
                     break;

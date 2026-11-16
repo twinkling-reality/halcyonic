@@ -18,6 +18,8 @@ namespace Halcyonic.XR.Workspace
             CharacterColours = CharacterColourSettings.Load(PlayerPrefs.GetString(CharacterPreference, ""));
             settings = AppearanceSettings.Load(PlayerPrefs.GetString(Preference, ""));
             Glaze.SetPalette(settings.Applied);
+            // The redesign's panel glass in force from the first frame, as kept (Dark where nothing is).
+            PanelThemes.Set(settings.Panels);
         }
 
         public bool KeepCharacterColours(string encoded)
