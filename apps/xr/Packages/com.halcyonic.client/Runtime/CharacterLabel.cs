@@ -166,7 +166,7 @@ namespace Halcyonic.Client
                 WorkState.WaitingForYou => "Open to Answer",
                 WorkState.CouldNotFinish => "Open Task",
                 WorkState.ChecksFailed => "See Failures",
-                WorkState.FinishedThisRound => "See Changes",
+                WorkState.FinishedThisRound => RoomResult.ChangesWords,
                 _ => null,
             };
         }

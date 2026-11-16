@@ -596,7 +596,7 @@ namespace Halcyonic.Client
             KitMomentAction.SaySomethingElse => "Reply",
             KitMomentAction.SeeTheOutput => "Read Output",
             KitMomentAction.TryIt => "Try Build",
-            KitMomentAction.SeeWhatChanged => "See Changes",
+            KitMomentAction.SeeWhatChanged => RoomResult.ChangesWords,
             _ => throw new ArgumentOutOfRangeException(nameof(action)),
         };
 

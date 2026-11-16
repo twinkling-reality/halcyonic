@@ -433,7 +433,7 @@ public class CharacterLabelTests
     public void APeekSaysWhatOpeningIsForAndWhatItsMarkMeans()
     {
         var finished = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.TurnFinished, synthetic: true)));
-        Assert.That(finished.Next, Is.EqualTo("See Changes"));
+        Assert.That(finished.Next, Is.EqualTo("Changes"));
         Assert.That(finished.MarkLine, Is.EqualTo("Nothing is built here."));
         var checks = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.TurnFinished, AttentionLevel.Notice,
             new[] { "Checks: 1 failed, 23 passed" }, details: new[] { "1 failed, 23 passed" })));
