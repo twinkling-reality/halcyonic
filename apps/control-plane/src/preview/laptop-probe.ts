@@ -666,7 +666,9 @@ export class SoundWatch {
     const context = contextId === null ? undefined : this.#contexts.get(contextId);
     if (context === undefined || context.nodes >= SOUND_NODES) return;
     if (method === 'WebAudio.audioNodeCreated') {
-      const node = params.node as Record<string, unknown>;
+      // A malformed event (no node) is ignored, never thrown in the pipe's handler (AUDIT3's SHOULD).
+      const node = params.node as Record<string, unknown> | undefined | null;
+      if (node === undefined || node === null || typeof node !== 'object') return;
       const nodeId = id(node.nodeId);
       if (nodeId === null) return;
       context.nodes += 1;

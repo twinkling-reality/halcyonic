@@ -1198,6 +1198,19 @@ describe("a piece with nothing to press: its sound, from the browser's WebAudio 
       'not_running',
       'other events, empty ones and overlong ids are ignored',
     );
+    const malformed = answered();
+    malformed.handle('WebAudio.contextCreated', {
+      context: { contextId: 'c1', contextType: 'realtime', contextState: 'running' },
+    });
+    assert.doesNotThrow(() => malformed.handle('WebAudio.audioNodeCreated', { contextId: 'c1' }));
+    assert.doesNotThrow(() =>
+      malformed.handle('WebAudio.audioNodeCreated', { contextId: 'c1', node: null }),
+    );
+    assert.equal(
+      malformed.read(),
+      'not_running',
+      'a node event with no node is ignored, never thrown',
+    );
   });
 
   test(`at most ${SOUND_CONTEXTS} contexts and ${SOUND_NODES} nodes each are kept; the rest are ignored (AUDIT3 L1)`, () => {
