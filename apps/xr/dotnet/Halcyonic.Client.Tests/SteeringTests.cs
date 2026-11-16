@@ -95,7 +95,7 @@ public class WorkspaceTextTests
         replayed.Runtimes.Clear();
         work.State.ApplySnapshot(replayed, new StateChanges());
         Assert.That(Lines(work.Present())[0], Is.EqualTo(EntryText.PracticeRun + " · Agent App Unavailable"));
-        Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.EqualTo("Not Sendable · Agent App Unavailable"),
+        Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.EqualTo("Nothing can be sent: the agent app isn't available on your computer."),
             "a recording carries no runtime, as in a replay or the demonstration");
 
         var real = Samples.Snapshot(10, new[] { work.Workstream }, new[] { work.Execution });
@@ -207,17 +207,17 @@ public class WorkspaceTextTests
     {
         var work = new WaitingWork();
         Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.Null);
-        Assert.That(WorkspaceText.WhyNoActions(work.Present(live: false)), Is.EqualTo("Not Sendable · Awaiting Reconnect"));
+        Assert.That(WorkspaceText.WhyNoActions(work.Present(live: false)), Is.EqualTo("Nothing can be sent until the computer reconnects."));
 
         work.Change(execution =>
         {
             execution.Status = ExecutionStatus.Unknown;
             execution.PendingApprovals.Clear();
         }, WorkstreamStatus.Unknown);
-        Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.EqualTo("Not Sendable · Status Unknown"));
+        Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.EqualTo("Nothing can be sent until your computer says what the agent is doing."));
 
         var idle = WorkspacePresenter.Present(Samples.Workstream("w2"), work.State, work.Activity, live: true);
-        Assert.That(WorkspaceText.WhyNoActions(idle), Is.EqualTo("Not Sendable · Not Started"));
+        Assert.That(WorkspaceText.WhyNoActions(idle), Is.EqualTo("Nothing can be sent until the task starts."));
     }
 
     [Test]
@@ -756,11 +756,11 @@ public class WorkspaceSteeringTests
         var steering = Steering();
         var offline = steering.Press(WorkspaceAction.Approve, work.Present(live: false));
         Assert.That(offline.Step, Is.EqualTo(SteeringStep.Explain));
-        Assert.That(offline.Message, Is.EqualTo("Not Sendable · Awaiting Reconnect"));
+        Assert.That(offline.Message, Is.EqualTo("Nothing can be sent until the computer reconnects."));
 
         var instruct = steering.Press(WorkspaceAction.Instruct, work.Present());
         Assert.That(instruct.Step, Is.EqualTo(SteeringStep.Explain), "the mock runtime takes no instruction while a turn runs");
-        Assert.That(instruct.Message, Is.EqualTo("Not Sent · Not Possible Now"));
+        Assert.That(instruct.Message, Is.EqualTo("Not sent: that can't be done right now."));
     }
 
     [Test]
@@ -834,7 +834,7 @@ public class WorkspaceSteeringTests
         steering.Press(WorkspaceAction.Instruct, work.Present());
         var offline = steering.Typed("Add another test.", work.Present(live: false));
         Assert.That(offline.Step, Is.EqualTo(SteeringStep.Explain), "the connection dropped while typing");
-        Assert.That(offline.Message, Is.EqualTo("Not Sendable · Awaiting Reconnect"));
+        Assert.That(offline.Message, Is.EqualTo("Nothing can be sent until the computer reconnects."));
     }
 
     [Test]

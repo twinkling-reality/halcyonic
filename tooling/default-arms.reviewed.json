@@ -379,9 +379,9 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs",
-    "answer": "\"Not Sendable Now\"",
+    "answer": "\"Nothing can be sent right now.\"",
     "count": 1,
-    "why": "generic: A task with no actions in Failed, Idle, Interrupted, TurnFinished, Verifying, WaitingForHuman or Working says Not Sendable Now, true and vague."
+    "why": "generic: A task with no actions in Failed, Idle, Interrupted, TurnFinished, Verifying, WaitingForHuman or Working says Nothing can be sent right now., true and vague."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs",

@@ -156,7 +156,7 @@ namespace Halcyonic.Client
             if (action == WorkspaceAction.Answer) return SteeringOutcome.Explain("Not Sent · Choose Answers First");
             if (!workspace.Actions.Contains(action))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Not Sent · Not Possible Now");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Not sent: that can't be done right now.");
             }
             if (action == WorkspaceAction.Instruct)
             {
@@ -207,7 +207,7 @@ namespace Halcyonic.Client
             if (waits != null) return SteeringOutcome.Explain(waits);
             if (!workspace.Actions.Contains(WorkspaceAction.Answer))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Not Sent · Question Closed");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Not sent: the question has closed.");
             }
             if (!draft.Answers(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer))
             {

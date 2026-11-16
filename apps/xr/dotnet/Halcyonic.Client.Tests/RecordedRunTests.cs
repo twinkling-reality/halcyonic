@@ -287,7 +287,7 @@ public class RecordedRunHandOffTests
 
     /// <summary>
     /// Once a recorded run holds at its end, its composer says it is a recording, never that the agent app is gone
-    /// (JUDGE's frames, 2026-11-04: "Not Sendable · Agent App Unavailable").
+    /// (JUDGE's frames, 2026-11-04: "Nothing can be sent: the agent app isn't available on your computer.").
     /// </summary>
     [Test]
     public async Task ARecordedRunsComposerSaysItIsARecordingNeverThatTheAgentAppIsGone()
@@ -304,7 +304,7 @@ public class RecordedRunHandOffTests
             var workspace = WorkspacePresenter.Present(work, state, new ActivityLog(), player.Session.Status.IsLive);
             Assert.That((workspace.Character.Recorded, workspace.Character.Synthetic), Is.EqualTo((true, false)), "a recorded run's work");
             Assert.That(workspace.Actions, Is.Empty);
-            Assert.That(WorkspaceText.WhyNoActions(workspace), Is.EqualTo("Not Sendable · Recorded · Not Live"));
+            Assert.That(WorkspaceText.WhyNoActions(workspace), Is.EqualTo("This is a recording, so nothing can be sent."));
         }
         finally
         {

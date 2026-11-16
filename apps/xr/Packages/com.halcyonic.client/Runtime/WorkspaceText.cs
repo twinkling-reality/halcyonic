@@ -733,23 +733,23 @@ namespace Halcyonic.Client
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 
-        /// <summary>Why nothing can be sent while a recorded run plays, in the Recorded mark's own words.</summary>
-        public const string NotSendableRecorded = "Not Sendable · Recorded · Not Live";
+        /// <summary>Why nothing can be sent while a recorded run plays. Each reason here is one plain sentence, never parts on a dot (AUDIT2 2026-11-16 09:28Z).</summary>
+        public const string NotSendableRecorded = "This is a recording, so nothing can be sent.";
 
         /// <summary>Why nothing can be done right now, or null when an action is offered.</summary>
         public static string? WhyNoActions(WorkspacePresentation workspace)
         {
             if (workspace.Actions.Count > 0) return null;
-            if (workspace.Character.Stale) return "Not Sendable · Awaiting Reconnect";
+            if (workspace.Character.Stale) return "Nothing can be sent until the computer reconnects.";
             // A recorded run is played as it happened: nothing reaches an agent, whatever its agent app's state then.
             if (workspace.Character.Recorded && !workspace.Character.Synthetic) return NotSendableRecorded;
-            if (workspace.Execution == null) return "Not Sendable · Not Started";
-            if (workspace.Runtime == null) return "Not Sendable · Agent App Unavailable";
+            if (workspace.Execution == null) return "Nothing can be sent until the task starts.";
+            if (workspace.Runtime == null) return "Nothing can be sent: the agent app isn't available on your computer.";
             return workspace.Character.Activity switch
             {
-                CharacterActivity.Starting => "Not Sendable · Starting",
-                CharacterActivity.Unknown => "Not Sendable · Status Unknown",
-                _ => "Not Sendable Now",
+                CharacterActivity.Starting => "Nothing can be sent while the agent starts.",
+                CharacterActivity.Unknown => "Nothing can be sent until your computer says what the agent is doing.",
+                _ => "Nothing can be sent right now.",
             };
         }
 

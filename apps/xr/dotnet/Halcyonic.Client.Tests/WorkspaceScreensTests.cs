@@ -287,7 +287,7 @@ public class WorkspaceScreensTests
 
         var away = Screen(new WaitingWork().Present(live: false), steering);
         Assert.That(away.Actions.All, Is.Empty);
-        Assert.That(away.BarNote, Is.EqualTo("Not Sendable · Awaiting Reconnect"));
+        Assert.That(away.BarNote, Is.EqualTo("Nothing can be sent until the computer reconnects."));
         foreach (var action in waiting.All) Assert.That(WorkspaceScreens.ActionOf(action.Id), Is.Not.Null, action.Id);
         Assert.That(WorkspaceScreens.ActionOf(WorkspaceScreens.HoldToTalk), Is.Null);
     }
