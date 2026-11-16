@@ -649,7 +649,8 @@ namespace Halcyonic.Client
         /// The read-alike page's words in one run: the lead, the label they share once (they read alike, so it is the same
         /// label), then each answer's own description on a line of its own, which is what tells them apart; no comma or slash
         /// of Halcyonic's between the agent's strings, and within the band's three lines for two answers (the interim until
-        /// the band lays <see cref="AlikeAnswers"/> as a list).
+        /// the band lays <see cref="AlikeAnswers"/> as a list). Its limit: three or more answers alike, or two descriptions that
+        /// wrap, run past those three lines, and the band pages them again.
         /// </summary>
         public static LineWords AmbiguityRuns(QuestionDraft draft, int prompt, int option)
         {
