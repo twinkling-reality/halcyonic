@@ -559,13 +559,19 @@ namespace Halcyonic.Client
             return parts;
         }
 
-        /// <summary>The ready lines: what the passed check covered, each its own line, then the time it took where known, and no more.</summary>
+        /// <summary>
+        /// The ready lines: what the passed check covered, each its own line, then how long it took where known, said as a duration
+        /// ("Took 6 min 40 s"; AUDIT2's fresh reader M1: a bare time read as "ago", or as the last line's), and no more.
+        /// </summary>
         public static IReadOnlyList<string> Reward(TimeSpan? elapsed, KitCheckScope scope)
         {
             var lines = new List<string>(Covered(scope));
-            if (elapsed is TimeSpan taken) lines.Add(Time(taken));
+            if (elapsed is TimeSpan taken) lines.Add(Took(taken));
             return lines;
         }
+
+        /// <summary>How long something took, as a duration: "Took 6 min 40 s", "Took Under 1 s".</summary>
+        public static string Took(TimeSpan time) => "Took " + Time(time);
 
         public static string Earlier(int count) => Number(count) + " Earlier";
 
@@ -573,6 +579,13 @@ namespace Halcyonic.Client
 
         /// <summary>Under a command shown cut: what is left, in the handoff's words ("Cut · 18 More Lines").</summary>
         public static string CutMore(int lines) => Number(lines) + (lines == 1 ? " More Line Not Shown" : " More Lines Not Shown");
+
+        /// <summary>The command a question asks to run, read whole where it shows cut: Read It reads the command, never a file (AUDIT's 12:19Z).</summary>
+        public const string ReadCommand = "Read Command";
+
+        /// <summary><paramref name="action"/>'s words on a moment of <paramref name="kind"/>: Read It is Read Command on a question, else as <see cref="Action(KitMomentAction)"/>.</summary>
+        public static string Action(KitMomentAction action, KitMomentKind kind) =>
+            action == KitMomentAction.ReadIt && kind == KitMomentKind.Question ? ReadCommand : Action(action);
 
         public static string Action(KitMomentAction action) => action switch
         {

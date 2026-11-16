@@ -500,7 +500,7 @@ namespace Halcyonic.XR.UI
                     var button = ButtonFor(primary);
                     button.Role = KitButtonRole.Primary;
                     button.Meaning = MeaningOf(primary, moment.Tone);
-                    button.Show(KitMomentWords.Action(primary), null, new Vector2(0f, rowTop - target / 2f), inner);
+                    button.Show(KitMomentWords.Action(primary, moment.Kind), null, new Vector2(0f, rowTop - target / 2f), inner);
                     shown.Add((primary, button));
                     rowTop -= target + between;
                 }
@@ -511,7 +511,7 @@ namespace Halcyonic.XR.UI
                     var button = ButtonFor(action);
                     button.Role = KitButtonRole.Word;
                     button.Meaning = MeaningOf(action, moment.Tone);
-                    var w = button.Measure(KitMomentWords.Action(action), null);
+                    var w = button.Measure(KitMomentWords.Action(action, moment.Kind), null);
                     if (restRows.Count == 0 || restRows[^1].Sum(b => b.Measured) + restRows[^1].Count * between + w > inner + 1e-5f)
                         restRows.Add(new List<(KitMomentAction, KitButton, float)>());
                     restRows[^1].Add((action, button, w));
@@ -527,7 +527,7 @@ namespace Halcyonic.XR.UI
                     foreach (var (action, button, measured) in rowButtons)
                     {
                         var w = allFitEqual ? cellWidth : measured + Mathf.Max(0f, extraEach);
-                        button.Show(KitMomentWords.Action(action), null, new Vector2(rowX + w / 2f, rowTop - target / 2f), w);
+                        button.Show(KitMomentWords.Action(action, moment.Kind), null, new Vector2(rowX + w / 2f, rowTop - target / 2f), w);
                         shown.Add((action, button));
                         rowX += w + between;
                     }

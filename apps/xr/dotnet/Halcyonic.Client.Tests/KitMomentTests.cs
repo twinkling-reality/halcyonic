@@ -139,8 +139,8 @@ public class KitMomentTests
     {
         var builds = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, At);
         var opens = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
-        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), builds, tryRoute: true).Lines, Is.EqualTo(new[] { "Builds", "6 min 40 s" }), "each its own line, never joined on a dot");
-        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), opens, tryRoute: true).Lines, Is.EqualTo(new[] { "Builds", "Starts and Shows", "6 min 40 s" }));
+        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), builds, tryRoute: true).Lines, Is.EqualTo(new[] { "Builds", "Took 6 min 40 s" }), "each its own line, never joined on a dot, the time a duration");
+        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), opens, tryRoute: true).Lines, Is.EqualTo(new[] { "Builds", "Starts and Shows", "Took 6 min 40 s" }));
         Assert.That(KitMoment.Ready("Tower Toss", null, builds, tryRoute: true).Lines.Single(), Is.EqualTo("Builds"));
         Assert.That(KitMoment.Ready("Tower Toss", null, builds, tryRoute: true).Headline.ToString(), Is.EqualTo("Build Ready · [Tower Toss]"));
     }
@@ -270,5 +270,14 @@ public class KitMomentTests
         Assert.That(opens.Meta.Select(segment => segment.ToString()), Is.EqualTo(rows));
         var built = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, At);
         Assert.That(built.Meta.Select(segment => segment.ToString()), Is.EqualTo(new[] { RoomResult.StepWords(CheckStepKind.Build) }));
+    }
+
+    [Test]
+    public void ACutCommandIsReadAsACommandNeverAsAFile()
+    {
+        // AUDIT's 12:19Z: a question showing its command cut offered "Read File".
+        Assert.That(KitMomentWords.Action(KitMomentAction.ReadIt, KitMomentKind.Question), Is.EqualTo(KitMomentWords.ReadCommand));
+        Assert.That(KitMomentWords.Action(KitMomentAction.ReadIt, KitMomentKind.ReportedEdit), Is.EqualTo("Read File"), "a file's moment still reads its file");
+        Assert.That(KitMomentWords.Action(KitMomentAction.YesRunIt, KitMomentKind.Question), Is.EqualTo(KitMomentWords.Action(KitMomentAction.YesRunIt)));
     }
 }
