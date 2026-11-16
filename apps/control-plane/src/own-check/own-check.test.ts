@@ -699,3 +699,47 @@ describe("a Go module's own check, run inside the agents' sandbox on this Mac (A
     assert.match(given, /MARK bad sum/);
   });
 });
+
+describe('a socket the sandbox refused is read anywhere in the log (LINK, 2026-11-16, go-chi/chi; AUDIT3 15:01Z)', () => {
+  /** A Go panic as go test prints it: the cause, then a trace of frames, then the package's FAIL lines. */
+  const panicked = (cause: string) =>
+    [
+      '--- FAIL: TestMuxBasic (0.00s)',
+      `panic: ${cause} [recovered, repanicked]`,
+      '',
+      'goroutine 10 [running]:',
+      ...Array.from({ length: 12 }, (_, i) => [
+        `testing.tRunner.func1.${i}({0x102877da0, 0x680b8b11c5f0})`,
+        `\t/opt/homebrew/Cellar/go/1.26.5/libexec/src/testing/testing.go:${1974 + i} +0x1a0`,
+      ]).flat(),
+      'FAIL\tgithub.com/go-chi/chi/v5\t0.269s',
+      'FAIL',
+    ].join('\n');
+
+  test("Go's bind refused above its stack trace reads refused; the project's own panic does not", () => {
+    const refused = panicked(
+      'httptest: failed to listen on a port: listen tcp6 [::1]:0: bind: operation not permitted',
+    );
+    assert.ok(refused.split('\n').length > 25, 'the cause sits above the last 20 lines');
+    assert.equal(refusedAtEnd(refused), true);
+    assert.equal(
+      refusedAtEnd(panicked('runtime error: index out of range [3] with length 3')),
+      false,
+    );
+  });
+
+  test("Node's listen and connect EPERM read refused anywhere; a test's own EACCES or permission denied on a file does not", () => {
+    const quiet = Array.from({ length: 30 }, (_, i) => `ok ${i}`);
+    const at = (line: string) => [line, ...quiet, 'not ok 31 - the real failure'].join('\n');
+    assert.equal(
+      refusedAtEnd(at('Error: listen EPERM: operation not permitted 127.0.0.1:3000')),
+      true,
+    );
+    assert.equal(refusedAtEnd(at('Error: connect EPERM 127.0.0.1:5432 - Local (0.0.0.0:0)')), true);
+    assert.equal(
+      refusedAtEnd(at("Error: EACCES: permission denied, open '/tmp/locked.txt'")),
+      false,
+    );
+    assert.equal(refusedAtEnd(at('sh: ./script.sh: Permission denied')), false);
+  });
+});

@@ -140,10 +140,23 @@ function goEnvironment(home: string, temp: string): Record<string, string> {
   };
 }
 
-/** Whether the last lines of a failed script's output name a refusal of the sandbox. */
+/**
+ * The sandbox refusing a socket, as programs report it: a bind, listen, connect or dial with "operation not permitted"
+ * (Go: "listen tcp6 [::1]:0: bind: operation not permitted"; Python's PermissionError on a socket) or Node's "listen
+ * EPERM" and "connect EPERM". Read anywhere in a failed script's log, since the profile refuses every socket and Go prints
+ * a panic's cause above its stack trace (go-chi/chi's own tests, LINK 2026-11-16; AUDIT3 15:01Z). Never a bare
+ * "permission denied" or a file's EACCES, which may be the project's own test.
+ */
+const SOCKET_REFUSED =
+  /\b(?:bind|listen|connect|dial)\b[^\n]*\boperation not permitted\b|\b(?:listen|connect|bind) EPERM\b/i;
+
+/** Whether a failed script's output names a refusal of the sandbox: in its last lines, or a socket refused anywhere. */
 export function refusedAtEnd(log: string): boolean {
   const lines = log.split('\n').filter((line) => line.trim() !== '');
-  return lines.slice(-REFUSED_LAST_LINES).some((line) => REFUSED.test(line));
+  return (
+    lines.slice(-REFUSED_LAST_LINES).some((line) => REFUSED.test(line)) ||
+    lines.some((line) => SOCKET_REFUSED.test(line))
+  );
 }
 
 export interface OwnChecksDeps {

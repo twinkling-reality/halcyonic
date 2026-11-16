@@ -171,3 +171,16 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
   so auto-fix never sends it (`never_passed`). The card shows a plain failure, and words of its own are FIELD's,
   later.
 
+
+## Amendment, 2026-11-16: a socket the sandbox refused is read anywhere in the log
+
+A real repository's own check (go-chi/chi v5.5.0, on LINK's scratch plane) failed on the untouched repository because its
+tests start `httptest` servers and the profile refuses a listen on any port, loopback included, as this ADR intends. That run
+read `refused: false`: Go prints a panic's cause ("bind: operation not permitted") above its stack trace, about 40 lines above
+the end, and only the last 20 lines were read. So a refusal of the sandbox read as the project's own failure, and could have
+gone to the agent as its fault. A refused socket is now read anywhere in a failed script's log (AUDIT3, 15:01Z): a bind,
+listen, connect or dial with "operation not permitted", or Node's "listen EPERM" and "connect EPERM". A bare "permission
+denied" or a file's EACCES is never read this way, since it may be the project's own test; other refusals are still read
+from the last 20 lines. Whether a check may open a port on loopback stays open (OPEN_QUESTIONS.md): the loopback on a
+developer's Mac holds unauthenticated listeners, so a design needs bind and listen on loopback only, connect only to ports
+the same run bound, and a fail-first test that the check cannot reach a listener outside the run.
