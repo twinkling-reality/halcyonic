@@ -108,7 +108,8 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   const black = new Color('#010103');
   // The floor fades into the horizon's colour and the sky rises from it, so no line marks where they meet.
   const horizon = tint.clone().multiplyScalar(0.16);
-  const mist = tint.clone().multiplyScalar(0.05);
+  // As bright as the haze's own glow low down, so the far floor carries on the lit horizon.
+  const mist = tint.clone().multiplyScalar(0.1);
   // The sky's horizon carries the floor's mist, so where the floor ends the sky begins in the same colour.
   const misted = horizon.clone().add(mist);
   group.add(sky(black, misted, misted, 120));
@@ -136,7 +137,8 @@ export function darkHall(options: { tint?: Color; motes?: number } = {}): Place 
   for (let i = 0; i < at.count; i++) {
     const y = at.getY(i);
     const t = Math.min(1, Math.max(0, y / 12));
-    const k = ((t * (1 - t) ** 3) / 0.1055) * 0.16;
+    // Starting flat at its foot, so the line where it meets the floor never shows.
+    const k = ((t * t * (1 - t) ** 6) / 0.01112) * 0.16;
     glow.push(tint.r * k, tint.g * k, tint.b * k);
   }
   ring.setAttribute('color', new Float32BufferAttribute(glow, 3));
