@@ -64,7 +64,7 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
    plane started with them, with the file now, leaving out pairing's setting, which applies live.
    When they differ it offers Restart to Apply. The first press lists the tasks that will pause
    (every execution starting, running, verifying or waiting for the person). The second closes the
-   control plane cleanly and exits with code 75. `Start Halcyonic.command` is a loop that starts it
+   control plane cleanly and exits with code 75. `Start Halora.command` (named `Start Halcyonic.command` until 2026-11-16) is a loop that starts it
    again on 75 and on no other code, passing `--restartable`. Without that flag (`pnpm start` or
    `pnpm dev` by hand) the page offers no restart and says to stop and start Halcyonic. A close that
    fails exits 1, so the loop stops.

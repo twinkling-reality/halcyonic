@@ -60,7 +60,7 @@ one call on `Pairing` in the same process.
   navigation, and answered with the cookie and a page that goes on to the page itself, never a
   redirect, which would keep that navigation's other origin. Every cookie of the page's name is read,
   so one another 127.0.0.1 port planted ahead of the person's own keeps nobody out (AUDIT S2).
-- **`Start Halcyonic.command`** at the repository root starts the control plane from Finder with a
+- **`Start Halora.command` (named `Start Halcyonic.command` until 2026-11-16)** at the repository root starts the control plane from Finder with a
   double-click, in a login shell, with `--open-pairing-page`.
 
 - **Amended 2026-11-12: one press to pair.** Pair Headset turns pairing on first when it is off, then
