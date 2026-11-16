@@ -661,8 +661,8 @@ export function lightKeys(
   };
   const pale = new Color('#C4D2FF').multiplyScalar(0.75);
   const smoky = new Color('#7476C0').multiplyScalar(0.6);
-  // How far a played key's front goes down: a white key a third of its width, a little deeper than a piano's so it is
-  // seen to go down from a step away; a black key less, so it never sinks below the white keys it rests on.
+  // How far a played key's front goes down: a white key a third of its width, nearly twice a piano's, so it is seen
+  // to go down from a step away; a black key less, so it never sinks below the white keys it rests on.
   const whiteSet = make(whiteKeys, whiteTall, whiteMiddle, idle, pale, LANDS.white, keyWidth * 0.33);
   const blackSet = make(blackKeys, blackTall, blackMiddle, blackIdle, smoky, LANDS.black, raised * 0.9);
   const white = whiteSet.mesh;
