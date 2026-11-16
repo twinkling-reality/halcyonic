@@ -446,7 +446,7 @@ describe('several agents on one project (ADR 0045)', {
     const written = readFileSync(join(copy, 'app.txt'), 'utf8');
     assert.match(
       written,
-      /^paths\n\nFrom Halcyonic: this task's folder is a copy of the project as it was/,
+      /^paths\n\nFrom Halora: this task's folder is a copy of the project as it was/,
     );
     assert.ok(written.includes(version.recorded_at), 'the agent is told which version');
     // The project's own folder is untouched.

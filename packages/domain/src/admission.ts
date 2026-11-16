@@ -607,7 +607,7 @@ function admit(
         return reject(
           scope,
           'invalid_state',
-          'Halcyonic made no repository of this project public, so there is nothing to make private.',
+          'Halora made no repository of this project public, so there is nothing to make private.',
         );
       if (project.published !== undefined)
         return reject(scope, 'invalid_state', 'The game is published from it. Take it down first.');
@@ -1074,14 +1074,14 @@ function admit(
         return reject(
           scope,
           'capability_unsupported',
-          'This question asks for something secret, which Halcyonic never sends. Stop the turn to go on.',
+          'This question asks for something secret, which Halora never sends. Stop the turn to go on.',
         );
       }
       if (!question.answerable) {
         return reject(
           scope,
           'capability_unsupported',
-          'This question cannot be answered through Halcyonic. Stop the turn to go on.',
+          'This question cannot be answered through Halora. Stop the turn to go on.',
         );
       }
       if (facts.status !== 'waiting_for_human') {

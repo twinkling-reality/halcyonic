@@ -132,7 +132,7 @@ function setup(
     secrets?: PageSecrets;
     /** The data folder the page says, where it is not the usual one. */
     dataFolder?: string;
-    /** Whether a new page opens once Halcyonic is running again (Start Halcyonic.command). */
+    /** Whether a new page opens once Halcyonic is running again (Start Halora.command). */
     reopensPage?: boolean;
     /** A folder of provider declarations and the readers of their keys; main.ts passes the host's own list. */
     providers?: { readonly dir: string; readonly readers: readonly KeyReader[] };
@@ -453,9 +453,9 @@ describe('the setup view', () => {
     assert.equal(step(await view.act('check', null, false), 'sharing').status, 'optional');
   });
 
-  test('a downloaded agent app is set up only when it is the copy Halcyonic was checked with', async (t) => {
+  test('a downloaded agent app is set up only when it is the copy Halora was checked with', async (t) => {
     const binary = 'runtimes/opencode-2.0.18/node_modules/.bin/opencode';
-    const checked = 'the copy Halcyonic was checked with';
+    const checked = 'the copy Halora was checked with';
     const pins: Pins = {
       ...APPLE_SILICON_PINS,
       opencode: { path: binary, sha256: createHash('sha256').update(checked).digest('hex') },
@@ -472,7 +472,7 @@ describe('the setup view', () => {
     };
     const changed = await install('a copy someone changed');
     assert.equal(changed.job?.state, 'not_set_up');
-    assert.match(changed.job?.lines.join(' ') ?? '', /isn't the copy Halcyonic was checked with/);
+    assert.match(changed.job?.lines.join(' ') ?? '', /isn't the copy Halora was checked with/);
     assert.equal(readHostSettings(machine.dataDir).HALCYONIC_OPENCODE_BIN, undefined);
     const good = await install(checked);
     assert.equal(good.job?.state, 'done');
@@ -650,7 +650,7 @@ describe('the setup view', () => {
       settingsForRestart({ HALCYONIC_NETWORK_HOST: '0.0.0.0', B: '2', A: '1' }),
       settingsForRestart({ A: '1', B: '2' }),
     );
-    assert.equal(RESTART_EXIT_CODE, 75, 'the code Start Halcyonic.command starts again on');
+    assert.equal(RESTART_EXIT_CODE, 75, 'the code Start Halora.command starts again on');
   });
 });
 
@@ -1076,7 +1076,7 @@ describe('the setup view on the pairing page', () => {
     assert.equal(asked.keys?.apps[1]?.stored, true, 'the first press removes nothing');
     assert.deepEqual(asked.keys?.confirm, {
       id: 'thirdprovider',
-      text: 'Halcyonic deletes its copy. Test Assistant stops using it at once.',
+      text: 'Halora deletes its copy. Test Assistant stops using it at once.',
     });
     assert.equal(asked.keys?.problem, null, 'a new press clears the last refusal');
     const other = await remove(true, 'anthropic');
@@ -1084,7 +1084,7 @@ describe('the setup view on the pairing page', () => {
       other.keys?.confirm,
       {
         id: 'anthropic',
-        text: 'Halcyonic deletes its copy. Claude Agent needs a key again from the next start, and Test Assistant stops using it at once.',
+        text: 'Halora deletes its copy. Claude Agent needs a key again from the next start, and Test Assistant stops using it at once.',
       },
       'a second press for another key asks again',
     );
@@ -1101,7 +1101,7 @@ describe('the setup view on the pairing page', () => {
     const drawn = readFileSync(new URL('./setup-page/setup.js', import.meta.url), 'utf8');
     assert.match(
       drawn,
-      /On a folder you connected, \$\{listed\(outside\)\} \$\{one \? 'runs' : 'run'\} with your own access, and a task there can read and keep a copy of this key\. Apps made here are held to their own copy and hold no key, unless a cloud provider is switched on in Halcyonic's environment\./,
+      /On a folder you connected, \$\{listed\(outside\)\} \$\{one \? 'runs' : 'run'\} with your own access, and a task there can read and keep a copy of this key\. Apps made here are held to their own copy and hold no key, unless a cloud provider is switched on in Halora's environment\./,
     );
     // The page draws whatever the declarations say: no vendor's name is in its own words or code.
     for (const file of ['setup.js', 'setup.html', 'setup.css']) {
@@ -1149,11 +1149,11 @@ describe('the setup view on the pairing page', () => {
     const script = readFileSync(new URL('./setup-page/setup.js', import.meta.url), 'utf8');
     assert.match(
       script,
-      /This Halcyonic keeps its data in \$\{folder\}, not in the usual ~\/\.halcyonic\./,
+      /This Halora keeps its data in \$\{folder\}, not in the usual ~\/\.halcyonic\./,
     );
   });
 
-  test('a restart says whether a new page opens after it, and after a restart it saw, the page says Halcyonic is running again, calmly', async (t) => {
+  test('a restart says whether a new page opens after it, and after a restart it saw, the page says Halora is running again, calmly', async (t) => {
     assert.equal(
       (await setup(t).view.state()).reopens_page,
       false,

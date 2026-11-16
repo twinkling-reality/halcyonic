@@ -116,7 +116,7 @@ export function originalRefusal(folder: string, bounds: OriginalBounds): string 
   if (within(real(bounds.home), original)) return `${original} is the home folder or holds it.`;
   const data = real(bounds.dataDir);
   if (within(data, original) || within(original, data))
-    return `${original} holds Halcyonic's data or is inside it.`;
+    return `${original} holds Halora's data or is inside it.`;
   if (
     bounds.projects.some((project) => real(project) !== original && within(real(project), original))
   )

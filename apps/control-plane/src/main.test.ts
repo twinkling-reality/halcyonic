@@ -287,7 +287,7 @@ describe('the control plane process', () => {
     assert.deepEqual((line.settings as { used: string[] }).used, []);
   });
 
-  test('names each agent binary and whether it is the copy Halcyonic was checked with', async (t) => {
+  test('names each agent binary and whether it is the copy Halora was checked with', async (t) => {
     let opencode = '';
     const { ready: line } = await start(t, {}, ({ root, dataDir }) => {
       opencode = join(root, 'opencode');
@@ -303,7 +303,7 @@ describe('the control plane process', () => {
     ['the home folder', () => userInfo().homedir],
     ['a folder holding it', () => dirname(userInfo().homedir)],
     ['the whole disk', () => '/'],
-    ["Halcyonic's data", (root: string) => join(root, 'data')],
+    ["Halora's data", (root: string) => join(root, 'data')],
     ['a folder holding it', (root: string) => root],
   ] as const) {
     test(`refuses to start from a settings file that allows ${why}`, async (t) => {

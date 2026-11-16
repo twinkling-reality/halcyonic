@@ -518,7 +518,7 @@ function parseOpenCodeSettings(path: string, text: string): OpenCodeSettings {
   );
   if (unknown.length > 0) {
     throw new ConfigError(
-      `${shown(path)} can't set ${unknown.join(', ')}: Halcyonic's own OpenCode settings hold only what pnpm mac-setup local-model writes.`,
+      `${shown(path)} can't set ${unknown.join(', ')}: Halora's own OpenCode settings hold only what pnpm mac-setup local-model writes.`,
     );
   }
   if (!isLocalOllamaModel(document.model)) {
@@ -818,7 +818,7 @@ function parseTasksDir(env: NodeJS.ProcessEnv): string {
     path === base || path.startsWith(base.endsWith(sep) ? base : base + sep);
   if (inside(data, tasks) || inside(tasks, data))
     throw new ConfigError(
-      "HALCYONIC_TASKS_DIR must be beside Halcyonic's data folder, not inside it or around it: agents work there.",
+      "HALCYONIC_TASKS_DIR must be beside Halora's data folder, not inside it or around it: agents work there.",
     );
   return tasks;
 }

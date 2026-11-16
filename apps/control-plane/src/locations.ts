@@ -496,7 +496,7 @@ function rootChanged(root: Root): LocationRefusal | null {
     return {
       ok: false,
       code: 'location_not_allowed',
-      message: `The folder ${root.real}, where projects live, has been replaced since this computer allowed it. Its owner restarts Halcyonic on that computer to allow what is there now.`,
+      message: `The folder ${root.real}, where projects live, has been replaced since this computer allowed it. Its owner restarts Halora on that computer to allow what is there now.`,
     };
   }
   return null;

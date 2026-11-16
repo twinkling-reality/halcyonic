@@ -200,7 +200,7 @@ describe('the pairing page', () => {
     const script = await call(port, 'GET', '/page.js', { cookie });
     assert.match(
       script.body,
-      /This Halcyonic keeps its data in \$\{folder\}, not in the usual ~\/\.halcyonic\./,
+      /This Halora keeps its data in \$\{folder\}, not in the usual ~\/\.halcyonic\./,
     );
   });
 

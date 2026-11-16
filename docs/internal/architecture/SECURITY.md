@@ -859,7 +859,7 @@ The same check and actions on a page at `/setup` of the pairing page's server
   name kept and the value cleared. Remove asks first and deletes only on a second press of the same secret
   (LINK's critic, decided by the lead 2026-11-11).
 - **Restart.** Restart to Apply closes the control plane as a signal does and exits with code 75,
-  which only `Start Halcyonic.command` starts again; it says first which tasks will pause.
+  which only `Start Halora.command` starts again; it says first which tasks will pause.
 
 ## Authorization
 

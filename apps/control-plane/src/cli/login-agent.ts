@@ -365,14 +365,14 @@ export function foldersProblem(agent: LoginAgent): string | null {
     return 'The data or tasks folder is a link to a folder that does not exist, so where it leads cannot be told; name the folder itself.';
   }
   if (within(agent.tasksDir, data.folded) || within(agent.dataDir, tasks.folded)) {
-    return 'The tasks folder must be beside the data folder, not inside it or around it; Halcyonic refuses to start that way.';
+    return 'The tasks folder must be beside the data folder, not inside it or around it; Halora refuses to start that way.';
   }
   const usualData = folderIdentity(agent.usual.dataDir);
   const usualTasks = folderIdentity(agent.usual.tasksDir);
   const isUsualData = usualData !== 'dangling' && data.exact === usualData.exact;
   const usesUsualTasks = usualTasks === 'dangling' || within(agent.tasksDir, usualTasks.folded);
   if (!isUsualData && usesUsualTasks) {
-    return `A data folder other than ${agent.usual.dataDir} needs its own tasks folder (HALCYONIC_TASKS_DIR, or --tasks-dir), or this Halcyonic would clear the task copies in ${agent.usual.tasksDir} when it starts.`;
+    return `A data folder other than ${agent.usual.dataDir} needs its own tasks folder (HALCYONIC_TASKS_DIR, or --tasks-dir), or this Halora would clear the task copies in ${agent.usual.tasksDir} when it starts.`;
   }
   return null;
 }
@@ -395,14 +395,12 @@ export async function turnOn(
   }
   const domain = `gui/${io.uid}`;
   if (io.launchctl(['print', `${domain}/${agent.label}`]).status === 0) {
-    io.print(
-      'Halcyonic already starts when you log in. To change how, turn it off, then on again.',
-    );
+    io.print('Halora already starts when you log in. To change how, turn it off, then on again.');
     return 1;
   }
   if (await io.answers(port)) {
     io.print(
-      `A Halcyonic you started yourself answers on port ${port}. Stop it first (Ctrl-C in its window), then turn this on, so the two never take the same port.`,
+      `A Halora you started yourself answers on port ${port}. Stop it first (Ctrl-C in its window), then turn this on, so the two never take the same port.`,
     );
     return 1;
   }
@@ -418,11 +416,11 @@ export async function turnOn(
     );
     return 1;
   }
-  io.print(`Halcyonic now starts when you log in, with ${agent.node}. Its log: ${agent.logFile}.`);
+  io.print(`Halora now starts when you log in, with ${agent.node}. Its log: ${agent.logFile}.`);
   io.print(`Its data folder: ${agent.dataDir}. Its tasks folder: ${agent.tasksDir}.`);
   if (agent.leftOut.length > 0) {
     io.print(
-      `Set here but not carried by the agent: ${agent.leftOut.join(', ')}. Halcyonic's own settings file still applies.`,
+      `Set here but not carried by the agent: ${agent.leftOut.join(', ')}. Halora's own settings file still applies.`,
     );
   }
   for (let waited = 0; waited < STARTED_WITHIN_MS; waited += 1000) {
@@ -446,10 +444,10 @@ export function turnOff(label: string, folder: string, io: LoginIo): number {
   if (had) rmSync(file);
   io.print(
     stopped.status === 0
-      ? 'Halcyonic is stopped and no longer starts when you log in.'
+      ? 'Halora is stopped and no longer starts when you log in.'
       : had
-        ? 'Halcyonic no longer starts when you log in. It was not running under launchd.'
-        : 'Halcyonic was not set to start when you log in.',
+        ? 'Halora no longer starts when you log in. It was not running under launchd.'
+        : 'Halora was not set to start when you log in.',
   );
   if (stopped.status !== 0 && had) {
     io.print(`launchctl said (exit ${stopped.status}): ${stopped.output}`);

@@ -353,11 +353,11 @@ function usage(io: MacSetupIo): number {
     "  pnpm mac-setup browser [folder]     set up new apps' browser once: find it, copy it, build its launcher",
     "  pnpm mac-setup launcher             build what starts new apps' browser without this app's permissions",
     "  pnpm mac-setup starter              record the VR starter's pinned set, or say how to install it",
-    '  pnpm mac-setup undo [git|off]       let Halcyonic undo a task, with /usr/bin/git or the git you name',
+    '  pnpm mac-setup undo [git|off]       let Halora undo a task, with /usr/bin/git or the git you name',
     '  pnpm mac-setup tunnel [path|off]    record the checked tunnel program that shares a game at a link',
-    '  pnpm mac-setup login on|off         start Halcyonic whenever you log in, or stop that',
-    'Add --with-token to ask the running Halcyonic what it uses: the check then reads its access',
-    'token, and sends it only after Halcyonic proves it holds it.',
+    '  pnpm mac-setup login on|off         start Halora whenever you log in, or stop that',
+    'Add --with-token to ask the running Halora what it uses: the check then reads its access',
+    'token, and sends it only after Halora proves it holds it.',
   ]) {
     io.print(line);
   }
@@ -411,9 +411,9 @@ class MacSetup {
     if ('error' in settings) {
       steps.push({
         id: 'settings',
-        title: "Halcyonic's settings",
+        title: "Halora's settings",
         status: 'todo',
-        lines: [`Halcyonic won't start with its settings as they are: ${settings.error}`],
+        lines: [`Halora won't start with its settings as they are: ${settings.error}`],
       });
     }
     const values = 'error' in settings ? {} : settings.values;
@@ -442,7 +442,7 @@ class MacSetup {
     const io = this.#io;
     const steps = await this.steps();
 
-    io.print('Halcyonic on this Mac');
+    io.print('Halora on this Mac');
     io.print('');
     steps.forEach((step, index) => {
       io.print(`${index + 1}. ${step.title}: ${STATUS_WORDS[step.status]}`);
@@ -455,7 +455,7 @@ class MacSetup {
     });
     const first = steps.find((step) => step.status === 'todo');
     if (first === undefined) {
-      io.print('Everything Halcyonic needs on this Mac is ready.');
+      io.print('Everything Halora needs on this Mac is ready.');
       return 0;
     }
     const count = steps.filter((step) => step.status === 'todo').length;
@@ -473,7 +473,7 @@ class MacSetup {
       .filter((root) => root !== '');
     const source = fromEnvironment
       ? [
-          "These come from HALCYONIC_PROJECT_ROOTS in the environment, which wins over Halcyonic's settings.",
+          "These come from HALCYONIC_PROJECT_ROOTS in the environment, which wins over Halora's settings.",
         ]
       : [];
     if (roots.length === 0) {
@@ -497,7 +497,7 @@ class MacSetup {
       if (!isDirectory(root)) {
         status = 'todo';
         lines.push(
-          `${shown} isn't there, and Halcyonic won't start until it is back or you stop allowing it.`,
+          `${shown} isn't there, and Halora won't start until it is back or you stop allowing it.`,
         );
         continue;
       }
@@ -543,12 +543,12 @@ class MacSetup {
       const codex = this.#codexSettings();
       if (codex?.provider === 'ollama' && codex.model !== null) {
         lines.push(
-          `Codex uses Halcyonic's own Codex settings, in a folder of its own: ${codex.model} on this Mac. It runs only on models this Mac serves, never signed in, with its plugins and update check off; your own Codex settings are left as they are.`,
+          `Codex uses Halora's own Codex settings, in a folder of its own: ${codex.model} on this Mac. It runs only on models this Mac serves, never signed in, with its plugins and update check off; your own Codex settings are left as they are.`,
         );
       } else {
         look = true;
         lines.push(
-          "Codex runs only on models this Mac serves, and Halcyonic's own Codex settings don't name one yet, so Codex has no model to offer.",
+          "Codex runs only on models this Mac serves, and Halora's own Codex settings don't name one yet, so Codex has no model to offer.",
         );
         next.push(`pnpm mac-setup local-model ${this.#suggestedModel(ollama) ?? '<model name>'}`);
       }
@@ -566,12 +566,12 @@ class MacSetup {
       if (own === null) {
         look = true;
         lines.push(
-          "Halcyonic can't tell whether your own settings put OpenCode on a model this computer serves, and any plugins they name run inside OpenCode.",
+          "Halora can't tell whether your own settings put OpenCode on a model this computer serves, and any plugins they name run inside OpenCode.",
         );
         next.push(`pnpm mac-setup local-model ${this.#suggestedModel(ollama) ?? '<model name>'}`);
       } else {
         lines.push(
-          `OpenCode uses Halcyonic's own OpenCode settings, on ${own.model.replace(/^ollama\//, '')}.`,
+          `OpenCode uses Halora's own OpenCode settings, on ${own.model.replace(/^ollama\//, '')}.`,
         );
       }
       if (this.#io.which('rg') === null) {
@@ -588,7 +588,7 @@ class MacSetup {
     if (declarations !== null) {
       look = true;
       lines.push(
-        `A provider's declaration doesn't hold, so Halcyonic won't start until it is fixed: ${this.#tilde(declarations)}`,
+        `A provider's declaration doesn't hold, so Halora won't start until it is fixed: ${this.#tilde(declarations)}`,
       );
     }
     const said = new Set<string>();
@@ -598,39 +598,39 @@ class MacSetup {
       const known = this.#io.startedWith !== undefined;
       // In Terminal, an app whose key file will stop the start can start no work.
       if (keyed.now && !(keyed.stops !== null && !known)) ready += 1;
-      const onWords = known ? `${key.app} is on` : `${key.app} is on from Halcyonic's next start`;
+      const onWords = known ? `${key.app} is on` : `${key.app} is on from Halora's next start`;
       const byEnvironment = keyIn(env, key.variable);
       const paid = byEnvironment
-        ? `Every task on it is paid for with the ${key.variable} in Halcyonic's environment${keyed.stored ? ', not the stored key' : ''}.`
+        ? `Every task on it is paid for with the ${key.variable} in Halora's environment${keyed.stored ? ', not the stored key' : ''}.`
         : keyed.stored
           ? `Every task on it is paid for with that key.`
-          : `Every task on it is paid for through your ${keyed.provider ?? 'cloud provider'} account, set in Halcyonic's environment.`;
+          : `Every task on it is paid for through your ${keyed.provider ?? 'cloud provider'} account, set in Halora's environment.`;
       const its = `its ${key.declared} key`;
       const addIt = known ? `Add ${its} below.` : `Add ${its} under Agent Apps on the setup page.`;
       // While the start stops, the setup page is not there: in Terminal, the way to it is a start without the switch.
       const fixIt = known
         ? `adding ${its} below replaces it.`
-        : `start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add ${its} under Agent Apps on the setup page.`;
+        : `start Halora once without HALCYONIC_CLAUDE_AGENT=1, then add ${its} under Agent Apps on the setup page.`;
       const sentence = (words: string) => `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
       if (keyed.stops === 'unusable') {
         look = true;
         lines.push(
-          `${key.app} is switched on in Halcyonic's environment, but ${this.#tilde(join(this.#dataDir, key.file))} can be read by other users or is empty, so Halcyonic won't start${known ? ' again' : ''} until it is fixed. If it holds the key, run chmod 600 on it. Otherwise, ${fixIt}`,
+          `${key.app} is switched on in Halora's environment, but ${this.#tilde(join(this.#dataDir, key.file))} can be read by other users or is empty, so Halora won't start${known ? ' again' : ''} until it is fixed. If it holds the key, run chmod 600 on it. Otherwise, ${fixIt}`,
         );
         continue;
       }
       if (keyed.stops === 'no_credentials') {
         look = true;
         lines.push(
-          `${key.app} is switched on in Halcyonic's environment, but it has no key and no cloud provider, so Halcyonic won't start${known ? ' again' : ''} until it has one. ${known ? addIt : sentence(fixIt)}`,
+          `${key.app} is switched on in Halora's environment, but it has no key and no cloud provider, so Halora won't start${known ? ' again' : ''} until it has one. ${known ? addIt : sentence(fixIt)}`,
         );
         continue;
       }
       if (keyed.changes)
         lines.push(
           keyed.next
-            ? `${key.app} turns on when Halcyonic starts again${keyed.stored ? ', with your stored key' : ''}. ${paid}`
-            : `${key.app} turns off when Halcyonic starts again, since ${keyed.unusable ? "its key file can't be used" : 'its key was removed'}.`,
+            ? `${key.app} turns on when Halora starts again${keyed.stored ? ', with your stored key' : ''}. ${paid}`
+            : `${key.app} turns off when Halora starts again, since ${keyed.unusable ? "its key file can't be used" : 'its key was removed'}.`,
         );
       else if (keyed.now)
         lines.push(
@@ -667,8 +667,8 @@ class MacSetup {
         // light profile denies it only Halcyonic's own folders; elsewhere nothing does. Its model's service is named
         // only as a service: a gateway on this Mac may serve it (VRIFY, 2026-11-13; a fresh reader's read).
         const reach = key.holdsKey()
-          ? "any file you can, Halcyonic's own folders included"
-          : "any file you can except Halcyonic's own folders";
+          ? "any file you can, Halora's own folders included"
+          : "any file you can except Halora's own folders";
         const starts =
           used.folderInstructionsSent !== false
             ? ''
@@ -771,21 +771,21 @@ class MacSetup {
       if (!existsSync(configured)) {
         return {
           state: 'todo',
-          line: `${name} isn't at ${this.#tilde(configured)} any more, so Halcyonic won't start.`,
+          line: `${name} isn't at ${this.#tilde(configured)} any more, so Halora won't start.`,
         };
       }
       const verdict = await this.#matches(configured, pin);
       if (verdict === 'matches')
-        return { state: 'ready', line: `${name} is set up: the copy Halcyonic was checked with.` };
+        return { state: 'ready', line: `${name} is set up: the copy Halora was checked with.` };
       if (verdict === 'unknown') {
         return {
           state: 'look',
-          line: `${name} is set up, but Halcyonic has no checksum for this Mac's processor, so it can't check the copy.`,
+          line: `${name} is set up, but Halora has no checksum for this Mac's processor, so it can't check the copy.`,
         };
       }
       return {
         state: 'look',
-        line: `${name} at ${this.#tilde(configured)} isn't the copy Halcyonic was checked with. Halcyonic still runs it if it reports version ${name.split(' ')[1]}.`,
+        line: `${name} at ${this.#tilde(configured)} isn't the copy Halora was checked with. Halora still runs it if it reports version ${name.split(' ')[1]}.`,
       };
     }
     const standard = pin === null ? null : join(this.#dataDir, pin.path);
@@ -800,7 +800,7 @@ class MacSetup {
       }
       return {
         state: 'none',
-        line: `${name} at ${this.#tilde(standard)} isn't the copy Halcyonic was checked with, so it isn't set up.`,
+        line: `${name} at ${this.#tilde(standard)} isn't the copy Halora was checked with, so it isn't set up.`,
       };
     }
     const folder = quote(this.#tilde(this.#dataDir));
@@ -810,7 +810,7 @@ class MacSetup {
         : `npm install --prefix ${folder}/runtimes/codex-0.157.0 @openai/codex@0.157.0 --ignore-scripts`;
     return {
       state: 'none',
-      line: `${name} isn't installed for Halcyonic. Installing it downloads it from npm; then run pnpm mac-setup agent-apps.`,
+      line: `${name} isn't installed for Halora. Installing it downloads it from npm; then run pnpm mac-setup agent-apps.`,
       next: install,
     };
   }
@@ -845,14 +845,14 @@ class MacSetup {
       }
     }
     lines.push(
-      'Halcyonic was checked with qwen3.6:35b-a3b-nvfp4 (23.6 GB), muse-glimmer:30b-mlx (19.1 GB) and qwen3.8:27b-nvfp4 (18.2 GB), on a Mac with 64 GB of memory.',
+      'Halora was checked with qwen3.6:35b-a3b-nvfp4 (23.6 GB), muse-glimmer:30b-mlx (19.1 GB) and qwen3.8:27b-nvfp4 (18.2 GB), on a Mac with 64 GB of memory.',
     );
     if (usable.length > 0) return { title, status: 'ready', lines };
     const suggestion = this.#suggestedModel(null);
     lines.unshift('No model on this Mac can do agent work yet.');
     if (suggestion === null) {
       lines.push(
-        `This Mac has ${memory} GB of memory, too little for the models Halcyonic was checked with. A smaller model may work, but none was checked.`,
+        `This Mac has ${memory} GB of memory, too little for the models Halora was checked with. A smaller model may work, but none was checked.`,
       );
       return { title, status: 'todo', lines };
     }
@@ -878,7 +878,7 @@ class MacSetup {
   #costStep(env: NodeJS.ProcessEnv, ollama: OllamaModel[] | null): Step {
     const title = 'Where work goes, and what it costs';
     const lines = [
-      'Halcyonic never picks a model by itself: each task runs on the model chosen for it. The headset lists the models that run on this Mac first, and a model that runs on a remote service takes a second press.',
+      'Halora never picks a model by itself: each task runs on the model chosen for it. The headset lists the models that run on this Mac first, and a model that runs on a remote service takes a second press.',
     ];
     let hosted = false;
     if (present(env.HALCYONIC_OPENCODE_BIN)) {
@@ -898,23 +898,23 @@ class MacSetup {
     if (claude?.stops === 'unusable') {
       hosted = true;
       lines.push(
-        `Claude Agent is switched on, but its key file can't be used, so Halcyonic won't start${again} until it is fixed.`,
+        `Claude Agent is switched on, but its key file can't be used, so Halora won't start${again} until it is fixed.`,
       );
     } else if (claude?.stops === 'no_credentials') {
       hosted = true;
       lines.push(
-        `Claude Agent is switched on, but it has no key and no cloud provider, so Halcyonic won't start${again} until it has one.`,
+        `Claude Agent is switched on, but it has no key and no cloud provider, so Halora won't start${again} until it has one.`,
       );
     } else if (claude?.changes === true && !claude.next) {
       // Still on until the restart, so still a paid service to look at.
       hosted = claude.now;
-      lines.push('Claude Agent turns off when Halcyonic starts again.');
+      lines.push('Claude Agent turns off when Halora starts again.');
     } else if (claude?.now === true || claude?.next === true) {
       hosted = true;
       const on = claude.changes
-        ? 'Claude Agent turns on when Halcyonic starts again.'
+        ? 'Claude Agent turns on when Halora starts again.'
         : this.#io.startedWith === undefined
-          ? "Claude Agent is on from Halcyonic's next start."
+          ? "Claude Agent is on from Halora's next start."
           : 'Claude Agent is on.';
       // Paid through the cloud provider only where no key is there to pay; with a key, Anthropic's service and the key.
       const keyed = claude.stored || keyIn(this.#io.env, claude.key.variable);
@@ -943,7 +943,7 @@ class MacSetup {
   #launcherStep(env: NodeJS.ProcessEnv): Step {
     const title = "New apps' browser";
     const about =
-      "A new app's check, and a game played on this Mac, run in a browser that starts through Halcyonic's launcher, so it has none of the macOS permissions given to the app that started Halcyonic.";
+      "A new app's check, and a game played on this Mac, run in a browser that starts through Halora's launcher, so it has none of the macOS permissions given to the app that started Halora.";
     const problem = launcherProblem(this.#dataDir) ?? programProblem(this.#dataDir, AUDIO_OUTPUT);
     if (!present(env.HALCYONIC_BROWSER))
       return {
@@ -991,14 +991,14 @@ class MacSetup {
   #ownChecksStep(): Step {
     const title = "Projects' own checks";
     const about =
-      'A project not made from a starter can run its own checks after each task, with the package manager it names. Halcyonic looks for npm and pnpm once, when it starts, on the PATH it was started with.';
+      'A project not made from a starter can run its own checks after each task, with the package manager it names. Halora looks for npm and pnpm once, when it starts, on the PATH it was started with.';
     const found = managersOn(this.#io.env.PATH);
     if (found.npm !== null && found.pnpm !== null)
       return {
         title,
         status: 'ready',
         lines: [
-          `npm and pnpm are where Halcyonic looks: ${this.#tilde(found.npm)} and ${this.#tilde(found.pnpm)}.`,
+          `npm and pnpm are where Halora looks: ${this.#tilde(found.npm)} and ${this.#tilde(found.pnpm)}.`,
           about,
         ],
       };
@@ -1013,10 +1013,10 @@ class MacSetup {
       title,
       status: 'optional',
       lines: [
-        `${named} ${missing.length === 1 ? "isn't" : "aren't"} where Halcyonic looks, so a project that uses ${missing.length === 1 ? 'it' : 'them'} offers no check of its own.`,
+        `${named} ${missing.length === 1 ? "isn't" : "aren't"} where Halora looks, so a project that uses ${missing.length === 1 ? 'it' : 'them'} offers no check of its own.`,
         about,
         ...there,
-        'The setup page looks where the running Halcyonic looks; a Terminal may find more. To use them, stop Halcyonic and start it again from a Terminal that finds them.',
+        'The setup page looks where the running Halora looks; a Terminal may find more. To use them, stop Halora and start it again from a Terminal that finds them.',
       ],
       next: ['pnpm start'],
     };
@@ -1025,7 +1025,7 @@ class MacSetup {
   #undoStep(env: NodeJS.ProcessEnv): Step {
     const title = 'Undo';
     const about =
-      "With undo on, Halcyonic keeps checkpoints of a project's folder before each task and after each turn, so a task's changes can be put back.";
+      "With undo on, Halora keeps checkpoints of a project's folder before each task and after each turn, so a task's changes can be put back.";
     const git = env.HALCYONIC_GIT_BIN;
     if (!present(git))
       return {
@@ -1092,7 +1092,7 @@ class MacSetup {
     if (argument === 'off') {
       const next = { ...settings, HALCYONIC_TUNNEL_BIN: undefined };
       this.#save(next);
-      io.print("Sharing a link is off from Halcyonic's next start.");
+      io.print("Sharing a link is off from Halora's next start.");
       await this.#afterChange(next);
       return 0;
     }
@@ -1110,7 +1110,7 @@ class MacSetup {
     const next = { ...settings, HALCYONIC_TUNNEL_BIN: program };
     this.#save(next);
     io.print(
-      `Sharing a link is on from Halcyonic's next start, with the checked tunnel program ${TUNNEL_PIN.version}. A game is shared only when you press Share, and only its checked build.`,
+      `Sharing a link is on from Halora's next start, with the checked tunnel program ${TUNNEL_PIN.version}. A game is shared only when you press Share, and only its checked build.`,
     );
     await this.#afterChange(next);
     return 0;
@@ -1153,16 +1153,14 @@ class MacSetup {
           : `${this.#tilde(candidates[0] ?? folder)} doesn't hold the checked browser.`,
       );
       io.print(
-        'Halcyonic needs chrome-headless-shell 156.0.8078.4 for Apple silicon, the build Playwright keeps in a folder named chromium_headless_shell-1248. Install it with Playwright yourself, then run pnpm mac-setup browser again. Nothing was set up.',
+        'Halora needs chrome-headless-shell 156.0.8078.4 for Apple silicon, the build Playwright keeps in a folder named chromium_headless_shell-1248. Install it with Playwright yourself, then run pnpm mac-setup browser again. Nothing was set up.',
       );
       return 1;
     }
     try {
       await installBrowser(found, pin.sha256, this.#dataDir);
     } catch {
-      io.print(
-        "The browser couldn't be copied into Halcyonic's data folder. Nothing was recorded.",
-      );
+      io.print("The browser couldn't be copied into Halora's data folder. Nothing was recorded.");
       return 1;
     }
     const next = { ...settings, HALCYONIC_BROWSER: found };
@@ -1187,7 +1185,7 @@ class MacSetup {
       const sha256 = await installLauncher({ dataDir: this.#dataDir, clang: '/usr/bin/clang' });
       const sound = await installAudioOutput({ dataDir: this.#dataDir, clang: '/usr/bin/clang' });
       io.print(
-        `The launcher is built in ${this.#tilde(launcherPath(this.#dataDir))} (SHA-256 ${sha256.slice(0, 12)}), with the helper that tells whether a game sends sound out (SHA-256 ${sound.slice(0, 12)}). From Halcyonic's next start, new apps' browser runs without this app's macOS permissions.`,
+        `The launcher is built in ${this.#tilde(launcherPath(this.#dataDir))} (SHA-256 ${sha256.slice(0, 12)}), with the helper that tells whether a game sends sound out (SHA-256 ${sound.slice(0, 12)}). From Halora's next start, new apps' browser runs without this app's macOS permissions.`,
       );
       return 0;
     } catch {
@@ -1251,7 +1249,7 @@ class MacSetup {
       };
       this.#save(next);
       io.print(
-        `Undo is off from Halcyonic's next start. The checkpoints it kept stay in ${this.#tilde(join(this.#dataDir, 'checkpoints'))}.`,
+        `Undo is off from Halora's next start. The checkpoints it kept stay in ${this.#tilde(join(this.#dataDir, 'checkpoints'))}.`,
       );
       await this.#afterChange(next);
       return 0;
@@ -1272,7 +1270,7 @@ class MacSetup {
     const next = { ...settings, HALCYONIC_GIT_BIN: program };
     this.#save(next);
     io.print(
-      `Undo is on from Halcyonic's next start, with ${this.#tilde(program)}: it keeps checkpoints of a project's folder in ${this.#tilde(join(this.#dataDir, 'checkpoints'))}, before each task and after each turn, and can put the folder back as one holds it.`,
+      `Undo is on from Halora's next start, with ${this.#tilde(program)}: it keeps checkpoints of a project's folder in ${this.#tilde(join(this.#dataDir, 'checkpoints'))}, before each task and after each turn, and can put the folder back as one holds it.`,
     );
     if (program !== SYSTEM_GIT)
       io.print(
@@ -1300,7 +1298,7 @@ class MacSetup {
           title,
           status: 'look',
           lines: [
-            "Voice is set up, but its model files aren't the ones Halcyonic was checked with.",
+            "Voice is set up, but its model files aren't the ones Halora was checked with.",
             about,
           ],
         };
@@ -1336,7 +1334,7 @@ class MacSetup {
     const proxy =
       present(this.#io.env.http_proxy) || present(this.#io.env.HTTP_PROXY)
         ? [
-            "A proxy is set in this environment. If Node's environment proxy is on (NODE_USE_ENV_PROXY), name Ollama's address in NO_PROXY, or Halcyonic won't start with the companion.",
+            "A proxy is set in this environment. If Node's environment proxy is on (NODE_USE_ENV_PROXY), name Ollama's address in NO_PROXY, or Halora won't start with the companion.",
           ]
         : [];
     const named = env.HALCYONIC_COMPANION_MODEL;
@@ -1349,7 +1347,7 @@ class MacSetup {
         lines: [
           "The companion isn't set up. The headset then offers typing your idea or a few fixed questions, and says “The companion isn't set up on your computer. Type your idea, or answer a few fixed questions.”",
           about,
-          `Halcyonic's companion was tried with ${COMPANION_MODEL.name}, a model of its own: a ${COMPANION_MODEL.download} download that uses ${COMPANION_MODEL.memory} of memory while it is loaded.`,
+          `Halora's companion was tried with ${COMPANION_MODEL.name}, a model of its own: a ${COMPANION_MODEL.download} download that uses ${COMPANION_MODEL.memory} of memory while it is loaded.`,
           alongside,
           ...proxy,
         ],
@@ -1405,7 +1403,7 @@ class MacSetup {
     if (reading !== null && reading.availability !== 'available' && status === 'ready') {
       status = 'todo';
       lines.push(
-        `Halcyonic as it runs says the companion can't be asked: ${companionProblem(reading.code)}`,
+        `Halora as it runs says the companion can't be asked: ${companionProblem(reading.code)}`,
       );
     }
     lines.push(about, alongside, ...proxy);
@@ -1444,7 +1442,7 @@ class MacSetup {
       return {
         title,
         status: 'todo',
-        lines: [`Other users can read ${this.#tilde(path)}, so Halcyonic won't use it.`],
+        lines: [`Other users can read ${this.#tilde(path)}, so Halora won't use it.`],
         next: [`chmod 600 ${quote(this.#tilde(path))}`],
       };
     }
@@ -1454,7 +1452,7 @@ class MacSetup {
         title,
         status: 'unknown',
         lines: [
-          'A Seorak credential is saved. Whether Seorak accepts it shows when Halcyonic runs and you check with pnpm mac-setup --with-token.',
+          'A Seorak credential is saved. Whether Seorak accepts it shows when Halora runs and you check with pnpm mac-setup --with-token.',
           about,
           ...this.#seorakOwnSessions(),
         ],
@@ -1478,7 +1476,7 @@ class MacSetup {
    */
   #seorakOwnSessions(): string[] {
     return [
-      "For Halcyonic's own Codex tasks, Seorak needs to be told where they are: run the line below in Terminal, with a Seorak that has this setting. It lets Seorak read those sessions beside its own. This Mac can't see whether you ran it: until you do, those tasks' Checks say they aren't set up yet. Seorak doesn't read OpenCode tasks.",
+      "For Halora's own Codex tasks, Seorak needs to be told where they are: run the line below in Terminal, with a Seorak that has this setting. It lets Seorak read those sessions beside its own. This Mac can't see whether you ran it: until you do, those tasks' Checks say they aren't set up yet. Seorak doesn't read OpenCode tasks.",
     ];
   }
 
@@ -1493,7 +1491,7 @@ class MacSetup {
     const title = 'What changed and why';
     const path = join(this.#dataDir, SALIDIUM_CREDENTIAL_FILE);
     const about =
-      "Salidium tells the headset's Understand tab what a task changed and why. Halcyonic keeps its own Codex and OpenCode tasks in folders of its own, which Salidium reads only once it is told where they are.";
+      "Salidium tells the headset's Understand tab what a task changed and why. Halora keeps its own Codex and OpenCode tasks in folders of its own, which Salidium reads only once it is told where they are.";
     const state = this.#fileState(SALIDIUM_CREDENTIAL_FILE);
     if (state === 'missing') {
       return {
@@ -1510,7 +1508,7 @@ class MacSetup {
       return {
         title,
         status: 'todo',
-        lines: [`Other users can read ${this.#tilde(path)}, so Halcyonic won't use it.`],
+        lines: [`Other users can read ${this.#tilde(path)}, so Halora won't use it.`],
         next: [`chmod 600 ${quote(this.#tilde(path))}`],
       };
     }
@@ -1545,19 +1543,19 @@ class MacSetup {
     if (version === null)
       return {
         lines: [
-          "Salidium isn't answering on this Mac now, so whether it reads Halcyonic's own Codex and OpenCode tasks can't be told.",
+          "Salidium isn't answering on this Mac now, so whether it reads Halora's own Codex and OpenCode tasks can't be told.",
         ],
       };
     if (!readsOtherToolsSources(version))
       return {
         lines: [
-          `Salidium ${version}, as installed, doesn't read Halcyonic's own Codex and OpenCode tasks: their Understand tab says so. A Salidium after ${LAST_OWN_SOURCES_ONLY} can.`,
+          `Salidium ${version}, as installed, doesn't read Halora's own Codex and OpenCode tasks: their Understand tab says so. A Salidium after ${LAST_OWN_SOURCES_ONLY} can.`,
         ],
       };
     const data = this.#forShell(this.#dataDir);
     return {
       lines: [
-        `Salidium ${version} can read Halcyonic's own Codex and OpenCode tasks once it is told where they are: run the lines below in Terminal. They let it read those tasks' sessions, read only, beside its own; OpenCode's only while Salidium's OpenCode provider is on.`,
+        `Salidium ${version} can read Halora's own Codex and OpenCode tasks once it is told where they are: run the lines below in Terminal. They let it read those tasks' sessions, read only, beside its own; OpenCode's only while Salidium's OpenCode provider is on.`,
         "This Mac can't see whether you ran them: until you do, those tasks' Understand tab says it isn't set up yet.",
       ],
       next: [
@@ -1580,7 +1578,7 @@ class MacSetup {
     const title = 'Your other projects';
     const path = join(this.#dataDir, OMNORIUM_CREDENTIAL_FILE);
     const about =
-      'Omnorium shows the headset every project you have across your accounts, beside the ones Halcyonic made.';
+      'Omnorium shows the headset every project you have across your accounts, beside the ones Halora made.';
     const state = this.#fileState(OMNORIUM_CREDENTIAL_FILE);
     if (state === 'missing') {
       return {
@@ -1597,7 +1595,7 @@ class MacSetup {
       return {
         title,
         status: 'todo',
-        lines: [`Other users can read ${this.#tilde(path)}, so Halcyonic won't use it.`],
+        lines: [`Other users can read ${this.#tilde(path)}, so Halora won't use it.`],
         next: [`chmod 600 ${quote(this.#tilde(path))}`],
       };
     }
@@ -1612,13 +1610,13 @@ class MacSetup {
   }
 
   #runningStep(env: NodeJS.ProcessEnv, running: Running): Step {
-    const title = 'Halcyonic running on this Mac';
+    const title = 'Halora running on this Mac';
     if (!running.answering) {
       return {
         title,
         status: 'todo',
         lines: [
-          "Halcyonic isn't running. Start it, and leave that window open while you use the headset. The headset says “Can't reach your computer” until it runs.",
+          "Halora isn't running. Start it, and leave that window open while you use the headset. The headset says “Can't reach your computer” until it runs.",
         ],
         next: ['pnpm start'],
       };
@@ -1629,8 +1627,8 @@ class MacSetup {
         status: 'look',
         lines: [
           running.tokenProblem === 'missing'
-            ? `Something answers on Halcyonic's port, but there is no access token in ${this.#tilde(this.#dataDir)}. Another copy of Halcyonic, with other data, may be running.`
-            : "Something answers on Halcyonic's port but can't prove it holds this Mac's access token, so the token was not sent. Another copy of Halcyonic with other data, or another program or account on this Mac, may be listening there.",
+            ? `Something answers on Halora's port, but there is no access token in ${this.#tilde(this.#dataDir)}. Another copy of Halora, with other data, may be running.`
+            : "Something answers on Halora's port but can't prove it holds this Mac's access token, so the token was not sent. Another copy of Halora with other data, or another program or account on this Mac, may be listening there.",
         ],
       };
     }
@@ -1639,7 +1637,7 @@ class MacSetup {
         title,
         status: 'ready',
         lines: [
-          'Halcyonic is running. To check which folders and agent apps it runs with, use pnpm mac-setup --with-token: it reads the access token and sends it only after Halcyonic proves it holds it.',
+          'Halora is running. To check which folders and agent apps it runs with, use pnpm mac-setup --with-token: it reads the access token and sends it only after Halora proves it holds it.',
         ],
       };
     }
@@ -1659,13 +1657,12 @@ class MacSetup {
     const same =
       sameList(configuredRoots, runningRoots) &&
       sameList(configuredApps.sort(), [...runningApps].sort());
-    if (same)
-      return { title, status: 'ready', lines: ['Halcyonic is running with these settings.'] };
+    if (same) return { title, status: 'ready', lines: ['Halora is running with these settings.'] };
     return {
       title,
       status: 'look',
       lines: [
-        'Halcyonic is running with other folders or agent apps than these settings. Restart it to use them: stop it where it runs with Ctrl-C, then start it again.',
+        'Halora is running with other folders or agent apps than these settings. Restart it to use them: stop it where it runs with Ctrl-C, then start it again.',
         RESTART_WARNING,
       ],
       next: ['pnpm start'],
@@ -1699,13 +1696,13 @@ class MacSetup {
       );
     } else if (firewall?.enabled === true) {
       lines.push(
-        'The first time Halcyonic listens, macOS asks whether node may accept incoming connections: allow it.',
+        'The first time Halora listens, macOS asks whether node may accept incoming connections: allow it.',
       );
     }
     const devices = running.devices;
     if (devices === null) {
       lines.push(
-        'Pairing over Wi-Fi is on. Whether a headset is paired shows when Halcyonic runs and you check with pnpm mac-setup --with-token, or with pnpm devices.',
+        'Pairing over Wi-Fi is on. Whether a headset is paired shows when Halora runs and you check with pnpm mac-setup --with-token, or with pnpm devices.',
       );
     } else {
       const kept = devices.devices.filter((device) => device.revoked_at === null);
@@ -1745,7 +1742,7 @@ class MacSetup {
       : resolve(expandHome(folder, io.home));
     if (target.includes(delimiter)) {
       io.print(
-        `${target} has a “${delimiter}” in its name, which Halcyonic's settings can't hold. Choose another folder.`,
+        `${target} has a “${delimiter}” in its name, which Halora's settings can't hold. Choose another folder.`,
       );
       return 1;
     }
@@ -1811,14 +1808,14 @@ class MacSetup {
     const roots = settingRoots(settings);
     const kept = roots.filter((root) => root !== target && realOrSelf(root) !== real);
     if (kept.length === roots.length) {
-      io.print(`${this.#tilde(target)} isn't one of the folders Halcyonic's settings allow.`);
+      io.print(`${this.#tilde(target)} isn't one of the folders Halora's settings allow.`);
       return 1;
     }
     const next: Record<string, string | undefined> = { ...settings };
     next.HALCYONIC_PROJECT_ROOTS = kept.length === 0 ? undefined : kept.join(delimiter);
     this.#save(next);
     io.print(
-      `Agents may no longer use ${this.#tilde(target)} once Halcyonic restarts. Nothing in it is deleted. A project there keeps its folder, but can't start work until you allow the folder again.`,
+      `Agents may no longer use ${this.#tilde(target)} once Halora restarts. Nothing in it is deleted. A project there keeps its folder, but can't start work until you allow the folder again.`,
     );
     await this.#afterChange(next);
     return 0;
@@ -1831,7 +1828,7 @@ class MacSetup {
     const pins = io.pins;
     if (pins === null) {
       io.print(
-        "Halcyonic has checksums for Apple silicon Macs only, so it can't check agent apps on this Mac.",
+        "Halora has checksums for Apple silicon Macs only, so it can't check agent apps on this Mac.",
       );
       return 1;
     }
@@ -1845,19 +1842,19 @@ class MacSetup {
       const path = join(this.#dataDir, pin.path);
       if (!existsSync(path)) {
         io.print(
-          `${name} isn't installed for Halcyonic: see “Run real agents” in docs/internal/runbooks/LOCAL_DEVELOPMENT.md.`,
+          `${name} isn't installed for Halora: see “Run real agents” in docs/internal/runbooks/LOCAL_DEVELOPMENT.md.`,
         );
         continue;
       }
       if ((await this.#matches(path, pin)) !== 'matches') {
         io.print(
-          `${name} at ${this.#tilde(path)} isn't the copy Halcyonic was checked with, so it isn't set up. Install it again.`,
+          `${name} at ${this.#tilde(path)} isn't the copy Halora was checked with, so it isn't set up. Install it again.`,
         );
         continue;
       }
       next[variable] = path;
       recorded += 1;
-      io.print(`${name} is set up: the copy Halcyonic was checked with.`);
+      io.print(`${name} is set up: the copy Halora was checked with.`);
     }
     if (recorded === 0) return 1;
     this.#save(next);
@@ -1872,7 +1869,7 @@ class MacSetup {
     const ollama = await this.#ollama();
     if (ollama === null) {
       io.print(
-        "Ollama isn't answering on this Mac, so Halcyonic can't check the model. Start Ollama, then try again.",
+        "Ollama isn't answering on this Mac, so Halora can't check the model. Start Ollama, then try again.",
       );
       return 1;
     }
@@ -1949,10 +1946,10 @@ class MacSetup {
     const next = { ...settings, HALCYONIC_OPENCODE_CONFIG_HOME: home };
     this.#save(next);
     io.print(
-      `${replaced ? "Replaced Halcyonic's own OpenCode settings" : 'OpenCode now has settings of its own for Halcyonic'}: ${model.name} on this Mac when no model is chosen, and no fetching from the web. Your own OpenCode settings are left as they are.`,
+      `${replaced ? "Replaced Halora's own OpenCode settings" : 'OpenCode now has settings of its own for Halora'}: ${model.name} on this Mac when no model is chosen, and no fetching from the web. Your own OpenCode settings are left as they are.`,
     );
     io.print(
-      `${codexReplaced ? "Replaced Halcyonic's own Codex settings" : 'Codex now has settings of its own for Halcyonic, in a folder of its own'}: ${model.name} on this Mac. Your own Codex settings are left as they are.`,
+      `${codexReplaced ? "Replaced Halora's own Codex settings" : 'Codex now has settings of its own for Halora, in a folder of its own'}: ${model.name} on this Mac. Your own Codex settings are left as they are.`,
     );
     io.print(
       `Start Ollama with OLLAMA_CONTEXT_LENGTH=${OLLAMA_CONTEXT}, the context these settings tell OpenCode and Codex to expect.`,
@@ -2001,7 +1998,7 @@ class MacSetup {
       next.HALCYONIC_COMPANION_OLLAMA_URL = undefined;
       this.#save(next);
       io.print(
-        'The companion turns off when Halcyonic restarts. The headset then offers typing your idea or a few fixed questions. Nothing is removed from Ollama.',
+        'The companion turns off when Halora restarts. The headset then offers typing your idea or a few fixed questions. Nothing is removed from Ollama.',
       );
       await this.#afterChange(next);
       return 0;
@@ -2026,7 +2023,7 @@ class MacSetup {
     const ollama = await this.#ollama(address);
     if (ollama === null) {
       io.print(
-        `Ollama isn't answering at ${address}, so Halcyonic can't check the model. Start Ollama, then try again.`,
+        `Ollama isn't answering at ${address}, so Halora can't check the model. Start Ollama, then try again.`,
       );
       return 1;
     }
@@ -2047,11 +2044,11 @@ class MacSetup {
     next.HALCYONIC_COMPANION_MODEL = model.name;
     this.#save(next);
     for (const line of [
-      `The companion asks ${model.name} on this Mac once Halcyonic restarts. This Mac keeps nothing of what you tell it; the headset keeps the draft.`,
+      `The companion asks ${model.name} on this Mac once Halora restarts. This Mac keeps nothing of what you tell it; the headset keeps the draft.`,
       "Start Ollama with OLLAMA_MAX_LOADED_MODELS=2, so the companion's model can stay loaded beside the agents' and answer while a task works.",
       ...(model.name !== COMPANION_MODEL.name
         ? [
-            `Halcyonic's companion was tried with ${COMPANION_MODEL.name}; another model may answer differently.`,
+            `Halora's companion was tried with ${COMPANION_MODEL.name}; another model may answer differently.`,
           ]
         : []),
     ]) {
@@ -2081,7 +2078,7 @@ class MacSetup {
       io.print('Pairing over Wi-Fi is your choice. Turning it on:');
       const firewall = io.firewall();
       for (const line of [
-        `opens a second listener, encrypted, on port ${port}, to every device on your network, from the next time Halcyonic starts. Without pairing, anything that reaches it gets no further than a health check.`,
+        `opens a second listener, encrypted, on port ${port}, to every device on your network, from the next time Halora starts. Without pairing, anything that reaches it gets no further than a health check.`,
         'lets a device try to pair only while pnpm pair runs, for five minutes, with the eight-digit code it shows; three wrong codes close it. Anyone on your network can try in that time, so pair where you trust the network.',
         'lets a paired headset start and steer agents in the folders you allow, until you revoke it with pnpm devices revoke.',
         ...(firewall?.blockAll === true
@@ -2090,7 +2087,7 @@ class MacSetup {
             ]
           : firewall?.enabled === true
             ? [
-                'The first time Halcyonic listens, macOS asks whether node may accept incoming connections: allow it, or no headset can reach it.',
+                'The first time Halora listens, macOS asks whether node may accept incoming connections: allow it, or no headset can reach it.',
               ]
             : []),
       ]) {
@@ -2100,7 +2097,7 @@ class MacSetup {
       next.HALCYONIC_NETWORK_HOST = '0.0.0.0';
       this.#save(next);
       for (const line of [
-        'Pairing over Wi-Fi turns on when Halcyonic restarts.',
+        'Pairing over Wi-Fi turns on when Halora restarts.',
         'Then run pnpm pair, and in the headset choose Settings, Your computer, Pair with a computer, and enter the address and code it shows.',
       ]) {
         for (const wrapped of wrap(line, 0)) io.print(wrapped);
@@ -2109,7 +2106,7 @@ class MacSetup {
       next.HALCYONIC_NETWORK_HOST = undefined;
       this.#save(next);
       io.print(
-        'Halcyonic stops listening on your network when it restarts. Paired headsets stay paired and work over Wi-Fi again when you turn pairing back on. To stop one for good: pnpm devices revoke <device id>; pnpm devices lists them.',
+        'Halora stops listening on your network when it restarts. Paired headsets stay paired and work over Wi-Fi again when you turn pairing back on. To stop one for good: pnpm devices revoke <device id>; pnpm devices lists them.',
       );
     }
     if (io.env.HALCYONIC_NETWORK_HOST !== undefined) {
@@ -2140,7 +2137,7 @@ class MacSetup {
       return readHostSettings(this.#dataDir);
     } catch (error) {
       if (!(error instanceof ConfigError)) throw error;
-      this.#io.print(`Halcyonic's settings can't be changed: ${error.message}`);
+      this.#io.print(`Halora's settings can't be changed: ${error.message}`);
       return null;
     }
   }
@@ -2164,14 +2161,14 @@ class MacSetup {
       loadConfig(withSettings(io.env, kept), io.pins);
     } catch (error) {
       if (!(error instanceof ConfigError)) throw error;
-      io.print(`Halcyonic won't start with its settings yet: ${error.message}`);
+      io.print(`Halora won't start with its settings yet: ${error.message}`);
       return;
     }
     if (!(await this.#answers())) {
-      io.print('Halcyonic uses this the next time it starts: pnpm start');
+      io.print('Halora uses this the next time it starts: pnpm start');
     } else {
       io.print(
-        'Halcyonic is running: restart it to use this. Stop it where it runs with Ctrl-C, then run pnpm start.',
+        'Halora is running: restart it to use this. Stop it where it runs with Ctrl-C, then run pnpm start.',
       );
       io.print(RESTART_WARNING);
     }
@@ -2411,7 +2408,7 @@ function companionProblem(code: string | null): string {
     case 'companion_model_not_local':
       return "its model would run on another computer, so it isn't used.";
     case 'companion_not_set_up':
-      return 'Halcyonic runs without it: restart Halcyonic to use these settings.';
+      return 'Halora runs without it: restart Halora to use these settings.';
     default:
       return `it can't be asked right now${code === null ? '' : ` (${code})`}.`;
   }
@@ -2433,7 +2430,7 @@ function usageLeftProblem(code: string | null): string {
     case 'not_captured':
       return 'Seorak has no usage reading yet. It gets one once you use Codex.';
     case 'credential_file_exposed':
-      return "Other users can read the Seorak credential, so Halcyonic won't use it. Run chmod 600 on it.";
+      return "Other users can read the Seorak credential, so Halora won't use it. Run chmod 600 on it.";
     default:
       return `Usage left can't be read right now${code === null ? '' : ` (${code})`}.`;
   }
@@ -2445,7 +2442,7 @@ function usageLeftProblem(code: string | null): string {
  */
 function codexConfig(model: string): string {
   return [
-    "# Halcyonic's own Codex settings, written by pnpm mac-setup local-model. Halcyonic runs Codex",
+    "# Halora's own Codex settings, written by pnpm mac-setup local-model. Halora runs Codex",
     '# only on models this Mac serves, and turns off its plugins, update check, analytics and web',
     '# search whenever it starts it, whatever this file says.',
     'model_provider = "ollama"',
@@ -2471,7 +2468,7 @@ function codexHomeProblem(home: string): string | null {
   if ((stats.mode & 0o077) !== 0)
     return `Other users can open ${home}, so it may hold what they put there. Move it away, then try again.`;
   if (lstatOrNull(join(home, 'auth.json')) !== null) {
-    return `${join(home, 'auth.json')} is a Codex sign-in. Halcyonic runs Codex only on models this Mac serves, without one: move it away, then try again.`;
+    return `${join(home, 'auth.json')} is a Codex sign-in. Halora runs Codex only on models this Mac serves, without one: move it away, then try again.`;
   }
   return null;
 }

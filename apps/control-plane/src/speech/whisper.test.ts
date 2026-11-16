@@ -124,7 +124,7 @@ describe('whisper.cpp launched for one clip', () => {
           undefined,
           VERSION_WAIT_MS,
         ),
-        /Halcyonic runs whisper\.cpp 1\.9\.4/,
+        /Halora runs whisper\.cpp 1\.9\.4/,
         other,
       );
     }

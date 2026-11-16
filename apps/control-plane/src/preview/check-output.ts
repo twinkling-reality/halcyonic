@@ -78,7 +78,7 @@ function placeNames(places: CheckLogPlaces): [string, string][] {
     [
       [places.projectFolder, '.'],
       [relative(places.cacheFolder, places.projectFolder), '.'],
-      [places.dataDir, "<Halcyonic's data>"],
+      [places.dataDir, "<Halora's data>"],
       [places.home, '~'],
     ] as [string, string][]
   ).sort((a, b) => b[0].length - a[0].length);

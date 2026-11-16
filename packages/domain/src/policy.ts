@@ -226,8 +226,7 @@ export const COMMAND_SAYING: Readonly<Record<CommandType, CommandSaying>> = {
   'project.make_private': {
     title: 'Make Private',
     underWay: 'Making the repository private',
-    description:
-      'Make the repository Halcyonic made for the project and made public private again.',
+    description: 'Make the repository Halora made for the project and made public private again.',
     sayable: true,
     confirm: 'none',
   },

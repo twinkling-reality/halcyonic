@@ -1781,7 +1781,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     assert.equal(vrUnderstandingBody.execution_id, vrExecId);
     assert.equal(vrUnderstandingBody.result.availability, 'unavailable');
     assert.equal(vrUnderstandingBody.result.reason.code, 'runtime_not_observed');
-    assert.match(vrUnderstandingBody.result.reason.message, /Halcyonic's own Codex home/);
+    assert.match(vrUnderstandingBody.result.reason.message, /Halora's own Codex home/g);
 
     const vrEvaluationRes = await fetchWithProof(
       fetch,
@@ -1795,7 +1795,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
     // Seorak is asked about Halcyonic's own Codex sessions; one not told where they are misses (unit 4b).
     assert.equal(vrEvaluationBody.result.availability, 'not_found');
     assert.equal(vrEvaluationBody.result.reason.code, 'own_sources_not_set_up');
-    assert.match(vrEvaluationBody.result.reason.message, /Halcyonic's own Codex home/);
+    assert.match(vrEvaluationBody.result.reason.message, /Halora's own Codex home/g);
 
     const usageLimitsRes = await fetchWithProof(fetch, baseUrl, token, '/api/usage-limits');
     assert.equal(usageLimitsRes.status, 200);
@@ -2162,7 +2162,7 @@ describe('the end-to-end journey over the realtime protocol (synthetic)', () => 
       understanding.result.availability === 'unavailable'
         ? understanding.result.reason.message
         : '',
-      /Halcyonic's own OpenCode store/,
+      /Halora's own OpenCode store/g,
     );
     const evaluation = (await (
       await fetchWithProof(

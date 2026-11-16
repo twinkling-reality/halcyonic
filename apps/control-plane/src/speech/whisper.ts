@@ -33,11 +33,11 @@ const LEFTOVER_MS = 180_000;
 export const LANGUAGE = 'en';
 
 /**
- * Halcyonic's own words, given to the engine as its prompt: the product's, its runtimes' and its
- * local models'. Measured to fix names the model otherwise mishears, and to break no other clip
- * (docs/internal/validation/voice-transcription.md).
+ * The product's own words, given to the engine as its prompt: its name, its runtimes' and its local
+ * models'. Measured to fix names the model otherwise mishears, and to break no other clip, with the
+ * old name (docs/internal/validation/voice-transcription.md); Halora in its place is not yet measured.
  */
-export const PROMPT_WORDS = ['Halcyonic', 'Claude Code', 'Codex', 'OpenCode', 'Ollama', 'Qwen'];
+export const PROMPT_WORDS = ['Halora', 'Claude Code', 'Codex', 'OpenCode', 'Ollama', 'Qwen'];
 
 /** The most transcript read from the engine; a 30 s clip holds a few hundred bytes. */
 const MAX_OUTPUT_BYTES = 64 * 1024;
@@ -129,9 +129,7 @@ export class WhisperEngine implements SpeechEngine {
     if (version === undefined)
       throw new Error(`${config.binary} did not report a whisper.cpp version.`);
     if (!PINNED_VERSION.test(version)) {
-      throw new Error(
-        `${config.binary} is whisper.cpp ${version}; Halcyonic runs whisper.cpp 1.9.4.`,
-      );
+      throw new Error(`${config.binary} is whisper.cpp ${version}; Halora runs whisper.cpp 1.9.4.`);
     }
     if (!stopsOnExit) {
       stopsOnExit = true;

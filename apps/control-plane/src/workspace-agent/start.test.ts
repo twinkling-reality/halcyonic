@@ -418,7 +418,11 @@ test('the cost words follow the route the run takes: a key the person added, the
   assert.equal(own?.warnings?.[0]?.line, 'Any cost is on your own App real account');
   // No product name anywhere on the card, on either route.
   for (const card of [keyed, own])
-    assert.ok(!JSON.stringify(card).includes('Halcyonic'), 'the card names no product');
+    assert.doesNotMatch(
+      JSON.stringify(card),
+      /Halora|Halcyonic/,
+      'the card names no product, old name or new',
+    );
   assert.deepEqual(
     own?.warnings?.map((warning) => warning.code),
     ['costs_money', 'price_unknown', 'sent_to_provider'],

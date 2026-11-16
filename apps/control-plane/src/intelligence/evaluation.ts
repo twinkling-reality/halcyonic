@@ -73,7 +73,7 @@ export function seorakEvaluation(options: SeorakEvaluationOptions): EvaluationSo
             reason: {
               code: 'own_sources_not_set_up',
               message:
-                "Seorak has not captured this session, which is in Halcyonic's own Codex home: it may not have been told where Halcyonic keeps them yet (Setup shows the line), or not captured it yet.",
+                "Seorak has not captured this session, which is in Halora's own Codex home: it may not have been told where Halora keeps them yet (Setup shows the line), or not captured it yet.",
             },
           };
         return result;

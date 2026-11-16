@@ -2157,7 +2157,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
             blocked = true;
             limited = true;
             summary =
-              'The agent reconstructed how its turn ended. Halcyonic has not observed that outcome. Planning is paused; this instruction is not retried.';
+              'The agent reconstructed how its turn ended. Halora has not observed that outcome. Planning is paused; this instruction is not retried.';
           } else {
             status = human ? 'waiting' : 'running';
             blocked = true;

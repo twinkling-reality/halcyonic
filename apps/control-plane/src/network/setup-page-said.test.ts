@@ -106,7 +106,7 @@ describe("the setup page's reading of what setup said (AUDIT2, 2026-11-11)", () 
 });
 
 describe("the setup page's words around a Restart to Apply (the owner, 2026-11-13T04:04Z)", () => {
-  test("after a restart the page saw, its own page server's refusal means Halcyonic is running again; anything else is the closed page", () => {
+  test("after a restart the page saw, its own page server's refusal means Halora is running again; anything else is the closed page", () => {
     const { refusalMeans } = setupScript();
     const closed = 'This page has closed. Open pairing again on this computer.';
     assert.equal(refusalMeans(true, closed), 'started');
@@ -130,29 +130,29 @@ describe("the setup page's words around a Restart to Apply (the owner, 2026-11-1
       'working',
       'hourglass',
       'Restarting',
-      'When Halcyonic is running again, run pnpm pair in Terminal to open it again.',
+      'When Halora is running again, run pnpm pair in Terminal to open it again.',
     ]);
     assert.deepEqual(
       restartView('restarting', false, false)[3],
-      'When Halcyonic is running again, open this page again the way you opened it.',
+      'When Halora is running again, open this page again the way you opened it.',
     );
     assert.deepEqual(
       restartView('restarting', true, true)[3],
-      'A new page opens by itself when Halcyonic is running again.',
+      'A new page opens by itself when Halora is running again.',
     );
     assert.deepEqual(restartView('started', false, true), [
       'good',
       'tick',
       'Started Again',
-      'Halcyonic is running again with your changes. Run pnpm pair in Terminal to open it again.',
+      'Halora is running again with your changes. Run pnpm pair in Terminal to open it again.',
     ]);
     assert.deepEqual(
       restartView('started', false, false)[3],
-      'Halcyonic is running again with your changes. Open this page again the way you opened it.',
+      'Halora is running again with your changes. Open this page again the way you opened it.',
     );
     assert.deepEqual(
       restartView('started', true, true)[3],
-      'Halcyonic is running again with your changes, and opens a new page by itself. Once that page is open, you can close this one.',
+      'Halora is running again with your changes, and opens a new page by itself. Once that page is open, you can close this one.',
     );
     const notBack = restartView('not_back', false, true);
     assert.deepEqual(notBack.slice(0, 3), ['bad', 'alert', 'Not Back Yet']);

@@ -86,7 +86,7 @@ describe('runtime composition', () => {
     );
   });
 
-  test("OpenCode alone gets Halcyonic's own OpenCode settings as its configuration home", () => {
+  test("OpenCode alone gets Halora's own OpenCode settings as its configuration home", () => {
     const additions = { HTTPS_PROXY: 'http://127.0.0.1:3128' };
     assert.deepEqual(openCodeEnvironment({ opencodeConfigHome: null }, additions), additions);
     assert.deepEqual(

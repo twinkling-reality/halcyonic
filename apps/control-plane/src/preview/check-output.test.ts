@@ -69,7 +69,7 @@ describe("a failed check's output for the agent (FX1)", () => {
     assert.equal(output.lines, given.length);
   });
 
-  test("the host's paths are not given: the project reads as ., Halcyonic's data and the home folder by name", () => {
+  test("the host's paths are not given: the project reads as ., Halora's data and the home folder by name", () => {
     const log = [
       '/Users/someone/dev/garden/src/game.ts(1,1): error TS1',
       // As tsc writes it, relative to the check's own folder where it ran.
@@ -83,7 +83,7 @@ describe("a failed check's output for the agent (FX1)", () => {
     const text = output.text;
     assert.ok(text.includes('./src/game.ts(1,1): error TS1'), text);
     assert.ok(text.includes('./src/game.ts(2,1): error TS2'), text);
-    assert.ok(text.includes("<Halcyonic's data>/starters/iwsdk-vr/node_modules/rollup/x.js"), text);
+    assert.ok(text.includes("<Halora's data>/starters/iwsdk-vr/node_modules/rollup/x.js"), text);
     assert.ok(text.includes('~/other/thing.js'), text);
     assert.ok(text.includes('red done'), text);
     assert.ok(!text.includes('/Users/someone'), text);
@@ -144,7 +144,7 @@ describe("a check step's output for a person (the parity map's gap 4)", () => {
     assert.equal(total, 5, 'empty lines are not counted');
     assert.deepEqual(lines.slice(0, 3), [
       "./src/main.ts(3,1): error TS2304: Cannot find name 'x'.",
-      "red at <Halcyonic's data>/checks/x and ~/notes",
+      "red at <Halora's data>/checks/x and ~/notes",
       'biditext break',
     ]);
     assert.equal(lines[3]?.length, 100);

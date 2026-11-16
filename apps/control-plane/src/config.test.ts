@@ -133,7 +133,7 @@ describe('configuration', () => {
     for (const tasks of ['/d/data/tasks', '/d/data', '/d'])
       assert.throws(
         () => loadConfig({ HALCYONIC_DATA_DIR: '/d/data', HALCYONIC_TASKS_DIR: tasks }),
-        /beside Halcyonic's data folder/,
+        /beside Halora's data folder/,
         tasks,
       );
   });
@@ -346,7 +346,7 @@ describe('configuration', () => {
     }
   });
 
-  test("Halcyonic's own OpenCode settings must name a model served on this Mac as the default", () => {
+  test("Halora's own OpenCode settings must name a model served on this Mac as the default", () => {
     assert.equal(loadConfig({}).opencodeConfigHome, null);
     const local = openCodeHome({ model: 'ollama/qwen3.6:35b-a3b-nvfp4' });
     assert.equal(loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: local }).opencodeConfigHome, local);
@@ -404,7 +404,7 @@ describe('configuration', () => {
     }
   });
 
-  test("Halcyonic's own OpenCode settings are refused unless only this user can read or change them", () => {
+  test("Halora's own OpenCode settings are refused unless only this user can read or change them", () => {
     const settings = { model: 'ollama/llama3.2:1b' };
     const refused = (why: string, home: string) =>
       assert.throws(() => loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: home }), ConfigError, why);

@@ -87,7 +87,7 @@ describe('Seorak as the evaluation source', () => {
     assert.deepEqual(reason(missed), ['not_found', 'own_sources_not_set_up']);
     assert.match(
       missed.availability === 'available' ? '' : missed.reason.message,
-      /Halcyonic's own Codex home/,
+      /Halora's own Codex home/g,
     );
     // One told about it, which captured the thread, answers it.
     seorak.capture('codex', CODEX_THREAD);

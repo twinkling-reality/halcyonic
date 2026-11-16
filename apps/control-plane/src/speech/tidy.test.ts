@@ -64,16 +64,37 @@ describe('tidying spoken words', () => {
     }
   });
 
-  test("Halcyonic's names and the projects' names are spelled as written", () => {
+  test("the product's names and the projects' names are spelled as written", () => {
     for (const [heard, tidied] of [
       ['Ask opencode to do it.', 'Ask OpenCode to do it.'],
       ['Ask Open-Code, then opencode.', 'Ask OpenCode, then OpenCode.'],
       ['Use claude code and codex.', 'Use Claude Code and Codex.'],
-      ["Show halcyonic's room.", "Show Halcyonic's room."],
+      ["Show halora's room.", "Show Halora's room."],
       ['Um, open space garden.', 'Open Space Garden.'],
       ['Open spacegarden and SPACE-GARDEN.', 'Open Space Garden and Space Garden.'],
     ] as const) {
       assert.equal(tidy(heard), tidied, heard);
+    }
+  });
+
+  test('what the engine may hear for the product is written Halora, and the words a person means stay as said (AUDIT2)', () => {
+    for (const [heard, tidied] of [
+      ['Ask Hallora to make it.', 'Ask Halora to make it.'],
+      ['Open halo ra and halo-ra.', 'Open Halora and Halora.'],
+      ['Haloora, holora.', 'Halora, Halora.'],
+      ["Open Halcyonic's room.", "Open Halora's room."],
+    ] as const) {
+      assert.equal(tidy(heard), tidied, heard);
+    }
+    for (const said of [
+      'Put an aurora over the lake.',
+      'Aurora.',
+      'Give each lantern a halo.',
+      'A halo of light around the moon.',
+      'Halcyon days on the dune.',
+      'A halo rains light.',
+    ]) {
+      assert.equal(tidy(said), said, said);
     }
   });
 

@@ -3363,7 +3363,7 @@ interface Checked {
  */
 function withVersionNote(words: string, recordedAt: string | null | undefined): string {
   if (recordedAt === undefined || recordedAt === null) return words;
-  return `${words}\n\nFrom Halcyonic: this task's folder is a copy of the project as it was in the version of ${recordedAt}, not as it is now. The project's own folder changes only when the person adds this task's work.`;
+  return `${words}\n\nFrom Halora: this task's folder is a copy of the project as it was in the version of ${recordedAt}, not as it is now. The project's own folder changes only when the person adds this task's work.`;
 }
 
 /** The person's words, then, apart, the Mac's own check when there is one to give. */

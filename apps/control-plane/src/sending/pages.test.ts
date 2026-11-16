@@ -257,7 +257,7 @@ describe('Publish to GitHub Pages (ADR 0039, amended)', {
     const said = /Git said: "([^"]*)"/.exec(refused.ok ? '' : refused.message)?.[1] ?? '';
     assert.match(said, /lock|failed to push|rejected/);
     assert.ok(!said.includes(root), 'no path of this Mac');
-    assert.doesNotMatch(refused.ok ? '' : refused.message, /Halcyonic did not write/);
+    assert.doesNotMatch(refused.ok ? '' : refused.message, /Halora did not write/);
     // Without Make Public, the same refusal changed nothing: effect none, and nothing said of public.
     const plain = await sender().publishReview(PROJECT, stand.folder, CHECK, built, null);
     assert.ok(plain.ok);

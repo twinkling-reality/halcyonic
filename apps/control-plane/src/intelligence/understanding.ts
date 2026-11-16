@@ -80,7 +80,7 @@ export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): Un
             availability: 'unavailable',
             reason: {
               code: 'runtime_not_observed',
-              message: `Salidium, as installed, does not read Halcyonic's own ${own}, where this session is kept.`,
+              message: `Salidium, as installed, does not read Halora's own ${own}, where this session is kept.`,
             },
           };
         }
@@ -93,7 +93,7 @@ export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): Un
             availability: 'not_found',
             reason: {
               code: 'own_sources_not_set_up',
-              message: `Salidium ${version} can read Halcyonic's own ${own}, but has not seen this session: it may not have been told where Halcyonic keeps them yet (Setup shows the two lines), or not seen it yet.`,
+              message: `Salidium ${version} can read Halora's own ${own}, but has not seen this session: it may not have been told where Halora keeps them yet (Setup shows the two lines), or not seen it yet.`,
             },
           };
         return result;

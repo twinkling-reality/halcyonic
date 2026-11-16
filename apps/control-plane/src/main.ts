@@ -181,7 +181,7 @@ async function main(): Promise<void> {
     if (adapter instanceof OpenCodeRuntimeAdapter && !adapter.sandboxed) {
       app.log.warn(
         { platform: process.platform },
-        "OpenCode runs unsandboxed here: Halcyonic's sandbox is macOS only (ADR 0028)",
+        "OpenCode runs unsandboxed here: Halora's sandbox is macOS only (ADR 0028)",
       );
     }
     if (
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
     }
   }
   for (const binary of agentBinaries.filter((entry) => entry.pinned === 'differs')) {
-    app.log.warn(binary, 'an agent binary is not the copy Halcyonic was checked with');
+    app.log.warn(binary, 'an agent binary is not the copy Halora was checked with');
   }
   for (const stale of await stopStaleRuntimeServers(adapters)) {
     app.log.warn(stale, 'a runtime server from an earlier run was still recorded');
@@ -548,7 +548,7 @@ async function main(): Promise<void> {
                   ),
                 ),
                 canRestart: process.argv.includes('--restartable'),
-                // Only Start Halcyonic.command opens a new page when Halcyonic is running again.
+                // Only Start Halora.command opens a new page when Halcyonic is running again.
                 reopensPage: process.argv.includes('--open-pairing-page'),
                 // What is shared now, for Copy and Stop beside the steps (ADR 0054).
                 shared: () =>

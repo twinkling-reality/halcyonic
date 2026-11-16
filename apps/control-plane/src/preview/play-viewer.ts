@@ -215,7 +215,7 @@ export class PlayViewer {
         const code = (request.query as { code?: unknown }).code;
         if (path === '/' && code !== undefined) return this.#exchange(code, reply);
         if (!this.#hasSession(request))
-          return reply.code(403).type('text/plain').send('Open the game again from Halcyonic.');
+          return reply.code(403).type('text/plain').send('Open the game again from Halora.');
         return reply.type(type).send(body);
       });
     }
@@ -275,7 +275,7 @@ export class PlayViewer {
     if (upgrade) {
       if (origin === undefined) return 'Not from this viewer.';
       if (site !== undefined && site !== 'same-origin') return 'Not from this viewer.';
-      if (!this.#hasSession(request)) return 'Open the game again from Halcyonic.';
+      if (!this.#hasSession(request)) return 'Open the game again from Halora.';
       return null;
     }
     // The link's code arrives as a top-level navigation from the hand-over file (open-link.ts), so the code is never
@@ -299,7 +299,7 @@ export class PlayViewer {
       return reply
         .code(403)
         .type('text/plain')
-        .send('This link has been used or has run out. Open the game again from Halcyonic.');
+        .send('This link has been used or has run out. Open the game again from Halora.');
     this.#used = true;
     return reply
       .header(

@@ -129,7 +129,7 @@ export class TaskCopies {
       if (within(real, await resolvedOrSelf(path)))
         return refuse(
           'holds_host_data',
-          "The folder holds Halcyonic's own data, which is never copied.",
+          "The folder holds Halora's own data, which is never copied.",
         );
     }
 
@@ -139,7 +139,7 @@ export class TaskCopies {
     await mkdir(parent, { recursive: true, mode: 0o700 });
     // The task's own folder must be ours all the way down, never a link out of the copies' folder.
     if ((await realpath(parent)) !== parent)
-      return refuse('copy_failed', "The task's folder for its copy is not Halcyonic's own.");
+      return refuse('copy_failed', "The task's folder for its copy is not Halora's own.");
     const target = join(parent, basename(real));
     // Whatever an earlier attempt left here goes, removed only inside the copies' folder.
     await removeInside(root, `${projectId}/${workstreamId}`);

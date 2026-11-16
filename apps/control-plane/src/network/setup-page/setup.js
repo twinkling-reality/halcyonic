@@ -13,7 +13,7 @@
 
 const CLOSED = 'This page has closed. Open pairing again on this computer.';
 const UNREACHABLE = "This computer's app isn't answering. Check that it is running.";
-const RESTARTING = 'Restarting. A new page opens when Halcyonic is running again.';
+const RESTARTING = 'Restarting. A new page opens when Halora is running again.';
 /** How long a restart may take before the page says it may not have started again. */
 const NOT_BACK_MS = 90_000;
 /**
@@ -31,23 +31,23 @@ function restartView(phase, reopens, usual) {
           'good',
           'tick',
           'Started Again',
-          'Halcyonic is running again with your changes, and opens a new page by itself. Once that page is open, you can close this one.',
+          'Halora is running again with your changes, and opens a new page by itself. Once that page is open, you can close this one.',
         ]
-      : ['good', 'tick', 'Started Again', `Halcyonic is running again with your changes. ${back}`];
+      : ['good', 'tick', 'Started Again', `Halora is running again with your changes. ${back}`];
   if (phase === 'not_back')
     return [
       'bad',
       'alert',
       'Not Back Yet',
-      "Halcyonic hasn't answered for a minute and a half since it began restarting, so it may not have started again. Start it the way you usually do, and read what it says.",
+      "Halora hasn't answered for a minute and a half since it began restarting, so it may not have started again. Start it the way you usually do, and read what it says.",
     ];
   return [
     'working',
     'hourglass',
     'Restarting',
     reopens
-      ? 'A new page opens by itself when Halcyonic is running again.'
-      : `When Halcyonic is running again, ${back.charAt(0).toLowerCase()}${back.slice(1)}`,
+      ? 'A new page opens by itself when Halora is running again.'
+      : `When Halora is running again, ${back.charAt(0).toLowerCase()}${back.slice(1)}`,
   ];
 }
 /**
@@ -697,7 +697,7 @@ function keyApp(app) {
       element(
         'p',
         'key-held',
-        `On a folder you connected, ${listed(outside)} ${one ? 'runs' : 'run'} with your own access, and a task there can read and keep a copy of this key. Apps made here are held to their own copy and hold no key, unless a cloud provider is switched on in Halcyonic's environment.`,
+        `On a folder you connected, ${listed(outside)} ${one ? 'runs' : 'run'} with your own access, and a task there can read and keep a copy of this key. Apps made here are held to their own copy and hold no key, unless a cloud provider is switched on in Halora's environment.`,
       ),
     );
   }
@@ -857,7 +857,7 @@ function elsewhere(folder) {
   $('elsewhere-line').textContent =
     folder === null
       ? ''
-      : `This Halcyonic keeps its data in ${folder}, not in the usual ~/.halcyonic.`;
+      : `This Halora keeps its data in ${folder}, not in the usual ~/.halcyonic.`;
 }
 
 function draw() {
@@ -889,7 +889,7 @@ function draw() {
   $('restart-button').className = main === 'restart' ? 'main' : 'rest';
   $('restart-by-hand').hidden = state.can_restart;
   $('restart-asks').hidden = !restartAsks;
-  if (restartAsks) $('restart-asks').replaceChildren(question('Restart Halcyonic'));
+  if (restartAsks) $('restart-asks').replaceChildren(question('Restart Halora'));
 
   const step = askingStep();
   const top = $('confirm-top');

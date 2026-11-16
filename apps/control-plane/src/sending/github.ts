@@ -339,7 +339,7 @@ export class GitHubSender {
           '--title',
           title,
           '--body',
-          'Sent from Halcyonic: the project as it is on the computer, on top of this branch.',
+          'Sent from Halora: the project as it is on the computer, on top of this branch.',
         ],
         60_000,
       );
@@ -403,7 +403,7 @@ export class GitHubSender {
       target = { host: MAKES_REPOSITORIES, path: `${named[1]}/${named[2]}` };
       options.onMade?.({ repository: target.path, visibility });
     } else if (send.remote !== null) target = send.remote;
-    else return refuse('send_failed', 'Halcyonic could not prepare the send.');
+    else return refuse('send_failed', 'Halora could not prepare the send.');
     // The person's own choice of how their git reaches GitHub, as gh keeps it.
     const protocol = await this.#run(
       gh,
@@ -440,7 +440,7 @@ export class GitHubSender {
       if (ours.code !== 0)
         return refuse(
           'repository_not_empty',
-          `${fullName} already has commits Halcyonic didn't send, so nothing was pushed. Send it with git yourself.`,
+          `${fullName} already has commits Halora didn't send, so nothing was pushed. Send it with git yourself.`,
         );
       parent = held;
     }
@@ -984,7 +984,7 @@ export class GitHubSender {
       return after(
         refuse(
           'push_refused',
-          `GitHub didn't take the publish, so no page changed.${inTheWay ? ` The repository has a ${PAGES_BRANCH} branch Halcyonic did not write: remove it first.` : ''}${gitSaid(pushed.stderr, publish.repository)}`,
+          `GitHub didn't take the publish, so no page changed.${inTheWay ? ` The repository has a ${PAGES_BRANCH} branch Halora did not write: remove it first.` : ''}${gitSaid(pushed.stderr, publish.repository)}`,
         ),
       );
     }
@@ -1057,10 +1057,7 @@ export class GitHubSender {
         "Making a repository private needs GitHub's own command line tool on this computer, signed in.",
       );
     if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9._-]{1,100}$/.test(repository))
-      return refuse(
-        'make_private_failed',
-        'Halcyonic could not name the repository to make private.',
-      );
+      return refuse('make_private_failed', 'Halora could not name the repository to make private.');
     if ((await this.#run(gh, ['auth', 'status'], 15_000)).code !== 0)
       return refuse(
         'gh_signed_out',
@@ -1112,7 +1109,7 @@ export class GitHubSender {
       );
     const repository = await this.#repository(projectId, await objectFormat(folder));
     if (repository === null)
-      return refuse('publish_failed', 'Halcyonic could not prepare the change.');
+      return refuse('publish_failed', 'Halora could not prepare the change.');
     const remote = remoteOf(origin.remote, origin.ssh);
     const removed = await this.#run(
       this.#deps.git,
@@ -1139,7 +1136,7 @@ export class GitHubSender {
     if (now !== '' && now !== published.commit)
       return refuse(
         'pages_changed',
-        `The ${PAGES_BRANCH} branch has commits Halcyonic didn't publish, so nothing was taken down. Remove the branch on GitHub yourself if you mean to.`,
+        `The ${PAGES_BRANCH} branch has commits Halora didn't publish, so nothing was taken down. Remove the branch on GitHub yourself if you mean to.`,
       );
     return refuse(
       'push_refused',
@@ -1186,7 +1183,7 @@ export class GitHubSender {
       );
     const repository = await this.#repository(projectId, await objectFormat(folder));
     if (repository === null)
-      return refuse('publish_failed', 'Halcyonic could not prepare the publish.');
+      return refuse('publish_failed', 'Halora could not prepare the publish.');
     // A built copy has no commit to start from and no excludes of the person's.
     const tree = await this.#tree(repository, built, [], null, null);
     if (!tree.ok && tree.code === 'holds_secret' && tree.hit !== undefined)
@@ -1195,7 +1192,7 @@ export class GitHubSender {
       return tree.code === 'uses_filters'
         ? refuse(
             'uses_filters',
-            "The built game holds a .gitattributes that names a filter, which Halcyonic doesn't run, so it isn't published.",
+            "The built game holds a .gitattributes that names a filter, which Halora doesn't run, so it isn't published.",
           )
         : refuse('no_built_copy', "The checked game's built files could not be read.");
     if (tree.files === 0)
@@ -1269,7 +1266,7 @@ export class GitHubSender {
     if (branch === null) return refuse('detached_head', "The project's folder isn't on a branch.");
     const format = await objectFormat(folder);
     const repository = await this.#repository(projectId, format);
-    if (repository === null) return refuse('send_failed', 'Halcyonic could not prepare the send.');
+    if (repository === null) return refuse('send_failed', 'Halora could not prepare the send.');
     // The person's commits, by a fetch: nothing of theirs runs in our repository, nothing of ours in theirs.
     const fetched = await this.#run(this.#deps.git, [
       '--git-dir',
@@ -1419,7 +1416,7 @@ export class GitHubSender {
         'A repository name starts with a letter or digit and holds only letters, digits, dots, hyphens and underscores, at most 100.',
       );
     const repository = await this.#repository(projectId, 'sha1');
-    if (repository === null) return refuse('send_failed', 'Halcyonic could not prepare the send.');
+    if (repository === null) return refuse('send_failed', 'Halora could not prepare the send.');
     const built = await this.#tree(repository, folder, otherFolders, null, null);
     if (!built.ok) return built;
     if (built.files === 0)
@@ -1533,7 +1530,7 @@ export class GitHubSender {
     // settings name or git's default, by its real path. One there but not read refuses the send.
     const cannotRead = refuse(
       'unreadable_excludes',
-      "Halcyonic can't read a rule this project's git uses to keep files out, so it sends nothing. Send it with git yourself.",
+      "Halora can't read a rule this project's git uses to keep files out, so it sends nothing. Send it with git yourself.",
     );
     let folderExcludes = '';
     if (excludes !== null && (await lstat(excludes).catch(() => null)) !== null) {
@@ -1625,7 +1622,7 @@ export class GitHubSender {
       if (await this.#filtered(repository, now))
         return refuse(
           'uses_filters',
-          "This project's git runs a filter on its files, as Git LFS does, which Halcyonic doesn't run. Send it with git yourself.",
+          "This project's git runs a filter on its files, as Git LFS does, which Halora doesn't run. Send it with git yourself.",
         );
       // A link that points outside the folder is never sent, as a secret-shaped path is not: its target is a
       // place on this computer, never the person's work (a starter's node_modules is a link to the shared
@@ -1845,7 +1842,7 @@ export function sameRepository(a: string, b: string): boolean {
 const MAKES_REPOSITORIES = 'github.com';
 
 const NO_ORIGIN =
-  "The project's folder has no origin Halcyonic can send to: an https or ssh address of a host and a repository.";
+  "The project's folder has no origin Halora can send to: an https or ssh address of a host and a repository.";
 
 /**
  * The folder's `origin` as host and path, from its `.git/config` read as a file (git is not run in

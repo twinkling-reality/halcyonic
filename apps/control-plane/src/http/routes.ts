@@ -1087,7 +1087,7 @@ export function registerRoutes(
           availability: 'unavailable',
           reason: {
             code: 'invalid_request',
-            message: 'The review request is not one Halcyonic takes.',
+            message: 'The review request is not one Halora takes.',
           },
         };
       return publishReviewOf(controlPlane, projectId as ProjectId, asked.value);
@@ -1144,7 +1144,7 @@ export function registerRoutes(
           availability: 'unavailable',
           reason: {
             code: 'invalid_request',
-            message: 'The review request is not one Halcyonic takes.',
+            message: 'The review request is not one Halora takes.',
           },
         };
       return sendReviewOf(controlPlane, projectId as ProjectId, asked.value);

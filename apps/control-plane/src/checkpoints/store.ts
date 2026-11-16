@@ -1618,7 +1618,7 @@ const HOLDS_HOST_DATA = {
   ok: false,
   code: 'holds_host_data',
   message:
-    "The project's folder holds Halcyonic's own data, so it cannot be checkpointed or put back.",
+    "The project's folder holds Halora's own data, so it cannot be checkpointed or put back.",
 } as const;
 
 function isProjectPath(path: string): boolean {

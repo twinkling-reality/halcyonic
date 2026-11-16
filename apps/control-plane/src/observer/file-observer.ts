@@ -370,7 +370,7 @@ export class FileObserver {
         this.#drop(executionId);
         return skipped(turnId, {
           code: 'holds_host_data',
-          message: "The task's folder holds Halcyonic's own data, so the Mac does not read it.",
+          message: "The task's folder holds Halora's own data, so the Mac does not read it.",
         });
       }
       const before = this.#readings.get(executionId);

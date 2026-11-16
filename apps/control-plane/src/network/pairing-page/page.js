@@ -248,7 +248,7 @@ function elsewhere(folder) {
   document.getElementById('elsewhere-line').textContent =
     folder === null
       ? ''
-      : `This Halcyonic keeps its data in ${folder}, not in the usual ~/.halcyonic.`;
+      : `This Halora keeps its data in ${folder}, not in the usual ~/.halcyonic.`;
 }
 
 function draw() {

@@ -313,7 +313,7 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Models on this Mac'), 'Ready');
     assert.equal(status(machine, 'Voice'), 'Optional');
     assert.equal(status(machine, 'Usage left'), 'Optional');
-    assert.equal(status(machine, 'Halcyonic running on this Mac'), 'To do');
+    assert.equal(status(machine, 'Halora running on this Mac'), 'To do');
     assert.equal(status(machine, 'Your headset'), "Can't tell yet");
     const output = text(machine);
     for (const sentence of FOLDER_MEANING) {
@@ -389,11 +389,11 @@ describe('pnpm mac-setup', () => {
       output = text(machine);
       assert.match(
         output,
-        /Claude Agent is switched on in Halcyonic's environment, but ~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Halcyonic won't start until it is fixed\. If it holds the key, run chmod 600 on it\. Otherwise, start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add its Anthropic key under Agent Apps on the setup page\./,
+        /Claude Agent is switched on in Halora's environment, but ~\/\.halcyonic\/anthropic-api-key can be read by other users or is empty, so Halora won't start until it is fixed\. If it holds the key, run chmod 600 on it\. Otherwise, start Halora once without HALCYONIC_CLAUDE_AGENT=1, then add its Anthropic key under Agent Apps on the setup page\./,
       );
       assert.match(
         output,
-        /Claude Agent is switched on, but its key file can't be used, so Halcyonic won't start until it is fixed\./,
+        /Claude Agent is switched on, but its key file can't be used, so Halora won't start until it is fixed\./,
       );
       assert.doesNotMatch(output, /Claude Agent is on/);
       assert.equal(status(machine, 'Agent apps'), 'To do', 'it can start no work');
@@ -404,7 +404,7 @@ describe('pnpm mac-setup', () => {
       assert.doesNotMatch(output, /won't start/);
       assert.match(
         output,
-        /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment\./,
+        /Claude Agent is on from Halora's next start\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halora's environment\./,
       );
       machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '', ANTHROPIC_API_KEY: '' };
     }
@@ -415,11 +415,11 @@ describe('pnpm mac-setup', () => {
     output = text(machine);
     assert.match(
       output,
-      /Claude Agent is switched on in Halcyonic's environment, but it has no key and no cloud provider, so Halcyonic won't start until it has one\. Start Halcyonic once without HALCYONIC_CLAUDE_AGENT=1, then add its Anthropic key under Agent Apps on the setup page\./,
+      /Claude Agent is switched on in Halora's environment, but it has no key and no cloud provider, so Halora won't start until it has one\. Start Halora once without HALCYONIC_CLAUDE_AGENT=1, then add its Anthropic key under Agent Apps on the setup page\./,
     );
     assert.match(
       output,
-      /Claude Agent is switched on, but it has no key and no cloud provider, so Halcyonic won't start until it has one\./,
+      /Claude Agent is switched on, but it has no key and no cloud provider, so Halora won't start until it has one\./,
     );
     assert.equal(status(machine, 'Agent apps'), 'To do');
     // A key of spaces alone in the environment is no key: the start still stops, and the steps say so.
@@ -427,7 +427,7 @@ describe('pnpm mac-setup', () => {
     await machine.run();
     assert.match(
       text(machine),
-      /it has no key and no cloud provider, so Halcyonic won't start until it has one\./,
+      /it has no key and no cloud provider, so Halora won't start until it has one\./,
     );
     machine.env = { ...machine.env, ANTHROPIC_API_KEY: '' };
     // With a cloud provider's switch it starts, paid through that account.
@@ -437,7 +437,7 @@ describe('pnpm mac-setup', () => {
     assert.doesNotMatch(output, /won't start/);
     assert.match(
       output,
-      /Claude Agent is on from Halcyonic's next start\. Every task on it is paid for through your Amazon Bedrock account, set in Halcyonic's environment\./,
+      /Claude Agent is on from Halora's next start\. Every task on it is paid for through your Amazon Bedrock account, set in Halora's environment\./,
     );
     assert.match(
       output,
@@ -450,11 +450,11 @@ describe('pnpm mac-setup', () => {
     output = text(machine);
     assert.match(
       output,
-      /Claude Agent is on from Halcyonic's next start, with your key stored on this computer\. Every task on it is paid for with that key\./,
+      /Claude Agent is on from Halora's next start, with your key stored on this computer\. Every task on it is paid for with that key\./,
     );
     assert.match(
       output,
-      /Claude Agent is on from Halcyonic's next start\. Its models run on a remote service/,
+      /Claude Agent is on from Halora's next start\. Its models run on a remote service/,
     );
     assert.doesNotMatch(output, /No agent app is set up/);
     // What of the person's own set-up a task on a connected folder uses, read from the adapter's declaration.
@@ -465,8 +465,8 @@ describe('pnpm mac-setup', () => {
     )?.holdsKeyOutsideSandbox();
     assert.equal(holds, process.platform !== 'darwin');
     const reach = holds
-      ? "any file you can, Halcyonic's own folders included"
-      : "any file you can except Halcyonic's own folders";
+      ? "any file you can, Halora's own folders included"
+      : "any file you can except Halora's own folders";
     assert.ok(
       output.includes(
         `On a folder you connected, and anywhere while a cloud provider is switched on, a task on Claude Agent uses the ${used.instructions} in your own Claude Code settings folder and ${used.hooksOf.map((name) => `${name}'s`).join(' and ')} hooks there, as their current installers write them, and nothing else of your own settings. It doesn't start with the ${used.instructions} of the task's own folder or any folder above it, but once it's working it can read ${reach}, and what it reads goes to the service its models run on.`,
@@ -484,7 +484,7 @@ describe('pnpm mac-setup', () => {
     await machine.run();
     assert.ok(
       text(machine).includes(
-        `once it's working it can read ${holds ? "any file you can except Halcyonic's own folders" : "any file you can, Halcyonic's own folders included"}, and what it reads goes to the service its models run on.`,
+        `once it's working it can read ${holds ? "any file you can except Halora's own folders" : "any file you can, Halora's own folders included"}, and what it reads goes to the service its models run on.`,
       ),
     );
     declared.mock.restore();
@@ -508,13 +508,10 @@ describe('pnpm mac-setup', () => {
     machine.startedWith = [];
     await machine.run();
     output = text(machine);
+    assert.match(output, /Claude Agent turns on when Halora starts again, with your stored key\./);
     assert.match(
       output,
-      /Claude Agent turns on when Halcyonic starts again, with your stored key\./,
-    );
-    assert.match(
-      output,
-      /Claude Agent turns on when Halcyonic starts again\. Its models run on a remote service/,
+      /Claude Agent turns on when Halora starts again\. Its models run on a remote service/,
     );
     assert.match(
       output,
@@ -531,7 +528,7 @@ describe('pnpm mac-setup', () => {
     output = text(machine);
     assert.match(
       output,
-      /Claude Agent is on\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halcyonic's environment, not the stored key\./,
+      /Claude Agent is on\. Every task on it is paid for with the ANTHROPIC_API_KEY in Halora's environment, not the stored key\./,
     );
     assert.doesNotMatch(output, /with your key stored on this computer/);
     machine.env = { ...machine.env, ANTHROPIC_API_KEY: '' };
@@ -541,9 +538,9 @@ describe('pnpm mac-setup', () => {
     output = text(machine);
     assert.match(
       output,
-      /Claude Agent turns off when Halcyonic starts again, since its key was removed\./,
+      /Claude Agent turns off when Halora starts again, since its key was removed\./,
     );
-    assert.match(output, /Claude Agent turns off when Halcyonic starts again\./);
+    assert.match(output, /Claude Agent turns off when Halora starts again\./);
     assert.equal(
       status(machine, 'Where work goes, and what it costs'),
       'Look at this',
@@ -567,12 +564,12 @@ describe('pnpm mac-setup', () => {
     const output = text(machine);
     assert.match(
       output,
-      /A provider's declaration doesn't hold, so Halcyonic won't start until it is fixed: \/somewhere\/providers\/broken\/provider\.json: format must be 1\./,
+      /A provider's declaration doesn't hold, so Halora won't start until it is fixed: \/somewhere\/providers\/broken\/provider\.json: format must be 1\./,
     );
     assert.match(output, /Where work goes, and what it costs/, 'the other steps still run');
   });
 
-  test("says whether npm and pnpm are where Halcyonic looks for a project's own check", async (t) => {
+  test("says whether npm and pnpm are where Halora looks for a project's own check", async (t) => {
     const machine = mac(t);
     const tools = join(machine.home, 'tools');
     mkdirSync(tools);
@@ -582,7 +579,7 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, "Projects' own checks"), 'Ready');
     assert.match(
       text(machine),
-      /npm and pnpm are where Halcyonic looks: ~\/tools\/npm and ~\/tools\/pnpm\./,
+      /npm and pnpm are where Halora looks: ~\/tools\/npm and ~\/tools\/pnpm\./,
     );
 
     // A Halcyonic started without pnpm on its PATH, as launchd might start it (AUDIT3's S4).
@@ -592,15 +589,15 @@ describe('pnpm mac-setup', () => {
     const output = text(machine);
     assert.match(
       output,
-      /pnpm isn't where Halcyonic looks, so a project that uses it offers no check of its own\./,
+      /pnpm isn't where Halora looks, so a project that uses it offers no check of its own\./,
     );
-    assert.match(output, /stop Halcyonic and start it again from a Terminal that finds them\./);
+    assert.match(output, /stop Halora and start it again from a Terminal that finds them\./);
     // Where this Mac has it in a usual folder, the step says so; never a folder it did not look in.
     assert.equal(
       output.includes("pnpm is at /opt/homebrew/bin/pnpm, a folder that PATH doesn't name."),
       existsSync('/opt/homebrew/bin/pnpm'),
     );
-    assert.doesNotMatch(output, /(?<!p)npm is at/, 'npm was found where Halcyonic looks');
+    assert.doesNotMatch(output, /(?<!p)npm is at/, 'npm was found where Halora looks');
   });
 
   test('allow makes ~/HalcyonicProjects once the person says yes, and only they can read the settings', async (t) => {
@@ -619,7 +616,7 @@ describe('pnpm mac-setup', () => {
       line.includes('Agents may read and change anything'),
     );
     assert.ok(meaning >= 0 && meaning < question, text(machine));
-    assert.match(text(machine), /Halcyonic uses this the next time it starts/);
+    assert.match(text(machine), /Halora uses this the next time it starts/);
 
     assert.equal(await machine.run('allow'), 0);
     assert.match(text(machine), /already allowed/);
@@ -706,7 +703,7 @@ describe('pnpm mac-setup', () => {
     assert.equal(machine.settings().HALCYONIC_PROJECT_ROOTS, undefined);
   });
 
-  test('agent-apps records only the copies Halcyonic was checked with', async (t) => {
+  test('agent-apps records only the copies Halora was checked with', async (t) => {
     const machine = mac(t);
     machine.install('opencode');
     machine.install('codex');
@@ -721,13 +718,13 @@ describe('pnpm mac-setup', () => {
     assert.equal(await machine.run('agent-apps'), 0);
     assert.equal(machine.settings().HALCYONIC_OPENCODE_BIN, opencode);
     assert.equal(machine.settings().HALCYONIC_CODEX_BIN, undefined);
-    assert.match(text(machine), /Codex 0\.157\.0 at .* isn't the copy Halcyonic was checked with/);
+    assert.match(text(machine), /Codex 0\.157\.0 at .* isn't the copy Halora was checked with/);
 
     assert.equal(await machine.run(), 1);
     assert.equal(status(machine, 'Agent apps'), 'Look at this');
     assert.match(
       text(machine),
-      /Halcyonic can't tell whether your own settings put OpenCode on a model this computer serves, and any plugins they name run inside OpenCode\./,
+      /Halora can't tell whether your own settings put OpenCode on a model this computer serves, and any plugins they name run inside OpenCode\./,
     );
     assert.match(text(machine), /pnpm mac-setup local-model qwen3\.6:35b-a3b-nvfp4/);
   });
@@ -751,7 +748,7 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /pnpm mac-setup local-model qwen3\.6:35b-a3b-nvfp4/);
     assert.match(
       text(machine),
-      /Halcyonic was checked with qwen3\.6:35b-a3b-nvfp4 \(23\.6 GB\), muse-glimmer:30b-mlx \(19\.1 GB\) and qwen3\.8:27b-nvfp4 \(18\.2 GB\)/,
+      /Halora was checked with qwen3\.6:35b-a3b-nvfp4 \(23\.6 GB\), muse-glimmer:30b-mlx \(19\.1 GB\) and qwen3\.8:27b-nvfp4 \(18\.2 GB\)/,
     );
     // A Mac that has only Muse Glimmer of the checked models is offered it.
     machine.routes.set('ollama /api/tags', {
@@ -789,17 +786,17 @@ describe('pnpm mac-setup', () => {
     assert.equal(await machine.run('local-model', 'muse-glimmer:30b-mlx'), 0);
     assert.match(
       text(machine),
-      /Codex now has settings of its own for Halcyonic, in a folder of its own: muse-glimmer:30b-mlx on this Mac\./,
+      /Codex now has settings of its own for Halora, in a folder of its own: muse-glimmer:30b-mlx on this Mac\./,
     );
 
     assert.equal(await machine.run('local-model', 'llama3.3:70b'), 0);
     assert.match(
       text(machine),
-      /Replaced Halcyonic's own Codex settings: llama3\.3:70b on this Mac\./,
+      /Replaced Halora's own Codex settings: llama3\.3:70b on this Mac\./,
     );
   });
 
-  test("the check names Halcyonic's own OpenCode settings and its model, whatever permissions they hold", async (t) => {
+  test("the check names Halora's own OpenCode settings and its model, whatever permissions they hold", async (t) => {
     const machine = mac(t);
     machine.install('opencode');
     await machine.run('agent-apps');
@@ -807,7 +804,7 @@ describe('pnpm mac-setup', () => {
     await machine.run();
     assert.match(
       text(machine),
-      /OpenCode uses Halcyonic's own OpenCode settings, on qwen3\.6:35b-a3b-nvfp4\./,
+      /OpenCode uses Halora's own OpenCode settings, on qwen3\.6:35b-a3b-nvfp4\./,
     );
     const before = status(machine, 'Agent apps');
     // The rules on each session Halcyonic opens outrank these, so loosening them changes nothing.
@@ -897,7 +894,7 @@ describe('pnpm mac-setup', () => {
     );
     assert.match(
       text(machine),
-      /Codex now has settings of its own for Halcyonic, in a folder of its own: qwen3\.6:35b-a3b-nvfp4 on this Mac\. Your own Codex settings are left as they are\./,
+      /Codex now has settings of its own for Halora, in a folder of its own: qwen3\.6:35b-a3b-nvfp4 on this Mac\. Your own Codex settings are left as they are\./,
     );
     assert.equal(
       existsSync(join(machine.home, '.codex')),
@@ -910,7 +907,7 @@ describe('pnpm mac-setup', () => {
     assert.equal(await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4'), 1);
     assert.match(
       text(machine),
-      /auth\.json is a Codex sign-in\. Halcyonic runs Codex only on models this Mac serves, without one/,
+      /auth\.json is a Codex sign-in\. Halora runs Codex only on models this Mac serves, without one/,
     );
     assert.equal(readFileSync(path, 'utf8'), settings);
   });
@@ -1025,16 +1022,16 @@ describe('pnpm mac-setup', () => {
     await machine.run('allow');
     running(machine, { roots: [] });
     assert.equal(await machine.run('pairing', 'on'), 0);
-    assert.match(text(machine), /Halcyonic is running: restart it to use this\./);
+    assert.match(text(machine), /Halora is running: restart it to use this\./);
     assert.match(
       text(machine),
       /Restarting stops any agent at work, and its task then shows Can't tell yet\./,
     );
     await machine.run('--with-token');
-    assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Look at this');
+    assert.equal(status(machine, 'Halora running on this Mac'), 'Look at this');
     running(machine, { roots: [join(machine.home, 'HalcyonicProjects')] });
     await machine.run('--with-token');
-    assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Ready');
+    assert.equal(status(machine, 'Halora running on this Mac'), 'Ready');
   });
 
   test('by default it reads no access token; with --with-token it sends it only to a server that proves it holds it', async (t) => {
@@ -1048,14 +1045,14 @@ describe('pnpm mac-setup', () => {
 
     machine.requests.length = 0;
     await machine.run('--with-token');
-    assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Ready');
+    assert.equal(status(machine, 'Halora running on this Mac'), 'Ready');
     assert.ok(machine.requests.some((request) => request.authorization === `Bearer ${TOKEN}`));
 
     // Something else listens on the port, as another account could while Halcyonic is stopped.
     machine.proves = false;
     machine.requests.length = 0;
     await machine.run('--with-token');
-    assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Look at this');
+    assert.equal(status(machine, 'Halora running on this Mac'), 'Look at this');
     assert.match(
       text(machine),
       /can't prove it holds this Mac's access token, so the token was not sent/,
@@ -1067,7 +1064,7 @@ describe('pnpm mac-setup', () => {
     machine.proofsLeft = 1;
     machine.requests.length = 0;
     await machine.run('--with-token');
-    assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Look at this');
+    assert.equal(status(machine, 'Halora running on this Mac'), 'Look at this');
     assert.ok(machine.requests.every((request) => request.authorization === null));
 
     machine.proofsLeft = Number.POSITIVE_INFINITY;
@@ -1097,12 +1094,12 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /chmod 600/);
   });
 
-  test("What changed and why says whether the installed Salidium can read Halcyonic's own tasks, by its version", async (t) => {
+  test("What changed and why says whether the installed Salidium can read Halora's own tasks, by its version", async (t) => {
     const machine = mac(t);
     await machine.run();
     assert.equal(status(machine, 'What changed and why'), 'Optional');
     const about =
-      "Salidium tells the headset's Understand tab what a task changed and why. Halcyonic keeps its own Codex and OpenCode tasks in folders of its own, which Salidium reads only once it is told where they are.";
+      "Salidium tells the headset's Understand tab what a task changed and why. Halora keeps its own Codex and OpenCode tasks in folders of its own, which Salidium reads only once it is told where they are.";
     assert.ok(text(machine).includes(about), 'said while not set up');
     mkdirSync(machine.dataDir, { recursive: true, mode: 0o700 });
     writeFileSync(join(machine.dataDir, 'salidium-credential'), 'x', { mode: 0o600 });
@@ -1120,7 +1117,7 @@ describe('pnpm mac-setup', () => {
     await machine.run();
     assert.match(
       text(machine),
-      /Salidium 0\.8\.3, as installed, doesn't read Halcyonic's own Codex and OpenCode tasks: their Understand tab says so\. A Salidium after 0\.8\.3 can\./,
+      /Salidium 0\.8\.3, as installed, doesn't read Halora's own Codex and OpenCode tasks: their Understand tab says so\. A Salidium after 0\.8\.3 can\./,
     );
     assert.doesNotMatch(text(machine), /SALIDIUM_EXTRA/);
     salidium.version = '0.9.0';
@@ -1129,7 +1126,7 @@ describe('pnpm mac-setup', () => {
     await machine.run();
     assert.match(
       text(machine),
-      /Salidium 0\.9\.0 can read Halcyonic's own Codex and OpenCode tasks once it is told where they are/,
+      /Salidium 0\.9\.0 can read Halora's own Codex and OpenCode tasks once it is told where they are/,
     );
     assert.match(text(machine), /This Mac can't see whether you ran them/);
     assert.ok(
@@ -1244,14 +1241,14 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Ready');
     assert.match(
       text(machine),
-      /Codex uses Halcyonic's own Codex settings, in a folder of its own: qwen3\.6:35b-a3b-nvfp4 on this Mac\./,
+      /Codex uses Halora's own Codex settings, in a folder of its own: qwen3\.6:35b-a3b-nvfp4 on this Mac\./,
     );
     assert.match(text(machine), /Codex runs only on models this Mac serves, never on OpenAI's/);
     assert.match(
       text(machine),
       /OpenCode also offers free models that run on a remote service of its own, opencode\.ai/,
     );
-    assert.match(text(machine), /Everything Halcyonic needs on this Mac is ready\./);
+    assert.match(text(machine), /Everything Halora needs on this Mac is ready\./);
   });
 
   test('it says when work can go to a remote service: Claude Agent, never Codex', async (t) => {
@@ -1266,7 +1263,7 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /Codex runs only on models this Mac serves, never on OpenAI's/);
     assert.match(
       text(machine),
-      /Halcyonic's own Codex settings don't name one yet, so Codex has no model to offer/,
+      /Halora's own Codex settings don't name one yet, so Codex has no model to offer/,
     );
     assert.match(text(machine), /pnpm mac-setup local-model /);
     machine.env = {
@@ -1278,7 +1275,7 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Look at this');
     assert.match(
       text(machine),
-      /Claude Agent is on from Halcyonic's next start\. Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key\./,
+      /Claude Agent is on from Halora's next start\. Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key\./,
     );
   });
 
@@ -1291,10 +1288,10 @@ describe('pnpm mac-setup', () => {
       { mode: 0o600 },
     );
     assert.equal(await machine.run(), 1);
-    assert.match(machine.lines[2] ?? '', /^1\. Halcyonic's settings: To do$/);
+    assert.match(machine.lines[2] ?? '', /^1\. Halora's settings: To do$/);
     assert.match(text(machine), /only the environment sets it/);
     assert.equal(await machine.run('allow', '--yes'), 1);
-    assert.match(text(machine), /Halcyonic's settings can't be changed/);
+    assert.match(text(machine), /Halora's settings can't be changed/);
   });
 
   test("the companion's step recommends a model of its own and says what it needs beside the agents'", async (t) => {
@@ -1439,7 +1436,7 @@ describe('pnpm mac-setup', () => {
     });
     await machine.run('--with-token');
     assert.equal(status(machine, 'Companion'), 'To do');
-    assert.match(text(machine), /restart Halcyonic to use these settings/);
+    assert.match(text(machine), /restart Halora to use these settings/);
     running(machine, {
       companion: {
         availability: 'available',

@@ -46,7 +46,7 @@ const TRACKED_STARTERS = fileURLToPath(new URL('../../../../starters', import.me
 
 /**
  * The exit code with which the control plane asks its launcher to start it again, after the setup
- * page's Restart to Apply: `Start Halcyonic.command` starts it again on this code and on no other.
+ * page's Restart to Apply: `Start Halora.command` starts it again on this code and on no other.
  */
 export const RESTART_EXIT_CODE = 75;
 
@@ -111,12 +111,12 @@ export interface SetupPageDeps {
   readonly tasksThatPause: () => readonly string[];
   /**
    * Whether a launcher starts the control plane again when it closes for a restart: true only when
-   * Start Halcyonic.command started it (`--restartable`).
+   * Start Halora.command started it (`--restartable`).
    */
   readonly canRestart: boolean;
   /**
    * Whether the control plane opens a new pairing page once it is running again (`--open-pairing-page`, as
-   * Start Halcyonic.command starts it); absent or false, as the login agent and the proving plane start it, it does not.
+   * Start Halora.command starts it); absent or false, as the login agent and the proving plane start it, it does not.
    */
   readonly reopensPage?: boolean;
   /** Closes the control plane cleanly and has the launcher start it again. */
@@ -593,7 +593,7 @@ export function setupDownloads(
       id: `model:${model.name}`,
       title: `Get ${model.name}`,
       // By name and tag only: Halcyonic has no digest pinned for a model (mac-host-setup.md).
-      fetches: `The model ${model.name}, ${model.size}, into Ollama on this Mac, from Ollama's own library, by its name: Halcyonic doesn't check which build of it arrives.`,
+      fetches: `The model ${model.name}, ${model.size}, into Ollama on this Mac, from Ollama's own library, by its name: Halora doesn't check which build of it arrives.`,
       commands: [[ollama, 'pull', model.name]],
       record: [],
     })),
@@ -1053,7 +1053,7 @@ export class SetupView {
       return this.#refused(
         here,
         session,
-        'Halcyonic was not started from Start Halcyonic, so it cannot start itself again. Stop it and start it again to apply the settings.',
+        'Halora was not started from the file Start Halora.command, so it cannot start itself again. Stop it and start it again to apply the settings.',
       );
     }
     if (this.#restarting) return this.state(session);
@@ -1064,8 +1064,8 @@ export class SetupView {
         arg: null,
         text:
           tasks.length === 0
-            ? 'Halcyonic closes and starts again, with your changes. No task is running. Go On restarts it.'
-            : `Halcyonic closes and starts again, with your changes. These tasks stop where they are and come back after the restart: ${tasks.join(', ')}. Go On restarts it.`,
+            ? 'Halora closes and starts again, with your changes. No task is running. Go On restarts it.'
+            : `Halora closes and starts again, with your changes. These tasks stop where they are and come back after the restart: ${tasks.join(', ')}. Go On restarts it.`,
       };
       return this.state(session);
     }
@@ -1177,7 +1177,7 @@ export function removeWords(card: KeyView): string {
       ? []
       : [`${listed(atOnce)} ${atOnce.length === 1 ? 'stops' : 'stop'} using it at once`]),
   ];
-  return `Halcyonic deletes its copy.${parts.length === 0 ? '' : ` ${parts.join(', and ')}.`}`;
+  return `Halora deletes its copy.${parts.length === 0 ? '' : ` ${parts.join(', and ')}.`}`;
 }
 
 /** Runs a download's command in a process group of its own, with a small environment, no shell. */

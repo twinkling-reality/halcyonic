@@ -85,7 +85,7 @@ export function assessFolder(real: string, context: FolderContext): FolderAssess
     return refused('It holds your whole home folder, so agents could change everything you have.');
   }
   if (within(real, data) || within(data, real)) {
-    return refused("It holds Halcyonic's own data, such as its access token and history.");
+    return refused("It holds Halora's own data, such as its access token and history.");
   }
   const [first = ''] = segments(home, real) ?? [];
   if (first.startsWith('.') || first === 'Library') {

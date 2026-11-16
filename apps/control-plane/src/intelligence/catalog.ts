@@ -112,7 +112,7 @@ function readCredential(path: string): string | Unauthorized {
     if (code === 'ENOENT')
       return unauthorized(
         'credential_missing',
-        `No Omnorium credential is set up: save it as ${OMNORIUM_CREDENTIAL_FILE} in Halcyonic's data directory with mode 600.`,
+        `No Omnorium credential is set up: save it as ${OMNORIUM_CREDENTIAL_FILE} in Halora's data directory with mode 600.`,
       );
     if (code === 'ELOOP')
       return unauthorized(

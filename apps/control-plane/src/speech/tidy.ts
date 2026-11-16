@@ -11,6 +11,22 @@ const STUTTERED = new Set(['a', 'an', 'the', 'i', 'to', 'and', 'of', 'for', 'wit
 export const MAX_NAMES = 200;
 export const MAX_NAME_LENGTH = 60;
 
+/** The product's name as a person reads it (the owner, 2026-11-16: "Use Halora"). */
+export const PRODUCT_NAME = 'Halora';
+
+/**
+ * What the engine may hear for the product's name, each written as `PRODUCT_NAME`: forms that mean
+ * nothing else in English, and the old name. Guessed, not heard in clips. Never a bare "aurora",
+ * "halo" or "halcyon", which a person says for what they mean (AUDIT2, 2026-11-16).
+ */
+export const HEARD_FOR_PRODUCT: readonly string[] = [
+  'Hallora',
+  'Halo ra',
+  'Haloora',
+  'Holora',
+  'Halcyonic',
+];
+
 /** A word: letters and digits joined by an apostrophe or a hyphen, so "uh-oh" is one word. */
 const WORD = /[\p{L}\p{N}]+(?:['\u2019-][\p{L}\p{N}]+)*/gu;
 
@@ -79,12 +95,19 @@ export function tidySpeech(text: string, names: readonly string[]): string {
   words.forEach((word, position) => {
     tidied += word + (gaps[position + 1] as string);
   });
-  return spellNames(tidied.trim() === '' ? '' : tidied, names);
+  return spellNames(tidied.trim() === '' ? '' : respellProduct(tidied), names);
 }
 
 /** The sentence's end a gap holds ('.', '!' or '?'), or null; an ellipsis is a pause. */
 function sentenceEnd(gap: string): string | null {
   return /[.!?]+/u.exec(gap.replace(/\.\.\.|\u2026/gu, ''))?.[0] ?? null;
+}
+
+/** Writes the product's name wherever one of `HEARD_FOR_PRODUCT` was heard as whole words, in any case. */
+function respellProduct(text: string): string {
+  const pattern = HEARD_FOR_PRODUCT.map((heard) => `(?:${namePattern(heard)})`).join('|');
+  const matcher = new RegExp(`(?<![\\p{L}\\p{N}])(?:${pattern})(?![\\p{L}\\p{N}])`, 'giu');
+  return text.replace(matcher, PRODUCT_NAME);
 }
 
 /** Spells each name as written where its letters were heard as whole words; longest wins. */
@@ -118,7 +141,7 @@ function namePattern(name: string): string {
 }
 
 /**
- * The names a draft is tidied with: Halcyonic's own words (the engine's prompt), then each
+ * The names a draft is tidied with: the product's own words (the engine's prompt), then each
  * project's name, trimmed, once regardless of case, with letters, at most 60 characters, 200 in
  * all.
  */

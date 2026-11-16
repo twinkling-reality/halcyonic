@@ -42,7 +42,7 @@ download button also says what it fetches, its version, its size and from where,
 pinned command this section prints, one at a time, with its progress and a Stop. Pairing's own
 setting applies at once. Any other changed setting shows **Restart to Apply**, which says which
 tasks will pause, closes Halcyonic and starts it again with the new settings; they come back
-through re-attach. Only `Start Halcyonic.command` can start it again, so started by hand
+through re-attach. Only `Start Halora.command` can start it again, so started by hand
 (`pnpm start`, `pnpm dev`) the page says to stop and start it yourself.
 
 1. **Allow a folder for projects.** Agents may read and change anything in a folder you allow, and
@@ -120,13 +120,13 @@ through re-attach. Only `Start Halcyonic.command` can start it again, so started
    `pnpm mac-setup browser` sets up ([New apps' browser](#new-apps-browser)). `pnpm mac-setup undo`
    turns undo on with the system's git, `/usr/bin/git`, so a task's changes can be put back from the
    checkpoints Halcyonic keeps; `pnpm mac-setup undo off` turns it off.
-5. **Start Halcyonic**, and leave its window open while you use the headset:
+5. **Start Halora**, and leave its window open while you use the headset:
 
    ```bash
    pnpm start
    ```
 
-   Or double-click `Start Halcyonic.command` in the repository's folder in Finder: it starts the
+   Or double-click `Start Halora.command` in the repository's folder in Finder: it starts the
    same in a Terminal window and opens the pairing page once Halcyonic is ready (step 6). What is
    checked of it (2026-11-10): a login zsh on the owner's Mac, as Terminal starts one for a
    `.command` file, finds `node` and `pnpm`; `pnpm start` passes `--open-pairing-page` on to the
@@ -172,8 +172,8 @@ The headset calls the Mac "your computer" ([WORDS.md](../product/WORDS.md)).
 
 | The headset says | On the Mac |
 | --- | --- |
-| Can't reach your computer; trying again. | Start Halcyonic (`pnpm start`). Over USB, run `adb reverse tcp:47800 tcp:47800` again; over Wi-Fi, check pairing is on, the headset is on the same network, and the firewall (`pnpm mac-setup` checks it) |
-| This headset's access code doesn't match your computer's, or something else is answering in its place | Start Halcyonic if it isn't running. Over USB: write the current access token into the app's private storage again with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). If it still says so, something else holds port 47800 (`lsof -nP -iTCP:47800 -sTCP:LISTEN`), or `adb reverse` maps another headset port onto it: use `adb reverse tcp:47800 tcp:47800` |
+| Can't reach your computer; trying again. | Start Halora (`pnpm start`). Over USB, run `adb reverse tcp:47800 tcp:47800` again; over Wi-Fi, check pairing is on, the headset is on the same network, and the firewall (`pnpm mac-setup` checks it) |
+| This headset's access code doesn't match your computer's, or something else is answering in its place | Start Halora if it isn't running. Over USB: write the current access token into the app's private storage again with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). If it still says so, something else holds port 47800 (`lsof -nP -iTCP:47800 -sTCP:LISTEN`), or `adb reverse` maps another headset port onto it: use `adb reverse tcp:47800 tcp:47800` |
 | Your computer refused this headset's access code | Over USB: write the current access token into the app's private storage again with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect") |
 | Your computer no longer accepts this headset's pairing. | It was revoked: forget the computer on the headset, then `pnpm pair` |
 | Your computer doesn't allow any folder yet. | `pnpm mac-setup allow`, then restart Halcyonic |
@@ -777,7 +777,7 @@ free port up to 47809 (on another `HALCYONIC_PORT`, that port plus 2 to plus 9),
 `control plane ready` line names
 ([ADR 0047](../decisions/0047-pairing-starts-from-a-page-on-the-mac.md)). It opens only by a link:
 `pnpm pair` asks the running control plane for one and opens it in your browser, and
-`Start Halcyonic.command` (or `pnpm start --open-pairing-page`) opens one once Halcyonic is ready. A
+`Start Halora.command` (or `pnpm start --open-pairing-page`) opens one once Halcyonic is ready. A
 link works once, within a minute; run `pnpm pair` again for another. It reaches the browser through a
 file only you can read, in `~/.halcyonic/open-links`, never in a command's arguments, and that file
 goes within a minute; `pnpm pair --print` also prints the link, for a browser it did not open. The

@@ -81,7 +81,7 @@ describe('folders that may hold projects', () => {
     assert.equal(verdict('/Users/someone/HalcyonicProjects'), 'fine');
   });
 
-  test("never Halcyonic's data, or where apps keep settings and keys", () => {
+  test("never Halora's data, or where apps keep settings and keys", () => {
     for (const path of [
       '/Users/someone/.halcyonic',
       '/Users/someone/.halcyonic/runtimes',

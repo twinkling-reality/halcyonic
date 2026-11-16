@@ -54,7 +54,7 @@ describe('Salidium as the understanding source', () => {
     ]);
   });
 
-  test("a Codex thread whose rollout is in Halcyonic's own Codex home is not observed: no credential is read", async () => {
+  test("a Codex thread whose rollout is in Halora's own Codex home is not observed: no credential is read", async () => {
     const { source, credentialPath, codexHome } = setup('codex-home');
     writeRollout(codexHome, CODEX_THREAD);
     // A credential other users can read would be refused for any session Salidium is asked about.
@@ -64,7 +64,7 @@ describe('Salidium as the understanding source', () => {
     assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
     assert.match(
       result.availability === 'available' ? '' : result.reason.message,
-      /Halcyonic's own Codex home/,
+      /Halora's own Codex home/g,
     );
   });
 
@@ -77,7 +77,7 @@ describe('Salidium as the understanding source', () => {
     assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
     assert.match(
       result.availability === 'available' ? '' : result.reason.message,
-      /Halcyonic's own Codex home/,
+      /Halora's own Codex home/g,
     );
   });
 
@@ -154,7 +154,7 @@ describe('Salidium as the understanding source', () => {
       assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
       assert.match(
         result.availability === 'available' ? '' : result.reason.message,
-        /Halcyonic's own OpenCode store/,
+        /Halora's own OpenCode store/g,
       );
       // Only its version is read, without a credential (unit 4b); no lookup is asked.
       assert.equal(salidium.authorizedRequests().length, 0, 'no credentialed request was sent');

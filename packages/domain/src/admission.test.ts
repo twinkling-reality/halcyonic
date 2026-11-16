@@ -1511,7 +1511,7 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       return admission.admitted ? admission.policy : admission.rejection.message;
     };
     const nothing =
-      'Halcyonic made no repository of this project public, so there is nothing to make private.';
+      'Halora made no repository of this project public, so there is nothing to make private.';
     assert.equal(result(), nothing, 'no repository made');
     projection.apply(
       b.controlPlane('project.repository_made', scope, {

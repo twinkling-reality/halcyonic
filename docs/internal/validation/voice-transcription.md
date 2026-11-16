@@ -278,3 +278,13 @@ matched after case/punctuation normalization. A separate two-second silent clip 
 The synthetic WAV was removed after the witness; its report retains only metadata and match results.
 This verifies the currently configured local engine, not HTTP transport, Quest microphone capture,
 a person's voice, focus/permission behavior or wearer acceptance.
+
+## The product's new name (2026-11-16)
+
+The product a person sees is now called Halora. The prompt's first word changed from Halcyonic to Halora, and no clip
+has been measured with it yet: the measurements above were taken with the old word. After the engine, the draft
+writes Halora for a short list of forms that mean nothing else in English (`HEARD_FOR_PRODUCT` in
+`apps/control-plane/src/speech/tidy.ts`: Hallora, Halo ra or Halo-ra, Haloora, Holora, and the old name). The forms
+are guessed, not heard in recorded clips. A bare "aurora", "halo" or "halcyon" is never rewritten, since a person says
+them for what they mean ("put an aurora over the lake"); `tidy.test.ts` holds both lists. The draft the person reads
+before sending is the text that is sent, so a rewrite is never made after they read it.
