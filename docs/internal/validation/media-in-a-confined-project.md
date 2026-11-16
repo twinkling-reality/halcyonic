@@ -66,7 +66,7 @@ colours into files, and to copy the play copy into `public/`. The files were rea
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Claude Agent, `claude-opus-5-5[1m]` | `world` | 25 s | match | match | match | present | 4, all answered by the host |
 | OpenCode, `meta/muse-wonder-1.0` (listed remote, takes pictures) | `world` | 45 s | match | match | match | present | 3, all answered by the host (`confined_command`) |
-| Claude Agent, `claude-opus-5-5[1m]` | `iwsdk-vr` | stopped at 600 s | unread | unread | unread | unread | 3: 2 answered by the host, 1 `Read` left for a person |
+| Claude Agent, `claude-opus-5-5[1m]` | `iwsdk-vr` | 3 runs, each stopped (600 s at most) | unread | unread | unread | unread | 3: 2 answered by the host, 1 `Read` left for a person |
 | Claude Agent, `claude-opus-5-5[1m]`, main 8d6e0944e | `iwsdk-vr` | 17 s | match | match | match | present | 4, all answered by the host (3 `confined_command`, 1 `run_temp_read`) |
 
 - A first `world` run on Claude Agent matched the still, the frame and the play copy but not the photo; its bands
@@ -85,7 +85,7 @@ colours into files, and to copy the play copy into `public/`. The files were rea
   approvals answered by the host, one of them that read, and the still, the frame, the photo and the play copy all
   matched. The answers were read from the task's copy through the file route's `workstream_id`.
 - The colours were drawn at random for each run, so a matching answer means the model saw the picture, not its name.
-- Codex was not run: the probe refuses a model served on this Mac, and the product's own choice prefers those.
+- Codex was not run: the product's own choice for Codex prefers a model served on this Mac, and the probe refuses those.
 
 ## Inference
 - `ffmpeg` is reachable inside the closed profile only because Node here is Homebrew's: `toolFoldersFor(node)` opens
