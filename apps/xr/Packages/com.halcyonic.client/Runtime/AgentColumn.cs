@@ -195,7 +195,7 @@ namespace Halcyonic.Client
                     foreach (var option in now.Options.Skip(at * OptionsAPage).Take(OptionsAPage))
                         lines.Add(new PageLine(LineWords.TheirName(option.Name), action: Pick, key: option.Key, choice: true, chosen: option.Chosen, answerMark: AnswerMark.Single));
                     if (pages > 1)
-                        lines.Add(new PageLine("Next Choices · " + (at + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture),
+                        lines.Add(new PageLine("Next Choices, " + (at + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture),
                             icon: GlazeIcon.Next, action: Footer.NextPage, opens: true, control: LineControl.Action));
                     return new MenuFrame(subject, footer, lines: lines);
                 }

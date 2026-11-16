@@ -49,7 +49,7 @@ public class HostTextTests
             "Code Withheld, the computer wasn't verified; copy the current code, then restart the app"));
         Assert.That(ConnectionText.Unreachable, Is.EqualTo("Computer Unreachable, trying again; check the app and the network"));
         Assert.That(EntryText.NoFolders, Is.EqualTo("No Folders Allowed · Allow on Computer · Try Again"));
-        Assert.That(EntryText.DemoCannotStart, Is.EqualTo("Demo · No New Work"));
+        Assert.That(EntryText.DemoCannotStart, Is.EqualTo("The demo can't start new work."));
         Assert.That(SettingsText.YourMac, Is.EqualTo("Your Computer"));
         // Our own words never name the product (the review, 2026-10-07).
         var unproved = new TokenNotSentException(LoopbackProofOutcome.Unproved, new System.Uri("http://127.0.0.1:47800/")).Message;

@@ -332,9 +332,9 @@ namespace Halcyonic.Client
                     ? CommandNotKnown
                     : RequestNotKnown;
 
-        public const string TooLongToShow = "Command Too Long · Deny Only";
-        public const string CommandNotKnown = "Command Incomplete · Deny Only";
-        public const string RequestNotKnown = "Request Incomplete · Deny Only";
+        public const string TooLongToShow = "The command is too long to show, so you can only deny it.";
+        public const string CommandNotKnown = "The command isn't complete, so you can only deny it.";
+        public const string RequestNotKnown = "The request isn't complete, so you can only deny it.";
 
         /// <summary>The goal line under the status: the workstream's objective.</summary>
         public static string Goal(WorkspacePresentation workspace) => "Goal · " + Objective(workspace);

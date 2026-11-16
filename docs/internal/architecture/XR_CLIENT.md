@@ -2913,7 +2913,7 @@ in order, as before.
   confirmed with its tool off the screen), what it asks in the sentence bar
   (Run Command? for a command, else the product's Use {tool}; with no tool named the panel is the one line Approval
   Requested and has no bar), and in the column Approve (main) and Deny, the frame's own prompts. A request that can
-  only be denied shows Deny alone and the product's reason in the sentence bar (Command Too Long · Deny Only and its
+  only be denied shows Deny alone and the product's reason in the sentence bar (The command is too long to show, so you can only deny it. and its
   kin). Either answer asks the file for its confirmation, which sends nothing: the panel then reads the request part
   by part, eight of its own lines a part, by the same count as an instruction's confirmation (`KitNeed.Part`,
   `KitNeed.Rows`; the request alone, the tool's name the file's line leads it with left out, `RoomBar.Reading`), the

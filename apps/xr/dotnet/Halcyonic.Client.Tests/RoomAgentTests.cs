@@ -128,9 +128,9 @@ public sealed class RoomAgentTests
         var stand = new Stand(Offer(options: 5, chosen: 4));
         Assert.That(AgentColumn.Pages(5), Is.EqualTo(2));
         stand.Column.Act(AgentColumn.Change, null);
-        Assert.That(Words(stand.Column.Frame!), Is.EqualTo(new[] { "Kite 4B", "Lantern 9B", "Next Choices · 2 of 2" }), "it opens on the page that holds the one chosen");
+        Assert.That(Words(stand.Column.Frame!), Is.EqualTo(new[] { "Kite 4B", "Lantern 9B", "Next Choices, 2 of 2" }), "it opens on the page that holds the one chosen");
         stand.Column.Act(Footer.NextPage, null);
-        Assert.That(Words(stand.Column.Frame!), Is.EqualTo(new[] { "Glimmer 30B", "Ember 7B", "Tide 12B", "Next Choices · 1 of 2" }));
+        Assert.That(Words(stand.Column.Frame!), Is.EqualTo(new[] { "Glimmer 30B", "Ember 7B", "Tide 12B", "Next Choices, 1 of 2" }));
         Assert.That(stand.Column.Frame!.Lines.Last().Action, Is.EqualTo(Footer.NextPage));
         stand.Column.Act(Footer.NextPage, null);
         Assert.That(Words(stand.Column.Frame!).First(), Is.EqualTo("Kite 4B"));
@@ -202,7 +202,7 @@ public sealed class RoomAgentTests
         var stand = new Stand(Offer(options: 5));
         stand.Column.Act(AgentColumn.Change, null);
         var bar = RoomBar.Agent(stand.Column.Frame!, VoiceStage.Idle)!;
-        Assert.That(bar.Column.Select(action => action.Words), Is.EqualTo(new[] { "Glimmer 30B", "Ember 7B", "Tide 12B", "Next Choices · 1 of 2", "Back" }));
+        Assert.That(bar.Column.Select(action => action.Words), Is.EqualTo(new[] { "Glimmer 30B", "Ember 7B", "Tide 12B", "Next Choices, 1 of 2", "Back" }));
         Assert.That(bar.Column.Select(action => action.Place), Is.EqualTo(new[] { KitPlace.Choice, KitPlace.Choice, KitPlace.Choice, KitPlace.Step, KitPlace.Back }));
         Assert.That(bar.Column.Count(action => action.Chosen), Is.EqualTo(1));
         Assert.That(bar.Column[0].Chosen);

@@ -27,7 +27,7 @@ namespace Halcyonic.Client
         public const string WaitingForMac = "Awaiting Computer";
 
         /// <summary>Why Start task can't be pressed while a build is on its way (the coordinator, 2026-10-02).</summary>
-        public const string AlreadyStarting = "Starting · Awaiting Result";
+        public const string AlreadyStarting = "Already starting. Waiting for the result.";
 
         public const string IdeaPrompt = "Your Idea";
         public const string WorkPrompt = "Task Goal";
@@ -55,7 +55,7 @@ namespace Halcyonic.Client
         /// <summary>Typing a first task of one's own in place of the companion's suggestion and one's earlier words.</summary>
         public const string TypeMyOwn = "Type My Own";
         public const string NothingStartsYet = "Nothing Starts Yet";
-        public const string GuideNote = "Fixed Questions · Not AI · Answers Editable";
+        public const string GuideNote = "These are set questions, not AI. You can edit the answers.";
         public const string Back = "Back";
 
         /// <summary>Under the answer given before, and under every choice made in a list: one word marks a choice everywhere.</summary>
@@ -355,9 +355,9 @@ namespace Halcyonic.Client
         public const string Close = "Close";
 
         /// <summary>Why Start task can't go ahead, for each check the recap makes, in its order.</summary>
-        public const string DemoCannotStart = "Demo · No New Work";
+        public const string DemoCannotStart = "The demo can't start new work.";
         public const string ChooseHowItRuns = "Choose Run Settings";
-        public const string ChooseAgain = "Run Settings Unavailable · Choose Again";
+        public const string ChooseAgain = "Those run settings aren't available. Choose again.";
         public const string FinishChoosing = "Finish Run Settings";
         public const string ProjectGone = "Project Missing · Choose Another";
         public const string ChooseWhereFilesLive = "Choose Folder";
@@ -538,7 +538,7 @@ namespace Halcyonic.Client
         /// <param name="plain">Shows the runtime's own name through <see cref="LabelText.Name"/>, which never leaves it empty; false leaves it as it is, for a review that spells it itself.</param>
         /// <summary>An agent app's name as runs: "Simulated: " upright first, its name leaning; the practice run Halcyonic's own words.</summary>
         public static LineWords RuntimeNameRuns(RuntimeDescriptor runtime, bool live = false) =>
-            runtime.Synthetic && live ? LineWords.Ours(PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated · ") : LineWords.None) + LineWords.TheirName(CaptureNames.AgentName(runtime.DisplayName));
+            runtime.Synthetic && live ? LineWords.Ours(PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated: ") : LineWords.None) + LineWords.TheirName(CaptureNames.AgentName(runtime.DisplayName));
 
         /// <summary>How it runs as runs (<see cref="RunsWith"/>): an agent app's name leaning.</summary>
         public static LineWords RunsWithRuns(NewWorkDraft draft, bool live = false) =>
@@ -550,7 +550,7 @@ namespace Halcyonic.Client
         public static LineWords NewFolderInRuns(LocationRoot root) => ProjectFolder.NewFolderRuns(root);
 
         public static string RuntimeName(RuntimeDescriptor runtime, bool live = false, bool plain = true) =>
-            runtime.Synthetic && live ? PracticeRun : (runtime.Synthetic ? "Simulated · " : "") + (plain ? LabelText.Name(CaptureNames.AgentName(runtime.DisplayName)) : CaptureNames.AgentName(runtime.DisplayName));
+            runtime.Synthetic && live ? PracticeRun : (runtime.Synthetic ? "Simulated: " : "") + (plain ? LabelText.Name(CaptureNames.AgentName(runtime.DisplayName)) : CaptureNames.AgentName(runtime.DisplayName));
 
         /// <summary>The runtimes offered in Create: real ones first, by name, and simulated ones after them.</summary>
         public static List<RuntimeDescriptor> RuntimeChoices(IEnumerable<RuntimeDescriptor> runtimes) =>

@@ -418,16 +418,16 @@ public class CharacterLabelTests
     {
         var finished = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.TurnFinished, synthetic: true)));
         Assert.That(finished.Next, Is.EqualTo("See Changes"));
-        Assert.That(finished.MarkLine, Is.EqualTo("Practice · Nothing Built"));
+        Assert.That(finished.MarkLine, Is.EqualTo("Practice: nothing is built."));
         var checks = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.TurnFinished, AttentionLevel.Notice,
             new[] { "Checks: 1 failed, 23 passed" }, details: new[] { "1 failed, 23 passed" })));
         Assert.That(checks.Badge.Word, Is.EqualTo("Checks Failed"));
         Assert.That(checks.Reason, Is.EqualTo("1 failed, 23 passed"));
         Assert.That(checks.Next, Is.EqualTo("See Failures"));
         var demo = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, synthetic: true, recorded: true)));
-        Assert.That(demo.MarkLine, Is.EqualTo("Demo · Recorded · No Agent Reached"));
+        Assert.That(demo.MarkLine, Is.EqualTo("A recorded demo, with no real agent."));
         Assert.That(demo.Next, Is.Null, "nothing to open for while it works");
-        Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, recorded: true))).MarkLine, Is.EqualTo("Recorded · Replay · Not Live"));
+        Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, recorded: true))).MarkLine, Is.EqualTo("Real agent work, played back. Not live."));
         Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working))).MarkLine, Is.Null);
     }
 

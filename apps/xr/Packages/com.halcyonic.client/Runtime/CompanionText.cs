@@ -19,7 +19,7 @@ namespace Halcyonic.Client
         public const string TalkItThroughShort = "Talk It Through";
 
         /// <summary>Over the exchange: what the companion is, and that it can be wrong.</summary>
-        public const string Note = "Local AI · May Be Wrong · Answers Editable";
+        public const string Note = "This AI runs on your computer. It can be wrong, and you can edit its answers.";
 
         /// <summary>
         /// The same on a side panel showing what the companion suggested, where <see cref="Note"/> needs
@@ -126,6 +126,6 @@ namespace Halcyonic.Client
         };
 
         /// <summary>In the demonstration: the companion's replies were recorded, and nothing is asked.</summary>
-        public const string Recorded = "Recorded Replies · Companion Not Asked";
+        public const string Recorded = "These replies were recorded. Nothing is asked live.";
     }
 }

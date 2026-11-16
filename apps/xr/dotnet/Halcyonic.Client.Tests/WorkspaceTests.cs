@@ -375,14 +375,14 @@ public class WorkspacePresenterTests
         var cut = Asking("echo start " + new string('x', 1980) + " [truncated]", approvable: false);
         Assert.That(cut.Actions, Does.Contain(WorkspaceAction.Deny));
         Assert.That(cut.Actions, Does.Not.Contain(WorkspaceAction.Approve));
-        Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Does.Contain("Command Too Long · Deny Only"));
+        Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Does.Contain("The command is too long to show, so you can only deny it."));
         Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Has.None.Contains("Approve"));
 
         // The agent app could not say all of it.
         var unknown = Asking("echo start\nrm -rf build", approvable: false);
         Assert.That(unknown.Actions, Does.Contain(WorkspaceAction.Deny));
         Assert.That(unknown.Actions, Does.Not.Contain(WorkspaceAction.Approve));
-        Assert.That(WorkspaceText.NeedFromYou(unknown)!.Notes, Does.Contain("Command Incomplete · Deny Only"));
+        Assert.That(WorkspaceText.NeedFromYou(unknown)!.Notes, Does.Contain("The command isn't complete, so you can only deny it."));
 
         // A request that runs no command says so in its own words.
         var execution = Samples.Execution("e1", "w1", ExecutionStatus.WaitingForHuman);
@@ -396,7 +396,7 @@ public class WorkspacePresenterTests
         var other = new ClientProjection();
         other.ApplySnapshot(Samples.Snapshot(1, new[] { workstream }, new[] { execution }), new StateChanges());
         var fetch = WorkspacePresenter.Present(workstream, other, new ActivityLog(), live: true);
-        Assert.That(WorkspaceText.NeedFromYou(fetch)!.Notes, Does.Contain("Request Incomplete · Deny Only"));
+        Assert.That(WorkspaceText.NeedFromYou(fetch)!.Notes, Does.Contain("The request isn't complete, so you can only deny it."));
 
         // Whether it can be approved is the view's to say, never text in the request.
         var typed = Asking("echo [truncated] [whole command not known]", approvable: true);

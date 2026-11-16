@@ -713,7 +713,7 @@ public class NewProjectStartTests
         sequence.Begin(Samples.Reviewed(sequence));
         Assert.That(sequence.InFlight, Is.True);
         var problem = EntryScreens.StartProblem(false, state, true, idea, draft, null, sequence);
-        Assert.That(problem, Is.EqualTo("Starting · Awaiting Result"));
+        Assert.That(problem, Is.EqualTo("Already starting. Waiting for the result."));
         var recap = NewProjectScreens.Recap(idea, draft, null, live: true, notice: null, problem: problem);
         Assert.That((recap.Footer[PromptSlot.FarRight]!.Available, recap.Reason), Is.EqualTo((false, EntryText.AlreadyStarting)));
         Assert.That(EntryScreens.StartProblem(true, state, true, idea, draft, null, sequence), Is.EqualTo(EntryText.DemoCannotStart),
