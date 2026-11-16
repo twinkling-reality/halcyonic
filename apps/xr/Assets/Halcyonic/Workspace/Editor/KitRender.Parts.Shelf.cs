@@ -81,7 +81,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     var naturalLabels = natural.Labels.Count < 2 ? float.PositiveInfinity
                         : Enumerable.Range(0, natural.Labels.Count - 1).Min(place => natural.Labels[place].Apart(natural.Labels[place + 1]));
                     DestroyLaid(natural.Views);
-                    Debug.Log("Halcyonic: parts: " + ShelfWorstState + " at " + size + ", " + at + ": " + (closestLabels > 0f && closestBodies > 0f && laid.Cut.Count == 0
+                    Debug.Log("Halcyonic: parts: " + ShelfWorstState + " at " + size + ", " + at + ": " + (laid.Labels.Count < 2
+                        ? "ONE CHARACTER A PAGE: no neighbour, so this proves nothing about touching here; New Project beside the tag is the stage journey's check; " + laid.Cut.Count + " labels cut."
+                        : closestLabels > 0f && closestBodies > 0f && laid.Cut.Count == 0
                         ? "THE TOUCH PROOF: every character and label apart, every label whole."
                         : "THE FALLBACK PROOF (the lead's 02:21Z): characters " + (closestBodies > 0f ? "apart, " + Degrees(closestBodies) : "touch, " + Degrees(closestBodies)) + " degrees; labels "
                             + (closestLabels > 0f ? "apart" : "touch, " + Degrees(closestLabels) + " degrees apart")
