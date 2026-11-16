@@ -618,7 +618,11 @@ namespace Halcyonic.XR.UI
             var runs = GlazeRuns.Of(noticeWords!);
             runs.Set(said);
             noticeWords!.textWrappingMode = TextWrappingModes.Normal;
-            var laid = KitType.Lay(noticeWords, width - 2f * pad, 3);
+            // Never one word alone on its last line (JUDGE's judge room, 19:20Z: "live." alone).
+            var laid = RoomCardView.Balanced(noticeWords, width - 2f * pad, 3);
+            // The measure the balanced lay chose, kept below: laid again at the panel's width the words would wrap wider than their
+            // plate (JUDGE's judge room, 2026-11-16T19:49Z: 5.6 px right of it at Larger).
+            var measure = noticeWords.rectTransform.sizeDelta.x;
             // The plate as wide as its words laid, never wider than the panel: the same pad on either side (the critic, 2026-11-12).
             noticeWords.ForceMeshUpdate(true);
             var wordsWidth = Mathf.Min(width - 2f * pad, Mathf.Max(noticeWords.GetRenderedValues(true).x, 0f));
@@ -628,7 +632,7 @@ namespace Halcyonic.XR.UI
             var left = centred ? panelTopLeft.x + (width - plate) / 2f : panelTopLeft.x;
             notice.transform.localPosition = new Vector3(left + plate / 2f, panelTopLeft.y + RoomType.Units(NoticeGapDp) + tall / 2f, 0f);
             noticeWords.rectTransform.pivot = new Vector2(0f, 1f);
-            noticeWords.rectTransform.sizeDelta = new Vector2(width - 2f * pad, laid.Height);
+            noticeWords.rectTransform.sizeDelta = new Vector2(measure, laid.Height);
             noticeWords.transform.localPosition = new Vector3(-plate / 2f + pad, tall / 2f - pad, -RoomType.Units(0.5f));
         }
 
