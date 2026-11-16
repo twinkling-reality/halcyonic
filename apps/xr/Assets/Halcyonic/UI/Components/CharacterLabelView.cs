@@ -57,9 +57,11 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// The most lines a task's name takes, on the stage or on its own plate, so a name a person would give stands whole
-        /// (AUDIT 2026-11-16 11:55Z); a longer one ends its last line at a word break and fades its tail (<see cref="NameFaded"/>).
+        /// (AUDIT 2026-11-16 11:55Z, measured in F213: the plate's 10.5 degrees hold about 48 characters in four lines at
+        /// Standard and 40 at Larger, so the render's own names of 45 to 60 characters need six); a longer one ends its last line
+        /// at a word break and fades its tail (<see cref="NameFaded"/>).
         /// </summary>
-        public const int MostTitleLines = 4;
+        public const int MostTitleLines = 6;
 
         private const float SideDegrees = 0.7f;
         private const float TitleGapDegrees = 0f;
@@ -126,6 +128,9 @@ namespace Halcyonic.XR.UI
         /// faded rather than an ellipsis: for checks, which allow it only for a name over that measure.
         /// </summary>
         public bool NameFaded => badgeOnly ? shortTitleFaded : titleFaded;
+
+        /// <summary>The task's whole name as given, for checks of a faded one, whose label holds only the words that fit.</summary>
+        public string Name => shown?.Title ?? "";
 
         /// <summary>The title on its own plate beside a window, on at most <see cref="ShortTitleLines"/> lines.</summary>
         public TextMeshPro ShortTitle => shortTitle;
@@ -351,13 +356,19 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private static (int Lines, float Width, bool Faded) LayName(TextMeshPro name, float width, int lines)
         {
-            name.overflowMode = TextOverflowModes.Ellipsis;
             var (laid, widest) = GlazeText.Lay(name, width, lines);
             // Truncated, not overflowing: a whole last line can overflow its box by its descenders and lose nothing.
             for (var more = lines + 1; name.isTextTruncated && more <= MostTitleLines; more++)
                 (laid, widest) = GlazeText.Lay(name, width, more);
             if (!name.isTextTruncated) return (laid, widest, false);
-            name.overflowMode = TextOverflowModes.Truncate;
+            // The words that fit whole, to the last word break before where the ellipsis would stand; TextMeshPro's own cut
+            // stops inside a word ("after ev", F213).
+            var info = name.textInfo;
+            var cut = name.text.Length;
+            for (var index = info.characterCount - 1; index >= 0; index--)
+                if (info.characterInfo[index].character == (char)0x2026) { cut = info.characterInfo[index].index; break; }
+            var space = name.text.LastIndexOf(' ', Mathf.Clamp(cut, 0, name.text.Length - 1));
+            name.text = name.text.Substring(0, space > 0 ? space : Mathf.Max(1, cut)).TrimEnd();
             (laid, widest) = GlazeText.Lay(name, width, Mathf.Max(lines, MostTitleLines));
             return (laid, widest, true);
         }

@@ -415,19 +415,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (isName && view.Label.NameFaded)
                     {
                         var info = text.textInfo;
-                        var last = -1;
-                        for (var index = info.characterCount - 1; index >= 0; index--)
-                            if (info.characterInfo[index].isVisible) { last = index; break; }
-                        var drawnText = last < 0 ? "" : text.text.Substring(0, info.characterInfo[last].index + 1);
-                        var next = last < 0 ? -1 : info.characterInfo[last].index + 1;
+                        var whole = LabelText.ForTextMeshPro(view.Label.Name);
+                        var drawnText = text.text;
                         if (name != LongNameScene)
-                            failures.Add(name + ": " + view.WorkstreamId + "'s name \"" + text.text + "\" is over four lines and fades, in a fixture state");
-                        else if (next >= text.text.Length || !char.IsWhiteSpace(text.text[next]))
-                            failures.Add(name + ": the long name's last drawn line \"" + drawnText + "\" stops inside a word");
-                        else if (info.lineCount > CharacterLabelView.MostTitleLines || drawnText.Contains("…"))
-                            failures.Add(name + ": the long name is drawn on " + info.lineCount + " lines or with an ellipsis");
+                            failures.Add(name + ": " + view.WorkstreamId + "'s name \"" + whole + "\" is over " + CharacterLabelView.MostTitleLines + " lines and fades, in a fixture state");
+                        else if (!whole.StartsWith(drawnText, StringComparison.Ordinal) || drawnText.Length >= whole.Length || !char.IsWhiteSpace(whole[drawnText.Length]))
+                            failures.Add(name + ": the long name's drawn words \"" + drawnText + "\" do not stop at a word break of \"" + whole + "\"");
+                        else if (info.lineCount > CharacterLabelView.MostTitleLines || text.isTextTruncated || drawnText.Contains("…"))
+                            failures.Add(name + ": the long name is drawn on " + info.lineCount + " lines, or cut, or with an ellipsis");
                         else
-                            Debug.Log("Halcyonic: " + name + ": the name over four lines, \"" + text.text + "\", stops at \"" + drawnText
+                            Debug.Log("Halcyonic: " + name + ": the name over " + CharacterLabelView.MostTitleLines + " lines, \"" + whole + "\", stops at \"" + drawnText
                                 + "\" on " + info.lineCount + " lines, its tail faded.");
                         continue;
                     }
