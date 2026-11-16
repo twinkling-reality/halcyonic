@@ -251,6 +251,68 @@ namespace Halcyonic.XR.Workspace.Editor
                         + GlazeChecks.Degrees(Mathf.Abs((atTenth ?? start) - start)) + " in 0.1 s, keeping up from "
                         + (aside is float at ? at.ToString("0.00", CultureInfo.InvariantCulture) + " s" : "past 1.2 s") + ", at most " + largest.ToString("0.00", CultureInfo.InvariantCulture) + " in a frame, still from 1 s.");
                 }
+                // Pointed at (AUDIT 18:45Z, AUDIT3's MUST): beside the film's sentence needing the person, the key grows under the pointer, and the
+                // place must not slide away from the finger. Pointing from 0.1 s to 0.7 s, its turn held within 0.01 degrees throughout, the key's
+                // gap to the tag's plate 1.5 degrees or more while pointed, and frames 0.5 s apart while pointed.
+                {
+                    foreach (var (view, index) in views.Select((view, index) => (view, index)))
+                    {
+                        view.Show(Shown(index, needs: true));
+                        view.PlaceShelfLabel(eyes);
+                    }
+                    SettlePage(holder, views, button);
+                    var clock = 0f;
+                    button.Clock = () => clock;
+                    place.SetPositionAndRotation(spot.position, spot.rotation);
+                    var still = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
+                    turned = still;
+                    speed = 0f;
+                    var drift = 0f;
+                    var leastGap = float.PositiveInfinity;
+                    var frames = fps * 6 / 5;
+                    for (var frame = 1; frame <= frames; frame++)
+                    {
+                        var at = frame / (float)fps;
+                        clock = at;
+                        button.LookForRender = at >= 0.1f && at < 0.7f ? RoomButtonLook.Pointed : (RoomButtonLook?)null;
+                        foreach (var view in views) view.AdvanceForRender(1f / fps);
+                        place.SetPositionAndRotation(spot.position, spot.rotation);
+                        button.Draw();
+                        WorkspaceRender.ForceMeshes(holder);
+                        var clear = RoomNewProjectPlace.ClearTurn(place, button, holder.transform, eyes);
+                        turned = RoomNewProjectPlace.Eased(turned, clear, ref speed, 1f / fps);
+                        drift = Mathf.Max(drift, Mathf.Abs(turned - still));
+                        RoomNewProjectPlace.Turn(place, eyes, turned);
+                        if (button.LookForRender != null)
+                        {
+                            WorkspaceRender.ForceMeshes(holder);
+                            var keyParts = button.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
+                                .Concat(button.Glyph.GetComponentsInChildren<Renderer>(false))
+                                .Concat(button.GetComponentsInChildren<MeshRenderer>(false).Where(part => part.name == "Halo and chip").Cast<Renderer>())
+                                .Where(part => part != null && part.enabled).ToList();
+                            foreach (var view in views)
+                            {
+                                var tag = view.GetComponent<RoomNameTag>()?.Tag;
+                                if (tag == null || keyParts.Count == 0) continue;
+                                var plate = tag.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
+                                    .Concat(tag.GetComponentsInChildren<Halcyonic.XR.UI.RoomSurface>(false).Select(each => (Renderer)each.Glass))
+                                    .Where(part => part != null && part.enabled).ToList();
+                                leastGap = Mathf.Min(leastGap, GlazeChecks.Of("the tag", eyes, plate).Apart(GlazeChecks.Of("New Project's key", eyes, keyParts)));
+                            }
+                        }
+                        if (frame == Mathf.RoundToInt(0.15f * fps) || frame == Mathf.RoundToInt(0.65f * fps))
+                        {
+                            var image = WorkspaceRender.Render(camera, texture);
+                            File.WriteAllBytes(Path.Combine(folder, "page-film-pointed-" + at.ToString("0.00", CultureInfo.InvariantCulture) + "s.png"), image.EncodeToPNG());
+                            UnityEngine.Object.DestroyImmediate(image);
+                        }
+                    }
+                    button.LookForRender = null;
+                    if (drift > 0.01f) failures.Add("New Project's place slides " + drift.ToString("0.00", CultureInfo.InvariantCulture) + " degrees while pointed at or let go, over 0.01, at text scale " + scale);
+                    if (leastGap < NewProjectApartDegrees) failures.Add("New Project's key, pointed at, stands " + GlazeChecks.Degrees(leastGap) + " degrees from the tag's plate, under " + GlazeChecks.Degrees(NewProjectApartDegrees) + ", at text scale " + scale);
+                    Debug.Log("Halcyonic: agent shelf: at text scale " + scale + ", New Project's place pointed at and let go beside the film's sentence needing the person: it moves at most "
+                        + drift.ToString("0.000", CultureInfo.InvariantCulture) + " degrees, its key at least " + (float.IsPositiveInfinity(leastGap) ? "unmeasured" : GlazeChecks.Degrees(leastGap) + " degrees") + " from the tag's plate.");
+                }
             }
             catch (Exception error) { failures.Add(error.ToString()); }
             finally
