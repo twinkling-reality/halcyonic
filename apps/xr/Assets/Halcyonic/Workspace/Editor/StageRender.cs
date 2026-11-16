@@ -98,6 +98,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The least gap between neighbouring drawn tags that reads as two plates on Quest 3, in degrees (AUDIT's 16:46Z).</summary>
         private const float NeighbourTagsApartDegrees = 0.5f;
 
+        /// <summary>The least dark gap between New Project's glass key and a tag's plate, so the two read as two plates, not one bar (AUDIT 18:36Z).</summary>
+        private const float NewProjectApartDegrees = 1.5f;
+
         private const string LongShelfName = "A page that greets each visitor by name and counts their visits!";
 
         /// <summary>
@@ -348,7 +351,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (first > 0)
                 {
                     var parts = newProject == null ? new List<Renderer>() : newProject.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetComponent<Renderer>())
-                        .Concat(newProject.Glyph.GetComponentsInChildren<Renderer>(false)).Where(part => part != null && part.enabled).ToList();
+                        .Concat(newProject.Glyph.GetComponentsInChildren<Renderer>(false))
+                        // And its glass key, the soft slab behind its glyph and words, at its drawn quad (AUDIT 18:36Z: the key, not the words, met the tag).
+                        .Concat(newProject.GetComponentsInChildren<MeshRenderer>(false).Where(part => part.name == "Halo and chip").Cast<Renderer>())
+                        .Where(part => part != null && part.enabled).ToList();
                     if (parts.Count == 0) failures.Add("New Project's place draws no words or glyph beside the shelf page, at text scale " + scale);
                     else
                     {
@@ -395,7 +401,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         var apart = tags[index].Apart(place);
                         leastNewProject = Mathf.Min(leastNewProject, apart);
-                        if (apart < NeighbourTagsApartDegrees) failures.Add("place " + index + "'s drawn tag meets New Project's place, " + GlazeChecks.Degrees(apart) + " degrees apart, at text scale " + scale);
+                        // Two plates read as two only with a dark gap of a degree and a half between New Project's key and the tag's plate (AUDIT 18:36Z).
+                        if (apart < NewProjectApartDegrees) failures.Add("place " + index + "'s drawn tag stands " + GlazeChecks.Degrees(apart) + " degrees from New Project's key, under " + GlazeChecks.Degrees(NewProjectApartDegrees) + ", at text scale " + scale);
                     }
                     for (var other = 0; other < capacity; other++)
                     {
