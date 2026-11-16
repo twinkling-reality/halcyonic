@@ -590,22 +590,30 @@ export function openLand(
     // A smooth warp from sums of sines at unrelated angles (a noise on a square grid would crease along its cells).
     float warp = 0.5 + 0.22 * sin(p.x * 1.7 + p.y * 0.6) + 0.18 * sin(p.y * 2.3 - p.x * 1.1 + 1.3)
       + 0.1 * sin(p.x * 4.1 + p.y * 3.3 + 0.7);
-    float phase1 = ra * 40.0 + 2.6 * sin(rc * 5.0 + ra * 1.2) + 1.3 * sin(rc * 11.0 - ra * 2.1) + 6.0 * warp;
-    float crisp = (1.0 - smoothstep(0.7, 2.0, footprint * 58.0)) * (1.0 - smoothstep(1.0, 7.0, length(p)));
+    // Spacing that drifts between about 13 and 19 cm across the sand, and two fields of ripples at different
+    // spacings blended by a slow mask: where they part, a crest forks or dies out, as real ripples do.
+    float drift = ra * 40.0 + 9.0 * sin(ra * 1.1 + rc * 0.5) + 2.6 * sin(rc * 5.0 + ra * 1.2) + 1.3 * sin(rc * 11.0 - ra * 2.1) + 6.0 * warp;
+    float other = ra * 53.0 + 6.0 * sin(ra * 0.9 - rc * 0.7 + 2.0) + 2.2 * sin(rc * 6.1 - ra * 0.8) + 5.0 * warp;
+    float blend = smoothstep(0.25, 0.75, 0.5 + 0.3 * sin(rc * 4.6 + ra * 2.1 + 1.0) + 0.2 * sin(ra * 5.3 - rc * 3.7));
+    float phase1 = mix(drift, other, blend);
+    float crisp = (1.0 - smoothstep(0.7, 2.0, footprint * 66.0)) * (1.0 - smoothstep(1.0, 7.0, length(p)));
     // A ripple's face: a long slope lit as it rises into the wind, then a sharp crest and a short steep side in
     // shade, as wind-blown sand lies (never a smooth wave).
     float s1 = fract(phase1 / 6.2832);
     // The crest's drop about two pixels wide: narrower would alias, and an aliased crest draws as straight lines
     // fanning across the sand.
-    float w1 = clamp(footprint * 58.0 / 6.2832 * 2.2, 0.03, 0.35);
+    float w1 = clamp(footprint * 66.0 / 6.2832 * 2.2, 0.03, 0.35);
     // One continuous profile round the whole period: up the lit face, a sharp drop at the crest, then a short rise in
     // shade back to where the next face begins (so there is one line per crest, never two).
     float lee1 = mix(-0.9, -0.55, clamp((s1 - 0.78) / 0.22, 0.0, 1.0));
     float face1 = mix(-0.55 + 1.3 * s1 / 0.78, lee1, smoothstep(0.78 - w1, 0.78 + w1, s1));
+    // The lit windward face brighter and the short lee face darker, as the low sun shows them.
+    face1 = face1 > 0.0 ? face1 * 1.25 : face1 * 1.15;
     // Each ripple stronger here and fainter there, so crests fade out and come back as real ones do.
     float strength1 = 0.5 + 0.5 * (0.5 + 0.5 * sin(warp * 9.0 + ra * 0.9 + rc * 0.4));
     float facingSun = 0.55 + 0.45 * sunAlong;
-    outgoingLight *= 1.0 + crisp * 0.24 * face1 * strength1 * facingSun;
+    outgoingLight *= 1.0 + crisp * 0.26 * face1 * strength1 * facingSun;
+    float litFace = crisp > 0.0 ? smoothstep(0.1, 0.5, face1) : 1.0;
     // Long faint streaks the wind leaves farther off, where single ripples are too fine to draw.
     float streak = sin(ra * 3.1 + 2.0 * sin(rc * 0.35)) * (1.0 - smoothstep(0.6, 1.6, footprint * 3.1));
     outgoingLight *= 1.0 + 0.05 * streak * smoothstep(5.0, 14.0, length(p)) * (1.0 - smoothstep(30.0, 60.0, length(p)));
@@ -669,7 +677,7 @@ export function openLand(
     vec2 inCell = fract(gp) - 0.5;
     float round1 = 1.0 - smoothstep(0.05, 0.14, length(inCell));
     float glintNear = 1.0 - smoothstep(0.3, 0.8, footprint * 70.0);
-    outgoingLight += sandSheen * step(0.993, pick) * step(0.5, seen) * round1 * glintNear * pow(sunward, 2.0) * 1.2;
+    outgoingLight += sandSheen * step(0.993, pick) * step(0.5, seen) * round1 * glintNear * pow(sunward, 2.0) * 1.2 * litFace;
   }
   #include <opaque_fragment>`,
       );
