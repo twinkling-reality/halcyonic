@@ -75,6 +75,10 @@ colours into files, and to copy the play copy into `public/`. The files were rea
 - On `iwsdk-vr` the task works in a copy (ADR 0045). In two runs out of two, one approval for Claude Agent's `Read`
   tool was not answered by the host, and the turn waited for a person until the probe interrupted it. The answers
   were unread: the file route reads the project's folder, not the task's copy.
+- A third `iwsdk-vr` run printed each named path's class only: the request left for a person was complete and named
+  one path, a read of an image in the run's own temporary folder (`claude-sandbox-<key>/tmp` in the data folder). The
+  host answers a read only inside the task's copy, the starter's shared files or a declared original, so a frame the
+  agent writes to its temporary folder and then looks at reaches the person.
 - The colours were drawn at random for each run, so a matching answer means the model saw the picture, not its name.
 - Codex was not run: the probe refuses a model served on this Mac, and the product's own choice prefers those.
 
@@ -88,6 +92,5 @@ colours into files, and to copy the play copy into `public/`. The files were rea
 2. EXIF make, model or date in a photo: only GPS was written.
 3. Files from a real phone or glasses.
 4. Why `sips` conversions depend on the working folder under the profile.
-5. Why the host leaves Claude Agent's `Read` for a person in a VR app's task copy: which path the request named, and
-   whether it was an image.
+5. Why the agent put its frame in its temporary folder on `iwsdk-vr` but not on `world`.
 6. Codex with the media.
