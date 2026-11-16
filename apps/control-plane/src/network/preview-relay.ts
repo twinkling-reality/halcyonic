@@ -4,7 +4,7 @@ import { connect } from 'node:net';
 import { join } from 'node:path';
 import { Transform } from 'node:stream';
 import { PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST } from '@halcyonic/contracts';
-import type { Projection } from '@halcyonic/domain';
+import { checkServable, type Projection } from '@halcyonic/domain';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
 import { errorBody } from '../http/server.ts';
@@ -13,8 +13,9 @@ import { errorBody } from '../http/server.ts';
  * A project's preview, relayed to a paired headset over the network listener (ADR 0052), so the
  * person sees the app they made in the headset's browser with no cable: the headset's app answers its
  * browser on its own loopback address and asks here for each file. Only GET and HEAD, only for a preview
- * that serves the project's latest check, which passed and recorded that every agent's reads were
- * confined to the project's folder (`reads_confined`, ADR 0041), and only from that preview's own port on
+ * that serves the project's latest check, which may be served (`checkServable`: it passed, or only whether
+ * the page draws its own look is not known, as the laptop's preview and play allow) and recorded that
+ * every agent's reads were confined to the project's folder (`reads_confined`, ADR 0041), and only from that preview's own port on
  * 127.0.0.1: nothing else on the Mac is reached.
  */
 
@@ -46,7 +47,7 @@ export function confinedPreviewTarget(
   const check = projection.latestCheck(projectId);
   if (check === undefined || check.check_id !== preview.check_id)
     return refuse('preview_not_latest', 'The preview serves a copy that is not the latest check.');
-  if (!check.findings.passed)
+  if (!checkServable(check.findings))
     return refuse('preview_not_passed', 'The check the preview serves did not pass.');
   if (check.findings.reads_confined !== true)
     return refuse(

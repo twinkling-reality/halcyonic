@@ -220,6 +220,27 @@ describe('opening a preview on the headset: only a checked copy whose agent read
     );
   });
 
+  test('a Partly Checked copy opens as it plays on the laptop, a failed one never (CARBON A3-19)', async (t) => {
+    const port = await listen(t);
+    const partly = { passed: false, verdict: 'not_known' } as const;
+    const gate = await confinedPreview(
+      PROJECT,
+      journal({ port, findings: partly }),
+      dataDir(t, port),
+      only(port),
+    );
+    assert.equal(gate.ok, true, JSON.stringify(gate));
+    await refused(
+      confinedPreview(
+        PROJECT,
+        journal({ port, findings: { ...partly, verdict: 'failed' } }),
+        dataDir(t, port),
+        only(port),
+      ),
+      /did not pass/,
+    );
+  });
+
   test("a check whose agent's reads were not confined is refused", async (t) => {
     const port = await listen(t);
     await refused(

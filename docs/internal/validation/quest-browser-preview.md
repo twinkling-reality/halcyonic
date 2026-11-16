@@ -22,7 +22,8 @@ From the control plane's journal (`GET /api/events`, every page, each request se
 server proves it holds the access token, as `pnpm demo` does; the token is never printed):
 
 - the project has a preview running, and it serves the project's latest check;
-- that check passed, and recorded `reads_confined: true`;
+- that check passed, or is servable as the laptop's preview is (`checkServable`: only whether the page draws its own
+  look is not known), and recorded `reads_confined: true`;
 - the preview's port is in `PREVIEW_PORT_FIRST` to `PREVIEW_PORT_LAST` (47930 to 47939).
 
 On the Mac:

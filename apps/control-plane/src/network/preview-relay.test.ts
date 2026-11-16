@@ -16,7 +16,9 @@ const CHECK = '01920000-0000-7000-8000-0000000000c1';
 /** The two reads the gate makes of the projection, as a project with this preview and check. */
 function projectionWith(
   preview: { check_id: string; port: number } | undefined,
-  check: { check_id: string; passed: boolean; reads_confined: boolean } | undefined,
+  check:
+    | { check_id: string; passed: boolean; reads_confined: boolean; verdict?: string }
+    | undefined,
 ): Projection {
   return {
     preview: () => preview,
@@ -25,7 +27,11 @@ function projectionWith(
         ? undefined
         : {
             check_id: check.check_id,
-            findings: { passed: check.passed, reads_confined: check.reads_confined },
+            findings: {
+              passed: check.passed,
+              reads_confined: check.reads_confined,
+              ...(check.verdict === undefined ? {} : { verdict: check.verdict }),
+            },
           },
   } as unknown as Projection;
 }
@@ -101,6 +107,28 @@ describe('which preview reaches a paired headset (ADR 0052)', () => {
       ),
       'preview_not_running',
     );
+  });
+
+  test('a Partly Checked preview reaches the headset as it plays on the laptop, a failed one never (CARBON A3-19)', (t) => {
+    const good = { check_id: CHECK, port: 47931 };
+    const dir = dataDirWith(t, { pid: 1, port: 47931, check_id: CHECK });
+    const partly = { check_id: CHECK, passed: false, verdict: 'not_known', reads_confined: true };
+    assert.deepEqual(confinedPreviewTarget(projectionWith(good, partly), dir, PROJECT), {
+      ok: true,
+      port: 47931,
+    });
+    const failed = confinedPreviewTarget(
+      projectionWith(good, { ...partly, verdict: 'failed' }),
+      dir,
+      PROJECT,
+    );
+    assert.equal(failed.ok ? 'ok' : failed.code, 'preview_not_passed');
+    const unconfined = confinedPreviewTarget(
+      projectionWith(good, { ...partly, reads_confined: false }),
+      dir,
+      PROJECT,
+    );
+    assert.equal(unconfined.ok ? 'ok' : unconfined.code, 'preview_not_confined');
   });
 });
 

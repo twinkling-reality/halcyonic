@@ -21,7 +21,8 @@ preview's port and nothing else on the Mac.
 - **The Mac relays one preview's files to a paired device.** The network listener serves
   `GET` and `HEAD /api/projects/:project_id/preview/...` to a paired device's credential only (not on
   loopback). Each request is gated (`confinedPreviewTarget`): the project's preview runs, serves the
-  latest check, which passed and recorded `reads_confined: true`, on a preview port, and the host's
+  latest check, which passed (or, since 2026-11-16, is servable as the laptop's preview is: only whether the page
+  draws its own look is not known, `checkServable`) and recorded `reads_confined: true`, on a preview port, and the host's
   own record of its server names that port and check. Refused, it answers 409 with a code
   (`preview_not_running`, `preview_not_latest`, `preview_not_passed`, `preview_not_confined`). Allowed,
   it asks `127.0.0.1:<that port>` alone, passing only `Accept`, `Accept-Language`, `Range`,

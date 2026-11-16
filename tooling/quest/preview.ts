@@ -1,6 +1,7 @@
 /**
  * Which preview the device tool may open on the headset (M1.6a): only the host's own server of a
- * project's latest check, when that check passed and recorded that every agent in the project ran
+ * project's latest check, when that check may be served (`checkServable`: it passed, or only whether
+ * the page draws its own look is not known, as the laptop's preview allows) and recorded that every agent in the project ran
  * with its reads confined to the project's folder (`reads_confined`, ADR 0041). The journal says
  * which check the preview serves; the Mac says the server on its port is the host's and serves that
  * copy. The headset then opens it by IP, `http://127.0.0.1:<port>/`, never by `localhost`, which
@@ -27,7 +28,7 @@ import {
   PREVIEW_PORT_LAST,
   type StoredEvent,
 } from '../../packages/contracts/src/index.ts';
-import { Projection } from '../../packages/domain/src/index.ts';
+import { checkServable, Projection } from '../../packages/domain/src/index.ts';
 
 export type Gate =
   | { readonly ok: true; readonly port: number; readonly checkId: string; readonly url: string }
@@ -65,7 +66,7 @@ export async function confinedPreview(
   const check = projection.latestCheck(projectId);
   if (check === undefined || check.check_id !== preview.check_id)
     return refuse('the preview serves a copy that is not the latest check.');
-  if (!check.findings.passed) return refuse('the check it serves did not pass.');
+  if (!checkServable(check.findings)) return refuse('the check it serves did not pass.');
   if (check.findings.reads_confined !== true)
     return refuse("the agents' reads were not confined to the project's folder.");
   const port = preview.port;
