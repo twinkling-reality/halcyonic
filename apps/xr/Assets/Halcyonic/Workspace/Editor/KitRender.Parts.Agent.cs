@@ -36,7 +36,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 "44-agent-plain" => new[] { "Change", "Back" },
                 "44-agent-models" => new[] { "Glimmer 30B", "Ember 7B", "Tide 12B", "Back" },
-                "44-agent-models-more" => new[] { "Glimmer 30B", "Ember 7B", "Tide 12B", "Next Choices, 1 of 2", "Back" },
+                "44-agent-models-more" => new[] { "Glimmer 30B", "Ember 7B", "Tide 12B", "Next Choices", "Back" },
                 _ => new[] { "Ask Me First", "Don't Ask Me", "Change", "Back" },
             };
             Require(bar.Column.Select(action => action.Words).SequenceEqual(expected), "the page offers " + string.Join(", ", bar.Column.Select(action => action.Words)));
