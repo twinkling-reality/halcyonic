@@ -16,7 +16,7 @@ import {
   Vector2,
 } from 'three';
 import { pageMusic, type Player } from './instruments.js';
-import { isBlack, roundColumn, swell } from './score.js';
+import { isBlack, keyDown, RING_SECONDS, ringRadius, ringStrength, roundColumn, swell } from './score.js';
 
 /**
  * Light for apps of music and light: soft glowing shapes, sparks, and a keyboard of light. Each kind is ONE instanced
@@ -237,6 +237,8 @@ export function glows(
   mesh.instanceColor.setUsage(DynamicDrawUsage);
   // Positions change every frame: the mesh is never culled by a stale bound.
   mesh.frustumCulled = false;
+  // Drawn over what is near them: after everything else that is see-through, the keys of light included.
+  if (options.over === true) mesh.renderOrder = OVER;
   mesh.count = 0;
   const object = new Group();
   object.add(mesh);
@@ -428,6 +430,10 @@ export function landing(key: KeySpot): number {
   return key.length * (key.black ? LANDS.black : LANDS.white);
 }
 
+/** When the keys of light are drawn among the see-through things, and when the light drawn over what is near it is. */
+const KEYS = 0.5;
+const OVER = 1;
+
 /** `landing`'s shares of a key's length. */
 const LANDS = { white: 0.14, black: 0.5 };
 
@@ -451,7 +457,9 @@ export interface LightKeys {
 const KEY_VERTEX = /* glsl */ `
   uniform float height;
   uniform float curve;
+  uniform float dip;
   attribute vec4 tone;
+  attribute float press;
   attribute vec4 lit;
   attribute vec3 near;
   varying vec3 vLocal;
@@ -477,6 +485,8 @@ const KEY_VERTEX = /* glsl */ `
     // instead of parting toward the back.
     vec3 shaped = position;
     if (curve > 0.0) shaped.x *= 1.0 + (0.5 - position.z) * size.z / curve;
+    // Played, the key goes down as a real key does: turning on its back edge, its front dipping by dip metres.
+    shaped.y -= press * dip * (position.z + 0.5);
     gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(shaped, 1.0);
   }
 `;
@@ -522,7 +532,9 @@ const KEY_FRAGMENT = /* glsl */ `
     c += hot * spread * (0.35 + face) * 3.4 + vLit.rgb * line * 2.0;
     // A neighbour's light caught on this key's edges.
     c += vNear * line;
-    gl_FragColor = vec4(c * dim, 1.0);
+    // Toward the keyboard's ends the keys grow clear as well as dim, so it ends in the place's own light, never in a
+    // dark block.
+    gl_FragColor = vec4(c * dim, vTone.a);
     #include <colorspace_fragment>
     gl_FragColor.rgb += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
   }
@@ -535,8 +547,9 @@ const KEY_FRAGMENT = /* glsl */ `
  * along x, its front edge along z = 0. Each key is glass lit from within with bright edges and a sheen where it is
  * seen at a glancing angle: the white keys pale in `idle`, the black keys smoky and darker, resting on them short of
  * their back edge; on a curve each key widens toward its back, so the keyboard is one piece with no gaps opening
- * behind. A played key fills with its note's light from where the note lands along its whole length, and its
- * neighbours' edges catch it. Two meshes for the keys, and with `glass` one for the shelf they stand on.
+ * behind. A played key goes down, turning on its back edge as a piano's does, and fills with its note's light from
+ * where the note lands along its whole length, and its neighbours' edges catch it. Toward both ends the keys grow dim
+ * and clear, so the keyboard ends in the place's own light. Two meshes for the keys, and with `glass` one for the shelf they stand on.
  */
 export function lightKeys(
   low: number,
@@ -589,7 +602,8 @@ export function lightKeys(
     });
   }
   const byKey = new Map(spots.map((spot, i) => [spot.midi, i]));
-  // The glass fades into the place's own dark (`dark`) toward both ends of the keyboard, so it has no cut end.
+  // The glass fades into the place's own dark (`dark`) and grows clear toward both ends of the keyboard, so it has no
+  // cut end and no dark block.
   const dark = options.dark ?? new Color('#070B1C');
   const ends = (key: KeySpot) => {
     const i = spots.indexOf(key);
@@ -605,7 +619,7 @@ export function lightKeys(
   const blackTall = sunk + raised;
   const whiteMiddle = -depth / 2;
   const blackMiddle = (raised - sunk) / 2;
-  const make = (keys: KeySpot[], tall: number, middle: number, base: Color, edgeColour: Color, land: number) => {
+  const make = (keys: KeySpot[], tall: number, middle: number, base: Color, edgeColour: Color, land: number, dip: number) => {
     const n = Math.max(1, keys.length);
     const geometry = new BoxGeometry(1, tall, 1);
     const tones = new Float32Array(n * 4);
@@ -621,15 +635,21 @@ export function lightKeys(
     const near = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
     near.setUsage(DynamicDrawUsage);
     geometry.setAttribute('near', near);
+    const press = new InstancedBufferAttribute(new Float32Array(n), 1);
+    press.setUsage(DynamicDrawUsage);
+    geometry.setAttribute('press', press);
     const material = new ShaderMaterial({
-      uniforms: { height: { value: tall }, curve: { value: arc ?? 0 }, land: { value: land }, edgeColour: { value: edgeColour }, dim: { value: 1 } },
+      uniforms: { height: { value: tall }, curve: { value: arc ?? 0 }, dip: { value: dip }, land: { value: land }, edgeColour: { value: edgeColour }, dim: { value: 1 } },
       vertexShader: KEY_VERTEX,
       fragmentShader: KEY_FRAGMENT,
+      transparent: true,
       toneMapped: false,
     });
     const mesh = new InstancedMesh(geometry, material, n);
+    // See-through toward its ends, so drawn after the light behind it (which then shows through) and before the light
+    // drawn over it.
+    mesh.renderOrder = KEYS;
     mesh.count = keys.length;
-    mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     const m = mesh.instanceMatrix.array as Float32Array;
     keys.forEach((key, i) => {
       // Turned to face the middle: its x along the keyboard, its z from back to front.
@@ -637,18 +657,18 @@ export function lightKeys(
       const cz = key.z + (key.oz * key.length) / 2;
       m.set([key.tx * key.width, 0, key.tz * key.width, 0, 0, 1, 0, 0, -key.ox * key.length, 0, -key.oz * key.length, 0, cx, middle, cz, 1], i * 16);
     });
-    return { mesh, lit: lit.array as Float32Array, near: near.array as Float32Array, litAttribute: lit, nearAttribute: near };
+    return { mesh, lit: lit.array as Float32Array, near: near.array as Float32Array, press: press.array as Float32Array, litAttribute: lit, nearAttribute: near, pressAttribute: press };
   };
   const pale = new Color('#C4D2FF').multiplyScalar(0.75);
   const smoky = new Color('#7476C0').multiplyScalar(0.6);
-  const whiteSet = make(whiteKeys, whiteTall, whiteMiddle, idle, pale, LANDS.white);
-  const blackSet = make(blackKeys, blackTall, blackMiddle, blackIdle, smoky, LANDS.black);
+  // How far a played key's front goes down: a white key a third of its width, a little deeper than a piano's so it is
+  // seen to go down from a step away; a black key less, so it never sinks below the white keys it rests on.
+  const whiteSet = make(whiteKeys, whiteTall, whiteMiddle, idle, pale, LANDS.white, keyWidth * 0.33);
+  const blackSet = make(blackKeys, blackTall, blackMiddle, blackIdle, smoky, LANDS.black, raised * 0.9);
   const white = whiteSet.mesh;
   const black = blackSet.mesh;
   // Where each key's light is written: its set and its place in it.
-  const slots = spots.map((spot) =>
-    spot.black ? { set: blackSet, i: blackKeys.indexOf(spot), middle: blackMiddle } : { set: whiteSet, i: whiteKeys.indexOf(spot), middle: whiteMiddle },
-  );
+  const slots = spots.map((spot) => (spot.black ? { set: blackSet, i: blackKeys.indexOf(spot) } : { set: whiteSet, i: whiteKeys.indexOf(spot) }));
   // With `glass`, the keys stand on a shelf of dark glass that mirrors them and the light near it, fading with height.
   const glass = options.glass === true ? -depth - 0.002 : undefined;
   const group = new Group();
@@ -733,7 +753,7 @@ export function lightKeys(
         was[k] = amount;
       }
       for (let k = 0; k < spots.length; k++) {
-        const { set, i, middle } = slots[k] as (typeof slots)[number];
+        const { set, i } = slots[k] as (typeof slots)[number];
         const amount = Math.min(1, level[k] as number);
         const c = hue[k] as Color;
         set.lit[i * 4] = c.r * amount;
@@ -758,13 +778,13 @@ export function lightKeys(
         set.near[i * 3] = r;
         set.near[i * 3 + 1] = g;
         set.near[i * 3 + 2] = b;
-        // A played key goes down a few millimetres.
-        (set.mesh.instanceMatrix.array as Float32Array)[i * 16 + 13] = middle - 0.004 * amount;
+        // A played key is down while its light holds, and comes back up as its light dies away after it is let go.
+        set.press[i] = keyDown(amount);
       }
       for (const set of sets) {
         set.litAttribute.needsUpdate = true;
         set.nearAttribute.needsUpdate = true;
-        set.mesh.instanceMatrix.needsUpdate = true;
+        set.pressAttribute.needsUpdate = true;
       }
     },
   };
@@ -800,7 +820,8 @@ const STOPS = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0'),
  * held, a column of light rises from it, and a few sparks rise. Each note's light is coloured by where it lies in the music, low to high, moved a little by how
  * hard it is played (`colour` to choose another). `seconds` is how long a note is seen falling,
  * `fall` how far, in metres; `reach` how far off the hall answers each note with its colour, all round the person.
- * Built inside `keys.group`, so place that group.
+ * With `floor`, the floor's height in the keys' group's frame, each note's light pools on the floor under its key and
+ * a ring of it runs out across the floor from there. Built inside `keys.group`, so place that group.
  */
 export function fallingNotes(
   player: Player,
@@ -861,6 +882,10 @@ export function fallingNotes(
   // of it, and, given `floor` (the floor's height in the keys' group's frame), it pools on the floor beneath it.
   const pools = glows(480, { halo: 0.35, round: 0.25, core: 0 });
   group.add(pools.object);
+  // Given `floor`, each landing also sends a ring of its light out across the floor from under its key, so every note
+  // is seen to land on the place and not only on the keyboard: at most eight at a time.
+  const ripples = options.floor === undefined ? undefined : floorRings(RIPPLES);
+  if (ripples !== undefined) group.add(ripples.mesh);
   // The place answers: each note lights the far haze of the hall in its colour, low along the horizon where its key
   // points, to both sides and behind the person, so the music is all round them: a wide soft band of light in the
   // haze, never a disc hanging in the sky. Upright, so it stays level however the head tilts.
@@ -925,6 +950,9 @@ export function fallingNotes(
       const rise = 0.08 + 0.42 * (1 - Math.exp(-since * 4));
       blooms.add(lx, spot.y + rise / 2, lz, spot.width * 0.32, rise, colour, 0.5 * amount);
     }
+    const landed = now - start;
+    if (ripples !== undefined && options.floor !== undefined)
+      ripples.add(lx, options.floor + 0.006, lz, ringRadius(landed), colour, ringStrength(landed, note.loud));
     // A few sparks where each note lands, on the frame it lands.
     if (!Number.isNaN(previous) && start > previous && start <= now)
       motes.emit(lx, spot.y + 0.01, lz, colour, 6 + Math.round(10 * note.loud), {
@@ -971,7 +999,8 @@ export function fallingNotes(
       blooms.begin();
       flares.begin();
       pools.begin();
-      player.each(0.5, fall / speed, draw);
+      ripples?.begin();
+      player.each(RING_SECONDS, fall / speed, draw);
       echoes.begin();
       if (options.echo !== false) player.each(2, 0, echo);
       echoes.end();
@@ -981,8 +1010,96 @@ export function fallingNotes(
       blooms.end();
       flares.end();
       pools.end();
+      ripples?.end();
       motes.update(delta);
       previous = now;
+    },
+  };
+}
+
+/** How many landings' rings are drawn at once at most. */
+const RIPPLES = 8;
+
+const RING_VERTEX = /* glsl */ `
+  attribute vec4 ring;
+  attribute vec3 hue;
+  varying vec2 vAt;
+  varying vec4 vRing;
+  varying vec3 vHue;
+  void main() {
+    // ring: its middle's x and z, its square's half-width, its floor's y. A square lying on the floor, as wide as the
+    // ring and its glow; vAt in metres from the ring's middle.
+    vAt = position.xz * ring.z;
+    vRing = ring;
+    vHue = hue;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(ring.x + vAt.x, ring.w, ring.y + vAt.y, 1.0);
+  }
+`;
+
+const RING_FRAGMENT = /* glsl */ `
+  uniform float width;
+  varying vec2 vAt;
+  varying vec4 vRing;
+  varying vec3 vHue;
+  void main() {
+    // A fine bright line on the ring with a softer glow either side of it: one even circle, never pieces.
+    float d = abs(length(vAt) - (vRing.z - width * 12.0));
+    // The glow ends well inside the square drawn for it, so no edge of the square ever shows.
+    float a = exp(-(d * d) / (width * width)) + 0.35 * exp(-d / (width * 3.0));
+    a *= 1.0 - smoothstep(width * 5.0, width * 11.0, d);
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(vHue * a, 1.0);
+    #include <colorspace_fragment>
+  }
+`;
+
+/** Rings of light lying on a floor, at most `count` a frame, in one draw call: what `fallingNotes` sends from a landing. */
+function floorRings(count: number) {
+  const geometry = new PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
+  const ring = new InstancedBufferAttribute(new Float32Array(count * 4), 4);
+  ring.setUsage(DynamicDrawUsage);
+  const hue = new InstancedBufferAttribute(new Float32Array(count * 3), 3);
+  hue.setUsage(DynamicDrawUsage);
+  geometry.setAttribute('ring', ring);
+  geometry.setAttribute('hue', hue);
+  const width = 0.025;
+  const material = new ShaderMaterial({
+    uniforms: { width: { value: width } },
+    vertexShader: RING_VERTEX,
+    fragmentShader: RING_FRAGMENT,
+    transparent: true,
+    blending: AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const mesh = new InstancedMesh(geometry, material, count);
+  mesh.frustumCulled = false;
+  mesh.count = 0;
+  const rings = ring.array as Float32Array;
+  const hues = hue.array as Float32Array;
+  let n = 0;
+  return {
+    mesh,
+    begin() {
+      n = 0;
+    },
+    /** A ring of `radius` metres round (x, y, z), lying level, in `colour` at `strength`. */
+    add(x: number, y: number, z: number, radius: number, colour: Color, strength: number) {
+      if (n >= count || strength <= 0) return;
+      // Its square reaches past the ring by its glow.
+      rings[n * 4] = x;
+      rings[n * 4 + 1] = z;
+      rings[n * 4 + 2] = radius + width * 12;
+      rings[n * 4 + 3] = y;
+      hues[n * 3] = colour.r * strength;
+      hues[n * 3 + 1] = colour.g * strength;
+      hues[n * 3 + 2] = colour.b * strength;
+      n += 1;
+    },
+    end() {
+      mesh.count = n;
+      ring.needsUpdate = true;
+      hue.needsUpdate = true;
     },
   };
 }

@@ -6,8 +6,12 @@ import {
   eachHeard,
   isBlack,
   join,
+  keyDown,
   occurrences,
+  RING_SECONDS,
   range,
+  ringRadius,
+  ringStrength,
   ringsUntil,
   roundColumn,
   type Score,
@@ -401,5 +405,31 @@ describe("Morning Mood's opening, for a moment on camera (SHOW, 2026-11-16)", ()
     assert.equal(tune.at(-1)?.pitch, pitch('E4'));
     // The third bar reaches up to C sharp, twice.
     assert.equal(tune.filter((note) => note.pitch === pitch('C#5')).length, 2);
+  });
+});
+
+describe('a struck key and its landing on the floor (SHOW, 2026-11-16)', () => {
+  test('a key is fully down while its note is struck or held, and comes up only as its light dies away', () => {
+    assert.equal(keyDown(0), 0);
+    // Struck (about 1) and held (the low glow of a held note, about 0.25): fully down.
+    assert.equal(keyDown(1), 1);
+    assert.equal(keyDown(0.25), 1);
+    // Let go, its light dying away: coming up, steadily, all the way.
+    assert.ok(keyDown(0.11) > 0.4 && keyDown(0.11) < 0.6);
+    for (let lit = 0; lit < 0.22; lit += 0.02)
+      assert.ok(keyDown(lit + 0.02) > keyDown(lit), String(lit));
+  });
+
+  test('a landing sends one ring out across the floor that grows, fades and is gone, louder notes brighter', () => {
+    assert.equal(ringStrength(-0.01, 0.5), 0);
+    assert.equal(ringStrength(RING_SECONDS, 0.5), 0);
+    assert.ok(ringRadius(0) > 0.05 && ringRadius(0) < 0.15);
+    for (let t = 0.1; t < RING_SECONDS; t += 0.1) {
+      assert.ok(ringRadius(t) > ringRadius(t - 0.1), String(t));
+      assert.ok(ringStrength(t, 0.5) < ringStrength(t - 0.1, 0.5), String(t));
+    }
+    // Out past the keyboard, four metres and more, by the time it has faded nearly to nothing.
+    assert.ok(ringRadius(RING_SECONDS - 0.05) > 4 && ringStrength(RING_SECONDS - 0.05, 0.5) < 0.01);
+    assert.ok(ringStrength(0.3, 0.9) > ringStrength(0.3, 0.2));
   });
 });

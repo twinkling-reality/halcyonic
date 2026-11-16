@@ -202,3 +202,31 @@ export function swell(
   const bloom = since < 0 ? 0 : 0.5 * Math.exp(-since / 0.45) + 0.5 * Math.exp(-since / 5);
   return { built, hush, bloom };
 }
+
+/**
+ * How far down a played key is (0 up, 1 fully down) from how brightly it is lit (0 to 1): fully down while its note is
+ * struck or held, coming back up only as its light dies away after the note is let go.
+ */
+export function keyDown(lit: number): number {
+  return Math.min(1, Math.max(0, lit / 0.22));
+}
+
+/**
+ * The ring of light a landing sends out across the floor, `seconds` after the note sounds: its radius in metres,
+ * growing steadily from a hand's width, far enough that it is seen running out past the keyboard.
+ */
+export function ringRadius(seconds: number): number {
+  return 0.1 + Math.max(0, seconds) * 2.6;
+}
+
+/**
+ * How bright that ring is, `seconds` after the note sounds and `loud` (0 to 1) as it was played: brightest at the
+ * landing, louder notes brighter, fading as it runs out, 0 before the note sounds and from `RING_SECONDS` on.
+ */
+export function ringStrength(seconds: number, loud: number): number {
+  if (seconds < 0 || seconds >= RING_SECONDS) return 0;
+  return (1 - seconds / RING_SECONDS) ** 1.4 * 0.4 * (0.6 + 0.4 * loud);
+}
+
+/** How long a landing's ring runs out across the floor, in seconds. */
+export const RING_SECONDS = 1.8;

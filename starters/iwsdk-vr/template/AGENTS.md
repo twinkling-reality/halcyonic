@@ -219,25 +219,25 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   and end in those same seconds. Never a timer of your own, and never `gameTime()` for it.
 - Light is glow, never a full-screen effect: `glows(count, options)` draws soft shapes (drops, dots, discs, columns) as
   one draw call, `sparks()` rise and fade, `lightKeys(low, high, { arc })` is a keyboard of light curving round the
-  person, and `fallingNotes(player, keys)` lets each note fall onto its key from the dark overhead, the keys' light
-  spilling onto its neighbours, the rising glow and the sparks included, coloured by where each note lies in the music,
-  while the hall far off answers each note in its colour, all round the person; give `lightKeys` `{ glass: true }` and
-  the keys stand on dark glass that mirrors each key's flare and the light rising from it, not the keys themselves; give
-  `fallingNotes` `{ floor }`, the floor's height in the keys' group's own frame, and each note's light pools on the
-  floor under its key. `lightHall(player)` makes the hall itself answer, all round the person: soft columns of light
-  stand round the person, each at its own distance and width, leaning in to meet in a warm crown of light high in front
-  of them, about 55 degrees up, where a look up finds it (a fainter, upright ring beyond, and light drifting near the
-  person), two bands of warm amber light circling round them, each note's light falls down one and climbs back up it
-  (each octave runs once round the person, C ahead and rising to the right, so a chord spreads round them and a run
-  circles them) with sparks and a ring at its foot, a low note sends a ring of light out across the floor that lights
-  each column as it passes, and each note lights a point of a slowly turning galaxy overhead that grows outward with the
-  music; over the first 20 seconds it builds, dims for a held breath, then blooms (every column flares and sheds sparks,
-  a wave runs up them, the galaxy lights whole, and the bloom is heard: a soft pad swells under the music into it and
-  bells run up the chord sounding then; `{ sound: false }` for none) and settles to a steady glow; `darkHall`'s polished
-  floor mirrors it (that floor shows whatever stands below it, so put nothing there). Add its `group` to the group
-  `setupScene` returns, pass its `move` to `ambientMotion`, and give `fallingNotes` `{ echo: false }`, as the hall
-  answers in place of the far haze. Each is written afresh every frame and makes nothing new in it. Keep the place dark
-  behind them: light adds up where it overlaps.
+  person, and `fallingNotes(player, keys)` lets each note fall onto its key from the dark overhead, the key going down
+  as it is played and its light spilling onto its neighbours, the rising glow and the sparks included, coloured by where
+  each note lies in the music, while the hall far off answers each note in its colour, all round the person; give
+  `lightKeys` `{ glass: true }` and the keys stand on dark glass that mirrors each key's flare and the light rising from
+  it, not the keys themselves; give `fallingNotes` `{ floor }`, the floor's height in the keys' group's own frame, and
+  each note's light pools on the floor under its key and runs out across it as a ring. `lightHall(player)` makes the
+  hall itself answer, all round the person: soft columns of light stand round the person, each at its own distance and
+  width, leaning in to meet in a warm crown of light high in front of them, about 55 degrees up, where a look up finds
+  it (a fainter, upright ring beyond, and light drifting near the person), two bands of warm amber light circling round
+  them, each note's light falls down one and climbs back up it (each octave runs once round the person, C ahead and
+  rising to the right, so a chord spreads round them and a run circles them) with sparks and a ring at its foot, a low
+  note sends a ring of light out across the floor that lights each column as it passes, and each note lights a point of
+  a slowly turning galaxy overhead that grows outward with the music; over the first 20 seconds it builds, dims for a
+  held breath, then blooms (every column flares and sheds sparks, a wave runs up them, the galaxy lights whole, and the
+  bloom is heard: a soft pad swells under the music into it and bells run up the chord sounding then; `{ sound: false }`
+  for none) and settles to a steady glow; `darkHall`'s polished floor mirrors it (that floor shows whatever stands below
+  it, so put nothing there). Add its `group` to the group `setupScene` returns, pass its `move` to `ambientMotion`, and
+  give `fallingNotes` `{ echo: false }`, as the hall answers in place of the far haze. Each is written afresh every
+  frame and makes nothing new in it. Keep the place dark behind them: light adds up where it overlaps.
 - For light of your own, the same parts are general: `glows` with `upright: true` keeps each shape vertical however
   the head tilts (a falling drop, a rising column), `place(...)` lays a shape in any plane (light along a curve, on a
   sloping surface), `keys.spot(midi)` says where a key is and which way it faces, and `registerColour(midi, low,
@@ -463,7 +463,8 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   keyboard.add(keys.group);
   root.add(keyboard);
   // The hall answers each note all round (below), so the far haze need not.
-  ambientMotion(fallingNotes(player, keys, { from: 'around', echo: false }).move);
+  // The floor is 1.0 m under the keys: each landing pools there and runs out across it as a ring of light.
+  ambientMotion(fallingNotes(player, keys, { from: 'around', echo: false, floor: -1.0 }).move);
   // The hall all round answers each note and builds with the music to a bloom 20 seconds in.
   const around = lightHall(player);
   root.add(around.group);
