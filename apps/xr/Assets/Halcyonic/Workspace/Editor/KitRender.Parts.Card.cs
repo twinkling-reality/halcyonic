@@ -23,7 +23,7 @@ namespace Halcyonic.XR.Workspace.Editor
             : state.StartsWith("47-card-usage-easing-", System.StringComparison.Ordinal)
                 && float.TryParse(state.Substring("47-card-usage-easing-".Length), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var at) ? at : (float?)null;
 
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-result", "47-card-still", "47-card-changes", "47-card-checks", "47-card-checks-plain", "47-card-fixing", "47-card-usage", "47-card-usage-easing", "47-card-usage-easing-0", "47-card-usage-easing-0.15", "47-card-usage-easing-0.6", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-recap-long", "47-card-result", "47-card-still", "47-card-changes", "47-card-checks", "47-card-checks-plain", "47-card-fixing", "47-card-usage", "47-card-usage-easing", "47-card-usage-easing-0", "47-card-usage-easing-0.15", "47-card-usage-easing-0.6", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -168,6 +168,10 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 "47-card-recap" => new RoomCard(Theirs("Kite Run"), Theirs("Make a kite that follows my hand, and climbs when I raise it."), RoomCardHead.Project,
                     slots: new[] { new RoomSlot(RoomKind.Starter, Ours("VR Game")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Don't Ask Me")) }),
+                // A judge's own long name (JUDGE 2026-11-16 13:52Z): the title past its lines stops at a word, faded, never an ellipsis.
+                "47-card-recap-long" => new RoomCard(Theirs("A page that greets each visitor by name and counts their visits!"),
+                    Theirs("A page that greets each visitor by name and counts their visits!"), RoomCardHead.Project,
+                    slots: new[] { new RoomSlot(RoomKind.Starter, Ours("Web Page")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")), new RoomSlot(RoomKind.Level, Ours("Don't Ask Me")) }),
                 "47-card-result" => new RoomCard(Theirs("Tail"), Theirs("I added a tail that streams behind the kite."), RoomCardHead.Picture,
                     slots: new[] { new RoomSlot(RoomKind.Passed, Ours(RoomPanelCards.AllPassing)), new RoomSlot(RoomKind.ToAdd, Ours("4 Files")), new RoomSlot(RoomKind.Agent, Theirs("Glimmer 30B")) }),
                 // The same result where the person gave the task a video: its still heads the card (ADR 0066).
@@ -417,6 +421,26 @@ namespace Halcyonic.XR.Workspace.Editor
             var panelDegrees = (view.Size.y / RoomType.Units(1f) + 2f * RoomGeometry.PanelPadDp * GlazeText.Scale) / RoomGeometry.DpPerDegree;
             Debug.Log("Halcyonic: parts: " + state + (GlazeText.Scale > 1.001f ? " (Larger)" : " (Standard)") + ": its panel " + panelDegrees.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
                 + " of the slate's most " + SpatialKit.SlateMostAt(GlazeText.Scale).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " degrees.");
+            // No card's title in the person's own words ends in an ellipsis or inside a word (AUDIT 2026-11-16 13:53Z): whole, or
+            // stopped at its last whole word with its tail faded.
+            if (card.Title is LineWords named && named.AllTheirs)
+            {
+                var whole = LabelText.ForTextMeshPro(named.Text);
+                var titled = view.Shown.FirstOrDefault(label => label.text.Length >= Mathf.Min(4, whole.Length) && whole.StartsWith(label.text, StringComparison.Ordinal));
+                if (titled == null) Require(false, "the card's title \"" + named.Text + "\" is not drawn");
+                else
+                {
+                    titled.ForceMeshUpdate(true);
+                    var drawnTitle = titled.text;
+                    Require(!titled.GetParsedText().Contains("\u2026") && !titled.isTextTruncated, "the card's title \"" + titled.GetParsedText() + "\" ends in an ellipsis or is cut");
+                    if (drawnTitle.Length < whole.Length)
+                    {
+                        Require(char.IsWhiteSpace(whole[drawnTitle.Length]) && view.FadedTails.Contains(titled),
+                            "the card's title stops at \"" + drawnTitle + "\", inside a word or without its fade");
+                        Debug.Log("Halcyonic: parts: " + state + ": the title \"" + named.Text + "\" stops at \"" + drawnTitle + "\", its tail faded.");
+                    }
+                }
+            }
             if (state == "47-card-recap")
             {
                 // A card that cannot stand whole says so: a description far past its four lines is cut, and LaidWhole is false.

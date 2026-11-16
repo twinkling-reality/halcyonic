@@ -299,6 +299,12 @@ namespace Halcyonic.XR.UI
         /// <summary>The labels shown as an excerpt of outside words, their lead cut at a word (a row that opens them whole).</summary>
         public List<TextMeshPro> Excerpts { get; } = new List<TextMeshPro>();
 
+        /// <summary>
+        /// The labels whose last line stops at a word with its tail faded, never an ellipsis: a card's title in the person's own
+        /// words past its lines (AUDIT 2026-11-16 13:53Z: "A page that greets each visitor by..." on the recap, drawn). For checks.
+        /// </summary>
+        public HashSet<TMP_Text> FadedTails { get; } = new HashSet<TMP_Text>();
+
         /// <summary>How many slots' values were wider than the card and wrapped whole in a well of their own.</summary>
         public int SlotsWrapped { get; private set; }
 
@@ -408,6 +414,7 @@ namespace Halcyonic.XR.UI
             DescriptionPages = 1;
             Shown.Clear();
             Excerpts.Clear();
+            FadedTails.Clear();
             SlotsWrapped = 0;
             ReadingShown.Clear();
             Plates.Clear();
@@ -947,9 +954,10 @@ namespace Halcyonic.XR.UI
             foreach (var each in words)
             {
                 var (label, height) = Text(each.Role, each.Dp, each.LineDp, each.Colour, each.Words, left, 0f, column, each.Lines);
-                // A name of the person's own words past three lines (an idea taken as its name) shows its lead cut at a word, the
-                // ellipsis theirs; the whole is one press away where the card's model gives one.
-                if (each.Words.AllTheirs) height = Excerpt(label, each.Words, column, each.Lines, each.LineDp);
+                // A name of the person's own words past three lines (an idea taken as its name) stops at its last whole word with
+                // its tail faded, never an ellipsis (the owner's rule; AUDIT 2026-11-16 13:53Z); the whole is one press away where
+                // the card's model gives one, and the recap's body says it whole.
+                if (each.Words.AllTheirs) height = Excerpt(label, each.Words, column, each.Lines, each.LineDp, fade: true);
                 laid.Add((label, height, S(each.Before)));
                 tall += S(each.Before) + height;
             }
@@ -1485,7 +1493,7 @@ namespace Halcyonic.XR.UI
         /// Lays outside words that may run long as their lead cut at a word (<see cref="LineWords.CutToFit"/>) where they do not
         /// fit <paramref name="lines"/>, and returns the height they take. Halcyonic's own runs are never cut.
         /// </summary>
-        private float Excerpt(TextMeshPro label, LineWords words, float width, int lines, float lineDp)
+        private float Excerpt(TextMeshPro label, LineWords words, float width, int lines, float lineDp, bool fade = false)
         {
             label.ForceMeshUpdate(true);
             // On one line TMP does not wrap, so words wider than the row never overflow by its count: their width is measured too.
@@ -1506,10 +1514,13 @@ namespace Halcyonic.XR.UI
                 var whole = words.Text;
                 var space = body.LastIndexOf(' ');
                 if (body.Length < whole.Length && !char.IsWhiteSpace(whole[body.Length]) && space > 0) body = body.Substring(0, space);
-                cut = LineWords.TheirName(body.TrimEnd(' ', ',', ';', ':') + "\u2026");
+                // Faded, the words stop at their last whole word and carry no mark of ours: the fade says they go on.
+                cut = LineWords.TheirName(fade ? body.TrimEnd() : body.TrimEnd(' ', ',', ';', ':') + "\u2026");
             }
             runs.Set(cut);
+            if (fade) FadedTails.Add(label);
             var laid = KitType.Lay(label, width, lines);
+            if (fade) label.ForceMeshUpdate(true);
             Excerpts.Add(label);
             return Mathf.Max(laid.Lines, 1) * S(lineDp);
         }
@@ -1593,7 +1604,13 @@ namespace Halcyonic.XR.UI
         {
             if (!texts.TryGetValue(role, out var pool)) texts[role] = pool = new List<TextMeshPro>();
             textsUsed.TryGetValue(role, out var used);
-            if (used >= pool.Count) pool.Add(KitType.Create(transform, role + " words", role, Color.white, order, TextAlignmentOptions.TopLeft, room: true));
+            if (used >= pool.Count)
+            {
+                var made = KitType.Create(transform, role + " words", role, Color.white, order, TextAlignmentOptions.TopLeft, room: true);
+                // A faded tail is laid into the mesh each time it is made.
+                made.OnPreRenderText += info => { if (FadedTails.Contains(made)) GlazeText.FadeTail(info); };
+                pool.Add(made);
+            }
             var label = pool[used];
             textsUsed[role] = used + 1;
             label.gameObject.SetActive(true);
