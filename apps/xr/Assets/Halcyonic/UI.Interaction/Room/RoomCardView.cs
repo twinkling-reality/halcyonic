@@ -329,6 +329,12 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The description's label where it pages (<see cref="RoomCard.DescriptionPage"/>); null where it stands whole.</summary>
+        /// <summary>The page of the paged description shown, from 0.</summary>
+        public int PagedDescriptionPage { get; private set; }
+
+        /// <summary>How many lines the paged description's page shows: four, or what is left on the last page.</summary>
+        public int PagedDescriptionLines { get; private set; }
+
         public TextMeshPro? PagedDescription { get; private set; }
 
         /// <summary>The pages the description made as last shown: 1 where it does not page. The flow pages the review by it.</summary>
@@ -376,6 +382,8 @@ namespace Halcyonic.XR.UI
             rowPressesUsed = 0;
             codeUsed = false;
             PagedDescription = null;
+            PagedDescriptionLines = 0;
+            PagedDescriptionPage = 0;
             DescriptionPages = 1;
             Shown.Clear();
             Excerpts.Clear();
@@ -415,16 +423,33 @@ namespace Halcyonic.XR.UI
                 down += S(card.Head != RoomCardHead.None || card.Status != null ? BlockGapDp : DescriptionGapDp);
                 if (card.DescriptionPage is int page)
                 {
-                    // Paged: four lines a page, broken between lines; the page asked for, or the last there is.
-                    var (label, _) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, RoomCard.DescriptionPageLines);
-                    label.overflowMode = TextOverflowModes.Page;
+                    // Paged: exactly four whole lines a page, by the card's own count (JUDGE's 06:08Z: TMP's page mode filled a page
+                    // by its box's height and a fifth line stood cut at the card's foot). The words laid whole; the page's lines shown
+                    // alone and lifted to the block's top; the page asked for, or the last there is.
+                    var (label, _) = Text(KitRole.Body, DescriptionTypeDp, DescriptionLineDp, White(DescriptionAlpha(card)), card.Description, 0f, -down, width, RoomRowsView.RowLines * 4);
+                    label.overflowMode = TextOverflowModes.Overflow;
+                    label.firstVisibleCharacter = 0;
+                    label.maxVisibleCharacters = 99999;
                     label.ForceMeshUpdate(true);
-                    DescriptionPages = Mathf.Max(1, label.textInfo.pageCount);
-                    label.pageToDisplay = Mathf.Min(page, DescriptionPages - 1) + 1;
-                    label.ForceMeshUpdate(true);
+                    var info = label.textInfo;
+                    var lineCount = Mathf.Max(1, info.lineCount);
+                    DescriptionPages = Mathf.Max(1, (lineCount + RoomCard.DescriptionPageLines - 1) / RoomCard.DescriptionPageLines);
+                    var shownPage = Mathf.Min(page, DescriptionPages - 1);
+                    var firstLine = shownPage * RoomCard.DescriptionPageLines;
+                    var lastLine = Mathf.Min(firstLine + RoomCard.DescriptionPageLines, lineCount) - 1;
+                    if (info.lineCount > 0)
+                    {
+                        label.firstVisibleCharacter = info.lineInfo[firstLine].firstCharacterIndex;
+                        label.maxVisibleCharacters = info.lineInfo[lastLine].lastCharacterIndex + 1;
+                        // The page's first line where the block starts: the lines above it are hidden, so the words move up by them.
+                        var lift = info.lineInfo[0].ascender - info.lineInfo[firstLine].ascender;
+                        label.transform.localPosition += new Vector3(0f, lift, 0f);
+                        label.ForceMeshUpdate(true);
+                    }
                     PagedDescription = label;
-                    var onPage = Mathf.Clamp(label.textInfo.lineCount - (label.pageToDisplay - 1) * RoomCard.DescriptionPageLines, 1, RoomCard.DescriptionPageLines);
-                    down += onPage * S(DescriptionLineDp);
+                    PagedDescriptionLines = lastLine - firstLine + 1;
+                    PagedDescriptionPage = shownPage;
+                    down += PagedDescriptionLines * S(DescriptionLineDp);
                 }
                 else
                 {

@@ -341,10 +341,24 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(paged != null && view.DescriptionPages >= 2, "a long description makes " + view.DescriptionPages + " pages");
                 if (paged != null)
                 {
-                    Require(paged.pageToDisplay == asked + 1, "the description shows page " + paged.pageToDisplay + ", not " + (asked + 1));
+                    var shownPage = Mathf.Min(asked, view.DescriptionPages - 1);
+                    Require(view.PagedDescriptionPage == shownPage, "the description shows page " + (view.PagedDescriptionPage + 1) + ", not " + (shownPage + 1));
                     if (reviewPages > 0) Require(card.More?.Text == RoomReview.PartOf(asked, RoomReview.Parts(CardReview(), view.DescriptionPages)), "the foot line does not name this part");
-                    var info = paged.textInfo.pageInfo[paged.pageToDisplay - 1];
-                    Require(info.firstCharacterIndex <= 0 || char.IsWhiteSpace(paged.textInfo.characterInfo[info.firstCharacterIndex - 1].character), "a page starts inside a word");
+                    var first = paged.firstVisibleCharacter;
+                    Require(first <= 0 || char.IsWhiteSpace(paged.textInfo.characterInfo[first - 1].character), "a page starts inside a word");
+                    // Exactly the card's four whole lines a page, or what is left on the last (JUDGE's 06:08Z: a fifth line cut at the
+                    // card's foot), and no line of the page drawn under the card's own bottom.
+                    var lines = Mathf.Max(1, paged.textInfo.lineCount);
+                    var wantedLines = Mathf.Min(RoomCard.DescriptionPageLines, lines - shownPage * RoomCard.DescriptionPageLines);
+                    Require(view.PagedDescriptionLines == wantedLines, "the description's page shows " + view.PagedDescriptionLines + " lines, not " + wantedLines);
+                    var lowest = float.MaxValue;
+                    for (var each = first; each < Mathf.Min(paged.maxVisibleCharacters, paged.textInfo.characterCount); each++)
+                        if (paged.textInfo.characterInfo[each].isVisible) lowest = Mathf.Min(lowest, paged.textInfo.characterInfo[each].descender);
+                    if (lowest < float.MaxValue)
+                    {
+                        var foot = view.transform.InverseTransformPoint(paged.transform.TransformPoint(new Vector3(0f, lowest, 0f))).y;
+                        Require(foot >= -view.Size.y - RoomType.Units(0.5f), "the description's page draws " + ((-view.Size.y - foot) / RoomType.Units(1f)).ToString("0.0") + " dp under the card's foot");
+                    }
                 }
             }
             // How tall each card's panel stands at the eyes, beside the slate's tallest at this text size (SpatialKit.SlateMostAt), for
