@@ -105,16 +105,6 @@ namespace Halcyonic.XR
         private static CharacterView? shelfMeasure;
         private static int shelfMeasureAt = -1;
         /// <param name="places">The shelf's places, where its width is not the natural one for them (<see cref="FittedWidth"/>): its ends' labels stand that far apart.</param>
-        /// <summary>
-        /// The shelf's drawn name where the room's side draws it (AUDIT's 13:47Z, B'): given the measuring character, it stands the widest
-        /// name the shelf can show under it (the redesign's tag: two lines at its bound, Needs You, picked) and returns that name's root.
-        /// Null, or a null answer, where the older label is drawn, which is then measured instead.
-        /// </summary>
-        public static System.Func<CharacterView, Transform?>? WidestDrawnName { get; set; }
-
-        /// <summary>The widest drawn name the last envelope measured, across, in metres at the shelf's scale: for the shelf journey's check and log.</summary>
-        public static float MeasuredNameWidth { get; private set; }
-
         public static void WriteShelfCorners(Pose pose, float width, Vector3 viewer, Vector3[] corners, int? places = null)
         {
             if (corners.Length != 8) throw new System.ArgumentException("Shelf envelope has eight corners.", nameof(corners));
@@ -139,16 +129,15 @@ namespace Halcyonic.XR
             var maximum = new Vector3(width / 2f, 0.5f, AgentShelfDraft.Depth / 2f);
             var span = places is int count && count > 0 ? Mathf.Max(0f, width - 0.1f - PitchOf(count, width))
                 : Mathf.Max(0f, width - 0.1f - AgentShelfDraft.Spacing * AgentShelfDraft.Scale);
-            MeasuredNameWidth = 0f;
             foreach (var x in new[] { -span / 2f, span / 2f })
             foreach (var marks in new[] { (Synthetic: false, Recorded: true), (Synthetic: true, Recorded: false), (Synthetic: true, Recorded: true) })
             {
                 shelfMeasure.transform.SetPositionAndRotation(pose.position + pose.rotation * Vector3.right * x,
                     pose.rotation * Quaternion.Euler(0f, 180f, 0f));
                 shelfMeasure.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
-                // The widest name the shelf can ever show (AUDIT's 12:52Z and 12:55Z): a name long enough to reach the label's cap (FIELD's
-                // four shelf lines at the widest measure, its tail faded past them; under the redesign the tag's two lines at its bound), in
-                // the state that draws the most beside it, Needs You with its count (FIELD's badge figure). The same for every title, so no name, short or long, stands nearer than the clearance,
+                // The widest label the shelf can ever show (AUDIT's 12:52Z and 12:55Z): a name long enough to reach the label's cap (FIELD's
+                // four shelf lines at the widest measure, its tail faded past them), in the state that draws the most beside it, Needs You with
+                // its count (FIELD's badge figure). The same for every title, so no name, short or long, stands nearer than the clearance,
                 // and the shelf never moves because a name came or went.
                 var title = WidestStandIn;
                 shelfMeasure.Show(new CharacterPresentation("shelf-label-measurement",
@@ -156,12 +145,7 @@ namespace Halcyonic.XR
                     "Needs You", Halcyonic.Contracts.AttentionLevel.ActionRequired, System.Array.Empty<string>(), 2,
                     marks.Synthetic, marks.Recorded, false));
                 shelfMeasure.PlaceShelfLabel(viewer);
-                // What the shelf draws for a name (AUDIT's 13:47Z, B'): under the redesign the room's tag at its widest, two lines at
-                // its bound, stood by the room's side; else the older label.
-                var drawnName = WidestDrawnName?.Invoke(shelfMeasure) ?? shelfMeasure.Label.transform;
-                var nameMinimum = float.PositiveInfinity;
-                var nameMaximum = float.NegativeInfinity;
-                foreach (var renderer in drawnName.GetComponentsInChildren<Renderer>(false))
+                foreach (var renderer in shelfMeasure.Label.GetComponentsInChildren<Renderer>(false))
                 {
                     var bounds = renderer.bounds;
                     for (var index = 0; index < 8; index++)
@@ -170,11 +154,8 @@ namespace Halcyonic.XR
                             new Vector3(index % 2 == 0 ? -1f : 1f, index < 4 ? -1f : 1f, index % 4 < 2 ? -1f : 1f));
                         var local = Quaternion.Inverse(pose.rotation) * (point - pose.position);
                         minimum = Vector3.Min(minimum, local); maximum = Vector3.Max(maximum, local);
-                        nameMinimum = Mathf.Min(nameMinimum, local.x);
-                        nameMaximum = Mathf.Max(nameMaximum, local.x);
                     }
                 }
-                if (nameMaximum > nameMinimum) MeasuredNameWidth = Mathf.Max(MeasuredNameWidth, nameMaximum - nameMinimum);
             }
             foreach (var renderer in shelfMeasure.GetComponentsInChildren<Renderer>(true)) renderer.enabled = false;
             // Round the measured envelope outward in production. This strengthens clearance and
