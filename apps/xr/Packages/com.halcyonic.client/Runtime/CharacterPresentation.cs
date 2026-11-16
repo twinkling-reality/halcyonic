@@ -199,6 +199,9 @@ namespace Halcyonic.Client
                 : count;
         }
 
+        /// <summary>The agent's own failed test run, said as the agent's (it is reported, never observed), with no dot.</summary>
+        public const string AgentsTestsFailed = "Agent's Tests Failed";
+
         /// <summary>Who asks, before the question's words: the agent, as ART's chip names it (WORDS.md).</summary>
         public const string AsksYouWords = "Agent · Question";
 
@@ -243,10 +246,11 @@ namespace Halcyonic.Client
                     return (Ours(StateLanguage.CantTell(why)), Ours(why ?? ""));
                 case VerificationFailedReason tests:
                     var run = execution?.LastTestRun;
-                    // The runtime's summary leans on a ground after the badge, never as Halcyonic's reason.
+                    // The agent's own test run, as it reported it: whose run it is in the title, never "Checks" (the computer's own
+                    // check is the only Checks), and the runtime's summary as the line, leaning as theirs (AUDIT2 2026-11-16 09:57Z).
                     return run != null && run.TestRunId == tests.TestRunId && LineWords.Theirs(run.Summary) is { IsEmpty: false } summary
-                        ? (Ours("Checks · ") + summary, summary)
-                        : (Ours("Checks Not Passed"), LineWords.None);
+                        ? (Ours(AgentsTestsFailed), summary)
+                        : (Ours(AgentsTestsFailed), LineWords.None);
                 default:
                     return (Ours("Needs a Look"), LineWords.None);
             }

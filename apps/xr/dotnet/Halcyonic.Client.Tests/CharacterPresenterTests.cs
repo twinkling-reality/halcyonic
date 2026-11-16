@@ -266,7 +266,10 @@ public class CharacterPresenterTests
         var workstream = Samples.Workstream("w1", WorkstreamStatus.Completed, "e1", AttentionLevel.ActionRequired, new VerificationFailedReason { ExecutionId = "e1", TestRunId = "tests-1" });
         var character = CharacterPresenter.Present(workstream, StateWith(workstream, execution), live: true);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.TurnFinished));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Checks · 2 of 40 failed" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Agent's Tests Failed" }), "the agent's run, said as the agent's");
+        foreach (var note in character.AttentionNotes)
+            Assert.That((note.Contains("·"), note.Contains("Checks"), note.StartsWith("Agent's", System.StringComparison.Ordinal)), Is.EqualTo((false, false, true)),
+                "no dot, never Checks for the agent's own run");
     }
 
     [Test]
