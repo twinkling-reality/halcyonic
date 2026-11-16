@@ -566,7 +566,19 @@ export const WorkspaceRequestResumeCommand = defineCommand(
        * Only the request's own owner resumes it; the host checks the digest again before it submits what it holds.
        */
       confirm: Type.Optional(
-        Type.Object({ step_id: WorkspaceRequestId, review: Sha256Hex }, strict),
+        Type.Object(
+          {
+            step_id: WorkspaceRequestId,
+            review: Sha256Hex,
+            /**
+             * The person turned on the step's offered Allow Test Servers (ADR 0055, amended 2026-11-16): `review` is then
+             * that option's digest, never the plain one, and the host takes the yes only from the request's owner. Only
+             * true is the yes; absent or false is the plain press.
+             */
+            open_ports: Type.Optional(Type.Boolean()),
+          },
+          strict,
+        ),
       ),
     },
     strict,

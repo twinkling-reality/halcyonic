@@ -311,9 +311,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * execution's requests the host answered itself and how many asked (`approvals`). 25: the commands a start's press
  * runs before its run (`before`, the recap is the review). 26: each project's photos and videos (`media`) and the
  * ones each execution was given (ADR 0066). 27: the files each execution's running turn changed (`writing`). 28: whether
- * the person let each project's own check start test servers (`openPorts`, ADR 0055, 2026-11-16).
+ * the person let each project's own check start test servers (`openPorts`, ADR 0055, 2026-11-16). 29: the person's own
+ * yes a request's held proposal offers (`options`, ADR 0055 amended 2026-11-16, AUDIT3's O1).
  */
-export const PROJECTION_STATE_FORMAT = 28;
+export const PROJECTION_STATE_FORMAT = 29;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).

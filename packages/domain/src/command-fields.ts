@@ -88,6 +88,18 @@ export const NEVER_PROPOSED: Readonly<Partial<Record<CommandType, readonly strin
 export const SPENDING_LIMIT_PERSON_ONLY = 'Nothing was sent: only you can set a spending limit.';
 
 /**
+ * The person's own yeses the host offers beside the assistant's proposal of a command, each set only by the request
+ * owner's own press with its own digest (ADR 0055, amended 2026-11-16; AUDIT3's O1 to O3). Never from the model.
+ */
+export const PERSON_OPTIONS: Readonly<
+  Partial<Record<CommandType, readonly { field: 'open_ports'; label: string; line: string }[]>>
+> = {
+  'project.own_check.choose': [
+    { field: 'open_ports', label: ALLOW_TEST_SERVERS.label, line: ALLOW_TEST_SERVERS.line },
+  ],
+};
+
+/**
  * Every payload field of every command but the workspace request's own, which the assistant is and
  * never proposes. A test holds this to the contracts' schemas, field for field.
  */

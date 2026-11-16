@@ -17,6 +17,7 @@ import {
   type WorkspaceAgentStatus,
   type WorkspaceRequestId,
   type WorkspaceRequestObserved,
+  type WorkspaceRequestOption,
   type WorkspaceRequestProposal,
   type WorkspaceRequestReply,
   type WorkspaceRequestStatus,
@@ -24,7 +25,13 @@ import {
   type WorkspaceRequestView,
   type WorkstreamId,
 } from '@halcyonic/contracts';
-import { ASSISTANT_CLIENT, admitCommand, commandEntry, NEVER_PROPOSED } from '@halcyonic/domain';
+import {
+  ASSISTANT_CLIENT,
+  admitCommand,
+  commandEntry,
+  NEVER_PROPOSED,
+  PERSON_OPTIONS,
+} from '@halcyonic/domain';
 import {
   checkProjectLocation,
   RuntimeActionError,
@@ -109,6 +116,11 @@ export const READ_FOR_IT = 'What was read for this request, oldest first:';
 
 /** The host's review's words a proposal carries for the client's card (`WorkspaceRequestProposal`, 2026-11-13). */
 type ReviewWords = Pick<WorkspaceRequestProposal, 'confirm_words' | 'facts' | 'warnings'>;
+
+/** The prepared command with the person's own yes set on its field (`PERSON_OPTIONS`), as it is reviewed and pressed. */
+function withPersonsYes(command: CommandEnvelope, field: 'open_ports'): CommandEnvelope {
+  return { ...command, payload: { ...command.payload, [field]: true } } as CommandEnvelope;
+}
 /** The most facts and warnings a proposal carries, its contract's own limits (`WorkspaceRequestProposal`). */
 const MOST_FACTS = 4;
 const MOST_WARNINGS = 8;
@@ -587,7 +599,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         'Start a new request after cancelling this direction.',
       );
     if (command.payload.confirm) {
-      this.#confirm(request, command.payload.confirm, principal);
+      this.#confirm(request, command.payload.confirm, principal, command.client);
       return null;
     }
     // New words from the person replace what was proposed before them (AUDIT2, 1111-b77): a waiting proposal is never
@@ -1794,6 +1806,24 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       return { ok: false, code: admission.rejection.code, message: admission.rejection.message };
     const shown = await this.#shown(entry.confirm, prepared.command, entry.description);
     if (!shown.ok) return shown;
+    // The person's own yes, offered by the host's table beside the proposal and never from the model (AUDIT3's O1): the
+    // digest of the host's own review with it on, which only the owner's press carries back (O2).
+    const options: WorkspaceRequestOption[] = [];
+    if (entry.confirm === 'review')
+      for (const option of PERSON_OPTIONS[entry.command_type] ?? []) {
+        const yes = await this.#shown(
+          entry.confirm,
+          withPersonsYes(prepared.command, option.field),
+          entry.description,
+        );
+        if (!yes.ok) continue;
+        options.push({
+          field: option.field,
+          label: fitted(option.label, 40),
+          line: fitted(option.line, 200),
+          review: yes.digest,
+        });
+      }
     return {
       ok: true,
       command: prepared.command,
@@ -1804,6 +1834,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         review: shown.digest,
         said: shown.said,
         ...shown.words,
+        ...(options.length > 0 ? { options } : {}),
       },
     };
   }
@@ -2397,11 +2428,16 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
    * must be the one the person was shown; then, before anything is submitted, what the host holds must still give that
    * digest now (`review_stale` otherwise). The host submits the command it holds, under the confirming person's
    * principal. A model's request then goes on to say what happened; a press ends.
+   *
+   * With `open_ports`, the press is the person's own yes to the step's offered Allow Test Servers (ADR 0055, amended
+   * 2026-11-16; AUDIT3's O2, O3): its digest must be that option's, never the plain one, and the host rebuilds the
+   * review with the yes on before it submits the command as the person's, under their own client, marked as their yes.
    */
   #confirm(
     request: WorkspaceRequestView,
-    confirm: { readonly step_id: string; readonly review: string },
+    confirm: { readonly step_id: string; readonly review: string; readonly open_ports?: boolean },
     principal: Principal,
+    client: CommandEnvelope['client'],
   ): void {
     const held = this.#o.controlPlane.projection.workspaceProposal(
       request.request_id,
@@ -2410,7 +2446,14 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     const step = request.steps.find((candidate) => candidate.step_id === confirm.step_id);
     if (!held || !step?.proposal || step.status !== 'waiting')
       throw new RuntimeActionError('invalid_state', 'Nothing waits for a press on that step.');
-    if (step.proposal.review !== confirm.review)
+    const yes = confirm.open_ports === true;
+    const offered = step.proposal.options?.find((option) => option.field === 'open_ports');
+    if (yes && (offered === undefined || held.before !== undefined))
+      throw new RuntimeActionError(
+        'invalid_state',
+        'Allow Test Servers is not offered on that step.',
+      );
+    if ((yes ? offered?.review : step.proposal.review) !== confirm.review)
       throw new RuntimeActionError(
         'review_stale',
         'What would be done has changed since it was shown. Look again before confirming.',
@@ -2427,7 +2470,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     }
     const proposal = step.proposal;
     const entry = { confirm: proposal.confirm } as const;
-    void this.#shown(entry.confirm, held.command, proposal.what_happens).then((shown) => {
+    // The person's yes goes out under their own client, never the assistant's; its review is rebuilt with it on.
+    const pressed = yes ? { ...withPersonsYes(held.command, 'open_ports'), client } : held.command;
+    void this.#shown(entry.confirm, pressed, proposal.what_happens).then((shown) => {
       const current = this.#o.controlPlane.projection.workspaceRequest(request.request_id);
       const now = current?.steps.find((candidate) => candidate.step_id === step.step_id);
       if (!current || now?.status !== 'waiting') return;
@@ -2453,13 +2498,18 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         'review' in
         (COMMAND_VARIANTS.find(
           (variant) =>
-            (variant.properties.command_type as { const?: string }).const ===
-            held.command.command_type,
+            (variant.properties.command_type as { const?: string }).const === pressed.command_type,
         )?.properties.payload.properties ?? {})
-          ? { ...held.command, payload: { ...held.command.payload, review: confirm.review } }
-          : held.command
+          ? { ...pressed, payload: { ...pressed.payload, review: confirm.review } }
+          : pressed
       ) as CommandEnvelope;
-      const submitted = this.#o.controlPlane.commands.submit(command, 'internal', principal);
+      // Marked as the person's own yes only here, after the owner's press and the rebuilt digest (AUDIT3's O3).
+      const submitted = this.#o.controlPlane.commands.submit(
+        command,
+        'internal',
+        principal,
+        yes ? { personsYes: true } : undefined,
+      );
       const status = this.#o.controlPlane.projection.command(command.command_id)?.status ?? null;
       this.#recordStep(
         current,

@@ -217,6 +217,15 @@ and never for the agent's own run, whose profile is unchanged.
   person's own clients, and a proving-plane lane script the lead allows hash by hash. No agent holds the token, since the data folder
   is hidden from every agent process. Anything else sending it is refused: "Nothing was sent: only you can turn on Allow Test
   Servers. Turn it on when you choose the project's check." (AUDIT2, 16:36Z).
+- Where the person says it (amended 2026-11-16, late; the lead's A and AUDIT3's O1 to O5): on the assistant's own proposal of
+  `project.own_check.choose`, one press inside the approval they already answer, never a separate flow that takes more steps than
+  the desk. The host's own table (`PERSON_OPTIONS`, never the model) offers it on that step alone, as `options` on the proposal:
+  the label, the line, and the digest of the host's review with the yes on, which differs from the plain one. The press
+  (`workspace.request.resume`, `confirm.open_ports` true) must carry exactly that digest; the host rebuilds the review with the yes
+  at the press and compares, and only then submits the command as the person's: under the confirming client, never
+  `ASSISTANT_CLIENT`, with the host's own mark that lifts the internal refusal above for this one path. The mark is an argument of
+  the host's code, never a field a client sends. The request owner alone may resume; a mixed press (the yes with the plain digest,
+  or the option's digest without the yes), a stale digest, another principal's press, or the yes on any other step does nothing.
 - The client half draws the choice with those words; until it ships, no client sends `open_ports` and nothing changes for anyone. An older generated C# client meets the new optional field; the plane and
   the headset move together.
 - The real fix for both gaps is a check outside the person's own login (a separate macOS user or a VM), a unit of its own.

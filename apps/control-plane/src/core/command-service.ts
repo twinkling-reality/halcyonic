@@ -370,6 +370,11 @@ export class CommandService {
     submitted: CommandEnvelope,
     via: ReceivedVia,
     principal: Principal | null = null,
+    /**
+     * Set only by the host's own code, never from what a client sends: `personsYes` when a workspace request's owner
+     * pressed the step's offered Allow Test Servers with its own digest (ADR 0055, amended 2026-11-16; AUDIT3's O3).
+     */
+    mark: { readonly personsYes?: true } = {},
   ): SubmitOutcome {
     const command: CommandEnvelope =
       submitted.command_type === 'workspace.request.submit'
@@ -414,6 +419,7 @@ export class CommandService {
       via,
       this.#reviewed(principal, this.#authorize(principal, this.#admit(command), command), command),
       command,
+      mark.personsYes === true,
     );
     const cause = causedBy(command.command_id);
     if (!admission.admitted) {
@@ -568,12 +574,19 @@ export class CommandService {
    * itself (`internal`: an assistant's proposal the person confirmed, an automated step, a replay) never carries it, whatever
    * its client name says (AUDIT3 A1, 16:28Z).
    */
-  #personsOwn(via: ReceivedVia, admission: Admission, command: CommandEnvelope): Admission {
+  #personsOwn(
+    via: ReceivedVia,
+    admission: Admission,
+    command: CommandEnvelope,
+    personsYes: boolean,
+  ): Admission {
     if (!admission.admitted) return admission;
+    // The one internal path that may carry it: the request owner's own press of the host's offered option.
     if (
       command.command_type === 'project.own_check.choose' &&
       command.payload.open_ports === true &&
-      via === 'internal'
+      via === 'internal' &&
+      !personsYes
     )
       return {
         admitted: false,

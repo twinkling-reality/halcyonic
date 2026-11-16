@@ -64,6 +64,20 @@ export const WorkspaceRequestReply = Type.Object(
   strict,
 );
 /**
+ * One yes of the person's own on a proposed step (ADR 0055, amended 2026-11-16): the payload field it sets, the host's
+ * label and the line said beside it, and the digest of the host's review with it on.
+ */
+export const WorkspaceRequestOption = Type.Object(
+  {
+    field: Type.Literal('open_ports'),
+    label: Text(40),
+    line: Text(200),
+    review: ReviewDigest,
+  },
+  strict,
+);
+export type WorkspaceRequestOption = Static<typeof WorkspaceRequestOption>;
+/**
  * A command the assistant proposed from what can be done here (ADR 0060). `confirm` is the command's own: `none` and
  * `undo` are done at once, `review` waits for the person's one press, which carries `review` back. `what_happens` is
  * the host's own words, never the model's.
@@ -87,6 +101,13 @@ export const WorkspaceRequestProposal = Type.Object(
     confirm_words: Type.Optional(Text(40)),
     facts: Type.Optional(Type.Array(ActionReviewFact, { maxItems: 4 })),
     warnings: Type.Optional(Type.Array(ActionReviewWarning, { maxItems: 8 })),
+    /**
+     * The person's own yes the host offers on this step, from its own table and never from the model (ADR 0055, amended
+     * 2026-11-16; AUDIT3's O1): today Allow Test Servers on `project.own_check.choose` alone. Each carries the host's
+     * label and line, said beside the switch, and the digest of the review with the yes on, which the press carries back
+     * with `open_ports: true`. Absent on every other step.
+     */
+    options: Type.Optional(Type.Array(WorkspaceRequestOption, { minItems: 1, maxItems: 1 })),
   },
   strict,
 );

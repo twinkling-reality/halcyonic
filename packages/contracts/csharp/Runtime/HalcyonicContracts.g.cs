@@ -5735,6 +5735,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
         public string Review { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("open_ports", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool? OpenPorts { get; set; }
     }
 
     public sealed class WorkspaceRequestResumePayload
@@ -6425,6 +6428,21 @@ namespace Halcyonic.Contracts
         public WorkspaceRequestObservedProjects? Projects { get; set; }
     }
 
+    public sealed class WorkspaceRequestStepProposalOptionsItem
+    {
+        [global::Newtonsoft.Json.JsonProperty("field", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Field { get; set; } = "open_ports";
+
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("line", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Line { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("review", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Review { get; set; } = default!;
+    }
+
     public sealed class WorkspaceRequestStepProposal
     {
         [global::Newtonsoft.Json.JsonProperty("command_type", Required = global::Newtonsoft.Json.Required.Always)]
@@ -6450,6 +6468,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("warnings", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public global::System.Collections.Generic.List<ActionReviewWarning>? Warnings { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("options", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<WorkspaceRequestStepProposalOptionsItem>? Options { get; set; }
     }
 
     public sealed class WorkspaceRequestStep

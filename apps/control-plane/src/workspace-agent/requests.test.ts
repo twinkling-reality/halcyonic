@@ -3351,3 +3351,239 @@ test('Allow Test Servers is never offered to the model, and a proposal carrying 
   assert.equal(step?.proposal, undefined);
   assert.equal(h.controlPlane.projection.ownCheck(projectId), undefined, 'no check was chosen');
 });
+
+/**
+ * Allow Test Servers as the host's own option on the assistant's own-check step (AUDIT3's O1 to O5, 2026-11-16): the host
+ * offers it with its label, its line and a digest built with the yes on; only the request owner's own press carrying
+ * exactly that digest turns it on.
+ */
+async function ownCheckStep(t: { after: (fn: () => unknown) => void }) {
+  const { mkdirSync, realpathSync, writeFileSync } = await import('node:fs');
+  const { createHostLocations } = await import('../locations.ts');
+  const { managersOn } = await import('../own-check/own-check.ts');
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-request-test-servers-option-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'site'));
+  const pkg = join(root, 'site', 'package.json');
+  writeFileSync(pkg, JSON.stringify({ name: 'site', scripts: { test: 'node -e ""' } }));
+  const h = createTestControlPlane({
+    locations: createHostLocations([root]),
+    ownChecks: {
+      dataDir: join(root, 'data'),
+      home: '/Users/someone',
+      node: process.execPath,
+      managers: managersOn(process.env.PATH),
+      listening: async () => null,
+    },
+  });
+  t.after(() => h.controlPlane.close());
+  const made = h.controlPlane.commands.submit(
+    h.commands.createProject('Site', { kind: 'existing_folder', root, folder_name: 'site' }),
+    'internal',
+  );
+  const projectId =
+    made.command?.result?.kind === 'project_created' ? made.command.result.project_id : '';
+  let turns = 0;
+  const ids = createUuidV7Generator({ now: () => h.time.now().getTime() });
+  new WorkspaceRequests({
+    controlPlane: h.controlPlane,
+    ids,
+    model: {
+      status: async () => available,
+      turn: async () => {
+        turns++;
+        if (turns === 1)
+          return answer([{ name: 'read_choices', arguments: { list: 'own_check_scripts' } }]);
+        if (turns === 2)
+          return answer([
+            {
+              name: 'propose_command',
+              arguments: { command_type: 'project.own_check.choose', values: { scripts: [0] } },
+            },
+          ]);
+        return answer([], 'The check is chosen.');
+      },
+    },
+    ...providers,
+    scheduler: h.time,
+  });
+  const owner: Principal = { kind: 'local' };
+  const submitted = h.controlPlane.commands.submit(
+    {
+      schema_version: 1,
+      command_id: ids.next() as CommandId,
+      issued_at: h.time.now().toISOString(),
+      client: { name: 'synthetic', version: null, device_label: null },
+      command_type: 'workspace.request.submit',
+      payload: {
+        project_id: projectId,
+        workstream_id: null,
+        execution_id: null,
+        text: 'Use its tests as the check.',
+      } as never,
+    },
+    'http',
+    owner,
+  );
+  assert.equal(submitted.disposition, 'accepted', JSON.stringify(submitted.command?.rejection));
+  const id =
+    submitted.command?.result?.kind === 'workspace_request_created'
+      ? submitted.command.result.request_id
+      : '';
+  for (let i = 0; i < 12; i++) await settle();
+  const step = h.controlPlane.projection
+    .workspaceRequest(id)
+    ?.steps.find((candidate) => candidate.proposal?.command_type === 'project.own_check.choose');
+  const press = (
+    confirm: { review: string; open_ports?: true },
+    principal: Principal = owner,
+    client = 'halcyonic-xr',
+  ) =>
+    h.controlPlane.commands.submit(
+      {
+        schema_version: 1,
+        command_id: ids.next() as CommandId,
+        issued_at: h.time.now().toISOString(),
+        client: { name: client, version: null, device_label: null },
+        command_type: 'workspace.request.resume',
+        payload: {
+          request_id: id as never,
+          text: null,
+          confirm: { step_id: step?.step_id as never, ...confirm },
+        },
+      } as never,
+      'http',
+      principal,
+    );
+  const settled = async () => {
+    for (let i = 0; i < 16; i++) await settle();
+  };
+  return { h, id, projectId, step, press, settled, pkg, writeFileSync };
+}
+
+test('the host offers Allow Test Servers on the own-check step, in its own words, with a digest of its own (AUDIT3 O1, O2)', async (t) => {
+  const { ALLOW_TEST_SERVERS } = await import('@halcyonic/domain');
+  const { step } = await ownCheckStep(t);
+  assert.equal(step?.status, 'waiting', JSON.stringify(step));
+  const options = step?.proposal?.options ?? [];
+  assert.equal(options.length, 1, JSON.stringify(step?.proposal));
+  assert.equal(options[0]?.field, 'open_ports');
+  assert.equal(options[0]?.label, ALLOW_TEST_SERVERS.label);
+  assert.equal(options[0]?.line, ALLOW_TEST_SERVERS.line);
+  assert.match(options[0]?.review ?? '', /^[0-9a-f]{64}$/);
+  // Neither digest stands in for the other.
+  assert.notEqual(options[0]?.review, step?.proposal?.review);
+  // The plain proposal still shows no test servers.
+  assert.equal(
+    (step?.proposal?.warnings ?? []).some((warning) => warning.code === 'test_servers'),
+    false,
+  );
+});
+
+test("the owner's press with the option's digest turns Allow Test Servers on, under the person's own client (AUDIT3 O3)", async (t) => {
+  const { h, projectId, step, press, settled } = await ownCheckStep(t);
+  const option = step?.proposal?.options?.[0];
+  const pressed = press({ review: option?.review ?? '', open_ports: true });
+  assert.equal(pressed.disposition, 'accepted', JSON.stringify(pressed.command?.rejection));
+  await settled();
+  const check = h.controlPlane.projection.ownCheck(projectId);
+  assert.equal(check?.open_ports, true, JSON.stringify(check));
+  const chosen = h.controlPlane.projection
+    .commands(50)
+    .find((command) => command.command_type === 'project.own_check.choose');
+  // Accepted under the person's yes; the check it starts runs on its own.
+  assert.notEqual(chosen?.status, 'rejected', JSON.stringify(chosen));
+  const envelope = h.controlPlane.projection.commandEnvelope(chosen?.command_id ?? '');
+  assert.equal(
+    envelope?.client.name,
+    'halcyonic-xr',
+    'the person’s own client, never the assistant’s',
+  );
+});
+
+test('without the option the press chooses the check as before, with no test servers (AUDIT3 O4)', async (t) => {
+  const { h, projectId, step, press, settled } = await ownCheckStep(t);
+  const pressed = press({ review: step?.proposal?.review ?? '' });
+  assert.equal(pressed.disposition, 'accepted', JSON.stringify(pressed.command?.rejection));
+  await settled();
+  const check = h.controlPlane.projection.ownCheck(projectId);
+  assert.notEqual(check, undefined);
+  assert.equal(check?.open_ports, undefined);
+});
+
+test("a press that mixes the digests, or another principal's press, turns nothing on (AUDIT3 O2, O3, O4)", async (t) => {
+  const { h, id, projectId, step, press, settled } = await ownCheckStep(t);
+  const plain = step?.proposal?.review ?? '';
+  const option = step?.proposal?.options?.[0]?.review ?? '';
+  // The yes with the plain digest, and the option's digest without the yes.
+  assert.notEqual(press({ review: plain, open_ports: true }).command?.status, 'completed');
+  assert.notEqual(press({ review: option }).command?.status, 'completed');
+  // Another principal's press of the same request, with the right digest and the yes.
+  assert.equal(
+    press({ review: option, open_ports: true }, { kind: 'device', device_id: VERSION as never })
+      .disposition,
+    'rejected',
+  );
+  await settled();
+  assert.equal(h.controlPlane.projection.ownCheck(projectId), undefined, 'no check was chosen');
+  // The step still waits for the owner's own press.
+  const now = h.controlPlane.projection
+    .workspaceRequest(id)
+    ?.steps.find((candidate) => candidate.step_id === step?.step_id);
+  assert.equal(now?.status, 'waiting');
+});
+
+test("the option's digest goes stale with what it was built on, and the press then turns nothing on (AUDIT3 O2)", async (t) => {
+  const { h, projectId, step, press, settled, pkg, writeFileSync } = await ownCheckStep(t);
+  const option = step?.proposal?.options?.[0]?.review ?? '';
+  // The script changes after it was shown: the host's rebuild at the press no longer gives the digest.
+  writeFileSync(pkg, JSON.stringify({ name: 'site', scripts: { test: 'node -e "1"' } }));
+  press({ review: option, open_ports: true });
+  await settled();
+  assert.equal(h.controlPlane.projection.ownCheck(projectId), undefined, 'no check was chosen');
+});
+
+test('a step for any other command carries no options, and a press with the yes on it is refused (AUDIT3 O1, O4)', async () => {
+  let turn = 0;
+  const f = await fixture({
+    turn: async () => {
+      turn++;
+      return turn === 1
+        ? answer([
+            {
+              name: 'propose_command',
+              arguments: { command_type: 'workstream.create', values: { title: 'Night Sky' } },
+            },
+          ])
+        : answer([], 'Night Sky has started.');
+    },
+  });
+  try {
+    const id = submitIn(f, 'Start a task called Night Sky.');
+    for (let i = 0; i < 8; i++) await settle();
+    const step = f.controlPlane.projection.workspaceRequest(id)?.steps.find((s) => s.proposal);
+    assert.equal(step?.status, 'waiting');
+    assert.equal(step?.proposal?.options, undefined);
+    const before = f.controlPlane.projection.workstreams(f.projectId).length;
+    f.controlPlane.commands.submit(
+      {
+        ...f.command('resume', id, null),
+        payload: {
+          request_id: id as never,
+          text: null,
+          confirm: {
+            step_id: step?.step_id as never,
+            review: step?.proposal?.review ?? '',
+            open_ports: true,
+          },
+        },
+      } as never,
+      'http',
+      { kind: 'local' },
+    );
+    for (let i = 0; i < 8; i++) await settle();
+    assert.equal(f.controlPlane.projection.workstreams(f.projectId).length, before);
+  } finally {
+    await f.close();
+  }
+});
