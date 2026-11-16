@@ -450,6 +450,7 @@ export interface LightKeys {
 
 const KEY_VERTEX = /* glsl */ `
   uniform float height;
+  uniform float curve;
   attribute vec4 tone;
   attribute vec4 lit;
   attribute vec3 near;
@@ -458,7 +459,13 @@ const KEY_VERTEX = /* glsl */ `
   varying vec4 vTone;
   varying vec4 vLit;
   varying vec3 vNear;
+  varying vec3 vNormal;
+  varying vec3 vView;
   void main() {
+    // The face's normal and the way to the eye, in the world, for the glass's sheen.
+    vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
+    vNormal = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
+    vView = normalize(cameraPosition - world.xyz);
     // In metres in the key's own frame: x across it, y up, z from its back to its front.
     vec3 size = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
     vLocal = position * size;
@@ -466,7 +473,11 @@ const KEY_VERTEX = /* glsl */ `
     vTone = tone;
     vLit = lit;
     vNear = near;
-    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+    // On a curve each key widens toward its back with the arc, as a wedge, so neighbours meet along their whole length
+    // instead of parting toward the back.
+    vec3 shaped = position;
+    if (curve > 0.0) shaped.x *= 1.0 + (0.5 - position.z) * size.z / curve;
+    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(shaped, 1.0);
   }
 `;
 
@@ -479,6 +490,8 @@ const KEY_FRAGMENT = /* glsl */ `
   varying vec4 vTone;
   varying vec4 vLit;
   varying vec3 vNear;
+  varying vec3 vNormal;
+  varying vec3 vView;
   void main() {
     // How far in from each pair of faces: the least is the face this point is on, the middle one its nearest edge.
     vec3 e = max(vHalf - abs(vLocal), 0.0);
@@ -491,8 +504,13 @@ const KEY_FRAGMENT = /* glsl */ `
     float span = 2.0 * vHalf.z;
     // From the key's front edge back along it.
     float along = vHalf.z - vLocal.z;
-    // Glass lit from within: a soft light in its body, brightest toward its front.
-    vec3 c = vTone.rgb * face * (0.55 + 0.45 * exp(-along / (0.45 * span)));
+    // Glass lit from within: a soft light in its body, brightest toward its front and deeper in its middle than at
+    // its sides, as light gathers in thick glass.
+    float across = clamp(e.x / max(vHalf.x, 1e-4), 0.0, 1.0);
+    vec3 c = vTone.rgb * face * (0.4 + 0.45 * exp(-along / (0.45 * span))) * (0.75 + 0.35 * across);
+    // A sheen where the glass is seen at a glancing angle, the light of the place caught on its polish.
+    float glance = pow(1.0 - clamp(abs(dot(normalize(vNormal), normalize(vView))), 0.0, 1.0), 4.0);
+    c += edgeColour * glance * 0.55 * vTone.a;
     // Its edges bright, as the edges of lit glass are: a fine line over a softer one.
     float line = exp(-edge / 0.0011) + 0.3 * exp(-edge / 0.004);
     c += edgeColour * line * vTone.a;
@@ -514,10 +532,11 @@ const KEY_FRAGMENT = /* glsl */ `
  * A keyboard from `low` to `high` (MIDI numbers, widened to white keys at both ends), its keys' tops at y = 0 in its
  * own group. With `arc`, it curves round the group's origin, its front edge `arc` metres from it, low keys to the left
  * and high to the right of -z, its middle straight ahead: stand a person at the origin and they stand inside it. Without, it runs straight
- * along x, its front edge along z = 0. Each key is glass lit from within with bright edges: the white keys pale in
- * `idle`, the black keys smoky and darker, rising from between them; a played key fills with its note's light from
- * where the note lands along its whole length, and its neighbours' edges catch it. Two meshes for the keys, two more
- * for their reflection on `glass`.
+ * along x, its front edge along z = 0. Each key is glass lit from within with bright edges and a sheen where it is
+ * seen at a glancing angle: the white keys pale in `idle`, the black keys smoky and darker, resting on them short of
+ * their back edge; on a curve each key widens toward its back, so the keyboard is one piece with no gaps opening
+ * behind. A played key fills with its note's light from where the note lands along its whole length, and its
+ * neighbours' edges catch it. Two meshes for the keys, and with `glass` one for the shelf they stand on.
  */
 export function lightKeys(
   low: number,
@@ -603,7 +622,7 @@ export function lightKeys(
     near.setUsage(DynamicDrawUsage);
     geometry.setAttribute('near', near);
     const material = new ShaderMaterial({
-      uniforms: { height: { value: tall }, land: { value: land }, edgeColour: { value: edgeColour }, dim: { value: 1 } },
+      uniforms: { height: { value: tall }, curve: { value: arc ?? 0 }, land: { value: land }, edgeColour: { value: edgeColour }, dim: { value: 1 } },
       vertexShader: KEY_VERTEX,
       fragmentShader: KEY_FRAGMENT,
       toneMapped: false,
