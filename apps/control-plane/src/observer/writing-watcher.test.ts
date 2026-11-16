@@ -18,6 +18,15 @@ const scope = {
   execution_id: '01920000-0000-7000-8000-000000000003',
 };
 
+/** Waits until the condition holds: a start decides its folder asynchronously, slower under load. */
+async function until(condition: () => boolean, ms = 5_000): Promise<void> {
+  const by = Date.now() + ms;
+  while (!condition()) {
+    if (Date.now() > by) throw new Error('the condition never held');
+    await sleep(5);
+  }
+}
+
 function rig(options: { observes?: boolean; protect?: readonly string[] } = {}) {
   let listener: ((published: { event: unknown }) => void) | null = null;
   const recorded: { paths: string[]; paths_total: number; total_complete: boolean }[] = [];
@@ -69,12 +78,11 @@ describe('the files a running turn changes, as the host sees them (Watch It Work
   test('records the newest names first, each once, only when they changed, and stops with the turn', async () => {
     const r = rig();
     r.send('runtime.turn.started');
-    await sleep(10);
-    assert.equal(r.open(), 1);
+    await until(() => r.open() === 1);
     r.saw('src/main.ts');
     r.saw('README.md');
     r.saw('src/main.ts');
-    await sleep(60);
+    await until(() => r.recorded.length > 0);
     assert.deepEqual(r.recorded, [
       { paths: ['src/main.ts', 'README.md'], paths_total: 2, total_complete: true },
     ]);
@@ -91,7 +99,7 @@ describe('the files a running turn changes, as the host sees them (Watch It Work
   test('never keeps a name outside the folder, inside .git or node_modules at its top, or past the bound', async () => {
     const r = rig();
     r.send('runtime.turn.started');
-    await sleep(10);
+    await until(() => r.open() === 1);
     for (const name of [
       '../outside.txt',
       '/etc/passwd',
@@ -123,13 +131,13 @@ describe('the files a running turn changes, as the host sees them (Watch It Work
     // A run's folder that holds the host's own data is never watched.
     const holds = rig({ protect: [join(base, 'data')] });
     holds.send('runtime.turn.started');
-    await sleep(10);
+    // Given time to decide, it never opens a watch (a slow decision only makes this pass sooner, never fail).
+    await sleep(50);
     assert.equal(holds.open(), 0);
 
     const own = rig({ protect: [join(tmpdir(), 'halcyonic-writing-elsewhere', 'data')] });
     own.send('runtime.turn.started');
-    await sleep(10);
-    assert.equal(own.open(), 1);
+    await until(() => own.open() === 1);
     own.watcher.close();
     assert.equal(own.open(), 0, 'closing the plane ends the watch');
     own.send('runtime.turn.started');
