@@ -75,8 +75,12 @@ namespace Halcyonic.XR
 
         public static readonly float[] WindowSlotDegrees = { -32f, -32f, 32f, 32f };
 
-        /// <summary>Each slot's height beside a window, in degrees from eye level: up for the inner slots.</summary>
-        public static readonly float[] WindowSlotLiftDegrees = { -15f, 4f, 4f, -15f };
+        /// <summary>
+        /// Each slot's height beside a window, in degrees from eye level: up for the inner slots. 5.5 and -16.5, not the first
+        /// 4 and -15: the upper character's label now lays a filmed name whole on up to three lines (AUDIT's film MUST,
+        /// 2026-11-16), and at 4 and -15 it stood 1.4 degrees into the lower character's body at Standard, 1.7 at Larger (F137).
+        /// </summary>
+        public static readonly float[] WindowSlotLiftDegrees = { -16.5f, 5.5f, 5.5f, -16.5f };
 
         /// <summary>The gap between a label plate and the surface it rests on, in a character's units.</summary>
         private const float SurfaceClearance = 0.005f;
