@@ -388,7 +388,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "31-bar-confirm-escapes" => (VoiceStage.Idle, false, RoomBarState.Confirm, "An instruction's confirmation, its words holding backslashes: Confirm and Cancel, synthetic data"),
                 "31-bar-confirm-part-escapes" => (VoiceStage.Idle, false, RoomBarState.Confirm, "A long instruction's confirmation with a backslash in its first part: Next Part and Cancel, synthetic data"),
                 "31-bar-sent" => (VoiceStage.Idle, true, RoomBarState.Sent, "Sent, the run not started yet, synthetic data"),
-                "31-bar-rest-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest with the agent and its level in the row: every action the row offers in a place of its own, synthetic data"),
+                "31-bar-rest-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest with the agent and its level in the row beside Hold to Talk and Type, each in a place of its own, synthetic data"),
                 _ => (VoiceStage.Idle, false, RoomBarState.Rest, "At rest: Hold to Talk and Type, synthetic data"),
             };
             var shot = new Shot { Caption = caption };
@@ -822,8 +822,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (state == "31-bar-rest-agent")
                     {
                         Debug.Log("Halcyonic: spatial kit: " + state + " row: " + string.Join(", ", shown.Row.Select(action => action.Words)));
-                        Require(shown.Row.Any(action => action.Control.Action == AgentColumn.Open) && shown.Row.Any(action => action.Control.Place == KitPlace.Close),
-                            "the row at rest does not hold the agent and the way back");
+                        // The synthetic file offers no route behind More and no way back at rest, so the row is Hold to Talk, Type and the
+                        // agent; every action past Type still stands in a place of its own (the checks above), whatever their count.
+                        Require(shown.Row.Any(action => action.Control.Action == AgentColumn.Open) && row.Count == shown.Row.Count,
+                            "the row at rest does not hold the agent in a place of its own");
                     }
                     actions.AddRange(row);
                     Require(row.All(button => button.gameObject.activeSelf), "a row action is not drawn");
