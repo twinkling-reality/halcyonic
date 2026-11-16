@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -32,7 +33,7 @@ import {
   type RuntimeAdapter,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
-import { NO_COPIES_HERE, NO_COPIES_UNDO_OFF } from '../core/command-service.ts';
+import { COPY_FAILED, NO_COPIES_HERE, NO_COPIES_UNDO_OFF } from '../core/command-service.ts';
 import { ControlPlane } from '../core/control-plane.ts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { createUuidV7Generator } from '../ids.ts';
@@ -329,6 +330,33 @@ describe('several agents on one project (ADR 0045)', {
     const back = controlPlane.projection.workstream(first)?.copy;
     assert.ok(back?.state === 'own' && back.missing_at === undefined);
     assert.equal(readFileSync(join(foreign, 'work.txt'), 'utf8'), 'not added yet\n');
+  });
+
+  test('a copy that fails unexpectedly refuses the start: nothing runs in the folder, and a later start tries again', async () => {
+    const { folder, tasks, controlPlane, task, start, of, finish } = setup('copy-fails');
+    // The copies' folder cannot be written, so making the copy fails as an unexpected error would (AUDIT3, 2026-11-16).
+    mkdirSync(tasks, { recursive: true });
+    chmodSync(tasks, 0o500);
+    const first = task('Lanterns');
+    const sent = start(first, 'lanterns');
+    const id = sent.command?.command_id ?? '';
+    await until(() => controlPlane.projection.command(id)?.status === 'failed', 'the refusal');
+    const failure = controlPlane.projection.command(id)?.failure;
+    assert.equal(failure?.code, 'copy_failed');
+    assert.equal(failure?.effect, 'none');
+    assert.equal(failure?.message, COPY_FAILED);
+    assert.equal(of('execution.created', first).length, 0, 'no agent started');
+    assert.equal(of('runtime.turn.started', first).length, 0);
+    assert.equal(of('project.checkpoint.recorded').length, 0, 'no checkpoint of the folder');
+    assert.equal(of('workstream.copy_refused', first).length, 0, 'nothing held against the copy');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person\n', 'the folder untouched');
+    // Once the folder can be written again, the same task gets its copy and starts there.
+    chmodSync(tasks, 0o700);
+    assert.equal(start(first, 'lanterns').disposition, 'accepted');
+    await until(() => of('runtime.turn.started', first).length === 1, 'the turn in its copy');
+    assert.equal(controlPlane.projection.workstream(first)?.copy?.state, 'own');
+    assert.equal(readFileSync(join(folder, 'app.txt'), 'utf8'), 'person\n');
+    finish();
   });
 
   test('a folder that cannot be copied keeps one task at a time, and says why', async () => {

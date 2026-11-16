@@ -67,6 +67,11 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
     },
     {
       file: 'apps/control-plane/src/core/command-service.ts',
+      args: '{ workstream_id, ...errorKind(error) }, ""',
+      why: "A task copy that failed: the task's id and the error's class, code and errno alone (errorKind), never its message or a path (AUDIT3, 2026-11-16).",
+    },
+    {
+      file: 'apps/control-plane/src/core/command-service.ts',
       args: '{ command_id: command.command_id, command_type: command.command_type, rejection: admission.rejection.code, }, "" ,',
       why: 'ids, the command type and the rejection code',
     },

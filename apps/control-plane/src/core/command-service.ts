@@ -236,6 +236,20 @@ const BASELINE_WAIT_MS = 10_000;
 export const NO_COPIES_HERE =
   "This computer has no git Halora can trust, so this task can't get its own copy. Install Apple's command line tools (xcode-select --install), or run pnpm mac-setup undo.";
 
+/** Why a task is refused when making its own copy failed unexpectedly, as under load (AUDIT3, 2026-11-16). */
+export const COPY_FAILED = 'The copy of the folder failed, so this task did not start. Try again.';
+
+/** A thrown error's kind, for a log line: its class, code and errno, never its message, which may name a path. */
+function errorKind(error: unknown): { error_class?: string; error_code?: string; errno?: number } {
+  if (!(error instanceof Error)) return { error_class: typeof error };
+  const { code, errno } = error as { code?: unknown; errno?: unknown };
+  return {
+    error_class: error.constructor.name,
+    ...(typeof code === 'string' && /^[A-Za-z0-9_]{1,40}$/.test(code) ? { error_code: code } : {}),
+    ...(typeof errno === 'number' ? { errno } : {}),
+  };
+}
+
 /** The same refusal where the owner turned undo off (`HALCYONIC_GIT_BIN=off`): a task's own copy needs it. */
 export const NO_COPIES_UNDO_OFF =
   "Undo is off on this computer, and a task's own copy needs it. Turn undo on with pnpm mac-setup undo, or turn task copies off.";
@@ -1537,11 +1551,19 @@ export class CommandService {
             message:
               "This task's agent is not kept to one folder on this computer, so the task works in the project's folder, one task at a time.",
           };
-    } catch {
-      // What failed may name the person's folders, so only the task is logged.
-      this.#deps.logger.warn({ workstream_id }, 'task copy failed');
+    } catch (error: unknown) {
+      // What failed may name the person's folders, so only its kind is logged, never its message or a path.
+      this.#deps.logger.warn({ workstream_id, ...errorKind(error) }, 'task copy failed');
       made = { ok: false, code: 'copy_failed', message: 'The copy of the folder failed.' };
     }
+    // An unexpected failure to make the copy refuses the start: the task never runs in the project's folder instead,
+    // where its work would reach the project before anyone added it (AUDIT3, 2026-11-16). Nothing is recorded against
+    // the task's copy, so a later start tries again; the deliberate refusals below keep ADR 0045's rule.
+    if (!made.ok && made.code === 'copy_failed')
+      return {
+        ok: false,
+        failure: { code: 'copy_failed', message: COPY_FAILED, effect: 'none' },
+      };
     if (made.ok) {
       this.#deps.recorder.record(
         controlPlaneDraft(

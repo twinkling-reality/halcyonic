@@ -79,6 +79,10 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    why (`workstream.copy_refused`): its `.git` is a file, another repository sits inside it, it is
    larger than a checkpoint keeps, its volume cannot clone, it is missing, or it holds Halcyonic's
    data, or its runtime is not held to the folder (1).
+   - **A copy that fails unexpectedly is a refusal** (amended 2026-11-16, CORE's finding, AUDIT3's ruling): when making
+     the copy fails for no reason above (`copy_failed`, as a step that ran out of time under load), the start fails in
+     words, `copy_failed` with effect `none`, and the task never runs in the project's folder instead; nothing is held
+     against the copy, so a later start tries again.
    - **A world's tasks get no copy** (amended 2026-11-11, AUDIT2's finding on copies by default; the
      lead's choice). A world is the one starter whose tasks change the project in place: the person
      speaks to it, and the world the headset shows follows each turn (ADR 0049), which reads the
