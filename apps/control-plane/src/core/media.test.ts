@@ -77,7 +77,10 @@ test('a photo or video is known by its bytes and a walk of its boxes to the end,
   );
 });
 
-test('the store keeps a file private by its digest, refuses one too large or not whole, one at a time, four at most, two hours (ADR 0066)', async () => {
+// A bound of its own, so a store that never reads the held upload fails this test by name, never hangs the suite (AUDIT3).
+test('the store keeps a file private by its digest, refuses one too large or not whole, one at a time, four at most, two hours (ADR 0066)', {
+  timeout: 30_000,
+}, async () => {
   const folder = join(fresh('store'), 'media');
   let now = 1_000_000;
   const store = new MediaStore(folder, () => now);
