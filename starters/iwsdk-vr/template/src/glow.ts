@@ -403,10 +403,13 @@ export interface KeySpot {
  * the middle of a black key.
  */
 export function landing(key: KeySpot): number {
-  return key.length * (key.black ? 0.5 : 0.14);
+  return key.length * (key.black ? LANDS.black : LANDS.white);
 }
 
-/** A keyboard of light: dark glass keys that light in a colour when played. */
+/** `landing`'s shares of a key's length. */
+const LANDS = { white: 0.14, black: 0.5 };
+
+/** A keyboard of light: keys of glass lit from within, pale white keys and smoky black ones, lit in a colour when played. */
 export interface LightKeys {
   readonly group: Group;
   /** Where a key is, or undefined for a key this keyboard does not have. */
@@ -423,11 +426,76 @@ export interface LightKeys {
   end(): void;
 }
 
+const KEY_VERTEX = /* glsl */ `
+  uniform float height;
+  attribute vec4 tone;
+  attribute vec4 lit;
+  attribute vec3 near;
+  varying vec3 vLocal;
+  varying vec3 vHalf;
+  varying vec4 vTone;
+  varying vec4 vLit;
+  varying vec3 vNear;
+  void main() {
+    // In metres in the key's own frame: x across it, y up, z from its back to its front.
+    vec3 size = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
+    vLocal = position * size;
+    vHalf = vec3(size.x, size.y * height, size.z) * 0.5;
+    vTone = tone;
+    vLit = lit;
+    vNear = near;
+    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  }
+`;
+
+const KEY_FRAGMENT = /* glsl */ `
+  uniform float land;
+  uniform vec3 edgeColour;
+  uniform float dim;
+  varying vec3 vLocal;
+  varying vec3 vHalf;
+  varying vec4 vTone;
+  varying vec4 vLit;
+  varying vec3 vNear;
+  void main() {
+    // How far in from each pair of faces: the least is the face this point is on, the middle one its nearest edge.
+    vec3 e = max(vHalf - abs(vLocal), 0.0);
+    float lo = min(e.x, min(e.y, e.z));
+    float hi = max(e.x, max(e.y, e.z));
+    float edge = e.x + e.y + e.z - lo - hi;
+    float top = (e.y <= lo + 1e-5 && vLocal.y > 0.0) ? 1.0 : 0.0;
+    float front = (top < 0.5 && e.z <= lo + 1e-5 && vLocal.z > 0.0) ? 1.0 : 0.0;
+    float face = top + 0.8 * front + 0.35 * (1.0 - top - front);
+    float span = 2.0 * vHalf.z;
+    // From the key's front edge back along it.
+    float along = vHalf.z - vLocal.z;
+    // Glass lit from within: a soft light in its body, brightest toward its front.
+    vec3 c = vTone.rgb * face * (0.55 + 0.45 * exp(-along / (0.45 * span)));
+    // Its edges bright, as the edges of lit glass are: a fine line over a softer one.
+    float line = exp(-edge / 0.0011) + 0.3 * exp(-edge / 0.004);
+    c += edgeColour * line * vTone.a;
+    // Played, the note's light fills the key from inside: hottest where the note landed, spreading along the key's
+    // length as the strike fades, and running bright along its edges.
+    float d = abs(along - land * span);
+    float spread = exp(-d / (span * (0.06 + 0.75 * vLit.a)));
+    vec3 hot = mix(vLit.rgb, vec3(max(vLit.r, max(vLit.g, vLit.b))), 0.45 * spread * spread);
+    c += hot * spread * (0.35 + face) * 2.2 + vLit.rgb * line * 2.0;
+    // A neighbour's light caught on this key's edges.
+    c += vNear * line;
+    gl_FragColor = vec4(c * dim, 1.0);
+    #include <colorspace_fragment>
+    gl_FragColor.rgb += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
+  }
+`;
+
 /**
  * A keyboard from `low` to `high` (MIDI numbers, widened to white keys at both ends), its keys' tops at y = 0 in its
  * own group. With `arc`, it curves round the group's origin, its front edge `arc` metres from it, low keys to the left
  * and high to the right of -z, its middle straight ahead: stand a person at the origin and they stand inside it. Without, it runs straight
- * along x, its front edge along z = 0. Two meshes for the keys and a few for their light.
+ * along x, its front edge along z = 0. Each key is glass lit from within with bright edges: the white keys pale in
+ * `idle`, the black keys smoky and darker, rising from between them; a played key fills with its note's light from
+ * where the note lands along its whole length, and its neighbours' edges catch it. Two meshes for the keys, two more
+ * for their reflection on `glass`.
  */
 export function lightKeys(
   low: number,
@@ -446,8 +514,9 @@ export function lightKeys(
   const blackLength = whiteLength * 0.62;
   const depth = 0.018;
   const raised = depth * 1.1;
-  const idle = options.idle ?? new Color('#1A2140');
-  const blackIdle = idle.clone().multiplyScalar(0.55);
+  const idle = options.idle ?? new Color('#40508A');
+  // Smoky glass: far darker than the white keys, so the two kinds read apart at a glance.
+  const blackIdle = idle.clone().multiplyScalar(0.12);
   const arc = options.arc;
   // Along the keyboard, then round the arc: a key at distance s from the middle stands at angle s / arc.
   const at = (s: number, out: number) => {
@@ -477,55 +546,69 @@ export function lightKeys(
       length: black ? blackLength : whiteLength,
     });
   }
-  const byKey = new Map(spots.map((spot) => [spot.midi, spot]));
-  const make = (keys: KeySpot[], base: Color) => {
-    const black = keys[0]?.black === true;
-    const mesh = new InstancedMesh(
-      new BoxGeometry(1, depth, 1),
-      new MeshBasicMaterial({ toneMapped: false }),
-      Math.max(1, keys.length),
-    );
-    mesh.count = keys.length;
-    mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(Math.max(1, keys.length) * 3), 3);
-    mesh.instanceColor.setUsage(DynamicDrawUsage);
-    mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    const m = mesh.instanceMatrix.array as Float32Array;
-    keys.forEach((key, i) => {
-      // Turned to face the middle: its x along the keyboard, its z from back to front.
-      const cx = key.x + (key.ox * key.length) / 2;
-      const cz = key.z + (key.oz * key.length) / 2;
-      const y = black ? depth * 0.6 : -depth / 2;
-      m.set([key.tx * key.width, 0, key.tz * key.width, 0, 0, 1, 0, 0, -key.ox * key.length, 0, -key.oz * key.length, 0, cx, y, cz, 1], i * 16);
-      mesh.setColorAt(i, base);
-    });
-    return mesh;
-  };
-  const whiteKeys = spots.filter((spot) => !spot.black);
-  const blackKeys = spots.filter((spot) => spot.black);
+  const byKey = new Map(spots.map((spot, i) => [spot.midi, i]));
   // The glass fades into the place's own dark (`dark`) toward both ends of the keyboard, so it has no cut end.
   const dark = options.dark ?? new Color('#070B1C');
   const ends = (key: KeySpot) => {
     const i = spots.indexOf(key);
     return Math.min(1, Math.min(i, spots.length - 1 - i) / 12) ** 1.5;
   };
-  const tone = new Map(spots.map((key) => [key.midi, dark.clone().lerp(key.black ? blackIdle : idle, ends(key))]));
-  const white = make(whiteKeys, idle);
-  const black = make(blackKeys, blackIdle);
-  // A played key's light: a soft round heat where the note lands, hottest at its middle, drawn over the keys so a
-  // neighbour never cuts it.
+  const whiteKeys = spots.filter((spot) => !spot.black);
+  const blackKeys = spots.filter((spot) => spot.black);
+  // A white key stands from y = -depth to its top at 0; a black key rises from the same foot, between its neighbours,
+  // to stand `raised` over them, so it grows out of the keyboard rather than lying on it.
+  const whiteTall = depth;
+  const blackTall = depth + raised;
+  const whiteMiddle = -depth / 2;
+  const blackMiddle = (raised - depth) / 2;
+  const make = (keys: KeySpot[], tall: number, middle: number, base: Color, edgeColour: Color, land: number) => {
+    const n = Math.max(1, keys.length);
+    const geometry = new BoxGeometry(1, tall, 1);
+    const tones = new Float32Array(n * 4);
+    keys.forEach((key, i) => {
+      const fade = ends(key);
+      const tint = dark.clone().lerp(base, fade);
+      tones.set([tint.r, tint.g, tint.b, fade], i * 4);
+    });
+    geometry.setAttribute('tone', new InstancedBufferAttribute(tones, 4));
+    const lit = new InstancedBufferAttribute(new Float32Array(n * 4), 4);
+    lit.setUsage(DynamicDrawUsage);
+    geometry.setAttribute('lit', lit);
+    const near = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
+    near.setUsage(DynamicDrawUsage);
+    geometry.setAttribute('near', near);
+    const material = new ShaderMaterial({
+      uniforms: { height: { value: tall }, land: { value: land }, edgeColour: { value: edgeColour }, dim: { value: 1 } },
+      vertexShader: KEY_VERTEX,
+      fragmentShader: KEY_FRAGMENT,
+      toneMapped: false,
+    });
+    const mesh = new InstancedMesh(geometry, material, n);
+    mesh.count = keys.length;
+    mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+    const m = mesh.instanceMatrix.array as Float32Array;
+    keys.forEach((key, i) => {
+      // Turned to face the middle: its x along the keyboard, its z from back to front.
+      const cx = key.x + (key.ox * key.length) / 2;
+      const cz = key.z + (key.oz * key.length) / 2;
+      m.set([key.tx * key.width, 0, key.tz * key.width, 0, 0, 1, 0, 0, -key.ox * key.length, 0, -key.oz * key.length, 0, cx, middle, cz, 1], i * 16);
+    });
+    return { mesh, lit: lit.array as Float32Array, near: near.array as Float32Array, litAttribute: lit, nearAttribute: near };
+  };
+  const pale = new Color('#C4D2FF').multiplyScalar(0.75);
+  const smoky = new Color('#7476C0').multiplyScalar(0.6);
+  const whiteSet = make(whiteKeys, whiteTall, whiteMiddle, idle, pale, LANDS.white);
+  const blackSet = make(blackKeys, blackTall, blackMiddle, blackIdle, smoky, LANDS.black);
+  const white = whiteSet.mesh;
+  const black = blackSet.mesh;
+  // Where each key's light is written: its set and its place in it.
+  const slots = spots.map((spot) =>
+    spot.black ? { set: blackSet, i: blackKeys.indexOf(spot), middle: blackMiddle } : { set: whiteSet, i: whiteKeys.indexOf(spot), middle: whiteMiddle },
+  );
   // With `glass`, the keys stand on a shelf of dark glass that mirrors them and the light near it, fading with height.
   const glass = options.glass === true ? -depth - 0.002 : undefined;
-  const mirror = glass === undefined ? undefined : { level: glass, strength: 0.45, lift: 0.35 };
-  const heat = glows(spots.length, { halo: 0.045, round: 1, whiten: 0.2, over: true, mirror });
-  // And the key's own face, lit softly from its front, so which key went down is seen.
-  const face = glows(spots.length * 3, { halo: 0.008, round: 0.006, ramp: 0.25, over: true, mirror });
-  // Unplayed, each key's front edge keeps a faint line of its own register's colour, so the keyboard is light even
-  // before a note, fading toward the ends like the glass.
-  const edge = new Map(
-    spots.map((key) => [key.midi, registerColour(key.midi, first, last).multiplyScalar(0.07 * ends(key))]),
-  );
   const group = new Group();
-  group.add(white, black, face.object, heat.object);
+  group.add(white, black);
   if (glass !== undefined) {
     // The shelf: a faint sheen of the keys' own colour, widest just under them and fading out on every side, so it
     // has no edge; it writes no depth, so what is mirrored under it shows through.
@@ -542,7 +625,7 @@ export function lightKeys(
         const p = at(-width / 2 + u * width, inner + v * (outer - inner));
         sheen.push(p.x, glass, p.z);
         const out = inner + v * (outer - inner);
-        const k = Math.sin(Math.PI * u) ** 1.2 * Math.exp(-(((out - whiteLength * 0.4) / 0.28) ** 2)) * 0.22;
+        const k = Math.sin(Math.PI * u) ** 1.2 * Math.exp(-(((out - whiteLength * 0.4) / 0.28) ** 2)) * 0.07;
         shade.push(idle.r * k, idle.g * k, idle.b * k);
       }
     }
@@ -570,20 +653,16 @@ export function lightKeys(
         }),
       ),
     );
-    // Each key's reflection: the same keys, turned over under the glass and added faintly to it, so they move and
-    // take their colours with the keys themselves.
-    const seen = new MeshBasicMaterial({
-      color: new Color(0.7, 0.7, 0.7),
-      toneMapped: false,
-      transparent: true,
-      blending: AdditiveBlending,
-      depthWrite: false,
-      side: DoubleSide,
-    });
+    // Each key's reflection: the same keys and their light, turned over under the glass and added faintly to it.
     for (const keys of [white, black]) {
+      const seen = (keys.material as ShaderMaterial).clone();
+      seen.uniforms.dim = { value: 0.3 };
+      seen.transparent = true;
+      seen.blending = AdditiveBlending;
+      seen.depthWrite = false;
+      seen.side = DoubleSide;
       const reflected = new InstancedMesh(keys.geometry, seen, keys.count);
       reflected.instanceMatrix = keys.instanceMatrix;
-      reflected.instanceColor = keys.instanceColor;
       reflected.count = keys.count;
       reflected.frustumCulled = false;
       reflected.scale.y = -1;
@@ -591,68 +670,79 @@ export function lightKeys(
       group.add(reflected);
     }
   }
-  const level = new Map<number, number>();
-  const hue = new Map<number, Color>();
-  for (const spot of spots) hue.set(spot.midi, new Color());
-  const mix = new Color();
-  const paint = (mesh: InstancedMesh, keys: KeySpot[], lift: number) => {
-    const m = mesh.instanceMatrix.array as Float32Array;
-    keys.forEach((key, i) => {
-      const amount = Math.min(1, level.get(key.midi) ?? 0);
-      // The glass itself stays dark: a played key's light is the heat on it, never a tint of the whole key.
-      mesh.setColorAt(i, tone.get(key.midi) as Color);
-      // A played key goes down a few millimetres.
-      m[i * 16 + 13] = lift - 0.004 * amount;
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor !== null) mesh.instanceColor.needsUpdate = true;
-  };
+  // Each key's light this frame, the last frame's, and its strike's peak: how far a strike's light has spread along
+  // its key is read from how far it has faded from that peak, so it needs no clock of its own.
+  const level = new Float32Array(spots.length);
+  const was = new Float32Array(spots.length);
+  const peak = new Float32Array(spots.length);
+  const hue = spots.map(() => new Color());
+  const sets = [whiteSet, blackSet];
   return {
     group,
-    spot: (midi) => byKey.get(midi),
+    spot: (midi) => {
+      const i = byKey.get(midi);
+      return i === undefined ? undefined : spots[i];
+    },
     spots,
     keyWidth,
     glass,
     light(midi, colour, amount) {
-      if (!byKey.has(midi) || amount <= (level.get(midi) ?? 0)) return;
-      level.set(midi, amount);
-      hue.get(midi)?.copy(colour);
+      const k = byKey.get(midi);
+      if (k === undefined || amount <= (level[k] as number)) return;
+      level[k] = amount;
+      hue[k]?.copy(colour);
     },
     begin() {
-      level.clear();
+      level.fill(0);
     },
     end() {
-      paint(white, whiteKeys, -depth / 2);
-      paint(black, blackKeys, depth * 0.6);
-      heat.begin();
-      face.begin();
-      for (const key of spots) {
-        const { x, y, z, tx, tz, ox, oz } = key;
-        // White keys only: on a black key the line reads as a post standing up.
-        if (!key.black) face.place(x - ox * 0.001, y + 0.0005, z - oz * 0.001, tx, 0, tz, ox, 0, oz, key.width * 0.8, 0.004, edge.get(key.midi) as Color, 1);
+      for (let k = 0; k < spots.length; k++) {
+        const amount = Math.min(1, level[k] as number);
+        if (amount <= 0) peak[k] = 0;
+        else if (amount > (was[k] as number) * 1.1 + 0.02) peak[k] = amount;
+        else peak[k] = Math.max(peak[k] as number, amount);
+        was[k] = amount;
       }
-      for (const key of spots) {
-        const amount = Math.min(1, level.get(key.midi) ?? 0);
-        if (amount <= 0) continue;
-        const { x, y, z, tx, tz, ox, oz } = key;
-        const into = landing(key);
-        const c = hue.get(key.midi) as Color;
-        // Dark glass needs more light to be seen lit: a black key's glow is stronger, and its front face lights too.
-        const gain = key.black ? 3 : 1;
-        // Bright, never clipping to white: a hot key keeps its colour.
-        heat.place(x + ox * into, y + 0.0015, z + oz * into, tx, 0, tz, ox, 0, oz, 0.016, 0.016, c, 0.2 * gain * amount);
-        const mid = key.length / 2;
-        face.place(x + ox * mid, y + 0.001, z + oz * mid, tx, 0, tz, ox, 0, oz, key.width * 0.85, key.length, c, 0.2 * gain * amount);
-        // Its front face too, carried up over the edge so the top and the front read as one lit key.
-        // A black key's front lit softly: brighter, its upright face reads as a post, not a key.
-        const front = key.black ? 0.2 : 0.35;
-        face.place(x - ox * 0.001, y - depth / 2 + 0.002, z - oz * 0.001, tx, 0, tz, 0, 1, 0, key.width * 0.85, depth + 0.004, c, front * amount);
+      for (let k = 0; k < spots.length; k++) {
+        const { set, i, middle } = slots[k] as (typeof slots)[number];
+        const amount = Math.min(1, level[k] as number);
+        const c = hue[k] as Color;
+        set.lit[i * 4] = c.r * amount;
+        set.lit[i * 4 + 1] = c.g * amount;
+        set.lit[i * 4 + 2] = c.b * amount;
+        set.lit[i * 4 + 3] = amount > 0 ? 1 - amount / Math.max(peak[k] as number, 1e-4) : 0;
+        // The light of the keys either side, caught on this one's edges.
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        for (let s = 0; s < NEIGHBOURS.length; s += 2) {
+          const n = k + (NEIGHBOURS[s] as number);
+          const share = NEIGHBOURS[s + 1] as number;
+          if (n < 0 || n >= spots.length) continue;
+          const a = Math.min(1, level[n] as number) * share;
+          if (a <= 0) continue;
+          const h = hue[n] as Color;
+          r += h.r * a;
+          g += h.g * a;
+          b += h.b * a;
+        }
+        set.near[i * 3] = r;
+        set.near[i * 3 + 1] = g;
+        set.near[i * 3 + 2] = b;
+        // A played key goes down a few millimetres.
+        (set.mesh.instanceMatrix.array as Float32Array)[i * 16 + 13] = middle - 0.004 * amount;
       }
-      heat.end();
-      face.end();
+      for (const set of sets) {
+        set.litAttribute.needsUpdate = true;
+        set.nearAttribute.needsUpdate = true;
+        set.mesh.instanceMatrix.needsUpdate = true;
+      }
     },
   };
 }
+
+/** How much of a key's light its neighbours' edges catch: how many keys away, then the share, for each. */
+const NEIGHBOURS = [-2, 0.12, -1, 0.35, 1, 0.35, 2, 0.12];
 
 /** Notes of light falling onto a keyboard of light, played by a score: what `fallingNotes` makes. */
 export interface FallingNotes {
@@ -677,8 +767,8 @@ const STOPS = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0'),
  * Makes the light of a score playing on a keyboard of light (`lightKeys`): each note falls as a soft drop of light
  * out of the dark overhead, straight down onto its own key (or, `from: 'around'`, from its key's own direction),
  * landing on the key's top at the moment it is heard
- * (`player.now()`); the key lights where it lands and stays lit while the note is held, light blooms up from it, and
- * a few sparks rise. Each note's light is coloured by where it lies in the music, low to high, moved a little by how
+ * (`player.now()`); the key fills with its light from where it lands along its length and stays lit while the note is
+ * held, a column of light rises from it, and a few sparks rise. Each note's light is coloured by where it lies in the music, low to high, moved a little by how
  * hard it is played (`colour` to choose another). `seconds` is how long a note is seen falling,
  * `fall` how far, in metres; `reach` how far off the hall answers each note with its colour, all round the person.
  * Built inside `keys.group`, so place that group.
@@ -731,19 +821,21 @@ export function fallingNotes(
   // Each drop a small hot head at its foot and a tail tapering up into the dark, both drawn over the key it lands on.
   const drops = glows(600, { upright: true, halo: 0.03, round: 1, whiten: 0.1, ramp: 0.05, over: true });
   const heads = glows(600, { facing: true, halo: 0.025, round: 1, whiten: 0.4, over: true });
-  // A column of light rising from a struck key: a line with only a halo, fading to nothing at its top.
-  const blooms = glows(160, { upright: true, halo: 0.035, round: 1, core: 0, ramp: 0, over: true, mirror });
-  const flares = glows(160, { facing: true, halo: 0.12, round: 1, whiten: 0.2, over: true, mirror });
+  // A column of light rising from a struck key while its note sounds: a soft beam as wide as a third of the key, its
+  // foot on the key, fading to nothing at its top.
+  const blooms = glows(160, { upright: true, halo: 0.022, round: 0.004, core: 0.35, whiten: 0.3, ramp: 0, over: true, mirror });
+  // The strike itself: a small hot point where the note lands, its light soft all round, never a disc of its own.
+  const flares = glows(160, { facing: true, halo: 0.06, round: 1, core: 0.6, whiten: 0.4, over: true, mirror });
   const motes = sparks(700, { over: true });
-  // A struck key's light spilling softly over it and its neighbours, laid flat on the keys; and, given `floor` (the
-  // floor's height in the keys' group's frame), a pool of each sounding note's light on the floor beneath it.
-  const spill = glows(160, { halo: 0.06, round: 0.05, core: 0, over: true });
+  // The key fills with its note's light itself (`lightKeys`); on glass the light spreads on over the glass in front
+  // of it, and, given `floor` (the floor's height in the keys' group's frame), it pools on the floor beneath it.
   const pools = glows(480, { halo: 0.35, round: 0.25, core: 0 });
-  group.add(spill.object, pools.object);
-  // The place answers: each note lights the far dark of the hall in its colour, where its key points, to both sides
-  // and behind the person, so the music is all round them.
+  group.add(pools.object);
+  // The place answers: each note lights the far haze of the hall in its colour, low along the horizon where its key
+  // points, to both sides and behind the person, so the music is all round them: a wide soft band of light in the
+  // haze, never a disc hanging in the sky. Upright, so it stays level however the head tilts.
   // Each answer stays wholly above the floor (its halo smaller than its height), so the floor never meets it.
-  const echoes = glows(480, { facing: true, halo: 3, round: 1, core: 0, over: true });
+  const echoes = glows(480, { upright: true, halo: 1.4, round: 0.02, core: 0, over: true });
   group.add(drops.object, heads.object, blooms.object, flares.object, motes.object, echoes.object);
   let last = Number.NaN;
   let previous = Number.NaN;
@@ -783,24 +875,24 @@ export function fallingNotes(
       const after = now > end ? Math.exp(-(now - end) * 7) : 1;
       const amount = (0.2 + 0.8 * strike) * after;
       keys.light(note.pitch, colour, amount * (0.65 + 0.35 * note.loud));
-      flares.add(lx, spot.y + 0.012, lz, 0.03, 0.03, colour, strike * 0.65);
-      spill.place(lx, spot.y + 0.003, lz, spot.tx, 0, spot.tz, spot.ox, 0, spot.oz, spot.width * 3.5, spot.length * 0.9, colour, 0.22 * amount);
+      flares.add(lx, spot.y + 0.006, lz, 0.007, 0.007, colour, strike * 0.6);
       if (keys.glass !== undefined) {
         // On glass, a wide soft pool of the note's colour spreads in front of its key.
-        pools.place(lx - spot.ox * 0.12, keys.glass + 0.001, lz - spot.oz * 0.12, spot.tx, 0, spot.tz, spot.ox, 0, spot.oz, spot.width * 7, 0.36, colour, 0.16 * amount);
+        pools.place(lx - spot.ox * 0.12, keys.glass + 0.001, lz - spot.oz * 0.12, spot.tx, 0, spot.tz, spot.ox, 0, spot.oz, spot.width * 7, 0.36, colour, 0.1 * amount);
         // And each strike sends a pulse of its light spreading out over the glass, fading as it goes.
         if (since < 0.7) {
           const out = 0.08 + since * 1.4;
           const left = 1 - since / 0.7;
-          pools.place(lx - spot.ox * 0.1, keys.glass + 0.0015, lz - spot.oz * 0.1, spot.tx, 0, spot.tz, spot.ox, 0, spot.oz, out * 2, out * 1.2, colour, 0.3 * left * left * (0.6 + 0.4 * note.loud));
+          pools.place(lx - spot.ox * 0.1, keys.glass + 0.0015, lz - spot.oz * 0.1, spot.tx, 0, spot.tz, spot.ox, 0, spot.oz, out * 2, out * 1.2, colour, 0.24 * left * left * (0.6 + 0.4 * note.loud));
         }
       }
       if (options.floor !== undefined) {
         pools.place(lx + spot.ox * 0.15, options.floor + 0.004, lz + spot.oz * 0.15, 1, 0, 0, 0, 0, 1, 0.34, 0.34, colour, 0.3 * amount * (0.6 + 0.4 * note.loud));
       }
-      // Light blooms up from the key where it landed, rising and fading.
-      const rise = 0.06 + since * 0.5;
-      if (since < 0.8) blooms.add(lx, spot.y + rise / 2, lz, 0.002, rise, colour, 0.3 * Math.exp(-since * 5));
+      // A column of light rises from the key where it landed, quickly to its height, and stands while the note
+      // sounds, dying away with it.
+      const rise = 0.08 + 0.42 * (1 - Math.exp(-since * 4));
+      blooms.add(lx, spot.y + rise / 2, lz, spot.width * 0.32, rise, colour, 0.5 * amount);
     }
     // A few sparks where each note lands, on the frame it lands.
     if (!Number.isNaN(previous) && start > previous && start <= now)
@@ -826,14 +918,14 @@ export function fallingNotes(
     // note's key and the moment it sounds, so the hall is lit as brightly beside and behind as ahead, one note's
     // answers never step from the last note's by a steady angle (which reads as the hall turning), and its light
     // never falls into one pattern; heights vary with the note and the moment.
-    echoes.add(Math.sin(a) * far, 3.2 + 2 * up, -Math.cos(a) * far, 0.05, 0.05, c, strength);
+    echoes.add(Math.sin(a) * far, 0.6 + 0.4 * up, -Math.cos(a) * far, 2.2, 0.05, c, 0.6 * strength);
     const h = Math.sin(start * 12.9898 + note.pitch * 78.233) * 43758.5453;
     const b = (h - Math.floor(h)) * Math.PI * 2;
     for (let k = 0; k < 3; k++) {
       const bk = b + (k * Math.PI * 2) / 3;
       const g = Math.sin(start * 39.3467 + k * 11.135 + note.pitch * 3.7) * 24634.6345;
-      const rise = 3 + 2.5 * up + 1.5 * (g - Math.floor(g));
-      echoes.add(Math.sin(bk) * far, rise, -Math.cos(bk) * far, 0.05, 0.05, c, 1.8 * strength);
+      const rise = 0.55 + 0.4 * up + 0.3 * (g - Math.floor(g));
+      echoes.add(Math.sin(bk) * far, rise, -Math.cos(bk) * far, 2.2, 0.05, c, 1.1 * strength);
     }
   };
   return {
@@ -847,7 +939,6 @@ export function fallingNotes(
       heads.begin();
       blooms.begin();
       flares.begin();
-      spill.begin();
       pools.begin();
       player.each(0.5, fall / speed, draw);
       echoes.begin();
@@ -858,7 +949,6 @@ export function fallingNotes(
       heads.end();
       blooms.end();
       flares.end();
-      spill.end();
       pools.end();
       motes.update(delta);
       previous = now;
