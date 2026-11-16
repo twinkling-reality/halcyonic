@@ -174,6 +174,11 @@ for a command and "Needs You" for anything else (never a tool's own name). A tas
 list where it stood: Checks Failed, Partly Checked (the check's verdict is not known), Stopped, Failed, or Can't Tell
 with why where it is known; Can't Tell is never read as Failed.
 
+Watch It Work (`WorkspaceText.WatchCount`, AUDIT2 03:06Z and 03:07Z) counts the files the turn changed in the same
+words: "Changed 3 Files So Far" while the turn is at work ("Changed 1 File So Far" for one), "Changed 3 Files" once it
+has ended, the Working step's own line, and "No Files Changed Yet" while at work with none. An ended turn that changed
+nothing says no count.
+
 ## The words a person sees
 
 | Word | Means | Instead of |

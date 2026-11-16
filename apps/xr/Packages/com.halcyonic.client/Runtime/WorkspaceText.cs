@@ -570,6 +570,20 @@ namespace Halcyonic.Client
         /// </summary>
         public static string SendWordsAbove(bool heard) => heard ? "Send This?" : "Send Instruction?";
 
+        /// <summary>What Watch It Work's count says while the turn is still at work and has changed nothing (AUDIT2 03:06Z).</summary>
+        public const string NoFilesChangedYet = "No Files Changed Yet";
+
+        /// <summary>
+        /// Watch It Work's count of the files the turn changed, one source for the view and its renders (AUDIT2 03:06Z and 03:07Z):
+        /// "Changed 3 Files So Far" while at work, "Changed 3 Files" once the turn has ended (TaskSteps' own words), "No Files Changed
+        /// Yet" while at work with none. An ended turn that changed nothing has no count to say: null, never a "Yet" that is false.
+        /// </summary>
+        public static string? WatchCount(long files, bool atWork)
+        {
+            if (files <= 0) return atWork ? NoFilesChangedYet : null;
+            return atWork ? TaskSteps.Changed(files) + " So Far" : TaskSteps.Changed(files);
+        }
+
         /// <summary>What the Doing tab says before anything was sent to the work from here.</summary>
         public const string NothingSentYet = "Nothing Sent";
 
