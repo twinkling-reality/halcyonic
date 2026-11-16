@@ -228,6 +228,27 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
   and head never meet it.
 - Start from the whole small piano of light at the end of this file and change it into the piece asked for.
 
+A place from the person's own photo or video (somewhere they were, a view they loved), to stand in:
+- A photo or video the person added to the project is in its `media/` folder. A video has a play copy beside it, its
+  name ending `-play.mp4`: copy that one, or the photo (JPEG, PNG or WebP), into `public/media/`, never a `.mov` or a
+  `.heic`. Pictures beside it named as stills are for you to look at; the app reads the photo or video itself.
+- `const colours = await coloursOfPicture('/media/<file>', { hour: 'dusk' })` reads its sky and its ground
+  (`hour: 'dusk'` moves its light to dusk when the person asks for dusk; leave it out to keep the picture's own
+  hour; a picture that cannot be read answers with the kit's own dusk). Build the place only once it has answered,
+  and after `setupScene`, so the place never changes colour after it shows:
+  `const land = openLand(colours, { crest: 1, stars: 120 })` is open ground to the horizon in those colours, dunes
+  at `crest` 1 and soft hills at 0 (`swell` their height in metres near the person, `sun` the low sun's direction in
+  radians, 0 ahead of the person and positive to their right, 1.25 if not given), with sand blowing low on the wind.
+  Use it as any place: `setupScene(world, colours.top)`, its `group` added, its `move` to `ambientMotion`, the same
+  colour in `index.html`'s `background`.
+- `const shown = pictureWindow('/media/<file>', { width: 2.4 })` shows the photo or video itself on a window in the
+  place: stand it on the sand four to six metres off, on the other side of the view from the sun, with
+  `shown.standOn(land, x, z)` (upright on two slim posts down to the sand, turned to the person), add its
+  `group` and pass its `move` to `ambientMotion`. A video plays by itself, muted and looping; the window stays hidden
+  until its first frame is ready, then fades in. One window is enough.
+- `startAmbience({ wind: 0.35 }, ambientMotion)` gives the place its wind. Music from `playScore` as above, quiet
+  under it, if the person asks for music.
+
 Keep changes small, one idea at a time, and keep the app running after each one.
 
 A whole small game, to start from: three critters breathe in the garden; press one and it is bonked with confetti,

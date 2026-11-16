@@ -58,7 +58,27 @@
   longest 149 ms. Unslowed on this Mac, while other work ran beside it, the 95th percentile was 17.3 to 17.5 ms and
   the longest frame of each run 35 to 121 ms; which of those are this page's own is not known.
 
+## A place from a person's own picture (2026-11-16)
+
+What it is: an agent asked for a place to stand in from a photo or video the person added reads the picture's colours
+in the browser (`coloursOfPicture`, the sky from its top rows, the horizon where it darkens most going down, the ground
+below; moved to dusk on request), stands the person in open land in those colours (`openLand`: long swells of dunes or
+soft hills to the horizon, lit by a low sun with long shadows marched once when it is built, the near sand lit at every
+pixel from a picture of its light made then), and shows the picture itself on a window on two posts in the sand
+(`pictureWindow`, hidden until its first frame is ready, a video playing muted by itself). The colour reading and the
+land's shape are pure and tested (`apps/control-plane/src/starter-memory.test.ts`).
+
+Measured in headless Chrome on this Mac (ANGLE Metal), a scratch app made from the template, 1832 by 1920, the eye at
+1.62 m (its world height read back from the camera), with a synthetic 8 s clip made by ffmpeg, never a person's own:
+10 to 12 draw calls; about 114,000 triangles (the ground about 92,000, the sky about 20,000); frames 16.7 ms median and
+16.8 to 18.3 ms at the 95th percentile; no page errors; the window ready within 2 s. Building the place took 330 ms
+unslowed and 1.9 s with the CPU slowed six times: the headset may show only the sky's colour for that long when the app
+opens. Eight fresh readers judged its frames in rounds; the last scored it 4 of 10 against the film's bar (light and
+shadow read as dunes; the sand has no ripples, shadow edges step, the window does not take the scene's light).
+
 ## What is not known
 
 - How it sounds and how fast it runs on the Quest 3 and 3S: the slowed-CPU run is an estimate, not the headset.
+- How a place from a picture looks and how long it takes to build in the headset, and how it looks with a person's
+  own clip; whether the Quest's browser plays a phone's HEVC video (the host's H.264 play copy is the route taken).
 - Whether a person hears the piano as a piano: only a person can say.

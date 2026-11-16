@@ -59,5 +59,8 @@ export {
   type Sparks,
   sparks,
 } from './glow.js';
-export { darkHall, type Place } from './places.js';
+export { darkHall, type LandColours, openLand, type Place } from './places.js';
+export { type Hour, type PictureColours, pictureColours } from './memory.js';
+export { coloursOfPicture, isVideo, type PictureWindow, pictureWindow } from './picture.js';
+export { startAmbience } from './sound.js';
 export { type Button, type Rows, type RowsOptions, rows } from './rows.js';

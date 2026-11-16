@@ -691,6 +691,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       // VRIFY: what the kit draws words on, for the check's laptop reading (2026-11-13).
       'legible.ts',
       'look.ts',
+      // SHOW: a person's own photo or video read as a sky over a ground (2026-11-16).
+      'memory.ts',
       'motion.ts',
       // VRIFY: a page's words spread over the pages they take, never cut off (AUDIT2, 2026-11-13).
       'page-fit.ts',
@@ -698,6 +700,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'pages.ts',
       'palette.ts',
       'panel.ts',
+      // SHOW: a person's own photo or video in the scene, and its colours read in the browser (2026-11-16).
+      'picture.ts',
       // SHOW: public-domain pieces as note data (2026-11-14).
       'pieces.ts',
       // SHOW: places, not islands: a dark hall (2026-11-14).
