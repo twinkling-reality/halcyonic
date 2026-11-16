@@ -190,6 +190,8 @@ client                                   server
     `sha256`) records what was read, never the bytes, before the runtime is given them.
   - `RuntimeModel.picture_input` says whether the runtime's list says a model takes pictures; OpenCode refuses,
     with no effect, a model it lists as text only.
+- **A task's usage** (protocol 3). `WorkstreamView.usage` is what the task's runs reported they used, summed by the same
+  rule as `ProjectView.usage` (`projectUsage` over that task's executions), made on read, absent until one reports.
 - **Watch It Work** (protocol 3). While a turn runs, the host watches the run's folder and records
   `execution.files.writing` (newest 20 paths, a count) at most every two seconds; `ExecutionView.writing` holds the
   latest until the next turn starts. `GET /api/projects/:project_id/file` takes an optional `workstream_id`: then the

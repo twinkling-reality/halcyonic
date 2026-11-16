@@ -290,6 +290,11 @@ export const WorkstreamView = Type.Object(
     copy: Type.Optional(WorkstreamCopy),
     /** The project's version the task starts from (ADR 0045); absent for a task from the folder as it is. */
     from_checkpoint: Type.Optional(CheckpointId),
+    /**
+     * What its runs used, as their runtimes reported it, by the same rule as its project's usage; absent until
+     * one reports, which never reads as nothing used.
+     */
+    usage: Type.Optional(RunUsage),
     created_at: Timestamp,
     updated_at: Timestamp,
   },

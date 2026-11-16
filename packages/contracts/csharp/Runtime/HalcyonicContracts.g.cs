@@ -2978,6 +2978,9 @@ namespace Halcyonic.Contracts
         [global::Newtonsoft.Json.JsonProperty("from_checkpoint", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public string? FromCheckpoint { get; set; }
 
+        [global::Newtonsoft.Json.JsonProperty("usage", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public RunUsage? Usage { get; set; }
+
         [global::Newtonsoft.Json.JsonProperty("created_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string CreatedAt { get; set; } = default!;
 

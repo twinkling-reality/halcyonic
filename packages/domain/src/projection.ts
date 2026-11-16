@@ -3001,6 +3001,7 @@ export class Projection {
       if (execution !== undefined) executions.push(execution);
     }
     const current = executions.at(-1);
+    const usage = projectUsage(executions);
     return {
       workstream_id: state.workstreamId,
       project_id: state.projectId,
@@ -3013,6 +3014,8 @@ export class Projection {
       // A task kept from before copies has no copy field at all: as none.
       ...(state.copy == null ? {} : { copy: cloneCopy(state.copy) }),
       ...(state.fromCheckpoint == null ? {} : { from_checkpoint: state.fromCheckpoint }),
+      // The same sum as its project's (workstreamUsage), made on read: no state of its own.
+      ...(usage === null ? {} : { usage }),
       created_at: state.createdAt,
       updated_at: state.updatedAt,
     };

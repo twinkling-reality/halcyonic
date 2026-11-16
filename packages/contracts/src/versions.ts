@@ -11,7 +11,7 @@
  * event and a denial's tool name. 3 (2026-11-16): photos and videos in a project (ADR 0066): the events
  * project.media.added, project.media.prepared and execution.instruction.media_given, the media of a
  * project's and a run's views, the media attachment and need, and the media rejection codes; and Watch It
- * Work's execution.files.writing and the run's view of it.
+ * Work's execution.files.writing and the run's view of it; and a task's view's usage.
  */
 export const EVENT_SCHEMA_VERSION = 1;
 export const COMMAND_SCHEMA_VERSION = 1;

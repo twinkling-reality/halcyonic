@@ -821,6 +821,7 @@ describe('the C# bindings', () => {
     'WorkstreamCreatedPayload.from_checkpoint', // the version a task starts from (ADR 0045)
     'WorkstreamView.copy', // a task's own copy (ADR 0045)
     'WorkstreamView.from_checkpoint', // the version a task starts from (ADR 0045)
+    'WorkstreamView.usage', // what its runs used, by its project's rule (the lead, 2026-11-16)
   ];
 
   /** The optional members of generated C#, as `Class.json_name`, each with its attribute and type. */

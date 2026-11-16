@@ -413,6 +413,7 @@ describe('execution status is derived from observed facts', () => {
       'nothing reported, never zero',
     );
     assert.equal(projection.workstreamUsage('no-such-task'), null);
+    assert.equal(projection.workstream(scope.workstreamId)?.usage, undefined, 'absent, never zero');
     apply(
       b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }),
       report(scope, 't1', 10, 0.25),
@@ -429,6 +430,11 @@ describe('execution status is derived from observed facts', () => {
       tokens: { input: 10, cache_read: 0, cache_write: 0, output: 2, reasoning: null },
       cost: { estimated_usd: 0.25, prices: 'list' },
     });
+    // The task's view carries the same sum (LINK, the lead 03:22Z), and none before a run reports.
+    assert.deepEqual(
+      projection.workstream(scope.workstreamId)?.usage,
+      projection.workstreamUsage(scope.workstreamId),
+    );
     assert.deepEqual(projection.workstreamUsage(second.workstreamId), {
       turns: 1,
       turns_ended: 2,
