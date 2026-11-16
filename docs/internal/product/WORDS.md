@@ -109,6 +109,26 @@ counts, "paused" covers tasks that ran and rest, neither running nor waiting for
 started are "not started", the badge's own word ("3 tasks not started", "1 task paused, 2 not
 started").
 
+## What is happening, in steps
+
+A task's panel lists its steps in plain words a child can follow (`TaskSteps`; the lead's ruling of
+2026-11-16 and AUDIT2's words), each from a fact the journal holds and nothing else. Each step has a mark (done,
+now, not yet) and at most one line under it.
+
+| Step | When | Its line |
+| --- | --- | --- |
+| Your Request | the task has an instruction | the person's words, as they gave them |
+| Planning | only in plan mode, until the plan is left | none |
+| Working | the agent's turn; the agent's own test run is still Working | the step under way ("Editing index.html"); once done, "Changed 3 Files" as the computer saw them, never a count it did not read |
+| Check | the turn ended and no check of the computer's own covers the files as they are | "Builds the app and opens it." |
+| Checking | a Check Project the person sent is under way | none |
+| Ready | only after that check passed on the files as they are | none |
+
+An approval or a question marks the step that is now, which keeps its word: its line is "Needs You: Run Command?"
+for a command and "Needs You" for anything else (never a tool's own name). A task that ends short of Ready ends the
+list where it stood: Checks Failed, Partly Checked (the check's verdict is not known), Stopped, Failed, or Can't Tell
+with why where it is known; Can't Tell is never read as Failed.
+
 ## The words a person sees
 
 | Word | Means | Instead of |
