@@ -233,6 +233,8 @@ export interface SeorakDisk {
   realpath(path: string): string | null;
   /** Whether the path is a file its owner may run. */
   runnable(path: string): boolean;
+  /** Whether the path is a regular file. */
+  file(path: string): boolean;
   /** The file's text, or null when it cannot be read. */
   read(path: string): string | null;
 }
@@ -249,6 +251,13 @@ const SEORAK_DISK: SeorakDisk = {
     try {
       const stats = statSync(path);
       return stats.isFile() && (stats.mode & 0o100) !== 0;
+    } catch {
+      return false;
+    }
+  },
+  file: (path) => {
+    try {
+      return statSync(path).isFile();
     } catch {
       return false;
     }
@@ -320,8 +329,11 @@ function seorakOlder(
     const node = disk.realpath(found[1] as string);
     if (node === null || basename(node) !== 'node' || !disk.runnable(node)) return null;
   }
+  // Written without a `.` or `..` part, so the path read is the path written (LOOP, 2026-11-16).
+  if ((found[2] as string).split('/').some((part) => part === '.' || part === '..')) return null;
   const real = disk.realpath(found[2] as string);
   if (real === null || basename(real) !== script || basename(dirname(real)) !== 'bin') return null;
+  if (!disk.file(real)) return null;
   let name: unknown;
   try {
     name = (

@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -292,6 +293,14 @@ describe("Seorak's older hook form (before its shell-safe paths), recognised as 
     writeFileSync(join(other, 'bin', file), '');
   }
   const node = realpathSync(process.execPath);
+  // A link named as one event's script that leads to another of Seorak's scripts, judged by its target.
+  symlinkSync(join(install, 'bin', 'hook-tool-use.mjs'), join(install, 'bin', 'linked-prompt.mjs'));
+  // The script's name held by a folder, in a package of its own named seorak; and the script in a folder other than bin.
+  const folderAsScript = join(root, 'folder-as-script');
+  mkdirSync(join(folderAsScript, 'bin', 'hook-user-prompt.mjs'), { recursive: true });
+  writeFileSync(join(folderAsScript, 'package.json'), JSON.stringify({ name: 'seorak' }));
+  mkdirSync(join(install, 'scripts'), { recursive: true });
+  writeFileSync(join(install, 'scripts', 'hook-user-prompt.mjs'), '');
   const old = (file: string, folder = install) => `${node} ${join(folder, 'bin', file)}`;
   after(() => rmSync(root, { recursive: true, force: true }));
 
@@ -318,6 +327,14 @@ describe("Seorak's older hook form (before its shell-safe paths), recognised as 
       });
       assert.equal(kept[event]?.[0]?.hooks[0]?.command, old(file), event);
     }
+  });
+
+  test("observationHooks drops an old-form hook from a package that is not Seorak's", () => {
+    const foreign = old('hook-user-prompt.mjs', other);
+    const passed = observationHooks({
+      hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: foreign }] }] },
+    });
+    assert.equal(passed.UserPromptSubmit, undefined);
   });
 
   test('a node planted first on PATH is never what the carried hook runs (AUDIT3)', () => {
@@ -360,6 +377,19 @@ describe("Seorak's older hook form (before its shell-safe paths), recognised as 
       old('hook-user-prompt.mjs', other),
       `/bin/sh ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
       `${node} ${join(install, 'bin', 'missing.mjs')}`,
+      // LOOP's cases (2026-11-16): a link to another of Seorak's scripts, a climb written whole, a folder named as the
+      // script, the script outside bin, a space before or after, quotes either side, and a variable before the runner.
+      `node ${join(install, 'bin', 'linked-prompt.mjs')}`,
+      `node ${install}/bin/../bin/hook-user-prompt.mjs`,
+      `node ${install}/bin/./hook-user-prompt.mjs`,
+      `node ${join(folderAsScript, 'bin', 'hook-user-prompt.mjs')}`,
+      `node ${join(install, 'scripts', 'hook-user-prompt.mjs')}`,
+      ` node ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `node ${join(install, 'bin', 'hook-user-prompt.mjs')} `,
+      `'node' ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
+      `node '${join(install, 'bin', 'hook-user-prompt.mjs')}'`,
+      `node "${join(install, 'bin', 'hook-user-prompt.mjs')}"`,
+      `NODE_OPTIONS=--require=x node ${join(install, 'bin', 'hook-user-prompt.mjs')}`,
     ])
       assert.equal(isSeorakOlderHook(near, 'UserPromptSubmit'), false, near);
     for (const never of [
