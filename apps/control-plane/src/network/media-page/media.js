@@ -20,6 +20,11 @@ const chosen = new Map();
 const sentShape = new Map();
 /** The longest side a first frame is drawn at; the tile is never wider than this on the page's widest row. */
 const FRAME_SIDE = 640;
+/** Where in a video the host takes the still its tile shows (STILL_AT's first, in media-tool.ts), as a share of it. */
+const STILL_SHARE = 0.1;
+/** The progress ring's circle: its radius and the length of its edge. */
+const RING_R = 22;
+const RING_EDGE = 2 * Math.PI * RING_R;
 /** Words this page itself has for a project's last add (the file never reached the host), by project id. */
 const told = new Map();
 
@@ -64,8 +69,10 @@ function send(projectId, file) {
   request.upload.addEventListener('progress', (event) => {
     if (!event.lengthComputable || !sending.has(projectId)) return;
     sending.set(projectId, event.loaded / event.total);
-    const bar = document.querySelector(`[data-project="${CSS.escape(projectId)}"] .media-bar-fill`);
-    if (bar) bar.style.transform = `scaleX(${sending.get(projectId)})`;
+    const tile = document.querySelector(
+      `[data-project="${CSS.escape(projectId)}"] .media-incoming`,
+    );
+    if (tile) progress(tile, sending.get(projectId));
   });
   const finish = async (words) => {
     // The incoming tile stays while the host reads the state, so it never blinks out before the host's own does.
@@ -111,6 +118,14 @@ async function firstFrame(file, video) {
         player.addEventListener('error', () => reject(clearTimeout(timer)), { once: true });
         player.src = url;
       });
+      // The frame the host's still will show, so the picture is the same from its first byte to its own tile.
+      if (Number.isFinite(player.duration) && player.duration > 0) {
+        await new Promise((resolve) => {
+          const timer = setTimeout(resolve, 3000);
+          player.addEventListener('seeked', () => resolve(clearTimeout(timer)), { once: true });
+          player.currentTime = player.duration * STILL_SHARE;
+        });
+      }
       source = await createImageBitmap(player);
       player.removeAttribute('src');
       player.load();
@@ -150,8 +165,33 @@ function incomingTile() {
   const bar = el('span', 'media-bar');
   bar.append(el('span', 'media-bar-fill'));
   caption.append(words, name, bar);
-  node.append(sheen, mark, caption);
+  node.append(sheen, mark, ring(), caption);
   return node;
+}
+
+/** The progress ring drawn on a first frame, as a chat app draws it on a picture it is sending. */
+function ring() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'media-ring');
+  svg.setAttribute('viewBox', '0 0 56 56');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const kind of ['media-ring-track', 'media-ring-arc']) {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('class', kind);
+    circle.setAttribute('cx', '28');
+    circle.setAttribute('cy', '28');
+    circle.setAttribute('r', String(RING_R));
+    circle.setAttribute('pathLength', String(RING_EDGE));
+    circle.style.strokeDasharray = String(RING_EDGE);
+    svg.append(circle);
+  }
+  return svg;
+}
+
+/** Shows how much of the file has gone, on the bar and on the ring alike. */
+function progress(node, fraction) {
+  node.querySelector('.media-bar-fill').style.transform = `scaleX(${fraction})`;
+  node.querySelector('.media-ring-arc').style.strokeDashoffset = String(RING_EDGE * (1 - fraction));
 }
 
 function setIncoming(node, fraction, file) {
@@ -174,7 +214,12 @@ function setIncoming(node, fraction, file) {
   node.querySelector('.media-incoming-name').textContent = file?.name ?? '';
   node.classList.toggle('media-sending', sent);
   node.querySelector('.media-incoming-words').textContent = sent ? 'Sending' : 'Preparing';
-  node.querySelector('.media-bar-fill').style.transform = `scaleX(${sent ? fraction : 1})`;
+  if (sent) progress(node, fraction);
+  else {
+    // Preparing has no measure: the bar's short run travels and a quarter of the ring turns.
+    node.querySelector('.media-bar-fill').style.transform = 'scaleX(1)';
+    node.querySelector('.media-ring-arc').style.strokeDashoffset = String(RING_EDGE * 0.75);
+  }
 }
 
 function tile(projectId, medium, shape) {

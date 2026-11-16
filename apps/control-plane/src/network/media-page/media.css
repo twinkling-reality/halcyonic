@@ -349,10 +349,14 @@ h2.media-name {
 .media-incoming-caption {
   display: contents;
 }
-/* Once its first frame is read here, the file on its way shows it at its own shape, barely shaded, with one dark
-   glass band flush along its foot: the word and the file's name on one line, and the bar along the band's lower
-   edge. The band's ground stays dark over any frame, white or black, so the words always read. The frame itself
-   says what the file is, so the mark steps aside. */
+/* The progress ring stands only on a first frame. */
+.media-ring {
+  display: none;
+}
+/* Once its first frame is read here, the file on its way shows it at its own shape, a little dimmed, with its
+   progress as a ring at its centre and its state in a small dark pill at its corner, as a chat app draws a picture
+   it is sending. The pill's ground stays dark over any frame, white or black, so its word always reads; the frame
+   says what the file is, so the mark, name and bar step aside. */
 .media-incoming-frame {
   position: absolute;
   inset: 0;
@@ -362,50 +366,69 @@ h2.media-name {
   animation: media-frame-in 420ms ease both;
 }
 .media-incoming.media-framed {
-  align-content: end;
+  align-content: center;
   padding: 0;
 }
 .media-incoming.media-framed .media-sheen {
   background-image:
     linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.08) 50%, transparent 70%),
-    linear-gradient(rgb(8 12 14 / 0.12), rgb(8 12 14 / 0.12));
+    linear-gradient(rgb(8 12 14 / 0.22), rgb(8 12 14 / 0.22));
   background-size:
     250% 100%,
     100% 100%;
 }
-.media-incoming.media-framed .media-incoming-mark {
+.media-incoming.media-framed .media-incoming-mark,
+.media-incoming.media-framed .media-incoming-name,
+.media-incoming.media-framed .media-bar {
   display: none;
 }
-.media-incoming.media-framed .media-incoming-caption {
+.media-incoming.media-framed .media-ring {
   position: relative;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  justify-self: stretch;
-  min-width: 0;
-  padding: 10px 14px 13px;
+  display: block;
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 4px 12px rgb(0 0 0 / 0.3));
+}
+.media-ring-track {
+  fill: rgb(10 14 16 / 0.38);
+  stroke: rgb(255 255 255 / 0.32);
+  stroke-width: 4;
+}
+.media-ring-arc {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 160ms linear;
+}
+.media-incoming.media-framed:not(.media-sending) .media-ring {
+  animation: media-turn 1.1s linear infinite;
+}
+.media-incoming.media-framed .media-incoming-caption {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: block;
+  padding: 4px 11px;
+  border-radius: 999px;
   background: rgb(10 14 16 / 0.74);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
   backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
 }
 .media-incoming.media-framed .media-incoming-words {
-  flex: none;
+  display: block;
   margin-top: 0;
+  font-size: 13px;
+  line-height: 18px;
   color: #ffffff;
 }
-.media-incoming.media-framed .media-incoming-name {
-  flex: 0 1 auto;
-  min-width: 0;
-  font-size: 14px;
-  color: rgb(255 255 255 / 0.8);
-}
-.media-incoming.media-framed .media-bar {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  border-radius: 0;
-  background: rgb(255 255 255 / 0.18);
+@keyframes media-turn {
+  to {
+    rotate: 360deg;
+  }
 }
 @keyframes media-frame-in {
   from {
@@ -440,6 +463,7 @@ h2.media-name {
   .media-sheen,
   .media-incoming-mark,
   .media-incoming-frame,
+  .media-incoming.media-framed:not(.media-sending) .media-ring,
   .media-incoming:not(.media-sending) .media-bar-fill {
     animation: none;
   }
