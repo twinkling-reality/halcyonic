@@ -1015,8 +1015,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (label.GetComponentInParent<RoomBand>() is RoomBand band && ReferenceEquals(band.Label, label) && band.Words is RoomWords part
                     && part.Count > 0 && label.textInfo.lineCount > part.Count)
                 {
-                    var top = label.textInfo.lineInfo[0].ascender;
-                    var foot = label.textInfo.lineInfo[part.Count - 1].descender;
+                    // Words of parts stand centred in the band's three rows, a shorter part lower by half a row a line it lacks.
+                    var down = part.Parts >= 2 ? (RoomWords.LinesAPart - part.Count) / 2f * KitType.LinePitch(label) : 0f;
+                    var top = label.textInfo.lineInfo[0].ascender - down;
+                    var foot = label.textInfo.lineInfo[part.Count - 1].descender - down;
                     bounds = new Bounds(new Vector3(bounds.center.x, (top + foot) / 2f, 0f), new Vector3(bounds.size.x, top - foot, 0f));
                 }
                 var min = new Vector2(float.MaxValue, float.MaxValue);

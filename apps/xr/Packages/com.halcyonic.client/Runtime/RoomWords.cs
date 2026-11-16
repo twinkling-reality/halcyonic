@@ -45,10 +45,14 @@ namespace Halcyonic.Client
         /// <summary>Every character that ends a line: the line feed and carriage return, the vertical tab, the form feed, the next line, and the line and paragraph separators.</summary>
         private static readonly char[] LineBreaks = { '\n', '\r', (char)0x0B, (char)0x0C, (char)0x85, (char)0x2028, (char)0x2029 };
 
-        /// <summary>The foot's count of where the person is, "Part 1 of 2": its type and its line, in dp.</summary>
-        public const float CountTypeDp = 15f;
+        /// <summary>
+        /// The foot's count of where the person is, "Part 1 of 2": its type and its line, in dp. Two steps under the band's
+        /// words, and no smaller: laid low on the band it is seen foreshortened, and 15 dp read 0.754 degrees there (XR's kit on
+        /// e15bb4c2f), under 14 dp; 18 holds it.
+        /// </summary>
+        public const float CountTypeDp = 18f;
 
-        public const float CountLineDp = 19f;
+        public const float CountLineDp = 23f;
 
         private readonly int[] starts;
 
