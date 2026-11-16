@@ -1354,12 +1354,13 @@ describe('a whole small piano of light in AGENTS.md, to start a piece of music a
 
   test('the hall round the person answers the notes and builds to a bloom, in place of the far haze (SHOW)', () => {
     const example = piano();
-    assert.match(example, /const around = lightHall\(player\);/);
+    assert.match(example, /const rise = 20;/);
+    assert.match(example, /const around = lightHall\(player, \{ rise \}\);/);
     assert.match(example, /root\.add\(around\.group\);/);
     assert.match(example, /ambientMotion\(around\.move\);/);
     assert.match(
       example,
-      /fallingNotes\(player, keys, \{ from: 'around', echo: false, floor: -1\.15 \}\)/,
+      /fallingNotes\(player, keys, \{ from: 'around', echo: false, floor: -1\.15, bloom: rise \}\)/,
     );
     // The floor it stands on is polished: light under it is seen in it.
     assert.match(

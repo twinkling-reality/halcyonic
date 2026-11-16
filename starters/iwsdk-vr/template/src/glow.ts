@@ -821,7 +821,10 @@ const STOPS = [new Color('#2F45D8'), new Color('#2EA7D0'), new Color('#7A6EF0'),
  * hard it is played (`colour` to choose another). `seconds` is how long a note is seen falling,
  * `fall` how far, in metres; `reach` how far off the hall answers each note with its colour, all round the person.
  * With `floor`, the floor's height in the keys' group's frame, each note's light pools on the floor under its key and
- * a ring of it runs out across the floor from there. Built inside `keys.group`, so place that group.
+ * a ring of it runs out across the floor from there. With `bloom`, the moment in play seconds the hall blooms (the
+ * `rise` given to `lightHall`), the bloom comes out of the keyboard: every key flares in its own colour, a column of
+ * light rises from each, and (with `floor`) a warm ring runs out across the floor from the keys. Built inside
+ * `keys.group`, so place that group.
  */
 export function fallingNotes(
   player: Player,
@@ -834,6 +837,7 @@ export function fallingNotes(
     from?: 'above' | 'around';
     floor?: number;
     echo?: boolean;
+    bloom?: number;
   } = {},
 ): FallingNotes {
   const fall = options.fall ?? 1.7;
@@ -884,7 +888,11 @@ export function fallingNotes(
   group.add(pools.object);
   // Given `floor`, each landing also sends a ring of its light out across the floor from under its key, so every note
   // is seen to land on the place and not only on the keyboard: at most eight at a time.
-  const ripples = options.floor === undefined ? undefined : floorRings(RIPPLES);
+  const ripples = options.floor === undefined ? undefined : floorRings(RIPPLES + 1);
+  // How far the keyboard's front edge is from its middle: where the bloom's wave starts out across the floor.
+  const middleKey = keys.spots[Math.floor(keys.spots.length / 2)];
+  const reachOut = middleKey === undefined ? 1 : Math.hypot(middleKey.x, middleKey.z);
+  const bloomColour = new Color('#FFB070');
   if (ripples !== undefined) group.add(ripples.mesh);
   // The place answers: each note lights the far haze of the hall in its colour, low along the horizon where its key
   // points, to both sides and behind the person, so the music is all round them: a wide soft band of light in the
@@ -1001,6 +1009,23 @@ export function fallingNotes(
       pools.begin();
       ripples?.begin();
       player.each(RING_SECONDS, fall / speed, draw);
+      // The bloom comes out of the keyboard: every key flares in its own colour, a column of light rises from each,
+      // and one warm ring runs out across the floor from the keys.
+      if (options.bloom !== undefined) {
+        const peak = swell(now, options.bloom).bloom;
+        if (peak > 0.01) {
+          for (const spot of keys.spots) {
+            const colour = colours.get(spot.midi) as Color;
+            keys.light(spot.midi, colour, 0.95 * peak);
+            const into = landing(spot);
+            const tall = 0.4 + 2.6 * peak;
+            blooms.add(spot.x + spot.ox * into, spot.y + tall / 2, spot.z + spot.oz * into, spot.width * 0.4, tall, colour, 0.45 * peak);
+          }
+          const since = now - options.bloom;
+          if (ripples !== undefined && options.floor !== undefined && since < 3)
+            ripples.add(0, options.floor + 0.008, 0, reachOut + since * 4, bloomColour, 0.9 * (1 - since / 3) ** 1.5);
+        }
+      }
       echoes.begin();
       if (options.echo !== false) player.each(2, 0, echo);
       echoes.end();

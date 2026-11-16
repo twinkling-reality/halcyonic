@@ -465,9 +465,11 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   root.add(keyboard);
   // The hall answers each note all round (below), so the far haze need not.
   // The floor is 1.15 m under the keys: each landing pools there and runs out across it as a ring of light.
-  ambientMotion(fallingNotes(player, keys, { from: 'around', echo: false, floor: -1.15 }).move);
-  // The hall all round answers each note and builds with the music to a bloom 20 seconds in.
-  const around = lightHall(player);
+  // The hall blooms 20 s into the music, and the bloom comes out of the keys: every key flares at that moment.
+  const rise = 20;
+  ambientMotion(fallingNotes(player, keys, { from: 'around', echo: false, floor: -1.15, bloom: rise }).move);
+  // The hall all round answers each note and builds with the music to its bloom.
+  const around = lightHall(player, { rise });
   root.add(around.group);
   ambientMotion(around.move);
   setupPlayInput(world);
