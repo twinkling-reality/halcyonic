@@ -13,8 +13,11 @@ import { clip, StandInTool } from '../testing/media-stand-in.ts';
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-media-command-')));
 after(() => rmSync(root, { recursive: true, force: true }));
 
+// A poll stops when its condition holds; its bound is long, so a loaded machine is slow, never a failure (CORE, 15:14Z).
+const POLL_TRIES = 6000;
+
 async function settle(time: { runUntilIdle(): Promise<void> }, done: () => boolean) {
-  for (let i = 0; i < 400 && !done(); i += 1) {
+  for (let i = 0; i < POLL_TRIES && !done(); i += 1) {
     await time.runUntilIdle();
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
@@ -188,7 +191,7 @@ test('the headset reads a still by the picture route, and a medium whose file le
   );
   for (
     let i = 0;
-    i < 400 &&
+    i < POLL_TRIES &&
     controlPlane.projection.command('01920000-0000-7000-8000-00000000c002')?.status !== 'completed';
     i += 1
   )
