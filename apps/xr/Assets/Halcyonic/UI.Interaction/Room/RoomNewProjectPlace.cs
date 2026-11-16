@@ -162,9 +162,9 @@ namespace Halcyonic.XR.UI
             button.Show(Words, GlazeIcon.CreateProject, isMain: false, available: true, new Vector2(0f, -under - target / 2f), width);
             // Measured from the place's own spot each frame, so a steady tag gives a steady turn; eased only while it stands, so a place
             // that comes into being stands clear at once.
-            var target = ClearTurn(holder, button, shelf, stage.ShelfViewer);
-            if (stood) turned = Eased(turned, target, ref turning, Time.deltaTime);
-            else { turned = target; turning = 0f; }
+            var clear = ClearTurn(holder, button, shelf, stage.ShelfViewer);
+            if (stood) turned = Eased(turned, clear, ref turning, Time.deltaTime);
+            else { turned = clear; turning = 0f; }
             stood = true;
             Turn(holder, stage.ShelfViewer, turned);
         }
