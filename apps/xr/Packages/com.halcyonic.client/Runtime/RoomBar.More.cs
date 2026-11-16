@@ -55,7 +55,10 @@ namespace Halcyonic.Client
             var column = routes.Select(route => new RoomAction(route, main: false, icon: GlazeIcon.Next)).ToList();
             column.Add(new RoomAction(new KitControl(KitPlace.Back, binding.Frame, MoreBack, null, BackWords, GlazeIcon.Back, true, null, false),
                 main: false, icon: GlazeIcon.Back));
-            return new RoomBar(RoomBarState.Page, body: LineWords.TheirName(binding.Model.TaskTitle), column: column);
+            // The task's name as the page's title, on a card of its own (AUDIT's 10:39Z: the page stood with no title), so the
+            // person knows whose routes these are.
+            var title = LineWords.TheirName(binding.Model.TaskTitle);
+            return new RoomBar(RoomBarState.Page, body: title, column: column) { Card = new RoomCard(title) };
         }
     }
 }

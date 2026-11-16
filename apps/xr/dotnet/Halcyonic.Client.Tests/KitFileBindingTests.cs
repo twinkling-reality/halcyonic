@@ -528,6 +528,7 @@ public class KitFileBindingTests
             Is.EqualTo(new[] { FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenCharacterColour }), "the result is the moment itself, not a route");
         var page = RoomBar.MorePage(binding)!;
         Assert.That(page.State, Is.EqualTo(RoomBarState.Page));
+        Assert.That(page.Card?.Title?.Text, Is.EqualTo(binding.Model.TaskTitle), "the page's title is the task's name");
         Assert.That(page.Column.Select(action => action.Control.Action),
             Is.EqualTo(new[] { FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenCharacterColour, RoomBar.MoreBack }));
         Assert.That(page.Column.Take(3).All(action => action.Icon == GlazeIcon.Next && !action.Main), Is.True, "each route opens a page: the chevron, never the accent");

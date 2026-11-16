@@ -698,6 +698,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Its title the task's name; a row per route the file offers, in its order, each with its chevron; Back last; never the results line.
                 var routes = RoomBar.MoreRoutes(binding);
                 Require(morePage.Body.Text == binding.Model.TaskTitle, "the More page's title is \"" + morePage.Body.Text + "\", not the task's name");
+                // Drawn as the page's title, on its card (AUDIT's 10:39Z: the page stood with no title).
+                Require(bar.Card != null && bar.Card.Shown.Any(label => label.GetParsedText() == binding.Model.TaskTitle),
+                    "the More page draws no title card with the task's name");
                 var standing = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
                 Require(standing.Count == routes.Count + 1, "the More page stands " + standing.Count + " rows, not " + routes.Count + " routes and Back");
                 for (var index = 0; index < standing.Count && index < routes.Count; index++)
