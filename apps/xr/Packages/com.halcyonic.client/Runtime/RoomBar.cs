@@ -135,8 +135,14 @@ namespace Halcyonic.Client
         /// <summary>The words of Hold to Talk beside a heard draft: it records afresh and replaces the words. The redesign's own.</summary>
         public const string TalkAgain = "Talk Again";
 
-        /// <summary>The words once the instruction went and the run has not started.</summary>
-        public const string SentWords = KitMomentWords.SentTitle + KitMomentWords.Dot + KitMomentWords.WaitingToStart;
+        /// <summary>Under Sent, what waits: the agent (AUDIT2's W1: "Awaiting Start" read as one odd phrase).</summary>
+        public const string SentWaits = "Waiting for the agent to start.";
+
+        /// <summary>
+        /// The words once the instruction went and the run has not started: Sent, and under it what waits, each its own line (the view
+        /// lays each part on a line of its own and never draws the joining dot).
+        /// </summary>
+        public const string SentWords = KitMomentWords.SentTitle + KitMomentWords.Dot + SentWaits;
 
         /// <summary>How long Confirm stands locked once it could be pressed, its ring filling (DESIGN 1.4, the kit's own lock).</summary>
         public const float ConfirmLockSeconds = 0.7f;

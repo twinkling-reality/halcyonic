@@ -54,7 +54,7 @@ public class RoomBarTests
         Assert.That(Actions(RoomBar.Of(binding, VoiceStage.WritingDown, false).Row), Is.EqualTo(new[] { (KitPlace.Talk, "Typing It Out", true) }));
 
         var sent = RoomBar.Of(binding, VoiceStage.Idle, sentAwaitingStart: true);
-        Assert.That((sent.State, sent.Words.Text, sent.Row.Count), Is.EqualTo((RoomBarState.Sent, "Sent · Awaiting Start", 0)));
+        Assert.That((sent.State, sent.Words.Text, sent.Row.Count), Is.EqualTo((RoomBarState.Sent, "Sent · Waiting for the agent to start.", 0)));
     }
 
     [Test]

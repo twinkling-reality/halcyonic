@@ -2903,8 +2903,8 @@ in order, as before.
   text, so `LabelText.FromTextMeshPro` makes it words again before the label takes them, and a backslash reads once,
   as it will be sent), the file's question in the sentence bar (Read to Part N, then Send Heard Instruction?), and in the column the
   confirmation's Confirm once all of it was drawn, Next Part while parts remain, and Cancel. The column's actions stand
-  left-aligned, the main one first, at the hand-target pitch, the last one's foot on the panel's foot. Sending, then Sent ·
-  Awaiting Start while the task's run was asked for and has not started, stands as words alone, sweeping (`GlazeShimmer`), as
+  left-aligned, the main one first, at the hand-target pitch, the last one's foot on the panel's foot. Sending, then Sent over
+  "Waiting for the agent to start." (each its own line) while the task's run was asked for and has not started, stands as words alone, sweeping (`GlazeShimmer`), as
   does the reason where no action can act. `RoomBarView` draws all of it centred in the host.
 - **Unit U2, an approval and its Confirm** (BUILD-SPEC-v4 2.4 and 1.4): the same pair, `RoomBarState.Request`, bound
   to the file's own approval page (`KitNeed`) and sending only through the file's actions. Asked: the request in the
