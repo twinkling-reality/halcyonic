@@ -32,17 +32,19 @@ public class ActivityLogTests
         log.Record(events);
 
         var texts = log.For(ExecutionOf(events, "Move sessions to their own table")).Select(entry => entry.Text).ToList();
-        Assert.That(texts[0], Is.EqualTo("Start Requested · Mock runtime (development fixture)"), "accepted is not started");
-        Assert.That(texts[1], Is.EqualTo("Started · Mock runtime (development fixture)"), "started once the runtime says so");
-        Assert.That(texts.Any(text => text.StartsWith("Approval Requested · bash · ", StringComparison.Ordinal)), Is.True);
+        Assert.That(texts[0], Is.EqualTo("Start Requested: Mock runtime (development fixture)"), "accepted is not started");
+        Assert.That(texts[1], Is.EqualTo("Started: Mock runtime (development fixture)"), "started once the runtime says so");
+        Assert.That(texts.Any(text => text.StartsWith("Approval Requested: bash, ", StringComparison.Ordinal)), Is.True);
         Assert.That(texts, Does.Contain("Approval Sent"), "a client's name is never shown as a person's");
         Assert.That(texts, Has.None.Contains("halcyonic"));
         Assert.That(texts, Does.Contain("Approved"));
-        Assert.That(texts, Does.Contain("Succeeded · bash · Reported"));
+        Assert.That(texts, Does.Contain("Tool Succeeded: bash"));
         // Halcyonic's words first and upright, the agent app's names leaning last (settled 2026-10-08).
         var entries = log.For(ExecutionOf(events, "Move sessions to their own table"));
-        Assert.That(entries[0].Words.ToString(), Is.EqualTo("Start Requested · [Mock runtime (development fixture)]"));
-        Assert.That(entries.Single(entry => entry.Text == "Succeeded · bash · Reported").Words.ToString(), Is.EqualTo("Succeeded · [bash] · Reported"));
+        Assert.That(entries[0].Words.ToString(), Is.EqualTo("Start Requested: [Mock runtime (development fixture)]"));
+        var succeeded = entries.Single(entry => entry.Text == "Tool Succeeded: bash");
+        Assert.That(succeeded.Words.ToString(), Is.EqualTo("Tool Succeeded: [bash]"));
+        Assert.That(succeeded.Reported, Is.True, "the agent's report of its tool is a claim, by its flag, never a word");
         // The tool and its request with only a colon between are outside text whole (a separator doesn't make a line Halcyonic's).
         Assert.That(entries.First(entry => entry.Kind == ActivityKind.Approval).Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }));
         Assert.That(entries.Where(entry => entry.Kind == ActivityKind.Turn).All(entry => !entry.Words.AnyTheirs), Is.True, "a round is Halcyonic's own words");
@@ -57,8 +59,13 @@ public class ActivityLogTests
         log.Record(events);
         var entries = log.For(ExecutionOf(events, "Fix flaky checkout tests"));
         Assert.That(entries.Where(entry => entry.Kind == ActivityKind.Message).All(entry => entry.Reported), Is.True);
-        Assert.That(entries.Where(entry => entry.Kind != ActivityKind.Message).Any(entry => entry.Reported), Is.False);
-        Assert.That(entries.Any(entry => entry.Text.StartsWith("Tests Failed", StringComparison.Ordinal)), Is.True);
+        // The agent's reports of its own tools and tests are claims too; everything else Halcyonic observed is not.
+        static bool AgentsReport(ActivityEntry entry) =>
+            (entry.Kind == ActivityKind.Tool && (entry.Head.Text == "Tool Succeeded" || entry.Head.Text == "Tool Failed"))
+            || (entry.Kind == ActivityKind.TestRun && entry.Head.Text.StartsWith("Agent's Tests ", StringComparison.Ordinal) && entry.Head.Text != "Agent's Tests Started");
+        Assert.That(entries.Where(entry => entry.Kind != ActivityKind.Message && AgentsReport(entry)).All(entry => entry.Reported), Is.True);
+        Assert.That(entries.Where(entry => entry.Kind != ActivityKind.Message && !AgentsReport(entry)).Any(entry => entry.Reported), Is.False);
+        Assert.That(entries.Any(entry => entry.Text.StartsWith("Agent's Tests Failed", StringComparison.Ordinal)), Is.True);
     }
 
     [Test]
@@ -268,12 +275,12 @@ public class ActivityLogTests
         {
             var entries = log.For(ExecutionOf(events, title)).Where(entry => entry.Kind == ActivityKind.Tool).ToList();
             bool Finished(ActivityEntry entry) =>
-                entry.Text.StartsWith("Succeeded · ", StringComparison.Ordinal) || entry.Text.StartsWith("Failed · ", StringComparison.Ordinal);
-            // The tool's name: after Halcyonic's "Tool · " to its title's " · ", or after "Succeeded · ".
-            string Tool(ActivityEntry entry) => entry.Words.Runs.First(run => run.Theirs).Text.Split(new[] { " · " }, StringSplitOptions.None)[0];
+                entry.Text.StartsWith("Tool Succeeded: ", StringComparison.Ordinal) || entry.Text.StartsWith("Tool Failed: ", StringComparison.Ordinal);
+            // The tool's name: the evidence after Halcyonic's "Tool Started: " to its title's ", ", or after "Tool Succeeded: ".
+            string Tool(ActivityEntry entry) => entry.Evidence!.Runs.First(run => run.Theirs).Text.Split(new[] { ", " }, StringSplitOptions.None)[0];
             var started = entries.Where(entry => !Finished(entry)).Select(Tool).ToList();
             var finished = entries.Where(Finished).Select(Tool).ToList();
-            Assert.That(entries.Where(entry => !Finished(entry)).All(entry => entry.Text.StartsWith("Tool · ", StringComparison.Ordinal)), Is.True, title);
+            Assert.That(entries.Where(entry => !Finished(entry)).All(entry => entry.Text.StartsWith("Tool Started: ", StringComparison.Ordinal)), Is.True, title);
             Assert.That(finished, Is.EqualTo(started), title);
         }
     }

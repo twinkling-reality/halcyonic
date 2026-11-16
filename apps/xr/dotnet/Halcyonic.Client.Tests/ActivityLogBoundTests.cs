@@ -27,7 +27,7 @@ public class ActivityLogBoundTests
 
         Assert.That(log.OpenToolCalls, Is.EqualTo(1), "only the call still open keeps its name");
         log.Record(new[] { Journaled(++position, "t00", "runtime.tool.completed", ToolCompleted(1000)) });
-        Assert.That(log.For("t00").Last().Text, Is.EqualTo("Succeeded · edit · Reported"), "its completion line still names it");
+        Assert.That(log.For("t00").Last().Text, Is.EqualTo("Tool Succeeded: edit"), "its completion line still names it");
         Assert.That(log.OpenToolCalls, Is.Zero);
     }
 
@@ -45,7 +45,7 @@ public class ActivityLogBoundTests
 
         Assert.That(log.For(Task(0)), Has.Count.EqualTo(200), "the task read is kept whole");
         for (var task = 1; task <= 8; task++)
-            Assert.That(log.For(Task(task)).Select(entry => entry.Text), Is.EqualTo(new[] { "Succeeded · bash · Reported", Said, "Round Ended" }),
+            Assert.That(log.For(Task(task)).Select(entry => entry.Text), Is.EqualTo(new[] { "Tool Succeeded: bash", Said, "Round Ended" }),
                 "the 8 least recently recorded or read keep their last 3 lines");
         for (var task = 9; task < 40; task++) Assert.That(log.For(Task(task)), Has.Count.EqualTo(200));
         Assert.That(Enumerable.Range(0, 40).Sum(task => log.For(Task(task)).Count), Is.EqualTo(32 * 200 + 8 * 3));
@@ -145,8 +145,8 @@ public class ActivityLogBoundTests
             Journaled(2, "e1", "runtime.tool.completed", "{\"tool_call_id\":\"t1\",\"outcome\":\"succeeded\"}"),
         });
         var entries = log.For("e1");
-        Assert.That(entries.Select(entry => entry.Text), Is.EqualTo(new[] { "Tool · " + word + " · make test", "Succeeded · " + word + " · Reported" }));
-        Assert.That(entries[0].Words.Runs.Select(run => (run.Text, run.Theirs)).First(), Is.EqualTo(("Tool · " + word + " · ", false)), "our word, upright");
+        Assert.That(entries.Select(entry => entry.Text), Is.EqualTo(new[] { "Tool Started: " + word + ", make test", "Tool Succeeded: " + word }));
+        Assert.That(entries[0].Words.Runs.Select(run => (run.Text, run.Theirs)).First(), Is.EqualTo(("Tool Started: " + word + ", ", false)), "our word, upright");
     }
 
     internal static StoredEvent Journaled(long position, string executionId, string type, string payload) => new()

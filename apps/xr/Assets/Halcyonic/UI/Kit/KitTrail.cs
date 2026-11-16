@@ -189,7 +189,13 @@ namespace Halcyonic.XR.UI
             /// <summary>Lays the entry out from its row's top left and returns its height.</summary>
             public float Lay(KitTrailEntry item, float width, float node)
             {
-                var (head, evidence) = Split(item.Entry.Words);
+                // An entry handed in parts (ActivityEntry.Of) is laid by its parts; its kind comes from the Reported flag, never
+                // from a word in its text (AUDIT 2026-11-16 14:28Z), so the older kit keeps "Reported" beside the agent's own results.
+                var (head, evidence) = item.Entry.Evidence is LineWords parted && item.Entry.Kind != ActivityKind.Message
+                    ? (item.Entry.Reported ? item.Entry.Head + LineWords.Ours(KitFlow.Separator + "Reported") : item.Entry.Head, (LineWords?)parted)
+                    : item.Entry.Kind != ActivityKind.Message && item.Entry.Reported && !item.Entry.Head.IsEmpty
+                    ? (item.Entry.Head + LineWords.Ours(KitFlow.Separator + "Reported"), (LineWords?)null)
+                    : Split(item.Entry.Words);
                 When.gameObject.SetActive(false);
                 var textLeft = node + KitType.Scaled(0.6f);
                 KitType.Size(Words, KitRole.Body);

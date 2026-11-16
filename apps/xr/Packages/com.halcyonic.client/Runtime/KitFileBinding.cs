@@ -416,7 +416,12 @@ namespace Halcyonic.Client
         {
             // The rail says production's words where nothing has been recorded.
             var shown = new HashSet<string>(System.StringComparer.Ordinal) { FileScreens.YourInstruction, FileScreens.NoActivityYet };
-            foreach (var entry in workspace.Activity) shown.Add(entry.Text);
+            foreach (var entry in workspace.Activity)
+            {
+                shown.Add(entry.Text);
+                // An entry laid as its head over its evidence (ActivityEntry.Of) shows the head as the line's words.
+                if (!entry.Head.IsEmpty) shown.Add(entry.Head.Text);
+            }
             if (model.Draft.Length > 0) shown.Add(model.Draft);
             if (model.Notice != null) shown.Add(model.Notice.Words.Text);
             if (model.Need is KitNeed need)

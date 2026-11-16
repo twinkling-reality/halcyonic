@@ -239,9 +239,12 @@ namespace Halcyonic.Client
         {
             var time = Clock(entry.OccurredAt, zone);
             var fact = time == null ? null : LineWords.Ours(time);
+            // An entry with evidence: our head as the line, their evidence under it, the kind as the chip (AUDIT2 12:10Z), never one string.
+            if (entry.Evidence is LineWords evidence && entry.Kind != ActivityKind.Message)
+                return new PageLine(entry.Head, fact: fact, tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null, rows: rows, fromRow: fromRow).WithUnder(evidence);
             return entry.Words.AnyTheirs
                 ? new PageLine(entry.Words, fact: fact, tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null, rows: rows, fromRow: fromRow)
-                : new PageLine(entry.Words, fact: fact, tone: LineTone.Secondary, rows: rows, fromRow: fromRow);
+                : new PageLine(entry.Words, fact: fact, tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null, rows: rows, fromRow: fromRow);
         }
 
         /// <summary>
