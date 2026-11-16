@@ -940,6 +940,21 @@ namespace Halcyonic.XR.UI
             return lines;
         }
 
+        /// <summary>
+        /// The text of the rows <paramref name="from"/> to <paramref name="from"/> + <paramref name="rows"/> that <paramref name="words"/>
+        /// take at the panel's width, as the panel lays a part of them: what a check holds a drawn part against, measured on its own.
+        /// </summary>
+        public string PartRows(LineWords words, bool mono, int from, int rows)
+        {
+            var label = mono ? measureRequest : measureBody;
+            Set(label, words, mono);
+            KitType.Lay(label, BodyWidth, 200);
+            var part = Rows(label, from, rows);
+            if (mono) label.text = "";
+            else GlazeRuns.Of(label).Set(LineWords.None);
+            return part;
+        }
+
         public int Lines(LineWords words, bool mono, bool narrow = false)
         {
             var label = mono ? measureRequest : measureBody;

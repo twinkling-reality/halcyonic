@@ -32,7 +32,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private static readonly string[] AskStates =
         {
-            "33-ask", "33-ask-confirm-arriving", "33-ask-confirm", "33-ask-long", "33-ask-long-part", "33-ask-deny-only", "33-ask-sending", "33-ask-tool",
+            "33-ask", "33-ask-confirm-arriving", "33-ask-confirm", "33-ask-long", "33-ask-long-part", "33-ask-long-part-2", "33-ask-deny-only", "33-ask-sending", "33-ask-tool",
             "33-ask-tool-confirm",
         };
 
@@ -374,6 +374,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 "33-ask-confirm" => (VoiceStage.Idle, false, RoomBarState.Request, "Approve pressed, the lock passed: Confirm and Cancel, synthetic data"),
                 "33-ask-long" => (VoiceStage.Idle, false, RoomBarState.Request, "A long request asked: its first eight lines, Approve and Deny, synthetic data"),
                 "33-ask-long-part" => (VoiceStage.Idle, false, RoomBarState.Request, "A long request under its confirmation: its first part, Next Part and Cancel, synthetic data"),
+                "33-ask-long-part-2" => (VoiceStage.Idle, false, RoomBarState.Request, "A long request under its confirmation: its second part, its own rows, synthetic data"),
                 "33-ask-deny-only" => (VoiceStage.Idle, false, RoomBarState.Request, "A request that can only be denied: why in the sentence bar, Deny alone, synthetic data"),
                 "33-ask-sending" => (VoiceStage.Idle, false, RoomBarState.Request, "The answer sent: Sending, the column emptied, synthetic data"),
                 "33-ask-tool" => (VoiceStage.Idle, false, RoomBarState.Request, "A tool that is no command asked: its name leads the request, synthetic data"),
@@ -396,7 +397,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var factory = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" });
             var workspace = state switch
             {
-                "33-ask-long" or "33-ask-long-part" => SelectedWorkspace(waiting: true, command: AskLongCommand),
+                "33-ask-long" or "33-ask-long-part" or "33-ask-long-part-2" => SelectedWorkspace(waiting: true, command: AskLongCommand),
                 "33-ask-deny-only" => SelectedWorkspace(waiting: true, command: AskCommand + " [truncated]", approvable: false),
                 "33-ask-tool" or "33-ask-tool-confirm" => SelectedWorkspace(waiting: true, command: AskToolRequest, tool: AskToolName),
                 _ when asking => SelectedWorkspace(waiting: true, command: AskCommand),
@@ -448,6 +449,8 @@ namespace Halcyonic.XR.Workspace.Editor
             // The host stands first: under a confirmation the file counts what is read by the panel's own lines, as the director has it do.
             var host = KitWorkspaceHost.Create(root);
             int? requestRows = null;
+            // The second part's own rows, measured on their own: what the panel must read on part 2 (AUDIT3's 2026-11-16 BLOCK).
+            string? partTwo = null;
             void Read(string request, bool instruction, int part)
             {
                 var (words, mono) = RoomBar.Reading(FileScreens.RequestLine(steering, request), workspace, instruction);
@@ -455,12 +458,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 screen.RequestDrawn(0, steering, DateTimeOffset.UtcNow);
                 requestRows = screen.RequestRows;
             }
-            if (state is "33-ask-confirm-arriving" or "33-ask-confirm" or "33-ask-long-part" or "33-ask-tool-confirm")
+            if (state is "33-ask-confirm-arriving" or "33-ask-confirm" or "33-ask-long-part" or "33-ask-long-part-2" or "33-ask-tool-confirm")
             {
                 // Approve pressed, as the person presses it: the file measures the request, shows its first part, and that part is drawn.
                 if (steering.Press(WorkspaceAction.Approve, workspace).Step != SteeringStep.Confirm) shot.Failures.Add("Approve did not ask for its confirmation");
                 Read(steering.ToRead(workspace)!, instruction: false, RoomBar.RequestLines);
-                if (state == "33-ask-long-part" && screen.RequestParts < 2) shot.Failures.Add("the long request is one part of " + screen.RequestRows + " lines");
+                if (state is "33-ask-long-part" or "33-ask-long-part-2" && screen.RequestParts < 2) shot.Failures.Add("the long request is one part of " + screen.RequestRows + " lines");
+                if (state == "33-ask-long-part-2")
+                {
+                    // On to the second part, as Next Part takes the person: its rows are the ones the panel must show, none of the first.
+                    screen.NextRequestPart(steering, DateTimeOffset.UtcNow);
+                    var (partWords, partMono) = RoomBar.Reading(FileScreens.RequestLine(steering, steering.ToRead(workspace)!), workspace, false);
+                    partTwo = LabelText.FromTextMeshPro(host.Bar.PartRows(partWords, partMono, screen.RequestPart * screen.RequestPartRows, screen.RequestPartRows));
+                    if (screen.RequestPart != 1) shot.Failures.Add("Next Part did not turn the request to its second part");
+                }
             }
             if (questioning)
             {
@@ -1266,10 +1277,13 @@ namespace Halcyonic.XR.Workspace.Editor
                             : state.StartsWith("33-ask-tool", StringComparison.Ordinal) ? AskToolName + ": " + AskToolRequest : AskCommand;
                         var read = request.GetParsedText();
                         Require(!read.Contains("\\\\") && (!longer || read.Contains("\\")), "the request reads \"" + read + "\", its backslashes not as written");
-                        Require(longer ? read.Length > 0 && command.StartsWith(read.TrimEnd(), StringComparison.Ordinal) : read == command,
+                        if (state == "33-ask-long-part-2")
+                            Require(partTwo != null && read.TrimEnd() == partTwo.TrimEnd() && !command.StartsWith(read.TrimEnd(), StringComparison.Ordinal),
+                                "on its second part the panel reads \"" + read + "\", not that part's own rows \"" + partTwo + "\"");
+                        else Require(longer ? read.Length > 0 && command.StartsWith(read.TrimEnd(), StringComparison.Ordinal) : read == command,
                             "the panel reads \"" + read + "\", not the request \"" + command + "\" from its start");
                         Require(request.textInfo.lineCount <= RoomBar.RequestLines, "the request stands " + request.textInfo.lineCount + " lines, past the panel's eight");
-                        if (longer) Require(request.textInfo.lineCount == RoomBar.RequestLines, "a long request does not show eight lines of it");
+                        if (longer && state != "33-ask-long-part-2") Require(request.textInfo.lineCount == RoomBar.RequestLines, "a long request does not show eight lines of it");
                     }
                     Require(bar.SentenceWaits == (shown.Waits && shown.Sentence != null), "the sentence's sweep does not follow the state under way");
                     Require((panel.InnerBar != null) == (shown.Sentence != null), "the sentence bar does not follow the sentence");
