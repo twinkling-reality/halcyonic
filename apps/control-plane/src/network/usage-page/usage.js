@@ -22,9 +22,25 @@ function figure(into, value) {
   into.append(cell);
 }
 
-function slot(label, value) {
-  const node = el('div', 'slot');
-  node.append(el('p', 'slot-label', label));
+/** A mark: one of the sprite's glyphs in its own small squircle. */
+function mark(glyph) {
+  const holder = el('span', 'usage-mark');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'glyph');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `#${glyph}`);
+  svg.append(use);
+  holder.append(svg);
+  return holder;
+}
+
+/** A project's figure: its mark and label above its value. `lead` is the page's one figure in the accent. */
+function slot(label, value, glyph, lead) {
+  const node = el('div', lead ? 'slot usage-lead' : 'slot');
+  const words = el('p', 'slot-label');
+  words.append(mark(glyph), document.createTextNode(label));
+  node.append(words);
   figure(node, value);
   return node;
 }
@@ -33,7 +49,10 @@ function card(project) {
   const section = el('section', 'block usage-project');
   section.append(el('h2', 'usage-name', project.name));
   const slots = el('div', 'slots');
-  slots.append(slot('Tokens Used', project.tokens), slot('Estimated Cost', project.cost));
+  slots.append(
+    slot('Tokens Used', project.tokens, 'g-tokens', true),
+    slot('Estimated Cost', project.cost, 'g-cost', false),
+  );
   section.append(slots);
 
   const wrap = el('div', 'usage-scroll');

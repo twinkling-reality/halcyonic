@@ -24,8 +24,9 @@ body {
 }
 
 h2.usage-name {
-  font-size: 20px;
-  line-height: 26px;
+  margin-bottom: 14px;
+  font-size: 22px;
+  line-height: 28px;
   color: var(--text);
   overflow-wrap: anywhere;
 }
@@ -170,6 +171,49 @@ td {
 .usage-figure .figure-note {
   white-space: normal;
   max-width: 16em;
+}
+
+/* A project's two figures: each label with its mark, the number large. Tokens Used is the page's one accent: its mark
+   sits on the accent, as the head's emblem does; Estimated Cost's mark stays quiet. */
+.usage-project .slot {
+  padding: 18px 20px 20px;
+  border-radius: 20px;
+}
+.usage-project .slot-label {
+  gap: 10px;
+}
+.usage-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--tile);
+  color: var(--secondary);
+}
+.usage-mark .glyph {
+  width: 17px;
+  height: 17px;
+}
+.usage-lead .usage-mark {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.usage-project .slot .figure {
+  margin-top: 12px;
+}
+.usage-project .slot .figure .figure-value {
+  font-size: 38px;
+  line-height: 44px;
+  letter-spacing: -0.02em;
+}
+.usage-project .slot .figure-word .figure-value {
+  font-size: 22px;
+  line-height: 44px;
+  letter-spacing: 0;
+}
+.usage-project .slot .figure-note {
+  margin-top: 4px;
 }
 
 /* A narrow window: the two figures one above the other, and each task its own card, every value under its label. */

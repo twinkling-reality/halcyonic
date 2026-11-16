@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { test } from 'node:test';
 import type {
@@ -559,4 +560,15 @@ test('a project taken off the list is not on the page, nor its tasks or their us
     ),
   );
   assert.deepEqual(read(), ['Kept'], 'taken off: neither the project nor its tasks nor their use');
+});
+
+test("every mark the page's script draws is a glyph in the page's own sprite", () => {
+  const page = (name: string) =>
+    readFileSync(new URL(`./usage-page/${name}`, import.meta.url), 'utf8');
+  const script = page('usage.js');
+  const html = page('usage.html');
+  const named = [...script.matchAll(/'(g-[a-z-]+)'/g)].map((match) => match[1]);
+  assert.deepEqual(named, ['g-tokens', 'g-cost']);
+  for (const glyph of named)
+    assert.match(html, new RegExp(`<symbol id="${glyph}" viewBox="0 0 24 24">`));
 });
