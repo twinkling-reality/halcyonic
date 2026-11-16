@@ -1668,7 +1668,10 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         request,
         name,
         'rejected',
-        `${never} is the person's to choose on their own screen, never proposed.`,
+        // A spending limit is the person's money decision (AUDIT3 M-A): said in the assistant's own words, naming no screen.
+        never === 'spending_cap_usd'
+          ? "I can't set a spending limit. You choose that yourself."
+          : `${never} is the person's to choose on their own screen, never proposed.`,
       );
       return { data: { availability: 'unavailable', reason: 'person_only' } };
     }

@@ -85,8 +85,7 @@ export const NEVER_PROPOSED: Readonly<Partial<Record<CommandType, readonly strin
 };
 
 /** Said when the assistant sends a spending limit (AUDIT3 M-A, 2026-11-16): the product's refusal family. */
-export const SPENDING_LIMIT_PERSON_ONLY =
-  'Nothing was sent: only you can set a spending limit, on your own screen.';
+export const SPENDING_LIMIT_PERSON_ONLY = 'Nothing was sent: only you can set a spending limit.';
 
 /**
  * Every payload field of every command but the workspace request's own, which the assistant is and
