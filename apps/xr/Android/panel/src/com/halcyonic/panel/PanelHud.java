@@ -34,9 +34,15 @@ final class PanelHud {
      * the room through sharp enough to fight the words, so the panel takes the sheet's thick glass, a little thicker (90%).
      */
     static final int GLASS = Color.argb(230, 12, 14, 22);
-    static final int MAIN_PLATE = Color.argb(26, 255, 255, 255);
-    static final int MAIN_HELD = Color.argb(41, 255, 255, 255);
-    static final int EDGE = Color.argb(20, 255, 255, 255);
+    /** The kit's thin-glass capsule every action stands on (FIELD's 929c6eecc, RoomButton): at rest, pointed, held. */
+    static final int CAPSULE = Color.rgb(0x25, 0x27, 0x2E);
+    static final int CAPSULE_POINTED = Color.rgb(0x3A, 0x3C, 0x43);
+    static final int CAPSULE_HELD = Color.rgb(0x30, 0x32, 0x39);
+    /** The lit main action's own plate under its rim (RoomButton, Lit). */
+    static final int MAIN_PLATE = Color.rgb(0x2A, 0x2C, 0x33);
+    /** The glass's hairline, lit along its top and easing to its foot (RoomSurface.LitEdgeTop, LitEdgeFoot). */
+    static final int EDGE_TOP = Color.rgb(0x5A, 0x5D, 0x66);
+    static final int EDGE_FOOT = Color.rgb(0x2B, 0x2C, 0x33);
     static final int W1 = Color.WHITE;
     static final int W2 = Color.argb(189, 255, 255, 255);
     static final int W3 = Color.argb(133, 255, 255, 255);
@@ -45,6 +51,8 @@ final class PanelHud {
     private PanelHud() {}
 
     static int px(float tile, float density) { return Math.round(tile * SCALE * density); }
+    /** The room the main action's glow takes outside its rim, half the kit's 12 dp, on every press so all line up. */
+    static int glow(float density) { return Math.round(12 * density / 2f); }
     static float sp(float tile) { return tile * SCALE; }
 
     /** The panel's glass: the tint, the sheen falling from its top edge, and its one hairline, round corners. */
@@ -54,9 +62,7 @@ final class PanelHud {
         GradientDrawable sheen = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
             new int[] {Color.argb(23, 255, 255, 255), Color.argb(0, 255, 255, 255), Color.argb(0, 255, 255, 255)});
         sheen.setCornerRadius(radius);
-        GradientDrawable edge = new GradientDrawable(); edge.setColor(Color.TRANSPARENT); edge.setCornerRadius(radius);
-        edge.setStroke(Math.max(1, Math.round(density)), EDGE);
-        return new LayerDrawable(new Drawable[] {tint, sheen, edge});
+        return new LayerDrawable(new Drawable[] {tint, sheen, new Edge(radius, Math.max(1f, density))});
     }
 
     /** A label in wide spaced capitals (the type's first role). */
@@ -106,20 +112,33 @@ final class PanelHud {
      */
     static void press(Button button, String label, boolean main, boolean workspaceGlyph, float density) {
         button.setText(label); button.setAllCaps(false); button.setTextSize(sp(19)); button.setSingleLine(true); button.setContentDescription(label);
-        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); button.setTextColor(main ? W1 : W2);
+        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL)); button.setTextColor(W1);
         button.setGravity(Gravity.CENTER_VERTICAL); button.setStateListAnimator(null);
         button.setMinHeight(px(56, density)); button.setMinimumHeight(px(56, density)); button.setMinWidth(0); button.setMinimumWidth(0);
-        int glow = px(6, density);
+        int glow = glow(density);
         button.setPadding(px(22, density) + glow, glow, px(26, density) + glow, glow);
-        Glyph glyph = new Glyph(workspaceGlyph, main ? LIGHT : W2, density);
+        Glyph glyph = new Glyph(workspaceGlyph, main ? LIGHT : W1, density);
         button.setCompoundDrawablesRelative(glyph, null, null, null); button.setCompoundDrawablePadding(px(12, density));
         float radius = px(28, density);
-        if (!main) { button.setBackground(null); return; }
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[] {android.R.attr.state_pressed}, lit(MAIN_HELD, radius, glow, density));
-        states.addState(new int[] {android.R.attr.state_hovered}, lit(MAIN_HELD, radius, glow, density));
-        states.addState(new int[0], lit(MAIN_PLATE, radius, glow, density));
+        if (main) {
+            states.addState(new int[] {android.R.attr.state_pressed}, lit(CAPSULE_HELD, radius, glow, density));
+            states.addState(new int[] {android.R.attr.state_hovered}, lit(CAPSULE_POINTED, radius, glow, density));
+            states.addState(new int[0], lit(MAIN_PLATE, radius, glow, density));
+        } else {
+            states.addState(new int[] {android.R.attr.state_pressed}, capsule(CAPSULE_HELD, radius, glow));
+            states.addState(new int[] {android.R.attr.state_hovered}, capsule(CAPSULE_POINTED, radius, glow));
+            states.addState(new int[0], capsule(CAPSULE, radius, glow));
+        }
         button.setBackground(states);
+    }
+
+    /** A quiet action's crisp thin-glass capsule, inset where the main action's glow would stand so the two line up. */
+    private static Drawable capsule(int plate, float radius, int glow) {
+        GradientDrawable shape = new GradientDrawable(); shape.setCornerRadius(radius); shape.setColor(plate);
+        LayerDrawable layers = new LayerDrawable(new Drawable[] {shape});
+        layers.setLayerInset(0, glow, glow, glow, glow);
+        return layers;
     }
 
     /** The main action's plate: the thin fill, its lit rim, and two faint static rings of glow outside it, never a pulse. */
@@ -134,6 +153,28 @@ final class PanelHud {
         layers.setLayerInset(1, glow / 2, glow / 2, glow / 2, glow / 2);
         layers.setLayerInset(2, glow, glow, glow, glow);
         return layers;
+    }
+
+    /** The glass's one hairline, its colour easing from the lit top (#5A5D66) to the foot (#2B2C33). */
+    static final class Edge extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final float radius, width;
+
+        Edge(float radius, float width) {
+            this.radius = radius; this.width = width;
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(width);
+        }
+
+        @Override public void draw(Canvas canvas) {
+            android.graphics.Rect b = getBounds();
+            paint.setShader(new android.graphics.LinearGradient(0, b.top, 0, b.bottom, EDGE_TOP, EDGE_FOOT, android.graphics.Shader.TileMode.CLAMP));
+            float half = width / 2f;
+            canvas.drawRoundRect(new RectF(b.left + half, b.top + half, b.right - half, b.bottom - half), radius, radius, paint);
+        }
+
+        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
+        @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
 
     /** The two glyphs the tile draws, stroked as its 24-unit icons: open-out for Open Task, a window for Open Workspace. */

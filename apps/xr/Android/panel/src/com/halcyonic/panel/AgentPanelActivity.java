@@ -322,7 +322,7 @@ public class AgentPanelActivity extends Activity {
         float density = getResources().getDisplayMetrics().density;
         Button press = new Button(this); PanelHud.press(press, label, main, workspaceGlyph, density);
         LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-2, -2); // The plate's glow lies outside its rim, so the press starts one glow width left, its rim in line with the words above.
-        layout.setMargins(-PanelHud.px(6, density), 0, 0, PanelHud.px(4, density));
+        layout.setMargins(-PanelHud.glow(density), 0, 0, PanelHud.px(4, density));
         parent.addView(press, layout);
         press.setOnClickListener(view -> { if (!visible || !authority.navigate()) return; cancelVoice(); action.run(); });
     }
