@@ -250,15 +250,21 @@ async function main(): Promise<void> {
     taskCopiesPromised: config.taskCopies,
     noCopiesWhy: config.gitOff ? NO_COPIES_UNDO_OFF : NO_COPIES_HERE,
     // A confined app's requests inside its own copy are answered by the host (the lead's ruling, 2026-11-13): the same
-    // reads its sandbox is given (`folderReads`), for a starter's project only.
+    // reads its sandbox is given (`folderReads`), for a starter's project; and for a task's copy of a folder the person
+    // connected, under the closed profile only (AUDIT3 H1 to H5, the lead's 15:17Z ruling), never the folder itself.
     confinedReads: (directory) =>
-      starterOf(directory) === null
-        ? null
-        : {
+      starterOf(directory) !== null
+        ? {
             ...folderReads({ starterOf, originalOf, dataDir: config.dataDir }, directory),
             // The temporary folder Claude Agent's confinement makes for a run in this folder, by its own rule.
             runTemp: { 'claude-agent': confinedTempFolder(config.dataDir, directory) },
-          },
+          }
+        : projectFolderOf(directory) !== directory
+          ? {
+              ...folderReads({ starterOf, originalOf, dataDir: config.dataDir }, directory),
+              connectedCopy: true,
+            }
+          : null,
     ...(gitBinary === null
       ? {}
       : {

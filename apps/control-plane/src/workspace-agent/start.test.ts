@@ -23,6 +23,7 @@ import type {
 } from '@halcyonic/contracts';
 import type { Projection } from '@halcyonic/domain';
 import type { RuntimeAdapter } from '@halcyonic/runtime-core';
+import { CheckpointStore } from '../checkpoints/store.ts';
 import { defaultRow, type HeldRow } from '../core/choices.ts';
 import { removalReview } from '../core/removal.ts';
 import { ASKS_OUTSIDE_TASK_AND_ORIGINAL, START_PROJECT } from '../core/start.ts';
@@ -103,6 +104,11 @@ function setup(
     providers?: HostProviders;
     starters?: HostStarters;
     confinedReads?: (directory: string) => { readable: string[] } | null;
+    checkpoints?: Parameters<typeof createTestControlPlane>[0] extends infer O
+      ? O extends { checkpoints?: infer C }
+        ? C
+        : never
+      : never;
   } = {},
 ) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-start-')));
@@ -701,8 +707,12 @@ test("the level says what the run will really ask: a confined app's own work goe
     starter?: boolean;
     original?: boolean;
     levelAt?: () => 'ask' | 'never_ask' | null;
+    /** Its tasks work in copies of their own, held to them (ADR 0045). */
+    copies?: boolean;
   }) => {
     let folder = '';
+    const data = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-start-copies-')));
+    t.after(() => rmSync(data, { recursive: true, force: true }));
     const s = setup(
       t,
       [
@@ -720,6 +730,15 @@ test("the level says what the run will really ask: a confined app's own work goe
             : options.original === true
               ? { readable: [], originals: [join(s.root, 'original')] }
               : { readable: [] },
+        ...(options.copies === true && {
+          checkpoints: {
+            store: new CheckpointStore({
+              git: '/usr/bin/git',
+              directory: join(data, 'checkpoints'),
+            }),
+            copies: { directory: join(data, 'tasks'), heldToFolder: () => true },
+          },
+        }),
       },
     );
     folder = join(s.root, 'kept');
@@ -746,6 +765,13 @@ test("the level says what the run will really ask: a confined app's own work goe
   // Outside the sandbox, or a folder of the person's own: it asks first, as before.
   assert.equal(await level({ kind: 'opencode', outside: true }), 'Asks First');
   assert.equal(await level({ kind: 'opencode', starter: false }), 'Asks First');
+  // A folder of the person's own whose tasks work in their own copies: under the closed profile its own work there
+  // goes ahead too; Claude Code's copies run under the copy profile and ask first (AUDIT3 H1, 2026-11-17).
+  assert.equal(
+    await level({ kind: 'opencode', starter: false, copies: true }),
+    'Asks Only Outside Task Folder',
+  );
+  assert.equal(await level({ kind: 'claude-agent', starter: false, copies: true }), 'Asks First');
   // An app whose adapter says the start will run without asking (Codex on a starter's project, ADR 0041; its real
   // choice is tested in runtimes.test.ts) is carded so, whatever was asked for: never "Asks First" over a run that
   // asks nothing (AUDIT2, 21:26Z).

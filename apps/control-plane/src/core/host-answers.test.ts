@@ -222,6 +222,74 @@ describe("the host's answer in a confined app (judgeRequest)", () => {
   });
 });
 
+describe("a task's copy of a folder the person connected (AUDIT3 H1 to H5, the lead's 15:17Z ruling)", () => {
+  const connected = { readable: [], connectedCopy: true } as const;
+  const codex = (command?: unknown) => ({
+    runtimeKind: 'codex',
+    toolName: 'commandExecution',
+    paths: undefined,
+    complete: true,
+    command: command as never,
+  });
+  const inCopy = {
+    text: 'npx tsc',
+    runs_in: { kind: 'folder', path: copy },
+    background: false,
+    input_to_running: false,
+  };
+
+  test("under Claude Code's copy profile every request still asks; under the closed profile a command goes ahead", () => {
+    assert.equal(judgeRequest(claude('Bash'), copy, connected), null);
+    assert.equal(
+      judgeRequest(claude('Write', [{ path: 'src/a.ts', access: 'write' }]), copy, connected),
+      null,
+    );
+    assert.equal(
+      judgeRequest({ ...claude('shell'), runtimeKind: 'opencode' }, copy, connected)?.because,
+      'confined_command',
+    );
+    assert.equal(judgeRequest(codex(inCopy), copy, connected)?.because, 'confined_command');
+  });
+
+  test("Codex's command goes ahead only from its parts: no network asked, run in a folder inside the copy", () => {
+    assert.equal(judgeRequest(codex(), copy, connected), null);
+    assert.equal(
+      judgeRequest(
+        codex({ ...inCopy, network: { host: 'example.com', protocol: 'https' } }),
+        copy,
+        connected,
+      ),
+      null,
+    );
+    assert.equal(
+      judgeRequest(codex({ ...inCopy, runs_in: { kind: 'unknown' } }), copy, connected),
+      null,
+    );
+    assert.equal(
+      judgeRequest(
+        codex({ ...inCopy, runs_in: { kind: 'folder', path: outside } }),
+        copy,
+        connected,
+      ),
+      null,
+    );
+    // Through a link that leads out of the copy.
+    assert.equal(
+      judgeRequest(
+        codex({ ...inCopy, runs_in: { kind: 'folder', path: join(copy, 'out') } }),
+        copy,
+        connected,
+      ),
+      null,
+    );
+    assert.equal(
+      judgeRequest(codex({ ...inCopy, runs_in: { kind: 'folder', path: 'src' } }), copy, connected)
+        ?.because,
+      'confined_command',
+    );
+  });
+});
+
 describe("the host's answers in the pipeline", () => {
   /** An agent app that can be sent decisions, as Claude Agent can. */
   function answeringRuntime(respondToApproval = true) {
@@ -483,5 +551,134 @@ describe("the host's answers in the pipeline", () => {
       ['a1', 'a2', 'a3', 'a4'],
     );
     assert.deepEqual(view?.approvals, { went_ahead: 0, asked: 4 });
+  });
+});
+
+describe("the host's answers in a connected folder's copy, in the pipeline (AUDIT3 H1, H4)", () => {
+  async function connectedRun(ownCopy: boolean) {
+    const descriptor: RuntimeDescriptor = {
+      runtime_id: 'opencode' as RuntimeId,
+      kind: 'opencode',
+      display_name: 'OpenCode',
+      synthetic: true,
+      capabilities: {
+        start_execution: true,
+        instruct_at_rest: false,
+        instruct_while_running: false,
+        respond_to_approval: true,
+        answer_question: false,
+        interrupt: false,
+      },
+      model_choice: 'none',
+      uses_project_location: false,
+      reports_tool_activity: false,
+    };
+    const adapter: RuntimeAdapter = {
+      descriptor,
+      validateStartOptions: () => ({ ok: true }),
+      startExecution: async () => ({ native_id: 'n' }),
+      respondToApproval: async () => {},
+      close: async () => {},
+    };
+    const harness = createTestControlPlane({
+      adapters: () => [adapter],
+      confinedReads: (directory) =>
+        directory === copy ? { readable: [], connectedCopy: true } : null,
+    });
+    const { controlPlane, commands, time } = harness;
+    const project = controlPlane.commands.submit(commands.createProject('Tidewatch'), 'internal');
+    if (project.command?.result?.kind !== 'project_created') throw new Error('no project');
+    const projectId = project.command.result.project_id as ProjectId;
+    const now = '2026-09-26T10:00:00.000Z' as never;
+    const workstreamId = '01a19000-0000-7000-8000-0000000000d9' as WorkstreamId;
+    const executionId = '01a19000-0000-7000-8000-0000000000e9' as ExecutionId;
+    const scope = { project_id: projectId, workstream_id: workstreamId, execution_id: executionId };
+    const where = { ...scope, execution_id: null };
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.created',
+        where,
+        { title: 'Fix it', objective: null },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    if (ownCopy)
+      controlPlane.recorder.record(
+        controlPlaneDraft(
+          'workstream.copy_made',
+          where,
+          { directory: copy, base_tree: 'a'.repeat(64), files: 1 } as never,
+          now,
+          NO_CAUSE,
+        ),
+      );
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.created',
+        scope,
+        {
+          runtime: {
+            runtime_id: 'opencode',
+            kind: 'opencode',
+            display_name: 'OpenCode',
+            synthetic: true,
+          },
+          instruction: 'Fix it.',
+          directory: copy,
+        } as never,
+        now,
+        NO_CAUSE,
+      ),
+    );
+    const observations: [string, unknown][] = [
+      ['runtime.execution.started', { native_id: 'n', confined: true }],
+      ['runtime.turn.started', { turn_id: 't1' }],
+      [
+        'runtime.approval.requested',
+        {
+          approval_id: 'b1',
+          subject: {
+            kind: 'tool_use',
+            tool_name: 'shell',
+            summary: "[in the task's folder] git status",
+          },
+          complete: true,
+        },
+      ],
+    ];
+    let sequence = 0;
+    for (const [eventType, payload] of observations) {
+      sequence += 1;
+      controlPlane.recorder.record({
+        ...controlPlaneDraft('execution.created', scope, {} as never, now, NO_CAUSE),
+        event_type: eventType,
+        source: { kind: 'runtime', runtime_id: 'opencode' },
+        source_native_id: `n:${sequence}`,
+        sequence,
+        payload,
+      } as never);
+    }
+    await time.runUntilIdle();
+    const answered = [...controlPlane.journal.readAll()]
+      .map((stored) => stored.event)
+      .filter((event) => event.event_type === 'execution.approval.answered_by_host');
+    const pending = controlPlane.projection
+      .execution(executionId)
+      ?.pending_approvals.map((each) => each.approval_id);
+    await controlPlane.close();
+    return { answered, pending };
+  }
+
+  test("a command in the task's own copy under the closed profile goes ahead, recorded; with no copy of its own it asks", async () => {
+    const own = await connectedRun(true);
+    assert.deepEqual(
+      own.answered.map((event) => (event.payload as { because: string }).because),
+      ['confined_command'],
+    );
+    assert.deepEqual(own.pending, []);
+    const none = await connectedRun(false);
+    assert.equal(none.answered.length, 0);
+    assert.deepEqual(none.pending, ['b1']);
   });
 });

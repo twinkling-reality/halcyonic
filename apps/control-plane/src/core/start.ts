@@ -14,7 +14,7 @@ import type {
 } from '@halcyonic/contracts';
 import { admitCommand, startOptionsRefusal } from '@halcyonic/domain';
 import type { ControlPlane } from './control-plane.ts';
-import { answersOwnWork } from './host-answers.ts';
+import { answersInConnectedCopy, answersOwnWork } from './host-answers.ts';
 import { cleanWords, type GivenValue } from './prepare.ts';
 import { reviewDigest } from './review.ts';
 import { saidIn } from './reviews.ts';
@@ -386,7 +386,11 @@ export async function startReview(
     asks &&
     answersOwnWork(runtime.kind) &&
     !plane.registry.outsideSandbox().some((each) => each.runtime_id === runtime.runtime_id) &&
-    plane.answersOwnWorkIn(created === undefined ? workIn : null, starterProject);
+    (plane.answersOwnWorkIn(created === undefined ? workIn : null, starterProject) ||
+      // A connected folder's tasks work in copies, answered there under the closed profile (AUDIT3 H1).
+      (created === undefined &&
+        answersInConnectedCopy(runtime.kind) &&
+        plane.answersConnectedCopyIn(workIn, runtime.runtime_id)));
   // An adapter that can say the level but not for these bounds leaves it unknown: the card never guesses (AUDIT2 S1).
   const levelUnknown = adapter?.levelAt !== undefined && really === null;
   const level = levelUnknown

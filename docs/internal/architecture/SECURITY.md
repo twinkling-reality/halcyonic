@@ -121,6 +121,12 @@ too: the GitHub CLI keeps its login there by default, not in `~/.config/gh`, and
 keychain nor `/usr/bin/security`, so a run can be expected to reach that login and push with it (an inference from
 gh's documented storage, not probed). Such a run is recorded not confined.
 
+Since 2026-11-17 the host answers a confined app's own work in a task's own copy of a folder the person connected too,
+under the closed profile only (OpenCode, and Codex from each command's parts), as in a starter's project: the copy, its
+read list, its own home and loopback, nothing else; the person's folder, home, keychain and network are refused by the
+profile, and nothing reaches the folder before Add to Project, which still asks. A task in the folder itself, and
+Claude Code's copies (the copy profile, network open), are never answered (ADR 0064, amended).
+
 Outside the closed profile, Claude Code runs some Bash commands without asking, by its own rules: with no settings
 loaded and its default mode, Claude Code 2.1.283 runs reads inside the folder unasked (`ls`, `cat`, `head`, `grep`,
 `sed -n`, `git status`, `git log`, `git show` and the like) and asks for everything that writes, reads outside the

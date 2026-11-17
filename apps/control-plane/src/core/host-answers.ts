@@ -1,6 +1,7 @@
 import { lstatSync, type Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import {
+  type ApprovalCommand,
   type ApprovalPath,
   COMMAND_SCHEMA_VERSION,
   type CommandId,
@@ -24,19 +25,33 @@ const CLIENT = { name: 'halcyonic-control-plane', version: null, device_label: n
 /**
  * Per runtime kind, the tools the host may answer in a confined app: the shell, held by the closed profile whatever
  * its command says (the lead's ruling, 2026-11-13), and the file tools whose places its adapter gives as structure
- * (`ApprovalSubject.paths`). A runtime not named here, or a tool not named for it, always reaches the person. Codex
- * is absent: on a starter's confined project it asks nothing at its own layer (ADR 0041). OpenCode's edits inside its
- * folder ask nothing at its own layer and its reads of a declared original are its session's rules (`external_directory`);
- * what it still asks there is a shell command, whole.
+ * (`ApprovalSubject.paths`). A runtime not named here, or a tool not named for it, always reaches the person. OpenCode's
+ * edits inside its folder ask nothing at its own layer and its reads of a declared original are its session's rules
+ * (`external_directory`); what it still asks there is a shell command, whole. Codex asks nothing on a starter's
+ * confined project (ADR 0041); in a copy of a connected folder its command is answered only from its parts
+ * (`ApprovalSubject.command`): no network asked, run in a folder inside the copy (`partsOnly`).
+ * `connectedCopies`: whether this kind runs a copy of a folder the person connected under the closed profile, so the
+ * host answers there too (AUDIT3 H1 to H5, the lead's 15:17Z ruling). Claude Code's copies run under the copy profile,
+ * whose network is open, so they keep asking.
  */
 const ANSWERABLE: Readonly<
-  Record<string, { readonly shell: string; readonly files: ReadonlySet<string> }>
+  Record<
+    string,
+    {
+      readonly shell: string;
+      readonly files: ReadonlySet<string>;
+      readonly connectedCopies: boolean;
+      readonly partsOnly?: true;
+    }
+  >
 > = {
   'claude-agent': {
     shell: 'Bash',
     files: new Set(['Write', 'Edit', 'NotebookEdit', 'Read', 'Glob', 'Grep']),
+    connectedCopies: false,
   },
-  opencode: { shell: 'shell', files: new Set() },
+  opencode: { shell: 'shell', files: new Set(), connectedCopies: true },
+  codex: { shell: 'commandExecution', files: new Set(), connectedCopies: true, partsOnly: true },
 };
 
 /** What a confined app's folder reads besides itself: a starter's shared files and a VR version's original. */
@@ -48,6 +63,11 @@ export interface ConfinedReads {
    * host's own record of it, never the agent's: reads strictly inside it are answered (AUDIT3 T1 to T4).
    */
   readonly runTemp?: Readonly<Record<string, string>>;
+  /**
+   * A task's copy of a folder the person connected, not a starter's project (AUDIT3 H1): answered only where the
+   * execution works in its own task's copy, under the closed profile, for a kind whose connected copies run there.
+   */
+  readonly connectedCopy?: true;
 }
 
 export interface HostAnswersDeps {
@@ -71,7 +91,17 @@ export interface HostAnswersDeps {
  * with the no-ask unit). Codex is not in it: a confined Codex run asks as before.
  */
 export function answersOwnWork(runtimeKind: string): boolean {
-  return Object.hasOwn(ANSWERABLE, runtimeKind);
+  // A kind answered only from each command's parts (Codex) is not promised: whether its run asks depends on each
+  // request, so its start says it asks first, and the host's answers only ever ask less than that.
+  return Object.hasOwn(ANSWERABLE, runtimeKind) && ANSWERABLE[runtimeKind]?.partsOnly !== true;
+}
+
+/**
+ * Whether a start promises the host's answers for this kind in a copy of a folder the person connected
+ * (`connectedCopies`), on the same terms as `answersOwnWork`.
+ */
+export function answersInConnectedCopy(runtimeKind: string): boolean {
+  return answersOwnWork(runtimeKind) && ANSWERABLE[runtimeKind]?.connectedCopies === true;
 }
 
 export type HostJudgement = {
@@ -94,6 +124,7 @@ export function judgeRequest(
     readonly toolName: string;
     readonly paths: readonly ApprovalPath[] | undefined;
     readonly complete: boolean;
+    readonly command?: ApprovalCommand | undefined;
   },
   directory: string,
   reads: ConfinedReads,
@@ -103,7 +134,21 @@ export function judgeRequest(
     ? ANSWERABLE[request.runtimeKind]
     : undefined;
   if (tools === undefined) return null;
-  if (request.toolName === tools.shell) return { because: 'confined_command', paths: [] };
+  if (reads.connectedCopy === true && !tools.connectedCopies) return null;
+  if (request.toolName === tools.shell) {
+    if (tools.partsOnly !== true) return { because: 'confined_command', paths: [] };
+    // From its parts only: a command that asks for the network, or runs anywhere but a folder inside the copy, reaches
+    // the person (AUDIT3 H2).
+    const command = request.command;
+    if (command === undefined || command.network !== undefined) return null;
+    if (command.runs_in.kind !== 'folder') return null;
+    const at = resolvedPath(
+      isAbsolute(command.runs_in.path)
+        ? command.runs_in.path
+        : join(directory, command.runs_in.path),
+    );
+    return inside(at, resolvedPath(directory)) ? { because: 'confined_command', paths: [] } : null;
+  }
   if (!tools.files.has(request.toolName)) return null;
   const named = request.paths;
   if (named === undefined || named.length === 0) return null;
@@ -230,6 +275,11 @@ export class HostAnswers {
     if (view === undefined || view.directory === null) return null;
     const reads = this.#deps.confinedReads(view.directory);
     if (reads === null) return null;
+    // A connected folder's copy is answered only where the execution works in its own task's copy (AUDIT3 H1).
+    if (reads.connectedCopy === true) {
+      const copy = projection.workstream(view.workstream_id)?.copy;
+      if (copy?.state !== 'own' || copy.directory !== view.directory) return null;
+    }
     const { subject, complete, too_long: tooLong } = event.payload;
     return judgeRequest(
       {
@@ -237,6 +287,7 @@ export class HostAnswers {
         toolName: subject.tool_name,
         paths: subject.paths,
         complete: complete || tooLong?.reported_complete === true,
+        command: subject.command,
       },
       view.directory,
       reads,

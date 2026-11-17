@@ -25,7 +25,8 @@ request's places as structure does not get the host's answer. AUDIT3 read the sh
 ## Decision
 
 1. **Where.** Only for an execution whose start recorded `confined: true`, in a folder that is a starter's project.
-   Nothing changes for a connected folder, a plain folder, an unconfined start or any other host.
+   Nothing changes for a connected folder, a plain folder, an unconfined start or any other host. (Amended
+   2026-11-17: also a task's own copy of a connected folder under the closed profile; see the end.)
 2. **The host answers, Claude Agent.** The adapter gives a file tool's places as structure on the request
    (`ApprovalSubject.paths`, by the SDK's own tool schemas, [claude-code-sandbox.md](../validation/claude-code-sandbox.md)):
    Write, Edit and NotebookEdit write, Read, Glob and Grep read. A Glob pattern or Grep glob that is absolute, starts
@@ -74,6 +75,21 @@ answers a complete request whose every place is a read strictly inside that one 
 (`confinedTempFolder`, never a path from the agent), resolved through links, with the reason `run_temp_read`. A write
 there, a link out of it, the folder itself, a sibling under the run's sandbox, another folder's temporary folder, or a
 request naming it with any other place still reaches the person (AUDIT3 T1 to T6). It rides protocol 3.
+
+## Amended 2026-11-17: a copy of a folder the person connected, under the closed profile
+
+The line is the sandbox, not where the project came from (AUDIT3's shape H1 to H5, the lead's 15:17Z ruling). The host
+answers, as above, in a task's own copy of a folder the person connected too, where:
+- the execution's start recorded `confined: true` and its runtime kind runs such copies under the closed profile
+  (`connectedCopies`: OpenCode, and Codex, which holds every folder there); Claude Code's copies run under the copy
+  profile, whose network is open, so every request there keeps asking (`OPEN_RUN_ASKS` holds its unasked git reads);
+- its folder is that task's own copy, as `workstream.copy_made` recorded it, never the project's folder: a task that
+  works in the folder itself is never answered (`ConfinedReads.connectedCopy`, checked against the workstream's copy).
+Same kinds and refusals as a starter's project: OpenCode's shell, whole; Codex's command only from its parts
+(`ApprovalSubject.command`): one that asks for the network, has no folder, or runs in a folder outside the copy (links
+resolved) asks. Every answer is journaled with its reason. Add to Project still shows its own review and asks.
+A start's level says "Asks Only Outside Task Folder" there only for a kind answered whole (OpenCode); Codex, answered
+from each command's parts, is said to ask first, and the host only ever asks less than that.
 
 The temporary folder counts only while it is a real folder, never a link: a run may remove its own TMPDIR and put a
 link in its place (seen by LOOP's probe under the profile), so the host takes the folder only when it is a real

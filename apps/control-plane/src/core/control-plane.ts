@@ -873,6 +873,18 @@ export class ControlPlane {
   }
 
   /**
+   * Whether the host answers a confined app's own work in the copies its tasks on the connected folder `directory`
+   * will work in (AUDIT3 H1): copies are on, this runtime is held to a copy there, and the folder is no starter's
+   * project. Whether the runtime's kind runs those copies under the closed profile is `answersInConnectedCopy`'s.
+   */
+  answersConnectedCopyIn(directory: string | null, runtimeId: string): boolean {
+    if (this.#hostAnswers === null || this.#confinedReads === null || directory === null)
+      return false;
+    if (this.#confinedReads(directory) !== null) return false;
+    return this.copies?.holds(runtimeId, directory) === true;
+  }
+
+  /**
    * Whether the own work the host answers in `directory` also takes in reads of an original (a VR version's project,
    * whose original lies outside its folder): then the run asks only for what reaches outside both (AUDIT2's S1 on START).
    */
