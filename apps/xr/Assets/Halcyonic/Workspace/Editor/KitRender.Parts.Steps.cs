@@ -140,9 +140,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 under.ForceMeshUpdate(true);
                 Require(Mathf.Abs(-under.transform.localPosition.y - below) < unit * 0.05f, what + "'s line does not stand straight under its word");
                 // Every line whole; the act is our verb as built, never put in the agent's mouth; never the request.
-                var shownLine = string.Join(" ", under.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
-                Require(!under.isTextOverflowing && !under.isTextTruncated && shownLine == step.Line.Text && !shownLine.Contains("…") && !shownLine.Contains(KitMomentWords.TheAgentSays),
+                // A file's path breaks only at its slashes and leaves out its leading folders, whole, before a fourth line; its name
+                // is never shortened (the lead's 2026-11-17T02:03Z). The words laid are the view's own, compared whole.
+                var shownLine = string.Join("", under.GetParsedText().Split('\n'));
+                var laidWords = view.LineWordsOf(index) ?? "";
+                var folded = laidWords != step.Line.Text;
+                Require(!under.isTextOverflowing && !under.isTextTruncated && shownLine == laidWords && !shownLine.Contains(KitMomentWords.TheAgentSays),
                     what + "'s line is not whole as built: \"" + shownLine + "\"");
+                Require(!folded || (laidWords.Contains(PathWrap.Elision) && step.Line.Text.EndsWith(laidWords.Substring(laidWords.IndexOf(PathWrap.Elision, StringComparison.Ordinal) + PathWrap.Elision.Length), StringComparison.Ordinal)
+                    && under.textInfo.lineCount <= RoomStepsView.LineMostLines),
+                    what + "'s line leaves out more than its leading folders, or takes more than " + RoomStepsView.LineMostLines + " lines: \"" + laidWords + "\"");
+                Require(folded || !shownLine.Contains("…"), what + "'s line is cut: \"" + shownLine + "\"");
+                // Never inside a word: on a path's line every line but the last ends at a slash, at the act itself, or at the end of a word of
+                // the file's name (a dot, a hyphen, an underscore, or a small letter before a capital).
+                for (var at = 0; at < under.textInfo.lineCount - 1; at++)
+                {
+                    var info = under.textInfo;
+                    var last = info.characterInfo[info.lineInfo[at].lastVisibleCharacterIndex].character;
+                    var next = info.characterInfo[info.lineInfo[at + 1].firstCharacterIndex].character;
+                    Require(last is '/' or '.' or '-' or '_' || char.IsLower(last) && char.IsUpper(next) || step.Line.Text.IndexOf('/') < 0 || at == 0 && info.lineInfo[0].lastVisibleCharacterIndex == step.Line.Runs[0].Text.TrimEnd().Length - 1,
+                        what + "'s line breaks inside a word, after '" + last + "' before '" + next + "'");
+                }
                 below += Mathf.Max(line, under.textInfo.lineCount * KitType.LinePitch(under));
             }
             if (usage != null)
@@ -156,7 +174,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     label.ForceMeshUpdate(true);
                     value.ForceMeshUpdate(true);
-                    Require(label.GetParsedText().Trim() == usage.Label && value.GetParsedText().Trim() == usage.Value, "the usage figure reads \"" + label.GetParsedText() + "\" and \"" + value.GetParsedText() + "\"");
+                    Require(string.Equals(label.GetParsedText().Trim(), usage.Label, StringComparison.OrdinalIgnoreCase) && value.GetParsedText().Trim() == usage.Value,
+                        "the usage figure reads \"" + label.GetParsedText() + "\" and \"" + value.GetParsedText() + "\"");
+                    // The label in the one language's label role, apart from the value in the words' role (the lead's 2026-11-17T02:02Z).
+                    Require(label.characterSpacing > 0f && label.GetParsedText() == label.GetParsedText().ToUpperInvariant() && value.characterSpacing <= 0f,
+                        "the usage figure's label is not in the label role, or its value is");
                     Require(-label.transform.localPosition.y >= below + gap - unit * 0.05f && -label.transform.localPosition.y <= below + gap + line / 2f
                         && Mathf.Abs(label.transform.localPosition.x - indent) < 1e-6f,
                         "the usage figure does not stand the steps' gap under the last step, at the steps' words");
@@ -248,7 +270,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     // and the later steps, dimmed on purpose, may read down to 175.
                     var dimmed = steps[index].Kind == TaskStepKind.Done || steps[index].Kind == TaskStepKind.NotYet && !RoomStepsView.IsNext(steps, index);
                     if (most < (dimmed ? 175 : 230)) failures.Add("step " + index + " (" + steps[index].Kind + ")'s word reads " + most + " of 255 at its lightest, under " + (dimmed ? 175 : 230));
-                    // What waits for the person is said amber, in its line.
+                    // What waits for the person is said in white words: only its mark is amber (the lead's 2026-11-17T02:02Z).
                     if (steps[index].Kind == TaskStepKind.NeedsYou && view.Line(index) is TMPro.TextMeshPro waits)
                     {
                         var lineBounds = waits.textBounds;
@@ -259,7 +281,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             var pixel = At(dark, waits.transform.TransformPoint(new Vector3(Mathf.Lerp(lineBounds.min.x, lineBounds.max.x, step / 60f), lineBounds.max.y - KitType.LinePitch(waits) * 0.5f, 0f)));
                             if (Light(pixel) > lightestLine) { lightestLine = Light(pixel); brightest = pixel; }
                         }
-                        if (!(brightest.r > brightest.b + 60 && brightest.g > brightest.b + 30)) failures.Add("step " + index + " waits for the person but its line is not amber: " + brightest);
+                        if (!(lightestLine >= 200 && brightest.r - brightest.b < 30)) failures.Add("step " + index + " waits for the person but its line is not white: " + brightest);
                     }
                 }
                 Debug.Log("Halcyonic: parts: " + name + ": " + steps.Count + " steps, " + (view.Size.y / unit).ToString("0", CultureInfo.InvariantCulture) + " dp tall, the words' lightest "

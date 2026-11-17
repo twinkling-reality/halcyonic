@@ -28,9 +28,6 @@ namespace Halcyonic.XR.UI
         public const float TileGlyphDp = 16f;
         public const float TileGapDp = 10f;
 
-        /// <summary>The dim empty tile's edge, as the Checks card's node never run: it holds 3:1 over the bright room.</summary>
-        public const float EmptyEdgeAlpha = 0.64f;
-
         private readonly List<TextMeshPro> words = new List<TextMeshPro>();
         private readonly List<TextMeshPro> lines = new List<TextMeshPro>();
         private readonly List<RoomShape> tiles = new List<RoomShape>();
@@ -95,28 +92,36 @@ namespace Halcyonic.XR.UI
         /// <summary>Step <paramref name="index"/>'s line under its word, where it shows one; null otherwise.</summary>
         public TextMeshPro? Line(int index) => lines[index].gameObject.activeSelf ? lines[index] : null;
 
+        /// <summary>
+        /// Step <paramref name="index"/>'s line as words, as last laid: the step's own, or where its file's path would take more
+        /// than three lines, the same act with the path's leading folders left out (<see cref="PathWrap.Fold"/>), its name whole.
+        /// </summary>
+        public string? LineWordsOf(int index) => index < lineWords.Count ? lineWords[index] : null;
+
+        private readonly List<string?> lineWords = new List<string?>();
+
+        /// <summary>The most lines a step's line takes: a path past them leaves out its leading folders first.</summary>
+        public const int LineMostLines = 3;
+
         /// <summary>Step <paramref name="index"/>'s tile, and the glyph on it (hidden where its mark has none).</summary>
         public RoomShape Tile(int index) => tiles[index];
 
         public RoomGlyphView Mark(int index) => marks[index];
 
-        public static Color AttentionLineColour => RoomSurface.Hex(RoomCardView.AttentionNote);
-
-        /// <summary>A step's mark: the glyph on its tile (null for none), the glyph's ink, the tile's fill and its edge.</summary>
+        /// <summary>
+        /// A step's mark: its glyph on the rail (null for none) and the ink of its thin line, white but what waits for the person, on
+        /// the attention amber (the lead's 2026-11-17T01:40Z and 02:02Z); never a fill.
+        /// </summary>
         public readonly struct StepMark
         {
-            public StepMark(RoomGlyph? glyph, Color ink, Color fill, Color edge)
+            public StepMark(RoomGlyph? glyph, Color ink)
             {
                 Glyph = glyph;
                 Ink = ink;
-                Fill = fill;
-                Edge = edge;
             }
 
             public RoomGlyph? Glyph { get; }
             public Color Ink { get; }
-            public Color Fill { get; }
-            public Color Edge { get; }
         }
 
         /// <summary>Steps under <paramref name="parent"/>, hidden, drawn at <paramref name="order"/> (the panel's words).</summary>
@@ -132,23 +137,18 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// The mark a step wears: by where the step stands, and for an end, by the end's own mark. An end whose mark is none of
-        /// the four the steps give wears its quiet tile with no glyph, never a guessed one.
+        /// the four the steps give wears no glyph, never a guessed one. The step that is now is drawn as the white dot, the step
+        /// still to come as the hollow diamond (<see cref="LayMark"/>); the wrench names the now step's kind in the logs alone.
         /// </summary>
         public static StepMark MarkOf(TaskStep step) => step.Kind switch
         {
-            TaskStepKind.Done => new StepMark(RoomGlyph.Check, Color.white, RoomSurface.Hex(RoomCardView.GoodFill), Color.clear),
-            TaskStepKind.Now => new StepMark(RoomGlyph.Wrench, Color.white, RoomSurface.Hex(RoomCardView.WorkingFill), Color.clear),
-            TaskStepKind.NotYet => new StepMark(null, Color.clear, Color.clear, new Color(1f, 1f, 1f, EmptyEdgeAlpha)),
-            TaskStepKind.NeedsYou => new StepMark(RoomGlyph.Bubble, RoomSurface.Hex(RoomCardView.AttentionInk), RoomSurface.Hex(RoomCardView.Attention), Color.clear),
-            _ => EndMarkOf(step.Mark),
+            TaskStepKind.Done => new StepMark(RoomGlyph.Check, new Color(1f, 1f, 1f, DoneAlpha + 0.1f)),
+            TaskStepKind.Now => new StepMark(RoomGlyph.Wrench, NowInk),
+            TaskStepKind.NotYet => new StepMark(null, Color.white),
+            TaskStepKind.NeedsYou => new StepMark(RoomGlyph.Bubble, RoomSurface.Hex(RoomCardView.Attention)),
+            TaskStepKind.End => new StepMark(EndGlyphOf(step.Mark), Color.white),
+            _ => throw new System.ArgumentOutOfRangeException(nameof(step), step.Kind, "a step of no known kind"),
         };
-
-        /// <summary>An end's mark: checks failed or could not finish the alert on the deep red, stopped the square, can't tell the minus, on the quiet tile.</summary>
-        private static StepMark EndMarkOf(GlazeIcon mark)
-        {
-            var glyph = EndGlyphOf(mark);
-            return new StepMark(glyph, Color.white, RoomSurface.Hex(glyph == RoomGlyph.Alert ? RoomCardView.BadFill : RoomCardView.QuietFill), Color.clear);
-        }
 
         private static RoomGlyph? EndGlyphOf(GlazeIcon mark) => mark switch
         {
@@ -221,16 +221,20 @@ namespace Halcyonic.XR.UI
                 LayMark(index, step, markAt);
                 down += wordTall;
                 var line = lines[index];
+                while (lineWords.Count <= index) lineWords.Add(null);
+                lineWords[index] = null;
                 if (step.Line is LineWords said && said.Text.Length > 0)
                 {
+                    lineWords[index] = said.Text;
                     line.gameObject.SetActive(true);
                     RoomType.Size(line);
-                    // The act under the step that is now in its own case, white; any other line quiet; what waits for the person amber.
-                    var tone = step.Kind == TaskStepKind.NeedsYou ? AttentionLineColour : Color.white;
-                    line.color = new Color(tone.r, tone.g, tone.b, now || step.Kind == TaskStepKind.NeedsYou ? 1f : QuietAlpha);
-                    // Whole: nothing on the list is cut (the owner's bar, the reader of 04:48Z).
+                    // The act under the step that is now, and what waits for the person, in their own case, white; any other line quiet.
+                    // Words are never amber: only the waiting step's mark is (the lead's 2026-11-17T02:02Z).
+                    line.color = new Color(1f, 1f, 1f, now || step.Kind == TaskStepKind.NeedsYou ? 1f : QuietAlpha);
+                    // Whole: nothing on the list is cut (the owner's bar, the reader of 04:48Z); a file's path breaks only at its slashes
+                    // and leaves out its leading folders before it takes a fourth line (the lead's 2026-11-17T02:03Z).
                     GlazeRuns.Of(line).Set(said);
-                    var lineTall = Balanced(line, column);
+                    var lineTall = PathFolded(index, line, said, column) is float folded ? folded : Balanced(line, column);
                     line.transform.localPosition = new Vector3(indent, -down, 0f);
                     down += Mathf.Max(lineDp, lineTall);
                 }
@@ -280,17 +284,13 @@ namespace Halcyonic.XR.UI
             usageValue ??= RoomType.Create(transform, "Usage value", Color.white, order);
             usageLabel.gameObject.SetActive(true);
             usageValue.gameObject.SetActive(true);
-            // As the usage tile lays them (AUDIT 2026-11-16 12:19Z: "Tokens Used  Not Reported Yet" read as one run): the label
-            // small and quiet at the tile's label size, the value in the row's own size and white.
-            var labelSize = GlazeTokens.FontSize(RoomType.Scaled(RoomCardView.GaugeLabelDp));
-            if (!Mathf.Approximately(usageLabel.fontSize, labelSize)) usageLabel.fontSize = labelSize;
-            usageLabel.lineSpacing = KitType.LineSpacingFor(usageLabel, RoomCardView.GaugeLabelLineDp / RoomCardView.GaugeLabelDp);
+            // The label and the value apart on one line (the lead's 2026-11-17T02:02Z): the label in the one language's label role,
+            // spaced capitals, quiet; the value in the words' role, the row's own size, white.
+            RoomType.Label(usageLabel, usage.Label);
             RoomType.Size(usageValue);
-            usageLabel.color = Quiet;
             usageValue.color = Color.white;
-            GlazeRuns.Of(usageLabel).Set(LineWords.Ours(usage.Label));
             GlazeRuns.Of(usageValue).Set(LineWords.Ours(usage.Value));
-            var labelLine = RoomType.Scaled(RoomCardView.GaugeLabelLineDp);
+            var labelLine = KitType.LinePitch(usageLabel);
             var labelWide = KitType.Lay(usageLabel, column, 1).Width;
             var valueLeft = labelWide + RoomType.Scaled(UsageGapDp);
             // Beside the label where the value fits whole on one line; else under it, the column's width, whole, never a word alone
@@ -356,6 +356,30 @@ namespace Halcyonic.XR.UI
             return KitType.Lay(label, column, RoomRowsView.RowLines).Height;
         }
 
+        /// <summary>
+        /// Step <paramref name="index"/>'s line, where <paramref name="said"/> is our act and then a file's path of theirs ("Editing " and the path) that does not fit one
+        /// line: the path in lines breaking only after its slashes, its leading folders left out before a fourth line, its name
+        /// whole (<see cref="PathWrap.Fold"/>), the act ours and the path theirs as given. Returns the height, or null for any
+        /// other line, which is laid as words.
+        /// </summary>
+        private float? PathFolded(int index, TextMeshPro label, LineWords said, float column)
+        {
+            if (said.Runs.Count != 2 || said.Runs[0].Theirs || !said.Runs[1].Theirs) return null;
+            var lead = said.Runs[0].Text;
+            var path = said.Runs[1].Text;
+            if (path.IndexOf(' ') >= 0 || path.IndexOf('/') < 0 || label.text != said.Text) return null;
+            bool Fits(string text) => label.GetPreferredValues(text).x <= column + 1e-4f;
+            if (Fits(said.Text)) return null;
+            var (folded, shown) = PathWrap.Fold(lead, path, Fits, LineMostLines);
+            lineWords[index] = lead + shown;
+            var joined = string.Join("\n", folded);
+            label.text = joined;
+            // The act stays ours; every character of the path, the elision with it, leans as theirs.
+            GlazeRuns.Of(label).Lean(new List<(int Start, int End)> { (lead.Length, joined.Length) });
+            var drawn = KitType.Lay(label, column, Mathf.Max(LineMostLines, folded.Count));
+            return Mathf.Max(drawn.Lines, 1) * KitType.LinePitch(label);
+        }
+
         /// <summary>Whether the label's last laid line holds one word alone.</summary>
         private static bool LastLineIsOneWord(TMP_Text label)
         {
@@ -368,13 +392,7 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>A glyph's ink on the rail: a finished step's check calm, what waits for the person on the attention amber, an end white.</summary>
-        public static Color InkOf(TaskStep step) => step.Kind switch
-        {
-            TaskStepKind.Done => new Color(1f, 1f, 1f, DoneAlpha + 0.1f),
-            TaskStepKind.NeedsYou => MarkOf(step).Fill,
-            TaskStepKind.Now or TaskStepKind.NotYet or TaskStepKind.End => Color.white,
-            _ => throw new System.ArgumentOutOfRangeException(nameof(step), step.Kind, "a step of no known kind"),
-        };
+        public static Color InkOf(TaskStep step) => MarkOf(step).Ink;
 
         /// <summary>
         /// Step <paramref name="index"/>'s mark on the rail at <paramref name="at"/>: the thin check where finished, a white dot

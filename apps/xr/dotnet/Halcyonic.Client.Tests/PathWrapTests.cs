@@ -59,4 +59,60 @@ public class PathWrapTests
         foreach (var piece in new[] { "welcomeScreen.uikitml", "golden-balloon_test", "a-B-c" })
             Assert.That(string.Concat(PathWrap.FinerPieces(piece)), Is.EqualTo(piece), "nothing dropped or added");
     }
+
+    private const string LongFile = "src/scenes/kite-meadow/components/tail-streamer/StreamingTailRendererWithWindGusts.ts";
+
+    [Test]
+    public void AStepsPathBreaksOnlyAfterASlashAndItsNameStaysWhole()
+    {
+        var (lines, shown) = PathWrap.Fold("Editing ", LongFile, Width(40));
+        Assert.That(lines.Count, Is.LessThanOrEqualTo(3));
+        Assert.That(string.Concat(lines), Is.EqualTo("Editing " + shown), "nothing dropped or added past the elision");
+        Assert.That(shown, Does.EndWith("/StreamingTailRendererWithWindGusts.ts"), "the file's name is never shortened");
+        Assert.That(lines[lines.Count - 1], Does.EndWith("StreamingTailRendererWithWindGusts.ts"), "the name stands whole on the last line");
+        // Every line but the last ends at a slash, or is the act alone: never inside a folder's name at its hyphen.
+        foreach (var line in lines.Take(lines.Count - 1)) Assert.That(line.EndsWith("/", StringComparison.Ordinal) || line == "Editing ", Is.True, "\"" + line + "\" breaks inside a name");
+    }
+
+    [Test]
+    public void ALongPathLeavesOutItsLeadingFoldersBeforeItTakesAFourthLine()
+    {
+        const string deeper = "src/scenes/kite-meadow/components/tail-streamer/effects/wind/gusts/StreamingTailRendererWithWindGusts.ts";
+        Assert.That(PathWrap.Lines("Editing " + deeper, Width(40)).Count, Is.GreaterThan(3), "the whole path would take a fourth line");
+        var (lines, shown) = PathWrap.Fold("Editing ", deeper, Width(40));
+        Assert.That(lines.Count, Is.LessThanOrEqualTo(3));
+        Assert.That(shown, Does.StartWith(PathWrap.Elision), "the leading folders give way to the elision");
+        Assert.That(deeper.EndsWith(shown.Substring(PathWrap.Elision.Length), StringComparison.Ordinal), Is.True, "only leading folders are left out, whole");
+        Assert.That(shown, Does.EndWith("/StreamingTailRendererWithWindGusts.ts"));
+        Assert.That(string.Concat(lines), Is.EqualTo("Editing " + shown));
+        // Where it fits, nothing is left out.
+        Assert.That(PathWrap.Fold("Editing ", LongFile, Width(200)), Is.EqualTo(((System.Collections.Generic.IReadOnlyList<string>)new[] { "Editing " + LongFile }, LongFile)).Using(new FoldComparer()));
+        Assert.That(PathWrap.Fold("Editing ", "index.html", Width(40)).Lines, Is.EqualTo(new[] { "Editing index.html" }));
+    }
+
+    [Test]
+    public void ANameTooLongForALineBreaksOnlyAtItsOwnWordBoundaries()
+    {
+        var (lines, shown) = PathWrap.Fold("Editing ", "src/StreamingTailRendererWithWindGusts.ts", Width(20));
+        Assert.That(shown, Does.EndWith("StreamingTailRendererWithWindGusts.ts"), "the name is never shortened");
+        var name = string.Concat(lines).Substring(string.Concat(lines).LastIndexOf('/') + 1);
+        Assert.That(name, Is.EqualTo("StreamingTailRendererWithWindGusts.ts"));
+        // Each break inside the name falls before a capital that follows a small letter, or after its dot.
+        var at = 0;
+        foreach (var line in lines)
+        {
+            at += line.Length;
+            var whole = string.Concat(lines);
+            if (at >= whole.Length || whole[at - 1] == '/' || whole[at - 1] == ' ') continue;
+            Assert.That(whole[at - 1] == '.' || char.IsLower(whole[at - 1]) && char.IsUpper(whole[at]), Is.True, "a break inside a word at " + at + " in \"" + whole + "\"");
+        }
+    }
+
+    private sealed class FoldComparer : System.Collections.Generic.IEqualityComparer<(System.Collections.Generic.IReadOnlyList<string> Lines, string Shown)>
+    {
+        public bool Equals((System.Collections.Generic.IReadOnlyList<string> Lines, string Shown) a, (System.Collections.Generic.IReadOnlyList<string> Lines, string Shown) b) =>
+            a.Shown == b.Shown && a.Lines.SequenceEqual(b.Lines);
+
+        public int GetHashCode((System.Collections.Generic.IReadOnlyList<string> Lines, string Shown) value) => value.Shown.GetHashCode();
+    }
 }
