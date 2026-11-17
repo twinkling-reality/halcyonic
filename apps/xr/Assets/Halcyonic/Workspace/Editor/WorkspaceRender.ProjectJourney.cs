@@ -112,11 +112,18 @@ namespace Halcyonic.XR.Workspace.Editor
                         System.Threading.Thread.Sleep(TimeSpan.FromSeconds(0.45));
                         Draw();
                         var kit = director.Plane.Kit.Bar;
+                        // A footer prompt stands as a button of the bar's column, a line of the card as one of its rows (XR's 03:37Z).
                         var drawn = kit.Button(action, key)?.Press ?? kit.Card?.RowTargets
                             .Where(row => row.Control.Action == action && row.Control.Key == key).Select(row => row.Press).FirstOrDefault();
                         if (drawn == null)
-                            throw new InvalidOperationException("No drawn control for " + action + (key == null ? "" : " " + key) + " on the kit's frame; drawn: "
-                                + string.Join(", ", (kit.Card?.RowTargets.Select(row => row.Control.Action + "/" + row.Control.Key) ?? Enumerable.Empty<string>())));
+                        {
+                            var buttons = kit.GetComponentsInChildren<RoomButton>(false).Select(button => kit.ControlOf(button) is KitControl control
+                                ? control.Action + (control.Key == null ? "" : "/" + control.Key) : "(" + button.Words.text + ", no control)");
+                            var rows = kit.Card?.RowTargets.Select(row => row.Control.Action + "/" + row.Control.Key) ?? Enumerable.Empty<string>();
+                            throw new InvalidOperationException("No drawn control for " + action + (key == null ? "" : " " + key) + " on the kit's frame; buttons: "
+                                + string.Join(", ", buttons) + "; rows: " + string.Join(", ", rows) + "; the bar shows " + (kit.gameObject.activeInHierarchy ? "" : "nothing")
+                                + "; the frame: " + director.Plane.Kit.View.gameObject.activeInHierarchy);
+                        }
                         drawn.SettleForRender();
                         drawn.PressForRender(990);
                         Draw();
