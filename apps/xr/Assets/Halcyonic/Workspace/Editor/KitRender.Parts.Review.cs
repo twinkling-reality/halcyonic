@@ -56,7 +56,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var button in bar.Column.Where(each => each.gameObject.activeSelf))
                     Require(button.transform.localPosition.x - button.Core.x / 2f >= left - 1e-3f && button.transform.localPosition.x + button.Core.x / 2f <= right + 1e-3f
                         && button.transform.localPosition.y - button.Core.y / 2f >= foot - 1e-3f, button.Words.text + " stands outside the review's panel");
-                Debug.Log("Halcyonic: parts: " + name + ": the review laid " + bar.Size.x.ToString("0.000") + " by " + bar.Size.y.ToString("0.000") + " units with a panel " + bar.LaidPanelDp.ToString("0") + " dp wide.");
+                Debug.Log("Halcyonic: parts: " + name + ": the review laid " + bar.Size.x.ToString("0.000") + " by " + bar.Size.y.ToString("0.000") + " units with a panel " + bar.LaidPanelDp.ToString("0") + " dp wide, its row hung "
+                    + (bar.RowDrop / RoomType.Units(1f)).ToString("0.0") + " dp under the foot (the plane's HangDp; spill is held under it).");
             }
             finally { RoomDesign.Enabled = was; }
             return shot;
