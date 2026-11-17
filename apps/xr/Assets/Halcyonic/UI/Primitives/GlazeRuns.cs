@@ -46,6 +46,7 @@ namespace Halcyonic.XR.UI
         public void SetProseMode(bool value)
         {
             SetIdentityMode(false);
+            SetWellMode(false);
             if (prose == value) return;
             prose = value;
             label.havePropertiesChanged = true;
@@ -75,6 +76,47 @@ namespace Halcyonic.XR.UI
             return SetWords(LineWords.TheirName(name), fits);
         }
 
+        /// <summary>
+        /// A literal well's words (<see cref="LineWords.Literal"/>, <see cref="WorkspaceText.Well"/>, AUDIT3's LI4): set as
+        /// <see cref="Set"/> sets them, never cut, and drawn so nothing the agent typed can pass for what Halcyonic draws: every
+        /// <see cref="WordRun.Mark"/> (a line break, a tab, a space at an end, a code point) in white at <see cref="MarkAlpha"/>,
+        /// Halcyonic's own runs (an input's name, the label over its value) in white at <see cref="WellLabelAlpha"/>, and the agent's
+        /// text in the label's own white. One label draws one face, so a mark takes the label role's lighter white, not its face.
+        /// No hue. Every other Set ends the well's treatment.
+        /// </summary>
+        public IReadOnlyList<(int Start, int End)> SetWell(LineWords words)
+        {
+            SetProseMode(false);
+            SetWellMode(true);
+            return SetWords(words, null);
+        }
+
+        /// <summary>Whether the label draws a literal well's words (<see cref="SetWell"/>).</summary>
+        public bool IsWell => well;
+
+        private bool well;
+
+        /// <summary>Where each mark stands in the label's text as shown, as its first character and the one past its last.</summary>
+        public IReadOnlyList<(int Start, int End)> Marks => marks;
+
+        private IReadOnlyList<(int Start, int End)> marks = Array.Empty<(int, int)>();
+
+        /// <summary>
+        /// The share of the label's white a well's mark is drawn at: well below the agent's text and an input's name, so a mark
+        /// reads as Halcyonic's and never as a character the agent typed.
+        /// </summary>
+        public const float MarkAlpha = 0.5f;
+
+        /// <summary>The share of the label's white Halcyonic's own runs in a well take (an input's name): the room's small words, 78 percent.</summary>
+        public const float WellLabelAlpha = 0.78f;
+
+        private void SetWellMode(bool value)
+        {
+            if (well == value) return;
+            well = value;
+            label.havePropertiesChanged = true;
+        }
+
         private void SetIdentityMode(bool value)
         {
             if (identity == value) return;
@@ -97,9 +139,14 @@ namespace Halcyonic.XR.UI
                     return fits(text);
                 });
             }
-            var (shown, ranges) = words.ForTextMeshPro(padded);
+            var (shown, ranges, marked) = words.ForTextMeshProWithMarks(padded);
             label.text = shown;
             Lean(ranges);
+            if (!marks.SequenceEqual(marked))
+            {
+                marks = marked;
+                label.havePropertiesChanged = true;
+            }
             return ranges;
         }
 
@@ -129,11 +176,28 @@ namespace Halcyonic.XR.UI
 
         private Color32? grounded;
 
-        /// <summary>The label's one hook, as its mesh is made: its outside text leans, in flat coordinates, and then the whole bends.</summary>
+        /// <summary>The label's one hook, as its mesh is made: its outside text leans, a well's marks and names take their white, in flat coordinates, and then the whole bends.</summary>
         private void Drawn(TMP_TextInfo info)
         {
             LeanTheirs(info);
+            ToneWell(info);
             BendText(info);
+        }
+
+        /// <summary>A well's marks, and in a well Halcyonic's own runs, drawn at their share of the label's white (<see cref="SetWell"/>).</summary>
+        private void ToneWell(TMP_TextInfo info)
+        {
+            if (marks.Count == 0 && !well) return;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible) continue;
+                var share = GlazeText.InRun(info, index, marks) ? MarkAlpha : well && !GlazeText.InRun(info, index, theirs) ? WellLabelAlpha : 1f;
+                if (share >= 1f) continue;
+                var colours = info.meshInfo[character.materialReferenceIndex].colors32;
+                for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
+                    colours[corner].a = (byte)Mathf.RoundToInt(colours[corner].a * share);
+            }
         }
 
         private void LeanTheirs(TMP_TextInfo info)

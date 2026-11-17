@@ -2951,12 +2951,29 @@ in order, as before.
 - **Unit U2, an approval and its Confirm** (BUILD-SPEC-v4 2.4 and 1.4): the same pair, `RoomBarState.Request`, bound
   to the file's own approval page (`KitNeed`) and sending only through the file's actions. Asked: the bare command in
   the panel's well in mono (JetBrains Mono 19 dp on the 28 dp line), `ToolUseSubject.Command.Text` alone and literal
-  (`WorkspaceText.BareCommand`, by `LabelText.Exact`, so a backtick that is part of the command stays), never the tool's
+  (`WorkspaceText.Well`, `KitNeed.Well`, so a backtick that is part of the command stays), never the tool's
   name joined to the request nor the agent's sentence (the lead and AUDIT2, 2026-11-17); the agent's own sentence of what
   it asks (`ToolUseSubject.Summary`, `WorkspaceText.Description`, theirs) stands above the well in body type, whole, only
   a markdown code span's backticks removed (`WorkspaceText.WithoutCodeMarks`), as `RoomBar.Description`, which the
-  dialog lays between its question and its well (the narrow pair does not lay it yet). An approval without the command's
-  own parts draws no well: the panel holds that sentence alone, in body type, asked and under its confirmation.
+  dialog lays between its question and its well (the narrow pair does not lay it yet). A tool that runs no command but
+  carries its inputs in their parts (`ToolUseSubject.Inputs`, an ACP app's fetch and its kin) has them in the well
+  instead, in their order, one block each: the input's name on a line of its own, Halcyonic's run, then its value as the
+  app gave it, a JSON value as written; the sentence above the well is then only the summary's first line, "Use {tool}",
+  as the lines after it say the inputs the well draws. A command wins where both are given. The well is literal by
+  `LineWords.Literal` (AUDIT3's LI4): a line break draws as ↵ and the line breaks after it, a tab as ⇥, a space at either
+  end or just before a line break as a middle dot, and every other white space, control, bidi control (U+202A to U+202E,
+  U+2066 to U+2069), NEL, format or private use character by its code point (‹U+202E›), each a mark run of its own
+  (`WordRun.Mark`), never the agent's text, so the same glyphs typed by an agent stay its text. `RoomBarView` sets the well
+  through `GlazeRuns.SetWell`: the agent's text in the label's white, each mark at half of it and an input's name at 78
+  percent of it, white alone, no hue (one label draws one face, so a mark takes the label role's lighter white, not its
+  face). The host escapes the controls and bidi characters of a command's and an input's parts as `\u{...}` text before
+  any client sees them (`visible` in the control plane's drafts), so those arrive as the agent's text; only what reaches
+  the client raw (a line break, a tab, a space, other white space such as a no-break space, a private use character)
+  draws as a mark today. A known gap: the static faces (`KitFontAtlas.Characters`) hold neither ↵ nor ⇥, nor does their
+  Liberation Sans fallback, and JetBrains Mono has no ↵ at all, so until a face that draws them backs the mono face those
+  two marks draw as missing glyphs (the middle dot and the code points draw). An approval with neither the
+  command's own parts nor any input draws no well: the panel holds that sentence alone, in body type, asked and under its
+  confirmation.
   `WorkspaceText.Request` ("bash: ..."), the file's own line and the confirmation's identity, never feeds the well or the
   title. What it asks stands in the sentence bar, the dialog's title
   (Run Command? for a command, else the product's Use {tool}; with no tool named the panel is the one line Approval
@@ -2964,8 +2981,9 @@ in order, as before.
   only be denied shows Deny alone and the product's reason in the sentence bar (The command is too long to show, so you can only deny it. and its
   kin). Either answer asks the file for its confirmation, which sends nothing: the panel then reads the request part
   by part, eight of its own lines a part, by the same count as an instruction's confirmation (`KitNeed.Part`,
-  `KitNeed.Rows`; the bare command alone, or with none the agent's sentence, never the file's line with the tool's name
-  leading it, `RoomBar.Reading`, by which the file counts the parts too), the
+  `KitNeed.Rows`; the well's own runs, marks included, or with no well the agent's sentence, never the file's line with
+  the tool's name leading it, `RoomBar.Reading`, by which the file counts the parts too, and a part of the well keeps its
+  runs, `LineWords.Between`), the
   sentence bar holds the file's question (Read Full
   Request, then Approve Request? or Deny Request?), and the column holds Confirm once the file offers its Yes (an
   approval's only once every part was drawn; a denial's at once), the next part while parts remain (the main action

@@ -722,18 +722,56 @@ namespace Halcyonic.Client
             approval?.Subject is ToolUseSubject { Command: { } command } ? LabelText.Exact(command.Text) : null;
 
         /// <summary>
+        /// What an approval's well draws, literally (<see cref="LineWords.Literal"/>, AUDIT3's LI4): the bare command it would run,
+        /// from the command's own parts; or, for a tool that runs no command, each of its inputs (<see cref="ToolUseSubject.Inputs"/>)
+        /// in its order, a block each: its name on a line of its own, Halcyonic's run as a label, then its value as the agent app
+        /// gave it, a JSON value as written. In both a line break, a tab, a space at an end and a character that would not show as
+        /// itself draw as marks of their own. Null where the approval carries neither, and then no well is drawn. A command
+        /// stands alone where both are given.
+        /// </summary>
+        public static LineWords? Well(ApprovalView? approval)
+        {
+            if (approval?.Subject is not ToolUseSubject tool) return null;
+            if (tool.Command is { } command) return LineWords.Literal(command.Text);
+            if (tool.Inputs is not { Count: > 0 } inputs) return null;
+            var well = LineWords.None;
+            for (var index = 0; index < inputs.Count; index++)
+            {
+                var input = inputs[index];
+                var named = LabelText.Name(input.Name);
+                if (index > 0) well = well.Then(LineWords.Break);
+                if (named.Length > 0) well = well.Then(LineWords.Ours(named));
+                well = well.Then(LineWords.Break).Then(LineWords.Literal(input.Value));
+            }
+            return well;
+        }
+
+        /// <summary>
+        /// The first line of what an approval asks (<see cref="ToolUseSubject.Summary"/>): for a tool that runs no command, "Use
+        /// {tool}", the line its adapter writes above one line for each input, which the well draws in their parts instead.
+        /// </summary>
+        private static string FirstLine(string summary)
+        {
+            var end = summary.IndexOf('\n');
+            return (end < 0 ? summary : summary.Substring(0, end)).TrimEnd('\r');
+        }
+
+        /// <summary>
         /// The agent's own sentence of what an approval asks (<see cref="ToolUseSubject.Summary"/>), theirs, laid above the
         /// command's well, or alone where there is no command: whole, its folder named as the capture extra names it
         /// (<see cref="CaptureNames.Request"/>), and a markdown code span's backticks removed, as they are markup, not words
         /// (<see cref="WithoutCodeMarks"/>); nothing else in it changes. Where the sentence begins or ends with the command the
         /// well holds, as an adapter builds it from the command's parts (Codex: the command, then the folder it runs in and any
         /// network; Claude Code: its shell's bracket, then the command), the command is not said twice: the sentence keeps only
-        /// its other words, how and where the command runs, and is null where nothing else is left. Null where the approval
-        /// names no tool.
+        /// its other words, how and where the command runs, and is null where nothing else is left. Where the well holds a
+        /// tool's inputs instead (<see cref="Well"/>), the sentence is the summary's first line alone, "Use {tool}", as the
+        /// lines after it say each input the well draws in its parts. Null where the approval names no tool. Only the sentence
+        /// above the well: every other surface reads the summary whole (<see cref="Request"/>).
         /// </summary>
         public static string? Description(ApprovalView? approval)
         {
             if (approval?.Subject is not ToolUseSubject tool) return null;
+            if (tool.Command == null && tool.Inputs is { Count: > 0 }) return WithoutCodeMarks(CaptureNames.Request(FirstLine(tool.Summary)));
             var said = WithoutCodeMarks(CaptureNames.Request(tool.Summary));
             if (BareCommand(approval) is not string command) return said;
             foreach (var bare in new[] { CaptureNames.Request(command), command }.Distinct())

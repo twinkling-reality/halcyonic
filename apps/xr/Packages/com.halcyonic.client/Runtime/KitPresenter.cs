@@ -35,7 +35,7 @@ namespace Halcyonic.Client
             return new KitNeed(need.AsksRuns, need.Request, scope, notes, WorkspaceText.Label(WorkspaceAction.Deny), WorkspaceText.Label(WorkspaceAction.Approve),
                 denyOffered, approveOffered, confirming,
                 commands: workspace.ApprovalToAnswer?.Subject is Halcyonic.Contracts.ToolUseSubject tool && WorkspaceText.RunsCommand(tool.ToolName),
-                command: WorkspaceText.BareCommand(workspace.ApprovalToAnswer), description: WorkspaceText.Description(workspace.ApprovalToAnswer));
+                well: WorkspaceText.Well(workspace.ApprovalToAnswer), description: WorkspaceText.Description(workspace.ApprovalToAnswer));
         }
 
         /// <summary>

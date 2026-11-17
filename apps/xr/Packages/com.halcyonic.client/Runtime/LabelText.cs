@@ -384,6 +384,15 @@ namespace Halcyonic.Client
             return run % 2 == 1 ? index - 1 : index;
         }
 
+        /// <summary>Whether <paramref name="codePoint"/> is white space by Unicode's rule, the space included.</summary>
+        internal static bool IsWhiteSpace(int codePoint) => In(WhiteSpace, codePoint);
+
+        /// <summary>Whether <see cref="Plain"/> shows <paramref name="codePoint"/> by its code point: a control, a format or default ignorable character, a noncharacter or a private use one.</summary>
+        internal static bool ShowsByCode(int codePoint) => In(ShownByCode, codePoint) || In(PrivateUse, codePoint);
+
+        /// <summary><paramref name="codePoint"/> as <see cref="Plain"/> shows it by code, such as ‹U+202E›.</summary>
+        internal static string CodePoint(int codePoint) => "‹U+" + codePoint.ToString("X4", CultureInfo.InvariantCulture) + "›";
+
         private static bool In(int[] ranges, int codePoint)
         {
             for (var index = 0; index < ranges.Length; index += 2)

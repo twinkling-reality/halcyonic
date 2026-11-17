@@ -386,11 +386,11 @@ public class RoomBarTests
         // with; with no command, the agent's sentence as prose; a line that is not that request, or names no tool, as the file
         // wrote it; an instruction's words as prose.
         var line = FileScreens.RequestLine(steering, request);
-        Assert.That(RoomBar.Reading(line, "Run the migration", instruction: false, command: "pnpm migrate"), Is.EqualTo((LineWords.Theirs("pnpm migrate"), true)).Using<(LineWords Words, bool Mono)>(
+        Assert.That(RoomBar.Reading(line, "Run the migration", instruction: false, well: LineWords.Literal("pnpm migrate")), Is.EqualTo((LineWords.Theirs("pnpm migrate"), true)).Using<(LineWords Words, bool Mono)>(
             (a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono));
         Assert.That(RoomBar.Reading(line, "Run the migration", instruction: false), Is.EqualTo((LineWords.Theirs("Run the migration"), false)).Using<(LineWords Words, bool Mono)>(
             (a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono));
-        Assert.That(RoomBar.Reading(line, "another request", instruction: false, command: "pnpm migrate"), Is.EqualTo((LineWords.Theirs(request), false)).Using<(LineWords Words, bool Mono)>(
+        Assert.That(RoomBar.Reading(line, "another request", instruction: false, well: LineWords.Literal("pnpm migrate")), Is.EqualTo((LineWords.Theirs(request), false)).Using<(LineWords Words, bool Mono)>(
             (a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono));
         Assert.That(RoomBar.Reading(line, (string?)null, instruction: false), Is.EqualTo((line.Runs, false)));
         Assert.That(RoomBar.Reading(line, "Run the migration", instruction: true), Is.EqualTo((line.Runs, false)));
@@ -514,6 +514,101 @@ public class RoomBarTests
         Assert.That((asked.Description, confirming.Description), Is.EqualTo(((LineWords?)null, (LineWords?)null)), "the sentence is the body, never laid twice");
     }
 
+    /// <summary>Each run of <paramref name="words"/> by its kind (a mark, the agent's text, or Halcyonic's) and its text.</summary>
+    private static IEnumerable<(string Kind, string Text)> Kinds(LineWords words) =>
+        words.Runs.Select(run => (run.Mark ? "mark" : run.Theirs ? "theirs" : "ours", run.Text)).ToList();
+
+    private static ApprovalInput Input(string name, string value, ApprovalInputKind kind = ApprovalInputKind.Text) => new() { Name = name, Value = value, Kind = kind };
+
+    [Test]
+    public void AToolThatRunsNoCommandDrawsEachInputInTheWellItsNameThenItsValueWithUseToolAboveIt()
+    {
+        // The live case (Kiro, Antigravity, Cursor over ACP, 2026-11-17): a fetch with its url, no command, the inputs in their parts.
+        var workspace = Asking(new ToolUseSubject
+        {
+            ToolName = "fetch", Summary = "Use `fetch`\nurl: https://example.com/docs\nmax_length: 5000",
+            Inputs = new List<ApprovalInput> { Input("url", "https://example.com/docs"), Input("max_length", "5000", ApprovalInputKind.Json) },
+        });
+        var (asked, confirming, line) = AskedAndConfirming(workspace);
+        var well = new[] { ("ours", "url\n"), ("theirs", "https://example.com/docs"), ("ours", "\nmax_length\n"), ("theirs", "5000") };
+        foreach (var bar in new[] { asked, confirming })
+        {
+            Assert.That(bar.Mono, Is.True, "the inputs stand in the well");
+            Assert.That(Kinds(bar.Body), Is.EqualTo(well), "each input its name, then its value literally, one input a block");
+            Assert.That(bar.Description?.Text, Is.EqualTo("Use fetch"), "the summary's first line above the well, its code marks gone");
+            Assert.That(bar.Description!.AllTheirs, Is.True);
+        }
+        Assert.That(asked.AsDialog, Is.True, "the approval stands as its dialog, the inputs in its well");
+        var (words, mono) = RoomBar.Reading(line, workspace, instruction: false);
+        Assert.That((Kinds(words), mono), Is.EqualTo((well, true)).Using<(IEnumerable<(string, string)> Runs, bool Mono)>(
+            (a, b) => a.Runs.SequenceEqual(b.Runs) && a.Mono == b.Mono), "the file counts the parts by exactly what the well draws");
+        Assert.That(WorkspaceText.Request(workspace.ApprovalToAnswer), Does.Contain("url: https://example.com/docs").And.Contain("max_length: 5000"),
+            "every other surface keeps the summary whole");
+    }
+
+    [Test]
+    public void AJsonInputIsDrawnAsItIsWritten()
+    {
+        const string json = "{\"depth\":2,\"paths\":[\"a b\",\"c\"],\"note\":\"x\\ny\\t\"}";
+        var workspace = Asking(new ToolUseSubject
+        {
+            ToolName = "search", Summary = "Use search\noptions: " + json, Inputs = new List<ApprovalInput> { Input("options", json, ApprovalInputKind.Json) },
+        });
+        var asked = AskedAndConfirming(workspace).Asked;
+        Assert.That(Kinds(asked.Body), Is.EqualTo(new[] { ("ours", "options\n"), ("theirs", json) }), "JSON's own escapes stay as written, never marks");
+    }
+
+    [Test]
+    public void InAValueALineBreakATabABidiControlAndEdgeSpacesAreMarksAndTypedLookAlikesStayTheAgents()
+    {
+        var workspace = Asking(new ToolUseSubject
+        {
+            ToolName = "write_note", Summary = "Use write_note\ntext: ...\ntyped: ...",
+            Inputs = new List<ApprovalInput> { Input("text", " one\n\ttwo‮three⁦four\u0085five "), Input("typed", "a↵b‹U+000A›c⇥d·") },
+        });
+        var (asked, confirming, line) = AskedAndConfirming(workspace);
+        var well = new[]
+        {
+            ("ours", "text\n"), ("mark", "·"), ("theirs", "one"), ("mark", "↵"), ("ours", "\n"), ("mark", "⇥"), ("theirs", "two"), ("mark", "‹U+202E›"),
+            ("theirs", "three"), ("mark", "‹U+2066›"), ("theirs", "four"), ("mark", "‹U+0085›"), ("theirs", "five"), ("mark", "·"),
+            ("ours", "\ntyped\n"), ("theirs", "a↵b‹U+000A›c⇥d·"),
+        };
+        foreach (var bar in new[] { asked, confirming }) Assert.That(Kinds(bar.Body), Is.EqualTo(well));
+        Assert.That(Kinds(RoomBar.Reading(line, workspace, instruction: false).Words), Is.EqualTo(well));
+    }
+
+    [Test]
+    public void TheCommandsWellMarksItsLineBreaksTabsAndEdgeSpacesTheSameWay()
+    {
+        var workspace = Asking(new ToolUseSubject { ToolName = "Bash", Summary = "Run the tests in the app", Command = Bare(" cd app\n\tpnpm test ") });
+        var (asked, confirming, line) = AskedAndConfirming(workspace);
+        var well = new[] { ("mark", "·"), ("theirs", "cd app"), ("mark", "↵"), ("ours", "\n"), ("mark", "⇥"), ("theirs", "pnpm test"), ("mark", "·") };
+        foreach (var bar in new[] { asked, confirming })
+        {
+            Assert.That(bar.Mono, Is.True);
+            Assert.That(Kinds(bar.Body), Is.EqualTo(well));
+        }
+        Assert.That(Kinds(RoomBar.Reading(line, workspace, instruction: false).Words), Is.EqualTo(well));
+    }
+
+    [Test]
+    public void WithNeitherACommandNorAnInputNoWellStands()
+    {
+        var workspace = Asking(new ToolUseSubject { ToolName = "fetch", Summary = "Use fetch", Inputs = new List<ApprovalInput>() });
+        var (asked, confirming, line) = AskedAndConfirming(workspace);
+        Assert.That((asked.Mono, asked.Body.Text, asked.Description), Is.EqualTo((false, "Use fetch", (LineWords?)null)), "no well, the sentence alone");
+        Assert.That((confirming.Mono, confirming.Body.Text), Is.EqualTo((false, "Use fetch")));
+        Assert.That(RoomBar.Reading(line, workspace, instruction: false).Mono, Is.False);
+        Assert.That(WorkspaceText.Well(workspace.ApprovalToAnswer), Is.Null);
+        // Where a command stands, its well is the command's alone.
+        var both = new ApprovalView
+        {
+            ApprovalId = WaitingWork.ApprovalId, Approvable = true, RequestedAt = Samples.Time,
+            Subject = new ToolUseSubject { ToolName = "Bash", Summary = "ls", Command = Bare("ls"), Inputs = new List<ApprovalInput> { Input("command", "ls") } },
+        };
+        Assert.That(Kinds(WorkspaceText.Well(both)!), Is.EqualTo(new[] { ("theirs", "ls") }));
+    }
+
     [Test]
     public void ACodeSpansBackticksGoAndEveryOtherCharacterStays()
     {
@@ -551,7 +646,7 @@ public class RoomBarTests
         var line = FileScreens.RequestLine(steering, steering.ToRead(workspace)!);
         Assert.That(line.Words, Is.EqualTo("Edit: src/game.js"), "the file's own line still leads with the tool's name");
         Assert.That(RoomBar.Reading(line, workspace, instruction: false).Words.Text, Is.EqualTo("src/game.js"));
-        Assert.That(RoomBar.Reading(line, "src/game.js", instruction: false, command: "sed -i s/a/b/ src/game.js"), Is.EqualTo((LineWords.Theirs("sed -i s/a/b/ src/game.js"), true))
+        Assert.That(RoomBar.Reading(line, "src/game.js", instruction: false, well: LineWords.Literal("sed -i s/a/b/ src/game.js")), Is.EqualTo((LineWords.Theirs("sed -i s/a/b/ src/game.js"), true))
             .Using<(LineWords Words, bool Mono)>((a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono), "a bare command stands alone in the well");
     }
 

@@ -6,15 +6,23 @@ using System.Text;
 
 namespace Halcyonic.Client
 {
-    /// <summary>A run of a line's words: Halcyonic's own, or text from outside, as shown.</summary>
+    /// <summary>A run of a line's words: Halcyonic's own, text from outside, or a mark Halcyonic draws in a literal well, as shown.</summary>
     public sealed class WordRun
     {
-        internal WordRun(string text, bool theirs, bool spelled = true)
+        internal WordRun(string text, bool theirs, bool spelled = true, bool mark = false)
         {
             Text = text;
             Theirs = theirs;
             Spelled = spelled;
+            Mark = mark;
         }
+
+        /// <summary>
+        /// A mark Halcyonic draws in a literal well (<see cref="LineWords.Literal"/>) where a character would not show as
+        /// itself: a line break, a tab, a space at an end, a control or bidi character by its code point. Never outside text
+        /// (<see cref="Theirs"/> is false), and drawn apart from it, so the same glyphs typed by an agent never read as one.
+        /// </summary>
+        public bool Mark { get; }
 
         /// <summary>The words as shown: Halcyonic's as written, outside text by <see cref="LabelText"/>'s rule.</summary>
         public string Text { get; }
@@ -148,6 +156,73 @@ namespace Halcyonic.Client
 
         private static LineWords Of(string shown) => shown.Length == 0 ? None : new LineWords(new[] { new WordRun(shown, theirs: true) });
 
+        /// <summary>A line break of Halcyonic's own, between the blocks of a literal well (<see cref="WorkspaceText.Well"/>).</summary>
+        internal static LineWords Break { get; } = new LineWords(new[] { new WordRun("\n", theirs: false) });
+
+        /// <summary>A line break's mark in a literal well; the line breaks after it.</summary>
+        public const string LineBreakMark = "↵";
+
+        /// <summary>A tab's mark in a literal well.</summary>
+        public const string TabMark = "⇥";
+
+        /// <summary>
+        /// The mark of a space a literal well would not show, at either end of its text or just before a line break: a middle dot,
+        /// written by its code so no scan mistakes the mark for facts joined by a dot.
+        /// </summary>
+        public const string SpaceMark = "\u00B7";
+
+        /// <summary>
+        /// Text whose every character can change what happens, as a command or a tool's input a person approves, for a well
+        /// that draws it literally (AUDIT3's LI4, 2026-11-17): outside text, with what would not show as itself drawn as a
+        /// <see cref="WordRun.Mark"/> of its own. A line break is <see cref="LineBreakMark"/> and the line breaks after it
+        /// (a carriage return before it shows by its code point too); a tab is <see cref="TabMark"/>; a space at either end,
+        /// or just before a line break, is <see cref="SpaceMark"/>; every other white space character, control, format,
+        /// bidi, default ignorable or private use character, and a surrogate without its pair, is its code point, such as
+        /// ‹U+202E›, by <see cref="LabelText.Exact"/>'s rule. Everything else is outside text as written, spaces between
+        /// words included, so the same glyphs typed ("↵", "‹U+000A›") stay outside text and never draw as a mark. None where
+        /// the text is empty.
+        /// </summary>
+        public static LineWords Literal(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return None;
+            var runs = new List<WordRun>();
+            void Add(string piece, bool theirs, bool mark)
+            {
+                var last = runs.Count > 0 ? runs[runs.Count - 1] : null;
+                if (last != null && last.Theirs == theirs && last.Mark == mark) runs[runs.Count - 1] = new WordRun(last.Text + piece, theirs, mark: mark);
+                else runs.Add(new WordRun(piece, theirs, mark: mark));
+            }
+            // A space shows as a mark where nothing visible stands between it and an end or a line break: from the end back, a
+            // space is marked while only spaces lie between it and the end or the next break; then from the start, every leading one.
+            var marked = new bool[text!.Length];
+            var open = true;
+            for (var index = text.Length - 1; index >= 0; index--)
+            {
+                var unit = text[index];
+                if (unit == ' ') marked[index] = open;
+                else open = unit == '\n' || (unit == '\r' && index + 1 < text.Length && text[index + 1] == '\n');
+            }
+            for (var index = 0; index < text.Length && text[index] == ' '; index++) marked[index] = true;
+            for (var index = 0; index < text.Length; index++)
+            {
+                var unit = text[index];
+                var paired = char.IsHighSurrogate(unit) && index + 1 < text.Length && char.IsLowSurrogate(text[index + 1]);
+                var codePoint = paired ? char.ConvertToUtf32(unit, text[index + 1]) : unit;
+                if (unit == '\n')
+                {
+                    Add(LineBreakMark, theirs: false, mark: true);
+                    Add("\n", theirs: false, mark: false);
+                }
+                else if (unit == '\t') Add(TabMark, theirs: false, mark: true);
+                else if (unit == ' ' && marked[index]) Add(SpaceMark, theirs: false, mark: true);
+                else if (unit != ' ' && (LabelText.IsWhiteSpace(codePoint) || LabelText.ShowsByCode(codePoint) || (!paired && char.IsSurrogate(unit))))
+                    Add(LabelText.CodePoint(codePoint), theirs: false, mark: true);
+                else Add(text.Substring(index, paired ? 2 : 1), theirs: true, mark: false);
+                if (paired) index++;
+            }
+            return new LineWords(runs);
+        }
+
         /// <summary>The runs in order, two side by side never the same kind.</summary>
         public IReadOnlyList<WordRun> Runs { get; }
 
@@ -194,8 +269,9 @@ namespace Halcyonic.Client
             {
                 // A run joined with one not yet spelled is not spelled either, so a label still refuses it.
                 var last = runs[runs.Count - 1];
-                if (last.Theirs == run.Theirs) runs[runs.Count - 1] = new WordRun(last.Text + run.Text, run.Theirs, last.Spelled && run.Spelled);
-                else if (run.Theirs && runs.Count >= 2 && runs[runs.Count - 2].Theirs && Separator(last.Text))
+                // A mark is a kind of its own: it joins only another mark, and is never a separator.
+                if (last.Theirs == run.Theirs && last.Mark == run.Mark) runs[runs.Count - 1] = new WordRun(last.Text + run.Text, run.Theirs, last.Spelled && run.Spelled, run.Mark);
+                else if (run.Theirs && !last.Mark && runs.Count >= 2 && runs[runs.Count - 2].Theirs && Separator(last.Text))
                 {
                     runs[runs.Count - 2] = new WordRun(runs[runs.Count - 2].Text + last.Text + run.Text, theirs: true, runs[runs.Count - 2].Spelled && run.Spelled);
                     runs.RemoveAt(runs.Count - 1);
@@ -232,22 +308,65 @@ namespace Halcyonic.Client
         /// </param>
         public (string Text, IReadOnlyList<(int Start, int End)> Theirs) ForTextMeshPro(bool padded = true)
         {
+            var (text, theirs, _) = ForTextMeshProWithMarks(padded);
+            return (text, theirs);
+        }
+
+        /// <summary>
+        /// <see cref="ForTextMeshPro"/>'s text and outside text's ranges, and where each <see cref="WordRun.Mark"/> stands in it, on
+        /// the same text: what a literal well draws apart from the text it marks. No room is added beside a mark, so a mark
+        /// stands tight against what it marks.
+        /// </summary>
+        public (string Text, IReadOnlyList<(int Start, int End)> Theirs, IReadOnlyList<(int Start, int End)> Marks) ForTextMeshProWithMarks(bool padded = true)
+        {
             if (Runs.Any(run => !run.Spelled)) throw new InvalidOperationException("Outside text reaches a label only once spelled by its builder's rule.");
             var text = new StringBuilder();
             var theirs = new List<(int, int)>();
+            var marks = new List<(int, int)>();
             for (var index = 0; index < Runs.Count; index++)
             {
                 var run = Runs[index];
-                if (index > 0 && padded)
-                {
-                    var ours = run.Theirs ? Runs[index - 1].Text : run.Text;
-                    text.Append((run.Theirs ? ours[ours.Length - 1] : ours[0]) == ' ' ? Pad : NarrowPad);
-                }
+                text.Append(PadBefore(index, padded));
                 var start = text.Length;
                 text.Append(run.Text.Replace("\\", "\\\\"));
                 if (run.Theirs) theirs.Add((start, text.Length));
+                if (run.Mark) marks.Add((start, text.Length));
             }
-            return (text.ToString(), theirs);
+            return (text.ToString(), theirs, marks);
+        }
+
+        /// <summary>The room added before run <paramref name="index"/> where it meets the run before it (<see cref="ForTextMeshPro"/>), or none.</summary>
+        private string PadBefore(int index, bool padded)
+        {
+            if (index == 0 || !padded) return "";
+            var run = Runs[index];
+            var before = Runs[index - 1];
+            if (run.Mark || before.Mark) return "";
+            var ours = run.Theirs ? before.Text : run.Text;
+            return (run.Theirs ? ours[ours.Length - 1] : ours[0]) == ' ' ? Pad : NarrowPad;
+        }
+
+        /// <summary>
+        /// The runs that stand from <paramref name="start"/> to <paramref name="end"/> of <see cref="ForTextMeshPro"/>'s text with
+        /// <paramref name="padded"/> room, each kept its kind (a well's part keeps its marks, the agent's text and Halcyonic's), each
+        /// doubled backslash one again and the room between runs left out: what a part of these words laid on a label reads.
+        /// <paramref name="start"/> and <paramref name="end"/> fall where characters start (<see cref="LabelText.CharacterStart"/>).
+        /// </summary>
+        public LineWords Between(int start, int end, bool padded = true)
+        {
+            var runs = new List<WordRun>();
+            var at = 0;
+            for (var index = 0; index < Runs.Count; index++)
+            {
+                var run = Runs[index];
+                at += PadBefore(index, padded).Length;
+                var shown = run.Text.Replace("\\", "\\\\");
+                var from = Math.Max(start, at);
+                var to = Math.Min(end, at + shown.Length);
+                if (from < to) runs.Add(new WordRun(LabelText.FromTextMeshPro(shown.Substring(from - at, to - from)), run.Theirs, run.Spelled, run.Mark));
+                at += shown.Length;
+            }
+            return runs.Count == 0 ? None : new LineWords(runs);
         }
 
         /// <summary>The room added where outside text meets Halcyonic's words, for the ground's padding: one space.</summary>
@@ -297,6 +416,6 @@ namespace Halcyonic.Client
         private LineWords HeldTo(int most) =>
             new LineWords(Runs.Select(run => run.Theirs ? new WordRun(WorkspaceText.Truncate(run.Text, most), theirs: true, run.Spelled) : run).ToList());
 
-        public override string ToString() => string.Concat(Runs.Select(run => run.Theirs ? "[" + run.Text + "]" : run.Text));
+        public override string ToString() => string.Concat(Runs.Select(run => run.Theirs ? "[" + run.Text + "]" : run.Mark ? "{" + run.Text + "}" : run.Text));
     }
 }

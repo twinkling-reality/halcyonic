@@ -320,6 +320,65 @@ public class LineWordsTests
         Assert.That(LineWords.Pad, Is.EqualTo(" "));
     }
 
+    /// <summary>Each run of <paramref name="words"/> by its kind (a mark, outside text, or Halcyonic's) and its text.</summary>
+    private static IEnumerable<(string Kind, string Text)> Kinds(LineWords words) =>
+        words.Runs.Select(run => (run.Mark ? "mark" : run.Theirs ? "theirs" : "ours", run.Text)).ToList();
+
+    [Test]
+    public void ALiteralDrawsLineBreaksTabsAndTheSpacesAtItsEndsAsMarksOfTheirOwn()
+    {
+        Assert.That(Kinds(LineWords.Literal("  a\tb \nc  d ")), Is.EqualTo(new[]
+        {
+            ("mark", "··"), ("theirs", "a"), ("mark", "⇥"), ("theirs", "b"), ("mark", "·↵"), ("ours", "\n"), ("theirs", "c  d"), ("mark", "·"),
+        }), "a space before a line break or at an end shows; spaces between words stay as written");
+        Assert.That(LineWords.Literal("a\nb").Text, Is.EqualTo("a↵\nb"), "the line breaks after its mark");
+        Assert.That(Kinds(LineWords.Literal("   ")), Is.EqualTo(new[] { ("mark", "···") }));
+        Assert.That(LineWords.Literal(null).IsEmpty && LineWords.Literal("").IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void ALiteralDrawsControlsBidiControlsAndOtherWhiteSpaceAsMarksByTheirCodePoints()
+    {
+        Assert.That(Kinds(LineWords.Literal("x‪y‮z⁦w⁩v\u0085u\r\nt\u0007s r​q")), Is.EqualTo(new[]
+        {
+            ("theirs", "x"), ("mark", "‹U+202A›"), ("theirs", "y"), ("mark", "‹U+202E›"), ("theirs", "z"), ("mark", "‹U+2066›"), ("theirs", "w"),
+            ("mark", "‹U+2069›"), ("theirs", "v"), ("mark", "‹U+0085›"), ("theirs", "u"), ("mark", "‹U+000D›↵"), ("ours", "\n"), ("theirs", "t"),
+            ("mark", "‹U+0007›"), ("theirs", "s"), ("mark", "‹U+00A0›"), ("theirs", "r"), ("mark", "‹U+200B›"), ("theirs", "q"),
+        }));
+    }
+
+    [TestCase("a↵b")]
+    [TestCase("‹U+000A›")]
+    [TestCase("tab⇥ dot· ‹U+202E›")]
+    [TestCase("\\u{202E} \\n")]
+    public void WhatAnAgentTypesThatLooksLikeAMarkStaysItsOwnText(string typed)
+    {
+        Assert.That(Kinds(LineWords.Literal(typed)), Is.EqualTo(new[] { ("theirs", typed) }), "only a mark run draws as a mark");
+    }
+
+    [Test]
+    public void AMarkNeverJoinsTheRunsBesideIt()
+    {
+        // A mark is no separator: outside text on both sides of it stays two runs, the mark between them.
+        Assert.That(Kinds(LineWords.Literal("a ") + LineWords.Theirs("b")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "·"), ("theirs", "b") }));
+        Assert.That(Kinds(LineWords.Literal("a\t") + LineWords.Ours("x")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "⇥"), ("ours", "x") }));
+        Assert.That(LineWords.Literal("a\t").AllTheirs, Is.False);
+    }
+
+    [Test]
+    public void AMarksPlaceStandsOnTheShownTextAndAPartOfItKeepsItsRuns()
+    {
+        var words = LineWords.Literal("a\\b\n\tc");
+        var (text, theirs, marks) = words.ForTextMeshProWithMarks(padded: false);
+        Assert.That(text, Is.EqualTo("a\\\\b↵\n⇥c"));
+        Assert.That(theirs, Is.EqualTo(new[] { (0, 4), (7, 8) }));
+        Assert.That(marks, Is.EqualTo(new[] { (4, 5), (6, 7) }));
+        Assert.That(words.ForTextMeshPro(padded: false), Is.EqualTo((text, theirs)));
+        Assert.That(Kinds(words.Between(1, 5, padded: false)), Is.EqualTo(new[] { ("theirs", "\\b"), ("mark", "↵") }), "a doubled backslash is one again");
+        Assert.That(Kinds(words.Between(6, text.Length, padded: false)), Is.EqualTo(new[] { ("mark", "⇥"), ("theirs", "c") }));
+        Assert.That(words.Between(0, text.Length, padded: false).Text, Is.EqualTo(words.Text));
+    }
+
     [Test]
     public void ALineThatFitsIsNotCut()
     {

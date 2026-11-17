@@ -976,13 +976,17 @@ namespace Halcyonic.XR.UI
         /// <summary>Whether the bar last laid was the narrow form (<see cref="RoomBar.Narrow"/>).</summary>
         public bool Narrow { get; private set; }
 
-        /// <summary>Sets what the panel reads on <paramref name="label"/> as it stands there: a request literal in mono, else words by their runs, as prose.</summary>
+        /// <summary>
+        /// Sets what the panel reads on <paramref name="label"/> as it stands there: a well's words in mono, literal, by their runs, its
+        /// marks and its inputs' names drawn apart from the agent's text (<see cref="GlazeRuns.SetWell"/>, AUDIT3's LI4), else words by
+        /// their runs, as prose.
+        /// </summary>
         private static void Set(TextMeshPro label, LineWords words, bool mono)
         {
             if (mono)
             {
                 RoomType.SizeMono(label);
-                GlazeText.SetLiteral(label, words.Text);
+                GlazeRuns.Of(label).SetWell(words);
                 return;
             }
             RoomType.Size(label);
@@ -1016,8 +1020,7 @@ namespace Halcyonic.XR.UI
             var lines = Mathf.Max(1, label.textInfo.lineCount);
             // The measure holds no words once it has counted them, as Lines below: never drawn, and nothing reads it as shown
             // (F120: the spatial kit read its last words as the bar's, at 2.52 to 1).
-            if (mono) label.text = "";
-            else GlazeRuns.Of(label).Set(LineWords.None);
+            GlazeRuns.Of(label).Set(LineWords.None);
             return lines;
         }
 
@@ -1031,8 +1034,7 @@ namespace Halcyonic.XR.UI
             Set(label, words, mono);
             KitType.Lay(label, BodyWidth, 200);
             var part = Rows(label, from, rows);
-            if (mono) label.text = "";
-            else GlazeRuns.Of(label).Set(LineWords.None);
+            GlazeRuns.Of(label).Set(LineWords.None);
             return part;
         }
 
@@ -1043,8 +1045,7 @@ namespace Halcyonic.XR.UI
             KitType.Lay(label, narrow ? NarrowWordsWidth : BodyWidth, 200);
             var lines = Mathf.Max(1, label.textInfo.lineCount);
             // The measure holds no words once it has counted them: it is never drawn, and nothing should read it as shown.
-            if (mono) label.text = "";
-            else GlazeRuns.Of(label).Set(LineWords.None);
+            GlazeRuns.Of(label).Set(LineWords.None);
             return lines;
         }
 
@@ -1082,6 +1083,13 @@ namespace Halcyonic.XR.UI
         /// <summary>The label's own text of its lines from <paramref name="from"/>, <paramref name="rows"/> of them at most, as it is laid now, never cut inside a doubled backslash.</summary>
         private static string Rows(TextMeshPro label, int from, int rows)
         {
+            var (start, end) = RowsAt(label, from, rows);
+            return label.text.Substring(start, end - start);
+        }
+
+        /// <summary>Where the rows <paramref name="from"/> to <paramref name="from"/> + <paramref name="rows"/> stand in <paramref name="label"/>'s text, its white space at their end left out.</summary>
+        private static (int Start, int End) RowsAt(TextMeshPro label, int from, int rows)
+        {
             var text = label.text;
             var info = label.textInfo;
             var count = Mathf.Max(1, info.lineCount);
@@ -1089,7 +1097,22 @@ namespace Halcyonic.XR.UI
             var last = (int)Mathf.Min((long)from + rows, count);
             var start = LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[first].firstCharacterIndex].index);
             var end = last < count ? LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[last].firstCharacterIndex].index) : text.Length;
-            return text.Substring(start, end - start).TrimEnd();
+            while (end > start && char.IsWhiteSpace(text[end - 1])) end--;
+            return (start, end);
+        }
+
+        /// <summary>
+        /// The rows <paramref name="from"/> to <paramref name="from"/> + <paramref name="rows"/> of <paramref name="words"/> as
+        /// <paramref name="label"/> laid them, made words again for the label to take: a well's part keeps its runs, its marks and
+        /// its inputs' names apart from the agent's text, by where they stand in the label's text (<see cref="LineWords.Between"/>),
+        /// so a part reads exactly the rows the file counted; prose as the label's own spelling, each backslash doubled made one
+        /// again (AUDIT, 2026-11-10).
+        /// </summary>
+        private static LineWords PartOf(TextMeshPro label, LineWords words, bool mono, int from, int rows)
+        {
+            if (!mono) return LineWords.Theirs(LabelText.FromTextMeshPro(Rows(label, from, rows)));
+            var (start, end) = RowsAt(label, from, rows);
+            return words.Between(start, end, padded: !KitType.IsRoomFace(label.font));
         }
 
         /// <summary>
@@ -1254,7 +1277,7 @@ namespace Halcyonic.XR.UI
                 var most = bar.Part != null ? bar.Part.Rows : bar.Mono ? RoomBar.RequestLines : int.MaxValue;
                 if (from > 0 || reading.textInfo.lineCount > most)
                 {
-                    Set(reading, LineWords.Theirs(LabelText.FromTextMeshPro(Rows(reading, from, most))), bar.Mono);
+                    Set(reading, PartOf(reading, bar.Body, bar.Mono, from, most), bar.Mono);
                     laidBody = KitType.Lay(reading, wordsWidth, 200);
                 }
                 cardHeight = laidBody.Height;
@@ -1472,8 +1495,8 @@ namespace Halcyonic.XR.UI
             if (from > 0 || reading.textInfo.lineCount > most)
             {
                 // The piece is the label's own spelling, each backslash doubled: made words again before the label takes them, so
-                // the person reads exactly what will be sent or run (AUDIT, 2026-11-10).
-                Set(reading, LineWords.Theirs(LabelText.FromTextMeshPro(Rows(reading, from, most))), bar.Mono);
+                // the person reads exactly what will be sent or run (AUDIT, 2026-11-10); a well's part keeps its marks.
+                Set(reading, PartOf(reading, bar.Body, bar.Mono, from, most), bar.Mono);
                 laid = KitType.Lay(reading, wordsWidth, 200);
             }
             // No word alone on the words' last line (AUDIT 2026-11-16T16:57Z: "chosen" alone at Standard): the measure narrows a twentieth

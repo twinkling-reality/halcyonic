@@ -126,11 +126,11 @@ namespace Halcyonic.Client
     {
         public KitNeed(LineWords asks, string? request, string? scopeNote, IReadOnlyList<string> notes, string denyWords, string approveWords,
             bool denyOffered, bool approveOffered, KitConfirmation? confirming = null, PageLine? part = null, string? says = null, bool sending = false, bool commands = false,
-            int? rows = null, string? command = null, string? description = null)
+            int? rows = null, LineWords? well = null, string? description = null)
         {
             Commands = commands;
             Rows = rows;
-            Command = command;
+            Well = well;
             Description = description;
             Part = part;
             Says = says;
@@ -193,14 +193,15 @@ namespace Halcyonic.Client
         public bool Commands { get; }
 
         /// <summary>
-        /// The bare command the approval would run, from the command's own parts (<see cref="WorkspaceText.BareCommand"/>): what
-        /// the redesign's well holds, alone; null where the approval carries none, and then no well is drawn.
+        /// What the redesign's well holds, literally (<see cref="WorkspaceText.Well"/>): the bare command the approval would run,
+        /// from the command's own parts, or a tool's inputs, each its name then its value, with their marks; null where the
+        /// approval carries neither, and then no well is drawn.
         /// </summary>
-        public string? Command { get; }
+        public LineWords? Well { get; }
 
         /// <summary>
         /// The agent's own sentence of what it asks (<see cref="WorkspaceText.Description"/>), theirs: above the well where there
-        /// is a command, else the request's words alone; null where no tool was named.
+        /// is one (for a tool's inputs, "Use {tool}" alone), else the request's words alone; null where no tool was named.
         /// </summary>
         public string? Description { get; }
     }
