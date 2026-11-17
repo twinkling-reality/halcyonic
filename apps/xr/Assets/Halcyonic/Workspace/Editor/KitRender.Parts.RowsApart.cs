@@ -47,6 +47,36 @@ namespace Halcyonic.XR.Workspace.Editor
             probe.Show(crowded, width - 2f * pad);
             if (RowsApartMeasure(probe, crowded, width - 2f * pad).Count == 0) shot.Failures.Add("a row crowded on purpose passes the label and note measure, so it checks nothing");
             Object.DestroyImmediate(probe.gameObject);
+            // Never one word alone on a row's last line (JUDGE's live walk, 2026-11-17: New Project's "by name" at Larger): a project's
+            // name and its first task swept across the measures a row is laid at (the whole row down to the half a note leaves it), a
+            // hundredth at a time, each laid of two lines or more ending on two words.
+            var widows = RoomRowsView.Create(panel.transform);
+            var named = new List<RoomRow>
+            {
+                new RoomRow(LineWords.TheirName("A page that greets each visitor by name"), label: "Project"),
+                new RoomRow(LineWords.TheirName("A page that greets each visitor by name and counts their visits!"), label: "First Task"),
+            };
+            var alone = new List<string>();
+            var wrapped = 0;
+            var widowed = 0;
+            for (var step = 50; step <= 100; step++)
+            {
+                var share = step / 100f;
+                widows.Show(named, (width - 2f * pad) * share);
+                for (var index = 0; index < named.Count; index++)
+                {
+                    var words = widows.Label(index);
+                    words.ForceMeshUpdate(true);
+                    if (words.textInfo.lineCount < 2) continue;
+                    wrapped++;
+                    if (!RoomCardView.LastLineIsOneWord(words)) continue;
+                    widowed++;
+                    if (alone.Count < 4) alone.Add("row \"" + named[index].Words.Text + "\" at " + step + " percent of the panel ends on one word alone");
+                }
+            }
+            if (wrapped == 0) shot.Failures.Add("no swept row wraps, so the lone-word sweep checks nothing");
+            if (widowed > 0) shot.Failures.Add(widowed + " of " + wrapped + " swept rows end on one word alone, the first: " + string.Join("; ", alone));
+            Object.DestroyImmediate(widows.gameObject);
             Debug.Log("Halcyonic: parts: " + name + ": " + rows.Count + " rows, their labels and notes apart, " + (tall / RoomType.Units(1f)).ToString("0.0") + " dp tall.");
             return shot;
         }

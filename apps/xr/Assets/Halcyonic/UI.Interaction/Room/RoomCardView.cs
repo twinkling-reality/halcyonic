@@ -1955,7 +1955,7 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>Whether a body's held last pair (<see cref="LabelText.KeepLastTwo"/>) was laid across two lines, so a word broke inside itself.</summary>
-        private static bool PairSplit(TMP_Text label)
+        internal static bool PairSplit(TMP_Text label)
         {
             label.ForceMeshUpdate(true);
             var text = label.text;

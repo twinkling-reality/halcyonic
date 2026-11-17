@@ -195,6 +195,25 @@ namespace Halcyonic.XR.UI
                     runs.SetProseMode(true);
                     laid = LayAtSeparators(label, runs, width - indent - noteRoom);
                 }
+                // Never one word alone on a row's last line (JUDGE's live walk, 2026-11-17: New Project's "by name" at Larger): its last two
+                // words held together in the lay only, the same length so every run's place holds (LabelText.KeepLastTwo), as a card's row
+                // is; the plain lay kept where the pair cannot stand on one line.
+                if (laid.Lines >= 2 && RoomCardView.LastLineIsOneWord(label))
+                {
+                    var plain = label.text;
+                    var held = LabelText.KeepLastTwo(plain);
+                    if (held != plain)
+                    {
+                        label.text = held;
+                        var tried = KitType.Lay(label, width - indent - noteRoom, RowLines);
+                        if (label.isTextOverflowing || label.isTextTruncated || RoomCardView.PairSplit(label))
+                        {
+                            label.text = plain;
+                            laid = KitType.Lay(label, width - indent - noteRoom, RowLines);
+                        }
+                        else laid = tried;
+                    }
+                }
                 var tall = Mathf.Max(line, laid.Height);
                 label.transform.localPosition = new Vector3(indent, -down, 0f);
                 // Its right edge a dp inside the row, so a glyph's ink at the end never passes it.
