@@ -71,8 +71,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(view.ControlOf(button) == action.Control, expected[index] + " does not raise the page's own action");
                 Require(button.Mark == action.Mark && button.Chosen == action.Chosen, expected[index] + " shows mark " + button.Mark + (button.Chosen ? ", chosen" : ""));
                 Require(button.LookNow() == RoomButtonLook.Rest, expected[index] + " shows " + button.LookNow() + ", and nothing here is the main action");
-                Require(button.transform.localPosition.x - button.Core.x / 2f > view.Panel.transform.localPosition.x + view.Panel.Size.x / 2f, expected[index] + " does not stand beside the panel");
-                if (index > 0) Require(button.transform.localPosition.y < buttons[index - 1].transform.localPosition.y - button.Core.y * 0.9f, expected[index] + " does not stand under " + expected[index - 1]);
+                // Plain actions (no answer marked) stand in the panel's own foot (the kit pass, KitRender.Bar checks the row); a list of
+                // answers stands in the column beside the panel, each under the one before.
+                if (view.ActionsAtFoot)
+                    Require(button.transform.localPosition.x + button.Core.x / 2f <= view.Panel.transform.localPosition.x + view.Panel.Size.x / 2f + 1e-3f
+                        && button.transform.localPosition.y - button.Core.y / 2f >= view.Panel.transform.localPosition.y - view.Panel.Size.y / 2f - 1e-3f, expected[index] + " does not stand in the panel's foot");
+                else
+                {
+                    Require(button.transform.localPosition.x - button.Core.x / 2f > view.Panel.transform.localPosition.x + view.Panel.Size.x / 2f, expected[index] + " does not stand beside the panel");
+                    if (index > 0) Require(button.transform.localPosition.y < buttons[index - 1].transform.localPosition.y - button.Core.y * 0.9f, expected[index] + " does not stand under " + expected[index - 1]);
+                }
                 var glyph = action.Mark != AnswerMark.None ? (action.Chosen ? RoomGlyph.Check : (RoomGlyph?)null)
                     : expected[index] == "Change" ? RoomGlyph.Pencil : expected[index] == "Back" ? RoomGlyph.Back : RoomGlyph.Next;
                 Require(button.Glyph.Glyph == glyph, expected[index] + " carries " + (button.Glyph.Glyph?.ToString() ?? "no glyph"));
