@@ -961,15 +961,27 @@ describe('production native agent panel', () => {
     // The window is cleared in two places only, each standing its own glass in the clear window: the task's card or strip, and
     // the no-task card.
     assert.equal(activity.split('shellRoot.setBackground(null)').length - 1, 2);
-    const task = activity.slice(activity.indexOf('private void monitorTask('), activity.indexOf('private LinearLayout needsYouCard('));
+    const task = activity.slice(
+      activity.indexOf('private void monitorTask('),
+      activity.indexOf('private LinearLayout needsYouCard('),
+    );
     assert.match(task, /shellRoot\.setBackground\(null\)/);
     assert.match(task, /strip\(/);
     assert.match(task, /needsYouCard\(/);
-    const none = activity.slice(activity.indexOf('private void noTaskStrip('), activity.indexOf('/** A press on the card or a strip'));
+    const none = activity.slice(
+      activity.indexOf('private void noTaskStrip('),
+      activity.indexOf('/** A press on the card or a strip'),
+    );
     assert.match(none, /shellRoot\.setBackground\(null\)/);
     assert.match(none, /PanelKit\.glass\(/);
-    const card = activity.slice(activity.indexOf('private LinearLayout needsYouCard('), activity.indexOf('private LinearLayout strip('));
-    const strip = activity.slice(activity.indexOf('private LinearLayout strip('), activity.indexOf('private void noTaskStrip('));
+    const card = activity.slice(
+      activity.indexOf('private LinearLayout needsYouCard('),
+      activity.indexOf('private LinearLayout strip('),
+    );
+    const strip = activity.slice(
+      activity.indexOf('private LinearLayout strip('),
+      activity.indexOf('private void noTaskStrip('),
+    );
     assert.match(card, /PanelKit\.glass\(/);
     assert.match(strip, /PanelKit\.glass\(/);
     // The pending note sits inside its card or strip, never loose over the room.
@@ -2045,11 +2057,15 @@ describe('the compact panel in the one language, with no hue (the lead, 2026-11-
       .join('\n');
     const colours = [...source.matchAll(/Color\.a?rgb\(([^)]*)\)/g)].map((match) => {
       const parts = (match[1] ?? '').split(',').map((part) => part.trim());
-      const channels = parts.slice(-3).map((part) => (part.startsWith('0x') ? Number.parseInt(part.slice(2), 16) : Number(part)));
+      const channels = parts
+        .slice(-3)
+        .map((part) => (part.startsWith('0x') ? Number.parseInt(part.slice(2), 16) : Number(part)));
       return { text: match[0], channels };
     });
     // A colour worked out from others (the loading words' lift) follows the literal tokens checked here.
-    const literal = colours.filter(({ channels }) => channels.every((channel) => Number.isInteger(channel)));
+    const literal = colours.filter(({ channels }) =>
+      channels.every((channel) => Number.isInteger(channel)),
+    );
     assert.ok(literal.length >= 8, 'the panel names its colours');
     for (const { text, channels } of literal) {
       // At most 16 apart: the kit's own Ask glass (#0E121E) is that cool; the old orange was 161 apart, the old blue 91.
