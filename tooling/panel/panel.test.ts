@@ -891,7 +891,7 @@ describe('production native agent panel', () => {
       interrupted: 'Stopped',
       failed: 'Failed',
       created: 'Not Started',
-      something_new: 'Not Known',
+      something_new: "Can't Tell",
     };
     for (const [status, word] of Object.entries(words))
       assert.equal(at(status).state_word, word, status);
@@ -903,6 +903,9 @@ describe('production native agent panel', () => {
     // Run Command? only where the tool runs a command, as the headset's moment names it (AUDIT2, 00:09Z).
     assert.equal(at('waiting_for_human', 1, 0, 'commandExecution').need, 'Run Command?');
     assert.equal(at('waiting_for_human', 1, 0, 'Edit').need, 'Use Edit');
+    // Under it, the agent's own words for what it waits on: the command, here its summary.
+    assert.equal(at('waiting_for_human', 1, 0).detail, 'pnpm test');
+    assert.equal(at('running').detail, null);
     assert.equal(at('running').need, null);
     assert.equal(at('running').needs_you, false);
     assert.equal(at('waiting_for_human', 0, 1).needs_you, true);
@@ -934,6 +937,7 @@ describe('production native agent panel', () => {
       state_word: 'Working',
       needs_you: false,
       need: null,
+      detail: null,
       mark: 'FI',
     });
     const recorded = { ...selected, journal: { ...selected.journal, origin: 'fixture' } };
@@ -965,6 +969,7 @@ describe('production native agent panel', () => {
       state_word: 'Needs You',
       needs_you: true,
       need: 'Run Command?',
+      detail: 'pnpm test',
       mark: 'FI',
     });
     const unknown = {

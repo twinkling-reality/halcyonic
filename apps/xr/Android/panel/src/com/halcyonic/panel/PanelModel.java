@@ -76,6 +76,7 @@ final class PanelModel {
             "state_word", run == null ? NOT_STARTED : stateWord(status),
             "needs_you", run != null && (approvals > 0 || questions > 0 || "waiting_for_human".equals(status)),
             "need", run == null ? null : need(PanelJson.array(run.get("pending_approvals")), questions),
+            "detail", run == null ? null : detail(PanelJson.array(run.get("pending_approvals")), PanelJson.array(run.get("pending_questions"))),
             "mark", monogram(projectName));
     }
     static final String NOT_STARTED = "Not Started";
@@ -92,13 +93,31 @@ final class PanelModel {
             case "interrupted": return "Stopped";
             case "failed": return "Failed";
             case "created": return NOT_STARTED;
-            default: return "Not Known";
+            default: return "Can't Tell";
         }
     }
     /** What a waiting task needs, in the headset's words, the first approval before any question; null when nothing waits. */
     static String need(List<Object> approvals, long questions) {
         if (!approvals.isEmpty()) return approvalLabel(PanelJson.object(approvals.get(0)));
         if (questions > 0) return "Agent's Question";
+        return null;
+    }
+    /**
+     * What it waits on, in the agent's own words under the need (FIELD's f7): the first approval's summary (the command it
+     * would run), else the first question's text; null when nothing waits or the agent gave none.
+     */
+    static String detail(List<Object> approvals, List<Object> questions) {
+        if (!approvals.isEmpty()) {
+            Object subject = PanelJson.object(approvals.get(0)).get("subject");
+            if (subject instanceof Map && PanelJson.object(subject).get("summary") instanceof String)
+                return PanelText.plain((String) PanelJson.object(subject).get("summary"));
+            return null;
+        }
+        if (!questions.isEmpty()) {
+            List<Object> prompts = PanelJson.array(PanelJson.object(questions.get(0)).get("prompts"));
+            if (!prompts.isEmpty() && PanelJson.object(prompts.get(0)).get("text") instanceof String)
+                return PanelText.plain((String) PanelJson.object(prompts.get(0)).get("text"));
+        }
         return null;
     }
     /** The tools that run a command, as the headset names them (WorkspaceText.RunsCommand); an unknown name is not one. */

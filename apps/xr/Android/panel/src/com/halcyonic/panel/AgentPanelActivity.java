@@ -52,6 +52,7 @@ public class AgentPanelActivity extends Activity {
     private Button presentationButton;
     private TextView brand;
     private LinearLayout navRow, shellRoot;
+    private ScrollView scroll;
     private LinearLayout developmentControls;
     private boolean compactPanel;
     private long checkedAt;
@@ -251,7 +252,7 @@ public class AgentPanelActivity extends Activity {
                 connectionButton(choices, "Preview synthetic panel (screenshots allowed)", this::previewSynthetic);
             });
         }
-        ScrollView scroll = new ScrollView(this); content = column(); scroll.addView(content); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        scroll = new ScrollView(this); content = column(); scroll.addView(content, new android.widget.FrameLayout.LayoutParams(-1, -1)); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
     }
     private void selectionChanged() {
@@ -276,52 +277,52 @@ public class AgentPanelActivity extends Activity {
         return (paused ? "Updates paused" : "Read-only task monitor") + ". " + when + ".";
     }
     /**
-     * The compact panel beside the person's show (take 10; SCREENS' brief, AUDIT2's words of 23:49Z): four things and nothing
-     * else. The task's name, its state as one word, what it needs in words while it needs them, and the presses: Open Task
-     * (the one orange, only then) to answer it here, and Open Workspace (quiet) back into the same task.
+     * The compact panel beside the person's show (take 10), in the one design language (FIELD's sheet, tile f7; the lead,
+     * 01:05Z): the window is the glass. Its state in spaced capitals with a dot, the task's name, and, while it needs the
+     * person, the need as a label over the agent's own words for it (the command, or the question); the presses stand at the
+     * foot. Open Task carries the one accent as a lit rim only while something waits; nothing is lit at rest (the lead,
+     * 01:05Z, AUDIT's (1)). No monitor line in compact (AUDIT's (2)).
      */
     private void monitorTask(Map<String, Object> summary) {
         float density = getResources().getDisplayMetrics().density;
         boolean needs = PanelJson.bool(summary.get("needs_you"));
-        if (!needs) {
-            // Nothing until it is needed (the lead, 2026-11-17): at rest, only the state line naming the task, and the quiet way
-            // back under it. The card arrives when the task needs the person, as the reference's speaker card arrives.
-            content.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), false, density, PanelJson.text(summary.get("task"))),
-                new LinearLayout.LayoutParams(-1, -2));
-            LinearLayout back = new LinearLayout(this); back.setOrientation(LinearLayout.HORIZONTAL); back.setPadding(dp(19), dp(2), 0, 0);
-            hudPress(back, "Open Workspace", false, () -> { cancelNetwork(); returnToWorkspace(); });
-            content.addView(back, new LinearLayout.LayoutParams(-1, -2));
-            if (requestPending != null) text(content, "The last workspace send is unconfirmed. Its original reference is retained.", 16);
-            return;
-        }
-        content.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), true, density, null), new LinearLayout.LayoutParams(-1, -2));
-        PanelHud.Frame frame = new PanelHud.Frame(this, needs, density);
-        LinearLayout card = new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL); card.setPadding(dp(18), dp(18), dp(18), dp(18));
-        LinearLayout who = new LinearLayout(this); who.setOrientation(LinearLayout.HORIZONTAL); who.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        who.addView(PanelHud.mark(this, PanelJson.text(summary.get("mark")), density), new LinearLayout.LayoutParams(dp(76), dp(76)));
-        LinearLayout words = new LinearLayout(this); words.setOrientation(LinearLayout.VERTICAL); words.setPadding(dp(16), 0, 0, 0);
-        TextView title = new TextView(this); title.setText(PanelJson.text(summary.get("task"))); title.setTextSize(22); title.setTextColor(PanelHud.TEXT);
-        title.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
-        words.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        content.setPadding(0, 0, 0, 0);
+        content.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), density), new LinearLayout.LayoutParams(-1, -2));
+        TextView title = PanelHud.title(this, PanelJson.text(summary.get("task")));
+        LinearLayout.LayoutParams titleAt = new LinearLayout.LayoutParams(-1, -2); titleAt.setMargins(0, PanelHud.px(18, density), 0, 0);
+        content.addView(title, titleAt);
         Object need = summary.get("need");
         if (needs && need != null) {
-            TextView what = new TextView(this); what.setText(PanelJson.text(need)); what.setTextSize(17); what.setTextColor(PanelHud.SECOND); what.setPadding(0, dp(4), 0, 0);
-            words.addView(what, new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout.LayoutParams needAt = new LinearLayout.LayoutParams(-1, -2); needAt.setMargins(0, PanelHud.px(40, density), 0, 0);
+            content.addView(PanelHud.cap(this, PanelJson.text(need), PanelHud.W3), needAt);
+            Object detail = summary.get("detail");
+            if (detail != null) {
+                // The agent's own words for what it waits on: a command in mono, a question as its sentence.
+                boolean command = !"Agent's Question".equals(need);
+                TextView words = command ? PanelHud.mono(this, PanelJson.text(detail)) : PanelHud.say(this, PanelJson.text(detail));
+                LinearLayout.LayoutParams wordsAt = new LinearLayout.LayoutParams(-1, -2); wordsAt.setMargins(0, PanelHud.px(12, density), 0, 0);
+                content.addView(words, wordsAt);
+            }
         }
-        who.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
-        card.addView(who, new LinearLayout.LayoutParams(-1, -2));
-        LinearLayout presses = new LinearLayout(this); presses.setOrientation(LinearLayout.HORIZONTAL); presses.setPadding(0, dp(18), 0, 0);
-        if (needs) hudPress(presses, "Open Task", true, () -> changePresentation(false));
-        hudPress(presses, "Open Workspace", false, () -> { cancelNetwork(); returnToWorkspace(); });
-        card.addView(presses, new LinearLayout.LayoutParams(-1, -2));
-        frame.addView(card, new android.widget.FrameLayout.LayoutParams(-1, -2));
-        content.addView(frame, new LinearLayout.LayoutParams(-1, -2));
-        if (requestPending != null) text(content, "The last workspace send is unconfirmed. Its original reference is retained.", 16);
+        if (requestPending != null) {
+            TextView pending = PanelHud.say(this, "The last workspace send is unconfirmed. Its original reference is retained.");
+            LinearLayout.LayoutParams pendingAt = new LinearLayout.LayoutParams(-1, -2); pendingAt.setMargins(0, PanelHud.px(16, density), 0, 0);
+            content.addView(pending, pendingAt);
+        }
+        // The presses at the foot of the glass, the main one first, as the tile stacks them.
+        android.view.View room = new android.view.View(this);
+        content.addView(room, new LinearLayout.LayoutParams(-1, 0, 1));
+        LinearLayout presses = new LinearLayout(this); presses.setOrientation(LinearLayout.VERTICAL);
+        if (needs) hudPress(presses, "Open Task", true, false, () -> changePresentation(false));
+        hudPress(presses, "Open Workspace", false, true, () -> { cancelNetwork(); returnToWorkspace(); });
+        content.addView(presses, new LinearLayout.LayoutParams(-1, -2));
     }
     /** One press on the compact card, held to the same navigation authority as the panel's own navigation. */
-    private void hudPress(LinearLayout parent, String label, boolean main, Runnable action) {
-        Button press = new Button(this); PanelHud.action(press, label, main, getResources().getDisplayMetrics().density);
-        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-2, -2); layout.setMargins(0, 0, dp(10), 0);
+    private void hudPress(LinearLayout parent, String label, boolean main, boolean workspaceGlyph, Runnable action) {
+        float density = getResources().getDisplayMetrics().density;
+        Button press = new Button(this); PanelHud.press(press, label, main, workspaceGlyph, density);
+        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-2, -2); // The plate's glow lies outside its rim, so the press starts one glow width left, its rim in line with the words above.
+        layout.setMargins(-PanelHud.px(6, density), 0, 0, PanelHud.px(4, density));
         parent.addView(press, layout);
         press.setOnClickListener(view -> { if (!visible || !authority.navigate()) return; cancelVoice(); action.run(); });
     }
@@ -816,7 +817,11 @@ public class AgentPanelActivity extends Activity {
         // a dark slab (unverified on the headset whether Horizon OS composites a panel's clear pixels; if not they read black).
         getWindow().setFormat(hud ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
         getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(hud ? Color.TRANSPARENT : Color.rgb(18, 24, 34)));
-        shellRoot.setBackgroundColor(hud ? Color.TRANSPARENT : Color.rgb(18, 24, 34));
+        if (hud) shellRoot.setBackground(PanelHud.glass(getResources().getDisplayMetrics().density)); else shellRoot.setBackgroundColor(Color.rgb(18, 24, 34));
+        float d = getResources().getDisplayMetrics().density;
+        if (hud) shellRoot.setPadding(PanelHud.px(32, d), PanelHud.px(36, d), PanelHud.px(28, d), PanelHud.px(28, d)); else shellRoot.setPadding(dp(20), dp(16), dp(20), dp(16));
+        if (hud) content.setPadding(0, 0, 0, 0); else content.setPadding(dp(20), dp(16), dp(20), dp(16));
+        scroll.setFillViewport(hud);
         connection.setVisibility(!hud || snapshot == null || preview ? View.VISIBLE : View.GONE);
         if (snapshot == null) return;
         try {
