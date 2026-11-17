@@ -7,11 +7,11 @@ namespace Halcyonic.Client
 {
     /// <summary>
     /// One evidence view as the headset lays it (the lead's 2026-11-17 20:50Z): "How It Went" from Seorak's evaluation
-    /// (<see cref="RunResults"/>) or "What It Understood" from Salidium's understanding (<see cref="RunUnderstanding"/>), read through
+    /// (<see cref="RunResults"/>) or "Why" from Salidium's understanding (<see cref="RunUnderstanding"/>), read through
     /// the plane's own reads. Where the read gives no answer the page says so honestly, in the words the text sections already use
     /// (Not Measured, Measurement Unavailable, Measurement Unreadable, Measurement Not Allowed; No Conclusions, Conclusions
-    /// Unavailable, Conclusions Unreadable, Conclusions Not Allowed), with the reason's own phrase; before any read, "Not measured
-    /// yet". Nothing on a page is made up: every value is the source's.
+    /// Unavailable, Conclusions Unreadable, Conclusions Not Allowed), with the reason's own phrase; before any read, the state's own
+    /// word with <see cref="NothingRead"/>. Nothing on a page is made up: every value is the source's.
     /// </summary>
     public sealed class EvidencePage
     {
@@ -61,7 +61,7 @@ namespace Halcyonic.Client
         /// <summary>The reason's own phrase under the state; null for none.</summary>
         public string? Why { get; }
 
-        /// <summary>"How It Went" from <paramref name="response"/>, or its honest state; before any read, "Not measured yet".</summary>
+        /// <summary>"How It Went" from <paramref name="response"/>, or its honest state; before any read, the state and <see cref="NothingRead"/>.</summary>
         public static EvidencePage Of(EvaluationResponse? response)
         {
             var title = RunResults.Words.Title;
@@ -76,11 +76,14 @@ namespace Halcyonic.Client
                 case UnavailableEvaluation unavailable: return Without(title, "Measurement Unavailable", unavailable.Reason);
                 case IncompatibleEvaluation incompatible: return Without(title, "Measurement Unreadable", incompatible.Reason);
                 case UnauthorizedEvaluation unauthorized: return Without(title, "Measurement Not Allowed", unauthorized.Reason);
-                default: return Without(title, RunResults.Words.NotYet, null);
+                default: return Without(title, "Not Measured", null, NothingRead);
             }
         }
 
-        /// <summary>"What It Understood" from <paramref name="response"/>, or its honest state; before any read, "Not measured yet".</summary>
+        /// <summary>Before any read, the state's own word with this under it (AUDIT2's 20:52Z), so the title line has one form.</summary>
+        public const string NothingRead = "Nothing has been read for this task yet.";
+
+        /// <summary>"Why" from <paramref name="response"/>, or its honest state; before any read, the state and <see cref="NothingRead"/>.</summary>
         public static EvidencePage Of(UnderstandingResponse? response)
         {
             var title = RunUnderstanding.Words.Title;
@@ -94,11 +97,11 @@ namespace Halcyonic.Client
                 case UnavailableUnderstanding unavailable: return Without(title, "Conclusions Unavailable", unavailable.Reason);
                 case IncompatibleUnderstanding incompatible: return Without(title, "Conclusions Unreadable", incompatible.Reason);
                 case UnauthorizedUnderstanding unauthorized: return Without(title, "Conclusions Not Allowed", unauthorized.Reason);
-                default: return Without(title, RunResults.Words.NotYet, null);
+                default: return Without(title, "No Conclusions", null, NothingRead);
             }
         }
 
-        private static EvidencePage Without(string title, string state, ErrorInfo? reason) =>
-            new EvidencePage(title, null, null, null, new Section[0], state, reason == null ? null : IntelligenceText.Why(reason));
+        private static EvidencePage Without(string title, string state, ErrorInfo? reason, string? said = null) =>
+            new EvidencePage(title, null, null, null, new Section[0], state, reason == null ? said : IntelligenceText.Why(reason));
     }
 }

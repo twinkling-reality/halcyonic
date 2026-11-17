@@ -7,7 +7,7 @@ using Halcyonic.Contracts;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// Salidium's understanding of one run as "What It Understood" reads it (the lead's 2026-11-17 20:15Z; AUDIT2's 20:19Z words;
+    /// Salidium's understanding of one run as "Why" reads it (the lead's 2026-11-17 20:15Z; AUDIT2's 20:19Z words;
     /// laid after result-detroit-analysis-conclusion.jpg, the one finding as the hero sentence, and
     /// list-death-stranding-cargo-management.png, grouped rows with a mark, words and a right-aligned value): the source's verdict,
     /// each method's latest run, and its own counts and items. Every value is the source's own; a count it did not give is never
@@ -18,7 +18,8 @@ namespace Halcyonic.Client
         /// <summary>The view's own words (AUDIT2's 20:19Z).</summary>
         public static class Words
         {
-            public const string Title = "What It Understood";
+            /// <summary>The page takes its door's word (AUDIT2's 20:52Z): the project screen's "Why" opens "Why".</summary>
+            public const string Title = "Why";
             public const string Observed = "Salidium Observed", Reported = "Salidium Reported";
             public const string Runs = "Runs", Changes = "Changes", Review = "Review", Remaining = "Remaining";
             public const string Passed = "Passed", Failed = "Failed", PartlyPassed = "Partly Passed", CantTell = "Can't Tell";

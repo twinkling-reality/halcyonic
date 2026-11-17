@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace Halcyonic.Client.Tests;
 
 /// <summary>
-/// Salidium's understanding of a run as "What It Understood" reads it (the lead's 2026-11-17 20:15Z; AUDIT2's 20:19Z words;
+/// Salidium's understanding of a run as "Why" reads it (the lead's 2026-11-17 20:15Z; AUDIT2's 20:19Z words;
 /// AUDIT's references: Detroit's one finding, Death Stranding's cargo list): the verdict as the source said it, each method's run
 /// with its own outcome, counts and exit, and the source's own counts, every one untouched and nothing guessed.
 /// </summary>

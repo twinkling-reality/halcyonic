@@ -20,7 +20,6 @@ namespace Halcyonic.Client
         {
             public const string Title = "How It Went";
             public const string Source = "Seorak Measured";
-            public const string NotYet = "Not measured yet";
             public const string Activity = "Activity", Changes = "Changes", Checks = "Checks", Cost = "Cost";
             public const string Time = "Time", ToolCalls = "Tool Calls", Instructions = "Instructions";
             public const string FilesChanged = "Files Changed", LinesAdded = "Lines Added", LinesRemoved = "Lines Removed";

@@ -43,7 +43,7 @@ public class EvidencePageTests
             },
         }));
         Assert.That((understood.Title, understood.Label, understood.Headline, understood.Because),
-            Is.EqualTo(("What It Understood", "Salidium Reported", "It works.", "The tests passed.")));
+            Is.EqualTo(("Why", "Salidium Reported", "It works.", "The tests passed.")), "the page takes its door's word (AUDIT2's 20:52Z)");
     }
 
     [Test]
@@ -75,9 +75,10 @@ public class EvidencePageTests
     }
 
     [Test]
-    public void BeforeAnyReadThePageSaysNotMeasuredYet()
+    public void BeforeAnyReadThePageSaysItsStateAndThatNothingWasRead()
     {
-        Assert.That(EvidencePage.Of((EvaluationResponse?)null).State, Is.EqualTo("Not measured yet"));
-        Assert.That(EvidencePage.Of((UnderstandingResponse?)null).State, Is.EqualTo("Not measured yet"));
+        var before = EvidencePage.Of((EvaluationResponse?)null);
+        Assert.That((before.State, before.Why), Is.EqualTo(("Not Measured", "Nothing has been read for this task yet.")), "one form for the title line (AUDIT2's 20:52Z)");
+        Assert.That(EvidencePage.Of((UnderstandingResponse?)null).State, Is.EqualTo("No Conclusions"));
     }
 }
