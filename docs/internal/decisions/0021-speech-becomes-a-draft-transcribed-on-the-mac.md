@@ -54,12 +54,13 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
   whisper.cpp's voice activity detection, with the pinned Silero model and half a second kept
   around speech, finds none, so no text is made. Meta's Voice SDK is not used.
 - **One bounded route, nothing kept.** `POST /api/transcriptions` accepts, from any authenticated
-  principal, one `audio/wav` clip of 16-bit mono PCM at 16 kHz, 0.5 to 30 s, at most 960,044
-  bytes, and answers with the text, the locale and the engine's name and version, or a reason in
-  words. It is the only route that takes anything but JSON. One clip at a time per principal, six
-  a minute, one transcription at a time on the Mac, 15 s for the engine. Audio and transcripts are
-  never journaled, stored or logged; a temporary file, if the engine needs one, is private and
-  deleted at once.
+  principal, one `audio/wav` clip of 16-bit mono PCM at 16 kHz, 0.5 to 30 s, at most 960,044 bytes,
+  and answers with the text, the locale and the engine's name and version, or a reason in words. It
+  is the only route that takes anything but JSON. One clip at a time per principal, thirty a minute
+  (six until 2026-11-17), one transcription at a time on the Mac with up to three clips waiting
+  their turn for at most 4 s each (refused in words beyond that, since 2026-11-17), 15 s for the
+  engine. Audio and transcripts are never journaled, stored or logged; a temporary file, if the
+  engine needs one, is private and deleted at once.
 - **The transcript is untrusted text.** It is shown through the one rule for text Halcyonic did not
   write, as any text from outside is.
 - **Hold to talk on the headset, development builds first.** Capture starts after the button has

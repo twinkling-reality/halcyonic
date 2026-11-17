@@ -3,7 +3,13 @@ import { describe, test } from 'node:test';
 import type { Principal } from '@halcyonic/contracts';
 import { createVirtualTime } from '@halcyonic/runtime-core';
 import { spokenNames } from './tidy.ts';
-import { CLIPS_PER_MINUTE, type TranscriptionAnswer, Transcriptions } from './transcriptions.ts';
+import {
+  CLIPS_PER_MINUTE,
+  CLIPS_WAITING,
+  type TranscriptionAnswer,
+  Transcriptions,
+  TURN_WAIT_MS,
+} from './transcriptions.ts';
 import { writeWav } from './wav.ts';
 import type { EngineResult, SpeechEngine } from './whisper.ts';
 
@@ -18,6 +24,15 @@ const OTHER: Principal = {
   device_id: '01990000-0000-7000-8000-000000000002' as never,
 };
 const clip = writeWav(Buffer.alloc(32_000));
+
+/** A headset of its own, numbered. */
+const device = (n: number): Principal => ({
+  kind: 'device',
+  device_id: `01990000-0000-7000-8000-0000000001${String(n).padStart(2, '0')}` as never,
+});
+
+/** Lets every promise already resolved run its continuations. */
+const settle = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 /** An engine that answers each clip with the next scripted result, holding it until released. */
 class ScriptedEngine implements SpeechEngine {
@@ -56,6 +71,7 @@ function setUp(results: EngineResult[] = [], names?: () => readonly string[]) {
     transcriptions: new Transcriptions({
       engine,
       clock: time,
+      scheduler: time,
       ...(names === undefined ? {} : { names }),
     }),
   };
@@ -180,7 +196,7 @@ describe('turning a clip into a draft', () => {
     assert.equal(engine.received.length, 0);
   });
 
-  test('one clip at a time for each principal, and one at a time on the Mac', async () => {
+  test('one clip at a time for each principal, and the next clip waits its turn on the Mac', async () => {
     const { transcriptions, engine } = setUp();
     engine.hold = true;
     const first = transcriptions.transcribe(HEADSET, clip);
@@ -189,19 +205,68 @@ describe('turning a clip into a draft', () => {
       status: 429,
       code: 'transcription_busy',
     });
-    assert.deepEqual(refusal(await transcriptions.transcribe(OTHER, clip)), {
-      status: 503,
-      code: 'transcription_busy_on_mac',
-    });
+    const second = transcriptions.transcribe(OTHER, clip);
+    await settle();
+    assert.equal(
+      engine.received.length,
+      1,
+      'the second clip waits; the Mac transcribes one at a time',
+    );
     engine.release();
     assert.equal((await first).kind, 'answered');
-    engine.hold = false;
-    assert.equal((await transcriptions.transcribe(OTHER, clip)).kind, 'answered');
-    assert.equal(engine.received.length, 2);
+    await settle();
+    assert.equal(engine.received.length, 2, 'the waiting clip is transcribed next');
+    engine.release();
+    assert.equal((await second).kind, 'answered');
   });
 
-  test('six clips a minute reach the engine for each principal, counted apart', async () => {
+  test('three clips wait behind the one on the Mac; a fourth is refused in words naming them', async () => {
+    const { transcriptions, engine } = setUp();
+    engine.hold = true;
+    const running = transcriptions.transcribe(device(0), clip);
+    await Promise.resolve();
+    const waiting = [1, 2, 3].map((n) => transcriptions.transcribe(device(n), clip));
+    await settle();
+    const full = await transcriptions.transcribe(device(4), clip);
+    assert.deepEqual(refusal(full), { status: 503, code: 'transcription_busy_on_mac' });
+    assert.equal(
+      full.kind === 'refused' ? full.message : '',
+      'The Mac is transcribing a clip and 3 more are waiting; try again in a moment.',
+    );
+    for (let index = 0; index < 4; index++) {
+      engine.release();
+      await settle();
+    }
+    assert.equal((await running).kind, 'answered');
+    for (const each of waiting) assert.equal((await each).kind, 'answered');
+    assert.equal(engine.received.length, 4, 'the refused clip never reached the engine');
+    assert.equal(CLIPS_WAITING, 3);
+  });
+
+  test('a clip that waits longer than its turn allows is refused in words, and the queue moves on', async () => {
+    const { transcriptions, engine, time } = setUp();
+    engine.hold = true;
+    const running = transcriptions.transcribe(HEADSET, clip);
+    await Promise.resolve();
+    const late = transcriptions.transcribe(OTHER, clip);
+    await settle();
+    await time.advance(TURN_WAIT_MS);
+    const answer = await late;
+    assert.deepEqual(refusal(answer), { status: 503, code: 'transcription_busy_on_mac' });
+    assert.equal(
+      answer.kind === 'refused' ? answer.message : '',
+      'The Mac was still transcribing the clip ahead of yours after 4 s; try again in a moment.',
+    );
+    engine.release();
+    assert.equal((await running).kind, 'answered');
+    engine.hold = false;
+    assert.equal((await transcriptions.transcribe(OTHER, clip)).kind, 'answered');
+    assert.equal(engine.received.length, 2, 'the clip that gave up never reached the engine');
+  });
+
+  test('thirty clips a minute reach the engine for each principal, counted apart', async () => {
     const { transcriptions, time } = setUp();
+    assert.equal(CLIPS_PER_MINUTE, 30);
     for (let index = 0; index < CLIPS_PER_MINUTE; index++) {
       assert.equal((await transcriptions.transcribe(HEADSET, clip)).kind, 'answered');
     }
@@ -214,21 +279,20 @@ describe('turning a clip into a draft', () => {
     assert.equal((await transcriptions.transcribe(HEADSET, clip)).kind, 'answered');
   });
 
-  test('the warm-up holds the Mac, and is skipped while a clip is transcribed', async () => {
+  test('the warm-up holds the Mac, a clip waits for it, and it is skipped while a clip is transcribed', async () => {
     const { transcriptions, engine } = setUp();
     engine.hold = true;
     const warming = transcriptions.warmUp();
     await Promise.resolve();
-    assert.deepEqual(refusal(await transcriptions.transcribe(LOCAL, clip)), {
-      status: 503,
-      code: 'transcription_busy_on_mac',
-    });
+    const waited = transcriptions.transcribe(LOCAL, clip);
+    await settle();
+    assert.equal(engine.received.length, 0, 'the clip waits for the warm-up');
     engine.release();
     assert.equal(await warming, 5);
-    const transcribing = transcriptions.transcribe(LOCAL, clip);
-    await Promise.resolve();
+    await settle();
+    assert.equal(engine.received.length, 1);
     assert.equal(await transcriptions.warmUp(), null);
     engine.release();
-    await transcribing;
+    assert.equal((await waited).kind, 'answered');
   });
 });

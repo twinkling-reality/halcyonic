@@ -234,6 +234,7 @@ export async function startTestServer(options: TestServerOptions = {}) {
     transcriptions: new Transcriptions({
       engine: options.speech ?? null,
       clock: harness.time,
+      scheduler: harness.time,
       names: () => listedSpokenNames(harness.controlPlane.projection),
     }),
     companion: new Companion({

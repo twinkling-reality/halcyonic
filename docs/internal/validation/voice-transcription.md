@@ -288,3 +288,21 @@ writes Halora for a short list of forms that mean nothing else in English (`HEAR
 are guessed, not heard in recorded clips. A bare "aurora", "halo" or "halcyon" is never rewritten, since a person says
 them for what they mean ("put an aurora over the lake"); `tidy.test.ts` holds both lists. The draft the person reads
 before sending is the text that is sent, so a rewrite is never made after they read it.
+
+## Clips at once (2026-11-17)
+
+- **Question:** can the Mac transcribe two clips at once, so several people (or one person
+  directing several tasks) are not refused while another clip is heard?
+- **Not measured.** The configured `whisper-cli` and its model sit only in the owner's data folder,
+  which development sessions never read, and building another copy needs the source and the
+  574 MB model downloaded. So two at once has no measurement on this Mac.
+- **Decision (lead's ruling, 2026-11-17):** two at once only if each of two concurrent
+  transcriptions takes at most 1.5 times a single one's time on this Mac. Without that
+  measurement, the Mac keeps one transcription at a time, and the clips behind it wait their turn
+  instead of being refused at once: up to three, each for at most 4 s (a clip takes 0.26 to 0.80 s
+  above, and the headset gives a transcription 15 s). A fourth waiting clip, or one whose turn has
+  not come in 4 s, is refused in words that say how many clips are ahead. Thirty clips a minute
+  reach the engine for each principal (six before).
+- **Open:** the two-at-once measurement, run with the configured engine by the owner or with a
+  pinned copy outside the data folder.
+
