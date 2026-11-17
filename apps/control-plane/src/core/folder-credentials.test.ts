@@ -8,8 +8,8 @@ import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import type { StartExecutionRequest } from '@halcyonic/runtime-core';
 import { createHostLocations } from '../locations.ts';
 import { createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
-import { ADDRESS_CREDENTIAL_REFUSED } from './command-service.ts';
-import { folderHoldsAddressCredential } from './folder-credentials.ts';
+import { GIT_SIGN_IN_REFUSED } from './command-service.ts';
+import { folderGitHoldsSignIn } from './folder-credentials.ts';
 
 const ROOT = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-folder-credentials-')));
 after(() => rmSync(ROOT, { recursive: true, force: true }));
@@ -23,77 +23,78 @@ function repo(name: string, config: string): string {
   return folder;
 }
 
-test("a credential in a remote's address is found, in every place git keeps one (AUDIT3 M3, 2026-11-17)", () => {
-  assert.equal(
-    folderHoldsAddressCredential(
-      repo('userpass', `[remote "origin"]\n\turl = https://someone:${TOKEN}@github.com/o/r.git\n`),
-    ),
-    true,
-  );
-  assert.equal(
-    folderHoldsAddressCredential(
-      repo('token-user', `[remote "o"]\n\tpushurl = https://${TOKEN}@host/r\n`),
-    ),
-    true,
-  );
-  assert.equal(
-    folderHoldsAddressCredential(
-      repo(
-        'instead',
-        `[url "https://x-access-token:${TOKEN}@github.com/"]\n\tinsteadOf = https://github.com/\n`,
-      ),
-    ),
-    true,
-  );
-  assert.equal(
-    folderHoldsAddressCredential(
-      repo('upper', `[remote "o"]\n\turl = HTTPS://u:${TOKEN}@host/r\n`),
-    ),
-    true,
-  );
+/** Each case on its own scratch repository, its value fake; nothing found is ever printed. */
+test('a sign-in the copy would take out is found, wherever git keeps one (AUDIT3 M3, M3b, 2026-11-17)', async () => {
+  const cases: [string, string][] = [
+    ['userpass', `[remote "origin"]\n\turl = https://someone:${TOKEN}@github.com/o/r.git\n`],
+    ['token-user', `[remote "o"]\n\tpushurl = https://${TOKEN}@host/r\n`],
+    [
+      'rewrite',
+      `[url "https://x-access-token:${TOKEN}@github.com/"]\n\tinsteadOf = https://github.com/\n`,
+    ],
+    ['submodule', `[submodule "lib"]\n\turl = https://u:${TOKEN}@host/lib\n`],
+    [
+      'extraheader',
+      `[http "https://github.com/"]\n\textraheader = AUTHORIZATION: basic ${TOKEN}\n`,
+    ],
+    ['inline-helper', `[credential]\n\thelper = "!f() { echo password=${TOKEN}; }; f"\n`],
+    ['include', '[include]\n\tpath = ../secrets.gitconfig\n'],
+  ];
+  for (const [name, config] of cases)
+    assert.equal(await folderGitHoldsSignIn(repo(name, config)), true, name);
 });
 
-test('an address without one, an ssh address, or no git folder at all is not a credential', () => {
+test('a remote, a hook or an ssh address alone is no sign-in, nor is a folder without git', async () => {
   assert.equal(
-    folderHoldsAddressCredential(
-      repo('plain', '[remote "origin"]\n\turl = https://github.com/o/r.git\n'),
+    await folderGitHoldsSignIn(
+      repo(
+        'plain',
+        '[remote "origin"]\n\turl = https://github.com/o/r.git\n[branch "main"]\n\tremote = origin\n',
+      ),
     ),
     false,
   );
   assert.equal(
-    folderHoldsAddressCredential(
+    await folderGitHoldsSignIn(
       repo(
         'ssh',
-        '[remote "origin"]\n\turl = git@github.com:o/r.git\n\tpushurl = ssh://git@host/r\n',
+        '[remote "origin"]\n\turl = git@github.com:o/r.git\n\tpushurl = ssh://git@host/r\n[core]\n\thooksPath = /h\n',
       ),
     ),
     false,
   );
-  assert.equal(folderHoldsAddressCredential(repo('none', '[core]\n\tbare = false\n')), false);
   const empty = join(ROOT, 'empty');
   mkdirSync(empty);
-  assert.equal(folderHoldsAddressCredential(empty), false);
+  assert.equal(await folderGitHoldsSignIn(empty), false);
 });
 
-test('a .git file is followed to its git folder, and a linked worktree to its main settings', () => {
-  const main = repo('main', `[remote "origin"]\n\turl = https://u:${TOKEN}@host/r\n`);
+test('settings git cannot read count as holding one', async () => {
+  assert.equal(await folderGitHoldsSignIn(repo('broken', '[remote "origin"\n\turl = = =\n')), true);
+});
+
+test("a linked worktree's main settings and its own config.worktree are both read", async () => {
+  const main = repo('main', '[remote "origin"]\n\turl = https://host/r\n');
   const gitDir = join(main, '.git', 'worktrees', 'side');
   mkdirSync(gitDir, { recursive: true });
   writeFileSync(join(gitDir, 'commondir'), '../..\n');
   const side = join(ROOT, 'side');
   mkdirSync(side);
   writeFileSync(join(side, '.git'), `gitdir: ${gitDir}\n`);
-  assert.equal(folderHoldsAddressCredential(side), true);
-  const sub = join(ROOT, 'sub');
-  mkdirSync(sub);
-  const subGit = join(ROOT, 'modules-sub');
-  mkdirSync(subGit);
-  writeFileSync(join(subGit, 'config'), '[remote "origin"]\n\turl = https://host/r\n');
-  writeFileSync(join(sub, '.git'), 'gitdir: ../modules-sub\n');
-  assert.equal(folderHoldsAddressCredential(sub), false);
+  assert.equal(await folderGitHoldsSignIn(side), false);
+  writeFileSync(
+    join(gitDir, 'config.worktree'),
+    `[http]\n\textraHeader = Authorization: Bearer ${TOKEN}\n`,
+  );
+  assert.equal(await folderGitHoldsSignIn(side), true);
+  rmSync(join(gitDir, 'config.worktree'));
+  writeFileSync(
+    join(main, '.git', 'config'),
+    `[remote "origin"]\n\turl = https://u:${TOKEN}@host/r\n`,
+  );
+  assert.equal(await folderGitHoldsSignIn(side), true);
 });
 
-test('a task that would work in the folder itself is refused in words where its address holds a credential, nothing started (AUDIT3 M3)', async () => {
+test('a task that would work in the folder itself is refused in words where its git settings hold a sign-in, nothing started (AUDIT3 M3)', async () => {
   const root = join(ROOT, 'connected');
   const app = join(root, 'app');
   mkdirSync(join(app, '.git'), { recursive: true });
@@ -141,13 +142,19 @@ test('a task that would work in the folder itself is refused in words where its 
       } as never),
       'internal',
     );
+    // The check reads the folder's settings through a real git process: wait for it, then for the start.
+    const id = sent.command?.command_id ?? '';
+    for (let i = 0; i < 200 && controlPlane.projection.command(id)?.status === 'accepted'; i += 1) {
+      await time.runUntilIdle();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
     await time.runUntilIdle();
-    return controlPlane.projection.command(sent.command?.command_id ?? '');
+    return controlPlane.projection.command(id);
   };
   const refused = await start();
   assert.deepEqual(
     { status: refused?.status, code: refused?.failure?.code, message: refused?.failure?.message },
-    { status: 'failed', code: 'invalid_state', message: ADDRESS_CREDENTIAL_REFUSED },
+    { status: 'failed', code: 'invalid_state', message: GIT_SIGN_IN_REFUSED },
   );
   assert.equal(starts.length, 0);
   const journal = JSON.stringify([...controlPlane.journal.readAll()]);

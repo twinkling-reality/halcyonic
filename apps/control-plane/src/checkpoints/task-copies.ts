@@ -398,33 +398,12 @@ export class TaskCopies {
     if ((await lstat(file).catch(() => null))?.isFile() !== true) return true;
     const listed = await this.#gitConfig(file, ['--null', '--list']);
     if (listed.code !== 0) return false;
-    const entries = listed.stdout
-      .split('\0')
-      .filter((entry) => entry !== '')
-      .map((entry) => {
-        const newline = entry.indexOf('\n');
-        return newline === -1
-          ? { key: entry, value: '' }
-          : { key: entry.slice(0, newline), value: entry.slice(newline + 1) };
-      });
+    const entries = configEntries(listed.stdout);
     // Keys are unset one by one: git matches their names whatever their case, and drops a section
     // left empty, where `--remove-section` takes only the spelling the file uses.
-    const unset = new Set<string>();
-    const rewrites: { key: string; from: string; to: string }[] = [];
-    for (const { key, value } of entries) {
-      const lower = key.toLowerCase();
-      if (/^http\.(.*\.)?extraheader$/.test(lower)) unset.add(key);
-      else if (/^(credential|include|includeif|remote)\./.test(lower)) unset.add(key);
-      else if (/^branch\..*\.(remote|pushremote)$/.test(lower) || lower === 'core.hookspath')
-        unset.add(key);
-      else if (/^url\..*\.(insteadof|pushinsteadof)$/.test(lower)) {
-        const base = key.slice(4, key.lastIndexOf('.'));
-        if (withoutUser(base) !== base || withoutUser(value) !== value) unset.add(key);
-      } else if (/\.(url|pushurl|proxy)$/.test(lower)) {
-        const safe = withoutUser(value);
-        if (safe !== value) rewrites.push({ key, from: value, to: safe });
-      }
-    }
+    const plan = scrubPlan(entries);
+    const unset = new Set(plan.unset.map((entry) => entry.key));
+    const rewrites = plan.rewrites;
     for (const key of unset) {
       const done = await this.#gitConfig(file, ['--unset-all', key]);
       if (done.code !== 0 && done.code !== 5) return false;
@@ -543,6 +522,73 @@ function failed(
 }
 
 /** An address without its user part where it is a URL that has one; anything else as it is. */
+/**
+ * What a task's copy takes out of its git settings (ADR 0045), key by key, from `git config --list`: the one list both
+ * the copy's scrub and the start check of a task that works in the folder itself read (AUDIT3 M3b, 2026-11-17). Each
+ * key carries why: `secret`, a sign-in or what may give one (an `extraheader`, a `credential` or `include` section, a
+ * `url` rewrite or an address with a user part, but an ssh login's name); `push`, a way out that carries none
+ * (remotes, a branch's remote, `core.hooksPath`, an ssh login's name).
+ */
+export function scrubPlan(entries: readonly { readonly key: string; readonly value: string }[]): {
+  readonly unset: readonly { readonly key: string; readonly reason: 'secret' | 'push' }[];
+  readonly rewrites: readonly {
+    readonly key: string;
+    readonly from: string;
+    readonly to: string;
+    readonly reason: 'secret' | 'push';
+  }[];
+} {
+  const unset: { key: string; reason: 'secret' | 'push' }[] = [];
+  const rewrites: { key: string; from: string; to: string; reason: 'secret' | 'push' }[] = [];
+  // A user part names a sign-in for every scheme but ssh's, where it is the login's name only.
+  const secretUser = (address: string) =>
+    withoutUser(address) !== address && !/^(?:ssh|git\+ssh|ssh\+git):\/\//i.test(address);
+  for (const { key, value } of entries) {
+    const lower = key.toLowerCase();
+    if (/^http\.(.*\.)?extraheader$/.test(lower)) unset.push({ key, reason: 'secret' });
+    else if (/^(credential|include|includeif)\./.test(lower)) unset.push({ key, reason: 'secret' });
+    else if (/^remote\./.test(lower)) {
+      // A remote's address with a user part is a secret too; the remote itself is a way to push.
+      const secret = /\.(url|pushurl|proxy)$/.test(lower) && secretUser(value);
+      unset.push({ key, reason: secret ? 'secret' : 'push' });
+    } else if (/^branch\..*\.(remote|pushremote)$/.test(lower) || lower === 'core.hookspath')
+      unset.push({ key, reason: 'push' });
+    else if (/^url\..*\.(insteadof|pushinsteadof)$/.test(lower)) {
+      const base = key.slice(4, key.lastIndexOf('.'));
+      if (withoutUser(base) !== base || withoutUser(value) !== value)
+        unset.push({ key, reason: secretUser(base) || secretUser(value) ? 'secret' : 'push' });
+    } else if (/\.(url|pushurl|proxy)$/.test(lower)) {
+      const safe = withoutUser(value);
+      if (safe !== value)
+        rewrites.push({
+          key,
+          from: value,
+          to: safe,
+          reason: secretUser(value) ? 'secret' : 'push',
+        });
+    }
+  }
+  return { unset, rewrites };
+}
+
+/** Whether `plan` takes out a sign-in or what may give one, not only a way to push. */
+export function scrubTakesSecret(plan: ReturnType<typeof scrubPlan>): boolean {
+  return [...plan.unset, ...plan.rewrites].some((entry) => entry.reason === 'secret');
+}
+
+/** `git config --null --list` of one settings file, each entry as its key and value. */
+export function configEntries(listed: string): { key: string; value: string }[] {
+  return listed
+    .split('\0')
+    .filter((entry) => entry !== '')
+    .map((entry) => {
+      const newline = entry.indexOf('\n');
+      return newline === -1
+        ? { key: entry, value: '' }
+        : { key: entry.slice(0, newline), value: entry.slice(newline + 1) };
+    });
+}
+
 export function withoutUser(address: string): string {
   const match = /^([a-z][a-z0-9+.-]*:\/\/)([^/]*@)(.*)$/i.exec(address);
   return match === null ? address : `${match[1]}${match[3]}`;

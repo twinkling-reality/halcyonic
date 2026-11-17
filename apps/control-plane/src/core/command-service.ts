@@ -131,7 +131,7 @@ const START_CHAIN: ReadonlySet<string> = new Set([
 ]);
 
 import type { HostProviders, KeyChecks } from '../providers.ts';
-import { folderHoldsAddressCredential } from './folder-credentials.ts';
+import { folderGitHoldsSignIn } from './folder-credentials.ts';
 import { type Preparation, type Prepared, prepareCommand, REQUIRED } from './prepare.ts';
 import { readRules, rulesReview, withRules } from './project-rules.ts';
 import { type Reattacher, SESSION_LOST } from './reattach.ts';
@@ -244,9 +244,9 @@ export const NO_COPIES_HERE =
 export const COPY_FAILED = 'The copy of the folder failed, so this task did not start. Try again.';
 
 /** What a start refused for its copy says: why the folder cannot be copied, then that nothing started. */
-/** Said when a task would work in a folder whose git settings hold a credential in an address (AUDIT3 M3). */
-export const ADDRESS_CREDENTIAL_REFUSED =
-  "This folder's git settings put a sign-in (a name, password or token) inside a remote's address, which this task's agent could read. Take it out of the address, then start again. Nothing was started, and the folder is as it was.";
+/** Said when a task would work in a folder whose git settings hold a sign-in (AUDIT3 M3, M3b). */
+export const GIT_SIGN_IN_REFUSED =
+  "This folder's git settings hold a sign-in (a name, password or token, or a command or file that gives one), which this task's agent could read. Take it out of the folder's git settings, then start again. Nothing was started, and the folder is as it was.";
 
 export function copyRefusedStart(why: string): string {
   return `${why} So this task did not start, and the folder is as it was.`;
@@ -2991,21 +2991,23 @@ export class CommandService {
       : null;
     const own = this.#ownCopy(workstream_id);
     // A task that works in the project's own folder, not a copy, never starts where that folder's git settings hold a
-    // credential in an address, which its agent could read unasked (AUDIT3 M3, 2026-11-17). Never says the address.
+    // sign-in its agent could read unasked (AUDIT3 M3, M3b, 2026-11-17). Never says what or where.
     const startIn = (directory: string | null): void => {
-      if (
-        directory !== null &&
-        directory === projectFolder &&
-        folderHoldsAddressCredential(directory)
-      ) {
-        this.#fail(command, admission.scope, {
-          code: 'invalid_state',
-          message: ADDRESS_CREDENTIAL_REFUSED,
-          effect: 'none',
-        });
+      if (directory === null || directory !== projectFolder) {
+        begin(directory);
         return;
       }
-      begin(directory);
+      void folderGitHoldsSignIn(directory).then((holds) => {
+        if (!holds) {
+          begin(directory);
+          return;
+        }
+        this.#fail(command, admission.scope, {
+          code: 'invalid_state',
+          message: GIT_SIGN_IN_REFUSED,
+          effect: 'none',
+        });
+      });
     };
     const copies = this.#deps.copies;
     // A task from a version works only in its own copy of that version, never the folder as it is.

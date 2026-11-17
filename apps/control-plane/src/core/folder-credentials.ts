@@ -1,36 +1,66 @@
+import { execFile } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
+import { configEntries, scrubPlan, scrubTakesSecret } from '../checkpoints/task-copies.ts';
 
 /**
- * Whether the git settings of `folder` hold a credential in an address: an http, https or ftp URL with a user part
- * (`https://user:token@host/...`, or a token as the user), in a remote's url or pushurl or a url section's name
- * (AUDIT3 M3, 2026-11-17). Claude Code reads a folder's own `.git/config` without asking (claude-code-unasked.md), so
- * a task that works in the folder itself, not in a copy (which takes the user part out, ADR 0045), would put that
- * credential in its model's context. Follows a `.git` file to its git folder, and a linked worktree to its main one. Reads, never prints, what it finds;
- * false where there is no git folder or its settings cannot be read.
+ * Whether the git settings of `folder` hold a sign-in its agent could read unasked (AUDIT3 M3 and M3b, 2026-11-17):
+ * wherever a task's copy would take one out (`scrubPlan`, the one list the copy's scrub reads too), never for a remote
+ * or a hook alone, which carry none. Claude Code reads a folder's own `.git/config` without asking
+ * (claude-code-unasked.md), so a task that works in the folder itself, not in a copy, would put it in its model's
+ * context. Reads the git folder's `config` and a linked worktree's own `config.worktree`, following a `.git` file to
+ * its git folder and a worktree to its main settings, through git with no other settings (as the scrub does). A file
+ * git cannot read counts as holding one. Never prints what it finds.
  */
-export function folderHoldsAddressCredential(folder: string): boolean {
-  const config = gitConfigPath(folder);
-  if (config === null) return false;
-  let text: string;
+export async function folderGitHoldsSignIn(folder: string, git = '/usr/bin/git'): Promise<boolean> {
+  for (const place of gitConfigPaths(folder)) {
+    if (!isFile(place)) continue;
+    const listed = await listConfig(git, place);
+    if (listed === null) return true;
+    if (scrubTakesSecret(scrubPlan(configEntries(listed)))) return true;
+  }
+  return false;
+}
+
+function listConfig(git: string, file: string): Promise<string | null> {
+  return new Promise((resolvePromise) => {
+    execFile(
+      git,
+      ['config', '--file', file, '--null', '--list'],
+      {
+        env: {
+          PATH: '/usr/bin:/bin',
+          LC_ALL: 'C',
+          GIT_CONFIG_NOSYSTEM: '1',
+          GIT_CONFIG_GLOBAL: '/dev/null',
+          HOME: '/dev/null',
+        },
+        timeout: 30_000,
+      },
+      (error, stdout) => resolvePromise(error === null ? String(stdout) : null),
+    );
+  });
+}
+
+function isFile(path: string): boolean {
   try {
-    text = readFileSync(config, 'utf8');
+    return statSync(path).isFile();
   } catch {
     return false;
   }
-  return /\b(?:https?|ftps?):\/\/[^\s/@"'\]]+@/i.test(text);
 }
 
-function gitConfigPath(folder: string): string | null {
+/** The settings files git reads for `folder`'s repository: its own `config`, and a linked worktree's too. */
+function gitConfigPaths(folder: string): string[] {
   const dotGit = join(folder, '.git');
   try {
     const stat = statSync(dotGit);
-    if (stat.isDirectory()) return join(dotGit, 'config');
-    if (!stat.isFile()) return null;
+    if (stat.isDirectory()) return [join(dotGit, 'config'), join(dotGit, 'config.worktree')];
+    if (!stat.isFile()) return [];
     const line = readFileSync(dotGit, 'utf8')
       .match(/^gitdir:\s*(.+)$/m)?.[1]
       ?.trim();
-    if (line === undefined) return null;
+    if (line === undefined) return [];
     const gitDir = isAbsolute(line) ? line : resolve(folder, line);
     // A linked worktree keeps its remotes in the main repository's settings, named by its commondir.
     let common = gitDir;
@@ -40,8 +70,8 @@ function gitConfigPath(folder: string): string | null {
     } catch {
       // No commondir: the git folder's own settings.
     }
-    return join(common, 'config');
+    return [join(common, 'config'), join(gitDir, 'config.worktree')];
   } catch {
-    return null;
+    return [];
   }
 }
