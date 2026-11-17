@@ -9,7 +9,7 @@ namespace Halcyonic.XR.UI
     /// <summary>
     /// A picked project's screen (ADR 0040, rule 2; R03 YouTube VR, R04 visionOS windows, R01 Wii channels): one large opaque
     /// face, the project's title chip at its top left with the runtime and the state, and, where no picture stands, the
-    /// project's identity: a quiet field in its own hue, its two-letter mark and its name in display type. A picture comes only from the computer's own check screenshot, which no check takes yet, so none is drawn
+    /// project's identity: the kit's dark carrier, its two-letter mark and its name in display type. A picture comes only from the computer's own check screenshot, which no check takes yet, so none is drawn
     /// here; nothing on the screen ever says "last checked build" without one. Sizes are <see cref="SpatialKit"/>'s, in units
     /// of the viewing distance; it is centred on its transform and never places or faces itself.
     /// </summary>
@@ -93,7 +93,9 @@ namespace Halcyonic.XR.UI
             // Its height's angle is its width's over the kit's aspect, as SpatialKit.ScreenHeightDegreesAt gives the full screen's.
             var height = 2f * KitType.Units(across / SpatialKit.ScreenAspect / 2f);
             Size = new Vector2(width, height);
-            face.Draw(Size, KitType.Units(RadiusDegrees), SpatialKit.IdentityField(model.IdentityHue));
+            // The kit's own dark carrier, never the project's hue: chrome takes no hue (the lead's 2026-11-17T19:15Z), as visionOS's
+            // windows stand in their one glass (visionos-glass-window.png); the project is told by its name and mark.
+            face.Draw(Size, KitType.Units(RadiusDegrees), SpatialKit.Carrier);
 
             // The title chip: the project's name, then its state, on one opaque carrier; never the agent app's name (AUDIT, 17:12Z).
             var pad = KitType.Units(ChipPadDegrees);

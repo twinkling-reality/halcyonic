@@ -67,8 +67,8 @@ namespace Halcyonic.XR.Workspace.Editor
             Stand(shot, view, eyes, carriers, total);
             shot.Targets.Add(("screen bar", bar.transform, bar.Targets));
             shot.Faces.AddRange(carriers.Select(carrier => carrier.Face));
-            // A bare point of the face, clear of the title chip, the mark and the name: the project's identity field.
-            shot.Witness = (screen.Face.Face, new Vector3(0.42f, 0.18f, 0f), SpatialKit.IdentityField(model.IdentityHue));
+            // A bare point of the face, clear of the title chip, the mark and the name: the kit's dark carrier, no hue (the lead's 19:15Z).
+            shot.Witness = (screen.Face.Face, new Vector3(0.42f, 0.18f, 0f), SpatialKit.Carrier);
             shot.OpacityNegative = screen.Face.Face;
 
             // Every target holds the floor at its true distance from the eyes, not only along the bar's normal (the lead's rule).
