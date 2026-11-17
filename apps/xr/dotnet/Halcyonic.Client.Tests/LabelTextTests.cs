@@ -51,6 +51,19 @@ public class LabelTextTests
     /// reach it with every noncharacter shown by code point (the review of lane W's labels).
     /// </summary>
     [Test]
+    public void ABodysLastTwoWordsAreHeldTogetherSoNoParagraphEndsOnOneWordAlone()
+    {
+        // The film's take 2 sentence, which a task card left ending on "stars." alone.
+        Assert.That(LabelText.KeepLastTwo("Make a game where I catch falling stars."), Is.EqualTo("Make a game where I catch falling\u00A0stars."));
+        Assert.That(LabelText.KeepLastTwo("Make a game where I catch falling stars.").Length, Is.EqualTo("Make a game where I catch falling stars.".Length), "the same length, so every run keeps its place");
+        Assert.That(LabelText.KeepLastTwo("Done"), Is.EqualTo("Done"), "one word has no pair");
+        Assert.That(LabelText.KeepLastTwo("First line\nalone"), Is.EqualTo("First line\nalone"), "never across a line's end");
+        Assert.That(LabelText.KeepLastTwo("Two words  "), Is.EqualTo("Two\u00A0words  "), "a trailing space is not a word");
+        Assert.That(LabelText.KeepLastTwo(LabelText.KeepLastTwo("at dusk")), Is.EqualTo("at\u00A0dusk"), "held once, held still");
+        Assert.That(LabelText.KeepLastTwo(""), Is.EqualTo(""));
+    }
+
+    [Test]
     public void TheNormalizerRefusesANoncharacterThatPlainShowsByCode()
     {
         Assert.Throws<ArgumentException>(() => "Yes\uFFFE".Normalize(System.Text.NormalizationForm.FormC));

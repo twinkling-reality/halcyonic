@@ -223,6 +223,24 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// <paramref name="text"/> with its last two words held together by a no-break space (U+00A0), so no line of a body ends its
+        /// paragraph on one word alone (AUDIT 2026-11-17 03:21Z, the usual widow rule): a step of the lay, never of the stored words.
+        /// Unchanged where the last paragraph has one word, where its last two words are already held, or where it is empty.
+        /// </summary>
+        public static string KeepLastTwo(string text)
+        {
+            var end = text.Length;
+            while (end > 0 && char.IsWhiteSpace(text[end - 1]) && text[end - 1] != '\u00A0') end--;
+            var gap = end - 1;
+            while (gap >= 0 && !char.IsWhiteSpace(text[gap])) gap--;
+            if (gap <= 0 || text[gap] != ' ') return text;
+            // A word must stand before the gap, on the same line: never join across a line's end.
+            var before = gap - 1;
+            if (before < 0 || char.IsWhiteSpace(text[before])) return text;
+            return text.Substring(0, gap) + "\u00A0" + text.Substring(gap + 1);
+        }
+
+        /// <summary>
         /// An agent's prose without Markdown's marks, so it reads as plain text (DEVICE's headset frames, 2026-11-04: "**failed**",
         /// "`5038`", fences shown as written): a fence's own line (three or more backticks, a language after them or none) goes; a
         /// code span keeps its words without its backticks, its line breaks as spaces and one space at each end dropped where it

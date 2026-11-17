@@ -1843,7 +1843,18 @@ namespace Halcyonic.XR.UI
                 runs.Set(words);
                 runs.SetProseMode(true);
             }
+            // The body's last two words held together where a paragraph can wrap (AUDIT 2026-11-17 03:21Z: a task card's sentence ended on
+            // one word): in the words handed to the lay, the same length, so every run's place holds; never in the stored text.
+            var heldText = lines > 1 && !labelRole && role != KitRole.Mono ? LabelText.KeepLastTwo(label.text) : label.text;
+            var plainText = label.text;
+            if (!ReferenceEquals(heldText, plainText) && heldText != plainText) label.text = heldText;
             var laid = KitType.Lay(label, width, lines);
+            // Where the pair cannot stand on one line, the plain lay.
+            if (label.text != plainText && (label.isTextOverflowing || label.isTextTruncated))
+            {
+                label.text = plainText;
+                laid = KitType.Lay(label, width, lines);
+            }
             // No word alone on a paragraph's last line (a widow: SCREENS's reader 3 on 38-checks-failed, "stopped on a / step"), the
             // person's words included, a title among them (AUDIT 2026-11-16T15:23Z: "points" alone): only the measure narrows, so
             // the words and any line end of theirs stand as written.
