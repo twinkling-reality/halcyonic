@@ -1004,8 +1004,9 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// Every word's strongest pixel holds 4.5 to 1 against the ground it stands on, as rendered: the ground is the
-        /// most common colour inside the word's own box, which its letters leave mostly bare. A word whose box leaves
+        /// Every word holds 4.5 to 1 against the ground it stands on, as rendered, read by its own box in the polarity it is
+        /// drawn in (<see cref="InkBox"/>): its glyph cores against the box's ground, so no dark spot of the room through the
+        /// glass and no single pixel lifts the ratio (the lead's 2026-11-17T02:53Z). A word whose box leaves
         /// the frame cannot be measured there: in a <paramref name="glance"/> it is left to the main view, which must
         /// hold every word whole and fails any that leaves it.
         /// </summary>
@@ -1048,15 +1049,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 rect.xMax = Mathf.Min(Width, Mathf.CeilToInt(max.x));
                 rect.yMax = Mathf.Min(Height, Mathf.CeilToInt(max.y));
                 if (rect.width < 2 || rect.height < 2) continue;
-                var ground = MostCommon(pixels, rect);
-                var strongest = 1.0;
-                var groundLuminance = Luminance(ground);
-                for (var y = rect.yMin; y < rect.yMax; y++)
-                for (var x = rect.xMin; x < rect.xMax; x++)
-                {
-                    var l = Luminance(pixels[y * Width + x]);
-                    strongest = Math.Max(strongest, (Math.Max(l, groundLuminance) + 0.05) / (Math.Min(l, groundLuminance) + 0.05));
-                }
+                // Read by the word's own box in its drawn polarity (InkBox): the cores against the ground, never one stray pixel either way.
+                var strongest = InkBox(pixels, rect, label.color).Ratio;
                 if (strongest < weakest) { weakest = (float)strongest; weakestName = label.name + " \"" + Clip(label.text) + "\""; }
                 if (strongest < 4.5) yield return what + ": " + label.name + " \"" + Clip(label.text) + "\" reaches " + strongest.ToString("0.00", CultureInfo.InvariantCulture) + " to 1.";
             }

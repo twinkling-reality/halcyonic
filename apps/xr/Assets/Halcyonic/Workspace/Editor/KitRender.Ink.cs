@@ -148,6 +148,46 @@ namespace Halcyonic.XR.Workspace.Editor
             }
         }
 
+        /// <summary>
+        /// A word's contrast in a rendered frame by its own box, as the eye and AUDIT read it (the lead's 2026-11-17T02:53Z):
+        /// <paramref name="rect"/> is the word's box in the frame's pixels. Held to the polarity its label is drawn in: light words
+        /// are read by their glyph cores (the pixels within 3 of the box's 99th percentile of max(R, G, B), averaged) against the
+        /// LIGHTER of the box's most common colour and its 30th percentile; dark words by the cores within 3 of the 1st percentile
+        /// of min(R, G, B) against the DARKER of the most common colour and the 70th percentile. Neither a dark spot of the room
+        /// seen through the glass, nor a glyph's dark edge, nor a single bright pixel can lift the ratio: the ground can only move
+        /// toward the words and the ink is a mean of cores, so the ratio is never above the per-pixel read it replaces. Returns
+        /// the ratio, or 1 where the cores do not stand on their drawn side of the ground.
+        /// </summary>
+        public static (double Ratio, bool DrawnLight, double Ink, double Ground) InkBox(Color32[] pixels, RectInt rect, Color drawn)
+        {
+            var box = new List<Color32>(rect.width * rect.height);
+            for (var y = rect.yMin; y < rect.yMax; y++)
+            for (var x = rect.xMin; x < rect.xMax; x++)
+                box.Add(pixels[y * Width + x]);
+            if (box.Count == 0) return (1.0, true, 0.0, 0.0);
+            var mode = Luminance(MostCommon(pixels, rect));
+            var drawnLight = Luminance((Color32)drawn) > mode;
+            double ink;
+            double ground;
+            if (drawnLight)
+            {
+                var byLight = box.OrderBy(p => Math.Max(p.r, Math.Max(p.g, p.b))).ToList();
+                var top = MaxChannel(byLight[(int)(0.99 * (byLight.Count - 1))]);
+                ink = byLight.Where(p => MaxChannel(p) >= top - 3).Average(Luminance);
+                ground = Math.Max(mode, Luminance(byLight[(int)(0.30 * (byLight.Count - 1))]));
+                return (ink > ground ? (ink + 0.05) / (ground + 0.05) : 1.0, true, ink, ground);
+            }
+            var byDark = box.OrderBy(p => Math.Min(p.r, Math.Min(p.g, p.b))).ToList();
+            var bottom = MinChannel(byDark[(int)(0.01 * (byDark.Count - 1))]);
+            ink = byDark.Where(p => MinChannel(p) <= bottom + 3).Average(Luminance);
+            ground = Math.Min(mode, Luminance(byDark[(int)(0.70 * (byDark.Count - 1))]));
+            return (ink < ground ? (ground + 0.05) / (ink + 0.05) : 1.0, false, ink, ground);
+        }
+
+        private static int MaxChannel(Color32 p) => Math.Max(p.r, Math.Max(p.g, p.b));
+
+        private static int MinChannel(Color32 p) => Math.Min(p.r, Math.Min(p.g, p.b));
+
         /// <summary>WCAG contrast ratio of two sRGB pixels, 1 to 21.</summary>
         public static double ContrastRatio(Color32 a, Color32 b) => GlazeColor.Contrast(new GlazeColor(a.r, a.g, a.b), new GlazeColor(b.r, b.g, b.b));
 
