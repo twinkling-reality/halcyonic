@@ -1,5 +1,5 @@
 // The agent's cursor and its label's ground (DESIGN's BUILD-SPEC-v4 2.3 and 1.2), one quad:
-//   the arrow, about 26 by 33 dp: a four-cornered pointer filled white with a #141416 hairline edge 1.2 dp wide (the owner's Atlas reference, the lead's 19:18Z (1)), round at its
+//   the arrow, about 26 by 33 dp: a four-cornered pointer filled white with a #141416 hairline edge 1.2 dp wide (the owner's direction, APPROVALS 2026-11-17, the lead's 19:18Z (1)), round at its
 //     corners, its tip 2.4 dp in from the cursor's own corner;
 //   the label's ground, the darker voice glass: a squircle of corner 14 dp, #181B1E at the page's 0.84, with a 1 dp
 //     hairline of white at 10 percent just inside its edge, its top left 26 dp right of and 30 dp below that corner.

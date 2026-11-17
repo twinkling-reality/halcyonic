@@ -9,7 +9,7 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// The agent's cursor and its label (DESIGN's BUILD-SPEC-v4 2.3): while the agent works, an arrow (about 26 by 33 dp,
-    /// white with a #141416 hairline edge, the owner's Atlas reference) stands in the working field with one line beside it saying the step under way
+    /// white with a #141416 hairline edge, the owner's direction, APPROVALS 2026-11-17) stands in the working field with one line beside it saying the step under way
     /// (<see cref="RoomWorkStep"/>): the label, in the darker voice glass, its top left 26 dp right of and 30 dp below the
     /// cursor's corner, its words in the one type size under the wait's sweep. Only the label means anything: the arrow
     /// points at nothing. At each new step it glides to its next fixed stop over 600 ms, and between steps it drifts by at
