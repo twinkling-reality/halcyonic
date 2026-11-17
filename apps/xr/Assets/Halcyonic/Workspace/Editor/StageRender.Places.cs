@@ -109,6 +109,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var each in views) Advance(each.View, 1f);
                     var team = views.Select(each => each.View).ToList();
                     var (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes, bearing.SpanDegrees);
+                    // One to a row: the place gathers its team behind "{n} More", its front standing alone (the stage's RoomPlaces.OneARow).
+                    if (rowMost == 1 && views.Count > 1)
+                    {
+                        Debug.Log("Halcyonic: places: " + variant + " " + project + " gathers " + (views.Count - 1) + " behind its More, one to a row.");
+                        foreach (var gathered in views.Skip(1)) UnityEngine.Object.DestroyImmediate(gathered.View.gameObject);
+                        views.RemoveRange(1, views.Count - 1);
+                        team = views.Select(each => each.View).ToList();
+                        (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes, bearing.SpanDegrees);
+                    }
                     teams.Add(team);
                     // A farther ring stands clear of the nearer ring's team at its bearing, by the stage's own rule.
                     if (bearing.Ring > 0 && index - PlaceBearings.Centres.Length >= 0)

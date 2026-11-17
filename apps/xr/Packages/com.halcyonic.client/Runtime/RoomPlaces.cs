@@ -114,6 +114,13 @@ namespace Halcyonic.Client
         /// <summary>The places whose gathered crowd the person spread open ("{n} More" pressed); "Show Fewer" gathers it again.</summary>
         public ISet<string> Spread { get; } = new HashSet<string>(StringComparer.Ordinal);
 
+        /// <summary>
+        /// The places whose span holds one tag a row as their tags are drawn: each takes the crowd form at once, whatever its count (AUDIT's
+        /// 21:4xZ: a place one to a row stacks its team as a floating column, read as labels, not a team), its front and every one that needs
+        /// the person standing and the rest behind "{n} More". The stage says which, from its layout; "{n} More" still spreads them.
+        /// </summary>
+        public ISet<string> OneARow { get; } = new HashSet<string>(StringComparer.Ordinal);
+
         public IReadOnlyList<RoomPlace> Places { get; private set; } = Array.Empty<RoomPlace>();
 
         /// <summary>Lays the places from <paramref name="work"/>, named by <paramref name="projectName"/> (the project's own name, or null where unknown).</summary>
@@ -125,6 +132,7 @@ namespace Halcyonic.Client
             {
                 order.Clear();
                 Spread.Clear();
+                OneARow.Clear();
                 journal = journalId;
             }
             var byProject = work.Where(each => !string.IsNullOrEmpty(each.ProjectId)).GroupBy(each => each.ProjectId, StringComparer.Ordinal)
@@ -135,15 +143,17 @@ namespace Halcyonic.Client
                          .OrderBy(id => byProject[id].Min(each => each.CreatedAt ?? ""), StringComparer.Ordinal).ThenBy(id => id, StringComparer.Ordinal))
                 order.Add(id);
             Spread.IntersectWith(order);
+            OneARow.IntersectWith(order);
             var places = new List<RoomPlace>(order.Count);
             foreach (var id in order)
             {
                 var tasks = byProject[id].OrderBy(CharacterLineup.TierOf).ThenByDescending(each => each.UpdatedAt ?? "", StringComparer.Ordinal)
                     .ThenBy(each => each.WorkstreamId, StringComparer.Ordinal).ToList();
                 var needsYou = tasks.Count(each => CharacterLineup.TierOf(each) == LineupTier.NeedsYou);
-                var form = Rule.FormOf(tasks.Count);
+                var form = OneARow.Contains(id) && tasks.Count > 1 ? PlaceForm.Crowd : Rule.FormOf(tasks.Count);
+                var front = OneARow.Contains(id) ? 1 : Rule.CrowdShown;
                 // A crowd stands its front and every one that needs the person; spread open, all of it.
-                var standing = form != PlaceForm.Crowd || Spread.Contains(id) ? tasks.Count : Math.Min(tasks.Count, Math.Max(Rule.CrowdShown, needsYou));
+                var standing = form != PlaceForm.Crowd || Spread.Contains(id) ? tasks.Count : Math.Min(tasks.Count, Math.Max(front, needsYou));
                 var ids = tasks.Select(each => each.WorkstreamId).ToList();
                 // The selected task past a crowd's front stands at the front's end, and the front grows by it.
                 var at = selectedId == null ? -1 : ids.IndexOf(selectedId);

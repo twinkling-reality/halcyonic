@@ -144,6 +144,7 @@ namespace Halcyonic.XR
         private readonly Dictionary<string, OtherPlace> others = new Dictionary<string, OtherPlace>(System.StringComparer.Ordinal);
         private readonly List<(RoomPlace Place, PlaceBearing Bearing)> otherOrder = new List<(RoomPlace, PlaceBearing)>();
         private float? aheadHeld;
+        private bool gatherPending;
         private Transform? placesRoot;
 
         /// <summary>The other places show while the shelf does, and hide with it.</summary>
@@ -225,6 +226,13 @@ namespace Halcyonic.XR
                 }
                 LayOtherPlace(stood, shown, bearing, eyes);
             }
+            // A place found one to a row stands its crowd on the next refresh, once.
+            if (gatherPending)
+            {
+                gatherPending = false;
+                Refresh();
+                return;
+            }
             // A farther ring stands clear of the nearer ring's team at its bearing, as the eyes see them.
             for (var index = 0; index < otherOrder.Count; index++)
             {
@@ -243,7 +251,10 @@ namespace Halcyonic.XR
         {
             var distance = bearing.Distance;
             stood.Laid = shown.Select(id => stood.Views[id]).ToList();
-            LayPlace(stood.Laid, radius, distance, Places.Rule, eyes, bearing.SpanDegrees);
+            var (_, rowMost, _) = LayPlace(stood.Laid, radius, distance, Places.Rule, eyes, bearing.SpanDegrees);
+            // A place laid one to a row gathers its team at once (AUDIT's 21:4xZ); said once, so the next refresh stands its crowd.
+            var projectId = others.First(pair => ReferenceEquals(pair.Value, stood)).Key;
+            if (rowMost == 1 && stood.Laid.Count > 1 && Places.OneARow.Add(projectId)) gatherPending = true;
             var tallestTag = 0f;
             foreach (var view in stood.Views.Values)
                 if (DrawnTagSize?.Invoke(view) is Vector2 size) tallestTag = Mathf.Max(tallestTag, size.y);
