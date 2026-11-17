@@ -252,6 +252,16 @@ namespace Halcyonic.Client
             return this;
         }
 
+        /// <summary>The line's words are code in <see cref="Code"/>'s language, coloured by the person's Code Colours where drawn; null for words.</summary>
+        public CodeLanguage? Code { get; private set; }
+
+        /// <summary>This line, its words code in <paramref name="language"/> (the Code Colours preview's example).</summary>
+        public PageLine WithCode(CodeLanguage language)
+        {
+            Code = language;
+            return this;
+        }
+
         /// <summary>
         /// The group the line is handed in (the lead's 2026-11-13T21:11Z: things a person uses together stay on one page): consecutive
         /// lines with one group never stand on two pages, Left beside Right; null for a line of its own.

@@ -17,8 +17,11 @@ namespace Halcyonic.Client
     {
         /// <param name="label">What the row's words are, ours, a quiet line of its own above them ("Project" over a person's idea); never joined to them on a dot.</param>
         /// <param name="note">The row's state, ours, a quiet note at its right ("Confirmed" beside "Create Project"); never joined on a dot.</param>
-        public RoomRow(LineWords words, RoomRowMark mark = RoomRowMark.None, int fromLine = 0, int? lines = null, string? label = null, string? note = null)
+        /// <param name="code">The row's words are code in this language, coloured by the person's Code Colours where drawn; null for words.</param>
+        public RoomRow(LineWords words, RoomRowMark mark = RoomRowMark.None, int fromLine = 0, int? lines = null, string? label = null, string? note = null,
+            CodeLanguage? code = null)
         {
+            Code = code;
             Label = string.IsNullOrWhiteSpace(label) ? null : label!.Trim();
             Note = string.IsNullOrWhiteSpace(note) ? null : note!.Trim();
             Words = words;
@@ -28,6 +31,8 @@ namespace Halcyonic.Client
         }
 
         public LineWords Words { get; }
+
+        public CodeLanguage? Code { get; }
 
         /// <summary>What the words are, ours, drawn quiet above them; null for none.</summary>
         public string? Label { get; }

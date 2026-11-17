@@ -744,6 +744,10 @@ public class AppearanceSettingsTests
             column.Act(AppearanceColumn.PreviewCode, null);
             Assert.That(CodeThemes.Current, Is.EqualTo(CodeTheme.HighContrast), "the preview shows the chosen colours");
             Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(CodeThemes.Example), "real code, drawn in them");
+            Assert.That(column.Frame!.Lines.Select(line => (line.Code, line.Runs.AnyTheirs, line.Runs.Text)),
+                Is.EqualTo(CodeThemes.Example.Select(each => ((CodeLanguage?)CodeLanguage.Script, false, each))),
+                "marked as code for the view to paint, and our own words");
+            Assert.That(page.Lines.Select(line => line.Code), Has.All.Null, "the choices are words, never painted");
             Assert.That(column.Frame!.Footer.All.Select(each => each.Prompt.Words), Does.Contain("Apply Colours").And.Contain("Cancel"));
             column.Act(AppearanceColumn.Cancel, null);
             Assert.That((CodeThemes.Current, settings.Code, saved.Count), Is.EqualTo((CodeTheme.Halora, CodeTheme.Halora, 0)), "Cancel keeps what was kept");

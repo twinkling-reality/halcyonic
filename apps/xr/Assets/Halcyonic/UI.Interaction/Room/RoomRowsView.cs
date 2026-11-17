@@ -69,8 +69,26 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var view = go.AddComponent<RoomRowsView>();
             view.order = order;
+            // A new code theme repaints the code rows drawn, laying nothing again (the Code Colours preview, SHOW's call).
+            CodeThemes.Changed += view.ThemeChanged;
             go.SetActive(false);
             return view;
+        }
+
+        /// <summary>The rows shown now whose words are code, in order, with each one's language: what a theme change repaints.</summary>
+        private readonly List<(TextMeshPro Row, CodeLanguage Language)> codeRows = new List<(TextMeshPro, CodeLanguage)>();
+
+        private void OnDestroy() => CodeThemes.Changed -= ThemeChanged;
+
+        private void ThemeChanged(CodeTheme theme) => ColourCode();
+
+        /// <summary>Colours the code rows shown by the palette in force, one carry through them in order, as the writing panel's rows are.</summary>
+        private void ColourCode()
+        {
+            if (codeRows.Count == 0) return;
+            var palette = CodeColouring.Now();
+            var carry = CodeCarry.None;
+            foreach (var (row, language) in codeRows) CodeColouring.Colour(row, row.text, language, palette, ref carry);
         }
 
         private TextMeshPro? measureWords, measureTag, measureNote;
@@ -137,6 +155,7 @@ namespace Halcyonic.XR.UI
             var indent = RoomType.Scaled(RoomRows.IndentDp(rows));
             var line = RoomType.Scaled(RoomGeometry.LineDp);
             var down = 0f;
+            codeRows.Clear();
             for (var index = 0; index < rows.Count; index++)
             {
                 while (labels.Count <= index)
@@ -214,6 +233,8 @@ namespace Halcyonic.XR.UI
                         else laid = tried;
                     }
                 }
+                // Code's words (the preview's example) are literal, as every row's are, and coloured once the rows are laid.
+                if (rows[index].Code is CodeLanguage language) codeRows.Add((label, language));
                 var tall = Mathf.Max(line, laid.Height);
                 label.transform.localPosition = new Vector3(indent, -down, 0f);
                 // Its right edge a dp inside the row, so a glyph's ink at the end never passes it.
@@ -245,6 +266,7 @@ namespace Halcyonic.XR.UI
                 tags[index].gameObject.SetActive(false);
                 notes[index].gameObject.SetActive(false);
             }
+            ColourCode();
             Size = new Vector2(width, down);
             return down;
         }

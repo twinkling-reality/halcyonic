@@ -568,8 +568,8 @@ namespace Halcyonic.Client
         {
             if (line.FactRuns is LineWords fact) return new RoomRow(fact, label: line.Words, fromLine: 0);
             if (line.Fact is string said) return new RoomRow(LineWords.Ours(said), label: line.Words);
-            if (line.FromRow is int from) return new RoomRow(line.Runs, label: line.RowLabel, fromLine: from, lines: line.Rows);
-            return new RoomRow(line.Runs, label: line.RowLabel);
+            if (line.FromRow is int from) return new RoomRow(line.Runs, label: line.RowLabel, fromLine: from, lines: line.Rows, code: line.Code);
+            return new RoomRow(line.Runs, label: line.RowLabel, code: line.Code);
         }
     }
 
