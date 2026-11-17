@@ -6,8 +6,8 @@
 //   a hairline grid every 36 dp, white at 7 percent, fading with the field;
 //   points every 9 dp, 3.0 dp across, one in twelve lit at 4.6 dp; alpha 0.40 to 0.90, each twinkling over its own
 //     1.8 to 3.6 s, a band of light crossing every 6 s; gathered at the frame of what the agent acts on and thinned in its
-//     middle (15 percent there, full from 75 percent out), fading to nothing over the outer 22 percent (toward the owner's
-//     Atlas screenshot: the light sits on the frame).
+//     middle (15 percent there, full from 75 percent out), fading to nothing over the outer 22 percent (the owner's direction,
+//     APPROVALS 2026-11-17: the light sits on the frame).
 // The page mixes these in sRGB and this buffer blends in linear light, so each pixel is mixed here as the page mixes it
 // and then given the colour and alpha that show exactly the page's value over the design's dark room (about #1C1C1C)
 // and over a white wall: fit to pure black instead, a linear blend hides a dim room more than the page does.

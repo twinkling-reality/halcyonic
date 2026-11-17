@@ -40,8 +40,8 @@ namespace Halcyonic.XR.UI
         public const float FadeShare = 0.55f;
 
         /// <summary>
-        /// The points gather at the frame of what the agent acts on and thin in its middle (the lead's 2026-11-17T19:18Z (1), toward the
-        /// owner's Atlas screenshot; FIELD's d1063db2f note: the light sits on the frame): a point's share rises from <see cref="MiddleShare"/>
+        /// The points gather at the frame of what the agent acts on and thin in its middle (the lead's 2026-11-17T19:18Z (1), the owner's
+        /// direction, APPROVALS 2026-11-17: the light sits on the frame): a point's share rises from <see cref="MiddleShare"/>
         /// in the middle over the field from <see cref="GatherFrom"/> to <see cref="GatherFull"/> of the way out, then fades to nothing over
         /// the outer <see cref="OuterFade"/>.
         /// </summary>
