@@ -945,7 +945,7 @@ in the headset:
   characters while it is open peeks nothing; pointing at them still does.
 - **Approve.** Pinch Approve: the row asks "Approve the request below?", with Cancel and "Yes,
   approve" at the far right, and in place of the tabs and the activity, "The whole request" over
-  "bash: Run `pnpm db:migrate` against the local development database". Pinch "Yes, approve":
+  "bash: pnpm db:migrate", the command as a runtime sends it. Pinch "Yes, approve":
   Requests reads "Sending to the control plane…", then "Answering the approval…", then "Approval
   answered" once the runtime confirmed; the activity and the status follow the turn to "Turn
   finished". Deny works the same way.

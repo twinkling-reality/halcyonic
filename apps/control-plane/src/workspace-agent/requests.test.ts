@@ -3346,7 +3346,7 @@ test('Allow Test Servers is never offered to the model, and a proposal carrying 
   assert.equal(step?.status, 'rejected', JSON.stringify(request?.steps));
   assert.match(
     step?.summary ?? '',
-    /open_ports is the person's to choose on their own screen, never proposed/,
+    /I can't turn on Allow Test Servers\. You choose that yourself\./,
   );
   assert.equal(step?.proposal, undefined);
   assert.equal(h.controlPlane.projection.ownCheck(projectId), undefined, 'no check was chosen');

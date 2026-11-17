@@ -14,6 +14,7 @@ import { confinedProfile, OWN_LOOPBACK_ALWAYS_DENIED } from '@halcyonic/seatbelt
 import { createHostLocations } from '../locations.ts';
 import { commandSha256, managersOn } from '../own-check/own-check.ts';
 import { createTestControlPlane, TEST_CLIENT } from '../testing/harness.ts';
+import { NEVER_PROPOSED_WORDS } from '../workspace-agent/requests.ts';
 import { buildReview } from './reviews.ts';
 
 /** A connected folder with one script, and the plane that sees it as a project. */
@@ -96,6 +97,13 @@ test("test servers are the person's own yes: refused from the assistant and from
   }
   // The model is never offered the field, and the assistant's list names it as never proposed.
   assert.deepEqual(NEVER_PROPOSED['project.own_check.choose'], ['open_ports']);
+  // Every field the assistant never fills has its own words, never the field's raw name (AUDIT2, 2026-11-17).
+  for (const field of new Set(Object.values(NEVER_PROPOSED).flat()))
+    assert.match(
+      NEVER_PROPOSED_WORDS[field] ?? '',
+      /^I can't .+\. You choose that yourself\.$/,
+      field,
+    );
   assert.equal(COMMAND_FIELDS['project.own_check.choose'].open_ports?.from, 'person');
 });
 
