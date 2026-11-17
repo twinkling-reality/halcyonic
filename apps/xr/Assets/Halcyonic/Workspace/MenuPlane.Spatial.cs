@@ -594,7 +594,10 @@ namespace Halcyonic.XR.Workspace
             // measure (FIELD's RoomBarView.MostUnderFootDp, which PartsCheck fails past), about the host's middle, as the plane lays it.
             var largest = LargestUnits(widthDp);
             var foot = Kit.FootLine * GlazeText.Scale;
-            return OnPlane(-largest.x / 2f, largest.x / 2f, foot - RoomType.Units(RoomBarView.MostUnderFootDp), foot + largest.y, at);
+            // A press's halo reaches past the bar's laid edge (RoomButton.HaloReachDp and a dp past its core), so the shelf's characters and
+            // their labels keep their degree from the glass as drawn (the judge room's room-14 at Larger, F300: a label -0.5 degrees into it).
+            var halo = RoomType.Units(RoomButton.HaloReachDp + 1f) * GlazeText.Scale;
+            return OnPlane(-largest.x / 2f - halo, largest.x / 2f + halo, foot - RoomType.Units(RoomBarView.MostUnderFootDp), foot + largest.y, at);
         }
 
         /// <summary>
