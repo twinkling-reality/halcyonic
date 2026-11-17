@@ -119,6 +119,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes, bearing.SpanDegrees);
                     }
                     teams.Add(team);
+                    // A gathered place says its count at its sign, "{n} More", in the frame (AUDIT's 21:5xZ MUST: a hidden team with no sign).
+                    var gatheredHere = tasks.Length - team.Count;
+                    var signView = place.GetComponentsInChildren<RoomPlaceSignView>(false).FirstOrDefault();
+                    if (gatheredHere > 0 && (signView?.Press == null || !signView.Press.gameObject.activeInHierarchy))
+                        failures.Add(project + ": it gathers " + gatheredHere + " and draws no count at its place");
                     // A farther ring stands clear of the nearer ring's team at its bearing, by the stage's own rule.
                     if (bearing.Ring > 0 && index - PlaceBearings.Centres.Length >= 0)
                     {
