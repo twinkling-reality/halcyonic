@@ -269,6 +269,19 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     activity.Record(changes.Events);
                 }
+                // The stood character follows the projection as the product's stage does (CharacterStage.Refresh shows
+                // CharacterPresenter.Present again at every change), so its tag reads the task's state now, never the state it
+                // first stood in (the WORKING tag over a finished turn was the walk's own frozen picture, JUDGE 17:42Z).
+                CharacterView? stoodView = null;
+                string? stoodWorkstream = null;
+                ClientProjection? shownState = null;
+                void FollowCharacter()
+                {
+                    if (stoodView == null || stoodWorkstream == null || State() is not ClientProjection now || ReferenceEquals(now, shownState)) return;
+                    shownState = now;
+                    if (now.Workstreams.TryGetValue(stoodWorkstream, out var nowWork))
+                        stoodView.Show(CharacterPresenter.Present(nowWork, now, live != null || fallback.Current?.Status.IsLive == true));
+                }
                 // The character stands on a shelf the production search keeps clear of the workspace as drawn, and agents are on.
                 void StandCharacter()
                 {
@@ -282,6 +295,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         // The redesign's name tag, as the player attaches it to every character on the shelf (WorkspaceDirector.Attach;
                         // FIELD 06:21Z): under RoomDesign it hides the older label, so the walk's frames show what a person sees.
                         RoomNameTag.On(agent.View);
+                        (stoodView, stoodWorkstream, shownState) = (agent.View, work.WorkstreamId, state);
                         stood.Add(agent.Target);
                         stageParts.Add(agent.View.transform.parent);
                         shelfEnvelope = new Vector3[8];
@@ -299,6 +313,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     Pump();
                     StandCharacter();
+                    FollowCharacter();
                     for (var turn = 0; turn < 4; turn++)
                     {
                         director.UpdateForRender(); director.DrawNow(); plane.Advance(MenuPlane.OpeningSeconds);
