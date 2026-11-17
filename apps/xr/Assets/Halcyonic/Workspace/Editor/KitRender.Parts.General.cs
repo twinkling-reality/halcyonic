@@ -22,7 +22,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] GeneralBaseStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage", "52-general-caps", "52-general-colour", "52-general-shelf", "52-general-recap-words" };
+        private static readonly string[] GeneralBaseStates = { "52-general-settings", "52-general-comfort", "52-general-setting", "52-general-side", "52-general-confirm", "52-general-rows", "52-general-rows-2", "52-general-column", "52-general-usage", "52-general-caps", "52-general-colour", "52-general-shelf", "52-general-code-halora", "52-general-code-plain", "52-general-code-high", "52-general-code-preview-halora", "52-general-code-preview-plain", "52-general-code-preview-high", "52-general-recap-words" };
 
         /// <summary>
         /// Every state twice: as the full bar, and in the kit's narrow form (AUDIT's 17:15Z condition 2, the lead's 17:16Z condition 1),
@@ -56,7 +56,24 @@ namespace Halcyonic.XR.Workspace.Editor
                 RoomDesign.Enabled = true;
                 var comfort = new Comfort();
                 var hub = new SettingsHubColumn(new GeneralRenderHost(), ComfortSettings.Of(comfort, () => { }), new AppearanceSettings(), () => { });
-                if (state != "52-general-settings" && state != "52-general-side") hub.Act(SettingsHubColumn.OpenCategory, Comfort.Heading);
+                // Code Colours (AUDIT's 18:36Z frames): the hub's own category, each choice chosen, then its preview with the example painted
+                // in the theme now in force. The theme in force is the default (Halora) for every other state, so none keeps another's colours.
+                var codeState = state.StartsWith("52-general-code-", StringComparison.Ordinal);
+                CodeThemes.Set(CodeTheme.Halora);
+                if (codeState)
+                {
+                    var preview = state.StartsWith("52-general-code-preview-", StringComparison.Ordinal);
+                    var key = state.Substring(preview ? "52-general-code-preview-".Length : "52-general-code-".Length) switch
+                    {
+                        "plain" => CodeThemes.Key(CodeTheme.Plain),
+                        "high" => CodeThemes.Key(CodeTheme.HighContrast),
+                        _ => CodeThemes.Key(CodeTheme.Halora),
+                    };
+                    hub.Act(SettingsHubColumn.OpenCategory, CodeThemes.Title);
+                    hub.Act(AppearanceColumn.ChooseCode, key);
+                    if (preview) hub.Act(AppearanceColumn.PreviewCode, null);
+                }
+                else if (state != "52-general-settings" && state != "52-general-side") hub.Act(SettingsHubColumn.OpenCategory, Comfort.Heading);
                 if (state == "52-general-setting" && hub.Frame?.Lines.FirstOrDefault(line => line.Action == SettingsColumn.OpenSetting) is PageLine first)
                     hub.Act(SettingsColumn.OpenSetting, first.Key);
                 frame = hub.Frame;
@@ -183,6 +200,20 @@ namespace Halcyonic.XR.Workspace.Editor
             if (state == "52-general-rows-2") while (bar.GeneralPart.Page < bar.GeneralPart.Pages - 1) bar.Turn();
             Debug.Log("Halcyonic: parts: " + name + ": " + (narrow ? "narrow" : floor ? "floor " + width.ToString("0", CultureInfo.InvariantCulture) + " dp" : "full") + " at " + form.LinesAPage + " lines a page, " + bar.GeneralPart.Pages + " page"
                 + (bar.GeneralPart.Pages == 1 ? "" : "s") + (bar.Card != null ? " (" + bar.Card.List.Count + " pressed rows on the first)" : "") + ".");
+            // The preview's example painted in the theme in force (Halora and High Contrast colour its runs; Plain leaves every run white),
+            // its words literal: AUDIT's 18:36Z frames read it with InkBox.
+            if (state.StartsWith("52-general-code-preview-", StringComparison.Ordinal))
+            {
+                view.Show(bar);
+                view.SettleForRender();
+                var facts = view.Facts;
+                var codeLabels = facts == null ? new List<TMPro.TextMeshPro>()
+                    : Enumerable.Range(0, facts.Count).Select(facts.Label).Where(label => CodeThemes.Example.Contains(label.text)).ToList();
+                Require(codeLabels.Count == CodeThemes.Example.Length, "the preview does not draw its example as " + CodeThemes.Example.Length + " rows: " + codeLabels.Count);
+                var paintedRows = codeLabels.Count(label => GlazeRuns.Of(label).Painted.Count > 0);
+                Require(state.EndsWith("-plain", StringComparison.Ordinal) ? paintedRows == 0 : paintedRows == CodeThemes.Example.Length,
+                    "the preview paints " + paintedRows + " of its example's rows in " + CodeThemes.Words(CodeThemes.Current));
+            }
             var confirm = state == "52-general-confirm";
             var paged = state is "52-general-rows" or "52-general-rows-2" or "52-general-column" or "52-general-shelf" or "52-general-recap-words" || (state is "52-general-usage" or "52-general-caps" || measured || confirm) && bar.GeneralPart.Pages > 1;
             // The general reader's card holds pressed rows, never the usage card's gauges (which would mean a specific reader took it).
