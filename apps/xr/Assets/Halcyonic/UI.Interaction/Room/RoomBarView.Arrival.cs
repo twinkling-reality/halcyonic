@@ -22,6 +22,9 @@ namespace Halcyonic.XR.UI
         private Vector3 panelRest;
         private readonly List<TMP_Text> panelWords = new List<TMP_Text>();
 
+        /// <summary>Each panel word's own alpha as laid (Laid) and the alpha the arrival last gave it (Applied).</summary>
+        private readonly Dictionary<TMP_Text, (float Laid, float Applied)> panelWordsRest = new Dictionary<TMP_Text, (float, float)>();
+
         /// <summary>The clock the panel's arrival runs on; renders fix it.</summary>
         public Func<float> PanelClock { get; set; } = () => Time.unscaledTime;
 
@@ -40,6 +43,15 @@ namespace Halcyonic.XR.UI
             }
             panelWords.Clear();
             panel.GetComponentsInChildren(false, panelWords);
+            // Each word's own alpha as laid, so the arrival fades it from there: a quiet label stays quiet, never lifted to full
+            // (the lead's 2026-11-17 01:56Z MUST 2: the row notes read 228 against the words' 233 because this set every alpha to 1).
+            // A word still at the alpha the arrival last gave it was not laid again: it keeps its rest; one laid again brings its own.
+            foreach (var words in panelWords)
+            {
+                if (words == null) continue;
+                if (!(panelWordsRest.TryGetValue(words, out var known) && Mathf.Approximately(words.alpha, known.Applied)))
+                    panelWordsRest[words] = (words.alpha, words.alpha);
+            }
             FollowArrival();
         }
 
@@ -52,7 +64,13 @@ namespace Halcyonic.XR.UI
             panel.Shown = move.Shown;
             panel.transform.localPosition = panelRest + Vector3.down * (move.LowerDp * RoomType.Units(1f));
             foreach (var words in panelWords)
-                if (words != null && !Mathf.Approximately(words.alpha, move.Shown)) words.alpha = move.Shown;
+            {
+                if (words == null) continue;
+                var rest = panelWordsRest.TryGetValue(words, out var known) ? known.Laid : 1f;
+                var applied = rest * move.Shown;
+                if (!Mathf.Approximately(words.alpha, applied)) words.alpha = applied;
+                panelWordsRest[words] = (rest, words.alpha);
+            }
         }
 
         /// <summary>For renders: the panel in its place, whole.</summary>
