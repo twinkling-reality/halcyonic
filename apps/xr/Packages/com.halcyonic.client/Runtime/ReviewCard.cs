@@ -98,18 +98,18 @@ namespace Halcyonic.Client
         /// <summary>
         /// The words that go out, as the card shows them: whole and exactly, character for character (the lead's 12:42Z: what
         /// will run or be sent is never trimmed, unquoted or collapsed), spelled by the start's review's own rule
-        /// (<see cref="NewWorkReview.Safe"/>). One value stands alone under the entry's title, which already says what it is;
+        /// (<see cref="LineWords.Literal"/>, the approval well's marks). One value stands alone under the entry's title, which already says what it is;
         /// where there are several, each follows the host's label for it, so none is taken for another.
         /// </summary>
         public static LineWords? SaidWords(ActionReview review)
         {
             var said = CommandReview.Said(review);
-            if (said.Count == 1) return LineWords.Shown(NewWorkReview.Safe(said[0].Words));
+            if (said.Count == 1) return LineWords.Literal(said[0].Words);
             LineWords? words = null;
             foreach (var each in said)
             {
                 // The host's label through the one counted path a host line takes, never folded quietly here.
-                var one = LineWords.HostPlain((words == null ? "" : " ") + each.Label + ":") + LineWords.Shown(NewWorkReview.Safe(each.Words));
+                var one = LineWords.HostPlain((words == null ? "" : " ") + each.Label + ":") + LineWords.Literal(each.Words);
                 words = words == null ? one : words + one;
             }
             return words;
@@ -126,7 +126,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>A fact's value or an item's name: someone's own name shown exactly, as what the command acts on; else the host's words.</summary>
-        private static LineWords Words(string text, bool theirs) => theirs ? LineWords.Shown(NewWorkReview.Safe(text)) : Host(text);
+        private static LineWords Words(string text, bool theirs) => theirs ? LineWords.Literal(text) : Host(text);
 
         /// <summary>
         /// The host's own words (a title, its line of what happens, a fact it names): upright, through the one counted path a host

@@ -5007,7 +5007,7 @@ presence, contextual moment cards and the on-demand project screen:
   out (`ActionReview.said`, the decision's 04:45Z amendment), those words come first and whole, each after the host's
   label, leaning as outside text, in the kit's paged description, and Confirm stands on the last part only. What goes out
   is shown exactly, character for character, never trimmed, unquoted or collapsed (the lead's 12:42Z): the words given and
-  every name of theirs are spelled by the start's review's own rule (`NewWorkReview.Safe`). The actions:
+  every name of theirs are drawn by the approval well's one rule (`LineWords.Literal`: ↵, ⇥, · and ‹U+XXXX› as marks). The actions:
   the host's Confirm (the main action, one press, carrying the digest), then Cancel. Where it is drawn (the proposed step's card, a
   button's review) is XR's. Tests: `ReviewCardTests`; render check: `65-review-add`,
   `65-review-send`, `65-review-send-next`, `65-review-publish`, `65-review-said` in `KitRender.FileChangeCheck`.

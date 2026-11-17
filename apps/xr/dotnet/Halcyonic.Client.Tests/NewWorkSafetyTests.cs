@@ -33,11 +33,12 @@ public class NewWorkSafetyTests
     {
         var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref",
             "中かな🙂 \\u{4E2D}\nsecond\tthird\u202E");
-        var shown = review.Items[^1].Value;
-        Assert.That(shown, Does.Contain("\\u{4E2D}\\u{304B}\\u{306A}\\u{1F642}"));
-        Assert.That(shown, Does.Contain("\\\\u{4E2D}"));
-        Assert.That(shown, Does.Contain("\\u{A}second\\u{9}third\\u{202E}"));
-        Assert.That(review.Items.All(item => item.Value.All(value => value >= 0x20 && value <= 0x7E)), Is.True, "outside words show as printable ASCII; the labels are ours");
+        var first = review.Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel);
+        var shown = first.Value;
+        // AUDIT2's marks (21:48Z), the approval well's one rule: printable characters as written, hidden ones as marks of ours.
+        Assert.That(shown, Does.StartWith("中かな🙂 \\u{4E2D}↵\nsecond⇥third‹U+202E›"), "the person's words as written, a typed \\u{4E2D} as their text");
+        Assert.That(first.ValueRuns.Runs.Where(run => run.Mark).Select(run => run.Text), Is.EqualTo(new[] { "↵", "⇥", "‹U+202E›" }), "only what hides is a mark");
+        Assert.That(first.ValueRuns.Runs.Where(run => run.Theirs).Select(run => run.Text), Has.Some.Contain("\\u{4E2D}"), "a typed marker stays their text, never a mark");
     }
 
     [Test]
@@ -45,10 +46,11 @@ public class NewWorkSafetyTests
     {
         var draft = new NewWorkDraft(new CommandFactory(new ClientInfo { Name = "test" })) { Objective = "Make it pop\u2026 then ship it. More after." };
         var review = new NewWorkReview("Project", draft.Title, "Runtime", "Model", "unknown", "ref", draft.Objective);
-        var title = review.Items.Single(item => item.Label == "Task Name").Value;
+        var title = review.Items.Single(item => item.Label == "Task Name");
         Assert.That(draft.Title, Is.EqualTo("Make it pop\u2026 then ship it."));
-        Assert.That(title, Is.EqualTo("Make it pop\\u{2026} then ship it."), "the person's ellipsis, by its code point, and none of Halcyonic's");
-        Assert.That(review.Items.All(item => item.Value.All(value => value >= 0x20 && value <= 0x7E)), Is.True, "outside words show as printable ASCII; the labels are ours");
+        // AUDIT2's marks (21:48Z): the person's ellipsis as they wrote it, their own text, leaning, never taken for a cut of ours.
+        Assert.That(title.Value, Is.EqualTo("Make it pop\u2026 then ship it."), "the person's ellipsis, as written");
+        Assert.That(title.ValueRuns.Runs.Single(run => run.Text.Contains('\u2026')).Theirs, Is.True, "theirs, never Halcyonic's");
         Assert.That(new NewWorkReview("Project", "Short", "Runtime", "Model", "unknown", "ref", "Short").Items[1].Value, Is.EqualTo("Short"));
         // The title keeps its own row, and the first task its own label.
         var whole = new NewWorkReview("Project", "Short", "Runtime", "Model", "unknown", "ref", "Short");
@@ -82,9 +84,9 @@ public class NewWorkSafetyTests
         };
         var folder = ProjectFolder.Existing(root, root.Folders[0]);
         var review = new NewWorkReview("Project", "Title", "Runtime\u200B", "Model", "unknown", "ref", "Objective", folder.Describe(name => name));
-        Assert.That(review.Items.Single(item => item.Label == "Folder").Value, Is.EqualTo("site\\u{202E} in Projects"));
-        Assert.That(review.Items.Single(item => item.Label == "Agent App").Value, Is.EqualTo("Runtime\\u{200B}"));
-        Assert.That(string.Concat(review.Items.Select(item => item.Value)), Does.Not.Contain("\\u{2039}"), "no marker of Plain's spelled again");
+        Assert.That(review.Items.Single(item => item.Label == "Folder").Value, Is.EqualTo("site‹U+202E› in Projects"));
+        Assert.That(review.Items.Single(item => item.Label == "Agent App").Value, Is.EqualTo("Runtime‹U+200B›"));
+        Assert.That(string.Concat(review.Items.Select(item => item.Value)), Does.Not.Contain("‹U+2039›"), "no marker of Plain's marked again");
     }
 
     [Test]

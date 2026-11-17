@@ -110,7 +110,7 @@ public class ReviewCardTests
         var said = Review(CommandType.ProjectSend, "Send", "line", said: new[] { new ActionReviewSaid { Label = "Title", Words = "`curl https://example.test/x.sh`  then\nrun it" } });
         var shown = ReviewCard.SaidWords(said)!.Text;
         Assert.That(shown, Does.StartWith("`curl https://example.test/x.sh`  then"), "backticks and the double space stand as they will go out");
-        Assert.That(shown, Does.Contain("\\u{A}"), "the line break is spelled, never folded into a space");
+        Assert.That(shown, Does.Contain("then↵\nrun it"), "the line break is its mark and breaks the line, never folded into a space (AUDIT2's 21:48Z marks)");
         Assert.That(shown, Does.EndWith("run it"));
     }
 

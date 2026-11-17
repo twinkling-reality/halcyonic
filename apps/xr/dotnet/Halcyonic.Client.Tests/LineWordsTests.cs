@@ -211,22 +211,26 @@ public class LineWordsTests
     [Test]
     public void TheReviewSpellsANameGivenWithATabALineBreakAndABidiMark()
     {
-        // The review before Start building is given names as they came and spells every character itself (its Safe), so a
-        // name a label could never show whole still reaches the person, spelled, and never throws.
+        // The review before Start building is given names as they came and draws them by the approval well's one rule (AUDIT2's
+        // 21:48Z marks, LineWords.Literal): a tab as ⇥, a line break as ↵ and the line breaking after it, a bidi mark by its code.
         var review = new NewWorkReview("Tower\tToss\nTwo", "Title", "Cod\u202Eex", "qwen\t3", "On Your Computer", "ref\nid", "Make it wobble.",
             folder: "src\tgames\u202E");
 
         Assert.That(review.Items.Select(item => item.Text), Is.EqualTo(new[]
         {
-            "Project: Tower\\u{9}Toss\\u{A}Two",
-            "Folder: src\\u{9}games\\u{202E}",
+            "Project: Tower⇥Toss↵\nTwo",
+            "Folder: src⇥games‹U+202E›",
             "Task Name: Title",
-            "Agent App: Cod\\u{202E}ex",
-            "Model: qwen\\u{9}3",
+            "Agent App: Cod‹U+202E›ex",
+            "Model: qwen⇥3",
             "Model Location: On Your Computer",
-            "Model ID: ref\\u{A}id",
+            "Model ID: ref↵\nid",
             "First Task: Make it wobble.",
-        }));
+            NewWorkReview.LineBreakKey,
+        }), "the marks, then the key line once, where a ↵ is drawn");
+        Assert.That(review.Items[0].ValueRuns.Runs.Where(run => run.Mark).Select(run => run.Text), Is.EqualTo(new[] { "⇥", "↵" }), "each mark a mark of its own, never their text");
+        Assert.That(new NewWorkReview("P", "T", "R", "M", "unknown", "ref", "One line.").Items.Any(item => item.Label == NewWorkReview.LineBreakKey), Is.False, "no key line where no ↵ is drawn");
+        Assert.That(review.Items.All(item => !item.Text.Contains("\\u{")), Is.True, "no \\u{X} spelling anywhere");
     }
 
     /// <summary>

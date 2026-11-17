@@ -116,12 +116,12 @@ namespace Halcyonic.Client
     /// <remarks>
     /// Values are text from outside: the person's own words, names from the Mac and from runtimes,
     /// given as they are, never already shown through <see cref="LabelText.Plain"/>, so nothing is
-    /// spelled twice. The bundled headset font cannot show every character, so every non-ASCII and
-    /// control character is spelled as its code point, <c>\u{HEX}</c>, and a typed backslash is
-    /// doubled so it can never read as one of those. Halcyonic's own words are never spelled: its
-    /// labels are ASCII, and the ellipsis after a title it cut shows as written, so a literal "…" in
-    /// the request is always Halcyonic's. Nothing else is shortened: the pages together show every
-    /// character.
+    /// spelled twice. They are drawn by the approval well's one rule (<see cref="LineWords.Literal"/>, AUDIT2's
+    /// marks of 2026-11-17T21:48Z): every printable character as written, a line break as ↵ with the line
+    /// breaking after it, a tab as ⇥, a space at an edge as ·, and every other hidden character as its code
+    /// point (‹U+202E›), each mark a run of Halcyonic's own, so typed marks stay the person's text; under the
+    /// items, "↵ marks a new line." once, where a ↵ is drawn. Nothing is shortened: the pages together show
+    /// every character.
     /// </remarks>
     public sealed class NewWorkReview
     {
@@ -200,7 +200,7 @@ namespace Halcyonic.Client
             else if (folder != null) Add("Folder", folder, ReviewItemKind.Folder);
             if (startFrom != null) Add(StarterChoice.ReviewLabel, startFrom, ReviewItemKind.Starter);
             // A task with nothing to name it by is named in Halcyonic's own word, upright, never as if the person typed it (AUDIT2).
-            var named = title == NewWorkDraft.UnnamedTask && NewWorkDraft.NamesNothing(objective) ? LineWords.Ours(title) : LineWords.Shown(Safe(title));
+            var named = title == NewWorkDraft.UnnamedTask && NewWorkDraft.NamesNothing(objective) ? LineWords.Ours(title) : LineWords.Literal(title);
             items.Add(new ReviewItem("Task Name", named, ReviewItemKind.TaskName));
             Add("Agent App", runtime, ReviewItemKind.AgentApp);
             Add("Model", model, ReviewItemKind.Model);
@@ -211,7 +211,12 @@ namespace Halcyonic.Client
             Add(FirstTaskLabel, objective, ReviewItemKind.FirstTask);
             // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).
             foreach (var note in TaskWarnings.Of(objective)) items.Add(new ReviewItem(note, LineWords.None));
+            // AUDIT2's key line (21:48Z), only where a line break's mark is drawn: what the mark means, once.
+            if (items.Any(item => item.ValueRuns.Runs.Any(run => run.Mark && run.Text.Contains(LineWords.LineBreakMark)))) items.Add(new ReviewItem(LineBreakKey, LineWords.None));
         }
+
+        /// <summary>What the line break's mark means, under the items where one is drawn (AUDIT2 21:48Z): the same words as the approval's well.</summary>
+        public const string LineBreakKey = LineWords.LineBreakMark + " marks a new line.";
 
         public IReadOnlyList<ReviewItem> Items => items;
 
@@ -256,7 +261,7 @@ namespace Halcyonic.Client
             && items.Zip(other.items, (mine, theirs) => mine.Text == theirs.Text).All(same => same);
 
         /// <summary>Whether the review shows <paramref name="value"/>, spelled as it spells it, under <paramref name="label"/>.</summary>
-        public bool Shows(string label, string value) => items.Any(item => item.Label == label && item.Value == Safe(value));
+        public bool Shows(string label, string value) => items.Any(item => item.Label == label && item.Value == LineWords.Literal(value).Text);
 
         /// <summary>Every line of every item has been drawn in the current layout.</summary>
         public bool AllDrawn => Paginated && drawn.All(lines => lines.All(line => line));
@@ -387,30 +392,19 @@ namespace Halcyonic.Client
 
         private void Add(string label, string value, ReviewItemKind kind) => Add(label, LineWords.Unspelled(value), kind);
 
-        /// <summary>An item whose value is runs: outside text spelled by <see cref="Safe"/>, Halcyonic's words as written.</summary>
-        private void Add(string label, LineWords value, ReviewItemKind kind) => items.Add(new ReviewItem(label,
-            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Shown(Safe(run.Text)) : LineWords.Written(run.Text))), kind));
-
-        // The bundled TMP font cannot show every character. Spell each non-ASCII code point and
-        // control character in ASCII, and double a literal backslash so a typed marker differs.
         /// <summary>
-        /// Text that goes out, spelled for a label character for character: every printable character as it is, a backslash
-        /// doubled, anything else as its code point. Shared by every review of what will be sent (SCREENS's ReviewCard too).
+        /// An item whose value is runs: outside text drawn literally (<see cref="LineWords.Literal"/>, the approval well's one rule: a line
+        /// break as ↵, a tab as ⇥, an edge space as ·, any other hidden character as its code point), Halcyonic's words as written.
         /// </summary>
-        internal static string Safe(string value)
-        {
-            var result = new StringBuilder(value.Length);
-            for (var index = 0; index < value.Length; index++)
-            {
-                var unit = value[index];
-                var paired = char.IsHighSurrogate(unit) && index + 1 < value.Length && char.IsLowSurrogate(value[index + 1]);
-                var codePoint = paired ? char.ConvertToUtf32(unit, value[index + 1]) : unit;
-                if (unit == '\\') result.Append("\\\\");
-                else if (codePoint >= 0x20 && codePoint <= 0x7E) result.Append(unit);
-                else result.Append("\\u{").Append(codePoint.ToString("X", CultureInfo.InvariantCulture)).Append('}');
-                if (paired) index++;
-            }
-            return result.ToString();
-        }
+        private void Add(string label, LineWords value, ReviewItemKind kind) => items.Add(new ReviewItem(label,
+            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Literal(run.Text) : LineWords.Written(run.Text))), kind));
+
+        /// <summary>
+        /// An item whose value is runs: outside text drawn literally (<see cref="LineWords.Literal"/>, the approval well's one rule: a line
+        /// break as ↵, a tab as ⇥, an edge space as ·, any other hidden character as its code point), Halcyonic's words as written.
+        /// </summary>
+        private void Add(string label, LineWords value, ReviewItemKind kind, string? shownLabel = null) => items.Add(new ReviewItem(label,
+            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Literal(run.Text) : LineWords.Written(run.Text))), kind, shownLabel));
+
     }
 }
