@@ -422,4 +422,33 @@ public class RoomLayoutTests
         }
         Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.TeamScreen(Eyes, 0f, 1.4f, 0f));
     }
+
+    [TestCase(6)]
+    [TestCase(9)]
+    public void MoreTeamScreensThanStandAtOnceArePagedNeverThrown(int count)
+    {
+        // TS1: past what fits, the rest wait on further pages, every page apart, in reach and out of the clear front.
+        var places = Enumerable.Range(0, count).Select(index => PlaceBearings.Of(index).YawDegrees).OrderBy(yaw => yaw).ToArray();
+        var held = RoomLayout.ScreensHeld(RoomLayout.TeamScreenDegrees, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+        Assert.That(held, Is.EqualTo(4), "two a side at 24 degrees between the clear front and the seated reach");
+        var seen = new System.Collections.Generic.HashSet<int>();
+        var first = RoomLayout.ScreensPaged(places, RoomLayout.TeamScreenDegrees, 0, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+        Assert.That(first.Pages, Is.EqualTo((count + held - 1) / held));
+        for (var page = 0; page < first.Pages; page++)
+        {
+            var shown = RoomLayout.ScreensPaged(places, RoomLayout.TeamScreenDegrees, page, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+            Assert.That(shown.Shown.Length, Is.LessThanOrEqualTo(held));
+            Assert.That(shown.Waiting, Is.EqualTo(count - shown.Shown.Length));
+            foreach (var index in shown.Shown) Assert.That(seen.Add(index), Is.True, "a screen on two pages");
+            for (var index = 1; index < shown.Bearings.Length; index++)
+                Assert.That(shown.Bearings[index] - shown.Bearings[index - 1], Is.GreaterThanOrEqualTo(RoomLayout.TeamScreenDegrees + RoomLayout.ScreensGapDegrees - 1e-3f));
+            foreach (var bearing in shown.Bearings)
+            {
+                Assert.That(MathF.Abs(bearing) - RoomLayout.TeamScreenDegrees / 2f, Is.GreaterThanOrEqualTo(RoomLayout.ClearAheadDegrees - 1e-3f));
+                Assert.That(MathF.Abs(bearing) + RoomLayout.TeamScreenDegrees / 2f, Is.LessThanOrEqualTo(RoomLayout.SeatedReachDegrees + 1e-3f));
+            }
+        }
+        Assert.That(seen.Count, Is.EqualTo(count), "every screen stands on some page");
+        Assert.That(RoomLayout.ScreensPaged(places, RoomLayout.TeamScreenDegrees, first.Pages, clearAheadDegrees: RoomLayout.ClearAheadDegrees).Page, Is.EqualTo(0), "past the last page wraps to the first");
+    }
 }

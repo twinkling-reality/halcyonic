@@ -72,6 +72,34 @@ namespace Halcyonic.Client
     /// its bar beneath, the moment slot beside the task's character, the reading surface about 1 m ahead, and where they
     /// fold. No surface stands nearer than Meta's ray-cast reach or farther (0.8 to 3 m).
     /// </summary>
+    /// <summary>One page of the room's screens (RoomLayout.ScreensPaged): which stand, where, and how many wait.</summary>
+    public readonly struct ScreensPage
+    {
+        public ScreensPage(int[] shown, float[] bearings, int page, int pages, int total)
+        {
+            Shown = shown;
+            Bearings = bearings;
+            Page = page;
+            Pages = pages;
+            Total = total;
+        }
+
+        /// <summary>The indexes, into the wanted list, of the screens standing on this page.</summary>
+        public int[] Shown { get; }
+
+        /// <summary>Where each of <see cref="Shown"/> stands.</summary>
+        public float[] Bearings { get; }
+
+        public int Page { get; }
+
+        public int Pages { get; }
+
+        public int Total { get; }
+
+        /// <summary>How many screens wait off this page, for the caller to name.</summary>
+        public int Waiting => Total - Shown.Length;
+    }
+
     public static class RoomLayout
     {
         internal const float RadiansPerDegree = MathF.PI / 180f;
@@ -198,6 +226,45 @@ namespace Halcyonic.Client
             }
             for (var index = 0; index < count; index++) stood[index] = Wrap(ahead + stood[index]);
             return stood;
+        }
+
+        /// <summary>
+        /// How many screens <paramref name="widthDegrees"/> across stand at once round a seated person, none covering another, all within
+        /// <paramref name="reachDegrees"/> and out of <paramref name="clearAheadDegrees"/> (AUDIT3's TS1): the number is the room's own
+        /// arithmetic, the seated reach and the clear front the lead set and the width FIELD measured legible, never a figure typed in.
+        /// </summary>
+        public static int ScreensHeld(float widthDegrees, float gapDegrees = ScreensGapDegrees, float reachDegrees = SeatedReachDegrees, float clearAheadDegrees = 0f)
+        {
+            Angle(widthDegrees, nameof(widthDegrees));
+            var apart = widthDegrees + gapDegrees;
+            if (clearAheadDegrees <= 0f) return 2f * reachDegrees < widthDegrees ? 0 : 1 + (int)MathF.Floor((2f * reachDegrees - widthDegrees) / apart + 1e-4f);
+            var side = reachDegrees - clearAheadDegrees;
+            return side < widthDegrees ? 0 : 2 * (1 + (int)MathF.Floor((side - widthDegrees) / apart + 1e-4f));
+        }
+
+        /// <summary>
+        /// The screens standing on <paramref name="page"/> of <paramref name="wantedBearings"/> (AUDIT3's TS1, the lead's "no hard cap hides
+        /// in a throw"): as many as <see cref="ScreensHeld"/> stand at once, in the places' order, fitted by <see cref="Screens"/>; the rest
+        /// wait on the following pages, which the caller names by their count. A page past the last wraps to the first.
+        /// </summary>
+        public static ScreensPage ScreensPaged(System.Collections.Generic.IReadOnlyList<float> wantedBearings, float widthDegrees, int page, float ahead = 0f,
+            float gapDegrees = ScreensGapDegrees, float reachDegrees = SeatedReachDegrees, float clearAheadDegrees = 0f)
+        {
+            if (wantedBearings == null) throw new ArgumentNullException(nameof(wantedBearings));
+            var held = ScreensHeld(widthDegrees, gapDegrees, reachDegrees, clearAheadDegrees);
+            var count = wantedBearings.Count;
+            if (held < 1 || count == 0) return new ScreensPage(Array.Empty<int>(), Array.Empty<float>(), 0, count == 0 ? 0 : 1, count);
+            var pages = (count + held - 1) / held;
+            var shownPage = ((page % pages) + pages) % pages;
+            var first = shownPage * held;
+            var shown = new int[Math.Min(held, count - first)];
+            var wanted = new float[shown.Length];
+            for (var index = 0; index < shown.Length; index++)
+            {
+                shown[index] = first + index;
+                wanted[index] = wantedBearings[first + index];
+            }
+            return new ScreensPage(shown, Screens(wanted, widthDegrees, ahead, gapDegrees, reachDegrees, clearAheadDegrees), shownPage, pages, count);
         }
 
         /// <summary>

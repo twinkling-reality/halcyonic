@@ -1041,10 +1041,15 @@ namespace Halcyonic.XR.Workspace
             teamsWanted.Sort((a, b) => a.Wanted.CompareTo(b.Wanted));
             teamBearings.Clear();
             foreach (var wanted in teamsWanted) teamBearings.Add(plane.Direction.Yaw + wanted.Wanted);
-            var bearings = RoomLayout.Screens(teamBearings, RoomLayout.TeamScreenDegrees, plane.Direction.Yaw, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+            // Paged past what stands at once (AUDIT3's TS1), never thrown; the open set (WorkspacePresentationState.ScreensMost) keeps it to
+            // one page today.
+            var page = RoomLayout.ScreensPaged(teamBearings, RoomLayout.TeamScreenDegrees, 0, plane.Direction.Yaw, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
             teamsStood.Clear();
-            for (var index = 0; index < teamsWanted.Count; index++)
-                teamsStood.Add((teamsWanted[index].ProjectId, teamsWanted[index].Model, bearings[index], teamsWanted[index].Distance));
+            for (var at = 0; at < page.Shown.Length; at++)
+            {
+                var index = page.Shown[at];
+                teamsStood.Add((teamsWanted[index].ProjectId, teamsWanted[index].Model, page.Bearings[at], teamsWanted[index].Distance));
+            }
             plane.ShowTeamScreens(teamsStood, eyes);
         }
 
