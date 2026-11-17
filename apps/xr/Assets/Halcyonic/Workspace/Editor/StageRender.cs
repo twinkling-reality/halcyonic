@@ -1096,7 +1096,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// Keep things still (ADR 0027) on the stage: stepped at the headset's rate for three seconds to stand at rest,
         /// then a second more, every character is the same picture, its pose, its surface's flow, its sweep ring and
-        /// Waiting for you's halo all standing; let move again, the same second changes the picture, so the check
+        /// Waiting for you's floor ring all standing; let move again, the same second changes the picture, so the check
         /// sees motion where there is some. Sixty frames of the stage kept still allocate nothing.
         /// </summary>
         private static IEnumerable<string> KeptStill(string name, string folder, Camera camera, RenderTexture texture, List<(CharacterView View, CharacterTarget Target)> characters)

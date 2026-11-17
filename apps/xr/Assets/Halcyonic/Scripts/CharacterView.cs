@@ -104,8 +104,6 @@ namespace Halcyonic.XR
 
         /// <summary>The floor ring's size, in the testing band's own units times the body's scale (its radius 1.3 body units).</summary>
         public const float NeedsYouRingScale = 1f;
-        private static readonly Color VerifyingLight = new Color(0.84f, 0.95f, 1f);
-        private static readonly Color UnknownLight = new Color(0.6f, 0.64f, 0.7f);
         private static readonly Color RingColor = new Color(0.85f, 0.96f, 1f);
 
         private Transform body = null!;
@@ -120,7 +118,6 @@ namespace Halcyonic.XR
 
         /// <summary>How far toward white a feature's colour is from its body's.</summary>
         private const float FeatureLighten = 0.35f;
-        private MeshRenderer haloRenderer = null!;
         private Transform ring = null!;
         private MeshRenderer ringRenderer = null!;
         private CharacterLabelView label = null!;
@@ -137,7 +134,6 @@ namespace Halcyonic.XR
         private TMP_Text[]? shelfWords;
         private MeshFilter[]? shelfBadgeMeshes;
         private MaterialPropertyBlock bodyBlock = null!;
-        private MaterialPropertyBlock haloBlock = null!;
         private MaterialPropertyBlock ringBlock = null!;
         private CharacterIdentity identity = null!;
         private Vector4 bodyColor;
@@ -180,8 +176,6 @@ namespace Halcyonic.XR
         private float fog;
         private float saturation = 1f;
         private float ghost;
-        private float haloStrength;
-        private Color haloColor = Color.black;
         private float ringAlpha;
         private float floorRing;
         private MeshRenderer floorRingRenderer = null!;
@@ -211,7 +205,7 @@ namespace Halcyonic.XR
             {
                 bodyOnlyPresentation = value;
                 if (labels != null) labels.gameObject.SetActive(!value);
-                if (value) { haloRenderer.enabled = false; ringRenderer.enabled = false; floorRingRenderer.enabled = false; }
+                if (value) { ringRenderer.enabled = false; floorRingRenderer.enabled = false; }
             }
         }
 
@@ -430,8 +424,8 @@ namespace Halcyonic.XR
         public float ClockForRender => clock;
         public Vector4 BodyColourForRender => bodyColor;
 
-        /// <summary>For the editor's renders: how its eyes stand and how strong its light is now.</summary>
-        public (float Open, float LookX, float LookY, float Ink, float Halo, float Uneven) PoseForRender => (eyeOpen, lookX, lookY, eyeInk, haloStrength, eyeUneven);
+        /// <summary>For the editor's renders: how its eyes stand now.</summary>
+        public (float Open, float LookX, float LookY, float Ink, float Uneven) PoseForRender => (eyeOpen, lookX, lookY, eyeInk, eyeUneven);
 
         /// <summary>For the editor's renders: the eyes' drawn shape, 0 open, 1 closed, 2 crossed, 3 flat, as the shader takes it.</summary>
         public float EyeKindForRender => eyeKind;
@@ -513,10 +507,6 @@ namespace Halcyonic.XR
                 featureColor = new Vector4(lighter.r, lighter.g, lighter.b, 1f);
             }
 
-            haloRenderer = CreateRenderer(body, "Halo", CharacterMeshes.Quad(), CharacterMaterials.Halo);
-            haloRenderer.transform.localPosition = new Vector3(0f, 0f, -0.3f * BodyScale);
-            haloRenderer.transform.localScale = Vector3.one * (4.4f * BodyScale);
-            haloRenderer.enabled = false;
 
             ringRenderer = CreateRenderer(body, "Ring", CharacterMeshes.Band(), CharacterMaterials.Ring);
             ring = ringRenderer.transform;
@@ -536,7 +526,6 @@ namespace Halcyonic.XR
             label = CharacterLabelView.Create(labels);
 
             bodyBlock = new MaterialPropertyBlock();
-            haloBlock = new MaterialPropertyBlock();
             ringBlock = new MaterialPropertyBlock();
             floorRingBlock = new MaterialPropertyBlock();
         }
@@ -656,7 +645,7 @@ namespace Halcyonic.XR
         /// Shows a pose of its life on today's body: the posture its cues hold (<see cref="HeldLift"/>, which placement reads)
         /// with the life's float and hop on top, the life's blinks and pulses over the eyes its state draws, the look's turn
         /// and the accents on the body, the eyes' shift in the shader, and the arrival's and fold's size. Its eyes' shapes,
-        /// surface, halo, ring and colour stay as its cues and its identity draw them.
+        /// surface, ring and colour stay as its cues and its identity draw them.
         /// </summary>
         private void ShowBody(CharacterPose pose, CharacterAim aim, float deltaTime, bool snap)
         {
@@ -728,31 +717,8 @@ namespace Halcyonic.XR
                 : cues.Cracked ? 0.72f
                 : cues.Fogged ? 0.45f
                 : 1f;
-            // The light around it; a waiting one's pulse breathes with the life, and stands while kept still.
-            var targetHaloColor = haloColor;
-            var targetHalo = 0f;
-            switch (cues.Halo)
-            {
-                // Waiting on the person: no light behind the body; the ring on the floor says it (the lead's 2026-11-17T02:02Z).
-                case CharacterHalo.NeedsYou:
-                    targetHalo = 0f;
-                    break;
-                // Failed and finished glow no more (the lead's 2026-11-17T02:15Z): no red, no green, no ring; the shelf tag's state
-                // word and its thin white mark say them. Needs You alone calls the person over, by its floor ring.
-                case CharacterHalo.Failed:
-                case CharacterHalo.Finished:
-                    targetHalo = 0f;
-                    break;
-                case CharacterHalo.Verifying:
-                    targetHaloColor = VerifyingLight;
-                    targetHalo = 0.28f;
-                    break;
-                case CharacterHalo.Unknown:
-                    targetHaloColor = UnknownLight;
-                    targetHalo = 0.28f;
-                    break;
-            }
-            if (cues.Ghosted) targetHalo *= 0.3f;
+            // No light stands behind a character (the lead's 2026-11-17T02:15Z and 02:16Z): its tag's state word says its state, the
+            // testing ring's motion says it checks, and Needs You alone calls the person over, by its amber floor ring.
             var targetRing = cues.Ring ? 1f : 0f;
             var targetFloorRing = cues.Halo == CharacterHalo.NeedsYou ? (cues.Ghosted ? 0.3f : 1f) : 0f;
             eyeOpen = Mathf.Lerp(eyeOpen, targetOpen, quick);
@@ -776,8 +742,6 @@ namespace Halcyonic.XR
             fog = Mathf.Lerp(fog, targetFog, ease);
             saturation = Mathf.Lerp(saturation, targetSaturation, ease);
             ghost = Mathf.Lerp(ghost, targetGhost, ease);
-            haloColor = snap || haloStrength < 0.01f ? targetHaloColor : Color.Lerp(haloColor, targetHaloColor, ease);
-            haloStrength = Mathf.Lerp(haloStrength, targetHalo, ease);
             ringAlpha = Mathf.Lerp(ringAlpha, targetRing, ease);
             floorRing = snap ? targetFloorRing : Mathf.Lerp(floorRing, targetFloorRing, ease);
             if (snap) eyeKind = nextEyeKind;
@@ -792,10 +756,6 @@ namespace Halcyonic.XR
             var scale = Mathf.Max(transform.lossyScale.x, 1e-4f);
             homeOffset = HasHome ? new Vector3(-(float)pose.XM, 0f, -(float)pose.ZM) / scale : Vector3.zero;
             body.localScale = Vector3.one * (float)pose.Scale;
-            // The halo is a light behind it, not part of the turn: it stays upright where it stood.
-            var unturn = Quaternion.Inverse(body.localRotation);
-            haloRenderer.transform.localRotation = unturn;
-            haloRenderer.transform.localPosition = unturn * new Vector3(0f, 0f, -0.3f * BodyScale);
             Apply(surfaceClock);
         }
 
@@ -857,13 +817,6 @@ namespace Halcyonic.XR
                 bodyBlock.SetVector(BodyColorId, featureColor);
                 bodyBlock.SetFloat(EyeInkId, 0f);
                 featureRenderer.SetPropertyBlock(bodyBlock);
-            }
-
-            haloRenderer.enabled = !bodyOnlyPresentation && haloStrength > 0.004f;
-            if (haloRenderer.enabled)
-            {
-                haloBlock.SetColor(ColorId, new Color(haloColor.r, haloColor.g, haloColor.b, haloStrength));
-                haloRenderer.SetPropertyBlock(haloBlock);
             }
 
             floorRingRenderer.enabled = !bodyOnlyPresentation && floorRing > 0.004f;

@@ -23,7 +23,6 @@ namespace Halcyonic.XR
 
         private static Material? body;
         private static Material? feature;
-        private static Material? halo;
         private static Material? ring;
         private static Texture2D? noise;
 
@@ -41,9 +40,6 @@ namespace Halcyonic.XR
                 return feature;
             }
         }
-
-        /// <summary>The glow behind a character (Halcyonic/Soft Shape, disc profile).</summary>
-        public static Material Halo => Load(ref halo, "Halo");
 
         /// <summary>The ring that sweeps around a character running tests (Halcyonic/Soft Shape, band profile).</summary>
         public static Material Ring => Load(ref ring, "Ring");
@@ -98,7 +94,6 @@ namespace Halcyonic.XR
                 feature = null;
             }
             body = null;
-            halo = null;
             ring = null;
             noise = null;
         }

@@ -2107,9 +2107,9 @@ scripts use only long-stable core Unity APIs:
 - `CharacterView` draws a `CharacterPresentation` as a bot
   ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
   generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
-  shader, a halo and a testing ring behind and around it (the halo only checking and can't tell, in a pale
-  neutral light; since the lead's 2026-11-17T02:15Z no red glow behind Failed and no green behind Finished,
-  their tag's state word says them, and Needs You alone has a light, the amber floor ring under it), and its label underneath
+  shader, a testing ring around it while it checks, and no light behind it (the lead's 2026-11-17T02:15Z and
+  02:16Z: its tag's state word says its state, and Needs You alone has a light, the amber floor ring under it),
+  and its label underneath
   (`CharacterLabelView`, [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)):
   the state badge on the title plate's top edge, the title on the plate in at most two lines,
   ending in an ellipsis, and the mark on the plate's bottom edge, whose edge is then dashed. The

@@ -64,13 +64,13 @@ namespace Halcyonic.XR.Workspace.Editor
             return (CharacterView.Create(root.transform, "w-life"), root);
         }
 
-        /// <summary>Everything the figure shows that can move: the body's place, turn and size, its eyes and its light.</summary>
+        /// <summary>Everything the figure shows that can move: the body's place, turn and size, and its eyes.</summary>
         private static string Pose(CharacterView view)
         {
             var body = view.Body;
-            var (open, lookX, lookY, ink, halo, uneven) = view.PoseForRender;
+            var (open, lookX, lookY, ink, uneven) = view.PoseForRender;
             return string.Join(" ", new[] { body.localPosition.x, body.localPosition.y, body.localPosition.z, body.localRotation.x, body.localRotation.y,
-                    body.localRotation.z, body.localRotation.w, body.localScale.x, open, lookX, lookY, ink, halo, uneven }
+                    body.localRotation.z, body.localRotation.w, body.localScale.x, open, lookX, lookY, ink, uneven }
                 .Select(v => v.ToString("R", CultureInfo.InvariantCulture)));
         }
 
@@ -188,8 +188,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Run(view, 0.5f);
                     view.Show(Presentation(CharacterActivity.TurnFinished), shown);
                     Run(view, 1.5f);
-                    var halo = view.PoseForRender.Halo;
-                    if (halo > 0.01f) failures.Add(name + ": a light glows (" + halo.ToString("0.00", CultureInfo.InvariantCulture) + ") behind a finished character" + (lit ? " with its passed check" : ""));
+                    // No light renderer at all: nothing glows behind a character (the lead's 2026-11-17T02:16Z).
+                    if (view.GetComponentsInChildren<MeshRenderer>(false).Any(each => each.enabled && each.name == "Halo"))
+                        failures.Add(name + ": a light glows behind a finished character" + (lit ? " with its passed check" : ""));
                     if (view.NeedsYouRing != null) failures.Add(name + ": the floor ring stands under a finished character");
                 }
                 finally { UnityEngine.Object.DestroyImmediate(root); }
