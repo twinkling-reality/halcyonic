@@ -851,7 +851,28 @@ namespace Halcyonic.Client
                 pictureTakenAt: null,
                 barOpen,
                 working,
-                newestChangeAt: newestChangeAt);
+                newestChangeAt: newestChangeAt).WithAgents(SwarmOf(project, state, isLive));
+        }
+
+        /// <summary>
+        /// The project's agents as rows where more than one task works on it (limit #14), in the shelf's order: each its task's name, its
+        /// agent app, its own state (the tag's word, so screen, tag and card say one thing), and whether it needs the person. Empty for one
+        /// task or none.
+        /// </summary>
+        public static IReadOnlyList<KitScreenAgent> SwarmOf(ProjectView project, ClientProjection state, bool isLive = true)
+        {
+            var tasks = OrderWorkstreams(state.Workstreams.Values.Where(item => item.ProjectId == project.ProjectId));
+            if (tasks.Count < 2) return Array.Empty<KitScreenAgent>();
+            return tasks.Select(task =>
+            {
+                var execution = state.CurrentExecution(task);
+                var agent = CaptureNames.AgentName(execution != null
+                    ? (state.RuntimeOf(execution)?.DisplayName ?? execution.Runtime.DisplayName)
+                    : (state.Runtimes.FirstOrDefault()?.DisplayName ?? "Agent"));
+                var presented = CharacterPresenter.Present(task, state, isLive);
+                return new KitScreenAgent(task.WorkstreamId, LineWords.TheirName(task.Title), agent, CharacterPresenter.TagWord(presented),
+                    task.Attention.Level == AttentionLevel.ActionRequired);
+            }).ToList();
         }
 
         /// <summary>Returns the primary workstream for <paramref name="projectId"/> in <paramref name="state"/>, ordered by priority, or null.</summary>

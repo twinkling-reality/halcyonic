@@ -51,6 +51,20 @@ namespace Halcyonic.Client
         /// <summary>The project's name, theirs.</summary>
         public string Project { get; }
 
+        /// <summary>
+        /// Where several agents work on the project at once (a swarm, the lead's 2026-11-17T19:17Z limit #14): one row each, in the
+        /// shelf's order, its task's name, its agent app and its own state, each opening that task's own steps; empty where one task
+        /// or none stands, which the screen shows as before.
+        /// </summary>
+        public IReadOnlyList<KitScreenAgent> Agents { get; private set; } = Array.Empty<KitScreenAgent>();
+
+        /// <summary>This screen with <paramref name="agents"/> as its swarm's rows.</summary>
+        public KitScreenModel WithAgents(IReadOnlyList<KitScreenAgent> agents)
+        {
+            Agents = agents;
+            return this;
+        }
+
         /// <summary>The task's state in StateLanguage's words.</summary>
         public string State { get; }
 
@@ -151,5 +165,32 @@ namespace Halcyonic.Client
             KitScreenAction.Close => "Close",
             _ => throw new ArgumentOutOfRangeException(nameof(action)),
         };
+    }
+
+    /// <summary>One agent's row on a swarm's project screen: its task, its agent app, its state, and whether it waits on the person.</summary>
+    public sealed class KitScreenAgent
+    {
+        public KitScreenAgent(string workstreamId, LineWords task, string agent, string state, bool needsYou)
+        {
+            WorkstreamId = workstreamId;
+            Task = task;
+            Agent = agent;
+            State = state;
+            NeedsYou = needsYou;
+        }
+
+        /// <summary>The task the row opens the steps of (<see cref="KitScreenAction.Steps"/>, keyed by this id).</summary>
+        public string WorkstreamId { get; }
+
+        /// <summary>The task's name, theirs.</summary>
+        public LineWords Task { get; }
+
+        /// <summary>The agent app's name, as the shelf's plate names it.</summary>
+        public string Agent { get; }
+
+        /// <summary>The task's state in StateLanguage's words, the tag's own (CharacterPresenter.TagWord).</summary>
+        public string State { get; }
+
+        public bool NeedsYou { get; }
     }
 }
