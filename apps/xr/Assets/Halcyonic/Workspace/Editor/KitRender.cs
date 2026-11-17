@@ -1022,6 +1022,9 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 if (string.IsNullOrEmpty(label.text) || GlazeIcons.IsIcon(label) || label.textInfo == null || label.textInfo.characterCount == 0) continue;
                 var bounds = label.textBounds;
+                // Where the band lifts its showing part's letters in the mesh (RoomBand.Place), the glyph quads move with them.
+                var lift = Vector3.zero;
+                int liftFrom = 0, liftTo = int.MaxValue;
                 // The band's label holds every part's letters, the other parts' folded away and the part showing lifted to its
                 // first rows: the words that show stand in those rows, and their ground is measured there.
                 if (label.GetComponentInParent<RoomBand>() is RoomBand band && ReferenceEquals(band.Label, label) && band.Words is RoomWords part
@@ -1031,6 +1034,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     var down = part.Parts >= 2 ? (RoomWords.LinesAPart - part.Count) / 2f * KitType.LinePitch(label) : 0f;
                     var top = label.textInfo.lineInfo[0].ascender - down;
                     var foot = label.textInfo.lineInfo[part.Count - 1].descender - down;
+                    if (part.First < label.textInfo.lineCount)
+                    {
+                        lift = new Vector3(0f, label.textInfo.lineInfo[0].baseline - label.textInfo.lineInfo[part.First].baseline - down, 0f);
+                        liftFrom = part.First;
+                        liftTo = part.First + part.Count;
+                    }
                     bounds = new Bounds(new Vector3(bounds.center.x, (top + foot) / 2f, 0f), new Vector3(bounds.size.x, top - foot, 0f));
                 }
                 var min = new Vector2(float.MaxValue, float.MaxValue);
@@ -1058,9 +1067,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var index = 0; index < label.textInfo.characterCount; index++)
                 {
                     var character = label.textInfo.characterInfo[index];
-                    if (!character.isVisible) continue;
-                    var low = camera.WorldToScreenPoint(seen(label.transform.TransformPoint(character.bottomLeft)));
-                    var high = camera.WorldToScreenPoint(seen(label.transform.TransformPoint(character.topRight)));
+                    if (!character.isVisible || character.lineNumber < liftFrom || character.lineNumber >= liftTo) continue;
+                    var low = camera.WorldToScreenPoint(seen(label.transform.TransformPoint(character.bottomLeft + lift)));
+                    var high = camera.WorldToScreenPoint(seen(label.transform.TransformPoint(character.topRight + lift)));
                     var x0 = Mathf.FloorToInt(Mathf.Min(low.x, high.x));
                     var y0 = Mathf.FloorToInt(Mathf.Min(low.y, high.y));
                     var x1 = Mathf.CeilToInt(Mathf.Max(low.x, high.x));

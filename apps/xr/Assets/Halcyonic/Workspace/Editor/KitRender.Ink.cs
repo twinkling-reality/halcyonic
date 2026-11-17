@@ -165,7 +165,8 @@ namespace Halcyonic.XR.Workspace.Editor
             // room seen through the glass beside the letters is never taken for the words' ink. The ground is the most common colour
             // of the box outside every quad, the glass between and around the letters: on a glass whose colour runs across the box no
             // one shade of it outnumbers large bold strokes, so the whole box's most common colour can be the words' own (XR's
-            // 2026-11-17T16:15Z read of 23-glass at Larger). Where the quads leave too little of the box, the whole box stands.
+            // 2026-11-17T16:15Z read of 23-glass at Larger). Where the quads leave under a quarter of the box (a lone mark in its ring, whose rim
+            // is all that stands outside it), the whole box stands, as before.
             bool InGlyph(int x, int y) => glyphs == null || glyphs.Any(quad => quad.Contains(new Vector2Int(x, y)));
             var box = new List<Color32>(rect.width * rect.height);
             var around = new List<Color32>(rect.width * rect.height);
@@ -174,7 +175,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (InGlyph(x, y)) box.Add(pixels[y * Width + x]);
                 else around.Add(pixels[y * Width + x]);
             if (box.Count == 0) return (1.0, true, 0.0, 0.0);
-            var mode = Luminance(glyphs != null && around.Count >= GroundPixels ? MostCommon(around) : MostCommon(pixels, rect));
+            var mode = Luminance(glyphs != null && around.Count >= Math.Max(GroundPixels, rect.width * rect.height / 4) ? MostCommon(around) : MostCommon(pixels, rect));
             var drawnLight = Luminance((Color32)drawn) > mode;
             double ink;
             double ground;
