@@ -528,10 +528,6 @@ namespace Halcyonic.XR.UI
                         stop = end;
                         if (first == 0 && FirstSentenceAlone) break;
                     }
-                    // A result's first part (the review card, TASKS take 3) ends at its first clause where that comes sooner: a line's
-                    // end, or a spaced dash that starts the next point ("... island - Updated the welcome card ..."), so a list of
-                    // what changed waits for Next Part and the first part is one plain sentence.
-                    if (first == 0 && FirstSentenceAlone && RoomWords.FirstClauseEnd(text, from, to) is int clause && (stop < 0 || clause < stop)) stop = clause;
                     if (stop < 0)
                     {
                         cuts.Add(true);

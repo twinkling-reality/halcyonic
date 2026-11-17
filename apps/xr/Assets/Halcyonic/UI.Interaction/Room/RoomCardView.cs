@@ -1125,7 +1125,8 @@ namespace Halcyonic.XR.UI
         public const float SaysTypeDp = 22f;
         public const float SaysLineDp = 30f;
         public const float SaysAlpha = 0.74f;
-        public const int SaysLines = 3;
+        /// <summary>The agent's sentence folds to as many lines as it takes, never cut (AUDIT3's R6): this many at most, a long sentence's own.</summary>
+        public const int SaysLines = 12;
         public const float SaysQuoteDp = 18f;
         public const float SaysQuoteAlpha = 0.5f;
 

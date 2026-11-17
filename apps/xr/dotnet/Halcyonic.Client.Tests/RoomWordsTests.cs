@@ -165,16 +165,4 @@ public class RoomWordsTests
         Assert.That(top, Is.GreaterThan(0f), "the band hangs under the foot line");
         Assert.That(RoomWords.UnderFootMostDp(1.15f), Is.GreaterThan(RoomWords.UnderFootMostDp()), "the larger text reaches further down");
     }
-
-    [Test]
-    public void AResultsFirstPartEndsAtItsFirstClauseALineEndOrASpacedDash()
-    {
-        // The review card's band (TASKS, take 3): the recorded run's message joins its points on spaced dashes.
-        const string said = "Star Catcher is live on the island - Updated the welcome card - public/ui/welcome.uikitml";
-        Assert.That(RoomWords.FirstClauseEnd(said, 0, said.Length), Is.EqualTo(said.IndexOf(" - ", System.StringComparison.Ordinal)));
-        Assert.That(said.Substring(0, RoomWords.FirstClauseEnd(said, 0, said.Length)!.Value), Is.EqualTo("Star Catcher is live on the island"));
-        Assert.That(RoomWords.FirstClauseEnd("First line\nSecond line", 0, 22), Is.EqualTo(10), "a line's end ends it");
-        Assert.That(RoomWords.FirstClauseEnd("A self-made game and a well-lit room", 0, 36), Is.Null, "a hyphen inside a word is no dash");
-        Assert.That(RoomWords.FirstClauseEnd("Done - then more", 6, 16), Is.Null, "only after where the part starts");
-    }
 }

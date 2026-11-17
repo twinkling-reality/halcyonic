@@ -366,6 +366,17 @@ public class RoomResultTests
     }
 
     [Test]
+    public void TheAgentSaysQuotesTheWholeFirstSentenceNeverStoppingAtADashOrALineBreak()
+    {
+        // AUDIT3's R6 (the lead's 03:31Z): "Done - but two tests still fail." is never shown as "Done".
+        Assert.That(RoomBar.FirstSentence("Done - but two tests still fail. The rest passed."), Is.EqualTo("Done - but two tests still fail."));
+        Assert.That(RoomBar.FirstSentence("Done\n- but two tests still fail.\nThe rest passed."), Is.EqualTo("Done\n- but two tests still fail."));
+        Assert.That(RoomBar.FirstSentence("Star Catcher is live on the island - Updated the welcome card - public/ui/welcome.uikitml"),
+            Is.EqualTo("Star Catcher is live on the island - Updated the welcome card - public/ui/welcome.uikitml"), "no sentence end: the whole words");
+        Assert.That(RoomBar.FirstSentence("  "), Is.Null);
+    }
+
+    [Test]
     public void TheReviewsOtherSlotShowsTheResultWhereAPreviewIsReadyElseTheNextWorkAction()
     {
         var was = RoomDesign.Enabled;

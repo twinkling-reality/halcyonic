@@ -127,21 +127,6 @@ namespace Halcyonic.Client
         public RoomWords Start() => new RoomWords(Lines, 0, starts);
 
         /// <summary>
-        /// The first clause's end in <paramref name="text"/> after <paramref name="from"/> and before <paramref name="to"/>: a line's
-        /// end, or the space before a spaced dash ("island - Updated"), where the next point of a list starts; null where none falls.
-        /// The review card's band (TASKS, take 3) ends its first part there, so the agent's first point stands alone.
-        /// </summary>
-        public static int? FirstClauseEnd(string text, int from, int to)
-        {
-            for (var index = Math.Max(from + 1, 0); index < Math.Min(to, text.Length); index++)
-            {
-                if (text[index] == '\n') return index;
-                if (text[index] == ' ' && index + 2 < text.Length && (text[index + 1] == '-' || text[index + 1] == (char)0x2013) && text[index + 2] == ' ') return index;
-            }
-            return null;
-        }
-
-        /// <summary>
         /// Where sentences end in <paramref name="text"/>: the place just after each stop, question mark or exclamation mark
         /// that a space or the text's end follows, past any closing quote or bracket after it (AUDIT2 2026-11-16 11:29Z). A stop
         /// inside a word never ends one (index.html, 1.2.3, src/game/kite.js), and neither does a short abbreviation's (e.g.,

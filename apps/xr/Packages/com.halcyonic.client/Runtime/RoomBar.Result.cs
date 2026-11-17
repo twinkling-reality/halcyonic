@@ -276,15 +276,17 @@ namespace Halcyonic.Client
             };
         }
 
-        /// <summary>The agent's first sentence or first point in <paramref name="text"/>, whole, trimmed; null where it says nothing.</summary>
+        /// <summary>
+        /// The agent's whole first sentence in <paramref name="text"/>, trimmed: to its first sentence's end, never at a line break or a
+        /// spaced dash ("Done - but two tests still fail." stays whole: AUDIT3's R6, the lead's 03:31Z); its whole words where no
+        /// sentence ends; null where it says nothing.
+        /// </summary>
         public static string? FirstSentence(string? text)
         {
             var laid = RoomWords.Laid(text);
             if (laid.Length == 0) return null;
             var ends = RoomWords.SentenceEnds(laid);
-            var end = ends.Length > 0 ? ends[0] : laid.Length;
-            if (RoomWords.FirstClauseEnd(laid, 0, laid.Length) is int clause && clause < end) end = clause;
-            var first = laid.Substring(0, end).Trim();
+            var first = laid.Substring(0, ends.Length > 0 ? ends[0] : laid.Length).Trim();
             return first.Length == 0 ? null : first;
         }
 
