@@ -334,6 +334,9 @@ namespace Halcyonic.Client
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);
             }
+            // At its spending limit a heard instruction carries no amount: say the way on here, as Send does, rather than let the host
+            // refuse it (AUDIT3's SHOULD on 9f977669b).
+            if (SpendingLimit.NeedsNewLimit(workspace.Execution)) return SteeringOutcome.Explain(SpendingLimit.ChooseAmountFirst);
             Arm(WorkspaceAction.Instruct, null, instruction);
             Heard = true;
             return SteeringOutcome.Of(SteeringStep.Confirm);

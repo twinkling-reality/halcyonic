@@ -87,6 +87,15 @@ public sealed class SpendingLimitTests
     }
 
     [Test]
+    public void AHeardInstructionToATaskAtItsLimitSaysChooseAnAmountFirst()
+    {
+        var composer = new Composer(Cap(SpendingCapViewState.Reached, 1, 1));
+        var heard = composer.Steering.Spoken("Finish the tests.", composer.Work);
+        Assert.That((heard.Step, heard.Message, heard.Command), Is.EqualTo((SteeringStep.Explain, (string?)SpendingLimit.ChooseAmountFirst, (CommandEnvelope?)null)));
+        Assert.That(composer.Steering.Armed, Is.Null, "nothing is armed to confirm");
+    }
+
+    [Test]
     public void TheKitsComposerBindsTheAmountsAsChoices()
     {
         var composer = new Composer(Cap(SpendingCapViewState.Reached, 1, 1));
