@@ -74,6 +74,8 @@ namespace Halcyonic.XR.Room
             column = new AgentShelfColumn(director.MenuHost, placement.Draft, direction => { drag?.End(); placement.MovePreview(direction); },
                 () =>
                 {
+                    // A column a newer placing replaced applies nothing (AUDIT3's SH2), as it cancels nothing.
+                    if (opened != placings) return;
                     if (current?.Invoke() == false) { CancelOwn(); return; }
                     if (!placement.ApplyPreview()) return;
                     if (workstreamId != null) director.EnsureAgentStage().Request(workstreamId);

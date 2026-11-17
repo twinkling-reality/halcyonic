@@ -137,7 +137,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var stage = workspace.EnsureAgentStage(); stage.enabled = false;
                 if (PlacementField(typeof(CharacterStage), "arc").GetValue(stage) == null) PlacementCall(stage, "Awake");
                 PlacementCall(stage, "FindPlacementSource");
-                stage.Request(prior.WorkstreamId); // Explicitly retain a different selection before the requested task.
+                // Retain the requested task's own project's other task before Apply (AUDIT3's MUST: select A, then Apply B in one project).
+                stage.Request(sibling.WorkstreamId);
                 var sends = 0;
                 FileColumn? file = null;
                 var setup = new MenuDirector.Setup {
@@ -218,6 +219,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!stage.TryGetCharacter(sibling.WorkstreamId, out var siblingView) || !siblingView.gameObject.activeInHierarchy
                     || stage.TryGetCharacter(work.Workstream.WorkstreamId, out var requestedView) && ReferenceEquals(siblingView, requestedView))
                     failures.Add("Apply did not stand the requested project's other task as its own character beside the requested one");
+                // Its page names the requested task, never the sibling it replaced, and the two stand apart.
+                if (stage.ShelfPage.Title == sibling.Title) failures.Add("Apply's page still names the selected sibling, not the requested task");
+                if (stage.TryGetCharacter(sibling.WorkstreamId, out var siblingStanding) && stage.TryGetCharacter(work.Workstream.WorkstreamId, out var requestedStanding)
+                    && (siblingStanding.transform.position - requestedStanding.transform.position).magnitude < 0.01f)
+                    failures.Add("the requested task stands where the sibling stands");
+                // No character stands on the shelf that the snapshot does not hold (AUDIT3's SH1).
+                if (PlacementField(typeof(CharacterStage), "views").GetValue(stage) is System.Collections.IDictionary standing)
+                    foreach (var key in standing.Keys)
+                        if (!snapshot.Workstreams.Any(each => each.WorkstreamId == (string)key)) failures.Add("the shelf stands a character the snapshot does not hold: " + key);
                 foreach (var each in snapshot.Workstreams)
                     if (stage.TryGetCharacter(each.WorkstreamId, out var onShelf) && onShelf.gameObject.activeInHierarchy != (each.ProjectId == work.Workstream.ProjectId)
                         || !stage.TryGetCharacter(each.WorkstreamId, out _) && each.ProjectId == work.Workstream.ProjectId)
@@ -234,6 +244,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!SamePose(kept, placement.Preferred) || stage.ShelfPage.Title != keptSelection || !workspace.Presentation.AgentsEnabled)
                     failures.Add("Cancel while another task was previewed changed the prior pose/selection/enabled state (pose kept " + SamePose(kept, placement.Preferred)
                         + ", selection " + keptSelection + " -> " + stage.ShelfPage.Title + ", enabled " + workspace.Presentation.AgentsEnabled + ")");
+                // The Cancel rows hold with the same project's sibling previewed too.
+                Open(sibling.WorkstreamId); Press(Footer.Close);
+                if (!SamePose(kept, placement.Preferred) || stage.ShelfPage.Title != keptSelection || !workspace.Presentation.AgentsEnabled)
+                    failures.Add("Cancel while the same project's sibling was previewed changed the pose/selection/enabled state");
                 Open(prior.WorkstreamId);
                 var stale = menu.Plane.Shown.Single().View.Frame;
                 PlacementPump(session, new WelcomeMessage { Journal = journal, Head = 2, ServerTime = Time }); Draw();
