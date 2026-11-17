@@ -945,7 +945,10 @@ describe('production native agent panel', () => {
         status: 'waiting_for_human',
         runtime: { ...execution.runtime, synthetic: false },
         pending_approvals: [
-          { approval_id: 'permission1', subject: { kind: 'tool_use', tool_name: 'bash', summary: 'pnpm test' } },
+          {
+            approval_id: 'permission1',
+            subject: { kind: 'tool_use', tool_name: 'bash', summary: 'pnpm test' },
+          },
           { approval_id: 'permission2' },
         ],
         pending_questions: [{ question_id: 'question1', prompts: [{ key: 'a' }, { key: 'b' }] }],
@@ -1155,7 +1158,19 @@ describe('production native agent panel', () => {
     assert.match(packaging, /PreviewManifest[\s\S]*GlanceInDevelopmentBuilds.Include/);
     assert.match(packaging, /PanelPreviewNeedsYouActivity/);
     assert.match(packaging, /PanelPreviewQuietActivity/);
-    assert.match(packaging, /SetAttribute\("exported", android, "false"\)/);
+    // The base preview stays unexported; only the two fixed variants are, for adb on an unworn headset, in development
+    // builds only, and a release carrying any preview activity or class is refused.
+    assert.match(
+      packaging,
+      /SetAttribute\("exported", android, name == "com\.halcyonic\.panel\.PanelPreviewActivity" \? "false" : "true"\)/,
+    );
+    const glance = readFileSync(
+      join(ROOT, 'apps/xr/Assets/Halcyonic/Editor/GlanceInDevelopmentBuilds.cs'),
+      'utf8',
+    );
+    assert.match(glance, /PanelPreview = "com\.halcyonic\.panel\.PanelPreview"/);
+    assert.match(glance, /manifest && Contains\(data, PanelPreview\)/);
+    assert.match(glance, /Lcom\/halcyonic\/panel\/PanelPreview/);
     assert.doesNotMatch(
       readFileSync(join(ROOT, 'apps/xr/Assets/Plugins/Android/AndroidManifest.xml'), 'utf8'),
       /PanelPreviewActivity/,

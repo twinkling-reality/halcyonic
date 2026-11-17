@@ -162,7 +162,7 @@ namespace Halcyonic.XR.Editor
                 if (glance.Count > 0)
                 {
                     File.Delete(apkPath);
-                    Fail($"Halcyonic: deleted {apkPath}, which carries what development builds alone may (the glance spike, the panel's capture marker): {string.Join("; ", glance)}.");
+                    Fail($"Halcyonic: deleted {apkPath}, which carries what development builds alone may (the glance spike, the panel's capture marker, the panel's preview): {string.Join("; ", glance)}.");
                     return;
                 }
                 foreach (var boundary in new[] { BoundaryInDevelopmentBuilds.Permission, BoundaryInDevelopmentBuilds.BoundarylessFeature })

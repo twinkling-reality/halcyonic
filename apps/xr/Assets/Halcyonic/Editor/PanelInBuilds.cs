@@ -63,7 +63,10 @@ namespace Halcyonic.XR.Editor
             {
                 var activity = document.CreateElement("activity");
                 activity.SetAttribute("name", android, name);
-                activity.SetAttribute("exported", android, "false");
+                // The two fixed variants are started by adb on an unworn headset (DEVICE, 00:14Z), so they alone are exported, in
+                // development builds only; they hold the synthetic fixture and never private work. A release that carries any
+                // preview activity is refused (GlanceInDevelopmentBuilds.FindIn).
+                activity.SetAttribute("exported", android, name == "com.halcyonic.panel.PanelPreviewActivity" ? "false" : "true");
                 activity.SetAttribute("excludeFromRecents", android, "true");
                 activity.SetAttribute("launchMode", android, "singleTask");
                 activity.SetAttribute("taskAffinity", android, "${applicationId}.panel." + name.Substring(name.LastIndexOf('.') + 1).ToLowerInvariant());

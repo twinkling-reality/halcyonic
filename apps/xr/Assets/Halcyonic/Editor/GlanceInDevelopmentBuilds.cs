@@ -29,6 +29,9 @@ namespace Halcyonic.XR.Editor
 
         internal const string NotificationPermission = "android.permission.POST_NOTIFICATIONS";
 
+        /// <summary>The prefix every development-only preview activity of the native panel shares (PanelInBuilds).</summary>
+        internal const string PanelPreview = "com.halcyonic.panel.PanelPreview";
+
         /// <summary>Set by QuestBuild for a development build, and cleared after it.</summary>
         internal static bool Include;
 
@@ -127,7 +130,8 @@ namespace Halcyonic.XR.Editor
         /// <summary>
         /// What of the glance an APK carries: its activity or the notification permission in the
         /// manifest, its classes in any dex file, or cleartext to 127.0.0.1 in a resource; and the native
-        /// panel's development-only capture marker in any dex file. Empty for a release build.
+        /// panel's development-only capture marker in any dex file, and its preview activities in the manifest or their classes
+        /// in any dex file. Empty for a release build.
         /// </summary>
         internal static List<string> FindIn(string apkPath)
         {
@@ -146,6 +150,9 @@ namespace Halcyonic.XR.Editor
                 if (manifest && Contains(data, Activity)) found.Add("the glance's activity in the manifest");
                 if (manifest && Contains(data, NotificationPermission)) found.Add(NotificationPermission + " in the manifest");
                 if (dex && Contains(data, "Lcom/halcyonic/glance/")) found.Add("the glance's classes in " + entry.FullName);
+                // The panel's synthetic preview and its two exported variants are development-only too (LINK, 2026-11-17).
+                if (manifest && Contains(data, PanelPreview)) found.Add("the panel's preview activities in the manifest");
+                if (dex && Contains(data, "Lcom/halcyonic/panel/PanelPreview")) found.Add("the panel's preview classes in " + entry.FullName);
                 // The panel's capture marker (PanelCaptureDevelopment) is development-only too: a release that carries it could be captured.
                 if (dex && Contains(data, "Lcom/halcyonic/panel/PanelCaptureDevelopment;")) found.Add("the panel's capture marker in " + entry.FullName);
                 if (resource && Contains(data, "domain-config") && Contains(data, LoopbackHost)) found.Add("cleartext to " + LoopbackHost + " in " + entry.FullName);
@@ -159,7 +166,11 @@ namespace Halcyonic.XR.Editor
         /// </summary>
         internal static List<string> MissingFrom(IReadOnlyList<string> found)
         {
-            var kinds = new[] { "the glance's activity in the manifest", NotificationPermission + " in the manifest", "the glance's classes in " };
+            var kinds = new[]
+            {
+                "the glance's activity in the manifest", NotificationPermission + " in the manifest", "the glance's classes in ",
+                "the panel's preview activities in the manifest", "the panel's preview classes in ",
+            };
             return kinds.Where(kind => !found.Any(finding => finding.StartsWith(kind, System.StringComparison.Ordinal))).ToList();
         }
 

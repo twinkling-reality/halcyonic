@@ -856,7 +856,7 @@ public class AgentPanelActivity extends Activity {
             Map<String, Object> runtime = PanelJson.object(run.get("runtime"));
             text(content, stateName(PanelJson.text(run.get("status"))) + "\n" + (capturable ? "Coding Agent" : PanelText.plain(PanelJson.text(runtime.get("display_name")))), 19);
             final PanelUiState.Context displayed = actionContext();
-            button(content,surface.equals("request")?"Task controls":"Ask",()->{if(!saveState())return;surface=surface.equals("request")?"task":"request";agentOffer=requestView=null;show();saveSelectedContext();if(!preview)poll(true);});
+            button(content,surface.equals("request")?"Task Controls":"Ask",()->{if(!saveState())return;surface=surface.equals("request")?"task":"request";agentOffer=requestView=null;show();saveSelectedContext();if(!preview)poll(true);});
             button(content, "Activity", this::activity);
             if (!preview) button(content, "What It Did", this::results);
             for (Object item : PanelJson.array(run.get("pending_approvals"))) {
