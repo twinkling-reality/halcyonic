@@ -687,9 +687,10 @@ namespace Halcyonic.XR.UI
             {
                 // Deep grounds of the tone's hue, near solid, the light ink over them: a faint tint vanished over the bright room
                 // (the critic, 2026-11-11), where the recap's solid head held.
-                // The one language (AUDIT 2026-11-17 01:32Z, MUST 1): a thin line mark with no tile; a state's colour on the mark alone.
-                RoomTone.Good => (Color.clear, Rgb(PassedInk), RoomGlyph.Check),
-                RoomTone.Bad => (Color.clear, Rgb(FailedInk), RoomGlyph.Alert),
+                // The one language (the lead's 2026-11-17 01:40Z ruling): a thin white line mark with no tile, its SHAPE the state;
+                // amber only where it waits for you; the orange stays the main action's rim alone.
+                RoomTone.Good => (Color.clear, Color.white, RoomGlyph.Check),
+                RoomTone.Bad => (Color.clear, Color.white, RoomGlyph.Alert),
                 RoomTone.Working => (Color.clear, Color.white, RoomGlyph.Wrench),
                 RoomTone.Attention => (Color.clear, Rgb(Attention), RoomGlyph.Bubble),
                 _ => (Color.clear, Color.white, RoomGlyph.Minus),
@@ -1364,10 +1365,10 @@ namespace Halcyonic.XR.UI
                 // (the lead, 2026-11-11: "Edited in Both" in the failure's tint read 2.89 to 1 over the bright room).
                 var (ground, ink, note) = tone switch
                 {
-                    // The one language (AUDIT 2026-11-17 01:32Z, MUST 1): every row's mark a thin line glyph with no tile; a state's
-                    // colour on the mark alone (passed, failed, waiting for you), never orange, which is the main action's light alone.
-                    RoomTone.Good => (Color.clear, Rgb(PassedInk), White(RoomType.LabelAlpha)),
-                    RoomTone.Bad => (Color.clear, Rgb(FailedInk), White(RoomType.LabelAlpha)),
+                    // The one language (the lead's 2026-11-17 01:40Z ruling): every row's mark a thin white line glyph with no tile, its
+                    // shape the state; amber only where it waits for you; never green, red or orange.
+                    RoomTone.Good => (Color.clear, Color.white, White(RoomType.LabelAlpha)),
+                    RoomTone.Bad => (Color.clear, Color.white, White(RoomType.LabelAlpha)),
                     RoomTone.Working => (Color.clear, Color.white, White(RoomType.LabelAlpha)),
                     RoomTone.Attention => (Color.clear, Rgb(Attention), White(RoomType.LabelAlpha)),
                     _ => (Color.clear, White(0.85f), White(RoomType.LabelAlpha)),
@@ -1390,10 +1391,14 @@ namespace Halcyonic.XR.UI
                 if (row.Note != null)
                 {
                     // A row's state or value words in the label role (AUDIT 2026-11-17 01:32Z, MUST 2): spaced capitals at white 0.52.
-                    if (stacked) (noteLabel, noteTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, note, LineWords.HostPlain(row.Note), nameLeft, 0f, width - nameLeft - chevronRoom, 3, labelRole: true);
+                    // A name someone owns keeps its own case and the body's size (AUDIT2 01:39Z; RoomListRow.NoteInLabelRole).
+                    var labelled = RoomListRow.NoteInLabelRole(row.Note);
+                    var noteDp = labelled ? RoomType.LabelDp : RowNoteDp;
+                    var noteInk = labelled ? note : White(NoteAlpha);
+                    if (stacked) (noteLabel, noteTall) = Text(KitRole.Body, noteDp, RowNoteLineDp, noteInk, LineWords.HostPlain(row.Note), nameLeft, 0f, width - nameLeft - chevronRoom, 3, labelRole: labelled);
                     else
                     {
-                        (noteLabel, _) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, note, LineWords.HostPlain(row.Note), 0f, 0f, width / 2f, 1, labelRole: true);
+                        (noteLabel, _) = Text(KitRole.Body, noteDp, RowNoteLineDp, noteInk, LineWords.HostPlain(row.Note), 0f, 0f, width / 2f, 1, labelRole: labelled);
                         noteWidth = RoomCursor.WordsWidth(noteLabel, 0f);
                     }
                 }

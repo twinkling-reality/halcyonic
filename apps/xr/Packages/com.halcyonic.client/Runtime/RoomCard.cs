@@ -326,6 +326,15 @@ namespace Halcyonic.Client
         /// <summary>The note at the right: a state ("Changed"), a time, a count. Null for none.</summary>
         public string? Note { get; }
 
+        /// <summary>
+        /// Whether a note stands in the label role's capitals (the one language, AUDIT 2026-11-17 01:32Z): our own words only. A note that
+        /// holds a name someone owns keeps its own case (AUDIT2 01:39Z); every note the rows are given today is ours (a state, a time, a
+        /// count), and a note with a file's or a folder's mark in it (a dot, a slash) is taken as a name and kept in body type.
+        /// </summary>
+        public static bool NoteInLabelRole(string? note) => note != null && note.IndexOfAny(NameMarks) < 0;
+
+        private static readonly char[] NameMarks = { '.', '/', '\\' };
+
         public RoomTone Tone { get; }
 
         /// <summary>The name is a file's path, set in the mono face.</summary>

@@ -35,6 +35,16 @@ public class RecordedRunTests
 
     /// <summary>The recorded run the judge build bundles, where it has one (ADR 0035): read as one, and naming no brand.</summary>
     [Test]
+    public void ARowsNoteStandsInCapitalsOnlyWhereItIsOurWordsNeverWhereItHoldsAFileOrFolderName()
+    {
+        Assert.That(RoomListRow.NoteInLabelRole("Needs You"), Is.True);
+        Assert.That(RoomListRow.NoteInLabelRole("12 Nov 09:00"), Is.True);
+        Assert.That(RoomListRow.NoteInLabelRole("index.html"), Is.False, "a file name keeps its own case");
+        Assert.That(RoomListRow.NoteInLabelRole("src/game"), Is.False, "a folder keeps its own case");
+        Assert.That(RoomListRow.NoteInLabelRole(null), Is.False);
+    }
+
+    [Test]
     public void TheNoticeIsItsLabelAndItsSentenceFromOneSourceAndTheLabelStandsApart()
     {
         foreach (var recorded in new[] { true, false })
