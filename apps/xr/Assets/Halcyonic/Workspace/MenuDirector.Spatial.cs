@@ -135,8 +135,11 @@ namespace Halcyonic.XR.Workspace
             if (navigator.Beside is NewProjectFlow flow)
             {
                 flow.RoomLines = room ? (roomLines ??= words => plane.Kit.LinesAsLaid(words, false)) : null;
-                // The recap counts as shown for Start Task's one press only while its card stands whole (R1; RoomCardView.LaidWhole).
-                flow.RecapShownWhole = room ? (recapShownWhole ??= () => plane.Kit.Bar.Card?.LaidWhole == true) : null;
+                // The recap counts as shown for Start Task's one press only while its card stands whole (R1; RoomCardView.LaidWhole), and
+                // only where none of its words stands as an excerpt: a long task's lead cut at a word with its tail faded is not shown
+                // whole, so its review opens as ever (the journey, 2026-11-17: an eight-part task sent at once from "Part 2: validate…").
+                flow.RecapShownWhole = room ? (recapShownWhole ??= () => plane.Kit.Bar.Card is RoomCardView card && card.LaidWhole
+                    && card.Excerpts.Count == 0 && card.FadedTails.Count == 0) : null;
                 flow.ShownBeside = room ? () => navigator.Beside == flow && !navigator.IsCompact : null;
             }
             // A local overlay's frame while it shows; else, with nothing beside the menu (the Projects place, Settings, the launch
