@@ -146,7 +146,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 Press(NewProjectScreens.TypeIdea);
                 if (typed == null) throw new InvalidOperationException("The actual keyboard callback was not offered");
                 typed(string.Join("\n\n", Enumerable.Range(1, 8).Select(index => "Part " + index + ": validate the current source, keep the existing behavior, and preserve the final report for careful review."))); typed = null; Draw();
-                Shot("04-task-local-draft"); Press(NewProjectScreens.UseIdea); Shot("05-task-recap");
+                Shot("04-task-local-draft");
+                // Under the kit the typed idea lands on the recap at once (tip13: Start Building and Change drawn, no Use Idea); the
+                // idea page's own Make Recap is pressed only where that page still stands.
+                if (!(director.Plane.KitShows && director.Plane.Kit.Bar.Button(NewProjectScreens.UseIdea) == null
+                    && director.Plane.Kit.Bar.Button(NewProjectScreens.StartBuilding) != null)) Press(NewProjectScreens.UseIdea);
+                Shot("05-task-recap");
                 Press(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
                 Press(NewProjectScreens.MoreOptions); Press(NewProjectScreens.ChooseRuntime, runtime.RuntimeId); Press(NewProjectScreens.Done);
                 Shot("06-task-ready"); Press(NewProjectScreens.StartBuilding);
