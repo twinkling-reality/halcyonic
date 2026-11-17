@@ -1112,18 +1112,18 @@ namespace Halcyonic.XR.UI
         public const int SlotValueLines = 6;
 
         /// <summary>The one language's label (FIELD's f6): 15 dp spaced capitals at a quiet white; the gap under a label and under the eyebrow.</summary>
-        public const float CapTypeDp = 15f;
+        public const float CapTypeDp = RoomType.LabelDp;
         public const float CapLineDp = 20f;
-        public const float CapTracking = 24f;
-        public const float CapAlpha = 0.62f;
+        public const float CapTracking = RoomType.LabelTracking;
+        public const float CapAlpha = RoomType.LabelAlpha;
         public const float CapGapDp = 8f;
         public const float EyebrowGapDp = 10f;
 
         /// <summary>The agent's sentence on the review card: its size, line, alpha and lines, and its quote mark.</summary>
         public const string SaysLabel = "The Agent Says";
-        public const float SaysTypeDp = 20f;
-        public const float SaysLineDp = 28f;
-        public const float SaysAlpha = 0.86f;
+        public const float SaysTypeDp = 22f;
+        public const float SaysLineDp = 30f;
+        public const float SaysAlpha = 0.74f;
         public const int SaysLines = 3;
         public const float SaysQuoteDp = 18f;
         public const float SaysQuoteAlpha = 0.5f;
@@ -1133,7 +1133,7 @@ namespace Halcyonic.XR.UI
         public const float FactValueLineDp = 30f;
         public const float FactLineDp = 17f;
         public const float FactLineLineDp = 23f;
-        public const float FactLineAlpha = 0.62f;
+        public const float FactLineAlpha = RoomType.LabelAlpha;
         public const float FactGapDp = 28f;
 
         /// <summary>A label in the one language's spaced capitals, our own words; returns the depth under it.</summary>
