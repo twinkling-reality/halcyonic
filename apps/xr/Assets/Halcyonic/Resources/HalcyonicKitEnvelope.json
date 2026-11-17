@@ -2,12 +2,6 @@
   "entries": [
     {
       "scale": 1.0,
-      "panelDp": 600.0,
-      "widthDp": 605.0,
-      "heightDp": 476.0
-    },
-    {
-      "scale": 1.0,
       "panelDp": 440.0,
       "widthDp": 728.0,
       "heightDp": 795.0
@@ -41,12 +35,6 @@
       "panelDp": 240.0,
       "widthDp": 527.0,
       "heightDp": 872.0
-    },
-    {
-      "scale": 1.149999976158142,
-      "panelDp": 600.0,
-      "widthDp": 621.0,
-      "heightDp": 622.0
     },
     {
       "scale": 1.149999976158142,
