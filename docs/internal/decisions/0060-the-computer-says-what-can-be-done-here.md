@@ -68,6 +68,12 @@ A command reached through the list is never built by its proposer.
 - **`text` values are cleaned like a typed one (addition D).** A `text` value that leaves the Mac (a title, a pull
   request's words, a commit line) is clipped and cleaned by the host, exactly as a typed one is, including one that
   defaulted from `reported` text (a task's summary). The review shows it exactly as it will be sent.
+  - **A task's title is short and true (the lead's D, 2026-11-17).** A title made from the person's words (a start's
+    idea, the headset's objective) follows one rule, in `apps/control-plane/src/core/task-title.ts` and the headset's
+    `NewWorkDraft.TitleOf`, held to one table of cases both suites read (`fixtures/titles/cases.json`): the first
+    sentence when it is 60 characters or fewer, else its first words to 60 with no ellipsis, the whole idea still
+    sent as the first task. A title the person or the assistant typed stays as typed to the contract's 200, and one
+    longer is refused ("A task name can be up to 200 characters. Shorten it, then start again."), never cut.
 - **The person's press is a request with no model.** It is `workspace.request.submit` carrying `act: { command_type,
   values }` in place of words. The host records the prepared command as the request's one step and goes by
   section 3. The same journal trail, the same review and the same Confirm serve buttons and saying it alike, and a
