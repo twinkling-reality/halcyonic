@@ -651,9 +651,33 @@ namespace Halcyonic.XR.Workspace.Editor
                     // A recording says what it is wherever it plays (lead, 14:33Z): its own line, in its own words, drawn whole.
                     // The notice is the recording's own line whole, both sentences, word for word (lead, 17:45Z): the product's
                     // DemonstrationFallback.Notice for the kind of work shown, recorded or demonstration.
-                    if (live == null && fallback.Line != null && DemonstrationFallback.Notice(fallback.ShowingRecordedRun) is string line
-                        && !root.GetComponentsInChildren<TMP_Text>(false).Any(text => text.enabled && text.GetParsedText().Replace("\n", " ").Contains(line)))
-                        found.Add("the recording's own line is not drawn whole: \"" + line + "\"");
+                    // In the one language (FIELD's shared parts; AUDIT2 and AUDIT 01:33Z, AUDIT3 01:34Z) the line is two parts from one source:
+                    // its label (DemonstrationFallback.Label) in the label role's spaced capitals, and its sentence (DemonstrationFallback.Sentence)
+                    // in body type, in its own case, whole. Either part missing, cut or set in capitals fails; both stand inside the plate (below).
+                    if (live == null && fallback.Line != null)
+                    {
+                        var recordedRun = fallback.ShowingRecordedRun;
+                        var label = DemonstrationFallback.Label(recordedRun);
+                        var sentence = DemonstrationFallback.Sentence(recordedRun);
+                        string ParsedOf(TMP_Text? text)
+                        {
+                            if (text == null || !text.isActiveAndEnabled) return "";
+                            text.ForceMeshUpdate(true, true);
+                            return text.GetParsedText().Replace("\n", " ").Trim();
+                        }
+                        bool InCapitals(TMP_Text text) => (text.fontStyle & (FontStyles.UpperCase | FontStyles.SmallCaps)) != 0;
+                        var shownLabel = plane.KitShows ? plane.Kit.Bar.NoticeLabel : null;
+                        var shownSentence = plane.KitShows ? plane.Kit.Bar.NoticeWords : null;
+                        var labelText = ParsedOf(shownLabel);
+                        if (!string.Equals(labelText, label, StringComparison.OrdinalIgnoreCase))
+                            found.Add("the recording's label is not drawn as \"" + label + "\" (drawn \"" + labelText + "\")");
+                        else if (shownLabel != null && labelText != label.ToUpperInvariant() && !InCapitals(shownLabel))
+                            found.Add("the recording's label \"" + label + "\" is not in the label role's capitals");
+                        if (!ParsedOf(shownSentence).Contains(sentence))
+                            found.Add("the recording's sentence is not drawn whole in its own case: \"" + sentence + "\"");
+                        else if (shownSentence != null && InCapitals(shownSentence))
+                            found.Add("the recording's sentence is set in capitals: \"" + sentence + "\"");
+                    }
                     // A line that is drawn and cannot be read is not said (lead, 00:47Z): nothing drawn nearer the eye crosses it.
                     if (live == null && fallback.Line != null && plane.KitShows && plane.Kit.Bar.NoticeWords is TMP_Text noticeWords
                         && plane.Kit.Bar.NoticePlate is Halcyonic.XR.UI.RoomSurface noticePlate)
@@ -662,6 +686,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     // line was drawn up and left of its plate on every recorded frame).
                     if (plane.KitShows && plane.Kit.Bar.NoticeWords is TMP_Text shownWords && plane.Kit.Bar.NoticePlate is Halcyonic.XR.UI.RoomSurface shownPlate)
                         found.AddRange(NoticeOffPlate(camera, shownWords, shownPlate).Select(edge => "a notice's words stand off their plate: " + edge));
+                    if (plane.KitShows && plane.Kit.Bar.NoticeLabel is TMP_Text shownLabelWords && shownLabelWords.isActiveAndEnabled
+                        && plane.Kit.Bar.NoticePlate is Halcyonic.XR.UI.RoomSurface labelPlate)
+                        found.AddRange(NoticeOffPlate(camera, shownLabelWords, labelPlate).Select(edge => "a notice's label stands off its plate: " + edge));
                     // Under the redesign its words stand flat on their flat plates (the lead's 06:19Z, XR's 86e3d194f): every label on a plate
                     // within 1 mm of the plate's glass in depth; and every drawn button's press target meets a ray through its drawn centre
                     // within 2 dp (XR 06:21Z). The shelf's older label is never drawn under the redesign (FIELD 06:21Z).
