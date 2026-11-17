@@ -175,7 +175,8 @@ namespace Halcyonic.Client
             CodeLanguage.Swift => SwiftWords,
             CodeLanguage.Shell => ShellWords,
             CodeLanguage.Json or CodeLanguage.Toml or CodeLanguage.Yaml => DataWords,
-            _ => NoWords,
+            CodeLanguage.Plain or CodeLanguage.Markdown => NoWords,
+            _ => throw new ArgumentOutOfRangeException(nameof(language), language, "a code language of no known kind"),
         };
 
         /// <summary>How much of a row it colours (AUDIT3's C3): past this many characters the row stays plain.</summary>
