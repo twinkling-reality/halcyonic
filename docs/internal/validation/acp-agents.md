@@ -122,7 +122,8 @@ another mode than the asking one (`current_mode_update`, or the `mode` option in
 running turn is cancelled, every open request withdrawn, and the turn ends failed with `mode_left` ("... switched
 to a mode where it does not ask you first, so Halora stopped the turn."); before the next instruction the mode is
 set back with `session/set_mode`, or the session takes no more work. Unit tested on the recorded Antigravity trace
-with `auto` announced mid-turn; neither app was seen to change its mode by itself.
+with `auto` announced mid-turn; neither app was seen to change its mode by itself. What stays open is the app's own race: an
+action it takes unasked between announcing the mode and receiving the cancel is not stopped by the watch.
 
 Where each app keeps its sign-in, outside every folder the profile refuses, so a fresh home signs in:
 
