@@ -204,7 +204,10 @@ public class AgentPanelActivity extends Activity {
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private LinearLayout column() { LinearLayout v = new LinearLayout(this); v.setOrientation(LinearLayout.VERTICAL); v.setPadding(dp(20), dp(16), dp(20), dp(16)); return v; }
     private TextView text(LinearLayout parent, String value, int size) {
-        TextView view = new TextView(this); view.setText(value); view.setTextSize(size); view.setTextColor(PanelHud.W1); view.setPadding(0, dp(6), 0, dp(8));
+        // The kit's roles (the sheet's f1): a heading in the title's style, everything else in body type, white.
+        float density = getResources().getDisplayMetrics().density;
+        TextView view = size >= 23 ? PanelKit.title(this, value, density) : PanelKit.body(this, value, density);
+        view.setPadding(0, PanelKit.px(size >= 23 ? 14 : 6, density), 0, PanelKit.px(6, density));
         parent.addView(view, new LinearLayout.LayoutParams(-1, -2)); return view;
     }
     private Button button(LinearLayout parent, String label, Runnable action) { return button(parent, label, action, false); }
@@ -215,22 +218,31 @@ public class AgentPanelActivity extends Activity {
         parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; final int offeredGeneration = generation; button.setOnClickListener(view -> { if (visible && generation == offeredGeneration && review == owner && (localConnection ? !busy && authority.connectionInteract(id) : authority.interact(id, busy, escape))) { cancelVoice(); action.run(); } }); return button;
     }
     private void styleButton(Button button, String label) {
-        // The compact card's own presses (the one language, FIELD's sheet f7): thin glass, a main action on the lighter plate
-        // (visionos-window-example.png's thin control), white words (visionos-label-vibrant-primary.png), no edge and no hue.
+        // The kit's row form (the sheet's f1 lists; AUDIT's 19:40Z (a)): the words on the card's left edge, no plate at rest, the
+        // plain glass where pointed, a main send on the lighter thin plate (visionos-window-example.png), white words, no hue.
+        float density = getResources().getDisplayMetrics().density;
         boolean primary = label.startsWith("Send") || label.equals("Workspace") || label.startsWith("Review instruction");
-        button.setBackground(PanelHud.plates(primary, dp(26))); button.setTextColor(PanelHud.W1); button.setPadding(dp(16), dp(10), dp(16), dp(10));
-        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2); layout.setMargins(0, dp(6), 0, dp(6)); button.setLayoutParams(layout);
+        button.setBackground(PanelKit.rowPlates(primary, density)); button.setTextColor(PanelHud.W1); button.setAllCaps(false);
+        button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, PanelKit.px(PanelKit.TYPE, density));
+        button.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.START); button.setStateListAnimator(null);
+        int inset = PanelKit.px(16, density);
+        button.setPadding(inset, 0, inset, 0); button.setMinHeight(PanelKit.px(PanelKit.CORE + 8, density));
+        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2); layout.setMargins(-inset, 0, -inset, 0); button.setLayoutParams(layout);
     }
     private static String stateName(String value) { return PanelModel.stateWord(value); }
     private void shell() {
         LinearLayout root = column(); root.setBackgroundColor(PanelHud.GROUND); shellRoot = root;
-        brand = text(root, "Halora", 28);
+        // HALORA in the label role over the page, as the sheet's f1 heads its card.
+        brand = PanelKit.label(this, "Halora", getResources().getDisplayMetrics().density); root.addView(brand, new LinearLayout.LayoutParams(-1, -2));
         connection = new PanelLoadingText(this); connection.setTextSize(16); connection.setPadding(0, dp(6), 0, dp(8));
         root.addView(connection, new LinearLayout.LayoutParams(-1, -2));
         connection.setText("Connecting to your computer…");
         LinearLayout nav = new LinearLayout(this); nav.setOrientation(LinearLayout.HORIZONTAL); root.addView(nav); navRow = nav;
         for (String name : new String[] {"Projects", "Workspace", "Other Apps"}) {
-            Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, name); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
+            // The places as one row of plain presses of one width (the lead's 19:38Z), never a tab list.
+            float density = getResources().getDisplayMetrics().density;
+            Button b = PanelKit.press(this, name, false, PanelKit.Glyph.NONE, 0, density); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, PanelKit.px(PanelKit.CORE, density), 1);
+            navLayout.setMargins(0, PanelKit.px(14, density), name.equals("Other Apps") ? 0 : PanelKit.px(PanelKit.ROW_GAP / 2f, density), PanelKit.px(8, density)); nav.addView(b, navLayout);
             b.setOnClickListener(v -> {
                 if (!authority.navigate() || (busy && name.equals("Projects"))) return;
                 cancelVoice();
@@ -940,14 +952,22 @@ public class AgentPanelActivity extends Activity {
         if (hud) presentationButton.setVisibility(View.GONE);
         // Compact is the card alone: the window around it clear, so the card stands at the show's edge rather than at the top of
         // a dark slab (unverified on the headset whether Horizon OS composites a panel's clear pixels; if not they read black).
-        getWindow().setFormat(hud ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
-        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(hud ? Color.TRANSPARENT : PanelHud.GROUND));
+        // The full panel stands as one glass card too (AUDIT's 19:40Z (a)), its window clear round the card's corners.
+        getWindow().setFormat(android.graphics.PixelFormat.TRANSLUCENT);
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
         // In compact the window stands on glass by default, so every compact screen (offline, waiting for the computer, the
         // preview's line) is read on glass; only the at-rest line clears the rest of the window (AUDIT3's L1).
-        if (hud) shellRoot.setBackground(PanelHud.glass(getResources().getDisplayMetrics().density)); else shellRoot.setBackgroundColor(PanelHud.GROUND);
+        if (hud) shellRoot.setBackground(PanelHud.glass(getResources().getDisplayMetrics().density)); else shellRoot.setBackground(PanelKit.glass(PanelKit.CORNER, getResources().getDisplayMetrics().density));
         float d = getResources().getDisplayMetrics().density;
-        if (hud) shellRoot.setPadding(PanelHud.px(32, d), PanelHud.px(36, d), PanelHud.px(28, d), PanelHud.px(28, d)); else shellRoot.setPadding(dp(20), dp(16), dp(20), dp(16));
-        if (hud) content.setPadding(0, 0, 0, 0); else content.setPadding(dp(20), dp(16), dp(20), dp(16));
+        // The full card's pad is the kit's 28, given as 12 to the card and 16 to each block in it, so a row's plate can reach 16
+        // left of its words (f1) inside the scroll, and every block's words still start on the one edge 28 in.
+        int kitPad = PanelKit.px(PanelKit.PAD, d), rowReach = PanelKit.px(16, d);
+        if (hud) shellRoot.setPadding(PanelHud.px(32, d), PanelHud.px(36, d), PanelHud.px(28, d), PanelHud.px(28, d)); else shellRoot.setPadding(kitPad - rowReach, kitPad, kitPad - rowReach, kitPad);
+        int blockInset = hud ? 0 : rowReach;
+        for (View block : new View[] {brand, connection, navRow}) {
+            if (block.getLayoutParams() instanceof LinearLayout.LayoutParams) ((LinearLayout.LayoutParams) block.getLayoutParams()).setMargins(blockInset, 0, blockInset, 0);
+        }
+        content.setPadding(blockInset, 0, blockInset, 0); content.setGravity(android.view.Gravity.TOP | android.view.Gravity.START); content.setClipToPadding(false);
         scroll.setFillViewport(hud);
         connection.setVisibility(!hud || snapshot == null || preview ? View.VISIBLE : View.GONE);
         if (snapshot == null) return;
@@ -1299,7 +1319,9 @@ public class AgentPanelActivity extends Activity {
     private LinearLayout dialog(String title) {
         closeReview(); reviewOwner = authority.open(); Dialog next = new ReviewDialog(reviewOwner); review = next;
         final long id = reviewOwner; next.setOnDismissListener(ignored -> { if (review == next) { review = null; authority.close(id); } });
-        LinearLayout root = column(); root.setBackgroundColor(PanelHud.GROUND); text(root, title, 25);
+        LinearLayout root = column(); root.setBackground(PanelKit.glass(PanelKit.CORNER, getResources().getDisplayMetrics().density));
+        int dialogPad = PanelKit.px(PanelKit.PAD, getResources().getDisplayMetrics().density); root.setPadding(dialogPad, dialogPad, dialogPad, dialogPad); root.setClipToPadding(false);
+        text(root, title, 25);
         button(root, "Back", this::closeReview, true);
         ScrollView scroll = new ScrollView(this); LinearLayout body = column(); scroll.addView(body); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         next.setContentView(root); if (!preview && !capturable) next.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); next.show(); next.getWindow().setLayout(-1, -1);

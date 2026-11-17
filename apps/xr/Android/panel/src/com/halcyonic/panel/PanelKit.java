@@ -163,6 +163,23 @@ final class PanelKit {
         return button;
     }
 
+    /**
+     * A row of a list, the kit's row form (the sheet's f1 lists; list-death-stranding-cargo-management.png): no plate at rest, the
+     * plain glass where pointed, held when pressed; a main action's row on the lighter thin plate. Corner 16.
+     */
+    static Drawable rowPlates(boolean main, float density) {
+        StateListDrawable plates = new StateListDrawable();
+        plates.addState(new int[] {android.R.attr.state_pressed}, rowPlate(PanelHud.CAPSULE_HELD, density));
+        plates.addState(new int[] {android.R.attr.state_hovered}, rowPlate(main ? PanelHud.MAIN_POINTED : PanelHud.CAPSULE_POINTED, density));
+        plates.addState(new int[0], main ? rowPlate(PanelHud.MAIN_PLATE, density) : new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+        return plates;
+    }
+
+    private static Drawable rowPlate(int colour, float density) {
+        GradientDrawable shape = new GradientDrawable(); shape.setColor(colour); shape.setCornerRadius(px(16, density));
+        return shape;
+    }
+
     private static Drawable plate(int colour, float density) {
         GradientDrawable shape = new GradientDrawable(); shape.setColor(colour); shape.setCornerRadius(px(CORE_CORNER, density));
         return shape;
