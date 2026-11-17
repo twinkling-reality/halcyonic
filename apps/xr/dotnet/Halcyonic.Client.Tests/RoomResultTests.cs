@@ -349,9 +349,11 @@ public class RoomResultTests
         {
             RoomBar With(PlayInHeadset? play) => Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: true, passed: true, Turn(Observed), Steps(), play: play));
             var offered = With(PlayInHeadset.Offered);
-            // The finished turn's review as one dialog holds the main action, one other and Close; Play in Headset stands behind More.
-            Assert.That(offered.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.MakeVrVersion, RoomResult.TryBuild }), Show(offered));
-            var play = offered.Overflow.Single(action => action.Control.Action == RoomResult.PlayInHeadset);
+            // The finished turn's review as one dialog holds the main action, one other and Close; the other is what shows the result
+            // now, Play in Headset, before what starts more work (the lead's 02:50Z), so Try Build stands behind More.
+            Assert.That(offered.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.MakeVrVersion, RoomResult.PlayInHeadset }), Show(offered));
+            Assert.That(offered.Overflow.Select(action => action.Control.Action), Does.Contain(RoomResult.TryBuild));
+            var play = offered.Column.Single(action => action.Control.Action == RoomResult.PlayInHeadset);
             Assert.That((play.Words, play.Main, play.Control.Available), Is.EqualTo((HeadsetPlay.ActionWords, false, true)));
             // A press that starts the preview first stands as well.
             Assert.That(With(PlayInHeadset.NoPreviewOfCheck) is var preview && preview.Column.Concat(preview.Overflow).Any(action => action.Control.Action == RoomResult.PlayInHeadset && action.Control.Available), Is.True);
@@ -359,6 +361,28 @@ public class RoomResultTests
             foreach (var none in new PlayInHeadset?[] { null, PlayInHeadset.NotConfined, PlayInHeadset.NoWayToHeadset, PlayInHeadset.NoCheck,
                 PlayInHeadset.FilesNotChecked, PlayInHeadset.CheckNotPassed, PlayInHeadset.NoControlPlane })
                 Assert.That(With(none) is var refused && refused.Column.Concat(refused.Overflow).Any(action => action.Control.Action == RoomResult.PlayInHeadset), Is.False, none?.ToString() ?? "unknown");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
+
+    [Test]
+    public void TheReviewsOtherSlotShowsTheResultWhereAPreviewIsReadyElseTheNextWorkAction()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            // FILM's takes 5 and 6: a VR project's work to add, its preview ready: Add to Project the main action, Play in Headset the other.
+            var ready = Bar(new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, Turn(Observed), Steps(), play: PlayInHeadset.Offered, add: Copy(Own(3))));
+            Assert.That((ready.AsDialog, ready.Column.Select(action => (action.Control.Action, action.Main)).ToArray()),
+                Is.EqualTo((true, new[] { (RoomResult.ShowAdd, true), (RoomResult.PlayInHeadset, false), (ready.Column[^1].Control.Action, false) })), Show(ready));
+            Assert.That(ready.Column[^1].Control.Place, Is.EqualTo(KitPlace.Close));
+            Assert.That(ready.Overflow.Select(action => action.Control.Action), Does.Contain(RoomResult.TryBuild), "the work action behind More");
+            // Take 3: no preview to show: the next work action, Try Build, keeps the slot.
+            var none = Bar(new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, Turn(Observed), Steps(), add: Copy(Own(3))));
+            Assert.That(none.Column.Select(action => (action.Control.Action, action.Main)).Take(2).ToArray(),
+                Is.EqualTo(new[] { (RoomResult.ShowAdd, true), (RoomResult.TryBuild, false) }), Show(none));
+            Assert.That(none.Column.Count, Is.EqualTo(RoomBar.DialogMost));
         }
         finally { RoomDesign.Enabled = was; }
     }

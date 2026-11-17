@@ -577,6 +577,14 @@ namespace Halcyonic.Client
                 // too, its lowest-ranked action that acts goes behind More (Overflow), never Close: a reading route (Changes, Checks) and the
                 // way on stay, the main action stays.
                 var column = bar.Column.ToList();
+                // The review's one other slot (the lead's 02:50Z): what shows the result now, Play in Headset, comes before what starts
+                // more work, so it is the last to go behind More; with no preview to show, the next work action keeps the slot.
+                if (bar.DialogTitle != null && column.FindIndex(action => action.Control.Action == RoomResult.PlayInHeadset) is var play && play > 0)
+                {
+                    var shows = column[play];
+                    column.RemoveAt(play);
+                    column.Insert(column.FindIndex(action => action.Main) + 1, shows);
+                }
                 var behind = new List<RoomAction>();
                 // The finished turn's review laid as one dialog holds its row at the main action, one other and Close (TASKS, f6): its row stands inside its glass.
                 while (column.Count >= (bar.DialogTitle != null ? DialogMost : ColumnMost))

@@ -1043,16 +1043,10 @@ namespace Halcyonic.XR.Workspace.Editor
                             }
                             else
                             {
-                                // As the finished turn's review dialog it stands behind More (its row holds the main action, one other and Close).
-                                if (shown.AsDialog)
-                                    Require(at < 0 && shown.Overflow.Any(action => action.Control.Action == RoomResult.PlayInHeadset && action.Words == HeadsetPlay.ActionWords && action.Control.Available)
-                                        && shown.Row.Any(action => action.Control.Action == RoomBar.More), "Play in Headset is not reached by More beside the review");
-                                else
-                                {
-                                    Require(at >= 0 && shown.Column[at].Words == HeadsetPlay.ActionWords && bar.Column[at].gameObject.activeSelf && bar.Column[at].Available,
-                                        "Play in Headset does not stand as a pressable action");
-                                    if (at >= 0) Whole(bar.Column[at].Words, "Play in Headset's words");
-                                }
+                                // In the review dialog it is the one other beside the main action (the lead's 02:50Z: what shows the result now first).
+                                Require(at >= 0 && shown.Column[at].Words == HeadsetPlay.ActionWords && bar.Column[at].gameObject.activeSelf && bar.Column[at].Available
+                                    && (!shown.AsDialog || at == 1), "Play in Headset does not stand as a pressable action beside the main one");
+                                if (at >= 0) Whole(bar.Column[at].Words, "Play in Headset's words");
                             }
                         }
                         if (stopped) Require(shown.Column[0].Place == KitPlace.Field && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1, "Write Instruction does not lead where the tries ran out");
