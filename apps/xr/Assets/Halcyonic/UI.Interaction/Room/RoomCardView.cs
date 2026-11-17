@@ -467,6 +467,20 @@ namespace Halcyonic.XR.UI
                 Text(KitRole.Strong, SaysTypeDp + 6f, SaysLineDp, White(SaysQuoteAlpha), LineWords.Ours("\u201C"), 0f, -down, S(SaysQuoteDp), 1);
                 var (_, saidTall) = Text(KitRole.Body, SaysTypeDp, SaysLineDp, White(SaysAlpha), says, S(SaysQuoteDp + CapGapDp), -down, width - S(SaysQuoteDp + CapGapDp), SaysLines);
                 down += saidTall;
+                // Where the reply goes on, the rest is one press away, quiet under the quote (the lead's 15:17Z; AUDIT3's R6 SHOULD).
+                if (card.SaysAll is KitControl all)
+                {
+                    var indent = S(SaysQuoteDp + CapGapDp);
+                    var top = down + S(ReadAllGapDp);
+                    var (readLabel, readTall) = Text(KitRole.Strong, FactLineDp, FactLineLineDp, White(ReadAllAlpha), LineWords.Ours(all.Words), indent, -top,
+                        width - indent - S(ReadAllChevronDp + 6f), 1);
+                    var wordsWide = RoomCursor.WordsWidth(readLabel, 0f);
+                    Glyph(RoomGlyph.Chevron, ReadAllChevronDp, White(ReadAllAlpha), new Vector2(indent + wordsWide + S(6f) + S(ReadAllChevronDp) / 2f, -(top + readTall / 2f)),
+                        "read all chevron", CardChevronStroke);
+                    var wide = wordsWide + S(6f + ReadAllChevronDp);
+                    RowTarget(all, new Vector2(indent + wide / 2f, -(top + readTall / 2f)), new Vector2(wide + S(12f), readTall + S(12f)));
+                    down = top + readTall;
+                }
             }
 
             // A card never says the same words twice: a description that only repeats the title is not drawn (an idea that is
@@ -1127,6 +1141,10 @@ namespace Halcyonic.XR.UI
         public const float SaysAlpha = 0.74f;
         /// <summary>The agent's sentence folds to as many lines as it takes, never cut (AUDIT3's R6): this many at most, a long sentence's own.</summary>
         public const int SaysLines = 12;
+        /// <summary>The quiet press to the agent's whole reply under its quote: the fact line's size, a touch brighter than a label, a small chevron.</summary>
+        public const float ReadAllGapDp = 8f;
+        public const float ReadAllAlpha = 0.72f;
+        public const float ReadAllChevronDp = 14f;
         public const float SaysQuoteDp = 18f;
         public const float SaysQuoteAlpha = 0.5f;
 

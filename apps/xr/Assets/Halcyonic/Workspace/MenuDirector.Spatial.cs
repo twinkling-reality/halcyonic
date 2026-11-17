@@ -289,6 +289,7 @@ namespace Halcyonic.XR.Workspace
             {
                 case RoomResult.ShowChanges: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Changes); break;
                 case RoomResult.ShowChecks: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Checks); break;
+                case RoomResult.ShowSaid: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Said); break;
                 case RoomResult.NextPage: setup.Presentation.ShowResultPage(task, run, page, part + 1); break;
                 case RoomResult.Back: setup.Presentation.ShowResultPage(task, run, RoomResultPage.Result); break;
                 case RoomResult.MakeVrVersion: OnScreenActed(KitScreenAction.MakeAVrVersion, work!.ProjectId); break;

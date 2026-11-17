@@ -165,6 +165,12 @@ namespace Halcyonic.Client
                     // SCREENS's file of Changes read: its change, then the whole file, paged, with a way back at each step.
                     (card, sentence) = FileReading(reading, frame, column);
                     break;
+                case RoomResultPage.Said:
+                    // The agent's whole reply (the lead's 15:17Z: nothing it said is hidden): on the band, its own lines kept, paged and
+                    // never cut, as the agent's words always stand; Back to the review.
+                    band = binding.Model.Report?.Prose ?? binding.Model.Report?.Text;
+                    column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
+                    break;
                 case RoomResultPage.Checks:
                     // FIELD's Checks card: the outcome as its status, the steps as nodes, the tries' pips on the failed one.
                     card = RoomPanelCards.Checks(result, binding.Model.AutoFix);
@@ -237,8 +243,12 @@ namespace Halcyonic.Client
                     // Only over a finished turn the computer saw (Turn Finished): a project's result with no observed turn keeps the band.
                     if (card != null && !ReferenceEquals(card, binding.Model.Standing) && result.Observed != null)
                     {
-                        var says = FirstSentence(binding.Model.Report?.Prose ?? binding.Model.Report?.Text);
-                        card = card.WithReview(result.Observed != null ? RoomStanding.Finished : null, says == null ? null : LineWords.Theirs(says));
+                        var reply = binding.Model.Report?.Prose ?? binding.Model.Report?.Text;
+                        var says = FirstSentence(reply);
+                        // Where the reply goes on past its first sentence, the rest is one press away (the lead's 15:17Z; AUDIT3's R6).
+                        var goesOn = says != null && RoomWords.Laid(reply).Trim() != says;
+                        card = card.WithReview(result.Observed != null ? RoomStanding.Finished : null, says == null ? null : LineWords.Theirs(says),
+                            goesOn ? Own(RoomResult.ShowSaid, RoomResult.ReadAllWords, main: false, GlazeIcon.Next).Control : null);
                         if (says != null) band = null;
                         // Laid as one dialog (FIELD's LayDialog): Turn Finished its label, the task's name its title, the card its body.
                         if (card.Eyebrow != null && card.Title != null) { reviewTitle = card.Title; card = card.AsDialogBody(); }

@@ -20,6 +20,8 @@ namespace Halcyonic.Client
         History,
         /// <summary>Sharing the checked game (DEVICE's <see cref="ShareColumn"/>, ADR 0054), reached from the passed result at rest.</summary>
         Share,
+        /// <summary>The agent's whole reply, its own lines on the band, paged and never cut: one press from THE AGENT SAYS (the lead's 15:17Z).</summary>
+        Said,
         /// <summary>SCREENS's file of Changes read: its change over the turn, then the whole file (<see cref="FileChangeColumn"/>).</summary>
         File,
     }
@@ -39,6 +41,9 @@ namespace Halcyonic.Client
         public const string ShowChecks = "room-checks";
         public const string NextPage = "room-next-page";
         public const string Back = "room-back";
+        /// <summary>The review's way to the agent's whole reply, where it goes on past the first sentence (the lead's 15:17Z; AUDIT3's R6).</summary>
+        public const string ShowSaid = "room-said";
+        public const string ReadAllWords = "Read All";
         /// <summary>DEVICE's Play in Headset (<see cref="HeadsetPlay"/>): the project's checked preview opened in Quest Browser.</summary>
         public const string PlayInHeadset = "room-play-in-headset";
         /// <summary>A13: the review of what adding brings, its confirming action, the files both changed, and Let Agent Fix.</summary>
@@ -95,7 +100,7 @@ namespace Halcyonic.Client
         /// <summary>Every action id of the result's own.</summary>
         public static readonly IReadOnlyList<string> Actions = new[]
         {
-            MakeVrVersion, TryBuild, ShowChanges, ShowChecks, NextPage, Back, PlayInHeadset, ShowAdd, AddConfirm, ShowConflict, Fit,
+            MakeVrVersion, TryBuild, ShowChanges, ShowChecks, ShowSaid, NextPage, Back, PlayInHeadset, ShowAdd, AddConfirm, ShowConflict, Fit,
             ShowHistory, HistoryVersion, HistoryOlder, HistoryRestore, HistoryCancel, HistoryUndo, HistoryAgain, HistoryTryAgain, HistoryChanges, HistoryBack, HistoryClose,
             ShowShare, ShareWayAction, ShareStart, ShareCancel, ShareStop, ShareAgain, ShareCheckGame, ShareStartPreview, ShareBack, ShareClose,
         }.Concat(new[] { ShowFile, FileNextPage, FilePreviousPage, FileWhole, FileTryAgain, FileBack, CarryOutPlan, WaitingOpen, WaitingDrop, WaitingBack, WaitingAgain }).ToArray();

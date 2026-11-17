@@ -386,6 +386,21 @@ public class RoomResultTests
     }
 
     [Test]
+    public void TheAgentsWholeReplyIsOnePressFromTheReviewWhereItGoesOn()
+    {
+        // The lead's 15:17Z: nothing the agent said is hidden; AUDIT3's R6 SHOULD: "Done" never reads as the whole report.
+        var one = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()));
+        Assert.That(one.Card?.SaysAll, Is.Null, "one sentence is the whole reply: no press");
+        var more = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()), says: "Done - but two tests still fail. The rest passed.");
+        Assert.That((more.Card?.Says?.Text, more.Card?.SaysAll?.Action, more.Card?.SaysAll?.Words),
+            Is.EqualTo(((string?)"Done - but two tests still fail.", (string?)RoomResult.ShowSaid, (string?)RoomResult.ReadAllWords)));
+        Assert.That(RoomResult.Actions, Does.Contain(RoomResult.ShowSaid), "the director takes it as the result's own");
+        var said = Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps(), RoomResultPage.Said), says: "Done - but two tests still fail. The rest passed.");
+        Assert.That((said.Card, said.Band, said.AsDialog), Is.EqualTo(((RoomCard?)null, (string?)"Done - but two tests still fail. The rest passed.", false)), Show(said));
+        Assert.That(said.Column.Select(action => action.Control.Action), Does.Contain(RoomResult.Back), "a way back to the review");
+    }
+
+    [Test]
     public void TheAgentSaysReadsTheMessagesOwnParagraphsNotItsOneLineEntry()
     {
         // The walk on dced8ec07: the activity entry stands on one line, so the review read its first sentence from the whole list.

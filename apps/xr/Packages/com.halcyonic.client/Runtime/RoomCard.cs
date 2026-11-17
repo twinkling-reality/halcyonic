@@ -476,6 +476,7 @@ namespace Halcyonic.Client
             Still = from.Still;
             Eyebrow = from.Eyebrow;
             Says = from.Says;
+            SaysAll = from.SaysAll;
         }
 
         /// <summary>
@@ -498,17 +499,20 @@ namespace Halcyonic.Client
 
         public LineWords? Says { get; private set; }
 
+        /// <summary>The press to the agent's whole reply under <see cref="Says"/>, where it goes on past that sentence; null where it does not.</summary>
+        public KitControl? SaysAll { get; private set; }
+
         /// <summary>
         /// This card as a dialog's body (the review laid as one dialog, TASKS f6): no title and no head of its own, the dialog says
         /// the task's name over it; every other part kept.
         /// </summary>
         public RoomCard AsDialogBody() =>
             new RoomCard(null, Description, RoomCardHead.None, Status, Slots, Steps, TrackAt, TrackOf, List, Gauges, More, Code, Reading, DescriptionPage,
-                TitleMono, Press, statusAfter: StatusAfter, descriptionMostLines: DescriptionMostLines) { Says = Says };
+                TitleMono, Press, statusAfter: StatusAfter, descriptionMostLines: DescriptionMostLines) { Says = Says, SaysAll = SaysAll };
 
         /// <summary>This card with the review's eyebrow and the agent's sentence.</summary>
-        public RoomCard WithReview(string? eyebrow, LineWords? says) =>
-            new RoomCard(this) { Eyebrow = eyebrow, Says = says == null || says.IsEmpty ? null : says, Still = Still };
+        public RoomCard WithReview(string? eyebrow, LineWords? says, KitControl? all = null) =>
+            new RoomCard(this) { Eyebrow = eyebrow, Says = says == null || says.IsEmpty ? null : says, SaysAll = says == null || says.IsEmpty ? null : all, Still = Still };
 
         /// <summary>This card with <paramref name="slots"/> in place of its own, every other part kept.</summary>
         public RoomCard WithSlots(IReadOnlyList<RoomSlot> slots) => new RoomCard(this) { Slots = slots };

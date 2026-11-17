@@ -1054,15 +1054,20 @@ namespace Halcyonic.XR.Workspace.Editor
                             && shown.Column.Any(action => action.Control.Action == RoomResult.TryBuild && !action.Main), "Add to Project does not lead the review card with Try Build quiet beside it");
                         else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Copy does not lead");
                         if (state == "38-result-add") Require(shown.Column.Any(action => action.Control.Action == RoomResult.ShowAdd && !action.Main), "Add to Project does not stand where the task holds work to add");
-                        // The review's actions, Close among them, stand on ONE line inside its glass at the standard size, as tile f6 (AUDIT
-                        // 03:05Z MUST 1; the lead's 03:32Z (A)); at the larger size they may take the dialog's second row, as every dialog.
+                        // The review's actions, Close among them, stand on ONE line inside its glass where they fit, as tile f6 (AUDIT 03:05Z
+                        // MUST 1; the lead's 03:32Z (A)); where they do not, at either size, they take the dialog's second row, as every dialog.
                         if (shown.AsDialog)
                         {
                             var rowYs = bar.Column.Where(button => button.gameObject.activeSelf).Select(button => Mathf.Round(button.transform.localPosition.y * 1000f)).Distinct().Count();
                             var drawnActions = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
                             var rowDp = (drawnActions.Sum(button => button.Size.x) + (drawnActions.Count - 1) * KitType.Units(SpatialKit.TargetGapDegrees)) / RoomType.Units(1f);
                             var measureDp = (bar.Panel.Size.x - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp)) / RoomType.Units(1f);
-                            if (Mathf.Approximately(GlazeText.Scale, 1f)) Require(rowYs == 1, "the review's actions stand on " + rowYs + " lines, not one: "
+                            // The lead's 15:17Z (A): one line where the presses fit the words' measure, else LayDialog's two rows (the others over
+                            // the main one), never an overflow; the dialog check below holds the two rows inside the panel.
+                            Require(rowYs <= 2, "the review's actions stand on " + rowYs + " lines");
+                            // The filmed review (take 3) always on one line at the standard size.
+                            if (state == "38-result-review" && Mathf.Approximately(GlazeText.Scale, 1f)) Require(rowYs == 1, "the filmed review's actions stand on " + rowYs + " lines, not one");
+                            if (Mathf.Approximately(GlazeText.Scale, 1f) && rowDp <= measureDp + 0.5f) Require(rowYs == 1, "the review's actions stand on " + rowYs + " lines, not one: "
                                 + string.Join(", ", drawnActions.Select(button => button.Words.text + " " + (button.Size.x / RoomType.Units(1f)).ToString("0")))
                                 + " come to " + rowDp.ToString("0") + " dp against the words' " + measureDp.ToString("0") + " dp");
                             Require(shown.Column.Last().Control.Place == KitPlace.Close, "Close does not stand last in the review's row");
