@@ -63,7 +63,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (asset == null) continue;
                 var label = KitType.Create(view, face, role, KitType.Text, KitType.Order.Words, room: true);
                 Require(label.font == asset, role + " is not drawn in " + face);
-                label.textWrappingMode = TextWrappingModes.NoWrap;
+                label.textWrappingMode = latin ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
                 var line = latin ? markedLine : (ours.Length > 0 ? LineWords.Ours(ours) : LineWords.None) + (theirs.Length > 0 ? LineWords.Theirs(theirs) : LineWords.None);
                 var runs = GlazeRuns.Of(label).Set(line);
                 Require(runs.Count == (theirs.Length > 0 ? 1 : 0), face + "'s outside text lost its run");
@@ -75,8 +75,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(breakFace != null && breakFace.HasCharacter(LineWords.LineBreakMark[0]) && (role != KitRole.Mono || breakFace.name == "KitReading"),
                         face + " cannot draw the line break's mark");
                 }
-                var (lines, _, height) = KitType.Lay(label, width - 2f * pad, 1);
-                Require(lines == 1 && !label.isTextTruncated, face + "'s sample is cut");
+                // The accented line may take two lines in the display face at the larger size; it is never cut.
+                var (lines, _, height) = KitType.Lay(label, width - 2f * pad, latin ? 2 : 1);
+                Require(lines >= 1 && !label.isTextTruncated, face + "'s sample is cut");
                 label.transform.localPosition = new Vector3(-width / 2f + pad, y, -0.0005f);
                 y -= height + KitType.Units(SpatialKit.GridDegrees * 2f);
                 labels.Add((face, asset, label));

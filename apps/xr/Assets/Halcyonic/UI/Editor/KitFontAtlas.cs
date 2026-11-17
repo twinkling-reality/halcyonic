@@ -87,8 +87,16 @@ namespace Halcyonic.XR.UI.Editor
         /// <summary>The mono face, the only face without <see cref="LineMark"/> of its own.</summary>
         public const string MonoFace = "KitMono";
 
-        /// <summary>What a face holds: <see cref="Characters"/>, and <see cref="LineMark"/> but in the mono face.</summary>
-        public static string CharactersOf(string name) => name == MonoFace ? Characters : Characters + LineMark;
+        /// <summary>
+        /// The Latin letters JetBrains Mono does not draw (the trial rebuild, 2026-11-17T22:25Z): Ĳ and ĳ. The mono face reaches them
+        /// through <see cref="MarksFace"/>, as it reaches <see cref="LineMark"/>.
+        /// </summary>
+        public const string MonoLacks = "\u0132\u0133";
+
+        /// <summary>What a face holds: <see cref="Characters"/> and <see cref="LineMark"/>; the mono face neither the mark nor <see cref="MonoLacks"/>.</summary>
+        public static string CharactersOf(string name) => name == MonoFace
+            ? new string(Characters.Where(character => MonoLacks.IndexOf(character) < 0).ToArray())
+            : Characters + LineMark;
 
         public static string AssetPath(string name) => Resources + name + ".asset";
 
@@ -129,6 +137,7 @@ namespace Halcyonic.XR.UI.Editor
         /// <summary>Every face falls back to the reading default alone; the mono face first to <see cref="MarksFace"/> for its line mark.</summary>
         private static bool FallbacksHold(string name, List<TMP_FontAsset> table) => name == MonoFace
             ? table.Count == 2 && table[0] == AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath(MarksFace)) && table[1] == TMP_Settings.defaultFontAsset
+                && table[0].HasCharacters(LineMark + MonoLacks)
             : table.Count == 1 && table[0] == TMP_Settings.defaultFontAsset;
 
         /// <summary>The fallback table a face is built with (<see cref="FallbacksHold"/>).</summary>

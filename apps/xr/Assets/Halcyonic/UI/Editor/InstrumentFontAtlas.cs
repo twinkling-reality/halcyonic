@@ -49,10 +49,12 @@ namespace Halcyonic.XR.UI.Editor
                 File.ReadAllBytes("Assets/StreamingAssets/Halcyonic-Licenses/Rajdhani-OFL.txt")))
                 throw new InvalidOperationException("The shipped title-font license differs from its source license.");
             var saved = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath);
-            if (saved == null || saved.atlasPopulationMode != AtlasPopulationMode.Static || saved.sourceFontFile != null
-                || !saved.HasCharacters(Characters) || !saved.fallbackFontAssetTable.SequenceEqual(Fallbacks())
-                || !saved.fallbackFontAssetTable[0].HasCharacters(Lacks))
-                throw new InvalidOperationException("The static title face or its reading fallback is incomplete.");
+            if (saved == null || saved.atlasPopulationMode != AtlasPopulationMode.Static || saved.sourceFontFile != null)
+                throw new InvalidOperationException("The title face is not a static atlas of its own.");
+            if (!saved.HasCharacters(Characters, out List<char> missing))
+                throw new InvalidOperationException("The title face lacks " + string.Join(", ", missing.Select(character => "U+" + ((int)character).ToString("X4"))) + ".");
+            if (!saved.fallbackFontAssetTable.SequenceEqual(Fallbacks()) || !saved.fallbackFontAssetTable[0].HasCharacters(Lacks))
+                throw new InvalidOperationException("The title face's fallbacks are not " + LacksFace + " holding what Rajdhani lacks, then the reading default.");
             var root = new GameObject("Instrument type check");
             try
             {
