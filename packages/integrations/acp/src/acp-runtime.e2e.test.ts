@@ -14,7 +14,7 @@ import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { RuntimeActionError, type RuntimeObservation } from '@halcyonic/runtime-core';
 import { AcpRuntimeAdapter } from './acp-runtime.ts';
-import { ANTIGRAVITY } from './profiles.ts';
+import { ANTIGRAVITY, KIRO } from './profiles.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 import { StandInGemini, type StandInReply } from './testing/stand-in-gemini.ts';
@@ -241,5 +241,62 @@ describe('Antigravity 1.5.10 end to end, on a stand-in model', { skip: SKIP }, (
     );
     assert.deepEqual(run.observations, []);
     assert.equal(run.standIn.taken, 0);
+  });
+});
+
+/** End to end against the real Kiro CLI 3.4.0 (the vendor's universal-darwin build), signed out. */
+const KIRO_BINARY = process.env.HALCYONIC_KIRO_BIN ?? '';
+const KIRO_SKIP =
+  KIRO_BINARY === ''
+    ? 'HALCYONIC_KIRO_BIN is not set; point it at the pinned Kiro CLI 3.4.0 to run these tests'
+    : existsSync(KIRO_BINARY)
+      ? false
+      : `HALCYONIC_KIRO_BIN names no file: ${KIRO_BINARY}`;
+
+describe('Kiro 3.4.0 end to end, signed out', { skip: KIRO_SKIP }, () => {
+  test('launched as the control plane launches it, the start fails in words and nothing starts', async (t) => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-acp-kiro-')));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const project = join(root, 'projects', 'one');
+    const home = join(root, 'home');
+    mkdirSync(project, { recursive: true });
+    mkdirSync(home);
+    const adapter = new AcpRuntimeAdapter({
+      profile: KIRO,
+      binaryPath: KIRO_BINARY,
+      directoryPolicy: allowOnly(join(root, 'projects')),
+      // A key from the host is never passed: the start still reads as not signed in.
+      env: {
+        PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
+        HOME: home,
+        LANG: 'en_US.UTF-8',
+        TMPDIR: `${root}/`,
+        KIRO_API_KEY: 'halcyonic-stand-in-not-a-key',
+      },
+      hostFolders:
+        process.platform === 'darwin'
+          ? {
+              scope: { folders: [join(root, 'host-data')], home },
+              profileFolder: join(root, 'profiles'),
+            }
+          : null,
+    });
+    t.after(() => adapter.close());
+    const observations: RuntimeObservation[] = [];
+    await assert.rejects(
+      adapter.startExecution({
+        execution: TEST_EXECUTION,
+        instruction: 'Do the work.',
+        options: {},
+        model_ref: null,
+        directory: project,
+        emit: (observation) => observations.push(observation),
+      }),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'sign_in_required' &&
+        error.effect === 'none',
+    );
+    assert.deepEqual(observations, []);
   });
 });

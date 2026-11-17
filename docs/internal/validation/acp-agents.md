@@ -117,9 +117,10 @@ again right before `session/new`; the app's version must be the profile's, or th
   (`fixtures/antigravity-*.jsonl`, paths replaced by `$CWD`, the model list shortened; `kiro-signed-out.jsonl`).
   Four mutations were each caught (a denial taken at `in_progress`, the edit's reach unknown, a cancelled turn
   read as completed, the app's own key passed on).
-- End to end, `acp-runtime.e2e.test.ts` (6), on the pinned `agy` and the stand-in model, under the light profile:
-  approve, deny, stop during an approval, a second turn, a host folder unreadable with its control, signed out.
-  Run with `HALCYONIC_AGY_BIN=<the pinned agy>`; skipped without it.
+- End to end, `acp-runtime.e2e.test.ts` (7), under the light profile: on the pinned `agy` and the stand-in model,
+  approve, deny, stop during an approval, a second turn, a host folder unreadable with its control, signed out; on
+  the pinned `kiro-cli`, a start launched as the control plane launches it, refused signed out. Run with
+  `HALCYONIC_AGY_BIN` and `HALCYONIC_KIRO_BIN` naming the pinned binaries; each part is skipped without its variable.
 
 ## Not verified
 
