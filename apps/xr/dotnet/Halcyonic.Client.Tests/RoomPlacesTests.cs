@@ -57,6 +57,21 @@ public class RoomPlacesTests
     }
 
     [Test]
+    public void APlaceOneToARowGathersAtOnceItsFrontAndThoseThatNeedYouStandingUntilSpread()
+    {
+        var room = new RoomPlaces();
+        var work = new[] { Work("b1", "B", 9), Work("b2", "B", 1, needsYou: true), Work("b3", "B", 5) };
+        Assert.That(room.Update("j", work, id => Names[id]).Single().Standing, Is.EqualTo(3), "three stand while the place lays them in rows");
+        room.OneARow.Add("B");
+        var gathered = room.Update("j", work, id => Names[id]).Single();
+        Assert.That((gathered.Form, gathered.Standing, gathered.More), Is.EqualTo((PlaceForm.Crowd, 1, 2)), "one to a row: the front alone, the rest behind More");
+        Assert.That(gathered.Shown.Single(), Is.EqualTo("b2"), "the one that needs you is the front");
+        room.Spread.Add("B");
+        Assert.That(room.Update("j", work, id => Names[id]).Single().Standing, Is.EqualTo(3), "More spreads them");
+        Assert.That(room.Update("k", work, id => Names[id]).Single().Standing, Is.EqualTo(3), "another journal forgets it");
+    }
+
+    [Test]
     public void APlaceTakesItsFormByCountAndACrowdNeverHidesOneThatNeedsYou()
     {
         var rule = new PlaceRule(3, 6, 10, 6);
