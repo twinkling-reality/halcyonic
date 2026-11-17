@@ -124,13 +124,25 @@ namespace Halcyonic.XR.UI
         /// How far the ground reaches over the words' top and under their last line (zero for the agent's words): the heard draft's
         /// subtitle stretches it behind its speaker's name above and its actions below, as the codec's dark foot (AUDIT 2026-11-16 23:47Z).
         /// </summary>
-        public float GroundAbove { get; set; }
+        public float GroundAbove { get => groundAbove; set => Reach(ref groundAbove, value); }
 
         /// <inheritdoc cref="GroundAbove"/>
-        public float GroundBelow { get; set; }
+        public float GroundBelow { get => groundBelow; set => Reach(ref groundBelow, value); }
 
         /// <summary>The ground's opacity: <see cref="RoomWords.GroundAlpha"/>, or the subtitle's <see cref="RoomWords.SubtitleGroundAlpha"/>.</summary>
-        public float GroundStrength { get; set; } = RoomWords.GroundAlpha;
+        public float GroundStrength { get => groundStrength; set => Reach(ref groundStrength, value); }
+
+        private float groundAbove;
+        private float groundBelow;
+        private float groundStrength = RoomWords.GroundAlpha;
+
+        /// <summary>A change of the ground's reach or strength paints at once, a standing band too (F267: a settled band never painted it).</summary>
+        private void Reach(ref float field, float value)
+        {
+            if (Mathf.Approximately(field, value)) return;
+            field = value;
+            if (phase != Phase.Hidden && ground != null) Paint();
+        }
 
         /// <summary>A band under <paramref name="parent"/>, hidden, its origin the middle of its top edge; the ground draws at <paramref name="order"/> and the words over it.</summary>
         public static RoomBand Create(Transform parent, int order = KitType.Order.Plate)

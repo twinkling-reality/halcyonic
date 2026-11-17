@@ -287,14 +287,12 @@ namespace Halcyonic.Client
         public KitControl? Field { get; }
 
         /// <summary>
-        /// The question laid as one dialog (the owner's "dialogue like Mirror's Edge", 2026-11-16, its glass the equipped-test Ask
-        /// panel's): the agent's words at the panel's top, its described answers the panel's card under them, the actions in one row
-        /// at the panel's foot, the main one last; no band and no column beside it. Only where the answers already stand in the card.
+        /// The approval laid as one dialog (Mirror's Edge's panel in the one language). The question is parked (the lead's 23:44Z): tonight the dialog stands for the approval alone, its question (Run Command?) at the
+        /// top, the command in mono under it, Decline then Approve; a question keeps its band and its card until it returns (F267: a long
+        /// question at the title's size passed the bar's envelope; AUDIT's 01:48Z: a long question goes in the body, under a short title).
         /// </summary>
         public bool AsDialog => !Wide && !Narrow && !Caret
-            && (State == RoomBarState.Question && Card != null && Band != null
-                // The approval the same way: its question (Run Command?) at the top, the command in mono under it, Deny then Approve.
-                || State == RoomBarState.Request && Mono && Sentence != null && Column.Count > 0 && Card == null);
+            && State == RoomBarState.Request && Mono && Sentence != null && Column.Count > 0 && Card == null;
 
         /// <summary>
         /// The heard draft as the codec's subtitle (Death Stranding's Codec, AUDIT's pick for the composer, 2026-11-16): the person's

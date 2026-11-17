@@ -457,8 +457,6 @@ namespace Halcyonic.XR.UI
                 band.GroundAbove = bar.SubtitleAbove;
                 band.GroundBelow = bar.SubtitleBelow;
                 band.GroundStrength = RoomWords.SubtitleGroundAlpha;
-                // Painted again now: the band settles before the bar lays the room it reaches over (F265's heard draft, 2026-11-17).
-                band.Draw();
             }
             else if (band.Words != null)
             {
