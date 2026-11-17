@@ -298,7 +298,7 @@ namespace Halcyonic.XR
                 var most = 0f;
                 foreach (var view in views)
                     if (DrawnTagSize?.Invoke(view) is Vector2 drawn)
-                        most = Mathf.Max(most, (float)PlacePitch.DegreesOf(drawn.x, Vector3.Distance(view.Labels.position, eyes)));
+                        most = Mathf.Max(most, (float)PlacePitch.DegreesOf(drawn.x, Across(view.Labels.position, eyes)));
                 return most;
             }
             // A tag bounded in degrees is held to them as DRAWN: where the widest stands wider, every bound tightens by as much and the tags
@@ -324,8 +324,10 @@ namespace Halcyonic.XR
             {
                 var bodyDegrees = PlacePitch.DegreesOf(BodyWidth * scale, distance);
                 var pitchDegrees = PlacePitch.PitchDegrees(widestSeen, bodyDegrees);
-                var tagDistance = views.Average(view => Vector3.Distance(view.Labels.position, eyes));
-                pitch = (float)PlacePitch.MetresOf(pitchDegrees, tagDistance) * distance / tagDistance;
+                // Tags move with their characters, so a pitch in metres that sets the tags pitchDegrees apart as the eyes see them, across the
+                // floor at the tags' own distance, is the characters' pitch.
+                var tagDistance = views.Take(Mathf.Min(rowMost, count)).Average(view => Across(view.Labels.position, eyes));
+                pitch = (float)PlacePitch.MetresOf(pitchDegrees, tagDistance);
                 rowMost = Mathf.Min(PlacePitch.RowMost(widestSeen, bodyDegrees), rule.FullMost);
                 Lay();
             }
@@ -363,20 +365,24 @@ namespace Halcyonic.XR
         /// </summary>
         private static void HoldBackRowType(IReadOnlyList<CharacterView> views, int rowMost, Vector3 eyes)
         {
-            // A label is scaled for its lip's distance; the tag hangs under the lip, nearer or further. Scaled again by the tag's own distance,
-            // every tag's type stands the same size as seen, front row or back, near ring or far (twice, since the tag moves as it scales).
+            if (views.Count <= rowMost) return;
+            // The type as seen: a label's scale over its tag's distance from the eyes.
+            float? TypeAt(CharacterView view)
+            {
+                if (DrawnTagCorners?.Invoke(view) is not Vector3[] corners) return null;
+                var centre = (corners[0] + corners[1] + corners[2] + corners[3]) / 4f;
+                return view.Labels.lossyScale.x / Mathf.Max(1e-4f, Vector3.Distance(centre, eyes));
+            }
+            var front = views.Take(rowMost).Select(TypeAt).Where(type => type.HasValue).Select(type => type!.Value).DefaultIfEmpty(0f).Average();
+            if (front <= 0f) return;
+            // Twice, since a tag moves as its labels scale.
             for (var pass = 0; pass < 2; pass++)
-                foreach (var view in views)
-                {
-                    if (DrawnTagCorners?.Invoke(view) is not Vector3[] corners) continue;
-                    var centre = (corners[0] + corners[1] + corners[2] + corners[3]) / 4f;
-                    var lip = Vector3.Distance(view.Labels.position, eyes);
-                    var tag = Vector3.Distance(centre, eyes);
-                    var type = view.Labels.lossyScale.x / Mathf.Max(1e-4f, tag);
-                    var wanted = view.Labels.lossyScale.x / Mathf.Max(1e-4f, lip);
-                    if (type > 0f) view.Labels.localScale *= wanted / type;
-                }
+                for (var index = rowMost; index < views.Count; index++)
+                    if (TypeAt(views[index]) is float type && type > front) views[index].Labels.localScale *= front / type;
         }
+
+        /// <summary>How far <paramref name="point"/> stands from <paramref name="eyes"/> across the floor: what a yaw angle is read at.</summary>
+        private static float Across(Vector3 point, Vector3 eyes) => Mathf.Max(1e-4f, new Vector2(point.x - eyes.x, point.z - eyes.z).magnitude);
 
         /// <summary>
         /// Where a place's character <paramref name="index"/> of <paramref name="count"/> stands in the place's own space, and at what size:

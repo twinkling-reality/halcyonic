@@ -149,10 +149,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     Debug.Log("Halcyonic: places: " + variant + " " + project + " at " + Degrees(bearing.YawDegrees) + " degrees, ring " + (bearing.Ring + 1) + ": " + views.Count
                         + " in rows of " + rowMost + ", " + pitch.ToString("0.000", CultureInfo.InvariantCulture) + " m apart, the back row " + rise.ToString("0.00", CultureInfo.InvariantCulture) + " m up, seen from " + Degrees(whole.xMin) + " to " + Degrees(whole.xMax) + " degrees.");
                 }
-                // The tags' size as seen: every tag within 3 percent of ring one's front row, and none larger.
+                // The tags' size as seen: none more than 3 percent larger than ring one's front row (the lead's MUST: never past it), none more
+                // than 7 percent smaller.
                 var frontOne = tagHeights.Where(each => each.Ring == 0 && !each.Back).Select(each => each.Degrees).DefaultIfEmpty(0f).Average();
                 foreach (var (ring, back, name, degrees) in tagHeights)
-                    if (frontOne > 0f && (degrees > frontOne * 1.03f || degrees < frontOne * 0.97f))
+                    if (frontOne > 0f && (degrees > frontOne * 1.03f || degrees < frontOne * 0.93f))
                         failures.Add(name + "'s tag's type stands " + Degrees(degrees) + " as seen (ring " + (ring + 1) + (back ? ", back row" : ", front row") + ") against ring one's front row's " + Degrees(frontOne));
                 Debug.Log("Halcyonic: places: " + variant + " tags' type as seen (millidegrees a tag unit): ring one's front row " + Degrees(frontOne) + "; ring two "
                     + Degrees(tagHeights.Where(each => each.Ring == 1).Select(each => each.Degrees).DefaultIfEmpty(0f).Average()) + "; back rows "
