@@ -56,7 +56,6 @@ public class CharacterPresenterTests
     /// </summary>
     [TestCase(WorkstreamStatus.Completed, ExecutionStatus.Completed, false, TestName = "TheTagSaysTheCardsWordsAtAFinishedTurn")]
     [TestCase(WorkstreamStatus.Completed, ExecutionStatus.Completed, true, TestName = "TheTagSaysTheCardsWordsAtAllPassing")]
-    [TestCase(WorkstreamStatus.Running, ExecutionStatus.Completed, false, TestName = "TheTagSaysTheCardsWordsWhereTheCharactersActivityLags")]
     [TestCase(WorkstreamStatus.Failed, ExecutionStatus.Failed, false, TestName = "TheTagSaysTheCardsWordsAtAFailedTurn")]
     [TestCase(WorkstreamStatus.Interrupted, ExecutionStatus.Interrupted, false, TestName = "TheTagSaysTheCardsWordsAtAStoppedTurn")]
     public void TheTagSaysTheCardsStateAtRest(WorkstreamStatus workstreamStatus, ExecutionStatus executionStatus, bool allPassing)
@@ -79,12 +78,15 @@ public class CharacterPresenterTests
     }
 
     [Test]
-    public void WhileTheTurnGoesOnOrNeedsThePersonTheTagSaysTheStateLanguagesWord()
+    public void WhileATurnStartsGoesOnOrNeedsThePersonTheTagSaysTheStateLanguagesWord()
     {
         foreach (var (workstreamStatus, executionStatus, level, word) in new[]
         {
             (WorkstreamStatus.Running, ExecutionStatus.Running, AttentionLevel.None, "Working"),
             (WorkstreamStatus.WaitingForHuman, ExecutionStatus.WaitingForHuman, AttentionLevel.ActionRequired, "Needs You"),
+            // AUDIT3's TG1: a new turn starts while the last execution still reads Completed; the tag says the new turn, never the last's end.
+            (WorkstreamStatus.Starting, ExecutionStatus.Completed, AttentionLevel.None, "Starting"),
+            (WorkstreamStatus.Running, ExecutionStatus.Completed, AttentionLevel.None, "Working"),
         })
         {
             var execution = Samples.Execution("e1", "w1", executionStatus);

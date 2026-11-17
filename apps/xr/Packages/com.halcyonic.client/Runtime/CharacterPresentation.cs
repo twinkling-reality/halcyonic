@@ -151,9 +151,15 @@ namespace Halcyonic.Client
                 RestWordsOf(activity, workstream.Attention.Level, execution));
         }
 
-        /// <summary>The card's status words for <paramref name="execution"/> at rest, where the tag says them in place of its own state word.</summary>
+        /// <summary>
+        /// The card's status words for <paramref name="execution"/> at rest, where the tag says them in place of its own state word: only
+        /// where the work itself is at rest too. A new turn's start, while the last execution still reads Completed, says Starting or
+        /// Working, never the last turn's end (AUDIT3's TG1, 2026-11-17T17:46Z).
+        /// </summary>
         private static string? RestWordsOf(CharacterActivity activity, AttentionLevel attention, ExecutionView? execution) =>
-            StateLanguage.StateOf(activity, attention) is WorkState.WaitingForYou or WorkState.ChecksFailed ? null : RoomStanding.Of(execution)?.Title;
+            activity is CharacterActivity.TurnFinished or CharacterActivity.Failed or CharacterActivity.Interrupted or CharacterActivity.Unknown
+            && StateLanguage.StateOf(activity, attention) is not (WorkState.WaitingForYou or WorkState.ChecksFailed)
+                ? RoomStanding.Of(execution)?.Title : null;
 
         /// <summary>
         /// The state word a character's tag shows: the card's words for a run at rest, the state language's word otherwise, so the tag
