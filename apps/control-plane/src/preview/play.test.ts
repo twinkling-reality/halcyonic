@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { after, describe, test } from 'node:test';
+import { VIEWER_PORT_FIRST, VIEWER_PORT_LAST } from '../config.ts';
 import { APPLE_SILICON_PINS } from '../pins.ts';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
 import {
@@ -390,7 +391,7 @@ describe('the host runs, streams, feeds and stops a play (P-A)', () => {
     const url = new URL(link);
     assert.equal(url.hostname, '127.0.0.1');
     const port = Number(url.port);
-    assert.ok(port >= 47940 && port <= 47949, link);
+    assert.ok(port >= VIEWER_PORT_FIRST && port <= VIEWER_PORT_LAST, link);
     const signedIn = await fetch(link, {
       redirect: 'manual',
       headers: { 'sec-fetch-site': 'none' },

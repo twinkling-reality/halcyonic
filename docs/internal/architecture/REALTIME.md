@@ -322,7 +322,7 @@ client                                   server
 - **Playing on the Mac.** `project.open_on_mac` `{project_id}` plays the copy the running preview
   serves in the host's contained browser and completes once `project.mac_play.started` is journaled.
   The host then opens the play's viewer in the Mac's default browser: a server of its own on
-  127.0.0.1, at a port of 47940 to 47949, apart from this protocol, whose link carries a one-time
+  127.0.0.1, at a port of 48020 to 48039, apart from this protocol, whose link carries a one-time
   code and never the access token. The viewer streams the frames over its own WebSocket and takes
   only mouse and key input. A stream that drops, as on a reload, may come back within 5 s, with the
   same cookie and from the same origin, and the game plays on; only a longer absence ends it. Before

@@ -48,13 +48,13 @@ function dataDirWith(t: TestContext, record: unknown): string {
 
 describe('which preview reaches a paired headset (ADR 0052)', () => {
   test('only a running preview of the latest check, passed, with every agent confined, on its own port', (t) => {
-    const good = { check_id: CHECK, port: 47931 };
-    const record = { pid: 1, port: 47931, check_id: CHECK };
+    const good = { check_id: CHECK, port: 47981 };
+    const record = { pid: 1, port: 47981, check_id: CHECK };
     const passed = { check_id: CHECK, passed: true, reads_confined: true };
     const dir = dataDirWith(t, record);
     assert.deepEqual(confinedPreviewTarget(projectionWith(good, passed), dir, PROJECT), {
       ok: true,
-      port: 47931,
+      port: 47981,
     });
     const code = (target: PreviewTarget) => (target.ok ? 'ok' : target.code);
     assert.equal(
@@ -101,7 +101,7 @@ describe('which preview reaches a paired headset (ADR 0052)', () => {
       code(
         confinedPreviewTarget(
           projectionWith(good, passed),
-          dataDirWith(t, { ...record, port: 47932 }),
+          dataDirWith(t, { ...record, port: 47982 }),
           PROJECT,
         ),
       ),
@@ -110,12 +110,12 @@ describe('which preview reaches a paired headset (ADR 0052)', () => {
   });
 
   test('a Partly Checked preview reaches the headset as it plays on the laptop, a failed one never (CARBON A3-19)', (t) => {
-    const good = { check_id: CHECK, port: 47931 };
-    const dir = dataDirWith(t, { pid: 1, port: 47931, check_id: CHECK });
+    const good = { check_id: CHECK, port: 47981 };
+    const dir = dataDirWith(t, { pid: 1, port: 47981, check_id: CHECK });
     const partly = { check_id: CHECK, passed: false, verdict: 'not_known', reads_confined: true };
     assert.deepEqual(confinedPreviewTarget(projectionWith(good, partly), dir, PROJECT), {
       ok: true,
-      port: 47931,
+      port: 47981,
     });
     const failed = confinedPreviewTarget(
       projectionWith(good, { ...partly, verdict: 'failed' }),

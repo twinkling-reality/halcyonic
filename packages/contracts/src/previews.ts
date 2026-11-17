@@ -11,9 +11,13 @@ export const CheckId = Type.Unsafe<CheckId>(
   Type.String({ pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }),
 );
 
-/** The 127.0.0.1 ports a check or a preview is served on, one each at a time; opened by IP, never by `localhost`. */
-export const PREVIEW_PORT_FIRST = 47930;
-export const PREVIEW_PORT_LAST = 47939;
+/**
+ * The 127.0.0.1 ports a check or a preview is served on, one each at a time, on the person's own
+ * plane; opened by IP, never by `localhost`. Forty, for many projects and their tasks at once
+ * (limits audit #7, 2026-11-17).
+ */
+export const PREVIEW_PORT_FIRST = 47980;
+export const PREVIEW_PORT_LAST = 48019;
 
 /** A step of the check: its exit code, or null when it was stopped at its limit. */
 export const CheckStep = Type.Object(

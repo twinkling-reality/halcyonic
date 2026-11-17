@@ -94,6 +94,18 @@ export interface ServeArgs {
   readonly cwd: string;
 }
 
+/** The words a check or a preview meets when every port of its range is taken (limits audit #7). */
+export const PREVIEW_PORTS_FULL =
+  'Every place this Mac shows a project from is in use. Close a project screen or wait for a check to finish, then try again.';
+
+/** Every port of the range is taken, by this host or another program: a real bound, said in words. */
+export class PreviewPortsFull extends Error {
+  readonly code = 'preview_ports_full';
+  constructor(options?: { cause?: unknown }) {
+    super(PREVIEW_PORTS_FULL, options);
+  }
+}
+
 interface Running {
   readonly checkId: CheckId;
   readonly port: number;
@@ -326,9 +338,8 @@ export class HostPreviews {
       for (;;) {
         // With every port lost, the last loss is what the start ends on.
         const port = await this.#takePort(lost).catch((error: unknown) => {
-          throw last === null
-            ? error
-            : new Error(`${last.message}, and no other preview port is free`, { cause: last });
+          // The last port's own loss stays as the cause, for the log.
+          throw last === null ? error : new PreviewPortsFull({ cause: last });
         });
         try {
           return await this.#start(projectId, port, causedBy(command.command_id));
@@ -751,7 +762,7 @@ export class HostPreviews {
       if (await listenable(port)) return port;
       this.#ports.delete(port);
     }
-    throw new Error('every preview port is in use');
+    throw new PreviewPortsFull();
   }
 
   /**

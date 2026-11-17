@@ -29,7 +29,7 @@ import { HostStarters, templateDigest } from '../starters.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
 import { type CheckOptions, type CheckResult, HOST_FILES, summarizeExceptions } from './check.ts';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
-import type { HostPreviewsDeps, ServeArgs } from './preview.ts';
+import { type HostPreviewsDeps, PREVIEW_PORTS_FULL, type ServeArgs } from './preview.ts';
 
 const PASSED: CheckResult = {
   tsc: { exit: 0, seconds: 1 },
@@ -1153,6 +1153,11 @@ describe("the host's checks and previews (ADR 0037)", () => {
     }
     const started = await done(submit('project.preview.start').command.command_id);
     assert.equal(started?.status, 'failed');
+    // Said in words, never as an error the check stopped on (limits audit #7).
+    assert.deepEqual(
+      { code: started?.failure?.code, message: started?.failure?.message },
+      { code: 'preview_ports_full', message: PREVIEW_PORTS_FULL },
+    );
     assert.equal(children.length, 0);
     assert.ok(!types().some((type) => type.startsWith('project.preview.')));
   });

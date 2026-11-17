@@ -162,12 +162,14 @@ describe('configuration', () => {
   });
 
   test('keeps a plane’s side ports beside its own, so a second plane never takes 47800’s', () => {
+    // The person's own plane holds many projects and their tasks at once (limits audit #7): forty
+    // previews and checks, twenty viewers and twenty shares, above the lanes' blocks.
     assert.deepEqual(portFamily(47800), {
       network: 47801,
       pairingPage: [47802, 47809],
-      previews: [47930, 47939],
-      viewers: [47940, 47949],
-      shares: [47970, 47979],
+      previews: [47980, 48019],
+      viewers: [48020, 48039],
+      shares: [48040, 48059],
     });
     // Another plane: the same layout at its own port, its wide ranges 1000 higher.
     assert.deepEqual(portFamily(47900), {
@@ -194,7 +196,7 @@ describe('configuration', () => {
       for (const [first, last] of [...taken(portFamily(port)), ...taken(portFamily(0))]) {
         for (const [ownFirst, ownLast] of taken(owner))
           assert.ok(last < ownFirst || first > ownLast, `${port}: ${first} to ${last}`);
-        assert.ok(first > 47979 && last < 49152, `${port}: ${first} to ${last}`);
+        assert.ok(first > 48059 && last < 49152, `${port}: ${first} to ${last}`);
       }
     }
     assert.deepEqual(

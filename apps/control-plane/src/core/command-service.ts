@@ -77,7 +77,7 @@ import type { Logger } from '../logger.ts';
 import type { FileObserver } from '../observer/file-observer.ts';
 import { OwnCheckRefused, type OwnChecks } from '../own-check/own-check.ts';
 import type { CheckOutput } from '../preview/check-output.ts';
-import type { HostPreviews } from '../preview/preview.ts';
+import { type HostPreviews, PreviewPortsFull } from '../preview/preview.ts';
 import { type ProjectShares, ShareRefused } from '../preview/share.ts';
 import { givenSecrets, type SecretStore } from '../secrets/store.ts';
 import { type GitHubSender, sendTitle } from '../sending/github.ts';
@@ -2543,6 +2543,15 @@ export class CommandService {
                 { err: error, command_id: command.command_id },
                 `${command.command_type} failed`,
               );
+              // Every port taken is a real bound, said in its own words, with nothing started.
+              if (error instanceof PreviewPortsFull) {
+                this.#fail(command, admission.scope, {
+                  code: error.code,
+                  message: error.message,
+                  effect: 'none',
+                });
+                return;
+              }
               this.#fail(command, admission.scope, {
                 code: command.command_type === 'project.check' ? 'check_failed' : 'preview_failed',
                 message:

@@ -183,29 +183,42 @@ export const DEFAULT_PORT = 47800;
 export const DEFAULT_NETWORK_PORT = 47801;
 
 /** The 47800 family's play viewers: one per play, apart from the control plane's and the previews'. */
-export const VIEWER_PORT_FIRST = 47940;
-export const VIEWER_PORT_LAST = 47949;
+export const VIEWER_PORT_FIRST = 48020;
+export const VIEWER_PORT_LAST = 48039;
 
 /** The 47800 family's shares on this Wi-Fi, apart from the previews' and the viewers'. */
-export const WIFI_SHARE_PORT_FIRST = 47970;
-export const WIFI_SHARE_PORT_LAST = 47979;
-
-/** The 47800 family's wide ranges (ADR 0037, ADR 0054); every other family is laid out the same. */
-const FAMILY_PREVIEWS: readonly [number, number] = [PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST];
-const FAMILY_VIEWERS: readonly [number, number] = [VIEWER_PORT_FIRST, VIEWER_PORT_LAST];
-const FAMILY_SHARES: readonly [number, number] = [WIFI_SHARE_PORT_FIRST, WIFI_SHARE_PORT_LAST];
+export const WIFI_SHARE_PORT_FIRST = 48040;
+export const WIFI_SHARE_PORT_LAST = 48059;
 
 /**
- * How far above its own port every other plane's wide ranges sit: 47800's family spans 47800 to
- * 47979, where the lanes' and tests' planes run, so another plane's previews, viewers and shares go
- * 1000 higher, never into 47800's, and stay below 49152, where the system hands out its own ports.
+ * The 47800 plane's own wide ranges (ADR 0037, ADR 0054), sized for many projects and their tasks
+ * at once (limits audit #7, 2026-11-17): 40 previews and checks, 20 viewers, 20 shares, in the free
+ * band above the lanes' blocks (47840 to 47969) and below every other plane's ranges.
+ */
+const OWN_PREVIEWS: readonly [number, number] = [PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST];
+const OWN_VIEWERS: readonly [number, number] = [VIEWER_PORT_FIRST, VIEWER_PORT_LAST];
+const OWN_SHARES: readonly [number, number] = [WIFI_SHARE_PORT_FIRST, WIFI_SHARE_PORT_LAST];
+
+/**
+ * Every other plane's layout (a lane's, a test's, a scratch one): ten of each, as the 47800 plane
+ * had before, moved to its own port and `AWAY` higher, so each stays below 49152.
+ */
+const FAMILY_PREVIEWS: readonly [number, number] = [47930, 47939];
+const FAMILY_VIEWERS: readonly [number, number] = [47940, 47949];
+const FAMILY_SHARES: readonly [number, number] = [47970, 47979];
+
+/**
+ * How far above its own port every other plane's wide ranges sit: the lanes' and tests' planes run
+ * at 47840 to 47969, beside 47800's own 47800 to 47809 and its wide ranges at 47980 to 48059, so
+ * another plane's previews, viewers and shares go 1000 higher, never into 47800's, and stay below
+ * 49152, where the system hands out its own ports.
  */
 const AWAY = 1000;
 
 /**
  * The ports beside a control plane on `port` (ADR 0047, amended 2026-11-12). On 47800, as always:
- * the network listener 47801, the pairing page 47802 to 47809, previews 47930 to 47939, play viewers
- * 47940 to 47949 and shares on this Wi-Fi 47970 to 47979. Any other plane has the same layout moved
+ * the network listener 47801, the pairing page 47802 to 47809, previews 47980 to 48019, play viewers
+ * 48020 to 48039 and shares on this Wi-Fi 48040 to 48059. Any other plane has the ten-port layout moved
  * to its own port, its wide ranges `AWAY` higher, so no second plane (a test's, a scratch one) takes
  * one of 47800's: on 47900, 47901, 47902 to 47909, 49030 to 49039, 49040 to 49049 and 49070 to 49079.
  * Each port is still found free in its range and recorded where a client reads it (the ready line,
@@ -229,12 +242,13 @@ export function portFamily(port: number): PortFamily {
     first - DEFAULT_PORT + base + away,
     last - DEFAULT_PORT + base + away,
   ];
+  const person = away === 0;
   return {
     network: own ? port + (DEFAULT_NETWORK_PORT - DEFAULT_PORT) : 0,
     pairingPage: own ? [port + 2, port + 9] : [0, 0],
-    previews: moved(FAMILY_PREVIEWS),
-    viewers: moved(FAMILY_VIEWERS),
-    shares: moved(FAMILY_SHARES),
+    previews: person ? OWN_PREVIEWS : moved(FAMILY_PREVIEWS),
+    viewers: person ? OWN_VIEWERS : moved(FAMILY_VIEWERS),
+    shares: person ? OWN_SHARES : moved(FAMILY_SHARES),
   };
 }
 
