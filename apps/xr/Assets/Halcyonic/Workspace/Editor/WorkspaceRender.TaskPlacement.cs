@@ -98,6 +98,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 PlayerPrefs.SetInt("Halcyonic.WorkspaceOpened", 1);
                 var prior = HalcyonicJson.Deserialize<WorkstreamView>(HalcyonicJson.Serialize(work.Workstream));
                 prior.WorkstreamId = "render-prior"; prior.Title = "Previously shown task";
+                // Another project's task: since every task of the selected project stands on the person's shelf (the lead's 2026-11-17T18:56Z,
+                // no fixed cap), a task of the same project would stand beside the requested one by design. Of another project it stands at
+                // its own place, so "exactly the requested task's character on the shelf" is still what Apply must show.
+                prior.ProjectId = "render-prior-project";
                 var priorExecution = HalcyonicJson.Deserialize<ExecutionView>(HalcyonicJson.Serialize(work.Execution));
                 priorExecution.ExecutionId = "render-prior-execution"; priorExecution.WorkstreamId = prior.WorkstreamId;
                 prior.CurrentExecutionId = priorExecution.ExecutionId; prior.ExecutionIds = new List<string> { priorExecution.ExecutionId };
