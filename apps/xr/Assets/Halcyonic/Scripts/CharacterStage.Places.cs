@@ -464,12 +464,15 @@ namespace Halcyonic.XR
         {
             var count = views.Count;
             var rise = BackRowRise;
+            // How far the front row's tags stand across the floor: each row behind stands its pitch wider by its own distance over it, so its
+            // tags stand as far apart as the eyes see the front row's (a row further back at the front's metres reads closer together).
+            var rowDistance = distance;
             var (pitch, rowMost) = PlaceRows(0f, scale, distance, rule, spanDegrees);
             void Lay()
             {
                 for (var index = 0; index < count; index++)
                 {
-                    var (local, size) = PlaceSpot(index, count, rowMost, pitch, rise);
+                    var (local, size) = PlaceSpot(index, count, rowMost, pitch, rise, rowDistance);
                     var view = views[index];
                     view.transform.localPosition = local + Vector3.right * across;
                     view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
@@ -511,6 +514,7 @@ namespace Halcyonic.XR
                 // floor at the tags' own distance, is the characters' pitch.
                 var tagDistance = views.Take(Mathf.Min(rowMost, count)).Average(view => Across(view.Labels.position, eyes));
                 pitch = (float)PlacePitch.MetresOf(pitchDegrees, tagDistance);
+                rowDistance = tagDistance;
                 rowMost = Mathf.Min(PlacePitch.RowMost(widestSeen + PlateReachDegrees, bodyDegrees, spanDegrees), rule.FullMost);
                 if (SayLayout) Debug.Log("Halcyonic: places: layout pass " + settle + ": widest tag " + widestSeen.ToString("0.00") + " degrees, body " + bodyDegrees.ToString("0.00") + ", rows of " + rowMost + ".");
                 Lay();
@@ -600,12 +604,15 @@ namespace Halcyonic.XR
         /// rows of <paramref name="rowMost"/>, each centred at <paramref name="pitch"/> a character, the first in front; each further row
         /// behind and above it at the back row's size (FIELD's places sheet: three in front, two behind).
         /// </summary>
-        public static (Vector3 Local, float Scale) PlaceSpot(int index, int count, int rowMost, float pitch, float rise = BackRowRise)
+        /// <param name="frontDistance">How far the front row's tags stand from the eyes across the floor: a row behind widens its pitch by its
+        /// extra depth over it, so its tags keep the front's apparent spacing; none keeps one pitch for every row.</param>
+        public static (Vector3 Local, float Scale) PlaceSpot(int index, int count, int rowMost, float pitch, float rise = BackRowRise, float? frontDistance = null)
         {
             rowMost = Mathf.Max(1, rowMost);
             var row = index / rowMost;
             var inRow = Mathf.Min(rowMost, count - row * rowMost);
-            var across = (index - row * rowMost - (inRow - 1) * 0.5f) * pitch;
+            var rowPitch = frontDistance is float front && front > 1e-3f ? pitch * (front + BackRowDepth * row) / front : pitch;
+            var across = (index - row * rowMost - (inRow - 1) * 0.5f) * rowPitch;
             return row == 0 ? (new Vector3(across, 0f, 0f), 1f) : (new Vector3(across, rise * row, BackRowDepth * row), BackRowScale);
         }
 
