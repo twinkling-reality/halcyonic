@@ -1198,9 +1198,9 @@ describe('production native agent panel', () => {
       presets,
       /if \(ReadExtra\("halcyonic\.panelcapture"\)\)\s*\{[^}]*AndroidPanelBridge\.AllowCapture\(\);[^}]*\}/,
     );
-    const generic = presets.match(/if \(ReadExtra\("halcyonic\.generic"\)\)\s*\{([^}]*)\}/);
-    assert.ok(generic, 'the generic names keep their own setting');
-    assert.doesNotMatch(generic[1], /AllowCapture/, 'the names setting never makes the panel capturable');
+    const generic = presets.match(/if \(ReadExtra\("halcyonic\.generic"\)\)\s*\{([^}]*)\}/)?.[1];
+    assert.ok(generic !== undefined, 'the generic names keep their own setting');
+    assert.doesNotMatch(generic, /AllowCapture/, 'the names setting never makes the panel capturable');
     assert.equal(presets.match(/AllowCapture\(\)/g)?.length, 1, 'one place allows capture, under its own setting');
     const callers = execFileSync('git', ['grep', '-l', 'AllowCapture()', '--', 'apps/xr/Assets'], {
       cwd: ROOT,
