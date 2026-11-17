@@ -1687,7 +1687,7 @@ describe('ACP approval requests', () => {
     assert.equal(asked.complete, false);
   });
 
-  test('a command beside an input that acts unknown is shown whole but not complete', () => {
+  test("a command in a folder of the app's own naming says that folder, in quotes, resolved against the task's (CP3)", () => {
     const asked = approvalRequest(
       {
         toolCallId: 'a',
@@ -1698,10 +1698,45 @@ describe('ACP approval requests', () => {
       ANTIGRAVITY,
       folder,
     );
+    assert.deepEqual(asked.subject.command, {
+      text: 'ls',
+      runs_in: { kind: 'folder', path: '/elsewhere' },
+      background: false,
+      input_to_running: false,
+    });
+    assert.equal(asked.subject.summary, '[in "/elsewhere"] ls');
+    assert.equal(asked.complete, true);
+    const relative = approvalRequest(
+      {
+        toolCallId: 'b',
+        name: 'run_command',
+        kind: 'execute',
+        rawInput: { CommandLine: 'ls', Cwd: 'sub' },
+      },
+      ANTIGRAVITY,
+      folder,
+    );
+    assert.deepEqual(relative.subject.command?.runs_in, {
+      kind: 'folder',
+      path: join(folder, 'sub'),
+    });
+  });
+
+  test('a command beside an input that acts unknown is shown in words and each input, and is not complete', () => {
+    const asked = approvalRequest(
+      {
+        toolCallId: 'a',
+        name: 'run_command',
+        kind: 'execute',
+        rawInput: { CommandLine: 'ls', Blocking: true },
+      },
+      ANTIGRAVITY,
+      folder,
+    );
     assert.equal(asked.complete, false);
-    // No command in parts: where it runs is the app's own field, not known (AUDIT3 CP1, CP3). Its input shown whole.
+    // No command in parts where any other input may change what runs (AUDIT3 CP1); never JSON (AUDIT2).
     assert.equal(asked.subject.command, undefined);
-    assert.equal(asked.subject.summary, '{"CommandLine":"ls","Cwd":"/elsewhere"}');
+    assert.equal(asked.subject.summary, 'Use run_command\nCommandLine: ls\nBlocking: true');
   });
 
   test("Cursor's recorded command call carries the command in its parts, where it runs unknown", () => {
@@ -1766,13 +1801,13 @@ describe('ACP approval requests', () => {
     assert.equal(asked.complete, true);
   });
 
-  test('any other tool is shown as its whole input', () => {
+  test('any other tool is shown in words and then each of its inputs, never as JSON (AUDIT2)', () => {
     const asked = approvalRequest(
       { toolCallId: 'a', kind: 'fetch', title: 'Fetch', rawInput: { url: 'https://example.com' } },
       KIRO,
       folder,
     );
-    assert.equal(asked.subject.summary, '{"url":"https://example.com"}');
+    assert.equal(asked.subject.summary, 'Use fetch\nurl: https://example.com');
     assert.equal(asked.subject.tool_name, 'fetch');
     assert.equal(asked.complete, true);
   });

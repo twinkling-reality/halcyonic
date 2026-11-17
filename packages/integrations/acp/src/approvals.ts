@@ -215,6 +215,8 @@ function requestPaths(toolCall: Record<string, unknown>): ApprovalPath[] | null 
 export function commandSummary(command: ApprovalCommand): string {
   const said = [
     ...(command.runs_in.kind === 'task_folder' ? ["in the task's folder"] : []),
+    // Quoted, so no folder's name can read as the task's folder.
+    ...(command.runs_in.kind === 'folder' ? [`in ${JSON.stringify(command.runs_in.path)}`] : []),
     ...(command.background ? ['in the background'] : []),
   ];
   return said.length === 0 ? command.text : `[${said.join(', ')}] ${command.text}`;
@@ -242,16 +244,16 @@ export function approvalRequest(
   const kind = text(toolCall.kind) ?? '';
   const changes = FILE_KINDS.has(kind) ? requestChanges(toolCall, profile, folder) : null;
   const paths = requestPaths(toolCall);
-  const command = shellCommand(input, name, profile);
+  const command = shellCommand(input, name, profile, folder);
   let summary: string;
   let whole: boolean;
   if (command !== null) {
     summary = commandSummary(command);
     whole = true;
   } else if (input !== null) {
-    summary = JSON.stringify(input);
-    // A shell call whose input is more than its command (a folder of its own, say) is shown whole but not approved:
-    // where it runs is not known.
+    summary = inputSummary(name, input);
+    // A shell call whose input is more than its command and the inputs known not to act is shown whole but not
+    // approved: what the rest does is not known.
     whole = profile.shell === null || name !== profile.shell.tool;
   } else {
     const title = text(toolCall.title);
@@ -272,6 +274,17 @@ export function approvalRequest(
 }
 
 /**
+ * A request that is no command, in words and then each of its inputs on a line of its own, never as JSON (AUDIT2,
+ * 2026-11-17): "Use <tool>", then `name: value`, a text value whole as the app gave it, any other as the app wrote it.
+ */
+export function inputSummary(tool: string, input: Record<string, unknown>): string {
+  const lines = Object.entries(input).map(
+    ([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`,
+  );
+  return [`Use ${tool}`, ...lines].join('\n');
+}
+
+/**
  * The command a profile's shell tool would run, from its own structured input alone (AUDIT3 CP1): the command field
  * whole, never cut (CP5), and only where every other input is one that neither acts nor moves it (a folder field of
  * the app's own would, and is not known, so such an input is shown whole instead). Null otherwise.
@@ -280,18 +293,29 @@ function shellCommand(
   input: Record<string, unknown> | null,
   name: string,
   profile: AcpProfile,
+  folder: string,
 ): ApprovalCommand | null {
   const shell = profile.shell;
   if (shell === null || input === null || name !== shell.tool) return null;
   const line = input[shell.command];
   if (typeof line !== 'string' || line.trim() === '') return null;
-  const known = [...shell.quiet, ...(shell.background === null ? [] : [shell.background])];
+  const known = [
+    ...shell.quiet,
+    ...(shell.background === null ? [] : [shell.background]),
+    ...(shell.cwd === null ? [] : [shell.cwd]),
+  ];
   if (!Object.keys(input).every((key) => key === shell.command || known.includes(key))) return null;
   const background = shell.background === null ? undefined : input[shell.background];
   if (background !== undefined && typeof background !== 'boolean') return null;
+  // The app's own folder field (AUDIT3 CP3), resolved against the task's folder; a folder Halora cannot name, none.
+  const named = shell.cwd === null ? undefined : input[shell.cwd];
+  if (named !== undefined && (typeof named !== 'string' || named.trim() === '')) return null;
   return {
     text: line,
-    runs_in: { kind: shell.runsIn },
+    runs_in:
+      named === undefined
+        ? { kind: shell.runsIn }
+        : { kind: 'folder', path: resolve(folder, named) },
     background: background === true,
     input_to_running: false,
   };

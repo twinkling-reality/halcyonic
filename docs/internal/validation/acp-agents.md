@@ -387,12 +387,15 @@ again right before `session/new`; the app's version must be the profile's, or th
 - An approval is answered with the app's own `allow_once` or `reject_once` option, never an `always` one, and
   counted taken when the call next reports `in_progress` or `completed` (approved) or `failed` (denied), else it
   fails after 15 s with effect unknown.
-- A request is shown as its whole `rawInput`; a profile's shell tool (Antigravity's `run_command`, Kiro's `execute`
+- A request that is no command is shown in words and then each input on a line of its own ("Use fetch", "url:
+  ..."), never as JSON (AUDIT2); a profile's shell tool (Antigravity's `run_command`, Kiro's and Cursor's `execute`
   call) as its command in its parts (`ApprovalCommand`, AUDIT3 CP1 to CP5), taken from the command field of the
   call's own input, never its title, uncut, its summary built from the parts alone: Antigravity's said to run in the
-  task's folder (seen: each command starts there, a `cd` in one reaching no later one), Kiro's where it runs unknown
-  (not seen). It is complete only beside inputs that do not act; a shell call with any other input (a folder field of
-  its own) is shown whole as JSON, with no command in parts, and can only be denied. A change to the call's command
+  task's folder (seen: each command starts there, a `cd` in one reaching no later one), or in the folder its own `Cwd`
+  names (the field its own prompt's example of `run_command` uses), quoted and resolved against the task's folder;
+  Kiro's and Cursor's where it runs unknown (not seen). It is complete only beside inputs that do not act; a shell call
+  with any other input (Antigravity's `Blocking`) is shown in words and each input, with no command in parts, and can
+  only be denied. A change to the call's command
   after the ask is shown withdraws the ask (KW1, tested on each app's trace). A file request is complete only with
   its change carried whole: a new file's whole text, or a profile-known replacement (`edit_file` at every
   occurrence). A Kiro edit, a delete, a move and a request without its input can only be denied.

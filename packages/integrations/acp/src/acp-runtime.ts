@@ -518,7 +518,7 @@ class AcpSession {
         maxBuffer: LIST_BYTES,
       }));
     } catch {
-      throw new RuntimeActionError('models_unavailable', `${this.#name} did not list its models.`);
+      throw new RuntimeActionError('models_unavailable', `${this.#name} does not list its models.`);
     } finally {
       this.#removeLaunchFiles();
     }
@@ -527,7 +527,7 @@ class AcpSession {
     } catch {
       throw new RuntimeActionError(
         'models_unavailable',
-        `${this.#name} listed its models in a way Halora does not know.`,
+        `${this.#name} listed its models in a form Halora cannot read.`,
       );
     }
   }

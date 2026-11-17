@@ -143,6 +143,8 @@ export interface AcpProfile {
     readonly background: string | null;
     readonly quiet: readonly string[];
     readonly runsIn: 'task_folder' | 'unknown';
+    /** The app's own field naming the folder a command runs in, where its tool declares one. */
+    readonly cwd: string | null;
   } | null;
 }
 
@@ -197,6 +199,8 @@ export const ANTIGRAVITY: AcpProfile = {
     background: 'IsDaemon',
     quiet: ['WaitMsBeforeAsync', 'toolSummary'],
     runsIn: 'task_folder',
+    // Its own prompt's example of `run_command` names the folder as `Cwd` (agy 1.5.10's binary).
+    cwd: 'Cwd',
   },
 };
 
@@ -261,6 +265,7 @@ export const KIRO: AcpProfile = {
     background: 'run_in_background',
     quiet: ['description'],
     runsIn: 'unknown',
+    cwd: null,
   },
 };
 
@@ -313,7 +318,14 @@ export const CURSOR: AcpProfile = {
     environment: (folder) => ({ CURSOR_CONFIG_DIR: folder }),
   },
   // Seen signed in: a command's call names no tool, kind `execute`, its input `{command}`. Where it runs was not seen.
-  shell: { tool: 'execute', command: 'command', background: null, quiet: [], runsIn: 'unknown' },
+  shell: {
+    tool: 'execute',
+    command: 'command',
+    background: null,
+    quiet: [],
+    runsIn: 'unknown',
+    cwd: null,
+  },
 };
 
 export const ACP_PROFILES: readonly AcpProfile[] = [ANTIGRAVITY, KIRO, CURSOR];
