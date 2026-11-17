@@ -1112,7 +1112,9 @@ namespace Halcyonic.XR.UI
                     ? Text(KitRole.Mono, CaptionTypeDp, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1)
                     : Text(KitRole.Body, CaptionTypeDp, CaptionLineDp, Color.white, slots[index].Value, 0f, 0f, RoomType.Units(2000f), 1);
                 values.Add(laid);
-                least[index] = Mathf.Min(width, Mathf.Max(RoomCursor.WordsWidth(laid.Label, 0f), S(SlotGlyphBoxDp)) + 2f * S(SlotPadDp));
+                // A fact that opens its page keeps room for its chevron beside its value.
+                least[index] = Mathf.Min(width, Mathf.Max(RoomCursor.WordsWidth(laid.Label, 0f), S(SlotGlyphBoxDp)) + 2f * S(SlotPadDp)
+                    + (slots[index].Press != null ? S(SlotGlyphDp) + S(SlotPadDp) : 0f));
                 if (RoomCursor.WordsWidth(laid.Label, 0f) + 2f * S(SlotPadDp) > width + 1e-4f)
                 {
                     // A value wider than the card (a long web address) is shown whole, wrapped on the card's width in a well of
@@ -1188,7 +1190,12 @@ namespace Halcyonic.XR.UI
                     values[index].Label.rectTransform.sizeDelta = new Vector2(tile - 2f * S(SlotPadDp), values[index].Label.rectTransform.sizeDelta.y);
                     Plate(new Vector2(tile, rowWell), S(TileCornerDp), White(WellAlpha), new Vector2(x + tile / 2f, -(top + rowWell / 2f)), "slot " + slot.Kind, under: true);
                     // A slot that changes its fact in place takes a press across its whole well, as a row picked from does.
-                    if (slot.Press is KitControl change) RowTarget(change, new Vector2(x + tile / 2f, -(top + rowWell / 2f)), new Vector2(tile, rowWell));
+                    if (slot.Press is KitControl change)
+                    {
+                        RowTarget(change, new Vector2(x + tile / 2f, -(top + rowWell / 2f)), new Vector2(tile, rowWell));
+                        // The review card's facts (TASKS, take 3): a fact that opens its page says so with the card's own chevron at its right.
+                        Glyph(RoomGlyph.Chevron, SlotGlyphDp, White(0.72f), new Vector2(x + tile - S(SlotPadDp) - S(SlotGlyphDp) / 2f, -(top + rowWell / 2f)), "slot chevron", CardChevronStroke);
+                    }
                     // The glyph's drawn edge on the value's left edge: its box moved left by where its ink starts.
                     var glyphOf = slot.Kind == RoomKind.Level ? (RoomGlyph?)null : slot.Kind == RoomKind.Passed ? RoomGlyph.Check : slot.Kind == RoomKind.Failed ? RoomGlyph.AlertRing : GlyphOf(slot.Kind);
                     var ink = glyphOf is RoomGlyph drawn ? RoomGlyphs.InkLeft(drawn) / RoomGlyphs.Grid * S(SlotGlyphDp) : 0f;
