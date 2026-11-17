@@ -505,6 +505,9 @@ namespace Halcyonic.XR
             if (flyingId != null && releasedAt == null) releasedAt = FlightClock();
         }
 
+        /// <summary>How far the thin line hangs under the called character's tag beside the panel, in dp.</summary>
+        public const float FlightStemDp = 40f;
+
         /// <summary>How near the person's head the flight may come, and how far above the eyes, in metres.</summary>
         public const float FlightClearOfHeadM = 0.5f;
 
@@ -523,6 +526,7 @@ namespace Halcyonic.XR
             {
                 flyingId = null;
                 if (!view.Labels.gameObject.activeSelf) view.Labels.gameObject.SetActive(true);
+                view.LabelStemDp = 0f;
                 Stand(view, standing.Angle, standing.Lift, 1f);
                 return;
             }
@@ -530,6 +534,8 @@ namespace Halcyonic.XR
             // 2026-11-17T02:15Z: the tag fades in once the bot settles); back on its shelf, it stands there again.
             var tagged = flight.Along <= 0f || flight.TagShown >= 0.5f;
             if (view.Labels.gameObject.activeSelf != tagged) view.Labels.gameObject.SetActive(tagged);
+            // Beside the panel, its name rides on the thin line; on its shelf, none.
+            view.LabelStemDp = flight.Along >= 1f && flight.TagShown >= 0.5f ? FlightStemDp : 0f;
             Stand(view, standing.Angle, standing.Lift, 1f);
             var home = view.transform.position;
             var point = Vector3.Lerp(home, flyingTo(), flight.Along) + Vector3.up * flight.OverM;

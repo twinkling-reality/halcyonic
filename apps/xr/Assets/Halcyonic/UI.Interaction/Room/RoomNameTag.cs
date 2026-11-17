@@ -18,6 +18,22 @@ namespace Halcyonic.XR.UI
 
         private CharacterView view = null!;
         private RoomTag? tag;
+        private float stemDp;
+
+        /// <summary>
+        /// How far the world line hangs under the tag, in dp; 0 for none (the shelf). The stage sets it while its character
+        /// stands beside an asking moment, so its name rides on the thin line there (the lead's 2026-11-17T02:15Z).
+        /// </summary>
+        public float StemDp
+        {
+            get => stemDp;
+            set
+            {
+                if (Mathf.Approximately(stemDp, value)) return;
+                stemDp = value;
+                Show();
+            }
+        }
         private bool picked;
 
         /// <summary>The tag as it stands, while the redesign draws the shelf; null otherwise.</summary>
@@ -46,6 +62,7 @@ namespace Halcyonic.XR.UI
             made.view = character;
             character.Shown += made.Show;
             character.LabelsPlaced += made.Place;
+            character.LabelStemChanged += () => made.StemDp = character.LabelStemDp;
             made.Show();
             return made;
         }
@@ -73,7 +90,7 @@ namespace Halcyonic.XR.UI
             // Needs You where the task needs the person, so no chip stands beside it (ADR 0023's words kept; AUDIT, 2026-11-11).
             var presented = view.Presentation as CharacterPresentation;
             tag.Show(LineWords.TheirName(view.Title), picked, needsYou: presented != null && CharacterPresenter.TagNeedsYou(presented),
-                mostWordsDp: RoomTag.NameWordsMostDp, state: presented != null ? CharacterPresenter.TagWord(presented) : null);
+                mostWordsDp: RoomTag.NameWordsMostDp, state: presented != null ? CharacterPresenter.TagWord(presented) : null, stemDp: stemDp);
             Place();
         }
 

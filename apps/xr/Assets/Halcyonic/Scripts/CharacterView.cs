@@ -253,6 +253,26 @@ namespace Halcyonic.XR
         public event System.Action? LabelsPlaced;
 
         /// <summary>
+        /// How far the world line hangs under the character's name tag, in dp; 0 for none. The stage sets it while the character
+        /// stands beside an asking moment (the lead's 2026-11-17T02:15Z); the room's name tag draws it (RoomNameTag listens).
+        /// </summary>
+        public float LabelStemDp
+        {
+            get => labelStemDp;
+            set
+            {
+                if (Mathf.Approximately(labelStemDp, value)) return;
+                labelStemDp = value;
+                LabelStemChanged?.Invoke();
+            }
+        }
+
+        private float labelStemDp;
+
+        /// <summary>Raised when <see cref="LabelStemDp"/> changes.</summary>
+        public event System.Action? LabelStemChanged;
+
+        /// <summary>
         /// Every corner of the character's drawn body in the world, its labels left out: what the tag under its feet must stand clear
         /// of as the eyes see it. Read on placement, never each frame.
         /// </summary>
