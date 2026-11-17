@@ -1854,8 +1854,9 @@ namespace Halcyonic.XR.UI
             var plainText = label.text;
             if (!ReferenceEquals(heldText, plainText) && heldText != plainText) label.text = heldText;
             var laid = KitType.Lay(label, width, lines);
-            // Where the pair cannot stand on one line, the plain lay.
-            if (label.text != plainText && (label.isTextOverflowing || label.isTextTruncated))
+            // Where the pair cannot stand on one line, the plain lay: overflowing, cut, or broken inside a word because the held pair is
+            // wider than the line ("Storefront A" / "PI" at Larger).
+            if (label.text != plainText && (label.isTextOverflowing || label.isTextTruncated || PairSplit(label)))
             {
                 label.text = plainText;
                 laid = KitType.Lay(label, width, lines);
@@ -1949,6 +1950,25 @@ namespace Halcyonic.XR.UI
             runs.Lean(new List<(int Start, int End)> { (0, joined.Length) });
             var drawn = KitType.Lay(label, width, Mathf.Max(lines, laid.Count));
             return Mathf.Max(drawn.Lines, 1) * S(lineDp);
+        }
+
+        /// <summary>Whether a body's held last pair (<see cref="LabelText.KeepLastTwo"/>) was laid across two lines, so a word broke inside itself.</summary>
+        private static bool PairSplit(TMP_Text label)
+        {
+            label.ForceMeshUpdate(true);
+            var text = label.text;
+            var held = text.LastIndexOf('\u00A0');
+            if (held <= 0) return false;
+            var start = text.LastIndexOfAny(new[] { ' ', '\n' }, held - 1) + 1;
+            var end = text.TrimEnd().Length - 1;
+            var info = label.textInfo;
+            int LineOf(int index)
+            {
+                for (var at = 0; at < info.characterCount; at++)
+                    if (info.characterInfo[at].index >= index) return info.characterInfo[at].lineNumber;
+                return info.lineCount - 1;
+            }
+            return LineOf(start) != LineOf(end);
         }
 
         /// <summary>Whether the label's last laid line holds a single word.</summary>
