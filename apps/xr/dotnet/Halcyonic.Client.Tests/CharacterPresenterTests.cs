@@ -68,7 +68,7 @@ public class CharacterPresenterTests
         var character = CharacterPresenter.Present(workstream, state, live: true);
         // The card's status words, from the very execution the workspace's card reads (KitFileBinding: RoomStanding.Card).
         var card = RoomStanding.Card(state.CurrentExecution(workstream), LineWords.TheirName(workstream.Title))!;
-        Assert.That(CharacterPresenter.TagWord(character), Is.EqualTo(card.Status!.Title), "the tag and the card say one thing");
+        Assert.That(CharacterPresenter.TagWord(character), Is.EqualTo(card.Status!.Value.Title), "the tag and the card say one thing");
         Assert.That(CharacterPresenter.TagWord(character), Is.Not.EqualTo("Working"));
         if (executionStatus == ExecutionStatus.Completed)
         {
