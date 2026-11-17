@@ -1050,7 +1050,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 rect.yMax = Mathf.Min(Height, Mathf.CeilToInt(max.y));
                 if (rect.width < 2 || rect.height < 2) continue;
                 // Read by the word's own box in its drawn polarity (InkBox): the cores against the ground, never one stray pixel either way.
-                var strongest = InkBox(pixels, rect, label.color).Ratio;
+                var strongest = InkBox(pixels, rect, DrawnColour(label)).Ratio;
                 if (strongest < weakest) { weakest = (float)strongest; weakestName = label.name + " \"" + Clip(label.text) + "\""; }
                 if (strongest < 4.5) yield return what + ": " + label.name + " \"" + Clip(label.text) + "\" reaches " + strongest.ToString("0.00", CultureInfo.InvariantCulture) + " to 1.";
             }

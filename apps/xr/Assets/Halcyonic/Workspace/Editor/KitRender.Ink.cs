@@ -90,7 +90,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var samples = new List<Color32>();
                 for (var step = 0; step <= InkSteps; step++)
                     samples.Add(at(label.transform.TransformPoint(new Vector3(Mathf.Lerp(from, to, step / (float)InkSteps), y, 0f))));
-                read.Add(ReadInkLine(line, samples, label.color));
+                read.Add(ReadInkLine(line, samples, DrawnColour(label)));
             }
             return read;
         }
@@ -187,6 +187,38 @@ namespace Halcyonic.XR.Workspace.Editor
         private static int MaxChannel(Color32 p) => Math.Max(p.r, Math.Max(p.g, p.b));
 
         private static int MinChannel(Color32 p) => Math.Min(p.r, Math.Min(p.g, p.b));
+
+        /// <summary>
+        /// The colour <paramref name="label"/>'s words are drawn in, for their polarity: the mean of its visible characters' own vertex
+        /// colours (the label's colour with any run's colour on it, as TMP lays them), times its renderer's face colour where a block
+        /// sets one. The label's colour property alone misses a run coloured by its words, so it could judge words the wrong way round.
+        /// </summary>
+        public static Color DrawnColour(TMPro.TMP_Text label)
+        {
+            var info = label.textInfo;
+            double r = 0, g = 0, b = 0;
+            var count = 0;
+            if (info != null)
+                for (var index = 0; index < info.characterCount; index++)
+                {
+                    var character = info.characterInfo[index];
+                    if (!character.isVisible) continue;
+                    r += character.color.r; g += character.color.g; b += character.color.b;
+                    count++;
+                }
+            var drawn = count > 0 ? new Color((float)(r / count / 255.0), (float)(g / count / 255.0), (float)(b / count / 255.0), 1f) : label.color;
+            if (label.TryGetComponent<Renderer>(out var renderer) && renderer.HasPropertyBlock())
+            {
+                var block = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(block);
+                if (block.HasColor("_FaceColor"))
+                {
+                    var face = block.GetColor("_FaceColor");
+                    drawn = new Color(drawn.r * face.r, drawn.g * face.g, drawn.b * face.b, 1f);
+                }
+            }
+            return drawn;
+        }
 
         /// <summary>WCAG contrast ratio of two sRGB pixels, 1 to 21.</summary>
         public static double ContrastRatio(Color32 a, Color32 b) => GlazeColor.Contrast(new GlazeColor(a.r, a.g, a.b), new GlazeColor(b.r, b.g, b.b));
