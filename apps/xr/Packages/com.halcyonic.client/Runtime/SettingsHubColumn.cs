@@ -36,14 +36,17 @@ namespace Halcyonic.Client
         public event Action? Changed;
         public event Action? Closed;
 
-        private IReadOnlyList<string> Categories => new[] { Appearance, Comfort.Heading, SettingsText.YourSpace, SettingsText.YourMac }
-            .Where(group => group == Appearance ? AppearanceShown : settings.Any(setting => setting.Group == group)).ToList();
+        private IReadOnlyList<string> Categories => new[] { Appearance, CodeThemes.Title, Comfort.Heading, SettingsText.YourSpace, SettingsText.YourMac }
+            .Where(group => group == Appearance ? AppearanceShown : group == CodeThemes.Title ? !AppearanceShown : settings.Any(setting => setting.Group == group)).ToList();
 
         /// <summary>
         /// Appearance is offered where its choice changes what the person sees (AUDIT2's 14:01Z: a page offers only what it does): with the
         /// older kit, its palettes; under the redesign, only once Dark and Light are offered whole (<see cref="PanelThemes.Offered"/>).
         /// </summary>
         private static bool AppearanceShown => !RoomDesign.Enabled || PanelThemes.Offered;
+
+        // Where Appearance is not offered, Code Colours stands as its own category, so the owner's ask is reached in the shipped look
+        // (AUDIT3's CC1, 2026-11-17T03:41Z); where it is, Code Colours is Appearance's own row.
 
         public MenuFrame? Frame
         {
@@ -67,7 +70,8 @@ namespace Halcyonic.Client
                 var footer = new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close));
                 if (pages > 1) footer = footer.WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage));
                 var lines = categories.Skip(page * each).Take(each).Select(group => new PageLine(LineWords.Ours(group),
-                    fact: group == Appearance ? LineWords.Ours(RoomDesign.Enabled && PanelThemes.Offered ? PanelThemes.Words(appearance.Panels) : appearance.Applied.Name) : settings.First(setting => setting.Group == group).Read().ValueRuns,
+                    fact: group == Appearance ? LineWords.Ours(RoomDesign.Enabled && PanelThemes.Offered ? PanelThemes.Words(appearance.Panels) : appearance.Applied.Name)
+                        : group == CodeThemes.Title ? LineWords.Ours(CodeThemes.Words(appearance.Code)) : settings.First(setting => setting.Group == group).Read().ValueRuns,
                     action: OpenCategory, key: group, opens: true)).ToList();
                 return new MenuFrame(SettingsText.Subject, footer, lines: lines);
             }
@@ -81,6 +85,7 @@ namespace Halcyonic.Client
             if (id == OpenCategory && key != null && Categories.Contains(key))
             {
                 leaf = key == Appearance ? (IMenuColumn)new AppearanceColumn(appearance, appearanceSaved)
+                    : key == CodeThemes.Title ? new AppearanceColumn(appearance, appearanceSaved, codeOnly: true)
                     : new SettingsColumn(host, settings.Where(setting => setting.Group == key).ToList());
                 leaf.Changed += LeafChanged;
                 leaf.Closed += LeafClosed;
@@ -102,7 +107,7 @@ namespace Halcyonic.Client
             leaving.FocusLeft();
         }
 
-        private string Summary() => appearance.Applied.Key + "\u0001" + PanelThemes.Key(appearance.Panels) + string.Join("\u0001", settings.Select(setting => setting.Read().Shown));
+        private string Summary() => appearance.Applied.Key + "\u0001" + PanelThemes.Key(appearance.Panels) + "\u0001" + CodeThemes.Key(appearance.Code) + string.Join("\u0001", settings.Select(setting => setting.Read().Shown));
         public void Tick()
         {
             if (leaf != null) { leaf.Tick(); return; }

@@ -34,13 +34,19 @@ namespace Halcyonic.Client
         private bool restoring;
         private int page;
 
-        public AppearanceColumn(AppearanceSettings settings, Action saved)
+        /// <param name="codeOnly">The column is Code Colours alone (the Settings hub's own category where Appearance is not offered): it
+        /// opens on its choices, and the hub's Back leaves it.</param>
+        public AppearanceColumn(AppearanceSettings settings, Action saved, bool codeOnly = false)
         {
             this.settings = settings;
             this.saved = saved;
+            this.codeOnly = codeOnly;
+            codeOpen = codeOnly;
             chosen = settings.Applied;
             chosenCode = settings.Code;
         }
+
+        private readonly bool codeOnly;
 
         public event Action? Changed;
         public event Action? Closed;
@@ -63,7 +69,8 @@ namespace Halcyonic.Client
                     var choices = CodeThemes.All.Select(theme => new PageLine(CodeThemes.Words(theme), fact: theme == settings.Code ? "Current" : null,
                         action: ChooseCode, key: CodeThemes.Key(theme), choice: true, chosen: theme == chosenCode, answerMark: AnswerMark.Single)
                         .WithUnder(LineWords.Ours(CodeThemes.Line(theme)))).ToList();
-                    return new MenuFrame(CodeThemes.Title, new Footer(close, rare: new Prompt(Cancel, "Back", GlazeIcon.Back),
+                    // Alone, the hub's own Back leaves it; on Appearance, its Back goes up to Appearance's page.
+                    return new MenuFrame(CodeThemes.Title, new Footer(close, rare: codeOnly ? null : new Prompt(Cancel, "Back", GlazeIcon.Back),
                         farRight: new Prompt(PreviewCode, CodeThemes.PreviewWords, GlazeIcon.OpenNow, main: true)), lines: choices);
                 }
                 // The redesign's glass (the lead's 13:33Z): Dark and Light are the page's choice, the one in force chosen; choosing one
@@ -183,7 +190,7 @@ namespace Halcyonic.Client
                     CodeThemes.Set(settings.Code);
                     saved();
                     codePreview = false;
-                    codeOpen = false;
+                    codeOpen = codeOnly;
                     break;
                 case Footer.NextPage when preview:
                     page = (page + 1) % 5;
@@ -204,7 +211,7 @@ namespace Halcyonic.Client
             Glaze.SetPalette(settings.Applied);
             // Code Colours: a preview goes back to its choices, its choices back to the page; the theme in force is the one kept.
             if (codePreview) codePreview = false;
-            else codeOpen = false;
+            else codeOpen = codeOnly;
             chosenCode = settings.Code;
             CodeThemes.Set(settings.Code);
         }

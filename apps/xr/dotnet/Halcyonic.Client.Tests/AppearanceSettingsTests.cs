@@ -756,4 +756,25 @@ public class AppearanceSettingsTests
         }
         finally { CodeThemes.Set(was); }
     }
+
+    [Test]
+    public void UnderTheRedesignTheSettingsHubReachesCodeColours()
+    {
+        var was = RoomDesign.Enabled;
+        RoomDesign.Enabled = true;
+        try
+        {
+            Assume.That(PanelThemes.Offered, Is.False, "the shipped look: Appearance is not offered");
+            var appearance = new AppearanceSettings();
+            var hub = new SettingsHubColumn(new FileMenuHost(), new MenuSetting[0], appearance, () => { });
+            var row = hub.Frame!.Lines.Single(line => line.Key == CodeThemes.Title);
+            Assert.That((row.Words, row.Fact), Is.EqualTo(("Code Colours", (string?)"Halora")));
+            hub.Act(SettingsHubColumn.OpenCategory, CodeThemes.Title);
+            var page = hub.Frame!;
+            Assert.That(page.Subject, Is.EqualTo("Code Colours"), "it opens on its choices");
+            Assert.That(page.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Halora", "Plain", "High Contrast" }));
+            Assert.That(page.Footer.All.Select(each => each.Prompt.Words), Does.Contain("Back"), "the hub's own Back leaves it");
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }
