@@ -12,8 +12,8 @@ import type {
 } from '@halcyonic/contracts';
 import type { RuntimeAdapter } from '@halcyonic/runtime-core';
 import { createTestControlPlane } from '../testing/harness.ts';
-import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
-import { judgeRequest } from './host-answers.ts';
+import { controlPlaneDraft, marked, NO_CAUSE } from './drafts.ts';
+import { asRun, judgeRequest } from './host-answers.ts';
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-host-answers-')));
 after(() => rmSync(root, { recursive: true, force: true }));
@@ -26,6 +26,8 @@ for (const folder of [copy, join(copy, 'src'), original, shared, outside]) {
 }
 // A link inside the copy that leads out of it.
 symlinkSync(outside, join(copy, 'out'));
+// A link out of the copy whose name holds a hidden character: judged by its marked name, it would look inside (HM3).
+symlinkSync(outside, join(copy, 'o\u200Bt'));
 const reads = { readable: [shared], originals: [original] };
 
 const claude = (toolName: string, paths?: { path: string; access: 'read' | 'write' }[]) => ({
@@ -249,6 +251,31 @@ describe("a task's copy of a folder the person connected (AUDIT3 H1 to H5, the l
       'confined_command',
     );
     assert.equal(judgeRequest(codex(inCopy), copy, connected)?.because, 'confined_command');
+  });
+
+  test('the host decides by the folder as it runs, never by the marks it records for a card: each judgement unchanged (AUDIT3 HM3)', () => {
+    for (const path of [
+      copy,
+      join(copy, 'src'),
+      join(copy, 'a\u200Bb'),
+      join(copy, 'o\u200Bt'),
+      join(copy, 'tab\there'),
+      join(copy, '‹x› ↵ ⇥'),
+      join(copy, '..', 'x\u202E'),
+      outside,
+    ]) {
+      const raw = { ...inCopy, runs_in: { kind: 'folder' as const, path } };
+      const recorded = {
+        ...raw,
+        text: marked(raw.text, 'well'),
+        runs_in: { kind: 'folder' as const, path: marked(path, 'file') },
+      };
+      assert.deepEqual(
+        judgeRequest(codex(asRun(recorded as never)), copy, connected),
+        judgeRequest(codex(raw), copy, connected),
+        JSON.stringify(path),
+      );
+    }
   });
 
   test("Codex's command goes ahead only from its parts: no network asked, run in a folder inside the copy", () => {

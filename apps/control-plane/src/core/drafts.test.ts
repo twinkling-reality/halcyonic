@@ -14,7 +14,14 @@ import {
 } from '@halcyonic/contracts';
 import type { ExecutionContext, RuntimeObservation } from '@halcyonic/runtime-core';
 import { capturingLogger } from '../testing/harness.ts';
-import { APPROVABLE_LIMIT, createObservationSink, SUMMARY_LIMIT, visible } from './drafts.ts';
+import {
+  APPROVABLE_LIMIT,
+  createObservationSink,
+  marked,
+  SUMMARY_LIMIT,
+  unmarked,
+  visible,
+} from './drafts.ts';
 import { InvalidEventError, type Recorder } from './recorder.ts';
 import { redaction, TRUNCATED } from './redaction.ts';
 
@@ -511,11 +518,11 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
   test('what a card does not draw is shown as its escape, so what is shown is what runs (L1)', () => {
     // A right-to-left override makes "rm -rf ~ #txt.gnp" read as something else on a card that draws it.
     const asked = ask('Bash', 'echo safe \u202E; rm -rf ~ #gnp.txt');
-    assert.equal(asked.subject.summary, 'echo safe \\u{202E}; rm -rf ~ #gnp.txt');
+    assert.equal(asked.subject.summary, 'echo safe ‹U+202E›; rm -rf ~ #gnp.txt');
     assert.equal(asked.complete, true);
     assert.equal(
       visible('a\u200Bb\u2066c\uFEFFd\re\u0007f\tg\nh'),
-      'a\\u{200B}b\\u{2066}c\\u{FEFF}d\\u{000D}e\\u{0007}f\tg\nh',
+      'a‹U+200B›b‹U+2066›c‹U+FEFF›d‹U+000D›e‹U+0007›f⇥g\nh',
     );
   });
 
@@ -546,7 +553,7 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
       complete: boolean;
     };
     assert.deepEqual(asked.subject.command, {
-      text: `curl -u me:${MARK} https://x.test \\u{202E}#gnp.txt`,
+      text: `curl -u me:${MARK} https://x.test ‹U+202E›#gnp.txt`,
       runs_in: { kind: 'folder', path: `/work/${MARK}` },
       background: false,
       input_to_running: false,
@@ -645,7 +652,7 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
     assert.deepEqual(asked.subject.inputs, [
       { name: 'url', value: `https://x.test/?k=${MARK}`, kind: 'text' },
       // A line break stays for the card's own mark; what a card does not draw is its escape.
-      { name: 'body', value: 'two\nlines\\u{202E}', kind: 'text' },
+      { name: 'body', value: 'two↵\nlines‹U+202E›', kind: 'text' },
       { name: 'empty', value: '', kind: 'text' },
       { name: 'n', value: '{"a":1}', kind: 'json' },
     ]);
@@ -710,6 +717,139 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
     assert.equal(asked.subject.inputs.length, 32);
     assert.ok([...(asked.subject.inputs[0]?.value ?? '')].length <= 32000);
     assert.ok([...asked.subject.summary].length <= 32000);
+  });
+
+  test('the host writes its own marks: each hidden character as its code, its own mark characters escaped (HM1)', () => {
+    const hidden = [
+      '\u0000',
+      '\u0008',
+      '\u000B',
+      '\r',
+      '\u001F',
+      '\u007F',
+      '\u0085',
+      '\u009F',
+      '\u00AD',
+      '\u061C',
+      '\u200B',
+      '\u200F',
+      '\u2028',
+      '\u202E',
+      '\u2060',
+      '\u2066',
+      '\u2069',
+      '\uFEFF',
+      '\u{E0001}',
+    ];
+    for (const character of hidden) {
+      const code = (character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0');
+      for (const place of ['body', 'well', 'file'] as const)
+        assert.equal(marked(`a${character}b`, place), `a‹U+${code}›b`, `${code} in ${place}`);
+    }
+    // The host's own mark characters, held literally, are written as their codes: every ‹…›, ↵ and ⇥ is a mark.
+    assert.equal(marked('‹›↵⇥'), '‹U+2039›‹U+203A›‹U+21B5›‹U+21E5›');
+    assert.equal(marked('‹U+2039›'), '‹U+2039›U+2039‹U+203A›');
+    // A text that only reads like an escape is plain text, never a mark.
+    assert.equal(marked('\\u{202E}'), '\\u{202E}');
+    // Tabs, line breaks and edge spaces by place.
+    assert.equal(marked('  a\tb\nc  ', 'well'), '‹U+0020›‹U+0020›a⇥b↵\nc‹U+0020›‹U+0020›');
+    assert.equal(marked('  a\tb\nc  ', 'body'), '  a⇥b\nc  ');
+    assert.equal(marked('  a\tb\nc  ', 'file'), '  a\tb\nc  ');
+    assert.equal(marked('   ', 'well'), '‹U+0020›‹U+0020›‹U+0020›');
+  });
+
+  test('unmarked gives every text back exactly, from each place, so the marks are one to one (HM1)', () => {
+    const pieces = [
+      'a',
+      'Z',
+      '0',
+      ' ',
+      '\t',
+      '\n',
+      '\r',
+      '\u0000',
+      '\u0085',
+      '\u00AD',
+      '\u202E',
+      '\u2066',
+      '\uFEFF',
+      '\u{E0041}',
+      '‹',
+      '›',
+      '↵',
+      '⇥',
+      '‹U+2039›',
+      '\\u{202E}',
+      '↵\n',
+      'U+',
+      '·',
+      'é',
+      '漢',
+      '\u{1F600}',
+    ];
+    let seed = 7;
+    const next = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed;
+    };
+    for (let round = 0; round < 2000; round += 1) {
+      const length = next() % 12;
+      let text = '';
+      for (let i = 0; i < length; i += 1) text += pieces[next() % pieces.length];
+      for (const place of ['body', 'well', 'file'] as const)
+        assert.equal(unmarked(marked(text, place)), text, `${JSON.stringify(text)} in ${place}`);
+    }
+  });
+
+  test('a text full of hidden characters is marked before it is fitted, cut only between marks, and deny-only (HM2)', () => {
+    const { sink, recorded } = recordingSink();
+    const summary = '\u202E'.repeat(5000);
+    sink(
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: { kind: 'tool_use', tool_name: 'Bash', summary },
+        complete: true,
+      }),
+    );
+    const asked = recorded[0]?.payload as { subject: { summary: string }; complete: boolean };
+    assert.equal(asked.complete, false);
+    assert.ok([...asked.subject.summary].length <= 32000);
+    const shown = asked.subject.summary.replace(/ \[truncated\]$/, '');
+    assert.match(shown, /^(‹U\+202E›)+$/, 'only whole marks before the cut');
+  });
+
+  test('a bidirectional control in a Codex command and an OpenCode summary is written as its mark (HM4)', () => {
+    for (const tool_name of ['commandExecution', 'bash']) {
+      const { sink, recorded } = recordingSink();
+      const text = 'echo safe \u202E; rm -rf ~ #gnp.txt';
+      sink(
+        observation('runtime.approval.requested', {
+          approval_id: 'a',
+          subject: {
+            kind: 'tool_use',
+            tool_name,
+            summary: text,
+            command: {
+              text,
+              runs_in: { kind: 'task_folder' },
+              background: false,
+              input_to_running: false,
+            },
+          },
+          complete: true,
+        }),
+      );
+      const asked = recorded[0]?.payload as {
+        subject: { summary: string; command: ApprovalCommand };
+      };
+      assert.equal(asked.subject.summary, 'echo safe ‹U+202E›; rm -rf ~ #gnp.txt', tool_name);
+      assert.equal(asked.subject.command.text, 'echo safe ‹U+202E›; rm -rf ~ #gnp.txt', tool_name);
+    }
+  });
+
+  test('an older event, recorded with the escapes the host used to write, is kept as it is: nothing rewrites the record (HM5)', () => {
+    const older = 'echo safe \\u{202E}; ls';
+    assert.equal(unmarked(older), older, 'an older text has no marks to read');
   });
 
   test('a command whose part is cut to the contract is never approvable (2026-11-16)', () => {
@@ -813,7 +953,7 @@ describe("a file change's approval shows the change whole (ADR 0065 second half,
       'the summary and the content together',
     );
     const hidden = write([change('a.ts', 'ok \u202E txt.exe')]);
-    assert.equal(hidden.subject.changes[0]?.after, 'ok \\u{202E} txt.exe');
+    assert.equal(hidden.subject.changes[0]?.after, 'ok ‹U+202E› txt.exe');
     // A file tool whose app did not carry its change stays as the app said: not approvable.
     assert.equal(write([], null, false).complete, false);
   });

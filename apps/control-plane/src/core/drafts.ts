@@ -22,7 +22,13 @@ import type {
 import type { Logger } from '../logger.ts';
 import { resolvedPath } from './real-path.ts';
 import { type EventDraft, InvalidEventError, type Recorder } from './recorder.ts';
-import { fitted, type Redaction, redaction as redactionOf, withinLimit } from './redaction.ts';
+import {
+  fitted,
+  type Redaction,
+  redaction as redactionOf,
+  TRUNCATED,
+  withinLimit,
+} from './redaction.ts';
 import { normalizedToolResult } from './tool-result-redaction.ts';
 
 type ControlPlaneEventType = ControlPlaneEvent['event_type'];
@@ -150,16 +156,90 @@ export const SUMMARY_LIMIT = 32000;
 export const APPROVABLE_LIMIT = 2000;
 
 /**
- * `text` with every character a card does not draw written as its escape (`\u{202E}`): C0 and C1 controls but tab and
- * newline, carriage return, the bidirectional overrides and isolates, the zero-width characters and the byte order
- * mark, so a request cannot read otherwise than it runs (AUDIT3 L1).
+ * The characters a card does not draw, which the host writes as marks so a request cannot read otherwise than it runs
+ * (AUDIT3 L1): C0 and C1 controls but tab and line feed (carriage return and NEL included), the soft hyphen, the Arabic
+ * letter mark, the zero-width characters, the bidirectional controls and isolates, the word joiner, the byte order mark
+ * and the tag characters.
  */
-export function visible(text: string): string {
+const HIDDEN =
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: finding control characters is the rule.
+  /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u00AD\u061C\u200B-\u200F\u2028-\u202E\u2060\u2066-\u2069\uFEFF\u{E0000}-\u{E007F}]/u;
+
+/** The host's own mark characters: ‹ and › around a character's code, ↵ before a well's line break, ⇥ for a tab. */
+const MARK_CHARACTERS = new Set(['\u2039', '\u203A', '\u21B5', '\u21E5']);
+
+/**
+ * Where a text is drawn, which decides its marks (the lead's ruling, 2026-11-17, AUDIT2's marks): `body` (a summary, a
+ * name), `well` (a command's text or an input's value, drawn literally: also each line break as `↵` before it and a
+ * space at either end as its code) and `file` (a path or a file's text, which a view lays out itself: hidden
+ * characters and the mark characters only).
+ */
+export type MarkPlace = 'body' | 'well' | 'file';
+
+function codeOf(character: string): string {
+  return `\u2039U+${(character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}\u203A`;
+}
+
+/**
+ * `text` as the host records it for a card to draw as given, in one pass (AUDIT3 HM1, after what Halcyonic holds is
+ * taken out): each of the host's own mark characters it holds literally written as its code, so every ‹…›, ↵ and ⇥ is
+ * the host's; each hidden character as its code (`‹U+202E›`); a tab as `⇥` but in a file; and in a well a line break
+ * as `↵` before it, the line still breaking, and a space at either end as `‹U+0020›`. Nothing else changes, and
+ * `unmarked` gives the text back exactly.
+ */
+export function marked(text: string, place: MarkPlace = 'body'): string {
+  const characters = Array.from(text);
+  let lead = 0;
+  let trail = 0;
+  if (place === 'well') {
+    while (lead < characters.length && characters[lead] === ' ') lead += 1;
+    while (trail < characters.length - lead && characters[characters.length - 1 - trail] === ' ')
+      trail += 1;
+  }
+  return characters
+    .map((character, index) => {
+      if (MARK_CHARACTERS.has(character) || HIDDEN.test(character)) return codeOf(character);
+      if (place !== 'file' && character === '\t') return '\u21E5';
+      if (place === 'well' && character === '\n') return '\u21B5\n';
+      if (
+        place === 'well' &&
+        character === ' ' &&
+        (index < lead || index >= characters.length - trail)
+      )
+        return codeOf(character);
+      return character;
+    })
+    .join('');
+}
+
+/** The text `marked` was given, back exactly: what the host decides by is the request as it runs (AUDIT3 HM3). */
+export function unmarked(text: string): string {
   return text.replace(
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: finding control characters is the rule.
-    /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u00AD\u061C\u200B-\u200F\u2028-\u202E\u2060\u2066-\u2069\uFEFF\u{E0000}-\u{E007F}]/gu,
-    (c) => `\\u{${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}}`,
+    /\u2039U\+([0-9A-F]{4,6})\u203A|\u21E5|\u21B5\n/gu,
+    (mark, code: string | undefined) =>
+      code !== undefined
+        ? String.fromCodePoint(Number.parseInt(code, 16))
+        : mark === '\u21E5'
+          ? '\t'
+          : '\n',
   );
+}
+
+/** A body text as a card draws it (the name kept for the callers that show a tool's name as words). */
+export function visible(text: string): string {
+  return marked(text, 'body');
+}
+
+/**
+ * A marked text fitted to `limit`, counted on the marked text (AUDIT3 HM2), and never cut inside a mark: a cut that
+ * would fall in one falls before it.
+ */
+function fittedMarked(text: string, limit: number): string {
+  const kept = fitted(text, limit);
+  if (kept === text) return kept;
+  const body = kept.slice(0, kept.length - TRUNCATED.length);
+  const open = body.lastIndexOf('\u2039');
+  return `${open > body.lastIndexOf('\u203A') ? body.slice(0, open) : body}${TRUNCATED}`;
 }
 
 /**
@@ -171,18 +251,18 @@ function fittedCommand(
   redaction: Redaction,
 ): { readonly fitted: ApprovalCommand; readonly cut: boolean } {
   let cut = false;
-  const part = (text: string, limit: number) => {
-    const shown = visible(redaction.held(text));
-    const kept = fitted(shown, limit);
+  const part = (text: string, limit: number, place: MarkPlace = 'body') => {
+    const shown = marked(redaction.held(text), place);
+    const kept = fittedMarked(shown, limit);
     if (kept !== shown) cut = true;
     return kept;
   };
   const fittedOne: ApprovalCommand = {
     ...command,
-    text: part(command.text, SUMMARY_LIMIT),
+    text: part(command.text, SUMMARY_LIMIT, 'well'),
     runs_in:
       command.runs_in.kind === 'folder'
-        ? { kind: 'folder', path: part(command.runs_in.path, 4096) }
+        ? { kind: 'folder', path: part(command.runs_in.path, 4096, 'file') }
         : command.runs_in,
     ...(command.network !== undefined && {
       network: {
@@ -207,15 +287,15 @@ function fittedInputs(
   redaction: Redaction,
 ): { readonly fitted: ApprovalInput[]; readonly cut: boolean } {
   let cut = inputs.length > INPUTS_MAX;
-  const part = (text: string, limit: number) => {
-    const shown = visible(redaction.held(text));
-    const kept = shown.length === 0 ? shown : fitted(shown, limit);
+  const part = (text: string, limit: number, place: MarkPlace) => {
+    const shown = marked(redaction.held(text), place);
+    const kept = shown.length === 0 ? shown : fittedMarked(shown, limit);
     if (kept !== shown) cut = true;
     return kept;
   };
   const kept = inputs.slice(0, INPUTS_MAX).map((input) => ({
-    name: part(input.name, 200),
-    value: part(input.value, 32000),
+    name: part(input.name, 200, 'body'),
+    value: part(input.value, 32000, 'well'),
     kind: input.kind,
   }));
   return { fitted: kept, cut };
@@ -231,7 +311,8 @@ function fittedChange(
   redaction: Redaction,
   folder: string | null,
 ): { readonly whole: ApprovalChange; readonly fitted: ApprovalChange; readonly cut: boolean } {
-  const shown = (text: string | null) => (text === null ? null : visible(redaction.held(text)));
+  const shown = (text: string | null) =>
+    text === null ? null : marked(redaction.held(text), 'file');
   const real = (path: string) => {
     if (folder === null && !isAbsolute(path)) return null;
     const plain = isAbsolute(path) ? join(path) : join(folder ?? '', path);
@@ -240,16 +321,17 @@ function fittedChange(
   };
   const whole: ApprovalChange = {
     ...change,
-    path: visible(change.path),
-    real_path: real(change.path),
-    to_path: change.to_path === null ? null : visible(change.to_path),
+    path: marked(change.path, 'file'),
+    real_path: ((path) => (path === null ? null : marked(path, 'file')))(real(change.path)),
+    to_path: change.to_path === null ? null : marked(change.to_path, 'file'),
     before: shown(change.before),
     after: shown(change.after),
   };
-  const fit = (text: string | null, limit: number) => (text === null ? null : fitted(text, limit));
+  const fit = (text: string | null, limit: number) =>
+    text === null ? null : fittedMarked(text, limit);
   const fittedOne: ApprovalChange = {
     ...whole,
-    path: fitted(whole.path, 4096),
+    path: fittedMarked(whole.path, 4096),
     real_path: fit(whole.real_path, 4096),
     to_path: fit(whole.to_path, 4096),
     before: fit(whole.before, SUMMARY_LIMIT),
@@ -308,8 +390,8 @@ function withoutCredentials(
         | undefined;
       if (typeof subject?.summary !== 'string') return given;
       // What a card does not draw is drawn as its escape, so what is shown is what runs (AUDIT3 L1).
-      const held = visible(redaction.held(subject.summary));
-      const summary = fitted(held, SUMMARY_LIMIT);
+      const held = marked(redaction.held(subject.summary), 'body');
+      const summary = fittedMarked(held, SUMMARY_LIMIT);
       // Every change the request makes, each part escaped and kept whole up to the record's bound, with where the
       // write really lands (ADR 0065, AUDIT3 W1, W3).
       const changes = Array.isArray(subject.changes)

@@ -1844,7 +1844,7 @@ describe('ACP approval requests', () => {
         call: {
           toolCallId: 'k',
           kind: 'fetch',
-          rawInput: { url: 'https://example.com', depth: 2 },
+          rawInput: { url: 'https://example.com\nfake: x', depth: 2 },
         },
       },
       // Antigravity's shell with an input that may act: its inputs carried, and it stays deny-only.
@@ -1854,7 +1854,7 @@ describe('ACP approval requests', () => {
           toolCallId: 'a',
           name: 'run_command',
           kind: 'execute',
-          rawInput: { CommandLine: 'ls', Blocking: true },
+          rawInput: { CommandLine: 'ls\nBlocking: false', Blocking: true },
         },
       },
       // Cursor's, as ACP shapes a read (no recorded one exists).

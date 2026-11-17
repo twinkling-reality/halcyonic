@@ -157,6 +157,34 @@ describe('execution status is derived from observed facts', () => {
         ['a2', false],
       ],
     );
+    // An older event, recorded with the escapes the host used to write (`\u{202E}`), is kept exactly as recorded:
+    // nothing turns its text into marks (AUDIT3 HM5).
+    const older = 'echo safe \\u{202E}; ls';
+    apply(
+      b.runtimeEvent(scope, 'runtime.approval.requested', {
+        approval_id: 'a3',
+        subject: {
+          kind: 'tool_use',
+          tool_name: 'Bash',
+          summary: older,
+          command: {
+            text: older,
+            runs_in: { kind: 'session_shell' },
+            background: false,
+            input_to_running: false,
+          },
+        },
+        complete: true,
+      }),
+    );
+    const kept = projection
+      .execution(execution.executionId)
+      ?.pending_approvals.find((each) => each.approval_id === 'a3');
+    assert.equal(kept?.subject.summary, older);
+    assert.equal(kept?.subject.command?.text, older);
+    apply(
+      b.runtimeEvent(scope, 'runtime.approval.resolved', { approval_id: 'a3', decision: 'denied' }),
+    );
     apply(
       b.runtimeEvent(scope, 'runtime.approval.resolved', { approval_id: 'a2', decision: 'denied' }),
     );

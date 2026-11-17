@@ -39,6 +39,12 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
 4. **What is shown is what runs** (AUDIT3 L1). Characters a card does not draw (C0 and C1 controls but tab and
    newline, carriage return, the bidirectional overrides and isolates, the zero-width characters and the byte order
    mark) are written in the summary as their escape (`\u{202E}`), for every request, before it is fitted.
+   - **Amended 2026-11-17 (the lead's ruling, AUDIT2's marks, AUDIT3 HM1 to HM5): the host writes its own marks.**
+     Each such character is `‹U+XXXX›`, a tab `⇥`, and in a well (a command's text, an input's value) `↵` before
+     each line break and a space at either end `‹U+0020›`; the host's own mark characters, held literally, are
+     written as their codes, so every mark is the host's and a text that only reads like an escape is plain text.
+     It marks before it fits, never cuts inside a mark, and decides by the text unmarked. Older events keep the
+     escapes they were recorded with; a card draws every text as given.
 
 5. **The second half: an approval shows whole what it approves, a file's change too, once the headset's card draws
    `changes`** (the lead, 2026-11-13 19:46Z; AUDIT3's shape read with W1 to W4). Until then the request carries the

@@ -162,7 +162,9 @@ moved it; `task_folder` or `folder` with its `path` for OpenCode and Codex; `unk
 did not say); `background`; `input_to_running` (Codex's input to a command already running); and
 `network`, the host and protocol a Codex command also asks for. Each adapter builds the summary
 from these parts alone, so a card that draws them in its place shows exactly what the summary says;
-the control plane takes secrets out of each part and escapes it as it does the summary, and a part
+the control plane takes secrets out of each part and marks it as it does the summary (`‹U+XXXX›` for a
+character a card does not draw, `⇥` for a tab, `↵` before a line break in the command's text, its own
+mark characters written as their codes; ADR 0065, amended 2026-11-17), and a part
 cut to the contract makes the request not complete.
 
 Where a request runs no command in parts, an agent app over ACP gives its subject `inputs` too

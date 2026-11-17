@@ -368,7 +368,7 @@ describe('a request the journal cannot record is denied by the host, never left 
     assert.ok(!logged.includes('alpha=#00'), logged);
     assert.ok(!JSON.stringify(view).includes('alpha=#00'), 'no view holds words made of it');
     // Wherever it is shown as words, `visible` writes the override as its escape.
-    assert.equal(visible(name), '<alpha=#00>Bash\\u{202E}');
+    assert.equal(visible(name), '<alpha=#00>Bash‹U+202E›');
   });
 
   test('the words say it was not shown and not done, with no advice and no product name', () => {

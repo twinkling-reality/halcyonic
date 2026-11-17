@@ -15,7 +15,7 @@ import { runsLater } from '@halcyonic/seatbelt';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
 import type { CommandService } from './command-service.ts';
-import { type Cause, controlPlaneDraft, SUMMARY_LIMIT } from './drafts.ts';
+import { type Cause, controlPlaneDraft, SUMMARY_LIMIT, unmarked } from './drafts.ts';
 import type { EventPublisher } from './publisher.ts';
 import { resolvedPath } from './real-path.ts';
 import type { Recorder } from './recorder.ts';
@@ -102,6 +102,19 @@ export function answersOwnWork(runtimeKind: string): boolean {
  */
 export function answersInConnectedCopy(runtimeKind: string): boolean {
   return answersOwnWork(runtimeKind) && ANSWERABLE[runtimeKind]?.connectedCopies === true;
+}
+
+/** A recorded command as it runs: its text and its folder unmarked, as the host recorded them for a card (HM3). */
+export function asRun(command: ApprovalCommand | undefined): ApprovalCommand | undefined {
+  if (command === undefined) return undefined;
+  return {
+    ...command,
+    text: unmarked(command.text),
+    runs_in:
+      command.runs_in.kind === 'folder'
+        ? { kind: 'folder', path: unmarked(command.runs_in.path) }
+        : command.runs_in,
+  };
 }
 
 export type HostJudgement = {
@@ -281,13 +294,15 @@ export class HostAnswers {
       if (copy?.state !== 'own' || copy.directory !== view.directory) return null;
     }
     const { subject, complete, too_long: tooLong } = event.payload;
+    // The host decides by the request as it runs, never by the marks it records for a card to draw (AUDIT3 HM3).
+    const command = asRun(subject.command);
     return judgeRequest(
       {
         runtimeKind: view.runtime.kind,
         toolName: subject.tool_name,
         paths: subject.paths,
         complete: complete || tooLong?.reported_complete === true,
-        command: subject.command,
+        command,
       },
       view.directory,
       reads,
