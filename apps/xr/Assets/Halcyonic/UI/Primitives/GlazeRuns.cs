@@ -88,8 +88,14 @@ namespace Halcyonic.XR.UI
         {
             SetProseMode(false);
             SetWellMode(true);
-            return SetWords(words, null);
+            return SetWords(Drawable(words), null);
         }
+
+        /// <summary>
+        /// <paramref name="words"/> with a mark glyph the label's face and its fallbacks cannot draw in its code point form
+        /// (<see cref="LineWords.MarksDrawnBy"/>), so a mark never draws as a missing glyph.
+        /// </summary>
+        public LineWords Drawable(LineWords words) => words.MarksDrawnBy(unit => label.font != null && label.font.HasCharacter(unit, true, false));
 
         /// <summary>Whether the label draws a literal well's words (<see cref="SetWell"/>).</summary>
         public bool IsWell => well;

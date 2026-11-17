@@ -269,6 +269,38 @@ namespace Halcyonic.Client
 
         public bool AnyTheirs => Runs.Any(run => run.Theirs);
 
+        /// <summary>
+        /// These words with every mark glyph a face cannot draw (<paramref name="drawable"/> false) in its code point form, such as
+        /// ‹U+000A› for <see cref="LineBreakMark"/> and ‹U+0009› for <see cref="TabMark"/>, in Halcyonic's runs and marks alone, never in
+        /// outside text; each run keeps its kind. Until the kit's faces hold the marks' glyphs (the lead's 22:2xZ ruling: SCREENS' one
+        /// rebuild), a mark never draws as a missing glyph; once they do, nothing changes.
+        /// </summary>
+        public LineWords MarksDrawnBy(Func<char, bool> drawable)
+        {
+            string Drawn(string text)
+            {
+                if (text.IndexOf(LineBreakMark[0]) < 0 && text.IndexOf(TabMark[0]) < 0) return text;
+                var shown = new System.Text.StringBuilder(text.Length);
+                var replaced = false;
+                foreach (var unit in text)
+                {
+                    var code = unit == LineBreakMark[0] && !drawable(unit) ? "\u2039U+000A\u203A" : unit == TabMark[0] && !drawable(unit) ? "\u2039U+0009\u203A" : null;
+                    if (code != null) replaced = true;
+                    shown.Append(code ?? unit.ToString());
+                }
+                return replaced ? shown.ToString() : text;
+            }
+            var changed = false;
+            var runs = new List<WordRun>(Runs.Count);
+            foreach (var run in Runs)
+            {
+                var drawn = run.Theirs ? run.Text : Drawn(run.Text);
+                changed |= !ReferenceEquals(drawn, run.Text);
+                runs.Add(ReferenceEquals(drawn, run.Text) ? run : new WordRun(drawn, run.Theirs, run.Spelled, run.Mark));
+            }
+            return changed ? new LineWords(runs) : this;
+        }
+
         /// <summary>A mark run here draws a line break's mark (<see cref="LineBreakMark"/>), so a well's key line belongs beside it.</summary>
         public bool MarksLineBreak => Runs.Any(run => run.Mark && run.Text.Contains(LineBreakMark));
 

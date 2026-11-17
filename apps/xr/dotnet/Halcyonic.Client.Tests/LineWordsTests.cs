@@ -483,4 +483,15 @@ public class LineWordsTests
             LineWords.Folded -= Say;
         }
     }
+
+    [Test]
+    public void AMarkGlyphAFaceCannotDrawShowsByItsCodePointAndOutsideTextNeverChanges()
+    {
+        var well = LineWords.Literal("a\tb\nc") + LineWords.Theirs("typed ↵ stays") + LineWords.Ours("↵ marks a new line.");
+        var none = well.MarksDrawnBy(_ => false);
+        Assert.That(none.Runs.Where(run => run.Mark).Select(run => run.Text), Is.EqualTo(new[] { "\u2039U+0009\u203A", "\u2039U+000A\u203A" }), "each mark by its code point, still a mark");
+        Assert.That(none.Runs.Single(run => run.Theirs && run.Text.Contains("typed")).Text, Does.EndWith("typed ↵ stays"), "outside text never changes");
+        Assert.That(none.Runs.Last().Text, Is.EqualTo("\u2039U+000A\u203A marks a new line."), "the key line names the same form");
+        Assert.That(well.MarksDrawnBy(_ => true), Is.SameAs(well), "a face that draws the marks changes nothing");
+    }
 }

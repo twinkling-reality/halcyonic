@@ -1278,7 +1278,8 @@ namespace Halcyonic.XR.UI
             var describedHeight = 0f;
             if (bar.Description is LineWords described && bar.Mono && bar.Card == null && described.Text.Length > 0)
             {
-                Set(body, described, false);
+                // The key line's ↵ in its code point form while the reading face cannot draw it (GlazeRuns.Drawable).
+                Set(body, GlazeRuns.Of(body).Drawable(described), false);
                 body.gameObject.SetActive(true);
                 describedHeight = KitType.Lay(body, wordsWidth, 200).Height;
             }
