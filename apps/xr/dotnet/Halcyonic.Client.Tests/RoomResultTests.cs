@@ -1007,23 +1007,24 @@ public class RoomResultTests
         var reasoning = Bar(new RoomResult(false, true, false, null, null, null, RoomResultPage.Reasoning, evidence: page));
         var card = reasoning.Card!;
         Assert.That((card.Title?.Text, card.Label, card.Description?.Text), Is.EqualTo(((string?)"Reasoning", (string?)"Observed", (string?)"It works.\nThe tests passed.")), Show(reasoning));
-        Assert.That(card.List.Select(row => (row.Label, row.Name.Text, row.Note, row.Kind, row.Under?.Text)).First(),
-            Is.EqualTo(((string?)"Runs", "check 1", (string?)"Passed", RoomKind.Passed, (string?)"4 of 4 Passed")));
-        Assert.That(card.List.Skip(1).All(row => row.Label == null), "the head stands once over its section on a part");
+        Assert.That(card.List, Is.Empty, "the results are the card's own block, not the list's rows");
+        Assert.That(card.Results.Select(section => section.Head), Is.EqualTo(new[] { "Runs" }), "the head stands once over its section's rows (AUDIT's 21:13Z point 1)");
+        var first = card.Results[0].Rows[0];
+        Assert.That((first.Name.Text, first.Value, first.Mark, first.Mono, string.Join("|", first.Lines)), Is.EqualTo(("check 1", (string?)"Passed", RoomKind.Passed, true, "4 of 4 Passed")));
         var stale = new UnderstandingVerificationRun
         {
             Label = "go vet", Outcome = UnderstandingVerificationRunOutcome.Fail, At = "2026-11-17T19:30:00.000Z", Epistemic = UnderstandingEpistemic.Observed, Stale = true,
             Counts = new UnderstandingVerificationRunCounts { Passed = 3, Total = 4 }, Exit = new UnderstandingVerificationRunExit { Code = 1 },
         };
         understood.Verification.LatestByMethod = new List<UnderstandingVerificationRun> { stale };
-        var facts = EvidencePage.Of(new UnderstandingResponse { ExecutionId = "e1", Result = new AvailableUnderstanding { Understanding = understood } }).Card(0).List.Single().Under!.Text;
-        Assert.That(facts.Split('\n'), Is.EqualTo(new[] { "Out of Date", "3 of 4 Passed", "Exit 1" }), "each fact its own line (AUDIT2's 21:09Z)");
-        Assert.That(facts, Does.Not.Contain(", ").And.Not.Contain(" · "), "no drawn line joins two facts");
-        Assert.That(card.List.Count, Is.EqualTo(RoomCard.ListAPage));
+        var facts = EvidencePage.Of(new UnderstandingResponse { ExecutionId = "e1", Result = new AvailableUnderstanding { Understanding = understood } }).Card(0).Results.Single().Rows.Single().Lines;
+        Assert.That(facts, Is.EqualTo(new[] { "Out of Date", "3 of 4 Passed", "Exit 1" }), "each fact its own line (AUDIT2's 21:09Z)");
+        Assert.That(facts, Has.None.Contain(", ").And.None.Contain(" · "), "no drawn line joins two facts");
+        Assert.That(card.Results.Sum(section => section.Rows.Count), Is.EqualTo(RoomCard.ListAPage));
         Assert.That(reasoning.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.NextPage, true), (RoomResult.Back, false) }));
 
         var second = Bar(new RoomResult(false, true, false, null, null, null, RoomResultPage.Reasoning, part: 1, evidence: page)).Card!;
-        Assert.That((second.Description, second.List.Single().Label, second.List.Single().Name.Text), Is.EqualTo(((LineWords?)null, (string?)"Runs", "check 6")),
+        Assert.That((second.Description, second.Results.Single().Head, second.Results.Single().Rows.Single().Name.Text), Is.EqualTo(((LineWords?)null, "Runs", "check 6")),
             "a part that goes on carries its section's head again, and the verdict stands on the first part alone");
     }
 }

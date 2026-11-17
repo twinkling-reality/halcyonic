@@ -45,7 +45,7 @@ namespace Halcyonic.XR.UI
         /// A description's light: where rows follow it, it is the card's lead and reads a tier above them (the quote over the
         /// quiet lines, SCREENS's critic 6, 2026-11-13: "nearly the same light grey"); elsewhere the reading tier as before.
         /// </summary>
-        private static float DescriptionAlpha(RoomCard card) => card.List.Count > 0 ? 0.94f : 0.80f;
+        private static float DescriptionAlpha(RoomCard card) => card.List.Count > 0 || card.Results.Count > 0 ? 0.94f : 0.80f;
 
         /// <summary>The most lines a status's line takes in the column beside its mark; longer, it runs the card's width under it.</summary>
         public const int StatusColumnLines = 3;
@@ -671,6 +671,11 @@ namespace Halcyonic.XR.UI
             {
                 Gap(ListGapDp);
                 down = LayList(card.List, width, down, card.Heads);
+            }
+            if (card.Results.Count > 0)
+            {
+                Gap(BlockGapDp);
+                down = LayResults(card.Results, width, down);
             }
             if (card.More != null)
             {
@@ -1597,6 +1602,103 @@ namespace Halcyonic.XR.UI
                 }
             }
             return down + S(StepDp) + nameGap + tallest + Mathf.Max(0f, notRunTall);
+        }
+
+        /// <summary>The gap between one section of results and the next head, and the rate's track: thinner than a gauge's.</summary>
+        public const float ResultsSectionGapDp = 18f, ResultsTrackDp = 4f, ResultsTrackGapDp = 8f;
+
+        /// <summary>
+        /// A card's results (<see cref="RoomCard.Results"/>; AUDIT's 21:13Z after result-death-stranding-results.png and
+        /// list-death-stranding-cargo-management.png): each section's head once in the label role, then its rows with a hairline
+        /// between them. Every row's name stands on the card's one left edge; its value is plain body type on the right edge, its
+        /// mark (by form, white) just before the value, so no mark pushes a name off the title's edge; each fact is its own quiet
+        /// line under the name; a rate is a white fill on a quiet track under them. A command in mono breaks only between its
+        /// words, never inside one ("SUITE=sign-in" stays whole), shrinking to the caption's size at most where a word is too wide.
+        /// </summary>
+        private float LayResults(IReadOnlyList<RoomResultsSection> sections, float width, float down)
+        {
+            for (var at = 0; at < sections.Count; at++)
+            {
+                var section = sections[at];
+                if (at > 0) down += S(ResultsSectionGapDp);
+                var (_, headTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha), LineWords.HostPlain(section.Head), 0f, -down, width, 1, labelRole: true);
+                down += headTall + S(HeadsGapDp);
+                for (var index = 0; index < section.Rows.Count; index++)
+                {
+                    var row = section.Rows[index];
+                    if (index > 0) Plate(new Vector2(width, S(1f)), 0f, White(0.10f), new Vector2(width / 2f, -(down + S(0.5f))), "hairline");
+                    var top = down + S(RowPadDp);
+                    var valueWidth = 0f;
+                    TextMeshPro? value = null;
+                    if (row.Value != null)
+                    {
+                        (value, _) = Text(KitRole.Body, RowNameDp, RowNameLineDp, White(0.90f), LineWords.HostPlain(row.Value), 0f, 0f, width / 2f, 1);
+                        valueWidth = RoomCursor.WordsWidth(value, 0f);
+                    }
+                    var markRoom = row.Mark != RoomKind.None ? S(RowGlyphDp + RowGapDp) : 0f;
+                    var nameWidth = width - (valueWidth > 0f ? valueWidth + S(RowGapDp) : 0f) - markRoom;
+                    var (name, nameTall) = row.Mono
+                        ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, 0f, -top, nameWidth, RowMostLines)
+                        : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, 0f, -top, nameWidth, RowMostLines, holdLastTwo: true);
+                    if (row.Mono) nameTall = LayCommand(name, row.Name, nameWidth, nameTall);
+                    var below = top + nameTall;
+                    foreach (var fact in row.Lines)
+                    {
+                        var (_, factTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), LineWords.HostPlain(fact), 0f, -(below + S(2f)), nameWidth, 2);
+                        below += S(2f) + factTall;
+                    }
+                    if (row.Rate is double rate)
+                    {
+                        var middle = below + S(ResultsTrackGapDp) + S(ResultsTrackDp) / 2f;
+                        var track = width - (valueWidth > 0f ? valueWidth + S(RowGapDp) : 0f) - markRoom;
+                        Plate(new Vector2(track, S(ResultsTrackDp)), S(ResultsTrackDp) / 2f, White(0.10f), new Vector2(track / 2f, -middle), "rate track");
+                        var filled = track * (float)rate;
+                        if (filled > 1e-4f)
+                            Plate(new Vector2(filled, S(ResultsTrackDp)), Mathf.Min(S(ResultsTrackDp) / 2f, filled / 2f), White(0.62f), new Vector2(filled / 2f, -middle), "rate fill");
+                        below = middle + S(ResultsTrackDp) / 2f;
+                    }
+                    var firstLine = top + S(RowNameLineDp) / 2f;
+                    if (value != null) value.transform.localPosition = new Vector3(width - valueWidth, -(firstLine - S(RowNameLineDp) / 2f), -RoomType.Units(0.5f));
+                    if (row.Mark != RoomKind.None)
+                        Glyph(GlyphOf(row.Mark), RowGlyphDp, Color.white, new Vector2(width - valueWidth - (valueWidth > 0f ? S(RowGapDp) : 0f) - S(RowGlyphDp) / 2f, -firstLine), "result " + row.Mark);
+                    down = below + S(RowPadDp);
+                }
+            }
+            return down;
+        }
+
+        /// <summary>
+        /// A command's words laid so a line breaks only between them, never inside one (AUDIT's 21:13Z point 3: "SUITE=sign- / in"):
+        /// TMP would break at a hyphen, so the lines are laid here, each word whole, a word wider than the row shrinking the face to the
+        /// caption's size at most, and past that standing alone on its line, cut at its end. Returns the height drawn.
+        /// </summary>
+        private float LayCommand(TextMeshPro label, LineWords name, float width, float tall)
+        {
+            var text = name.Text;
+            if (text.IndexOf('\n') >= 0) return tall;
+            label.ForceMeshUpdate(true);
+            bool Fits(string line) => label.GetPreferredValues(line).x <= width + 1e-4f;
+            if (Fits(text)) return tall;
+            var words = text.Split(' ');
+            var floor = GlazeTokens.FontSize(GlazeTokens.Units(Glaze.CaptionDegrees));
+            while (words.Any(word => !Fits(word)) && label.fontSize > floor + 1e-4f) label.fontSize = Mathf.Max(floor, label.fontSize * 0.95f);
+            var lines = new List<string>();
+            var current = "";
+            foreach (var word in words)
+            {
+                var tried = current.Length == 0 ? word : current + " " + word;
+                if (current.Length > 0 && !Fits(tried)) { lines.Add(current); current = word; }
+                else current = tried;
+            }
+            if (current.Length > 0) lines.Add(current);
+            var joined = string.Join("\n", lines);
+            var runs = GlazeRuns.Of(label);
+            label.text = joined;
+            // Every character stays as the name gave it: the breaks are line ends between its words.
+            if (name.AllTheirs) runs.Lean(new List<(int Start, int End)> { (0, joined.Length) });
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.ForceMeshUpdate(true);
+            return Mathf.Max(lines.Count, 1) * S(RowNameLineDp);
         }
 
         private float LayList(IReadOnlyList<RoomListRow> rows, float width, float down, RoomListHeads? heads = null)

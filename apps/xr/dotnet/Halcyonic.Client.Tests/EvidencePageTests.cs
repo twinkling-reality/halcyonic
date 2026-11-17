@@ -33,8 +33,25 @@ public class EvidencePageTests
         Assert.That((page.Title, page.Label, page.State), Is.EqualTo(("Outcome", "Measured", (string?)null)));
         Assert.That(page.Sections.Select(section => section.Head), Is.EqualTo(new[] { "Checks", "Cost" }));
         Assert.That(page.Sections[0].Rows.Single().Rate, Is.EqualTo(0.75));
-        Assert.That(page.Card(0).List.Select(row => (row.Label, row.Name.Text)), Is.EqualTo(new[] { ((string?)"Checks", "Tests"), ((string?)null, "Cost") }),
-            "a section's head stands over its first row, and never only repeats the row's own word");
+        var results = page.Card(0).Results;
+        Assert.That(results.Select(section => (section.Head, string.Join("|", section.Rows.Select(row => row.Name.Text + "=" + row.Value)))),
+            Is.EqualTo(new[] { ("Checks", "Tests=3 of 4 Passed"), ("Cost", "Cost=$0.50 Estimated") }), "each section's head once over its rows, the value plain");
+        Assert.That(results[0].Rows.Single().Rate, Is.EqualTo(0.75), "the rate for its bar");
+
+        // The finding is said once: a why that only repeats a run's own name is left to the run (AUDIT's 21:13Z point 4).
+        var repeated = new Halcyonic.Contracts.Understanding
+        {
+            Verdict = new UnderstandingVerdict { Headline = "1 test failing", Because = "make test", Epistemic = UnderstandingEpistemic.Observed },
+            Verification = new UnderstandingVerification
+            {
+                Summary = "",
+                LatestByMethod = new List<UnderstandingVerificationRun>
+                {
+                    new() { Label = "make test", Outcome = UnderstandingVerificationRunOutcome.Fail, At = "2026-11-17T19:30:00.000Z", Epistemic = UnderstandingEpistemic.Observed },
+                },
+            },
+        };
+        Assert.That(EvidencePage.Of(Understanding(new AvailableUnderstanding { Understanding = repeated })).Card(0).Description?.Text, Is.EqualTo("1 test failing"));
 
         var understood = EvidencePage.Of(Understanding(new AvailableUnderstanding
         {

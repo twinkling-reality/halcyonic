@@ -123,9 +123,9 @@ namespace Halcyonic.Client
         /// <summary>
         /// Part <paramref name="part"/> on the kit's card (laid after list-death-stranding-cargo-management.png: grouped rows, a
         /// mark, the words, the value on the one right edge; and result-detroit-analysis-conclusion.jpg: the one finding first):
-        /// the source in the label role over the door's word, the verdict as the description on the first part, and each row with
-        /// its section's head as a quiet line above it where the section starts or a part does. A state alone stands as the card's
-        /// status, its reason under it. The kit draws every mark by its form, never by a colour.
+        /// how it knows in the label role over the door's word, the finding said once as the description on the first part, then the
+        /// card's results (<see cref="RoomCard.Results"/>): each section's head once in the label role over its rows. A state alone
+        /// stands as the card's status, its reason under it. The kit draws every mark by its form, never by a colour.
         /// </summary>
         public RoomCard Card(int part)
         {
@@ -133,35 +133,34 @@ namespace Halcyonic.Client
             if (State != null) return new RoomCard(title, status: new RoomCardStatus(State, Why, RoomTone.Quiet));
             var entries = Entries;
             var at = System.Math.Max(0, System.Math.Min(part, Parts - 1)) * RoomCard.ListAPage;
-            var rows = new List<RoomListRow>();
+            // The part's rows by their sections, a section's head once over its rows on each part it reaches (AUDIT's 21:13Z point 1).
+            var sections = new List<(string Head, List<RoomResultsRow> Rows)>();
             for (var index = at; index < System.Math.Min(entries.Count, at + RoomCard.ListAPage); index++)
             {
                 var (section, row) = entries[index];
-                var head = index == at || !ReferenceEquals(entries[index - 1].Section, section) ? section.Head : null;
+                if (index == at || !ReferenceEquals(entries[index - 1].Section, section)) sections.Add((section.Head, new List<RoomResultsRow>()));
+                var rows = sections[sections.Count - 1].Rows;
                 if (row == null)
                 {
-                    rows.Add(new RoomListRow(RoomKind.None, LineWords.Theirs(section.Empty), label: head));
+                    rows.Add(new RoomResultsRow(LineWords.Theirs(section.Empty)));
                     continue;
                 }
-                // A head that only repeats its row's own word (Cost over Cost) is said once, by the row.
-                if (head == row.Label) head = null;
                 // The source's own names (a method, a kind of check, an item left) lean as theirs; a method's command reads in mono.
                 var theirs = section.Head is RunUnderstanding.Words.Runs or RunUnderstanding.Words.Remaining or RunResults.Words.Checks;
-                var under = new List<string>();
-                if (row.Note != null) under.Add(row.Note);
-                under.AddRange(row.Facts);
-                rows.Add(new RoomListRow(KindOf(row.Mark), theirs ? LineWords.Theirs(row.Label) : LineWords.Ours(row.Label), row.Value,
-                    mono: section.Head == RunUnderstanding.Words.Runs, under: Lines(under), label: head));
+                var lines = new List<string>();
+                if (row.Note != null) lines.Add(row.Note);
+                lines.AddRange(row.Facts);
+                rows.Add(new RoomResultsRow(theirs ? LineWords.Theirs(row.Label) : LineWords.Ours(row.Label), row.Value, lines, KindOf(row.Mark),
+                    mono: section.Head == RunUnderstanding.Words.Runs, rate: row.Rate));
             }
             LineWords? description = null;
             if (at == 0 && Headline != null)
-                description = Because == null ? LineWords.Theirs(Headline) : LineWords.Theirs(Headline) + LineWords.Written("\n") + LineWords.Theirs(Because);
-            return new RoomCard(title, description, list: rows, label: Label);
+                // The finding is said once (AUDIT's 21:13Z point 4): a why that only repeats a run's own name, or the headline, is left to it.
+                description = Because == null || Because == Headline || Sections.Any(section => section.Rows.Any(row => row.Label == Because))
+                    ? LineWords.Theirs(Headline) : LineWords.Theirs(Headline) + LineWords.Written("\n") + LineWords.Theirs(Because);
+            return new RoomCard(title, description, label: Label)
+                .WithResults(sections.Select(section => new RoomResultsSection(section.Head, section.Rows)).ToList());
         }
-
-        /// <summary>Each fact on its own quiet line, never two joined on a comma or a dot (AUDIT2's 21:09Z); null for none.</summary>
-        private static LineWords? Lines(IReadOnlyList<string> facts) => facts.Count == 0 ? (LineWords?)null
-            : facts.Skip(1).Aggregate(LineWords.Ours(facts[0]), (lines, fact) => lines + LineWords.Written("\n") + LineWords.Ours(fact));
 
         private static RoomKind KindOf(RunUnderstanding.Mark mark) => mark switch
         {

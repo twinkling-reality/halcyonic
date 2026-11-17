@@ -424,6 +424,44 @@ namespace Halcyonic.Client
     /// gauge's note. A step's name is ours unless a project named it (<see cref="RoomCardStep.Words"/>). A card that needs an outside voice in one of those makes that part runs first
     /// (ask FIELD).
     /// </summary>
+    /// <summary>A section of a card's results (<see cref="RoomCard.Results"/>): its head, ours, and its rows.</summary>
+    public sealed class RoomResultsSection
+    {
+        public RoomResultsSection(string head, IReadOnlyList<RoomResultsRow> rows)
+        {
+            if (string.IsNullOrWhiteSpace(head)) throw new System.ArgumentException("a section of results names itself");
+            Head = head;
+            Rows = rows;
+        }
+
+        public string Head { get; }
+        public IReadOnlyList<RoomResultsRow> Rows { get; }
+    }
+
+    /// <summary>
+    /// One result: its name (ours, or the source's own, leaning), the value on the right edge in the row's own body type, each fact
+    /// its own line under the name, a mark by its form, a command's name in mono broken only between its words, and a rate 0 to 1.
+    /// </summary>
+    public sealed class RoomResultsRow
+    {
+        public RoomResultsRow(LineWords name, string? value = null, IReadOnlyList<string>? lines = null, RoomKind mark = RoomKind.None, bool mono = false, double? rate = null)
+        {
+            Name = name;
+            Value = string.IsNullOrWhiteSpace(value) ? null : value;
+            Lines = lines ?? new string[0];
+            Mark = mark;
+            Mono = mono;
+            Rate = rate is double given ? System.Math.Max(0d, System.Math.Min(1d, given)) : (double?)null;
+        }
+
+        public LineWords Name { get; }
+        public string? Value { get; }
+        public IReadOnlyList<string> Lines { get; }
+        public RoomKind Mark { get; }
+        public bool Mono { get; }
+        public double? Rate { get; }
+    }
+
     public sealed class RoomCard
     {
         public RoomCard(LineWords? title = null, LineWords? description = null, RoomCardHead head = RoomCardHead.None, RoomCardStatus? status = null,
@@ -476,6 +514,7 @@ namespace Halcyonic.Client
                 label: from.Label, heads: from.Heads, readingLit: from.ReadingLit, readingBare: from.ReadingBare, sample: from.Sample, sampleLanguage: from.SampleLanguage)
         {
             Still = from.Still;
+            Results = from.Results;
             Eyebrow = from.Eyebrow;
             Says = from.Says;
             SaysAll = from.SaysAll;
@@ -489,6 +528,18 @@ namespace Halcyonic.Client
 
         /// <summary>This card, its picture head drawing <paramref name="still"/>; a card with another head stays as it is.</summary>
         public RoomCard WithStill(TaskStill? still) => Head != RoomCardHead.Picture || Equals(still, Still) ? this : new RoomCard(this) { Still = still };
+
+        /// <summary>
+        /// A page of results in sections (the evidence pages, the lead's 2026-11-17 20:50Z; AUDIT's 21:13Z after
+        /// result-death-stranding-results.png and list-death-stranding-cargo-management.png): each section's head once in the label
+        /// role, then its rows, each its name on the card's one left edge, its value plain on the right edge with its mark beside it,
+        /// each fact its own quiet line under the name, a rate as a white fill on a quiet track, a hairline between rows. Empty on
+        /// every other card.
+        /// </summary>
+        public IReadOnlyList<RoomResultsSection> Results { get; private set; } = new RoomResultsSection[0];
+
+        /// <summary>This card with <paramref name="results"/> as its sections of results.</summary>
+        public RoomCard WithResults(IReadOnlyList<RoomResultsSection> results) => new RoomCard(this) { Results = results };
 
         /// <summary>This card, its face now the way in to <paramref name="press"/> (a card built before the frame its press is of), or none.</summary>
         public RoomCard WithPress(KitControl? press) => new RoomCard(this) { Press = press };
