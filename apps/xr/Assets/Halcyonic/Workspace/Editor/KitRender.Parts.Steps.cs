@@ -117,15 +117,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(contrast >= 4.5f, what + "'s word holds " + contrast.ToString("0.0") + ":1 on the glass over a lit wall, under 4.5");
                 var now = step.Kind == TaskStepKind.Now;
                 if (now) Require(steps.Where((other, at) => at != index).All(other => view.Word(steps.IndexOf(other)).fontSize < word.fontSize), what + "'s word is not the largest");
-                // Its mark on the rail at its first line's middle: the accent's dot where now, a hollow diamond still to come, else its glyph.
+                // Its mark on the rail at its first line's middle: a white dot where now, a hollow diamond still to come, else its glyph.
                 var shape = view.Tile(index);
                 var glyph = view.Mark(index);
                 var markY = step.Kind is TaskStepKind.Now or TaskStepKind.NotYet ? -shape.transform.localPosition.y : -glyph.transform.localPosition.y;
                 var markX = step.Kind is TaskStepKind.Now or TaskStepKind.NotYet ? shape.transform.localPosition.x : glyph.transform.localPosition.x;
                 Require(Mathf.Abs(markX - railX) < 1e-6f && markY > top && markY < top + Mathf.Max(line, KitType.LinePitch(word)), what + "'s mark does not stand on the rail beside its word");
-                if (now) Require(shape.gameObject.activeSelf && shape.Fill == RoomStepsView.Accent && !glyph.gameObject.activeSelf, what + " is not marked by the accent's dot");
+                if (now) Require(shape.gameObject.activeSelf && shape.Fill == Color.white && !glyph.gameObject.activeSelf, what + " is not marked by a white dot");
                 else if (step.Kind == TaskStepKind.NotYet) Require(shape.gameObject.activeSelf && shape.Fill.a == 0f && !glyph.gameObject.activeSelf, what + " is not marked by a hollow diamond");
                 else Require(!shape.gameObject.activeSelf && glyph.Glyph == RoomStepsView.MarkOf(step).Glyph, what + " carries " + (glyph.Glyph?.ToString() ?? "no glyph") + ", not its own mark");
+                // The shape says the state, never a colour: every mark white but what waits for the person, on the attention amber.
+                var markInk = RoomStepsView.InkOf(step);
+                var amber = Halcyonic.XR.UI.RoomSurface.Hex(RoomCardView.Attention);
+                Require(step.Kind == TaskStepKind.NeedsYou
+                    ? markInk == amber
+                    : Mathf.Approximately(markInk.r, 1f) && Mathf.Approximately(markInk.g, 1f) && Mathf.Approximately(markInk.b, 1f),
+                    what + "'s mark is in " + markInk + ", not white" + (step.Kind == TaskStepKind.NeedsYou ? " amber" : ""));
                 below = top + Mathf.Max(line, word.textInfo.lineCount * KitType.LinePitch(word));
                 var under = view.Line(index);
                 Require((under != null) == (step.Line != null), what + (step.Line != null ? " shows no line under it" : " shows a line it does not have"));
@@ -203,12 +210,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     var step0 = steps[index];
                     var shapeView = view.Tile(index);
                     var groundLight = Light(At(dark, view.transform.TransformPoint(new Vector3(-RoomType.Units(2f), 0f, 0f))));
-                    // The rail's marks in the pixels (FIELD's sheet, tile f3): the accent's dot where now, a hollow diamond's edge
+                    // The rail's marks in the pixels (FIELD's sheet, tile f3): a white dot where now, a hollow diamond's edge
                     // lighter than its inside still to come, a glyph's ink clear of the glass otherwise. A shape's points are in its unit square.
                     if (step0.Kind == TaskStepKind.Now)
                     {
                         var centre = At(dark, shapeView.transform.TransformPoint(Vector3.zero));
-                        if (Off(centre, RoomStepsView.Accent) > 30) failures.Add("step " + index + "'s dot is " + Off(centre, RoomStepsView.Accent) + " of 255 from the accent");
+                        if (Off(centre, new Color32(255, 255, 255, 255)) > 30) failures.Add("step " + index + "'s dot is " + Off(centre, new Color32(255, 255, 255, 255)) + " of 255 from white");
                     }
                     else if (step0.Kind == TaskStepKind.NotYet)
                     {
@@ -236,7 +243,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     for (var step = 0; step <= 60; step++)
                         most = Mathf.Max(most, Light(At(dark, word.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 60f), bounds.max.y - KitType.LinePitch(word) * 0.5f, 0f)))));
                     lightest.Add(most);
-                    if (most < (steps[index].Kind == TaskStepKind.Now ? 200 : 120)) failures.Add("step " + index + "'s word is not in the pixels, the lightest reads " + most + " of 255");
+                    // Floors from the measured words (steps7: white 255, the next at 0.86 239, Done at 0.56 198, a later step at 0.52
+                    // 190): a word meant white, or the next, under 230 has been dimmed (a white word at 0.5 reads about 187); only Done
+                    // and the later steps, dimmed on purpose, may read down to 175.
+                    var dimmed = steps[index].Kind == TaskStepKind.Done || steps[index].Kind == TaskStepKind.NotYet && !RoomStepsView.IsNext(steps, index);
+                    if (most < (dimmed ? 175 : 230)) failures.Add("step " + index + " (" + steps[index].Kind + ")'s word reads " + most + " of 255 at its lightest, under " + (dimmed ? 175 : 230));
                     // What waits for the person is said amber, in its line.
                     if (steps[index].Kind == TaskStepKind.NeedsYou && view.Line(index) is TMPro.TextMeshPro waits)
                     {

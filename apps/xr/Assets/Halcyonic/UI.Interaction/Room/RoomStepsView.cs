@@ -44,7 +44,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// The one language's steps (FIELD's sheet, tile f3, the lead's 2026-11-17T01:05Z): on the panel's one glass, a thin rail down
-        /// the left with each step's mark on it (a thin check where finished, the accent's dot where it is now, a hollow diamond
+        /// the left with each step's mark on it (a thin check where finished, a white dot where it is now, a hollow diamond
         /// where it is still to come), each step's word in spaced capitals; the step that is now the largest and white, its act
         /// under it in its own case; the next a little brighter than the later ones; the finished ones calm. Never a box per step.
         /// </summary>
@@ -64,8 +64,11 @@ namespace Halcyonic.XR.UI
         public const float LaterAlpha = 0.52f;
         public const float DoneAlpha = 0.56f;
 
-        /// <summary>The accent, only on the step that is now: the one language's lit rim colour (FIELD's tokens, RoomButton.RimColour).</summary>
-        public static readonly Color Accent = RoomSurface.Hex(RoomButton.RimColour);
+        /// <summary>
+        /// The dot on the step that is now: white, its shape alone saying now (the lead's 01:40Z ruling: every mark a white line,
+        /// amber only on what waits for the person, the orange only on the main action's rim).
+        /// </summary>
+        public static readonly Color NowInk = Color.white;
 
         /// <summary>The thin rail down the left, from the first mark to the last, as last shown; null where fewer than two steps stand.</summary>
         public RoomShape? Rail => rail != null && rail.gameObject.activeSelf ? rail : null;
@@ -163,10 +166,10 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public static Color WordColourOf(TaskStep step, bool next) => step.Kind switch
         {
-            TaskStepKind.Now => Color.white,
+            TaskStepKind.Now or TaskStepKind.NeedsYou or TaskStepKind.End => Color.white,
             TaskStepKind.NotYet => new Color(1f, 1f, 1f, next ? NextAlpha : LaterAlpha),
             TaskStepKind.Done => new Color(1f, 1f, 1f, DoneAlpha),
-            _ => Color.white,
+            _ => throw new System.ArgumentOutOfRangeException(nameof(step), step.Kind, "a step of no known kind"),
         };
 
         /// <summary>Whether step <paramref name="index"/> is the next to come: the first not reached yet after the one that is now.</summary>
@@ -369,12 +372,13 @@ namespace Halcyonic.XR.UI
         {
             TaskStepKind.Done => new Color(1f, 1f, 1f, DoneAlpha + 0.1f),
             TaskStepKind.NeedsYou => MarkOf(step).Fill,
-            _ => Color.white,
+            TaskStepKind.Now or TaskStepKind.NotYet or TaskStepKind.End => Color.white,
+            _ => throw new System.ArgumentOutOfRangeException(nameof(step), step.Kind, "a step of no known kind"),
         };
 
         /// <summary>
-        /// Step <paramref name="index"/>'s mark on the rail at <paramref name="at"/>: the thin check where finished, the accent's dot
-        /// with its soft glow where it is now, a hollow diamond where it is still to come; what waits for the person and an end keep
+        /// Step <paramref name="index"/>'s mark on the rail at <paramref name="at"/>: the thin check where finished, a white dot
+        /// where it is now, a hollow diamond where it is still to come; what waits for the person and an end keep
         /// their own glyphs (the bubble on the attention amber, the alert, the square, the minus).
         /// </summary>
         private void LayMark(int index, TaskStep step, Vector3 at)
@@ -387,7 +391,7 @@ namespace Halcyonic.XR.UI
                 case TaskStepKind.Now:
                     shape.gameObject.SetActive(true);
                     var dot = RoomType.Scaled(DotDp);
-                    shape.Draw(new Vector2(dot, dot), dot / 2f, Accent);
+                    shape.Draw(new Vector2(dot, dot), dot / 2f, NowInk);
                     glyph.Hide();
                     break;
                 case TaskStepKind.NotYet:
