@@ -83,8 +83,12 @@ namespace Halcyonic.Client
 
         private static float Decode(float value) => value <= 0.04045f ? value / 12.92f : (float)System.Math.Pow((value + 0.055f) / 1.055f, 2.4);
 
-        /// <summary>A check's colour and a cross's (the result's own: #69D98D, #F7857D).</summary>
-        public const int PassedColour = 0x69D98D;
+        /// <summary>
+        /// A check's colour and a cross's. The check is cream, #F3EBDC: the kit's one accent is the main action's orange, so a
+        /// passed row's mark takes no colour of its own (AUDIT, 2026-11-17 00:51Z; it was the result's green, #69D98D). The cross
+        /// keeps the result's #F7857D, the one mark that warns.
+        /// </summary>
+        public const int PassedColour = 0xF3EBDC;
         public const int FailedColour = 0xF7857D;
 
         /// <summary>How many pages <paramref name="rows"/> rows take.</summary>
