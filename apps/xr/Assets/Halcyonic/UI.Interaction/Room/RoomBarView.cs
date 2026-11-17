@@ -1300,9 +1300,10 @@ namespace Halcyonic.XR.UI
                 if (bar.Mono) cardHeight += 2f * RoomType.Scaled(WellPadDp);
             }
 
-            // The actions: one row, content-sized, the main one last.
+            // The actions: one row, the dismiss press first and the main one last (visionos-window-example.png; the critics at 9: Close
+            // stood between the others and the main). Only the draw order changes; the column's data keeps its own order.
             var count = Mathf.Min(bar.Column.Count, ColumnMost);
-            var order = Enumerable.Range(0, count).OrderBy(index => bar.Column[index].Main ? 1 : 0).ToList();
+            var order = Enumerable.Range(0, count).OrderBy(index => bar.Column[index].Main ? 2 : bar.Column[index].Place == KitPlace.Close ? 0 : 1).ToList();
             var cores = new Vector2[count];
             var rowHeight = 0f;
             for (var index = 0; index < count; index++)
