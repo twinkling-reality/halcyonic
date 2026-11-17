@@ -3222,7 +3222,12 @@ in order, as before.
   (`RoomBar.ActionsAtFoot`, `RoomBarView.FootRowGapDp`), the panel widening to hold them inside the bar's envelope (the
   lead's 2026-11-17T02:57Z): New Project lit as the main action, the place's Next Page where it pages, Settings, Usage,
   Close last where the frame offers it, as every panel keeps its Close in its own row (check `46-projects` in `KitRender.PartsCheck`). Folders to connect, a chosen row's side panel, anything else
-  on the page: the older view.
+  on the page: the older view. Every other panel's plain actions stand in its own foot the same way, never as a loose column
+  beside it (`RoomBarView.LayPair`, the lead's 2026-11-17T19:38Z kit pass, after visionos-window-example.png): one row inside
+  the glass under the sentence bar where one stands, right-aligned on the words' right edge, the dismiss first and the main
+  action last, of one width where that still fits, as the dialog's row; the bar keeps the pair's footprint. A question's
+  marked answers, the band's next part, a page's routes, the narrow form and a row that would pass the envelope keep the
+  column.
 - **A task's Checks section as the result's Checks card** (the census, JUDGE 2026-11-11): under the redesign a task at
   rest with a check of the computer's own never shows the older Checks frame: whatever turned its file to Checks, the
   file stands at its Activity and the result's page turns to Checks; and a Waiting section with nothing waiting and

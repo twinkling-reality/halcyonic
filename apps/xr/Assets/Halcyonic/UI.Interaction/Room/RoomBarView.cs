@@ -1480,16 +1480,34 @@ namespace Halcyonic.XR.UI
 
             // The actions in ONE line at the panel's foot, inside its glass (tile f1; the lead's 2026-11-17T02:57Z): the panel widens to
             // hold them, never past the bar's envelope; its words take the panel's width with it.
-            var footAsked = bar.ActionsAtFoot && !narrow && !bar.Wide && said == null && bar.Column.Count > 0;
+            // Every other panel's plain actions stand in its own foot too, never a loose column beside it (the lead's 19:38Z (1) and
+            // 20:07Z, AUDIT's read of b224; visionos-window-example.png: the window's control inside the window): one right-aligned row,
+            // the dismiss first and the main action last, of one width where it fits, as the dialog's (LayDialog). A question's marked
+            // answers, the band's next part, a page's routes and the narrow form keep the column: a list, never a row of presses.
+            var plainFoot = !bar.ActionsAtFoot && bar.State != RoomBarState.Page && bar.Column.Count > 0 && bar.Column.Count <= ColumnMost
+                && bar.Column.All(action => action.Mark == AnswerMark.None && action.Place != KitPlace.Section) && !(bar.Band != null && BandNext != null);
+            var footAsked = (bar.ActionsAtFoot ? said == null : plainFoot) && !narrow && !bar.Wide && bar.Column.Count > 0;
             var rowCount = footAsked ? Mathf.Min(bar.Column.Count, ColumnMost) : 0;
             var rowCores = new Vector2[rowCount];
             var footTall = 0f;
             var footNeed = 0f;
+            var footSpacing = RoomType.Scaled(FootRowSpacingDp);
             for (var index = 0; index < rowCount; index++)
             {
                 rowCores[index] = column[index].Measure(bar.Column[index].Words, 0f, bar.Column[index].Detail);
                 footTall = Mathf.Max(footTall, Mathf.Max(RoomType.Units(RoomButton.HeightDp), rowCores[index].y));
-                footNeed += rowCores[index].x + (index > 0 ? RoomType.Scaled(FootRowSpacingDp) : 0f);
+                footNeed += rowCores[index].x + (index > 0 ? footSpacing : 0f);
+            }
+            // One width, the row's widest, where the row then still fits the panel's words (AUDIT's 19:38Z (2)).
+            if (plainFoot && rowCount > 0)
+            {
+                var shared = rowCores.Max(core => core.x);
+                var sharedNeed = rowCount * shared + (rowCount - 1) * footSpacing;
+                if (sharedNeed <= panelWidth - 2f * pad + 1e-4f)
+                {
+                    for (var index = 0; index < rowCount; index++) rowCores[index].x = shared;
+                    footNeed = sharedNeed;
+                }
             }
             FootNeed = footNeed + 2f * pad;
             // Where one line cannot hold them inside the bar's envelope (the larger text), they stand in the column beside the panel,
@@ -1570,8 +1588,10 @@ namespace Halcyonic.XR.UI
             // The body 28 dp in from the top and sides; 18 dp under it before the sentence bar, which stands 14 dp in; 28 dp under it with no bar.
             // With nothing from the computer to say there is no panel: the choices take its place.
             var panelHeight = bar.Wide ? 0f : pad + bodyHeight + (barHeight > 0f ? RoomType.Scaled(RoomGeometry.BodyFootDp) + barHeight + inset : pad);
-            // The actions in one row at the panel's foot, inside its glass (tile f1), where the bar asks and the panel stands whole.
-            if (footRow) panelHeight += RoomType.Scaled(FootRowGapDp) + footTall;
+            // The actions in one row at the panel's foot, inside its glass (tile f1), where the bar asks and the panel stands whole; under
+            // the sentence bar where one stands, which then rises over the row by the row, its gap and the panel's pad.
+            var lift = footRow && barHeight > 0f ? RoomType.Scaled(FootRowGapDp) + footTall + pad - inset : 0f;
+            if (footRow) panelHeight += barHeight > 0f ? lift : RoomType.Scaled(FootRowGapDp) + footTall;
             ActionsAtFoot = footRow;
 
             // The column: the lowest action's core stands on the panel's foot line as DESIGN's page stands it (its target reaches
@@ -1612,7 +1632,9 @@ namespace Halcyonic.XR.UI
                         + (Answer(index) != Answer(index + 1) ? RoomType.Units(GroupGapDp) : 0f);
             var columnHeight = places == 0 ? 0f : rises[0] + Mathf.Max(target, cores[0].y) / 2f;
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
-            var total = footRow ? panelWidth
+            // A plain foot row keeps the pair's footprint, as the dialog does, so the plane places the bar where it placed the pair.
+            var total = footRow && !plainFoot ? panelWidth
+                : footRow ? panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp)
                 : bar.Wide ? Mathf.Max(panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp), widest)
                 : narrow ? Mathf.Max(panelWidth, widest)
                 : panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
@@ -1622,7 +1644,7 @@ namespace Halcyonic.XR.UI
             var foot = -height / 2f;
             var left = -total / 2f;
 
-            panel.InnerBar = barHeight > 0f ? ((panelHeight - inset - barHeight) / unit, barHeight / unit, inset / unit) : ((float, float, float)?)null;
+            panel.InnerBar = barHeight > 0f ? ((panelHeight - inset - barHeight - lift) / unit, barHeight / unit, inset / unit) : ((float, float, float)?)null;
             // A page's card hugs its words, its top level with the column's first action where the column stands taller (AUDIT's
             // 11:09Z and 11:57Z: centred low it stood unanchored, grown to the column it stood an empty slab); every other moment
             // keeps the panel on the foot line with the column's lowest action.
@@ -1640,7 +1662,7 @@ namespace Halcyonic.XR.UI
             PlaceFacts(body.transform.localPosition);
             if (said != null)
                 sentence.transform.localPosition = new Vector3(-panelWidth / 2f + inset + RoomType.Scaled(RoomGeometry.SentencePadXDp),
-                    -panelHeight / 2f + inset + barHeight - RoomType.Scaled(RoomGeometry.SentencePadYDp), -RoomType.Units(0.5f));
+                    -panelHeight / 2f + inset + lift + barHeight - RoomType.Scaled(RoomGeometry.SentencePadYDp), -RoomType.Units(0.5f));
 
             // The caret after the last word, or at the start of an empty field.
             var caretAt = new Vector2(-panelWidth / 2f + pad, top - pad - line / 2f);
@@ -1659,7 +1681,8 @@ namespace Halcyonic.XR.UI
             field.gameObject.SetActive(bar.Field != null);
             if (bar.Field != null)
             {
-                var fieldHeight = panelHeight - (barHeight > 0f ? barHeight + inset : 0f);
+                // Over the sentence bar and the foot row, so the field never takes a press meant for an action.
+                var fieldHeight = panelHeight - (barHeight > 0f ? barHeight + inset + lift : footRow ? footTall + pad + RoomType.Scaled(FootRowGapDp) / 2f : 0f);
                 var fieldWidth = Mathf.Min(panelWidth, panelWidth + gap - KitType.Units(SpatialKit.TargetGapDegrees));
                 field.transform.localPosition = new Vector3(-panelWidth / 2f + fieldWidth / 2f, top - fieldHeight / 2f, -RoomType.Units(0.5f));
                 field.Resize(new Vector2(fieldWidth, Mathf.Max(fieldHeight, RoomType.Units(RoomButton.HeightDp))));
@@ -1699,18 +1722,30 @@ namespace Halcyonic.XR.UI
                 button.Press.ActsOnPinch = action.Control.Holds;
                 if (action.Locks) locks = button;
             }
-            // The foot row (tile f1): each action content-sized, in one line from the panel's words' left edge.
-            var rowX = left + pad;
-            for (var index = 0; index < rowCount; index++)
+            // The foot row (tile f1): the Projects page's from the panel's words' left edge, each content-sized; every other panel's
+            // right-aligned on the words' right edge, the dismiss first and the main action last (the dialog's order, f4). Only the drawn
+            // order changes; each button keeps its action.
+            var footOrder = Enumerable.Range(0, rowCount).ToList();
+            if (plainFoot) footOrder = footOrder.OrderBy(index => bar.Column[index].Main ? 2 : bar.Column[index].Place == KitPlace.Close ? 0 : 1).ToList();
+            var rowX = plainFoot ? left + panelWidth - pad - footNeed : left + pad;
+            foreach (var index in footOrder)
             {
                 var action = bar.Column[index];
                 var centre = new Vector2(rowX + rowCores[index].x / 2f, foot + pad + footTall / 2f);
-                rowX += rowCores[index].x + RoomType.Scaled(FootRowSpacingDp);
+                rowX += rowCores[index].x + footSpacing;
+                var button = column[index];
+                button.Quiet = false;
+                if (plainFoot)
+                {
+                    button.Show(action.Words, action.Icon, action.Main, available: action.Control.Available, centre, rowCores[index].x, action.Mark, action.Chosen,
+                        0f, doing: RoomButton.Doing(action.Control), detail: action.Detail, destructive: action.Control.Destructive, route: false);
+                    if (action.Locks) locks = button;
+                }
                 // The main action lit, as on every panel tonight (the lead's 02:57Z: "New Project (lit)").
-                column[index].Show(action.Words, action.Icon, action.Main, available: true, centre, rowCores[index].x, detail: action.Detail,
+                else button.Show(action.Words, action.Icon, action.Main, available: true, centre, rowCores[index].x, detail: action.Detail,
                     destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
-                controls[column[index]] = action.Control;
-                column[index].Press.ActsOnPinch = action.Control.Holds;
+                controls[button] = action.Control;
+                button.Press.ActsOnPinch = action.Control.Holds;
             }
             // The panel's own Menu at its top right, level with the place's label and title (tile f1).
             if (bar.PanelMenu is RoomAction menu && !bar.Wide)

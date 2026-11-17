@@ -1522,7 +1522,35 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(mains.Count <= 1 && (mains.Count == 0 || ReferenceEquals(byX[byX.Count - 1], mains[0])), "the dialog's main action is not the last in the foot's row");
                         Require(drawn.Count(button => button.LookNow() == RoomButtonLook.Main) <= 1, "more than one of the dialog's actions stands in the accent");
                     }
-                    if (drawn.Count > 0 && !shown.Wide && bar.BandNextButton == null && !shown.AsDialog)
+                    // Plain actions stand in the panel's own foot (the lead's 19:38Z (1); visionos-window-example.png): one row inside the
+                    // glass, right-aligned on the words' right edge, the main action last, 12 mm or more apart, none under the sentence bar.
+                    if (drawn.Count > 0 && bar.ActionsAtFoot && !shown.AsDialog)
+                    {
+                        var footLeft = panel.transform.localPosition.x - panel.Size.x / 2f;
+                        var footRight = panel.transform.localPosition.x + panel.Size.x / 2f;
+                        var footBottom = panel.transform.localPosition.y - panel.Size.y / 2f;
+                        var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
+                        var byX = drawn.OrderBy(button => button.transform.localPosition.x).ToList();
+                        foreach (var button in drawn)
+                            Require(button.transform.localPosition.y - button.Core.y / 2f >= footBottom - 1e-3f && button.transform.localPosition.x - button.Core.x / 2f >= footLeft - 1e-3f
+                                && button.transform.localPosition.x + button.Core.x / 2f <= footRight + 1e-3f, button.Words.text + " stands outside its panel's foot");
+                        Require(drawn.Select(button => button.transform.localPosition.y).Max() - drawn.Select(button => button.transform.localPosition.y).Min() < RoomType.Units(0.5f),
+                            "the panel's foot actions do not stand in one row");
+                        for (var index = 1; index < byX.Count; index++)
+                            Require((byX[index].transform.localPosition.x - byX[index].Core.x / 2f) - (byX[index - 1].transform.localPosition.x + byX[index - 1].Core.x / 2f) >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f,
+                                "the foot's actions stand under 12 mm apart: " + byX[index - 1].Words.text + ", " + byX[index].Words.text);
+                        Require(Mathf.Abs(byX[byX.Count - 1].transform.localPosition.x + byX[byX.Count - 1].Core.x / 2f - (footRight - pad)) < RoomType.Units(0.5f),
+                            "the foot's row does not end on the words' right edge");
+                        var footMains = drawn.Where((button, index) => index < shown.Column.Count && shown.Column[index].Main).ToList();
+                        Require(footMains.Count <= 1 && (footMains.Count == 0 || ReferenceEquals(byX[byX.Count - 1], footMains[0])), "the foot's main action is not the last in its row");
+                        if (bar.Sentence.gameObject.activeInHierarchy && bar.Sentence.text.Length > 0)
+                        {
+                            var sentenceFoot = bar.transform.InverseTransformPoint(bar.Sentence.bounds.min).y;
+                            Require(drawn.All(button => bar.transform.InverseTransformPoint(button.transform.position).y + button.Core.y / 2f < sentenceFoot - 1e-3f),
+                                "an action in the foot stands over the sentence bar");
+                        }
+                    }
+                    if (drawn.Count > 0 && !shown.Wide && bar.BandNextButton == null && !shown.AsDialog && !bar.ActionsAtFoot)
                     {
                         var lastFoot = drawn[drawn.Count - 1].transform.localPosition.y - drawn[drawn.Count - 1].Core.y / 2f;
                         var panelFoot = panel.transform.localPosition.y - panel.Size.y / 2f;
@@ -1540,7 +1568,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         var lefts = drawn.Select(button => button.transform.localPosition.x - button.Core.x / 2f).ToList();
                         Require(lefts.Max() - lefts.Min() < Tolerance, "the column's actions are not left-aligned");
                     }
-                    for (var index = 1; index < drawn.Count && !shown.AsDialog; index++)
+                    for (var index = 1; index < drawn.Count && !shown.AsDialog && !bar.ActionsAtFoot; index++)
                     {
                         var gap = (drawn[index - 1].transform.localPosition.y - drawn[index - 1].Size.y / 2f) - (drawn[index].transform.localPosition.y + drawn[index].Size.y / 2f);
                         Require(gap >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f, "the column's targets stand under 12 mm apart");
