@@ -464,3 +464,23 @@ never a port the request names. The file route takes the task in its path
 Because checks of different tasks now finish side by side, AutoFix judges a check by the check its own command
 recorded, never the project's latest, and an agent's failed lines come from the latest check of its own folder.
 PROJECTION_STATE_FORMAT 30.
+
+## Amendment, 2026-11-17: tasks add to one app in parts of their own
+
+Three tasks started together on one new app (a field of glowing flowers, a reflecting lake, paper lanterns) each wrote
+its thing into `src/index.ts`, as SC1 directed, and two of them also renamed the app in `index.html` and the welcome
+card. Measured with `git merge-file` against the project's base, every pair changed the same lines of `src/index.ts`
+(two to five places each), so Add to Project could take only one and the other two needed Fit to Project
+([validation/iwsdk-starter.md](../validation/iwsdk-starter.md)). The template now gives each addition a file of its own:
+`src/parts.ts` finds every file in `src/parts/` with Vite's `import.meta.glob` (eager, at build time) and
+`addParts(world)` runs each file's default export with the world, in file-name order, as the last call of the setup.
+A part is added by writing its file, never by listing it in a shared one. A file there without a default function
+stops the app with an error naming it, which reaches the agent through the check's page errors. The starter's own
+scene is unchanged: with no parts, `addParts` does nothing.
+
+SC1 is narrowed, not dropped. Making the whole app from the starter still keeps its systems and setup in
+`src/index.ts`, from the whole small examples, which now end with `addParts(world)`. Adding one thing goes in a part,
+and `src/index.ts`, `index.html` and the welcome card change only when the change needs them (another world for the
+whole app, a name the person asks for). Choosing the same world in two tasks is the same one-line change, which
+combines. The VR version instruction asks the agent to keep `addParts(world)` last, so later tasks can add to a VR
+version side by side. Projects made before keep their own copies and have no `src/parts.ts`.

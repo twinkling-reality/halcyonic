@@ -10,6 +10,7 @@ import projectOptions from 'virtual:iwsdk-project';
 import { decorate } from './decor.js';
 import { gameIsland, setupLook } from './look.js';
 import { PanelSystem } from './panel.js';
+import { addParts } from './parts.js';
 import { setupPlayInput } from './play-input.js';
 
 World.create(
@@ -20,4 +21,5 @@ World.create(
   decorate(gameIsland());
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
+  addParts(world);
 });

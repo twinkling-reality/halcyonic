@@ -692,3 +692,27 @@ rgb(74, 82, 97), since the blend is made in linear light (a tenth of a bright ba
 `rgba(2, 3, 8, 0.97)` draws about rgb(25, 33, 51). Fresh readers (five, each given only the 3 s picture) read every
 line at a glance on the last, title and body on one left margin.
 
+
+## Tasks side by side on one app (2026-11-17)
+
+Measured on the proving plane (tree a75fbcd50, OpenCode, meta/muse-wonder-1.0): three tasks started together on a fresh
+starter, "Add a field of glowing flowers.", "Make the floor a calm reflecting lake." and "Add paper lanterns that drift
+upward.". All three were ready in 4.0 to 6.4 minutes with no question to the person, and each check passed and drew.
+`git merge-file -p --diff3`, each pair's copies against the project's own base:
+
+| Pair | `src/index.ts` | `index.html` | `public/ui/welcome.uikitml` |
+|---|---|---|---|
+| flowers and lake | 3 overlaps | untouched by the lake | untouched by the lake |
+| flowers and lanterns | 5 overlaps | 1 overlap (the title) | 3 overlaps (title, line, laptop line) |
+| lake and lanterns | 2 overlaps | untouched by the lake | untouched by the lake |
+
+No pair could be added together. Both overlaps had one cause: the template's AGENTS.md (SC1) put every system and the
+setup in `src/index.ts`, and each task also named the app. The sky was not one: the flowers and lanterns each chose
+`setupLook(world, 'night')`, an identical change on both sides, which combines; the lake named no world and kept the
+starter's meadow, so its picture is day.
+
+Since then, `src/parts.ts` runs every file in `src/parts/` (ADR 0037's amendment of 2026-11-17). Verified here: the
+template type checks with no parts and with AGENTS.md's part example in `src/parts/balloons.ts` (`tsc --noEmit`, exit
+0 each), and so do the whole small game, view and piano of light with `addParts(world)` (exit 0 each). Not yet
+measured: the same three sentences on the new template, which is the pass for this change (every pair combines, or the
+reason one cannot is named).

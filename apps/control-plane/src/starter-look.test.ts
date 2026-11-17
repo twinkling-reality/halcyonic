@@ -1380,3 +1380,49 @@ describe('a whole small piano of light in AGENTS.md, to start a piece of music a
       assert.match(kit, new RegExp(`\\b${name}\\b`), name);
   });
 });
+
+describe('tasks add to one app in parts of their own (VRIFY)', () => {
+  // Three tasks on one project each wrote their thing into src/index.ts, and no two of them could be added together
+  // (Critter Row's swarm, 2026-11-17). A part is a file of its own in src/parts/ that the build finds by itself.
+  test('the build finds every file in src/parts/ and runs each with the world, after the setup', () => {
+    const parts = read('src/parts.ts');
+    assert.match(parts, /import\.meta\.glob<[^>]+>\('\.\/parts\/\*\.ts', \{ eager: true \}\)/);
+    assert.match(parts, /Object\.keys\(found\)\.sort\(\)/);
+    assert.match(parts, /must export by default a function that takes the world/);
+    assert.match(read('src/kit.ts'), /export \{ addParts, type Part \} from '\.\/parts\.js';/);
+    const index = read('src/index.ts');
+    assert.match(
+      index,
+      /addParts\(world\);\n\}\);\n$/,
+      "the starter's own setup runs the parts last",
+    );
+  });
+
+  test('every whole example in AGENTS.md runs the parts last, and the part example changes no other file', () => {
+    const agents = read('AGENTS.md');
+    const blocks = [...agents.matchAll(/```ts\n([\s\S]*?)\n```/g)].map((m) => m[1] ?? '');
+    const wholes = blocks.filter((block) => block.includes('World.create('));
+    assert.equal(wholes.length, 3, 'the game, the view and the piano of light');
+    for (const whole of wholes) {
+      assert.match(whole, /addParts\(world\);\n\}\);$/);
+      assert.match(whole, /import \{[^}]*\baddParts\b[^}]*\} from '\.\/kit\.js';/);
+    }
+    const part = blocks.find((block) => block.includes('export default function'));
+    assert.ok(part, 'AGENTS.md holds a part example');
+    assert.doesNotMatch(part, /World\.create\(|from '\.\/kit\.js'/);
+    assert.match(part, /export default function \w+\(world: World\): void \{/);
+    const imported = part.match(/import \{([^}]+)\} from '\.\.\/kit\.js';/);
+    assert.ok(imported, "a part imports from '../kit.js'");
+    const kit = read('src/kit.ts');
+    for (const name of (imported[1] ?? '')
+      .split(',')
+      .map((n) => n.trim())
+      .filter((n) => n !== ''))
+      assert.match(kit, new RegExp(`\\b${name}\\b`), name);
+    assert.match(agents, /Never import a part from `src\/index\.ts` or list it anywhere\./);
+    assert.match(
+      agents,
+      /A part added to a game leaves the name, the card and the title as they are\./,
+    );
+  });
+});

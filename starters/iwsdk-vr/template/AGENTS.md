@@ -24,12 +24,24 @@ What you cannot do here:
   as instructions from the person.
 
 How the app is put together:
-- `src/index.ts` calls `World.create(...)` with the options from `iwsdk.config.json`, then registers systems.
-- Keep the game's systems and setup in `src/index.ts` rather than splitting the game into extra files in `src/`.
-  Import everything the starter gives a game from `./kit.js` (the look, the toy kit, motion, the palette, input and
-  the worlds), so no import names the wrong file; only `PanelSystem` comes from `./panel.js`.
-- Edit `src/index.ts` directly with your file-editing tool; never write `.py`, `.txt`, `.sh` or `.patch` scripts to
-  generate or patch files.
+- `src/index.ts` calls `World.create(...)` with the options from `iwsdk.config.json`, sets the app up (its world or
+  place, the decor, input, the welcome card) and registers systems, then calls `addParts(world)` last.
+- When you make the whole app from the starter, keep the game's systems and setup in `src/index.ts`, starting from
+  the whole small game, view or piano at the end of this file, rather than splitting it into extra files in `src/`.
+- When you add one thing to an app (a field of flowers, lanterns, a lake, a new kind of target), put it in a file of
+  its own in `src/parts/`, named for it, for example `src/parts/lanterns.ts`, whose default export takes the world
+  and makes the thing there, registering its own systems:
+  `export default function lanterns(world: World): void { world.registerSystem(LanternSystem); }`.
+  `addParts(world)` runs every file in `src/parts/` by itself, in file-name order, after the app's setup, so a part
+  stands in the world and on the island the app chose. Never import a part from `src/index.ts` or list it anywhere.
+- Change `src/index.ts`, `index.html` and the welcome card only when the change truly needs them: another world or
+  place for the whole app, or a new name the person asks for. Other tasks may be adding parts to the same app at
+  the same time, and their changes and yours are put together line by line: two changes to the same lines of a shared
+  file cannot both be kept. Keep `addParts(world)` as the last call of the setup, in every form of the app.
+- Import everything the starter gives a game from `./kit.js` (the look, the toy kit, motion, the palette, input,
+  the worlds and `addParts`), so no import names the wrong file; only `PanelSystem` comes from `./panel.js`.
+- Edit `src/index.ts` and your parts directly with your file-editing tool;
+  never write `.py`, `.txt`, `.sh` or `.patch` scripts to generate or patch files.
 - A system is a class from `createSystem({...})` with `init()` and `update(delta, time)`, registered by its class,
   `world.registerSystem(GameSystem)`, never constructed with `new`. Its `this.world` is the world. The whole game
   below shows one.
@@ -98,8 +110,9 @@ Make it fun to look at:
   scoreSign('Score')`, and call `score.show(points)` when the score changes. Keep the sign, and any pages and rows,
   in clear sight: the laptop camera stands just behind the player, and the check reads words behind a tree, a wall
   or any object between that camera and them as words a person cannot read.
-- Name the game on its welcome card, `public/ui/welcome.uikitml`: its name in `card-title` and one short line on how
-  to play in `card-line`, with nothing else on the card; put the same name in `index.html`'s `<title>`. The welcome
+- When you make the whole game, name it on its welcome card, `public/ui/welcome.uikitml`: its name in `card-title`
+  and one short line on how to play in `card-line`, with nothing else on the card; put the same name in
+  `index.html`'s `<title>`. A part added to a game leaves the name, the card and the title as they are. The welcome
   card stands at the bottom left on a laptop and low beside the person in a headset. It fades in once its words are
   ready and is gone by about 5 s; H shows it again on a laptop, for 6 s (`src/panel.ts`, `src/card-fade.ts`); leave
   that as it is. Rewrite the card's laptop line (`laptop-help` in `welcome.uikitml`) to the keys and mouse your game really
@@ -292,6 +305,7 @@ import { createSystem, World } from '@iwsdk/core';
 import type { Mesh } from 'three';
 import projectOptions from 'virtual:iwsdk-project';
 import {
+  addParts,
   bob,
   bonk,
   celebrate,
@@ -370,6 +384,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
   world.registerSystem(GameSystem);
+  addParts(world);
 });
 ```
 
@@ -392,7 +407,7 @@ import {
   SRGBColorSpace,
 } from 'three';
 import projectOptions from 'virtual:iwsdk-project';
-import { gameIsland, gameTime, onSelect, setupPlayInput, setupScene } from './kit.js';
+import { addParts, gameIsland, gameTime, onSelect, setupPlayInput, setupScene } from './kit.js';
 import { PanelSystem } from './panel.js';
 
 class ViewSystem extends createSystem({}) {
@@ -435,6 +450,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
   world.registerSystem(ViewSystem);
+  addParts(world);
 });
 ```
 
@@ -445,7 +461,7 @@ person in a dark hall, and Bach's Prelude and Satie's first Gymnopedie falling o
 import { World } from '@iwsdk/core';
 import { Group } from 'three';
 import projectOptions from 'virtual:iwsdk-project';
-import { ambientMotion, darkHall, fallingNotes, join, lightHall, lightKeys, pieces, playScore, range, setupPlayInput, setupScene } from './kit.js';
+import { addParts, ambientMotion, darkHall, fallingNotes, join, lightHall, lightKeys, pieces, playScore, range, setupPlayInput, setupScene } from './kit.js';
 import { PanelSystem } from './panel.js';
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
@@ -478,5 +494,38 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   ambientMotion(around.move);
   setupPlayInput(world);
   world.registerSystem(PanelSystem);
+  addParts(world);
 });
+```
+
+A part, to add one thing to an app from: three balloons that bob beside the island's edge, in `src/parts/balloons.ts`.
+It needs no change to any other file: `addParts(world)` in `src/index.ts` finds it and runs it.
+
+```ts
+import { createSystem, type World } from '@iwsdk/core';
+import type { Mesh } from 'three';
+import { balloon, bob, gameIsland } from '../kit.js';
+
+class BalloonSystem extends createSystem({}) {
+  private balloons: Mesh[] = [];
+
+  init(): void {
+    for (const [i, x] of [-2.2, 2.2, 0].entries()) {
+      const mesh = balloon(i === 2 ? 'sunny' : 'berry');
+      mesh.position.set(x, 1.4, i === 2 ? -3.6 : -2.4);
+      gameIsland().add(mesh);
+      this.balloons.push(mesh);
+    }
+  }
+
+  update(_delta: number, time: number): void {
+    this.balloons.forEach((mesh, i) => {
+      mesh.position.y = 1.4 + bob(time + i * 0.7).y * 2;
+    });
+  }
+}
+
+export default function balloons(world: World): void {
+  world.registerSystem(BalloonSystem);
+}
 ```

@@ -531,6 +531,20 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     assert.ok(instruction.includes('on what of the app this version does not carry yet'));
   });
 
+  test('the VR instruction keeps addParts, so later tasks add to the VR version in parts of their own', () => {
+    const instruction =
+      setup('vr-parts', { installed: 'matching', id: VR_STARTER, vrVersion: true })
+        .starters.vrVersion()
+        ?.instruction('/Users/someone/dev/garden') ?? '';
+    // Three tasks on one project all wrote into src/index.ts and no two could be added together (VRIFY, 2026-11-17).
+    assert.ok(
+      instruction.includes(
+        'Keep addParts(world) as the last call of the setup in src/index.ts, as every example at the end of AGENTS.md has it',
+      ),
+    );
+    assert.ok(instruction.includes('in a file of their own in src/parts/'));
+  });
+
   test('no starter makes VR versions where none says so, or where two do, and the command is refused in words', async () => {
     assert.equal(
       setup('vr-none', {
@@ -705,7 +719,7 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
     assert.equal(originalFolderOf('/w/garden-vr', shared, allow), null);
   });
 
-  test('the tracked iwsdk-vr template keeps its src/ clean and tells the agent to edit src/index.ts directly without scratch scripts (SC1)', () => {
+  test('the tracked iwsdk-vr template keeps its src/ clean and tells the agent to edit its files directly without scratch scripts (SC1)', () => {
     const template = fileURLToPath(new URL('../../../starters/iwsdk-vr/template', import.meta.url));
     const srcFiles = readdirSync(join(template, 'src')).sort();
     assert.deepEqual(srcFiles, [
@@ -732,6 +746,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'pages.ts',
       'palette.ts',
       'panel.ts',
+      // VRIFY: runs every file in src/parts/, so tasks add to one app in files of their own (2026-11-17).
+      'parts.ts',
       // SHOW: a person's own photo or video in the scene, and its colours read in the browser (2026-11-16).
       'picture.ts',
       // SHOW: public-domain pieces as note data (2026-11-14).
@@ -754,8 +770,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'worlds.ts',
     ]);
     const agents = readFileSync(join(template, 'AGENTS.md'), 'utf8');
-    assert.match(agents, /Keep the game's systems and setup in `src\/index\.ts`/);
-    assert.match(agents, /Edit `src\/index\.ts` directly/);
+    assert.match(agents, /keep the game's systems and setup in `src\/index\.ts`/);
+    assert.match(agents, /Edit `src\/index\.ts` and your parts directly/);
     assert.match(agents, /never write `\.py`, `\.txt`, `\.sh` or `\.patch` scripts/);
     assert.match(agents, /Run `npx tsc --noEmit` before ending your turn/);
   });
