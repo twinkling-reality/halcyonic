@@ -1135,7 +1135,11 @@ class AcpSession {
           outcome:
             status === 'completed' && !this.#deniedCalls.has(toolCallId) ? 'succeeded' : 'failed',
         },
-        observed(`${kind}.${status}`),
+        // What the app reported, and, where it ended a denied call `completed`, that the failure is the denial's, not
+        // one it observed (AUDIT3 CU5).
+        observed(
+          `${kind}.${status}${status === 'completed' && this.#deniedCalls.has(toolCallId) ? '.after_denial' : ''}`,
+        ),
       );
     }
   }

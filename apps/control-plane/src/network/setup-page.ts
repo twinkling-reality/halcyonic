@@ -631,7 +631,7 @@ export function setupDownloads(
       // before it is unpacked, and recorded only when the program inside is the checked one.
       id: 'tunnel',
       title: 'Get Link Sharing',
-      fetches: `Cloudflare's tunnel program cloudflared ${TUNNEL_PIN.version} for Apple silicon, an 18.9 MB archive, from its GitHub release, checked by its SHA-256 before it is unpacked. Using it means Cloudflare's terms for tunnels without an account.`,
+      fetches: `Cloudflare's tunnel program cloudflared ${TUNNEL_PIN.version} for Apple silicon, an 18.9 MB archive, from its GitHub release, checked by its SHA-256 before it is unpacked. You use it under Cloudflare's terms, for tunnels without an account.`,
       prepare: () => {
         mkdirSync(tunnelFolder, { recursive: true, mode: 0o700 });
         rmSync(tunnelArchive, { force: true });

@@ -863,6 +863,8 @@ describe('ACP adapter on Cursor 2026.11.13 traces, signed in', () => {
     await run.next('runtime.turn.completed');
     const ended = run.observations.find((o) => o.type === 'runtime.tool.completed');
     assert.equal((ended?.payload as { outcome?: string } | undefined)?.outcome, 'failed');
+    // Said as the denial's, never as a failure the app reported (AUDIT3 CU5).
+    assert.equal(ended?.provenance.native_type, 'tool_call_update.completed.after_denial');
     const answer = run
       .sent()
       .find((message) => message.method === undefined && 'result' in message);
