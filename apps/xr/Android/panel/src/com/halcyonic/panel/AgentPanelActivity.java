@@ -828,7 +828,8 @@ public class AgentPanelActivity extends Activity {
             }
             Map<String, Object> project = snapshot.projects.get(projectId);
             if (project == null) { projectId = null; show(); return; }
-            text(content, PanelText.plain(PanelJson.text(project.get("name"))), 23);
+            // Compact is the card's four things alone: no project heading over it (SCREENS' brief, AUDIT 22:08Z).
+            if (!(compactPanel && workId != null)) text(content, PanelText.plain(PanelJson.text(project.get("name"))), 23);
             if (workId == null) {
                 projectOutputControls();
                 text(content, "Tasks", 26);
