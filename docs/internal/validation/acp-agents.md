@@ -381,6 +381,12 @@ the agent-app profile, the app's settings home of Halora's own, the cheapest lis
   opened a session with modes `default` (current), `accept-edits`, `auto`, `plan`, and 22 models (current
   `gemini-4-carbon-medium`). Its settings file takes no model (`model` and `model.name` were ignored);
   `session/set_config_option` set `model` `gemini-3.8-flash` and `thought_level` `low`, mode staying `default`.
+- Antigravity run 4 (17:37Z, through the adapter on `gemini-3.8-flash` low, after its quota reset, on a per-launch
+  settings home): the one request, the command `echo hello > hello.txt` (shown then as "[in its shell, which started
+  in the task's folder] echo hello > hello.txt", today as "[in the task's folder] echo hello > hello.txt"), was
+  complete and approved; it ran in the scratch folder (`hello.txt` holds `hello`), the agent said so, and the turn
+  completed, 6 s. Antigravity's own report in the prompt's answer: 14391 input not read from the cache, 4051 read
+  from it, 165 output, 18607 in all, no cost. The launch's settings home was gone once the app ended.
 - Kiro run 3 (18:16Z, raw ACP, the probe approving file edits only, `qwen3-coder-next`): asked to change "line two"
   to "line 2" in an existing `notes.txt`, Kiro read it unasked (inside the folder) and asked once for `str_replace`,
   input `{path, oldStr: "line two", newStr: "line 2", replace_all: false}`, reported on the call (with a diff of the
@@ -462,9 +468,11 @@ again right before `session/new`; the app's version must be the profile's, or th
 
 ## Not verified
 
-- A signed-in Antigravity turn that did work (its quota was used up), so its real model's tool names and
-  requests; and how Kiro's writes reach a file (`{path, text}`: a whole new file or not), so its writes stay
-  deny-only.
+- What Kiro's `fs_write` `{path, text}` does to a file that is already there, so such a write is carried, and can be
+  approved, only where nothing is at its path yet; elsewhere it can only be denied.
+- Stopping a Cursor turn (`session/cancel`), and what Cursor does after Halora refuses its `cursor/ask_question` or
+  `cursor/create_plan` (AUDIT3 CU4): no run showed either, so a Cursor task is kept short.
+- Kiro and Cursor working in a task's copy (the same profile code as Antigravity's, which was run in one).
 - Which of Antigravity's other tools ask.
 - Which settings key, if any, is the person's own choice behind Kiro's `contentCollection` (its binary names
   `codeWhisperer.shareCodeWhispererContentWithAWS`; not tried), so a person who chose to share is not followed yet.
