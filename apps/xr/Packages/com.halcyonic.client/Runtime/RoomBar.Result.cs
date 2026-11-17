@@ -234,7 +234,8 @@ namespace Halcyonic.Client
                         : binding.Model.Report?.Text;
                     // FIELD's f6: the review card holds the turn's state over the task's name and the agent's own first sentence under
                     // THE AGENT SAYS (AUDIT2, AUDIT3 01:06Z), so the band does not say it again.
-                    if (card != null && !ReferenceEquals(card, binding.Model.Standing))
+                    // Only over a finished turn the computer saw (Turn Finished): a project's result with no observed turn keeps the band.
+                    if (card != null && !ReferenceEquals(card, binding.Model.Standing) && result.Observed != null)
                     {
                         var says = FirstSentence(binding.Model.Report?.Text);
                         card = card.WithReview(result.Observed != null ? RoomStanding.Finished : null, says == null ? null : LineWords.Theirs(says));
