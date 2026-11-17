@@ -496,6 +496,9 @@ namespace Halcyonic.XR
             releasedAt = null;
         }
 
+        /// <summary>Whether <paramref name="workstreamId"/>'s character stands on this stage.</summary>
+        public bool Holds(string workstreamId) => views.ContainsKey(workstreamId);
+
         /// <summary>Sends the called character home once its moment is answered or gone: the panel leaves first, then it flies back.</summary>
         public void Release()
         {

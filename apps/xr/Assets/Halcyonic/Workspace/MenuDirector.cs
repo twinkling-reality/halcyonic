@@ -25,11 +25,39 @@ namespace Halcyonic.XR.Workspace
     public sealed partial class MenuDirector : MonoBehaviour, IMenuHost
     {
         /// <summary>Where the person is and what stands on the stage, as the plane is placed against it.</summary>
+        private Action<string, Func<Vector3>>? flyCall;
+        private Action? flyRelease;
+        private Func<string, bool>? flyCan;
+
+        /// <summary>How far to the panel's side the called character stands, from the panel's middle, in metres (the lead's 2026-11-17T02:15Z).</summary>
+        public const float FlightBesideM = 0.6f;
+
+        private bool Asking(RoomBarState state) => state == RoomBarState.Question || state == RoomBarState.Request;
+
+        /// <summary>A new moment on the bar: one that asks calls the task's character to beside its panel; any other sends it home.</summary>
+        private void OnMoment(RoomBar moment, RoomBarView bar)
+        {
+            if (Asking(moment.State) && navigator.BesideTask is string task && flyCall != null && flyCan?.Invoke(task) == true) flyCall(task, () => BesidePanel(bar));
+            else flyRelease?.Invoke();
+        }
+
+        /// <summary>The point beside the bar's panel the called character flies to: to its left, at its upper third.</summary>
+        private static Vector3 BesidePanel(RoomBarView bar)
+        {
+            var panel = bar.Panel.transform;
+            var tall = bar.Panel.Size.y * panel.lossyScale.y;
+            return panel.position - panel.right * FlightBesideM + panel.up * (tall / 6f);
+        }
+
         public readonly struct Stage
         {
             public Stage(Vector3 eyes, Vector3 looking, IReadOnlyList<CharacterTarget> characters, float? surfaceHeight, bool besideWindow,
-                Vector3[]? shelf = null, Action<float>? standAside = null, bool shelfComing = false)
+                Vector3[]? shelf = null, Action<float>? standAside = null, bool shelfComing = false,
+                Action<string, Func<Vector3>>? call = null, Action? release = null, Func<string, bool>? canFly = null)
             {
+                CanFly = canFly;
+                Call = call;
+                Release = release;
                 ShelfComing = shelfComing;
                 Shelf = shelf;
                 StandAside = standAside;
@@ -39,6 +67,14 @@ namespace Halcyonic.XR.Workspace
                 SurfaceHeight = surfaceHeight;
                 BesideWindow = besideWindow;
             }
+
+            /// <summary>Calls a task's character to a point beside an asking moment's panel, and sends it home (CharacterStage.Call, Release); null with no stage.</summary>
+            public Action<string, Func<Vector3>>? Call { get; }
+
+            public Action? Release { get; }
+
+            /// <summary>Whether a task's character stands on a shelf in view, so it can fly to a moment.</summary>
+            public Func<string, bool>? CanFly { get; }
 
             /// <summary>The room applied a shelf the stage has not stood yet (it stands it on its own next update).</summary>
             public bool ShelfComing { get; }
@@ -314,6 +350,11 @@ namespace Halcyonic.XR.Workspace
             director.plane.KitEnvironmentPressed += director.OnKitEnvironmentPressed;
             // The redesign's bar says Sent · Awaiting Start while the open task's run was asked for and has not started.
             // What the connection shows while a recording plays, for the notice every frame the bar shows carries (RoomBar.Of).
+            // The character flies to a moment that asks the person, and its panel waits for it to land (the lead's 2026-11-17T02:15Z).
+            var flightBar = director.plane.Kit.Bar;
+            flightBar.HoldArrival = state => director.Asking(state) && director.flyCall != null && director.navigator.BesideTask is string flying && director.flyCan?.Invoke(flying) == true
+                ? RoomMotion.FlightBreathSeconds + RoomMotion.FlightSeconds : 0f;
+            flightBar.MomentArrived += moment => director.OnMoment(moment, flightBar);
             director.plane.Kit.RecordedWork = () => setup.Demonstration() ? setup.RecordedRun() ? WorkMarkKind.Recorded : WorkMarkKind.Demo : (WorkMarkKind?)null;
             director.plane.Kit.AwaitingStart = () => director.navigator.Beside is FileColumn open && open.Now is WorkspacePresentation now
                 && director.State?.Workstreams.TryGetValue(now.Character.WorkstreamId, out var work) == true && work.Status == WorkstreamStatus.Starting;
@@ -872,6 +913,9 @@ namespace Halcyonic.XR.Workspace
             SectionsForRedesign();
             var (menu, beside) = navigator.Frames(bar);
             var stage = setup.StageNow();
+            flyCall = stage.Call;
+            flyRelease = stage.Release;
+            flyCan = stage.CanFly;
             ApplyCharacterColours();
             if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
             // The plane's form, decided before any reader measures and held between events (the lead's 2026-11-13T17:16Z ruling).

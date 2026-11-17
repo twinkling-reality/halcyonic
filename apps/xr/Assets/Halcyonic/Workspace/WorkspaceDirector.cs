@@ -501,7 +501,10 @@ namespace Halcyonic.XR.Workspace
             return new MenuDirector.Stage(WorkspaceVisuals.HeadPosition, head != null ? head.forward : Vector3.forward, standing.ToList(),
                 stage != null && stage.Visible && Room?.Status.OnSurface == true ? stage.SurfaceHeight : null, false, shelf,
                 degrees => { if (standingStage != null) standingStage.ShelfTurnDegrees = degrees; },
-                shelfComing: shelf == null && Room?.ShelfPlaced == true && Presentation.AgentsVisible);
+                shelfComing: shelf == null && Room?.ShelfPlaced == true && Presentation.AgentsVisible,
+                call: (task, to) => { if (standingStage != null) standingStage.Call(task, to); },
+                release: () => { if (standingStage != null) standingStage.Release(); },
+                canFly: task => standingStage != null && standingStage.Visible && standingStage.Holds(task));
         }
 
         /// <summary>A project's place in the stage's places (RoomPlaces' order), or -1: its team's screen stands over it.</summary>
