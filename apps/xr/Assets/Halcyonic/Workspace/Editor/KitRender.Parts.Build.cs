@@ -253,7 +253,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private static WritingPanel TallPanel()
         {
-            const string path = "src/game/sky.js";
+            // A path long enough that the title wraps to its two lines at the larger size, so the cap must count both (AUDIT3's 16:06Z).
+            const string path = "src/game/levels/the-northern-forest/sky-and-wind.js";
             var watch = new WatchBuild(RoomWritingPanel.Wrap) { MostRows = RoomWritingPanel.MostRows };
             var lines = Enumerable.Range(1, 40).Select(line => "const gust" + line + " = wind(" + line + ");").ToList();
             Halcyonic.Contracts.ProjectFileResponse Read(IEnumerable<string> text) => new Halcyonic.Contracts.ProjectFileResponse
@@ -440,6 +441,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     // The changed line whole, though it may wrap over more than one row at the larger size.
                     var drawnCode = string.Join(" ", view.Card.ReadingShown.Select(row => row.GetParsedText().Trim()));
                     Require(drawnCode.Contains("gust30") && drawnCode.Contains("lift;"), "the line being written is not drawn: " + drawnCode);
+                    if (GlazeText.Scale > 1.001f) Require(nameLabel.textInfo.lineCount == 2, "the tall file's path does not wrap to two title lines at the larger size: " + nameLabel.textInfo.lineCount);
                     Require(view.Size.y <= RoomType.Units(RoomWritingPanel.MostPanelTallDp) + unit * 0.5f, "the tall panel stands " + (view.Size.y / unit).ToString("0") + " dp, past " + RoomWritingPanel.MostPanelTallDp);
                 }
                 Require(nameLabel.font != null && !nameLabel.font.name.Contains("Mono") && (nameLabel.fontStyle & FontStyles.UpperCase) == 0, "the title is not in the sans face in its own case: " + nameLabel.font?.name);
