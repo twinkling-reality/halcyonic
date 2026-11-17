@@ -130,7 +130,7 @@ carries ask rules for the git commands that read a remote's address, git's setti
 remote (`OPEN_RUN_ASKS`), and those ask the person too, in every form the probe tried (`git -C`, `sh -c`, after `&&`
 or before `|`). Read outside the folder, WebFetch and WebSearch ask; this CLI offers no Grep or Glob tool. A folder's
 own `.git/config` is read unasked: in a copy it holds no remote or credential, and a task that would work in the
-folder itself is refused where that file holds a password or token inside an address, in words that never show it.
+folder itself is refused where that file puts a sign-in (a name, password or token) inside an address, in words that never show it.
 The network stays open in such a run: what a person approves can reach it. The probe and its test are in
 [claude-code-unasked.md](../validation/claude-code-unasked.md).
 

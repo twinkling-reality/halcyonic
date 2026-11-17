@@ -246,7 +246,7 @@ export const COPY_FAILED = 'The copy of the folder failed, so this task did not 
 /** What a start refused for its copy says: why the folder cannot be copied, then that nothing started. */
 /** Said when a task would work in a folder whose git settings hold a credential in an address (AUDIT3 M3). */
 export const ADDRESS_CREDENTIAL_REFUSED =
-  "This folder's git settings hold a password or token inside a remote's address, which this task's agent could read. Take it out of the address, then start again. Nothing was started, and the folder is as it was.";
+  "This folder's git settings put a sign-in (a name, password or token) inside a remote's address, which this task's agent could read. Take it out of the address, then start again. Nothing was started, and the folder is as it was.";
 
 export function copyRefusedStart(why: string): string {
   return `${why} So this task did not start, and the folder is as it was.`;

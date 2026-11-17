@@ -32,7 +32,7 @@ read-only rest is unchanged. The rules hold the forms that would hide a git comm
 `cat .git/config` still runs unasked: in a task's copy that file holds no remote and no credential (ADR 0045); outside
 a copy it is the folder's own and can show its remote addresses, including any credential written into one, unasked.
 So a task that would work in the folder itself (copies off, `HALCYONIC_TASK_COPIES=0`, or an agent app that cannot be
-held to a copy) does not start where that file holds a password or token inside an http, https or ftp address: the
+held to a copy) does not start where that file puts a sign-in (a name, password or token) inside an http, https or ftp address: the
 host refuses it in words that never show the address (`folderHoldsAddressCredential`, `ADDRESS_CREDENTIAL_REFUSED`).
 
 ## Other tools
