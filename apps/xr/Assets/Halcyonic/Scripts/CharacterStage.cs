@@ -37,7 +37,14 @@ namespace Halcyonic.XR
         /// when both need the person (Standard / Larger; the floor is 0.5). Raising it needs a page that
         /// takes its pitch from its widest drawn tag, and StageRender's shelf-page check passing at the new count, which it reads from here.
         /// </summary>
-        public static int ShelfCapacity => 1;
+        public static int ShelfCapacity { get; private set; } = 1;
+
+        /// <summary>
+        /// Every project with work, each its own place (the lead, 2026-11-17T18:56Z: no fixed cap; a project's agents all stand). The
+        /// person's shelf is the first place: the selected task's project, every one of its tasks standing (<see cref="RoomPlace.Shown"/>),
+        /// so <see cref="ShelfCapacity"/> is that place's count and no longer a constant.
+        /// </summary>
+        public RoomPlaces Places { get; } = new RoomPlaces();
 
         /// <summary>The shelf's places: its characters', and under the redesign one more for New Project, the shelf's last.</summary>
         public static int ShelfPlaces => ShelfCapacity + (RoomDesign.Enabled ? 1 : 0);
@@ -460,10 +467,23 @@ namespace Halcyonic.XR
             var live = session.Status.IsLive;
             // Optional paging exposes all work independently of old project stage-visibility preferences.
             shelfPages.Update(session.State.Journal?.JournalId, session.State.Workstreams.Values);
+            var state = session.State;
+            Places.Update(state.Journal?.JournalId, state.Workstreams.Values, id => state.Projects.TryGetValue(id, out var project) ? project.Name : null);
+            // The person's shelf stands the selected task's project's place whole; with nothing selected, the first place.
+            var selected = shelfPages.SelectedId;
+            var place = (selected != null ? Places.PlaceOf(selected) : null) ?? (Places.Places.Count > 0 ? Places.Places[0] : null);
             eligible.Clear();
-            shelfPages.PerPage = ShelfCapacity;
-            foreach (var shown in shelfPages.Shown)
-                if (session.State.Workstreams.TryGetValue(shown, out var chosen)) eligible.Add(chosen);
+            if (place != null)
+                foreach (var shown in place.Shown)
+                    if (state.Workstreams.TryGetValue(shown, out var chosen)) eligible.Add(chosen);
+            var standing = Mathf.Max(1, eligible.Count);
+            if (standing != ShelfCapacity)
+            {
+                ShelfCapacity = standing;
+                shelfPages.PerPage = standing;
+                Fit();
+                return;
+            }
             lineup.UseJournal(session.State.Journal?.JournalId);
             lineup.Update(eligible, System.DateTimeOffset.UtcNow);
             departed.Clear();
