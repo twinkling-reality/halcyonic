@@ -263,6 +263,14 @@ namespace Halcyonic.XR.UI
             bar.LinesAt(words, mono, (narrow ?? Form.Narrow) ? RoomGeometry.ColumnDp : Form.PanelDp);
 
         /// <summary>
+        /// The lines <paramref name="words"/> take as the panel's ROWS lay a row of them (RoomBarView.RowLines, the rows' own lay path),
+        /// no mark and no label: the measure a review's item is cut by, since the review draws each item as a row (SCREENS' journey,
+        /// 2026-11-17: measured as the body, a long task's row laid more lines than counted and was cut, so its part never read drawn).
+        /// </summary>
+        public int RowLinesAsLaid(LineWords words, bool? narrow = null) =>
+            bar.RowLines(new RoomRow(words), false, (narrow ?? Form.Narrow) ? RoomGeometry.ColumnDp : Form.PanelDp);
+
+        /// <summary>
         /// The lines a card's list row takes as the card lays it at the plane's panel width (FIELD's RoomCardView.LinesOfListRow, on
         /// a card view kept hidden for measuring, never one shown): the one count the file's budget and the reader both take, so a
         /// described answer's part is the card's page (AUDIT's 22:06Z; the lesson of charN's request part 2).
