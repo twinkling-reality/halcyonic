@@ -119,7 +119,7 @@ namespace Halcyonic.Client
     /// spelled twice. They are drawn by the approval well's one rule (<see cref="LineWords.Literal"/>, AUDIT2's
     /// marks of 2026-11-17T21:48Z): every printable character a kit face holds as written (any other, CJK, emoji
     /// or é, by its code point, <see cref="Drawn"/>), a line break as ↵ with the line
-    /// breaking after it, a tab as ⇥, a space at an edge as ·, and every other hidden character as its code
+    /// breaking after it, a tab as ⇥, a space at an edge as ‹U+0020›, and every other hidden character as its code
     /// point (‹U+202E›), each mark a run of Halcyonic's own, so typed marks stay the person's text; under the
     /// items, "↵ marks a new line." once, where a ↵ is drawn. Nothing is shortened: the pages together show
     /// every character.
@@ -423,18 +423,11 @@ namespace Halcyonic.Client
         private void Add(string label, string value, ReviewItemKind kind) => Add(label, LineWords.Unspelled(value), kind);
 
         /// <summary>
-        /// An item whose value is runs: outside text drawn literally (<see cref="LineWords.Literal"/>, the approval well's one rule: a line
-        /// break as ↵, a tab as ⇥, an edge space as ·, any other hidden character as its code point), Halcyonic's words as written.
+        /// An item whose value is runs: outside text drawn by <see cref="Drawn"/> (the approval well's one rule, each character
+        /// no kit face holds by its code point), Halcyonic's words as written.
         /// </summary>
         private void Add(string label, LineWords value, ReviewItemKind kind) => items.Add(new ReviewItem(label,
-            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Literal(run.Text) : LineWords.Written(run.Text))), kind));
-
-        /// <summary>
-        /// An item whose value is runs: outside text drawn literally (<see cref="LineWords.Literal"/>, the approval well's one rule: a line
-        /// break as ↵, a tab as ⇥, an edge space as ·, any other hidden character as its code point), Halcyonic's words as written.
-        /// </summary>
-        private void Add(string label, LineWords value, ReviewItemKind kind, string? shownLabel = null) => items.Add(new ReviewItem(label,
-            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? Drawn(run.Text) : LineWords.Written(run.Text))), kind, shownLabel));
+            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? Drawn(run.Text) : LineWords.Written(run.Text))), kind));
 
     }
 }
