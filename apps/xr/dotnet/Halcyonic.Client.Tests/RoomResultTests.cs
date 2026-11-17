@@ -1010,6 +1010,15 @@ public class RoomResultTests
         Assert.That(card.List.Select(row => (row.Label, row.Name.Text, row.Note, row.Kind, row.Under?.Text)).First(),
             Is.EqualTo(((string?)"Runs", "check 1", (string?)"Passed", RoomKind.Passed, (string?)"4 of 4 Passed")));
         Assert.That(card.List.Skip(1).All(row => row.Label == null), "the head stands once over its section on a part");
+        var stale = new UnderstandingVerificationRun
+        {
+            Label = "go vet", Outcome = UnderstandingVerificationRunOutcome.Fail, At = "2026-11-17T19:30:00.000Z", Epistemic = UnderstandingEpistemic.Observed, Stale = true,
+            Counts = new UnderstandingVerificationRunCounts { Passed = 3, Total = 4 }, Exit = new UnderstandingVerificationRunExit { Code = 1 },
+        };
+        understood.Verification.LatestByMethod = new List<UnderstandingVerificationRun> { stale };
+        var facts = EvidencePage.Of(new UnderstandingResponse { ExecutionId = "e1", Result = new AvailableUnderstanding { Understanding = understood } }).Card(0).List.Single().Under!.Text;
+        Assert.That(facts.Split('\n'), Is.EqualTo(new[] { "Out of Date", "3 of 4 Passed", "Exit 1" }), "each fact its own line (AUDIT2's 21:09Z)");
+        Assert.That(facts, Does.Not.Contain(", ").And.Not.Contain(" · "), "no drawn line joins two facts");
         Assert.That(card.List.Count, Is.EqualTo(RoomCard.ListAPage));
         Assert.That(reasoning.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.NextPage, true), (RoomResult.Back, false) }));
 

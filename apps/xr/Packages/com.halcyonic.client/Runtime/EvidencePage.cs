@@ -151,13 +151,17 @@ namespace Halcyonic.Client
                 if (row.Note != null) under.Add(row.Note);
                 under.AddRange(row.Facts);
                 rows.Add(new RoomListRow(KindOf(row.Mark), theirs ? LineWords.Theirs(row.Label) : LineWords.Ours(row.Label), row.Value,
-                    mono: section.Head == RunUnderstanding.Words.Runs, under: under.Count > 0 ? LineWords.Ours(string.Join(", ", under)) : (LineWords?)null, label: head));
+                    mono: section.Head == RunUnderstanding.Words.Runs, under: Lines(under), label: head));
             }
             LineWords? description = null;
             if (at == 0 && Headline != null)
                 description = Because == null ? LineWords.Theirs(Headline) : LineWords.Theirs(Headline) + LineWords.Written("\n") + LineWords.Theirs(Because);
             return new RoomCard(title, description, list: rows, label: Label);
         }
+
+        /// <summary>Each fact on its own quiet line, never two joined on a comma or a dot (AUDIT2's 21:09Z); null for none.</summary>
+        private static LineWords? Lines(IReadOnlyList<string> facts) => facts.Count == 0 ? (LineWords?)null
+            : facts.Skip(1).Aggregate(LineWords.Ours(facts[0]), (lines, fact) => lines + LineWords.Written("\n") + LineWords.Ours(fact));
 
         private static RoomKind KindOf(RunUnderstanding.Mark mark) => mark switch
         {
