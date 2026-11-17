@@ -9,7 +9,7 @@
 // The client's messages may come in another order than recorded (an interrupt answers the open
 // request at once): a step takes the first waiting message it matches. `$CWD` stands for the folder
 // the app was started in. Every message the client sends is appended to FAKE_ACP_LOG as one JSON line.
-// FAKE_ACP_VERSION, when set, replaces the version the app reports. Usage: node fake-acp-agent.mjs <fixture>
+// FAKE_ACP_VERSION and FAKE_ACP_PROTOCOL, when set, replace the version and the protocol version the app reports. Usage: node fake-acp-agent.mjs <fixture>
 import { appendFileSync, readFileSync } from 'node:fs';
 
 const steps = readFileSync(process.argv[2], 'utf8')
@@ -54,6 +54,9 @@ async function run() {
           ...result,
           agentInfo: { ...result.agentInfo, version: process.env.FAKE_ACP_VERSION },
         };
+      }
+      if (step.answer === 'initialize' && process.env.FAKE_ACP_PROTOCOL) {
+        result = { ...result, protocolVersion: Number(process.env.FAKE_ACP_PROTOCOL) };
       }
       write(
         step.error === undefined

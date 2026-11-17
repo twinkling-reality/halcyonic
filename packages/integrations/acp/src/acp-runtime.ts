@@ -60,7 +60,7 @@ export const ACP_CAPABILITIES: RuntimeCapabilities = {
 
 /** Why a run is not counted confined, in words the headset can show (`unconfined_reason`). */
 export const UNCONFINED_REASON =
-  "It talks to its maker's service directly, which Halora's closed setup does not allow, so it runs outside it. Halora's own folders and your sign-in files are still kept from it.";
+  "It talks to its maker's service directly, which Halora's closed setup does not allow, so it runs outside it. Halora's own folders, and your sign-ins for cloud accounts and for pushing code, are still kept from it.";
 
 /** How long the app has to answer `initialize` and `session/new`. */
 const HANDSHAKE_MS = 60_000;
@@ -346,13 +346,18 @@ class AcpSession {
     const info = record(record(initialized)?.agentInfo);
     // Kiro's v3 engine names no version once signed in: its own `--version` line, read before the launch, does.
     const version = text(info?.version) ?? named;
-    if (
-      record(initialized)?.protocolVersion !== ACP_PROTOCOL_VERSION ||
-      version !== this.#options.profile.version
-    ) {
+    if (version !== this.#options.profile.version) {
       throw new RuntimeActionError(
         'runtime_version_unsupported',
-        `Halora works with ${this.#name} only; this computer has ${version === null ? 'a version that does not say which it is' : version}${record(initialized)?.protocolVersion === ACP_PROTOCOL_VERSION ? '' : ', which speaks another protocol version'}. Install ${this.#name}, then start again.`,
+        version === null
+          ? `Halora works with ${this.#name} only, and the copy on this computer does not say its version. Install ${this.#name}, then start again.`
+          : `Halora works with ${this.#name} only; this computer has ${version}. Install ${this.#name}, then start again.`,
+      );
+    }
+    if (record(initialized)?.protocolVersion !== ACP_PROTOCOL_VERSION) {
+      throw new RuntimeActionError(
+        'runtime_version_unsupported',
+        `${this.#name} on this computer answers in a way Halora does not know, so it could not start. Reinstall ${this.#name}, then start again.`,
       );
     }
     if (this.#options.standIn !== undefined) {
@@ -752,7 +757,7 @@ class AcpSession {
     );
     const refused = new RuntimeActionError(
       'mode_unavailable',
-      `${this.#name} could not start in its mode that asks you before it acts.`,
+      `${this.#name} could not start in the mode where it asks you before it acts, so the task did not start.`,
     );
     if (!available.includes(wanted)) throw refused;
     try {

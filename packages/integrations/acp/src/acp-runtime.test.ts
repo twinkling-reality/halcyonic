@@ -462,6 +462,31 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
     assertValidObservations(run.observations);
   });
 
+  test('the same version on another protocol is refused, saying to reinstall it', async (t) => {
+    const run = setUp(t, 'antigravity-two.jsonl', { env: { FAKE_ACP_PROTOCOL: '2' } });
+    await assert.rejects(
+      start(run),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'runtime_version_unsupported' &&
+        error.effect === 'none' &&
+        error.message ===
+          'Antigravity 1.5.10 on this computer answers in a way Halora does not know, so it could not start. Reinstall Antigravity 1.5.10, then start again.',
+    );
+    assert.deepEqual(types(run), []);
+  });
+
+  test('a copy that names no version is refused in words', async (t) => {
+    const run = setUp(t, 'kiro-signed-in-deny.jsonl', { profile: KIRO, versionLine: 'kiro-cli' });
+    await assert.rejects(
+      start(run),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.message ===
+          'Halora works with Kiro 3.4.0 only, and the copy on this computer does not say its version. Install Kiro 3.4.0, then start again.',
+    );
+  });
+
   test('another version of the app is refused before a session opens', async (t) => {
     const run = setUp(t, 'antigravity-two.jsonl', { version: '1.6.0' });
     await assert.rejects(
