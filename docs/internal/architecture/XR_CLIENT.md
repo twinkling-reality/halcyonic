@@ -2949,16 +2949,23 @@ in order, as before.
   "Waiting for the agent to start." (each its own line) while the task's run was asked for and has not started, stands as words alone, sweeping (`GlazeShimmer`), as
   does the reason where no action can act. `RoomBarView` draws all of it centred in the host.
 - **Unit U2, an approval and its Confirm** (BUILD-SPEC-v4 2.4 and 1.4): the same pair, `RoomBarState.Request`, bound
-  to the file's own approval page (`KitNeed`) and sending only through the file's actions. Asked: the request in the
-  panel in mono (JetBrains Mono 19 dp on the 28 dp line, literal; a command's request alone, and for a tool that is no
-  command the file's own line, the tool's name leading it, asked and under its confirmation, so no request is ever
-  confirmed with its tool off the screen), what it asks in the sentence bar
+  to the file's own approval page (`KitNeed`) and sending only through the file's actions. Asked: the bare command in
+  the panel's well in mono (JetBrains Mono 19 dp on the 28 dp line), `ToolUseSubject.Command.Text` alone and literal
+  (`WorkspaceText.BareCommand`, by `LabelText.Exact`, so a backtick that is part of the command stays), never the tool's
+  name joined to the request nor the agent's sentence (the lead and AUDIT2, 2026-11-17); the agent's own sentence of what
+  it asks (`ToolUseSubject.Summary`, `WorkspaceText.Description`, theirs) stands above the well in body type, whole, only
+  a markdown code span's backticks removed (`WorkspaceText.WithoutCodeMarks`), as `RoomBar.Description`, which the
+  dialog lays between its question and its well (the narrow pair does not lay it yet). An approval without the command's
+  own parts draws no well: the panel holds that sentence alone, in body type, asked and under its confirmation.
+  `WorkspaceText.Request` ("bash: ..."), the file's own line and the confirmation's identity, never feeds the well or the
+  title. What it asks stands in the sentence bar, the dialog's title
   (Run Command? for a command, else the product's Use {tool}; with no tool named the panel is the one line Approval
   Requested and has no bar), and in the column Approve (main) and Deny, the frame's own prompts. A request that can
   only be denied shows Deny alone and the product's reason in the sentence bar (The command is too long to show, so you can only deny it. and its
   kin). Either answer asks the file for its confirmation, which sends nothing: the panel then reads the request part
   by part, eight of its own lines a part, by the same count as an instruction's confirmation (`KitNeed.Part`,
-  `KitNeed.Rows`; the request alone, the tool's name the file's line leads it with left out, `RoomBar.Reading`), the
+  `KitNeed.Rows`; the bare command alone, or with none the agent's sentence, never the file's line with the tool's name
+  leading it, `RoomBar.Reading`, by which the file counts the parts too), the
   sentence bar holds the file's question (Read Full
   Request, then Approve Request? or Deny Request?), and the column holds Confirm once the file offers its Yes (an
   approval's only once every part was drawn; a denial's at once), the next part while parts remain (the main action

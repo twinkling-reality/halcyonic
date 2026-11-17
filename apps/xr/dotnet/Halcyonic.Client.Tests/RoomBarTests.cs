@@ -305,11 +305,12 @@ public class RoomBarTests
     [Test]
     public void AnApprovalIsThePairItsRequestInMonoWhatItAsksInTheSentenceBarAndApproveThenDenyTheFilesOwn()
     {
-        var work = new WaitingWork();
+        var work = Commanded();
         var steering = new WorkspaceSteering(factory);
         var asked = RoomBar.Of(Bind(work.Present(), steering, new FileScreen { Section = FileSection.Waiting }), VoiceStage.Idle, false);
         Assert.That((asked.State, asked.Pair, asked.Mono, asked.Body.Text, asked.Sentence, asked.Waits),
-            Is.EqualTo((RoomBarState.Request, true, true, "Run the migration", (string?)"Run Command?", false)));
+            Is.EqualTo((RoomBarState.Request, true, true, "pnpm migrate", (string?)"Run Command?", false)));
+        Assert.That(asked.Description?.Text, Is.EqualTo("Run the migration"), "the agent's sentence above the command's well");
         Assert.That(Actions(asked.Column), Is.EqualTo(new[] { (KitPlace.Approve, "Approve", true), (KitPlace.Deny, "Deny", false) }));
         Assert.That(asked.Column.Select(action => (action.Control.Action, action.Locks)), Is.EqualTo(new[] { (FileScreens.Approve, false), (FileScreens.Deny, false) }));
         Assert.That(asked.Row, Is.Empty, "no Hold to Talk or Type while an approval waits");
@@ -318,7 +319,7 @@ public class RoomBarTests
     [Test]
     public void ConfirmStandsBehindItsLockOnceTheRequestIsReadAndItsPressSendsTheApprovalThenItReadsSendingWithNoAction()
     {
-        var work = new WaitingWork();
+        var work = Commanded();
         var before = work.Present();
         var steering = new WorkspaceSteering(factory, () => Now);
         var screen = new FileScreen { Section = FileSection.Waiting };
@@ -328,7 +329,7 @@ public class RoomBarTests
 
         var unread = RoomBar.Of(Bind(before, steering, screen), VoiceStage.Idle, false);
         Assert.That((unread.State, unread.Mono, unread.Sentence, unread.Body.Text),
-            Is.EqualTo((RoomBarState.Request, true, (string?)WorkspaceText.ReadRequestFirst, "Run the migration")), "the request alone, as it stood before its confirmation");
+            Is.EqualTo((RoomBarState.Request, true, (string?)WorkspaceText.ReadRequestFirst, "pnpm migrate")), "the command alone, as it stood before its confirmation");
         Assert.That(unread.Column.Select(action => action.Place), Is.EqualTo(new[] { KitPlace.Cancel }), "no Confirm before the request was drawn");
         // The rows the file counted reach the panel, which draws the confirmation only where it wraps the same words to as many.
         var counted = KitFileBinding.Of(FileScreens.Screen(before, steering, screen, new AnswerRoom(4)), steering.Armed, before, "", Live, "Storefront", Spine,
@@ -355,7 +356,7 @@ public class RoomBarTests
         Assert.That(flying.ApprovalInFlight, Is.True);
         var sending = RoomBar.Of(Bind(flying, steering, screen), VoiceStage.Idle, false);
         Assert.That((sending.State, sending.Sentence, sending.Waits, sending.Column.Count, sending.Body.Text),
-            Is.EqualTo((RoomBarState.Request, (string?)"Sending", true, 0, "Run the migration")));
+            Is.EqualTo((RoomBarState.Request, (string?)"Sending", true, 0, "pnpm migrate")));
         var frame = FileScreens.Screen(flying, steering, screen, new AnswerRoom(4));
         Assert.That(KitFileBinding.Of(frame, steering.Armed, flying, "", Live, "Storefront", Spine), Is.Null, "without the redesign the file still draws an answer in flight");
 
@@ -368,7 +369,7 @@ public class RoomBarTests
     [Test]
     public void ALongRequestIsReadPartByPartAsTheFileCutsItTheNextPartMainUntilConfirmArrives()
     {
-        var work = new WaitingWork();
+        var work = Commanded();
         var workspace = work.Present();
         var steering = new WorkspaceSteering(factory, () => Now);
         var screen = new FileScreen { Section = FileSection.Waiting };
@@ -380,13 +381,17 @@ public class RoomBarTests
         Assert.That((first.Part!.Rows, first.Part.FromRow, first.Sentence), Is.EqualTo((3, (int?)0, (string?)WorkspaceText.ReadRequestFirst)));
         Assert.That(Actions(first.Column), Is.EqualTo(new[] { (KitPlace.Step, "Next Part", true), (KitPlace.Cancel, "Cancel", false) }));
         Assert.That((first.Column[0].Control.Action, first.Column[0].Control.Key), Is.EqualTo((FileScreens.NextPart, (string?)FileScreens.RequestKey)));
-        Assert.That(first.Body.Text, Is.EqualTo("Run the migration"), "the panel reads the request alone, whole, and shows the rows the part names");
-        // What is read, and how: an approval's request without the tool's name its line leads with, in mono; a line that is not
-        // that request, or names no tool, as the file wrote it; an instruction's words as prose.
+        Assert.That(first.Body.Text, Is.EqualTo("pnpm migrate"), "the panel reads the command alone, whole, and shows the rows the part names");
+        // What is read, and how: for an approval's request, its bare command alone in mono, never the tool's name its line leads
+        // with; with no command, the agent's sentence as prose; a line that is not that request, or names no tool, as the file
+        // wrote it; an instruction's words as prose.
         var line = FileScreens.RequestLine(steering, request);
-        Assert.That(RoomBar.Reading(line, "Run the migration", instruction: false), Is.EqualTo((LineWords.Theirs("Run the migration"), true)).Using<(LineWords Words, bool Mono)>(
+        Assert.That(RoomBar.Reading(line, "Run the migration", instruction: false, command: "pnpm migrate"), Is.EqualTo((LineWords.Theirs("pnpm migrate"), true)).Using<(LineWords Words, bool Mono)>(
             (a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono));
-        Assert.That(RoomBar.Reading(line, "another request", instruction: false).Words.Text, Is.EqualTo(request));
+        Assert.That(RoomBar.Reading(line, "Run the migration", instruction: false), Is.EqualTo((LineWords.Theirs("Run the migration"), false)).Using<(LineWords Words, bool Mono)>(
+            (a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono));
+        Assert.That(RoomBar.Reading(line, "another request", instruction: false, command: "pnpm migrate"), Is.EqualTo((LineWords.Theirs(request), false)).Using<(LineWords Words, bool Mono)>(
+            (a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono));
         Assert.That(RoomBar.Reading(line, (string?)null, instruction: false), Is.EqualTo((line.Runs, false)));
         Assert.That(RoomBar.Reading(line, "Run the migration", instruction: true), Is.EqualTo((line.Runs, false)));
 
@@ -394,7 +399,7 @@ public class RoomBarTests
         screen.NextRequestPart(steering, Now + TimeSpan.FromSeconds(1));
         var second = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
         Assert.That(second.Part!.FromRow, Is.EqualTo(3));
-        Assert.That(second.Body.Text, Is.EqualTo("Run the migration"), "every part reads from the same whole");
+        Assert.That(second.Body.Text, Is.EqualTo("pnpm migrate"), "every part reads from the same whole");
 
         // A denial may be confirmed at once, as denying runs nothing: Confirm leads, the next part after it.
         steering.Press(WorkspaceAction.Deny, workspace);
@@ -407,8 +412,102 @@ public class RoomBarTests
         }));
     }
 
+    /// <summary>The waiting work's approval with its command's own parts, as every agent app's shell approval carries them.</summary>
+    private static WaitingWork Commanded()
+    {
+        var work = new WaitingWork();
+        work.Change(execution => ((ToolUseSubject)execution.PendingApprovals[0].Subject).Command = Bare("pnpm migrate"));
+        return work;
+    }
+
+    /// <summary>A task waiting on one approval of <paramref name="subject"/>.</summary>
+    private static WorkspacePresentation Asking(ToolUseSubject subject)
+    {
+        var work = new WaitingWork();
+        work.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.PendingApprovals.Add(new ApprovalView { ApprovalId = WaitingWork.ApprovalId, Subject = subject, Approvable = true, RequestedAt = Samples.Time });
+        });
+        return work.Present();
+    }
+
+    private static ApprovalCommand Bare(string text) => new() { Text = text, RunsIn = new TaskFolderCommandPlace(), Background = false, InputToRunning = false };
+
+    /// <summary>Asked, then under its confirmation with its one part drawn: the two bars an approval shows.</summary>
+    private (RoomBar Asked, RoomBar Confirming, PageLine Line) AskedAndConfirming(WorkspacePresentation workspace)
+    {
+        var steering = new WorkspaceSteering(factory, () => Now);
+        var screen = new FileScreen { Section = FileSection.Waiting };
+        var asked = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        steering.Press(WorkspaceAction.Approve, workspace);
+        screen.ReadRequest(steering.ToRead(workspace)!, 1, 8, steering);
+        screen.RequestDrawn(0, steering, Now);
+        var confirming = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
+        return (asked, confirming, FileScreens.RequestLine(steering, steering.ToRead(workspace)!));
+    }
+
     [Test]
-    public void AToolThatIsNoCommandKeepsItsNameLeadingTheRequestAskedAndUnderItsConfirmation()
+    public void AnApprovalsWellHoldsTheBareCommandAloneAndTheAgentsSentenceStandsAboveItWithoutItsBackticks()
+    {
+        // The live case (2026-11-17): the host's sentence and its bare command, handed apart.
+        var workspace = Asking(new ToolUseSubject
+        {
+            ToolName = "Bash", Summary = "Run `pnpm db:migrate` against the local development database", Command = Bare("pnpm db:migrate"),
+        });
+        var (asked, confirming, line) = AskedAndConfirming(workspace);
+        Assert.That((asked.Mono, asked.Body.Text, asked.Sentence), Is.EqualTo((true, "pnpm db:migrate", (string?)"Run Command?")), "the well holds the command alone");
+        Assert.That((confirming.Mono, confirming.Body.Text, confirming.Sentence), Is.EqualTo((true, "pnpm db:migrate", (string?)"Approve Request?")));
+        Assert.That(RoomBar.Reading(line, workspace, instruction: false), Is.EqualTo((LineWords.Theirs("pnpm db:migrate"), true)).Using<(LineWords Words, bool Mono)>(
+            (a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono), "the file's parts count the command's own rows");
+        foreach (var bar in new[] { asked, confirming })
+        {
+            Assert.That(new[] { bar.Body.Text, bar.Sentence, bar.DialogTitle?.Text, bar.Description?.Text }.Where(text => text != null),
+                Has.None.Contains("Bash: ").And.None.Contains("Bash:"), "the tool's name never joins the request");
+            Assert.That(bar.Body.Text, Does.Not.Contain("against"), "the host's sentence never fills the well");
+            Assert.That(bar.Description?.Text, Is.EqualTo("Run pnpm db:migrate against the local development database"),
+                "the agent's sentence above the well, whole, only its code span's backticks gone");
+            Assert.That(bar.Description!.Text, Does.Not.Contain("`"));
+            Assert.That(bar.Description.AllTheirs, Is.True, "the sentence is the agent's words");
+        }
+        Assert.That(asked.AsDialog, Is.True, "the approval stands as its dialog, the command in its well");
+    }
+
+    [Test]
+    public void ABacktickThatIsPartOfTheCommandStaysInTheWell()
+    {
+        var workspace = Asking(new ToolUseSubject { ToolName = "bash", Summary = "Print today's date with `date`", Command = Bare("echo `date` > today.txt") });
+        var (asked, confirming, _) = AskedAndConfirming(workspace);
+        Assert.That((asked.Mono, asked.Body.Text), Is.EqualTo((true, "echo `date` > today.txt")));
+        Assert.That((confirming.Mono, confirming.Body.Text), Is.EqualTo((true, "echo `date` > today.txt")));
+        Assert.That(asked.Description?.Text, Is.EqualTo("Print today's date with date"), "the sentence's code span loses its backticks; the command keeps its own");
+    }
+
+    [Test]
+    public void WithoutItsBareCommandAnApprovalDrawsNoWellOnlyTheAgentsSentence()
+    {
+        var workspace = Asking(new ToolUseSubject { ToolName = "Bash", Summary = "Run `pnpm db:migrate` against the local development database" });
+        var (asked, confirming, line) = AskedAndConfirming(workspace);
+        const string sentence = "Run pnpm db:migrate against the local development database";
+        Assert.That((asked.Mono, asked.Body.Text, asked.Sentence, asked.AsDialog), Is.EqualTo((false, sentence, (string?)"Run Command?", false)), "no well, the sentence alone");
+        Assert.That((confirming.Mono, confirming.Body.Text), Is.EqualTo((false, sentence)));
+        Assert.That(RoomBar.Reading(line, workspace, instruction: false).Mono, Is.False);
+        Assert.That(asked.Body.Text, Does.Not.Contain("Bash"));
+        Assert.That((asked.Description, confirming.Description), Is.EqualTo(((LineWords?)null, (LineWords?)null)), "the sentence is the body, never laid twice");
+    }
+
+    [Test]
+    public void ACodeSpansBackticksGoAndEveryOtherCharacterStays()
+    {
+        Assert.That(WorkspaceText.WithoutCodeMarks("Run `pnpm db:migrate` now"), Is.EqualTo("Run pnpm db:migrate now"));
+        Assert.That(WorkspaceText.WithoutCodeMarks("Use ``a `tick` inside`` here"), Is.EqualTo("Use a `tick` inside here"), "a longer run closes only on its own length");
+        Assert.That(WorkspaceText.WithoutCodeMarks("A lone ` stays"), Is.EqualTo("A lone ` stays"), "a run nothing closes is no code span");
+        Assert.That(WorkspaceText.WithoutCodeMarks("So does ``this`"), Is.EqualTo("So does ``this`"), "nor runs of other lengths");
+        Assert.That(WorkspaceText.WithoutCodeMarks("No marks at all"), Is.EqualTo("No marks at all"));
+    }
+
+    [Test]
+    public void AToolThatIsNoCommandNamesItselfInTheQuestionAndItsRequestStandsAloneWithNoWell()
     {
         var work = new WaitingWork();
         work.Change(execution =>
@@ -423,17 +522,19 @@ public class RoomBarTests
         var steering = new WorkspaceSteering(factory, () => Now);
         var screen = new FileScreen { Section = FileSection.Waiting };
         var asked = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
-        Assert.That((asked.Body.Text, asked.Mono, asked.Sentence), Is.EqualTo(("Edit: src/game.js", true, (string?)"Use Edit")), "the file's own line, the tool's name leading it");
+        Assert.That((asked.Body.Text, asked.Mono, asked.Sentence), Is.EqualTo(("src/game.js", false, (string?)"Use Edit")),
+            "the tool's name in the question, never joined to the request, and no well without a command (AUDIT2, 2026-11-17)");
 
         steering.Press(WorkspaceAction.Approve, workspace);
         screen.ReadRequest(steering.ToRead(workspace)!, 1, 8, steering);
         screen.RequestDrawn(0, steering, Now);
         var confirming = RoomBar.Of(Bind(workspace, steering, screen), VoiceStage.Idle, false);
-        Assert.That((confirming.Body.Text, confirming.Mono, confirming.Sentence), Is.EqualTo(("Edit: src/game.js", true, (string?)"Approve Request?")),
-            "under the confirmation the tool is still on screen");
+        Assert.That((confirming.Body.Text, confirming.Mono, confirming.Sentence), Is.EqualTo(("src/game.js", false, (string?)"Approve Request?")));
         var line = FileScreens.RequestLine(steering, steering.ToRead(workspace)!);
-        Assert.That(RoomBar.Reading(line, workspace, instruction: false).Words.Text, Is.EqualTo("Edit: src/game.js"));
-        Assert.That(RoomBar.Reading(line, "src/game.js", instruction: false, commands: true).Words.Text, Is.EqualTo("src/game.js"), "a command's request stands alone");
+        Assert.That(line.Words, Is.EqualTo("Edit: src/game.js"), "the file's own line still leads with the tool's name");
+        Assert.That(RoomBar.Reading(line, workspace, instruction: false).Words.Text, Is.EqualTo("src/game.js"));
+        Assert.That(RoomBar.Reading(line, "src/game.js", instruction: false, command: "sed -i s/a/b/ src/game.js"), Is.EqualTo((LineWords.Theirs("sed -i s/a/b/ src/game.js"), true))
+            .Using<(LineWords Words, bool Mono)>((a, b) => a.Words.Text == b.Words.Text && a.Mono == b.Mono), "a bare command stands alone in the well");
     }
 
     [Test]

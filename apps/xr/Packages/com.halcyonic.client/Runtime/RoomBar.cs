@@ -157,8 +157,9 @@ namespace Halcyonic.Client
 
         private RoomBar(RoomBarState state, IReadOnlyList<RoomAction>? row = null, LineWords? words = null, LineWords? body = null, PageLine? part = null,
             bool caret = false, string? sentence = null, IReadOnlyList<RoomAction>? column = null, KitControl? field = null, bool mono = false,
-            bool waits = false, int? rows = null, string? band = null, bool wide = false, IReadOnlyList<LineWords>? lines = null)
+            bool waits = false, int? rows = null, string? band = null, bool wide = false, IReadOnlyList<LineWords>? lines = null, LineWords? description = null)
         {
+            Description = description;
             Lines = lines;
             Mono = mono;
             Waits = waits;
@@ -195,6 +196,13 @@ namespace Halcyonic.Client
 
         /// <summary>The panel is the field, with its caret after the words.</summary>
         public bool Caret { get; }
+
+        /// <summary>
+        /// An approval's own sentence of what it asks, the agent's (<see cref="KitNeed.Description"/>), where the well holds its bare
+        /// command (<see cref="Mono"/>): the dialog lays it above the well in body type. Null where no command stands in the well,
+        /// whose sentence is then <see cref="Body"/> itself, and for every other bar.
+        /// </summary>
+        public LineWords? Description { get; }
 
         /// <summary>The panel's one sentence, in its sentence bar; null for none.</summary>
         public string? Sentence { get; }
@@ -450,30 +458,33 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// What the panel reads of a request or an instruction under its confirmation, whole, and whether it stands in mono:
-        /// an instruction's words as the file's line holds them; a command's request alone, in mono, without the tool's name
-        /// and colon the file's line leads it with (Run Command? named it before the answer was pressed); for a tool that is
-        /// <paramref name="commands"/> false, the file's own line in mono, the tool's name leading it, so the person never
-        /// confirms a request with no tool on screen (the lead, 2026-11-10); where no tool was named, the file's own line.
+        /// an instruction's words as the file's line holds them; for the file's line of an approval's <paramref name="request"/>
+        /// (the request whole, or the tool's name and colon leading it), the bare <paramref name="command"/> alone in mono, the
+        /// well's words, never the tool's name or the agent's sentence (the lead and AUDIT2, 2026-11-17); with no command, the
+        /// agent's <paramref name="description"/> in body type, no well; where no tool was named, the file's own line. A line
+        /// that is not that request's reads as the file wrote it, not in mono, as no command is known for it.
         /// The panel wraps these words at its own width and shows the rows the file's part names (<see cref="Part"/>), and
         /// the file counts the same words at the same width (<see cref="Rows"/>), so every part together is the whole, no
         /// word skipped or read twice.
         /// </summary>
-        public static (LineWords Words, bool Mono) Reading(PageLine line, string? request, bool instruction, bool commands = true)
+        public static (LineWords Words, bool Mono) Reading(PageLine line, string? request, bool instruction, string? command = null, string? description = null)
         {
             if (instruction || request == null) return (line.Runs, false);
-            var alone = commands && (line.Words == request || line.Words.EndsWith(": " + request, System.StringComparison.Ordinal));
-            return (LineWords.Theirs(alone ? request : line.Words), true);
+            var ours = line.Words == request || line.Words.EndsWith(": " + request, System.StringComparison.Ordinal);
+            if (!ours) return (LineWords.Theirs(line.Words), false);
+            return command != null ? (LineWords.Theirs(command), true) : (LineWords.Theirs(description ?? WorkspaceText.WithoutCodeMarks(request)), false);
         }
 
-        /// <summary>What a confirmation's <paramref name="line"/> reads in the panel for <paramref name="workspace"/>'s approval or its armed instruction (<see cref="Reading(PageLine, string?, bool, bool)"/>).</summary>
+        /// <summary>What a confirmation's <paramref name="line"/> reads in the panel for <paramref name="workspace"/>'s approval or its armed instruction (<see cref="Reading(PageLine, string?, bool, string?, string?)"/>).</summary>
         public static (LineWords Words, bool Mono) Reading(PageLine line, WorkspacePresentation workspace, bool instruction)
         {
             var need = instruction ? null : KitPresenter.NeedOf(workspace);
-            return Reading(line, need?.Request, instruction, need?.Commands ?? true);
+            return Reading(line, need?.Request, instruction, need?.Command, need?.Description);
         }
 
         /// <summary>
-        /// An approval (DESIGN 2.4), every action the file's own control. Asked: the request in the panel, what it asks in the
+        /// An approval (DESIGN 2.4), every action the file's own control. Asked: the bare command in the well, the agent's sentence
+        /// above it (or, with no command, that sentence alone and no well), what it asks in the
         /// sentence bar (or why only Deny stands, or what the file says of a lapse), Approve (main) and Deny. Confirming: the
         /// request as the file shows it part by part, the file's question in the sentence bar, Confirm behind its lock once the
         /// file offers it, the next part until then, and Cancel. Sent: Sending, sweeping, and no action until the runtime
@@ -483,28 +494,31 @@ namespace Halcyonic.Client
         {
             KitControl? Available(KitPlace place) => binding[place] is KitControl control && control.Available ? control : null;
             // With no tool named the panel is Halcyonic's one line, and a panel of one line has no sentence bar.
-            // A command stands alone; another tool's request keeps the file's own line, its name leading it, asked and confirming.
-            var body = need.Request == null ? need.Asks : LineWords.Theirs(need.Commands || need.Line == null ? need.Request : need.Line);
-            var mono = need.Request != null;
+            // The well holds the bare command alone, the agent's sentence above it; with no command no well stands, only that
+            // sentence, in body type. The tool's name stands in the question (Run Command?, Use Edit), never joined to the request.
+            var body = need.Request == null ? need.Asks : need.Command != null ? LineWords.Theirs(need.Command) : LineWords.Theirs(need.Description ?? need.Request);
+            var mono = need.Request != null && need.Command != null;
+            var description = mono && need.Description is string said ? LineWords.Theirs(said) : (LineWords?)null;
             var column = new List<RoomAction>();
             if (need.Confirming is KitConfirmation confirming)
             {
-                if (need.Part != null) (body, mono) = Reading(need.Part, need.Request, instruction: false, need.Commands);
+                if (need.Part != null) (body, mono) = Reading(need.Part, need.Request, instruction: false, need.Command, need.Description);
+                if (!mono) description = null;
                 var yes = Available(KitPlace.Yes);
                 if (yes != null) column.Add(new RoomAction(yes, main: true, locks: true));
                 foreach (var step in binding.Controls.Where(control => control.Place == KitPlace.Step && control.Available))
                     column.Add(new RoomAction(step, main: yes == null && column.Count == 0, icon: GlazeIcon.Next));
                 if (Available(KitPlace.Cancel) is KitControl cancel) column.Add(new RoomAction(cancel, main: false));
-                return new RoomBar(RoomBarState.Request, body: body, part: need.Part, sentence: confirming.Ask, column: column, mono: mono, rows: need.Rows);
+                return new RoomBar(RoomBarState.Request, body: body, part: need.Part, sentence: confirming.Ask, column: column, mono: mono, rows: need.Rows, description: description);
             }
-            if (need.Sending) return new RoomBar(RoomBarState.Request, body: body, sentence: WorkspaceText.Sent, mono: mono, waits: true);
+            if (need.Sending) return new RoomBar(RoomBarState.Request, body: body, sentence: WorkspaceText.Sent, mono: mono, waits: true, description: description);
             if (need.ApproveOffered && Available(KitPlace.Approve) is KitControl approve) column.Add(new RoomAction(approve, main: true));
             if (need.DenyOffered && Available(KitPlace.Deny) is KitControl deny) column.Add(new RoomAction(deny, main: false));
             // The sentence: what the file says now (a lapse, why nothing can be answered), else why only Deny stands, else what it asks.
             var onlyDeny = need.Notes.FirstOrDefault(note => note == WorkspaceText.TooLongToShow || note == WorkspaceText.CommandNotKnown || note == WorkspaceText.RequestNotKnown);
             var asks = need.Commands ? KitMomentWords.RunThisCommand : need.Asks.Text;
             var sentence = need.Says ?? onlyDeny ?? (need.Request != null ? asks : null);
-            return new RoomBar(RoomBarState.Request, body: body, sentence: sentence, column: column, mono: mono);
+            return new RoomBar(RoomBarState.Request, body: body, sentence: sentence, column: column, mono: mono, description: description);
         }
 
         /// <summary>

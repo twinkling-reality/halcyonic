@@ -380,8 +380,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "33-ask-long-part-2" => (VoiceStage.Idle, false, RoomBarState.Request, "A long request under its confirmation: its second part, its own rows, synthetic data"),
                 "33-ask-deny-only" => (VoiceStage.Idle, false, RoomBarState.Request, "A request that can only be denied: why in the sentence bar, Deny alone, synthetic data"),
                 "33-ask-sending" => (VoiceStage.Idle, false, RoomBarState.Request, "The answer sent: Sending, the column emptied, synthetic data"),
-                "33-ask-tool" => (VoiceStage.Idle, false, RoomBarState.Request, "A tool that is no command asked: its name leads the request, synthetic data"),
-                "33-ask-tool-confirm" => (VoiceStage.Idle, false, RoomBarState.Request, "That tool's confirmation: its name still leads the request, synthetic data"),
+                "33-ask-tool" => (VoiceStage.Idle, false, RoomBarState.Request, "A tool that is no command asked: its name in the question, its request alone with no well, synthetic data"),
+                "33-ask-tool-confirm" => (VoiceStage.Idle, false, RoomBarState.Request, "That tool's confirmation: its request alone with no well, synthetic data"),
                 "31-bar-listening" => (VoiceStage.Listening, false, RoomBarState.Listening, "Hold to Talk held: Listening, the level from recorded samples, synthetic data"),
                 "31-bar-listening-no-level" => (VoiceStage.Listening, false, RoomBarState.Listening, "Hold to Talk held where nothing records a level, synthetic data"),
                 "31-bar-typing" => (VoiceStage.Idle, false, RoomBarState.Draft, "Type pressed: the panel is the field, only Cancel until a word, synthetic data"),
@@ -1338,7 +1338,15 @@ namespace Halcyonic.XR.Workspace.Editor
                             "the instruction's part stands " + bar.Body.textInfo.lineCount + " lines, not the panel's eight at most");
                     }
                     Require(bar.Request.gameObject.activeSelf == shown.Mono, shown.Mono ? "the request does not stand in mono" : "mono stands where no request is");
-                    Require(!shown.Mono || !bar.Body.gameObject.activeSelf, "prose stands beside the request");
+                    // Beside the command's well only the agent's own sentence stands, above it in body type, and only in the dialog.
+                    Require(!shown.Mono || !bar.Body.gameObject.activeSelf || (shown.AsDialog && shown.Description != null), "prose stands beside the request");
+                    if (shown.Mono && shown.AsDialog && shown.Description != null)
+                    {
+                        bar.Body.ForceMeshUpdate(true);
+                        Require(bar.Body.gameObject.activeSelf && LabelText.FromTextMeshPro(bar.Body.text) == LabelText.Plain(shown.Description.Text) && !bar.Body.isTextTruncated,
+                            "the agent's sentence reads \"" + bar.Body.text + "\" above the well, not \"" + shown.Description.Text + "\" whole");
+                        Require(bar.Body.transform.position.y > bar.Request.transform.position.y, "the agent's sentence does not stand above the command's well");
+                    }
                     if (shown.Mono)
                     {
                         // The request: exact, in mono 19 dp, whole lines, at most eight before its confirmation, the tool's name never in it,
@@ -1349,8 +1357,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(Mathf.Approximately(request.fontSize, GlazeTokens.FontSize(RoomType.Scaled(RoomGeometry.MonoTypeDp))), "the request is not in mono's size");
                         Require(request.font == KitType.Face(KitRole.Mono), "the request is not in the mono face");
                         var longer = state.StartsWith("33-ask-long", StringComparison.Ordinal);
-                        var command = longer ? AskLongCommand : state == "33-ask-deny-only" ? AskCommand + " [truncated]"
-                            : state.StartsWith("33-ask-tool", StringComparison.Ordinal) ? AskToolName + ": " + AskToolRequest : AskCommand;
+                        var command = longer ? AskLongCommand : state == "33-ask-deny-only" ? AskCommand + " [truncated]" : AskCommand;
                         var read = request.GetParsedText();
                         // A long command's backslashes stand in its first lines; its second part (judged against its own rows just below)
                         // carries none, so there only the doubled backslash is refused.

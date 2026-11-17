@@ -703,13 +703,76 @@ namespace Halcyonic.Client
         /// <summary>
         /// The whole of what an approval asks for, as the runtime reported it: the tool and what it
         /// would do, for example "bash: Run the migration". Never shortened; the workspace shows it in
-        /// parts when it does not fit.
+        /// parts when it does not fit. The file's own line and the confirmation's identity only: the redesign's approval
+        /// never draws it, its well holding <see cref="BareCommand"/> and its title the tool's question (AUDIT2, 2026-11-17).
         /// </summary>
         public static string Request(ApprovalView? approval) => approval?.Subject switch
         {
             ToolUseSubject tool => OneLine(tool.ToolName) + ": " + LabelText.Exact(CaptureNames.Request(tool.Summary)),
             _ => ApprovalWithoutTool,
         };
+
+        /// <summary>
+        /// The bare command an approval would run, as its agent app gave it in the command's own parts
+        /// (<see cref="ToolUseSubject.Command"/>): every character as the command has it, a backtick in it included, by
+        /// <see cref="LabelText.Exact"/>'s rule; null where the approval carries no command parts. The approval's well draws
+        /// this alone, never the tool's name or the agent's sentence (the lead and AUDIT2, 2026-11-17).
+        /// </summary>
+        public static string? BareCommand(ApprovalView? approval) =>
+            approval?.Subject is ToolUseSubject { Command: { } command } ? LabelText.Exact(command.Text) : null;
+
+        /// <summary>
+        /// The agent's own sentence of what an approval asks (<see cref="ToolUseSubject.Summary"/>), theirs, laid above the
+        /// command's well, or alone where there is no command: whole, its folder named as the capture extra names it
+        /// (<see cref="CaptureNames.Request"/>), and a markdown code span's backticks removed, as they are markup, not words
+        /// (<see cref="WithoutCodeMarks"/>); nothing else in it changes. Null where the approval names no tool.
+        /// </summary>
+        public static string? Description(ApprovalView? approval) =>
+            approval?.Subject is ToolUseSubject tool ? WithoutCodeMarks(CaptureNames.Request(tool.Summary)) : null;
+
+        /// <summary>
+        /// <paramref name="text"/> with the backticks of each markdown code span removed, the span's words kept as written:
+        /// a run of backticks closed by the next run of the same length. A run that nothing closes stays, as markdown keeps it.
+        /// </summary>
+        public static string WithoutCodeMarks(string text)
+        {
+            if (text.IndexOf('`') < 0) return text;
+            var result = new System.Text.StringBuilder(text.Length);
+            var at = 0;
+            while (at < text.Length)
+            {
+                if (text[at] != '`')
+                {
+                    result.Append(text[at++]);
+                    continue;
+                }
+                var length = RunAt(text, at);
+                var close = -1;
+                for (var next = at + length; next < text.Length;)
+                {
+                    if (text[next] != '`') { next++; continue; }
+                    var run = RunAt(text, next);
+                    if (run == length) { close = next; break; }
+                    next += run;
+                }
+                if (close < 0)
+                {
+                    result.Append(text, at, length);
+                    at += length;
+                    continue;
+                }
+                result.Append(text, at + length, close - at - length);
+                at = close + length;
+            }
+            return result.ToString();
+        }
+
+        private static int RunAt(string text, int at)
+        {
+            var end = at;
+            while (end < text.Length && text[end] == '`') end++;
+            return end - at;
+        }
 
         /// <summary>
         /// The request read before Yes where an approval names no tool: Halcyonic's own sentence. A tool's request

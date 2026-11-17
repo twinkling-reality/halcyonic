@@ -1230,6 +1230,16 @@ namespace Halcyonic.XR.UI
             var asked = RoomCardView.Balanced(ask, wordsWidth, 16);
             var askHeight = Mathf.Max(RoomType.Scaled(RoomGeometry.LineDp), asked.Height);
 
+            // An approval's own sentence, the agent's, above its command's well in body type, whole (the lead and AUDIT2, 2026-11-17).
+            var describedHeight = 0f;
+            if (bar.Description is LineWords described && bar.Mono && bar.Card == null && described.Text.Length > 0)
+            {
+                Set(body, described, false);
+                body.gameObject.SetActive(true);
+                describedHeight = KitType.Lay(body, wordsWidth, 200).Height;
+            }
+            var describedTall = describedHeight > 0f ? describedHeight + gapIn : 0f;
+
             // The answers: the bar's card, at the words' width; an approval's command in mono, exact, its first eight lines.
             var cardHeight = LayFacts(bar, wordsWidth) ?? 0f;
             if (bar.Card == null && bar.Body.Text.Length > 0)
@@ -1273,7 +1283,7 @@ namespace Halcyonic.XR.UI
             var twoRows = mainWide > 0f && othersWide > 0f && othersWide + mainWide > wordsWidth + 1e-4f;
             var rowsHeight = twoRows ? 2f * rowHeight + targetGap : rowHeight;
             var kickerGap = RoomType.Scaled(10f);
-            var panelHeight = pad + kickerHeight + kickerGap + askHeight + (cardHeight > 0f ? gapIn + cardHeight : 0f) + (count > 0 ? gapIn + rowsHeight : 0f) + pad;
+            var panelHeight = pad + kickerHeight + kickerGap + askHeight + describedTall + (cardHeight > 0f ? gapIn + cardHeight : 0f) + (count > 0 ? gapIn + rowsHeight : 0f) + pad;
             panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
             panel.Draw(new Vector2(panelWidth, panelHeight));
             panel.gameObject.SetActive(true);
@@ -1287,8 +1297,9 @@ namespace Halcyonic.XR.UI
             var left = -panelWidth / 2f;
             kicker.transform.localPosition = new Vector3(left + pad, top - pad, -RoomType.Units(0.5f));
             ask.transform.localPosition = new Vector3(left + pad, top - pad - kickerHeight - kickerGap, -RoomType.Units(0.5f));
-            var cardAt = new Vector3(left + pad, top - pad - kickerHeight - kickerGap - askHeight - gapIn, -RoomType.Units(0.5f));
-            body.transform.localPosition = cardAt;
+            var describedAt = new Vector3(left + pad, top - pad - kickerHeight - kickerGap - askHeight - gapIn, -RoomType.Units(0.5f));
+            var cardAt = describedAt + new Vector3(0f, -describedTall, 0f);
+            body.transform.localPosition = describedHeight > 0f ? describedAt : cardAt;
             request.transform.localPosition = cardAt;
             if (bar.Mono && bar.Card == null && cardHeight > 0f)
             {

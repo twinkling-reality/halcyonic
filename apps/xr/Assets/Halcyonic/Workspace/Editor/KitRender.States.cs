@@ -679,7 +679,14 @@ namespace Halcyonic.XR.Workspace.Editor
             else if (waiting) execution.PendingApprovals.Add(new ApprovalView
             {
                 ApprovalId = "synthetic-approval",
-                Subject = new ToolUseSubject { ToolName = tool, Summary = command ?? ApprovalCommand },
+                // A command tool's approval carries its command's own parts, as every agent app's does: the well draws them alone.
+                Subject = new ToolUseSubject
+                {
+                    ToolName = tool, Summary = command ?? ApprovalCommand,
+                    Command = WorkspaceText.RunsCommand(tool)
+                        ? new global::Halcyonic.Contracts.ApprovalCommand { Text = command ?? ApprovalCommand, RunsIn = new TaskFolderCommandPlace(), Background = false, InputToRunning = false }
+                        : null,
+                },
                 Approvable = approvable,
                 RequestedAt = at,
             });
