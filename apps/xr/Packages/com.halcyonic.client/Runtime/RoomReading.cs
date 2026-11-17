@@ -98,9 +98,18 @@ namespace Halcyonic.Client
         public static int Columns(float textScale, bool continued = false, bool bare = false)
         {
             if (textScale <= 0f) throw new ArgumentOutOfRangeException(nameof(textScale), textScale, "A text size is more than nothing.");
-            var inner = RoomGeometry.PanelDp - 2f * RoomGeometry.PanelPadDp * textScale;
-            var words = inner - TextLeftDp(textScale, continued, bare) - RightPadDp * textScale;
-            return (int)Math.Floor(words / (TypeDp * textScale * AdvanceEm) + 1e-4);
+            return ColumnsIn(RoomGeometry.PanelDp - 2f * RoomGeometry.PanelPadDp * textScale, textScale, continued, bare);
+        }
+
+        /// <summary>
+        /// The characters a row holds in a card <paramref name="innerDp"/> wide at a text size of <paramref name="textScale"/>, its
+        /// indent counted among them: for a reading laid to the card's own width (the Code Colours preview, at every form's width).
+        /// </summary>
+        public static int ColumnsIn(float innerDp, float textScale, bool continued = false, bool bare = false)
+        {
+            if (textScale <= 0f) throw new ArgumentOutOfRangeException(nameof(textScale), textScale, "A text size is more than nothing.");
+            var words = innerDp - TextLeftDp(textScale, continued, bare) - RightPadDp * textScale;
+            return Math.Max(1, (int)Math.Floor(words / (TypeDp * textScale * AdvanceEm) + 1e-4));
         }
     }
 }

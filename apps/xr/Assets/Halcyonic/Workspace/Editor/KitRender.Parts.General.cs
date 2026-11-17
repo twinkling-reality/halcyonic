@@ -204,26 +204,18 @@ namespace Halcyonic.XR.Workspace.Editor
             // its words literal: AUDIT's 18:36Z frames read it with InkBox.
             if (state.StartsWith("52-general-code-preview-", StringComparison.Ordinal))
             {
-                // Every page of a fresh read (the narrow form parts the example over two), each page's example rows and their paint.
+                // One page (the lead's 18:47Z), its card's code laid by the card's own reading at the form's width: the example whole,
+                // every logical line's rows painted in Halora and High Contrast, none in Plain.
                 var codeBar = Read();
-                var drawnCode = new HashSet<string>();
-                var paintedCode = new HashSet<string>();
-                for (var codePage = 0; codePage < PagesOf(codeBar); codePage++)
-                {
-                    view.Show(codeBar);
-                    view.SettleForRender();
-                    var facts = view.Facts;
-                    foreach (var label in facts == null ? Enumerable.Empty<TMPro.TextMeshPro>() : Enumerable.Range(0, facts.Count).Select(facts.Label))
-                    {
-                        if (!CodeThemes.Example.Contains(label.text)) continue;
-                        drawnCode.Add(label.text);
-                        if (GlazeRuns.Of(label).Painted.Count > 0) paintedCode.Add(label.text);
-                    }
-                    if (PagesOf(codeBar) > 1) codeBar.Turn();
-                }
-                Require(drawnCode.Count == CodeThemes.Example.Length, "the preview does not draw its example as " + CodeThemes.Example.Length + " rows over its pages: " + drawnCode.Count);
-                var paintedRows = paintedCode.Count;
-                Require(state.EndsWith("-plain", StringComparison.Ordinal) ? paintedRows == 0 : paintedRows == CodeThemes.Example.Length,
+                Require(PagesOf(codeBar) == 1, "the preview takes " + PagesOf(codeBar) + " pages");
+                view.Show(codeBar);
+                view.SettleForRender();
+                var shownCode = view.Card?.ReadingShown ?? new List<TMPro.TextMeshPro>();
+                var drawnWhole = string.Join("", shownCode.Select(label => label.text.Replace(" ", ""))) == string.Join("", CodeThemes.Example).Replace(" ", "");
+                Require(drawnWhole, "the preview does not draw its example whole: " + string.Join(" | ", shownCode.Select(label => label.text)));
+                var paintedRows = shownCode.Count(label => GlazeRuns.Of(label).Painted.Count > 0);
+                var drawnCode = shownCode;
+                Require(state.EndsWith("-plain", StringComparison.Ordinal) ? paintedRows == 0 : paintedRows == drawnCode.Count && paintedRows > 0,
                     "the preview paints " + paintedRows + " of its example's rows in " + CodeThemes.Words(CodeThemes.Current));
             }
             var confirm = state == "52-general-confirm";

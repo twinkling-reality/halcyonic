@@ -388,12 +388,14 @@ namespace Halcyonic.Client
         /// where any other break fits). A long line takes as many continued rows as it needs; every character but the leading
         /// spaces is kept, in order. A white space other than the space shows as its code point, as the reading surface's does.
         /// </summary>
-        public static IReadOnlyList<RoomReadingRow> Wrap(RoomLineKind kind, int? number, string text, float scale, bool bare = false)
+        public static IReadOnlyList<RoomReadingRow> Wrap(RoomLineKind kind, int? number, string text, float scale, bool bare = false) =>
+            Wrap(kind, number, text, RoomReading.Columns(scale, bare: bare), RoomReading.Columns(scale, continued: true, bare: bare));
+
+        /// <summary>One line as rows of at most <paramref name="columns"/> characters, a continued row <paramref name="continuing"/>, as above.</summary>
+        public static IReadOnlyList<RoomReadingRow> Wrap(RoomLineKind kind, int? number, string text, int columns, int continuing)
         {
             var line = Untabbed(text);
             var words = line.TrimStart(' ');
-            var columns = RoomReading.Columns(scale, bare: bare);
-            var continuing = RoomReading.Columns(scale, continued: true, bare: bare);
             var indent = Math.Min(line.Length - words.Length, columns / 2);
             if (words.Length == 0) return new[] { new RoomReadingRow(kind, number, null, indent: indent) };
             // Visible bookends keep Exact's trimming from losing the line's own trailing spaces.

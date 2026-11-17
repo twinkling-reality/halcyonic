@@ -60,9 +60,14 @@ namespace Halcyonic.Client
                 {
                     // The example in the chosen colours, read-only, the theme in force while it shows; Apply keeps it, Cancel goes back.
                     // Our own sample code (AUDIT3's 15:20Z), never marked as someone else's words; the view draws it literal and paints it.
+                    // The room draws it as a card whose code is laid by the same reading Watch It Work's card lays (the lead's 18:47Z):
+                    // PREVIEW over the theme's name, then the code, wrapped to the card's width so it never pages. The lines say the same
+                    // for a view that draws no card.
                     var example = CodeThemes.Example.Select(line => new PageLine(LineWords.Ours(line)).WithCode(CodeLanguage.Script)).ToList();
-                    return new MenuFrame("Preview: " + CodeThemes.Words(chosenCode), new Footer(close, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
-                        farRight: new Prompt(ApplyCode, CodeThemes.ApplyWords, GlazeIcon.Change, main: true)), lines: example);
+                    var sample = new RoomCard(LineWords.Ours(CodeThemes.Words(chosenCode)), label: CodeThemes.PreviewLabel, sample: CodeThemes.Example,
+                        sampleLanguage: CodeLanguage.Script);
+                    return new MenuFrame(CodeThemes.Title, new Footer(close, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
+                        farRight: new Prompt(ApplyCode, CodeThemes.ApplyWords, GlazeIcon.Change, main: true)), lines: example).WithCard(sample);
                 }
                 if (codeOpen)
                 {

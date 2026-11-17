@@ -399,8 +399,86 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var view = go.AddComponent<RoomCardView>();
             view.order = order;
+            // A code sample repaints on a theme change, laying nothing again (the Code Colours preview); a card with none ignores it.
+            CodeThemes.Changed += view.SampleThemeChanged;
             go.SetActive(false);
             return view;
+        }
+
+        /// <summary>The card shown now where it carries a code sample (<see cref="RoomCard.Sample"/>); null otherwise.</summary>
+        private RoomCard? sampleCard;
+
+        /// <summary>For each sample row drawn, in the order its words were laid: the sample's line it belongs to and where in that line it starts.</summary>
+        private readonly List<(int Line, int Start)> sampleRows = new List<(int, int)>();
+
+        /// <summary>A card view destroyed before it was ever active never ran OnDestroy (Unity skips it), so it lets go here.</summary>
+        private void SampleThemeChanged(CodeTheme _)
+        {
+            if (this == null)
+            {
+                CodeThemes.Changed -= SampleThemeChanged;
+                return;
+            }
+            ColourSample();
+        }
+
+        private void OnDestroy() => CodeThemes.Changed -= SampleThemeChanged;
+
+        /// <summary>
+        /// Colours the sample's rows by the palette in force: each LOGICAL line tokenized whole, one carry through the lines in order,
+        /// its runs mapped onto the rows it wraps to, so a wrapped keyword or string keeps its colour on both halves (AUDIT3's PV1).
+        /// The text is never changed; nothing is laid again.
+        /// </summary>
+        private void ColourSample()
+        {
+            if (sampleCard == null) return;
+            var palette = CodeColouring.Now();
+            var carry = CodeCarry.None;
+            var lineRuns = new List<IReadOnlyList<CodeToken>>(sampleCard.Sample.Count);
+            foreach (var line in sampleCard.Sample) lineRuns.Add(CodeTokens.Of(line, sampleCard.SampleLanguage, ref carry));
+            for (var index = 0; index < ReadingShown.Count && index < sampleRows.Count; index++)
+            {
+                var label = ReadingShown[index];
+                if (label == null) continue;
+                var (line, start) = sampleRows[index];
+                var length = label.text.Length;
+                var ranges = new List<(int Start, int End, Color32 Colour)>();
+                foreach (var run in lineRuns[line])
+                {
+                    var from = Mathf.Max(run.Start, start);
+                    var to = Mathf.Min(run.Start + run.Length, start + length);
+                    if (to > from && palette(run.Kind) is Color32 colour) ranges.Add((from - start, to - start, colour));
+                }
+                GlazeRuns.Of(label).Paint(ranges);
+            }
+        }
+
+        /// <summary>
+        /// Lays <paramref name="card"/>'s code sample as a bare reading wrapped to <paramref name="width"/> at the person's text size (each
+        /// row's place in its line kept for the colours), with no well under it, as Watch It Work's code stands on the glass.
+        /// </summary>
+        private float LaySample(RoomCard card, float width, float down)
+        {
+            var widthDp = width / RoomType.Units(1f);
+            var columns = RoomReading.ColumnsIn(widthDp, GlazeText.Scale, bare: true);
+            var continuing = RoomReading.ColumnsIn(widthDp, GlazeText.Scale, continued: true, bare: true);
+            var rows = new List<RoomReadingRow>();
+            sampleRows.Clear();
+            for (var line = 0; line < card.Sample.Count; line++)
+            {
+                var text = card.Sample[line];
+                var cursor = 0;
+                foreach (var row in FileChangeColumn.Wrap(RoomLineKind.Same, null, text, columns, continuing))
+                {
+                    var words = row.Text?.Text ?? "";
+                    var at = words.Length == 0 ? cursor : text.IndexOf(words, cursor, System.StringComparison.Ordinal);
+                    if (at < 0) at = cursor;
+                    cursor = at + words.Length;
+                    rows.Add(new RoomReadingRow(row.Kind, null, words.Length == 0 ? null : LineWords.Ours(words), row.Continued, row.Indent));
+                    if (words.Length > 0) sampleRows.Add((line, at));
+                }
+            }
+            return LayReading(rows, width, down, null, bare: true, well: false);
         }
 
         public void Hide() => gameObject.SetActive(false);
@@ -567,6 +645,14 @@ namespace Halcyonic.XR.UI
             {
                 Gap(BlockGapDp);
                 down = LayReading(card.Reading, width, down, card.ReadingLit, card.ReadingBare);
+            }
+            sampleCard = null;
+            if (card.Sample.Count > 0 && card.Reading.Count == 0)
+            {
+                Gap(BlockGapDp);
+                down = LaySample(card, width, down);
+                sampleCard = card;
+                ColourSample();
             }
             if (card.Steps.Count > 0)
             {
@@ -891,14 +977,14 @@ namespace Halcyonic.XR.UI
         /// <summary>How far left of a bare reading's words a lit run's rule stands, its middle, in dp: inside the panel's padding.</summary>
         public const float BareRuleOutDp = 12f;
 
-        private float LayReading(IReadOnlyList<RoomReadingRow> rows, float width, float down, IReadOnlyList<int>? litRows = null, bool bare = false)
+        private float LayReading(IReadOnlyList<RoomReadingRow> rows, float width, float down, IReadOnlyList<int>? litRows = null, bool bare = false, bool well = true)
         {
             var lit = new HashSet<int>(litRows ?? System.Array.Empty<int>());
             // A dark well under the whole page, near solid, so a band keeps one colour whatever the room shows behind the
             // panel (the critic, 2026-11-11), as a diff view sets its code apart.
             var blockTall = 0f;
             foreach (var row in rows) blockTall += row.Kind == RoomLineKind.Gap && row.Number == null ? S(RoomReading.GapRowDp) : S(RoomReading.LineDp);
-            Plate(new Vector2(width, blockTall + 2f * S(ReadingWellPadDp)), S(TileCornerDp), Rgb(ReadingWell, ReadingWellAlpha), new Vector2(width / 2f, -(down + blockTall / 2f + S(ReadingWellPadDp))), "reading well", under: true);
+            if (well) Plate(new Vector2(width, blockTall + 2f * S(ReadingWellPadDp)), S(TileCornerDp), Rgb(ReadingWell, ReadingWellAlpha), new Vector2(width / 2f, -(down + blockTall / 2f + S(ReadingWellPadDp))), "reading well", under: true);
             down += S(ReadingWellPadDp);
             var advance = S(RoomReading.TypeDp) * RoomReading.AdvanceEm;
             var gutter = S(RoomReading.GutterDp);

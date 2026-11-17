@@ -44,32 +44,42 @@ namespace Halcyonic.XR.Workspace.Editor
                     column.Act(AppearanceColumn.ChooseCode, CodeThemes.Key(CodeTheme.Halora));
                     column.Act(AppearanceColumn.PreviewCode, null);
                     Require(CodeThemes.Current == CodeTheme.Halora, "the preview did not put the chosen colours in force");
-                    var rows = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)?.Facts;
-                    Require(rows != null && rows.Count(row => row.Code == CodeLanguage.Script) == CodeThemes.Example.Length, "the preview's rows do not carry the code mark");
-                    if (rows == null) continue;
+                    // The preview is a card whose code the card's own reading lays, as Watch It Work's card lays code (the lead's 18:47Z).
+                    var bar = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle);
+                    Require(bar?.Card != null && bar.Card.Sample.SequenceEqual(CodeThemes.Example) && bar.Card.Label == CodeThemes.PreviewLabel, "the preview is not the card with the example");
+                    if (bar?.Card == null) continue;
                     var host = new GameObject("Code preview");
-                    var view = RoomRowsView.Create(host.transform);
-                    view.Show(rows, RoomType.Units(RoomGeometry.PanelDp));
-                    var code = Enumerable.Range(0, view.Count).Select(view.Label).Where(label => CodeThemes.Example.Contains(label.text)).ToList();
-                    var words = Enumerable.Range(0, view.Count).Select(view.Label).Except(code).ToList();
-                    Require(code.Count == CodeThemes.Example.Length, "the example is not drawn as its rows: " + string.Join(" | ", Enumerable.Range(0, view.Count).Select(index => view.Label(index).text)));
-                    foreach (var label in code.Concat(words)) label.ForceMeshUpdate(true);
-                    Require(code.All(label => !label.richText && label.text == label.GetParsedText()), "a code row is not literal, or colouring changed its text");
-                    var constRow = code.FirstOrDefault(label => label.text.StartsWith("const", StringComparison.Ordinal));
-                    var logRow = code.FirstOrDefault(label => label.text.StartsWith("console", StringComparison.Ordinal));
-                    Require(constRow != null && GlazeRuns.Of(constRow).Painted.Any(range => range.Start == 0 && range.End == 5), "the keyword const is not painted");
-                    Require(logRow != null && GlazeRuns.Of(logRow).Painted.Any(range => logRow.text.Substring(range.Start, range.End - range.Start) == "\"Done:\""), "the string is not painted");
-                    Require(words.All(label => GlazeRuns.Of(label).Painted.Count == 0), "a row of words is painted");
-                    var sizeBefore = view.Size;
-                    var positions = code.Select(label => label.transform.localPosition).ToList();
-                    CodeThemes.Set(CodeTheme.Plain);
-                    Require(code.All(label => GlazeRuns.Of(label).Painted.Count == 0), "choosing Plain leaves a run painted");
-                    CodeThemes.Set(CodeTheme.Halora);
-                    Require(constRow != null && GlazeRuns.Of(constRow).Painted.Count > 0, "a theme change did not repaint the preview");
-                    Require(view.Size == sizeBefore && code.Select(label => label.transform.localPosition).SequenceEqual(positions), "a theme change laid the rows again");
+                    var view = RoomCardView.Create(host.transform);
+                    // At the full panel and at the column's width (the narrow form), where a line wraps.
+                    foreach (var (form, widthDp) in new[] { ("full", RoomGeometry.PanelDp - 2f * RoomGeometry.PanelPadDp), ("narrow", RoomGeometry.ColumnDp - 2f * RoomGeometry.PanelPadDp) })
+                    {
+                        view.Show(bar.Card, RoomType.Units(widthDp));
+                        var code = view.ReadingShown.ToList();
+                        foreach (var label in code) label.ForceMeshUpdate(true);
+                        var drawnText = string.Join("", code.Select(label => label.text.Replace(" ", "")));
+                        Require(drawnText == string.Join("", CodeThemes.Example).Replace(" ", ""), form + ": the example is not drawn whole: " + string.Join(" | ", code.Select(label => label.text)));
+                        Require(code.All(label => !label.richText && label.text == label.GetParsedText() && label.font != null && label.font.name.Contains("Mono")),
+                            form + ": a code row is not literal mono, or colouring changed its text");
+                        Require(view.Plates.All(each => each.What != "reading well"), form + ": a well stands under the code");
+                        var constRow = code.FirstOrDefault(label => label.text.StartsWith("const", StringComparison.Ordinal));
+                        Require(constRow != null && GlazeRuns.Of(constRow).Painted.Any(range => range.Start == 0 && range.End == 5), form + ": the keyword const is not painted");
+                        Require(code.Any(label => GlazeRuns.Of(label).Painted.Any(range => label.text.Substring(range.Start, range.End - range.Start).Contains("Shown:"))), form + ": the string is not painted");
+                        // PV1: by the logical line, never the visual row. The comment wraps in the narrow form, and every row of it keeps the comment's colour.
+                        var commentRows = code.TakeWhile(label => !label.text.StartsWith("const", StringComparison.Ordinal)).ToList();
+                        if (form == "narrow") Require(commentRows.Count >= 2, "narrow: the comment does not wrap, so the logical-line colour is unproven: " + commentRows.Count + " row");
+                        Require(commentRows.Count > 0 && commentRows.All(label => GlazeRuns.Of(label).Painted.Any(range => range.Start == 0 && range.End >= label.text.TrimEnd().Length)),
+                            form + ": a row of the comment is not painted whole as the comment");
+                        var sizeBefore = view.Size;
+                        var positions = code.Select(label => label.transform.localPosition).ToList();
+                        CodeThemes.Set(CodeTheme.Plain);
+                        Require(code.All(label => GlazeRuns.Of(label).Painted.Count == 0), form + ": choosing Plain leaves a run painted");
+                        CodeThemes.Set(CodeTheme.Halora);
+                        Require(constRow != null && GlazeRuns.Of(constRow).Painted.Count > 0, form + ": a theme change did not repaint the preview");
+                        Require(view.Size == sizeBefore && code.Select(label => label.transform.localPosition).SequenceEqual(positions), form + ": a theme change laid the card again");
+                    }
+                    UnityEngine.Object.DestroyImmediate(host);
                     column.Act(AppearanceColumn.Cancel, null);
                     Require(CodeThemes.Current == CodeTheme.Plain, "Cancel did not put the kept colours back");
-                    UnityEngine.Object.DestroyImmediate(host);
                 }
                 // CC-d: a code row is never held at its last two words. At a width where the same words as a row of words end on one word
                 // and are held (a no-break space between the last two), the code row stays as laid, its text unchanged.

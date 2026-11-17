@@ -748,11 +748,16 @@ public class AppearanceSettingsTests
                 Is.EqualTo(CodeThemes.Example.Select(each => ((CodeLanguage?)CodeLanguage.Script, false, each))),
                 "marked as code for the view to paint, and our own words");
             Assert.That(page.Lines.Select(line => line.Code), Has.All.Null, "the choices are words, never painted");
-            // The room's reader keeps the mark on the rows it draws, so the rows view paints the example and nothing else.
-            var rows = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)!.Facts!;
-            Assert.That(rows.Where(row => row.Code != null).Select(row => (row.Code, row.Words.Text)),
-                Is.EqualTo(CodeThemes.Example.Select(each => ((CodeLanguage?)CodeLanguage.Script, each))), "the example's rows carry the mark");
-            Assert.That(rows.Count(row => row.Code == null), Is.LessThanOrEqualTo(1), "only the title row, if any, is words");
+            // The room draws it as a card (the lead's 18:47Z): the page titled Code Colours, the card's label PREVIEW over the theme's
+            // name, its code the example as a sample in Script, laid as Watch It Work lays code; no rows of words beside it.
+            Assert.That(column.Frame!.Subject, Is.EqualTo(CodeThemes.Title));
+            var card = column.Frame!.Card!;
+            Assert.That((card.Label, card.Title?.Text, card.Title?.AnyTheirs, card.SampleLanguage), Is.EqualTo((CodeThemes.PreviewLabel, "High Contrast", (bool?)false, CodeLanguage.Script)));
+            Assert.That(card.Sample, Is.EqualTo(CodeThemes.Example));
+            var bar = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)!;
+            Assert.That(bar.Card, Is.SameAs(card), "the room's reader shows the frame's own card");
+            Assert.That(bar.Facts, Is.Null.Or.Empty, "no rows of words stand beside the card");
+            Assert.That(bar.GeneralPart.Pages, Is.EqualTo(1), "the preview stands on one page");
             Assert.That(column.Frame!.Footer.All.Select(each => each.Prompt.Words), Does.Contain("Apply Colours").And.Contain("Cancel"));
             column.Act(AppearanceColumn.Cancel, null);
             Assert.That((CodeThemes.Current, settings.Code, saved.Count), Is.EqualTo((CodeTheme.Halora, CodeTheme.Halora, 0)), "Cancel keeps what was kept");

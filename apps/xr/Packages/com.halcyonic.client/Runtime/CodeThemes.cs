@@ -23,6 +23,9 @@ namespace Halcyonic.Client
         public const string Title = "Code Colours";
 
         public const string PreviewWords = "Preview Colours";
+
+        /// <summary>The preview card's label over the theme's name (the lead's 18:47Z; AUDIT2's 18:52Z: one word of ours over the choice).</summary>
+        public const string PreviewLabel = "Preview";
         public const string ApplyWords = "Apply Colours";
 
         public static readonly CodeTheme[] All = { CodeTheme.Halora, CodeTheme.Plain, CodeTheme.HighContrast };
@@ -81,9 +84,9 @@ namespace Halcyonic.Client
         /// </summary>
         public static readonly string[] Example =
         {
-            "// Show at most three finished tasks",
-            "const done = tasks.filter(task => task.done).slice(0, 3);",
-            "console.log(\"Done:\", done.length);",
+            "// Show at most three tasks",
+            "const shown = tasks.slice(0, 3);",
+            "console.log(\"Shown:\", shown);",
         };
     }
 }

@@ -431,8 +431,10 @@ namespace Halcyonic.Client
             IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
             IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false, KitControl? press = null,
             bool statusAfter = false, int descriptionMostLines = DescriptionPageLines, IReadOnlyList<int>? readingLit = null, string? label = null,
-            RoomListHeads? heads = null, bool readingBare = false)
+            RoomListHeads? heads = null, bool readingBare = false, IReadOnlyList<string>? sample = null, CodeLanguage sampleLanguage = CodeLanguage.Plain)
         {
+            Sample = sample ?? new string[0];
+            SampleLanguage = sampleLanguage;
             Label = string.IsNullOrWhiteSpace(label) ? null : label;
             Heads = heads;
             ReadingLit = readingLit ?? new int[0];
@@ -471,7 +473,7 @@ namespace Halcyonic.Client
         private RoomCard(RoomCard from)
             : this(from.Title, from.Description, from.Head, from.Status, from.Slots, from.Steps, from.TrackAt, from.TrackOf, from.List, from.Gauges, from.More,
                 from.Code, from.Reading, from.DescriptionPage, from.TitleMono, from.Press, statusAfter: from.StatusAfter, descriptionMostLines: from.DescriptionMostLines,
-                label: from.Label, heads: from.Heads, readingLit: from.ReadingLit, readingBare: from.ReadingBare)
+                label: from.Label, heads: from.Heads, readingLit: from.ReadingLit, readingBare: from.ReadingBare, sample: from.Sample, sampleLanguage: from.SampleLanguage)
         {
             Still = from.Still;
             Eyebrow = from.Eyebrow;
@@ -600,6 +602,15 @@ namespace Halcyonic.Client
 
         /// <summary>The reading has no line numbers and no marks (Watch It Work's), so its rows keep no gutter: <see cref="RoomReading.TextLeftDp"/>.</summary>
         public bool ReadingBare { get; }
+
+        /// <summary>
+        /// Lines of code, ours, the card lays as Watch It Work's reading lays a file (bare, mono, no well, no dividers), each wrapped to
+        /// the card's own width at the person's text size so a short sample never pages, and coloured in <see cref="SampleLanguage"/> by
+        /// the person's Code Colours (the Code Colours preview, the lead's 2026-11-17T18:47Z); empty for none.
+        /// </summary>
+        public IReadOnlyList<string> Sample { get; }
+
+        public CodeLanguage SampleLanguage { get; }
 
         public IReadOnlyList<RoomCardStep> Steps { get; }
 
