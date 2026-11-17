@@ -42,7 +42,8 @@ namespace Halcyonic.Client
 
         /// <param name="value">Its value as runs, as shown: outside text spelled by the review's own rule, leaning.</param>
         /// <param name="kind">What it names; a note where not given.</param>
-        public ReviewItem(string label, LineWords value, ReviewItemKind kind = ReviewItemKind.Warning)
+        /// <param name="shownLabel">The label as the row shows it where it says more than <paramref name="label"/>, which stays the item's key.</param>
+        public ReviewItem(string label, LineWords value, ReviewItemKind kind = ReviewItemKind.Warning, string? shownLabel = null)
         {
             Label = label;
             Kind = kind;
@@ -50,7 +51,7 @@ namespace Halcyonic.Client
             Value = value.Text;
             // Apart, for the redesign's rows (never a label joined on a dot): the label over the value; on one line, as the
             // older view draws it, "{Label}: {value}". Words with no value, as a warning, stand as themselves.
-            var named = label.TrimEnd(' ', ':');
+            var named = (shownLabel ?? label).TrimEnd(' ', ':');
             Runs = value.IsEmpty || named.Length == 0 ? LineWords.Written(label) + value : LineWords.Written(named + ": ") + value;
             RowLabel = value.IsEmpty || named.Length == 0 ? null : named;
             RowRuns = RowLabel == null ? Runs : value;
@@ -159,6 +160,9 @@ namespace Halcyonic.Client
         public const string ModelIdLabel = "Model ID";
         public const string FirstTaskLabel = "First Task";
 
+        /// <summary>The first task's label where its first characters are also the task's name (the start cut the title from it).</summary>
+        public const string FirstTaskNamesTaskLabel = "First Task and Name";
+
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
             string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false)
             : this(project, title, LineWords.Unspelled(runtime), LineWords.Unspelled(model), LineWords.Written(modelFacts), LineWords.Unspelled(modelRef), objective,
@@ -196,14 +200,17 @@ namespace Halcyonic.Client
             }
             else if (folder != null) Add("Folder", folder, ReviewItemKind.Folder);
             if (startFrom != null) Add(StarterChoice.ReviewLabel, startFrom, ReviewItemKind.Starter);
-            items.Add(new ReviewItem("Task Name", LineWords.Shown(Safe(title) + (titleCut ? "…" : "")), ReviewItemKind.TaskName));
+            // A title the start cut (NewWorkDraft.Title: the objective's first MaxTitleLength characters and Halcyonic's ellipsis) is no
+            // row of its own: its words are the first task's, shown whole below, and the first task's label says it names the task too.
+            // So no shortened name and no ellipsis stands in the review, and nothing sent goes unshown (the lead's 2026-11-17T15:43Z (C)).
+            if (!titleCut) items.Add(new ReviewItem("Task Name", LineWords.Shown(Safe(title)), ReviewItemKind.TaskName));
             Add("Agent App", runtime, ReviewItemKind.AgentApp);
             Add("Model", model, ReviewItemKind.Model);
             if (level is LineWords asks) Add("Level", asks, ReviewItemKind.Level);
             Add("Model Location", modelFacts, ReviewItemKind.ModelLocation);
             if (tools is LineWords uses) Add("Tool Use", uses, ReviewItemKind.ModelTools);
             Add(ModelIdLabel, modelRef, ReviewItemKind.ModelId);
-            Add(FirstTaskLabel, objective, ReviewItemKind.FirstTask);
+            Add(FirstTaskLabel, objective, ReviewItemKind.FirstTask, titleCut ? FirstTaskNamesTaskLabel : null);
             // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).
             foreach (var note in TaskWarnings.Of(objective)) items.Add(new ReviewItem(note, LineWords.None));
         }
@@ -380,11 +387,11 @@ namespace Halcyonic.Client
             return true;
         }
 
-        private void Add(string label, string value, ReviewItemKind kind) => Add(label, LineWords.Unspelled(value), kind);
+        private void Add(string label, string value, ReviewItemKind kind, string? shownLabel = null) => Add(label, LineWords.Unspelled(value), kind, shownLabel);
 
         /// <summary>An item whose value is runs: outside text spelled by <see cref="Safe"/>, Halcyonic's words as written.</summary>
-        private void Add(string label, LineWords value, ReviewItemKind kind) => items.Add(new ReviewItem(label,
-            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Shown(Safe(run.Text)) : LineWords.Written(run.Text))), kind));
+        private void Add(string label, LineWords value, ReviewItemKind kind, string? shownLabel = null) => items.Add(new ReviewItem(label,
+            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Shown(Safe(run.Text)) : LineWords.Written(run.Text))), kind, shownLabel));
 
         // The bundled TMP font cannot show every character. Spell each non-ASCII code point and
         // control character in ASCII, and double a literal backslash so a typed marker differs.

@@ -2034,7 +2034,8 @@ public class NewProjectFlowTests
         var objective = Enumerable.Range(250, 15).Select(count => "Track   recipes   carefully " + new string('W', count) + " TAIL")
             .First(words =>
             {
-                var item = new ReviewItem(NewWorkReview.FirstTaskLabel, LineWords.Theirs(words));
+                // Every candidate passes the title's 200 characters, so the review's first task row names the task too.
+                var item = new ReviewItem(NewWorkReview.FirstTaskLabel, LineWords.Theirs(words), ReviewItemKind.FirstTask, NewWorkReview.FirstTaskNamesTaskLabel);
                 return host.RowsOf(new PageLine(item.Runs), Glaze.Menu.FileColumnDegrees) > host.RowsOf(item.Text, Glaze.Menu.FileColumnDegrees);
             });
         Assert.That(flow.Idea!.Rewrite(objective), Is.True);
@@ -3133,10 +3134,11 @@ public class NewProjectFlowTests
             Draw(flow, flow.Frame!);
         }
         Assert.That(flow.Review!.CanConfirm, Is.True, "every part was read");
-        Assert.That(labels, Does.Contain("Project").And.Contain("Task Name").And.Contain("Agent App").And.Contain("First Task"));
-        Assert.That(labels.Count(label => label == "First Task"), Is.GreaterThan(1), "every part of the cut first task stands under its label");
+        Assert.That(labels, Does.Contain("Project").And.Contain("Agent App").And.Contain("First Task and Name"));
+        Assert.That(labels, Does.Not.Contain("Task Name"), "a cut title is no row of its own: the first task names the task (lead, 2026-11-17 15:43Z)");
+        Assert.That(labels.Count(label => label == "First Task and Name"), Is.GreaterThan(1), "every part of the cut first task stands under its label");
         var task = flow.Review!.Items.Single(item => item.Kind == ReviewItemKind.FirstTask);
-        Assert.That((task.Label, task.RowLabel, task.RowRuns.Text), Is.EqualTo((NewWorkReview.FirstTaskLabel, "First Task", task.Value)),
+        Assert.That((task.Label, task.RowLabel, task.RowRuns.Text), Is.EqualTo((NewWorkReview.FirstTaskLabel, "First Task and Name", task.Value)),
             "the item keeps its older label for the checks a build makes, and hands the rows its label and value apart");
         Assert.That(host.Sent, Is.Empty);
     });

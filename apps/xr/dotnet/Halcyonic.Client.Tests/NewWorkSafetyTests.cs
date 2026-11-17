@@ -46,13 +46,24 @@ public class NewWorkSafetyTests
         var draft = new NewWorkDraft(new CommandFactory(new ClientInfo { Name = "test" })) { Objective = new string('W', 150) + "\u2026" + new string('X', 300) };
         var (typed, cut) = draft.TitleSource;
         var review = new NewWorkReview("Project", typed, "Runtime", "Model", "unknown", "ref", draft.Objective, titleCut: cut);
-        var title = review.Items.Single(item => item.Label == "Task Name").Value;
         Assert.That(cut, Is.True);
-        Assert.That(title, Does.EndWith("X\u2026"), "Halcyonic's ellipsis, as written");
-        Assert.That(title, Does.Contain(new string('W', 150) + "\\u{2026}X"), "the person's ellipsis, by its code point");
-        Assert.That(title, Does.Not.Contain("\\u{2026}\u2026"));
-        Assert.That(review.Items.Where(item => item.Label != "Task Name").All(item => item.Value.All(value => value >= 0x20 && value <= 0x7E)), Is.True, "outside words show as printable ASCII; the labels are ours");
+        // A cut title is no row of its own (the lead's 2026-11-17T15:43Z (C)): its words are the first task's start, shown whole, and
+        // the first task's row says it names the task too, so no shortened name and no ellipsis of ours stands in the review.
+        Assert.That(review.Items.Any(item => item.Kind == ReviewItemKind.TaskName), Is.False, "no Task Name row where the title is cut");
+        var first = review.Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel);
+        Assert.That(first.RowLabel, Is.EqualTo("First Task and Name"));
+        Assert.That(first.Value, Does.Contain(new string('W', 150) + "\\u{2026}X"), "the person's ellipsis, by its code point");
+        Assert.That(review.Items.All(item => !item.Value.Contains('\u2026') && !item.Runs.Text.Contains('\u2026')), Is.True, "no ellipsis of ours drawn anywhere");
+        Assert.That(review.Items.All(item => item.Value.All(value => value >= 0x20 && value <= 0x7E)), Is.True, "outside words show as printable ASCII; the labels are ours");
+        // What the start sends as the title is the shown task's own start, folded to one line, and our one mark (AUDIT3's C2): if the
+        // title ever becomes anything else, the dropped row must come back.
+        Assert.That(draft.Objective.StartsWith(typed, StringComparison.Ordinal), Is.True, "the title's words are the first task's start");
+        Assert.That(draft.Title, Is.EqualTo(LabelText.Plain(typed) + "\u2026"), "the title adds only folded spacing and the one mark");
         Assert.That(new NewWorkReview("Project", "Short", "Runtime", "Model", "unknown", "ref", "Short").Items[1].Value, Is.EqualTo("Short"));
+        // An uncut title keeps its own row, as ever.
+        var whole = new NewWorkReview("Project", "Short", "Runtime", "Model", "unknown", "ref", "Short");
+        Assert.That((whole.Items.Single(item => item.Kind == ReviewItemKind.TaskName).RowLabel, whole.Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel).RowLabel),
+            Is.EqualTo(("Task Name", (string?)"First Task")));
     }
 
     [Test]
@@ -126,6 +137,27 @@ public class NewWorkSafetyTests
                 if (lines[item] <= pageLines) Assert.That(review.Pages.SelectMany(page => page).Count(part => part.Item == item), Is.EqualTo(1), "an item that fits a page is whole");
             }
         }
+    }
+
+    /// <summary>
+    /// A long first task's review pages to Confirm (AUDIT3's C4, SCREENS' journey j5 and j6): its cut title is no row of its own, so
+    /// no ellipsis of ours stands on any part (the bar, which refuses a drawn ellipsis as a cut, can report each part drawn), and
+    /// reading every part opens Confirm on the last.
+    /// </summary>
+    [Test]
+    public void ALongFirstTasksReviewPagesToConfirmWithNoEllipsisOnAnyPart()
+    {
+        var objective = string.Join(" ", Enumerable.Range(1, 8).Select(part => "Part " + part + ": " + new string('w', 120) + "."));
+        var draft = new NewWorkDraft(new CommandFactory(new ClientInfo { Name = "test" })) { Objective = objective };
+        var (typed, cut) = draft.TitleSource;
+        Assert.That(cut, Is.True, "a task long enough that its title is cut");
+        var review = new NewWorkReview("Project", typed, "Runtime", "Model", "unknown", "ref", objective, titleCut: cut);
+        review.Paginate(review.Items.Select(item => item.Kind == ReviewItemKind.FirstTask ? 30 : 1).ToList(), 8);
+        Assert.That(review.PageCount, Is.GreaterThan(2));
+        Assert.That(review.Items.Any(item => item.Value.Contains('\u2026') || item.Runs.Text.Contains('\u2026')), Is.False, "no ellipsis of ours on any part");
+        Assert.That(review.CanConfirm, Is.False);
+        Samples.ReadThrough(review);
+        Assert.That((review.Page, review.CanConfirm), Is.EqualTo((review.PageCount - 1, true)));
     }
 
     [Test]
