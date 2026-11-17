@@ -259,4 +259,88 @@ public class RoomLayoutTests
         leash.Update(0.1, Eyes, 30f);
         Assert.That((leash.Placed, leash.Bearing), Is.EqualTo((true, 30f)));
     }
+
+    /// <summary>No two screens cover one another, and every one's edges stand within the seated reach of <paramref name="ahead"/>.</summary>
+    private static void Apart(float[] bearings, float width, float ahead = 0f)
+    {
+        for (var index = 1; index < bearings.Length; index++)
+            Assert.That(RoomLayout.Wrap(bearings[index] - bearings[index - 1]), Is.GreaterThanOrEqualTo(width + RoomLayout.ScreensGapDegrees - 1e-3f), $"screens {index - 1} and {index} cover one another");
+        foreach (var bearing in bearings)
+            Assert.That(MathF.Abs(RoomLayout.Wrap(bearing - ahead)) + width / 2f, Is.LessThanOrEqualTo(RoomLayout.SeatedReachDegrees + 1e-3f), "a screen stands past the seated reach");
+    }
+
+    [Test]
+    public void OneScreenStandsWhereItsPlaceIs()
+    {
+        foreach (var bearing in new[] { 0f, 35f, -60f, 72f })
+            Assert.That(RoomLayout.Screens(new[] { bearing }, ScreenDegrees)[0], Is.EqualTo(bearing).Within(1e-4f));
+        Assert.That(RoomLayout.Screens(Array.Empty<float>(), ScreenDegrees), Is.Empty);
+    }
+
+    [Test]
+    public void ScreensAskedAtOneBearingPartEvenlyAboutIt()
+    {
+        var two = RoomLayout.Screens(new[] { 10f, 10f }, ScreenDegrees);
+        Assert.That(two[0], Is.EqualTo(10f - (ScreenDegrees + RoomLayout.ScreensGapDegrees) / 2f).Within(1e-3f));
+        Assert.That(two[1], Is.EqualTo(10f + (ScreenDegrees + RoomLayout.ScreensGapDegrees) / 2f).Within(1e-3f));
+        var three = RoomLayout.Screens(new[] { 0f, 0f, 0f }, ScreenDegrees);
+        Assert.That(three, Is.EqualTo(new[] { -60f, 0f, 60f }).Within(1e-3f));
+        Apart(three, ScreenDegrees);
+    }
+
+    [Test]
+    public void ScreensFarEnoughApartStandAtTheirPlacesAndCloseOnesMoveOnlyAsFarAsTheyMust()
+    {
+        Assert.That(RoomLayout.Screens(new[] { -65f, 0f, 65f }, ScreenDegrees), Is.EqualTo(new[] { -65f, 0f, 65f }).Within(1e-3f), "far enough apart: each at its place");
+        // The left two too close, the right one apart: only the left two part, about their middle.
+        var parted = RoomLayout.Screens(new[] { -20f, 0f, 70f }, 40f);
+        Assert.That(parted, Is.EqualTo(new[] { -32f, 12f, 70f }).Within(1e-3f));
+        Apart(parted, 40f);
+        // Three full screens fill most of the reach, so the row slides in as one.
+        var full = RoomLayout.Screens(new[] { -20f, 0f, 70f }, ScreenDegrees);
+        Assert.That(full, Is.EqualTo(new[] { -48f, 12f, 72f }).Within(1e-3f));
+        Apart(full, ScreenDegrees);
+    }
+
+    [Test]
+    public void NoScreenStandsPastASeatedPersonsReachNorBehindThem()
+    {
+        // A place far round, or behind: its screen stands at the reach's edge on its own side.
+        Assert.That(RoomLayout.Screens(new[] { 150f }, ScreenDegrees)[0], Is.EqualTo(RoomLayout.SeatedReachDegrees - ScreenDegrees / 2f).Within(1e-3f));
+        Assert.That(RoomLayout.Screens(new[] { -170f }, ScreenDegrees)[0], Is.EqualTo(-(RoomLayout.SeatedReachDegrees - ScreenDegrees / 2f)).Within(1e-3f));
+        // Two on the right, the outer past the reach: the row slides in, never through behind.
+        var right = RoomLayout.Screens(new[] { 70f, 95f }, ScreenDegrees);
+        Assert.That(right, Is.EqualTo(new[] { 12f, 72f }).Within(1e-3f));
+        // Measured from where the person faces, not the room's zero.
+        var turned = RoomLayout.Screens(new[] { 30f + 150f }, ScreenDegrees, ahead: 30f);
+        Assert.That(turned[0], Is.EqualTo(30f + RoomLayout.SeatedReachDegrees - ScreenDegrees / 2f).Within(1e-3f));
+    }
+
+    [Test]
+    public void ScreensKeepThePlacesLeftToRightOrderAndNeverCoverOneAnother()
+    {
+        var random = new Random(17);
+        foreach (var width in new[] { ScreenDegrees, 48f })
+            for (var trial = 0; trial < 500; trial++)
+            {
+                var count = random.Next(1, 4);
+                var ahead = (float)(random.NextDouble() * 360.0 - 180.0);
+                var wanted = new float[count];
+                for (var index = 0; index < count; index++) wanted[index] = (float)(random.NextDouble() * 360.0 - 180.0);
+                var stood = RoomLayout.Screens(wanted, width, ahead);
+                Assert.That(stood.Length, Is.EqualTo(count));
+                Apart(stood, width, ahead);
+                foreach (var bearing in stood) Assert.That(bearing, Is.GreaterThan(-180f).And.LessThanOrEqualTo(180f));
+            }
+    }
+
+    [Test]
+    public void MoreScreensThanTheReachHoldsAreRefused()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screens(new float[4], ScreenDegrees));
+        Assert.That(RoomLayout.Screens(new float[4], 40f), Has.Length.EqualTo(4), "four narrower ones fit");
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screens(new[] { float.NaN }, ScreenDegrees));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screens(new[] { 0f }, 0f));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screens(new[] { 0f }, ScreenDegrees, gapDegrees: -1f));
+    }
 }
