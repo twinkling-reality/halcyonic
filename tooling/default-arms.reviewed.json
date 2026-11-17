@@ -43,9 +43,9 @@
   },
   {
     "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
-    "answer": "(Rgb(QuietFill), Color.white, RoomGlyph.Minus)",
+    "answer": "(Color.clear, Color.white, RoomGlyph.Minus)",
     "count": 1,
-    "why": "style: Ground, ink and glyph for Quiet and Skipped status tones; a look only."
+    "why": "style: Ink and glyph for Quiet and Skipped status tones, a thin white line mark with no tile (the one language); a look only."
   },
   {
     "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
@@ -61,9 +61,9 @@
   },
   {
     "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
-    "answer": "(White(RowTileAlpha), White(0.85f), White(NoteAlpha))",
+    "answer": "(Color.clear, White(0.85f), White(RoomType.LabelAlpha))",
     "count": 1,
-    "why": "style: Tile and note colours for Quiet and Skipped rows; a look only."
+    "why": "style: Mark and note colours for Quiet and Skipped rows, no tile and the note in the label role (the one language); a look only."
   },
   {
     "file": "apps/xr/Assets/Halcyonic/UI.Interaction/Room/RoomCardView.cs",
