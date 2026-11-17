@@ -103,18 +103,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     var screen = camera.WorldToScreenPoint(world);
                     return pixels[Mathf.Clamp(Mathf.FloorToInt(screen.y), 0, Height - 1) * Width + Mathf.Clamp(Mathf.FloorToInt(screen.x), 0, Width - 1)];
                 }
-                int Light(Color32 pixel) => (pixel.r * 2126 + pixel.g * 7152 + pixel.b * 722) / 10000;
-                int Lightest(TMPro.TMP_Text label)
-                {
-                    var bounds = label.textBounds;
-                    var most = 0;
-                    for (var step = 0; step <= 80; step++)
-                        most = Mathf.Max(most, Light(At(dark, label.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 80f), bounds.max.y - KitType.LinePitch(label) * 0.5f, 0f)))));
-                    return most;
-                }
-                if (view.Card is RoomCardView shown && shown.Shown.Count > 0 && Lightest(shown.Shown[0]) < 170) failures.Add("the project's name is not in the pixels");
+                if (view.Card is RoomCardView shown && shown.Shown.Count > 0 && InkFault(shown.Shown[0], world => At(dark, world), 170) is string named) failures.Add("the project's name is not in the pixels: " + named);
                 foreach (var button in buttons)
-                    if (Lightest(button.Words) < 150) failures.Add(button.Words.text + ": no words in the pixels");
+                    if (InkFault(button.Words, world => At(dark, world), 150) is string fault) failures.Add(button.Words.text + ": " + fault);
                 Debug.Log("Halcyonic: parts: " + name + ": the recap's card " + (view.Card == null ? "missing" : view.Card.Size.y.ToString("0.0", CultureInfo.InvariantCulture) + " units tall")
                     + ", " + buttons.Count + " actions: " + string.Join(", ", buttons.Select(button => button.Words.text)) + ".");
             };
