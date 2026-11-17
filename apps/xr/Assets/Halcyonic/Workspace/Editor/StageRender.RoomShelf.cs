@@ -74,7 +74,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (tag.StateWords is not TMPro.TextMeshPro state || !string.Equals(state.GetParsedText().Trim(), stateWord, System.StringComparison.OrdinalIgnoreCase)
                             || (needs && stateWord != StateLanguage.WordOf(WorkState.WaitingForYou)))
                             failures.Add(name + ": the tag does not say its state \"" + stateWord + "\" under the name");
-                        if (tag.Chipped) failures.Add(name + ": a chip stands beside the name though the state says it");
+                        if (tag.GetComponentsInChildren<RoomShape>(false).Any(shape => shape.transform.parent == tag.transform && shape != tag.Ground && shape != tag.Stem && shape != tag.Diamond))
+                            failures.Add(name + ": a chip stands beside the name though the state says it");
+                        // Waiting on the person: a soft amber ring on the floor under it, breathing, and no light behind its body (the lead's
+                        // 2026-11-17T02:02Z); nothing on the floor otherwise.
+                        if (needs != (view.NeedsYouRing != null)) failures.Add(name + ": the floor ring " + (needs ? "does not stand though the task needs the person" : "stands though nothing waits"));
+                        if (needs && view.PoseForRender.Halo > 0.01f) failures.Add(name + ": a light glows behind the waiting character (" + view.PoseForRender.Halo.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + ")");
                         if (Squeezed(tag.Words.GetParsedText()) != reads) failures.Add(name + ": the tag reads \"" + tag.Words.GetParsedText() + "\", not \"" + reads + "\"");
                         if (tag.NeedsYou != needs) failures.Add(name + ": the tag's dot " + (needs ? "does not stand though the task needs the person" : "stands though nothing waits"));
                         if (tag.Picked != picked) failures.Add(name + ": the tag " + (picked ? "wears no ring though picked" : "wears the ring though not picked"));

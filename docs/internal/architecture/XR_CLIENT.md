@@ -2426,8 +2426,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   `PageLine.Waits` or `Footer.Voiced` gets it with no view code), giving way to the words' own colours
   once the wait ends or things move again. The characters stand at their motion's rest pose, no hop,
   hover, drift, breath or bob; their surface's flow and fog and the sweep ring stand on a clock of
-  their own that stops (`CharacterView`'s surface clock); Waiting for you's halo stands at the middle
-  of its pulse; eyes that scan stand at their middle, a working character's still look down, and
+  their own that stops (`CharacterView`'s surface clock); Waiting for you's amber floor ring (no light
+  behind the body since the lead's 2026-11-17T02:02Z: `CharacterView.NeedsYouRing`, the Needs You mark's
+  amber breathing every 2 s on that clock) stands where its breath stood; eyes that scan stand at their middle, a working character's still look down, and
   one that can't be told holds a still look aside and a little up, its lids uneven (as they are for it
   always, `_EyeUneven`), so it never reads as a sleepy Working, and Working, Running tests and State
   unknown still differ by eyes, light and words. What the

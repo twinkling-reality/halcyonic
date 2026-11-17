@@ -408,7 +408,7 @@ Live, on the development build with the token in place, voice set up on the Mac.
 4. **Keep things still.** Settings, Comfort, Motion, Keep things still, then steps 2 and 3 again.
    Pass: the breath, the turning icons, the microphone's pulse and the shimmer stop, a wait's words
    standing highlighted in the active tone instead; every character stands at rest, its surface,
-   its sweep ring and Waiting for you's halo still, and Working, Running tests and State unknown
+   its sweep ring and Waiting for you's floor ring still, and Working, Running tests and State unknown
    still tell apart by eyes, light and words; slides, presses, a file opening and the badge's
    cross-fade remain. Put it back: Let things move.
 5. **The owner's judgement.** Does it move enough now, too much, or anywhere it shouldn't? Does the
