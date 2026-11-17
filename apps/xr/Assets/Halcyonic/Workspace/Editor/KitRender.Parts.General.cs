@@ -204,13 +204,25 @@ namespace Halcyonic.XR.Workspace.Editor
             // its words literal: AUDIT's 18:36Z frames read it with InkBox.
             if (state.StartsWith("52-general-code-preview-", StringComparison.Ordinal))
             {
-                view.Show(bar);
-                view.SettleForRender();
-                var facts = view.Facts;
-                var codeLabels = facts == null ? new List<TMPro.TextMeshPro>()
-                    : Enumerable.Range(0, facts.Count).Select(facts.Label).Where(label => CodeThemes.Example.Contains(label.text)).ToList();
-                Require(codeLabels.Count == CodeThemes.Example.Length, "the preview does not draw its example as " + CodeThemes.Example.Length + " rows: " + codeLabels.Count);
-                var paintedRows = codeLabels.Count(label => GlazeRuns.Of(label).Painted.Count > 0);
+                // Every page of a fresh read (the narrow form parts the example over two), each page's example rows and their paint.
+                var codeBar = Read();
+                var drawnCode = new HashSet<string>();
+                var paintedCode = new HashSet<string>();
+                for (var codePage = 0; codePage < PagesOf(codeBar); codePage++)
+                {
+                    view.Show(codeBar);
+                    view.SettleForRender();
+                    var facts = view.Facts;
+                    foreach (var label in facts == null ? Enumerable.Empty<TMPro.TextMeshPro>() : Enumerable.Range(0, facts.Count).Select(facts.Label))
+                    {
+                        if (!CodeThemes.Example.Contains(label.text)) continue;
+                        drawnCode.Add(label.text);
+                        if (GlazeRuns.Of(label).Painted.Count > 0) paintedCode.Add(label.text);
+                    }
+                    if (PagesOf(codeBar) > 1) codeBar.Turn();
+                }
+                Require(drawnCode.Count == CodeThemes.Example.Length, "the preview does not draw its example as " + CodeThemes.Example.Length + " rows over its pages: " + drawnCode.Count);
+                var paintedRows = paintedCode.Count;
                 Require(state.EndsWith("-plain", StringComparison.Ordinal) ? paintedRows == 0 : paintedRows == CodeThemes.Example.Length,
                     "the preview paints " + paintedRows + " of its example's rows in " + CodeThemes.Words(CodeThemes.Current));
             }
