@@ -227,8 +227,9 @@ namespace Halcyonic.XR.UI
                 }
                 // Never one word alone on a row's last line (JUDGE's live walk, 2026-11-17: New Project's "by name" at Larger): its last two
                 // words held together in the lay only, the same length so every run's place holds (LabelText.KeepLastTwo), as a card's row
-                // is; the plain lay kept where the pair cannot stand on one line.
-                if (laid.Lines >= 2 && RoomCardView.LastLineIsOneWord(label))
+                // is; the plain lay kept where the pair cannot stand on one line. Never a code row: a no-break space would reflow code and
+                // its colours read the text as laid (AUDIT3's CC-d, 2026-11-17T18:24Z).
+                if (rows[index].Code == null && laid.Lines >= 2 && RoomCardView.LastLineIsOneWord(label))
                 {
                     var plain = label.text;
                     var held = LabelText.KeepLastTwo(plain);

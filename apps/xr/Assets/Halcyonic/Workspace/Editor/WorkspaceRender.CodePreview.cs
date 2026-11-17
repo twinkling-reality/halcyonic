@@ -71,6 +71,24 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(CodeThemes.Current == CodeTheme.Plain, "Cancel did not put the kept colours back");
                     UnityEngine.Object.DestroyImmediate(host);
                 }
+                // CC-d: a code row is never held at its last two words. At a width where the same words as a row of words end on one word
+                // and are held (a no-break space between the last two), the code row stays as laid, its text unchanged.
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                GlazeText.SetScale(1f);
+                const string codeLine = "const finished = tasks.filter(task => task.done).map(task => task.title).slice(0, 3) ok;";
+                var holder = new GameObject("Code hold");
+                var held = RoomRowsView.Create(holder.transform);
+                var found = false;
+                for (var dp = 120f; dp <= 440f && !found; dp += 4f)
+                {
+                    held.Show(new[] { new RoomRow(LineWords.Ours(codeLine)) }, RoomType.Units(dp));
+                    if (!held.Label(0).text.Contains('\u00A0')) continue;
+                    found = true;
+                    held.Show(new[] { new RoomRow(LineWords.Ours(codeLine), code: CodeLanguage.Script) }, RoomType.Units(dp));
+                    if (held.Label(0).text.Contains('\u00A0')) failures.Add("a code row was held at its last two words at " + dp + " dp: " + held.Label(0).text.Replace('\u00A0', '~'));
+                }
+                if (!found) failures.Add("no width from 120 to 440 dp ends the words' row on one word alone, so the code row's guard is unproven");
+                UnityEngine.Object.DestroyImmediate(holder);
                 // A view destroyed without OnDestroy (here, in the Editor) never fails a later theme change, and lets go of it.
                 var never = RoomRowsView.Create(new GameObject("Never shown").transform);
                 UnityEngine.Object.DestroyImmediate(never.transform.parent.gameObject);
