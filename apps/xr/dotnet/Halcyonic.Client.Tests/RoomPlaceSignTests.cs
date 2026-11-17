@@ -32,10 +32,11 @@ public class RoomPlaceSignTests
         Assert.That(RoomPlaceSign.NameOf(places.Update("j", Tasks(2), _ => null).Single()), Is.Null, "no name the host knows, none drawn");
     }
 
+    // Every count the default rule stands whole (FIELD's 19:11Z numbers: 3 in a row, 5 in two), the last one included.
     [TestCase(1)]
     [TestCase(3)]
-    [TestCase(6)]
-    [TestCase(10)]
+    [TestCase(4)]
+    [TestCase(5)]
     public void NoPressWhereThePlaceStandsEveryCharacter(int count)
     {
         var places = new RoomPlaces();
