@@ -93,7 +93,8 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// No hue in the chrome (the lead's 2026-11-17 19:15Z and 19:18Z (2); visionos-window-example.png's thin control and
         /// visionos-label-vibrant-primary.png's vibrant white): the moment's one main action stands apart by its lighter thin-glass
-        /// capsule (<see cref="MainPlateColour"/>) with a crisp white edge, its glyph and words white; never a hue, never a glow.
+        /// capsule (<see cref="MainPlateColour"/>) alone, its glyph and words white: no outline, no hue, no glow (AUDIT, 19:21Z: neither file
+        /// shows an edge on a control). The colour stays for the Listening halo, which is white.
         /// </summary>
         public const int RimColour = 0xFFFFFF;
 
@@ -596,7 +597,10 @@ namespace Halcyonic.XR.UI
         /// <summary>A quiet action (the dialog's others): its glyph and words alone at rest, its plate only while pointed or held.</summary>
         public bool Quiet { get; set; }
 
-        /// <summary>Whether the accent's lit rim stands round it: the moment's one main action, and Confirm behind its lock.</summary>
+        /// <summary>Whether it stands as the moment's one prominent press: the main action, or Confirm behind its lock, drawn on the lighter plate.</summary>
+        public bool Prominent => Lit;
+
+        /// <summary>Whether it is the moment's one main action, and Confirm behind its lock (its plate the lighter thin glass).</summary>
         public bool Lit => gameObject.activeSelf && (main || LockProgress != null) && mark == AnswerMark.None;
 
         /// <summary>
@@ -664,8 +668,9 @@ namespace Halcyonic.XR.UI
             block.SetVector(CoreId, new Vector4(core.x / unit, core.y / unit, haloCorner, haloNow.w * move.Shown));
             block.SetVector(HaloColourId, new Vector4(haloNow.x, haloNow.y, haloNow.z, HaloFeatherDp));
             var rim = RimNow;
-            RimPainted = Lit;
-            block.SetVector(RimId, new Vector4(RimDp, RimGlowDp, 1f, RimPainted ? 1f : 0f));
+            // No rim on any press (the lead's 19:15Z, AUDIT's 19:21Z): the main action is its lighter plate alone.
+            RimPainted = false;
+            block.SetVector(RimId, new Vector4(RimDp, RimGlowDp, 1f, 0f));
             block.SetVector(RimColourId, new Vector4(rim.r, rim.g, rim.b, 1f));
             block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
             block.SetVector(ChipId, new Vector4(chipCentreX / unit, 0f, chipDp, cornerDp));

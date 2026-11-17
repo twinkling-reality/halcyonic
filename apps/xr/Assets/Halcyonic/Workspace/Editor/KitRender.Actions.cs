@@ -72,8 +72,11 @@ namespace Halcyonic.XR.Workspace.Editor
             // The accent as light (the one language): the lit rim on the main actions and on Confirm behind its lock, which is the moment's
             // main action waiting (the lead's 0529Z word), and on no other; every action's words white, never in the accent.
             var leading = looks.Count(row => row.Main || row.Lock != null);
-            Require(leading == 3 && buttons.Count(button => button.RimPainted && button.RimNow == Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.RimColour)) == leading,
-                "the accent's rim is not on the main actions alone");
+            // No hue and no outline (the lead's 19:15Z; AUDIT 19:21Z): the main actions stand apart by the lighter thin-glass plate alone.
+            bool OnMainPlate(RoomButton button) => button.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.MainPlateColour) || button.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.MainPlatePointedColour);
+            Require(leading == 3 && buttons.Count(button => button.Prominent && OnMainPlate(button)) == leading && buttons.Count(OnMainPlate) == leading,
+                "the lighter plate is not on the main actions alone");
+            Require(buttons.All(button => !button.RimPainted), "a press paints a rim");
             Require(buttons.All(button => button.Words.color.r == 1f && button.Words.color.g == 1f && button.Words.color.b == 1f), "an action's words are not white");
             for (var index = 1; index < buttons.Count; index++)
             {
@@ -143,8 +146,8 @@ namespace Halcyonic.XR.Workspace.Editor
             reused.Show("Approve", GlazeIcon.Approve, true, true, Vector2.zero, 0f, doing: "approve\napproval-1");
             reused.Settle();
             Require(reused.LookNow() == RoomButtonLook.Main, "Approve in a pressed action's place shows " + reused.LookNow() + ", not Main");
-            Require(reused.RimPainted && reused.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.MainPlateColour),
-                "Approve in a pressed action's place does not carry the accent's rim on the main action's plate");
+            Require(reused.Prominent && !reused.RimPainted && reused.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.MainPlateColour),
+                "Approve in a pressed action's place does not stand on the main action's lighter plate");
             reused.Hide();
 
             var height = (looks.Length - 1) * pitch + RoomType.Units(RoomButton.HeightDp);
