@@ -60,15 +60,15 @@ namespace Halcyonic.XR.UI
         public RoomShape Ground => ground;
 
         /// <summary>
-        /// The agent's plate while it works (the addendum's A17): the agent's own glyph, 18 dp, 8 dp before its name, on a quiet
-        /// finish of its own (#101316 at 78 percent, no ring, no edge), so it never reads as a task's tag or a press. 78, not the
-        /// first 62: with the worker named by its role, "Agent" is our word and leans on no ground of its own, and at 62 it reached
-        /// 3.59 to 1 over the bright room at the standard size (SCREENS's 36-work, 2026-11-16); 78 holds white at about 5.4 to 1 there.
+        /// The agent's plate while it works (the addendum's A17): the agent's own glyph, 18 dp, 8 dp before its name, on the kit's
+        /// one glass (<see cref="AskGlass"/>'s face, no ring, no edge), so it never reads as a task's tag or a press. Its first 62
+        /// percent reached 3.59 to 1 over the bright room at the standard size (SCREENS's 36-work, 2026-11-16), 78 about 5.4 to 1;
+        /// the glass's face holds white higher still there.
         /// </summary>
         public const float AgentGlyphDp = 18f;
         public const float AgentGlyphGapDp = 8f;
-        public const int PlateGround = 0x101316;
-        public const float PlateAlpha = 0.78f;
+        public const int PlateGround = AskGlass.FaceColour;
+        public const float PlateAlpha = AskGlass.FaceAlpha;
 
         /// <summary>
         /// The widest a name tag's words stand (the lead's 08:58Z, JUDGE's live walk: a long task's tag stood 27 degrees wide

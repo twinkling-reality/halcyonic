@@ -84,11 +84,14 @@ namespace Halcyonic.XR.UI
 
         private const float DisabledOpacity = 0.45f;
 
-        /// <summary>The one accent (the agent's cursor's #59CFF1): the one main action's chip, Confirm's ring and glyph while it locks, a chosen answer's mark.</summary>
-        public const int AccentColour = 0x59CFF1;
+        /// <summary>
+        /// The one accent, the brand's kingfisher orange family (the owner's ruling, 2026-11-16: orange only on the main action): the main
+        /// action's chip (#F6B074, lighter than its backing), Confirm's ring and glyph while it locks, a chosen answer's mark.
+        /// </summary>
+        public const int AccentColour = 0xF6B074;
 
         /// <summary>The main action's chip while pointed, the light chip a pointed action takes, and the glyph's ink on a light or accent chip.</summary>
-        public const int AccentPointedColour = 0x9BE2F7;
+        public const int AccentPointedColour = 0xF9C894;
         public const int LightColour = 0xD5DADE;
         public const int InkColour = 0x172024;
 
@@ -543,13 +546,13 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// The backing's colours: the neutral halo (#343A3F), and the one main action's, the accent's own dark (#22586A, #296A7F
-        /// while pointed or held). A brighter fill (#2A7590) took white words to 4.1 to 4.4:1 in the judges' walk (2026-11-12),
-        /// under the floor: the accent stands out by its chip, not a lighter fill under white words.
+        /// The backing's colours: the neutral halo (#343A3F), and the one main action's, the brand's kingfisher orange (#ED7833,
+        /// #F08A4B while pointed or held) under the dark ink's words (5.6 to 1); white words on it read only 3 to 1, so the main
+        /// action's words take the ink.
         /// </summary>
         public const int HaloColour = 0x343A3F;
-        public const int MainHaloColour = 0x22586A;
-        public const int MainPointedHaloColour = 0x296A7F;
+        public const int MainHaloColour = 0xED7833;
+        public const int MainPointedHaloColour = 0xF08A4B;
 
         /// <summary>
         /// The destructive kind's colours (<see cref="Prompt.Destructive"/>): the kit's failure red on its chip (#D4463B, the
@@ -565,6 +568,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>How far the backing's edge feathers each way, in dp.</summary>
         public const float HaloFeatherDp = 6f;
+
+        /// <summary>How far the main action's plate feathers each way, in dp: crisp.</summary>
+        public const float MainFeatherDp = 1.2f;
 
         /// <summary>
         /// What a look stands as (F6, 2026-11-10): the chip's colour, the backing's colour and its alpha in Unity's linear
@@ -650,7 +656,8 @@ namespace Halcyonic.XR.UI
             var fade = (look == RoomButtonLook.Disabled ? DisabledOpacity : 1f) * move.Shown;
             var haloCorner = size == RoomButtonSize.Home ? HomeHaloCornerDp : HaloCornerDp * textScale;
             block.SetVector(CoreId, new Vector4(core.x / unit, core.y / unit, haloCorner, haloNow.w * move.Shown));
-            block.SetVector(HaloColourId, new Vector4(haloNow.x, haloNow.y, haloNow.z, HaloFeatherDp));
+            // The main action's plate a crisp shape (AUDIT's MUST 2: a feathered orange edge read out of focus); the others feather as ever.
+            block.SetVector(HaloColourId, new Vector4(haloNow.x, haloNow.y, haloNow.z, main || locked ? MainFeatherDp : HaloFeatherDp));
             block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
             block.SetVector(ChipId, new Vector4(chipCentreX / unit, 0f, chipDp, cornerDp));
             block.SetVector(ChipColourId, chipNow);
@@ -659,6 +666,9 @@ namespace Halcyonic.XR.UI
             block.SetFloat(FadeId, fade);
             halo.SetPropertyBlock(block);
             if (glyphShown is RoomGlyph shown) glyph.Show(shown, glyphDp, new Color(glyphNow.r, glyphNow.g, glyphNow.b, glyphNow.a * fade));
+            // The main action's words in the dark ink on its orange backing (5.6 to 1), every other action's white on its own.
+            var ink = (main || locked) && !destructive ? RoomSurface.Hex(InkColour) : Color.white;
+            if (words.color.r != ink.r || words.color.g != ink.g || words.color.b != ink.b) words.color = new Color(ink.r, ink.g, ink.b, move.Shown);
             if (!Mathf.Approximately(words.alpha, move.Shown)) words.alpha = move.Shown;
             if (shownAside != null)
             {

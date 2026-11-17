@@ -194,11 +194,11 @@ namespace Halcyonic.XR.UI
         /// #B9AE9E, #EEEEEE) reads its face #121217, #3E3A3A, #4B4C52, and this face lands within 7 of 255 of each in Unity's
         /// blend; the hairline within 13 (the page whitens a face whose colour follows the room, which one linear colour cannot
         /// on all three). The shadow at the reference's proportion to its 640 px, at the panel's 440 dp. The squircle corners stay
-        /// (the owner's 2026-11-05 glass squircles). Every kind the same.
+        /// (the owner's 2026-11-05 glass squircles). Every kind the same: the kit's one glass token, <see cref="AskGlass"/>.
         /// </summary>
         public static RoomGlassLook DarkLook(RoomSurfaceKind kind) =>
-            new RoomGlassLook(WithAlpha(Hex(0x0F111E), DarkAlpha), WithAlpha(Hex(0x0F111E), DarkAlpha), Hex(0x313137), Hex(0x313137), 1f, shadow: DrawsShadow,
-                shadowDropDp: 24f * ShadowScale, shadowBlurDp: 60f * ShadowScale, shadowAlpha: 0.35f, innerColour: new Color(1f, 1f, 1f, 0.08f), innerCornerDp: 0f);
+            new RoomGlassLook(WithAlpha(Hex(AskGlass.FaceColour), DarkAlpha), WithAlpha(Hex(AskGlass.FaceColour), DarkAlpha), Hex(0x313137), Hex(0x313137), 1f, shadow: DrawsShadow,
+                shadowDropDp: 24f * ShadowScale, shadowBlurDp: 60f * ShadowScale, shadowAlpha: 0.35f, innerColour: new Color(1f, 1f, 1f, AskGlass.HairlineAlpha), innerCornerDp: 0f);
 
         /// <summary>
         /// Halcyonic's own Light, not the owner's reference (it has none; the lead's 13:33Z marks it ours): the same structure
@@ -218,7 +218,7 @@ namespace Halcyonic.XR.UI
         public const bool DrawsShadow = false;
 
         /// <summary>The dark face's alpha in Unity's linear blend, solved with its colour from the reference's pixels.</summary>
-        public const float DarkAlpha = 0.918f;
+        public const float DarkAlpha = AskGlass.FaceAlpha;
 
         /// <summary>The light face's alpha in Unity's linear blend, solved the same way.</summary>
         public const float LightAlpha = 0.64f;
