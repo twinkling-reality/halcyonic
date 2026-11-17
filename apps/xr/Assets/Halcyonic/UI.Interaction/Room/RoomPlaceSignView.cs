@@ -86,6 +86,9 @@ namespace Halcyonic.XR.UI
                 nameLabel.fontStyle &= ~FontStyles.UpperCase;
                 GlazeRuns.Of(nameLabel).Set(said);
                 var (lines, laidWide, tall) = KitType.Lay(nameLabel, RoomType.Scaled(NameMostDp), 12);
+                // Its box hangs from its top, so the name stands under the point it is given, never over what stands above it (the floor arc, the
+                // team's tags: AUDIT's 22:0xZ found it centred on the point, over a tag).
+                nameLabel.rectTransform.pivot = new Vector2(0.5f, 1f);
                 nameLabel.transform.localPosition = new Vector3(0f, 0f, 0f);
                 wide = laidWide;
                 down = Mathf.Max(lines, 1) * RoomType.Scaled(NameLineDp);
