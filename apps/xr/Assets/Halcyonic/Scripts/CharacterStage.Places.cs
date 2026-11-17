@@ -411,7 +411,8 @@ namespace Halcyonic.XR
                 {
                     if (DrawnTagCorners(views[back]) is not Vector3[] tag) continue;
                     float tagLeft = tag.Min(Yaw), tagRight = tag.Max(Yaw), tagFoot = tag.Min(Up);
-                    for (var front = 0; front < rowMost; front++)
+                    // Every nearer row's bodies, so a place one or two to a row keeps each row's tags clear of the row before it too.
+                    for (var front = 0; front < back && front / rowMost < back / rowMost; front++)
                     {
                         var body = views[front].BodyCorners().ToList();
                         if (body.Count == 0) continue;
