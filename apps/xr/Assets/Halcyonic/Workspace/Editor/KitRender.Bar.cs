@@ -730,6 +730,52 @@ namespace Halcyonic.XR.Workspace.Editor
                     finally { RoomDesign.Enabled = designWas; }
                 }
             }
+            if (state == "33-ask")
+            {
+                // Approve only what is shown (AUDIT3's FL1): the request's answers take no pinch while its panel is held for a flying
+                // character, nor while its last line builds; once it stands whole they take one, each settling from the build-up's end.
+                var panelClock = 100f;
+                bar.PanelClock = () => panelClock;
+                // In motion, as a person sees it: under Still the panel stands whole at once and its answers take a press at once.
+                var motionWas = GlazeMotion.Still;
+                GlazeMotion.Still = false;
+                var arrival = typeof(RoomBarView);
+                const System.Reflection.BindingFlags Inside = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                arrival.GetField("arrivedAt", Inside)!.SetValue(bar, panelClock);
+                arrival.GetField("arrivalHold", Inside)!.SetValue(bar, RoomMotion.FlightBreathSeconds + RoomMotion.FlightSeconds);
+                arrival.GetField("builtBefore", Inside)!.SetValue(bar, false);
+                var follow = arrival.GetMethod("FollowArrival", Inside)!;
+                var lines = ((System.Collections.ICollection)arrival.GetField("panelWords", Inside)!.GetValue(bar)!).Count;
+                bool Pinch(float at, string when)
+                {
+                    panelClock = 100f + at;
+                    follow.Invoke(bar, null);
+                    if (bar.AnswerPresses.FirstOrDefault(each => each != null && each.gameObject.activeInHierarchy) is not KitPress answer)
+                    {
+                        shot.Failures.Add("FL1: the request draws no answer " + when);
+                        return false;
+                    }
+                    var took = false;
+                    System.Action counted = () => took = true;
+                    answer.Pressed += counted;
+                    answer.SettleForRender();
+                    answer.PressForRender(931);
+                    answer.Pressed -= counted;
+                    // The pinch's flash ends, so the frame drawn after shows the request as it stands.
+                    answer.EndFlash();
+                    return took;
+                }
+                var builtAt = RoomMotion.FlightBreathSeconds + RoomMotion.FlightSeconds + RoomMotion.PanelArrivalSeconds(lines);
+                if (Pinch(RoomMotion.FlightBreathSeconds + RoomMotion.FlightSeconds - 0.6f, "while held")) shot.Failures.Add("FL1: an answer took a pinch while its panel was held for the flight");
+                if (Pinch(builtAt - 0.05f, "while building")) shot.Failures.Add("FL1: an answer took a pinch while its panel's last line still built");
+                if (!Pinch(builtAt + 0.5f, "once whole")) shot.Failures.Add("FL1: an answer took no pinch once its panel stood whole");
+                Debug.Log("Halcyonic: spatial kit: " + state + ": FL1 read, " + lines + " panel lines, whole at " + builtAt.ToString("0.00") + " s after the call");
+                // Back as the render stands it.
+                GlazeMotion.Still = motionWas;
+                bar.PanelClock = () => Time.unscaledTime;
+                bar.SettleArrival();
+                host.SettleForRender();
+            }
             // Confirm's lock: on its arrival the ring is part filled and it takes no press; 0.7 s on it is the main action.
             if (state == "33-ask-confirm-arriving") bar.AgeLockForRender(0.42f * RoomBar.ConfirmLockSeconds);
             if (state is "33-ask-confirm" or "34-question-confirm" or "33-ask-tool-confirm" or "36-stop-confirm" or "38-add-last")
