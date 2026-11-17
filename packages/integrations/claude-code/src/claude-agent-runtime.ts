@@ -1001,13 +1001,17 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       // words, and a hook there would run a command for every task (E5). Inside the sandbox the
       // 'user' source would be the folder's own configuration, which the agent can write (AUDIT2 S1).
       settingSources: [],
-      ...(open &&
-        personal !== null &&
-        Object.keys(personal.hooks).length > 0 && {
-          settings: {
-            hooks: personal.hooks as NonNullable<Settings['hooks']>,
-          },
-        }),
+      // Outside the closed profile the network is open, so a command that reads or reaches a remote asks the person
+      // even where Claude Code would run it unasked (AUDIT3, 2026-11-17; OPEN_RUN_ASKS).
+      ...(open && {
+        settings: {
+          ...(personal !== null &&
+            Object.keys(personal.hooks).length > 0 && {
+              hooks: personal.hooks as NonNullable<Settings['hooks']>,
+            }),
+          permissions: { ask: [...OPEN_RUN_ASKS] },
+        },
+      }),
       ...(start.model !== undefined && { model: start.model }),
       ...(start.permissionMode !== undefined && { permissionMode: start.permissionMode }),
       // Claude Code stops the query once its own estimate of the query's spending passes it, checked
@@ -2217,6 +2221,26 @@ function approvalRequest(
       (described === null || others.every((name) => quiet.includes(name))),
   };
 }
+
+/**
+ * The ask rules every run outside the closed profile carries in its own flag settings (AUDIT3, 2026-11-17): git commands
+ * that read a remote's address, git's settings or a credential, or reach a remote. Claude Code 2.1.283 runs `git remote
+ * -v`, `git config --get` and a bare `git ls-remote` unasked in its default mode (validation/claude-code-unasked.md);
+ * with these they reach the person. The rest stay as Claude Code decides: every one that writes, names a URL, fetches
+ * or reads outside the folder already asks there.
+ */
+export const OPEN_RUN_ASKS: readonly string[] = [
+  'Bash(git remote:*)',
+  'Bash(git config:*)',
+  'Bash(git ls-remote:*)',
+  'Bash(git fetch:*)',
+  'Bash(git pull:*)',
+  'Bash(git push:*)',
+  'Bash(git clone:*)',
+  'Bash(git submodule:*)',
+  'Bash(git credential:*)',
+  'Bash(git var:*)',
+];
 
 /** What a confined agent is told when it tries to write a file Halcyonic keeps (`RUNS_LATER`). */
 export const KEPT_BY_HALCYONIC =

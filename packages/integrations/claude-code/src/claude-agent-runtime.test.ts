@@ -43,6 +43,7 @@ import {
   type ClaudeAgentRuntimeOptions,
   KEPT_BY_HALCYONIC,
   keptPath,
+  OPEN_RUN_ASKS,
   type QueryHandle,
   requestChanges,
   requestPaths,
@@ -532,6 +533,11 @@ describe('starting an execution', () => {
     // No settings file loads, the person's own neither: a settings env could add a credential that outranks the
     // key. The observers' hooks are passed explicitly (personal-settings.test.ts); a project's own never are.
     assert.deepEqual(options.settingSources, []);
+    // Outside the closed profile, git commands that read or reach a remote ask the person (AUDIT3, 2026-11-17).
+    assert.deepEqual(options.settings, { permissions: { ask: [...OPEN_RUN_ASKS] } });
+    assert.ok(
+      OPEN_RUN_ASKS.includes('Bash(git remote:*)') && OPEN_RUN_ASKS.includes('Bash(git config:*)'),
+    );
     const env = options.env ?? {};
     assert.equal(env.HOME, '/home/tester');
     assert.equal(env.ANTHROPIC_API_KEY, 'test-key-not-real');

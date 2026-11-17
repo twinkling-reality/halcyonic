@@ -1,0 +1,34 @@
+# Which Bash commands Claude Code runs without asking
+
+Verified 2026-11-17 on the Claude Code CLI the agent SDK 0.3.283 bundles (`claude --version`: 2.1.283), as Halora launches
+it outside the closed profile: default permission mode, `settingSources: []`, the host's `canUseTool`. A fake
+Messages API on loopback asked for one Bash call per command; the callback recorded whether it was called and denied.
+HOME was a scratch folder, and gh, security, curl, git, ssh, wget and nc were shims on PATH that did nothing, so no
+command read a real credential or reached the network. The test that holds it is
+`packages/integrations/claude-code/src/unasked-bash.e2e.test.ts` (needs CLAUDE_CODE_BIN).
+
+## Claude Code's own default (no ask rules)
+
+Ran unasked, inside the session's folder: `ls`, `cat`, `head`, `grep`, `sed -n`, `sleep`, a pipe of those
+(`ls | head -1`), `git status`, `git log`, `git show`, `git branch -a`, `git describe`, `git grep`, `git blame`,
+`git shortlog`, `git rev-parse`, and also `git remote -v`, `git config --get <key>`, `cat .git/config` and a bare
+`git ls-remote`.
+
+Asked: a redirect (`cat x > y`), `rm`, `env`, `printenv`, `curl`, `gh auth status`, `gh auth token`,
+`security find-generic-password`, `git push`, `git fetch`, `git pull`, `git clone`, `git submodule update`,
+`git archive --remote`, `git ls-remote <url>`, `git config --list`, `git config --get-regexp`, `git credential fill`,
+`git var -l`, and any `cat`, `head`, `sed`, `ls`, `find`, `grep -r` or `git -C` that names a path outside the folder.
+
+## With Halora's ask rules
+
+Every run outside the closed profile passes `permissions.ask` in its own flag settings (`OPEN_RUN_ASKS`:
+`git remote`, `git config`, `git ls-remote`, `git fetch`, `git pull`, `git push`, `git clone`, `git submodule`,
+`git credential`, `git var`). Then `git remote -v`, `git config --get` and a bare `git ls-remote` ask too; the
+read-only rest is unchanged. `cat .git/config` still runs unasked: in a task's copy that file holds no remote and no
+credential (ADR 0045), and outside one it is the folder's own.
+
+## What it does not show
+
+The set is Claude Code's, by command text, and changes with its version; the test fails when it does. A command the
+probe did not name is Claude Code's to classify. Tool calls other than Bash (Read, Grep, Glob) follow Claude Code's own
+rules for paths and were not probed here.

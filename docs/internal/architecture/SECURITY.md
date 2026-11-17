@@ -121,6 +121,15 @@ too: the GitHub CLI keeps its login there by default, not in `~/.config/gh`, and
 keychain nor `/usr/bin/security`, so a run can be expected to reach that login and push with it (an inference from
 gh's documented storage, not probed). Such a run is recorded not confined.
 
+Outside the closed profile, Claude Code runs some Bash commands without asking, by its own rules: with no settings
+loaded and its default mode, Claude Code 2.1.283 runs reads inside the folder unasked (`ls`, `cat`, `head`, `grep`,
+`sed -n`, `git status`, `git log`, `git show` and the like) and asks for everything that writes, reads outside the
+folder, prints the environment or reaches the network (`env`, `curl`, `gh auth`, `security`, `git push`,
+`git fetch`). It also ran `git remote -v`, `git config --get` and a bare `git ls-remote` unasked, so every such run
+carries ask rules for the git commands that read a remote's address, git's settings or a credential, or reach a
+remote (`OPEN_RUN_ASKS`), and those ask the person too. The network stays open in such a run: what a person approves
+can reach it. The probe and its test are in [claude-code-unasked.md](../validation/claude-code-unasked.md).
+
 Claude Code loads no settings file (`settingSources: []`, since 2026-11-12), for each task and for listing models:
 a settings `env` could add a credential that outranks the stored key. Outside the closed profile the person's own
 `CLAUDE.md` and Salidium's and Seorak's hooks are passed explicitly, so they observe the session, and a managed
