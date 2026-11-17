@@ -152,8 +152,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!(director.Plane.KitShows && director.Plane.Kit.Bar.Button(NewProjectScreens.UseIdea) == null
                     && director.Plane.Kit.Bar.Button(NewProjectScreens.StartBuilding) != null)) Press(NewProjectScreens.UseIdea);
                 Shot("05-task-recap");
+                // Under the kit the recap's facts are rows of its Change page (RoomBar.NewProject), so Change opens them first; after
+                // Done the change page stands, and Back to Recap is the way to Start Building.
+                bool KitDraws(string action) => director.Plane.KitShows && director.Plane.Kit.Bar.Button(action) != null;
+                if (KitDraws(NewProjectScreens.ChangeRecap)) Press(NewProjectScreens.ChangeRecap);
                 Press(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
                 Press(NewProjectScreens.MoreOptions); Press(NewProjectScreens.ChooseRuntime, runtime.RuntimeId); Press(NewProjectScreens.Done);
+                if (!KitDraws(NewProjectScreens.StartBuilding) && KitDraws(NewProjectScreens.BackToRecap)) Press(NewProjectScreens.BackToRecap);
                 Shot("06-task-ready"); Press(NewProjectScreens.StartBuilding);
                 var review = flow?.Review ?? throw new InvalidOperationException("The actual mandatory review did not open");
                 if (review.PageCount < 2) failures.Add("The long task did not exercise multiple mandatory review pages");
