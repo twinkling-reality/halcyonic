@@ -31,6 +31,21 @@ export interface AcpProfile {
    */
   readonly replacesEveryOccurrence: readonly string[];
   /**
+   * File tools whose input says the whole change, by field name, as a run of this version showed (Kiro carries no
+   * change Halora can read in its diff alone): a replacement (`replace`: the file, the text replaced, its
+   * replacement, and the field that says whether every occurrence is), and a new file (`create`: the file and its
+   * whole text, carried only where nothing is at that path yet). Null where the app's diff is read instead.
+   */
+  readonly fileInputs: {
+    readonly replace: {
+      readonly path: string;
+      readonly before: string;
+      readonly after: string;
+      readonly every: string;
+    };
+    readonly create: { readonly path: string; readonly text: string };
+  } | null;
+  /**
    * A shell tool whose input names the whole command in one field and nothing else that acts: its name,
    * that field, the field that says it runs in the background, and the inputs that change neither what
    * runs nor where. A request of it is shown as the command, said to run in the task's folder.
@@ -85,6 +100,7 @@ export const ANTIGRAVITY: AcpProfile = {
     'ANTIGRAVITY_HARNESS_PATH',
   ],
   replacesEveryOccurrence: ['edit_file'],
+  fileInputs: null,
   projectSettings: ['.agents', '.gemini'],
   askingMode: 'default',
   // `--gemini-dir` moves both its settings (`antigravity-cli/`) and its hooks, tool servers and plugins
@@ -113,9 +129,15 @@ export const KIRO: AcpProfile = {
   args: ['acp', '--agent-engine', 'v3'],
   environment: {},
   ownVariables: ['KIRO_API_KEY', 'KIRO_HOME', 'KIRO_DEFAULT_SETTINGS'],
-  // Seen on one signed-in run (validation/acp-agents.md): its requests carry no input, which its earlier reports of
-  // the same call give; a write carries no change, so it can only be denied, and a command is shown as its whole input.
+  // Seen on signed-in runs (validation/acp-agents.md): its requests carry no input, which its earlier reports of
+  // the same call give; a command is shown as its whole input, a file change from its input (`fileInputs`).
   replacesEveryOccurrence: [],
+  // Seen on a signed-in run (validation/acp-agents.md): `str_replace` replaced exactly its `oldStr` with `newStr`,
+  // `replace_all` false; `fs_write` asked with `{path, text}` for a new file.
+  fileInputs: {
+    replace: { path: 'path', before: 'oldStr', after: 'newStr', every: 'replace_all' },
+    create: { path: 'path', text: 'text' },
+  },
   projectSettings: ['.kiro', '.amazonq'],
   // Kiro's modes are its agents: `vibe` ("Default") asked before every write and most commands on a signed-in run.
   askingMode: 'vibe',

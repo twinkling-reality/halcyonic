@@ -45,6 +45,8 @@ export function requestChanges(
   profile: AcpProfile,
   folder: string,
 ): ApprovalChange[] | null {
+  if (profile.fileInputs !== null)
+    return changesFromInput(record(toolCall.rawInput), profile.fileInputs, folder);
   const content = Array.isArray(toolCall.content) ? toolCall.content : [];
   const diffs = content.map(record).filter((entry) => entry !== null && entry.type === 'diff');
   if (diffs.length === 0 || diffs.length > CHANGES_MAX) return null;
@@ -76,6 +78,67 @@ export function requestChanges(
     changes.push({ ...base, kind: 'update', shape: 'replace', before, after, every: true });
   }
   return changes;
+}
+
+/**
+ * The change a file tool's input states whole, for a profile that names its fields (`AcpProfile.fileInputs`): a
+ * replacement of one text by another, at every occurrence where its field says so, or a new file's whole text where
+ * nothing is at that path yet. Null for any other input, so the request can only be denied.
+ */
+function changesFromInput(
+  input: Record<string, unknown> | null,
+  fields: NonNullable<AcpProfile['fileInputs']>,
+  folder: string,
+): ApprovalChange[] | null {
+  if (input === null) return null;
+  const base = { real_path: null, to_path: null, cell: null } as const;
+  const fits = (value: unknown): value is string =>
+    typeof value === 'string' && value.length <= CHANGE_TEXT_MAX;
+  const { replace, create } = fields;
+  const replacePath = input[replace.path];
+  if (
+    typeof replacePath === 'string' &&
+    replacePath !== '' &&
+    fits(input[replace.before]) &&
+    fits(input[replace.after]) &&
+    typeof input[replace.every] === 'boolean' &&
+    Object.keys(input).every((key) =>
+      [replace.path, replace.before, replace.after, replace.every].includes(key),
+    )
+  ) {
+    return [
+      {
+        ...base,
+        path: replacePath,
+        kind: 'update',
+        shape: 'replace',
+        before: input[replace.before] as string,
+        after: input[replace.after] as string,
+        every: input[replace.every] as boolean,
+      },
+    ];
+  }
+  const createPath = input[create.path];
+  if (
+    typeof createPath === 'string' &&
+    createPath !== '' &&
+    fits(input[create.text]) &&
+    Object.keys(input).every((key) => [create.path, create.text].includes(key)) &&
+    !existsSync(isAbsolute(createPath) ? createPath : resolve(folder, createPath))
+  ) {
+    return [
+      {
+        ...base,
+        path: createPath,
+        kind: 'add',
+        shape: 'content',
+        before: null,
+        after: input[create.text] as string,
+        every: false,
+      },
+    ];
+  }
+  return null;
 }
 
 /** Every place the request names, from ACP's `locations`, or null where there are none or too many. */

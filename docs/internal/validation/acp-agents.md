@@ -180,6 +180,13 @@ the agent-app profile, the app's settings home of Halora's own, the cheapest lis
   opened a session with modes `default` (current), `accept-edits`, `auto`, `plan`, and 22 models (current
   `gemini-4-carbon-medium`). Its settings file takes no model (`model` and `model.name` were ignored);
   `session/set_config_option` set `model` `gemini-3.8-flash` and `thought_level` `low`, mode staying `default`.
+- Kiro run 3 (18:16Z, raw ACP, the probe approving file edits only, `qwen3-coder-next`): asked to change "line two"
+  to "line 2" in an existing `notes.txt`, Kiro read it unasked (inside the folder) and asked once for `str_replace`,
+  input `{path, oldStr: "line two", newStr: "line 2", replace_all: false}`, reported on the call (with a diff of the
+  whole file) before the request; approved, only that line changed. Kiro's own report: 0.0324 credits, 15 s. So a
+  Kiro replacement is carried from its input (shape `replace`, `every` from `replace_all`), and a write
+  `{path, text}` as a new file's whole text where nothing is at that path yet; a write over a file already there is
+  not seen, so it stays deny-only.
 - Run 3, through the adapter on `gemini-3.8-flash` low: Antigravity answered at once with the agent message "⚠
   Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 45m35s." and
   `stopReason: "end_turn"`, so the adapter recorded the turn completed with no work done; nothing ran, nothing was

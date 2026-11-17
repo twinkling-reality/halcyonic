@@ -658,7 +658,7 @@ describe('ACP adapter: the mode that asks', () => {
 });
 
 describe('ACP adapter on Kiro 3.4.0 traces', () => {
-  test('signed in: each request shows the input Kiro reported for its call; commands whole, writes only denied', async (t) => {
+  test('signed in: each request shows the input Kiro reported for its call; commands whole, new files whole', async (t) => {
     const run = setUp(t, 'kiro-signed-in-deny.jsonl', { profile: KIRO });
     await start(run);
     const asked: { summary: string; complete: boolean; kind: string }[] = [];
@@ -689,8 +689,9 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
     );
     const writes = asked.filter((request) => request.kind === 'edit');
     assert.equal(writes.length, 3);
+    // Each a new file's whole text, `{path, text}` where nothing is yet: carried, so it can be approved.
     for (const write of writes) {
-      assert.equal(write.complete, false);
+      assert.equal(write.complete, true);
       assert.match(write.summary, /hello\.txt/);
     }
     // `pwd` ran without a request, by Kiro's own rules; it is reported as a tool all the same.
@@ -704,6 +705,42 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
         optionId: 'reject',
       });
     }
+    assertValidObservations(run.observations);
+  });
+
+  test('signed in: an edit asks with its replacement carried whole, and approved it runs', async (t) => {
+    const run = setUp(t, 'kiro-signed-in-edit.jsonl', { profile: KIRO });
+    await start(run);
+    const asked = await run.next('runtime.approval.requested');
+    if (asked.type !== 'runtime.approval.requested') return;
+    assert.equal(asked.payload.complete, true);
+    assert.deepEqual(asked.payload.subject.changes, [
+      {
+        path: join(run.folder, 'notes.txt'),
+        real_path: null,
+        to_path: null,
+        kind: 'update',
+        shape: 'replace',
+        before: 'line two',
+        after: 'line 2',
+        every: false,
+        cell: null,
+      },
+    ]);
+    await run.adapter.respondToApproval({
+      execution: TEST_EXECUTION,
+      approval_id: asked.payload.approval_id,
+      decision: 'approve',
+      message: null,
+    });
+    await run.next('runtime.turn.completed');
+    const answer = run
+      .sent()
+      .find((message) => message.method === undefined && 'result' in message);
+    assert.deepEqual((answer?.result as { outcome: unknown }).outcome, {
+      outcome: 'selected',
+      optionId: 'accept',
+    });
     assertValidObservations(run.observations);
   });
 
@@ -880,6 +917,22 @@ describe('ACP approval requests', () => {
         title: 'Edit x',
         rawInput: { path: 'x', old: 'a', new: 'b' },
         content: [{ type: 'diff', path: '/nonexistent-project/x', oldText: 'a', newText: 'b' }],
+      },
+      KIRO,
+      folder,
+    );
+    assert.equal(asked.subject.changes, undefined);
+    assert.equal(asked.complete, false);
+  });
+
+  test("Kiro's write over a file already there is not taken for a new one, so it can only be denied", (t) => {
+    const folder = temporary(t);
+    writeFileSync(join(folder, 'here.txt'), 'old\n');
+    const asked = approvalRequest(
+      {
+        toolCallId: 'a',
+        kind: 'edit',
+        rawInput: { path: join(folder, 'here.txt'), text: 'new\n' },
       },
       KIRO,
       folder,
