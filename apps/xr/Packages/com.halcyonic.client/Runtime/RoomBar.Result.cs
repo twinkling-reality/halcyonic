@@ -206,8 +206,10 @@ namespace Halcyonic.Client
                     // Where the project changed the same files, that leads, as before: nothing can be added until it is fitted.
                     if (result.Add?.State == RoomAddState.Conflict) column.Add(Own(RoomResult.ShowConflict, RoomAdd.LetAgentFix, main: column.Count == 0, GlazeIcon.Next));
                     if (result.CanMakeVr) column.Add(Own(RoomResult.MakeVrVersion, KitScreenModel.Words(KitScreenAction.MakeAVrVersion), main: column.Count == 0, GlazeIcon.Next));
-                    if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: column.Count == 0, GlazeIcon.OpenNow));
+                    // The review's main press is Add to Project where there is work to add (the lead's 01:05Z, f6), still its own review's
+                    // press (AUDIT3's R2); Try Build beside it.
                     if (result.Add?.State == RoomAddState.Ready) column.Add(Own(RoomResult.ShowAdd, RoomAdd.AddToProject, main: column.Count == 0, GlazeIcon.Next));
+                    if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: column.Count == 0, GlazeIcon.OpenNow));
                     if (!result.CanMakeVr && result.IsVr && instruct != null && !ranOut) column.Add(new RoomAction(instruct, main: column.Count == 0, KitScreenModel.Words(KitScreenAction.ChangeIt)));
                     // DEVICE's Play in Headset beside Try Build, where it stands. Where it does not, it is not drawn: an action that
                     // cannot act has no disabled look (BUILD-SPEC-v4 1.4); where its refusal's words stand is FIELD's to say.
@@ -229,6 +231,14 @@ namespace Halcyonic.Client
                     band = card != null && ReferenceEquals(card, binding.Model.Standing)
                         ? KitPresenter.TurnReportOf(binding.Model.Report, binding.Model.Trail)?.Text
                         : binding.Model.Report?.Text;
+                    // FIELD's f6: the review card holds the turn's state over the task's name and the agent's own first sentence under
+                    // THE AGENT SAYS (AUDIT2, AUDIT3 01:06Z), so the band does not say it again.
+                    if (card != null && !ReferenceEquals(card, binding.Model.Standing))
+                    {
+                        var says = FirstSentence(binding.Model.Report?.Text);
+                        card = card.WithReview(result.Observed != null ? RoomStanding.Finished : null, says == null ? null : LineWords.Theirs(says));
+                        if (says != null) band = null;
+                    }
                     // Where the result says nothing, the task's steps list stands in place of how the run stands (place (b), SCREENS's
                     // reader 5: "Turn Finished" goes once the list stands); the band keeps that turn's own words.
                     if (card != null && ReferenceEquals(card, binding.Model.Standing) && binding.Model.Steps.Count > 0)
@@ -259,6 +269,18 @@ namespace Halcyonic.Client
                 Card = card,
                 Ended = fixedLine,
             };
+        }
+
+        /// <summary>The agent's first sentence or first point in <paramref name="text"/>, whole, trimmed; null where it says nothing.</summary>
+        public static string? FirstSentence(string? text)
+        {
+            var laid = RoomWords.Laid(text);
+            if (laid.Length == 0) return null;
+            var ends = RoomWords.SentenceEnds(laid);
+            var end = ends.Length > 0 ? ends[0] : laid.Length;
+            if (RoomWords.FirstClauseEnd(laid, 0, laid.Length) is int clause && clause < end) end = clause;
+            var first = laid.Substring(0, end).Trim();
+            return first.Length == 0 ? null : first;
         }
 
         /// <summary><paramref name="card"/> with <paramref name="status"/> where it has none, or a card of the task's name and that status alone.</summary>

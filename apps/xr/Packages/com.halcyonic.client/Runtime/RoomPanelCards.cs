@@ -22,6 +22,20 @@ namespace Halcyonic.Client
         public const string AllPassing = "All Passing";
         public const string ChecksFailed = "Checks Failed";
 
+        /// <summary>
+        /// The Changes fact's quiet line: the first changed file's name in the project, theirs, and how many more ("index.html and 3
+        /// more"); null where none was seen. Only the file's own name, never a folder or a disk path (AUDIT3's R3).
+        /// </summary>
+        public static LineWords? ChangesNamed(IReadOnlyList<RoomChange> changes, long? total = null)
+        {
+            if (changes.Count == 0) return null;
+            var all = total is long counted && counted >= changes.Count ? counted : changes.Count;
+            var path = changes[0].Path;
+            var name = path.Substring(path.LastIndexOfAny(new[] { '/', '\\' }) + 1);
+            var first = LineWords.Theirs(name);
+            return all == 1 ? first : first + LineWords.Ours(" and " + (all - 1).ToString(System.Globalization.CultureInfo.InvariantCulture) + " more");
+        }
+
         /// <summary>The review card's checks fact: how many of the computer's own check steps passed, of all of them ("4 of 4 Checks Passed", AUDIT2 23:51Z).</summary>
         public static string ChecksCount(int passed, int of) =>
             passed.ToString(System.Globalization.CultureInfo.InvariantCulture) + " of " + of.ToString(System.Globalization.CultureInfo.InvariantCulture) + " Checks Passed";
@@ -72,16 +86,19 @@ namespace Halcyonic.Client
             // status, in the Checks page's own words (AUDIT2 2026-11-16 10:05Z W1), and the checks a fact under it, one press from
             // the result: how many of the computer's own steps passed. Where a chain of tries that ended already names the outcome,
             // its status stands and the outcome is not said twice (W2).
-            RoomCardStatus? outcome = null;
-            if (result.Passed is bool passed && ended?.Status == null)
-                outcome = new RoomCardStatus(passed ? AllPassing : ChecksFailed, null, passed ? RoomTone.Good : RoomTone.Attention);
+            // FIELD's f6 (the one language, 01:05Z): the outcome is the Checks fact's value, its own line (AUDIT3's MUST), the
+            // steps passed the quiet line under it; where an ended chain of tries' status already names it, only the count.
+            if (result.Passed is bool passed)
+                slots.Add(new RoomSlot(passed ? RoomKind.Passed : RoomKind.Failed,
+                    LineWords.Ours(ended?.Status == null ? (passed ? AllPassing : ChecksFailed) : ChecksCount(result.Steps.Count(step => step.Result == CheckStepResult.Passed), result.Steps.Count)),
+                    press: checks, label: ChecksTitle,
+                    line: ended?.Status == null && result.Steps.Count > 0 ? LineWords.Ours(ChecksCount(result.Steps.Count(step => step.Result == CheckStepResult.Passed), result.Steps.Count)) : null));
             // A check whose verdict is not known: said as such, with no mark of passed or failed (VRIFY, AUDIT2's words).
-            else if (result.PartlyChecked) slots.Add(new RoomSlot(RoomKind.None, LineWords.Ours(KitMomentWords.PartlyChecked)));
-            if (result.Passed != null && result.Steps.Count > 0)
-                slots.Add(new RoomSlot(result.Passed == true ? RoomKind.Passed : RoomKind.Failed,
-                    LineWords.Ours(ChecksCount(result.Steps.Count(step => step.Result == CheckStepResult.Passed), result.Steps.Count)), press: checks));
-            if (toAdd is RoomSlot waiting) slots.Add(new RoomSlot(waiting.Kind, waiting.Value, waiting.Mono, waiting.Press ?? changes));
-            else if (result.FilesChanged is long count) slots.Add(new RoomSlot(RoomKind.ToAdd, LineWords.Ours(RoomAdd.Files(count)), press: changes));
+            else if (result.PartlyChecked) slots.Add(new RoomSlot(RoomKind.None, LineWords.Ours(KitMomentWords.PartlyChecked), label: ChecksTitle));
+            // The files: the first the computer saw change, by its name in the project, and how many more (AUDIT2, AUDIT3 01:06Z).
+            var named = ChangesNamed(result.Changes, toAdd != null ? result.Add?.Count : result.FilesChanged);
+            if (toAdd is RoomSlot waiting) slots.Add(new RoomSlot(waiting.Kind, waiting.Value, waiting.Mono, waiting.Press ?? changes, ChangesTitle, named));
+            else if (result.FilesChanged is long count) slots.Add(new RoomSlot(RoomKind.ToAdd, LineWords.Ours(RoomAdd.Files(count)), press: changes, label: ChangesTitle, line: named));
             // SCREENS's run start (FIELD's 1424Z words): a run the Mac says is not kept to its folder, and a task that is a plan.
             if (result.Start is { NotConfined: true }) slots.Add(new RoomSlot(RoomKind.Folder, LineWords.Ours(RunStart.NotKeptToFolder)));
             // A plan whose run ended waits for the person (Plan Ready, the attention tone); while its run is at work it plans. A plan
@@ -92,8 +109,7 @@ namespace Halcyonic.Client
                 : (RoomCardStatus?)null)
                 // Where the computer's own check gives no outcome, the card says what the Checks page says (JUDGE's ALERT 05:04Z):
                 // a check under way, or the demonstration's simulated checks, said as simulated; never "Nothing checked yet".
-                ?? (result.CheckRunning ? new RoomCardStatus(TaskSteps.Checking, null, RoomTone.Working) : result.Simulated)
-                ?? outcome;
+                ?? (result.CheckRunning ? new RoomCardStatus(TaskSteps.Checking, null, RoomTone.Working) : result.Simulated);
             // Where Play in Headset is not drawn and why matters to the person, its reason stands at the card's foot.
             var refusal = result.Play is PlayInHeadset play ? HeadsetPlay.RefusalLine(play) : null;
             return new RoomCard(task, head: RoomCardHead.Picture, status: status, slots: slots, trackAt: ended?.TrackAt, trackOf: ended?.TrackOf,

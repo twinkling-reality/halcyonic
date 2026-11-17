@@ -55,7 +55,7 @@ namespace Halcyonic.Client
             KitControl? Bound(KitControl? press) => press == null || ReferenceEquals(press.Frame, frame) ? press
                 : new KitControl(press.Place, frame, press.Action, press.Key, press.Words, press.Icon, press.Available, press.Reason, press.Holds, press.Chosen, press.Mark);
             if (card.Press == null && card.List.All(row => row.Press == null) && card.Slots.All(slot => slot.Press == null)) return card;
-            return card.WithSlots(card.Slots.Select(slot => new RoomSlot(slot.Kind, slot.Value, slot.Mono, Bound(slot.Press))).ToList())
+            return card.WithSlots(card.Slots.Select(slot => new RoomSlot(slot.Kind, slot.Value, slot.Mono, Bound(slot.Press), slot.Label, slot.Line)).ToList())
                 .WithList(card.List.Select(row => row.WithPress(Bound(row.Press))).ToList())
                 .WithPress(Bound(card.Press));
         }

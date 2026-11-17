@@ -62,9 +62,13 @@ public sealed class RoomPanelCardsTests
         var card = RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps()), Task)!;
         Assert.That((card.Title!.Text, card.Head), Is.EqualTo(("Golden Balloon", RoomCardHead.Picture)));
         Assert.That(card.Title.Runs.All(run => run.Theirs), "the task's name is theirs");
-        Assert.That(card.Slots.Select(slot => (slot.Kind, slot.Value.Text)), Is.EqualTo(new[] { (RoomKind.Passed, "4 of 4 Checks Passed"), (RoomKind.ToAdd, "5 Files") }));
-        Assert.That((card.Status?.Title, card.Status?.Tone, card.Description), Is.EqualTo(((string?)"All Passing", (RoomTone?)RoomTone.Good, (LineWords?)null)),
-            "the outcome is the card's one large line; the agent's words stand on the band, never here");
+        // FIELD's f6 (TASKS): each fact labelled, the outcome the Checks fact's own line, the steps passed under it; the files and the
+        // first one's name in the project and how many more under them (AUDIT2, AUDIT3 01:06Z).
+        Assert.That(card.Slots.Select(slot => (slot.Kind, slot.Label, slot.Value.Text)), Is.EqualTo(new[] { (RoomKind.Passed, (string?)"Checks", "All Passing"), (RoomKind.ToAdd, (string?)"Changes", "5 Files") }));
+        Assert.That(card.Slots[0].Line?.Text, Is.EqualTo("4 of 4 Checks Passed"));
+        Assert.That(card.Slots[1].Line?.Text, Does.EndWith(" and 4 more"), "the first file's name and how many more");
+        Assert.That(card.Slots[1].Line!.Runs.First().Theirs && !card.Slots[1].Line!.Text.Contains('/'), "only the file's own name, theirs, never a folder");
+        Assert.That((card.Status, card.Description), Is.EqualTo(((RoomCardStatus?)null, (LineWords?)null)), "the agent's words stand under THE AGENT SAYS, set by the bar");
         Assert.That(card.AnyDot, Is.False);
         var waiting = RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps()), Task, toAdd: new RoomSlot(RoomKind.ToAdd, LineWords.Ours("4 Files")))!;
         Assert.That(waiting.Slots[1].Value.Text, Is.EqualTo("4 Files"), "the files waiting to be added stand in the count's place");

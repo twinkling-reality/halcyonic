@@ -1000,26 +1000,30 @@ namespace Halcyonic.XR.Workspace.Editor
                             "the agent and its level do not stand in the row beside the result");
                     if (known.Page == RoomResultPage.Result)
                     {
-                        Require(shown.Band == message && host.Band.Words != null && host.Band.Text.Length > 0, "the agent's newest message does not stand on the band");
-                        foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
-                            Require(!(label.text ?? "").Contains(message.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
-                        Require((bar.BandNextButton != null) == (state == "38-result-long"), state == "38-result-long" ? "no way to the long message's next part" : "a way to a next part the band does not have");
-                        if (state == "38-result-long") Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Rest && shown.Column.Any(action => action.Main), "the message's next part is the main action over the result's own");
+                        // FIELD's f6 (TASKS): the agent's own first sentence stands on the review card under THE AGENT SAYS, theirs, and the
+                        // band does not say it again; where the result's card is how a run stands, the band holds the turn's words as before.
+                        if (shown.Card?.Says is LineWords says)
+                            Require(shown.Band == null && says.AllTheirs && says.Text == RoomBar.FirstSentence(message) && shown.Card.Eyebrow == RoomStanding.Finished,
+                                "the review card does not hold the agent's first sentence under Turn Finished: " + says.Text);
+                        else Require(shown.Band == message && host.Band.Words != null && host.Band.Text.Length > 0, "the agent's newest message does not stand on the band");
+                        Require(bar.BandNextButton == null || shown.Card?.Says == null, "a way to a band's next part beside the review card");
                         // The review card (TASKS, take 3): the check's outcome its status, its one large line; its checks and the files as
                         // facts, each one press from the result; an ended chain of tries as its status; no sentence, nothing joined on a
                         // dot, every label of the card whole.
                         var stopped = state == "38-result-stopped";
                         var unclaimed = state is "38-result-checking" or "38-result-simulated" or "38-result-unchecked" or "38-result-starter";
                         // The outcome in the Checks page's own word, said once, as the status (AUDIT2 10:05Z W1, W2); the checks as how many passed (AUDIT2 23:51Z).
-                        var passedAll = RoomPanelCards.ChecksCount(4, 4);
-                        var slots = state == "38-project" ? new[] { passedAll } : stopped ? new[] { RoomPanelCards.ChecksCount(1, 4), "4 Files" }
-                            : state == "38-result-add" ? new[] { passedAll, "10 Files" } : state == "38-result-review" ? new[] { passedAll, "3 Files" }
-                            : unclaimed ? new[] { "4 Files" } : new[] { passedAll, "4 Files" };
+                        var all = RoomPanelCards.AllPassing;
+                        var slots = state == "38-project" ? new[] { all } : stopped ? new[] { RoomPanelCards.ChecksCount(1, 4), "4 Files" }
+                            : state == "38-result-add" ? new[] { all, "10 Files" } : state == "38-result-review" ? new[] { all, "3 Files" }
+                            : unclaimed ? new[] { "4 Files" } : new[] { all, "4 Files" };
                         var statusTitle = stopped ? RoomBar.StoppedTitle : state == "38-result-checking" ? TaskSteps.Checking : state == "38-result-simulated" ? SimulatedChecks.Title
-                            : state == "38-result-starter" ? StarterChecks.Title : unclaimed ? null : RoomPanelCards.AllPassing;
-                        // Each fact is a press to its page.
+                            : state == "38-result-starter" ? StarterChecks.Title : null;
+                        // FIELD's f6: each fact labelled (CHECKS, CHANGES) and one press to its page; the outcome its own line, the count under it.
                         if (!unclaimed)
-                            Require(shown.Card?.Slots.Count > 0 && shown.Card.Slots.All(slot => slot.Press != null), "a fact on the review card is not one press to its page");
+                            Require(shown.Card?.Slots.Count > 0 && shown.Card.Slots.All(slot => slot.Press != null && slot.Label != null), "a fact on the review card is not labelled, or not one press to its page");
+                        if (!unclaimed && !stopped)
+                            Require(shown.Card!.Slots[0].Line?.Text == RoomPanelCards.ChecksCount(4, 4), "the checks fact's line under All Passing reads " + shown.Card.Slots[0].Line?.Text);
                         Require(shown.Card != null && !shown.Card.AnyDot && shown.Card.Slots.Select(slot => slot.Value.Text).SequenceEqual(slots) && shown.Sentence == null
                             && (shown.Card.Status?.Title == statusTitle) && (state != "38-result-simulated" || shown.Card.Status?.Line == SimulatedChecks.Line)
                             && (state != "38-result-starter" || shown.Card.Status?.Line == StarterChecks.Line),
@@ -1044,8 +1048,8 @@ namespace Halcyonic.XR.Workspace.Editor
                             }
                         }
                         if (stopped) Require(shown.Column[0].Place == KitPlace.Field && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1, "Write Instruction does not lead where the tries ran out");
-                        else if (state == "38-result-review") Require(shown.Column[0].Control.Action == RoomResult.TryBuild && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1
-                            && shown.Column.Any(action => action.Control.Action == RoomResult.ShowAdd && !action.Main), "Try Build does not lead the review card with Add to Project quiet beside it");
+                        else if (state == "38-result-review") Require(shown.Column[0].Control.Action == RoomResult.ShowAdd && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1
+                            && shown.Column.Any(action => action.Control.Action == RoomResult.TryBuild && !action.Main), "Add to Project does not lead the review card with Try Build quiet beside it");
                         else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Copy does not lead");
                         if (state == "38-result-add") Require(shown.Column.Any(action => action.Control.Action == RoomResult.ShowAdd && !action.Main), "Add to Project does not stand where the task holds work to add");
                         if (state == "38-result-full")

@@ -414,6 +414,8 @@ namespace Halcyonic.XR.UI
             var beside = card.Press != null ? Mathf.Max(S(StepDp), full - S(CardChevronDp + RowGapDp)) : full;
             chevronAt = null;
             foreach (var role in new List<KitRole>(textsUsed.Keys)) textsUsed[role] = 0;
+            foreach (var cap in capLabels) cap.characterSpacing = 0f;
+            capLabels.Clear();
             platesUsed = 0;
             gaugeFills.Clear();
             gaugeNumbers.Clear();
@@ -447,12 +449,23 @@ namespace Halcyonic.XR.UI
             }
             if (named)
             {
-                Gap(BlockGapDp);
+                // The review card's state word over its name, in the one language's spaced capitals (FIELD's f6).
+                if (card.Eyebrow != null) down = LayCap(card.Eyebrow, width, down) + S(EyebrowGapDp);
+                else Gap(BlockGapDp);
                 down = LayHead(card, beside, down);
                 if (card.Status is RoomCardStatus status && !card.StatusAfter)
                 {
                     Gap(BlockGapDp);
                     down = LayStatus(status, card, width, down);
+                }
+                // The agent's own first sentence under THE AGENT SAYS, its quote mark before it: reported, theirs (AUDIT2, AUDIT3).
+                if (card.Says is LineWords says)
+                {
+                    Gap(BlockGapDp);
+                    down = LayCap(SaysLabel, width, down) + S(CapGapDp);
+                    Text(KitRole.Strong, SaysTypeDp + 6f, SaysLineDp, White(SaysQuoteAlpha), LineWords.Ours("\u201C"), 0f, -down, S(SaysQuoteDp), 1);
+                    var (_, saidTall) = Text(KitRole.Body, SaysTypeDp, SaysLineDp, White(SaysAlpha), says, S(SaysQuoteDp + CapGapDp), -down, width - S(SaysQuoteDp + CapGapDp), SaysLines);
+                    down += saidTall;
                 }
             }
             // A card never says the same words twice: a description that only repeats the title is not drawn (an idea that is
@@ -528,7 +541,7 @@ namespace Halcyonic.XR.UI
             if (card.Slots.Count > 0)
             {
                 Gap(BlockGapDp);
-                down = LaySlots(card.Slots, width, down);
+                down = card.Slots.Any(slot => slot.Label != null) ? LayFacts(card.Slots, width, down) : LaySlots(card.Slots, width, down);
             }
             if (card.Reading.Count > 0)
             {
@@ -958,7 +971,8 @@ namespace Halcyonic.XR.UI
                 LabelShown = label;
                 down += labelTall + S(4f);
             }
-            var headed = card.Head != RoomCardHead.None;
+            // The review card (TASKS, FIELD's f6) draws no picture box of its own: its name stands alone unless the person gave a photo.
+            var headed = card.Head != RoomCardHead.None && !(card.Eyebrow != null && card.Still == null);
             var left = headed ? S(HeadDp + HeadGapDp) : 0f;
             var column = width - left;
             var tall = 0f;
@@ -1096,6 +1110,83 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The most lines a slot's value wraps to where it is wider than the card: a long web address, whole.</summary>
         public const int SlotValueLines = 6;
+
+        /// <summary>The one language's label (FIELD's f6): 15 dp spaced capitals at a quiet white; the gap under a label and under the eyebrow.</summary>
+        public const float CapTypeDp = 15f;
+        public const float CapLineDp = 20f;
+        public const float CapTracking = 24f;
+        public const float CapAlpha = 0.62f;
+        public const float CapGapDp = 8f;
+        public const float EyebrowGapDp = 10f;
+
+        /// <summary>The agent's sentence on the review card: its size, line, alpha and lines, and its quote mark.</summary>
+        public const string SaysLabel = "The Agent Says";
+        public const float SaysTypeDp = 20f;
+        public const float SaysLineDp = 28f;
+        public const float SaysAlpha = 0.86f;
+        public const int SaysLines = 3;
+        public const float SaysQuoteDp = 18f;
+        public const float SaysQuoteAlpha = 0.5f;
+
+        /// <summary>A labelled fact's value (24 dp) and its quiet line (17 dp), and the hairline between two facts.</summary>
+        public const float FactValueDp = 24f;
+        public const float FactValueLineDp = 30f;
+        public const float FactLineDp = 17f;
+        public const float FactLineLineDp = 23f;
+        public const float FactLineAlpha = 0.62f;
+        public const float FactGapDp = 28f;
+
+        /// <summary>A label in the one language's spaced capitals, our own words; returns the depth under it.</summary>
+        private float LayCap(string words, float width, float down)
+        {
+            var (label, tall) = Text(KitRole.Strong, CapTypeDp, CapLineDp, White(CapAlpha), LineWords.Ours(words.ToUpperInvariant()), 0f, -down, width, 1);
+            label.characterSpacing = CapTracking;
+            capLabels.Add(label);
+            return down + tall;
+        }
+
+        /// <summary>Labels set in spaced capitals this frame, their tracking undone when the pool hands them to other words.</summary>
+        private readonly List<TextMeshPro> capLabels = new List<TextMeshPro>();
+
+        /// <summary>
+        /// The review card's facts (TASKS, FIELD's f6): side by side, a hairline between, each its label in spaced capitals, its
+        /// value with its kind's mark, and its quiet line; a fact that opens its page takes a press across its column.
+        /// </summary>
+        private float LayFacts(IReadOnlyList<RoomSlot> slots, float width, float down)
+        {
+            var count = Mathf.Min(slots.Count, 2);
+            var column = (width - (count - 1) * S(FactGapDp)) / count;
+            var tallest = 0f;
+            for (var index = 0; index < count; index++)
+            {
+                var slot = slots[index];
+                var x = index * (column + S(FactGapDp));
+                var y = down;
+                if (slot.Label != null)
+                {
+                    var (cap, capTall) = Text(KitRole.Strong, CapTypeDp, CapLineDp, White(CapAlpha), LineWords.Ours(slot.Label.ToUpperInvariant()), x, -y, column, 1);
+                    cap.characterSpacing = CapTracking;
+                    capLabels.Add(cap);
+                    y += capTall + S(CapGapDp);
+                }
+                var glyphOf = slot.Kind == RoomKind.Passed ? RoomGlyph.Check : slot.Kind == RoomKind.Failed ? RoomGlyph.AlertRing : (RoomGlyph?)null;
+                var markRoom = glyphOf != null ? S(SlotGlyphDp + 8f) : 0f;
+                if (glyphOf is RoomGlyph mark)
+                    Glyph(mark, SlotGlyphDp, Rgb(slot.Kind == RoomKind.Passed ? Passed : Failed), new Vector2(x + S(SlotGlyphDp) / 2f, -(y + S(FactValueLineDp) / 2f)), "fact " + slot.Kind);
+                var (_, valueTall) = Text(KitRole.Strong, FactValueDp, FactValueLineDp, Color.white, slot.Value, x + markRoom, -y, column - markRoom, 1);
+                y += valueTall;
+                if (slot.Line is LineWords line)
+                {
+                    var (_, lineTall) = Text(KitRole.Body, FactLineDp, FactLineLineDp, White(FactLineAlpha), line, x, -(y + S(2f)), column, 1);
+                    y += S(2f) + lineTall;
+                }
+                if (slot.Press is KitControl press) RowTarget(press, new Vector2(x + column / 2f, -(down + (y - down) / 2f)), new Vector2(column, y - down));
+                tallest = Mathf.Max(tallest, y - down);
+            }
+            // The hairline between the facts, the glass's own edge white (FIELD's f6).
+            if (count == 2) Plate(new Vector2(S(1f), tallest), 0f, White(0.10f), new Vector2(column + S(FactGapDp) / 2f, -(down + tallest / 2f)), "facts hairline");
+            return down + tallest;
+        }
 
         private float LaySlots(IReadOnlyList<RoomSlot> slots, float width, float down)
         {

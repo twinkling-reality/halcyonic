@@ -119,7 +119,10 @@ namespace Halcyonic.Client
         Agent,
     }
 
-    /// <summary>One fact of a card's loadout: the glyph of its kind in a tile, its value under it, and no label.</summary>
+    /// <summary>
+    /// One fact of a card's loadout: the glyph of its kind in a tile, its value under it, and no label; or, on the review card
+    /// (TASKS, FIELD's f6), a labelled fact: our label in spaced capitals, the value with its mark, and a quiet line under it.
+    /// </summary>
     public readonly struct RoomSlot
     {
         /// <param name="mono">The value is a name to type (a folder's name, a model's exact id), set in the mono face.</param>
@@ -127,13 +130,23 @@ namespace Halcyonic.Client
         /// The control the slot raises where its fact is changed in place (a recap's folder opens where it is chosen): the
         /// whole well takes the press, one press to its change, as the Change page's row for it would raise.
         /// </param>
-        public RoomSlot(RoomKind kind, LineWords value, bool mono = false, KitControl? press = null)
+        /// <param name="label">The fact's label, ours, drawn in spaced capitals over its value ("Checks"); null for a plain slot.</param>
+        /// <param name="line">The quieter line under the value ("4 of 4 Checks Passed"); null for none.</param>
+        public RoomSlot(RoomKind kind, LineWords value, bool mono = false, KitControl? press = null, string? label = null, LineWords? line = null)
         {
             Kind = kind;
             Value = value;
             Mono = mono;
             Press = press;
+            Label = label;
+            Line = line == null || line.IsEmpty ? null : line;
         }
+
+        /// <summary>The fact's label, ours, in spaced capitals over its value; null for a plain slot.</summary>
+        public string? Label { get; }
+
+        /// <summary>The quieter line under the value; null for none.</summary>
+        public LineWords? Line { get; }
 
         /// <summary>What a press on the slot raises; null where the slot only says its fact.</summary>
         public KitControl? Press { get; }
@@ -461,6 +474,8 @@ namespace Halcyonic.Client
                 label: from.Label, heads: from.Heads, readingLit: from.ReadingLit, readingBare: from.ReadingBare)
         {
             Still = from.Still;
+            Eyebrow = from.Eyebrow;
+            Says = from.Says;
         }
 
         /// <summary>
@@ -474,6 +489,18 @@ namespace Halcyonic.Client
 
         /// <summary>This card, its face now the way in to <paramref name="press"/> (a card built before the frame its press is of), or none.</summary>
         public RoomCard WithPress(KitControl? press) => new RoomCard(this) { Press = press };
+
+        /// <summary>
+        /// The review card's own lines (TASKS, FIELD's f6): our state word in spaced capitals over the title ("Turn Finished"), and
+        /// the agent's own first sentence under THE AGENT SAYS, reported, theirs (AUDIT2 and AUDIT3, 01:06Z). Null where none.
+        /// </summary>
+        public string? Eyebrow { get; private set; }
+
+        public LineWords? Says { get; private set; }
+
+        /// <summary>This card with the review's eyebrow and the agent's sentence.</summary>
+        public RoomCard WithReview(string? eyebrow, LineWords? says) =>
+            new RoomCard(this) { Eyebrow = eyebrow, Says = says == null || says.IsEmpty ? null : says, Still = Still };
 
         /// <summary>This card with <paramref name="slots"/> in place of its own, every other part kept.</summary>
         public RoomCard WithSlots(IReadOnlyList<RoomSlot> slots) => new RoomCard(this) { Slots = slots };

@@ -45,7 +45,7 @@ public class ResultCardAgreesTests
         var result = Result(passed: true, simulated: simulated, checkRunning: true);
         Assert.That((result.Simulated, result.CheckRunning), Is.EqualTo(((RoomCardStatus?)null, false)), "the computer's own outcome stands alone");
         var card = RoomPanelCards.Result(result, Task)!;
-        Assert.That(card.Status?.Title, Is.EqualTo(RoomPanelCards.AllPassing), "the computer's own outcome is the card's line");
+        Assert.That((card.Status, card.Slots[0].Value.Text), Is.EqualTo(((RoomCardStatus?)null, RoomPanelCards.AllPassing)), "the computer's own outcome is the Checks fact's own line");
     }
 
     [Test]
