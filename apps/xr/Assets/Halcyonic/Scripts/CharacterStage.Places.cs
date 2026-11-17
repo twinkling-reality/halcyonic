@@ -38,8 +38,11 @@ namespace Halcyonic.XR
         /// <summary>The step a back row rises by while its tags stand over the front row's bodies, in metres.</summary>
         public const float BackRowRiseStep = 0.02f;
 
+        /// <summary>How far a tag's plate draws past its laid size as the eyes see it, in degrees: its glass's edge and rim.</summary>
+        public const float PlateReachDegrees = 0.4f;
+
         /// <summary>The least angle kept between a back-row tag's foot and a front-row body's top, in degrees (the gap kept between things).</summary>
-        public const float BackRowClearDegrees = 0.3f;
+        public const float BackRowClearDegrees = 1f;
 
         /// <summary>Raised once for each other project's place as it first stands, with the point its sign hangs from (its top middle), so
         /// the room's parts can stand <c>RoomPlaceSignView</c> there; <see cref="OtherPlaces"/> says what each place holds now.</summary>
@@ -314,22 +317,6 @@ namespace Halcyonic.XR
                 }
                 return most;
             }
-            // A tag bounded in degrees is held to them as DRAWN: where the widest stands wider, every bound tightens by as much and the tags
-            // are laid again, so the row of three holds whatever the type's metrics (two passes settle it).
-            for (var pass = 0; pass < 3 && RedrawTag != null; pass++)
-            {
-                var target = views.Where(view => view.TagMostDegrees.HasValue).Select(view => view.TagMostDegrees!.Value).DefaultIfEmpty(0f).Min();
-                var drawnMost = WidestDegrees();
-                if (target <= 0f || drawnMost <= PlaceTagMostDegrees + 0.05f) break;
-                var tighter = PlaceTagMostDegrees / drawnMost;
-                foreach (var view in views)
-                {
-                    if (view.TagMostDegrees is not float bound) continue;
-                    view.TagMostDegrees = bound * tighter;
-                    RedrawTag(view);
-                }
-                Lay();
-            }
             // The row from the tags as the EYES see them (FIELD's PlacePitch is in degrees from the eyes): a place's tags stand lower and nearer or
             // further than its floor arc's distance, so their metres are read at their own distance, never at the arc's.
             // Laid, read and laid again until the row stands still: a row's tags read as they stand in it (three passes at most).
@@ -339,12 +326,13 @@ namespace Halcyonic.XR
                 if (widestSeen <= 0f) break;
                 var rowWas = rowMost;
                 var bodyDegrees = PlacePitch.DegreesOf(BodyWidth * scale, distance);
-                var pitchDegrees = PlacePitch.PitchDegrees(widestSeen, bodyDegrees);
+                // The plates' glass reaches past the tag's laid size, so the half degree between tags is read on the plates (AUDIT's 21:03Z).
+                var pitchDegrees = PlacePitch.PitchDegrees(widestSeen + PlateReachDegrees, bodyDegrees);
                 // Tags move with their characters, so a pitch in metres that sets the tags pitchDegrees apart as the eyes see them, across the
                 // floor at the tags' own distance, is the characters' pitch.
                 var tagDistance = views.Take(Mathf.Min(rowMost, count)).Average(view => Across(view.Labels.position, eyes));
                 pitch = (float)PlacePitch.MetresOf(pitchDegrees, tagDistance);
-                rowMost = Mathf.Min(PlacePitch.RowMost(widestSeen, bodyDegrees), rule.FullMost);
+                rowMost = Mathf.Min(PlacePitch.RowMost(widestSeen + PlateReachDegrees, bodyDegrees), rule.FullMost);
                 if (SayLayout) Debug.Log("Halcyonic: places: layout pass " + settle + ": widest tag " + widestSeen.ToString("0.00") + " degrees, body " + bodyDegrees.ToString("0.00") + ", rows of " + rowMost + ".");
                 Lay();
                 if (settle > 0 && rowMost == rowWas) break;

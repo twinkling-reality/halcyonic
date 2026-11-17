@@ -139,12 +139,23 @@ namespace Halcyonic.XR.UI
             var wide = RoomCursor.WordsWidth(words, 0f);
             var line = RoomType.Scaled(RoomGeometry.LineDp);
             Lines = 1;
-            if (mostWordsDp is float most && wide > RoomType.Scaled(most))
+            // The name's bound never narrower than the state's words under it (AUDIT's 21:03Z: a tag never draws under its state, so a tighter bound
+            // only breaks the name onto more lines, a lone word among them).
+            float? wordsMost = mostWordsDp is float bound ? RoomType.Scaled(bound) : (float?)null;
+            if (wordsMost is float wordsBound && !plate && !string.IsNullOrWhiteSpace(state))
+            {
+                RoomType.Label(stateWords, state!);
+                stateWords.textWrappingMode = TextWrappingModes.NoWrap;
+                stateWords.rectTransform.sizeDelta = new Vector2(RoomType.Units(2000f), RoomType.Scaled(RoomGeometry.LineDp));
+                stateWords.ForceMeshUpdate(true, true);
+                wordsMost = Mathf.Max(wordsBound, RoomCursor.WordsWidth(stateWords, 0f));
+            }
+            if (wordsMost is float most && wide > most)
             {
                 // Bounded: broken at a word onto as many lines as it needs, whole (no ellipsis: the overflow never cuts).
                 words.textWrappingMode = TextWrappingModes.Normal;
                 words.overflowMode = TextOverflowModes.Overflow;
-                var (lines, laidWide, tall) = KitType.Lay(words, RoomType.Scaled(most), 12);
+                var (lines, laidWide, tall) = KitType.Lay(words, most, 12);
                 // Never one word alone on the name's last line (FIELD's places sheet v2, SHOULD 3): its last two words held together in the
                 // lay only, the same length so every run's place holds (LabelText.KeepLastTwo), as a card's row and the rows' are; the
                 // plain lay kept where the pair cannot stand on one line.
@@ -155,11 +166,11 @@ namespace Halcyonic.XR.UI
                     if (held != plain)
                     {
                         words.text = held;
-                        var tried = KitType.Lay(words, RoomType.Scaled(most), 12);
+                        var tried = KitType.Lay(words, most, 12);
                         if (words.isTextOverflowing || words.isTextTruncated || RoomCardView.PairSplit(words))
                         {
                             words.text = plain;
-                            (lines, laidWide, tall) = KitType.Lay(words, RoomType.Scaled(most), 12);
+                            (lines, laidWide, tall) = KitType.Lay(words, most, 12);
                         }
                         else (lines, laidWide, tall) = tried;
                     }
