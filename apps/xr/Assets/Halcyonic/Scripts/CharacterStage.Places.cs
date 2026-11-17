@@ -291,6 +291,8 @@ namespace Halcyonic.XR
                     view.transform.localScale = Vector3.one * scale * size;
                     view.PlaceShelfLabel(eyes);
                 }
+                // Each pass reads the tags as they finally stand: the back row's type held to the front's before anything is measured.
+                HoldBackRowType(views, rowMost, eyes);
             }
             Lay();
             float WidestDegrees()
