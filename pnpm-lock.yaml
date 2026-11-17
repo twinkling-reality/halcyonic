@@ -32,6 +32,9 @@ importers:
       '@halcyonic/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@halcyonic/integration-acp':
+        specifier: workspace:*
+        version: link:../../packages/integrations/acp
       '@halcyonic/integration-claude-code':
         specifier: workspace:*
         version: link:../../packages/integrations/claude-code

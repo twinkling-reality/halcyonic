@@ -99,6 +99,14 @@ export interface ControlPlaneConfig {
    */
   readonly codexBinary: string | null;
   /**
+   * The pinned Antigravity CLI and Kiro CLI, each an agent app Halcyonic directs over the Agent
+   * Client Protocol (packages/integrations/acp); each runtime is registered only when its binary is
+   * set. Each signs in its own way and spends the person's own plan, so they are set in the
+   * environment alone, never in a settings file.
+   */
+  readonly antigravityBinary: string | null;
+  readonly kiroBinary: string | null;
+  /**
    * The git Halcyonic's undo runs (ADR 0036), by absolute path, or null when none is set. Never
    * looked up on PATH: on the owner's Mac an older git comes first there. Unset, the plane looks for
    * one the system owns (trusted-git.ts) unless `gitOff`.
@@ -343,6 +351,8 @@ export function loadConfig(
     opencodeBinary: parseExecutable('HALCYONIC_OPENCODE_BIN', env.HALCYONIC_OPENCODE_BIN),
     opencodeConfigHome: parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
+    antigravityBinary: parseExecutable('HALCYONIC_ANTIGRAVITY_BIN', env.HALCYONIC_ANTIGRAVITY_BIN),
+    kiroBinary: parseExecutable('HALCYONIC_KIRO_BIN', env.HALCYONIC_KIRO_BIN),
     gitBinary:
       env.HALCYONIC_GIT_BIN?.trim() === 'off'
         ? null

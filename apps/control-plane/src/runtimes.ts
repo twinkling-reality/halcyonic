@@ -1,5 +1,7 @@
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { userInfo } from 'node:os';
 import { dirname, join, sep } from 'node:path';
+import { AcpRuntimeAdapter, ANTIGRAVITY, KIRO } from '@halcyonic/integration-acp';
 import {
   CLAUDE_AGENT_READER,
   CLAUDE_AGENT_RUNTIME_ID,
@@ -235,7 +237,68 @@ export function createRuntimeAdapters(
       }),
     );
   }
+  for (const [profile, binary] of [
+    [ANTIGRAVITY, config.antigravityBinary],
+    [KIRO, config.kiroBinary],
+  ] as const) {
+    if (binary === null) continue;
+    adapters.push(
+      new AcpRuntimeAdapter({
+        profile,
+        binaryPath: binary,
+        directoryPolicy: dependencies.directoryPolicy,
+        env: acpEnvironment(dependencies.environment, additions),
+        hostFolders:
+          process.platform === 'darwin'
+            ? {
+                scope: {
+                  folders: [
+                    dependencies.dataDir,
+                    ...(dependencies.tasksDir === undefined ? [] : [dependencies.tasksDir]),
+                  ],
+                  home: userInfo().homedir,
+                },
+                profileFolder: join(dependencies.dataDir, ACP_PROFILE_FOLDER),
+              }
+            : null,
+      }),
+    );
+  }
   return adapters;
+}
+
+/** Where the light profiles of the ACP agent apps are written, in the data folder. */
+export const ACP_PROFILE_FOLDER = 'acp-profiles';
+
+/** The person's variables an ACP agent app is launched with: what a shell needs, and its own sign-in in its home. */
+const ACP_INHERITED = [
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'TMPDIR',
+  'TERM',
+];
+
+/**
+ * An ACP agent app's environment: the person's own home, path and locale, so it finds the sign-in
+ * it keeps there and Salidium and Seorak can observe it, then the pass-through variables. The app's
+ * own sign-in and endpoint variables are taken out again by the adapter.
+ */
+export function acpEnvironment(
+  environment: NodeJS.ProcessEnv,
+  additions: Record<string, string>,
+): Record<string, string> {
+  const inherited: Record<string, string> = {};
+  for (const name of ACP_INHERITED) {
+    const value = environment[name];
+    if (value !== undefined) inherited[name] = value;
+  }
+  return { ...inherited, ...additions };
 }
 
 /**

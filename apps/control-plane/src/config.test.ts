@@ -256,6 +256,19 @@ describe('configuration', () => {
     }
   });
 
+  test('the Antigravity and Kiro binaries are off unless set, and must be existing absolute files', () => {
+    assert.equal(loadConfig({}).antigravityBinary, null);
+    assert.equal(loadConfig({}).kiroBinary, null);
+    const binary = join(base, 'agent-app');
+    writeFileSync(binary, '#!/bin/sh\n');
+    assert.equal(loadConfig({ HALCYONIC_ANTIGRAVITY_BIN: binary }).antigravityBinary, binary);
+    assert.equal(loadConfig({ HALCYONIC_KIRO_BIN: binary }).kiroBinary, binary);
+    for (const path of ['agy', join(base, 'missing'), base]) {
+      assert.throws(() => loadConfig({ HALCYONIC_ANTIGRAVITY_BIN: path }), ConfigError, path);
+      assert.throws(() => loadConfig({ HALCYONIC_KIRO_BIN: path }), ConfigError, path);
+    }
+  });
+
   test('a Codex binary is off unless set, and must be an existing absolute file', () => {
     assert.equal(loadConfig({}).codexBinary, null);
     const binary = join(base, 'codex');

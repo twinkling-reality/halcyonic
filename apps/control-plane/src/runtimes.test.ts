@@ -16,11 +16,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import type { ExecutionId, ProjectId, WorkstreamId } from '@halcyonic/contracts';
+import { AcpRuntimeAdapter } from '@halcyonic/integration-acp';
 import { ClaudeAgentRuntimeAdapter, EnvironmentError } from '@halcyonic/integration-claude-code';
 import { CODEX_KEY_READER, CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
-import { RuntimeActionError } from '@halcyonic/runtime-core';
+import { capabilityProblems, RuntimeActionError } from '@halcyonic/runtime-core';
 import { confinedProfile, SANDBOX_EXEC } from '@halcyonic/seatbelt';
 import { ConfigError, loadConfig } from './config.ts';
 import { looksLikeCredential, redaction, redactSecrets } from './core/redaction.ts';
@@ -30,6 +31,7 @@ import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
 import { HostProviders, PROVIDERS_DIR } from './providers.ts';
 import {
   AGENT_KEY_READERS,
+  acpEnvironment,
   CLAUDE_AGENT_PROCESS_RECORD,
   CODEX_SERVER_RECORD,
   claudeAgentEnvironment,
@@ -267,6 +269,50 @@ describe('runtime composition', () => {
       'nothing was recorded, so nothing is stopped',
     );
     await Promise.all(hosted.map((adapter) => adapter.close()));
+  });
+
+  test('Antigravity and Kiro are registered over ACP when their binaries are set, without launching them', async () => {
+    const dataDir = mkdtempSync(join(base, 'acp-'));
+    const binary = join(dataDir, 'agent-app');
+    writeFileSync(binary, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    assert.equal(
+      adapters({}, HOST, dataDir).some((adapter) => adapter instanceof AcpRuntimeAdapter),
+      false,
+    );
+    const hosted = adapters(
+      { HALCYONIC_ANTIGRAVITY_BIN: binary, HALCYONIC_KIRO_BIN: binary },
+      { ...HOST, GEMINI_API_KEY: 'not-for-the-app', HALCYONIC_TOKEN: 'not-for-the-app' },
+      dataDir,
+    );
+    const acp = hosted.filter((adapter) => adapter instanceof AcpRuntimeAdapter);
+    assert.deepEqual(
+      acp.map((adapter) => [adapter.descriptor.runtime_id, adapter.descriptor.display_name]),
+      [
+        ['antigravity', 'Antigravity 1.5.10'],
+        ['kiro', 'Kiro 3.4.0'],
+      ],
+    );
+    for (const adapter of acp) {
+      assert.equal(adapter.descriptor.synthetic, false);
+      assert.deepEqual(capabilityProblems(adapter), []);
+    }
+    await Promise.all(hosted.map((adapter) => adapter.close()));
+  });
+
+  test("an ACP agent app gets the person's home, path and locale and the pass-through variables only", () => {
+    assert.deepEqual(
+      acpEnvironment(
+        {
+          HOME: '/Users/a',
+          PATH: '/usr/bin',
+          LANG: 'en_US.UTF-8',
+          GEMINI_API_KEY: 'k',
+          HALCYONIC_TOKEN: 't',
+        },
+        { PROJECT_FLAG: '1' },
+      ),
+      { HOME: '/Users/a', PATH: '/usr/bin', LANG: 'en_US.UTF-8', PROJECT_FLAG: '1' },
+    );
   });
 
   test('the Codex runtime is registered when its binary is configured, without launching it', async () => {
