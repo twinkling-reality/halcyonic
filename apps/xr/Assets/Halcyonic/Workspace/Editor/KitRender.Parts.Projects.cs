@@ -148,10 +148,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     var screen = camera.WorldToScreenPoint(world);
                     return pixels[Mathf.Clamp(Mathf.FloorToInt(screen.y), 0, Height - 1) * Width + Mathf.Clamp(Mathf.FloorToInt(screen.x), 0, Width - 1)];
                 }
-                // Our quiet words (the label and the heads, white at 0.52) read about 190 in the pixels; the title and the actions are white.
+                // Our quiet words (the label and the heads, the label role) read about 185 to 195 on the dark glass (the lead's 2026-11-17T02:29Z:
+                // readable first, never under 4.5:1); the title and the actions are white.
                 var quiet = new TMP_Text?[] { label, card.HeadsShown?.Name, card.HeadsShown?.Note };
                 foreach (var each in quiet)
-                    if (each != null && InkFault(each, world => Pixel(dark, world), 150) is string fault) failures.Add("\"" + each.GetParsedText() + "\" " + fault);
+                    if (each != null && InkFault(each, world => Pixel(dark, world), 175) is string fault) failures.Add("\"" + each.GetParsedText() + "\" " + fault);
                 foreach (var each in buttons.Select(button => button.Words).Append(title).Append(menu?.Words))
                     if (each != null && InkFault(each, world => Pixel(dark, world), 180) is string fault) failures.Add("\"" + each.GetParsedText() + "\" " + fault);
                 Debug.Log("Halcyonic: parts: " + name + ": the Projects panel " + (panelSize.x / unit).ToString("0", CultureInfo.InvariantCulture) + " by "

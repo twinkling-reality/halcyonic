@@ -148,8 +148,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var step = 0; step <= 80; step++)
                     most = Mathf.Max(most, Light(At(dark, tag.Words.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 80f), bounds.center.y, 0f)))));
                 if (most < 170) failures.Add("the tag's words are not in the pixels, the lightest reads " + most + " of 255");
-                // The words under the name read in the pixels, quiet but clear of the glass.
-                if (stateLabel != null && InkFault(stateLabel, world => At(dark, world), 110) is string fault) failures.Add("\"" + stateLabel.GetParsedText() + "\" under the name " + fault);
+                // The words under the name read in the pixels, quiet but clear of the glass: the label role at about 185 to 195 on dark glass
+                // (the lead's 2026-11-17T02:29Z).
+                if (stateLabel != null && InkFault(stateLabel, world => At(dark, world), 175) is string fault) failures.Add("\"" + stateLabel.GetParsedText() + "\" under the name " + fault);
                 Debug.Log("Halcyonic: parts: " + name + ": \"" + said.Text + "\" on a tag " + (tag.Size.x / unit).ToString("0.0", CultureInfo.InvariantCulture) + " by "
                     + (tag.Size.y / unit).ToString("0.0", CultureInfo.InvariantCulture) + " dp; its edge reads " + edge + ", its ground " + inside + " of 255.");
             };
