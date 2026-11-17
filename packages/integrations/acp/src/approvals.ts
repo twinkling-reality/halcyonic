@@ -1,6 +1,11 @@
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
-import type { ApprovalChange, ApprovalPath, ApprovalSubject } from '@halcyonic/contracts';
+import type {
+  ApprovalChange,
+  ApprovalCommand,
+  ApprovalPath,
+  ApprovalSubject,
+} from '@halcyonic/contracts';
 import type { AcpProfile } from './profiles.ts';
 
 /** The kinds of tool call ACP names that change files (`ToolKind`, protocol version 1). */
@@ -204,11 +209,22 @@ function requestPaths(toolCall: Record<string, unknown>): ApprovalPath[] | null 
 }
 
 /**
- * What a permission request asks for, whole: a profile's shell tool as its command, said to run in
- * the shell that started in the task's folder, else the tool's whole input as JSON, else its title.
- * Complete only when that is everything the call says that acts: the shell's command beside only
- * inputs that do not act, or the whole input; and for a tool that changes files, every change
- * carried whole. A request without its input is never complete, so it can only be denied.
+ * A command request's summary from its parts alone (`ApprovalCommand`), so a card that draws the parts shows all it
+ * says: the place only where a run of the app's version showed it, then the command whole.
+ */
+export function commandSummary(command: ApprovalCommand): string {
+  const said = [
+    ...(command.runs_in.kind === 'task_folder' ? ["in the task's folder"] : []),
+    ...(command.background ? ['in the background'] : []),
+  ];
+  return said.length === 0 ? command.text : `[${said.join(', ')}] ${command.text}`;
+}
+
+/**
+ * What a permission request asks for, whole: a profile's shell tool as its command in its parts (AUDIT3 CP1 to CP5),
+ * where its input is that command beside only inputs that do not act; else the tool's whole input as JSON, else its
+ * title. Complete only when that is everything the call says that acts, and for a tool that changes files, every
+ * change carried whole. A request without its input is never complete, so it can only be denied.
  */
 export function approvalRequest(
   toolCall: Record<string, unknown>,
@@ -226,27 +242,17 @@ export function approvalRequest(
   const kind = text(toolCall.kind) ?? '';
   const changes = FILE_KINDS.has(kind) ? requestChanges(toolCall, profile, folder) : null;
   const paths = requestPaths(toolCall);
-  const shell = profile.shell;
+  const command = shellCommand(input, name, profile);
   let summary: string;
   let whole: boolean;
-  if (
-    shell !== null &&
-    input !== null &&
-    name === shell.tool &&
-    typeof input[shell.command] === 'string'
-  ) {
-    const others = Object.keys(input).filter((key) => key !== shell.command);
-    const background = shell.background !== null && input[shell.background] === true;
-    const known = [...shell.quiet, ...(shell.background === null ? [] : [shell.background])];
-    whole =
-      others.every((key) => known.includes(key)) &&
-      (shell.background === null ||
-        input[shell.background] === undefined ||
-        typeof input[shell.background] === 'boolean');
-    summary = `[in its shell, which started in the task's folder${background ? ', in the background' : ''}] ${input[shell.command] as string}`;
+  if (command !== null) {
+    summary = commandSummary(command);
+    whole = true;
   } else if (input !== null) {
     summary = JSON.stringify(input);
-    whole = true;
+    // A shell call whose input is more than its command (a folder of its own, say) is shown whole but not approved:
+    // where it runs is not known.
+    whole = profile.shell === null || name !== profile.shell.tool;
   } else {
     const title = text(toolCall.title);
     summary = title !== null && title.trim() !== '' ? title : name;
@@ -259,7 +265,34 @@ export function approvalRequest(
       summary,
       ...(paths !== null && { paths }),
       ...(changes !== null && { changes }),
+      ...(command !== null && { command }),
     },
     complete: whole && name.length <= 128 && (!FILE_KINDS.has(kind) || changes !== null),
+  };
+}
+
+/**
+ * The command a profile's shell tool would run, from its own structured input alone (AUDIT3 CP1): the command field
+ * whole, never cut (CP5), and only where every other input is one that neither acts nor moves it (a folder field of
+ * the app's own would, and is not known, so such an input is shown whole instead). Null otherwise.
+ */
+function shellCommand(
+  input: Record<string, unknown> | null,
+  name: string,
+  profile: AcpProfile,
+): ApprovalCommand | null {
+  const shell = profile.shell;
+  if (shell === null || input === null || name !== shell.tool) return null;
+  const line = input[shell.command];
+  if (typeof line !== 'string' || line.trim() === '') return null;
+  const known = [...shell.quiet, ...(shell.background === null ? [] : [shell.background])];
+  if (!Object.keys(input).every((key) => key === shell.command || known.includes(key))) return null;
+  const background = shell.background === null ? undefined : input[shell.background];
+  if (background !== undefined && typeof background !== 'boolean') return null;
+  return {
+    text: line,
+    runs_in: { kind: shell.runsIn },
+    background: background === true,
+    input_to_running: false,
   };
 }

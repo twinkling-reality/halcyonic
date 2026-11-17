@@ -1,3 +1,5 @@
+import { type ListedModel, modelsFromKiroList } from './models.ts';
+
 /**
  * What Halcyonic knows of one agent app that speaks the Agent Client Protocol: how to start its ACP
  * server, the version it was verified at, and the few things its own requests leave unsaid that a
@@ -46,11 +48,6 @@ export interface AcpProfile {
     readonly create: { readonly path: string; readonly text: string };
   } | null;
   /**
-   * A shell tool whose input names the whole command in one field and nothing else that acts: its name,
-   * that field, the field that says it runs in the background, and the inputs that change neither what
-   * runs nor where. A request of it is shown as the command, said to run in the task's folder.
-   */
-  /**
    * Folders the app would load from its working folder as settings of its own (hooks, rules, tool servers): the
    * agent-app profile refuses them to it, so a project cannot widen what it does unasked (AUDIT3 AC1).
    */
@@ -76,6 +73,29 @@ export interface AcpProfile {
    */
   readonly askingOptions: Readonly<Record<string, string>>;
   /**
+   * Session options that keep the person's work to themselves, by id and value (Kiro's `contentCollection`
+   * `disabled`, so a task's work is not used to improve the maker's service): held like the asking options, set at
+   * the start and read back, a session that turns one back on stopped (the lead's ruling, 2026-11-17).
+   */
+  readonly privateOptions: Readonly<Record<string, string>>;
+  /**
+   * Where the app lists its models, and the session option a start sets to the one chosen, read back before the
+   * task runs: `session`, that option's choices in `session/new`'s answer (Antigravity's `model`); `command`, the
+   * app's own listing command (Kiro's `chat --list-models --format json`, since its `session/new` names its models
+   * only some of the time). `service` names what serves them, beside each model's name. Null where no list was seen:
+   * no model choice.
+   */
+  readonly models:
+    | { readonly from: 'session'; readonly option: string; readonly service: string }
+    | {
+        readonly from: 'command';
+        readonly option: string;
+        readonly service: string;
+        readonly args: readonly string[];
+        readonly parse: (stdout: string) => readonly ListedModel[];
+      }
+    | null;
+  /**
    * A turn-level review the app asks for once its file changes are staged, by the `_meta` field and type its request
    * carries (Kiro's `turn_approval`, under autopilot off): shown as the changes of the calls it lists, so it can be
    * approved whole. Null where the app asks for none.
@@ -87,6 +107,19 @@ export interface AcpProfile {
    */
   readonly answerReport: { readonly meta: string; readonly kind: string } | null;
   /**
+   * The statuses a call's report takes once the app took a denial of it: `failed` for every app seen, and for Cursor
+   * also `completed`, which it reports for a refused command that did not run (seen 2026-11-17). Never `in_progress`,
+   * which Antigravity reports before it fails a refused call.
+   */
+  readonly deniedStatuses: readonly ('failed' | 'completed')[];
+  /**
+   * Where the app reports what a turn used, as a run of this version showed: `prompt`, its answer to `session/prompt`
+   * (`usage`: `inputTokens` not read from or written to the cache, `cachedReadTokens`, `cachedWriteTokens`,
+   * `outputTokens` with its reasoning, `thoughtTokens`), summed by the app over the turn's model calls. Null where it
+   * reports none Halora can carry (Kiro gives credits only, Cursor nothing).
+   */
+  readonly usage: 'prompt' | null;
+  /**
    * The ACP auth method that hands the app its own stored sign-in, for an app whose session needs it (Cursor's
    * `cursor_login`): asked only once a session is refused as not signed in, with a short wait, since a signed-out app
    * may never answer it. No secret passes: the app reads its own. Null where the app signs itself in.
@@ -97,11 +130,19 @@ export interface AcpProfile {
    * app's asking setup is Halora's own and never its default (Cursor's `cli-config.json`, allowlist, nothing allowed).
    */
   readonly settingsFiles: Readonly<Record<string, string>>;
+  /**
+   * A shell tool whose input names the whole command in one field and nothing else that acts: its name (the call's
+   * `name`, else its `kind`), that field, the field that says it runs in the background, the inputs that change
+   * neither what runs nor where, and where its commands run as a run of this version showed (`task_folder`: each
+   * starts in the session's folder, a `cd` carrying over to none; `unknown` where no run showed it). A request of it
+   * carries the command in its parts (`ApprovalCommand`), its summary built from them alone.
+   */
   readonly shell: {
     readonly tool: string;
     readonly command: string;
     readonly background: string | null;
     readonly quiet: readonly string[];
+    readonly runsIn: 'task_folder' | 'unknown';
   } | null;
 }
 
@@ -131,8 +172,15 @@ export const ANTIGRAVITY: AcpProfile = {
   projectSettings: ['.agents', '.gemini'],
   askingMode: 'default',
   askingOptions: {},
+  privateOptions: {},
+  // Seen 2026-11-17: `session/new` lists its models as the `model` option, and `session/set_config_option` took one.
+  models: { from: 'session', option: 'model', service: 'Antigravity' },
   turnReview: null,
   answerReport: null,
+  deniedStatuses: ['failed'],
+  // Seen on the stand-in (three model calls of 100 input, 40 of it cached, 10 output, 5 of it reasoning): input 180,
+  // cachedRead 120, output 45, thought 15.
+  usage: 'prompt',
   signIn: null,
   settingsFiles: {},
   // `--gemini-dir` moves both its settings (`antigravity-cli/`) and its hooks, tool servers and plugins
@@ -142,11 +190,13 @@ export const ANTIGRAVITY: AcpProfile = {
     args: (folder) => ['--gemini-dir', folder],
     environment: () => ({}),
   },
+  // Seen 2026-11-17: each `run_command` starts in the session's folder; a `cd` in one reaches no later one.
   shell: {
     tool: 'run_command',
     command: 'CommandLine',
     background: 'IsDaemon',
     quiet: ['WaitMsBeforeAsync', 'toolSummary'],
+    runsIn: 'task_folder',
   },
 };
 
@@ -176,10 +226,25 @@ export const KIRO: AcpProfile = {
   // Kiro reports `autopilot` on, "Agent executes tools without confirmation"; its asks were seen with it on, but
   // Halora never relies on that: every session runs Supervised (validation/acp-agents.md).
   askingOptions: { autopilot: 'off' },
+  // In Halora's fresh settings home Kiro reports `contentCollection` `enabled`, "Allow content to be used for service
+  // improvement": its default, not the person's choice (their own settings name none). Held off (seen taken, 19:39Z).
+  privateOptions: { contentCollection: 'disabled' },
+  // Its listing command named 23 models with their context; `session/set_config_option` `model` took one and read it
+  // back (seen 19:37Z and 19:39Z, no prompt).
+  models: {
+    from: 'command',
+    option: 'model',
+    service: 'Kiro',
+    args: ['chat', '--list-models', '--format', 'json'],
+    parse: modelsFromKiroList,
+  },
   // Supervised, Kiro stages its file changes and asks once more, "Review changes", listing the calls (seen 18:46Z).
   turnReview: { meta: 'kiro', type: 'turn_approval' },
   // Kiro reports every answered request so; Supervised, a write's call shows nothing more until its review.
   answerReport: { meta: 'kiro', kind: 'interaction_resolved' },
+  deniedStatuses: ['failed'],
+  // Kiro reports credits only (`_meta.kiro` `turn_completion`), which the usage contract does not carry.
+  usage: null,
   signIn: null,
   settingsFiles: {},
   // `KIRO_HOME` moves its settings, agents, hooks and sessions; its sign-in stays in Application Support.
@@ -188,7 +253,15 @@ export const KIRO: AcpProfile = {
     args: () => [],
     environment: (folder) => ({ KIRO_HOME: folder }),
   },
-  shell: null,
+  // Seen on signed-in runs: a command's call names no tool, kind `execute`, its input `{command, description,
+  // run_in_background}`. Where its commands run was not seen, so it is said unknown.
+  shell: {
+    tool: 'execute',
+    command: 'command',
+    background: 'run_in_background',
+    quiet: ['description'],
+    runsIn: 'unknown',
+  },
 };
 
 /**
@@ -203,7 +276,8 @@ export const CURSOR: AcpProfile = {
   version: '2026.11.13-eacade1',
   versionLine: { args: ['--version'], pattern: /^(\d{4}\.\d{2}\.\d{2}-[0-9a-f]+)$/ },
   args: ['acp'],
-  environment: {},
+  // So a sign-in can never open a page on the person's Mac during a start (AUDIT3 CU2).
+  environment: { NO_OPEN_BROWSER: '1' },
   ownVariables: [
     'CURSOR_API_KEY',
     'CURSOR_AUTH_TOKEN',
@@ -217,8 +291,16 @@ export const CURSOR: AcpProfile = {
   // Not yet seen signed in: its documented modes are agent, plan and ask; a session in no `agent` mode is not started.
   askingMode: 'agent',
   askingOptions: {},
+  privateOptions: {},
+  // Seen signed in (20:11Z, no prompt): `session/new` lists its models as the `model` option, 48 of them, `default[]`
+  // ("Auto") current; its only other option is `mode`.
+  models: { from: 'session', option: 'model', service: 'Cursor' },
   turnReview: null,
   answerReport: null,
+  // Seen signed in (20:12Z and 20:14Z): a rejected command's call ends `completed`, and the command did not run.
+  deniedStatuses: ['failed', 'completed'],
+  // Its prompt answer carried no usage on the signed-in runs.
+  usage: null,
   signIn: 'cursor_login',
   // As a fresh config folder writes it (seen 2026-11-17), with nothing allowed: every call asks. Cursor's own
   // sandbox is off, as there: Halora's agent-app profile holds it.
@@ -230,7 +312,8 @@ export const CURSOR: AcpProfile = {
     args: () => [],
     environment: (folder) => ({ CURSOR_CONFIG_DIR: folder }),
   },
-  shell: null,
+  // Seen signed in: a command's call names no tool, kind `execute`, its input `{command}`. Where it runs was not seen.
+  shell: { tool: 'execute', command: 'command', background: null, quiet: [], runsIn: 'unknown' },
 };
 
 export const ACP_PROFILES: readonly AcpProfile[] = [ANTIGRAVITY, KIRO, CURSOR];

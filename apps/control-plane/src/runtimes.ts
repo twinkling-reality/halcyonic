@@ -251,6 +251,11 @@ export function createRuntimeAdapters(
         env: acpEnvironment(dependencies.environment, additions),
         home: userInfo().homedir,
         processRecordFile: join(dependencies.dataDir, `acp-${profile.runtimeId}-processes.json`),
+        // Each task works in a copy of its own project (ADR 0045, limits audit #3), a starter's included: an agent app
+        // has no closed profile of Halcyonic's, so every copy is held by the agent-app profile's copy rules.
+        ...(dependencies.tasksDir === undefined || dependencies.copyOriginOf === undefined
+          ? {}
+          : { copyOriginOf: dependencies.copyOriginOf }),
         hostFolders:
           process.platform === 'darwin'
             ? {
@@ -338,9 +343,10 @@ export function gatedProviders(
  * Whether a runtime is held to a folder it is given, so that in a task's own copy it writes only
  * that copy (ADR 0045), on this computer: each adapter answers for itself from the confinement it
  * applies at a start (`RuntimeAdapter.holdsFolder`), so no runtime is named here. Today Codex where
- * its confinement covers the folder (BOX-2), OpenCode where it runs sandboxed (BOX-3) and Claude
- * Code where it runs inside the closed profile (BOX-4, unit 4c); never the mock runtime, which
- * works in no folder, nor a runtime that is not registered.
+ * its confinement covers the folder (BOX-2), OpenCode where it runs sandboxed (BOX-3), Claude Code
+ * where it runs inside the closed profile (BOX-4, unit 4c) and the agent apps over ACP on macOS (the
+ * agent-app profile's copy rules, limits audit #3); never the mock runtime, which works in no
+ * folder, nor a runtime that is not registered.
  */
 export function heldToFolder(
   adapters: readonly RuntimeAdapter[],

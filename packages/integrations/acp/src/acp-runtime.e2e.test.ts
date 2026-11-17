@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -10,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { RuntimeActionError, type RuntimeObservation } from '@halcyonic/runtime-core';
@@ -37,6 +38,10 @@ interface Run {
   /** What the adapter was made with, for a later launch on the same home. */
   readonly options: ConstructorParameters<typeof AcpRuntimeAdapter>[0];
   readonly project: string;
+  /** Where the start runs: the project, or with `inCopy` a task's own copy of it. */
+  readonly directory: string;
+  /** Another task's copy of the same project, with `inCopy`. */
+  readonly sibling: string;
   readonly host: string;
   readonly home: string;
   readonly observations: RuntimeObservation[];
@@ -64,7 +69,12 @@ function command(line: string): StandInReply {
 async function setUp(
   t: TestContext,
   replies: StandInReply[] | ((host: string) => StandInReply[]),
-  options: { signedIn?: boolean } = {},
+  options: {
+    signedIn?: boolean;
+    inCopy?: boolean;
+    /** With `inCopy`: the other task's copy is recorded too, so both tasks may run at once. */
+    bothCopies?: boolean;
+  } = {},
 ): Promise<Run> {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-acp-e2e-')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -86,6 +96,19 @@ async function setUp(
   writeFileSync(join(home, '.ssh', 'id_marker'), 'halcyonic-ssh-marker\n');
   writeFileSync(join(home, 'beside.txt'), 'halcyonic-beside-marker\n');
   writeFileSync(join(host, 'held.txt'), 'halcyonic-held-value\n');
+  // As the host makes them (ADR 0045): each task's own copy of the project, in the task copies' folder.
+  const tasks = join(root, 'tasks');
+  const copy = join(tasks, 'p', 'a', 'one');
+  const sibling = join(tasks, 'p', 'b', 'one');
+  if (options.inCopy === true) {
+    writeFileSync(join(project, 'marker.txt'), 'halcyonic-original-marker\n');
+    mkdirSync(dirname(copy), { recursive: true });
+    cpSync(project, copy, { recursive: true });
+    mkdirSync(dirname(sibling), { recursive: true });
+    cpSync(project, sibling, { recursive: true });
+    writeFileSync(join(sibling, 'marker.txt'), 'halcyonic-sibling-marker\n');
+  }
+  const directory = options.inCopy === true ? copy : project;
   const standIn = await StandInGemini.start(
     typeof replies === 'function' ? replies(host) : replies,
   );
@@ -93,15 +116,23 @@ async function setUp(
   const made: ConstructorParameters<typeof AcpRuntimeAdapter>[0] = {
     profile: ANTIGRAVITY,
     binaryPath: BINARY,
-    directoryPolicy: allowOnly(join(root, 'projects')),
+    directoryPolicy: allowOnly(options.inCopy === true ? root : join(root, 'projects')),
     env: {
       PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
       HOME: home,
       LANG: 'en_US.UTF-8',
       TMPDIR: `${join(root, 'tmp')}/`,
+      // As a pass-through variable could bring it: the SSH agent's address, never handed on in a copy.
+      ...(options.inCopy === true ? { SSH_AUTH_SOCK: join(root, 'agent.sock') } : {}),
     },
     home,
     processRecordFile: join(root, 'processes.json'),
+    ...(options.inCopy === true
+      ? {
+          copyOriginOf: (folder: string) =>
+            folder === copy || (options.bothCopies === true && folder === sibling) ? project : null,
+        }
+      : {}),
     ...(options.signedIn === false
       ? {}
       : {
@@ -117,7 +148,13 @@ async function setUp(
         }),
     hostFolders:
       process.platform === 'darwin'
-        ? { scope: { folders: [host], home }, profileFolder: join(root, 'profiles') }
+        ? {
+            scope: {
+              folders: [host, ...(options.inCopy === true ? [tasks] : [])],
+              home,
+            },
+            profileFolder: join(root, 'profiles'),
+          }
         : null,
   };
   const adapter = new AcpRuntimeAdapter(made);
@@ -130,6 +167,8 @@ async function setUp(
     adapter,
     options: made,
     project,
+    directory,
+    sibling,
     host,
     home,
     observations,
@@ -148,7 +187,7 @@ async function setUp(
         instruction,
         options: {},
         model_ref: null,
-        directory: project,
+        directory,
         emit,
       }),
   };
@@ -176,10 +215,13 @@ describe('Antigravity 1.5.10 end to end, on a stand-in model', { skip: SKIP }, (
     const asked = await answer(run, 0, 'approve');
     if (asked.type !== 'runtime.approval.requested') return;
     assert.equal(asked.payload.complete, true);
-    assert.equal(
-      asked.payload.subject.summary,
-      "[in its shell, which started in the task's folder] echo made > made.txt",
-    );
+    assert.equal(asked.payload.subject.summary, "[in the task's folder] echo made > made.txt");
+    assert.deepEqual(asked.payload.subject.command, {
+      text: 'echo made > made.txt',
+      runs_in: { kind: 'task_folder' },
+      background: false,
+      input_to_running: false,
+    });
     await run.next('runtime.turn.completed');
     assert.equal(readFileSync(join(run.project, 'made.txt'), 'utf8'), 'made\n');
     const messages = run.observations
@@ -187,6 +229,61 @@ describe('Antigravity 1.5.10 end to end, on a stand-in model', { skip: SKIP }, (
       .map((o) => o.payload);
     assert.deepEqual(messages, [{ text: 'Made it.' }]);
     assertValidObservations(run.observations);
+  });
+
+  test("each command starts in the task's folder: a cd in one reaches no later one, so its asks say the task's folder", async (t) => {
+    const run = await setUp(t, [
+      command('mkdir -p sub && cd sub && pwd -P > first.txt'),
+      command('pwd -P > where.txt'),
+      [{ text: 'Done.' }],
+    ]);
+    await run.start();
+    await answer(run, 0, 'approve');
+    const second = await answer(run, 1, 'approve');
+    if (second.type !== 'runtime.approval.requested') return;
+    assert.deepEqual(second.payload.subject.command?.runs_in, { kind: 'task_folder' });
+    await run.next('runtime.turn.completed');
+    assert.equal(
+      readFileSync(join(run.project, 'sub', 'first.txt'), 'utf8'),
+      `${join(run.project, 'sub')}\n`,
+    );
+    assert.equal(readFileSync(join(run.project, 'where.txt'), 'utf8'), `${run.project}\n`);
+  });
+
+  test('lists its models from its own session answer, and a start on one of them runs its turn on it', async (t) => {
+    const run = await setUp(t, [[{ text: 'Done.' }]]);
+    const listed = (await run.adapter.listModels?.()) ?? [];
+    assert.ok(listed.length > 0, 'it lists models');
+    for (const model of listed) {
+      assert.match(model.display_name, / \(Antigravity\)$/);
+      // The stand-in serves them on this Mac's loopback.
+      assert.equal(model.served, 'this_mac');
+    }
+    assert.equal(run.standIn.models.length, 0, 'listing asks the model nothing');
+    const chosen = listed.at(-1);
+    assert.ok(chosen !== undefined);
+    await run.adapter.startExecution({
+      execution: TEST_EXECUTION,
+      instruction: 'Say done.',
+      options: {},
+      model_ref: chosen.model_ref,
+      directory: run.project,
+      emit: (observation) => run.observations.push(observation),
+    });
+    await run.next('runtime.turn.completed');
+    // One model call: 100 input, 40 of it from the cache, 10 written and 5 more thinking, as the stand-in served it.
+    const used = run.observations.find((o) => o.type === 'runtime.usage.reported');
+    assert.deepEqual((used?.payload as { tokens?: unknown } | undefined)?.tokens, {
+      input: 60,
+      cache_read: 40,
+      cache_write: 0,
+      output: 15,
+      reasoning: 5,
+    });
+    assert.ok(
+      run.standIn.models.some((model) => model.startsWith(chosen.model_ref)),
+      `the turn asked ${chosen.model_ref}: ${run.standIn.models.join(', ')}`,
+    );
   });
 
   test('a denied command never runs', async (t) => {
@@ -386,6 +483,121 @@ describe('Antigravity 1.5.10 end to end, on a stand-in model', { skip: SKIP }, (
       message: null,
     });
     assert.equal(existsSync(join(run.project, 'made.txt')), false);
+  });
+
+  test("in a task's own copy: it writes the copy alone, reads the project, and never another task's copy (ADR 0045)", {
+    skip: process.platform !== 'darwin' && 'the agent-app profile is macOS only',
+  }, async (t) => {
+    const run = await setUp(
+      t,
+      (_host) => [
+        command(
+          [
+            'echo made > made.txt',
+            'cat ../../../../projects/one/marker.txt > read-original.txt',
+            'echo planted > ../../../../projects/one/planted.txt; echo "exit $?" > status-original.txt',
+            'echo planted > ../../b/one/planted.txt; echo "exit $?" > status-sibling.txt',
+            'cat ../../b/one/marker.txt > read-sibling.txt; echo "exit $?" > status-sibling-read.txt',
+            'mkdir -p .agents && echo planted > .agents/hooks.json; echo "exit $?" > status-settings.txt',
+            'printenv SSH_AUTH_SOCK > sock.txt || echo none > sock.txt',
+          ].join('; '),
+        ),
+        [{ text: 'Done.' }],
+      ],
+      { inCopy: true },
+    );
+    assert.equal(run.adapter.holdsFolder(run.directory), true);
+    assert.equal(run.adapter.holdsFolder(run.project), true);
+    assert.equal(run.adapter.holdsFolder(run.sibling), false);
+    await run.start();
+    await answer(run, 0, 'approve');
+    await run.next('runtime.turn.completed');
+    const inCopy = (name: string) => readFileSync(join(run.directory, name), 'utf8');
+    // The copy is written, and the project it was made from read.
+    assert.equal(inCopy('made.txt'), 'made\n');
+    assert.equal(inCopy('read-original.txt'), 'halcyonic-original-marker\n');
+    // The project is never written, another task's copy neither read nor written.
+    assert.notEqual(inCopy('status-original.txt'), 'exit 0\n');
+    assert.equal(existsSync(join(run.project, 'planted.txt')), false);
+    assert.equal(existsSync(join(run.project, 'made.txt')), false);
+    assert.notEqual(inCopy('status-sibling.txt'), 'exit 0\n');
+    assert.equal(existsSync(join(run.sibling, 'planted.txt')), false);
+    assert.notEqual(inCopy('status-sibling-read.txt'), 'exit 0\n');
+    assert.equal(inCopy('read-sibling.txt'), '');
+    // The app's own settings stay refused inside the copy, and the SSH agent's address is not handed on.
+    assert.notEqual(inCopy('status-settings.txt'), 'exit 0\n');
+    assert.equal(existsSync(join(run.directory, '.agents', 'hooks.json')), false);
+    assert.equal(inCopy('sock.txt'), 'none\n');
+  });
+
+  test('two tasks of one project at once, each in its own copy: each writes its own, neither reaches the other (AUDIT3 C6b)', {
+    skip: process.platform !== 'darwin' && 'the agent-app profile is macOS only',
+  }, async (t) => {
+    const each = command(
+      [
+        'pwd -P > who.txt',
+        'case "$(pwd -P)" in */a/one) o=../../b/one ;; *) o=../../a/one ;; esac',
+        'echo planted > "$o/planted.txt"; echo "exit $?" > status-other.txt',
+        'cat "$o/marker.txt" > read-other.txt',
+      ].join('; '),
+    );
+    // Served in order: the first task's command, then the second's, then each one's last word.
+    const run = await setUp(t, [each, each, [{ text: 'Done.' }], [{ text: 'Done.' }]], {
+      inCopy: true,
+      bothCopies: true,
+    });
+    assert.equal(run.adapter.holdsFolder(run.directory), true);
+    assert.equal(run.adapter.holdsFolder(run.sibling), true);
+    await run.start();
+    const first = await run.next('runtime.approval.requested');
+    // The second task starts while the first waits on its ask: both run at once.
+    const second = {
+      ...TEST_EXECUTION,
+      execution_id: '01920000-0000-7000-8000-000000000021' as never,
+    };
+    const observations: RuntimeObservation[] = [];
+    await run.adapter.startExecution({
+      execution: second,
+      instruction: 'Do the work.',
+      options: {},
+      model_ref: null,
+      directory: run.sibling,
+      emit: (observation) => observations.push(observation),
+    });
+    const seen = async (type: RuntimeObservation['type']) => {
+      for (let waited = 0; waited < 1200; waited++) {
+        const found = observations.find((observation) => observation.type === type);
+        if (found !== undefined) return found;
+        await delay(50);
+      }
+      assert.fail(`no ${type} for the second task`);
+    };
+    const asked = await seen('runtime.approval.requested');
+    assert.ok(
+      first.type === 'runtime.approval.requested' && asked.type === 'runtime.approval.requested',
+    );
+    for (const [execution, approval] of [
+      [TEST_EXECUTION, first],
+      [second, asked],
+    ] as const) {
+      if (approval.type !== 'runtime.approval.requested') throw new Error('not an approval');
+      await run.adapter.respondToApproval({
+        execution,
+        approval_id: approval.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+    }
+    await run.next('runtime.turn.completed');
+    await seen('runtime.turn.completed');
+    for (const folder of [run.directory, run.sibling]) {
+      const inside = (name: string) => readFileSync(join(folder, name), 'utf8');
+      assert.equal(inside('who.txt'), `${folder}\n`, 'each command ran in its own copy');
+      assert.notEqual(inside('status-other.txt'), 'exit 0\n');
+      assert.equal(inside('read-other.txt'), '');
+      assert.equal(existsSync(join(folder, 'planted.txt')), false);
+    }
+    assert.equal(existsSync(join(run.project, 'who.txt')), false, 'the project waits');
   });
 
   test('signed out, the start fails in words and nothing starts', async (t) => {

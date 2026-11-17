@@ -42,7 +42,14 @@ export class StandInGemini {
           : [{ text: 'Stand-in title' }];
         const reply = {
           candidates: [{ content: { role: 'model', parts }, finishReason: 'STOP', index: 0 }],
-          usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 10, totalTokenCount: 110 },
+          // 40 of the 100 input tokens read from the cache, 5 of the output spent thinking (Gemini counts them apart).
+          usageMetadata: {
+            promptTokenCount: 100,
+            cachedContentTokenCount: 40,
+            candidatesTokenCount: 10,
+            thoughtsTokenCount: 5,
+            totalTokenCount: 115,
+          },
           modelVersion: 'stand-in',
         };
         if (/streamgeneratecontent/i.test(url)) {

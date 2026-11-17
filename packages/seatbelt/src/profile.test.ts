@@ -1208,6 +1208,169 @@ describe('the agent-app profile: an ACP app on a folder the person connected (AD
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  /** A Mac-like layout for a task's own copy: the host's folders, two tasks' copies, the person's folder and home. */
+  function copyLayout() {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-agent-app-copy-')));
+    const at = (path: string) => join(root, path);
+    for (const folder of [
+      'data',
+      'tasks/p/a/project/.agents',
+      'tasks/p/a/project/src',
+      'tasks/p/a/project/.git',
+      'tasks/p/b/project',
+      'project/.git',
+      'project/sub/.Agents',
+      'home/.ssh',
+      'home/elsewhere',
+      'home/bin',
+      'home/.gemini/halora/own',
+    ])
+      mkdirSync(at(folder), { recursive: true });
+    for (const file of [
+      'data/marker.txt',
+      'tasks/p/a/project/marker.txt',
+      'tasks/p/a/project/.agents/hooks.json',
+      'tasks/p/b/project/marker.txt',
+      'project/marker.txt',
+      'project/.git/HEAD',
+      'project/sub/.Agents/hooks.json',
+      'home/.ssh/id_marker',
+    ])
+      writeFileSync(at(file), 'marker');
+    // Binaries, not scripts: the kernel runs a binary it may not read, so only an exec rule stops one.
+    for (const place of [
+      'tasks/p/a/project/src/true',
+      'tasks/p/a/project/.agents/true',
+      'tasks/p/b/project/true',
+      'home/bin/plain-true',
+    ]) {
+      copyFileSync('/usr/bin/true', at(place));
+      chmodSync(at(place), 0o755);
+    }
+    // A helper git would run for a password, as the Keychain's: here a script of our own that only prints.
+    writeFileSync(at('home/bin/git-credential-marker'), '#!/bin/sh\necho ran\n');
+    chmodSync(at('home/bin/git-credential-marker'), 0o755);
+    // A link the app could make in its copy, into the person's folder.
+    symlinkSync(at('project'), at('tasks/p/a/project/to-original'));
+    const scope = {
+      folders: [at('data'), at('tasks')],
+      home: at('home'),
+      project: at('tasks/p/a/project'),
+      projectSettings: ['.agents', '.gemini'],
+      settingsHomes: { root: at('home/.gemini/halora'), own: at('home/.gemini/halora/own') },
+      copyOf: { original: at('project') },
+    };
+    return { root, at, scope };
+  }
+
+  test("refuses a task's copy outside the task copies' folder, or not apart from the folder it was made from", () => {
+    const { root, at, scope } = copyLayout();
+    try {
+      assert.match(agentAppProfile(scope), /\(allow process-exec \(subpath /);
+      assert.throws(
+        () => agentAppProfile({ ...scope, project: at('home/elsewhere') }),
+        /inside the task copies/,
+      );
+      assert.throws(
+        () => agentAppProfile({ ...scope, copyOf: { original: at('tasks/p/a') } }),
+        /apart/,
+      );
+      assert.throws(
+        () => agentAppProfile({ ...scope, copyOf: { original: at('tasks/p/a/project/src') } }),
+        /apart/,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("on this Mac, in a task's own copy: the copy read, written and run in; the person's folder only read; other copies, the app's settings and git's helpers not at all", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const { root, at, scope } = copyLayout();
+    try {
+      const probe = async (text: string) => {
+        const file = at(`profile-${randomUUID()}.sb`);
+        writeFileSync(file, text);
+        const exit = (command: string[]) =>
+          run(SANDBOX_EXEC, ['-f', file, ...command]).then(
+            () => 0,
+            (error: { code?: number }) => error.code ?? -1,
+          );
+        // Each probe makes a new file of its own, so no probe leans on another's leftovers.
+        const fresh = () => randomUUID();
+        return {
+          copyRead: await exit(['/bin/cat', at('tasks/p/a/project/marker.txt')]),
+          copyWrite: await exit(['/usr/bin/touch', at(`tasks/p/a/project/${fresh()}`)]),
+          copyGitWrite: await exit(['/usr/bin/touch', at(`tasks/p/a/project/.git/${fresh()}`)]),
+          copyRun: await exit([at('tasks/p/a/project/src/true')]),
+          copySettingsRead: await exit(['/bin/cat', at('tasks/p/a/project/.agents/hooks.json')]),
+          copySettingsWrite: await exit(['/bin/mkdir', at('tasks/p/a/project/src/.Agents')]),
+          copySettingsRun: await exit([at('tasks/p/a/project/.agents/true')]),
+          originalRead: await exit(['/bin/cat', at('project/marker.txt')]),
+          originalSettingsRead: await exit(['/bin/cat', at('project/sub/.Agents/hooks.json')]),
+          originalWrite: await exit(['/usr/bin/touch', at(`project/${fresh()}`)]),
+          originalGitWrite: await exit(['/usr/bin/touch', at(`project/.git/${fresh()}`)]),
+          linkedOriginalWrite: await exit([
+            '/usr/bin/touch',
+            at(`tasks/p/a/project/to-original/${fresh()}`),
+          ]),
+          siblingRead: await exit(['/bin/cat', at('tasks/p/b/project/marker.txt')]),
+          siblingWrite: await exit(['/usr/bin/touch', at(`tasks/p/b/project/${fresh()}`)]),
+          siblingRun: await exit([at('tasks/p/b/project/true')]),
+          dataRead: await exit(['/bin/cat', at('data/marker.txt')]),
+          sshRead: await exit(['/bin/cat', at('home/.ssh/id_marker')]),
+          helperRun: await exit([at('home/bin/git-credential-marker')]),
+          plainRun: await exit([at('home/bin/plain-true')]),
+          homeWrite: await exit(['/usr/bin/touch', at(`home/elsewhere/${fresh()}`)]),
+          ownHomeWrite: await exit(['/usr/bin/touch', at(`home/.gemini/halora/own/${fresh()}`)]),
+        };
+      };
+      const whole = agentAppProfile(scope);
+      const got = await probe(whole);
+      const open = [
+        'copyRead',
+        'copyWrite',
+        'copyGitWrite',
+        'copyRun',
+        'originalRead',
+        'plainRun',
+        'homeWrite',
+        'ownHomeWrite',
+      ];
+      for (const [name, code] of Object.entries(got)) {
+        if (open.includes(name)) assert.equal(code, 0, `${name} is open`);
+        else assert.notEqual(code, 0, `${name} is refused`);
+      }
+      // Each copy rule is needed: without it, what it holds is no longer held, or what it opens no longer open.
+      const lines = whole.split('\n');
+      const copy = JSON.stringify(at('tasks/p/a/project'));
+      const rule = (line: string) => {
+        assert.ok(lines.includes(line), line);
+        return lines.filter((each) => each !== line).join('\n');
+      };
+      assert.notEqual(
+        (await probe(rule(`(allow file-read* file-write* (subpath ${copy}))`))).copyWrite,
+        0,
+      );
+      assert.equal(
+        (await probe(rule(`(deny file-write* (subpath ${JSON.stringify(at('project'))}))`)))
+          .originalWrite,
+        0,
+      );
+      assert.notEqual((await probe(rule(`(allow process-exec (subpath ${copy}))`))).copyRun, 0);
+      const settingsRun =
+        lines.find((line) => line.startsWith('(deny process-exec (regex #"^')) ?? '';
+      assert.equal((await probe(rule(settingsRun))).copySettingsRun, 0);
+      assert.equal(
+        (await probe(rule('(deny process-exec (regex #"/git-credential-[^/]*$"))'))).helperRun,
+        0,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("the copy profile: one task's copy of a connected folder (ADR 0045, amended 2026-11-16)", () => {

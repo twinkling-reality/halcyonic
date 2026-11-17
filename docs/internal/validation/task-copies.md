@@ -79,6 +79,15 @@ Found on the way and fixed in its own commit: listing Claude Code's models faile
 guard to know it by. It now carries its label as one, and the plane lists five models. A listing leaves no
 transcript in the scratch home.
 
+## The agent apps over ACP in their own copy (2026-11-17)
+
+The agent-app profile with a copy is the copy profile's rules on the agent-app profile (ADR 0067), in order, the last
+rule that matches deciding: the light profile; this copy read and written; never a write to the person's folder;
+never the credentials or the app's settings folders, the copy's and the person's folder's included; nothing run in the host's folders, the
+credentials or the settings; this copy run in, its settings folders still not; the app's checked program folder run
+in; the settings homes; no `git-credential-*` helper, no SSH agent socket. Probed with `sandbox-exec` and on the real
+`agy` 1.5.10 ([acp-agents.md](acp-agents.md)).
+
 ## A link out never comes in (2026-11-12, `task-copies.test.ts`)
 
 - A copy holding `home-link` to `/etc/hosts`, `up` to `../../escape` and `inside` to `a.txt`: the add is refused

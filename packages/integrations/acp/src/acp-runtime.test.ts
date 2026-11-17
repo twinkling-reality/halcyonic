@@ -16,7 +16,7 @@ import { basename, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import { compileValidator, RuntimeDescriptor } from '@halcyonic/contracts';
+import { type ApprovalCommand, compileValidator, RuntimeDescriptor } from '@halcyonic/contracts';
 import {
   capabilityProblems,
   RuntimeActionError,
@@ -89,7 +89,7 @@ function setUp(
   const binary = join(root, 'app');
   writeFileSync(
     binary,
-    `#!/bin/sh\nif [ "$1" = "--version" ]; then echo '${options.versionLine ?? 'kiro-cli 3.4.0'}'; exit 0; fi\nenv | cut -d= -f1 > '${variables}'\nprintf '%s\\n' "$@" > '${join(root, 'args.txt')}'\nprintf '%s' "$KIRO_HOME" > '${join(root, 'kiro-home.txt')}'\nexec '${process.execPath}' '${FAKE}' '${replay}'\n`,
+    `#!/bin/sh\nif [ "$1" = "--version" ]; then echo '${options.versionLine ?? 'kiro-cli 3.4.0'}'; exit 0; fi\nif [ "$1" = "chat" ]; then printf '%s\\n' "$@" > '${join(root, 'list-args.txt')}'; cat '${join(FIXTURES, 'kiro-list-models.json')}'; exit 0; fi\nenv | cut -d= -f1 > '${variables}'\nprintf '%s\\n' "$@" > '${join(root, 'args.txt')}'\nprintf '%s' "$KIRO_HOME" > '${join(root, 'kiro-home.txt')}'\nexec '${process.execPath}' '${FAKE}' '${replay}'\n`,
   );
   chmodSync(binary, 0o755);
   writeFileSync(log, '');
@@ -147,12 +147,12 @@ function setUp(
   };
 }
 
-function start(run: Run, instruction = 'Make the file.') {
+function start(run: Run, instruction = 'Make the file.', modelRef: string | null = null) {
   return run.adapter.startExecution({
     execution: TEST_EXECUTION,
     instruction,
     options: {},
-    model_ref: null,
+    model_ref: modelRef,
     directory: run.folder,
     emit: run.emit,
   });
@@ -164,7 +164,7 @@ function types(run: Run): string[] {
 
 describe('ACP adapter descriptor', () => {
   test('declares only what a runtime test proved, consistently with its methods', () => {
-    for (const profile of [ANTIGRAVITY, KIRO]) {
+    for (const profile of [ANTIGRAVITY, KIRO, CURSOR]) {
       const adapter = new AcpRuntimeAdapter({
         profile,
         binaryPath: '/nonexistent',
@@ -179,14 +179,16 @@ describe('ACP adapter descriptor', () => {
       assert.deepEqual(adapter.descriptor.capabilities, ACP_CAPABILITIES);
       assert.equal(adapter.descriptor.capabilities.instruct_while_running, false);
       assert.equal(adapter.descriptor.capabilities.answer_question, false);
-      assert.equal(adapter.descriptor.model_choice, 'none');
+      // A model choice only from a list the app was seen to give: each of the three was seen signed in.
+      assert.equal(adapter.descriptor.model_choice, 'listed');
+      assert.equal(typeof adapter.listModels, 'function');
       assert.equal(adapter.descriptor.offers_never_ask, undefined);
       assert.equal(adapter.descriptor.reports_tool_activity, false);
       assert.equal(adapter.runsOutsideSandbox(), true);
     }
   });
 
-  test('refuses start options, a model and never asking', () => {
+  test("refuses start options and never asking, and a model where the app's list was never seen", () => {
     const adapter = new AcpRuntimeAdapter({
       profile: ANTIGRAVITY,
       binaryPath: '/nonexistent',
@@ -198,8 +200,58 @@ describe('ACP adapter descriptor', () => {
     });
     assert.equal(adapter.validateStartOptions({}, null).ok, true);
     assert.equal(adapter.validateStartOptions({ model: 'x' }, null).ok, false);
-    assert.equal(adapter.validateStartOptions({}, 'gemini/x').ok, false);
+    // A model from its list is taken; the app itself is asked to use it at the start.
+    assert.equal(adapter.validateStartOptions({}, 'gemini-4-carbon').ok, true);
     assert.equal(adapter.validateStartOptions({}, null, 'never_ask').ok, false);
+    // A profile whose app's list was never seen offers none.
+    const unlisted = new AcpRuntimeAdapter({
+      profile: { ...CURSOR, models: null },
+      binaryPath: '/nonexistent',
+      directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
+      env: {},
+      home: '/nonexistent-home',
+      processRecordFile: null,
+      hostFolders: null,
+    });
+    assert.equal(unlisted.validateStartOptions({}, 'x').ok, false);
+    assert.equal(unlisted.descriptor.model_choice, 'none');
+    assert.equal(unlisted.listModels, undefined);
+  });
+
+  test("held to a task's own copy only where the host names its folders and its copies (ADR 0045)", () => {
+    const made = (extra: Partial<ConstructorParameters<typeof AcpRuntimeAdapter>[0]>) =>
+      new AcpRuntimeAdapter({
+        profile: KIRO,
+        binaryPath: '/nonexistent',
+        directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
+        env: {},
+        home: '/nonexistent-home',
+        processRecordFile: null,
+        hostFolders: null,
+        ...extra,
+      });
+    const hostFolders = {
+      scope: {
+        folders: ['/nonexistent-host/data', '/nonexistent-host/tasks'],
+        home: '/nonexistent-home',
+      },
+      profileFolder: '/nonexistent-host/data/acp-profiles',
+    };
+    const copy = '/nonexistent-host/tasks/p/a/one';
+    const copyOriginOf = (directory: string) =>
+      directory === copy ? '/nonexistent-work/one' : null;
+    // Off macOS (no host folders), or with no copies: never held, so a project takes one task at a time.
+    assert.equal(made({}).holdsFolder('/nonexistent-work/one'), false);
+    assert.equal(made({ copyOriginOf }).holdsFolder(copy), false);
+    assert.equal(made({ hostFolders }).holdsFolder('/nonexistent-work/one'), false);
+    const held = made({ hostFolders, copyOriginOf });
+    // The person's folder, asked before its copy is made, and the recorded copy itself.
+    assert.equal(held.holdsFolder('/nonexistent-work/one'), true);
+    assert.equal(held.holdsFolder(copy), true);
+    // A folder of the host's that is no recorded copy: never.
+    assert.equal(held.holdsFolder('/nonexistent-host/tasks/p/b/one'), false);
+    assert.equal(held.holdsFolder('/nonexistent-host/data'), false);
+    assert.equal(held.holdsFolder('/nonexistent-home/.halcyonic/x'), false);
   });
 
   test('names the app’s own sign-in and endpoint variables as its own', () => {
@@ -228,10 +280,17 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
     const asked = await run.next('runtime.approval.requested');
     assert.equal(asked.type, 'runtime.approval.requested');
     if (asked.type !== 'runtime.approval.requested') return;
+    // The command in its parts, from the call's own input, and the summary from those parts alone (AUDIT3 CP1, CP2).
     assert.deepEqual(asked.payload.subject, {
       kind: 'tool_use',
       tool_name: 'run_command',
-      summary: "[in its shell, which started in the task's folder] echo halcyonic-probe > made.txt",
+      summary: "[in the task's folder] echo halcyonic-probe > made.txt",
+      command: {
+        text: 'echo halcyonic-probe > made.txt',
+        runs_in: { kind: 'task_folder' },
+        background: false,
+        input_to_running: false,
+      },
     });
     assert.equal(asked.payload.complete, true);
     await run.adapter.respondToApproval({
@@ -249,6 +308,7 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
       'runtime.approval.resolved',
       'runtime.tool.completed',
       'runtime.agent_message',
+      'runtime.usage.reported',
       'runtime.turn.completed',
     ]);
     const first = run.observations[0];
@@ -415,6 +475,68 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
       (error: unknown) => error instanceof RuntimeActionError,
     );
     await run.next('runtime.turn.completed');
+  });
+
+  test('Kiro: an ask whose command alone changes before the person answers is refused, recorded why (AUDIT3 CP4)', async (t) => {
+    const recorded = readFileSync(join(FIXTURES, 'kiro-signed-in-deny.jsonl'), 'utf8').split('\n');
+    const target = 'echo "hello" > hello.txt';
+    const callOf = (line: string) => {
+      const update = JSON.parse(line || '{}').send?.params?.update;
+      return update?.rawInput?.command === target ? update : null;
+    };
+    const call = recorded.map(callOf).find((update) => update !== null);
+    assert.ok(call !== undefined, 'the recorded call');
+    const asking = recorded.findIndex(
+      (line) =>
+        line.includes('session/request_permission') &&
+        JSON.parse(line).send?.params?.toolCall?.toolCallId === call.toolCallId,
+    );
+    const sessionId = JSON.parse(recorded[asking] ?? '{}').send.params.sessionId;
+    // The same call, reported again with only its command changed after it was asked about.
+    const changed = JSON.stringify({
+      send: {
+        jsonrpc: '2.0',
+        method: 'session/update',
+        params: {
+          sessionId,
+          update: {
+            toolCallId: call.toolCallId,
+            sessionUpdate: 'tool_call_update',
+            rawInput: { ...call.rawInput, command: 'rm -rf ./*' },
+          },
+        },
+      },
+    });
+    const run = setUp(t, 'cut', {
+      profile: KIRO,
+      fixtureText: [...recorded.slice(0, asking + 1), changed, ...recorded.slice(asking + 1)].join(
+        '\n',
+      ),
+    });
+    await start(run);
+    let withdrawn: string | null = null;
+    for (let index = 0; index < 6; index++) {
+      const request = await run.next('runtime.approval.requested', index);
+      if (request.type !== 'runtime.approval.requested') return;
+      if (request.payload.subject.command?.text === target) {
+        withdrawn = request.payload.approval_id;
+        continue;
+      }
+      await run.adapter.respondToApproval({
+        execution: TEST_EXECUTION,
+        approval_id: request.payload.approval_id,
+        decision: 'deny',
+        message: null,
+      });
+    }
+    await run.next('runtime.turn.completed');
+    assert.ok(withdrawn !== null, 'the command was asked about');
+    const resolved = run.observations.find(
+      (o) => o.type === 'runtime.approval.resolved' && o.payload.approval_id === withdrawn,
+    );
+    assert.ok(resolved !== undefined && resolved.type === 'runtime.approval.resolved');
+    assert.equal(resolved.payload.decision, 'denied');
+    assert.match(resolved.provenance.native_type ?? '', /^withdrawn\.input_changed\./);
   });
 
   test('stopping during an approval cancels the turn and withdraws the request', async (t) => {
@@ -712,11 +834,302 @@ describe('ACP adapter: the mode that asks', () => {
   });
 });
 
+describe('ACP adapter on Cursor 2026.11.13 traces, signed in', () => {
+  test('a denied command: asked whole, denied, taken when Cursor ends the call completed, and never said to succeed', async (t) => {
+    const run = setUp(t, 'cursor-signed-in-deny.jsonl', {
+      profile: CURSOR,
+      versionLine: '2026.11.13-eacade1',
+    });
+    await start(
+      run,
+      'Run exactly this one shell command in the current folder, and nothing else: echo hello > hello.txt',
+      'gpt-5.4-nano[reasoning=medium]',
+    );
+    const asked = await run.next('runtime.approval.requested');
+    if (asked.type !== 'runtime.approval.requested') return;
+    assert.equal(asked.payload.subject.command?.text, 'echo hello > hello.txt');
+    assert.equal(asked.payload.complete, true);
+    await run.adapter.respondToApproval({
+      execution: TEST_EXECUTION,
+      approval_id: asked.payload.approval_id,
+      decision: 'deny',
+      message: null,
+    });
+    const resolved = await run.next('runtime.approval.resolved');
+    assert.deepEqual(resolved.payload, {
+      approval_id: asked.payload.approval_id,
+      decision: 'denied',
+    });
+    await run.next('runtime.turn.completed');
+    const ended = run.observations.find((o) => o.type === 'runtime.tool.completed');
+    assert.equal((ended?.payload as { outcome?: string } | undefined)?.outcome, 'failed');
+    const answer = run
+      .sent()
+      .find((message) => message.method === undefined && 'result' in message);
+    assert.deepEqual((answer?.result as { outcome: unknown } | undefined)?.outcome, {
+      outcome: 'selected',
+      optionId: 'reject-once',
+    });
+    assertValidObservations(run.observations);
+  });
+});
+
+describe("what a turn used, from the app's own report (2026-11-17)", () => {
+  test("Antigravity's answer to the prompt gives the turn's tokens: reported, as it counts them, never money", async (t) => {
+    const run = setUp(t, 'antigravity-model.jsonl');
+    assert.equal(run.adapter.descriptor.reports_usage, true);
+    await start(run, 'Make the file.', 'gemini-4-carbon');
+    await run.next('runtime.turn.completed');
+    const used = run.observations.filter((o) => o.type === 'runtime.usage.reported');
+    assert.equal(used.length, 1);
+    const turn = run.observations.find((o) => o.type === 'runtime.turn.started');
+    assert.ok(turn !== undefined && turn.type === 'runtime.turn.started');
+    assert.deepEqual(used[0]?.payload, {
+      turn_id: turn.payload.turn_id,
+      tokens: { input: 100, cache_read: 0, cache_write: 0, output: 10, reasoning: 0 },
+      cost: null,
+      counted: 'given',
+    });
+    assert.equal(used[0]?.provenance.epistemic, 'reported');
+    assertValidObservations(run.observations);
+  });
+
+  test('Kiro, whose credits the contract does not carry, and Cursor, which reports nothing, report no usage', async (t) => {
+    const run = setUp(t, 'kiro-signed-in-deny.jsonl', { profile: KIRO });
+    assert.equal(run.adapter.descriptor.reports_usage, undefined);
+    await start(run);
+    for (let index = 0; index < 6; index++) {
+      const asked = await run.next('runtime.approval.requested', index);
+      if (asked.type !== 'runtime.approval.requested') return;
+      await run.adapter.respondToApproval({
+        execution: TEST_EXECUTION,
+        approval_id: asked.payload.approval_id,
+        decision: 'deny',
+        message: null,
+      });
+    }
+    await run.next('runtime.turn.completed');
+    assert.ok(!run.observations.some((o) => o.type === 'runtime.usage.reported'));
+    const cursor = new AcpRuntimeAdapter({
+      profile: CURSOR,
+      binaryPath: '/nonexistent',
+      directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
+      env: {},
+      home: '/nonexistent-home',
+      processRecordFile: null,
+      hostFolders: null,
+    });
+    assert.equal(cursor.descriptor.reports_usage, undefined);
+  });
+});
+
+describe("each app's own models (2026-11-17)", () => {
+  test('Antigravity lists its models from its session answer, the one it has now first; nothing is prompted', async (t) => {
+    const run = setUp(t, 'antigravity-model.jsonl');
+    const listed = (await run.adapter.listModels?.()) ?? [];
+    // Its `model` option's choices, as the run recorded them on the stand-in model.
+    assert.deepEqual(
+      listed.map((model) => [model.model_ref, model.display_name]),
+      [
+        ['gemini-4-carbon', 'Gemini 4 Carbon (Antigravity)'],
+        ['gemini-4-hydrogen', 'Gemini 4 Hydrogen (Antigravity)'],
+      ],
+    );
+    for (const model of listed) {
+      assert.match(model.display_name, / \(Antigravity\)$/);
+      assert.equal(model.served, 'remote');
+      assert.equal(model.tool_calling, 'unknown');
+      assert.equal(model.context_tokens, null);
+    }
+    assert.ok(!run.sent().some((message) => message.method === 'session/prompt'));
+    assert.deepEqual(run.observations, []);
+  });
+
+  test('a start with a model from the list sets it and goes on once Antigravity reads it back', async (t) => {
+    const run = setUp(t, 'antigravity-model.jsonl');
+    await start(run, 'Make the file.', 'gemini-4-carbon');
+    await run.next('runtime.turn.completed');
+    const set = run.sent().find((message) => message.method === 'session/set_config_option');
+    assert.deepEqual(set?.params, {
+      sessionId: '490946d2-fcef-4254-a12f-3319a5d52d7b',
+      configId: 'model',
+      value: 'gemini-4-carbon',
+    });
+  });
+
+  test('a model the app does not read back refuses the start in words, and nothing runs', async (t) => {
+    const run = setUp(t, 'antigravity-model.jsonl');
+    await assert.rejects(
+      start(run, 'Make the file.', 'gemini-0-imagined'),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'model_unavailable' &&
+        /would not use the model you chose/.test(error.message),
+    );
+    assert.ok(!run.sent().some((message) => message.method === 'session/prompt'));
+  });
+
+  test("Kiro lists its models from its own listing command's JSON, with each one's context", async (t) => {
+    const run = setUp(t, 'kiro-signed-in-deny.jsonl', { profile: KIRO });
+    const listed = (await run.adapter.listModels?.()) ?? [];
+    assert.equal(listed.length, 23);
+    assert.deepEqual(listed[0], {
+      model_ref: 'auto',
+      display_name: 'auto (Kiro)',
+      served: 'remote',
+      tool_calling: 'unknown',
+      context_tokens: 1000000,
+    });
+    assert.ok(listed.some((model) => model.model_ref === 'qwen3-coder-next'));
+    assert.deepEqual(
+      readFileSync(join(run.folder, '..', 'list-args.txt'), 'utf8')
+        .trim()
+        .split('\n'),
+      ['chat', '--list-models', '--format', 'json'],
+    );
+    // No session, so nothing was sent over ACP, and the listing's settings home is gone.
+    assert.deepEqual(run.sent(), []);
+    assert.deepEqual(readdirSync(join(run.folder, '..', '.kiro', 'halora')), []);
+  });
+
+  test('Cursor lists its models from its session answer, Auto first, as its signed-in run recorded them', async (t) => {
+    const run = setUp(t, 'cursor-signed-in-deny.jsonl', {
+      profile: CURSOR,
+      versionLine: '2026.11.13-eacade1',
+    });
+    const listed = (await run.adapter.listModels?.()) ?? [];
+    // The recorded list, shortened to two in the fixture (48 on the run).
+    assert.equal(listed.length, 2);
+    assert.deepEqual(listed[0], {
+      model_ref: 'default[]',
+      display_name: 'Auto (Cursor)',
+      served: 'remote',
+      tool_calling: 'unknown',
+      context_tokens: null,
+    });
+  });
+});
+
+describe('a chosen model before the held options (AUDIT3 MC1)', () => {
+  /** Kiro's signed-in trace with a model set answered as Kiro answered it (19:39Z), before the held options' sets. */
+  function withModel(change: (answer: string) => string = (answer) => answer): string {
+    const lines = readFileSync(join(FIXTURES, 'kiro-signed-in-deny.jsonl'), 'utf8').split('\n');
+    const first = lines.findIndex((line) => line.includes('"expect": "session/set_config_option"'));
+    const answer = readFileSync(join(FIXTURES, 'kiro-model-set.json'), 'utf8').trim();
+    const steps = [
+      JSON.stringify({ expect: 'session/set_config_option' }),
+      JSON.stringify({ answer: 'session/set_config_option', result: JSON.parse(change(answer)) }),
+    ];
+    return [...lines.slice(0, first), ...steps, ...lines.slice(first)].join('\n');
+  }
+
+  test('the model is set first, then autopilot and content collection, each read back last', async (t) => {
+    const run = setUp(t, 'cut', { profile: KIRO, fixtureText: withModel() });
+    await start(run, 'Make the file.', 'claude-haiku-5.5');
+    const sets = run
+      .sent()
+      .filter((message) => message.method === 'session/set_config_option')
+      .map((message) => {
+        const { configId, value } = message.params as { configId: string; value: string };
+        return [configId, value];
+      });
+    assert.deepEqual(sets, [
+      ['model', 'claude-haiku-5.5'],
+      ['autopilot', 'off'],
+      ['contentCollection', 'disabled'],
+    ]);
+  });
+
+  test("a model change that turns Kiro's autopilot on and sharing back on is set back before the task runs", async (t) => {
+    const fixture = withModel((answer) =>
+      answer
+        .replace(/("id": "autopilot"[^}]*"currentValue": )"off"/, '$1"on"')
+        .replace(/("id": "contentCollection"[^}]*"currentValue": )"disabled"/, '$1"enabled"'),
+    );
+    assert.match(fixture, /"currentValue": "enabled"/);
+    const run = setUp(t, 'cut', { profile: KIRO, fixtureText: fixture });
+    await start(run, 'Make the file.', 'claude-haiku-5.5');
+    // Each held option was set after the model and read back at its held value, so the task started.
+    await run.next('runtime.approval.requested');
+  });
+});
+
+describe("Kiro's content collection held off (the lead's ruling, 2026-11-17)", () => {
+  test('every Kiro session sets content collection disabled and starts only once Kiro reads it back', async (t) => {
+    const run = setUp(t, 'kiro-signed-in-deny.jsonl', { profile: KIRO });
+    await start(run);
+    const sets = run
+      .sent()
+      .filter((message) => message.method === 'session/set_config_option')
+      .map((message) => message.params as { configId: string; value: string });
+    assert.deepEqual(
+      sets.map(({ configId, value }) => [configId, value]),
+      [
+        ['autopilot', 'off'],
+        ['contentCollection', 'disabled'],
+      ],
+    );
+  });
+
+  test('a Kiro that keeps it enabled is not started, in words', async (t) => {
+    const recorded = readFileSync(join(FIXTURES, 'kiro-signed-in-deny.jsonl'), 'utf8').split('\n');
+    // Kiro's answer to the set, as if it kept sharing on.
+    const answers = recorded
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => line.includes('"answer": "session/set_config_option"'));
+    const second = answers[1];
+    assert.ok(second !== undefined);
+    recorded[second.index] = second.line.replace(
+      /("id": "contentCollection"[^}]*"currentValue": )"disabled"/,
+      '$1"enabled"',
+    );
+    const run = setUp(t, 'cut', { profile: KIRO, fixtureText: recorded.join('\n') });
+    await assert.rejects(
+      start(run),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'option_refused' &&
+        /would not stop sharing this task's work/.test(error.message),
+    );
+    assert.ok(!run.sent().some((message) => message.method === 'session/prompt'));
+  });
+
+  test('Kiro reporting it enabled again during a turn stops the turn in words', async (t) => {
+    const lines = readFileSync(join(FIXTURES, 'kiro-signed-in-edit.jsonl'), 'utf8').split('\n');
+    const prompt = lines.findIndex((line) => line.includes('"expect": "session/prompt"'));
+    const recorded = lines
+      .map((line, index) =>
+        index > prompt && line.includes('"config_option_update"')
+          ? line.replace(
+              /("id": "contentCollection"[^}]*"currentValue": )"disabled"/,
+              '$1"enabled"',
+            )
+          : line,
+      )
+      .join('\n');
+    assert.ok(/"id": "contentCollection"[^}]*"currentValue": "enabled"/.test(recorded));
+    const run = setUp(t, 'cut', { profile: KIRO, fixtureText: recorded });
+    await start(run);
+    const failed = await run.next('runtime.turn.failed');
+    assert.deepEqual((failed.payload as { error: unknown }).error, {
+      code: 'sharing_on',
+      message:
+        'Kiro 3.4.0 turned back on sharing your work to improve its service, so Halora stopped the turn.',
+    });
+    assert.ok(run.sent().some((message) => message.method === 'session/cancel'));
+  });
+});
+
 describe('ACP adapter on Kiro 3.4.0 traces', () => {
   test('signed in: each request shows the input Kiro reported for its call; commands whole, new files whole', async (t) => {
     const run = setUp(t, 'kiro-signed-in-deny.jsonl', { profile: KIRO });
     await start(run);
-    const asked: { summary: string; complete: boolean; kind: string }[] = [];
+    const asked: {
+      summary: string;
+      complete: boolean;
+      kind: string;
+      command: ApprovalCommand | undefined;
+    }[] = [];
     for (let index = 0; index < 6; index++) {
       const request = await run.next('runtime.approval.requested', index);
       if (request.type !== 'runtime.approval.requested') return;
@@ -724,6 +1137,7 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
         summary: request.payload.subject.summary,
         complete: request.payload.complete,
         kind: request.payload.subject.tool_name,
+        command: request.payload.subject.command,
       });
       await run.adapter.respondToApproval({
         execution: TEST_EXECUTION,
@@ -734,16 +1148,19 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
     }
     await run.next('runtime.turn.completed');
     const commands = asked.filter((request) => request.kind === 'execute');
+    // Each command whole in its parts, from the input Kiro reported for the call, where it runs said unknown: no run
+    // showed it (AUDIT3 CP1 to CP3). The summary is the command alone, as its parts say.
     assert.deepEqual(
-      commands.map((request) => [JSON.parse(request.summary).command, request.complete]),
-      [
-        ['echo "hello" > hello.txt', true],
-        ['ls -la', true],
-        ['true', true],
-      ],
+      commands.map((request) => [request.summary, request.command, request.complete]),
+      ['echo "hello" > hello.txt', 'ls -la', 'true'].map((text) => [
+        text,
+        { text, runs_in: { kind: 'unknown' }, background: false, input_to_running: false },
+        true,
+      ]),
     );
     const writes = asked.filter((request) => request.kind === 'edit');
     assert.equal(writes.length, 3);
+    for (const write of writes) assert.equal(write.command, undefined);
     // Each a new file's whole text, `{path, text}` where nothing is yet: carried, so it can be approved.
     for (const write of writes) {
       assert.equal(write.complete, true);
@@ -972,7 +1389,7 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
       .join('\n');
     assert.ok(
       /"id": "autopilot"[^}]*"currentValue": "on"/.test(
-        recorded.split('"answer": "session/set_config_option"')[1] ?? '',
+        recorded.split('"answer": "session/set_config_option"').slice(1).join(''),
       ),
     );
     const run = setUp(t, 'cut', { profile: KIRO, fixtureText: recorded });
@@ -1282,6 +1699,55 @@ describe('ACP approval requests', () => {
       folder,
     );
     assert.equal(asked.complete, false);
+    // No command in parts: where it runs is the app's own field, not known (AUDIT3 CP1, CP3). Its input shown whole.
+    assert.equal(asked.subject.command, undefined);
+    assert.equal(asked.subject.summary, '{"CommandLine":"ls","Cwd":"/elsewhere"}');
+  });
+
+  test("Cursor's recorded command call carries the command in its parts, where it runs unknown", () => {
+    const recorded = readFileSync(join(FIXTURES, 'cursor-signed-in-deny.jsonl'), 'utf8')
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .map((line) => JSON.parse(line))
+      .map((step) => step.send?.params?.update)
+      .find((update) => update?.sessionUpdate === 'tool_call');
+    assert.ok(recorded !== undefined, 'the recorded call');
+    const asked = approvalRequest(recorded, CURSOR, folder);
+    assert.deepEqual(asked.subject.command, {
+      text: 'echo hello > hello.txt',
+      runs_in: { kind: 'unknown' },
+      background: false,
+      input_to_running: false,
+    });
+    assert.equal(asked.subject.summary, 'echo hello > hello.txt');
+    assert.equal(asked.complete, true);
+  });
+
+  test("Kiro's command field alone makes a command; its other known inputs never reach it", () => {
+    const asked = approvalRequest(
+      {
+        toolCallId: 'a',
+        kind: 'execute',
+        rawInput: { command: 'npm test', description: 'Run the tests', run_in_background: true },
+      },
+      KIRO,
+      folder,
+    );
+    assert.deepEqual(asked.subject.command, {
+      text: 'npm test',
+      runs_in: { kind: 'unknown' },
+      background: true,
+      input_to_running: false,
+    });
+    assert.equal(asked.subject.summary, '[in the background] npm test');
+    // A command of many lines is one command line to its shell, kept whole, never cut (CP5).
+    const long = 'echo start\n'.repeat(3000);
+    const whole = approvalRequest(
+      { toolCallId: 'b', kind: 'execute', rawInput: { command: long } },
+      KIRO,
+      folder,
+    );
+    assert.equal(whole.subject.command?.text, long);
   });
 
   test('a command in the background says so', () => {
@@ -1295,10 +1761,8 @@ describe('ACP approval requests', () => {
       ANTIGRAVITY,
       folder,
     );
-    assert.equal(
-      asked.subject.summary,
-      "[in its shell, which started in the task's folder, in the background] npm start",
-    );
+    assert.equal(asked.subject.summary, "[in the task's folder, in the background] npm start");
+    assert.equal(asked.subject.command?.background, true);
     assert.equal(asked.complete, true);
   });
 

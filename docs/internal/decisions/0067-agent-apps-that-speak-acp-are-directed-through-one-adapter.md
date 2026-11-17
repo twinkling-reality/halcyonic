@@ -53,8 +53,12 @@
 ## Consequences
 
 - A further app that speaks ACP is a profile and a runtime test, not an adapter.
-- A run is never confined, so it never counts toward `reads_confined` and gets no task copy (`holdsFolder` absent),
-  and `never_ask` is not offered.
+- A run is never confined, so it never counts toward `reads_confined`, and `never_ask` is not offered.
+- Amended 2026-11-17 (the limits audit's #3): on macOS each task works in a copy of its own (ADR 0045), held there by
+  the agent-app profile's copy rules (`holdsFolder`), so a project takes several of their tasks at once.
+- Amended 2026-11-17: a model is chosen from the app's own list where one was seen (`AcpProfile.models`), set at the
+  start and read back before the task runs; and a profile may hold options that keep the person's work to them
+  (`privateOptions`, Kiro's `contentCollection` `disabled`), held like the asking options.
 - What an app leaves off its requests comes from what it reported of the same call (Kiro's requests carry no input)
   and its version from its own `--version` where `initialize` names none (Kiro signed in); a session is started in
   the mode a run showed asks (Antigravity also offers an `auto` mode). Kiro's writes carry no change, so they can

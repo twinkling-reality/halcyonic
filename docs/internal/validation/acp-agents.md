@@ -188,6 +188,139 @@ the profile also refuses `process-exec` in the host's folders, every `.halcyonic
 project's own settings for the app and the settings homes' folder. Under `sandbox-exec`, a copy of `/usr/bin/true` in
 each of those fails to run while the same copy in the project runs; without the rule the test fails.
 
+## Cursor's agent CLI (2026-11-17, signed out)
+
+Docs read: cursor.com/docs/cli/installation, /cli/acp, /cli/reference/parameters, /cli/headless,
+/cli/reference/authentication, /cli/reference/configuration, /cli/reference/permissions, /agent/security/run-modes,
+/cli/changelog. The installer's own package, `downloads.cursor.com/lab/2026.11.13-eacade1/darwin/arm64/
+agent-cli-package.tar.gz` (174926275 bytes), matched the `.sha256` beside it on the same server
+(087220ccf1e124dcdf2753601422892042a45a2c577ef0ea25b8a5b0e47bb691; not in the docs). It unpacks a launcher script,
+`cursor-agent`, beside its own Node runtime (Developer ID Node.js Foundation).
+
+- `cursor-agent --version` prints `2026.11.13-eacade1`. `cursor-agent acp` speaks ACP v1: `initialize` (signed out)
+  names no `agentInfo`, advertises `loadSession`, images, `sessionCapabilities.list`, and one auth method,
+  `cursor_login` ("Run 'agent login' first"). `session/new` answers `-32000` "Authentication required ... call
+  authenticate() with methodId 'cursor_login'"; `authenticate` signed out never answers.
+- Its headless mode (`-p`) refuses every ask unseen (docs); `--force` / `--yolo` run everything not denied, off by
+  default. Its permissions live in `cli-config.json` (`approvalMode` `allowlist`, `auto-review` or `unrestricted`,
+  `permissions.allow` / `deny`), under `CURSOR_CONFIG_DIR`; a project's `.cursor/cli.json` can add permissions.
+- A fresh `CURSOR_CONFIG_DIR` got, on its first launch, `{"version": 1, "permissions": {"allow": ["Shell(ls)"],
+  "deny": []}, "approvalMode": "allowlist", "sandbox": {"mode": "disabled", ...}}`.
+
+So Cursor is a third profile: `cursor-agent acp`, its version from `--version`, a fresh settings home per launch as
+`CURSOR_CONFIG_DIR` with Halora's own `cli-config.json` written into it first (allowlist, nothing allowed, its own
+sandbox off: the agent-app profile holds it), `.cursor` refused in the project, its key variables dropped, and
+`cursor_login` asked only after a session is refused as not signed in, with an 8 s wait. Tested on the recorded
+signed-out handshake and end to end on the real binary, signed out. Not seen: anything signed in (its modes, which
+the profile expects to hold `agent`; its permission options' kinds; its blocking `cursor/ask_question` and
+`cursor/create_plan` requests, which the adapter answers as unknown methods).
+
+## An ask that changes, and an app's own commands (AUDIT3 KW1, SW-g, 2026-11-17)
+
+An app that reports another input for a call after the person was asked about it and before they answered has the
+ask refused by Halora at once (its once-only refusal), recorded as denied with `withdrawn.input_changed` as the
+resolution's native type; the person's answer then finds it answered. And each app is launched as the leader of a
+process group of its own: closing it, the watchdog and the next start's sweep signal the whole group (the sweep only
+after the identity check), so the commands it started end with it. Both tested; each fails without its rule.
+
+## Each task in a copy of its own (the limits audit's #3, 2026-11-17)
+
+On macOS the adapter holds a task to its own copy (ADR 0045) where the host names its folders and its task copies:
+`holdsFolder` is true for a recorded copy and for a folder outside the host's own, never for a host folder that is
+no recorded copy, and false off macOS or with copies off. In a copy the agent-app profile gains the copy rules (see
+[task-copies.md](task-copies.md)) and the launch drops `SSH_AUTH_SOCK`. Seen on this Mac:
+- `profile.test.ts`, a layout of two tasks' copies, the person's folder and home under `sandbox-exec`: the copy read,
+  written (its `.git` too) and run in; the person's folder read, never written (directly, its `.git`, or through a link
+  in the copy); the other copy neither read, written nor run in; `.agents` inside the copy neither read, made (in any
+  case) nor run in; the data folder, `~/.ssh` and a `git-credential-*` helper refused; a program in the home, a write
+  in the home and in the launch's own settings home open. Each copy rule removed in turn (the copy's opening, the
+  write refusal on the person's folder, the copy's exec opening, the settings' exec refusal in the copy, the helper
+  refusal) lets through what it held, or closes what it opened. Both tests fail on the profile without the copy rules.
+- The real `agy` 1.5.10 in a task's copy, on the stand-in model, one approved command: it wrote the copy, read the
+  person's folder, and was refused writing the person's folder, writing or reading the other task's copy and making
+  `.agents/hooks.json` in the copy; `SSH_AUTH_SOCK`, given in its environment, did not reach the command. With the
+  drop removed the address reached it; with the adapter's copy support removed the start failed in the copy.
+- Two tasks of one project at once on the real `agy` (AUDIT3 C6b): one adapter, two copies, the second task started
+  while the first waited on its ask, both approved; each command ran in its own copy (`pwd -P`), and was refused
+  writing and reading the other's. With the copy's opening widened to the copies' folder, the test fails.
+- The app's settings folders in the person's folder are refused in a copy too (AUDIT3 SC1): `.Agents` under a
+  subfolder of the person's folder is unreadable from the copy's profile, and readable without the rule.
+- `runtimes.test.ts`: the three apps, registered as the control plane registers them, are held to a connected folder
+  and its copy and to a starter's project and its copy on macOS, never to an unrecorded folder in the copies' folder or
+  the data folder, and to nothing without task copies.
+
+## A command ask in its parts (AUDIT3 CP1 to CP5, 2026-11-17)
+
+On the real `agy` 1.5.10 (stand-in model), two approved `run_command` calls in one turn: `mkdir -p sub && cd sub &&
+pwd -P > first.txt`, then `pwd -P > where.txt`; `where.txt` named the task's folder, so a `cd` carries over to no
+later command, and each ask says the task's folder. On the recorded Kiro run, each command's ask carries the command
+Kiro reported for the call, where it runs unknown. Cursor's calls carry none until a signed-in run shows its shell
+tool.
+
+## Cursor signed in (2026-11-17, three bounded runs, the cheapest model)
+
+The owner signed in to Cursor (19:13Z). Each run: a scratch folder, the agent-app profile, a fresh
+`CURSOR_CONFIG_DIR` seeded with `cli-config.json` (allowlist, nothing allowed), `NO_OPEN_BROWSER=1` (AUDIT3 CU2),
+`gpt-5.4-nano[reasoning=medium]` (the cheapest by name of its 48), one turn, under ten minutes.
+- No prompt (20:11Z, CU1): `initialize` names no `agentInfo`, auth `cursor_login`; `session/new` answered without
+  `authenticate` (the sign-in applies under Halora's config folder), modes `agent` (current), `plan` ("Read-only"),
+  `ask` ("no edits or command execution"), and `configOptions` `mode` and `model` only: no option that would run
+  tools unasked, so nothing is added to its asking options. Its 48 models are the `model` option's choices, `default[]`
+  ("Auto") current; ids carry their settings in brackets. It does not end when its input ends; the adapter's signal
+  after 2 s does.
+- Run 1 (20:12Z, through the adapter, every request denied): asked to run `echo hello > hello.txt`, Cursor asked once,
+  `kind: execute`, input `{command}`, the request's content "Shell allowlist is empty", options `allow-once`,
+  `allow-always`, `reject-once`; denied, nothing was written (CU3), and Cursor said the approval was rejected. Found:
+  Cursor ends a refused call `completed`, with no output, which the adapter had reported as a tool that succeeded and
+  never counted as the denial taken. Mended: `deniedStatuses` (Cursor's `failed` or `completed`), and a call whose ask
+  was denied never reads as succeeded. 13 s.
+- Run 2 (20:14Z, raw ACP, rejected once): the same, with `session/set_config_option` `model` taken and read back;
+  recorded as `fixtures/cursor-signed-in-deny.jsonl` (the model list shortened to two).
+- Run 3 (20:19Z, through the mended adapter, every request denied): the command asked in its parts, denied, taken as
+  denied when Cursor ended it `completed`, the tool reported failed, nothing written. 11 s.
+- Use: Cursor's answers to `session/prompt` carried no usage, so it reports none.
+
+## Each app's own models (2026-11-17, no prompt, nothing spent)
+
+- Antigravity: `session/new` answers its models as the `model` option (`configOptions`, ACP's `model` category; on the
+  stand-in, two, `gemini-4-carbon` and `gemini-4-hydrogen`, while `models.availableModels` lists their effort
+  variants), and `session/set_config_option` `model` `gemini-4-carbon` was answered with it current. The adapter lists
+  that option's choices, the one current first, and a start with a model sets it and goes on only once the app reads
+  it back. The model is set first, before the asking mode and the held options (AUDIT3 MC1): Kiro's answer to a model
+  set lists every option again (and adds `effortLevel` and `thinking`), so a model change could reset one; each held
+  option is then set and read back last, and the asking mode is taken from the app's latest report. End to end on the pinned binary: the listing asks the model nothing, and a turn started on a listed model
+  asked the stand-in for that model.
+- Kiro: its `session/new` named its 23 models in one probe and none in another under a fresh settings home, so the
+  adapter lists them with Kiro's own `kiro-cli chat --list-models --format json` (under the same profile and a fresh
+  settings home): `{models: [{model_id, model_name, description, context_window_tokens, rate_multiplier, rate_unit}],
+  default_model}`, 23 models, `auto` first, each with its context. `session/set_config_option` `model`
+  `qwen3-coder-next` and `claude-haiku-5.5` were each taken and read back. Each credit rate is in the list but not
+  carried: the contract has no place for a model's price.
+- Cursor: its `session/new` `model` option, 48 models (signed in, above); `set_config_option` took one and read it back.
+- Every model is said `remote`: the app reaches its maker's service, its endpoint variables taken out; `tool_calling`
+  is unknown, since neither list says.
+
+## What a turn used (2026-11-17)
+
+Antigravity answers `session/prompt` with `usage` `{inputTokens, outputTokens, cachedReadTokens, cachedWriteTokens,
+thoughtTokens, totalTokens}`, summed over the turn's model calls. On the stand-in, three calls each of 100 input (40
+from the cache) and 10 output with 5 more thinking gave input 180, cachedRead 120, output 45, thought 15, total 345:
+input is the part not read from the cache, and output includes the thinking, as Halora's parts are. So it is reported
+as `runtime.usage.reported`, `counted: given`, `cost` null (no price), epistemic `reported`, before the turn's end; end
+to end, one call reported input 60, cache_read 40, cache_write 0, output 15, reasoning 5. Kiro reports credits only
+(`turn_completion`, `session_usage`), which the contract does not carry, and Cursor reports nothing, so neither
+declares `reports_usage`.
+
+## Kiro's content collection held off (the lead's ruling, 2026-11-17)
+
+In Halora's fresh settings home Kiro's `session/new` reports `contentCollection` `enabled`, "Allow content to be used
+for service improvement": Kiro's default, not the person's choice (their own `~/.kiro/settings/cli.json` names no
+setting). Every Kiro session sets it `disabled` after `autopilot`, starts only once Kiro reads it back (seen taken and
+read back, 19:39Z, no prompt), and a later report of it enabled stops the turn (`sharing_on`, "Kiro 3.4.0 turned back
+on sharing your work to improve its service, so Halora stopped the turn."), set again before the next instruction. The
+recorded Kiro traces have Kiro's real answer to that set spliced in after the autopilot one, with the later reports
+disabled, as Kiro makes them.
+
 ## Real runs, signed in (2026-11-17, the owner's sign-ins, bounded by the lead)
 
 The owner signed in to Kiro ("Logged in with Google") and to Antigravity on this Mac. Each run: a scratch folder,
@@ -254,8 +387,13 @@ again right before `session/new`; the app's version must be the profile's, or th
 - An approval is answered with the app's own `allow_once` or `reject_once` option, never an `always` one, and
   counted taken when the call next reports `in_progress` or `completed` (approved) or `failed` (denied), else it
   fails after 15 s with effect unknown.
-- A request is shown as its whole `rawInput`; Antigravity's `run_command` as its command, "in its shell, which
-  started in the task's folder", complete only beside inputs that do not act. A file request is complete only with
+- A request is shown as its whole `rawInput`; a profile's shell tool (Antigravity's `run_command`, Kiro's `execute`
+  call) as its command in its parts (`ApprovalCommand`, AUDIT3 CP1 to CP5), taken from the command field of the
+  call's own input, never its title, uncut, its summary built from the parts alone: Antigravity's said to run in the
+  task's folder (seen: each command starts there, a `cd` in one reaching no later one), Kiro's where it runs unknown
+  (not seen). It is complete only beside inputs that do not act; a shell call with any other input (a folder field of
+  its own) is shown whole as JSON, with no command in parts, and can only be denied. A change to the call's command
+  after the ask is shown withdraws the ask (KW1, tested on each app's trace). A file request is complete only with
   its change carried whole: a new file's whole text, or a profile-known replacement (`edit_file` at every
   occurrence). A Kiro edit, a delete, a move and a request without its input can only be denied.
 - On macOS the app runs under the agent-app profile (`agentAppProfile`, one file per launch, removed at its end): it
@@ -293,5 +431,10 @@ again right before `session/new`; the app's version must be the profile's, or th
   requests; and how Kiro's writes reach a file (`{path, text}`: a whole new file or not), so its writes stay
   deny-only.
 - Which of Antigravity's other tools ask.
+- Which settings key, if any, is the person's own choice behind Kiro's `contentCollection` (its binary names
+  `codeWhisperer.shareCodeWhispererContentWithAWS`; not tried), so a person who chose to share is not followed yet.
+- Kiro and Cursor in a task's copy (the same profile code, not run there), and two tasks of one project side by side
+  through a control plane on an ACP app (the host's copy flow is the one Codex, OpenCode and Claude Code use, its
+  journey tested on a stand-in runtime).
 - What Kiro does with its input closed in the middle of a turn (the watchdog stops it either way).
 - Kiro's and Antigravity's telemetry beyond `--disable-telemetry` (Antigravity) and Kiro's `telemetry` setting.

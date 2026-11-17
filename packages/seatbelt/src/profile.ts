@@ -911,6 +911,13 @@ export interface AgentAppScope extends HostFoldersScope {
    * launch's `own`, so nothing the app writes there reaches another launch, and its own is removed at its end.
    */
   readonly settingsHomes?: { readonly root: string; readonly own: string };
+  /**
+   * Where the project is a task's own copy of a folder the person connected (ADR 0045, limits audit #3): the copy,
+   * in the task copies' folder, is opened, read, written and run in, as the copy profile opens it; the folder it was
+   * made from is read and never written; every other task's copy stays refused, and so do git's credential helpers
+   * and the SSH agent's socket.
+   */
+  readonly copyOf?: { readonly original: string };
 }
 
 /**
@@ -967,11 +974,47 @@ export function agentAppProfile(scope: AgentAppScope): string {
     scope.settingsHomes === undefined
       ? []
       : [`(subpath ${JSON.stringify(resolved(scope.settingsHomes.root).replace(/\/+$/, ''))})`];
+  const copyRules: { open: string[]; run: string[]; close: string[] } = {
+    open: [],
+    run: [],
+    close: [],
+  };
+  // In a copy, the app's settings folders in the person's folder it was made from are refused as in the copy (AUDIT3 SC1).
+  const originalSettings: string[] = [];
+  if (scope.copyOf !== undefined) {
+    const original = resolved(scope.copyOf.original).replace(/\/+$/, '');
+    if (/["\n\r]/.test(original))
+      throw new Error(`a folder Halora cannot name in its profile: ${original}`);
+    if (!withinHostFolders(project, scope))
+      throw new Error("a task's copy is always inside the task copies' folder");
+    if (within(project, original) || within(original, project))
+      throw new Error("a task's copy and the folder it was made from are apart");
+    copyRules.open.push(
+      `(allow file-read* file-write* (subpath ${JSON.stringify(project)}))`,
+      `(deny file-write* (subpath ${JSON.stringify(original)}))`,
+    );
+    originalSettings.push(
+      ...scope.projectSettings.map(
+        (name) => `(regex #"^${seatbeltRegexLiteral(original)}/(.*/)?${anyCase(name)}(/|$)")`,
+      ),
+    );
+    copyRules.run.push(
+      `(allow process-exec (subpath ${JSON.stringify(project)}))`,
+      ...(settings.length === 0 ? [] : [`(deny process-exec ${settings.join(' ')})`]),
+    );
+    copyRules.close.push(
+      '(deny process-exec (regex #"/git-credential-[^/]*$"))',
+      '(deny network-outbound (remote unix-socket (path-regex #"^/private/tmp/com\\.apple\\.launchd\\.[^/]+/Listeners$")))',
+    );
+  }
   return [
     hostFoldersDeniedProfile(scope).trimEnd(),
-    `(deny file-read* file-write* ${[...credentials, ...settings].join(' ')})`,
-    `(deny process-exec ${[...hostSubpaths, hostHomes, ...credentials, ...settings, ...homesRoot].join(' ')})`,
+    ...copyRules.open,
+    `(deny file-read* file-write* ${[...credentials, ...settings, ...originalSettings].join(' ')})`,
+    `(deny process-exec ${[...hostSubpaths, hostHomes, ...credentials, ...settings, ...originalSettings, ...homesRoot].join(' ')})`,
+    ...copyRules.run,
     ...homes,
+    ...copyRules.close,
     '',
   ].join('\n');
 }

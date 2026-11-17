@@ -1,6 +1,15 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type {
@@ -10,6 +19,7 @@ import type {
   Provenance,
   RuntimeCapabilities,
   RuntimeDescriptor,
+  RuntimeModel,
   RuntimeOptions,
   Timestamp,
 } from '@halcyonic/contracts';
@@ -31,8 +41,10 @@ import {
   agentAppProfile,
   type HostFoldersScope,
   SANDBOX_EXEC,
+  withinHostFolders,
 } from '@halcyonic/seatbelt';
 import { approvalRequest, toolNameOf } from './approvals.ts';
+import { clipName, type ListedModel, modelsFromOptions } from './models.ts';
 import { AcpProcessGuard, type StaleProcess } from './process-guard.ts';
 import type { AcpProfile } from './profiles.ts';
 import { type RequestId, RpcConnection, RpcError, RpcUnanswered } from './rpc.ts';
@@ -70,6 +82,10 @@ const HANDSHAKE_MS = 60_000;
 const SIGN_IN_MS = 8_000;
 /** How long an approval or a cancel waits for the app to show it took effect. */
 const CONFIRM_MS = 15_000;
+/** How long the app's own listing command has to name its models. */
+const LIST_MS = 25_000;
+/** The most the listing command may print. */
+const LIST_BYTES = 4 * 1024 * 1024;
 
 export interface AcpRuntimeOptions {
   readonly profile: AcpProfile;
@@ -105,6 +121,12 @@ export interface AcpRuntimeOptions {
    */
   readonly processRecordFile: string | null;
   /**
+   * The folder a task's own copy was made from, by the copy's path, or null where a folder is no copy (ADR 0045):
+   * with it, the adapter holds each task to its own copy (`holdsFolder`), so a project takes several tasks at once
+   * (limits audit #3). Absent: no copies.
+   */
+  readonly copyOriginOf?: (directory: string) => string | null;
+  /**
    * On macOS, the host's own folders the light profile keeps the app and everything it runs from
    * (its data folder with the keys and the journal, the task copies, every `.halcyonic` home), and
    * where the profile file is written. Null runs the app with no profile.
@@ -117,6 +139,8 @@ interface Turn {
   readonly id: string;
   /** Set when the app said it left the asking mode during the turn, which Halora then cancelled (AUDIT3 AC4). */
   modeLeft: boolean;
+  /** What it left: the asking mode or an asking option, or a private option turned back on. */
+  leftFor: 'asking' | 'sharing';
   /** Settles when the app answered `session/prompt`. */
   readonly done: Promise<void>;
   interrupting: {
@@ -183,9 +207,23 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
   readonly #sessions = new Map<string, AcpSession>();
   readonly #guard: AcpProcessGuard | null;
   #closed = false;
+  #listing: Promise<readonly RuntimeModel[]> | null = null;
+  /**
+   * The models the app lists now, from its own list (`AcpProfile.models`), each launch's own: present exactly when
+   * the profile names where the app lists them. Read afresh each time, one listing at a time.
+   */
+  readonly listModels?: () => Promise<readonly RuntimeModel[]>;
 
   constructor(options: AcpRuntimeOptions) {
     this.#options = options;
+    if (options.profile.models !== null) {
+      this.listModels = () => {
+        this.#listing ??= this.#readModels().finally(() => {
+          this.#listing = null;
+        });
+        return this.#listing;
+      };
+    }
     this.#clock = options.clock ?? (() => new Date());
     this.#guard =
       options.processRecordFile === null ? null : new AcpProcessGuard(options.processRecordFile);
@@ -195,9 +233,10 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
       display_name: options.profile.displayName,
       synthetic: false,
       capabilities: ACP_CAPABILITIES,
-      model_choice: 'none',
+      model_choice: options.profile.models === null ? 'none' : 'listed',
       uses_project_location: true,
       reports_tool_activity: false,
+      ...(options.profile.usage === null ? {} : { reports_usage: true }),
     };
   }
 
@@ -209,7 +248,7 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
     if (Object.keys(options).length > 0) {
       return { ok: false, message: `${this.descriptor.display_name} takes no start options.` };
     }
-    if (modelRef !== null) {
+    if (modelRef !== null && this.#options.profile.models === null) {
       return {
         ok: false,
         message: `${this.descriptor.display_name} offers no choice of model here.`,
@@ -222,6 +261,18 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
       };
     }
     return { ok: true };
+  }
+
+  /**
+   * Held to a task's own copy of a folder the person connected, on macOS, under the agent-app profile's copy rules: of
+   * the host's folders and the person's project it writes that copy alone (ADR 0045). Asked of the person's folder
+   * before its copy is made, it says that copy will be held; the copy is asked again once made.
+   */
+  holdsFolder(directory: string): boolean {
+    const { hostFolders, copyOriginOf } = this.#options;
+    if (hostFolders === null || copyOriginOf === undefined) return false;
+    if (copyOriginOf(directory) !== null) return true;
+    return !withinHostFolders(directory, hostFolders.scope);
   }
 
   /** It runs with the person's own access but for the host's folders: never a sandbox of Halcyonic's. */
@@ -255,8 +306,9 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
     );
     this.#sessions.set(id, session);
     try {
-      const nativeId = await session.open(() =>
-        confirmProjectLocation(this.#options.directoryPolicy, request.directory),
+      const nativeId = await session.open(
+        () => confirmProjectLocation(this.#options.directoryPolicy, request.directory),
+        request.model_ref,
       );
       session.prompt(request.instruction);
       return { native_id: nativeId };
@@ -297,6 +349,41 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
     await this.#guard?.close();
   }
 
+  /**
+   * Launches the app once on an empty folder of its own to read its list (no prompt, so nothing is spent) and ends
+   * it. Every model is said remote: the app reaches its maker's service, its endpoint variables taken out, unless a
+   * test's stand-in serves it here.
+   */
+  async #readModels(): Promise<readonly RuntimeModel[]> {
+    if (this.#closed) throw new RuntimeActionError('runtime_closed', 'The runtime is closing.');
+    const models = this.#options.profile.models;
+    if (models === null) return [];
+    const folder = realpathSync(mkdtempSync(join(tmpdir(), 'halora-models-')));
+    const session = new AcpSession(
+      this.#options,
+      this.#clock,
+      () => undefined,
+      folder,
+      this.#guard,
+    );
+    try {
+      const listed = await session.listModels();
+      const served = this.#options.standIn === undefined ? 'remote' : 'this_mac';
+      return listed.map(
+        (model: ListedModel): RuntimeModel => ({
+          model_ref: model.id,
+          display_name: clipName(`${model.name} (${models.service})`),
+          served,
+          tool_calling: 'unknown',
+          context_tokens: model.contextTokens,
+        }),
+      );
+    } finally {
+      await session.close();
+      rmSync(folder, { recursive: true, force: true });
+    }
+  }
+
   /** Stops the apps an earlier control plane recorded and left running (AUDIT3 AS1), before anything starts. */
   stopStaleProcesses(): Promise<readonly StaleProcess[]> {
     return this.#guard?.stopStale() ?? Promise.resolve([]);
@@ -326,6 +413,8 @@ class AcpSession {
   readonly #approvals = new Map<string, Approval>();
   readonly #toolsStarted = new Set<string>();
   readonly #toolsEnded = new Set<string>();
+  /** The calls whose ask was denied, by the person or by Halora withdrawing it. */
+  readonly #deniedCalls = new Set<string>();
   #counter = 0;
   #child: ChildProcess | null = null;
   #rpc: RpcConnection | null = null;
@@ -340,7 +429,13 @@ class AcpSession {
   /** Each call's change as it was carried on its own approval, for a turn-level review of it (Kiro's). */
   readonly #carried = new Map<string, readonly ApprovalChange[]>();
   #profileFile: string | null = null;
+  /** The folder the task's copy was made from, where its folder is one (ADR 0045). */
+  get #copyOrigin(): string | null {
+    return this.#options.copyOriginOf?.(this.#directory) ?? null;
+  }
   #settingsHome: string | null = null;
+  /** The mode the app last reported since `session/new` answered, newer than that answer's own. */
+  #modeReported: string | null = null;
   #closing = false;
   #alive = false;
 
@@ -365,8 +460,92 @@ class AcpSession {
     return this.#alive;
   }
 
-  /** Launches the app, checks its version, opens a session in the folder and reports it started. */
-  async open(confirmAgain: () => string): Promise<string> {
+  /**
+   * Launches the app, checks its version, opens a session in the folder with the asking mode and options held and
+   * the model chosen set, and reports it started.
+   */
+  async open(confirmAgain: () => string, modelRef: string | null = null): Promise<string> {
+    const { rpc, sessionId, created } = await this.#handshake(confirmAgain);
+    // The model first: an app may reset its other options on a model change (AUDIT3 MC1), so the mode and the held
+    // options are set after it and read back last.
+    if (modelRef !== null) await this.#chooseModel(rpc, sessionId, modelRef);
+    for (const [configId, value] of Object.entries(this.#options.sessionOptions ?? {})) {
+      try {
+        await rpc.request(
+          'session/set_config_option',
+          { sessionId, configId, value },
+          HANDSHAKE_MS,
+        );
+      } catch {
+        throw new RuntimeActionError(
+          'option_refused',
+          `${this.#name} did not take the setting ${configId} for this task.`,
+        );
+      }
+    }
+    await this.#askingMode(rpc, sessionId, record(record(created)?.modes));
+    await this.#holdAskingOptions(rpc, sessionId, record(created)?.configOptions);
+    this.#alive = true;
+    this.#emit(
+      'runtime.execution.started',
+      { native_id: sessionId, confined: false, unconfined_reason: UNCONFINED_REASON },
+      observed('session/new'),
+    );
+    return sessionId;
+  }
+
+  /**
+   * The models the app lists, from its own list (`AcpProfile.models`), in this session's empty folder: its listing
+   * command, under the same profile and a fresh settings home, or `session/new`'s answer, the session then ended
+   * unused. Nothing is prompted, so nothing is spent; nothing is reported.
+   */
+  async listModels(): Promise<readonly ListedModel[]> {
+    const models = this.#options.profile.models;
+    if (models === null) return [];
+    if (models.from === 'session') {
+      const { created } = await this.#handshake(() => this.#directory);
+      return modelsFromOptions(record(created)?.configOptions, models.option);
+    }
+    const named = await this.#versionLine();
+    if (named !== this.#options.profile.version) throw this.#versionRefused(named);
+    const { command, args, env } = this.#prepare(() => models.args);
+    let stdout: string;
+    try {
+      ({ stdout } = await run(command, args, {
+        cwd: this.#directory,
+        env,
+        timeout: LIST_MS,
+        maxBuffer: LIST_BYTES,
+      }));
+    } catch {
+      throw new RuntimeActionError('models_unavailable', `${this.#name} did not list its models.`);
+    } finally {
+      this.#removeLaunchFiles();
+    }
+    try {
+      return models.parse(stdout);
+    } catch {
+      throw new RuntimeActionError(
+        'models_unavailable',
+        `${this.#name} listed its models in a way Halora does not know.`,
+      );
+    }
+  }
+
+  /** The refusal of an app at another version than its profile's, or one that names none. */
+  #versionRefused(version: string | null): RuntimeActionError {
+    return new RuntimeActionError(
+      'runtime_version_unsupported',
+      version === null
+        ? `Halora works with ${this.#name} only, and the copy on this computer does not say its version. Install ${this.#name}, then start again.`
+        : `Halora works with ${this.#name} only; this computer has ${version}. Install ${this.#name}, then start again.`,
+    );
+  }
+
+  /** Launches the app, checks its version and opens a session in the folder `confirmAgain` gives. */
+  async #handshake(
+    confirmAgain: () => string,
+  ): Promise<{ rpc: RpcConnection; sessionId: string; created: unknown }> {
     const named = await this.#versionLine();
     const rpc = this.#launch_();
     let initialized: unknown;
@@ -390,14 +569,7 @@ class AcpSession {
     const info = record(record(initialized)?.agentInfo);
     // Kiro's v3 engine names no version once signed in: its own `--version` line, read before the launch, does.
     const version = text(info?.version) ?? named;
-    if (version !== this.#options.profile.version) {
-      throw new RuntimeActionError(
-        'runtime_version_unsupported',
-        version === null
-          ? `Halora works with ${this.#name} only, and the copy on this computer does not say its version. Install ${this.#name}, then start again.`
-          : `Halora works with ${this.#name} only; this computer has ${version}. Install ${this.#name}, then start again.`,
-      );
-    }
+    if (version !== this.#options.profile.version) throw this.#versionRefused(version);
     if (record(initialized)?.protocolVersion !== ACP_PROTOCOL_VERSION) {
       throw new RuntimeActionError(
         'runtime_version_unsupported',
@@ -445,29 +617,44 @@ class AcpSession {
       );
     }
     this.#sessionId = sessionId;
-    await this.#askingMode(rpc, sessionId, record(record(created)?.modes));
-    await this.#holdAskingOptions(rpc, sessionId, record(created)?.configOptions);
-    for (const [configId, value] of Object.entries(this.#options.sessionOptions ?? {})) {
-      try {
-        await rpc.request(
-          'session/set_config_option',
-          { sessionId, configId, value },
-          HANDSHAKE_MS,
-        );
-      } catch {
-        throw new RuntimeActionError(
-          'option_refused',
-          `${this.#name} did not take the setting ${configId} for this task.`,
-        );
-      }
-    }
-    this.#alive = true;
-    this.#emit(
-      'runtime.execution.started',
-      { native_id: sessionId, confined: false, unconfined_reason: UNCONFINED_REASON },
-      observed('session/new'),
+    // A mode reported before the answer is no newer than it.
+    this.#modeReported = null;
+    return { rpc, sessionId, created };
+  }
+
+  /**
+   * Sets the session's model to the one the person chose, from the app's own list, and goes on only once the app
+   * reads it back so, in the set's answer or its report since; refused in words otherwise.
+   */
+  async #chooseModel(rpc: RpcConnection, sessionId: string, modelRef: string): Promise<void> {
+    const models = this.#options.profile.models;
+    const refused = new RuntimeActionError(
+      'model_unavailable',
+      `${this.#name} would not use the model you chose, so the task did not start. Choose another model.`,
     );
-    return sessionId;
+    if (models === null) throw refused;
+    let answer: unknown;
+    try {
+      answer = await rpc.request(
+        'session/set_config_option',
+        { sessionId, configId: models.option, value: modelRef },
+        HANDSHAKE_MS,
+      );
+    } catch {
+      throw refused;
+    }
+    if (this.#readBack(answer, models.option) !== modelRef) throw refused;
+  }
+
+  /** An option's value as the set's answer lists it, else as the app last reported it. */
+  #readBack(answer: unknown, id: string): string | null {
+    const listed = record(answer)?.configOptions;
+    const answered = (Array.isArray(listed) ? listed : [])
+      .map(record)
+      .find((option) => option?.id === id);
+    return answered !== undefined
+      ? text(answered?.currentValue)
+      : (this.#optionsSaid.get(id) ?? null);
   }
 
   /** Starts a turn from an instruction; it ends when the app answers the prompt. */
@@ -500,6 +687,7 @@ class AcpSession {
     );
     const turn: Turn = {
       modeLeft: false,
+      leftFor: 'asking',
       id: turnId,
       done: answered.then(
         () => undefined,
@@ -647,10 +835,21 @@ class AcpSession {
     }
   }
 
-  #launch_(): RpcConnection {
+  /**
+   * What a launch of the app runs, and with what: the app (under the agent-app profile on macOS) with `appArgs`, the
+   * person's environment without the app's own variables, and a fresh settings home of Halora's own.
+   */
+  #prepare(appArgs: (settings: string) => readonly string[]): {
+    command: string;
+    args: string[];
+    env: Record<string, string>;
+  } {
     const { profile, binaryPath, hostFolders } = this.#options;
     const env: Record<string, string> = { ...this.#options.env };
     for (const name of profile.ownVariables) delete env[name];
+    const origin = this.#copyOrigin;
+    // In a task's own copy the SSH agent's address is not handed on, as for Claude Code's copies (ADR 0045).
+    if (origin !== null) delete env.SSH_AUTH_SOCK;
     // A settings home of Halora's own, so the person's own settings for the app never apply here (AUDIT3 AC2), and a
     // fresh one for each launch, removed at its end, so nothing written there reaches a later one (AUDIT3 AC3).
     const homes = join(this.#options.home, profile.settingsHome.folder);
@@ -672,18 +871,34 @@ class AcpSession {
       profile.settingsHome.environment(settings),
     );
     let command = binaryPath;
-    let args = [...profile.args, ...profile.settingsHome.args(settings)];
+    let args = [...appArgs(settings)];
     if (hostFolders !== null) {
       const path = writeProfile(hostFolders.profileFolder, `${profile.runtimeId}-${this.#launch}`, {
         ...hostFolders.scope,
         project: this.#directory,
         projectSettings: profile.projectSettings,
         settingsHomes: { root: homes, own: settings },
+        ...(origin === null ? {} : { copyOf: { original: origin } }),
       });
       this.#profileFile = path;
       args = ['-f', path, binaryPath, ...args];
       command = SANDBOX_EXEC;
     }
+    return { command, args, env };
+  }
+
+  /** Removes this launch's profile file and settings home. */
+  #removeLaunchFiles(): void {
+    if (this.#profileFile !== null) rmSync(this.#profileFile, { force: true });
+    if (this.#settingsHome !== null) rmSync(this.#settingsHome, { recursive: true, force: true });
+  }
+
+  #launch_(): RpcConnection {
+    const { profile } = this.#options;
+    const { command, args, env } = this.#prepare((settings) => [
+      ...profile.args,
+      ...profile.settingsHome.args(settings),
+    ]);
     // The app leads a process group of its own, so stopping it stops the commands it started (AUDIT3 SW-g).
     const child = spawn(command, args, {
       cwd: this.#directory,
@@ -772,6 +987,11 @@ class AcpSession {
         const option = options.find((entry) => entry?.id === id);
         if (option !== undefined && text(option?.currentValue) !== wanted) this.#leftAsking();
       }
+      for (const [id, wanted] of Object.entries(this.#options.profile.privateOptions)) {
+        const option = options.find((entry) => entry?.id === id);
+        if (option !== undefined && text(option?.currentValue) !== wanted)
+          this.#leftAsking('sharing');
+      }
     }
   }
 
@@ -780,12 +1000,16 @@ class AcpSession {
    * the running turn, which then ends failed in words, and the mode is set back before the next instruction (AC4).
    */
   #modeSaid(mode: string | null): void {
+    if (mode !== null) this.#modeReported = mode;
     if (mode === null || mode === this.#options.profile.askingMode) return;
     this.#leftAsking();
   }
 
-  /** The session left its asking mode or an asking option: the running turn is cancelled and set back before more. */
-  #leftAsking(): void {
+  /**
+   * The session left its asking mode or an asking option, or turned a private option back on (`sharing`): the
+   * running turn is cancelled, and all of them set back before more.
+   */
+  #leftAsking(why: 'asking' | 'sharing' = 'asking'): void {
     // Before the session is open, the start itself sets the asking mode and options (Kiro reports autopilot on first).
     if (!this.#alive) return;
     this.#modeLeft = true;
@@ -793,6 +1017,7 @@ class AcpSession {
     const rpc = this.#rpc;
     if (turn === null || turn.modeLeft || rpc === null || this.#sessionId === null) return;
     turn.modeLeft = true;
+    turn.leftFor = why;
     rpc.notify('session/cancel', { sessionId: this.#sessionId });
     for (const approval of this.#approvals.values()) {
       if (approval.answered === null)
@@ -837,29 +1062,32 @@ class AcpSession {
     _reported: unknown,
   ): Promise<void> {
     // Every asking option is set, whether or not the app reported it (AUDIT3 AK1), and taken only once the app reads
-    // it back at its asking value, in the set's answer or its report since (AK2).
-    for (const [id, wanted] of Object.entries(this.#options.profile.askingOptions)) {
-      const refused = new RuntimeActionError(
-        'mode_unavailable',
-        `${this.#name} could not start in the mode where it asks you before it acts, so the task did not start.`,
-      );
-      let answer: unknown;
-      try {
-        answer = await rpc.request(
-          'session/set_config_option',
-          { sessionId, configId: id, value: wanted },
-          HANDSHAKE_MS,
-        );
-      } catch {
-        throw refused;
+    // it back at its asking value, in the set's answer or its report since (AK2). The private options the same way.
+    const asking = new RuntimeActionError(
+      'mode_unavailable',
+      `${this.#name} could not start in the mode where it asks you before it acts, so the task did not start.`,
+    );
+    const sharing = new RuntimeActionError(
+      'option_refused',
+      `${this.#name} would not stop sharing this task's work to improve its service, so the task did not start.`,
+    );
+    for (const [options, refused] of [
+      [this.#options.profile.askingOptions, asking],
+      [this.#options.profile.privateOptions, sharing],
+    ] as const) {
+      for (const [id, wanted] of Object.entries(options)) {
+        let answer: unknown;
+        try {
+          answer = await rpc.request(
+            'session/set_config_option',
+            { sessionId, configId: id, value: wanted },
+            HANDSHAKE_MS,
+          );
+        } catch {
+          throw refused;
+        }
+        if (this.#readBack(answer, id) !== wanted) throw refused;
       }
-      const listed = record(answer)?.configOptions;
-      const answered = (Array.isArray(listed) ? listed : [])
-        .map(record)
-        .find((option) => option?.id === id);
-      const read =
-        answered !== undefined ? text(answered?.currentValue) : (this.#optionsSaid.get(id) ?? null);
-      if (read !== wanted) throw refused;
     }
   }
 
@@ -892,7 +1120,7 @@ class AcpSession {
       const applied =
         decided === 'approved'
           ? status === 'in_progress' || status === 'completed' || status === 'failed'
-          : status === 'failed';
+          : this.#options.profile.deniedStatuses.some((ended) => ended === status);
       if (applied) this.#resolveApproval(approval, decided, kind);
     }
     if ((status === 'completed' || status === 'failed') && this.#toolsStarted.has(toolCallId)) {
@@ -903,7 +1131,9 @@ class AcpSession {
         {
           tool_call_id: toolCallId,
           turn_id: this.#turn?.id ?? null,
-          outcome: status === 'completed' ? 'succeeded' : 'failed',
+          // A call that was denied never succeeded, whatever status the app ends it with (Cursor: `completed`).
+          outcome:
+            status === 'completed' && !this.#deniedCalls.has(toolCallId) ? 'succeeded' : 'failed',
         },
         observed(`${kind}.${status}`),
       );
@@ -950,7 +1180,7 @@ class AcpSession {
     modes: Record<string, unknown> | null,
   ): Promise<void> {
     const wanted = this.#options.profile.askingMode;
-    const current = text(modes?.currentModeId);
+    const current = this.#modeReported ?? text(modes?.currentModeId);
     if (current === wanted) return;
     const available = (Array.isArray(modes?.availableModes) ? modes.availableModes : []).map(
       (mode) => text(record(mode)?.id),
@@ -1057,6 +1287,8 @@ class AcpSession {
   }
 
   #resolveApproval(approval: Approval, decision: 'approved' | 'denied', nativeType: string): void {
+    if (decision === 'denied' && approval.toolCallId !== null)
+      this.#deniedCalls.add(approval.toolCallId);
     const answered = approval.answered;
     if (answered === null) return;
     approval.answered = null;
@@ -1079,15 +1311,22 @@ class AcpSession {
     this.#turn = null;
     const stopReason = text(record(result)?.stopReason) ?? 'unknown';
     const native = observed(`session/prompt.${stopReason}`);
+    this.#reportUsage(turn, record(result)?.usage);
     if (turn.modeLeft) {
       this.#emit(
         'runtime.turn.failed',
         {
           turn_id: turn.id,
-          error: {
-            code: 'mode_left',
-            message: `${this.#name} switched to a mode where it does not ask you first, so Halora stopped the turn.`,
-          },
+          error:
+            turn.leftFor === 'sharing'
+              ? {
+                  code: 'sharing_on',
+                  message: `${this.#name} turned back on sharing your work to improve its service, so Halora stopped the turn.`,
+                }
+              : {
+                  code: 'mode_left',
+                  message: `${this.#name} switched to a mode where it does not ask you first, so Halora stopped the turn.`,
+                },
         },
         native,
       );
@@ -1112,6 +1351,35 @@ class AcpSession {
       );
     }
     this.#settleInterrupt(turn, stopReason === 'cancelled');
+  }
+
+  /**
+   * What the turn used, as the app's answer to the prompt gives it (`AcpProfile.usage`), each part null where the app
+   * gives none; nothing where it gives no usage at all. Never money: neither app prices its tokens here.
+   */
+  #reportUsage(turn: Turn, usage: unknown): void {
+    if (this.#options.profile.usage !== 'prompt') return;
+    const given = record(usage);
+    if (given === null) return;
+    const count = (value: unknown) =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+    this.#emit(
+      'runtime.usage.reported',
+      {
+        turn_id: turn.id,
+        tokens: {
+          input: count(given.inputTokens),
+          cache_read: count(given.cachedReadTokens),
+          cache_write: count(given.cachedWriteTokens),
+          output: count(given.outputTokens),
+          reasoning: count(given.thoughtTokens),
+        },
+        cost: null,
+        counted: 'given',
+      },
+      // The app's own count, so reported, never observed.
+      { epistemic: 'reported', native_type: 'session/prompt.usage' },
+    );
   }
 
   #failed(turn: Turn, error: unknown): void {
@@ -1188,8 +1456,7 @@ class AcpSession {
 
   #exited(): void {
     if (this.#child?.pid !== undefined) this.#guard?.release(this.#child.pid);
-    if (this.#profileFile !== null) rmSync(this.#profileFile, { force: true });
-    if (this.#settingsHome !== null) rmSync(this.#settingsHome, { recursive: true, force: true });
+    this.#removeLaunchFiles();
     const wasAlive = this.#alive;
     this.#alive = false;
     const turn = this.#turn;

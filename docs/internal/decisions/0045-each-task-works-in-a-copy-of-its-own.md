@@ -61,6 +61,14 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
        their usual ways to push in files and the SSH agent, not for every way. The run is recorded not confined,
        since the profile is not the closed one, and its approvals reach the person (ADR 0064's host answers are for
        confined runs). A copy of a starter's project stays in the closed profile.
+   - **Antigravity, Kiro and Cursor** (ADR 0067; amended 2026-11-17, the limits audit's #3) are held on macOS
+     where the host names its folders and its task copies. In a task's copy the agent-app profile opens that copy,
+     read, written and run in; refuses a write to the folder it was made from, its `.git` included; keeps every other
+     task's copy and the host's own folders refused, and the app's own settings folders refused in the copy and in the
+     person's folder; and refuses git's credential helpers and the SSH agent's socket, whose address is not handed
+     on, as the copy profile does. A starter's project is copied the same way, since an agent app has no closed
+     profile. What stays open is what the agent-app profile leaves open: the network, the rest of the person's home
+     and their tools. The run is recorded not confined. Off macOS they are not held, and get no copy.
    Each adapter answers this for itself from the confinement it applies at a start
    (`RuntimeAdapter.holdsFolder`); the host names no runtime. A runtime not held works in the
    project's folder, one task at a time (FOLDER), its task refused a copy in words (`copy_refused`

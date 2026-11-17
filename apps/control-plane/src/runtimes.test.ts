@@ -46,6 +46,7 @@ import {
   OLLAMA_PORT,
   openCodeEnvironment,
   openCodeSandbox,
+  type RuntimeDependencies,
   ripgrepOnPath,
   secretName,
   stopStaleRuntimeServers,
@@ -569,6 +570,55 @@ describe("which runtimes may work in a task's own copy (ADR 0045)", () => {
     assert.equal(cloud('claude-agent', copy), false);
     // Without the runtime registered, nothing is held.
     assert.equal(heldToFolder(adapters({}, HOST, dataDir))('codex', copy), false);
+  });
+
+  test("the agent apps over ACP: on macOS held to each task's own copy, a starter's included, never to the host's own folders", () => {
+    const dataDir = join(base, 'held-acp');
+    const tasksDir = join(base, 'held-acp-tasks');
+    mkdirSync(dataDir, { recursive: true });
+    const binary = join(base, 'held-acp-bin');
+    writeFileSync(binary, '#!/bin/sh\n');
+    chmodSync(binary, 0o755);
+    const own = '/Users/someone/dev/notes';
+    const app = '/Users/someone/dev/garden';
+    const copy = join(tasksDir, 'p', 't', 'notes');
+    const appCopy = join(tasksDir, 'p', 'u', 'garden');
+    const origins = new Map([
+      [copy, own],
+      [appCopy, app],
+    ]);
+    const made = (copies: Pick<RuntimeDependencies, 'tasksDir' | 'copyOriginOf'>) =>
+      createRuntimeAdapters(
+        loadConfig({
+          HALCYONIC_KIRO_BIN: binary,
+          HALCYONIC_ANTIGRAVITY_BIN: binary,
+          HALCYONIC_CURSOR_BIN: binary,
+        }),
+        {
+          mock: new MockRuntimeAdapter({ scenarios: SCENARIOS }),
+          directoryPolicy: createDirectoryPolicy([]),
+          environment: HOST,
+          dataDir,
+          starterOf: (directory) =>
+            directory === app || directory === appCopy ? 'web-game' : null,
+          ...copies,
+        },
+      );
+    const held = heldToFolder(made({ tasksDir, copyOriginOf: (d) => origins.get(d) ?? null }));
+    const onMac = process.platform === 'darwin';
+    for (const id of ['kiro', 'antigravity', 'cursor']) {
+      // The person's folder, before its task's copy is made, and the copy once recorded; a starter's the same.
+      assert.equal(held(id, own), onMac, id);
+      assert.equal(held(id, copy), onMac, id);
+      assert.equal(held(id, app), onMac, id);
+      assert.equal(held(id, appCopy), onMac, id);
+      // A folder of the host's that is no recorded copy: never.
+      assert.equal(held(id, join(tasksDir, 'p', 'x', 'notes')), false, id);
+      assert.equal(held(id, dataDir), false, id);
+    }
+    // Without the host's task copies, none is held: a project takes one of their tasks at a time.
+    const none = heldToFolder(made({}));
+    for (const id of ['kiro', 'antigravity', 'cursor']) assert.equal(none(id, own), false, id);
   });
 });
 
