@@ -733,6 +733,9 @@ namespace Halcyonic.XR.UI
             // Compact clears the room (the addendum's A15): the redesign's pair goes with the rest, and under the redesign only
             // the characters and their name tags stand, the way back being a character picked or the menu's own input.
             bar.Hide();
+            // The plane's handle goes too: with no plane to move, nothing of the workspace stands while the person watches their
+            // show (the lead's 2026-11-17T02:33Z; PlacesCheck's 05-compact).
+            handle.gameObject.SetActive(false);
             gameObject.SetActive(true);
             view.gameObject.SetActive(false);
             presence.gameObject.SetActive(!RoomDesign.Enabled);
