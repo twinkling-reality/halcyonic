@@ -47,7 +47,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(CodeThemes.Current == CodeTheme.Halora, "the preview did not put the chosen colours in force");
                     // The preview is a card whose code the card's own reading lays, as Watch It Work's card lays code (the lead's 18:47Z).
                     var bar = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle);
-                    Require(bar?.Card != null && bar.Card.Sample.SequenceEqual(CodeThemes.Example) && bar.Card.Label == CodeThemes.PreviewLabel, "the preview is not the card with the example");
+                    Require(bar?.Card != null && bar.Card.Sample.SequenceEqual(CodeThemes.Example) && bar.Card.Label == CodeThemes.Title, "the preview is not the card with the example");
                     if (bar?.Card == null) continue;
                     var host = new GameObject("Code preview");
                     var view = RoomCardView.Create(host.transform);

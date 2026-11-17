@@ -752,7 +752,7 @@ public class AppearanceSettingsTests
             // name, its code the example as a sample in Script, laid as Watch It Work lays code; no rows of words beside it.
             Assert.That(column.Frame!.Subject, Is.EqualTo(CodeThemes.Title));
             var card = column.Frame!.Card!;
-            Assert.That((card.Label, card.Title?.Text, card.Title?.AnyTheirs, card.SampleLanguage), Is.EqualTo((CodeThemes.PreviewLabel, "High Contrast", (bool?)false, CodeLanguage.Script)));
+            Assert.That((card.Label, card.Title?.Text, card.Title?.AnyTheirs, card.SampleLanguage), Is.EqualTo((CodeThemes.Title, "High Contrast", (bool?)false, CodeLanguage.Script)));
             Assert.That(card.Sample, Is.EqualTo(CodeThemes.Example));
             var bar = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)!;
             Assert.That((bar.Card?.Label, bar.Card?.Title?.Text, bar.Card?.SampleLanguage), Is.EqualTo((card.Label, card.Title?.Text, (CodeLanguage?)card.SampleLanguage)),

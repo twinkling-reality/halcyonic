@@ -64,7 +64,9 @@ namespace Halcyonic.Client
                     // PREVIEW over the theme's name, then the code, wrapped to the card's width so it never pages. The lines say the same
                     // for a view that draws no card.
                     var example = CodeThemes.Example.Select(line => new PageLine(LineWords.Ours(line)).WithCode(CodeLanguage.Script)).ToList();
-                    var sample = new RoomCard(LineWords.Ours(CodeThemes.Words(chosenCode)), label: CodeThemes.PreviewLabel, sample: CodeThemes.Example,
+                    // Its label is where the person is (RoomCard.Label: FIELD's tile f1, as HALORA over Projects), so the page's own title
+                    // reads on the card the room draws; the theme previewed is the card's title.
+                    var sample = new RoomCard(LineWords.Ours(CodeThemes.Words(chosenCode)), label: CodeThemes.Title, sample: CodeThemes.Example,
                         sampleLanguage: CodeLanguage.Script);
                     return new MenuFrame(CodeThemes.Title, new Footer(close, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
                         farRight: new Prompt(ApplyCode, CodeThemes.ApplyWords, GlazeIcon.Change, main: true)), lines: example).WithCard(sample);

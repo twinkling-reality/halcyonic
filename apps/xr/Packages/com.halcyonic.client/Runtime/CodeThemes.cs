@@ -24,8 +24,6 @@ namespace Halcyonic.Client
 
         public const string PreviewWords = "Preview Colours";
 
-        /// <summary>The preview card's label over the theme's name (the lead's 18:47Z; AUDIT2's 18:52Z: one word of ours over the choice).</summary>
-        public const string PreviewLabel = "Preview";
         public const string ApplyWords = "Apply Colours";
 
         public static readonly CodeTheme[] All = { CodeTheme.Halora, CodeTheme.Plain, CodeTheme.HighContrast };

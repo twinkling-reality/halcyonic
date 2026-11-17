@@ -215,7 +215,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(drawnWhole, "the preview does not draw its example whole: " + string.Join(" | ", shownCode.Select(label => label.text)));
                 var paintedRows = shownCode.Count(label => GlazeRuns.Of(label).Painted.Count > 0);
                 var drawnCode = shownCode;
-                Require(state.EndsWith("-plain", StringComparison.Ordinal) ? paintedRows == 0 : paintedRows == drawnCode.Count && paintedRows > 0,
+                // A wrapped row may be punctuation alone, with nothing to colour: at least one painted row a line of code, and none in Plain.
+                Require(state.EndsWith("-plain", StringComparison.Ordinal) ? paintedRows == 0 : paintedRows >= CodeThemes.Example.Length,
                     "the preview paints " + paintedRows + " of its example's rows in " + CodeThemes.Words(CodeThemes.Current));
             }
             var confirm = state == "52-general-confirm";
