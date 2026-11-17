@@ -52,11 +52,13 @@ namespace Halcyonic.XR.Workspace.Editor
             Directory.CreateDirectory(folder);
             var was = RoomDesign.Enabled;
             GameObject? root = null;
-            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            RenderTexture? texture = null;
             try
             {
                 RoomDesign.Enabled = true;
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                // Made after the new scene, which unloads every asset nothing references.
+                texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
                 root = new GameObject("Places");
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var shelfHeight = EyeHeight - 0.45f;
@@ -169,8 +171,11 @@ namespace Halcyonic.XR.Workspace.Editor
             finally
             {
                 if (root != null) UnityEngine.Object.DestroyImmediate(root);
-                texture.Release();
-                UnityEngine.Object.DestroyImmediate(texture);
+                if (texture != null)
+                {
+                    texture.Release();
+                    UnityEngine.Object.DestroyImmediate(texture);
+                }
                 RoomDesign.Enabled = was;
                 WorkspaceRender.KeepFontAssetsAsCommitted();
             }
