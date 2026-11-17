@@ -201,11 +201,11 @@ export interface PreviewStreamLimits {
 }
 
 /**
- * A browser opens about six connections to one address; the listener allows a device eight in all, its realtime
- * connection among them.
+ * A browser opens about six connections to one address, and a headset shows up to three project screens at once
+ * (limits audit #8, 2026-11-17); the listener allows a device forty in all, its realtime connections among them.
  */
 export const PREVIEW_STREAM_LIMITS: PreviewStreamLimits = {
-  perDevice: 6,
+  perDevice: 18,
   idleMs: 60_000,
   checkMs: 1_000,
 };

@@ -34,7 +34,8 @@ import {
 import { createNetworkIdentity } from './certificate.ts';
 import { MAX_REALTIME_CONNECTIONS_PER_DEVICE } from './devices.ts';
 import { credentialFromBytes, credentialSha256 } from './pairing-protocol.ts';
-import { DEFAULT_NETWORK_LIMITS } from './server.ts';
+import { PREVIEW_STREAM_LIMITS } from './preview-relay.ts';
+import { ADDRESS_FULL, DEFAULT_NETWORK_LIMITS, LISTENER_FULL, REFUSAL_MARGIN } from './server.ts';
 
 type Server = Awaited<ReturnType<typeof startTestServer>>;
 
@@ -985,7 +986,18 @@ describe('what revocation stops, and how long the listener waits', () => {
     for (let index = held.length; index < 6; index += 1) {
       sockets.push((await openTls(target, identity.certificateSha256)).socket);
     }
-    await assert.rejects(openTls(target, identity.certificateSha256), 'one connection too many');
+    // One more is answered in words and closed, never dropped without a word.
+    const full = await tlsRequest(target, {
+      method: 'GET',
+      path: '/api/health',
+      pin: identity.certificateSha256,
+    });
+    assert.equal(full.status, 503);
+    assert.deepEqual(JSON.parse(full.body).error, {
+      code: 'too_many_connections',
+      message: LISTENER_FULL,
+      issues: [],
+    });
     sockets.pop()?.destroy();
     await pause(50);
     // A request, rather than a connection left open: the server has taken it up when it answers.
@@ -1007,6 +1019,22 @@ describe('what revocation stops, and how long the listener waits', () => {
     for (let index = 0; index < DEFAULT_NETWORK_LIMITS.connectionsPerAddress; index += 1) {
       sockets.push((await openTls(target, identity.certificateSha256)).socket);
     }
+    // The next is answered in words and closed: the device can say why, never a silent drop.
+    const over = await tlsRequest(target, {
+      method: 'GET',
+      path: '/api/health',
+      pin: identity.certificateSha256,
+    });
+    assert.equal(over.status, 503);
+    assert.deepEqual(JSON.parse(over.body).error, {
+      code: 'too_many_connections',
+      message: ADDRESS_FULL,
+      issues: [],
+    });
+    // Past the few answered so, a connection is refused before its handshake, as before.
+    for (let index = 0; index < REFUSAL_MARGIN; index += 1) {
+      sockets.push((await openTls(target, identity.certificateSha256)).socket);
+    }
     await assert.rejects(openTls(target, identity.certificateSha256), 'the address holds enough');
     const bare = tcpConnect({ host: target.host, port: target.port });
     bare.on('error', () => {});
@@ -1018,7 +1046,8 @@ describe('what revocation stops, and how long the listener waits', () => {
       }),
       'refusing a plain connection from the same address',
     );
-    sockets.pop()?.destroy();
+    for (const socket of sockets.splice(DEFAULT_NETWORK_LIMITS.connectionsPerAddress - 1))
+      socket.destroy();
     await pause(50);
     const health = await tlsRequest(target, {
       method: 'GET',
@@ -1026,6 +1055,18 @@ describe('what revocation stops, and how long the listener waits', () => {
       pin: identity.certificateSha256,
     });
     assert.equal(health.status, 200);
+  });
+
+  test('one device holds three live previews, its realtime connections and a few requests at once', () => {
+    // Three screens of about six browser connections each, the device's realtime ones, and room for requests.
+    assert.ok(PREVIEW_STREAM_LIMITS.perDevice >= 18);
+    assert.ok(
+      DEFAULT_NETWORK_LIMITS.connectionsPerAddress >=
+        PREVIEW_STREAM_LIMITS.perDevice + MAX_REALTIME_CONNECTIONS_PER_DEVICE + 8,
+    );
+    assert.ok(
+      DEFAULT_NETWORK_LIMITS.connections >= 3 * DEFAULT_NETWORK_LIMITS.connectionsPerAddress,
+    );
   });
 
   test('a socket the listener closes is cut off a second on when its client never answers', async (t) => {

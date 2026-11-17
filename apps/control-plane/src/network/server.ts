@@ -55,16 +55,34 @@ export interface NetworkLimits {
   readonly connectionsPerAddress: number;
 }
 
-/** A device's requests are small, and a headset holds a realtime connection and a few requests. */
+/**
+ * A headset holds its realtime connections, a few requests, and up to three live project screens of
+ * about six browser connections each (limits audit #8, 2026-11-17); the listener holds three such.
+ */
 export const DEFAULT_NETWORK_LIMITS: NetworkLimits = {
   handshakeMs: 5_000,
   requestMs: 10_000,
   idleMs: 60_000,
   keepAliveMs: 5_000,
   checkEveryMs: 1_000,
-  connections: 32,
-  connectionsPerAddress: 8,
+  connections: 128,
+  connectionsPerAddress: 40,
 };
+
+/**
+ * Connections past a limit that are still let through their handshake, so each is answered in
+ * words and closed, never dropped without one; past these, a connection is refused before its
+ * handshake, so a flood still costs the listener nothing.
+ */
+export const REFUSAL_MARGIN = 8;
+
+/** The words a connection past its address's limit is answered with. */
+export const ADDRESS_FULL =
+  'This device has as many connections open to Halora as it may. Close a project screen, then try again.';
+
+/** The words a connection past the listener's limit is answered with. */
+export const LISTENER_FULL =
+  'Halora holds as many connections as it can. Close a project screen on any device, then try again.';
 
 /** How long a WebSocket the listener closes waits for the client to answer the close frame. */
 export const WEBSOCKET_CLOSE_TIMEOUT_MS = 1_000;
@@ -120,8 +138,8 @@ export async function createNetworkServer(options: NetworkServerOptions): Promis
     connectionTimeout: limits.idleMs,
     keepAliveTimeout: limits.keepAliveMs,
   }) as unknown as FastifyInstance;
-  app.server.maxConnections = limits.connections;
-  limitConnectionsPerAddress(app, limits.connectionsPerAddress);
+  app.server.maxConnections = limits.connections + REFUSAL_MARGIN;
+  limitConnections(app, limits);
   // A client that never answers a close frame, such as a revoked device's, is cut off a second on.
   await prepareServer(app, { webSocketCloseTimeoutMs: WEBSOCKET_CLOSE_TIMEOUT_MS });
   const failures = new WindowCounter(options.clock, FAILED_CREDENTIALS_PER_MINUTE, 60_000);
@@ -231,24 +249,45 @@ export async function createNetworkServer(options: NetworkServerOptions): Promis
 }
 
 /**
- * Refuses a connection from an address already holding `max`, before its TLS handshake, so one
- * device on the network cannot take every connection the listener holds.
+ * Bounds the connections from one address and in all, so one device on the network cannot take
+ * every connection the listener holds. A connection past a limit, within `REFUSAL_MARGIN`, finishes
+ * its handshake and its first request is answered 503 in words, then it closes; one past that is
+ * refused before its handshake, and the log says so.
  */
-function limitConnectionsPerAddress(app: FastifyInstance, max: number): void {
+function limitConnections(app: FastifyInstance, limits: NetworkLimits): void {
   const open = new Map<string, number>();
+  let total = 0;
+  // By address and port: the connection the listener counts and the TLS socket a request arrives on share both.
+  const over = new Map<string, string>();
+  const keyOf = (socket: Socket) =>
+    `${socket.remoteAddress ?? ''}:${String(socket.remotePort ?? '')}`;
   app.server.on('connection', (socket: Socket) => {
     const address = socket.remoteAddress ?? '';
     const count = open.get(address) ?? 0;
-    if (count >= max) {
+    if (count >= limits.connectionsPerAddress + REFUSAL_MARGIN) {
+      app.log.warn({ address, held: count }, 'connection refused: its address holds its limit');
       socket.destroy();
       return;
     }
     open.set(address, count + 1);
+    total += 1;
+    const key = keyOf(socket);
+    if (count >= limits.connectionsPerAddress) over.set(key, ADDRESS_FULL);
+    else if (total > limits.connections) over.set(key, LISTENER_FULL);
     socket.once('close', () => {
+      over.delete(key);
+      total -= 1;
       const left = (open.get(address) ?? 1) - 1;
       if (left > 0) open.set(address, left);
       else open.delete(address);
     });
+  });
+  app.addHook('onRequest', async (request, reply) => {
+    const words = over.get(keyOf(request.raw.socket));
+    if (words === undefined) return;
+    request.log.warn({ address: request.ip }, 'connection past a limit answered in words');
+    reply.header('connection', 'close');
+    return reply.code(503).send(errorBody('too_many_connections', words));
   });
 }
 
