@@ -1065,10 +1065,19 @@ namespace Halcyonic.XR.UI
             var cardHeight = LayFacts(bar, wordsWidth) ?? 0f;
             if (bar.Card == null && bar.Body.Text.Length > 0)
             {
+                // The part's OWN rows, exactly as the pair lays them (AUDIT3's 2026-11-16 BLOCK: the first eight lines on every part let a
+                // person approve lines never shown): laid whole, then cut to the rows the file's part names, from its first row.
                 var reading = bar.Mono ? request : body;
                 Set(reading, bar.Body, bar.Mono);
                 reading.gameObject.SetActive(true);
-                var laidBody = KitType.Lay(reading, wordsWidth, bar.Mono ? RoomBar.RequestLines : 8);
+                var laidBody = KitType.Lay(reading, wordsWidth, 200);
+                var from = bar.Part?.FromRow ?? 0;
+                var most = bar.Part != null ? bar.Part.Rows : bar.Mono ? RoomBar.RequestLines : int.MaxValue;
+                if (from > 0 || reading.textInfo.lineCount > most)
+                {
+                    Set(reading, LineWords.Theirs(LabelText.FromTextMeshPro(Rows(reading, from, most))), bar.Mono);
+                    laidBody = KitType.Lay(reading, wordsWidth, 200);
+                }
                 cardHeight = laidBody.Height;
             }
 
