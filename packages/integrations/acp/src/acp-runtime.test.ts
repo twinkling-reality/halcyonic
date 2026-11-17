@@ -30,7 +30,7 @@ import {
 } from './acp-runtime.ts';
 import { approvalRequest } from './approvals.ts';
 import { readProcessIdentity, writeProcessRecords } from './process-record.ts';
-import { type AcpProfile, ANTIGRAVITY, KIRO } from './profiles.ts';
+import { type AcpProfile, ANTIGRAVITY, CURSOR, KIRO } from './profiles.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 
@@ -1091,6 +1091,47 @@ describe('ACP apps never outlive the control plane (AUDIT3 AS1)', () => {
     );
     assert.equal(alive(other.pid ?? 0), true);
     assert.equal(existsSync(file), false);
+  });
+});
+
+describe('ACP adapter on Cursor 2026.11.13 traces', () => {
+  test("a Cursor not signed in fails the start in words, its settings home holding Halora's own asking setup", async (t) => {
+    const run = setUp(t, 'cursor-signed-out.jsonl', {
+      profile: CURSOR,
+      versionLine: '2026.11.13-eacade1',
+    });
+    let settings = '';
+    const watch = setInterval(() => {
+      try {
+        const home = readdirSync(join(run.root, '.cursor', 'halora'))[0];
+        if (home !== undefined)
+          settings = readFileSync(
+            join(run.root, '.cursor', 'halora', home, 'cli-config.json'),
+            'utf8',
+          );
+      } catch {}
+    }, 20);
+    t.after(() => clearInterval(watch));
+    await assert.rejects(
+      start(run),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'sign_in_required' &&
+        error.effect === 'none',
+    );
+    assert.deepEqual(types(run), []);
+    assert.deepEqual(JSON.parse(settings), {
+      version: 1,
+      permissions: { allow: [], deny: [] },
+      approvalMode: 'allowlist',
+      sandbox: { mode: 'disabled' },
+    });
+    // Its own sign-in is asked for only once the session was refused as not signed in.
+    assert.deepEqual(
+      run.sent().map((message) => message.method),
+      ['initialize', 'session/new', 'authenticate'],
+    );
+    assert.equal(run.variables().includes('CURSOR_API_KEY'), false);
   });
 });
 

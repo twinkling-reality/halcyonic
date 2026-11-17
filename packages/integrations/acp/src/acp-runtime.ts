@@ -66,6 +66,8 @@ export const UNCONFINED_REASON =
 
 /** How long the app has to answer `initialize` and `session/new`. */
 const HANDSHAKE_MS = 60_000;
+/** How long an app is given to take its own stored sign-in (`AcpProfile.signIn`); signed out, Cursor never answers. */
+const SIGN_IN_MS = 8_000;
 /** How long an approval or a cancel waits for the app to show it took effect. */
 const CONFIRM_MS = 15_000;
 
@@ -416,7 +418,19 @@ class AcpSession {
     try {
       created = await rpc.request('session/new', { cwd, mcpServers: [] }, HANDSHAKE_MS);
     } catch (error) {
-      throw this.#startError(error);
+      const signIn = this.#options.profile.signIn;
+      if (!(error instanceof RpcError && error.code === AUTH_REQUIRED && signIn !== null)) {
+        throw this.#startError(error);
+      }
+      // The app wants to be handed its own stored sign-in first (Cursor); signed out, it may never answer.
+      try {
+        await rpc.request('authenticate', { methodId: signIn }, SIGN_IN_MS);
+        created = await rpc.request('session/new', { cwd, mcpServers: [] }, HANDSHAKE_MS);
+      } catch (retry) {
+        throw retry instanceof RpcUnanswered && retry.reason === 'timeout'
+          ? this.#startError(new RpcError(AUTH_REQUIRED, 'not signed in'))
+          : this.#startError(retry);
+      }
     }
     const sessionId = text(record(created)?.sessionId);
     if (sessionId === null || sessionId === '' || sessionId.length > 512) {
@@ -640,7 +654,10 @@ class AcpSession {
     const settings = join(homes, `${process.pid}-${this.#launch}`);
     mkdirSync(settings, { recursive: true, mode: 0o700 });
     this.#settingsHome = settings;
-    for (const [file, text] of Object.entries(this.#options.standIn?.settings ?? {})) {
+    for (const [file, text] of Object.entries({
+      ...profile.settingsFiles,
+      ...this.#options.standIn?.settings,
+    })) {
       mkdirSync(join(settings, file, '..'), { recursive: true, mode: 0o700 });
       writeFileSync(join(settings, file), text, { mode: 0o600 });
     }

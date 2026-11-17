@@ -106,6 +106,7 @@ export interface ControlPlaneConfig {
    */
   readonly antigravityBinary: string | null;
   readonly kiroBinary: string | null;
+  readonly cursorBinary: string | null;
   /**
    * The git Halcyonic's undo runs (ADR 0036), by absolute path, or null when none is set. Never
    * looked up on PATH: on the owner's Mac an older git comes first there. Unset, the plane looks for
@@ -353,6 +354,7 @@ export function loadConfig(
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
     antigravityBinary: parseExecutable('HALCYONIC_ANTIGRAVITY_BIN', env.HALCYONIC_ANTIGRAVITY_BIN),
     kiroBinary: parseExecutable('HALCYONIC_KIRO_BIN', env.HALCYONIC_KIRO_BIN),
+    cursorBinary: parseExecutable('HALCYONIC_CURSOR_BIN', env.HALCYONIC_CURSOR_BIN),
     gitBinary:
       env.HALCYONIC_GIT_BIN?.trim() === 'off'
         ? null

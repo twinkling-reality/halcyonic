@@ -15,7 +15,7 @@ import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { RuntimeActionError, type RuntimeObservation } from '@halcyonic/runtime-core';
 import { AcpRuntimeAdapter } from './acp-runtime.ts';
-import { ANTIGRAVITY, KIRO } from './profiles.ts';
+import { ANTIGRAVITY, CURSOR, KIRO } from './profiles.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 import { StandInGemini, type StandInReply } from './testing/stand-in-gemini.ts';
@@ -430,6 +430,65 @@ describe('Kiro 3.4.0 end to end, signed out', { skip: KIRO_SKIP }, () => {
         LANG: 'en_US.UTF-8',
         TMPDIR: `${root}/`,
         KIRO_API_KEY: 'halcyonic-stand-in-not-a-key',
+      },
+      home,
+      processRecordFile: join(root, 'processes.json'),
+      hostFolders:
+        process.platform === 'darwin'
+          ? {
+              scope: { folders: [join(root, 'host-data')], home },
+              profileFolder: join(root, 'profiles'),
+            }
+          : null,
+    });
+    t.after(() => adapter.close());
+    const observations: RuntimeObservation[] = [];
+    await assert.rejects(
+      adapter.startExecution({
+        execution: TEST_EXECUTION,
+        instruction: 'Do the work.',
+        options: {},
+        model_ref: null,
+        directory: project,
+        emit: (observation) => observations.push(observation),
+      }),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'sign_in_required' &&
+        error.effect === 'none',
+    );
+    assert.deepEqual(observations, []);
+  });
+});
+
+/** End to end against the real Cursor agent CLI 2026.11.13-eacade1 (the vendor's darwin-arm64 build), signed out. */
+const CURSOR_BINARY = process.env.HALCYONIC_CURSOR_BIN ?? '';
+const CURSOR_SKIP =
+  CURSOR_BINARY === ''
+    ? 'HALCYONIC_CURSOR_BIN is not set; point it at the pinned Cursor agent CLI 2026.11.13-eacade1 to run these tests'
+    : existsSync(CURSOR_BINARY)
+      ? false
+      : `HALCYONIC_CURSOR_BIN names no file: ${CURSOR_BINARY}`;
+
+describe('Cursor 2026.11.13 end to end, signed out', { skip: CURSOR_SKIP }, () => {
+  test('launched as the control plane launches it, the start fails in words and nothing starts', async (t) => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-acp-cursor-')));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const project = join(root, 'projects', 'one');
+    const home = join(root, 'home');
+    mkdirSync(project, { recursive: true });
+    mkdirSync(home);
+    const adapter = new AcpRuntimeAdapter({
+      profile: CURSOR,
+      binaryPath: CURSOR_BINARY,
+      directoryPolicy: allowOnly(join(root, 'projects')),
+      // A key from the host is never passed: the start still reads as not signed in.
+      env: {
+        PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
+        HOME: home,
+        LANG: 'en_US.UTF-8',
+        TMPDIR: `${root}/`,
+        CURSOR_API_KEY: 'halcyonic-stand-in-not-a-key',
       },
       home,
       processRecordFile: join(root, 'processes.json'),

@@ -1,7 +1,7 @@
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { dirname, join, sep } from 'node:path';
-import { AcpRuntimeAdapter, ANTIGRAVITY, KIRO } from '@halcyonic/integration-acp';
+import { AcpRuntimeAdapter, ANTIGRAVITY, CURSOR, KIRO } from '@halcyonic/integration-acp';
 import {
   CLAUDE_AGENT_READER,
   CLAUDE_AGENT_RUNTIME_ID,
@@ -240,6 +240,7 @@ export function createRuntimeAdapters(
   for (const [profile, binary] of [
     [ANTIGRAVITY, config.antigravityBinary],
     [KIRO, config.kiroBinary],
+    [CURSOR, config.cursorBinary],
   ] as const) {
     if (binary === null) continue;
     adapters.push(

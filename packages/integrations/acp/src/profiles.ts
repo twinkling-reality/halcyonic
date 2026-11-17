@@ -86,6 +86,17 @@ export interface AcpProfile {
    * with the option chosen): an approval counts as taken on it, as it does on the call's next status.
    */
   readonly answerReport: { readonly meta: string; readonly kind: string } | null;
+  /**
+   * The ACP auth method that hands the app its own stored sign-in, for an app whose session needs it (Cursor's
+   * `cursor_login`): asked only once a session is refused as not signed in, with a short wait, since a signed-out app
+   * may never answer it. No secret passes: the app reads its own. Null where the app signs itself in.
+   */
+  readonly signIn: string | null;
+  /**
+   * Files the adapter writes into each launch's fresh settings home before the app starts, by path inside it, so the
+   * app's asking setup is Halora's own and never its default (Cursor's `cli-config.json`, allowlist, nothing allowed).
+   */
+  readonly settingsFiles: Readonly<Record<string, string>>;
   readonly shell: {
     readonly tool: string;
     readonly command: string;
@@ -122,6 +133,8 @@ export const ANTIGRAVITY: AcpProfile = {
   askingOptions: {},
   turnReview: null,
   answerReport: null,
+  signIn: null,
+  settingsFiles: {},
   // `--gemini-dir` moves both its settings (`antigravity-cli/`) and its hooks, tool servers and plugins
   // (`config/`); its Google sign-in is kept in the system keychain (validation/acp-agents.md).
   settingsHome: {
@@ -167,6 +180,8 @@ export const KIRO: AcpProfile = {
   turnReview: { meta: 'kiro', type: 'turn_approval' },
   // Kiro reports every answered request so; Supervised, a write's call shows nothing more until its review.
   answerReport: { meta: 'kiro', kind: 'interaction_resolved' },
+  signIn: null,
+  settingsFiles: {},
   // `KIRO_HOME` moves its settings, agents, hooks and sessions; its sign-in stays in Application Support.
   settingsHome: {
     folder: '.kiro/halora',
@@ -176,4 +191,46 @@ export const KIRO: AcpProfile = {
   shell: null,
 };
 
-export const ACP_PROFILES: readonly AcpProfile[] = [ANTIGRAVITY, KIRO];
+/**
+ * Cursor's agent CLI, `cursor-agent acp` (handshake verified 2026-11-17, signed out): ACP v1, no `agentInfo`, so its
+ * version comes from its own `--version`. A fresh `CURSOR_CONFIG_DIR` starts with `approvalMode: "allowlist"` and only
+ * `Shell(ls)` allowed, so every other call asks; the person's own `~/.cursor` settings never apply.
+ */
+export const CURSOR: AcpProfile = {
+  runtimeId: 'cursor',
+  kind: 'cursor',
+  displayName: 'Cursor Agent 2026.11.13',
+  version: '2026.11.13-eacade1',
+  versionLine: { args: ['--version'], pattern: /^(\d{4}\.\d{2}\.\d{2}-[0-9a-f]+)$/ },
+  args: ['acp'],
+  environment: {},
+  ownVariables: [
+    'CURSOR_API_KEY',
+    'CURSOR_AUTH_TOKEN',
+    'CURSOR_CONFIG_DIR',
+    'AGENT_CLI_CREDENTIAL_STORE',
+    'NO_OPEN_BROWSER',
+  ],
+  replacesEveryOccurrence: [],
+  fileInputs: null,
+  projectSettings: ['.cursor'],
+  // Not yet seen signed in: its documented modes are agent, plan and ask; a session in no `agent` mode is not started.
+  askingMode: 'agent',
+  askingOptions: {},
+  turnReview: null,
+  answerReport: null,
+  signIn: 'cursor_login',
+  // As a fresh config folder writes it (seen 2026-11-17), with nothing allowed: every call asks. Cursor's own
+  // sandbox is off, as there: Halora's agent-app profile holds it.
+  settingsFiles: {
+    'cli-config.json': `${JSON.stringify({ version: 1, permissions: { allow: [], deny: [] }, approvalMode: 'allowlist', sandbox: { mode: 'disabled' } })}\n`,
+  },
+  settingsHome: {
+    folder: '.cursor/halora',
+    args: () => [],
+    environment: (folder) => ({ CURSOR_CONFIG_DIR: folder }),
+  },
+  shell: null,
+};
+
+export const ACP_PROFILES: readonly AcpProfile[] = [ANTIGRAVITY, KIRO, CURSOR];
