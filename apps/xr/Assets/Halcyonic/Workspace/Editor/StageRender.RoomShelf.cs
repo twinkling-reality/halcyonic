@@ -126,11 +126,11 @@ namespace Halcyonic.XR.Workspace.Editor
                                 // The ring in the pixels: those it changes, the frame drawn again with the ring alone hidden. The ring is white
                                 // since the no-hue chrome (the lead's 2026-11-17T19:15Z), so its hue no longer tells it from the tag's white.
                                 var lit = 0;
-                                if (view.NeedsYouRing is MeshRenderer shown)
+                                if (view.NeedsYouRing is MeshRenderer ringShown)
                                 {
-                                    shown.enabled = false;
+                                    ringShown.enabled = false;
                                     var bare = WorkspaceRender.Render(camera, texture);
-                                    shown.enabled = true;
+                                    ringShown.enabled = true;
                                     var with = still.GetPixels32();
                                     var without = bare.GetPixels32();
                                     for (var pixel = 0; pixel < with.Length && pixel < without.Length; pixel++)
