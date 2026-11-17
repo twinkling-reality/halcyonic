@@ -112,7 +112,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     // The row is FIELD's rule's own answer for the tags as drawn (PlacePitch.RowMost: as many as the span holds with its outer tags
                     // inside it), never fewer; each tag's drawn width and its bound are said, for FIELD's sheet.
                     var drawnDegrees = tags.Select(tag => Seen(TagCorners(tag!)).width).ToList();
-                    var ruleRow = Math.Min(PlacePitch.RowMost(drawnDegrees.Max(), PlacePitch.DegreesOf(CharacterStage.BodyWidth * AgentShelfDraft.Scale, bearing.Distance)), PlaceRule.Default.FullMost);
+                    // Read with half a degree's margin: a tag's angle moves by about that much with where in the row it stands, so a place right at
+                    // the line (Kite Run's 10.2 to 10.6 degrees against the 10.53 its row of three holds) may keep the safer row.
+                    var ruleRow = Math.Min(PlacePitch.RowMost(drawnDegrees.Max() + (float)PlacePitch.TagsApartDegrees, PlacePitch.DegreesOf(CharacterStage.BodyWidth * AgentShelfDraft.Scale, bearing.Distance)), PlaceRule.Default.FullMost);
                     if (rowMost < ruleRow) failures.Add(project + ": " + views.Count + " stand in rows of " + rowMost + " where its tags as drawn let " + ruleRow + " stand");
                     Debug.Log("Halcyonic: places: " + variant + " " + project + " tags drawn " + string.Join(", ", drawnDegrees.Select(Degrees)) + " degrees wide, bounds "
                         + string.Join(", ", views.Select(each => Degrees(each.View.TagMostDegrees ?? 0f))) + ".");
