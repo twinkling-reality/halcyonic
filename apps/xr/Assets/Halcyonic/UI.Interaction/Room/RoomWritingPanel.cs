@@ -70,11 +70,14 @@ namespace Halcyonic.XR.UI
         public static int MostRows()
         {
             var pitch = RoomType.Scaled(RoomReading.LineDp) * CardScale;
-            var head = RoomType.Scaled(LabelLineDp + LabelGapDp + TitleLineDp + TitleGapDp);
+            // The title may stand on its two lines (a path that wraps, AUDIT3's 16:06Z): the worst case, so no panel passes its height.
+            var head = RoomType.Scaled(LabelLineDp + LabelGapDp + TitleLineDp * TitleMostLines + TitleGapDp);
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
             var counts = 2f * RoomType.Scaled(CountLineDp);
             // One row's room less for the card's own room above and below its rows (measured: 357 dp at 6 rows without it).
-            return Mathf.Max(3, Mathf.FloorToInt((RoomType.Units(MostPanelTallDp) - head - 2f * pad - counts) / pitch) - 1);
+            // Never fewer than two rows: at the larger size a two-line path with both counts leaves room for two, and the panel
+            // keeps its height rather than a third row (the check holds it at MostPanelTallDp).
+            return Mathf.Max(2, Mathf.FloorToInt((RoomType.Units(MostPanelTallDp) - head - 2f * pad - counts) / pitch) - 1);
         }
 
         /// <summary>The count words for <paramref name="lines"/> of the file left out <paramref name="where"/> ("above", "below"), AUDIT2's.</summary>

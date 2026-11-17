@@ -47,11 +47,38 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private const string BuildListWords = WatchBuild.ListWords;
 
+        /// <summary>
+        /// A fixture file's panel as the product lays it: read through WatchBuild with the view's row cap (RoomWritingPanel.MostRows),
+        /// so the arc in the renders and in the judges' walk stands as the headset's does (JUDGE's 16:07Z: the fixture's panels
+        /// were handed their rows uncapped).
+        /// </summary>
         private static WritingPanel BuildFilePanel(int index)
         {
             var (name, folder, lines) = BuildFiles[index];
-            return new WritingPanel(folder + "/" + name, LineWords.Theirs(name), LineWords.Theirs(folder), WritingState.Changing,
-                lines.SelectMany(RoomWritingPanel.Wrap).ToList(), new int[0], 120, isNew: true);
+            return WatchedPanel(folder + "/" + name, lines);
+        }
+
+        /// <summary>
+        /// <paramref name="lines"/> read at <paramref name="path"/> through the product's own window, capped by the view; with
+        /// <paramref name="changed"/>, read again with those lines replaced, so the window follows the change.
+        /// </summary>
+        private static WritingPanel WatchedPanel(string path, IReadOnlyList<string> lines, IReadOnlyDictionary<int, string>? changed = null)
+        {
+            var watch = new WatchBuild(RoomWritingPanel.Wrap) { MostRows = RoomWritingPanel.MostRows };
+            Halcyonic.Contracts.ProjectFileResponse Read(IEnumerable<string> text) => new Halcyonic.Contracts.ProjectFileResponse
+                { ProjectId = "p", Path = path, Kind = Halcyonic.Contracts.ProjectFileKind.Text, SizeBytes = 900, Text = string.Join("\n", text), ModifiedAt = "2026-11-17T03:00:00Z" };
+            Halcyonic.Contracts.ExecutionWritingView Writing(string at) => new Halcyonic.Contracts.ExecutionWritingView
+                { Paths = new List<string> { path }, PathsTotal = 1, TotalComplete = true, At = at };
+            watch.Due(Writing("t1"), 0);
+            watch.Read(path, Read(lines), 0.1);
+            if (changed != null)
+            {
+                var edited = lines.ToList();
+                foreach (var (line, text) in changed) edited[line] = text;
+                watch.Due(Writing("t2"), 2.5);
+                watch.Read(path, Read(edited), 2.6);
+            }
+            return watch.Arc.Panels.Single();
         }
 
         /// <summary>The arc after <paramref name="files"/> of the kite's files: the last three standing, every one named so far.</summary>
@@ -251,23 +278,10 @@ namespace Halcyonic.XR.Workspace.Editor
         /// (WatchBuild, capped by RoomWritingPanel.MostRows): the panel shows the rows that fit, ending at the line being
         /// written, and counts the file's lines left out above and below (the lead's 2026-11-17T03:09Z ruling).
         /// </summary>
-        private static WritingPanel TallPanel()
-        {
+        private static WritingPanel TallPanel() =>
             // A path long enough that the title wraps to its two lines at the larger size, so the cap must count both (AUDIT3's 16:06Z).
-            const string path = "src/game/levels/the-northern-forest/sky-and-wind.js";
-            var watch = new WatchBuild(RoomWritingPanel.Wrap) { MostRows = RoomWritingPanel.MostRows };
-            var lines = Enumerable.Range(1, 40).Select(line => "const gust" + line + " = wind(" + line + ");").ToList();
-            Halcyonic.Contracts.ProjectFileResponse Read(IEnumerable<string> text) => new Halcyonic.Contracts.ProjectFileResponse
-                { ProjectId = "p", Path = path, Kind = Halcyonic.Contracts.ProjectFileKind.Text, SizeBytes = 900, Text = string.Join("\n", text), ModifiedAt = "2026-11-17T03:00:00Z" };
-            Halcyonic.Contracts.ExecutionWritingView Writing(string at) => new Halcyonic.Contracts.ExecutionWritingView
-                { Paths = new List<string> { path }, PathsTotal = 1, TotalComplete = true, At = at };
-            watch.Due(Writing("t1"), 0);
-            watch.Read(path, Read(lines), 0.1);
-            lines[29] = "const gust30 = wind(30) * lift;";
-            watch.Due(Writing("t2"), 2.5);
-            watch.Read(path, Read(lines), 2.6);
-            return watch.Arc.Panels.Single();
-        }
+            WatchedPanel("src/game/levels/the-northern-forest/sky-and-wind.js", Enumerable.Range(1, 40).Select(line => "const gust" + line + " = wind(" + line + ");").ToList(),
+                new Dictionary<int, string> { [29] = "const gust30 = wind(30) * lift;" });
 
         /// <summary>A path longer than the head's two lines at either text size, so the head must fold it.</summary>
         private const string LongPath = "src/game/levels/the-northern-forest/canopy-and-clearings/wind-currents-near-the-ground/updraft.js";
@@ -418,10 +432,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(headLabel.characterSpacing > 20f && headLabel.color.a < 0.7f, "the label is not quiet and spaced wide");
                 // The path whole, or folded: its leading folders given way to the one elision, the rest of it whole, the name always whole;
                 // never cut (AUDIT3's W1, the lead's 02:36Z).
-                var titleText = nameLabel.GetParsedText().Replace("\n", "").Trim();
-                var folded = titleText.StartsWith(PathWrap.Elision, System.StringComparison.Ordinal) && shown.Path.EndsWith(titleText.Substring(PathWrap.Elision.Length), System.StringComparison.Ordinal)
-                    && titleText.Substring(PathWrap.Elision.Length).Length < shown.Path.Length;
-                Require(nameLabel.gameObject.activeInHierarchy && (titleText == shown.Path || folded) && !nameLabel.isTextOverflowing && !nameLabel.isTextTruncated, "the file's path is not the title whole or folded: " + nameLabel.GetParsedText());
+                // The fold's line break may stand as a space the label wraps at; whitespace is never part of the comparison.
+                static string Bare(string text) => new string(text.Where(each => !char.IsWhiteSpace(each)).ToArray());
+                var titleText = Bare(nameLabel.GetParsedText());
+                var barePath = Bare(shown.Path);
+                var folded = titleText.StartsWith(PathWrap.Elision, System.StringComparison.Ordinal) && barePath.EndsWith(titleText.Substring(PathWrap.Elision.Length), System.StringComparison.Ordinal)
+                    && titleText.Substring(PathWrap.Elision.Length).Length < barePath.Length;
+                Require(nameLabel.gameObject.activeInHierarchy && (titleText == barePath || folded) && !nameLabel.isTextOverflowing && !nameLabel.isTextTruncated, "the file's path is not the title whole or folded: " + nameLabel.GetParsedText());
                 Require(titleText.EndsWith(shown.Name.Text, System.StringComparison.Ordinal), "the title does not end in the file's name whole: " + titleText);
                 if (state == "47-build-long") Require(folded, "the long path is not folded: " + titleText);
                 // The rows capped to what fits, the line being written always among them, and the lines left out counted in
@@ -561,10 +578,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (labelDark < 4.5f || labelBright < 4.5f) failures.Add("the label holds " + labelDark.ToString("0.0") + ":1 dark and " + labelBright.ToString("0.0") + ":1 bright, under 4.5:1");
                         if ((shown.Lit?.Count ?? 0) > 0)
                         {
-                            var quietDark = quietRows.Select(row => Ratio(dark, row)).DefaultIfEmpty(0f).Min();
-                            var quietBright = quietRows.Select(row => Ratio(bright, row)).DefaultIfEmpty(0f).Min();
-                            contrastNote += ", the unchanged code " + string.Join(", ", quietRows.Select(Lightest)) + " at " + quietDark.ToString("0.0") + ":1 dark, " + quietBright.ToString("0.0") + ":1 bright";
-                            if (quietDark < 4.5f || quietBright < 4.5f) failures.Add("the unchanged code holds " + quietDark.ToString("0.0") + ":1 dark and " + quietBright.ToString("0.0") + ":1 bright, under 4.5:1");
+                            // Where the window holds unchanged rows (a capped window may hold only the changed line's rows).
+                            if (quietRows.Count > 0)
+                            {
+                                var quietDark = quietRows.Select(row => Ratio(dark, row)).Min();
+                                var quietBright = quietRows.Select(row => Ratio(bright, row)).Min();
+                                contrastNote += ", the unchanged code " + string.Join(", ", quietRows.Select(Lightest)) + " at " + quietDark.ToString("0.0") + ":1 dark, " + quietBright.ToString("0.0") + ":1 bright";
+                                if (quietDark < 4.5f || quietBright < 4.5f) failures.Add("the unchanged code holds " + quietDark.ToString("0.0") + ":1 dark and " + quietBright.ToString("0.0") + ":1 bright, under 4.5:1");
+                            }
                             if (litLight.Count == 0 || litLight.Any(value => value < 215)) failures.Add("the changed code reads " + string.Join(", ", litLight) + ", not bright");
                             if (quietRows.Select(Lightest).Any(value => value >= litLight.DefaultIfEmpty(255).Min() - 20)) failures.Add("the unchanged code is not a step below the changed");
                         }
