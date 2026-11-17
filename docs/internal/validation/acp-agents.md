@@ -113,6 +113,17 @@ is empty once the run ends, and a later launch on the same home still asks befor
 runs. With the home shared and that folder open again, the same test fails. Under `sandbox-exec`, another launch's
 home and the folder itself are refused while the launch's own is written.
 
+A home's name is the control plane's process id, then the launch's id. Each launch first removes the homes whose
+control plane no longer runs (one killed hard never ran their removal), and leaves the others, a live control
+plane's and any entry not named as a home (AUDIT3 AC5).
+
+A session's mode is watched for its whole life, not only at its start (AUDIT3 AC4): when the app says it is in
+another mode than the asking one (`current_mode_update`, or the `mode` option in `config_option_update`), the
+running turn is cancelled, every open request withdrawn, and the turn ends failed with `mode_left` ("... switched
+to a mode where it does not ask you first, so Halora stopped the turn."); before the next instruction the mode is
+set back with `session/set_mode`, or the session takes no more work. Unit tested on the recorded Antigravity trace
+with `auto` announced mid-turn; neither app was seen to change its mode by itself.
+
 Where each app keeps its sign-in, outside every folder the profile refuses, so a fresh home signs in:
 
 - Kiro: `~/Library/Application Support/kiro-cli/` (`data.sqlite3` beside its own runtime); a fresh `KIRO_HOME`
