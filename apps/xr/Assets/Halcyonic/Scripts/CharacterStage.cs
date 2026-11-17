@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
@@ -52,8 +53,37 @@ namespace Halcyonic.XR
         /// </summary>
         public RoomPlaces Places { get; } = new RoomPlaces();
 
-        /// <summary>The shelf's places: its characters', and under the redesign one more for New Project, the shelf's last.</summary>
-        public static int ShelfPlaces => ShelfCapacity + (RoomDesign.Enabled ? 1 : 0);
+        /// <summary>
+        /// How many of the shelf's characters stand in its front row: all of them up to FIELD's one-row count (the places sheet, 2026-11-17T19:03Z),
+        /// the rest in the back row (<see cref="CharacterPlace"/>). Beside a window, and on the older shelf, every character is the front row.
+        /// </summary>
+        public static int FrontRow => RoomDesign.Enabled ? Mathf.Min(ShelfCapacity, PlaceRule.Default.FullMost) : ShelfCapacity;
+
+        /// <summary>The shelf's places: its front row's, and under the redesign one more for New Project, the shelf's first.</summary>
+        public static int ShelfPlaces => FrontRow + (RoomDesign.Enabled ? 1 : 0);
+
+        /// <summary>How far behind the front row the back row stands, in metres on the shelf (FIELD's places sheet).</summary>
+        public const float BackRowDepth = 0.35f;
+
+        /// <summary>How far above the front row the back row stands, in metres (FIELD's places sheet).</summary>
+        public const float BackRowRise = 0.10f;
+
+        /// <summary>The back row's size against the front row's: the sheet's "smaller" (FIELD's places sheet).</summary>
+        public const float BackRowScale = 0.85f;
+
+        /// <summary>
+        /// Where the shelf's character <paramref name="index"/> stands in the shelf's own space, and at what size against a front-row character: the front
+        /// row first, New Project's place before it, at <paramref name="pitch"/> a place; then the back row, half a place across, behind and above it
+        /// (FIELD's places sheet). Its renders stand their characters by the same rule.
+        /// </summary>
+        public static (Vector3 Local, float Scale) CharacterPlace(float index, float pitch)
+        {
+            var front = FrontRow;
+            var first = ShelfPlaces - front;
+            var middle = (ShelfPlaces - 1) * 0.5f;
+            if (index < front - 0.5f || front >= ShelfCapacity) return (new Vector3((index + first - middle) * pitch, 0f, 0f), 1f);
+            return (new Vector3((index - front + first + 0.5f - middle) * pitch, BackRowRise, BackRowDepth), BackRowScale);
+        }
 
         private Surface? shelfSurface;
         private Surface? previewSurface;
@@ -504,7 +534,8 @@ namespace Halcyonic.XR
                 views.Remove(id);
                 standings.Remove(id);
             }
-            var slots = lineup.Slots;
+            // Under the redesign the place's own order stands them: the one that needs the person first, in the front row (FIELD's sheet).
+            var slots = RoomDesign.Enabled && !BesideAWindow && place != null ? place.Shown.Select(id => (string?)id).ToList() : lineup.Slots.ToList();
             for (var slot = 0; slot < slots.Count; slot++)
             {
                 var id = slots[slot];
@@ -723,12 +754,13 @@ namespace Halcyonic.XR
             var slot = lineup.Capacity > 1 ? (angle / spanDegrees + 0.5f) * (lineup.Capacity - 1) : 0f;
             // On the redesign's shelf New Project takes the first place, at the person's left (DESIGN 2.2), and the characters
             // the places after it; beside a window, and on the older shelf, the characters fill it as ever.
-            var first = BesideAWindow ? 0 : ShelfPlaces - ShelfCapacity;
+            var first = BesideAWindow ? 0 : ShelfPlaces - FrontRow;
             var places = BesideAWindow ? lineup.Capacity : ShelfPlaces;
             var pitch = BesideAWindow ? AgentShelfDraft.Spacing * radius : ShelfPitch * radius / AgentShelfDraft.Scale;
-            view.transform.localPosition = new Vector3((slot + first - (places - 1) * 0.5f) * pitch, 0f, 0f);
+            var (local, size) = BesideAWindow ? (new Vector3((slot + first - (places - 1) * 0.5f) * pitch, 0f, 0f), 1f) : CharacterPlace(slot, pitch);
+            view.transform.localPosition = local;
             view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            view.transform.localScale = Vector3.one * radius;
+            view.transform.localScale = Vector3.one * radius * size;
             view.PlaceShelfLabel(shelfViewer);
         }
 

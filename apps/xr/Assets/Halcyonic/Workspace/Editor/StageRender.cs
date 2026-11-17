@@ -222,7 +222,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 RoomDesign.Enabled = true;
                 var capacity = CharacterStage.ShelfCapacity;
                 var places = CharacterStage.ShelfPlaces;
-                var first = places - capacity;
+                var first = places - CharacterStage.FrontRow;
                 if (first == 0) return failures;
                 var eyes = Vector3.zero;
                 var pose = new Pose(new Vector3(0f, -0.45f, AgentShelfSearch.MinimumDistance), Quaternion.identity);
@@ -235,8 +235,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var index = 0; index < capacity; index++)
                 {
                     var view = CharacterView.Create(holder.transform, "ease-tag-" + index);
-                    view.transform.SetPositionAndRotation(pose.position + Vector3.right * PlaceX(first + index), Quaternion.Euler(0f, 180f, 0f));
-                    view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
+                    // Front row then back row, as the stage stands them (CharacterStage.CharacterPlace, FIELD's places sheet).
+                    var (local, size) = CharacterStage.CharacterPlace(index, pitch);
+                    view.transform.SetPositionAndRotation(pose.position + local, Quaternion.Euler(0f, 180f, 0f));
+                    view.transform.localScale = Vector3.one * AgentShelfDraft.Scale * size;
                     RoomNameTag.On(view).Picked = true;
                     view.Show(Shown(index, needs: false));
                     view.PlaceShelfLabel(eyes);
@@ -454,7 +456,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 RoomDesign.Enabled = true;
                 var capacity = CharacterStage.ShelfCapacity;
                 var places = CharacterStage.ShelfPlaces;
-                var first = places - capacity;
+                var first = places - CharacterStage.FrontRow;
                 var eyes = Vector3.zero;
                 var pose = new Pose(new Vector3(0f, -0.45f, AgentShelfSearch.MinimumDistance), Quaternion.identity);
                 var width = CharacterStage.FittedWidth(places);
@@ -464,8 +466,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var index = 0; index < capacity; index++)
                 {
                     var view = CharacterView.Create(holder.transform, "shelf-tag-" + index);
-                    view.transform.SetPositionAndRotation(pose.position + Vector3.right * PlaceX(first + index), Quaternion.Euler(0f, 180f, 0f));
-                    view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
+                    // Front row then back row, as the stage stands them (CharacterStage.CharacterPlace, FIELD's places sheet).
+                    var (local, size) = CharacterStage.CharacterPlace(index, pitch);
+                    view.transform.SetPositionAndRotation(pose.position + local, Quaternion.Euler(0f, 180f, 0f));
+                    view.transform.localScale = Vector3.one * AgentShelfDraft.Scale * size;
                     var tag = RoomNameTag.On(view);
                     view.Show(needs
                         ? new CharacterPresentation("shelf-tag-" + index, title, CharacterActivity.WaitingForHuman, "Needs You", AttentionLevel.ActionRequired, Array.Empty<string>(), 2, false, false, false)
