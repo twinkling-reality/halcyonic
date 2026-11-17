@@ -1351,7 +1351,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(panel.InnerBar == null, "a sentence bar stands in the approval's dialog");
                         // The finished turn's review (TASKS, f6) takes the task's name, theirs, as written; an approval our question.
                         var askedWords = shown.DialogTitle != null
-                            ? OneSpaced(LabelText.FromTextMeshPro(asks.text)) == OneSpaced(LabelText.Plain(shown.DialogTitle.Text))
+                            ? System.Text.RegularExpressions.Regex.Replace(LabelText.FromTextMeshPro(asks.text), "\\s+", " ").Trim()
+                                == System.Text.RegularExpressions.Regex.Replace(LabelText.Plain(shown.DialogTitle.Text), "\\s+", " ").Trim()
                             : asks.text == LabelText.ForTextMeshPro(shown.Sentence!);
                         Require(asks.gameObject.activeInHierarchy && !asks.isTextTruncated && askedWords,
                             "the dialog reads \"" + asks.text + "\" at its top, not \"" + (shown.DialogTitle?.Text ?? shown.Sentence) + "\"");
