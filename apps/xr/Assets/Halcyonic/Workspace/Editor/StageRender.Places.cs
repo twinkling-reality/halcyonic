@@ -163,9 +163,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         if (Vector3.Distance(views[back].View.transform.position, eyes) <= views.Take(front).Max(each => Vector3.Distance(each.View.transform.position, eyes)) - 0.05f)
                             failures.Add(project + ": back-row character " + (back - front + 1) + " does not stand behind the front row");
-                        for (var task = 0; task < front; task++)
+                        // Every nearer row's bodies, not the front row's alone (AUDIT's 21:3xZ MUST: in a place one to a row, the second row's
+                        // body stood over the third row's tag).
+                        for (var task = 0; task < back && task / rowMost < back / rowMost; task++)
                             if (seenTags[back].Overlaps(seenBodies[task]))
-                                failures.Add(project + ": back-row character " + (back - front + 1) + "'s tag stands over front-row character " + (task + 1) + "'s body as the eyes see it");
+                                failures.Add(project + ": row " + (back / rowMost + 1) + " character " + (back + 1) + "'s tag stands under row " + (task / rowMost + 1) + " character " + (task + 1) + "'s body as the eyes see it");
                     }
                     Debug.Log("Halcyonic: places: " + variant + " " + project + " at " + Degrees(bearing.YawDegrees) + " degrees, ring " + (bearing.Ring + 1) + ": " + views.Count
                         + " in rows of " + rowMost + ", " + pitch.ToString("0.000", CultureInfo.InvariantCulture) + " m apart, the back row " + rise.ToString("0.00", CultureInfo.InvariantCulture) + " m up, seen from " + Degrees(whole.xMin) + " to " + Degrees(whole.xMax) + " degrees.");
