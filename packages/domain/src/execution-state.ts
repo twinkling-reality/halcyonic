@@ -158,14 +158,14 @@ export function newSpendingCap(
  * turn the app reported no cost for): never that it reached its limit, which is not known (VRIFY, 2026-11-16).
  */
 export const SPEND_NOT_KNOWN =
-  'What this task spent before the restart is not fully known, so its limit cannot be checked and nothing was sent. A new limit cannot be given from the headset yet.';
+  'What this task spent before the restart is not fully known, so its limit cannot be checked and nothing was sent. Choose an amount under Spend Up To to carry on.';
 
 /**
  * What a person reads when a task at its limit is sent an instruction without a raise. No press names it yet: the
  * assistant never sets a limit (AUDIT3 M-A), and the headset's own is SCREENS' next unit (AUDIT2, 2026-11-16).
  */
 export const SPEND_LIMIT_REACHED =
-  'This task is at its spending limit, so nothing was sent. A new limit cannot be given from the headset yet.';
+  'This task is at its spending limit, so nothing was sent. Choose an amount under Spend Up To to carry on.';
 
 /**
  * What a person reads when the app stopped a task at its limit (ADR 0062): the limit, then the

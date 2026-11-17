@@ -3468,8 +3468,8 @@ export class CommandService {
         commandId,
         'spending_cap_reached',
         cap === 'reached'
-          ? 'This task is at its spending limit, so it was not sent. A new limit cannot be given from the headset yet.'
-          : 'What this task spent before the restart is not fully known, so it was not sent. A new limit cannot be given from the headset yet.',
+          ? 'This task is at its spending limit, so it was not sent. Choose an amount under Spend Up To to carry on.'
+          : 'What this task spent before the restart is not fully known, so it was not sent. Choose an amount under Spend Up To to carry on.',
       );
       return false;
     }
