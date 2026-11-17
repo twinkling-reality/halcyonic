@@ -52,11 +52,11 @@ namespace Halcyonic.Client
         public int CrowdShown { get; }
 
         /// <summary>
-        /// FIELD's places sheet (2026-11-17T19:03Z), the worst case at 200 dp names: 4 in a row, 7 in two (the back row one fewer, at 0.85
-        /// scale, which is the sheet's "smaller", so <see cref="PlaceForm.Small"/> is never chosen), then both rows standing and the rest
-        /// gathered behind "{n} More". DEVICE's Quest 3 numbers can only lower them.
+        /// FIELD's corrected numbers (2026-11-17T19:11Z), the worst case at 200 dp names at Larger: 3 in a row (a row's extent holds its outer tags),
+        /// 5 in two (the back row one fewer, at 0.85 scale, which is the sheet's "smaller", so <see cref="PlaceForm.Small"/> is never chosen), then
+        /// both rows standing and the rest gathered behind "{n} More". DEVICE's Quest 3 numbers can only lower them.
         /// </summary>
-        public static PlaceRule Default { get; } = new PlaceRule(4, 7, 7, 7);
+        public static PlaceRule Default { get; } = new PlaceRule(3, 5, 5, 5);
 
         public PlaceForm FormOf(int count) =>
             count <= FullMost ? PlaceForm.Full : count <= TwoRowsMost ? PlaceForm.TwoRows : count <= SmallMost ? PlaceForm.Small : PlaceForm.Crowd;

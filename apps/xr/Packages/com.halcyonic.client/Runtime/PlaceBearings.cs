@@ -35,15 +35,15 @@ namespace Halcyonic.Client
     public static class PlaceBearings
     {
         /// <summary>The bearings of a ring's places, in fill order: left then right, the nearest pair first.</summary>
-        /// <remarks>AUDIT's numbers (19:11Z) on FIELD's sheet v3: the first pair in 2 degrees from 50, so neighbouring places keep the lead's 4 degrees
-        /// clear (64 to 68) while the front's 30 and the reach's 100 still hold.</remarks>
-        public static readonly float[] Centres = { -48f, 48f, -84f, 84f };
+        /// <remarks>FIELD's corrected numbers (19:11Z): a place's span holds its outer tags, the largest row of 3 at Larger, so the inner place stands
+        /// 30.5 to 63 degrees and the outer 67 to 99.5: the front's 30 and the reach's 100 hold, with the lead's 4 degrees between.</remarks>
+        public static readonly float[] Centres = { -46.75f, 46.75f, -83.25f, 83.25f };
 
         /// <summary>The least clear angle the lead keeps between neighbouring places (2026-11-17T19:08Z, a MUST).</summary>
         public const float GapDegrees = 4f;
 
         /// <summary>How wide a place stands, in degrees about the eyes.</summary>
-        public const float SpanDegrees = 32f;
+        public const float SpanDegrees = 32.5f;
 
         /// <summary>The front kept clear of every place, either side of ahead.</summary>
         public const float FrontClearDegrees = 30f;

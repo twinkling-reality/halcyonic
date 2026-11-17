@@ -95,9 +95,9 @@ public class RoomPlacesTests
     [Test]
     public void APlaceRuleRisesFromOneRowToTheCrowd()
     {
-        // FIELD's sheet (19:03Z): 4 in a row, 7 in two, never Small, then 7 standing in front of the rest.
-        Assert.That(new[] { 4, 5, 7, 8 }.Select(PlaceRule.Default.FormOf), Is.EqualTo(new[] { PlaceForm.Full, PlaceForm.TwoRows, PlaceForm.TwoRows, PlaceForm.Crowd }));
-        Assert.That(PlaceRule.Default.CrowdShown, Is.EqualTo(7));
+        // FIELD's corrected numbers (19:11Z): 3 in a row, 5 in two, never Small, then 5 standing in front of the rest.
+        Assert.That(new[] { 3, 4, 5, 6 }.Select(PlaceRule.Default.FormOf), Is.EqualTo(new[] { PlaceForm.Full, PlaceForm.TwoRows, PlaceForm.TwoRows, PlaceForm.Crowd }));
+        Assert.That(PlaceRule.Default.CrowdShown, Is.EqualTo(5));
         Assert.Throws<ArgumentOutOfRangeException>(() => new PlaceRule(4, 3, 10, 6));
         Assert.Throws<ArgumentOutOfRangeException>(() => new PlaceRule(0, 3, 10, 6));
     }

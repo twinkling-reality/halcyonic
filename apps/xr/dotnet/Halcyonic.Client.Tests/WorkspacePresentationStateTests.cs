@@ -820,4 +820,26 @@ public class WorkspacePresentationStateTests
         Assert.That((presentation.ScreenProjectId, presentation.Minimized), Is.EqualTo(((string?)null, false)), "the last closed, the console comes back");
         Assert.That(presentation.CloseProjectScreen("A"), Is.False);
     }
+    /// <summary>AUDIT3's SC2: a screen whose project has left the projection lets go of its slot, so a real open is taken.</summary>
+    [Test]
+    public void AGoneProjectsScreenLetsGoOfItsSlot()
+    {
+        var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true);
+        foreach (var id in new[] { "A", "B", "C" }) Assert.That(presentation.ShowProjectScreen(id), Is.True);
+        Assert.That(presentation.ShowProjectScreen("D"), Is.False, "three stand");
+        var state = new ClientProjection();
+        state.ApplyWelcome(Samples.Welcome(resumed: false, head: 1));
+        var snapshot = Samples.Snapshot(1, System.Array.Empty<WorkstreamView>(), System.Array.Empty<ExecutionView>());
+        snapshot.Projects = new List<ProjectView>
+        {
+            new ProjectView { ProjectId = "A", Name = "A", CreatedAt = Samples.Time, UpdatedAt = Samples.Time },
+            new ProjectView { ProjectId = "B", Name = "B", CreatedAt = Samples.Time, UpdatedAt = Samples.Time },
+            new ProjectView { ProjectId = "D", Name = "D", CreatedAt = Samples.Time, UpdatedAt = Samples.Time },
+        };
+        state.ApplySnapshot(snapshot, new StateChanges());
+        presentation.ForgetScreensOfGoneProjects(state);
+        Assert.That(presentation.ScreenProjectIds, Is.EqualTo(new[] { "A", "B" }), "C's project left, so its screen lets go");
+        Assert.That(presentation.ScreenProjectId, Is.EqualTo("B"), "the bar falls to the last still open");
+        Assert.That(presentation.ShowProjectScreen("D"), Is.True, "a real open is taken");
+    }
 }

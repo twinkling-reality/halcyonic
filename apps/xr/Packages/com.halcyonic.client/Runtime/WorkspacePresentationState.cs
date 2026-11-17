@@ -649,6 +649,21 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// Lets go of every open screen whose project the projection no longer holds (AUDIT3's SC2), so a gone project never keeps a slot that
+        /// refuses a real open. Where the one brought forward went, the last opened of the rest takes the bar, folded.
+        /// </summary>
+        public void ForgetScreensOfGoneProjects(ClientProjection state)
+        {
+            if (openScreens.RemoveAll(id => !state.Projects.ContainsKey(id)) == 0) return;
+            if (ScreenProjectId != null && !openScreens.Contains(ScreenProjectId))
+            {
+                ScreenProjectId = openScreens.Count > 0 ? openScreens[openScreens.Count - 1] : null;
+                ScreenBarOpen = false;
+            }
+            ScreenRefused = false;
+        }
+
+        /// <summary>
         /// Every open screen's model, in <see cref="ScreenProjectIds"/>' order: the one brought forward with its bar as set, the rest folded.
         /// A project the projection no longer holds stands no screen.
         /// </summary>
@@ -656,6 +671,7 @@ namespace Halcyonic.Client
         {
             var screens = new List<(string, KitScreenModel)>();
             if (state == null) return screens;
+            ForgetScreensOfGoneProjects(state);
             foreach (var id in openScreens)
                 if (state.Projects.TryGetValue(id, out var project))
                     screens.Add((id, ScreenOf(project, state, id == ScreenProjectId && ScreenBarOpen, isLive)));

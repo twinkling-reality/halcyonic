@@ -11,10 +11,10 @@ public class PlaceBearingsTests
     public void PlacesFillBothSidesNearestFirstThenADeeperRingAtTheSameBearings()
     {
         var first = Enumerable.Range(0, 4).Select(PlaceBearings.Of).ToList();
-        Assert.That(first.Select(place => place.YawDegrees), Is.EqualTo(new[] { -48f, 48f, -84f, 84f }));
+        Assert.That(first.Select(place => place.YawDegrees), Is.EqualTo(new[] { -46.75f, 46.75f, -83.25f, 83.25f }));
         Assert.That(first.All(place => place.Ring == 0 && place.Distance == PlaceBearings.RingOneDistance && place.Drop == 0f), Is.True);
         var second = PlaceBearings.Of(4);
-        Assert.That((second.YawDegrees, second.Ring), Is.EqualTo((-48f, 1)));
+        Assert.That((second.YawDegrees, second.Ring), Is.EqualTo((-46.75f, 1)));
         Assert.That(second.Distance, Is.EqualTo(2.0f).Within(1e-5f), "ring two at 2.0 m");
         Assert.That(second.Drop, Is.EqualTo(PlaceBearings.RingDrop), "and lower");
         Assert.Throws<ArgumentOutOfRangeException>(() => PlaceBearings.Of(-1));
