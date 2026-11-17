@@ -639,6 +639,54 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// Every project's own Needs You card (the lead's 2026-11-17T19:17Z limit #2): one card at each place whose tasks wait on the
+        /// person, for the first of them in the shelf's order (the inspected task where it is the place's), never only one card for the
+        /// whole room; and under it the count of the others waiting at that same place (<see cref="PlaceMoment.MoreWaitingWords"/>), so
+        /// none waits silent. A closed card's signature stays closed, as <see cref="ActiveMoment"/>'s does.
+        /// </summary>
+        public IReadOnlyList<PlaceMoment> ActiveMoments(ClientProjection? state, Func<string, bool>? characterVisible = null)
+        {
+            var moments = new List<PlaceMoment>();
+            if (!AgentsVisible || state == null) return moments;
+            var inspected = InspectedWorkstreamId != null ? ActiveMoment(state, characterVisible) : null;
+            var waitingBy = new Dictionary<string, List<(WorkstreamView Work, KitMomentSlot Slot)>>(StringComparer.Ordinal);
+            var order = new List<string>();
+            foreach (var work in OrderWorkstreams(state.Workstreams.Values))
+            {
+                if (work.Attention.Level != AttentionLevel.ActionRequired) continue;
+                if (characterVisible != null && !characterVisible(work.WorkstreamId)) continue;
+                var sig = WaitingSignature(work, state);
+                if (sig != null && dismissedMomentSignatures.Contains(sig)) continue;
+                if (MomentSlotOf(work, state, includeIdleFallback: false) is not KitMomentSlot slot) continue;
+                var project = work.ProjectId;
+                if (!waitingBy.TryGetValue(project, out var waiting))
+                {
+                    waitingBy[project] = waiting = new List<(WorkstreamView, KitMomentSlot)>();
+                    order.Add(project);
+                }
+                waiting.Add((work, slot));
+            }
+            // The inspected task's place shows the inspected task's card first, the rest of that place's waiting counted under it.
+            if (inspected is var (inspectedId, inspectedSlot) && state.Workstreams.TryGetValue(inspectedId, out var inspectedWork))
+            {
+                var project = inspectedWork.ProjectId;
+                if (!waitingBy.TryGetValue(project, out var waiting))
+                {
+                    waitingBy[project] = waiting = new List<(WorkstreamView, KitMomentSlot)>();
+                    order.Insert(0, project);
+                }
+                waiting.RemoveAll(each => each.Work.WorkstreamId == inspectedId);
+                waiting.Insert(0, (inspectedWork, inspectedSlot));
+            }
+            foreach (var project in order)
+            {
+                var waiting = waitingBy[project];
+                moments.Add(new PlaceMoment(project, waiting[0].Work.WorkstreamId, waiting[0].Slot, waiting.Count - 1));
+            }
+            return moments;
+        }
+
+        /// <summary>
         /// The on-demand project screen model for <see cref="ScreenProjectId"/>, or null while no project screen is open.
         /// </summary>
         public KitScreenModel? ActiveScreen(ClientProjection? state, bool isLive = true)
@@ -1058,5 +1106,29 @@ namespace Halcyonic.Client
             timestamp != null && DateTimeOffset.TryParse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
                 ? parsed
                 : null;
+    }
+
+    /// <summary>A place's Needs You card: its project, the task it shows, its moment, and how many more wait at that place.</summary>
+    public sealed class PlaceMoment
+    {
+        public PlaceMoment(string projectId, string workstreamId, KitMomentSlot slot, int moreWaiting)
+        {
+            ProjectId = projectId;
+            WorkstreamId = workstreamId;
+            Slot = slot;
+            MoreWaiting = moreWaiting < 0 ? 0 : moreWaiting;
+        }
+
+        public string ProjectId { get; }
+
+        public string WorkstreamId { get; }
+
+        public KitMomentSlot Slot { get; }
+
+        /// <summary>The others waiting at this place, never counting the one shown.</summary>
+        public int MoreWaiting { get; }
+
+        /// <summary>"{n} More Waiting" under the card's content (AUDIT2's 2026-11-17T19:18Z); null where none other waits.</summary>
+        public string? MoreWaitingWords => MoreWaiting >= 1 ? MoreWaiting.ToString(CultureInfo.InvariantCulture) + " More Waiting" : null;
     }
 }

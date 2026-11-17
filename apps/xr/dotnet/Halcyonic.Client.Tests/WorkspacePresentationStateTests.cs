@@ -306,6 +306,53 @@ public class WorkspacePresentationStateTests
         Assert.That(moment.Prose?.Text, Is.EqualTo("Session window: How long should rate-limit windows last?"));
     }
 
+    private static (WorkstreamView Work, ExecutionView Execution) Waiting(string id, string project)
+    {
+        var execution = Samples.Execution("ex-" + id, id, ExecutionStatus.WaitingForHuman, synthetic: false);
+        execution.PendingApprovals.Add(new ApprovalView
+        {
+            ApprovalId = "ap-" + id, RequestedAt = Samples.Time, Approvable = true,
+            Subject = new ToolUseSubject { ToolName = "bash", Summary = "npm test" },
+        });
+        var work = Samples.Workstream(id, WorkstreamStatus.WaitingForHuman, "ex-" + id, AttentionLevel.ActionRequired,
+            new ApprovalPendingReason { ExecutionId = "ex-" + id, ApprovalId = "ap-" + id });
+        work.ProjectId = project;
+        return (work, execution);
+    }
+
+    /// <summary>
+    /// The lead's 2026-11-17T19:17Z limit #2: every place whose tasks wait gets its own Needs You card, not one for the whole room, and
+    /// under it "{n} More Waiting" counts the others at that place (AUDIT2's 19:18Z), never the one shown; closing one card leaves the rest.
+    /// </summary>
+    [Test]
+    public void EveryPlaceThatWaitsGetsItsOwnCardWithTheOthersCountedUnderIt()
+    {
+        var a1 = Waiting("ws-a1", "project-a");
+        var b1 = Waiting("ws-b1", "project-b");
+        var b2 = Waiting("ws-b2", "project-b");
+        var b3 = Waiting("ws-b3", "project-b");
+        var state = new ClientProjection();
+        state.ApplyWelcome(Samples.Welcome(resumed: false, head: 1));
+        state.ApplySnapshot(Samples.Snapshot(1, new[] { a1.Work, b1.Work, b2.Work, b3.Work }, new[] { a1.Execution, b1.Execution, b2.Execution, b3.Execution }),
+            new StateChanges());
+        var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true);
+        presentation.SetAgentsEnabled(true);
+        presentation.Minimize();
+
+        var moments = presentation.ActiveMoments(state);
+        Assert.That(moments.Select(each => each.ProjectId).OrderBy(id => id), Is.EqualTo(new[] { "project-a", "project-b" }), "one card at each place that waits");
+        var atB = moments.Single(each => each.ProjectId == "project-b");
+        Assert.That((atB.MoreWaiting, atB.MoreWaitingWords), Is.EqualTo((2, "2 More Waiting")), "the others at that place, never the one shown");
+        Assert.That(new[] { "ws-b1", "ws-b2", "ws-b3" }, Does.Contain(atB.WorkstreamId));
+        var atA = moments.Single(each => each.ProjectId == "project-a");
+        Assert.That((atA.WorkstreamId, atA.MoreWaiting, atA.MoreWaitingWords), Is.EqualTo(("ws-a1", 0, (string?)null)), "no count where none other waits");
+
+        // A task hidden from view stands no card; the place's others still do.
+        var hidden = atB.WorkstreamId;
+        var seen = presentation.ActiveMoments(state, id => id != hidden).Single(each => each.ProjectId == "project-b");
+        Assert.That((seen.WorkstreamId == hidden, seen.MoreWaiting), Is.EqualTo((false, 1)));
+    }
+
     [Test]
     public void CloseMomentDismissesEachWaitingWorkstreamIndependently()
     {
