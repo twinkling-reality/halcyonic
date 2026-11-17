@@ -37,7 +37,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     GlazeText.SetScale(scale);
                     CodeColouring.Palettes[CodeTheme.Halora] = probe;
                     CodeThemes.Set(CodeTheme.Plain);
-                    var settings = AppearanceSettings.Load("version=3;theme=glaze;code=plain");
+                    // A whole kept value, as AppearanceSettings saves one: a value missing its panels part loads as the default.
+                    var settings = AppearanceSettings.Load("version=3;theme=glaze;panels=dark;code=plain");
+                    Require(settings.Code == CodeTheme.Plain, "the kept value did not load as Plain");
                     var column = new AppearanceColumn(settings, () => { }, codeOnly: true);
                     column.Act(AppearanceColumn.ChooseCode, CodeThemes.Key(CodeTheme.Halora));
                     column.Act(AppearanceColumn.PreviewCode, null);
