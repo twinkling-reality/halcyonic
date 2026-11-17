@@ -39,7 +39,9 @@ namespace Halcyonic.XR
         /// </summary>
         /// <summary>
         /// How many characters stand at once on the person's shelf: the first place's count, set by the stage from <see cref="Places"/>
-        /// (the lead, 2026-11-17T18:56Z, no fixed cap). Its renders set it to judge a count; nothing else does.
+        /// (the lead, 2026-11-17T18:56Z, no fixed cap). Its renders set it to judge a count; nothing else does. It is static, as the shelf's other
+        /// published measures are (<see cref="PlaneRestHalfDegrees"/>, <see cref="NewProjectReach"/>): the app has one stage
+        /// (WorkspaceDirector.EnsureAgentStage), and the placement reads the count before any stage exists (RoomPlacement, the shelf's corners).
         /// </summary>
         public static int ShelfCapacity { get; set; } = 1;
 
@@ -472,7 +474,7 @@ namespace Halcyonic.XR
             // Optional paging exposes all work independently of old project stage-visibility preferences.
             shelfPages.Update(session.State.Journal?.JournalId, session.State.Workstreams.Values);
             var state = session.State;
-            Places.Update(state.Journal?.JournalId, state.Workstreams.Values, id => state.Projects.TryGetValue(id, out var project) ? project.Name : null);
+            Places.Update(state.Journal?.JournalId, state.Workstreams.Values, id => state.Projects.TryGetValue(id, out var project) ? project.Name : null, shelfPages.SelectedId);
             // The person's shelf stands the selected task's project's place whole; with nothing selected, the first place.
             var selected = shelfPages.SelectedId;
             var place = (selected != null ? Places.PlaceOf(selected) : null) ?? (Places.Places.Count > 0 ? Places.Places[0] : null);

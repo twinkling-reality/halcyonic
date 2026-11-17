@@ -113,7 +113,9 @@ namespace Halcyonic.Client
         public IReadOnlyList<RoomPlace> Places { get; private set; } = Array.Empty<RoomPlace>();
 
         /// <summary>Lays the places from <paramref name="work"/>, named by <paramref name="projectName"/> (the project's own name, or null where unknown).</summary>
-        public IReadOnlyList<RoomPlace> Update(string? journalId, IEnumerable<WorkstreamView> work, Func<string, string?> projectName)
+        /// <param name="selectedId">The task whose bar is open: it always stands, as one that needs the person does (AUDIT3's PL1), so the bar
+        /// never names a task with no character.</param>
+        public IReadOnlyList<RoomPlace> Update(string? journalId, IEnumerable<WorkstreamView> work, Func<string, string?> projectName, string? selectedId = null)
         {
             if (!string.Equals(journal, journalId, StringComparison.Ordinal))
             {
@@ -138,8 +140,17 @@ namespace Halcyonic.Client
                 var form = Rule.FormOf(tasks.Count);
                 // A crowd stands its front and every one that needs the person; spread open, all of it.
                 var standing = form != PlaceForm.Crowd || Spread.Contains(id) ? tasks.Count : Math.Min(tasks.Count, Math.Max(Rule.CrowdShown, needsYou));
+                var ids = tasks.Select(each => each.WorkstreamId).ToList();
+                // The selected task past a crowd's front stands at the front's end, and the front grows by it.
+                var at = selectedId == null ? -1 : ids.IndexOf(selectedId);
+                if (at >= standing)
+                {
+                    ids.RemoveAt(at);
+                    ids.Insert(standing, selectedId!);
+                    standing++;
+                }
                 var name = projectName(id);
-                places.Add(new RoomPlace(id, string.IsNullOrWhiteSpace(name) ? "" : LabelText.Plain(name!), tasks.Select(each => each.WorkstreamId).ToList(), needsYou, form, standing));
+                places.Add(new RoomPlace(id, string.IsNullOrWhiteSpace(name) ? "" : LabelText.Plain(name!), ids, needsYou, form, standing));
             }
             Places = places;
             return places;

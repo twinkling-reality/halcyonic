@@ -77,6 +77,21 @@ public class RoomPlacesTests
         Assert.That((full.Standing, full.More), Is.EqualTo((8, 4)), "a crowd stands every one that needs you, past its front of six");
     }
 
+    /// <summary>AUDIT3's PL1: the task whose bar is open stands though it falls past a crowd's front, and the front grows by it alone.</summary>
+    [Test]
+    public void TheSelectedTaskStandsPastACrowdsFront()
+    {
+        var room = new RoomPlaces { Rule = new PlaceRule(3, 6, 10, 6) };
+        var crowd = Enumerable.Range(1, 12).Select(minute => Work("t" + minute, "B", minute)).ToList();
+        var unselected = room.Update("j", crowd, id => Names[id]).Single();
+        var eleventh = unselected.Tasks[10];
+        Assert.That(unselected.Shown, Has.No.Member(eleventh), "past the front of six, unselected");
+        var place = room.Update("j", crowd, id => Names[id], selectedId: eleventh).Single();
+        Assert.That(place.Shown, Has.Member(eleventh), "the selected task stands");
+        Assert.That((place.Standing, place.More), Is.EqualTo((7, 5)));
+        Assert.That(place.Tasks.OrderBy(id => id), Is.EqualTo(crowd.Select(each => each.WorkstreamId).OrderBy(id => id)), "every task still in its place, once");
+    }
+
     [Test]
     public void APlaceRuleRisesFromOneRowToTheCrowd()
     {
