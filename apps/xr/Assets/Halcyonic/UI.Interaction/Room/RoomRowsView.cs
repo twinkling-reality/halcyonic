@@ -80,7 +80,17 @@ namespace Halcyonic.XR.UI
 
         private void OnDestroy() => CodeThemes.Changed -= ThemeChanged;
 
-        private void ThemeChanged(CodeTheme theme) => ColourCode();
+        private void ThemeChanged(CodeTheme theme)
+        {
+            // Unity calls OnDestroy only for an object that was once active, so a view destroyed before it was ever shown (or in
+            // the Editor) lets go of the theme here, at its first change after.
+            if (this == null)
+            {
+                CodeThemes.Changed -= ThemeChanged;
+                return;
+            }
+            ColourCode();
+        }
 
         /// <summary>Colours the code rows shown by the palette in force, one carry through them in order, as the writing panel's rows are.</summary>
         private void ColourCode()
@@ -88,7 +98,8 @@ namespace Halcyonic.XR.UI
             if (codeRows.Count == 0) return;
             var palette = CodeColouring.Now();
             var carry = CodeCarry.None;
-            foreach (var (row, language) in codeRows) CodeColouring.Colour(row, row.text, language, palette, ref carry);
+            foreach (var (row, language) in codeRows)
+                if (row != null) CodeColouring.Colour(row, row.text, language, palette, ref carry);
         }
 
         private TextMeshPro? measureWords, measureTag, measureNote;

@@ -69,6 +69,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(CodeThemes.Current == CodeTheme.Plain, "Cancel did not put the kept colours back");
                     UnityEngine.Object.DestroyImmediate(host);
                 }
+                // A view destroyed without OnDestroy (here, in the Editor) never fails a later theme change, and lets go of it.
+                var never = RoomRowsView.Create(new GameObject("Never shown").transform);
+                UnityEngine.Object.DestroyImmediate(never.transform.parent.gameObject);
+                CodeThemes.Set(CodeTheme.Halora);
+                CodeThemes.Set(CodeTheme.Plain);
             }
             catch (Exception error) { failures.Add(error.ToString()); }
             finally
