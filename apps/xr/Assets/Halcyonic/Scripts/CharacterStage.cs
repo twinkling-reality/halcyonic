@@ -522,9 +522,14 @@ namespace Halcyonic.XR
             if (releasedAt != null && flight.Along <= 0f && flight.OverM <= 0f)
             {
                 flyingId = null;
+                if (!view.Labels.gameObject.activeSelf) view.Labels.gameObject.SetActive(true);
                 Stand(view, standing.Angle, standing.Lift, 1f);
                 return;
             }
+            // Its tag stays home while it flies, and stands with it again once it has landed and its moment arrives (the lead's
+            // 2026-11-17T02:15Z: the tag fades in once the bot settles); back on its shelf, it stands there again.
+            var tagged = flight.Along <= 0f || flight.TagShown >= 0.5f;
+            if (view.Labels.gameObject.activeSelf != tagged) view.Labels.gameObject.SetActive(tagged);
             Stand(view, standing.Angle, standing.Lift, 1f);
             var home = view.transform.position;
             var point = Vector3.Lerp(home, flyingTo(), flight.Along) + Vector3.up * flight.OverM;
