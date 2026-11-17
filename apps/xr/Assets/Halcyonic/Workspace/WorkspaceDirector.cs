@@ -198,6 +198,7 @@ namespace Halcyonic.XR.Workspace
                 Voice = voice,
                 StageNow = StageNow,
                 CharacterOf = task => targets.TryGetValue(task, out var target) && AgentVisible(target) ? target : null,
+                PlaceOf = PlaceOf,
                 Bar = place => TasksColumn.Bar(place, connection.Session?.State),
                 SomethingWaits = SomethingWaits,
                 Comfort = comfort.Settings,
@@ -501,6 +502,16 @@ namespace Halcyonic.XR.Workspace
                 stage != null && stage.Visible && Room?.Status.OnSurface == true ? stage.SurfaceHeight : null, false, shelf,
                 degrees => { if (standingStage != null) standingStage.ShelfTurnDegrees = degrees; },
                 shelfComing: shelf == null && Room?.ShelfPlaced == true && Presentation.AgentsVisible);
+        }
+
+        /// <summary>A project's place in the stage's places (RoomPlaces' order), or -1: its team's screen stands over it.</summary>
+        private int PlaceOf(string projectId)
+        {
+            if (stage == null) return -1;
+            var places = stage.Places.Places;
+            for (var index = 0; index < places.Count; index++)
+                if (places[index].ProjectId == projectId) return index;
+            return -1;
         }
 
         private bool SomethingWaits() =>

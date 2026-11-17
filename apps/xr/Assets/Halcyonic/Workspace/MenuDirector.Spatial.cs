@@ -1007,6 +1007,47 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
+        private readonly List<(string ProjectId, KitScreenModel Model, float Wanted, float Distance)> teamsWanted = new List<(string, KitScreenModel, float, float)>();
+        private readonly List<(string ProjectId, KitScreenModel Model, float Bearing, float Distance)> teamsStood = new List<(string, KitScreenModel, float, float)>();
+        private readonly List<float> teamBearings = new List<float>();
+
+        /// <summary>
+        /// Every open project screen but the one brought forward stands over its own team (the lead's 2026-11-17T18:55Z (d)): at its place's
+        /// bearing about the plane's resting bearing (XR's "ahead"), fitted by RoomLayout.Screens so none covers another, none stands in the
+        /// clear front and none past the seated reach. A project with no place takes the next place in the fill order.
+        /// </summary>
+        private void StandTeamScreens(UnityEngine.Vector3 eyes)
+        {
+            teamsWanted.Clear();
+            if (setup.SpatialWorkspace && !Away)
+            {
+                var ahead = plane.Direction.Yaw;
+                var spare = 0;
+                foreach (var (projectId, model) in setup.Presentation.OpenScreens(State, Connected || Demonstration))
+                {
+                    if (projectId == setup.Presentation.ScreenProjectId) continue;
+                    var index = setup.PlaceOf(projectId);
+                    if (index < 0) index = spare++;
+                    var place = PlaceBearings.Of(index);
+                    teamsWanted.Add((projectId, model, place.YawDegrees, place.Distance));
+                }
+            }
+            if (teamsWanted.Count == 0)
+            {
+                plane.HideTeamScreens();
+                return;
+            }
+            // Left to right, as RoomLayout.Screens takes them.
+            teamsWanted.Sort((a, b) => a.Wanted.CompareTo(b.Wanted));
+            teamBearings.Clear();
+            foreach (var wanted in teamsWanted) teamBearings.Add(plane.Direction.Yaw + wanted.Wanted);
+            var bearings = RoomLayout.Screens(teamBearings, RoomLayout.TeamScreenDegrees, plane.Direction.Yaw, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+            teamsStood.Clear();
+            for (var index = 0; index < teamsWanted.Count; index++)
+                teamsStood.Add((teamsWanted[index].ProjectId, teamsWanted[index].Model, bearings[index], teamsWanted[index].Distance));
+            plane.ShowTeamScreens(teamsStood, eyes);
+        }
+
         private void UpdateProgressiveSpatial(UnityEngine.Vector3 eyes, UnityEngine.Vector3 looking)
         {
             AdvanceSpatialFlows();
@@ -1021,6 +1062,7 @@ namespace Halcyonic.XR.Workspace
             {
                 plane.HideScreen();
             }
+            StandTeamScreens(eyes);
 
             var allowMoments = setup.SpatialWorkspace
                 && !Away

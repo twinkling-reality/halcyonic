@@ -122,6 +122,28 @@ namespace Halcyonic.Client
         public const float SeatedReachDegrees = 100f;
 
         /// <summary>
+        /// A project screen standing over its own team (FIELD's 2026-11-17T19:13Z places sheet, AUDIT's 19:13Z agreement): this wide
+        /// at the eyes, so it stays within a seated person's comfortable upward look; the one pressed comes forward as the work.
+        /// </summary>
+        public const float TeamScreenDegrees = 24f;
+
+        /// <summary>How far above level a team's screen's lower edge stands, clear of the team's highest lifted tag by 3 degrees at Larger (FIELD's 19:13Z).</summary>
+        public const float TeamScreenLowestDegrees = 8f;
+
+        /// <summary>
+        /// A team's screen over its place on <paramref name="bearing"/>, <paramref name="distance"/> from the eyes: <see cref="TeamScreenDegrees"/>
+        /// across at <paramref name="aspect"/>, its lower edge <see cref="TeamScreenLowestDegrees"/> above level, square to the eyes.
+        /// </summary>
+        public static RoomPose TeamScreen(Vector3 eyes, float bearing, float distance, float aspect)
+        {
+            if (!(aspect > 0f)) throw new ArgumentOutOfRangeException(nameof(aspect), aspect, "An aspect is above 0.");
+            // Its height's angle is its width's over the aspect, as the kit lays a screen (SpatialKit.ScreenHeightDegreesAt); square on,
+            // its lower edge stands half that under its centre's elevation.
+            var tall = TeamScreenDegrees / aspect;
+            return Screen(eyes, bearing, TeamScreenDegrees, tall, distance, TeamScreenLowestDegrees + tall / 2f);
+        }
+
+        /// <summary>
         /// How far either side of straight ahead stays clear for the work or the show the person watches (the lead's
         /// 2026-11-17T19:05Z; FIELD's places stand past it): a screen beside its place keeps its edges out of it.
         /// </summary>

@@ -81,11 +81,17 @@ namespace Halcyonic.XR.UI
             return screen;
         }
 
-        public void Show(KitScreenModel model)
+        /// <summary>
+        /// Draws <paramref name="model"/> <paramref name="widthDegrees"/> across (the kit's screen width where none is given; a team's
+        /// screen stands narrower, RoomLayout.TeamScreenDegrees), at the kit's aspect, its words in their own roles' sizes.
+        /// </summary>
+        public void Show(KitScreenModel model, float? widthDegrees = null)
         {
+            var across = widthDegrees ?? SpatialKit.ScreenDegreesAt(GlazeText.Scale);
             // A large part's extent: twice the tangent of its half angle, so it spans its angle seen from its centre.
-            var width = 2f * KitType.Units(SpatialKit.ScreenDegreesAt(GlazeText.Scale) / 2f);
-            var height = 2f * KitType.Units(SpatialKit.ScreenHeightDegreesAt(GlazeText.Scale) / 2f);
+            var width = 2f * KitType.Units(across / 2f);
+            // Its height's angle is its width's over the kit's aspect, as SpatialKit.ScreenHeightDegreesAt gives the full screen's.
+            var height = 2f * KitType.Units(across / SpatialKit.ScreenAspect / 2f);
             Size = new Vector2(width, height);
             face.Draw(Size, KitType.Units(RadiusDegrees), SpatialKit.IdentityField(model.IdentityHue));
 
@@ -100,8 +106,11 @@ namespace Halcyonic.XR.UI
             // so the chip is one line high, with the same pad.
             GlazeText.SetLiteral(facts, model.State);
             var room = width - 2f * inset - 3f * pad;
-            var (titleLines, titleWidth, titleHeight) = KitType.Lay(title, room * 0.6f, 1);
-            var (factLines, factWidth, factHeight) = KitType.Lay(facts, room - titleWidth, 1);
+            var narrow = widthDegrees != null && across < SpatialKit.ScreenDegreesAt(GlazeText.Scale);
+            // A team's narrower screen names its project once, across its face: its chip carries the state alone.
+            title.gameObject.SetActive(!narrow);
+            var (titleLines, titleWidth, titleHeight) = narrow ? (1, -pad, 0f) : KitType.Lay(title, room * 0.6f, 1);
+            var (factLines, factWidth, factHeight) = KitType.Lay(facts, room - Mathf.Max(0f, titleWidth), 1);
             var chipSize = new Vector2(titleWidth + factWidth + 3f * pad, Mathf.Max(titleHeight, factHeight) + 2f * pad * 0.6f);
             chip.Draw(chipSize, KitType.Units(SpatialKit.ControlRadiusDegrees), SpatialKit.Carrier);
             chip.transform.localPosition = new Vector3(-width / 2f + inset + chipSize.x / 2f, height / 2f - inset - chipSize.y / 2f, -0.0004f);
@@ -110,11 +119,13 @@ namespace Halcyonic.XR.UI
             facts.transform.localPosition = new Vector3(-chipSize.x / 2f + 2f * pad + titleWidth, chipSize.y / 2f - pad * 0.6f, -0.0003f);
             // No picture source exists yet: the project's identity stands in its place, the mark above its name.
             KitType.Size(name, KitRole.Display);
+            // On a team's narrower screen the display name narrows with it, as the mark does, so it reads whole on its face.
+            if (narrow) name.fontSize *= across / SpatialKit.ScreenDegreesAt(GlazeText.Scale);
             GlazeText.SetLiteral(name, model.Project);
             var (nameLines, nameWidth, nameHeight) = KitType.Lay(name, width * 0.8f, 1);
             // The mark is the screen's, not the text's: it narrows with the screen at Larger, so the block keeps its air
             // below the chip while the name grows with the text.
-            var markShare = SpatialKit.ScreenDegreesAt(GlazeText.Scale) / SpatialKit.ScreenDegrees;
+            var markShare = across / SpatialKit.ScreenDegrees;
             var diameter = KitType.Units(MarkDegrees * markShare);
             var block = diameter + KitType.Units(NameGapDegrees) + nameHeight;
             var markShown = model.Monogram.Length > 0;
@@ -151,7 +162,7 @@ namespace Halcyonic.XR.UI
             else name.gameObject.SetActive(true);
 
             // The state stands on one line, whole.
-            ReadsWhole = (swarm ? agentsWhole : nameWhole) && titleLines == 1 && factLines == 1 && !title.isTextTruncated && !facts.isTextTruncated;
+            ReadsWhole = (swarm ? agentsWhole : nameWhole) && titleLines == 1 && factLines == 1 && (narrow || !title.isTextTruncated) && !facts.isTextTruncated;
             gameObject.SetActive(true);
         }
 

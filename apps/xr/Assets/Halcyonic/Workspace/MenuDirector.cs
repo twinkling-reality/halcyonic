@@ -158,6 +158,9 @@ namespace Halcyonic.XR.Workspace
             /// <summary>The character a task stands on the stage as, for the file's light line and its placement.</summary>
             public Func<string, CharacterTarget?> CharacterOf { get; set; } = _ => null;
 
+            /// <summary>A project's place in the room's places (RoomPlaces' order), or -1 where it has none; its team's screen stands over it.</summary>
+            public Func<string, int> PlaceOf { get; set; } = _ => -1;
+
             /// <summary>The bar as it reads now: the place chosen, the closed line, and where something waits; the same object until it changes.</summary>
             public Func<MenuPlace, MenuBar> Bar { get; set; } = place => new MenuBar(place, "Nothing is waiting for you.");
 
@@ -328,6 +331,7 @@ namespace Halcyonic.XR.Workspace
             director.plane.SubjectLetGo += director.OnSubjectLetGo;
             director.plane.ScreenActed += director.OnScreenActed;
             director.plane.ScreenAgentPressed += director.OnScreenAgentPressed;
+            director.plane.TeamScreenPressed += projectId => director.ShowProjectScreen(projectId);
             director.plane.ScreenBarToggled += director.OnScreenBarToggled;
             director.plane.MomentActed += director.OnMomentActed;
             if (setup.Voice is HoldToTalk talk)

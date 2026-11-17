@@ -405,4 +405,21 @@ public class RoomLayoutTests
             }
         }
     }
+
+    [Test]
+    public void ATeamsScreenStandsOverItsPlaceItsLowerEdgeEightDegreesUp()
+    {
+        foreach (var bearing in new[] { -83.25f, 46.75f })
+        {
+            var screen = RoomLayout.TeamScreen(Eyes, bearing, 1.4f, 16f / 9f);
+            Assert.That(screen.Bearing, Is.EqualTo(bearing).Within(1e-4f));
+            Assert.That(Across(screen, Eyes), Is.EqualTo(RoomLayout.TeamScreenDegrees).Within(0.01f));
+            var lower = screen.Centre - screen.Up * (screen.Height / 2f) - Eyes;
+            var lowerUp = MathF.Atan2(lower.Y, Flat(lower + Eyes, Eyes)) * 180f / MathF.PI;
+            Assert.That(lowerUp, Is.EqualTo(RoomLayout.TeamScreenLowestDegrees).Within(0.05f), "its lower edge over the team's highest tag");
+            var tall = Degrees(screen.Centre + screen.Up * (screen.Height / 2f) - Eyes, screen.Centre - screen.Up * (screen.Height / 2f) - Eyes);
+            Assert.That(tall, Is.EqualTo(RoomLayout.TeamScreenDegrees * 9f / 16f).Within(0.01f), "as high as the kit lays it");
+        }
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.TeamScreen(Eyes, 0f, 1.4f, 0f));
+    }
 }
