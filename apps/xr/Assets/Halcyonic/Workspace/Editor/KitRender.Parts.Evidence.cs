@@ -22,7 +22,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static JToken EvidenceRecorded(string source, int at) =>
             JObject.Parse(Resources.Load<TextAsset>("HalcyonicDemonstration").text)[source]![EvidenceRun]![at]!["response"]!;
 
-        private static T EvidenceWithout<T>(string availability, string code) => HalcyonicJson.Deserialize<T>(new JObject
+        private static T EvidenceWithout<T>(string availability, string code) where T : class => HalcyonicJson.Deserialize<T>(new JObject
         {
             ["execution_id"] = EvidenceRun,
             ["result"] = new JObject { ["availability"] = availability, ["reason"] = new JObject { ["code"] = code, ["message"] = "developer words" } },
