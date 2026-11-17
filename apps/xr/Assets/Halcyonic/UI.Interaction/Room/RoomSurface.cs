@@ -408,13 +408,13 @@ namespace Halcyonic.XR.UI
         /// spaced capitals, 18 dp, 0.24 em apart, quiet; titles and the person's or the agent's words keep their own case. 18, not
         /// the sheet's 15: on a panel or a notice the eye meets at an angle, 15 read 0.75 to 0.87 degrees, under the 14 dp floor
         /// (F265 and F266, 2026-11-17); at 18 the least of them reads 0.90.
-        /// Quiet in PIXELS (the lead's 2026-11-17 01:56Z MUST 2): Unity blends text alpha in linear light, so the page's white at 0.52
-        /// read 225 of 255 on the glass beside the words' 233 (AUDIT's room-08); 0.28 in the linear blend lands near 146 over the glass's
-        /// 29, in the 135 to 150 asked, with the words near 233.
+        /// 0.53 in Unity's linear blend (the lead's 2026-11-17 02:29Z ruling): 4.5 to 1 over the glass where the bright room shows
+        /// through it, about 190 of 255 on the glass over a dark room; quiet by its size, capitals and tracking rather than by brightness.
+        /// 0.28 read 135 to 150 on the dark room's glass but only 3.35 to 3.7 to 1 over the bright room's (F267 and F269).
         /// </summary>
         public const float LabelDp = 18f;
         public const float LabelTracking = 24f;
-        public const float LabelAlpha = 0.28f;
+        public const float LabelAlpha = 0.53f;
 
         /// <summary>Sets <paramref name="label"/> in the label role: <paramref name="words"/> in spaced capitals at <see cref="LabelDp"/>.</summary>
         public static void Label(TMP_Text label, string words)
