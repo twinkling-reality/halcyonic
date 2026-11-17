@@ -604,4 +604,74 @@ public class RoomQuestionTests
         }
         finally { RoomDesign.Enabled = was; }
     }
+    /// <summary>
+    /// No question the contract admits sends the panel back to the older kit (the lead's 2026-11-16T22:27Z): the kit holds a question's
+    /// page only where the reader reads it as a question with no more actions than its column holds (KitWorkspaceHost.Holds), so a page
+    /// past it would draw the older kit. Walked through every page to the person's answers and their confirmation, at the contract's most
+    /// prompts and answers, plain, described and mixed, one and many chosen, with a written answer allowed.
+    /// </summary>
+    [Test]
+    public void EveryPageOfTheLargestQuestionsStaysTheRedesignsOwn()
+    {
+        var was = RoomDesign.Enabled; RoomDesign.Enabled = true;
+        try
+        {
+            QuestionPrompt Prompt(int index, int answers, bool described, bool multiple, bool written) => new()
+            {
+                Key = "q" + index, Header = "Part " + index, Text = "Which choice for part " + index + "?", Multiple = multiple, FreeText = written, Secret = false,
+                Options = Enumerable.Range(1, answers).Select(n => new QuestionOption { Label = "Choice " + n, Description = described ? "What choice " + n + " does." : null }).ToList(),
+            };
+            var shapes = new (string Name, Func<int, QuestionPrompt> Of, int Prompts)[]
+            {
+                ("ten plain prompts of four", index => Prompt(index, 4, false, false, false), 10),
+                ("five described prompts of four", index => Prompt(index, 4, true, false, false), 5),
+                ("ten prompts of twenty, written allowed", index => Prompt(index, 20, false, index % 2 == 1, true), 10),
+                ("ten described prompts of twenty", index => Prompt(index, 20, true, index % 2 == 0, index % 3 == 0), 10),
+                ("ten mixed prompts", index => Prompt(index, index % 2 == 0 ? 7 : 3, index % 2 == 1, index % 3 == 0, index % 4 == 0), 10),
+                ("one prompt of twenty, many chosen", index => Prompt(index, 20, false, true, true), 1),
+            };
+            foreach (var shape in shapes)
+            {
+                var question = new QuestionView
+                {
+                    QuestionId = "largest", Answerable = true, AskedAt = Samples.Time,
+                    Prompts = Enumerable.Range(0, shape.Prompts).Select(shape.Of).ToList(),
+                };
+                var host = new FileMenuHost();
+                var work = new AskingWork(question);
+                var column = Column(host, () => work.Present());
+                column.QuestionBudgetOf = () => new ChoiceBudget(RoomBar.ChoicesAPage);
+                column.Reflow();
+                Draw(host, column);
+                var reviewed = false;
+                for (var step = 0; step < 200 && host.Sent.Count == 0; step++)
+                {
+                    var bar = Bar(column);
+                    var at = shape.Name + ", step " + step + ": " + Show(bar);
+                    Assert.That(bar.State, Is.EqualTo(RoomBarState.Question), at);
+                    Assert.That(bar.Column.Count, Is.LessThanOrEqualTo(RoomBar.ColumnMost), at);
+                    Assert.That(bar.Column.Count + (bar.Card?.List.Count ?? 0), Is.GreaterThan(0), "something to press: " + at);
+                    reviewed |= bar.Column.Any(action => action.Control.Action == FileScreens.GoToQuestion);
+                    // The card's own pages, each read in turn on a bar of its own.
+                    var turned = Bar(column);
+                    for (var page = 1; page < turned.GeneralPart.Pages; page++)
+                    {
+                        turned.Turn();
+                        Assert.That(turned.Column.Count, Is.LessThanOrEqualTo(RoomBar.ColumnMost), at + ", card page " + (page + 1) + ": " + Show(turned));
+                    }
+                    // Choose the first answer not yet chosen, wherever it stands; else turn the card's page; else the way on.
+                    var choice = bar.Column.FirstOrDefault(action => action.Control.Place == KitPlace.Choice && !action.Chosen)?.Control
+                        ?? bar.Card?.List.FirstOrDefault(row => row.Press != null && !row.Chosen && row.Mark != AnswerMark.None)?.Press;
+                    var chosenHere = bar.Column.Any(action => action.Chosen && action.Control.Place == KitPlace.Choice) || bar.Card?.List.Any(row => row.Chosen) == true;
+                    if (choice != null && !chosenHere) { column.Act(choice.Action, choice.Key); Draw(host, column); continue; }
+                    var on = bar.Column.FirstOrDefault(action => action.Main) ?? bar.Column.FirstOrDefault(action => action.Control.Place == KitPlace.Step && action.Words == "Next Page");
+                    Assert.That(on, Is.Not.Null, "a way on: " + at);
+                    column.Act(on!.Control.Action, on.Control.Key);
+                    Draw(host, column);
+                }
+                Assert.That((reviewed, host.Sent.Select(command => command.CommandType).ToList()), Is.EqualTo((true, new List<string> { "execution.answer_question" })), shape.Name);
+            }
+        }
+        finally { RoomDesign.Enabled = was; }
+    }
 }

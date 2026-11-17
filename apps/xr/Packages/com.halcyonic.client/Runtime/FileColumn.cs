@@ -1052,7 +1052,10 @@ namespace Halcyonic.Client
                 else Screen.MeasurePresets(Screen.Presets.Select((preset, index) => Math.Min(2, host.RowsOf(FileScreens.PresetLine(preset, index, recordedPresets), Glaze.Menu.FileColumnDegrees))).ToList(), budget,
                     notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             }
-            if (draft != null) ReadQuestion(draft, QuestionBudgetOf?.Invoke() is PageBudget choices ? OnePartWhereDescribed(draft, choices) : budget, QuestionBudgetOf?.Invoke() != null);
+            // The person's answers stand in the column whatever the answers do, so their review is laid by the column's places (a described
+            // question's answers stand on the card, one part each, but its review's rows are the column's: the lead's 2026-11-16T22:27Z).
+            if (draft != null) ReadQuestion(draft, QuestionBudgetOf?.Invoke() is PageBudget choices ? OnePartWhereDescribed(draft, choices) : budget, QuestionBudgetOf?.Invoke() != null,
+                QuestionBudgetOf?.Invoke() ?? budget);
             Screen.ShowTaskHereOffered = CanShowTaskHere();
             if (Screen.ShowTaskHereOffered) Screen.ShowTaskHereRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.ShowTaskHereWords, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             Screen.ShowScreenOffered = CanShowScreen();
@@ -1193,7 +1196,7 @@ namespace Halcyonic.Client
         /// The agent's question measured as the view wraps it at the file's and the side panel's widths:
         /// every prompt and every answer, and the typed answers and the person's answers as they read now.
         /// </summary>
-        private void ReadQuestion(QuestionDraft asked, PageBudget page, bool whole = false)
+        private void ReadQuestion(QuestionDraft asked, PageBudget page, bool whole, PageBudget review)
         {
             const float File = Glaze.Menu.FileColumnDegrees;
             const float Side = Glaze.Menu.SideColumnDegrees;
@@ -1219,7 +1222,7 @@ namespace Halcyonic.Client
                 measuredFor = asked;
                 measuredAt = host.TextSize;
             }
-            Screen.ReadQuestion(asked, measures, page, page);
+            Screen.ReadQuestion(asked, measures, page, page, review);
             for (var prompt = 0; prompt < asked.Prompts.Count; prompt++)
             {
                 if (!(asked.Typed(prompt) is string typed)) continue;

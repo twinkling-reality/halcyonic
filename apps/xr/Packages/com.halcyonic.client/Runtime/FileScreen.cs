@@ -283,10 +283,10 @@ namespace Halcyonic.Client
         /// Reads <paramref name="draft"/>'s question, each prompt laid out as <paramref name="measured"/>
         /// says on pages as <paramref name="page"/> holds them and side panels as <paramref name="side"/>
         /// does, each source line already taken: from its first prompt when it is another question, else
-        /// where the person was.
+        /// where the person was; the person's answers on pages as <paramref name="review"/> holds them, where given, else as <paramref name="page"/> does.
         /// </summary>
-        public void ReadQuestion(QuestionDraft draft, IReadOnlyList<PromptMeasure> measured, PageBudget page, PageBudget side) =>
-            Question.Show(draft, measured, page, side);
+        public void ReadQuestion(QuestionDraft draft, IReadOnlyList<PromptMeasure> measured, PageBudget page, PageBudget side, PageBudget? review = null) =>
+            Question.Show(draft, measured, page, side, review);
 
         private int armingRead = -1;
 

@@ -2827,7 +2827,10 @@ lines a page, its title and description counted), the general reader's pager bef
 whole and its send held only once every page was shown (one pager, the kit's count: XR's and AUDIT's 22:21Z); plain short
 answers stay in the column where the whole column (answers and every way the file offers on the page) fits four in all (the lead's
 ruling of 2026-11-14T00:24Z: the spec's four, one number for every reader and for the recorded envelope), else they stand on the card too (a question handed in one part may give a plain prompt seven answers: never a column past it, never a
-second pager); the question still measures the two together (`FileScreens.OptionMeasured`), so a description too long for its rows
+second pager); the person's answers, each a row back to its question, stand in the column whatever the answers do, so their review
+is paged by the column's places even where a described question's answers come in one part (`FileQuestion.Show`'s review budget:
+five described prompts once stood seven actions in the column, past `RoomBar.ColumnMost`, and `KitWorkspaceHost.Holds` handed the
+frame to the old kit; `RoomQuestionTests.EveryPageOfTheLargestQuestionsStaysTheRedesignsOwn` walks the contract's largest questions); the question still measures the two together (`FileScreens.OptionMeasured`), so a description too long for its rows
 is cut and opens whole in its side panel as before; the band's pager is `RoomWords.Next`, "Next Part" alone, "First Part" on the last part back to the start, in the
 same place on every part and without the accent there, and where the person is stands on the band's own quiet foot,
 `RoomWords.Where` ("Part 1 of 2"), in its lower right on the last row's baseline or on a foot line kept under the rows on

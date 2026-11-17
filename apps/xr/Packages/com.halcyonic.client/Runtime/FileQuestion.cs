@@ -64,6 +64,7 @@ namespace Halcyonic.Client
         private IReadOnlyList<PromptMeasure> measures = Array.Empty<PromptMeasure>();
         private List<List<List<int>>> pages = new List<List<List<int>>>();
         private PageBudget page = new RowBudget(1);
+        private PageBudget review = new RowBudget(1);
         private readonly Dictionary<int, HashSet<int>> partsDrawn = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, HashSet<int>> answersRead = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, string> typedRead = new Dictionary<int, string>();
@@ -278,11 +279,12 @@ namespace Halcyonic.Client
         /// <summary>
         /// Shows <paramref name="answering"/>, each prompt laid out as <paramref name="measured"/> says, one
         /// measure for every prompt and every answer, on pages as <paramref name="pageBudget"/> holds them
-        /// and side panels as <paramref name="sideBudget"/> does, each source line already taken,
+        /// and side panels as <paramref name="sideBudget"/> does, the person's answers as <paramref name="reviewBudget"/> holds them
+        /// where given (else as <paramref name="pageBudget"/> does), each source line already taken,
         /// source line's already taken: from its first prompt when it is another question, else where the
         /// person was. Laid out anew, it lands on a selected option page without clearing other pages' selections; a long question partly read is read again, and one read whole stays read.
         /// </summary>
-        public void Show(QuestionDraft answering, IReadOnlyList<PromptMeasure> measured, PageBudget pageBudget, PageBudget sideBudget)
+        public void Show(QuestionDraft answering, IReadOnlyList<PromptMeasure> measured, PageBudget pageBudget, PageBudget sideBudget, PageBudget? reviewBudget = null)
         {
             if (measured == null || measured.Count != answering.Prompts.Count)
             {
@@ -299,7 +301,7 @@ namespace Halcyonic.Client
             var another = !ReferenceEquals(answering, draft);
             // After a text size change it is laid out again even where the room came out the same, so what is
             // read again shows from its first part, never left unread with no row leading back to it.
-            var relaid = !another && (relayNext || !Same(page, pageBudget) || !Same(side, sideBudget) || !SameMeasures(measures, measured));
+            var relaid = !another && (relayNext || !Same(page, pageBudget) || !Same(side, sideBudget) || !Same(review, reviewBudget ?? pageBudget) || !SameMeasures(measures, measured));
             relayNext = false;
             if (another)
             {
@@ -325,6 +327,7 @@ namespace Halcyonic.Client
             draft = answering;
             page = pageBudget;
             side = sideBudget;
+            review = reviewBudget ?? pageBudget;
             if (relaid)
             {
                 drawnAt = null;
@@ -432,9 +435,9 @@ namespace Halcyonic.Client
         {
             reviewPages = new List<List<(int, int, int)>> { new List<(int, int, int)>() };
             if (draft == null) return;
-            var room = page.Room - page.Words(1) - page.LineGap - page.Reason;
-            var perPart = page.WordsIn(room);
-            while (perPart > 1 && page.Target(perPart) > room) perPart--;
+            var room = review.Room - review.Words(1) - review.LineGap - review.Reason;
+            var perPart = review.WordsIn(room);
+            while (perPart > 1 && review.Target(perPart) > room) perPart--;
             var used = 0f;
             for (var prompt = 0; prompt < draft.Prompts.Count; prompt++)
             {
@@ -443,13 +446,13 @@ namespace Halcyonic.Client
                 {
                     var count = Math.Min(rows - first, perPart);
                     var current = reviewPages[reviewPages.Count - 1];
-                    var takes = page.Target(count) + (current.Count > 0 ? page.TargetGap : 0f);
+                    var takes = review.Target(count) + (current.Count > 0 ? review.TargetGap : 0f);
                     if (current.Count > 0 && used + takes > room + 1e-6f)
                     {
                         reviewPages.Add(new List<(int, int, int)>());
                         current = reviewPages[reviewPages.Count - 1];
                         used = 0f;
-                        takes = page.Target(count);
+                        takes = review.Target(count);
                     }
                     current.Add((prompt, first, count));
                     used += takes;
