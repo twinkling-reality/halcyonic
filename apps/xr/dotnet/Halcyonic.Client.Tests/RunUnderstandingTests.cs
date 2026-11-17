@@ -51,8 +51,11 @@ public class RunUnderstandingTests
     {
         var understood = RunUnderstanding.Of(Understood())!;
         Assert.That((understood.Source, understood.Headline, understood.Because),
-            Is.EqualTo(("Salidium Observed", "The check passes on the new parser.", "go test ran green after the last change.")));
-        Assert.That(RunUnderstanding.Of(Understood(UnderstandingEpistemic.Reported))!.Source, Is.EqualTo("Salidium Reported"));
+            Is.EqualTo(("Observed", "The check passes on the new parser.", "go test ran green after the last change.")));
+        Assert.That(RunUnderstanding.Of(Understood(UnderstandingEpistemic.Reported))!.Source, Is.EqualTo("Reported"));
+        var standIn = Understood();
+        standIn.Source = new UnderstandingSource { Synthetic = true };
+        Assert.That(RunUnderstanding.Of(standIn)!.Source, Is.EqualTo("Simulated"), "a stand-in says so");
         Assert.That(RunUnderstanding.Of(null), Is.Null);
     }
 

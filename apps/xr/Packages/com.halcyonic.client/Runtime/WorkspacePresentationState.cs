@@ -909,6 +909,17 @@ namespace Halcyonic.Client
             state == null ? null : OrderWorkstreams(state.Workstreams.Values.Where(item => item.ProjectId == projectId)).FirstOrDefault();
 
         /// <summary>
+        /// The redesign's page an evidence door opens (the lead's 2026-11-17 20:50Z): Outcome, Seorak's measure of the run, and
+        /// Reasoning, Salidium's understanding of it; null for every other action and in the older view, where the doors open sections.
+        /// </summary>
+        public static RoomResultPage? EvidencePageFor(KitScreenAction action, bool roomDesign) => !roomDesign ? (RoomResultPage?)null : action switch
+        {
+            KitScreenAction.HowItWent => RoomResultPage.Outcome,
+            KitScreenAction.Why => RoomResultPage.Reasoning,
+            _ => null,
+        };
+
+        /// <summary>
         /// Maps a room screen inspection action (<see cref="KitScreenAction.Steps"/>, <see cref="KitScreenAction.Why"/>,
         /// <see cref="KitScreenAction.HowItWent"/>) to the corresponding task <see cref="FileSection"/>, or null for
         /// non-section actions.

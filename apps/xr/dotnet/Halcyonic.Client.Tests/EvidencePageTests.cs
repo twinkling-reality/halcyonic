@@ -30,7 +30,7 @@ public class EvidencePageTests
             },
         };
         var page = EvidencePage.Of(Evaluation(new AvailableEvaluation { Evaluation = measured }));
-        Assert.That((page.Title, page.Label, page.State), Is.EqualTo(("Outcome", "Seorak Measured", (string?)null)));
+        Assert.That((page.Title, page.Label, page.State), Is.EqualTo(("Outcome", "Measured", (string?)null)));
         Assert.That(page.Sections.Select(section => section.Head), Is.EqualTo(new[] { "Checks", "Cost" }));
         Assert.That(page.Sections[0].Rows.Single().Rate, Is.EqualTo(0.75));
 
@@ -43,7 +43,7 @@ public class EvidencePageTests
             },
         }));
         Assert.That((understood.Title, understood.Label, understood.Headline, understood.Because),
-            Is.EqualTo(("Reasoning", "Salidium Reported", "It works.", "The tests passed.")), "the page takes its door's word (AUDIT2's 20:52Z)");
+            Is.EqualTo(("Reasoning", "Reported", "It works.", "The tests passed.")), "the page takes its door's word (AUDIT2's 20:52Z)");
     }
 
     [Test]

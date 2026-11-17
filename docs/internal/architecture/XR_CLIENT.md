@@ -3255,6 +3255,22 @@ in order, as before.
   result; the host refuses a copy changed since it was shown. Not yet: the added and refused cards on the result (the
   result's own card, with FIELD), Undo (LINK's ADR 0051). Checks: `38-result-add`, `38-add`, `38-conflict`;
   `RoomResultTests`, FIELD's `RoomAddTests`.
+- **The evidence doors** (the lead's 2026-11-17 20:50Z): on the project screen's bar, Outcome opens the result's Outcome
+  page, Seorak's measure of the task's newest run (`RunResults`), and Reasoning its Reasoning page, Salidium's understanding
+  of it (`RunUnderstanding`), each titled with its door's own word (`KitScreenModel.Words`) and read through the open
+  file's own feeds while it shows (`FileColumn.ResultEvidenceShown`, `OutcomePage`, `ReasoningPage`; the older view keeps
+  the doors' sections, `WorkspacePresentationState.EvidencePageFor`). `EvidencePage.Card` lays a page on the kit's card:
+  how it knows once in the label role (MEASURED, OBSERVED or REPORTED, and SIMULATED for a stand-in), never the
+  source's own name (the lead's 2026-11-13 ruling, `tooling/sibling-names.test.ts`), the source's verdict and why as the
+  description on the first part, then its rows five a part, each section's head as a quiet line above its first row on a
+  part, the value on the right edge, a run's mark by its form (Passed, Failed; none for Partly Passed or Can't Tell, whose
+  words say it). Every value is the source's own; a part it marks unavailable, or a count it did not give, is left out,
+  never shown as 0 or guessed. Without an answer the page is its state with the reason's own phrase under it: before any
+  read "Not Measured" or "No Conclusions" with "Nothing has been read for this task yet."; a read that failed, Measurement
+  or Conclusions Unavailable with the feed's own reason; and the host's not found, unavailable, incompatible and
+  unauthorized in the text sections' words. Not yet: a bar for a row's rate (the value says it in words). Checks:
+  `47-card-evidence-*` (from the demonstration's recorded answers and each honest state); `EvidencePageTests`,
+  `RunResultsTests`, `RunUnderstandingTests`, `RoomResultTests.TheEvidenceDoorsOpenTheirPagesOnTheKitsCardWithAWayBack`.
 - **Ask, as cards** (`AskColumn`, `AskScope`, `AskStage`; ADR 0030; gap 7): one Ask about a task and its current
   run, a whole project, or all work, walked Writing, Sent, Thinking, Waiting, Needs You, Answered or Not Answered,
   each from the computer's own record (the submit's ack and result, then the request's status). The title is the thing

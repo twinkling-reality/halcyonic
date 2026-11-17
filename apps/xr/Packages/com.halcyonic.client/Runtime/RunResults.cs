@@ -11,7 +11,7 @@ namespace Halcyonic.Client
     /// Seorak's evaluation of one run as the project screen's Outcome door reads it (the lead's 2026-11-17 20:15Z; AUDIT2's 20:17Z words; laid after
     /// hud-titanfall-2-end-of-match.png and result-death-stranding-results.png): sections of rows, each a measure's words and the
     /// source's own value, untouched. A part the source marks unavailable, and any null, is left out, never shown as 0, a dash
-    /// or a placeholder; no grade, rating or overall score is ever made. The view names the source once (SEORAK MEASURED).
+    /// or a placeholder; no grade, rating or overall score is ever made. The view says once how it knows (MEASURED), never the source's name.
     /// </summary>
     public sealed class RunResults
     {
@@ -20,7 +20,11 @@ namespace Halcyonic.Client
         {
             /// <summary>The page takes its door's word (AUDIT2's 20:52Z).</summary>
             public static string Title => KitScreenModel.Words(KitScreenAction.HowItWent);
-            public const string Source = "Seorak Measured";
+            /// <summary>
+            /// Where the measure came from, in the product's own words: a source's own name is data and never drawn (the lead's
+            /// ruling, 2026-11-13; tooling/sibling-names.test.ts). A stand-in's says so.
+            /// </summary>
+            public const string Source = "Measured", Simulated = "Simulated";
             public const string Activity = "Activity", Changes = "Changes", Checks = "Checks", Cost = "Cost";
             public const string Time = "Time", ToolCalls = "Tool Calls", Instructions = "Instructions";
             public const string FilesChanged = "Files Changed", LinesAdded = "Lines Added", LinesRemoved = "Lines Removed";
@@ -51,9 +55,12 @@ namespace Halcyonic.Client
             public string? Empty { get; }
         }
 
-        private RunResults(IReadOnlyList<Section> sections) => Sections = sections;
+        private RunResults(IReadOnlyList<Section> sections, string source) => (Sections, Source) = (sections, source);
 
         public IReadOnlyList<Section> Sections { get; }
+
+        /// <summary>The view's label: MEASURED, or SIMULATED where the source says it is a stand-in.</summary>
+        public string Source { get; }
 
         /// <summary>The results of <paramref name="evaluation"/>; null where there is none.</summary>
         public static RunResults? Of(Evaluation? evaluation)
@@ -96,7 +103,7 @@ namespace Halcyonic.Client
             if (Measured(evaluation.Cost?.Availability) && evaluation.Cost?.EstimatedUsd is double usd)
                 // Always marked estimated, as the source's own note says it is (AUDIT2's 20:17Z).
                 sections.Add(new Section(Words.Cost, new[] { new Row(Words.Cost, "$" + usd.ToString("0.00", CultureInfo.InvariantCulture) + " Estimated") }));
-            return new RunResults(sections);
+            return new RunResults(sections, evaluation.Source?.Synthetic == true ? Words.Simulated : Words.Source);
         }
 
         private static bool Measured(EvaluationAvailability? availability) =>

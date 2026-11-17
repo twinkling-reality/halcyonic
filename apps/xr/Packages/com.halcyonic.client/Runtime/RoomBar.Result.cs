@@ -165,6 +165,13 @@ namespace Halcyonic.Client
                     // SCREENS's file of Changes read: its change, then the whole file, paged, with a way back at each step.
                     (card, sentence) = FileReading(reading, frame, column);
                     break;
+                case RoomResultPage.Outcome or RoomResultPage.Reasoning when result.Evidence is EvidencePage evidence:
+                    // The project screen's evidence doors (the lead's 20:50Z): the source's own measure or understanding on the kit's
+                    // card, or its honest state; Next Page while more rows follow, and Back to the result.
+                    card = evidence.Card(result.Part);
+                    if (result.Part + 1 < result.Parts) column.Add(Own(RoomResult.NextPage, Footer.NextPageWords(result.Part, result.Parts), main: true, GlazeIcon.Next));
+                    column.Add(Own(RoomResult.Back, EntryText.Back, main: false, GlazeIcon.Back));
+                    break;
                 case RoomResultPage.Said:
                     // The agent's whole reply (the lead's 15:17Z: nothing it said is hidden): on the band, its own lines kept, paged and
                     // never cut, as the agent's words always stand; Back to the review.

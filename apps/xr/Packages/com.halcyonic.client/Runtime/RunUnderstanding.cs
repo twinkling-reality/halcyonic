@@ -20,7 +20,8 @@ namespace Halcyonic.Client
         {
             /// <summary>The page takes its door's word (AUDIT2's 20:52Z): the project screen's door opens a page of its own name.</summary>
             public static string Title => KitScreenModel.Words(KitScreenAction.Why);
-            public const string Observed = "Salidium Observed", Reported = "Salidium Reported";
+            /// <summary>The verdict's class in the product's own words, never the source's name (the lead's 2026-11-13 ruling); a stand-in's says so.</summary>
+            public const string Observed = "Observed", Reported = "Reported", Simulated = "Simulated";
             public const string Runs = "Runs", Changes = "Changes", Review = "Review", Remaining = "Remaining";
             public const string Passed = "Passed", Failed = "Failed", PartlyPassed = "Partly Passed", CantTell = "Can't Tell";
             public const string OutOfDate = "Out of Date";
@@ -54,7 +55,7 @@ namespace Halcyonic.Client
         private RunUnderstanding(string source, string headline, string? because, IReadOnlyList<Section> sections) =>
             (Source, Headline, Because, Sections) = (source, headline, because, sections);
 
-        /// <summary>The view's label: SALIDIUM OBSERVED where the source observed its verdict, else SALIDIUM REPORTED.</summary>
+        /// <summary>The view's label: OBSERVED where the source observed its verdict, else REPORTED; SIMULATED for a stand-in.</summary>
         public string Source { get; }
 
         /// <summary>The source's verdict, its own words: the hero sentence.</summary>
@@ -82,7 +83,8 @@ namespace Halcyonic.Client
             var remaining = (understanding.Remaining?.Items ?? new List<UnderstandingRemainingItem>())
                 .Where(item => !string.IsNullOrWhiteSpace(item.Text)).Select(item => new Row(item.Text)).ToList();
             if (remaining.Count > 0) sections.Add(new Section(Words.Remaining, remaining));
-            var source = understanding.Verdict.Epistemic == UnderstandingEpistemic.Observed ? Words.Observed : Words.Reported;
+            var source = understanding.Source?.Synthetic == true ? Words.Simulated
+                : understanding.Verdict.Epistemic == UnderstandingEpistemic.Observed ? Words.Observed : Words.Reported;
             return new RunUnderstanding(source, understanding.Verdict.Headline, understanding.Verdict.Because, sections);
         }
 

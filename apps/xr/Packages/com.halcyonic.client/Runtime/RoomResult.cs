@@ -24,6 +24,10 @@ namespace Halcyonic.Client
         Said,
         /// <summary>SCREENS's file of Changes read: its change over the turn, then the whole file (<see cref="FileChangeColumn"/>).</summary>
         File,
+        /// <summary>The project screen's Outcome door: Seorak's measure of the run (<see cref="EvidencePage"/>, the lead's 20:50Z).</summary>
+        Outcome,
+        /// <summary>The project screen's Reasoning door: Salidium's understanding of the run (<see cref="EvidencePage"/>).</summary>
+        Reasoning,
     }
 
     /// <summary>
@@ -115,8 +119,10 @@ namespace Halcyonic.Client
             RoomResultPage page = RoomResultPage.Result, int part = 0, Halcyonic.Client.PlayInHeadset? play = null, RoomAdd? add = null, string? addReview = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canShare = false, IReadOnlyList<ProjectPlace>? places = null, FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null,
             bool readsFiles = false, ChangesAccount? account = null, bool partlyChecked = false, string? finding = null,
-            RoomCardStatus? simulated = null, bool checkRunning = false)
+            RoomCardStatus? simulated = null, bool checkRunning = false, EvidencePage? evidence = null)
         {
+            Evidence = page is RoomResultPage.Outcome or RoomResultPage.Reasoning ? evidence ?? (page == RoomResultPage.Outcome
+                ? EvidencePage.Of((EvaluationResponse?)null) : EvidencePage.Of((UnderstandingResponse?)null)) : null;
             PartlyChecked = partlyChecked && passed == null;
             // What the Checks page says where the computer's own check is not (JUDGE's ALERT 05:04Z: the card and the page agree):
             // a demonstration's simulated checks, said as simulated, and a check the computer is running now.
@@ -198,6 +204,9 @@ namespace Halcyonic.Client
         /// <summary>The project's share where the Share page shows (DEVICE's <see cref="ShareColumn"/>); null on every other page.</summary>
         public ShareColumn? Share { get; }
 
+        /// <summary>The evidence the Outcome or Reasoning page shows, or its honest state; null on every other page.</summary>
+        public EvidencePage? Evidence { get; }
+
         /// <summary>Whether Share stands on the result at rest: the host would admit it, or a share of the project stands.</summary>
         public bool CanShare { get; }
 
@@ -238,7 +247,7 @@ namespace Halcyonic.Client
 
         /// <summary>Whether the computer has anything to say of the task at rest.</summary>
         public bool Any => Observed != null || Passed != null || PartlyChecked || Simulated != null || CheckRunning || Steps.Count > 0 || Add?.State is RoomAddState.Ready or RoomAddState.Conflict || History != null || Share != null
-            || Start is { IsPlan: true } or { NotConfined: true };
+            || Evidence != null || Start is { IsPlan: true } or { NotConfined: true };
 
         /// <summary>The page's rows: an observed file a row, or a step of the check a row; none on the result itself.</summary>
         public IReadOnlyList<RoomRow> Rows => Page switch
@@ -254,7 +263,8 @@ namespace Halcyonic.Client
         public IReadOnlyList<RoomRow> Shown => RoomRows.Page(Rows, Part);
 
         /// <summary>How many pages the page shown turns through: Changes by the card's list, five a page (FIELD's A17); the rest by rows.</summary>
-        public int Parts => Page == RoomResultPage.Changes ? FileParts + (Account?.Parts ?? 0)
+        public int Parts => Evidence != null ? Evidence.Parts
+            : Page == RoomResultPage.Changes ? FileParts + (Account?.Parts ?? 0)
             : Page == RoomResultPage.Add ? ListPages(Add?.Paths.Count ?? 0)
             : RoomRows.Pages(Rows.Count);
 
@@ -328,7 +338,7 @@ namespace Halcyonic.Client
             RoomResultPage page = RoomResultPage.Result, int part = 0, (ControlPlaneTarget? Target, bool Demonstration)? way = null, WorkstreamView? task = null,
             HistoryColumn? history = null, ShareColumn? share = null, bool canSend = false, bool relays = false, bool relayBuilt = true,
             FileChangeColumn? file = null, RunStart? start = null, WaitingInstructions? waiting = null, ChangesAccount? account = null,
-            RoomCardStatus? simulated = null)
+            RoomCardStatus? simulated = null, EvidencePage? evidence = null)
         {
             if (project == null || state == null) return null;
             var checkRunning = state.Commands.Values.Any(command => command.CommandType == CommandType.ProjectCheck
@@ -350,7 +360,7 @@ namespace Halcyonic.Client
                 canShare: canSend && (way?.Demonstration != true) && (project.Share != null || ShareColumn.Reason(project) == null),
                 places: way is { } at ? ProjectPlaces.Of(project, at.Target, at.Demonstration, relays: relays, relayBuilt: relayBuilt) : Array.Empty<ProjectPlace>(), file: file, start: start, waiting: waiting,
                 readsFiles: way is { Target: not null, Demonstration: false }, account: account, partlyChecked: check?.PartlyChecked == true, finding: check?.Finding,
-                simulated: simulated, checkRunning: checkRunning && check == null);
+                simulated: simulated, checkRunning: checkRunning && check == null, evidence: evidence);
         }
     }
 

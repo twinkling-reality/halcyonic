@@ -263,6 +263,7 @@ namespace Halcyonic.XR.Workspace
                 // The result's card reads the demonstration's simulated checks as its Checks page does (SCREENS's 431bf04c1), so the
                 // open file reads the understanding while the card itself shows, not only on Changes or Checks.
                 openFile.ResultShown = () => page == RoomResultPage.Result;
+                openFile.ResultEvidenceShown = () => page is RoomResultPage.Outcome or RoomResultPage.Reasoning ? page : (RoomResultPage?)null;
             }
             return RoomResult.Of(project, State, run != null ? setup.Observed(run).LastOrDefault() : null, page, part, (target, Demonstration), task,
                 page == RoomResultPage.History ? HistoryFor(projectId) : null, page == RoomResultPage.Share ? ShareFor(projectId) : null,
@@ -271,7 +272,8 @@ namespace Halcyonic.XR.Workspace
                 start: RunStart.Of(now.Execution, now.Runtime),
                 waiting: WaitingFor(now),
                 account: page == RoomResultPage.Changes ? openFile?.Account() : null,
-                simulated: openFile?.SimulatedStatus());
+                simulated: openFile?.SimulatedStatus(),
+                evidence: page == RoomResultPage.Outcome ? openFile?.OutcomePage() : page == RoomResultPage.Reasoning ? openFile?.ReasoningPage() : null);
         }
 
         /// <summary>
@@ -953,6 +955,15 @@ namespace Halcyonic.XR.Workspace
             var activeProjectId = projectId ?? setup.Presentation.ScreenProjectId;
             if (activeProjectId == null || State?.Projects.TryGetValue(activeProjectId, out var project) != true) return;
             var primaryWork = WorkspacePresentationState.PrimaryWorkstreamOf(project.ProjectId, State);
+            // The evidence doors (the lead's 20:50Z): the task's file opens on its activity with the result's Outcome or Reasoning
+            // page over it, read for its newest run, as the one Changes opens its page.
+            if (primaryWork != null && WorkspacePresentationState.EvidencePageFor(action, RoomDesign.Enabled) is RoomResultPage evidence)
+            {
+                OpenFile(primaryWork.WorkstreamId, FileSection.Activity);
+                setup.Presentation.ShowResultPage(primaryWork.WorkstreamId, primaryWork.CurrentExecutionId, evidence);
+                dirty = true;
+                return;
+            }
             if (WorkspacePresentationState.SectionForScreenAction(action) is FileSection section)
             {
                 if (primaryWork != null) OpenFile(primaryWork.WorkstreamId, section);

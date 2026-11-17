@@ -975,4 +975,46 @@ public class RoomResultTests
         Assert.That((silent.Account, silent.Parts), Is.EqualTo(((ChangesAccount?)null, 1)));
         Assert.That(new RoomResult(false, true, false, null, Turn(Observed), null, RoomResultPage.Checks, account: account).Account, Is.Null, "the account is Changes' alone");
     }
+
+    [Test]
+    public void TheEvidenceDoorsOpenTheirPagesOnTheKitsCardWithAWayBack()
+    {
+        Assert.That((WorkspacePresentationState.EvidencePageFor(KitScreenAction.HowItWent, true), WorkspacePresentationState.EvidencePageFor(KitScreenAction.Why, true)),
+            Is.EqualTo(((RoomResultPage?)RoomResultPage.Outcome, (RoomResultPage?)RoomResultPage.Reasoning)));
+        Assert.That(WorkspacePresentationState.EvidencePageFor(KitScreenAction.Why, false), Is.Null, "the older view keeps its sections");
+        Assert.That(WorkspacePresentationState.EvidencePageFor(KitScreenAction.Steps, true), Is.Null);
+
+        // Before any read the page stands as its state with the phrase under it, never empty, never a figure.
+        var before = Bar(new RoomResult(false, true, false, null, null, null, RoomResultPage.Outcome));
+        Assert.That((before.Card?.Title?.Text, before.Card?.Status?.Title, before.Card?.Status?.Line),
+            Is.EqualTo(((string?)"Outcome", (string?)"Not Measured", (string?)EvidencePage.NothingRead)), Show(before));
+        Assert.That(before.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.Back }));
+
+        var understood = new Understanding
+        {
+            Verdict = new UnderstandingVerdict { Headline = "It works.", Because = "The tests passed.", Epistemic = UnderstandingEpistemic.Observed },
+            Verification = new UnderstandingVerification
+            {
+                Summary = "",
+                LatestByMethod = Enumerable.Range(1, 6).Select(index => new UnderstandingVerificationRun
+                {
+                    Label = "check " + index, Outcome = UnderstandingVerificationRunOutcome.Pass, At = "2026-11-17T19:30:00.000Z", Epistemic = UnderstandingEpistemic.Observed,
+                    Counts = new UnderstandingVerificationRunCounts { Passed = 4, Total = 4 },
+                }).ToList(),
+            },
+        };
+        var page = EvidencePage.Of(new UnderstandingResponse { ExecutionId = "e1", Result = new AvailableUnderstanding { Understanding = understood } });
+        var reasoning = Bar(new RoomResult(false, true, false, null, null, null, RoomResultPage.Reasoning, evidence: page));
+        var card = reasoning.Card!;
+        Assert.That((card.Title?.Text, card.Label, card.Description?.Text), Is.EqualTo(((string?)"Reasoning", (string?)"Observed", (string?)"It works.\nThe tests passed.")), Show(reasoning));
+        Assert.That(card.List.Select(row => (row.Label, row.Name.Text, row.Note, row.Kind, row.Under?.Text)).First(),
+            Is.EqualTo(((string?)"Runs", "check 1", (string?)"Passed", RoomKind.Passed, (string?)"4 of 4 Passed")));
+        Assert.That(card.List.Skip(1).All(row => row.Label == null), "the head stands once over its section on a part");
+        Assert.That(card.List.Count, Is.EqualTo(RoomCard.ListAPage));
+        Assert.That(reasoning.Column.Where(NotClose).Select(action => (action.Control.Action, action.Main)), Is.EqualTo(new[] { (RoomResult.NextPage, true), (RoomResult.Back, false) }));
+
+        var second = Bar(new RoomResult(false, true, false, null, null, null, RoomResultPage.Reasoning, part: 1, evidence: page)).Card!;
+        Assert.That((second.Description, second.List.Single().Label, second.List.Single().Name.Text), Is.EqualTo(((LineWords?)null, (string?)"Runs", "check 6")),
+            "a part that goes on carries its section's head again, and the verdict stands on the first part alone");
+    }
 }

@@ -46,7 +46,7 @@ namespace Halcyonic.Client
         /// <summary>The view's title.</summary>
         public string Title { get; }
 
-        /// <summary>The source named once, in the label role (SEORAK MEASURED, SALIDIUM OBSERVED or REPORTED); null without an answer.</summary>
+        /// <summary>How the page knows, once, in the label role (MEASURED, OBSERVED, REPORTED or SIMULATED), never the source's name; null without an answer.</summary>
         public string? Label { get; }
 
         /// <summary>The source's verdict as the hero sentence, and why (theirs); null on the Outcome page.</summary>
@@ -68,7 +68,7 @@ namespace Halcyonic.Client
             switch (response?.Result)
             {
                 case AvailableEvaluation available when RunResults.Of(available.Evaluation) is RunResults results:
-                    return new EvidencePage(title, RunResults.Words.Source, null, null,
+                    return new EvidencePage(title, results.Source, null, null,
                         results.Sections.Select(section => new Section(section.Head,
                             section.Rows.Select(row => new Row(row.Label, row.Value, row.Detail == null ? null : new[] { row.Detail }, null, row.Rate)).ToList(),
                             section.Empty)).ToList(), null, null);
@@ -100,6 +100,69 @@ namespace Halcyonic.Client
                 default: return Without(title, "No Conclusions", null, NothingRead);
             }
         }
+
+        /// <summary>
+        /// The Outcome page from the file's own feed (<see cref="FileColumn"/>'s reads): its last answer, else where the read itself
+        /// failed the feed's own reason under Measurement Unavailable, else nothing read yet.
+        /// </summary>
+        public static EvidencePage Of(IntelligenceFeed<EvaluationResponse>? feed) =>
+            feed?.Last == null && feed?.Error is string failed ? Without(RunResults.Words.Title, "Measurement Unavailable", null, failed) : Of(feed?.Last?.Response);
+
+        /// <summary>The Reasoning page from the file's own feed, as <see cref="Of(IntelligenceFeed{EvaluationResponse})"/>.</summary>
+        public static EvidencePage Of(IntelligenceFeed<UnderstandingResponse>? feed) =>
+            feed?.Last == null && feed?.Error is string failed ? Without(RunUnderstanding.Words.Title, "Conclusions Unavailable", null, failed) : Of(feed?.Last?.Response);
+
+        /// <summary>Every row in its order, with its section's head; a section the source measured nothing in stands as its reason alone.</summary>
+        private IReadOnlyList<(Section Section, Row? Row)> Entries => Sections
+            .SelectMany(section => section.Rows.Count > 0 ? section.Rows.Select(row => (section, (Row?)row)) : section.Empty != null ? new[] { (section, (Row?)null) } : new (Section, Row?)[0])
+            .ToList();
+
+        /// <summary>The page's parts on the kit's card, five rows a part (<see cref="RoomCard.ListAPage"/>); one where it is a state alone.</summary>
+        public int Parts => State != null ? 1 : System.Math.Max(1, (Entries.Count + RoomCard.ListAPage - 1) / RoomCard.ListAPage);
+
+        /// <summary>
+        /// Part <paramref name="part"/> on the kit's card (laid after list-death-stranding-cargo-management.png: grouped rows, a
+        /// mark, the words, the value on the one right edge; and result-detroit-analysis-conclusion.jpg: the one finding first):
+        /// the source in the label role over the door's word, the verdict as the description on the first part, and each row with
+        /// its section's head as a quiet line above it where the section starts or a part does. A state alone stands as the card's
+        /// status, its reason under it. The kit draws every mark by its form, never by a colour.
+        /// </summary>
+        public RoomCard Card(int part)
+        {
+            var title = LineWords.Ours(Title);
+            if (State != null) return new RoomCard(title, status: new RoomCardStatus(State, Why, RoomTone.Quiet));
+            var entries = Entries;
+            var at = System.Math.Max(0, System.Math.Min(part, Parts - 1)) * RoomCard.ListAPage;
+            var rows = new List<RoomListRow>();
+            for (var index = at; index < System.Math.Min(entries.Count, at + RoomCard.ListAPage); index++)
+            {
+                var (section, row) = entries[index];
+                var head = index == at || !ReferenceEquals(entries[index - 1].Section, section) ? section.Head : null;
+                if (row == null)
+                {
+                    rows.Add(new RoomListRow(RoomKind.None, LineWords.Theirs(section.Empty), label: head));
+                    continue;
+                }
+                // The source's own names (a method, a kind of check, an item left) lean as theirs; a method's command reads in mono.
+                var theirs = section.Head is RunUnderstanding.Words.Runs or RunUnderstanding.Words.Remaining or RunResults.Words.Checks;
+                var under = new List<string>();
+                if (row.Note != null) under.Add(row.Note);
+                under.AddRange(row.Facts);
+                rows.Add(new RoomListRow(KindOf(row.Mark), theirs ? LineWords.Theirs(row.Label) : LineWords.Ours(row.Label), row.Value,
+                    mono: section.Head == RunUnderstanding.Words.Runs, under: under.Count > 0 ? LineWords.Ours(string.Join(", ", under)) : (LineWords?)null, label: head));
+            }
+            LineWords? description = null;
+            if (at == 0 && Headline != null)
+                description = Because == null ? LineWords.Theirs(Headline) : LineWords.Theirs(Headline) + LineWords.Written("\n") + LineWords.Theirs(Because);
+            return new RoomCard(title, description, list: rows, label: Label);
+        }
+
+        private static RoomKind KindOf(RunUnderstanding.Mark mark) => mark switch
+        {
+            RunUnderstanding.Mark.Passed => RoomKind.Passed,
+            RunUnderstanding.Mark.Failed => RoomKind.Failed,
+            _ => RoomKind.None,
+        };
 
         private static EvidencePage Without(string title, string state, ErrorInfo? reason, string? said = null) =>
             new EvidencePage(title, null, null, null, new Section[0], state, reason == null ? said : IntelligenceText.Why(reason));

@@ -23,7 +23,8 @@ namespace Halcyonic.XR.Workspace.Editor
             : state.StartsWith("47-card-usage-easing-", System.StringComparison.Ordinal)
                 && float.TryParse(state.Substring("47-card-usage-easing-".Length), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var at) ? at : (float?)null;
 
-        private static readonly string[] CardStates = { "47-card-recap", "47-card-recap-long", "47-card-result", "47-card-still", "47-card-changes", "47-card-checks", "47-card-checks-plain", "47-card-fixing", "47-card-usage", "47-card-usage-easing", "47-card-usage-easing-0", "47-card-usage-easing-0.15", "47-card-usage-easing-0.6", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting" };
+        private static readonly string[] CardStates = { "47-card-recap", "47-card-recap-long", "47-card-result", "47-card-still", "47-card-changes", "47-card-checks", "47-card-checks-plain", "47-card-fixing", "47-card-usage", "47-card-usage-easing", "47-card-usage-easing-0", "47-card-usage-easing-0.15", "47-card-usage-easing-0.6", "47-card-usage-here", "47-card-usage-hosted", "47-card-usage-long-id", "47-card-usage-unavailable", "47-card-usage-models", "47-card-usage-asking", "47-card-usage-review", "47-card-agent", "47-card-history", "47-card-needs-you", "47-card-share", "47-card-reading", "47-card-review-task", "47-card-review", "47-card-review-check", "47-card-recap-starter", "47-card-file-state", "47-card-slot-long", "47-card-tasks-all", "47-card-waiting",
+            "47-card-evidence-outcome", "47-card-evidence-outcome-before", "47-card-evidence-outcome-not-recorded", "47-card-evidence-outcome-unreadable", "47-card-evidence-reasoning", "47-card-evidence-reasoning-partial", "47-card-evidence-reasoning-not-allowed" };
 
         /// <summary>A row of History picked from, as DEVICE's moment hands it: its own control on a page of its own.</summary>
         private static KitControl CardRowControl(string key)
@@ -265,6 +266,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     new RoomListRow(RoomKind.Started, Ours("Before ") + Theirs("Tail") + Ours(" Started"), "18:12", press: CardRowControl("c2")),
                     new RoomListRow(RoomKind.Worked, Ours("After ") + Theirs("Score") + Ours(" Worked"), "17:55", press: CardRowControl("c3")),
                 }),
+                // The project screen's evidence pages (KitRender.Parts.Evidence).
+                _ when EvidenceCard(state) is RoomCard evidence => evidence,
                 _ => new RoomCard(Theirs("Glimmer 30B"), Ours(AgentColumn.ModelWords), RoomCardHead.Agent),
             };
         }
