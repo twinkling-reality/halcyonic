@@ -1478,20 +1478,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 else if (subtitled)
                 {
-                    // No panel; "YOU" over the person's heard words, whole on the band in two lines at most; the band's ground the stronger
-                    // one, reaching behind "YOU" and the actions (4.5 to 1 over the brightest room); the actions in one centred row under the
-                    // words, Meta's 12 mm apart, the main one last and the only accent.
+                    // On the one glass (AUDIT 2026-11-17 03:04Z, (a)): the bar's AskGlass panel holds "YOU" with the panel's top padding, the
+                    // person's heard words whole on the band in two lines at most (the band drawing no ground of its own), and the actions in
+                    // one centred row under the words, Meta's 12 mm apart, the main one last and the only accent.
                     static string OneSpace(string text) => System.Text.RegularExpressions.Regex.Replace(text, "\\s+", " ").Trim();
                     var band = host.Band;
-                    Require(!bar.Panel.gameObject.activeSelf, "a panel stands behind the subtitle");
+                    var glass = bar.Panel;
+                    Require(glass.gameObject.activeSelf && glass.Glass.gameObject.activeSelf && glass.Glass.sharedMaterial != null
+                        && glass.Glass.sharedMaterial.shader.name == "Halcyonic/Room Glass", "the subtitle does not stand on the room's glass");
                     Require(band.Words is { Parts: 1 } heard && heard.Count <= RoomWords.SubtitleMostLines
                         && OneSpace(LabelText.FromTextMeshPro(band.Text)) == OneSpace(shown.Body.Text), "the subtitle does not read the heard words whole in two lines at most: \"" + band.Text + "\"");
-                    Require(Mathf.Approximately(band.GroundStrength, RoomWords.SubtitleGroundAlpha) && band.GroundAbove > 0f && band.GroundBelow > 0f,
-                        "the subtitle's ground is not the stronger one reaching behind its speaker and its actions");
+                    Require(band.GroundStrength == 0f, "the band draws a ground of its own over the subtitle's glass");
                     var bandTop = band.transform.position.y;
                     var bandFoot = band.transform.TransformPoint(new Vector3(0f, -band.Size.y, 0f)).y;
-                    var groundTop = band.transform.TransformPoint(new Vector3(0f, band.GroundAbove, 0f)).y;
-                    var groundFoot = band.transform.TransformPoint(new Vector3(0f, -band.Size.y - band.GroundBelow, 0f)).y;
+                    var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
+                    var groundTop = glass.transform.TransformPoint(new Vector3(0f, glass.Size.y / 2f - pad + 1e-4f, 0f)).y;
+                    var groundFoot = glass.transform.TransformPoint(new Vector3(0f, -glass.Size.y / 2f, 0f)).y;
+                    var words = band.Label;
+                    words.ForceMeshUpdate(true);
+                    var wordsLeft = glass.transform.InverseTransformPoint(words.transform.TransformPoint(words.textBounds.min)).x;
+                    var wordsRight = glass.transform.InverseTransformPoint(words.transform.TransformPoint(words.textBounds.max)).x;
+                    Require(wordsLeft >= -glass.Size.x / 2f + pad - 1e-3f && wordsRight <= glass.Size.x / 2f - pad + 1e-3f, "the heard words stand outside the subtitle's glass");
                     var who = bar.Who;
                     Require(who != null && who.text == "YOU" && who.fontSize >= typeSize * 14f / RoomGeometry.TypeDp - 1e-4f, "no YOU at comfort size stands over the subtitle");
                     if (who != null)
@@ -1499,7 +1506,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         who.ForceMeshUpdate(true);
                         var whoFoot = who.transform.TransformPoint(who.textBounds.min).y;
                         var whoTop = who.transform.TransformPoint(who.textBounds.max).y;
-                        Require(whoFoot >= bandTop - 1e-4f && whoTop <= groundTop + 1e-4f, "YOU does not stand over the heard words on their ground");
+                        Require(whoFoot >= bandTop - 1e-4f && whoTop <= groundTop + 1e-4f, "YOU does not stand over the heard words, inside the glass's top padding");
                     }
                     var drawn = bar.Column.Where(button => button.gameObject.activeSelf && !ReferenceEquals(button, bar.BandNextButton)).ToList();
                     actions.AddRange(drawn);
@@ -1512,7 +1519,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         var top = bar.transform.TransformPoint(drawn[index].transform.localPosition + new Vector3(0f, drawn[index].Size.y / 2f, 0f)).y;
                         var foot = bar.transform.TransformPoint(drawn[index].transform.localPosition - new Vector3(0f, drawn[index].Size.y / 2f, 0f)).y;
                         Require(top <= bandFoot + 1e-4f, drawn[index].Words.text + " stands over the heard words");
-                        Require(foot >= groundFoot - 1e-4f, drawn[index].Words.text + " stands off the subtitle's ground");
+                        Require(foot >= groundFoot - 1e-4f, drawn[index].Words.text + " stands off the subtitle's glass");
                     }
                     if (drawn.Count > 0)
                     {

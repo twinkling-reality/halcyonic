@@ -1115,8 +1115,10 @@ namespace Halcyonic.XR.UI
             request.gameObject.SetActive(false);
             ask.gameObject.SetActive(false);
             kicker.gameObject.SetActive(false);
+            HideWell();
             panel.LitEdge = null;
-            panel.gameObject.SetActive(false);
+            panel.InnerBar = null;
+            panel.Ring = null;
             if (card != null) card.Hide();
             if (facts != null) facts.Hide();
             HideSteps();
@@ -1134,23 +1136,28 @@ namespace Halcyonic.XR.UI
                 total += cores[index].x + (index > 0 ? gapX : 0f);
             }
             for (var index = count; index < column.Count; index++) column[index].Hide();
-            // From the top: the speaker, the words (on the host's band), the actions; as the approved pair (composer.html) stood them.
+            // On the one glass (AUDIT 2026-11-17 03:04Z, (a); the lead's 03:04Z): an AskGlass panel sized to what it holds, its 32 dp
+            // corners and lit hairline, holding from the top the speaker (with the panel's own top padding), the heard words (on the
+            // host's band, which draws no ground of its own here) and the actions. It holds on any passthrough room.
             who.gameObject.SetActive(true);
-            // The label role, brighter than its quiet default: over 4.5 to 1 on the subtitle's ground (AUDIT's mend 1).
             RoomType.Label(who, "You");
             who.alpha = 0.92f;
             var whoHeight = KitType.Lay(who, RoomType.Units(RoomGeometry.PanelDp), 1).Height;
             var whoGap = RoomType.Scaled(8f);
             var rowGap = RoomType.Scaled(DialogGapDp);
-            var height = whoHeight + whoGap + SubtitleWords + rowGap + rowHeight;
+            var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
+            var height = pad + whoHeight + whoGap + SubtitleWords + rowGap + rowHeight + pad;
             var top = height / 2f;
+            var panelWidth = Mathf.Max(total, RoomType.Scaled(RoomWords.MeasureDp)) + 2f * pad;
+            panel.Draw(new Vector2(panelWidth, height));
+            panel.transform.localPosition = Vector3.zero;
+            panel.gameObject.SetActive(true);
             who.rectTransform.pivot = new Vector2(0.5f, 1f);
-            who.transform.localPosition = new Vector3(0f, top, -RoomType.Units(0.5f));
-            SubtitleTop = top - whoHeight - whoGap;
-            var pad = RoomType.Scaled(14f);
-            SubtitleAbove = whoHeight + whoGap + pad;
-            SubtitleBelow = rowGap + rowHeight + pad;
-            var rowY = -top + rowHeight / 2f;
+            who.transform.localPosition = new Vector3(0f, top - pad, -RoomType.Units(0.5f));
+            SubtitleTop = top - pad - whoHeight - whoGap;
+            SubtitleAbove = 0f;
+            SubtitleBelow = 0f;
+            var rowY = -top + pad + rowHeight / 2f;
             var x = -total / 2f;
             foreach (var index in order)
             {
@@ -1165,10 +1172,11 @@ namespace Halcyonic.XR.UI
                 button.Press.ActsOnPinch = action.Control.Holds;
                 x += cores[index].x + gapX;
             }
+            ArrivePanel(bar);
             PanelHung = false;
             Foot = -top;
-            PanelRight = total / 2f;
-            Size = new Vector2(Mathf.Max(total, RoomType.Units(RoomGeometry.PanelDp)), height);
+            PanelRight = panelWidth / 2f;
+            Size = new Vector2(panelWidth, height);
             LaidPanelDp = RoomGeometry.PanelDp;
             PassedLargest = false;
             Narrow = false;

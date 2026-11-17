@@ -463,9 +463,10 @@ namespace Halcyonic.XR.UI
                 // stronger and reaching behind both (AUDIT's mend 1).
                 band.transform.localScale = Vector3.one / zoom;
                 band.transform.localPosition = new Vector3(0f, bar.SubtitleTop / zoom, 0f);
-                band.GroundAbove = bar.SubtitleAbove;
-                band.GroundBelow = bar.SubtitleBelow;
-                band.GroundStrength = RoomWords.SubtitleGroundAlpha;
+                // The words stand on the bar's AskGlass panel (AUDIT 03:04Z, (a)): the band draws no ground of its own here.
+                band.GroundAbove = 0f;
+                band.GroundBelow = 0f;
+                band.GroundStrength = 0f;
             }
             else if (band.Words != null)
             {
