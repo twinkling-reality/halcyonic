@@ -434,8 +434,8 @@ namespace Halcyonic.XR.Workspace
             if (RoomDesign.Enabled && activeFile != null && besideFrame?.Side != null) activeFile = null;
             plane.ComposerFocused = activeFile?.ActivityContextFrame != null && composerFocus.TryGetValue(activeFile, out var focused) && focused;
             plane.ActivityFrame = plane.ComposerFocused ? null : activeFile?.ActivityContextFrame;
-            var choices = State?.Projects.Values.OrderBy(project => project.Name, StringComparer.Ordinal).ThenBy(project => project.ProjectId, StringComparer.Ordinal).ToList()
-                ?? new List<ProjectView>();
+            // The person's reading order (the lead's limits order #17): a project that needs them first, then working, then the rest by name.
+            var choices = State != null ? ProjectOrder.Of(State.Projects.Values, State.Workstreams.Values) : new List<ProjectView>();
             // The selected project remains among the bounded choices even when it sorts after them.
             var selected = memory.SelectedProjectId;
             if (navigator.BesideTask is string selectedTask && State?.Workstreams.TryGetValue(selectedTask, out var selectedWork) == true)
