@@ -108,8 +108,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The prior task's own project, a copy of the requested one's under its own id and name, so its file offers what any task's does.
                 var priorProject = HalcyonicJson.Deserialize<ProjectView>(HalcyonicJson.Serialize(work.State.Projects[work.Workstream.ProjectId]));
                 priorProject.ProjectId = prior.ProjectId; priorProject.Name = "Prior project";
+                // And a task of the requested one's own project (AUDIT3's 22:0xZ MUST, the commonest case: select A, then Apply B in one project):
+                // it stands as its own character beside the requested one, and the shelf is exactly that project's standing tasks.
+                var sibling = HalcyonicJson.Deserialize<WorkstreamView>(HalcyonicJson.Serialize(work.Workstream));
+                sibling.WorkstreamId = "render-sibling"; sibling.Title = "Same project's other task";
+                var siblingExecution = HalcyonicJson.Deserialize<ExecutionView>(HalcyonicJson.Serialize(work.Execution));
+                siblingExecution.ExecutionId = "render-sibling-execution"; siblingExecution.WorkstreamId = sibling.WorkstreamId;
+                sibling.CurrentExecutionId = siblingExecution.ExecutionId; sibling.ExecutionIds = new List<string> { siblingExecution.ExecutionId };
                 var snapshot = new Snapshot { Journal = journal, Position = 1, Projects = work.State.Projects.Values.Append(priorProject).ToList(),
-                    Workstreams = new List<WorkstreamView> { prior, work.Workstream }, Executions = new List<ExecutionView> { work.Execution, priorExecution }, Runtimes = work.State.Runtimes.ToList() };
+                    Workstreams = new List<WorkstreamView> { prior, sibling, work.Workstream }, Executions = new List<ExecutionView> { work.Execution, priorExecution, siblingExecution }, Runtimes = work.State.Runtimes.ToList() };
                 PlacementPump(session, new WelcomeMessage { Journal = journal, Head = 1, ServerTime = Time }, new SnapshotMessage { Snapshot = snapshot }, new ConnectionStatus(ConnectionPhase.Live));
                 if (!session.SnapshotCurrent) throw new InvalidOperationException("The synthetic session is not current.");
                 var eyes = new Vector3(0f, EyeHeight, 0f);
@@ -206,6 +213,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (placement.Preferred == null || !workspace.Presentation.AgentsEnabled || !stage.TryGetCharacter(work.Workstream.WorkstreamId, out var selected) || !selected.gameObject.activeInHierarchy
                     || stage.ShelfPage.Title != work.Workstream.Title || stage.TryGetCharacter(prior.WorkstreamId, out _))
                     failures.Add("actual Apply did not show exactly the requested task's real character");
+                // The same project's other task stands as its own character, never in the requested one's slot, and the shelf is exactly
+                // the requested project's standing tasks: another project's never, its own every one.
+                if (!stage.TryGetCharacter(sibling.WorkstreamId, out var siblingView) || !siblingView.gameObject.activeInHierarchy
+                    || stage.TryGetCharacter(work.Workstream.WorkstreamId, out var requestedView) && ReferenceEquals(siblingView, requestedView))
+                    failures.Add("Apply did not stand the requested project's other task as its own character beside the requested one");
+                foreach (var each in snapshot.Workstreams)
+                    if (stage.TryGetCharacter(each.WorkstreamId, out var onShelf) && onShelf.gameObject.activeInHierarchy != (each.ProjectId == work.Workstream.ProjectId)
+                        || !stage.TryGetCharacter(each.WorkstreamId, out _) && each.ProjectId == work.Workstream.ProjectId)
+                        failures.Add("the shelf is not exactly the requested project's standing tasks: " + each.Title);
                 var shelfCorners = new Vector3[8];
                 if (placement.Preferred is Pose confirmed)
                 {
