@@ -1,9 +1,11 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
+using TMPro;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
@@ -20,12 +22,13 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] StepsStates = { "46-steps-working", "46-steps-needs-you", "46-steps-ready", "46-steps-failed", "46-steps-long", "46-steps-usage" };
 
         /// <summary>A request longer than three lines at either size, laid whole.</summary>
-        private const string StepsLongRequest = "Make a kite that follows my hand and climbs when I raise it, with a tail that streams behind it, a score that counts how high it has climbed since the last time it fell, and a gentle sound each time it turns";
+        private const string StepsLongFile = "src/scenes/kite-meadow/components/tail-streamer/StreamingTailRendererWithWindGusts.ts";
 
         private static List<TaskStep> StepsOf(string state)
         {
             TaskStep Step(TaskStepKind kind, GlazeIcon mark, string word, LineWords? line = null) => new TaskStep(kind, mark, word, line);
-            var request = Step(TaskStepKind.Done, GlazeIcon.FinishedThisRound, TaskSteps.YourRequest, LineWords.Theirs(state == "46-steps-long" ? StepsLongRequest : "Make a page that says hello and counts my visits"));
+            // The request leaves the steps (the lead's 2026-11-17T00:06Z): its step says its word alone, as TaskSteps gives it.
+            var request = Step(TaskStepKind.Done, GlazeIcon.FinishedThisRound, TaskSteps.YourRequest);
             switch (state)
             {
                 case "46-steps-needs-you":
@@ -49,7 +52,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 default:
                     return new List<TaskStep>
                     {
-                        request, Step(TaskStepKind.Now, GlazeIcon.Working, TaskSteps.Working, LineWords.Ours("Editing ") + LineWords.Theirs("index.html")),
+                        // The long state's act runs to a second line in its sub-tab, whole: a deep file of the project's own.
+                        request, Step(TaskStepKind.Now, GlazeIcon.Working, TaskSteps.Working,
+                            LineWords.Ours("Editing ") + LineWords.Theirs(state == "46-steps-long" ? StepsLongFile : "index.html")),
                         Step(TaskStepKind.NotYet, GlazeIcon.NotStarted, TaskSteps.Check, LineWords.Ours(TaskSteps.CheckDoes)), Step(TaskStepKind.NotYet, GlazeIcon.NotStarted, TaskSteps.Ready),
                     };
             }
@@ -76,13 +81,20 @@ namespace Halcyonic.XR.Workspace.Editor
             view.transform.localPosition = new Vector3(-width / 2f + pad, size.y / 2f - pad, -RoomType.Units(0.5f));
             Place(plane, eyes, 0f, shot.Elevation);
 
-            var gap = RoomType.Scaled(RoomRows.GapDp);
+            var gap = RoomType.Scaled(RoomStepsView.StepGapDp);
             var line = RoomType.Scaled(RoomGeometry.LineDp);
-            var tile = RoomType.Scaled(RoomStepsView.TileDp);
-            var indent = tile + RoomType.Scaled(RoomStepsView.TileGapDp);
+            var railX = RoomType.Scaled(RoomStepsView.RailXDp);
+            var indent = RoomType.Scaled(RoomStepsView.IndentDp);
             Require(view.Count == steps.Count && Mathf.Approximately(view.Size.y, tall), "the list reports " + view.Count + " steps, " + view.Size);
             // It only says: nothing in it takes a press or a ray.
             Require(view.GetComponentsInChildren<Collider>(true).Length == 0 && view.GetComponentsInChildren<KitPress>(true).Length == 0, "the list holds a part that takes a press");
+            // The one language's steps (FIELD's sheet, tile f3): a thin rail down the left joining every mark, never a box per step.
+            Require(steps.Count < 2 || view.Rail != null && Mathf.Abs(view.Rail.transform.localPosition.x - railX) < 1e-6f, "the steps stand on no rail down the left");
+            Require(view.GetComponentsInChildren<RoomShape>(false).All(shape => shape.Size.x <= RoomType.Scaled(RoomStepsView.DotDp) + unit), "a step stands in a box of its own");
+            static float Lin(float c) => c <= 0.04045f ? c / 12.92f : Mathf.Pow((c + 0.055f) / 1.055f, 2.4f);
+            static float Over(float top, float alpha, float under) => top * alpha + under * (1f - alpha);
+            var glass = Halcyonic.XR.UI.RoomSurface.Hex(AskGlass.FaceColour);
+            var ground = Over(glass.r, AskGlass.FaceAlpha, 1f);
             var below = 0f;
             for (var index = 0; index < steps.Count; index++)
             {
@@ -90,29 +102,40 @@ namespace Halcyonic.XR.Workspace.Editor
                 var what = "step " + index + " (" + step + ")";
                 var word = view.Word(index);
                 word.ForceMeshUpdate(true);
-                Require(word.gameObject.activeSelf && word.GetParsedText().Trim() == step.Word && !word.isTextOverflowing, what + "'s word is not shown whole: \"" + word.GetParsedText() + "\"");
-                Require(Mathf.Abs(word.transform.localPosition.x - indent) < 1e-6f, what + "'s word starts " + (word.transform.localPosition.x / unit).ToString("0.0") + " dp in, not " + (indent / unit).ToString("0.0"));
+                Require(word.gameObject.activeSelf && string.Equals(word.GetParsedText().Trim(), step.Word, StringComparison.OrdinalIgnoreCase)
+                    && (word.fontStyle & FontStyles.UpperCase) != 0 && word.characterSpacing > 0f && !word.isTextOverflowing,
+                    what + "'s word is not shown whole in spaced capitals: \"" + word.GetParsedText() + "\"");
                 var top = -word.transform.localPosition.y;
                 var wanted = index == 0 ? 0f : below + gap;
-                Require(Mathf.Abs(top - wanted) < unit * 0.05f, what + " stands " + ((top - below) / unit).ToString("0.00") + " dp under the step before, not the rows' " + RoomRows.GapDp.ToString("0") + " dp");
-                var colour = RoomStepsView.WordColourOf(step);
+                Require(Mathf.Abs(top - wanted) < unit * 0.05f && Mathf.Abs(word.transform.localPosition.x - indent) < 1e-6f,
+                    what + " does not stand " + RoomStepsView.StepGapDp.ToString("0") + " dp under the one before, at the steps' words");
+                var colour = RoomStepsView.WordColourOf(step, RoomStepsView.IsNext(steps, index));
                 Require(Mathf.Approximately(word.color.a, colour.a) && Mathf.Approximately(word.color.r, colour.r), what + "'s word is not in its colour");
-                // The tile before its word's first line, at its middle; its glyph on it, as the mark says.
-                var expected = RoomStepsView.MarkOf(step);
-                var tileView = view.Tile(index);
-                Require(tileView.gameObject.activeSelf && Mathf.Abs(tileView.Size.x - tile) < unit * 0.05f, what + "'s tile is not " + RoomStepsView.TileDp.ToString("0") + " dp");
-                Require(Mathf.Abs(-tileView.transform.localPosition.y - (top + line / 2f)) < unit * 0.5f && Mathf.Abs(tileView.transform.localPosition.x - tile / 2f) < 1e-6f,
-                    what + "'s tile does not stand before its word, at its first line's middle");
-                Require(view.Mark(index).Glyph == expected.Glyph, what + " carries " + (view.Mark(index).Glyph?.ToString() ?? "no glyph") + ", not " + (expected.Glyph?.ToString() ?? "none"));
+                // 4.5:1 over the brightest wall: the panel's one glass over white, the word over the glass.
+                var ink = Over(colour.r, colour.a, ground);
+                var contrast = (Mathf.Max(Lin(ink), Lin(ground)) + 0.05f) / (Mathf.Min(Lin(ink), Lin(ground)) + 0.05f);
+                Require(contrast >= 4.5f, what + "'s word holds " + contrast.ToString("0.0") + ":1 on the glass over a lit wall, under 4.5");
+                var now = step.Kind == TaskStepKind.Now;
+                if (now) Require(steps.Where((other, at) => at != index).All(other => view.Word(steps.IndexOf(other)).fontSize < word.fontSize), what + "'s word is not the largest");
+                // Its mark on the rail at its first line's middle: the accent's dot where now, a hollow diamond still to come, else its glyph.
+                var shape = view.Tile(index);
+                var glyph = view.Mark(index);
+                var markY = step.Kind is TaskStepKind.Now or TaskStepKind.NotYet ? -shape.transform.localPosition.y : -glyph.transform.localPosition.y;
+                var markX = step.Kind is TaskStepKind.Now or TaskStepKind.NotYet ? shape.transform.localPosition.x : glyph.transform.localPosition.x;
+                Require(Mathf.Abs(markX - railX) < 1e-6f && markY > top && markY < top + Mathf.Max(line, KitType.LinePitch(word)), what + "'s mark does not stand on the rail beside its word");
+                if (now) Require(shape.gameObject.activeSelf && shape.Fill == RoomStepsView.Accent && !glyph.gameObject.activeSelf, what + " is not marked by the accent's dot");
+                else if (step.Kind == TaskStepKind.NotYet) Require(shape.gameObject.activeSelf && shape.Fill.a == 0f && !glyph.gameObject.activeSelf, what + " is not marked by a hollow diamond");
+                else Require(!shape.gameObject.activeSelf && glyph.Glyph == RoomStepsView.MarkOf(step).Glyph, what + " carries " + (glyph.Glyph?.ToString() ?? "no glyph") + ", not its own mark");
                 below = top + Mathf.Max(line, word.textInfo.lineCount * KitType.LinePitch(word));
                 var under = view.Line(index);
                 Require((under != null) == (step.Line != null), what + (step.Line != null ? " shows no line under it" : " shows a line it does not have"));
                 if (under == null || step.Line == null) continue;
                 under.ForceMeshUpdate(true);
                 Require(Mathf.Abs(-under.transform.localPosition.y - below) < unit * 0.05f, what + "'s line does not stand straight under its word");
-                // Every line whole, the person's long request included: nothing on the list is cut.
+                // Every line whole; the act is our verb as built, never put in the agent's mouth; never the request.
                 var shownLine = string.Join(" ", under.GetParsedText().Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
-                Require(!under.isTextOverflowing && !under.isTextTruncated && shownLine == step.Line.Text && !shownLine.Contains("…"), what + "'s line is not whole: \"" + shownLine + "\"");
+                Require(!under.isTextOverflowing && !under.isTextTruncated && shownLine == step.Line.Text && !shownLine.Contains("…") && !shownLine.Contains(KitMomentWords.TheAgentSays),
+                    what + "'s line is not whole as built: \"" + shownLine + "\"");
                 below += Mathf.Max(line, under.textInfo.lineCount * KitType.LinePitch(under));
             }
             if (usage != null)
@@ -129,7 +152,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(label.GetParsedText().Trim() == usage.Label && value.GetParsedText().Trim() == usage.Value, "the usage figure reads \"" + label.GetParsedText() + "\" and \"" + value.GetParsedText() + "\"");
                     Require(-label.transform.localPosition.y >= below + gap - unit * 0.05f && -label.transform.localPosition.y <= below + gap + line / 2f
                         && Mathf.Abs(label.transform.localPosition.x - indent) < 1e-6f,
-                        "the usage figure does not stand the rows' gap under the last step, at the steps' words");
+                        "the usage figure does not stand the steps' gap under the last step, at the steps' words");
                     // As the usage tile (AUDIT 2026-11-16 12:19Z): the label a step smaller and quiet, the value white at the row's size;
                     // beside the label on its line where it fits whole, else under it at the steps' words; whole, never a word alone
                     // on its last line.
@@ -177,31 +200,35 @@ namespace Halcyonic.XR.Workspace.Editor
                 var lightest = new List<int>();
                 for (var index = 0; index < steps.Count; index++)
                 {
-                    var expected = RoomStepsView.MarkOf(steps[index]);
-                    var tileView = view.Tile(index).transform;
-                    // The tile's own tone, read inside its corner where no glyph stands; the empty tile's edge lighter than the panel.
-                    // A shape's transform is scaled to its size, so its points are in its own unit square.
-                    if (expected.Fill.a > 0.99f)
+                    var step0 = steps[index];
+                    var shapeView = view.Tile(index);
+                    var groundLight = Light(At(dark, view.transform.TransformPoint(new Vector3(-RoomType.Units(2f), 0f, 0f))));
+                    // The rail's marks in the pixels (FIELD's sheet, tile f3): the accent's dot where now, a hollow diamond's edge
+                    // lighter than its inside still to come, a glyph's ink clear of the glass otherwise. A shape's points are in its unit square.
+                    if (step0.Kind == TaskStepKind.Now)
                     {
-                        var corner = At(dark, tileView.TransformPoint(new Vector3(-0.32f, 0.32f, 0f)));
-                        if (Off(corner, expected.Fill) > 16) failures.Add("step " + index + "'s tile is " + Off(corner, expected.Fill) + " of 255 from its tone");
+                        var centre = At(dark, shapeView.transform.TransformPoint(Vector3.zero));
+                        if (Off(centre, RoomStepsView.Accent) > 30) failures.Add("step " + index + "'s dot is " + Off(centre, RoomStepsView.Accent) + " of 255 from the accent");
                     }
-                    else
+                    else if (step0.Kind == TaskStepKind.NotYet)
                     {
-                        var edge = Light(At(dark, tileView.TransformPoint(new Vector3(0.5f - RoomType.Scaled(1f) / tile, 0f, 0f))));
-                        var inside = Light(At(dark, tileView.TransformPoint(Vector3.zero)));
-                        if (!(edge > inside + 40)) failures.Add("step " + index + "'s empty tile shows no edge: " + edge + " on its inside's " + inside + " of 255");
+                        var side = Mathf.Max(shapeView.Size.x, 1e-6f);
+                        var edge = Light(At(dark, shapeView.transform.TransformPoint(new Vector3(0.5f - RoomType.Scaled(0.6f) / side, 0f, 0f))));
+                        var inside = Light(At(dark, shapeView.transform.TransformPoint(Vector3.zero)));
+                        if (!(edge > inside + 40)) failures.Add("step " + index + "'s diamond shows no edge: " + edge + " on its inside's " + inside + " of 255");
                     }
-                    // The glyph's ink, on the middle of each of its shapes.
-                    var mark = view.Mark(index);
-                    if (expected.Glyph is RoomGlyph glyph)
+                    else if (RoomStepsView.MarkOf(step0).Glyph is RoomGlyph glyph)
+                    {
+                        var mark = view.Mark(index);
+                        var ink = RoomStepsView.InkOf(step0);
                         foreach (var shape in RoomGlyphs.Of(glyph))
                         foreach (var middle in shape.Middles())
                         {
-                            var at = mark.transform.TransformPoint(new Vector3(middle.x / RoomGlyphs.Grid - 0.5f, 0.5f - middle.y / RoomGlyphs.Grid, 0f));
-                            var off = Off(At(dark, at), expected.Ink);
-                            if (off > 20) failures.Add("step " + index + "'s glyph is " + off + " of 255 from its ink");
+                            var pixel = At(dark, mark.transform.TransformPoint(new Vector3(middle.x / RoomGlyphs.Grid - 0.5f, 0.5f - middle.y / RoomGlyphs.Grid, 0f)));
+                            if (ink.a > 0.99f ? Off(pixel, ink) > 30 : Light(pixel) < groundLight + 60)
+                                failures.Add("step " + index + "'s glyph does not stand in its ink: " + pixel);
                         }
+                    }
                     // The step's word is in the pixels: white full, a step not yet quieter but still well clear of the panel.
                     var word = view.Word(index);
                     var bounds = word.textBounds;
@@ -209,7 +236,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     for (var step = 0; step <= 60; step++)
                         most = Mathf.Max(most, Light(At(dark, word.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 60f), bounds.max.y - KitType.LinePitch(word) * 0.5f, 0f)))));
                     lightest.Add(most);
-                    if (most < (steps[index].Kind == TaskStepKind.NotYet ? 120 : 160)) failures.Add("step " + index + "'s word is not in the pixels, the lightest reads " + most + " of 255");
+                    if (most < (steps[index].Kind == TaskStepKind.Now ? 200 : 120)) failures.Add("step " + index + "'s word is not in the pixels, the lightest reads " + most + " of 255");
                     // What waits for the person is said amber, in its line.
                     if (steps[index].Kind == TaskStepKind.NeedsYou && view.Line(index) is TMPro.TextMeshPro waits)
                     {

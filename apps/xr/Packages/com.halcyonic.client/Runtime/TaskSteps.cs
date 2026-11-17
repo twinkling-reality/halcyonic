@@ -176,7 +176,9 @@ namespace Halcyonic.Client
             if (execution == null) return Array.Empty<TaskStep>();
             var steps = new List<TaskStep>
             {
-                new TaskStep(TaskStepKind.Done, GlazeIcon.FinishedThisRound, YourRequest, string.IsNullOrWhiteSpace(execution.Instruction) ? null : LineWords.Theirs(execution.Instruction)),
+                // The request is said by its step's word alone: the steps say how far the work is, and the request reads whole in the
+                // task's own file a press away (the lead's 2026-11-17T00:06Z; Detroit's objectives hold no paragraph).
+                new TaskStep(TaskStepKind.Done, GlazeIcon.FinishedThisRound, YourRequest, null),
             };
 
             var status = execution.Status;

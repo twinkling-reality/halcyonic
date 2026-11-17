@@ -64,7 +64,7 @@ public class TaskStepsTests
     {
         Assert.That(Read(Of(Execution(ExecutionStatus.Starting), null, false, null)), Is.EqualTo(new[]
         {
-            "Done Your Request: " + Request,
+            "Done Your Request",
             "Now Working",
             "NotYet Check",
             "NotYet Ready",
@@ -114,7 +114,7 @@ public class TaskStepsTests
         Assert.That(Of(Execution(ExecutionStatus.Running), null, false, null).Select(step => step.Word), Has.None.EqualTo(TaskSteps.Planning));
         Assert.That(Read(Of(Execution(ExecutionStatus.Running, plan: true), null, false, null)), Is.EqualTo(new[]
         {
-            "Done Your Request: " + Request,
+            "Done Your Request",
             "Now Planning",
             "NotYet Working",
             "NotYet Check",
@@ -122,14 +122,14 @@ public class TaskStepsTests
         }));
         Assert.That(Read(Of(Execution(ExecutionStatus.Completed, plan: true), null, false, Turn(0, 0, 0))), Is.EqualTo(new[]
         {
-            "Done Your Request: " + Request,
+            "Done Your Request",
             "Done Planning",
             "NotYet Working: " + RunStart.CarryOutPlan,
             "NotYet Check",
             "NotYet Ready",
         }), "a plan made is not work done: the person carries it out next, nothing to check yet");
         Assert.That(Of(Execution(ExecutionStatus.Running, plan: true, planLeft: true), null, false, null).Select(step => step.ToString()).Take(3),
-            Is.EqualTo(new[] { "Done Your Request: " + Request, "Done Planning", "Now Working" }));
+            Is.EqualTo(new[] { "Done Your Request", "Done Planning", "Now Working" }));
     }
 
     [Test]
@@ -137,7 +137,7 @@ public class TaskStepsTests
     {
         Assert.That(Read(Of(Execution(ExecutionStatus.Completed), null, false, Turn(1, 2, 0))), Is.EqualTo(new[]
         {
-            "Done Your Request: " + Request,
+            "Done Your Request",
             "Done Working: Changed 3 Files",
             "NotYet Check: " + TaskSteps.CheckDoes,
             "NotYet Ready",
@@ -198,7 +198,7 @@ public class TaskStepsTests
     [Test]
     public void StoppedFailedAndUnknownEndWhereTheWorkStood()
     {
-        Assert.That(Read(Of(Execution(ExecutionStatus.Interrupted), null, false, null)), Is.EqualTo(new[] { "Done Your Request: " + Request, "End Stopped" }));
+        Assert.That(Read(Of(Execution(ExecutionStatus.Interrupted), null, false, null)), Is.EqualTo(new[] { "Done Your Request", "End Stopped" }));
         Assert.That(Of(Execution(ExecutionStatus.Failed), null, false, null).Last().ToString(), Is.EqualTo("End Failed"));
         var unknown = Execution(ExecutionStatus.Unknown);
         unknown.StatusReason = new ErrorInfo { Code = "runtime_connection_lost", Message = "lost" };
@@ -255,7 +255,7 @@ public class TaskStepsTests
     {
         Assert.That(Read(TaskSteps.Of(Execution(ExecutionStatus.Completed), TaskCheckWay.None, null, false, Turn(0, 2, 0))), Is.EqualTo(new[]
         {
-            "Done Your Request: " + Request,
+            "Done Your Request",
             "Done Working: Changed 2 Files",
         }), "never a step nobody can reach");
         Assert.That(TaskSteps.Of(Execution(ExecutionStatus.Running), TaskCheckWay.None, null, false, null).Select(step => step.Word),
@@ -276,7 +276,15 @@ public class TaskStepsTests
     public void ALineKeepsWhoseWordsItHolds()
     {
         var steps = Of(Execution(ExecutionStatus.Running, tools: Tool("Edit", "src/index.html")), null, false, null);
-        Assert.That(steps[0].Line!.Runs.Select(run => run.Theirs), Is.All.True, "the request is the person's");
         Assert.That(steps[1].Line!.Runs.Select(run => (run.Text, run.Theirs)), Is.EqualTo(new[] { ("Editing ", false), ("index.html", true) }), "our verb, the file's own name theirs");
+    }
+
+    [Test]
+    public void TheRequestIsNeverAParagraphInTheSteps()
+    {
+        // The lead's 2026-11-17T00:06Z: the request leaves the steps; it reads whole in the task's own file.
+        var steps = Of(Execution(ExecutionStatus.Running), null, false, null);
+        Assert.That((steps[0].Word, steps[0].Line), Is.EqualTo((TaskSteps.YourRequest, (LineWords?)null)));
+        Assert.That(steps.Any(step => step.Line?.Text.Contains(Request) == true), Is.False);
     }
 }

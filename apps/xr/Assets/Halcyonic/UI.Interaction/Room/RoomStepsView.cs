@@ -35,11 +35,40 @@ namespace Halcyonic.XR.UI
         private readonly List<TextMeshPro> lines = new List<TextMeshPro>();
         private readonly List<RoomShape> tiles = new List<RoomShape>();
         private readonly List<RoomGlyphView> marks = new List<RoomGlyphView>();
+        private RoomShape? rail;
         private readonly List<TextMeshPro> usageNotes = new List<TextMeshPro>();
         private TextMeshPro? usageLabel;
         private TextMeshPro? usageValue;
         private int order;
         private int shown;
+
+        /// <summary>
+        /// The one language's steps (FIELD's sheet, tile f3, the lead's 2026-11-17T01:05Z): on the panel's one glass, a thin rail down
+        /// the left with each step's mark on it (a thin check where finished, the accent's dot where it is now, a hollow diamond
+        /// where it is still to come), each step's word in spaced capitals; the step that is now the largest and white, its act
+        /// under it in its own case; the next a little brighter than the later ones; the finished ones calm. Never a box per step.
+        /// </summary>
+        public const float RailXDp = 8f;
+        public const float IndentDp = 36f;
+        public const float StepGapDp = 26f;
+        public const float NowWordScale = 1.5f;
+        /// <summary>The steps' words in the one language's label role (FIELD's tokens, RoomType.Label): its size and its spacing.</summary>
+        public static float WordScale => RoomType.LabelDp / RoomGeometry.TypeDp;
+        public const float Tracking = RoomType.LabelTracking;
+        public const float DotDp = 9f;
+        public const float DiamondDp = 9f;
+        public const float RailAlpha = 0.22f;
+
+        /// <summary>A step's word by where it stands: the next brighter than the later ones, the finished ones calm.</summary>
+        public const float NextAlpha = 0.86f;
+        public const float LaterAlpha = 0.52f;
+        public const float DoneAlpha = 0.56f;
+
+        /// <summary>The accent, only on the step that is now: the one language's lit rim colour (FIELD's tokens, RoomButton.RimColour).</summary>
+        public static readonly Color Accent = RoomSurface.Hex(RoomButton.RimColour);
+
+        /// <summary>The thin rail down the left, from the first mark to the last, as last shown; null where fewer than two steps stand.</summary>
+        public RoomShape? Rail => rail != null && rail.gameObject.activeSelf ? rail : null;
 
         /// <summary>The gap between a usage figure's label and its value, laid apart on one line, never joined on a dot.</summary>
         public const float UsageGapDp = 10f;
@@ -128,13 +157,21 @@ namespace Halcyonic.XR.UI
 
         private static Color Quiet => new Color(1f, 1f, 1f, QuietAlpha);
 
-        /// <summary>The colour of a step's word: quiet where it is not reached yet, else white; what waits for the person says it in its mark and its line.</summary>
-        public static Color WordColourOf(TaskStep step) => step.Kind switch
+        /// <summary>
+        /// The colour of a step's word: white where it is now; the next step brighter than the later ones; the finished ones calm;
+        /// what waits for the person, and an end, white.
+        /// </summary>
+        public static Color WordColourOf(TaskStep step, bool next) => step.Kind switch
         {
-            TaskStepKind.NotYet => Quiet,
-            TaskStepKind.Done or TaskStepKind.Now or TaskStepKind.NeedsYou => Color.white,
+            TaskStepKind.Now => Color.white,
+            TaskStepKind.NotYet => new Color(1f, 1f, 1f, next ? NextAlpha : LaterAlpha),
+            TaskStepKind.Done => new Color(1f, 1f, 1f, DoneAlpha),
             _ => Color.white,
         };
+
+        /// <summary>Whether step <paramref name="index"/> is the next to come: the first not reached yet after the one that is now.</summary>
+        public static bool IsNext(IReadOnlyList<TaskStep> steps, int index) =>
+            steps[index].Kind == TaskStepKind.NotYet && (index == 0 || steps[index - 1].Kind != TaskStepKind.NotYet);
 
         /// <summary>
         /// Shows <paramref name="steps"/> <paramref name="width"/> wide, at the person's text size, and returns how tall they
@@ -144,54 +181,51 @@ namespace Halcyonic.XR.UI
         {
             gameObject.SetActive(true);
             shown = steps.Count;
-            var gap = RoomType.Scaled(RoomRows.GapDp);
-            var tile = RoomType.Scaled(TileDp);
-            var indent = tile + RoomType.Scaled(TileGapDp);
+            var gap = RoomType.Scaled(StepGapDp);
+            var railX = RoomType.Scaled(RailXDp);
+            var indent = RoomType.Scaled(IndentDp);
             var lineDp = RoomType.Scaled(RoomGeometry.LineDp);
             var column = Mathf.Max(RoomType.Units(40f), width - indent);
             var down = 0f;
+            var firstMark = 0f;
+            var lastMark = 0f;
             for (var index = 0; index < steps.Count; index++)
             {
                 while (words.Count <= index)
                 {
                     words.Add(RoomType.Create(transform, "Step", Color.white, order));
                     lines.Add(RoomType.Create(transform, "Step line", Color.white, order));
-                    tiles.Add(RoomShape.Create(transform, "Step tile", order - 1));
+                    tiles.Add(RoomShape.Create(transform, "Step mark shape", order));
                     marks.Add(RoomGlyphView.Create(transform, "Step mark", order));
                 }
                 var step = steps[index];
+                var now = step.Kind == TaskStepKind.Now;
                 var word = words[index];
                 word.gameObject.SetActive(true);
                 RoomType.Size(word);
-                word.color = WordColourOf(step);
+                word.fontSize *= now ? NowWordScale : WordScale;
+                word.fontStyle = FontStyles.UpperCase;
+                word.characterSpacing = Tracking;
+                word.color = WordColourOf(step, IsNext(steps, index));
                 GlazeRuns.Of(word).Set(LineWords.Ours(step.Word));
-                var wordTall = Balanced(word, column);
-                wordTall = Mathf.Max(lineDp, wordTall);
+                var wordTall = Mathf.Max(lineDp, Balanced(word, column));
                 word.transform.localPosition = new Vector3(indent, -down, 0f);
-                // The tile before the word's first line, at its middle, so a step's mark and its word read as one.
-                var mark = MarkOf(step);
-                var centre = new Vector3(tile / 2f, -down - lineDp / 2f, 0f);
-                var tileView = tiles[index];
-                tileView.gameObject.SetActive(true);
-                tileView.Draw(new Vector2(tile, tile), RoomType.Scaled(TileCornerDp), RoomCardView.AsShown(mark.Fill), RoomCardView.AsShown(mark.Edge),
-                    mark.Edge.a > 0f ? RoomType.Scaled(2f) : 0f);
-                tileView.transform.localPosition = centre + new Vector3(0f, 0f, 0.0002f);
-                var glyph = marks[index];
-                if (mark.Glyph is RoomGlyph drawn)
-                {
-                    glyph.Show(drawn, TileGlyphDp * GlazeText.Scale, mark.Ink, RoomCardView.MarkStroke);
-                    glyph.transform.localPosition = centre;
-                }
-                else glyph.Hide();
+                // The mark on the rail at the word's first line's middle.
+                var firstLine = Mathf.Min(wordTall, KitType.LinePitch(word));
+                var markAt = new Vector3(railX, -down - firstLine / 2f, 0f);
+                if (index == 0) firstMark = -markAt.y;
+                lastMark = -markAt.y;
+                LayMark(index, step, markAt);
                 down += wordTall;
                 var line = lines[index];
                 if (step.Line is LineWords said && said.Text.Length > 0)
                 {
                     line.gameObject.SetActive(true);
                     RoomType.Size(line);
+                    // The act under the step that is now in its own case, white; any other line quiet; what waits for the person amber.
                     var tone = step.Kind == TaskStepKind.NeedsYou ? AttentionLineColour : Color.white;
-                    line.color = new Color(tone.r, tone.g, tone.b, step.Kind == TaskStepKind.NeedsYou ? 1f : QuietAlpha);
-                    // Whole, the person's words and ours alike: nothing on the list is cut (the owner's bar, the reader of 04:48Z).
+                    line.color = new Color(tone.r, tone.g, tone.b, now || step.Kind == TaskStepKind.NeedsYou ? 1f : QuietAlpha);
+                    // Whole: nothing on the list is cut (the owner's bar, the reader of 04:48Z).
                     GlazeRuns.Of(line).Set(said);
                     var lineTall = Balanced(line, column);
                     line.transform.localPosition = new Vector3(indent, -down, 0f);
@@ -200,6 +234,16 @@ namespace Halcyonic.XR.UI
                 else line.gameObject.SetActive(false);
                 if (index < steps.Count - 1) down += gap;
             }
+            // The thin rail joining the marks, behind them.
+            if (steps.Count >= 2)
+            {
+                rail ??= RoomShape.Create(transform, "Step rail", order - 1);
+                rail.gameObject.SetActive(true);
+                var stroke = RoomType.Scaled(1f);
+                rail.Draw(new Vector2(stroke, lastMark - firstMark), 0f, new Color(1f, 1f, 1f, RailAlpha));
+                rail.transform.localPosition = new Vector3(railX, -(firstMark + lastMark) / 2f, 0.0003f);
+            }
+            else rail?.gameObject.SetActive(false);
             for (var index = steps.Count; index < words.Count; index++)
             {
                 words[index].gameObject.SetActive(false);
@@ -318,6 +362,53 @@ namespace Halcyonic.XR.UI
             for (var index = last.firstCharacterIndex; index <= last.lastVisibleCharacterIndex && index < info.characterCount; index++)
                 if (char.IsWhiteSpace(info.characterInfo[index].character)) return false;
             return last.lastVisibleCharacterIndex >= last.firstCharacterIndex;
+        }
+
+        /// <summary>A glyph's ink on the rail: a finished step's check calm, what waits for the person on the attention amber, an end white.</summary>
+        public static Color InkOf(TaskStep step) => step.Kind switch
+        {
+            TaskStepKind.Done => new Color(1f, 1f, 1f, DoneAlpha + 0.1f),
+            TaskStepKind.NeedsYou => MarkOf(step).Fill,
+            _ => Color.white,
+        };
+
+        /// <summary>
+        /// Step <paramref name="index"/>'s mark on the rail at <paramref name="at"/>: the thin check where finished, the accent's dot
+        /// with its soft glow where it is now, a hollow diamond where it is still to come; what waits for the person and an end keep
+        /// their own glyphs (the bubble on the attention amber, the alert, the square, the minus).
+        /// </summary>
+        private void LayMark(int index, TaskStep step, Vector3 at)
+        {
+            var shape = tiles[index];
+            var glyph = marks[index];
+            shape.transform.localPosition = at + new Vector3(0f, 0f, 0.0002f);
+            switch (step.Kind)
+            {
+                case TaskStepKind.Now:
+                    shape.gameObject.SetActive(true);
+                    var dot = RoomType.Scaled(DotDp);
+                    shape.Draw(new Vector2(dot, dot), dot / 2f, Accent);
+                    glyph.Hide();
+                    break;
+                case TaskStepKind.NotYet:
+                    shape.gameObject.SetActive(true);
+                    var side = RoomType.Scaled(DiamondDp) / Mathf.Sqrt(2f);
+                    shape.Draw(new Vector2(side, side), 0f, Color.clear, new Color(1f, 1f, 1f, 0.6f), RoomType.Scaled(1.2f));
+                    shape.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                    glyph.Hide();
+                    break;
+                default:
+                    shape.gameObject.SetActive(false);
+                    var mark = MarkOf(step);
+                    if (mark.Glyph is RoomGlyph drawn)
+                    {
+                        glyph.Show(drawn, TileGlyphDp * GlazeText.Scale, InkOf(step), RoomCardView.MarkStroke);
+                        glyph.transform.localPosition = at;
+                    }
+                    else glyph.Hide();
+                    break;
+            }
+            if (step.Kind != TaskStepKind.NotYet) shape.transform.localRotation = Quaternion.identity;
         }
 
         public void Hide() => gameObject.SetActive(false);
