@@ -76,6 +76,9 @@ namespace Halcyonic.XR.UI
         /// <summary>Whether the column's actions were last laid in one row at the panel's foot (<see cref="RoomBar.ActionsAtFoot"/>).</summary>
         public bool ActionsAtFoot { get; private set; }
 
+        /// <summary>How wide the panel would stand to hold its actions in one line at its foot, pads included, as last laid; 0 where not asked.</summary>
+        public float FootNeed { get; private set; }
+
         // Every action of the row past Hold to Talk and Type, one button each, made as the row needs them (SCREENS's 13:41Z (a): a fixed two
         // drew a fifth action into More's place, More unpressable); the first two are More and RowMore.
         private readonly List<RoomButton> rowOthers = new List<RoomButton>();
@@ -430,6 +433,7 @@ namespace Halcyonic.XR.UI
             PanelHung = false;
             if (!bar.AsSubtitle || SubtitleWords <= 0f) who.gameObject.SetActive(false);
             ActionsAtFoot = false;
+            FootNeed = 0f;
             shown = bar;
             controls.Clear();
             panelMenu.Hide();
@@ -1397,8 +1401,8 @@ namespace Halcyonic.XR.UI
 
             // The actions in ONE line at the panel's foot, inside its glass (tile f1; the lead's 2026-11-17T02:57Z): the panel widens to
             // hold them, never past the bar's envelope; its words take the panel's width with it.
-            var footRow = bar.ActionsAtFoot && !narrow && !bar.Wide && said == null && bar.Column.Count > 0;
-            var rowCount = footRow ? Mathf.Min(bar.Column.Count, ColumnMost) : 0;
+            var footAsked = bar.ActionsAtFoot && !narrow && !bar.Wide && said == null && bar.Column.Count > 0;
+            var rowCount = footAsked ? Mathf.Min(bar.Column.Count, ColumnMost) : 0;
             var rowCores = new Vector2[rowCount];
             var footTall = 0f;
             var footNeed = 0f;
@@ -1408,6 +1412,11 @@ namespace Halcyonic.XR.UI
                 footTall = Mathf.Max(footTall, Mathf.Max(RoomType.Units(RoomButton.HeightDp), rowCores[index].y));
                 footNeed += rowCores[index].x + (index > 0 ? RoomType.Scaled(FootRowSpacingDp) : 0f);
             }
+            FootNeed = footNeed + 2f * pad;
+            // Where one line cannot hold them inside the bar's envelope (the larger text), they stand in the column beside the panel,
+            // as every other page's do (the lead's ruling, 2026-11-17).
+            var footRow = footAsked && FootNeed <= Largest.x + 1e-4f;
+            if (!footRow) rowCount = 0;
             var widened = footRow && footNeed + 2f * pad > panelWidth;
             if (widened) panelWidth = Mathf.Min(footNeed + 2f * pad, Largest.x);
             var wordsWidth = narrow ? NarrowWordsWidth : bar.PanelWidthDp != null || widened ? panelWidth - 2f * pad : BodyWidth;

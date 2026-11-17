@@ -69,8 +69,13 @@ namespace Halcyonic.XR.Workspace.Editor
             }
 
             // One glass panel and nothing beside it: the actions are inside it.
-            Require(view.Panel.gameObject.activeSelf && view.ActionsAtFoot, "the actions do not stand in the panel's foot row");
-            Require(Mathf.Abs(view.Size.x - panelSize.x) < unit * 0.5f, "something stands beside the panel: the bar is " + (view.Size.x / unit).ToString("0") + " dp wide, its panel " + (panelSize.x / unit).ToString("0"));
+            // In one line at the foot wherever one line fits inside the bar's envelope; only where it cannot (the larger text) in the
+            // column beside the panel, as every other page's (the lead's ruling, 2026-11-17).
+            var footFits = view.FootNeed <= RoomBarView.Largest.x + 1e-4f;
+            Require(view.Panel.gameObject.activeSelf && view.ActionsAtFoot == footFits,
+                view.ActionsAtFoot ? "the actions stand at the foot though one line passes the envelope" : "the actions stand beside the panel though one line fits its foot");
+            if (view.ActionsAtFoot)
+                Require(Mathf.Abs(view.Size.x - panelSize.x) < unit * 0.5f, "something stands beside the panel: the bar is " + (view.Size.x / unit).ToString("0") + " dp wide, its panel " + (panelSize.x / unit).ToString("0"));
 
             var card = view.Card;
             Require(card != null, "the panel holds no card");
@@ -123,11 +128,16 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(card.RowTargets.Count() == bar.Card.List.Count, "the card lets " + card.RowTargets.Count() + " of " + bar.Card.List.Count + " projects be pressed");
             Require(!card.Plates.Any(each => each.What == "hairline") && !card.Glyphs.Any(each => each.What == "row chevron" || each.What.StartsWith("row ", StringComparison.Ordinal)),
                 "the table draws a rule, a chevron or a mark: " + string.Join(", ", card.Plates.Select(each => each.What).Concat(card.Glyphs.Select(each => each.What))));
-            // Every action in one line at the panel's foot, inside its glass, in the column's order, the main action lit.
-            Require(buttons.Count == bar.Column.Count, "the foot row draws " + buttons.Count + " of " + bar.Column.Count + " actions");
+            // Every action in one line at the panel's foot, inside its glass, in the column's order, the main action lit; beside the
+            // panel, every action drawn, the main one lit.
+            Require(buttons.Count == bar.Column.Count, "the bar draws " + buttons.Count + " of " + bar.Column.Count + " actions");
+            if (!view.ActionsAtFoot)
+                for (var index = 0; index < buttons.Count; index++)
+                    Require(buttons[index].Main == bar.Column[index].Main && At(buttons[index].transform).x > panelRight,
+                        "\"" + buttons[index].Words.text + "\" does not stand in the column beside the panel, the main action lit");
             var lowest = card.Shown.Where(each => each.gameObject.activeSelf).Select(each => Bounds(each).Bottom).DefaultIfEmpty(panelTop).Min();
             var lastRight = float.NegativeInfinity;
-            for (var index = 0; index < buttons.Count; index++)
+            for (var index = 0; view.ActionsAtFoot && index < buttons.Count; index++)
             {
                 var button = buttons[index];
                 var centre = At(button.transform);
