@@ -212,6 +212,8 @@ namespace Halcyonic.XR.Workspace.Editor
             // frame drawn whole on one page or across a long row's parts, each page's own actions drawn, and back at the first page.
             string Words(string text) => string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
             var drawn = new List<string>();
+            // Labels drawn in the label role's capitals (the face's style): a value word may stand there in capitals, never a name.
+            var drawnCapitals = new List<string>();
             var sweep = Read();
             var sweepPages = PagesOf(sweep);
             var pageOf = new Dictionary<string, int>();
@@ -243,6 +245,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var said = label.GetParsedText();
                     if (said.Trim().Length == 0) continue;
                     onPage.Add(said);
+                    if ((label.fontStyle & TMPro.FontStyles.UpperCase) != 0) drawnCapitals.Add(Words(said));
                     Require(!label.isTextOverflowing && !said.Contains("…"), at + "\"" + said + "\" is cut");
                     Require(!said.Contains(KitMomentWords.Dot.Trim()), at + "\"" + said + "\" joins facts on a dot");
                 }
@@ -262,11 +265,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(pageOf.TryGetValue(a, out var at) && pageOf.TryGetValue(b, out var beside) && at == beside, "\"" + a + "\" and \"" + b + "\" stand on two pages");
             Require(sweep.GeneralPart.Page == 0, "the pager does not come back to the first page");
             var expected = new List<string>();
+            // A row's value words (a fact's value, an action's fact) are drawn in the label role (the one language), in capitals by the
+            // face's style where they name no file or folder (RoomListRow.NoteInLabelRole), as the 58 rows are judged.
+            var values = new HashSet<string>();
             if (frame.Side is SidePanel side)
             {
                 expected.Add(side.Subject);
                 expected.AddRange(side.Facts.Select(fact => fact.Name));
                 expected.AddRange(side.Facts.Select(fact => fact.ValueRuns.Text));
+                values.UnionWith(side.Facts.Select(fact => fact.ValueRuns.Text));
             }
             else
             {
@@ -274,6 +281,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 expected.AddRange(frame.Lines.Where(line => line.Action == null).Select(line => line.Words));
                 expected.AddRange(frame.Lines.Where(line => line.Action != null && line.Available).Select(line => line.Words));
                 expected.AddRange(frame.Lines.Where(line => line.Action != null && line.Fact != null).Select(line => line.Fact!));
+                values.UnionWith(frame.Lines.Where(line => line.Action != null && line.Fact != null).Select(line => line.Fact!));
                 expected.AddRange(frame.Lines.Where(line => line.Action != null && line.Under != null).Select(line => line.Under!.Text));
             }
             // Whole on one page, or a long row's parts in order across pages (each part is a run of the row's own lines).
@@ -290,8 +298,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 return cursor >= whole.Length;
             }
+            // A value word in capitals counts only as a whole label with the capitals style; a name, or capitals without the style, never.
+            bool InCapitals(string words) => values.Contains(words) && RoomListRow.NoteInLabelRole(words) && words.ToUpperInvariant() != words
+                && drawnCapitals.Contains(Words(words.ToUpperInvariant()));
             foreach (var words in expected.Where(words => words.Trim().Length > 0))
-                Require(DrawnWhole(words), "\"" + words + "\" is not drawn whole on any page: " + string.Join(" | ", drawn.Select(Words)));
+                Require(DrawnWhole(words) || InCapitals(words), "\"" + words + "\" is not drawn whole on any page: " + string.Join(" | ", drawn.Select(Words)));
 
             // The image: the bar as the state names it (the first page, or the long list's last), laid and placed.
             view.Show(bar);

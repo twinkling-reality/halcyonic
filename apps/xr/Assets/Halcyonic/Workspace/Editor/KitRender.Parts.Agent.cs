@@ -87,17 +87,35 @@ namespace Halcyonic.XR.Workspace.Editor
                     return pixels[Mathf.Clamp(Mathf.FloorToInt(screen.y), 0, Height - 1) * Width + Mathf.Clamp(Mathf.FloorToInt(screen.x), 0, Width - 1)];
                 }
                 int Light(Color32 pixel) => (pixel.r * 2126 + pixel.g * 7152 + pixel.b * 722) / 10000;
-                // A chosen answer's mark is its light disc; one not chosen is an outline, its middle the action's own backing.
+                // An answer's mark is a ring (ae8a40df4, the one language): chosen, a white ring at full white round a white check; not chosen,
+                // the ring's line at 80 percent and no check. Read by the ring's rim and the check's stroke, never by the glass in the ring's
+                // middle (as 8d6018242 reads the ring): a chosen rim at the bright floor the old disc met, its check as bright, and no check
+                // on an answer not chosen.
                 var marks = new List<string>();
                 foreach (var button in buttons.Where(button => button.Mark != AnswerMark.None))
                 {
                     // The mark stands where the chip would: as far from its core's left edge as the chosen answer's check is from its own.
                     var chosen = buttons.First(each => each.Chosen);
                     var inset = chosen.Glyph.transform.localPosition.x + chosen.Core.x / 2f;
-                    var middle = Light(At(dark, button.transform.TransformPoint(new Vector3(-button.Core.x / 2f + inset, 0.3f * RoomType.Units(RoomButton.MarkDp), 0f))));
-                    marks.Add(button.Words.text + " " + middle.ToString(CultureInfo.InvariantCulture));
-                    if (button.Chosen && middle < 150) failures.Add(button.Words.text + " is chosen and its mark's middle reads " + middle + " of 255");
-                    if (!button.Chosen && middle > 90) failures.Add(button.Words.text + " is not chosen and its mark's middle reads " + middle + " of 255");
+                    var centre = button.transform.TransformPoint(new Vector3(-button.Core.x / 2f + inset, 0f, 0f));
+                    var radius = RoomType.Scaled(RoomButton.MarkDp) / 2f;
+                    var rim = 0;
+                    foreach (var inside in new[] { 0.5f, 1f, 1.5f })
+                        for (var step = 0; step < 72; step++)
+                        {
+                            var turn = step * Mathf.PI * 2f / 72f;
+                            var along = (radius - RoomType.Scaled(inside)) * new Vector3(Mathf.Cos(turn), Mathf.Sin(turn), 0f);
+                            rim = Mathf.Max(rim, Light(At(dark, centre + button.transform.TransformVector(along))));
+                        }
+                    // The check's first stroke, at the chosen check's own place in the ring: the same offset in this answer's ring.
+                    var tick = RoomGlyphs.Of(RoomGlyph.Check)[0].Middles().First();
+                    var chosenCentre = chosen.transform.TransformPoint(new Vector3(-chosen.Core.x / 2f + inset, 0f, 0f));
+                    var tickAt = chosen.Glyph.transform.TransformPoint(new Vector3(tick.x / RoomGlyphs.Grid - 0.5f, 0.5f - tick.y / RoomGlyphs.Grid, 0f)) - chosenCentre + centre;
+                    var check = Light(At(dark, tickAt));
+                    marks.Add(button.Words.text + " rim " + rim.ToString(CultureInfo.InvariantCulture) + " check " + check.ToString(CultureInfo.InvariantCulture));
+                    if (button.Chosen && rim < 150) failures.Add(button.Words.text + " is chosen and its ring's rim reads " + rim + " of 255");
+                    if (button.Chosen && check < 150) failures.Add(button.Words.text + " is chosen and its check reads " + check + " of 255");
+                    if (!button.Chosen && check > 90) failures.Add(button.Words.text + " is not chosen and its ring holds a check reading " + check + " of 255");
                 }
                 // Every action's words are drawn: along each of its lines (an action's parts stand on lines of their own, never joined on
                 // the dot), ink holding 4.5 to 1 against its own ground in either polarity, light ink at least as bright as before.
@@ -112,7 +130,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         most = Mathf.Max(most, Light(At(dark, title.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 120f), bounds.max.y - KitType.LinePitch(title) * 0.5f, 0f)))));
                     if (most < 170) failures.Add("the agent's name is not in the pixels, the lightest reads " + most + " of 255");
                 }
-                Debug.Log("Halcyonic: parts: " + name + ": " + buttons.Count + " actions beside the fact, each the page's own" + (marks.Count > 0 ? "; marks' middles " + string.Join(", ", marks) : "") + ".");
+                Debug.Log("Halcyonic: parts: " + name + ": " + buttons.Count + " actions beside the fact, each the page's own" + (marks.Count > 0 ? "; marks " + string.Join(", ", marks) : "") + ".");
             };
             return shot;
         }
