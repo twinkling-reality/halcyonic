@@ -32,7 +32,8 @@ read-only rest is unchanged. The rules hold the forms that would hide a git comm
 `cat .git/config` still runs unasked: in a task's copy that file holds no remote and no credential (ADR 0045); outside
 a copy it is the folder's own and can show its remote addresses, including any credential written into one, unasked.
 So a task that would work in the folder itself (copies off, `HALCYONIC_TASK_COPIES=0`, or an agent app that cannot be
-held to a copy) does not start where the folder's git settings hold a sign-in: wherever a task's copy would take one
+held to a copy) does not start where the folder's git settings hold, or may hold, a sign-in: wherever a task's copy
+would take one
 out (an http, https or ftp address with a user part, an `extraheader`, a `credential` section, an `include`), read
 from one list both use (`scrubPlan`), in its `config` and a linked worktree's own `config.worktree`. Its remotes and
 hooks alone, and an ssh login's name, refuse nothing. The host refuses it in words that never show what it found
