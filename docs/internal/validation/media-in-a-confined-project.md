@@ -4,7 +4,7 @@
   Seatbelt profile do with it: run the tools a video needs, see a still, turn a HEIC into a picture, copy a playable
   copy into `public/`? And which tools keep where and on what a file was made?
 - **Date:** 2026-11-16.
-- **Versions:** main d53f69a32, and main 8d6e0944e for the last Claude Agent `iwsdk-vr` run, and main 1d0ff786f for the OpenCode `iwsdk-vr` run and the Codex attempt; macOS 26 (Darwin 25.6.0) on Apple silicon; ffmpeg and ffprobe 8.1.1 (Homebrew, with
+- **Versions:** main d53f69a32, and main 8d6e0944e for the last Claude Agent `iwsdk-vr` run, main 1d0ff786f for the OpenCode `iwsdk-vr` run and the first Codex attempt, and main 9ffab96d9 for the Codex runs; macOS 26 (Darwin 25.6.0) on Apple silicon; ffmpeg and ffprobe 8.1.1 (Homebrew, with
   libx265 and libx264); the system's `sips`, `avconvert` and `osascript`; Node 24.15.0 (Homebrew).
 - **Method:**
   - Part A, no model: a probe script built the closed profile exactly as the host does for a confined project
@@ -69,6 +69,8 @@ colours into files, and to copy the play copy into `public/`. The files were rea
 | Claude Agent, `claude-opus-5-5[1m]` | `iwsdk-vr` | 3 runs, each stopped (600 s at most) | unread | unread | unread | unread | 3: 2 answered by the host, 1 `Read` left for a person |
 | Claude Agent, `claude-opus-5-5[1m]`, main 8d6e0944e | `iwsdk-vr` | 17 s | match | match | match | present | 4, all answered by the host (3 `confined_command`, 1 `run_temp_read`) |
 | OpenCode, `meta/muse-wonder-1.0`, main 1d0ff786f | `iwsdk-vr` | 44 s | match | match | match | present | 3, all answered by the host (`confined_command`) |
+| Codex, `halcyonic_meta/muse-wonder-1.0`, main 9ffab96d9 | `world` | 26 s | match | match | match | present | none asked |
+| Codex, `halcyonic_meta/muse-wonder-1.0`, main 9ffab96d9 | `iwsdk-vr` | 24 s | match | match | match | present | none asked |
 
 - A first `world` run on Claude Agent matched the still, the frame and the play copy but not the photo; its bands
   were drawn with repeated colours, so neighbours could read as one band. The probe then drew four different colours.
@@ -88,11 +90,14 @@ colours into files, and to copy the play copy into `public/`. The files were rea
 - The colours were drawn at random for each run, so a matching answer means the model saw the picture, not its name.
 - OpenCode on `iwsdk-vr` worked in the task's copy as Claude Agent did on main 8d6e0944e: the turn completed with no
   approval left for a person, and all four answers matched.
-- Codex did not run a turn. On main d53f69a32 the product's own choice for Codex was a model served on this Mac, which
-  the probe refuses. On main 1d0ff786f it chose a model served remotely, `halcyonic_meta/muse-wonder-1.0`, for a new
-  `world` app: the start was accepted, then the host's start of a confined Codex failed (`ENOENT` copying the Codex
-  home's `config.toml`, which only the local model setup writes), the person's command failed as "The runtime adapter
-  failed unexpectedly", and the execution was left unknown. No media step was reached.
+- Before main 9ffab96d9 Codex did not run a turn. On main d53f69a32 the product's own choice for Codex was a model
+  served on this Mac, which the probe refuses. On main 1d0ff786f it chose a model served remotely,
+  `halcyonic_meta/muse-wonder-1.0`, for a new `world` app: the start was accepted, then the host's start of a confined
+  Codex failed (`ENOENT` copying the Codex home's `config.toml`, which only the local model setup writes), the
+  person's command failed as "The runtime adapter failed unexpectedly", and the execution was left unknown. No media
+  step was reached.
+- On main 9ffab96d9 a confined Codex starts without that file. Codex then ran both starters, `iwsdk-vr` in the task's
+  copy, with the same model: each turn completed without asking for any approval, and all four answers matched.
 
 ## Inference
 - `ffmpeg` is reachable inside the closed profile only because Node here is Homebrew's: `toolFoldersFor(node)` opens
@@ -105,4 +110,3 @@ colours into files, and to copy the play copy into `public/`. The files were rea
 3. Files from a real phone or glasses.
 4. Why `sips` conversions depend on the working folder under the profile.
 5. Why the agent put its frame in its temporary folder on `iwsdk-vr` but not on `world`.
-6. Codex with the media: blocked by its confined start on a Mac whose Codex home has no `config.toml`.
