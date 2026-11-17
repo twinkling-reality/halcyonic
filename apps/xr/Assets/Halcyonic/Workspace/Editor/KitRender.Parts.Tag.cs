@@ -10,11 +10,12 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
-    /// The name tag (<see cref="RoomTag"/>, DESIGN 1.2): the plate that names the agent with its level as a quiet chip
-    /// while it works, a picked tag with its ring, and a tag whose task needs the person with its tinted chip (the
-    /// addendum's A17: never a suffix after a dot). Measured (as wide as its words, its chip and 14 dp each side, a line
-    /// and 6 dp above and below, the tag kind's 14 dp corner) and read in the pixels (the words; the ring's colour at the
-    /// picked tag's edge and none at the plate's; the chip's tint).
+    /// The name tag (<see cref="RoomTag"/>, DESIGN 1.2) in the one language (FIELD's sheet, tile f1): the plate that names the
+    /// agent with its level under its name while it works, a picked tag with its ring, and a tag whose task needs the person
+    /// with Needs You under its name, each in the label role, never a chip (the lead's 2026-11-17T02:02Z; the addendum's A17:
+    /// never a suffix after a dot). Measured (as wide as its widest line and 14 dp each side, its lines and 6 dp above and
+    /// below, the tag kind's 14 dp corner, no shape beside the name) and read in the pixels (the words and the words under
+    /// them; the ring's colour at the picked tag's edge and none at the plate's).
     /// </summary>
     public static partial class KitRender
     {
@@ -92,28 +93,37 @@ namespace Halcyonic.XR.Workspace.Editor
             plane.SetParent(root, false);
             var tag = RoomTag.Create(plane);
             var plated = !picked && !needsYou;
-            tag.Show(said, picked, needsYou, level, plate: plated);
+            // As the room shows them: a task's tag with its state under the name (RoomNameTag, the badge's own word), the agent's
+            // plate with its level under its name (RoomBarView's plate); never a chip (the lead's 02:02Z, AUDIT's 5).
+            var stateWord = plated ? null : needsYou ? StateLanguage.WordOf(WorkState.WaitingForYou) : StateLanguage.WordOf(WorkState.Working);
+            tag.Show(said, picked, needsYou, level, plate: plated, state: stateWord);
             Place(plane, eyes, 0f, shot.Elevation);
 
             var unit = RoomType.Units(1f);
             var wide = RoomCursor.WordsWidth(tag.Words, 0f);
             Require(tag.Words.textInfo.lineCount == 1 && !tag.Words.isTextOverflowing, "the tag's words are not one whole line");
-            var chipped = needsYou || level != null;
             Require(!tag.Words.GetParsedText().Contains(KitMomentWords.Dot.Trim()), "the tag's words join facts on a dot: \"" + tag.Words.GetParsedText() + "\"");
-            Require(tag.NeedsYou == needsYou && tag.Chipped == chipped, "the tag's chip " + (tag.Chipped ? "shows" : "does not show"));
-            if (chipped)
-                Require(tag.ChipWords.GetParsedText() == (needsYou ? StateLanguage.WordOf(WorkState.WaitingForYou) : level), "the chip reads \"" + tag.ChipWords.GetParsedText() + "\"");
+            // What stands under the name, in the label role: the task's state, or the plate's level; no chip, no filled mark beside it.
+            var under = plated ? level : stateWord;
+            var stateLabel = tag.StateWords;
+            Require(tag.NeedsYou == needsYou && stateLabel != null, "nothing stands under the tag's name");
+            if (stateLabel != null)
+            {
+                stateLabel.ForceMeshUpdate(true, true);
+                Require(string.Equals(stateLabel.GetParsedText().Trim(), under, System.StringComparison.OrdinalIgnoreCase) && stateLabel.characterSpacing > 0f && !stateLabel.isTextOverflowing,
+                    "under the name reads \"" + stateLabel.GetParsedText() + "\", not \"" + under + "\" in the label role");
+                Require(stateLabel.transform.localPosition.y < tag.Words.transform.localPosition.y, "the state does not stand under the name");
+                Require(Mathf.Approximately(stateLabel.color.r, stateLabel.color.g) && Mathf.Approximately(stateLabel.color.g, stateLabel.color.b), "the words under the name are tinted, not white");
+            }
+            Require(tag.GetComponentsInChildren<RoomShape>(false).All(shape => shape == tag.Ground || shape == tag.Stem || shape == tag.Diamond || shape.transform.parent != tag.transform),
+                "the tag draws a shape of its own beside the name: a chip");
             var glyphRoom = plated ? RoomType.Scaled(RoomTag.AgentGlyphDp + RoomTag.AgentGlyphGapDp) : 0f;
             Require(tag.IsPlate == plated && (tag.AgentGlyph.Glyph == RoomGlyph.Agent) == plated, "the agent's plate does not carry the agent's glyph, or a task's tag does");
             Require(tag.Plate.gameObject.activeSelf == !plated && tag.Ground.gameObject.activeSelf == plated, "the agent's plate wears a tag's glass, or a tag wears none");
-            Require(Mathf.Abs(tag.Size.x - (glyphRoom + wide + 2f * RoomType.Scaled(RoomTag.PadXDp))) < unit * 0.05f, "the tag is " + (tag.Size.x / unit).ToString("0.0") + " dp wide for words " + (wide / unit).ToString("0.0") + " dp wide");
-            if (chipped)
-            {
-                var chipLeft = tag.Chip.transform.localPosition.x - tag.Chip.Size.x / 2f;
-                Require(Mathf.Abs(chipLeft - (tag.Size.x / 2f + RoomType.Scaled(RoomTag.ChipGapDp))) < unit * 0.05f, "the chip does not float 10 dp beside the plate");
-                Require(Mathf.Abs(tag.Chip.transform.localPosition.y) < unit * 0.05f, "the chip is not on the plate's middle line");
-            }
-            Require(Mathf.Abs(tag.Size.y - RoomType.Scaled(RoomGeometry.LineDp + 2f * RoomTag.PadYDp)) < unit * 0.05f, "the tag is " + (tag.Size.y / unit).ToString("0.0") + " dp tall");
+            var stateWide = stateLabel != null ? RoomCursor.WordsWidth(stateLabel, 0f) : 0f;
+            Require(Mathf.Abs(tag.Size.x - (glyphRoom + Mathf.Max(wide, stateWide) + 2f * RoomType.Scaled(RoomTag.PadXDp))) < unit * 0.05f, "the tag is " + (tag.Size.x / unit).ToString("0.0") + " dp wide for words " + (wide / unit).ToString("0.0") + " dp wide");
+            var stateLine = stateLabel != null ? KitType.LinePitch(stateLabel) + RoomType.Scaled(RoomTag.StateGapDp) : 0f;
+            Require(Mathf.Abs(tag.Size.y - (RoomType.Scaled(RoomGeometry.LineDp + 2f * RoomTag.PadYDp) + stateLine)) < unit * 0.05f, "the tag is " + (tag.Size.y / unit).ToString("0.0") + " dp tall");
             Require(Mathf.Approximately(Halcyonic.XR.UI.RoomSurface.CornerDp(RoomSurfaceKind.Tag), 14f) && (plated ? tag.Ground.Size == tag.Size : tag.Plate.Size == tag.Size), "the plate is not the tag's own size, corner 14 dp");
             Require(tag.Picked == picked, "the ring " + (tag.Picked ? "shows" : "does not show"));
 
@@ -138,16 +148,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var step = 0; step <= 80; step++)
                     most = Mathf.Max(most, Light(At(dark, tag.Words.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 80f), bounds.center.y, 0f)))));
                 if (most < 170) failures.Add("the tag's words are not in the pixels, the lightest reads " + most + " of 255");
-                if (chipped)
-                {
-                    // The chip's ground, in its room beside its word: the attention colour's warm ground where the task needs the person, a quiet grey for a level.
-                    var pixel = At(dark, tag.Chip.transform.TransformPoint(new Vector3(-0.5f + RoomTag.ChipPadXDp / 2f / (tag.Chip.Size.x / unit), 0f, 0f)));
-                    var warm = pixel.r - pixel.b;
-                    if (needsYou && warm < 18) failures.Add("the needs-you chip is not in the attention colour: its ground reads " + pixel);
-                    if (!needsYou && Mathf.Abs(warm) > 14) failures.Add("the level's chip is not a quiet grey: its ground reads " + pixel);
-                    var ground = Light(pixel);
-                    if (ground < 12) failures.Add("the chip's own backing is not in the pixels: " + ground + " of 255");
-                }
+                // The words under the name read in the pixels, quiet but clear of the glass.
+                if (stateLabel != null && InkFault(stateLabel, world => At(dark, world), 110) is string fault) failures.Add("\"" + stateLabel.GetParsedText() + "\" under the name " + fault);
                 Debug.Log("Halcyonic: parts: " + name + ": \"" + said.Text + "\" on a tag " + (tag.Size.x / unit).ToString("0.0", CultureInfo.InvariantCulture) + " by "
                     + (tag.Size.y / unit).ToString("0.0", CultureInfo.InvariantCulture) + " dp; its edge reads " + edge + ", its ground " + inside + " of 255.");
             };

@@ -90,7 +90,7 @@ namespace Halcyonic.XR.UI
                 return;
             }
             if (plate == null) plate = RoomTag.Create(transform);
-            plate.Show(said, chip: bar.PlateLevel, plate: true);
+            plate.Show(said, level: bar.PlateLevel, plate: true);
             plate.transform.localPosition = at;
         }
 
