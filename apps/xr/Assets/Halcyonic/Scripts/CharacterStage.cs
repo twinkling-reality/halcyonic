@@ -555,6 +555,9 @@ namespace Halcyonic.XR
                 if (away.magnitude < FlightClearOfHeadM) point = head.position + (away.sqrMagnitude > 1e-6f ? away.normalized : head.forward) * FlightClearOfHeadM;
             }
             view.transform.position = point;
+            // Its tag measured from where it now stands, so it keeps the angle it had on its shelf: measured at home, a tag beside a
+            // panel 0.65 m from the eyes stood three times its size, across the panel.
+            view.PlaceShelfLabel(head != null ? head.position : shelfViewer);
         }
 
         /// <summary>

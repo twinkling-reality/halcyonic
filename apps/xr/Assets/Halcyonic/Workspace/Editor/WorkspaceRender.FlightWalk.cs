@@ -260,6 +260,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add("the character lands " + (lands - eyes).magnitude.ToString("0.00") + " m from the eyes, nearer than " + MenuDirector.FlightLandsFromEyesM.ToString("0.00"));
                 if (Vector3.Dot(lands - bar.Panel.transform.position, bar.Panel.transform.right) * Vector3.Dot(bodyHome - bar.Panel.transform.position, bar.Panel.transform.right) < 0f)
                     failures.Add("the character lands on the panel's far side from its home, crossing the person's face");
+                // The person's head stays at the eyes, as the stage reads it in the headset (CharacterStage takes Camera.main each frame): the
+                // film camera below moves for its framing, so it gives up the main camera's tag to a head camera that stays.
+                var headTexture = new RenderTexture(8, 8, 16, RenderTextureFormat.ARGB32);
+                var headCamera = new GameObject("Head").AddComponent<Camera>();
+                headCamera.transform.SetParent(root.transform, false);
+                headCamera.transform.SetPositionAndRotation(eyes, PlaneLayout.Facing(plane.Direction));
+                headCamera.cullingMask = 0;
+                headCamera.targetTexture = headTexture;
+                camera.gameObject.tag = "Untagged";
+                headCamera.gameObject.tag = "MainCamera";
                 // Home stands far to one side and the landing beside the panel near the eyes, further apart than one look takes in, so the
                 // clip is filmed from just behind the person and above, as a film camera over the shoulder, holding both in a 100 degree view.
                 var across = ((bodyHome - eyes).normalized + (lands - eyes).normalized).normalized;
@@ -269,6 +279,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 camera.fieldOfView = 100f;
                 camera.transform.rotation = Quaternion.LookRotation((bodyHome + lands) / 2f - camera.transform.position);
                 var released = false;
+                // The tag's span across the eyes, at home and the most beside the panel.
+                (float Home, float Most) tagAngle = (0f, 0f);
+                float TagSpan()
+                {
+                    var parts = view.Labels.GetComponentsInChildren<Renderer>(false).Where(each => each.enabled).ToList();
+                    if (parts.Count == 0) return 0f;
+                    var box = parts.Select(each => each.bounds).Aggregate((a, b) => { a.Encapsulate(b); return a; });
+                    var toward = box.center - eyes;
+                    var side = Vector3.Cross(Vector3.up, toward).normalized;
+                    return Vector3.Angle(box.center - side * box.extents.magnitude * 0.5f - eyes, box.center + side * box.extents.magnitude * 0.5f - eyes);
+                }
+                tagAngle.Home = TagSpan();
                 var ringMoved = 0f;
                 string? ringPast = null;
                 for (var frame = 0; frame <= 40; frame++)
@@ -310,6 +332,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add(name + ": the character stands out of the frame, at " + seen.ToString("F2"));
                     }
                     // The ring stays on the floor where it stood, never flying, and is gone once the lift-off breath is over.
+                    if (stage.FlightNow.Along >= 1f && view.Labels.gameObject.activeInHierarchy) tagAngle.Most = Mathf.Max(tagAngle.Most, TagSpan());
                     var ring = view.NeedsYouRing;
                     if (ring != null && (seconds > 0f && seconds < 4f - 1e-4f || stage.Flying != null)) ringMoved = Mathf.Max(ringMoved, Vector3.Distance(ring.transform.position, ringHome));
                     if (ring != null && seconds >= RoomMotion.FlightBreathSeconds + 0.05f && stage.Flying != null) ringPast ??= name + " (" + seconds.ToString("0.0") + " s)";
@@ -322,6 +345,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         + " m, the bot at " + view.transform.position.ToString("F3") + ", the panel " + bar.PanelArrival.Shown.ToString("0.00") + " in, the ring "
                         + (ring == null ? "gone" : "at " + ring.transform.position.ToString("F3")) + ", the tag " + (view.Labels.gameObject.activeInHierarchy ? "shown" : "home") + ", flying " + (stage.Flying ?? "none") + ".");
                 }
+                if (tagAngle.Most > 0f && tagAngle.Most > tagAngle.Home * 1.25f)
+                    failures.Add("the tag beside the panel spans " + tagAngle.Most.ToString("0.0") + " degrees, past its shelf's " + tagAngle.Home.ToString("0.0") + ": measured from home, not from where it stands");
+                Debug.Log("Halcyonic: flight walk: the tag spans " + tagAngle.Home.ToString("0.0") + " degrees at home and at most " + tagAngle.Most.ToString("0.0") + " beside the panel");
                 if (ringMoved > 0.01f) failures.Add("the amber ring moved " + ringMoved.ToString("0.000") + " m from where it stood: it flies with the character");
                 if (ringPast != null) failures.Add("the amber ring still stands at " + ringPast + ", past the lift-off");
                 // Home again, the task still waiting: its ring under it once more.
