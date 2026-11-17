@@ -150,6 +150,14 @@ namespace Halcyonic.XR.UI
                 stateWords.ForceMeshUpdate(true, true);
                 wordsMost = Mathf.Max(wordsBound, RoomCursor.WordsWidth(stateWords, 0f));
             }
+            // A bound tighter than the tag's own (a place's): a name a little past it stands whole on one line, and a longer one on two balanced
+            // lines, never three with a word alone (AUDIT's 21:03Z and 21:1xZ): its bound widened to half the name and a margin for the break,
+            // never past the tag's own bound.
+            if (wordsMost is float placeBound && mostWordsDp is float given && given < NameWordsMostDp && wide > placeBound)
+            {
+                var own = RoomType.Scaled(NameWordsMostDp);
+                wordsMost = wide <= placeBound * 1.3f ? Mathf.Min(wide + 1f, own) : Mathf.Min(Mathf.Max(placeBound, wide / 2f * 1.12f), own);
+            }
             if (wordsMost is float most && wide > most)
             {
                 // Bounded: broken at a word onto as many lines as it needs, whole (no ellipsis: the overflow never cuts).
