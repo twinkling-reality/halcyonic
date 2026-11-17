@@ -48,6 +48,7 @@ namespace Halcyonic.Client
             var instruct = binding[KitPlace.Field] is { Available: true } field ? field : null;
             var column = new List<RoomAction>();
             LineWords body = LineWords.None;
+            LineWords? reviewTitle = null;
             string? sentence = null;
             string? band = null;
             IReadOnlyList<RoomRow>? facts = null;
@@ -238,6 +239,8 @@ namespace Halcyonic.Client
                         var says = FirstSentence(binding.Model.Report?.Text);
                         card = card.WithReview(result.Observed != null ? RoomStanding.Finished : null, says == null ? null : LineWords.Theirs(says));
                         if (says != null) band = null;
+                        // Laid as one dialog (FIELD's LayDialog): Turn Finished its label, the task's name its title, the card its body.
+                        if (card.Eyebrow != null && card.Title != null) { reviewTitle = card.Title; card = card.AsDialogBody(); }
                     }
                     // Where the result says nothing, the task's steps list stands in place of how the run stands (place (b), SCREENS's
                     // reader 5: "Turn Finished" goes once the list stands); the band keeps that turn's own words.
@@ -262,6 +265,7 @@ namespace Halcyonic.Client
                 lines: facts != null && facts.Count > 1 ? facts.Select(row => row.Words).ToList() : null)
             {
                 Result = true,
+                DialogTitle = reviewTitle,
                 Steps = listed,
                 StepsUsage = listed.Count > 0 ? binding.Model.StepsUsage : null,
                 Facts = facts,

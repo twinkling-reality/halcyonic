@@ -1003,8 +1003,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         // FIELD's f6 (TASKS): the agent's own first sentence stands on the review card under THE AGENT SAYS, theirs, and the
                         // band does not say it again; where the result's card is how a run stands, the band holds the turn's words as before.
                         if (shown.Card?.Says is LineWords says)
-                            Require(shown.Band == null && says.AllTheirs && says.Text == RoomBar.FirstSentence(message) && shown.Card.Eyebrow == RoomStanding.Finished,
-                                "the review card does not hold the agent's first sentence under Turn Finished: " + says.Text);
+                            Require(shown.Band == null && says.AllTheirs && says.Text == RoomBar.FirstSentence(message) && shown.AsDialog && shown.DialogTitle != null
+                                && shown.DialogTitle.AllTheirs && shown.Card.Title == null,
+                                "the review is not one dialog with the task's name over the agent's first sentence: " + says.Text);
                         else Require(shown.Band == message && host.Band.Words != null && host.Band.Text.Length > 0, "the agent's newest message does not stand on the band");
                         Require(bar.BandNextButton == null || shown.Card?.Says == null, "a way to a band's next part beside the review card");
                         // The review card (TASKS, take 3): the check's outcome its status, its one large line; its checks and the files as

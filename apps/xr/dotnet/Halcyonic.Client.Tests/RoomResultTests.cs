@@ -289,7 +289,7 @@ public class RoomResultTests
         {
             var selectors = new KitSelectors("This Mac", false, "Codex", agentChangeable: true, offersNeverAsk: true, neverAsk: true);
             var bar = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()), selectors: selectors);
-            Assert.That((bar.Result, Slots(bar), bar.Band, bar.Card?.Says?.Text, bar.Card?.Eyebrow), Is.EqualTo((true, new[] { "All Passing", "5 Files" }, (string?)null, (string?)"I added the golden balloon.", (string?)RoomStanding.Finished)), Show(bar));
+            Assert.That((bar.Result, Slots(bar), bar.Band, bar.Card?.Says?.Text, bar.AsDialog, bar.DialogTitle?.AllTheirs, bar.Card?.Title), Is.EqualTo((true, new[] { "All Passing", "5 Files" }, (string?)null, (string?)"I added the golden balloon.", true, (bool?)true, (LineWords?)null)), Show(bar));
             Assert.That(bar.Column.Where(NotClose).Select(action => action.Control.Action), Is.EqualTo(new[] { RoomResult.MakeVrVersion }));
             var agent = bar.Row.Single(action => action.Control.Action == AgentColumn.Open);
             Assert.That(agent.Chip, Is.EqualTo("Don't Ask Me"), "the level the next start will use stays shown beside the result, as the action's chip apart from its words");

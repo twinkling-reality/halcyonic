@@ -286,13 +286,18 @@ namespace Halcyonic.Client
         /// <summary>The control a press on the panel's field raises (the keyboard again), or null.</summary>
         public KitControl? Field { get; }
 
+        /// <summary>The dialog's title where the bar's own words are not it: the finished turn's review takes the task's name, theirs.</summary>
+        public LineWords? DialogTitle { get; private set; }
+
         /// <summary>
         /// The approval laid as one dialog (Mirror's Edge's panel in the one language). The question is parked (the lead's 23:44Z): tonight the dialog stands for the approval alone, its question (Run Command?) at the
         /// top, the command in mono under it, Decline then Approve; a question keeps its band and its card until it returns (F267: a long
         /// question at the title's size passed the bar's envelope; AUDIT's 01:48Z: a long question goes in the body, under a short title).
         /// </summary>
         public bool AsDialog => !Wide && !Narrow && !Caret
-            && State == RoomBarState.Request && Mono && Sentence != null && Column.Count > 0 && Card == null;
+            && (State == RoomBarState.Request && Mono && Sentence != null && Column.Count > 0 && Card == null
+                // The finished turn's review the same way (TASKS, FIELD's f6): Turn Finished, the task's name, its facts, the row.
+                || Result && DialogTitle != null && Card != null);
 
         /// <summary>
         /// The heard draft as the codec's subtitle (Death Stranding's Codec, AUDIT's pick for the composer, 2026-11-16): the person's

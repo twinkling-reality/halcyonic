@@ -458,16 +458,17 @@ namespace Halcyonic.XR.UI
                     Gap(BlockGapDp);
                     down = LayStatus(status, card, width, down);
                 }
-                // The agent's own first sentence under THE AGENT SAYS, its quote mark before it: reported, theirs (AUDIT2, AUDIT3).
-                if (card.Says is LineWords says)
-                {
-                    Gap(BlockGapDp);
-                    down = LayCap(SaysLabel, width, down) + S(CapGapDp);
-                    Text(KitRole.Strong, SaysTypeDp + 6f, SaysLineDp, White(SaysQuoteAlpha), LineWords.Ours("\u201C"), 0f, -down, S(SaysQuoteDp), 1);
-                    var (_, saidTall) = Text(KitRole.Body, SaysTypeDp, SaysLineDp, White(SaysAlpha), says, S(SaysQuoteDp + CapGapDp), -down, width - S(SaysQuoteDp + CapGapDp), SaysLines);
-                    down += saidTall;
-                }
             }
+            // The agent's own first sentence under THE AGENT SAYS, its quote mark before it: reported, theirs (AUDIT2, AUDIT3).
+            if (card.Says is LineWords says)
+            {
+                Gap(BlockGapDp);
+                down = LayCap(SaysLabel, width, down) + S(CapGapDp);
+                Text(KitRole.Strong, SaysTypeDp + 6f, SaysLineDp, White(SaysQuoteAlpha), LineWords.Ours("\u201C"), 0f, -down, S(SaysQuoteDp), 1);
+                var (_, saidTall) = Text(KitRole.Body, SaysTypeDp, SaysLineDp, White(SaysAlpha), says, S(SaysQuoteDp + CapGapDp), -down, width - S(SaysQuoteDp + CapGapDp), SaysLines);
+                down += saidTall;
+            }
+
             // A card never says the same words twice: a description that only repeats the title is not drawn (an idea that is
             // also its name; the critic, 2026-11-12).
             var description = card.Description != null && card.Title != null && string.Equals(card.Description.Text.Trim(), card.Title.Text.Trim(), System.StringComparison.Ordinal)

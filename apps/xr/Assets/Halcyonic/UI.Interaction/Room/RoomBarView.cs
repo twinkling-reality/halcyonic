@@ -159,6 +159,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The moment's label over its title, in the one language's label role (<see cref="RoomType.Label"/>).</summary>
         public const string RequestLabel = "Agent's Request";
         public const string QuestionLabel = "Agent's Question";
+
+        /// <summary>The finished turn's review laid as one dialog (TASKS, f6): its label, the run's own state word.</summary>
+        public const string ResultLabel = RoomStanding.Finished;
         private TextMeshPro measureBody = null!;
         private TextMeshPro measureRequest = null!;
         private TextMeshPro sentence = null!;
@@ -1204,10 +1207,11 @@ namespace Halcyonic.XR.UI
             ask.gameObject.SetActive(true);
             // The moment's label over it, in the label role (Mirror's Edge's wide capitals; AUDIT2's register): whose ask it is.
             kicker.gameObject.SetActive(true);
-            RoomType.Label(kicker, bar.State == RoomBarState.Request ? RequestLabel : QuestionLabel);
+            RoomType.Label(kicker, bar.State == RoomBarState.Request ? RequestLabel : bar.Result ? ResultLabel : QuestionLabel);
             var kickerHeight = KitType.Lay(kicker, wordsWidth, 1).Height;
             // A question's words are the agent's; an approval's question is ours (Run Command?).
-            Set(ask, bar.Band != null ? LineWords.Theirs(bar.Band) : LineWords.Ours(bar.Sentence!), false);
+            // The finished turn's review takes the task's name, theirs (TASKS, f6; AUDIT2 01:06Z).
+            Set(ask, bar.DialogTitle ?? (bar.Band != null ? LineWords.Theirs(bar.Band) : LineWords.Ours(bar.Sentence!)), false);
             ask.fontSize *= DialogWordsDp / RoomGeometry.TypeDp;
             // At the title's 32 dp a long question takes more lines than the body's eight; never cut (F265, 34-question-long and -tall).
             var asked = RoomCardView.Balanced(ask, wordsWidth, 16);

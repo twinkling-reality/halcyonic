@@ -498,6 +498,14 @@ namespace Halcyonic.Client
 
         public LineWords? Says { get; private set; }
 
+        /// <summary>
+        /// This card as a dialog's body (the review laid as one dialog, TASKS f6): no title and no head of its own, the dialog says
+        /// the task's name over it; every other part kept.
+        /// </summary>
+        public RoomCard AsDialogBody() =>
+            new RoomCard(null, Description, RoomCardHead.None, Status, Slots, Steps, TrackAt, TrackOf, List, Gauges, More, Code, Reading, DescriptionPage,
+                TitleMono, Press, statusAfter: StatusAfter, descriptionMostLines: DescriptionMostLines) { Says = Says };
+
         /// <summary>This card with the review's eyebrow and the agent's sentence.</summary>
         public RoomCard WithReview(string? eyebrow, LineWords? says) =>
             new RoomCard(this) { Eyebrow = eyebrow, Says = says == null || says.IsEmpty ? null : says, Still = Still };
