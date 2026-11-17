@@ -51,6 +51,16 @@ namespace Halcyonic.XR.UI
         private TextMeshPro words = null!;
         private RoomShape chip = null!;
         private TextMeshPro chipWords = null!;
+        private TextMeshPro stateWords = null!;
+
+        /// <summary>
+        /// The task's state under its name in the label role (the one language, FIELD's sheet tile f1), as last shown; null where the
+        /// tag says none. Where it stands, the Needs You chip does not: the state itself says Needs You.
+        /// </summary>
+        public TextMeshPro? StateWords => stateWords.gameObject.activeSelf ? stateWords : null;
+
+        /// <summary>The gap between the name and the state under it.</summary>
+        public const float StateGapDp = 2f;
         private RoomShape mark = null!;
         private RoomGlyphView check = null!;
         private RoomGlyphView agent = null!;
@@ -128,6 +138,8 @@ namespace Halcyonic.XR.UI
             var tag = go.AddComponent<RoomTag>();
             tag.plate = RoomSurface.Create(go.transform, "Plate", RoomSurfaceKind.Tag, order);
             tag.words = RoomType.Create(go.transform, "Words", Color.white, KitType.Order.Words);
+            tag.stateWords = RoomType.Create(go.transform, "State", Color.white, KitType.Order.Words);
+            tag.stateWords.gameObject.SetActive(false);
             tag.chip = RoomShape.Create(go.transform, "Needs you", KitType.Order.Words);
             tag.chipWords = KitType.Create(go.transform, "Chip words", KitRole.Label, Hex(ChipWordsColour), KitType.Order.ControlWords, TextAlignmentOptions.TopLeft, room: true);
             tag.agent = RoomGlyphView.Create(go.transform, "Agent", KitType.Order.Words);
@@ -154,7 +166,9 @@ namespace Halcyonic.XR.UI
         /// otherwise <paramref name="chip"/>'s words, as the plate's level, in a quiet chip there, or none. With <paramref name="stemDp"/>,
         /// the world line hangs that far under the tag's foot to a diamond where its thing stands.
         /// </summary>
-        public void Show(LineWords said, bool picked = false, bool needsYou = false, string? chip = null, bool plate = false, float? mostWordsDp = null, float stemDp = 0f)
+        /// <param name="state">The task's state word under the name in the label role (StateLanguage's word); with it no chip stands.</param>
+        public void Show(LineWords said, bool picked = false, bool needsYou = false, string? chip = null, bool plate = false, float? mostWordsDp = null, float stemDp = 0f,
+            string? state = null)
         {
             IsPlate = plate;
             gameObject.SetActive(true);
@@ -180,7 +194,20 @@ namespace Halcyonic.XR.UI
             }
             var chipSize = Vector2.zero;
             NeedsYou = needsYou;
-            var chipped = needsYou || !string.IsNullOrWhiteSpace(chip);
+            var stated = !string.IsNullOrWhiteSpace(state) && !plate;
+            var chipped = !stated && (needsYou || !string.IsNullOrWhiteSpace(chip));
+            stateWords.gameObject.SetActive(stated);
+            var stateWide = 0f;
+            var stateLine = 0f;
+            if (stated)
+            {
+                RoomType.Label(stateWords, state!);
+                stateWords.textWrappingMode = TextWrappingModes.NoWrap;
+                stateWords.rectTransform.sizeDelta = new Vector2(RoomType.Units(2000f), RoomType.Scaled(RoomGeometry.LineDp));
+                stateWords.ForceMeshUpdate(true);
+                stateWide = RoomCursor.WordsWidth(stateWords, 0f);
+                stateLine = KitType.LinePitch(stateWords) + RoomType.Scaled(StateGapDp);
+            }
             this.chip.gameObject.SetActive(chipped);
             if (chipped)
             {
@@ -197,7 +224,7 @@ namespace Halcyonic.XR.UI
                     needsYou ? WithAlpha(Hex(ChipEdgeColour), ChipEdgeAlpha) : new Color(1f, 1f, 1f, QuietEdgeAlpha), RoomType.Scaled(ChipEdgeDp));
             }
             var glyphRoom = plate ? RoomType.Scaled(AgentGlyphDp + AgentGlyphGapDp) : 0f;
-            Size = new Vector2(glyphRoom + wide + 2f * RoomType.Scaled(PadXDp), line + 2f * RoomType.Scaled(PadYDp));
+            Size = new Vector2(glyphRoom + Mathf.Max(wide, stateWide) + 2f * RoomType.Scaled(PadXDp), line + stateLine + 2f * RoomType.Scaled(PadYDp));
             this.plate.InnerBar = null;
             this.plate.Ring = picked && !plate ? (Hex(RingColour), RingDp) : ((Color, float)?)null;
             this.plate.Draw(Size);
@@ -214,7 +241,14 @@ namespace Halcyonic.XR.UI
                 left += glyphRoom;
             }
             else agent.Hide();
-            words.transform.localPosition = new Vector3(left, line / 2f, -RoomType.Units(0.5f));
+            if (stated)
+            {
+                // The name over its state, each centred on the tag (FIELD's sheet tile f1).
+                var top = Size.y / 2f - RoomType.Scaled(PadYDp);
+                words.transform.localPosition = new Vector3(-wide / 2f, top, -RoomType.Units(0.5f));
+                stateWords.transform.localPosition = new Vector3(-stateWide / 2f, top - line - RoomType.Scaled(StateGapDp), -RoomType.Units(0.5f));
+            }
+            else words.transform.localPosition = new Vector3(left, line / 2f, -RoomType.Units(0.5f));
             chipWords.gameObject.SetActive(chipped);
             if (chipped)
             {

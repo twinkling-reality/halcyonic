@@ -60,9 +60,11 @@ namespace Halcyonic.XR.UI
             }
             view.Label.gameObject.SetActive(false);
             tag ??= RoomTag.Create(view.Labels);
-            // Where the task needs the person the tag says so in words beside the name (ADR 0023; AUDIT, 2026-11-11).
-            tag.Show(LineWords.TheirName(view.Title), picked, needsYou: view.Presentation is CharacterPresentation shown && CharacterLabel.Of(shown).NeedsPerson,
-                mostWordsDp: RoomTag.NameWordsMostDp);
+            // The name in its own case over the task's state in the label role (the one language, FIELD's sheet tile f1): the state says
+            // Needs You where the task needs the person, so no chip stands beside it (ADR 0023's words kept; AUDIT, 2026-11-11).
+            var presented = view.Presentation as CharacterPresentation;
+            tag.Show(LineWords.TheirName(view.Title), picked, needsYou: presented != null && CharacterLabel.Of(presented).NeedsPerson,
+                mostWordsDp: RoomTag.NameWordsMostDp, state: presented != null ? StateLanguage.BadgeOf(presented).Word : null);
             Place();
         }
 

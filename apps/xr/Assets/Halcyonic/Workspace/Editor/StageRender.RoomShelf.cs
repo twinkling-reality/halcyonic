@@ -67,10 +67,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         Advance(view, 1f);
                         WorkspaceRender.ForceMeshes(root);
                         if (nameTag.Tag is not RoomTag tag) { failures.Add(name + ": no name tag stands under the character"); continue; }
-                        // The name alone in the tag's words; Needs You is its own chip, never joined to the name on a dot.
+                        // The name alone in the tag's words, its state under it in the label role (the one language, tile f1): the
+                        // state's word is the badge's own, Needs You where the task needs the person; no chip stands beside the name.
                         var reads = shown.Title;
-                        if (needs != (tag.Chipped && tag.ChipWords.GetParsedText() == StateLanguage.WordOf(WorkState.WaitingForYou)))
-                            failures.Add(name + ": the tag's chip " + (needs ? "does not say Needs You though the task needs the person" : "says Needs You though nothing waits"));
+                        var stateWord = StateLanguage.BadgeOf(shown).Word;
+                        if (tag.StateWords is not TMPro.TextMeshPro state || !string.Equals(state.GetParsedText().Trim(), stateWord, System.StringComparison.OrdinalIgnoreCase)
+                            || (needs && stateWord != StateLanguage.WordOf(WorkState.WaitingForYou)))
+                            failures.Add(name + ": the tag does not say its state \"" + stateWord + "\" under the name");
+                        if (tag.Chipped) failures.Add(name + ": a chip stands beside the name though the state says it");
                         if (Squeezed(tag.Words.GetParsedText()) != reads) failures.Add(name + ": the tag reads \"" + tag.Words.GetParsedText() + "\", not \"" + reads + "\"");
                         if (tag.NeedsYou != needs) failures.Add(name + ": the tag's dot " + (needs ? "does not stand though the task needs the person" : "stands though nothing waits"));
                         if (tag.Picked != picked) failures.Add(name + ": the tag " + (picked ? "wears no ring though picked" : "wears the ring though not picked"));
