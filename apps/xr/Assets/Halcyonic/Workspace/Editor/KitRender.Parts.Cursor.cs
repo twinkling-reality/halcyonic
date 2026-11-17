@@ -163,8 +163,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (off > 6) failures.Add(what + " over " + over + " is (" + drawn.r + ", " + drawn.g + ", " + drawn.b + ") where the page is (" + r + ", " + g + ", " + b + ")");
                     }
                 }
-                // The arrow: its fill well inside, and its edge on the middle of its long left side and of its top side.
-                Hold("the arrow's fill", new Vector2(8f, -20f), new Color32(0x59, 0xCF, 0xF1, 255), 1f);
+                // The arrow: its fill well inside, white with no hue (the lead's 19:15Z order, visionos-label-vibrant-primary.png), and
+                // its edge on the middle of its long left side and of its top side.
+                Hold("the arrow's fill", new Vector2(8f, -20f), new Color32(0xFF, 0xFF, 0xFF, 255), 1f);
                 Hold("the arrow's edge at its left", new Vector2(2.8f, -18.8f), new Color32(0x14, 0x14, 0x16, 255), 1f);
                 Hold("the arrow's edge at its top", new Vector2(15.28f, -14f), new Color32(0x14, 0x14, 0x16, 255), 1f);
                 // The label's ground, in its left padding clear of the words and the hairline: #181B1E at the page's 0.84.
