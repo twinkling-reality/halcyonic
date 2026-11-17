@@ -302,8 +302,9 @@ export class HostAnswers {
       if (copy?.state !== 'own' || copy.directory !== view.directory) return null;
     }
     const { subject, complete, too_long: tooLong } = event.payload;
-    // The host decides by the request as it runs, never by the marks it records for a card to draw (AUDIT3 HM3).
-    const command = asRun(subject.command);
+    // The host decides by the request as it runs, never by the marks it records for a card to draw (AUDIT3 HM3); a
+    // request it cut gives no command at all, so no judgement can read a part it cut (AUDIT3 HM7).
+    const command = event.payload.cut === true ? undefined : asRun(subject.command);
     return judgeRequest(
       {
         runtimeKind: view.runtime.kind,
