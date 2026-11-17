@@ -287,6 +287,31 @@ public class AgentPanelActivity extends Activity {
         float density = getResources().getDisplayMetrics().density;
         boolean needs = PanelJson.bool(summary.get("needs_you"));
         content.setPadding(0, 0, 0, 0);
+        if (!needs) {
+            // At rest the window holds only the line, at the line's own height: the state, the task's name and the way back,
+            // on one strip of glass; the rest of the window is clear (AUDIT's 01:11Z MUST). A Horizon OS panel's size is set
+            // by its manifest and cannot change at run time, so the line clears the window rather than shrinking it.
+            shellRoot.setBackground(null);
+            shellRoot.setPadding(PanelHud.px(6, density), PanelHud.px(6, density), PanelHud.px(6, density), 0);
+            LinearLayout line = new LinearLayout(this); line.setOrientation(LinearLayout.HORIZONTAL); line.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            line.setBackground(PanelHud.glass(density));
+            line.setPadding(PanelHud.px(26, density), PanelHud.px(16, density), PanelHud.px(12, density), PanelHud.px(16, density));
+            // The state over the task's name, as on the card, and the way back beside them.
+            LinearLayout said = new LinearLayout(this); said.setOrientation(LinearLayout.VERTICAL);
+            said.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), density), new LinearLayout.LayoutParams(-2, -2));
+            TextView name = PanelHud.say(this, PanelJson.text(summary.get("task"))); name.setTextColor(PanelHud.W1); name.setSingleLine(true);
+            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams nameAt = new LinearLayout.LayoutParams(-1, -2); nameAt.setMargins(0, PanelHud.px(8, density), PanelHud.px(12, density), 0);
+            said.addView(name, nameAt);
+            line.addView(said, new LinearLayout.LayoutParams(0, -2, 1));
+            hudPress(line, "Open Workspace", false, true, () -> { cancelNetwork(); returnToWorkspace(); });
+            content.addView(line, new LinearLayout.LayoutParams(-1, -2));
+            if (requestPending != null) content.addView(PanelHud.say(this, "The last workspace send is unconfirmed. Its original reference is retained."), new LinearLayout.LayoutParams(-1, -2));
+            return;
+        }
+        // It needs the person: the card grows from the line to the whole window of glass.
+        shellRoot.setBackground(PanelHud.glass(density));
+        shellRoot.setPadding(PanelHud.px(32, density), PanelHud.px(36, density), PanelHud.px(28, density), PanelHud.px(28, density));
         content.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), density), new LinearLayout.LayoutParams(-1, -2));
         TextView title = PanelHud.title(this, PanelJson.text(summary.get("task")));
         LinearLayout.LayoutParams titleAt = new LinearLayout.LayoutParams(-1, -2); titleAt.setMargins(0, PanelHud.px(18, density), 0, 0);
@@ -817,7 +842,8 @@ public class AgentPanelActivity extends Activity {
         // a dark slab (unverified on the headset whether Horizon OS composites a panel's clear pixels; if not they read black).
         getWindow().setFormat(hud ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
         getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(hud ? Color.TRANSPARENT : Color.rgb(18, 24, 34)));
-        if (hud) shellRoot.setBackground(PanelHud.glass(getResources().getDisplayMetrics().density)); else shellRoot.setBackgroundColor(Color.rgb(18, 24, 34));
+        // In compact the window is clear; the card (monitorTask) decides how much of it is glass.
+        if (hud) shellRoot.setBackground(null); else shellRoot.setBackgroundColor(Color.rgb(18, 24, 34));
         float d = getResources().getDisplayMetrics().density;
         if (hud) shellRoot.setPadding(PanelHud.px(32, d), PanelHud.px(36, d), PanelHud.px(28, d), PanelHud.px(28, d)); else shellRoot.setPadding(dp(20), dp(16), dp(20), dp(16));
         if (hud) content.setPadding(0, 0, 0, 0); else content.setPadding(dp(20), dp(16), dp(20), dp(16));
