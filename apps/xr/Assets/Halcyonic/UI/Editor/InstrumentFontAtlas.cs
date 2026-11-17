@@ -14,7 +14,6 @@ namespace Halcyonic.XR.UI.Editor
     public static class InstrumentFontAtlas
     {
         public const string AssetPath = "Assets/Halcyonic/UI/Resources/HalcyonicUI/InstrumentType.asset";
-        private const string BuildingPath = "Assets/Halcyonic/UI/Resources/HalcyonicUI/InstrumentType building.asset";
         private const string FontPath = "Assets/Halcyonic/UI/Fonts/Rajdhani/Rajdhani-Medium.ttf";
         private static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "…–\u2014‘’“”"
             + new string(Halcyonic.Client.KitGlyphs.Latin.Where(character => Lacks.IndexOf(character) < 0).ToArray());
@@ -113,22 +112,8 @@ namespace Halcyonic.XR.UI.Editor
             atlas.atlasTexture.name = "InstrumentType Atlas";
             atlas.material.name = "InstrumentType Material";
             atlas.fallbackFontAssetTable = Fallbacks();
-            AssetDatabase.DeleteAsset(BuildingPath);
-            AssetDatabase.CreateAsset(atlas, BuildingPath);
-            AssetDatabase.AddObjectToAsset(atlas.atlasTexture, atlas);
-            AssetDatabase.AddObjectToAsset(atlas.material, atlas);
-            FontAssetsKept.Save();
-            if (AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath) == null)
-            {
-                var error = AssetDatabase.MoveAsset(BuildingPath, AssetPath);
-                if (!string.IsNullOrEmpty(error)) throw new IOException(error);
-            }
-            else
-            {
-                File.Copy(BuildingPath, AssetPath, overwrite: true);
-                AssetDatabase.DeleteAsset(BuildingPath);
-                AssetDatabase.ImportAsset(AssetPath, ImportAssetOptions.ForceUpdate);
-            }
+            // In place, as the kit's faces are: a building file copied over the face read back without its new glyphs (2026-11-17T22:31Z).
+            KitFontAtlas.Keep(atlas, AssetPath);
         }
     }
 }

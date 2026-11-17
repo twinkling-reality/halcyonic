@@ -133,8 +133,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(drawn.Count > 0 && drawn.All(character => character.fontAsset == asset),
                     face + " drew a glyph from its fallback or none at all");
                 Require(label.textBounds.size.x > 0f, face + " has no bounds");
-                // Upright: no letter of the line, outside text included, is sheared, so each glyph's left edge stands plumb.
-                Require(drawn.All(character =>
+                // Upright: no letter of the line, outside text included, is sheared, so each glyph's left edge stands plumb. The title
+                // face's Glaze path slants a name of theirs on purpose (InstrumentFontAtlas' identity check), so it is not held to it.
+                if (face != "InstrumentType") Require(drawn.All(character =>
                 {
                     var corners = info.meshInfo[character.materialReferenceIndex].vertices;
                     return Mathf.Abs(corners[character.vertexIndex].x - corners[character.vertexIndex + 1].x) < 1e-5f;

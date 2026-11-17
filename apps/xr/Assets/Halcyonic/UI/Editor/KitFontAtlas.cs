@@ -65,7 +65,7 @@ namespace Halcyonic.XR.UI.Editor
                 if (atlas.TryAddCharacters(characters, out _))
                 {
                     atlas.atlasPopulationMode = AtlasPopulationMode.Static;
-                    Debug.Log("Halcyonic: kit faces: " + name + " holds " + atlas.characterTable.Count + " characters in a " + width + "x" + height + " atlas.");
+                    Debug.Log("Halcyonic: atlas: " + name + " holds " + atlas.characterTable.Count + " characters in a " + width + "x" + height + " atlas.");
                     return atlas;
                 }
                 UnityEngine.Object.DestroyImmediate(atlas.atlasTexture);
@@ -154,7 +154,16 @@ namespace Halcyonic.XR.UI.Editor
             atlas.atlasTexture.name = name + " Atlas";
             atlas.material.name = name + " Material";
             atlas.fallbackFontAssetTable = FallbacksOf(name);
-            var path = AssetPath(name);
+            Keep(atlas, AssetPath(name));
+        }
+
+        /// <summary>
+        /// Saves a built face at <paramref name="path"/>: in place over a face built before, so it keeps its asset and its .meta,
+        /// or as a new asset. The title face is saved the same way (InstrumentFontAtlas), since a file copied over it read back stale.
+        /// </summary>
+        public static void Keep(TMP_FontAsset atlas, string path)
+        {
+            var name = atlas.name;
             var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
             if (existing != null)
             {
@@ -175,7 +184,7 @@ namespace Halcyonic.XR.UI.Editor
                 UnityEngine.Object.DestroyImmediate(atlas);
                 return;
             }
-            var building = Resources + name + " building.asset";
+            var building = path.Substring(0, path.Length - ".asset".Length) + " building.asset";
             AssetDatabase.DeleteAsset(building);
             AssetDatabase.CreateAsset(atlas, building);
             AssetDatabase.AddObjectToAsset(atlas.atlasTexture, atlas);
