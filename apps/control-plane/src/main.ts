@@ -259,7 +259,9 @@ async function main(): Promise<void> {
             // The temporary folder Claude Agent's confinement makes for a run in this folder, by its own rule.
             runTemp: { 'claude-agent': confinedTempFolder(config.dataDir, directory) },
           }
-        : projectFolderOf(directory) !== directory
+        : // Only a recorded task copy (a workstream's copy, state own, at this directory): an unknown folder, or a
+          // project's own, reads as no copy and gets no answers (AUDIT3 S1).
+          copyOriginOf(directory) !== null
           ? {
               ...folderReads({ starterOf, originalOf, dataDir: config.dataDir }, directory),
               connectedCopy: true,
