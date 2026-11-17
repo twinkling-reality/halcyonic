@@ -75,6 +75,29 @@ public class NewWorkSafetyTests
     }
 
     [Test]
+    public void EveryRunOfTheirsHoldsOnlyFaceCharactersAndEveryCodeIsAMarkOfOurs()
+    {
+        // AUDIT3's TM1: the whole review's successor to "outside words show as printable ASCII". Whatever comes in, every run of theirs
+        // holds only characters a kit face draws, and every code point shown (‹U+…›) stands in a mark of ours, never in their text.
+        // The kit faces' own set (FIELD's KitFontAtlas.Characters, 2026-11-17): printable ASCII and nine marks, written out here on purpose.
+        bool InFace(char unit) => unit >= 0x20 && unit <= 0x7E || "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u00B7\u2212".IndexOf(unit) >= 0;
+        var hard = " lead\ttab\nnext\r\nCRLF 中🙂 Café \u202E\u200B\u0007 ‹U+0041› ↵ ⇥ \\u{41} “q” — … trail ";
+        var reviews = new[]
+        {
+            new NewWorkReview(hard, hard, hard, hard, "unknown", hard, hard, folder: hard),
+            new NewWorkReview("P\uD800", "T", "R\uDC00x", "M", "unknown", "ref", "\uFEFFstart\u00A0mid\u2028line"),
+        };
+        foreach (var review in reviews)
+            foreach (var item in review.Items)
+            {
+                foreach (var run in item.ValueRuns.Runs.Where(run => run.Theirs))
+                    Assert.That(run.Text.All(InFace), Is.True, item.Label + ": a run of theirs holds a character no face draws: " + run.Text);
+                foreach (var run in item.ValueRuns.Runs.Where(run => run.Text.Contains("‹U+")))
+                    Assert.That(run.Mark, Is.True, item.Label + ": a code point shown in a run that is not a mark of ours: " + run.Text);
+            }
+    }
+
+    [Test]
     public void NamesAreSpelledOnceNotThroughPlainFirst()
     {
         var root = new LocationRoot
