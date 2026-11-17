@@ -1186,7 +1186,8 @@ namespace Halcyonic.XR.UI
             // A question's words are the agent's; an approval's question is ours (Run Command?).
             Set(ask, bar.Band != null ? LineWords.Theirs(bar.Band) : LineWords.Ours(bar.Sentence!), false);
             ask.fontSize *= DialogWordsDp / RoomGeometry.TypeDp;
-            var asked = RoomCardView.Balanced(ask, wordsWidth, 8);
+            // At the title's 32 dp a long question takes more lines than the body's eight; never cut (F265, 34-question-long and -tall).
+            var asked = RoomCardView.Balanced(ask, wordsWidth, 16);
             var askHeight = Mathf.Max(RoomType.Scaled(RoomGeometry.LineDp), asked.Height);
 
             // The answers: the bar's card, at the words' width; an approval's command in mono, exact, its first eight lines.
