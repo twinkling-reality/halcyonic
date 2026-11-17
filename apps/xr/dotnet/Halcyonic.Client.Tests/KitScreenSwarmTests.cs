@@ -43,9 +43,21 @@ public class KitScreenSwarmTests
             var presented = CharacterPresenter.Present(state.Workstreams[agent.WorkstreamId], state, live: true);
             Assert.That(agent.State, Is.EqualTo(CharacterPresenter.TagWord(presented)), "the screen says the tag's own state: " + agent.WorkstreamId);
             Assert.That((agent.Task.Text, agent.Task.AllTheirs), Is.EqualTo(("Workstream " + agent.WorkstreamId, true)), "the task's name, theirs");
-            Assert.That(agent.Agent, Is.Not.Empty);
+            Assert.That(agent.Agent, Is.Not.Null.And.Not.Empty, "a task with a run names its own run's app");
         }
         Assert.That(screen.Agents.Single(agent => agent.WorkstreamId == "ws-3").State, Is.EqualTo(RoomStanding.Finished));
+    }
+
+    /// <summary>AUDIT2's 19:23Z MUST: a task with no run names no app, never another runtime's name or "Agent".</summary>
+    [Test]
+    public void ATaskWithNoRunNamesNoApp()
+    {
+        var state = StateWith(
+            (Samples.Workstream("ws-1", WorkstreamStatus.Running, "ex-1"), Samples.Execution("ex-1", "ws-1", ExecutionStatus.Running)),
+            (Samples.Workstream("ws-2", WorkstreamStatus.Created), null));
+        var screen = WorkspacePresentationState.ScreenOf(state.Projects.Values.Single(), state, barOpen: false);
+        Assert.That(screen.Agents.Single(agent => agent.WorkstreamId == "ws-2").Agent, Is.Null);
+        Assert.That(screen.Agents.Single(agent => agent.WorkstreamId == "ws-1").Agent, Is.Not.Null);
     }
 
     [Test]

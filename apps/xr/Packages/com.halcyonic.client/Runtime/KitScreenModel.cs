@@ -170,7 +170,7 @@ namespace Halcyonic.Client
     /// <summary>One agent's row on a swarm's project screen: its task, its agent app, its state, and whether it waits on the person.</summary>
     public sealed class KitScreenAgent
     {
-        public KitScreenAgent(string workstreamId, LineWords task, string agent, string state, bool needsYou)
+        public KitScreenAgent(string workstreamId, LineWords task, string? agent, string state, bool needsYou)
         {
             WorkstreamId = workstreamId;
             Task = task;
@@ -185,8 +185,8 @@ namespace Halcyonic.Client
         /// <summary>The task's name, theirs.</summary>
         public LineWords Task { get; }
 
-        /// <summary>The agent app's name, as the shelf's plate names it.</summary>
-        public string Agent { get; }
+        /// <summary>The agent app of the task's own run, as the shelf's plate names it; null for a task with no run yet (never a stand-in).</summary>
+        public string? Agent { get; }
 
         /// <summary>The task's state in StateLanguage's words, the tag's own (CharacterPresenter.TagWord).</summary>
         public string State { get; }

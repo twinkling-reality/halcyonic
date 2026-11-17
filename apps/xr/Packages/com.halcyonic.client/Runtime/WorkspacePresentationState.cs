@@ -835,9 +835,8 @@ namespace Halcyonic.Client
 
             var work = OrderWorkstreams(state.Workstreams.Values.Where(item => item.ProjectId == project.ProjectId)).FirstOrDefault();
             var execution = work != null ? state.CurrentExecution(work) : null;
-            var runtime = CaptureNames.AgentName(execution != null
-                ? (state.RuntimeOf(execution)?.DisplayName ?? execution.Runtime.DisplayName)
-                : (state.Runtimes.FirstOrDefault()?.DisplayName ?? "Agent"));
+            // The primary task's own run's app, or none (AUDIT2's 19:23Z MUST): only a check the run itself reported is credited to it.
+            var runtime = execution != null ? CaptureNames.AgentName(state.RuntimeOf(execution)?.DisplayName ?? execution.Runtime.DisplayName) : null;
             var stateWords = work != null
                 ? StateLanguage.LineWordOf(CharacterPresenter.Present(work, state, isLive))
                 : StateLanguage.WordOf(WorkState.NotStarted);
@@ -858,7 +857,7 @@ namespace Halcyonic.Client
                     ? KitMoment.StarterOnlyHost(KitCheckScope.Builds, checkedAt, CheckSteps.Of(hostCheck.Findings))
                     : KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: hostCheck.Findings.Passed, checkedAt, CheckSteps.Of(hostCheck.Findings));
             }
-            else if (execution?.LastTestRun is TestRunResultView agentTest)
+            else if (execution?.LastTestRun is TestRunResultView agentTest && runtime != null)
             {
                 lastCheck = KitMoment.AgentCheck(
                     runtime,
@@ -897,9 +896,8 @@ namespace Halcyonic.Client
             return tasks.Select(task =>
             {
                 var execution = state.CurrentExecution(task);
-                var agent = CaptureNames.AgentName(execution != null
-                    ? (state.RuntimeOf(execution)?.DisplayName ?? execution.Runtime.DisplayName)
-                    : (state.Runtimes.FirstOrDefault()?.DisplayName ?? "Agent"));
+                // The task's own run's app, or none: never another runtime's name or a stand-in for a task with no run (AUDIT2's 19:23Z MUST).
+                var agent = execution != null ? CaptureNames.AgentName(state.RuntimeOf(execution)?.DisplayName ?? execution.Runtime.DisplayName) : null;
                 var presented = CharacterPresenter.Present(task, state, isLive);
                 return new KitScreenAgent(task.WorkstreamId, LineWords.TheirName(task.Title), agent, CharacterPresenter.TagWord(presented),
                     task.Attention.Level == AttentionLevel.ActionRequired);
