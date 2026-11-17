@@ -104,12 +104,12 @@ namespace Halcyonic.Client
         public static LineWords? SaidWords(ActionReview review)
         {
             var said = CommandReview.Said(review);
-            if (said.Count == 1) return LineWords.Literal(said[0].Words);
+            if (said.Count == 1) return NewWorkReview.Drawn(said[0].Words);
             LineWords? words = null;
             foreach (var each in said)
             {
                 // The host's label through the one counted path a host line takes, never folded quietly here.
-                var one = LineWords.HostPlain((words == null ? "" : " ") + each.Label + ":") + LineWords.Literal(each.Words);
+                var one = LineWords.HostPlain((words == null ? "" : " ") + each.Label + ":") + NewWorkReview.Drawn(each.Words);
                 words = words == null ? one : words + one;
             }
             return words;
@@ -126,7 +126,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>A fact's value or an item's name: someone's own name shown exactly, as what the command acts on; else the host's words.</summary>
-        private static LineWords Words(string text, bool theirs) => theirs ? LineWords.Literal(text) : Host(text);
+        private static LineWords Words(string text, bool theirs) => theirs ? NewWorkReview.Drawn(text) : Host(text);
 
         /// <summary>
         /// The host's own words (a title, its line of what happens, a fact it names): upright, through the one counted path a host

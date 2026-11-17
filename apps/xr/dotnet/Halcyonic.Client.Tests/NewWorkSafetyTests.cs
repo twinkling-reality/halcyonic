@@ -35,10 +35,13 @@ public class NewWorkSafetyTests
             "中かな🙂 \\u{4E2D}\nsecond\tthird\u202E");
         var first = review.Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel);
         var shown = first.Value;
-        // AUDIT2's marks (21:48Z), the approval well's one rule: printable characters as written, hidden ones as marks of ours.
-        Assert.That(shown, Does.StartWith("中かな🙂 \\u{4E2D}↵\nsecond⇥third‹U+202E›"), "the person's words as written, a typed \\u{4E2D} as their text");
-        Assert.That(first.ValueRuns.Runs.Where(run => run.Mark).Select(run => run.Text), Is.EqualTo(new[] { "↵", "⇥", "‹U+202E›" }), "only what hides is a mark");
+        // AUDIT2's marks (21:48Z), the approval well's one rule, and FIELD's font check (21:5xZ): every kit face holds printable
+        // ASCII and nine marks, so a character none holds (CJK, emoji, é) shows by its code point, never as a missing glyph's box.
+        Assert.That(shown, Does.StartWith("‹U+4E2D›‹U+304B›‹U+306A›‹U+1F642› \\u{4E2D}↵\nsecond⇥third‹U+202E›"), "a typed \\u{4E2D} stays their text");
         Assert.That(first.ValueRuns.Runs.Where(run => run.Theirs).Select(run => run.Text), Has.Some.Contain("\\u{4E2D}"), "a typed marker stays their text, never a mark");
+        Assert.That(first.ValueRuns.Runs.Where(run => run.Theirs).Any(run => run.Text.Contains("‹U+")), Is.False, "every code point shown is a mark of ours");
+        var faced = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Café \u2014 “quoted” \u2026 done").Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel).Value;
+        Assert.That(faced, Is.EqualTo("Caf‹U+00E9› \u2014 “quoted” \u2026 done"), "é shows by code; a dash, quotes and an ellipsis every face holds stand as written");
     }
 
     [Test]

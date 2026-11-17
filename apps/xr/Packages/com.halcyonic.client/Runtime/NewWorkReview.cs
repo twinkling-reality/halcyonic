@@ -117,7 +117,8 @@ namespace Halcyonic.Client
     /// Values are text from outside: the person's own words, names from the Mac and from runtimes,
     /// given as they are, never already shown through <see cref="LabelText.Plain"/>, so nothing is
     /// spelled twice. They are drawn by the approval well's one rule (<see cref="LineWords.Literal"/>, AUDIT2's
-    /// marks of 2026-11-17T21:48Z): every printable character as written, a line break as ↵ with the line
+    /// marks of 2026-11-17T21:48Z): every printable character a kit face holds as written (any other, CJK, emoji
+    /// or é, by its code point, <see cref="Drawn"/>), a line break as ↵ with the line
     /// breaking after it, a tab as ⇥, a space at an edge as ·, and every other hidden character as its code
     /// point (‹U+202E›), each mark a run of Halcyonic's own, so typed marks stay the person's text; under the
     /// items, "↵ marks a new line." once, where a ↵ is drawn. Nothing is shortened: the pages together show
@@ -200,7 +201,7 @@ namespace Halcyonic.Client
             else if (folder != null) Add("Folder", folder, ReviewItemKind.Folder);
             if (startFrom != null) Add(StarterChoice.ReviewLabel, startFrom, ReviewItemKind.Starter);
             // A task with nothing to name it by is named in Halcyonic's own word, upright, never as if the person typed it (AUDIT2).
-            var named = title == NewWorkDraft.UnnamedTask && NewWorkDraft.NamesNothing(objective) ? LineWords.Ours(title) : LineWords.Literal(title);
+            var named = title == NewWorkDraft.UnnamedTask && NewWorkDraft.NamesNothing(objective) ? LineWords.Ours(title) : Drawn(title);
             items.Add(new ReviewItem("Task Name", named, ReviewItemKind.TaskName));
             Add("Agent App", runtime, ReviewItemKind.AgentApp);
             Add("Model", model, ReviewItemKind.Model);
@@ -213,6 +214,35 @@ namespace Halcyonic.Client
             foreach (var note in TaskWarnings.Of(objective)) items.Add(new ReviewItem(note, LineWords.None));
             // AUDIT2's key line (21:48Z), only where a line break's mark is drawn: what the mark means, once.
             if (items.Any(item => item.ValueRuns.Runs.Any(run => run.Mark && run.Text.Contains(LineWords.LineBreakMark)))) items.Add(new ReviewItem(LineBreakKey, LineWords.None));
+        }
+
+        /// <summary>
+        /// The characters every kit face holds (KitFontAtlas.Characters, an Editor list FIELD keeps, 2026-11-17T21:5xZ): printable
+        /// ASCII and these. Anything else would reach only the dynamic fallback, which draws no CJK or emoji, so it shows by code.
+        /// </summary>
+        internal const string FaceExtras = "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u00B7\u2212";
+
+        /// <summary>
+        /// Outside text as the review draws it: by the approval well's one rule (<see cref="LineWords.Literal"/>), each printable
+        /// character no kit face holds first given as its code point (‹U+4E2D›), so nothing ever draws as a missing glyph's box.
+        /// </summary>
+        internal static LineWords Drawn(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return LineWords.None;
+            var faced = new StringBuilder(text!.Length);
+            for (var index = 0; index < text.Length; index++)
+            {
+                var unit = text[index];
+                var paired = char.IsHighSurrogate(unit) && index + 1 < text.Length && char.IsLowSurrogate(text[index + 1]);
+                var codePoint = paired ? char.ConvertToUtf32(unit, text[index + 1]) : unit;
+                // What the well marks itself (white space, a hidden or lone character) goes on to it as it came.
+                var wellMarks = LabelText.IsWhiteSpace(codePoint) || LabelText.ShowsByCode(codePoint) || (!paired && char.IsSurrogate(unit));
+                var inFace = !paired && (unit >= 0x20 && unit <= 0x7E || FaceExtras.IndexOf(unit) >= 0);
+                if (wellMarks || inFace) faced.Append(text, index, paired ? 2 : 1);
+                else faced.Append(LabelText.CodePoint(codePoint));
+                if (paired) index++;
+            }
+            return LineWords.Literal(faced.ToString());
         }
 
         /// <summary>What the line break's mark means, under the items where one is drawn (AUDIT2 21:48Z): the same words as the approval's well.</summary>
@@ -261,7 +291,7 @@ namespace Halcyonic.Client
             && items.Zip(other.items, (mine, theirs) => mine.Text == theirs.Text).All(same => same);
 
         /// <summary>Whether the review shows <paramref name="value"/>, spelled as it spells it, under <paramref name="label"/>.</summary>
-        public bool Shows(string label, string value) => items.Any(item => item.Label == label && item.Value == LineWords.Literal(value).Text);
+        public bool Shows(string label, string value) => items.Any(item => item.Label == label && item.Value == Drawn(value).Text);
 
         /// <summary>Every line of every item has been drawn in the current layout.</summary>
         public bool AllDrawn => Paginated && drawn.All(lines => lines.All(line => line));
@@ -404,7 +434,7 @@ namespace Halcyonic.Client
         /// break as ↵, a tab as ⇥, an edge space as ·, any other hidden character as its code point), Halcyonic's words as written.
         /// </summary>
         private void Add(string label, LineWords value, ReviewItemKind kind, string? shownLabel = null) => items.Add(new ReviewItem(label,
-            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Literal(run.Text) : LineWords.Written(run.Text))), kind, shownLabel));
+            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? Drawn(run.Text) : LineWords.Written(run.Text))), kind, shownLabel));
 
     }
 }
