@@ -57,6 +57,23 @@ public sealed class RoomPanelCardsTests
     }
 
     [Test]
+    public void The_changes_line_counts_the_same_files_as_its_fact_and_one_file_reads_its_name_alone()
+    {
+        // AUDIT2 03:30Z MUST 1: "3 Files" over "golden-balloon.png and 3 more" named four files.
+        var paths = new[] { "art/golden-balloon.png", "index.html", "src/game.ts", "src/stars.ts" };
+        for (long total = 1; total <= 6; total++)
+        {
+            var line = RoomPanelCards.ChangesNamed(paths, total)!.Text;
+            var more = total == 1 ? 0 : long.Parse(line.Split(" and ")[1].Split(' ')[0]);
+            Assert.That(1 + more, Is.EqualTo(total), RoomAdd.Files(total) + " over " + line);
+        }
+        Assert.That(RoomPanelCards.ChangesNamed(paths, 1)!.Text, Is.EqualTo("golden-balloon.png"), "never \"and 0 more\"");
+        Assert.That(RoomPanelCards.ChangesNamed(new[] { "index.html" })!.Text, Is.EqualTo("index.html"), "the name in its own case");
+        Assert.That(RoomPanelCards.ChangesNamed(paths, 0), Is.Null);
+        Assert.That(RoomPanelCards.ChangesNamed(new string[0], 3), Is.Null);
+    }
+
+    [Test]
     public void The_result_is_the_tasks_name_over_its_check_and_its_count_as_slots()
     {
         var card = RoomPanelCards.Result(new RoomResult(false, true, false, true, Turn(Observed), Steps()), Task)!;

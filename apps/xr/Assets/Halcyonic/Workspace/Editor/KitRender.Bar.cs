@@ -1410,11 +1410,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         // The dialog's actions: one row inside the panel's foot, Meta's 12 mm apart, the main one last and the only accent; or, only
                         // where one row cannot fit the words' measure (the larger size, the most actions: AUDIT3's F1), the main one alone on the
-                        // foot's row and the others on a row over it, 12 mm clear of it.
+                        // foot's row and the others on a row over it, 12 mm clear of it. Measured on the dialog's own panel: the review's is
+                        // wider (the lead's 03:37Z: at Larger it stacks its presses inside the card, through this same layout).
                         var rows = drawn.GroupBy(button => Mathf.Round(button.transform.localPosition.y / Tolerance)).OrderBy(row => row.First().transform.localPosition.y).Select(row => row.ToList()).ToList();
                         var dialogMains = drawn.Where((button, index) => index < shown.Column.Count && shown.Column[index].Main).ToList();
                         Require(rows.Count == 1 || rows.Count == 2 && dialogMains.Count == 1 && rows[0].Count == 1 && ReferenceEquals(rows[0][0], dialogMains[0])
-                            && rows[1].Sum(button => button.Size.x + KitType.Units(SpatialKit.TargetGapDegrees)) + dialogMains[0].Size.x > RoomType.Units(RoomGeometry.PanelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp),
+                            && rows[1].Sum(button => button.Size.x + KitType.Units(SpatialKit.TargetGapDegrees)) + dialogMains[0].Size.x > panel.Size.x - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp),
                             "the dialog's actions stand in " + rows.Count + " rows, not one (or two only where one cannot fit, the main one alone at the foot)");
                         if (rows.Count == 2)
                         {

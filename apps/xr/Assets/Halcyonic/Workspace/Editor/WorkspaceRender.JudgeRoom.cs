@@ -19,6 +19,9 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>A file the recorded run changes, in its own case: drawn on the review's Changes line, never recased.</summary>
+        private const string RecordedFile = "index.html";
+
         /// <summary>Names a judge must not read on any frame, as JudgeWordsTests lists them.</summary>
         private static readonly string[] JudgeBrands =
         {
@@ -632,6 +635,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         var shown = label.GetParsedText();
                         if (shown.Contains(LineWords.Ellipsis) || shown.Contains("..."))
                             found.Add(PathOf(label.transform) + " cuts its words with an ellipsis: \"" + shown.Replace("\n", " ").Trim() + "\"");
+                        // A file's name is never recased (AUDIT2 03:30Z MUST 2: room-03 drew "Index.html"): the recorded run's file is
+                        // "index.html", read as drawn, the face's own casing included.
+                        var at = shown.IndexOf(RecordedFile, StringComparison.OrdinalIgnoreCase);
+                        if (at >= 0 && string.CompareOrdinal(shown, at, RecordedFile, 0, RecordedFile.Length) != 0)
+                            found.Add(PathOf(label.transform) + " recases the file's name: \"" + shown.Replace("\n", " ").Trim() + "\" (style " + label.fontStyle + ")");
                     }
                     // An approval's Approve is its one main action and carries the one accent, and only it on the bar (AUDIT 13:18Z: the
                     // kit render's 33-ask-tool draws it so; the live approval drew it plain, room-06 on 30fea4d72). Read in the chip as

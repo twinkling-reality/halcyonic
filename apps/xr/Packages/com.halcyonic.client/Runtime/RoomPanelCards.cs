@@ -23,14 +23,15 @@ namespace Halcyonic.Client
         public const string ChecksFailed = "Checks Failed";
 
         /// <summary>
-        /// The Changes fact's quiet line: the first changed file's name in the project, theirs, and how many more ("index.html and 3
-        /// more"); null where none was seen. Only the file's own name, never a folder or a disk path (AUDIT3's R3).
+        /// The Changes fact's quiet line: the first file's name in the project, theirs, and how many more ("index.html and 3 more");
+        /// null where none was seen. The count is the fact's own, so "3 Files" stands over "index.html and 2 more" and one file reads
+        /// its name alone (AUDIT2 03:30Z MUST 1). Only the file's own name, never a folder or a disk path (AUDIT3's R3).
         /// </summary>
-        public static LineWords? ChangesNamed(IReadOnlyList<RoomChange> changes, long? total = null)
+        public static LineWords? ChangesNamed(IReadOnlyList<string> paths, long? total = null)
         {
-            if (changes.Count == 0) return null;
-            var all = total is long counted && counted >= changes.Count ? counted : changes.Count;
-            var path = changes[0].Path;
+            var all = total ?? paths.Count;
+            if (paths.Count == 0 || all < 1) return null;
+            var path = paths[0];
             var name = path.Substring(path.LastIndexOfAny(new[] { '/', '\\' }) + 1);
             var first = LineWords.Theirs(name);
             return all == 1 ? first : first + LineWords.Ours(" and " + (all - 1).ToString(System.Globalization.CultureInfo.InvariantCulture) + " more");
@@ -96,7 +97,10 @@ namespace Halcyonic.Client
             // A check whose verdict is not known: said as such, with no mark of passed or failed (VRIFY, AUDIT2's words).
             else if (result.PartlyChecked) slots.Add(new RoomSlot(RoomKind.None, LineWords.Ours(KitMomentWords.PartlyChecked), label: ChecksTitle));
             // The files: the first the computer saw change, by its name in the project, and how many more (AUDIT2, AUDIT3 01:06Z).
-            var named = ChangesNamed(result.Changes, toAdd != null ? result.Add?.Count : result.FilesChanged);
+            // The line names a file the fact counts: the first waiting to be added under the files waiting, else the first seen to change.
+            var named = toAdd != null
+                ? result.Add is { Count: > 0 } add ? ChangesNamed(add.Paths, add.Count) : null
+                : ChangesNamed(result.Changes.Select(change => change.Path).ToList(), result.FilesChanged);
             if (toAdd is RoomSlot waiting) slots.Add(new RoomSlot(waiting.Kind, waiting.Value, waiting.Mono, waiting.Press ?? changes, ChangesTitle, named));
             else if (result.FilesChanged is long count) slots.Add(new RoomSlot(RoomKind.ToAdd, LineWords.Ours(RoomAdd.Files(count)), press: changes, label: ChangesTitle, line: named));
             // SCREENS's run start (FIELD's 1424Z words): a run the Mac says is not kept to its folder, and a task that is a plan.
