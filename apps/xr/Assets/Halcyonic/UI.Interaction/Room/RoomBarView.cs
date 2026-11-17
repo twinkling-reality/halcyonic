@@ -1027,7 +1027,7 @@ namespace Halcyonic.XR.UI
         {
             var label = mono ? measureRequest : measureBody;
             Set(label, words, mono);
-            KitType.Lay(label, RoomType.Units(panelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp), 400);
+            KitType.Lay(label, Measure(RoomType.Units(panelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp), mono), 400);
             var lines = Mathf.Max(1, label.textInfo.lineCount);
             // The measure holds no words once it has counted them, as Lines below: never drawn, and nothing reads it as shown
             // (F120: the spatial kit read its last words as the bar's, at 2.52 to 1).
@@ -1325,9 +1325,14 @@ namespace Halcyonic.XR.UI
             // One press width per row, the row's widest (AUDIT's 19:38Z (2); visionos-window-example.png's controls of one size), where
             // the presses then still fit the text column on one row or, the others over the main, on two; else each keeps its own, so
             // no press stands past the panel (JUDGE's 19:57Z Larger walk: Next drawn off the panel).
+            // One row before one width: where the own widths keep one row and the shared would make two, they keep their own (F297:
+            // the filmed review's presses stood on two lines).
             var shared = count > 0 ? cores.Take(count).Max(core => core.x) : 0f;
             var sharedOthers = order.Count(index => !bar.Column[index].Main) * (shared + targetGap);
-            if (count > 0 && (sharedOthers + (order.Any(index => bar.Column[index].Main) ? shared : -targetGap) <= wordsWidth + 1e-4f || sharedOthers - targetGap <= wordsWidth + 1e-4f))
+            var hasMain = order.Any(index => bar.Column[index].Main);
+            var sharedOneRow = sharedOthers + (hasMain ? shared : -targetGap) <= wordsWidth + 1e-4f;
+            var ownOneRow = order.Sum(index => cores[index].x) + Mathf.Max(0, count - 1) * targetGap <= wordsWidth + 1e-4f;
+            if (count > 0 && (sharedOneRow || (!ownOneRow && sharedOthers - targetGap <= wordsWidth + 1e-4f)))
                 for (var index = 0; index < count; index++) cores[index].x = shared;
             var othersWide = order.Where(index => !bar.Column[index].Main).Sum(index => cores[index].x + targetGap);
             var mainWide = order.Where(index => bar.Column[index].Main).Sum(index => cores[index].x);
@@ -1491,28 +1496,51 @@ namespace Halcyonic.XR.UI
             var rowCores = new Vector2[rowCount];
             var footTall = 0f;
             var footNeed = 0f;
-            var footSpacing = RoomType.Scaled(FootRowSpacingDp);
+            // Never under the targets' 12 mm apart, at either text size (F297 at Larger: 11.5 mm).
+            var footSpacing = Mathf.Max(RoomType.Scaled(FootRowSpacingDp), KitType.Units(SpatialKit.TargetGapDegrees) + RoomType.Units(0.5f));
             for (var index = 0; index < rowCount; index++)
             {
                 rowCores[index] = column[index].Measure(bar.Column[index].Words, 0f, bar.Column[index].Detail);
                 footTall = Mathf.Max(footTall, Mathf.Max(RoomType.Units(RoomButton.HeightDp), rowCores[index].y));
                 footNeed += rowCores[index].x + (index > 0 ? footSpacing : 0f);
             }
-            // One width, the row's widest, where the row then still fits the panel's words (AUDIT's 19:38Z (2)).
+            // One width, the row's widest, where the row then still fits the panel's words (AUDIT's 19:38Z (2)). A plain foot never widens
+            // its panel (it keeps its 440 dp and the bar its envelope): where one row does not fit, the others stand on a row of their own
+            // over the main action's, both right-aligned, as the dialog's (LayDialog); where the others alone do not fit, the column.
+            var footTwoRows = false;
+            var footMainNeed = 0f;
             if (plainFoot && rowCount > 0)
             {
+                var room = panelWidth - 2f * pad + 1e-4f;
                 var shared = rowCores.Max(core => core.x);
                 var sharedNeed = rowCount * shared + (rowCount - 1) * footSpacing;
-                if (sharedNeed <= panelWidth - 2f * pad + 1e-4f)
+                var mains = Enumerable.Range(0, rowCount).Where(index => bar.Column[index].Main).ToList();
+                var others = Enumerable.Range(0, rowCount).Where(index => !bar.Column[index].Main).ToList();
+                float Need(IEnumerable<int> which, float? width) => which.Sum(index => width ?? rowCores[index].x) + Mathf.Max(0, which.Count() - 1) * footSpacing;
+                if (sharedNeed <= room)
                 {
                     for (var index = 0; index < rowCount; index++) rowCores[index].x = shared;
                     footNeed = sharedNeed;
+                }
+                else if (footNeed > room && mains.Count > 0 && others.Count > 0 && Need(others, shared) <= room && Need(mains, shared) <= room)
+                {
+                    for (var index = 0; index < rowCount; index++) rowCores[index].x = shared;
+                    footTwoRows = true;
+                    footNeed = Need(others, null);
+                    footMainNeed = Need(mains, null);
+                }
+                else if (footNeed > room && !(mains.Count > 0 && others.Count > 0 && Need(others, null) <= room && Need(mains, null) <= room)) footNeed = float.PositiveInfinity;
+                else if (footNeed > room)
+                {
+                    footTwoRows = true;
+                    footMainNeed = Need(mains, null);
+                    footNeed = Need(others, null);
                 }
             }
             FootNeed = footNeed + 2f * pad;
             // Where one line cannot hold them inside the bar's envelope (the larger text), they stand in the column beside the panel,
             // as every other page's do (the lead's ruling, 2026-11-17).
-            var footRow = footAsked && FootNeed <= Largest.x + 1e-4f;
+            var footRow = footAsked && (plainFoot ? FootNeed <= panelWidth + 1e-4f : FootNeed <= Largest.x + 1e-4f);
             if (!footRow) rowCount = 0;
             var widened = footRow && footNeed + 2f * pad > panelWidth;
             if (widened) panelWidth = Mathf.Min(footNeed + 2f * pad, Largest.x);
@@ -1590,8 +1618,9 @@ namespace Halcyonic.XR.UI
             var panelHeight = bar.Wide ? 0f : pad + bodyHeight + (barHeight > 0f ? RoomType.Scaled(RoomGeometry.BodyFootDp) + barHeight + inset : pad);
             // The actions in one row at the panel's foot, inside its glass (tile f1), where the bar asks and the panel stands whole; under
             // the sentence bar where one stands, which then rises over the row by the row, its gap and the panel's pad.
-            var lift = footRow && barHeight > 0f ? RoomType.Scaled(FootRowGapDp) + footTall + pad - inset : 0f;
-            if (footRow) panelHeight += barHeight > 0f ? lift : RoomType.Scaled(FootRowGapDp) + footTall;
+            var footBlock = footTwoRows && footRow ? 2f * footTall + footSpacing : footTall;
+            var lift = footRow && barHeight > 0f ? RoomType.Scaled(FootRowGapDp) + footBlock + pad - inset : 0f;
+            if (footRow) panelHeight += barHeight > 0f ? lift : RoomType.Scaled(FootRowGapDp) + footBlock;
             ActionsAtFoot = footRow;
 
             // The column: the lowest action's core stands on the panel's foot line as DESIGN's page stands it (its target reaches
@@ -1683,7 +1712,7 @@ namespace Halcyonic.XR.UI
             if (bar.Field != null)
             {
                 // Over the sentence bar and the foot row, so the field never takes a press meant for an action.
-                var fieldHeight = panelHeight - (barHeight > 0f ? barHeight + inset + lift : footRow ? footTall + pad + RoomType.Scaled(FootRowGapDp) / 2f : 0f);
+                var fieldHeight = panelHeight - (barHeight > 0f ? barHeight + inset + lift : footRow ? footBlock + pad + KitType.Units(SpatialKit.TargetGapDegrees) + RoomType.Units(0.5f) : 0f);
                 var fieldWidth = Mathf.Min(panelWidth, panelWidth + gap - KitType.Units(SpatialKit.TargetGapDegrees));
                 field.transform.localPosition = new Vector3(-panelWidth / 2f + fieldWidth / 2f, top - fieldHeight / 2f, -RoomType.Units(0.5f));
                 field.Resize(new Vector2(fieldWidth, Mathf.Max(fieldHeight, RoomType.Units(RoomButton.HeightDp))));
@@ -1729,11 +1758,17 @@ namespace Halcyonic.XR.UI
             var footOrder = Enumerable.Range(0, rowCount).ToList();
             if (plainFoot) footOrder = footOrder.OrderBy(index => bar.Column[index].Main ? 2 : bar.Column[index].Place == KitPlace.Close ? 0 : 1).ToList();
             var rowX = plainFoot ? left + panelWidth - pad - footNeed : left + pad;
+            var mainX = left + panelWidth - pad - footMainNeed;
             foreach (var index in footOrder)
             {
                 var action = bar.Column[index];
-                var centre = new Vector2(rowX + rowCores[index].x / 2f, foot + pad + footTall / 2f);
-                rowX += rowCores[index].x + footSpacing;
+                // Two rows: the others over the main action's row, each right-aligned on the words' right edge.
+                var onMainRow = footTwoRows && action.Main;
+                var x = onMainRow ? mainX : rowX;
+                var y = foot + pad + footTall / 2f + (footTwoRows && !action.Main ? footTall + footSpacing : 0f);
+                var centre = new Vector2(x + rowCores[index].x / 2f, y);
+                if (onMainRow) mainX += rowCores[index].x + footSpacing;
+                else rowX += rowCores[index].x + footSpacing;
                 var button = column[index];
                 button.Quiet = false;
                 if (plainFoot)

@@ -1027,8 +1027,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(bar.Column.Count(button => button.gameObject.activeSelf) == 1 && shown.Column.Count == 1 && shown.Column[0].Place == KitPlace.Stop
                         && stop.LookNow() == RoomButtonLook.Rest, "Stop does not stand alone as a rest action");
                     Whole(stop.Words, "Stop's words");
-                    Require(Mathf.Abs(stop.transform.localPosition.y - stop.Core.y / 2f - bar.Foot) < Tolerance, "Stop's core does not stand on the foot line");
-                    Require(Mathf.Abs(stop.transform.localPosition.x - stop.Core.x / 2f - (bar.PanelRight + RoomType.Units(RoomGeometry.PairGapDp))) < Tolerance, "Stop does not stand where the column stands");
+                    if (bar.Panel.gameObject.activeSelf)
+                    {
+                        // With the steps' panel standing, Stop stands inside its foot on the words' right edge (the kit pass at 9 (1);
+                        // visionos-window-example.png: the window's control inside the window), never loose beside it.
+                        var stepsRight = bar.Panel.transform.localPosition.x + bar.Panel.Size.x / 2f - RoomType.Scaled(RoomGeometry.PanelPadDp);
+                        var stepsFoot = bar.Panel.transform.localPosition.y - bar.Panel.Size.y / 2f;
+                        Require(Mathf.Abs(stop.transform.localPosition.x + stop.Core.x / 2f - stepsRight) < RoomType.Units(0.5f)
+                            && stop.transform.localPosition.y - stop.Core.y / 2f >= stepsFoot - 1e-3f, "Stop does not stand inside the steps panel's foot, on its words' right edge");
+                    }
+                    else
+                    {
+                        Require(Mathf.Abs(stop.transform.localPosition.y - stop.Core.y / 2f - bar.Foot) < Tolerance, "Stop's core does not stand on the foot line");
+                        Require(Mathf.Abs(stop.transform.localPosition.x - stop.Core.x / 2f - (bar.PanelRight + RoomType.Units(RoomGeometry.PairGapDp))) < Tolerance, "Stop does not stand where the column stands");
+                    }
                     }
                     var unit = RoomType.Units(1f);
                     if (!watching && !listing)
@@ -1534,13 +1546,19 @@ namespace Halcyonic.XR.Workspace.Editor
                         foreach (var button in drawn)
                             Require(button.transform.localPosition.y - button.Core.y / 2f >= footBottom - 1e-3f && button.transform.localPosition.x - button.Core.x / 2f >= footLeft - 1e-3f
                                 && button.transform.localPosition.x + button.Core.x / 2f <= footRight + 1e-3f, button.Words.text + " stands outside its panel's foot");
-                        Require(drawn.Select(button => button.transform.localPosition.y).Max() - drawn.Select(button => button.transform.localPosition.y).Min() < RoomType.Units(0.5f),
-                            "the panel's foot actions do not stand in one row");
-                        for (var index = 1; index < byX.Count; index++)
-                            Require((byX[index].transform.localPosition.x - byX[index].Core.x / 2f) - (byX[index - 1].transform.localPosition.x + byX[index - 1].Core.x / 2f) >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f,
-                                "the foot's actions stand under 12 mm apart: " + byX[index - 1].Words.text + ", " + byX[index].Words.text);
-                        Require(Mathf.Abs(byX[byX.Count - 1].transform.localPosition.x + byX[byX.Count - 1].Core.x / 2f - (footRight - pad)) < RoomType.Units(0.5f),
-                            "the foot's row does not end on the words' right edge");
+                        // One row, or (where one does not fit the panel's 440 dp) the others on a row over the main action's, as the dialog's.
+                        var footRows = drawn.GroupBy(button => Mathf.Round(button.transform.localPosition.y / RoomType.Units(0.5f))).OrderBy(row => row.Key)
+                            .Select(row => row.OrderBy(button => button.transform.localPosition.x).ToList()).ToList();
+                        Require(footRows.Count <= 2, "the panel's foot actions stand on " + footRows.Count + " rows");
+                        foreach (var footLine in footRows)
+                        {
+                            for (var index = 1; index < footLine.Count; index++)
+                                Require((footLine[index].transform.localPosition.x - footLine[index].Core.x / 2f) - (footLine[index - 1].transform.localPosition.x + footLine[index - 1].Core.x / 2f) >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f,
+                                    "the foot's actions stand under 12 mm apart: " + footLine[index - 1].Words.text + ", " + footLine[index].Words.text);
+                            Require(Mathf.Abs(footLine[footLine.Count - 1].transform.localPosition.x + footLine[footLine.Count - 1].Core.x / 2f - (footRight - pad)) < RoomType.Units(0.5f),
+                                "the foot's row does not end on the words' right edge");
+                        }
+                        byX = footRows[0];
                         var footMains = drawn.Where((button, index) => index < shown.Column.Count && shown.Column[index].Main).ToList();
                         Require(footMains.Count <= 1 && (footMains.Count == 0 || ReferenceEquals(byX[byX.Count - 1], footMains[0])), "the foot's main action is not the last in its row");
                         if (bar.Sentence.gameObject.activeInHierarchy && bar.Sentence.text.Length > 0)
