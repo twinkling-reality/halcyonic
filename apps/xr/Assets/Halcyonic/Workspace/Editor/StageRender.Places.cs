@@ -108,9 +108,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     var tags = views.Select(each => each.Tag.Tag).ToList();
                     if (tags.Any(tag => tag == null)) { failures.Add(project + ": a character stands with no tag"); continue; }
                     var seenTags = tags.Select(tag => Seen(TagCorners(tag!))).ToList();
-                    // FIELD's forms: up to three stand in one row at the longest names, at both sizes; a deeper stack is no form of the sheet's.
-                    if (rowMost < Math.Min(views.Count, 3))
-                        failures.Add(project + ": " + views.Count + " stand in rows of " + rowMost + ", not the sheet's one row of up to three");
+                    // The row is FIELD's rule's own answer for the tags as drawn (PlacePitch.RowMost: as many as the span holds with its outer tags
+                    // inside it), never fewer; each tag's drawn width and its bound are said, for FIELD's sheet.
+                    var drawnDegrees = tags.Select(tag => Seen(TagCorners(tag!)).width).ToList();
+                    var ruleRow = Math.Min(PlacePitch.RowMost(drawnDegrees.Max(), PlacePitch.DegreesOf(CharacterStage.BodyWidth * AgentShelfDraft.Scale, bearing.Distance)), PlaceRule.Default.FullMost);
+                    if (rowMost < ruleRow) failures.Add(project + ": " + views.Count + " stand in rows of " + rowMost + " where its tags as drawn let " + ruleRow + " stand");
+                    Debug.Log("Halcyonic: places: " + variant + " " + project + " tags drawn " + string.Join(", ", drawnDegrees.Select(Degrees)) + " degrees wide, bounds "
+                        + string.Join(", ", views.Select(each => Degrees(each.View.TagMostDegrees ?? 0f))) + ".");
                     // The type's size as seen: one tag unit's angle at the tag's distance (its words wrap to more or fewer lines, so its height varies).
                     for (var task = 0; task < tags.Count; task++)
                         tagHeights.Add((bearing.Ring, task >= rowMost, project + " " + (task + 1),
