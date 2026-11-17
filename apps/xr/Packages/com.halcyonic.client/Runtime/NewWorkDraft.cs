@@ -200,11 +200,25 @@ namespace Halcyonic.Client
         private static readonly char[] LeftAtACut = { ' ', ',', ';', ':', '-', (char)0x2013, (char)0x2014 };
 
         /// <summary>The title Halcyonic gives a task made from <paramref name="text"/>, the person's own words.</summary>
-        public static string TitleOf(string? text)
+        public static string TitleOf(string? text) => TitleOf(text, out _);
+
+        /// <summary>
+        /// Whether <paramref name="text"/> holds nothing to name its task by, so its title is Halcyonic's
+        /// own <see cref="UnnamedTask"/>, never words the person typed.
+        /// </summary>
+        public static bool NamesNothing(string? text)
         {
+            TitleOf(text, out var unnamed);
+            return unnamed;
+        }
+
+        private static string TitleOf(string? text, out bool unnamed)
+        {
+            unnamed = false;
             var line = FirstLine(text ?? "");
+            unnamed = line == null;
             if (line == null) return UnnamedTask;
-            var sentence = FirstSentence(string.Join(" ", Array.ConvertAll(line.Split(' '), WithoutQuery)));
+            var sentence = FirstSentence(string.Join(" ", Array.ConvertAll(line.Split(' '), WithoutSecrets)));
             if (CharactersOf(sentence).Count <= MadeTitleLength) return sentence;
             var words = sentence.Split(' ');
             if (CharactersOf(words[0]).Count > MadeTitleLength) return EndOf(words[0]);
@@ -216,7 +230,8 @@ namespace Halcyonic.Client
                 title = longer;
             }
             var kept = title.TrimEnd(LeftAtACut);
-            return kept.Length == 0 ? UnnamedTask : kept;
+            unnamed = kept.Length == 0;
+            return unnamed ? UnnamedTask : kept;
         }
 
         /// <summary>
@@ -272,12 +287,28 @@ namespace Halcyonic.Client
             return null;
         }
 
-        /// <summary>A link without its query or fragment, which often hold a token.</summary>
-        private static string WithoutQuery(string word)
+        private static readonly char[] HostEnds = { '/', '?', '#' };
+        private static readonly char[] QueryStarts = { '?', '#' };
+
+        /// <summary>
+        /// An address (a word holding "://", or one whose part before its first "/" holds a dot) without
+        /// the parts that often hold a token: a user before its host, its query and fragment.
+        /// </summary>
+        private static string WithoutSecrets(string word)
         {
-            if (word.IndexOf("://", StringComparison.Ordinal) < 0) return word;
-            var at = word.IndexOfAny(new[] { '?', '#' });
-            return at < 0 ? word : word.Substring(0, at);
+            var scheme = word.IndexOf("://", StringComparison.Ordinal);
+            var from = scheme < 0 ? 0 : scheme + 3;
+            if (scheme < 0)
+            {
+                var slash = word.IndexOf('/');
+                if (slash <= 0 || word.IndexOf('.', 0, slash) < 0) return word;
+            }
+            var rest = word.Substring(from);
+            var hostEnd = rest.IndexOfAny(HostEnds);
+            var user = (hostEnd < 0 ? rest : rest.Substring(0, hostEnd)).LastIndexOf('@');
+            if (user >= 0) rest = rest.Substring(user + 1);
+            var query = rest.IndexOfAny(QueryStarts);
+            return word.Substring(0, from) + (query < 0 ? rest : rest.Substring(0, query));
         }
 
         /// <summary>The first sentence, ending at ". ", "? " or "! ", never at an abbreviation's stop.</summary>

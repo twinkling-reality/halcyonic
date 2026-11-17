@@ -195,7 +195,9 @@ namespace Halcyonic.Client
             }
             else if (folder != null) Add("Folder", folder, ReviewItemKind.Folder);
             if (startFrom != null) Add(StarterChoice.ReviewLabel, startFrom, ReviewItemKind.Starter);
-            items.Add(new ReviewItem("Task Name", LineWords.Shown(Safe(title)), ReviewItemKind.TaskName));
+            // A task with nothing to name it by is named in Halcyonic's own word, upright, never as if the person typed it (AUDIT2).
+            var named = title == NewWorkDraft.UnnamedTask && NewWorkDraft.NamesNothing(objective) ? LineWords.Ours(title) : LineWords.Shown(Safe(title));
+            items.Add(new ReviewItem("Task Name", named, ReviewItemKind.TaskName));
             Add("Agent App", runtime, ReviewItemKind.AgentApp);
             Add("Model", model, ReviewItemKind.Model);
             if (level is LineWords asks) Add("Level", asks, ReviewItemKind.Level);

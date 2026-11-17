@@ -16,10 +16,10 @@ import { admitCommand, startOptionsRefusal } from '@halcyonic/domain';
 import type { ControlPlane } from './control-plane.ts';
 import { answersInConnectedCopy, answersOwnWork } from './host-answers.ts';
 import { cleanWords, type GivenValue } from './prepare.ts';
-import { taskTitleOf } from './task-title.ts';
 import { reviewDigest } from './review.ts';
 import { saidIn } from './reviews.ts';
 import { readRuntimeModels } from './runtime-models.ts';
+import { taskTitleOf } from './task-title.ts';
 
 /**
  * The level for a confined run whose own work the host answers in a project that has an original (a VR version's):
@@ -317,16 +317,11 @@ export async function startReview(
   const created = before.find(
     (each): each is CommandOf<'project.create'> => each.command_type === 'project.create',
   );
+  const task = before.find(
+    (each): each is CommandOf<'workstream.create'> => each.command_type === 'workstream.create',
+  );
   const project =
-    created === undefined
-      ? plane.projection.project(
-          (
-            before.find((each) => each.command_type === 'workstream.create') as
-              | CommandOf<'workstream.create'>
-              | undefined
-          )?.payload.project_id ?? '',
-        )
-      : undefined;
+    created === undefined ? plane.projection.project(task?.payload.project_id ?? '') : undefined;
   const location = created?.payload.location ?? null;
   // A starter by the title it declares, as the starters list shows it; its id where it no longer says one.
   const starter =
@@ -472,8 +467,14 @@ export async function startReview(
   // An existing folder whose project was taken off the list brings that project back, with its own name (ADR 0063):
   // the card says so, never that it makes one, and the name typed is not said, since it is not used.
   const back = location?.kind === 'existing_folder' ? returning(plane, location) : null;
+  // The task's name where it is not the whole idea, so nothing sent goes unshown (AUDIT2, 2026-11-17).
+  const named =
+    task === undefined || task.payload.title === run.instruction
+      ? []
+      : [{ label: 'Task Name', words: task.payload.title }];
   const said = [
     ...(created === undefined || back !== null ? [] : saidIn(created)),
+    ...named,
     ...saidIn(command),
   ];
   const what_happens =

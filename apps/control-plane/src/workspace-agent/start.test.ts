@@ -382,6 +382,11 @@ test('an existing project takes a new task and its run, two commands, its own fo
   const idea =
     'Add a map of the whole coast with every harbour marked. Then show the tides for each one, by the hour.';
   const long = await s.press({ instruction: idea }, {}, projectId);
+  // The card names the task where its name is not the whole idea, so nothing sent goes unshown.
+  assert.deepEqual(long.step.proposal?.said, [
+    { label: 'Task Name', words: 'Add a map of the whole coast with every harbour marked.' },
+    { label: 'Instruction', words: idea },
+  ]);
   s.confirm(long.id, long.step);
   await settle();
   const made = s.step(long.id, long.step.step_id).made;

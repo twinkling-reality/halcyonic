@@ -143,5 +143,35 @@
     "name": "only spaces",
     "text": "   \n  ",
     "title": "New Task"
+  },
+  {
+    "name": "a link's user and token are dropped, its scheme and host kept",
+    "text": "Fix https://x-access-token:ghp_abc@github.com/o/r",
+    "title": "Fix https://github.com/o/r"
+  },
+  {
+    "name": "a link's user and query are dropped together",
+    "text": "Clone https://user@github.com/o/r?x=1 today",
+    "title": "Clone https://github.com/o/r today"
+  },
+  {
+    "name": "an address with no scheme loses its query",
+    "text": "Fix github.com/o/r?token=abc now",
+    "title": "Fix github.com/o/r now"
+  },
+  {
+    "name": "an address with no scheme loses its user and token",
+    "text": "Pull user:tok@github.com/o/r first",
+    "title": "Pull github.com/o/r first"
+  },
+  {
+    "name": "an email address stays as typed",
+    "text": "Mail me@example.com the build",
+    "title": "Mail me@example.com the build"
+  },
+  {
+    "name": "an at sign in a link's path stays",
+    "text": "Open https://npmjs.com/package/@scope/name",
+    "title": "Open https://npmjs.com/package/@scope/name"
   }
 ]

@@ -9,8 +9,9 @@
  *    a form feed, U+0085, U+2028 or U+2029, so no title spans lines.
  * 2. In it, control, format and unpaired surrogate code points are dropped, a tab and every space
  *    separator is a space, spaces run together are one, and none stands at either end.
- * 3. A link (a word holding "://") loses its query and its fragment, "?" or "#" on, which often
- *    hold a token.
+ * 3. An address (a word holding "://", or one whose part before its first "/" holds a dot) loses
+ *    what often holds a token: a user and password before its host ("x-access-token:...@"), and
+ *    its query and fragment, "?" or "#" on. An "@" after the host, as in a path, stays.
  * 4. The first sentence, ending at ". ", "? " or "! ", never at the stop of "e.g.", "i.e.", "vs."
  *    or "cf.", is the title when it is 60 characters or fewer.
  * 5. Otherwise its first words up to 60 characters, cut only between words, with any comma,
@@ -39,7 +40,7 @@ const LEFT_AT_A_CUT = new Set([',', ';', ':', '-', '\u2013', '\u2014']);
 export function taskTitleOf(text: string): string {
   const line = firstLine(text);
   if (line === null) return UNNAMED_TASK;
-  const sentence = firstSentence(line.split(' ').map(withoutQuery).join(' '));
+  const sentence = firstSentence(line.split(' ').map(withoutSecrets).join(' '));
   if (charactersOf(sentence).length <= MADE_TITLE_LENGTH) return sentence;
   const words = sentence.split(' ');
   const first = words[0] as string;
@@ -84,10 +85,20 @@ function firstLine(text: string): string | null {
   return null;
 }
 
-function withoutQuery(word: string): string {
-  if (!word.includes('://')) return word;
-  const at = word.search(/[?#]/);
-  return at === -1 ? word : word.slice(0, at);
+/** An address without the parts that often hold a token: a user before its host, its query and fragment. */
+function withoutSecrets(word: string): string {
+  const scheme = word.indexOf('://');
+  const from = scheme === -1 ? 0 : scheme + 3;
+  if (scheme === -1) {
+    const slash = word.indexOf('/');
+    if (slash <= 0 || !word.slice(0, slash).includes('.')) return word;
+  }
+  let rest = word.slice(from);
+  const hostEnd = rest.search(/[/?#]/);
+  const user = (hostEnd === -1 ? rest : rest.slice(0, hostEnd)).lastIndexOf('@');
+  if (user !== -1) rest = rest.slice(user + 1);
+  const query = rest.search(/[?#]/);
+  return word.slice(0, from) + (query === -1 ? rest : rest.slice(0, query));
 }
 
 function firstSentence(line: string): string {

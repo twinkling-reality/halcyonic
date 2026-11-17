@@ -1033,8 +1033,11 @@ launch/return, process recreation and current-frame action behavior need separat
   (`NewWorkDraft.TitleOf`, `apps/control-plane/src/core/task-title.ts`), and both suites read one table
   of cases (`fixtures/titles/cases.json`): the first sentence when it is 60 characters or fewer, else
   its first words to 60, cut only between words; a first word longer than 60 alone (a path or a link)
-  keeps its end; a link loses its query; a line break ends the title; no ellipsis is ever added; words
-  with nothing to name the task by give "New Task". A character is one the person sees, never split. The model's opaque reference goes back unchanged. When the list
+  keeps its end; an address loses a user and password before its host and its query, which often
+  hold a token; a line break ends the title; no ellipsis is ever added; words with nothing to name
+  the task by give "New Task", which the review draws as Halcyonic's own word (`NamesNothing`). A
+  character is one the person sees, never split. The plane's start card names the task too, as a
+  Task Name row of the person's words, where its name is not the whole idea. The model's opaque reference goes back unchanged. When the list
   arrives, it keeps the models served on this Mac first, in the runtime's order, then the rest
   (`Elsewhere`): OpenCode lists hosted models before local ones, and in the fifth headset session
   a hosted model at the top of the list was chosen. A model on this Mac is chosen for the person

@@ -57,6 +57,19 @@ public class NewWorkSafetyTests
     }
 
     [Test]
+    public void ATaskWithNothingToNameItByIsNamedInHalcyonicsOwnWordAndATypedNewTaskStaysTheirs()
+    {
+        var unnamed = new NewWorkDraft(new CommandFactory(new ClientInfo { Name = "test" })) { Objective = "\u200B\u200B" };
+        Assert.That(unnamed.Title, Is.EqualTo(NewWorkDraft.UnnamedTask));
+        var ours = new NewWorkReview("Project", unnamed.Title, "Runtime", "Model", "unknown", "ref", unnamed.Objective)
+            .Items.Single(item => item.Label == "Task Name").ValueRuns;
+        Assert.That(ours.AnyTheirs, Is.False, "our word, upright");
+        var typed = new NewWorkReview("Project", "New Task", "Runtime", "Model", "unknown", "ref", "New Task")
+            .Items.Single(item => item.Label == "Task Name").ValueRuns;
+        Assert.That(typed.AllTheirs, Is.True, "the person's own words, leaning, though they read the same");
+    }
+
+    [Test]
     public void NamesAreSpelledOnceNotThroughPlainFirst()
     {
         var root = new LocationRoot
