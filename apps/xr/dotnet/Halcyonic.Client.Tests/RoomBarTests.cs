@@ -595,8 +595,8 @@ public class RoomBarTests
         var asked = AskedWith(Input("text", " one\n\ttwo‮three "), Input("old", "\\u{202E} stays"));
         Assert.That(Kinds(asked.Body), Is.EqualTo(new[]
         {
-            ("ours", "text\n"), ("mark", "·"), ("theirs", "one"), ("mark", "↵"), ("ours", "\n"), ("mark", "⇥"), ("theirs", "two"), ("mark", "‹U+202E›"),
-            ("theirs", "three"), ("mark", "·"), ("ours", "\nold\n"), ("theirs", "\\u{202E} stays"),
+            ("ours", "text\n"), ("mark", "‹U+0020›"), ("theirs", "one"), ("mark", "↵"), ("ours", "\n"), ("mark", "⇥"), ("theirs", "two"), ("mark", "‹U+202E›"),
+            ("theirs", "three"), ("mark", "‹U+0020›"), ("ours", "\nold\n"), ("theirs", "\\u{202E} stays"),
         }), "a raw control is still marked by its code point, as a guard; an older event's escape text is the agent's text");
         Assert.That(Kinds(asked.Description!), Is.EqualTo(new[] { ("ours", "↵ marks a new line.") }), "Halcyonic's key line, where a ↵ is drawn");
     }
@@ -618,7 +618,7 @@ public class RoomBarTests
     {
         var workspace = Asking(new ToolUseSubject { ToolName = "Bash", Summary = "Run the tests in the app", Command = Bare(" cd app\n\tpnpm test ") });
         var (asked, confirming, line) = AskedAndConfirming(workspace);
-        var well = new[] { ("mark", "·"), ("theirs", "cd app"), ("mark", "↵"), ("ours", "\n"), ("mark", "⇥"), ("theirs", "pnpm test"), ("mark", "·") };
+        var well = new[] { ("mark", "‹U+0020›"), ("theirs", "cd app"), ("mark", "↵"), ("ours", "\n"), ("mark", "⇥"), ("theirs", "pnpm test"), ("mark", "‹U+0020›") };
         foreach (var bar in new[] { asked, confirming })
         {
             Assert.That(bar.Mono, Is.True);

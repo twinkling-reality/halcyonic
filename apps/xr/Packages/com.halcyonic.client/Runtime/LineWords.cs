@@ -166,10 +166,10 @@ namespace Halcyonic.Client
         public const string TabMark = "⇥";
 
         /// <summary>
-        /// The mark of a space a literal well would not show, at either end of its text or just before a line break: a middle dot,
-        /// written by its code so no scan mistakes the mark for facts joined by a dot.
+        /// The mark of a space a literal well would not show, at either end of its text or just before a line break: its code point,
+        /// the host's own form (AGENTS' dfae45f5b, AUDIT2), since the host never escapes a literal middle dot and one would read alike.
         /// </summary>
-        public const string SpaceMark = "\u00B7";
+        public const string SpaceMark = "\u2039U+0020\u203A";
 
         /// <summary>
         /// Text whose every character can change what happens, as a command or a tool's input a person approves, for a well that

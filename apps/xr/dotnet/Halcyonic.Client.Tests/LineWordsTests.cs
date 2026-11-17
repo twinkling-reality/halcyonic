@@ -329,10 +329,10 @@ public class LineWordsTests
     {
         Assert.That(Kinds(LineWords.Literal("  a\tb \nc  d ")), Is.EqualTo(new[]
         {
-            ("mark", "··"), ("theirs", "a"), ("mark", "⇥"), ("theirs", "b"), ("mark", "·↵"), ("ours", "\n"), ("theirs", "c  d"), ("mark", "·"),
+            ("mark", "‹U+0020›‹U+0020›"), ("theirs", "a"), ("mark", "⇥"), ("theirs", "b"), ("mark", "‹U+0020›↵"), ("ours", "\n"), ("theirs", "c  d"), ("mark", "‹U+0020›"),
         }), "a space before a line break or at an end shows; spaces between words stay as written");
         Assert.That(LineWords.Literal("a\nb").Text, Is.EqualTo("a↵\nb"), "the line breaks after its mark");
-        Assert.That(Kinds(LineWords.Literal("   ")), Is.EqualTo(new[] { ("mark", "···") }));
+        Assert.That(Kinds(LineWords.Literal("   ")), Is.EqualTo(new[] { ("mark", "‹U+0020›‹U+0020›‹U+0020›") }));
         Assert.That(LineWords.Literal(null).IsEmpty && LineWords.Literal("").IsEmpty, Is.True);
     }
 
@@ -351,7 +351,7 @@ public class LineWordsTests
     public void TheMarksTheHostWritesAreStyledAsMarksAndNeverDoubled()
     {
         Assert.That(Kinds(LineWords.Literal("a↵\nb")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "↵"), ("ours", "\n"), ("theirs", "b") }), "one ↵, the host's");
-        Assert.That(Kinds(LineWords.Literal("a ↵\nb")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "·↵"), ("ours", "\n"), ("theirs", "b") }), "the space before the host's break shows");
+        Assert.That(Kinds(LineWords.Literal("a ↵\nb")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "‹U+0020›↵"), ("ours", "\n"), ("theirs", "b") }), "the space before the host's break shows");
         Assert.That(Kinds(LineWords.Literal("⇥x")), Is.EqualTo(new[] { ("mark", "⇥"), ("theirs", "x") }));
         Assert.That(Kinds(LineWords.Literal("a‹U+202E›b‹U+2039›c‹U+1F600›")), Is.EqualTo(new[]
         {
@@ -372,7 +372,7 @@ public class LineWordsTests
     public void AMarkNeverJoinsTheRunsBesideIt()
     {
         // A mark is no separator: outside text on both sides of it stays two runs, the mark between them.
-        Assert.That(Kinds(LineWords.Literal("a ") + LineWords.Theirs("b")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "·"), ("theirs", "b") }));
+        Assert.That(Kinds(LineWords.Literal("a ") + LineWords.Theirs("b")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "‹U+0020›"), ("theirs", "b") }));
         Assert.That(Kinds(LineWords.Literal("a\t") + LineWords.Ours("x")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "⇥"), ("ours", "x") }));
         Assert.That(LineWords.Literal("a\t").AllTheirs, Is.False);
         Assert.That((LineWords.Literal("a\nb").MarksLineBreak, LineWords.Literal("a\tb").MarksLineBreak), Is.EqualTo((true, false)));

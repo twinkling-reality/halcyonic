@@ -2969,7 +2969,7 @@ in order, as before.
   (`WordRun.Mark`): the marks the host writes (a code point as ‹U+202E›, ↵ before a line break, ⇥ for a tab) are given
   the mark role as they arrive, as the host escapes those glyphs in an app's own text (‹U+2039› for a ‹); and until the
   host writes them (the lead's ruling, 2026-11-17), it marks what reaches it raw itself: ↵ before a line feed with none
-  before it, the line still breaking after it, ⇥ for a tab, a middle dot for a space at either end or just before a line
+  before it, the line still breaking after it, ⇥ for a tab, ‹U+0020› for a space at either end or just before a line
   break, and, as a guard, a raw control, bidi, format or other hidden character by its code point. Text such as
   `\u{202E}`, which older events carry, is the agent's text and never re-parsed. Until the host lands, a ↵ an agent typed
   draws as a mark too; the host closes that, and the function then shrinks to styling the host's marks. Where the well
@@ -2977,10 +2977,9 @@ in order, as before.
   `RoomBar.Description`, under the agent's sentence or alone), for the whole well, not only the part on screen.
   `RoomBarView` sets the well through `GlazeRuns.SetWell`: the agent's text in the label's white, each mark at half of it
   and an input's name at 78 percent of it, white alone, no hue (one label draws one face, so a mark takes the label
-  role's lighter white, not its face). A known gap: the static faces (`KitFontAtlas.Characters`) hold neither ↵ nor ⇥,
-  nor does their Liberation Sans fallback, and JetBrains Mono has no ↵ at all, so until a face that draws them backs the
-  mono and reading faces those two marks, and the key line's ↵, draw as missing glyphs (the middle dot and the code
-  points draw). An approval with neither the command's own parts nor any input draws no well: the panel holds that
+  role's lighter white, not its face). Every static face holds the marks' glyphs (`KitFontAtlas.Characters`: ‹, › and ⇥;
+  every Inter face ↵ too), and the mono face, whose JetBrains Mono has no ↵, reaches it through the reading face, its
+  first fallback (`KitFontAtlas.MarksFace`). An approval with neither the command's own parts nor any input draws no well: the panel holds that
   sentence alone, in body type, asked and under its confirmation.
   `WorkspaceText.Request` ("bash: ..."), the file's own line and the confirmation's identity, never feeds the well or the
   title. What it asks stands in the sentence bar, the dialog's title
