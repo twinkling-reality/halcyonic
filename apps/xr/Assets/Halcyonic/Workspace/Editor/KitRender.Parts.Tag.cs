@@ -62,6 +62,17 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var pitch = KitType.LinePitch(tag.Words);
             Require(tag.Size.y >= tag.Lines * pitch - unit * 0.05f, "the plate is " + (tag.Size.y / unit).ToString("0.0") + " dp tall for " + tag.Lines + " lines");
+            // A wrapped name never leaves one word alone on its last line (FIELD's places sheet v2, SHOULD 3), its words unchanged.
+            foreach (var wrapped in new[] { "Sound when a star lands", "Move the menu to the left", "Check the payment refunds", TagLongTitle })
+            {
+                var held = RoomTag.Create(plane);
+                held.Show(LineWords.TheirName(wrapped), mostWordsDp: RoomTag.NameWordsMostDp);
+                held.Words.ForceMeshUpdate(true);
+                var drawn = string.Join(" ", held.Words.GetParsedText().Replace('\u00A0', ' ').Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
+                Require(drawn == wrapped, "the name \"" + wrapped + "\" is drawn as \"" + drawn + "\"");
+                if (held.Lines >= 2) Require(!RoomCardView.LastLineIsOneWord(held.Words), "the name \"" + wrapped + "\" leaves one word alone on its last line");
+                UnityEngine.Object.DestroyImmediate(held.gameObject);
+            }
             // The names the film shows (FILM 2026-11-16 13:17Z), each whole on two lines at most at the size in use (AUDIT 13:22Z).
             foreach (var filmed in FilmedNames)
             {

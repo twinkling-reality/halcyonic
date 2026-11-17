@@ -75,7 +75,7 @@ public class RoomPlaceSignTests
         Assert.That(RoomPlaceSign.Act(places, RoomPlaceSign.FewerAction, "A"), Is.True);
         place = places.Update("j", tasks, _ => "Kite Run").Single();
         Assert.That(RoomPlaceSign.PressOf(place, places)?.Words, Is.EqualTo(place.More + " More"), "gathered again");
-        Assert.That(RoomPlaceSign.Act(places, "something-else", "A"), Is.False);
+        Assert.That(RoomPlaceSign.Act(places, "something-else", "A"), Is.Null, "not a place's action: no answer");
     }
 
     [Test]

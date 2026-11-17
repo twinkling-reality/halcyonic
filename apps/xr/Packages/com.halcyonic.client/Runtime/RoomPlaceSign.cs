@@ -34,12 +34,15 @@ namespace Halcyonic.Client
             return place.More >= 1 ? (MoreWords(place.More), MoreAction) : ((string, string)?)null;
         }
 
-        /// <summary>Spreads or gathers <paramref name="projectId"/>'s place by <paramref name="action"/>; whether anything changed.</summary>
-        public static bool Act(RoomPlaces places, string action, string projectId) => action switch
+        /// <summary>
+        /// Spreads or gathers <paramref name="projectId"/>'s place by <paramref name="action"/>: whether anything changed, or null for an
+        /// action that is not a place's, which this answers nothing about.
+        /// </summary>
+        public static bool? Act(RoomPlaces places, string action, string projectId) => action switch
         {
             MoreAction => places.Spread.Add(projectId),
             FewerAction => places.Spread.Remove(projectId),
-            _ => false,
+            _ => null,
         };
     }
 }

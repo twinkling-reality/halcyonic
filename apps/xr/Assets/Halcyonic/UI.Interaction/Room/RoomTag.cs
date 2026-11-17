@@ -145,6 +145,25 @@ namespace Halcyonic.XR.UI
                 words.textWrappingMode = TextWrappingModes.Normal;
                 words.overflowMode = TextOverflowModes.Overflow;
                 var (lines, laidWide, tall) = KitType.Lay(words, RoomType.Scaled(most), 12);
+                // Never one word alone on the name's last line (FIELD's places sheet v2, SHOULD 3): its last two words held together in the
+                // lay only, the same length so every run's place holds (LabelText.KeepLastTwo), as a card's row and the rows' are; the
+                // plain lay kept where the pair cannot stand on one line.
+                if (lines >= 2 && RoomCardView.LastLineIsOneWord(words))
+                {
+                    var plain = words.text;
+                    var held = LabelText.KeepLastTwo(plain);
+                    if (held != plain)
+                    {
+                        words.text = held;
+                        var tried = KitType.Lay(words, RoomType.Scaled(most), 12);
+                        if (words.isTextOverflowing || words.isTextTruncated || RoomCardView.PairSplit(words))
+                        {
+                            words.text = plain;
+                            (lines, laidWide, tall) = KitType.Lay(words, RoomType.Scaled(most), 12);
+                        }
+                        else (lines, laidWide, tall) = tried;
+                    }
+                }
                 Lines = lines;
                 wide = laidWide;
                 line = Mathf.Max(line, tall);
