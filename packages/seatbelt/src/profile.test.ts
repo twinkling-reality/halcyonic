@@ -1209,6 +1209,68 @@ describe('the agent-app profile: an ACP app on a folder the person connected (AD
     }
   });
 
+  test("on this Mac, the app's program folder in the host's: run and read, never written; the folders above only looked at", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-agent-app-program-')));
+    try {
+      const at = (path: string) => join(root, path);
+      for (const folder of [
+        'data/runtimes/app/bin',
+        'data/runtimes/other',
+        'data/keys',
+        'home',
+        'project',
+      ])
+        mkdirSync(at(folder), { recursive: true });
+      copyFileSync('/usr/bin/true', at('data/runtimes/app/bin/true'));
+      chmodSync(at('data/runtimes/app/bin/true'), 0o755);
+      copyFileSync('/usr/bin/true', at('data/runtimes/other/true'));
+      chmodSync(at('data/runtimes/other/true'), 0o755);
+      writeFileSync(at('data/runtimes/app/bin/code.js'), 'the app\n');
+      writeFileSync(at('data/keys/key'), 'secret\n');
+      const file = at('program.sb');
+      writeFileSync(
+        file,
+        agentAppProfile({
+          folders: [at('data')],
+          home: at('home'),
+          project: at('project'),
+          projectSettings: [],
+          programFolder: at('data/runtimes/app/bin'),
+        }),
+      );
+      const exit = (command: string[]) =>
+        run(SANDBOX_EXEC, ['-f', file, ...command]).then(
+          () => 0,
+          (error: { code?: number }) => error.code ?? -1,
+        );
+      // The program folder: run, read; never written.
+      assert.equal(await exit([at('data/runtimes/app/bin/true')]), 0);
+      assert.equal(await exit(['/bin/cat', at('data/runtimes/app/bin/code.js')]), 0);
+      assert.notEqual(await exit(['/usr/bin/touch', at('data/runtimes/app/bin/planted')]), 0);
+      // The folders above it: looked at, never listed; everything else of the host's stays refused.
+      assert.equal(await exit(['/usr/bin/stat', at('data/runtimes')]), 0);
+      assert.equal(await exit(['/usr/bin/stat', at('data')]), 0);
+      assert.notEqual(await exit(['/bin/ls', at('data/runtimes')]), 0);
+      assert.notEqual(await exit(['/bin/ls', at('data')]), 0);
+      assert.notEqual(await exit(['/bin/cat', at('data/keys/key')]), 0);
+      assert.notEqual(await exit([at('data/runtimes/other/true')]), 0);
+      assert.notEqual(await exit(['/usr/bin/stat', at('data/keys/key')]), 0);
+      assert.throws(() =>
+        agentAppProfile({
+          folders: [at('data')],
+          home: at('home'),
+          project: at('project'),
+          projectSettings: [],
+          programFolder: at('home'),
+        }),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   /** A Mac-like layout for a task's own copy: the host's folders, two tasks' copies, the person's folder and home. */
   function copyLayout() {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-agent-app-copy-')));

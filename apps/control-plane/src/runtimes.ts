@@ -253,7 +253,8 @@ export function createRuntimeAdapters(
   ] as const) {
     // The environment's own binary, else the checked copy the setup page installed, once the person turned it on
     // there (ADR 0067): each spends the person's own plan, so nothing turns it on for them. The copy sits in the data
-    // folder the profile refuses; its own folder is opened to run its programs, and nothing else (acp-agents.md).
+    // folder the profile refuses; its own folder is opened to run and read its programs, never to write, and the
+    // folders above it only to be looked at (acp-agents.md).
     // Cursor is pinned as its whole folder; its program is the launcher in it.
     const installed =
       pins === null || !turnedOn.includes(profile.runtimeId)
@@ -282,7 +283,7 @@ export function createRuntimeAdapters(
           process.platform === 'darwin'
             ? {
                 scope: {
-                  // The setup page's checked copy sits in the data folder: programs in its own folder may run.
+                  // The setup page's checked copy sits in the data folder: its own folder may be run and read.
                   ...(binary === installed ? { programFolder: dirname(binary) } : {}),
                   folders: [
                     dependencies.dataDir,

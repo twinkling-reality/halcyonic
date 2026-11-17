@@ -210,7 +210,11 @@ Cursor fetches Cursor's own archive (above), checked by the SHA-256 recorded fro
 bash launcher, `cursor-agent`, beside its own Node and its code, so the pin is the whole unpacked `dist-package`
 folder, as the browser's is: the digest of its manifest, 435 entries, each one's kind, mode, path and SHA-256
 (`8f6e33e4...`, the same over two unpackings), checked again at every Turn On, so no file of it changes unseen (AUDIT3
-SU1, for Cursor). Its program is the launcher in that folder, which the profile opens to run. The card says what
+SU1, for Cursor). Its program is the launcher in that folder. Run there under the agent-app profile, bash could not read the launcher
+(exit 126), then its `realpath` could not look at the folders above it: so the profile opens the program folder to
+be read as well as run, never written, and each folder above it inside the host's own only to be looked at (stat),
+never listed (seatbelt test with controls). So a Cursor copy in a refused folder answered `initialize` and opened a
+signed-in session (no prompt, 20:53Z); Kiro's and Antigravity's single binaries needed only the run. The card says what
 Cursor keeps of the person's code follows their own Cursor account's privacy setting, which Halora can neither read
 nor set: no ACP option for it was seen.
 

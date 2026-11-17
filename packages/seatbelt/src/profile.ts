@@ -913,7 +913,8 @@ export interface AgentAppScope extends HostFoldersScope {
   readonly settingsHomes?: { readonly root: string; readonly own: string };
   /**
    * The folder of the app's own program where the host installed it in its own folders (the setup page's checked
-   * copy): programs there may run, and nothing else of it opens; elsewhere in those folders nothing runs.
+   * copy): programs there may run and be read, as a launcher's interpreter reads its script and code (Cursor's), and
+   * nothing there may be written; nothing else of those folders opens, and elsewhere in them nothing runs.
    */
   readonly programFolder?: string;
   /**
@@ -1020,13 +1021,35 @@ export function agentAppProfile(scope: AgentAppScope): string {
     ...copyRules.run,
     ...(scope.programFolder === undefined
       ? []
-      : [
-          `(allow process-exec (subpath ${JSON.stringify(resolved(scope.programFolder).replace(/\/+$/, ''))}))`,
-        ]),
+      : programRules(resolved(scope.programFolder).replace(/\/+$/, ''), scope)),
     ...homes,
     ...copyRules.close,
     '',
   ].join('\n');
+}
+
+/**
+ * The app's own program folder in the host's folders: run and read, never written; and each folder above it inside
+ * those folders may be looked at (stat), never listed or opened, as a launcher that resolves its own path needs
+ * (Cursor's `realpath`).
+ */
+function programRules(program: string, scope: HostFoldersScope): string[] {
+  if (/["\n\r]/.test(program))
+    throw new Error(`a folder Halora cannot name in its profile: ${program}`);
+  const roots = scope.folders.map((folder) => resolved(folder).replace(/\/+$/, ''));
+  const root = roots.find((folder) => within(program, folder) && program !== folder);
+  if (root === undefined)
+    throw new Error("an app's program folder is inside the host's own folders");
+  const above: string[] = [];
+  for (let folder = dirname(program); folder.length >= root.length; folder = dirname(folder)) {
+    above.push(`(allow file-read-metadata (literal ${JSON.stringify(folder)}))`);
+    if (folder === root) break;
+  }
+  return [
+    `(allow process-exec (subpath ${JSON.stringify(program)}))`,
+    `(allow file-read* (subpath ${JSON.stringify(program)}))`,
+    ...above,
+  ];
 }
 
 function within(path: string, folder: string): boolean {
