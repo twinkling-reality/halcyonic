@@ -318,8 +318,8 @@ namespace Halcyonic.XR
             }
         }
 
-        /// <summary>The floor arc's gap under the place's lowest tag, the name's under the arc, and the More's over the front heads, in metres at 1.4 m.</summary>
-        public const float ArcUnderTags = 0.02f, NameUnderArc = 0.015f, MoreOverHeads = 0.03f;
+        /// <summary>The floor arc's gap under the place's lowest tag, the name's under the arc, and the More's middle over the front heads (half its glass and a degree), in metres at 1.4 m.</summary>
+        public const float ArcUnderTags = 0.02f, NameUnderArc = 0.02f, MoreOverHeads = 0.065f;
 
         /// <summary>How far in from the place's inner edge its More stands, in degrees about the eyes (FIELD's sheet: three degrees).</summary>
         public const float MoreInDegrees = 3f;
