@@ -1656,8 +1656,18 @@ namespace Halcyonic.XR.UI
             label.textWrappingMode = lines > 1 ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Ellipsis;
             var runs = GlazeRuns.Of(label);
-            runs.Set(words);
-            runs.SetProseMode(true);
+            if (labelRole)
+            {
+                // Our own words as plain text, so the label's own colour, its quiet alpha, is the one drawn: a run's colour tag drew
+                // the label role at the words' full white (AUDIT's room-08: 225 against 233).
+                runs.Set(LineWords.None);
+                GlazeText.SetLiteral(label, words.Text);
+            }
+            else
+            {
+                runs.Set(words);
+                runs.SetProseMode(true);
+            }
             var laid = KitType.Lay(label, width, lines);
             // No word alone on a paragraph's last line (a widow: SCREENS's reader 3 on 38-checks-failed, "stopped on a / step"), the
             // person's words included, a title among them (AUDIT 2026-11-16T15:23Z: "points" alone): only the measure narrows, so

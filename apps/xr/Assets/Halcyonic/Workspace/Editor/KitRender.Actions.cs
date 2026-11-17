@@ -40,8 +40,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 ("Confirm", GlazeIcon.Approve, false, null, 0.5f, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.MainPlateColour, RoomButton.RimColour),
                 ("Cancel", null, false, null, null, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Cross, RoomButton.PlateColour, 0xFFFFFF),
                 ("Light", null, false, null, null, AnswerMark.Single, false, RoomButtonLook.Rest, null, -1, 0),
-                ("Dark", null, false, null, null, AnswerMark.Single, true, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
-                ("Sound", null, false, null, null, AnswerMark.Multiple, true, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
+                ("Dark", null, false, null, null, AnswerMark.Single, true, RoomButtonLook.Rest, RoomGlyph.Check, -1, 0xFFFFFF),
+                ("Sound", null, false, null, null, AnswerMark.Multiple, true, RoomButtonLook.Rest, RoomGlyph.Check, -1, 0xFFFFFF),
             };
             var pitch = RoomType.Units(RoomButton.HeightDp) + KitType.Units(SpatialKit.TargetGapDegrees);
             var buttons = new List<RoomButton>();

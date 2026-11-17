@@ -583,7 +583,8 @@ namespace Halcyonic.XR.UI
             var plate = RoomSurface.Hex(held ? PlateHeldColour : leads ? (pointed ? MainPlatePointedColour : MainPlateColour) : pointed ? PlatePointedColour : PlateColour);
             Color chip;
             Color glyphColour;
-            if (mark != AnswerMark.None) (chip, glyphColour) = (chosen ? RoomSurface.Hex(AccentColour) : new Color(1f, 1f, 1f, 0f), RoomSurface.Hex(InkColour));
+            // A chosen answer: a white ring and a white check, never a filled disc (the lead's 2026-11-17 01:56Z MUST 1: no orange fill).
+            if (mark != AnswerMark.None) (chip, glyphColour) = (new Color(1f, 1f, 1f, 0f), Color.white);
             else (chip, glyphColour) = (plate, leads ? RimNow : Color.white);
             return (new Vector4(chip.r, chip.g, chip.b, chip.a), new Vector4(plate.r, plate.g, plate.b, PlateAlpha), glyphColour, RoomMotion.ActionScale(pointed ? 1f : 0f, held));
         }
@@ -646,7 +647,7 @@ namespace Halcyonic.XR.UI
                 // In the chip's place: the outline alone, or chosen, the accent's disc or box under its dark check.
                 chipDp = MarkDp * textScale;
                 cornerDp = mark == AnswerMark.Multiple ? MarkBoxCornerDp * textScale : chipDp / 2f;
-                markLine = chosen ? 0f : MarkLineAlpha;
+                markLine = chosen ? 1f : MarkLineAlpha;
             }
             var fade = (look == RoomButtonLook.Disabled ? DisabledOpacity : 1f) * move.Shown;
             var haloCorner = size == RoomButtonSize.Home ? HomeHaloCornerDp : HaloCornerDp * textScale;

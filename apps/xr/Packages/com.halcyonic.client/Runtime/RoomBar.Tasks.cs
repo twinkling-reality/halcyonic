@@ -73,7 +73,9 @@ namespace Halcyonic.Client
             return new RoomBar(RoomBarState.Page, body: title, column: column)
             {
                 Card = new RoomCard(title, head: project == null ? RoomCardHead.None : RoomCardHead.Project, list: rows,
-                    more: shared == null ? null : LineWords.Ours(shared)),
+                    // Demo or Recorded is said once already, by the notice over the whole bar (DemonstrationFallback.Label); its foot here
+                    // was a stray word (AUDIT 2026-11-17 01:55Z, the lead's MUST 3). Practice, which no notice says, keeps its foot.
+                    more: shared == null || shared is StateLanguage.Demo or StateLanguage.Recorded ? null : LineWords.Ours(shared)),
             };
         }
     }
