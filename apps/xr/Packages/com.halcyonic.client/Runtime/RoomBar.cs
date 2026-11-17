@@ -558,8 +558,8 @@ namespace Halcyonic.Client
         /// <summary>The most actions a column holds; past it the older view draws the frame (the view lays as many).</summary>
         public const int ColumnMost = 6;
 
-        /// <summary>The most actions the finished turn's review dialog stands in its row, Close among them; the rest behind More.</summary>
-        public const int DialogMost = 4;
+        /// <summary>The most actions the finished turn's review dialog stands in its row, Close among them (the main one, one other and Close, as the sheet's f6 stands two); the rest behind More.</summary>
+        public const int DialogMost = 3;
 
         /// <summary>
         /// A task's file always offers its way back to the Projects place (FIELD's parts note; JUDGE's census, 2026-11-11):
@@ -578,7 +578,7 @@ namespace Halcyonic.Client
                 // way on stay, the main action stays.
                 var column = bar.Column.ToList();
                 var behind = new List<RoomAction>();
-                // The finished turn's review laid as one dialog holds its row at three and Close (TASKS, f6): its row stands inside its glass.
+                // The finished turn's review laid as one dialog holds its row at the main action, one other and Close (TASKS, f6): its row stands inside its glass.
                 while (column.Count >= (bar.DialogTitle != null ? DialogMost : ColumnMost))
                 {
                     var at = column.FindLastIndex(action => !action.Main && !StaysInColumn(action));

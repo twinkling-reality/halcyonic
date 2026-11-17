@@ -1043,9 +1043,16 @@ namespace Halcyonic.XR.Workspace.Editor
                             }
                             else
                             {
-                                Require(at >= 0 && shown.Column[at].Words == HeadsetPlay.ActionWords && bar.Column[at].gameObject.activeSelf && bar.Column[at].Available,
-                                    "Play in Headset does not stand as a pressable action");
-                                if (at >= 0) Whole(bar.Column[at].Words, "Play in Headset's words");
+                                // As the finished turn's review dialog it stands behind More (its row holds the main action, one other and Close).
+                                if (shown.AsDialog)
+                                    Require(at < 0 && shown.Overflow.Any(action => action.Control.Action == RoomResult.PlayInHeadset && action.Words == HeadsetPlay.ActionWords && action.Control.Available)
+                                        && shown.Row.Any(action => action.Control.Action == RoomBar.More), "Play in Headset is not reached by More beside the review");
+                                else
+                                {
+                                    Require(at >= 0 && shown.Column[at].Words == HeadsetPlay.ActionWords && bar.Column[at].gameObject.activeSelf && bar.Column[at].Available,
+                                        "Play in Headset does not stand as a pressable action");
+                                    if (at >= 0) Whole(bar.Column[at].Words, "Play in Headset's words");
+                                }
                             }
                         }
                         if (stopped) Require(shown.Column[0].Place == KitPlace.Field && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1, "Write Instruction does not lead where the tries ran out");
@@ -1059,7 +1066,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(shown.Column[shown.Column.Count - 1].Control.Place == KitPlace.Close
                                 && drawnColumn.Count >= shown.Column.Count && bar.ControlOf(drawnColumn[shown.Column.Count - 1]) == shown.Column[shown.Column.Count - 1].Control,
                                 "a full result does not draw Close last in its column: " + string.Join(", ", shown.Column.Select(action => action.Words)));
-                            // As one dialog the review's row holds three and Close; Share, the lowest acting action, goes behind More.
+                            // As one dialog the review's row holds the main action, one other and Close; Share goes behind More.
                             Require(shown.AsDialog ? shown.Column.Count == RoomBar.DialogMost && shown.Overflow.Any(action => action.Control.Action == RoomResult.ShowShare)
                                     && shown.Row.Any(action => action.Control.Action == RoomBar.More)
                                 : shown.Column.Any(action => action.Control.Action == RoomResult.ShowShare) && shown.Overflow.Count == 0,

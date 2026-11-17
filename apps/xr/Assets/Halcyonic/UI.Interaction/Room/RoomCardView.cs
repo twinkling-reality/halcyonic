@@ -1186,7 +1186,7 @@ namespace Halcyonic.XR.UI
                 if (glyphOf is RoomGlyph mark)
                     Glyph(mark, SlotGlyphDp, Color.white, new Vector2(x + S(SlotGlyphDp) / 2f, -(y + S(FactValueLineDp) / 2f)), "fact " + slot.Kind);
                 // Whole, never cut: a value or its line takes a second line where the column cannot hold it on one.
-                var (_, valueTall) = Text(KitRole.Strong, FactValueDp, FactValueLineDp, Color.white, slot.Value, x + markRoom, -y, column - markRoom, 2);
+                var (_, valueTall) = Text(KitRole.Strong, FactValueDp, FactValueLineDp, Color.white, slot.Value, x + markRoom, -y, column - markRoom, 3);
                 y += valueTall;
                 if (slot.Line is LineWords line)
                 {
