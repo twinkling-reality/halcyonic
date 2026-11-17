@@ -513,7 +513,7 @@ describe('making a VR version of a project (M1.8c-1)', () => {
       ),
     );
     assert.ok(
-      instruction.includes('where words do not fit, show fewer or page them, never shrink them'),
+      instruction.includes('Where words do not fit, show fewer or page them; never shrink them.'),
     );
     // A press with no words says nothing a person can act on (a real VR version drew one, 2026-11-17).
     assert.ok(

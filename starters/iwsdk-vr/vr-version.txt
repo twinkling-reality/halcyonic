@@ -12,7 +12,8 @@ If it is not a game, build it in setupScene(world, colour) from src/kit.ts with 
 Build that use, working, with the app's own content: what a person sees and what they do with their hands. Its landing or marketing page is not its use, unless the app is nothing else.
 Keep every part of that use: each way it finds things (a search, a filter) and each field of its forms gets a way that works with a hand in VR, as 'An app's use, not a game' in this project's AGENTS.md says, or is named among what this version leaves out.
 If it is not a game, let every list be read to its end.
-Draw every word in the scene, titles, card text, labels and footnotes alike, no smaller than TYPE.words from src/kit.ts (its size read 1.6 m away; larger when read from farther); where words do not fit, show fewer or page them, never shrink them.
+Draw every word in the scene, titles, card text, labels and footnotes alike, no smaller than TYPE.words from src/kit.ts, which is sized to be read 1.6 m away; make words larger when they stand farther than that.
+Where words do not fit, show fewer or page them; never shrink them.
 Give every press its words, saying what it does; never a press without words, or a symbol alone.
 Show only cards that hold the app's own real content from its folder; where there is too little, show fewer cards, never an empty one.
 What cannot come with it (a server, other people, an account), carry with the app's own sample content, or where it has none with a small stand-in of the same kind, and say so; never drop it silently.
