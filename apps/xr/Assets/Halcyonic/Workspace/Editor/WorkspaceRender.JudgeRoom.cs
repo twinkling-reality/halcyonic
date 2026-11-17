@@ -1041,7 +1041,36 @@ namespace Halcyonic.XR.Workspace.Editor
                         {
                             reachedBy += (reachedBy.Length > 0 ? ", then " : "") + "pressed " + FileScreens.Open + "/" + opening.Key;
                             Fresh();
-                            if (Opened()?.Frame?.Side == null)
+                            // Which state the press was judged in, said every time (AUDIT3 15:49Z, W1): the side panel; or the redesign's
+                            // result page, where the run came to rest with the computer's own check as the press landed, so Checks turned
+                            // into the result's page on Checks (MenuDirector.SectionsForRedesign, KitPresenter.RedesignSection), as it does
+                            // for a person pressing then; any other state fails below.
+                            var pressedOn = Opened();
+                            var restAtPress = pressedOn?.Now is WorkspacePresentation pressedNow && KitPresenter.AtRest(pressedNow);
+                            var resultPage = presentation.ResultPageFor(workstreamId, Current(workstreamId)?.ExecutionId).Page;
+                            var turnedToResult = pressedOn != null && pressedOn.Frame?.Side == null && openedIn == FileSection.Checks && restAtPress
+                                && pressedOn.Screen.Section == FileSection.Activity && resultPage == RoomResultPage.Checks;
+                            Debug.Log("Halcyonic: judge room: " + FileScreens.Open + "/" + opening.Key + " judged on "
+                                + (pressedOn?.Frame?.Side != null ? "the side panel" : turnedToResult ? "the redesign's result page on Checks" : "neither")
+                                + " (at rest " + restAtPress + ", result page " + resultPage + ", section " + (pressedOn?.Screen.Section.ToString() ?? "none") + ")");
+                            if (turnedToResult)
+                            {
+                                // The answer is reached from the result's page or not at all: its drawn control opens it beside the page,
+                                // else it is the result's Checks with no way to the checks answer, on whichever run's page it stands.
+                                var whose = fallback.Player?.Recording?.IsRecordedRun == true ? "the recorded run's" : "the demonstration's";
+                                var onResult = Drawn(FileScreens.Open, opening.Key) != null || plane.KitShows
+                                    && plane.Kit.Bar.Card?.RowTargets.Any(row => row.Control.Action == FileScreens.Open && row.Control.Key == opening.Key) == true;
+                                if (!onResult)
+                                    failures.Add("judge room: the redesign draws no control that opens the answer beside its page (" + FileScreens.Open + "/" + opening.Key + ") on "
+                                        + whose + " " + openedIn + " page");
+                                else if (Press(FileScreens.Open, opening.Key))
+                                {
+                                    reachedBy += ", then pressed " + FileScreens.Open + "/" + opening.Key + " on the result's page";
+                                    Fresh();
+                                    if (Opened()?.Frame?.Side == null) failures.Add("judge room: " + FileScreens.Open + "/" + opening.Key + " on the result's page opened no side panel");
+                                }
+                            }
+                            else if (Opened()?.Frame?.Side == null)
                             {
                                 // Say what stood instead, so the cause is read from the run: the product lays a side panel only from an
                                 // opening line on the page showing (FileScreens: "A side panel only from a line on the page showing").
@@ -2175,10 +2204,12 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             ("an answer card's description cut, on main",
                 new Regex("/Information panel/Card/Body words cuts its words with an ellipsis: \"Slows guessing(; someone| more)\u2026\"$")),
-            // The recorded run's result Checks offers no way to the file's checks answer where the computer ran its own check
-            // (RoomBar.Result's ChecksOf, SCREENS 21:55Z): SCREENS's review-card unit mends it, and the name goes then (AUDIT3 21:55Z).
-            ("the recorded run's result Checks has no way to the file's checks answer, SCREENS's review card unit",
-                new Regex("^judge room: the redesign draws no control that opens the answer beside its page \\(open/checks\\) on the recorded run's Checks page$")),
+            // The result's Checks offers no way to the file's checks answer where the computer ran its own check (RoomBar.Result's
+            // ChecksOf, SCREENS 21:55Z): SCREENS's review-card unit mends it, and the name goes then (AUDIT3 21:55Z).
+            ("the result's Checks has no way to the file's checks answer, either run, SCREENS's review card unit",
+                // Either run's result page (AUDIT3 15:49Z): where the run comes to rest as Open/checks is pressed, the redesign turns the
+                // demonstration's Checks into the same result page, the same unit and the same gate item.
+                new Regex("^judge room: the redesign draws no control that opens the answer beside its page \\(open/checks\\) on (the recorded run's|the demonstration's) Checks page$")),
         };
 
         private static List<string> NoticeOffPlate(Camera camera, TMP_Text words, Halcyonic.XR.UI.RoomSurface plate)
