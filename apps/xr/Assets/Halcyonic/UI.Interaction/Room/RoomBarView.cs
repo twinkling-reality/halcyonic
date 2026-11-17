@@ -1224,8 +1224,15 @@ namespace Halcyonic.XR.UI
             }
             rowHeight = Mathf.Max(rowHeight, RoomType.Units(RoomButton.HeightDp));
 
+            // The row fits the words' measure, or (at the larger size, with the most actions) the others stand on a row of their own
+            // over the main action's, both right-aligned inside the panel (AUDIT3's F1: never past the panel's left edge).
+            var targetGap = KitType.Units(SpatialKit.TargetGapDegrees);
+            var othersWide = order.Where(index => !bar.Column[index].Main).Sum(index => cores[index].x + targetGap);
+            var mainWide = order.Where(index => bar.Column[index].Main).Sum(index => cores[index].x);
+            var twoRows = mainWide > 0f && othersWide > 0f && othersWide + mainWide > wordsWidth + 1e-4f;
+            var rowsHeight = twoRows ? 2f * rowHeight + targetGap : rowHeight;
             var kickerGap = RoomType.Scaled(10f);
-            var panelHeight = pad + kickerHeight + kickerGap + askHeight + (cardHeight > 0f ? gapIn + cardHeight : 0f) + (count > 0 ? gapIn + rowHeight : 0f) + pad;
+            var panelHeight = pad + kickerHeight + kickerGap + askHeight + (cardHeight > 0f ? gapIn + cardHeight : 0f) + (count > 0 ? gapIn + rowsHeight : 0f) + pad;
             panel.Ring = card != null && card.gameObject.activeSelf ? card.PanelRing : null;
             panel.Draw(new Vector2(panelWidth, panelHeight));
             panel.gameObject.SetActive(true);
@@ -1253,9 +1260,8 @@ namespace Halcyonic.XR.UI
             // The row at the panel's foot, right-aligned (the sheet's tile f4): the others, then the main action, its right edge on the words' right edge.
             var foot = -panelHeight / 2f;
             var rowY = foot + pad + rowHeight / 2f;
-            var othersWide = order.Where(index => !bar.Column[index].Main).Sum(index => cores[index].x + KitType.Units(SpatialKit.TargetGapDegrees));
-            var mainWide = order.Where(index => bar.Column[index].Main).Sum(index => cores[index].x);
-            var x = left + pad + wordsWidth - mainWide - othersWide;
+            var othersY = twoRows ? rowY + rowHeight + targetGap : rowY;
+            var x = Mathf.Max(left + pad, left + pad + wordsWidth - (twoRows ? othersWide - targetGap : mainWide + othersWide));
             var mainIndex = order.Count > 0 && bar.Column[order[order.Count - 1]].Main ? order[order.Count - 1] : -1;
             RoomButton? dialogLocks = null;
             for (var index = 0; index < column.Count; index++)
@@ -1268,10 +1274,10 @@ namespace Halcyonic.XR.UI
                 var button = column[index];
                 var width = cores[index].x;
                 var centreX = shift + (index == mainIndex ? -left - pad - width / 2f : x + width / 2f);
-                if (index != mainIndex) x += width + KitType.Units(SpatialKit.TargetGapDegrees);
+                if (index != mainIndex) x += width + targetGap;
                 // Every other action quiet: its words and glyph, no plate until pointed (the reference's LATER, AUDIT's MUST 6).
                 button.Quiet = !action.Main;
-                button.Show(action.Words, action.Icon, action.Main, available: action.Control.Available, new Vector2(centreX, rowY), width, action.Mark, action.Chosen,
+                button.Show(action.Words, action.Icon, action.Main, available: action.Control.Available, new Vector2(centreX, index == mainIndex ? rowY : othersY), width, action.Mark, action.Chosen,
                     0f, doing: RoomButton.Doing(action.Control), detail: action.Detail, destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
                 controls[button] = action.Control;
                 button.Press.ActsOnPinch = action.Control.Holds;

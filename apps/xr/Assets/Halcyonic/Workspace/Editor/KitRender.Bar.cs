@@ -1374,15 +1374,29 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     if (shown.AsDialog && drawn.Count > 0)
                     {
-                        // The dialog's actions: one row inside the panel's foot, Meta's 12 mm apart, the main one last and the only accent.
-                        var rowY = drawn[0].transform.localPosition.y;
-                        Require(drawn.All(button => Mathf.Abs(button.transform.localPosition.y - rowY) < Tolerance), "the dialog's actions do not stand in one row");
-                        var byX = drawn.OrderBy(button => button.transform.localPosition.x).ToList();
-                        for (var index = 1; index < byX.Count; index++)
+                        // The dialog's actions: one row inside the panel's foot, Meta's 12 mm apart, the main one last and the only accent; or, only
+                        // where one row cannot fit the words' measure (the larger size, the most actions: AUDIT3's F1), the main one alone on the
+                        // foot's row and the others on a row over it, 12 mm clear of it.
+                        var rows = drawn.GroupBy(button => Mathf.Round(button.transform.localPosition.y / Tolerance)).OrderBy(row => row.First().transform.localPosition.y).Select(row => row.ToList()).ToList();
+                        var dialogMains = drawn.Where((button, index) => index < shown.Column.Count && shown.Column[index].Main).ToList();
+                        Require(rows.Count == 1 || rows.Count == 2 && dialogMains.Count == 1 && rows[0].Count == 1 && ReferenceEquals(rows[0][0], dialogMains[0])
+                            && rows[1].Sum(button => button.Size.x + KitType.Units(SpatialKit.TargetGapDegrees)) + dialogMains[0].Size.x > RoomType.Units(RoomGeometry.PanelDp) - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp),
+                            "the dialog's actions stand in " + rows.Count + " rows, not one (or two only where one cannot fit, the main one alone at the foot)");
+                        if (rows.Count == 2)
                         {
-                            var between = (byX[index].transform.localPosition.x - byX[index].Size.x / 2f) - (byX[index - 1].transform.localPosition.x + byX[index - 1].Size.x / 2f);
-                            Require(between >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f, "the dialog's actions stand under 12 mm apart: " + byX[index - 1].Words.text + ", " + byX[index].Words.text);
+                            var rowGap = (rows[1][0].transform.localPosition.y - rows[1][0].Size.y / 2f) - (rows[0][0].transform.localPosition.y + rows[0][0].Size.y / 2f);
+                            Require(rowGap >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f, "the dialog's two rows stand under 12 mm apart");
                         }
+                        foreach (var row in rows)
+                        {
+                            var inRow = row.OrderBy(button => button.transform.localPosition.x).ToList();
+                            for (var index = 1; index < inRow.Count; index++)
+                            {
+                                var between = (inRow[index].transform.localPosition.x - inRow[index].Size.x / 2f) - (inRow[index - 1].transform.localPosition.x + inRow[index - 1].Size.x / 2f);
+                                Require(between >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f, "the dialog's actions stand under 12 mm apart: " + inRow[index - 1].Words.text + ", " + inRow[index].Words.text);
+                            }
+                        }
+                        var byX = rows[0].OrderBy(button => button.transform.localPosition.x).ToList();
                         var dialogFoot = panel.transform.localPosition.y - panel.Size.y / 2f;
                         var dialogLeft = panel.transform.localPosition.x - panel.Size.x / 2f;
                         var dialogRight = panel.transform.localPosition.x + panel.Size.x / 2f;
@@ -1390,7 +1404,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(button.transform.localPosition.y - button.Core.y / 2f >= dialogFoot - 1e-3f && button.transform.localPosition.x - button.Core.x / 2f >= dialogLeft - 1e-3f
                                 && button.transform.localPosition.x + button.Core.x / 2f <= dialogRight + 1e-3f, button.Words.text + " stands outside the dialog's panel");
                         var mains = drawn.Where((button, index) => index < shown.Column.Count && shown.Column[index].Main).ToList();
-                        Require(mains.Count <= 1 && (mains.Count == 0 || ReferenceEquals(byX[byX.Count - 1], mains[0])), "the dialog's main action is not the last in its row");
+                        Require(mains.Count <= 1 && (mains.Count == 0 || ReferenceEquals(byX[byX.Count - 1], mains[0])), "the dialog's main action is not the last in the foot's row");
                         Require(drawn.Count(button => button.LookNow() == RoomButtonLook.Main) <= 1, "more than one of the dialog's actions stands in the accent");
                     }
                     if (drawn.Count > 0 && !shown.Wide && bar.BandNextButton == null && !shown.AsDialog)
