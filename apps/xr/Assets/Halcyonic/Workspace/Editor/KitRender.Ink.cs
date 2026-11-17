@@ -162,15 +162,19 @@ namespace Halcyonic.XR.Workspace.Editor
         public static (double Ratio, bool DrawnLight, double Ink, double Ground) InkBox(Color32[] pixels, RectInt rect, Color drawn, IReadOnlyList<RectInt>? glyphs = null)
         {
             // The ink is read only inside the words' own glyph quads, where given (the lead's 2026-11-17T15:11Z): a bright pixel of the
-            // room seen through the glass beside the letters is never taken for the words' ink. The ground stays the whole box's most
-            // common colour, the glass they stand on.
+            // room seen through the glass beside the letters is never taken for the words' ink. The ground is the most common colour
+            // of the box outside every quad, the glass between and around the letters: on a glass whose colour runs across the box no
+            // one shade of it outnumbers large bold strokes, so the whole box's most common colour can be the words' own (XR's
+            // 2026-11-17T16:15Z read of 23-glass at Larger). Where the quads leave too little of the box, the whole box stands.
             bool InGlyph(int x, int y) => glyphs == null || glyphs.Any(quad => quad.Contains(new Vector2Int(x, y)));
             var box = new List<Color32>(rect.width * rect.height);
+            var around = new List<Color32>(rect.width * rect.height);
             for (var y = rect.yMin; y < rect.yMax; y++)
             for (var x = rect.xMin; x < rect.xMax; x++)
                 if (InGlyph(x, y)) box.Add(pixels[y * Width + x]);
+                else around.Add(pixels[y * Width + x]);
             if (box.Count == 0) return (1.0, true, 0.0, 0.0);
-            var mode = Luminance(MostCommon(pixels, rect));
+            var mode = Luminance(glyphs != null && around.Count >= GroundPixels ? MostCommon(around) : MostCommon(pixels, rect));
             var drawnLight = Luminance((Color32)drawn) > mode;
             double ink;
             double ground;
@@ -224,6 +228,47 @@ namespace Halcyonic.XR.Workspace.Editor
             Fill(new RectInt(one.xMin + 5, one.yMin + 2, 3, 16), stroke);
             var few = InkBox(frame, wide, Color.white, new[] { one }).Ratio;
             if (few < 4.5) yield return "the box reader: a few strokes in a wide box read " + few.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, under 4.5";
+            // Large bold strokes on a glass whose colour runs across the box: the strokes' white outnumbers any one shade of the glass,
+            // so the whole box's most common colour is the words' own. Read against the glass around the quads, they stand high.
+            var run = new RectInt(100, 500, 240, 40);
+            for (var y = run.yMin; y < run.yMax; y++) for (var x = run.xMin; x < run.xMax; x++) frame[y * Width + x] = Grey((byte)(30 + (x - run.xMin) % 40));
+            var bold = new List<RectInt>();
+            for (var letter = 0; letter < 6; letter++)
+            {
+                var quad = new RectInt(106 + letter * 38, 506, 30, 28);
+                bold.Add(quad);
+                Fill(new RectInt(quad.xMin + 2, quad.yMin + 2, 24, 24), stroke);
+            }
+            var boldRead = InkBox(frame, run, Color.white, bold).Ratio;
+            if (Luminance(MostCommon(frame, run)) < Luminance(stroke) - 1e-6) yield return "the box reader's proof: the bold strokes do not outnumber every shade of the running glass";
+            if (boldRead < 4.5) yield return "the box reader: bold strokes on a running glass read " + boldRead.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, under 4.5 (the ground taken from the words)";
+            // A word whose ink truly sits on its ground still fails, the ground read around its quads: strokes of the glass's own shade.
+            var faint = new RectInt(100, 600, 240, 40);
+            Fill(faint, glass);
+            var faintQuads = new List<RectInt>();
+            for (var letter = 0; letter < 6; letter++)
+            {
+                var quad = new RectInt(106 + letter * 38, 606, 30, 28);
+                faintQuads.Add(quad);
+                Fill(new RectInt(quad.xMin + 2, quad.yMin + 2, 24, 24), Grey(40));
+            }
+            var faintRead = InkBox(frame, faint, Color.white, faintQuads).Ratio;
+            if (faintRead >= 4.5) yield return "the box reader: strokes a shade off their glass read " + faintRead.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, at or over 4.5";
+        }
+
+        /// <summary>The fewest pixels outside a word's glyph quads that are read as its ground; fewer, and the whole box is.</summary>
+        private const int GroundPixels = 16;
+
+        /// <summary>The most common colour among <paramref name="pixels"/>, counted as <see cref="MostCommon(Color32[], RectInt)"/> counts a box.</summary>
+        private static Color32 MostCommon(IReadOnlyList<Color32> pixels)
+        {
+            var counts = new Dictionary<int, (int Count, Color32 Colour)>();
+            foreach (var c in pixels)
+            {
+                var key = (c.r >> 2) << 12 | (c.g >> 2) << 6 | (c.b >> 2);
+                counts[key] = counts.TryGetValue(key, out var seen) ? (seen.Count + 1, seen.Colour) : (1, c);
+            }
+            return counts.Values.OrderByDescending(entry => entry.Count).First().Colour;
         }
 
         private static int MaxChannel(Color32 p) => Math.Max(p.r, Math.Max(p.g, p.b));
