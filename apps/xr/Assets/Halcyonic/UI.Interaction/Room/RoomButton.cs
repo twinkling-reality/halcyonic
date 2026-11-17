@@ -449,8 +449,9 @@ namespace Halcyonic.XR.UI
             if (changed) press.Unsettle();
             // Another action in this place shows nothing of the last one's press (JUDGE's walk, 2026-11-16: Approve drawn held and
             // plain where the answer before it was pressed): its hold and its flash were the last action's.
-            if (another)
+            if (another || arrives)
             {
+                // A button that arrives shows nothing of a press from before it was hidden either.
                 press.EndFlash();
                 held = false;
             }

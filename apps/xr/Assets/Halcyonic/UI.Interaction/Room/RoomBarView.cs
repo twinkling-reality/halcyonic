@@ -1661,10 +1661,10 @@ namespace Halcyonic.XR.UI
                         + (Answer(index) != Answer(index + 1) ? RoomType.Units(GroupGapDp) : 0f);
             var columnHeight = places == 0 ? 0f : rises[0] + Mathf.Max(target, cores[0].y) / 2f;
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
-            // A plain foot row keeps the pair's footprint, as the dialog does, so the plane places the bar where it placed the pair; a panel
-            // widened for its row is its own footprint, never the widened panel and a column's room besides (F297: 982 dp against 728).
+            // A plain foot row keeps the pair's footprint, its own panel's width with the column's room, as the dialog does, so the plane
+            // places the bar where it placed the pair (a plain foot never widens its panel; F299: a narrower question's panel is 647 dp).
             var total = footRow && !plainFoot ? panelWidth
-                : footRow ? Mathf.Max(panelWidth, RoomType.Units(RoomGeometry.PanelDp) + gap + RoomType.Units(RoomGeometry.ColumnDp))
+                : footRow ? panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp)
                 : bar.Wide ? Mathf.Max(panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp), widest)
                 : narrow ? Mathf.Max(panelWidth, widest)
                 : panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
@@ -1726,7 +1726,9 @@ namespace Halcyonic.XR.UI
                 var button = column[index];
                 if (index >= places)
                 {
-                    button.Hide();
+                    // The foot row shows its own below; hidden here and shown again each lay, it would arrive anew every frame and
+                    // keep the last press's look (F299: Approve drawn held at rest).
+                    if (index >= rowCount) button.Hide();
                     continue;
                 }
                 // Every action in the column one width, the widest's, so the column reads as one menu with one right edge
