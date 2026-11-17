@@ -42,17 +42,20 @@ export async function readRuntimeModels(
       case 'timeout':
         return unavailable(
           'timeout',
-          `The runtime did not list its models within ${timeoutMs} ms.`,
+          'The agent app did not list its models in time. Try again in a moment.',
         );
       case 'failed': {
         const { error } = outcome;
         if (error instanceof RuntimeActionError) {
           return unavailable(
             CODE_PATTERN.test(error.code) ? error.code : 'runtime_error',
-            clip(redaction.errorText(error.message)) ?? 'The runtime could not list its models.',
+            clip(redaction.errorText(error.message)) ?? 'The agent app could not list its models.',
           );
         }
-        return unavailable('adapter_error', 'The runtime adapter failed to list its models.');
+        return unavailable(
+          'adapter_error',
+          'The agent app ran into an error Halora did not expect while listing its models. Try again in a moment.',
+        );
       }
       case 'listed': {
         const result: RuntimeModelsResult = {

@@ -70,6 +70,9 @@ before(async () => {
         listCalls += 1;
         throw new RuntimeActionError('runtime_unavailable', 'The runtime could not be started.');
       }),
+      listingRuntime('silent', async () => {
+        throw new RuntimeActionError('runtime_unavailable', '  ');
+      }),
       listingRuntime('broken', async () => {
         throw new Error('unexpected');
       }),
@@ -132,11 +135,23 @@ describe('GET /api/runtimes/:runtime_id/models', () => {
     });
     assert.deepEqual((await models('broken')).body.result, {
       availability: 'unavailable',
-      reason: { code: 'adapter_error', message: 'The runtime adapter failed to list its models.' },
+      reason: {
+        code: 'adapter_error',
+        message:
+          'The agent app ran into an error Halora did not expect while listing its models. Try again in a moment.',
+      },
+    });
+    // A refusal with no words of its own says so in Halora's.
+    assert.deepEqual((await models('silent')).body.result, {
+      availability: 'unavailable',
+      reason: { code: 'runtime_unavailable', message: 'The agent app could not list its models.' },
     });
     assert.deepEqual((await models('stalled')).body.result, {
       availability: 'unavailable',
-      reason: { code: 'timeout', message: 'The runtime did not list its models within 200 ms.' },
+      reason: {
+        code: 'timeout',
+        message: 'The agent app did not list its models in time. Try again in a moment.',
+      },
     });
     // A list outside the contract is not passed on.
     assert.deepEqual((await models('malformed')).body.result, {
