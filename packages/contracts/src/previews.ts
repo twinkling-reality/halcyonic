@@ -301,11 +301,15 @@ export type CheckRefusal = Static<typeof CheckRefusal>;
  * saw (a type check or build that did not exit 0, a page not opened, an uncaught exception, nothing
  * drawn by its edges or of its own, a refusal, the laptop reading measured under its floor), whatever
  * else is not known; `not_known` where everything seen passed and only whether the page draws its own
- * look could not be found out (`page.drawn` null); `starter_only` where the page is the untouched starter's
+ * look could not be found out (`page.drawn` null), or where the page looks like the untouched starter's while the
+ * checked folder's files changed against its base (a task copy's own base, or the starter's template for the project's
+ * folder): what changed cannot be seen, so `unknown` says how many files changed and whether sound files are among them,
+ * never passed and never failed (VRIFY, 2026-11-17); `starter_only` where the page is the untouched starter's
  * (its type check and build exit 0, no exception, something drawn, its own picture the pristine starter's against a
  * compared reference) and nothing else measured failed: the starter's picture alone, nothing new drawn yet, never a failure, while
  * `passed` and `ready` stay false (LINK, 2026-11-16); `passed` only for a whole seen pass. Absent on checks
  * recorded before it, which read by `passed` alone; one recorded before `starter_only` stays as it was recorded.
+ * `starter_only` only for the project's own folder with no file changed; a task's copy that changed nothing reads `failed`.
  * A client built before `starter_only` meets a verdict it does not know.
  */
 export const CheckFindings = Type.Object(

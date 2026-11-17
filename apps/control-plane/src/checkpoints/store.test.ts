@@ -512,3 +512,48 @@ function swapAfter(method: 'realpath' | 'lstat', path: string, swap: () => void)
     },
   };
 }
+
+describe("a folder's files against another folder's (VRIFY, 2026-11-17: a project's folder against its starter's template)", () => {
+  /** A folder of `files` under the test's root, as a template or a project made from it. */
+  function folderOf(name: string, files: Record<string, string>): string {
+    const at = join(root, name);
+    for (const [relative, content] of Object.entries(files)) {
+      mkdirSync(join(at, relative, '..'), { recursive: true });
+      writeFileSync(join(at, relative), content);
+    }
+    return at;
+  }
+  const TEMPLATE = {
+    '.gitignore': 'node_modules\n',
+    'index.html': '<title>starter</title>\n',
+    'src/index.ts': 'export {};\n',
+    'src/score.ts': 'export const score = [];\n',
+  };
+
+  test('a project as the template made it differs by nothing; its ignored files never count', async () => {
+    const template = folderOf('template', TEMPLATE);
+    const project = folderOf('made', { ...TEMPLATE, 'node_modules/x/index.js': 'x\n' });
+    assert.deepEqual(await store.changedFromFolder(PROJECT, template, project), []);
+  });
+
+  test('a changed, an added and a removed file, each with how it changed', async () => {
+    const template = folderOf('template', TEMPLATE);
+    const { 'index.html': _gone, ...kept } = TEMPLATE;
+    const project = folderOf('made', {
+      ...kept,
+      'src/score.ts': 'export const score = ["soft"];\n',
+      'public/theme.mp3': 'not really audio\n',
+    });
+    assert.deepEqual(await store.changedFromFolder(PROJECT, template, project), [
+      { path: 'index.html', change: 'removed' },
+      { path: 'public/theme.mp3', change: 'added' },
+      { path: 'src/score.ts', change: 'changed' },
+    ]);
+  });
+
+  test('a base or a folder that is not there reads null, never no change', async () => {
+    const template = folderOf('template', TEMPLATE);
+    assert.equal(await store.changedFromFolder(PROJECT, join(root, 'nowhere'), template), null);
+    assert.equal(await store.changedFromFolder(PROJECT, template, join(root, 'nowhere')), null);
+  });
+});

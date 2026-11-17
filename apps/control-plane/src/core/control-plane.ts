@@ -8,7 +8,7 @@ import {
   type Timestamp,
   type WorkstreamId,
 } from '@halcyonic/contracts';
-import { Projection } from '@halcyonic/domain';
+import { type CheckedChanges, Projection } from '@halcyonic/domain';
 import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
 import { Checkpointer } from '../checkpoints/checkpointer.ts';
 import { ProjectKeeping } from '../checkpoints/keeping.ts';
@@ -28,7 +28,7 @@ import { FileObserver } from '../observer/file-observer.ts';
 import { attachWorldReader, type WorldReader } from '../observer/world-reader.ts';
 import { WritingWatcher } from '../observer/writing-watcher.ts';
 import { OwnChecks, type OwnChecksDeps } from '../own-check/own-check.ts';
-import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
+import { type CheckedFolder, HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import { ProjectShares, type ProjectSharesDeps } from '../preview/share.ts';
 import type { HostProviders, KeyChecks } from '../providers.ts';
 import { SecretStore } from '../secrets/store.ts';
@@ -126,8 +126,15 @@ export interface ControlPlaneOptions {
    */
   readonly previews?: Omit<
     HostPreviewsDeps,
-    'recorder' | 'projection' | 'ids' | 'clock' | 'logger' | 'redaction'
-  >;
+    'recorder' | 'projection' | 'ids' | 'clock' | 'logger' | 'redaction' | 'changes'
+  > & {
+    /**
+     * For tests: what a checked folder changed against its base. By default a task's copy is read against its base by
+     * the task copies, and the project's folder against the starter's template by the checkpoint store; with neither,
+     * nothing is read (null).
+     */
+    readonly changes?: HostPreviewsDeps['changes'];
+  };
   /**
    * A project's own check, chosen by the person and run confined as an agent (ADR 0055). Absent, a
    * project not made from a starter cannot be checked.
@@ -324,6 +331,9 @@ export class ControlPlane {
         ? null
         : new HostPreviews({
             ...options.previews,
+            changes:
+              options.previews.changes ??
+              ((checked) => this.#checkedChanges(checked, options.checkpoints?.store ?? null)),
             recorder: this.recorder,
             projection: this.projection,
             ids: options.ids,
@@ -677,6 +687,32 @@ export class ControlPlane {
         break;
       }
     }
+  }
+
+  /**
+   * What a checked folder changed against its base, as the host already reads one (VRIFY, 2026-11-17): a task's own copy
+   * against its base, read by the task copies as after a turn; the project's own folder against the starter's tracked
+   * template, read by the checkpoint store. Null where neither is set up or the reading fails: nothing is guessed.
+   */
+  async #checkedChanges(
+    checked: CheckedFolder,
+    store: CheckpointStore | null,
+  ): Promise<CheckedChanges> {
+    if (checked.workstreamId !== null) {
+      const copy = this.projection.workstream(checked.workstreamId)?.copy;
+      if (this.copies === null || copy?.state !== 'own' || copy.directory !== checked.folder)
+        return null;
+      const read = await this.copies.readChanges(
+        checked.projectId,
+        checked.workstreamId,
+        copy.directory,
+        copy.base_tree,
+      );
+      return read?.files ?? null;
+    }
+    return store === null
+      ? null
+      : store.changedFromFolder(checked.projectId, checked.template, checked.folder);
   }
 
   /**

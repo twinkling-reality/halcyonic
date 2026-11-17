@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import type { CheckFindings, CheckFit, CheckReading } from '@halcyonic/contracts';
+import type { ChangedFile, CheckFindings, CheckFit, CheckReading } from '@halcyonic/contracts';
 import {
   checkServable,
   checkVerdict,
+  checkWithVerdict,
   DRAWN_EDGES,
   fitFix,
   fitPasses,
@@ -14,10 +15,11 @@ import {
   readingFix,
   readingPasses,
   readingUnder,
+  unseenChangeWords,
 } from './fix-steps.ts';
 
-/** A check's verdict for the project's own folder, where most of these findings come from. */
-const verdictOf = (findings: CheckFindings) => checkVerdict(findings, 'project');
+/** A check's verdict for the project's own folder, where most of these findings come from, its files as the starter made them. */
+const verdictOf = (findings: CheckFindings) => checkVerdict(findings, 'project', []);
 
 /** A check that passed: its page drew, nothing threw, and its laptop step read `reading`. */
 function passed(reading?: CheckReading): CheckFindings {
@@ -410,9 +412,9 @@ describe("the untouched starter's check reads starter_only, never failed (LINK, 
   });
 
   test("only the project's own folder reads starter_only: a task's copy with the same findings is a miss, failed (AUDIT2, 14:29Z)", () => {
-    assert.equal(checkVerdict(bare(), 'project'), 'starter_only');
-    assert.equal(checkVerdict(bare(), 'task'), 'failed');
-    assert.equal(checkVerdict(passed(), 'task'), 'passed');
+    assert.equal(checkVerdict(bare(), 'project', []), 'starter_only');
+    assert.equal(checkVerdict(bare(), 'task', []), 'failed');
+    assert.equal(checkVerdict(passed(), 'task', []), 'passed');
   });
 
   test('a picture of its own past the threshold, another template, no reference, or none recorded never reads starter_only', () => {
@@ -436,5 +438,160 @@ describe("the untouched starter's check reads starter_only, never failed (LINK, 
     );
     const { own: _own, ...noOwn } = page;
     assert.equal(verdictOf({ ...bare(), page: noOwn }), 'failed');
+  });
+});
+
+describe('a starter-looking page whose folder changed files reads not_known, never failed: the check cannot see sound (VRIFY, 2026-11-17)', () => {
+  /** The bare starter's picture, as the music task on Critter Row was measured: nothing of its own drawn. */
+  const looksLikeStarter = (): CheckFindings => {
+    const seen = passed();
+    assert.ok(seen.page !== null);
+    return {
+      ...seen,
+      page: {
+        ...seen.page,
+        edges_at_3s: 46_485,
+        edges_at_10s: 47_199,
+        drawn: false,
+        own: { share: 0, reference: 'compared' },
+      },
+      passed: false,
+      ready: false,
+    };
+  };
+  const changed = (...paths: string[]): ChangedFile[] =>
+    paths.map((path) => ({ path, change: 'changed' }));
+  /** What the music task on Critter Row changed (OpenCode, "Add soft music that starts gently."): no audio file, its music composed in code. */
+  const critterRow = changed(
+    'index.html',
+    'public/ui/welcome.uikitml',
+    'src/index.ts',
+    'src/kit.ts',
+    'src/score.ts',
+  );
+
+  test("the real case: Critter Row's music task reads not_known with its words, in a task's copy and the project's folder", () => {
+    const task = checkWithVerdict(looksLikeStarter(), 'task', critterRow);
+    assert.equal(task.verdict, 'not_known');
+    assert.equal(task.passed, false);
+    assert.equal(
+      task.unknown,
+      'No visible change to the page. This task changed 5 files, including a sound file. Look and listen to judge it.',
+    );
+    const project = checkWithVerdict(looksLikeStarter(), 'project', critterRow);
+    assert.equal(project.verdict, 'not_known');
+    assert.equal(project.passed, false);
+    assert.equal(
+      project.unknown,
+      'No visible change to the page. This project changed 5 files, including a sound file. Look and listen to judge it.',
+    );
+  });
+
+  test('a sound-only change with an audio file reads not_known; with no sound file, the words without the sound clause', () => {
+    const music = checkWithVerdict(looksLikeStarter(), 'task', [
+      { path: 'public/audio/theme.MP3', change: 'added' },
+      { path: 'src/index.ts', change: 'changed' },
+    ]);
+    assert.equal(music.verdict, 'not_known');
+    assert.equal(
+      music.unknown,
+      'No visible change to the page. This task changed 2 files, including a sound file. Look and listen to judge it.',
+    );
+    const quiet = checkWithVerdict(
+      looksLikeStarter(),
+      'task',
+      changed('src/index.ts', 'README.md'),
+    );
+    assert.equal(quiet.verdict, 'not_known');
+    assert.equal(
+      quiet.unknown,
+      'No visible change to the page. This task changed 2 files. Look to judge it.',
+    );
+  });
+
+  test('each of the five forms, and both endings, in the words AUDIT2 gave', () => {
+    assert.equal(
+      unseenChangeWords(changed('a.ogg', 'b.wav', 'src/index.ts'), 'task'),
+      'No visible change to the page. This task changed 3 files, including sound files. Look and listen to judge it.',
+    );
+    assert.equal(
+      unseenChangeWords(changed('src/tone.ts', 'src/index.ts'), 'task'),
+      'No visible change to the page. This task changed 2 files, including a sound file. Look and listen to judge it.',
+    );
+    assert.equal(
+      unseenChangeWords(changed('src/index.ts', 'index.html', 'src/kit.ts'), 'task'),
+      'No visible change to the page. This task changed 3 files. Look to judge it.',
+    );
+    assert.equal(
+      unseenChangeWords(changed('public/loop.flac'), 'task'),
+      'No visible change to the page. This task changed 1 file, a sound file. Look and listen to judge it.',
+    );
+    assert.equal(
+      unseenChangeWords(changed('src/index.ts'), 'task'),
+      'No visible change to the page. This task changed 1 file. Look to judge it.',
+    );
+  });
+
+  test('sound is read by path alone: every audio extension in any case and the starter own sound files; a removed or look-alike file is not one', () => {
+    for (const path of [
+      'a.mp3',
+      'a.OGG',
+      'a.wav',
+      'a.m4a',
+      'a.aac',
+      'a.flac',
+      'a.opus',
+      'a.webm',
+      'src/score.ts',
+      'src/sound.ts',
+      'src/tone.ts',
+      'src/tone-worker.ts',
+      'src/instruments.ts',
+    ])
+      assert.match(
+        unseenChangeWords(changed(path), 'task'),
+        /a sound file\. Look and listen/,
+        path,
+      );
+    for (const path of ['score.ts', 'lib/src/sound.ts', 'src/sound.tsx', 'mp3', 'a.mp3.txt'])
+      assert.equal(
+        unseenChangeWords(changed(path), 'task'),
+        'No visible change to the page. This task changed 1 file. Look to judge it.',
+        path,
+      );
+    assert.equal(
+      unseenChangeWords([{ path: 'a.mp3', change: 'removed' }], 'task'),
+      'No visible change to the page. This task changed 1 file. Look to judge it.',
+    );
+  });
+
+  test("an untouched starter keeps today's verdicts, whether its files read unchanged or could not be read", () => {
+    for (const changes of [[], null]) {
+      assert.equal(checkVerdict(looksLikeStarter(), 'project', changes), 'starter_only');
+      assert.equal(checkVerdict(looksLikeStarter(), 'task', changes), 'failed');
+      assert.equal(checkWithVerdict(looksLikeStarter(), 'task', changes).unknown, null);
+    }
+  });
+
+  test('any measured failure still fails first, and a page that is not the starter is judged as before', () => {
+    const page = looksLikeStarter().page;
+    assert.ok(page !== null);
+    const failures: CheckFindings[] = [
+      { ...looksLikeStarter(), tsc: { exit: 2, seconds: 1 } },
+      { ...looksLikeStarter(), build: { exit: 1, seconds: 2 } },
+      {
+        ...looksLikeStarter(),
+        page: { ...page, exceptions: ['Uncaught TypeError'], exception_count: 1 },
+      },
+      { ...looksLikeStarter(), page: null },
+      // Blank by its edges, or a picture of its own that is still not drawn: not the starter's.
+      { ...looksLikeStarter(), page: { ...page, edges_at_3s: DRAWN_EDGES, edges_at_10s: 0 } },
+      { ...looksLikeStarter(), page: { ...page, own: { share: 0, reference: 'unavailable' } } },
+    ];
+    for (const findings of failures) {
+      assert.equal(checkVerdict(findings, 'task', critterRow), 'failed', JSON.stringify(findings));
+      assert.equal(checkWithVerdict(findings, 'task', critterRow).unknown, findings.unknown);
+    }
+    assert.equal(checkVerdict(passed(), 'task', critterRow), 'passed');
   });
 });

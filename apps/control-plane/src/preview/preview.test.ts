@@ -30,7 +30,12 @@ import { HostStarters, templateDigest } from '../starters.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
 import { type CheckOptions, type CheckResult, HOST_FILES, summarizeExceptions } from './check.ts';
 import { type ChromeRun, DevToolsPipe } from './chrome.ts';
-import { type HostPreviewsDeps, PREVIEW_PORTS_FULL, type ServeArgs } from './preview.ts';
+import {
+  type CheckedFolder,
+  type HostPreviewsDeps,
+  PREVIEW_PORTS_FULL,
+  type ServeArgs,
+} from './preview.ts';
 
 const PASSED: CheckResult = {
   tsc: { exit: 0, seconds: 1 },
@@ -116,6 +121,8 @@ interface PlaneOptions {
   readonly during?: (options: CheckOptions) => Promise<void>;
   /** The host's preview ports; by default the product's own range. */
   readonly ports?: readonly [number, number];
+  /** What the checked folder changed against its base, standing in; by default none is read. */
+  readonly changes?: HostPreviewsDeps['changes'];
 }
 
 /** Whether a server can listen on 127.0.0.1:`port` now. */
@@ -191,6 +198,7 @@ function plane(
     secrets,
     during,
     ports,
+    changes,
   }: PlaneOptions = {},
 ) {
   const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-previews-')));
@@ -221,6 +229,7 @@ function plane(
       },
       ...(play === undefined ? {} : { play }),
       ...(ports === undefined ? {} : { ports }),
+      ...(changes === undefined ? {} : { changes }),
       runCheck: async (options) => {
         checked.push(options);
         if (checked.length > 1 && hold !== undefined) await hold;
@@ -1912,5 +1921,79 @@ describe("each task's own copy checked and previewed side by side (limits audit 
       ],
     );
     assert.deepEqual(readdirSync(join(dataDir, 'previews')), []);
+  });
+});
+
+describe('a starter-looking page whose folder changed files, through the plane (VRIFY, 2026-11-17)', () => {
+  /** The bare starter's picture, as the check measured the music task's page: nothing of its own drawn. */
+  const bare: CheckResult = {
+    ...PASSED,
+    page:
+      PASSED.page === null
+        ? null
+        : {
+            ...PASSED.page,
+            edges: { at_3s: 46_485, at_10s: 47_199 },
+            drawn: false,
+            own: { share: 0, reference: 'compared', frame: null },
+          },
+    passed: false,
+    ready: false,
+  };
+
+  test("the project's folder that changed a sound file against the template reads not_known with its words, never passed", async (t) => {
+    const asked: CheckedFolder[] = [];
+    const { controlPlane, submit, done, projectId } = plane(t, {
+      result: bare,
+      changes: async (checked) => {
+        asked.push(checked);
+        return [
+          { path: 'public/audio/theme.mp3', change: 'added' },
+          { path: 'src/index.ts', change: 'changed' },
+        ];
+      },
+    });
+    await done(submit('project.check').command.command_id);
+    const findings = controlPlane.projection.latestCheck(projectId)?.findings;
+    assert.equal(findings?.verdict, 'not_known');
+    assert.equal(findings?.passed, false);
+    assert.equal(findings?.ready, false);
+    assert.equal(
+      findings?.unknown,
+      'No visible change to the page. This project changed 2 files, including a sound file. Look and listen to judge it.',
+    );
+    assert.deepEqual(asked, [
+      {
+        projectId,
+        workstreamId: null,
+        folder: '/Users/someone/dev/garden',
+        template: join('/repo/starters', 'iwsdk-vr', 'template'),
+      },
+    ]);
+  });
+
+  test('a reading that fails keeps the starter alone, and a page that draws its own is never asked about', async (t) => {
+    let asked = 0;
+    const failing = plane(t, {
+      result: bare,
+      changes: async () => {
+        asked += 1;
+        throw new Error('the store could not be read');
+      },
+    });
+    await failing.done(failing.submit('project.check').command.command_id);
+    assert.equal(
+      failing.controlPlane.projection.latestCheck(failing.projectId)?.findings.verdict,
+      'starter_only',
+    );
+    assert.equal(asked, 1);
+    const drawn = plane(t, {
+      changes: async () => {
+        asked += 1;
+        return [];
+      },
+    });
+    await drawn.done(drawn.submit('project.check').command.command_id);
+    assert.equal(asked, 1, 'a page drawn of its own needs no reading of its files');
   });
 });

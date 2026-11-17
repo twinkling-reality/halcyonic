@@ -13,7 +13,12 @@ import {
   type ProjectId,
   type WorkstreamId,
 } from '@halcyonic/contracts';
-import { checkServable, checkVerdict, type Projection } from '@halcyonic/domain';
+import {
+  type CheckedChanges,
+  checkServable,
+  checkWithVerdict,
+  type Projection,
+} from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import { type Cause, causedBy, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import type { Recorder } from '../core/recorder.ts';
@@ -82,6 +87,22 @@ export interface HostPreviewsDeps {
   readonly runCheck?: (options: CheckOptions) => Promise<CheckResult>;
   /** For tests: starts the server for a built copy. */
   readonly serve?: (args: ServeArgs) => ChildProcess;
+  /**
+   * What the checked folder changed against its base (VRIFY, 2026-11-17): a task's own copy against the copy's base,
+   * the project's own folder against the starter's tracked template (`template`). Null where it cannot be read. Asked
+   * only where the page draws nothing of its own, the one case its verdict reads it.
+   */
+  readonly changes: (checked: CheckedFolder) => Promise<CheckedChanges>;
+}
+
+/** The folder a check read, as `changes` is asked about it. */
+export interface CheckedFolder {
+  readonly projectId: ProjectId;
+  /** The task whose own copy was checked; null for the project's own folder. */
+  readonly workstreamId: WorkstreamId | null;
+  readonly folder: string;
+  /** The starter's tracked template, the project's folder's base. */
+  readonly template: string;
 }
 
 export interface ServeArgs {
@@ -314,10 +335,23 @@ export class HostPreviews {
         refusals.length === 0 ? observed : { ...observed, passed: false, ready: false, refusals };
       // The whole answer beside `passed`: a reference the product could not make is never the app's failure (VRIFY).
       // The starter's picture alone reads Starter Only only in the project's own folder; in a task's copy it is a miss.
-      const findings: CheckFindings = {
-        ...refused,
-        verdict: checkVerdict(refused, taskId === undefined ? 'project' : 'task'),
-      };
+      // Unless the folder's files changed: what changed cannot be seen, so it is not known (VRIFY, 2026-11-17).
+      const changes =
+        refused.page?.drawn === false
+          ? await this.#deps
+              .changes({
+                projectId,
+                workstreamId: taskId ?? null,
+                folder,
+                template: common.template,
+              })
+              .catch(() => null)
+          : null;
+      const findings = checkWithVerdict(
+        refused,
+        taskId === undefined ? 'project' : 'task',
+        changes,
+      );
       this.#deps.recorder.record(
         controlPlaneDraft(
           'project.check.recorded',

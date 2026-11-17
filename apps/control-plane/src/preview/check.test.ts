@@ -304,7 +304,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       passed: result.passed,
       reads_confined: true,
     };
-    assert.equal(checkVerdict(findings, 'project'), 'starter_only');
+    assert.equal(checkVerdict(findings, 'project', []), 'starter_only');
     // Nothing to press, but the starter's World offers VR as it loads (M1.8b).
     assert.equal(result.laptop?.layer, 'starter');
     assert.equal(result.laptop?.mouse, 'no_target');

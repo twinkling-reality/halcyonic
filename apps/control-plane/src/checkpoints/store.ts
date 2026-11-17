@@ -632,6 +632,23 @@ export class CheckpointStore {
   }
 
   /**
+   * The files of `folder` that differ from `base`, another folder (a starter's tracked template), and how each changed,
+   * each folder read as `treeOf` reads one, `folder` seeded with `base`'s tree and bounded as a checkpoint: reads only,
+   * and names nothing. Null when either cannot be read.
+   */
+  async changedFromFolder(
+    projectId: string,
+    base: string,
+    folder: string,
+  ): Promise<{ path: string; change: FileChangeKind }[] | null> {
+    const from = await this.treeOf(projectId, base, null, { bounded: true });
+    if (!from.ok) return null;
+    const to = await this.treeOf(projectId, folder, from.tree, { bounded: true });
+    if (!to.ok) return null;
+    return this.changedFiles(projectId, from.tree, to.tree);
+  }
+
+  /**
    * The files that differ between two trees and how each changed, in git's order (`--name-status`):
    * `added`, `removed` (deleted), anything else (content or kind of file) `changed`. Null when they
    * cannot be read.

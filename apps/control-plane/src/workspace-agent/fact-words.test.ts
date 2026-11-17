@@ -102,6 +102,27 @@ test('a check whose own look is not known is Partly Checked, its line and the fi
   assert.equal(checkStateOf({ ...findings, passed: true, verdict: 'passed' }), 'passed');
 });
 
+test("a starter-looking page whose files changed is Partly Checked in the check's own words, never failed or drew nothing (VRIFY, 2026-11-17)", () => {
+  const words =
+    'No visible change to the page. This task changed 5 files, including a sound file. Look and listen to judge it.';
+  const said = checkWords(
+    {
+      state: 'not_known',
+      type_check: 'passed',
+      build: 'passed',
+      page: { errors: 0, showed_its_own_picture: false },
+      unknown: words,
+      files_since_check: 'current',
+    },
+    new Date('2026-11-17T05:00:00.000Z'),
+  );
+  assert.equal(
+    said,
+    `The computer's check: Partly Checked. What was checked passed; one thing could not be checked. ${words} The type check passed, the build passed and the page opened with no errors. The files have not changed since.`,
+  );
+  assert.doesNotMatch(said, /fail|drew nothing|starter's picture to compare/i);
+});
+
 test("the untouched starter's check is Starter Only to the model, never failed, and counts as no failure (LINK, 2026-11-16)", () => {
   const findings = {
     tsc: { exit: 0, seconds: 1 },

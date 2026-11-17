@@ -5,6 +5,7 @@
  * stay as they are for every other reader.
  */
 import type { CheckFindings } from '@halcyonic/contracts';
+import { NO_VISIBLE_CHANGE } from '@halcyonic/domain';
 import { OWN_LOOK_NOT_KNOWN, PARTLY_CHECKED, STARTER_ONLY } from '../preview/check.ts';
 
 /**
@@ -88,18 +89,26 @@ interface CheckFacts {
 
 /**
  * The computer's check in sentences: what passed, what failed, whether the files changed since, and when. A check whose
- * own look is not known is Partly Checked, its line and the finding's sentence under it, never failed.
+ * own look is not known is Partly Checked, its line and the finding's sentence under it, never failed: the starter's
+ * picture that could not be made, or a page that looks like the starter while the folder's files changed, in the
+ * check's own words (VRIFY, 2026-11-17).
  */
 export function checkWords(check: CheckFacts, now: Date): string {
   if (check.state === 'not_checked') return 'The computer has not checked these files.';
   const notKnown = check.state === 'not_known';
+  // A page that looks like the starter while files changed: the check's own words, and no "drew nothing" as a fault
+  // (VRIFY, 2026-11-17).
+  const unseen =
+    notKnown && typeof check.unknown === 'string' && check.unknown.startsWith(NO_VISIBLE_CHANGE)
+      ? check.unknown
+      : null;
   const parts = [
     check.type_check === undefined ? null : `the type check ${stepWords(check.type_check)}`,
     check.build === undefined ? null : `the build ${stepWords(check.build)}`,
     check.page === undefined || check.page === null
       ? 'the page was not opened'
       : check.page.errors === 0
-        ? `the page opened with no errors${check.page.showed_its_own_picture === true ? ' and drew the scene' : check.page.showed_its_own_picture === false ? ' but drew nothing' : ''}`
+        ? `the page opened with no errors${check.page.showed_its_own_picture === true ? ' and drew the scene' : check.page.showed_its_own_picture === false && unseen === null ? ' but drew nothing' : ''}`
         : `the page showed ${plural(check.page.errors, 'error')}${check.page.showed_its_own_picture === false ? ' and drew nothing' : ''}`,
   ].filter((part): part is string => part !== null);
   // Still the starter's picture, nothing new drawn yet: its own state and line, never what failed (LINK, 2026-11-16).
@@ -107,7 +116,7 @@ export function checkWords(check: CheckFacts, now: Date): string {
     check.state === 'starter_only'
       ? `The computer's check: ${STARTER_ONLY.label}. ${STARTER_ONLY.line}`
       : notKnown
-        ? `The computer's check: ${PARTLY_CHECKED.label}. ${PARTLY_CHECKED.line} ${OWN_LOOK_NOT_KNOWN}${parts.length ? ` ${seenParts(parts)}.` : ''}`
+        ? `The computer's check: ${PARTLY_CHECKED.label}. ${PARTLY_CHECKED.line} ${unseen ?? OWN_LOOK_NOT_KNOWN}${parts.length ? ` ${seenParts(parts)}.` : ''}`
         : `The computer's check ${check.state === 'passed' ? 'passed' : 'failed'}${parts.length ? `: ${parts.join(', ')}` : ''}.`;
   const since =
     check.files_since_check === 'current'

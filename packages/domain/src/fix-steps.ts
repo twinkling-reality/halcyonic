@@ -1,4 +1,4 @@
-import type { CheckFindings, CheckFit, CheckReading } from '@halcyonic/contracts';
+import type { ChangedFile, CheckFindings, CheckFit, CheckReading } from '@halcyonic/contracts';
 
 /**
  * Sharp edges at or under which a check's page counts as having shown nothing at all, as the check's
@@ -216,9 +216,10 @@ export const DRAWN_EDGES = 200;
 export const OWN_DRAWN = 0.001;
 
 /**
- * Whether the page the check opened is the untouched starter's: something is drawn by its edges, and its own picture
- * is the pristine starter's (at most `OWN_DRAWN` of it differs) against a reference the check compared with. Never
- * for another template's reference or one that could not be made.
+ * Whether the page the check opened looks like the untouched starter's: something is drawn by its edges, and its own
+ * picture is the pristine starter's (at most `OWN_DRAWN` of it differs) against a reference the check compared with.
+ * Never for another template's reference or one that could not be made. By sight alone: a folder whose files changed
+ * may still look so, its change in sound or anything else a picture cannot see (VRIFY, 2026-11-17).
  */
 function starterPage(page: NonNullable<CheckFindings['page']>): boolean {
   const own = page.own;
@@ -232,6 +233,13 @@ function starterPage(page: NonNullable<CheckFindings['page']>): boolean {
 }
 
 /**
+ * What the checked folder changed against its base, as the host read it, each file with how it changed: for a task's own
+ * copy against the copy's base, for the project's own folder against the starter's tracked template. Empty where nothing
+ * differs; null where it could not be read or was not read, which counts as no change shown.
+ */
+export type CheckedChanges = readonly ChangedFile[] | null;
+
+/**
  * A starter's check's whole answer, recorded beside `passed` (VRIFY, 2026-11-13): a reference the product could not make
  * is the product's failure, never the app's. `failed` on any failure the check measured or saw, whatever else is not
  * known: a type check or build that did not exit 0, a page not opened, an uncaught exception, nothing drawn by its
@@ -243,8 +251,16 @@ function starterPage(page: NonNullable<CheckFindings['page']>): boolean {
  * project's own folder (`folder` 'project'): a task's own copy whose page still shows only the starter's picture after
  * its agent's turn drew nothing of what was asked, a real miss, and reads `failed` (AUDIT2, 2026-11-16). `folder` has no
  * default, so a caller always says which folder it checked (AUDIT3).
+ * Where the page still looks like the untouched starter but the folder's files changed (`changes` holds one), the check
+ * cannot judge the work by sight: sound and anything else it cannot see may be all that was asked, so it is `not_known`
+ * in either folder, never `failed` and never `passed` (VRIFY, 2026-11-17). `changes` has no default either: a caller
+ * says what it read, or null where it read nothing, and nothing is guessed.
  */
-export function checkVerdict(findings: CheckFindings, folder: 'project' | 'task'): CheckVerdict {
+export function checkVerdict(
+  findings: CheckFindings,
+  folder: 'project' | 'task',
+  changes: CheckedChanges,
+): CheckVerdict {
   const page = findings.page;
   if (
     findings.tsc.exit !== 0 ||
@@ -256,11 +272,97 @@ export function checkVerdict(findings: CheckFindings, folder: 'project' | 'task'
     fitUnder(findings) !== null
   )
     return 'failed';
-  // Not drawn of its own because it is still the starter's own page: nothing new drawn yet.
-  if (page.drawn === false)
-    return folder === 'project' && starterPage(page) ? 'starter_only' : 'failed';
+  if (page.drawn === false) {
+    if (!starterPage(page)) return 'failed';
+    // The starter's own picture, yet files changed: what changed cannot be seen, so it is not known.
+    if (changes !== null && changes.length > 0) return 'not_known';
+    // Not drawn of its own because it is still the starter's own page: nothing new drawn yet.
+    return folder === 'project' ? 'starter_only' : 'failed';
+  }
   if (page.drawn === null) return 'not_known';
   return findings.passed ? 'passed' : 'failed';
+}
+
+/**
+ * The findings with their verdict (`checkVerdict`), and, where the verdict is `not_known` because the page looks like
+ * the untouched starter while the folder's files changed, `unknown` in the words of `unseenChangeWords`. Every other
+ * finding's `unknown` is kept as the check found it.
+ */
+export function checkWithVerdict(
+  findings: CheckFindings,
+  folder: 'project' | 'task',
+  changes: CheckedChanges,
+): CheckFindings {
+  const verdict = checkVerdict(findings, folder, changes);
+  const unseen =
+    verdict === 'not_known' && findings.page?.drawn === false && changes !== null
+      ? unseenChangeWords(changes, folder)
+      : null;
+  return { ...findings, verdict, unknown: unseen ?? findings.unknown };
+}
+
+/** The first sentence of a check's words where its page shows no change it can see (AUDIT2, 2026-11-17). */
+export const NO_VISIBLE_CHANGE = 'No visible change to the page.';
+
+/** The extensions of an audio file, read from a path alone and in any case (VRIFY, 2026-11-17). */
+export const SOUND_EXTENSIONS = [
+  '.mp3',
+  '.ogg',
+  '.wav',
+  '.m4a',
+  '.aac',
+  '.flac',
+  '.opus',
+  '.webm',
+] as const;
+
+/**
+ * The starter's own sound files, relative to the folder's root (the iwsdk-vr template's `src`), where a game's music
+ * and sounds are composed in code (VRIFY, 2026-11-17: Critter Row's music changed `src/score.ts` and no audio file).
+ */
+export const STARTER_SOUND_FILES = [
+  'src/score.ts',
+  'src/sound.ts',
+  'src/tone.ts',
+  'src/tone-worker.ts',
+  'src/instruments.ts',
+] as const;
+
+/** Whether a changed file counts as sound: by its path alone, never by reading it. A removed file is not one. */
+function soundFile(file: ChangedFile): boolean {
+  if (file.change === 'removed') return false;
+  const path = file.path.toLowerCase();
+  return (
+    (STARTER_SOUND_FILES as readonly string[]).includes(file.path) ||
+    SOUND_EXTENSIONS.some((extension) => path.endsWith(extension))
+  );
+}
+
+/**
+ * The last sentence, what a person does to judge the change: listen too when a sound file changed (AUDIT2, 2026-11-17).
+ * One function, so the rule changes in one line.
+ */
+export function judgeWords(sound: boolean): string {
+  return sound ? 'Look and listen to judge it.' : 'Look to judge it.';
+}
+
+/**
+ * A check's words where the page looks like the untouched starter but the folder changed files (AUDIT2's, 2026-11-17):
+ * that nothing visible changed, how many files changed and whether sound files are among them, and how to judge it.
+ * Never that the work failed or passed. A task's copy says "This task", the project's own folder "This project".
+ */
+export function unseenChangeWords(
+  changes: readonly ChangedFile[],
+  folder: 'project' | 'task',
+): string {
+  const n = changes.length;
+  const sounds = changes.filter(soundFile).length;
+  const who = folder === 'task' ? 'This task' : 'This project';
+  const what =
+    n === 1
+      ? `${who} changed 1 file${sounds > 0 ? ', a sound file' : ''}.`
+      : `${who} changed ${n} files${sounds > 1 ? ', including sound files' : sounds === 1 ? ', including a sound file' : ''}.`;
+  return `${NO_VISIBLE_CHANGE} ${what} ${judgeWords(sounds > 0)}`;
 }
 
 /**

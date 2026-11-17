@@ -484,3 +484,25 @@ and `src/index.ts`, `index.html` and the welcome card change only when the chang
 whole app, a name the person asks for). Choosing the same world in two tasks is the same one-line change, which
 combines. The VR version instruction asks the agent to keep `addParts(world)` last, so later tasks can add to a VR
 version side by side. Projects made before keep their own copies and have no `src/parts.ts`.
+
+## Amendment, 2026-11-17: a starter-looking page whose folder changed files is not known
+
+A real proving run (VRIFY, Critter Row, "Add soft music that starts gently.", OpenCode) type checked and built with exit
+0, threw nothing and offered VR, and its task changed five files (`index.html`, `public/ui/welcome.uikitml`,
+`src/index.ts`, `src/kit.ts`, `src/score.ts`, its music composed in code), yet its page looked like the untouched
+starter, so the copy's check read `failed`. A picture cannot hear sound: calling that work failed claimed a certainty
+the check does not have. Now, where the page looks like the untouched starter (`drawn` false, its own picture the
+pristine starter's against a compared reference) and the checked folder's files changed against its base, the verdict
+is `not_known` in either folder, never `failed` and never `passed`. The base is the task copy's own (`base_tree`, read
+by the task copies as after a turn) for a task's copy, and the starter's tracked template for the project's own folder
+(read by the checkpoint store through the same ignore rules; the compared reference already means the project began
+from that template). The host reads the changes only where the page draws nothing of its own, and passes them to
+`checkVerdict` explicitly, with no default; a reading that fails or is not set up is null and keeps the verdicts above.
+Any measured failure still fails first. `unknown` then says what changed, in AUDIT2's words: "No visible change to the
+page.", then the count ("This task changed 5 files, including a sound file.", "This project" for the project's own
+folder), then "Look and listen to judge it." when a sound file changed, else "Look to judge it." A file counts as sound
+by its path alone, never its contents: an audio extension (`.mp3`, `.ogg`, `.wav`, `.m4a`, `.aac`, `.flac`, `.opus`,
+`.webm`, in any case) or one of the starter's own sound files (`src/score.ts`, `src/sound.ts`, `src/tone.ts`,
+`src/tone-worker.ts`, `src/instruments.ts`); a removed file is not one. As for any `not_known`, the copy may be
+previewed and played on the laptop and in the headset, not shared or published, and AutoFix sends nothing. An
+untouched starter with no changed files keeps `starter_only` in the project's folder and `failed` in a task's copy.

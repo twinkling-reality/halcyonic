@@ -21,6 +21,7 @@ import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import type { CheckOptions, CheckResult } from '../preview/check.ts';
 import { DRAWN_EDGES, drawnFrom, passes } from '../preview/check.ts';
 import { fitOf, fitPasses, readingOf, readingPasses } from '../preview/laptop-probe.ts';
+import type { CheckedFolder } from '../preview/preview.ts';
 import { createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
 import { AUTO_FIX_FIT_WORDS, AUTO_FIX_READING_WORDS, AUTO_FIX_WORDS } from './auto-fix.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
@@ -114,7 +115,15 @@ async function quiet(): Promise<void> {
 function plane(
   t: TestContext,
   results: (CheckResult | ((check: CheckOptions) => CheckResult))[],
-  options: { atRest?: boolean; dataDir?: string; trackedDir?: string } = {},
+  options: {
+    atRest?: boolean;
+    dataDir?: string;
+    trackedDir?: string;
+    /** What a checked folder changed against its base, standing in; by default none is read. */
+    changes?: (
+      checked: CheckedFolder,
+    ) => Promise<{ path: string; change: 'added' | 'changed' | 'removed' }[] | null>;
+  } = {},
 ) {
   const dataDir =
     options.dataDir ?? realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-auto-fix-')));
@@ -159,6 +168,7 @@ function plane(
       serve: () => {
         throw new Error('no preview in this test');
       },
+      ...(options.changes === undefined ? {} : { changes: options.changes }),
     },
   });
   const { controlPlane, commands, time } = harness;
@@ -1089,6 +1099,96 @@ describe("the automatic check of a task's own copy (ADR 0045)", () => {
       'starter_only',
       "the project's own folder, still the starter's picture",
     );
+  });
+});
+
+describe("a task's copy that changed files the page does not show (VRIFY, 2026-11-17: a sound-only task)", () => {
+  test("Critter Row's music task reads not_known with its words, never failed, and no try is sent; the untouched project folder stays Starter Only", async (t) => {
+    const asked: CheckedFolder[] = [];
+    const p = plane(t, [STARTER_LOOK, STARTER_LOOK], {
+      changes: async (checked) => {
+        asked.push(checked);
+        // What OpenCode's music task changed in the copy, no audio file among them; the project folder as the starter made it.
+        return checked.workstreamId === null
+          ? []
+          : [
+              'index.html',
+              'public/ui/welcome.uikitml',
+              'src/index.ts',
+              'src/kit.ts',
+              'src/score.ts',
+            ].map((path) => ({ path, change: 'changed' as const }));
+      },
+    });
+    const { controlPlane, projectId, now } = p;
+    const workstreamId = p.task();
+    const where = { project_id: projectId, workstream_id: workstreamId, execution_id: null };
+    const copy = join(p.dataDir, 'tasks', projectId, workstreamId, 'garden');
+    mkdirSync(copy, { recursive: true });
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.copy_made',
+        where,
+        { directory: copy, base_tree: 'a'.repeat(64), files: 1 },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    const executionId = '01a19000-0000-7000-8000-0000000000e1' as ExecutionId;
+    const scope = { ...where, execution_id: executionId };
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.created',
+        scope,
+        {
+          runtime: {
+            runtime_id: 'mock' as never,
+            kind: 'mock',
+            display_name: 'Mock',
+            synthetic: true,
+          },
+          instruction: 'Add soft music that starts gently.',
+          directory: copy,
+        },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.start_failed',
+        scope,
+        { error: { code: 'test', message: 'Recorded at rest for the test.' } },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    p.changedFiles(executionId);
+    await until(() => p.checksDone() === 1, "the copy's automatic check");
+    const first = p.ofType('project.check.recorded')[0];
+    assert.equal(first?.payload.workstream_id, workstreamId);
+    assert.equal(first?.payload.findings.verdict, 'not_known');
+    assert.equal(first?.payload.findings.passed, false);
+    assert.equal(
+      first?.payload.findings.unknown,
+      'No visible change to the page. This task changed 5 files, including a sound file. Look and listen to judge it.',
+    );
+    assert.deepEqual(asked[0], {
+      projectId,
+      workstreamId,
+      folder: copy,
+      template: join('/repo/starters', 'iwsdk-vr', 'template'),
+    });
+
+    const executionIdHere = await p.start();
+    p.changedFiles(executionIdHere);
+    await until(() => p.checksDone() === 2, "the project's automatic check");
+    const second = p.ofType('project.check.recorded')[1];
+    assert.equal(second?.payload.workstream_id, undefined);
+    assert.equal(second?.payload.findings.verdict, 'starter_only');
+    assert.equal(asked[1]?.workstreamId, null);
+    await quiet();
+    assert.equal(p.sent().length, 0, 'nothing an agent can act on is sent');
   });
 });
 
