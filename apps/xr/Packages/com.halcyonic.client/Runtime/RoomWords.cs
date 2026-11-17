@@ -57,9 +57,10 @@ namespace Halcyonic.Client
         /// <summary>
         /// The foot's count of where the person is, "Part 1 of 2": its type and its line, in dp. Two steps under the band's
         /// words, and no smaller: laid low on the band it is seen foreshortened, and 15 dp read 0.754 degrees there (XR's kit on
-        /// e15bb4c2f), under 14 dp; 18 holds it.
+        /// e15bb4c2f), under 14 dp; 18 held it until the one language's 18 dp labels set the band lower on a tall question, where 18 read
+        /// 0.865 degrees (F270, 34-question-tall); 19 holds it.
         /// </summary>
-        public const float CountTypeDp = 18f;
+        public const float CountTypeDp = 19f;
 
         public const float CountLineDp = 23f;
 
