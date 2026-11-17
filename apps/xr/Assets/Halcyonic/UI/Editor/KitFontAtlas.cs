@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Halcyonic.Client;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -33,11 +34,46 @@ namespace Halcyonic.XR.UI.Editor
         };
 
         /// <summary>
-        /// The glyphs every face holds: printable ASCII, the punctuation the kit's words and others' text use, and the well's marks
-        /// (LineWords.Literal: the code point's angle quotes and the tab's arrow; AUDIT2's 21:48Z, AUDIT3's LI4).
+        /// The glyphs every face holds: printable ASCII, the punctuation the kit's words and others' text use, the well's marks
+        /// (LineWords.Literal: the code point's angle quotes and the tab's arrow; AUDIT2's 21:48Z, AUDIT3's LI4), and the accented
+        /// Latin letters of <see cref="KitGlyphs.Latin"/> (the lead, 2026-11-17T22:10Z).
         /// </summary>
-        public static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u00B7\u2212"
-            + "\u2039\u203A\u21E5";
+        public static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u2212"
+            + "\u2039\u203A\u21E5" + KitGlyphs.Latin;
+
+        /// <summary>
+        /// The atlas sizes a face is tried at, smallest first: the 1024 square every face had, then twice as wide, then the 2048
+        /// square, so an atlas grows only as far as its glyphs need at the same 72 pt and padding 9.
+        /// </summary>
+        public static readonly (int Width, int Height)[] AtlasSizes = { (1024, 1024), (2048, 1024), (2048, 2048) };
+
+        /// <summary>
+        /// A static SDF atlas of <paramref name="characters"/> from <paramref name="font"/>, at 72 pt, padding 9 and SDFAA, the
+        /// smallest of <see cref="AtlasSizes"/> they fit; it names a character the font itself lacks rather than growing for it.
+        /// </summary>
+        public static TMP_FontAsset StaticAtlas(Font font, string characters, string name)
+        {
+            var missing = new List<string>();
+            if (FontEngine.LoadFontFace(font, 72) != FontEngineError.Success) throw new InvalidOperationException(name + ": its font does not load.");
+            foreach (var character in characters.Distinct())
+                if (!FontEngine.TryGetGlyphIndex(character, out var index) || index == 0) missing.Add("U+" + ((int)character).ToString("X4"));
+            if (missing.Count > 0) throw new InvalidOperationException(name + ": its font draws no " + string.Join(", ", missing) + ".");
+            foreach (var (width, height) in AtlasSizes)
+            {
+                var atlas = TMP_FontAsset.CreateFontAsset(font, 72, 9, GlyphRenderMode.SDFAA, width, height,
+                    AtlasPopulationMode.Dynamic, enableMultiAtlasSupport: false);
+                if (atlas.TryAddCharacters(characters, out _))
+                {
+                    atlas.atlasPopulationMode = AtlasPopulationMode.Static;
+                    Debug.Log("Halcyonic: kit faces: " + name + " holds " + atlas.characterTable.Count + " characters in a " + width + "x" + height + " atlas.");
+                    return atlas;
+                }
+                UnityEngine.Object.DestroyImmediate(atlas.atlasTexture);
+                UnityEngine.Object.DestroyImmediate(atlas.material);
+                UnityEngine.Object.DestroyImmediate(atlas);
+            }
+            throw new InvalidOperationException(name + ": required glyphs do not fit the largest static atlas.");
+        }
 
         /// <summary>
         /// The line break's mark, which JetBrains Mono does not draw: every Inter face holds it, and the mono face reaches it through
@@ -97,16 +133,7 @@ namespace Halcyonic.XR.UI.Editor
         {
             var font = AssetDatabase.LoadAssetAtPath<Font>(fontPath);
             if (font == null) throw new InvalidOperationException(name + ": the bundled OFL font is missing.");
-            var atlas = TMP_FontAsset.CreateFontAsset(font, 72, 9, GlyphRenderMode.SDFAA, 1024, 1024,
-                AtlasPopulationMode.Dynamic, enableMultiAtlasSupport: false);
-            if (!atlas.TryAddCharacters(CharactersOf(name), out _))
-            {
-                UnityEngine.Object.DestroyImmediate(atlas.atlasTexture);
-                UnityEngine.Object.DestroyImmediate(atlas.material);
-                UnityEngine.Object.DestroyImmediate(atlas);
-                throw new InvalidOperationException(name + ": required glyphs do not fit the static atlas.");
-            }
-            atlas.atlasPopulationMode = AtlasPopulationMode.Static;
+            var atlas = StaticAtlas(font, CharactersOf(name), name);
             atlas.name = name;
             atlas.atlasTexture.name = name + " Atlas";
             atlas.material.name = name + " Material";

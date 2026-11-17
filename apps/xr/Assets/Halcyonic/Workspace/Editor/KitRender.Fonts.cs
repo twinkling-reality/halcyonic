@@ -16,7 +16,16 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] FontStates = { "22-fonts" };
+        private static readonly string[] FontStates = { "22-fonts", LatinFontState };
+
+        /// <summary>
+        /// Every face drawing accented names whole (the lead, 2026-11-17T22:10Z; <see cref="KitGlyphs.Latin"/>): the line in each room
+        /// face and the title face, each glyph from that face's own atlas, and no code point mark anywhere in it.
+        /// </summary>
+        private const string LatinFontState = "22-fonts-latin";
+
+        /// <summary>The accented line, theirs: Latin-1 Supplement letters and Latin Extended-A's Ł and ź.</summary>
+        internal const string LatinLine = "Caf\u00E9, se\u00F1or, \u00FCber, \u0141\u00F3d\u017A";
 
         /// <summary>Each role, and a line of what it will carry: Halcyonic's words, then the outside text it shows, if any.</summary>
         private static readonly (KitRole Role, string Ours, string Theirs)[] FontSamples =
@@ -40,8 +49,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var pad = KitType.Units(SpatialKit.PaddingDegrees);
             var y = -pad;
             var labels = new List<(string Face, TMP_FontAsset Asset, TextMeshPro Label)>();
-            foreach (var (role, ours, theirs) in FontSamples)
+            var latin = state == LatinFontState;
+            if (latin) shot.Caption = "Every face drawing accented names whole from its own atlas, synthetic samples";
+            foreach (var (role, sampleOurs, sampleTheirs) in FontSamples)
             {
+                var (ours, theirs) = latin ? ("", LatinLine) : (sampleOurs, sampleTheirs);
                 var face = KitType.FaceName(role);
                 var asset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Halcyonic/UI/Resources/HalcyonicUI/" + face + ".asset");
                 Require(asset != null, face + " has no atlas");
@@ -57,6 +69,28 @@ namespace Halcyonic.XR.Workspace.Editor
                 label.transform.localPosition = new Vector3(-width / 2f + pad, y, -0.0005f);
                 y -= height + KitType.Units(SpatialKit.GridDegrees * 2f);
                 labels.Add((face, asset, label));
+            }
+            if (latin)
+            {
+                // The title face, which draws a task's subject (GlazeText's Subject, Display and Hero), holds the same letters.
+                var asset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Halcyonic/UI/Resources/HalcyonicUI/InstrumentType.asset");
+                Require(asset != null, "InstrumentType has no atlas");
+                if (asset != null)
+                {
+                    var title = GlazeText.Create(view, "InstrumentType", GlazeType.Subject, KitType.Text, TextAlignmentOptions.TopLeft, KitType.Order.Words);
+                    Require(title.font == asset, "a subject is not drawn in InstrumentType");
+                    title.textWrappingMode = TextWrappingModes.NoWrap;
+                    GlazeRuns.Of(title).Set(LineWords.Theirs(LatinLine));
+                    title.rectTransform.sizeDelta = new Vector2(width - 2f * pad, title.preferredHeight);
+                    title.ForceMeshUpdate(true);
+                    Require(!title.isTextTruncated, "InstrumentType's sample is cut");
+                    title.transform.localPosition = new Vector3(-width / 2f + pad + title.rectTransform.sizeDelta.x / 2f, y, -0.0005f);
+                    y -= title.preferredHeight + KitType.Units(SpatialKit.GridDegrees * 2f);
+                    labels.Add(("InstrumentType", asset, title));
+                }
+                foreach (var (face, _, label) in labels)
+                    Require(LabelText.FromTextMeshPro(label.text) == LatinLine && !label.text.Contains("U+") && !label.text.Contains("\u2039"),
+                        face + " shows the accented line with a code point mark or changed");
             }
             // The instrument candidate keeps its faces until the room replaces it (the lead's call, 2026-10-30): a label made
             // without the room's scope stays out of the room's faces, sized again or not.

@@ -16,7 +16,7 @@ namespace Halcyonic.XR.UI.Editor
         public const string AssetPath = "Assets/Halcyonic/UI/Resources/HalcyonicUI/InstrumentType.asset";
         private const string BuildingPath = "Assets/Halcyonic/UI/Resources/HalcyonicUI/InstrumentType building.asset";
         private const string FontPath = "Assets/Halcyonic/UI/Fonts/Rajdhani/Rajdhani-Medium.ttf";
-        private static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "…–\u2014‘’“”·";
+        private static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "…–\u2014‘’“”" + Halcyonic.Client.KitGlyphs.Latin;
 
         public static void Check()
         {
@@ -92,16 +92,8 @@ namespace Halcyonic.XR.UI.Editor
         {
             var font = AssetDatabase.LoadAssetAtPath<Font>(FontPath);
             if (font == null) throw new InvalidOperationException("The bundled OFL title font is missing.");
-            var atlas = TMP_FontAsset.CreateFontAsset(font, 72, 9, GlyphRenderMode.SDFAA, 1024, 1024,
-                AtlasPopulationMode.Dynamic, enableMultiAtlasSupport: false);
-            if (!atlas.TryAddCharacters(Characters, out _))
-            {
-                UnityEngine.Object.DestroyImmediate(atlas.atlasTexture);
-                UnityEngine.Object.DestroyImmediate(atlas.material);
-                UnityEngine.Object.DestroyImmediate(atlas);
-                throw new InvalidOperationException("Required title glyphs do not fit the static atlas.");
-            }
-            atlas.atlasPopulationMode = AtlasPopulationMode.Static;
+            // The same sizes, settings and font check as the kit's faces (KitFontAtlas.StaticAtlas).
+            var atlas = KitFontAtlas.StaticAtlas(font, Characters, "InstrumentType");
             atlas.name = "InstrumentType";
             atlas.atlasTexture.name = "InstrumentType Atlas";
             atlas.material.name = "InstrumentType Material";
