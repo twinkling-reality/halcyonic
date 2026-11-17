@@ -568,7 +568,7 @@ export async function buildReview(
             ...(command.payload.open_ports === true ? { open_ports: true } : {}),
           },
         ),
-        confirm_words: 'Choose Check',
+        confirm_words: 'Confirm',
         what_happens:
           "These commands become the project's check, run closed off from the rest of your computer.",
         facts: [],

@@ -116,6 +116,12 @@ test('the review card holds the yes in its digest and says both gaps beside it; 
     { code: 'test_servers', line: ALLOW_TEST_SERVERS.line },
   ]);
   assert.deepEqual(withoutYes.review.warnings, []);
+  // The press is the review's Confirm, and the card's question is the headset's own (AUDIT2, 20:02Z).
+  assert.equal(withYes.review.confirm_words, 'Confirm');
+  assert.equal(
+    withYes.review.what_happens,
+    "These commands become the project's check, run closed off from the rest of your computer.",
+  );
   assert.notEqual(
     withYes.review.digest,
     withoutYes.review.digest,
@@ -139,13 +145,13 @@ test("the line says exactly the rule's two gaps: pinned to the check's profile (
   });
   // Gap 1: the listen is "localhost", which Seatbelt does not hold to loopback, so devices on the network can reach it.
   assert.ok(profile.includes('(allow network-bind network-inbound (local tcp "localhost:*"))'));
-  assert.match(ALLOW_TEST_SERVERS.line, /devices on your network can reach them/);
+  assert.match(ALLOW_TEST_SERVERS.line, /servers your network can reach/);
   // Gap 2: connects go to any loopback port but those listening at the start and the fixed set, so only a service that
   // starts meanwhile is reachable; the line claims no more.
   assert.ok(profile.includes('(allow network-outbound (remote tcp "localhost:*"))'));
   for (const port of OWN_LOOPBACK_ALWAYS_DENIED)
     assert.ok(profile.includes(`(deny network-outbound (remote ip "localhost:${port}"))`));
-  assert.match(ALLOW_TEST_SERVERS.line, /any service that starts on this computer meanwhile/);
+  assert.match(ALLOW_TEST_SERVERS.line, /reach services on this computer, while they run/);
   assert.doesNotMatch(ALLOW_TEST_SERVERS.line, /only this computer|other services/);
   assert.equal(ALLOW_TEST_SERVERS.label, 'Allow Test Servers');
 });
