@@ -469,8 +469,8 @@ namespace Halcyonic.XR.UI
                 Gap(BlockGapDp);
                 down = LayCap(SaysLabel, width, down) + S(CapGapDp);
                 // On the card's one left edge (visionos-window-example.png; the lead's 19:38Z fault 5): the quote mark opens the words
-                // in their own line, never a mark hung in a gutter beside them (VRIFY's 19:40Z critic: "off the text's left edge").
-                var (_, saidTall) = Text(KitRole.Body, SaysTypeDp, SaysLineDp, White(SaysAlpha), LineWords.Ours("\u201C") + says, 0f, -down, width, SaysLines);
+                // in their own line and closes them, never a mark hung in a gutter beside them (VRIFY's 19:40Z critic: "off the text's left edge").
+                var (_, saidTall) = Text(KitRole.Body, SaysTypeDp, SaysLineDp, White(SaysAlpha), LineWords.Ours("\u201C") + says + LineWords.Ours("\u201D"), 0f, -down, width, SaysLines);
                 down += saidTall;
                 // Where the reply goes on, the rest is one press away, quiet under the quote (the lead's 15:17Z; AUDIT3's R6 SHOULD).
                 if (card.SaysAll is KitControl all)
