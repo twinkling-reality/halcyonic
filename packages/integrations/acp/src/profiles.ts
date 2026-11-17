@@ -75,6 +75,17 @@ export interface AcpProfile {
    * start where the app reports another, watched afterwards like the mode, so the app never acts unasked by them.
    */
   readonly askingOptions: Readonly<Record<string, string>>;
+  /**
+   * A turn-level review the app asks for once its file changes are staged, by the `_meta` field and type its request
+   * carries (Kiro's `turn_approval`, under autopilot off): shown as the changes of the calls it lists, so it can be
+   * approved whole. Null where the app asks for none.
+   */
+  readonly turnReview: { readonly meta: string; readonly type: string } | null;
+  /**
+   * The app's own report that it took a person's answer, where it gives one (Kiro's `_meta.kiro` `interaction_resolved`
+   * with the option chosen): an approval counts as taken on it, as it does on the call's next status.
+   */
+  readonly answerReport: { readonly meta: string; readonly kind: string } | null;
   readonly shell: {
     readonly tool: string;
     readonly command: string;
@@ -109,6 +120,8 @@ export const ANTIGRAVITY: AcpProfile = {
   projectSettings: ['.agents', '.gemini'],
   askingMode: 'default',
   askingOptions: {},
+  turnReview: null,
+  answerReport: null,
   // `--gemini-dir` moves both its settings (`antigravity-cli/`) and its hooks, tool servers and plugins
   // (`config/`); its Google sign-in is kept in the system keychain (validation/acp-agents.md).
   settingsHome: {
@@ -150,6 +163,10 @@ export const KIRO: AcpProfile = {
   // Kiro reports `autopilot` on, "Agent executes tools without confirmation"; its asks were seen with it on, but
   // Halora never relies on that: every session runs Supervised (validation/acp-agents.md).
   askingOptions: { autopilot: 'off' },
+  // Supervised, Kiro stages its file changes and asks once more, "Review changes", listing the calls (seen 18:46Z).
+  turnReview: { meta: 'kiro', type: 'turn_approval' },
+  // Kiro reports every answered request so; Supervised, a write's call shows nothing more until its review.
+  answerReport: { meta: 'kiro', kind: 'interaction_resolved' },
   // `KIRO_HOME` moves its settings, agents, hooks and sessions; its sign-in stays in Application Support.
   settingsHome: {
     folder: '.kiro/halora',

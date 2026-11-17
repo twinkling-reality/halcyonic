@@ -164,6 +164,22 @@ recorded Kiro traces have the real answer to the set spliced in after `session/n
 Kiro makes them; a test keeps one report on mid-turn and sees the turn stopped. Not yet seen: a Kiro turn under
 Supervised, so whether it asks the same way or adds a confirmation of its own.
 
+Kiro run 4 (18:46Z, through the adapter, autopilot off, `qwen3-coder-next` by `session/set_config_option`): Kiro
+still asked before the new file (`fs_write`, carried whole and complete) and before `ls`, as with autopilot on, and
+then asked once more, a turn-level "Review changes" (`toolCallId` `turn_approval_...`, options accept and reject,
+`_meta.kiro` `{type: "turn_approval", files: [{path, toolCallId}]}` naming the write's call). Its write's call showed
+no `in_progress` after its approval: Kiro holds staged changes until that review. The run script approved only
+complete requests, so it denied the review (shown then as its title alone): the write was not made, and the turn
+ended `cancelled`. Kiro's own report: 0.0107 credits, 3 s. Before this run, the per-launch settings home's folder
+stopped Kiro's engine (`kas`: `EPERM ... stat '~/.kiro/halora'`), before any prompt; the agent-app profile now
+lets that folder be looked at, never listed or opened.
+
+So the Kiro profile names the review (`turnReview`): it is shown as "Review changes: <files>", with each listed
+call's change as it was carried on that call's own approval, complete only where every one was; and Kiro's own
+`interaction_resolved` report, with the option chosen, counts as Kiro taking an answer (`answerReport`), since a
+held write's call shows nothing until the review. Tested on the recorded edit trace with the review as Kiro asked
+it; an approved review of a whole Supervised turn is not yet seen live.
+
 ## Real runs, signed in (2026-11-17, the owner's sign-ins, bounded by the lead)
 
 The owner signed in to Kiro ("Logged in with Google") and to Antigravity on this Mac. Each run: a scratch folder,

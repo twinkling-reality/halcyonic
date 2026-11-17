@@ -953,6 +953,8 @@ export function agentAppProfile(scope: AgentAppScope): string {
       throw new Error("a launch's settings home is inside the settings homes' folder");
     homes.push(
       `(deny file-read* file-write* (subpath ${JSON.stringify(root)}))`,
+      // The folder itself may be looked at (Kiro's engine stats it and stops otherwise), never listed or opened.
+      `(allow file-read-metadata (literal ${JSON.stringify(root)}))`,
       `(allow file-read* file-write* (subpath ${JSON.stringify(own)}))`,
     );
   }

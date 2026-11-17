@@ -4,6 +4,7 @@ import { mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type {
+  ApprovalChange,
   ApprovalDecision,
   ApprovalLevel,
   Provenance,
@@ -328,6 +329,8 @@ class AcpSession {
   #modeLeft = false;
   /** Each tool call as the app last reported it, its fields merged update by update (ACP `ToolCallUpdate`). */
   readonly #calls = new Map<string, Record<string, unknown>>();
+  /** Each call's change as it was carried on its own approval, for a turn-level review of it (Kiro's). */
+  readonly #carried = new Map<string, readonly ApprovalChange[]>();
   #profileFile: string | null = null;
   #settingsHome: string | null = null;
   #closing = false;
@@ -725,6 +728,7 @@ class AcpSession {
       kind === 'available_commands_update'
     )
       return;
+    if (kind === 'session_info_update') this.#reviewResolved(update);
     if (kind === 'tool_call' || kind === 'tool_call_update') {
       this.#flushMessage();
       this.#toolUpdate(update, kind);
@@ -869,6 +873,27 @@ class AcpSession {
     }
   }
 
+  /**
+   * The app's own report that it took an answer (`AcpProfile.answerReport`, Kiro's `interaction_resolved`), with the
+   * option the person chose: a turn-level review has no tool call updates of its own, and Supervised, a write's call
+   * shows nothing more until its review, so this is what shows the app took it.
+   */
+  #reviewResolved(update: Record<string, unknown>): void {
+    const spec = this.#options.profile.answerReport;
+    if (spec === null) return;
+    const said = record(record(update._meta)?.[spec.meta]);
+    if (said?.kind !== spec.kind) return;
+    const toolCallId = text(said.toolCallId);
+    const chosen = text(said.selectedOption);
+    for (const approval of [...this.#approvals.values()]) {
+      if (approval.toolCallId !== toolCallId || approval.answered === null) continue;
+      const decided = approval.answered.decision;
+      if (chosen === (decided === 'approved' ? approval.allow : approval.reject)) {
+        this.#resolveApproval(approval, decided, 'session_info_update.interaction_resolved');
+      }
+    }
+  }
+
   /** Merges an update of a tool call into what the app said of it before: a field it gives replaces the old one. */
   #remember(toolCallId: string, update: Record<string, unknown>): void {
     const known = this.#calls.get(toolCallId) ?? {};
@@ -946,7 +971,13 @@ class AcpSession {
     // The request's tool call is an update of the call the app already reported (ACP): what it left out, such as
     // Kiro's input, is what the app said of the same call before (validation/acp-agents.md).
     const whole = toolCallId === null ? toolCall : (this.#calls.get(toolCallId) ?? toolCall);
-    const asked = approvalRequest(whole, this.#options.profile, this.#directory);
+    const asked = approvalRequest(whole, this.#options.profile, this.#directory, {
+      meta: body._meta,
+      changesOf: (callId) => this.#carried.get(callId),
+    });
+    if (toolCallId !== null && asked.subject.changes !== undefined) {
+      this.#carried.set(toolCallId, asked.subject.changes);
+    }
     this.#emit(
       'runtime.approval.requested',
       {

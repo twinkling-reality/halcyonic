@@ -1180,6 +1180,9 @@ describe('the agent-app profile: an ACP app on a folder the person connected (AD
       );
       assert.notEqual(await exit(['/usr/bin/touch', at('home/.gemini/halora/planted.json')]), 0);
       assert.equal(await exit(['/usr/bin/touch', at('home/.gemini/halora/own/settings.json')]), 0);
+      // The folder of homes may be looked at, never listed.
+      assert.equal(await exit(['/usr/bin/stat', at('home/.gemini/halora')]), 0);
+      assert.notEqual(await exit(['/bin/ls', at('home/.gemini/halora')]), 0);
       assert.notEqual(await exit(['/bin/mkdir', at('project/src/.Agents')]), 0);
       // The controls: beside each refused place, the same reads and writes go ahead.
       for (const open of ['home/other/marker.txt', 'project/src/marker.txt', 'project/agents.txt'])

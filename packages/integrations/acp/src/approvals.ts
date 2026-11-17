@@ -141,6 +141,54 @@ function changesFromInput(
   return null;
 }
 
+/**
+ * A turn-level review of staged file changes (`AcpProfile.turnReview`): the files it lists and, for each, the change
+ * its call carried when the person was asked for it. Complete only where every listed call's change is carried
+ * whole; null where the request is not such a review.
+ */
+function turnReview(
+  review: {
+    readonly meta: unknown;
+    readonly changesOf: (id: string) => readonly ApprovalChange[] | undefined;
+  },
+  profile: AcpProfile,
+): { readonly subject: ApprovalSubject; readonly complete: boolean } | null {
+  const spec = profile.turnReview;
+  if (spec === null) return null;
+  const meta = record(record(review.meta)?.[spec.meta]);
+  if (meta === null || meta.type !== spec.type || !Array.isArray(meta.files)) return null;
+  const files = meta.files.map(record);
+  const paths: string[] = [];
+  const changes: ApprovalChange[] = [];
+  let whole = files.length > 0 && files.length <= CHANGES_MAX;
+  for (const file of files) {
+    const path = text(file?.path);
+    const id = text(file?.toolCallId);
+    if (path === null || path === '' || id === null) {
+      whole = false;
+      continue;
+    }
+    paths.push(path);
+    // The change as it was carried when the person was asked for that call, never read again from the folder.
+    const carried = review.changesOf(id);
+    if (carried === undefined || !carried.every((change) => change.path === path)) whole = false;
+    else changes.push(...carried);
+  }
+  return {
+    subject: {
+      kind: 'tool_use',
+      tool_name: 'review',
+      summary: `Review changes: ${paths.length === 0 ? 'no files named' : paths.join(', ')}`,
+      ...(paths.length > 0 &&
+        paths.length <= PATHS_MAX && {
+          paths: paths.map((path) => ({ path, access: 'write' as const })),
+        }),
+      ...(whole && changes.length > 0 && { changes }),
+    },
+    complete: whole && changes.length > 0,
+  };
+}
+
 /** Every place the request names, from ACP's `locations`, or null where there are none or too many. */
 function requestPaths(toolCall: Record<string, unknown>): ApprovalPath[] | null {
   const locations = Array.isArray(toolCall.locations) ? toolCall.locations : [];
@@ -166,7 +214,13 @@ export function approvalRequest(
   toolCall: Record<string, unknown>,
   profile: AcpProfile,
   folder: string,
+  review: {
+    readonly meta: unknown;
+    readonly changesOf: (id: string) => readonly ApprovalChange[] | undefined;
+  } | null = null,
 ): { readonly subject: ApprovalSubject; readonly complete: boolean } {
+  const reviewed = review === null ? null : turnReview(review, profile);
+  if (reviewed !== null) return reviewed;
   const name = toolNameOf(toolCall);
   const input = record(toolCall.rawInput);
   const kind = text(toolCall.kind) ?? '';

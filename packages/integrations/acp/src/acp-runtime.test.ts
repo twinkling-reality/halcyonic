@@ -744,6 +744,115 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
     assertValidObservations(run.observations);
   });
 
+  test("Supervised, Kiro's review of its staged changes asks with each change as it was asked, and approved it goes on", async (t) => {
+    const recorded = readFileSync(join(FIXTURES, 'kiro-signed-in-edit.jsonl'), 'utf8').split('\n');
+    const answered = recorded.findIndex((line) => line.includes('"expectResponse"'));
+    const edit = 'tooluse_MVsTxhc6rCMnfecKH2lciL';
+    const sessionId = JSON.parse(
+      recorded.find((line) => line.includes('"answer": "session/new"')) ?? '{}',
+    ).result.sessionId;
+    // The review as Kiro asked it under Supervised (seen 18:46Z), here for the recorded edit, then its resolution.
+    const review = 'turn_approval_1_1_test';
+    const steps = [
+      JSON.stringify({
+        send: {
+          jsonrpc: '2.0',
+          id: 99,
+          method: 'session/request_permission',
+          params: {
+            sessionId,
+            toolCall: { toolCallId: review, status: 'pending', title: 'Review changes' },
+            options: [
+              { optionId: 'accept', name: 'Accept', kind: 'allow_once' },
+              { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+            ],
+            _meta: {
+              kiro: {
+                type: 'turn_approval',
+                files: [{ path: '$CWD/notes.txt', toolCallId: edit }],
+              },
+            },
+          },
+        },
+      }),
+      JSON.stringify({ expectResponse: 99 }),
+      JSON.stringify({
+        send: {
+          jsonrpc: '2.0',
+          method: 'session/update',
+          params: {
+            sessionId,
+            update: {
+              sessionUpdate: 'session_info_update',
+              _meta: {
+                kiro: {
+                  kind: 'interaction_resolved',
+                  toolCallId: review,
+                  outcome: 'selected',
+                  selectedOption: 'accept',
+                },
+              },
+            },
+          },
+        },
+      }),
+    ];
+    // After Kiro's own report that it took the edit's answer, as it reports each answer.
+    const took = recorded.findIndex(
+      (line, index) => index > answered && line.includes('"interaction_resolved"'),
+    );
+    assert.ok(took > answered);
+    const run = setUp(t, 'cut', {
+      profile: KIRO,
+      fixtureText: [...recorded.slice(0, took + 1), ...steps, ...recorded.slice(took + 1)].join(
+        '\n',
+      ),
+    });
+    await start(run);
+    const first = await run.next('runtime.approval.requested');
+    if (first.type !== 'runtime.approval.requested') return;
+    await run.adapter.respondToApproval({
+      execution: TEST_EXECUTION,
+      approval_id: first.payload.approval_id,
+      decision: 'approve',
+      message: null,
+    });
+    const second = await run.next('runtime.approval.requested', 1);
+    if (second.type !== 'runtime.approval.requested') return;
+    assert.equal(second.payload.subject.tool_name, 'review');
+    assert.equal(
+      second.payload.subject.summary,
+      `Review changes: ${join(run.folder, 'notes.txt')}`,
+    );
+    assert.deepEqual(second.payload.subject.changes, first.payload.subject.changes);
+    assert.equal(second.payload.complete, true);
+    await run.adapter.respondToApproval({
+      execution: TEST_EXECUTION,
+      approval_id: second.payload.approval_id,
+      decision: 'approve',
+      message: null,
+    });
+    await run.next('runtime.turn.completed');
+    assertValidObservations(run.observations);
+  });
+
+  test('a review listing a call whose change was never carried can only be denied', () => {
+    const asked = approvalRequest(
+      { toolCallId: 'r', title: 'Review changes' },
+      KIRO,
+      '/nonexistent-project',
+      {
+        meta: {
+          kiro: { type: 'turn_approval', files: [{ path: '/p/x', toolCallId: 'never-asked' }] },
+        },
+        changesOf: () => undefined,
+      },
+    );
+    assert.equal(asked.subject.tool_name, 'review');
+    assert.equal(asked.subject.changes, undefined);
+    assert.equal(asked.complete, false);
+  });
+
   test('signed in: Kiro reporting autopilot back on during a turn stops the turn in words', async (t) => {
     // The recorded edit run, as Kiro reported it before Halora set autopilot off: on, in the middle of the turn.
     const recorded = readFileSync(join(FIXTURES, 'kiro-signed-in-edit.jsonl'), 'utf8')
