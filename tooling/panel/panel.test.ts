@@ -62,6 +62,7 @@ const ANDROID_ONLY = [
   'PanelAppLauncher.java',
   'PanelCapture.java',
   'PanelHud.java',
+  'PanelKit.java',
 ];
 const DEVELOPMENT = join(PANEL, 'development/com/halcyonic/panel');
 const DEVELOPMENT_ONLY = [
@@ -951,21 +952,30 @@ describe('production native agent panel', () => {
     assert.equal(noSubject.need, 'Approval Requested');
     assert.equal(noSubject.detail, null);
   });
-  test('every compact screen stands on glass; only the at-rest line clears the window around it (AUDIT3 L1)', () => {
+  test('every compact screen stands on glass: the window is cleared only where a card or a strip stands its own (AUDIT3 L1; the lead, 19:36Z)', () => {
     const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
     // Compact's default is the glass, so offline, waiting and the preview's line are read on it.
     assert.match(activity, /if \(hud\) shellRoot\.setBackground\(PanelHud\.glass\(/);
-    // Offline in compact restores the glass whatever the at-rest line had cleared.
+    // Offline in compact restores the glass whatever a card or a strip had cleared.
     assert.match(activity, /if \(compactPanel\) shellRoot\.setBackground\(PanelHud\.glass\(/);
-    // The one place the window is cleared is the at-rest line, and the pending note sits inside its strip.
-    assert.equal(activity.split('shellRoot.setBackground(null)').length - 1, 1);
-    const rest = activity.slice(
-      activity.indexOf('if (!needs) {'),
-      activity.indexOf('// It needs the person'),
-    );
-    assert.match(rest, /shellRoot\.setBackground\(null\)/);
-    assert.match(rest, /said\.addView\(pending/);
-    assert.doesNotMatch(rest, /content\.addView\(PanelHud\.say/);
+    // The window is cleared in two places only, each standing its own glass in the clear window: the task's card or strip, and
+    // the no-task card.
+    assert.equal(activity.split('shellRoot.setBackground(null)').length - 1, 2);
+    const task = activity.slice(activity.indexOf('private void monitorTask('), activity.indexOf('private LinearLayout needsYouCard('));
+    assert.match(task, /shellRoot\.setBackground\(null\)/);
+    assert.match(task, /strip\(/);
+    assert.match(task, /needsYouCard\(/);
+    const none = activity.slice(activity.indexOf('private void noTaskStrip('), activity.indexOf('/** A press on the card or a strip'));
+    assert.match(none, /shellRoot\.setBackground\(null\)/);
+    assert.match(none, /PanelKit\.glass\(/);
+    const card = activity.slice(activity.indexOf('private LinearLayout needsYouCard('), activity.indexOf('private LinearLayout strip('));
+    const strip = activity.slice(activity.indexOf('private LinearLayout strip('), activity.indexOf('private void noTaskStrip('));
+    assert.match(card, /PanelKit\.glass\(/);
+    assert.match(strip, /PanelKit\.glass\(/);
+    // The pending note sits inside its card or strip, never loose over the room.
+    assert.match(card, /card\.addView\(PanelKit\.body\(this, pending/);
+    assert.match(strip, /said\.addView\(noted/);
+    assert.doesNotMatch(task, /content\.addView\(PanelHud\.say/);
   });
   test('compact task projection uses the selected tuple and separates live, recorded and simulated provenance', () => {
     const base = model();
@@ -2042,7 +2052,8 @@ describe('the compact panel in the one language, with no hue (the lead, 2026-11-
     const literal = colours.filter(({ channels }) => channels.every((channel) => Number.isInteger(channel)));
     assert.ok(literal.length >= 8, 'the panel names its colours');
     for (const { text, channels } of literal) {
-      assert.ok(Math.max(...channels) - Math.min(...channels) <= 12, `${text} carries a hue`);
+      // At most 16 apart: the kit's own Ask glass (#0E121E) is that cool; the old orange was 161 apart, the old blue 91.
+      assert.ok(Math.max(...channels) - Math.min(...channels) <= 16, `${text} carries a hue`);
     }
   });
 });

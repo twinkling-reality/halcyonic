@@ -186,8 +186,11 @@ final class PanelHud {
         private final boolean window;
         private final int size;
 
-        Glyph(boolean window, int colour, float density) {
-            this.window = window; size = px(22, density);
+        Glyph(boolean window, int colour, float density) { this(window, colour, px(22, density)); }
+
+        /** A glyph <paramref name="sizePx"/> pixels square, as the native card draws it at the kit's own size (PanelKit). */
+        Glyph(boolean window, int colour, int sizePx) {
+            this.window = window; size = sizePx;
             paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.8f * size / 24f); paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setStrokeJoin(Paint.Join.ROUND); paint.setColor(colour);
             setBounds(0, 0, size, size);

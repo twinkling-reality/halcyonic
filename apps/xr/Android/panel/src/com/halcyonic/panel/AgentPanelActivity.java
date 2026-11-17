@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -92,7 +93,9 @@ public class AgentPanelActivity extends Activity {
     protected String previewTask() { return null; }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        compactPanel = state != null && state.getBoolean("halcyonic.panel.compact", false);
+        // The panel opens compact: the card or the strip, the film's path (the lead's 19:36Z). The full panel is one press away
+        // through More, for the actions the card does not hold.
+        compactPanel = state == null || state.getBoolean("halcyonic.panel.compact", true);
         authority.compact(compactPanel);
         developmentAllowed = (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
         capturable = PanelCapture.allowed(this);
@@ -284,75 +287,167 @@ public class AgentPanelActivity extends Activity {
     private void monitorTask(Map<String, Object> summary) {
         float density = getResources().getDisplayMetrics().density;
         boolean needs = PanelJson.bool(summary.get("needs_you"));
-        content.setPadding(0, 0, 0, 0);
+        // The window is clear; the card or the strip floats in it, about its middle (FIELD's 19:37Z), never at its top edge.
+        shellRoot.setBackground(null); shellRoot.setPadding(0, 0, 0, 0); content.setPadding(0, 0, 0, 0);
+        content.setGravity(android.view.Gravity.CENTER);
+        String state = PanelJson.text(summary.get("state_word"));
+        String task = PanelJson.text(summary.get("task"));
+        // One press back into Halora at this task: the act's one word (AUDIT2, 19:36Z), the take-10 beat.
+        Runnable openTask = () -> { cancelNetwork(); returnToWorkspace(); };
+        String pending = requestPending == null ? null : "The last workspace send is unconfirmed. Its original reference is retained.";
         if (!needs) {
-            // At rest the window holds only the line, at the line's own height: the state, the task's name and the way back,
-            // on one strip of glass; the rest of the window is clear (AUDIT's 01:11Z MUST). A Horizon OS panel's size is set
-            // by its manifest and cannot change at run time, so the line clears the window rather than shrinking it.
-            shellRoot.setBackground(null);
-            shellRoot.setPadding(PanelHud.px(6, density), PanelHud.px(6, density), PanelHud.px(6, density), 0);
-            LinearLayout line = new LinearLayout(this); line.setOrientation(LinearLayout.HORIZONTAL); line.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            line.setBackground(PanelHud.glass(density));
-            line.setPadding(PanelHud.px(26, density), PanelHud.px(16, density), PanelHud.px(12, density), PanelHud.px(16, density));
-            // The state over the task's name, as on the card, and the way back beside them.
-            LinearLayout said = new LinearLayout(this); said.setOrientation(LinearLayout.VERTICAL);
-            said.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), density), new LinearLayout.LayoutParams(-2, -2));
-            TextView name = PanelHud.say(this, PanelJson.text(summary.get("task"))); name.setTextColor(PanelHud.W1); name.setSingleLine(true);
-            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            LinearLayout.LayoutParams nameAt = new LinearLayout.LayoutParams(-1, -2); nameAt.setMargins(0, PanelHud.px(8, density), PanelHud.px(12, density), 0);
-            said.addView(name, nameAt);
-            if (requestPending != null) {
-                // The pending note stays inside the strip, on its glass, never loose over the room (AUDIT3's L1).
-                TextView pending = PanelHud.say(this, "The last workspace send is unconfirmed. Its original reference is retained.");
-                LinearLayout.LayoutParams pendingAt = new LinearLayout.LayoutParams(-1, -2); pendingAt.setMargins(0, PanelHud.px(8, density), PanelHud.px(12, density), 0);
-                said.addView(pending, pendingAt);
-            }
-            line.addView(said, new LinearLayout.LayoutParams(0, -2, 1));
-            hudPress(line, "Open Workspace", false, true, () -> { cancelNetwork(); returnToWorkspace(); });
-            content.addView(line, new LinearLayout.LayoutParams(-1, -2));
+            content.addView(strip(state, task, pending, null, null, "Open Task", PanelKit.Glyph.OPEN, false, openTask), new LinearLayout.LayoutParams(-1, -2));
             return;
         }
-        // It needs the person: the card grows from the line to the whole window of glass.
-        shellRoot.setBackground(PanelHud.glass(density));
-        shellRoot.setPadding(PanelHud.px(32, density), PanelHud.px(36, density), PanelHud.px(28, density), PanelHud.px(28, density));
-        content.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), density), new LinearLayout.LayoutParams(-1, -2));
-        TextView title = PanelHud.title(this, PanelJson.text(summary.get("task")));
-        LinearLayout.LayoutParams titleAt = new LinearLayout.LayoutParams(-1, -2); titleAt.setMargins(0, PanelHud.px(18, density), 0, 0);
-        content.addView(title, titleAt);
+        content.addView(needsYouCard(summary, state, task, pending, openTask, density), new LinearLayout.LayoutParams(-2, -2));
+    }
+
+    /**
+     * The Needs You card, a scaled copy of the headset's approval dialog (f4, LayDialog; FIELD's 19:37Z): the label role, the
+     * task's name, the need in the title's style over the command in the well (or the agent's question in body type), and one
+     * row of presses, every block on the card's one left edge.
+     */
+    private LinearLayout needsYouCard(Map<String, Object> summary, String state, String task, String pending, Runnable openTask, float density) {
+        LinearLayout card = column();
+        card.setBackground(PanelKit.glass(PanelKit.CORNER, density));
+        int pad = PanelKit.px(PanelKit.PAD, density);
+        card.setPadding(pad, pad, pad, pad);
+        // The well and its ticks reach back into the pad (LayDialog's well), so the card never clips its children to its pad.
+        card.setClipToPadding(false); card.setClipChildren(false);
+        Typeface medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
+        int widest = PanelKit.widthOf(state.toUpperCase(java.util.Locale.ROOT), PanelKit.LABEL, medium, PanelKit.LABEL_TRACKING, density);
+        card.addView(PanelKit.label(this, state, density), new LinearLayout.LayoutParams(-1, -2));
+        TextView title = PanelKit.title(this, task, density);
+        card.addView(title, below(PanelKit.LABEL_GAP, density));
+        widest = Math.max(widest, PanelKit.widthOf(task, PanelKit.TITLE, medium, 0, density));
         Object need = summary.get("need");
-        if (needs && need != null) {
-            LinearLayout.LayoutParams needAt = new LinearLayout.LayoutParams(-1, -2); needAt.setMargins(0, PanelHud.px(40, density), 0, 0);
-            content.addView(PanelHud.cap(this, PanelJson.text(need), PanelHud.W3), needAt);
-            Object detail = summary.get("detail");
+        Object detail = summary.get("detail");
+        if (need != null) {
+            String needWords = PanelJson.text(need);
+            card.addView(PanelKit.title(this, needWords, density), below(PanelKit.CONTENT_GAP, density));
+            widest = Math.max(widest, PanelKit.widthOf(needWords, PanelKit.TITLE, medium, 0, density));
             if (detail != null) {
-                // The agent's own words for what it waits on: a command in mono, a question as its sentence.
-                boolean command = !"Agent's Question".equals(need);
-                TextView words = command ? PanelHud.mono(this, PanelJson.text(detail)) : PanelHud.say(this, PanelJson.text(detail));
-                LinearLayout.LayoutParams wordsAt = new LinearLayout.LayoutParams(-1, -2); wordsAt.setMargins(0, PanelHud.px(12, density), 0, 0);
-                content.addView(words, wordsAt);
+                String words = PanelJson.text(detail);
+                if (!"Agent's Question".equals(needWords)) {
+                    // The command in the well, the well's glass on the card's edge (f4), its ticks reaching back into the pad.
+                    int reach = PanelKit.wellReach(density);
+                    LinearLayout.LayoutParams at = new LinearLayout.LayoutParams(-1, -2);
+                    at.setMargins(-reach, PanelKit.px(PanelKit.LABEL_GAP, density), -reach, 0);
+                    card.addView(PanelKit.well(this, words, density), at);
+                    widest = Math.max(widest, PanelKit.widthOf(words, PanelKit.MONO, Typeface.MONOSPACE, 0, density) + 2 * PanelKit.px(PanelKit.WELL_PAD, density));
+                } else {
+                    card.addView(PanelKit.body(this, words, density), below(PanelKit.LABEL_GAP, density));
+                    widest = Math.max(widest, PanelKit.widthOf(words, PanelKit.TYPE, Typeface.DEFAULT, 0, density));
+                }
             }
         }
-        if (requestPending != null) {
-            TextView pending = PanelHud.say(this, "The last workspace send is unconfirmed. Its original reference is retained.");
-            LinearLayout.LayoutParams pendingAt = new LinearLayout.LayoutParams(-1, -2); pendingAt.setMargins(0, PanelHud.px(16, density), 0, 0);
-            content.addView(pending, pendingAt);
-        }
-        // The presses at the foot of the glass, the main one first, as the tile stacks them.
-        android.view.View room = new android.view.View(this);
-        content.addView(room, new LinearLayout.LayoutParams(-1, 0, 1));
-        LinearLayout presses = new LinearLayout(this); presses.setOrientation(LinearLayout.VERTICAL);
-        if (needs) hudPress(presses, "Open Task", true, false, () -> changePresentation(false));
-        hudPress(presses, "Open Workspace", false, true, () -> { cancelNetwork(); returnToWorkspace(); });
-        content.addView(presses, new LinearLayout.LayoutParams(-1, -2));
+        if (pending != null) card.addView(PanelKit.body(this, pending, density), below(PanelKit.CONTENT_GAP, density));
+        // One row of presses on the same left edge (the lead's 19:38Z), each the row's widest width.
+        int width = PanelKit.pressWidth(this, "Open Task", PanelKit.Glyph.OPEN, density);
+        LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
+        Button press = PanelKit.press(this, "Open Task", true, PanelKit.Glyph.OPEN, width, density);
+        hold(press, openTask);
+        row.addView(press);
+        card.addView(row, below(PanelKit.PRESSES_GAP, density));
+        LinearLayout holder = column(); holder.setGravity(android.view.Gravity.CENTER);
+        holder.addView(card, new LinearLayout.LayoutParams(PanelKit.cardWidth(widest, width, density), -2));
+        return holder;
     }
-    /** One press on the compact card, held to the same navigation authority as the panel's own navigation. */
-    private void hudPress(LinearLayout parent, String label, boolean main, boolean workspaceGlyph, Runnable action) {
+
+    /**
+     * The strip at rest, one row on the same glass (FIELD's 19:37Z): the label role, 16 after it the words in body type, then the
+     * presses on the right, the main one last, each the widest one's width. A note, when there is one, stands under the words.
+     */
+    private LinearLayout strip(String labelWord, String words, String note, String secondWord, Runnable second, String mainWord,
+        PanelKit.Glyph mainGlyph, boolean wraps, Runnable main) {
         float density = getResources().getDisplayMetrics().density;
-        Button press = new Button(this); PanelHud.press(press, label, main, workspaceGlyph, density);
-        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-2, -2); // Every press keeps a little room round its plate, so the press starts that much left, its plate in line with the words above.
-        layout.setMargins(-PanelHud.glow(density), 0, 0, PanelHud.px(4, density));
-        parent.addView(press, layout);
+        LinearLayout strip = new LinearLayout(this); strip.setOrientation(LinearLayout.HORIZONTAL);
+        strip.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        strip.setBackground(PanelKit.glass(PanelKit.STRIP_CORNER, density));
+        int h = PanelKit.px(PanelKit.STRIP_PAD_H, density), v = PanelKit.px(PanelKit.STRIP_PAD_V, density);
+        strip.setPadding(h, v, h, v);
+        int width = PanelKit.pressWidth(this, mainWord, mainGlyph, density);
+        if (secondWord != null) width = Math.max(width, PanelKit.pressWidth(this, secondWord, PanelKit.Glyph.NONE, density));
+        int presses = secondWord != null ? 2 * width + PanelKit.px(PanelKit.ROW_GAP, density) : width;
+        LinearLayout said = column(); said.setPadding(0, 0, 0, 0);
+        TextView name = PanelKit.body(this, words, density);
+        // The strip stands inside the window with a margin of 24 at each side; the words take what the label and presses leave.
+        int margin = PanelKit.px(24, density);
+        int budget = getResources().getDisplayMetrics().widthPixels - 2 * margin - 2 * PanelKit.px(PanelKit.STRIP_PAD_H, density);
+        // The label stands over the words (as the card's label stands over its title), so a long label never cuts the task's name.
+        int room = budget - presses - PanelKit.px(PanelKit.STRIP_GAP, density);
+        name.setMaxWidth(Math.max(PanelKit.px(120, density), room));
+        said.addView(PanelKit.label(this, labelWord, density), new LinearLayout.LayoutParams(-2, -2));
+        if (!wraps) { name.setSingleLine(true); name.setEllipsize(android.text.TextUtils.TruncateAt.END); }
+        said.addView(name, below(PanelKit.LABEL_GAP / 2f, density));
+        name.getLayoutParams().width = -2;
+        if (note != null) {
+            TextView noted = PanelKit.body(this, note, density); noted.setMaxWidth(name.getMaxWidth());
+            said.addView(noted, below(PanelKit.LABEL_GAP, density));
+        }
+        LinearLayout.LayoutParams saidAt = new LinearLayout.LayoutParams(-2, -2);
+        saidAt.setMargins(0, 0, PanelKit.px(PanelKit.STRIP_GAP, density), 0);
+        strip.addView(said, saidAt);
+        if (secondWord != null) {
+            Button other = PanelKit.press(this, secondWord, false, PanelKit.Glyph.NONE, width, density);
+            hold(other, second);
+            LinearLayout.LayoutParams otherAt = new LinearLayout.LayoutParams(width, PanelKit.px(PanelKit.CORE, density));
+            otherAt.setMargins(0, 0, PanelKit.px(PanelKit.ROW_GAP, density), 0);
+            strip.addView(other, otherAt);
+        }
+        Button press = PanelKit.press(this, mainWord, true, mainGlyph, width, density);
+        hold(press, main);
+        strip.addView(press, new LinearLayout.LayoutParams(width, PanelKit.px(PanelKit.CORE, density)));
+        LinearLayout holder = new LinearLayout(this); holder.setGravity(android.view.Gravity.CENTER);
+        holder.setPadding(margin, 0, margin, 0);
+        holder.addView(strip, new LinearLayout.LayoutParams(-2, -2));
+        return holder;
+    }
+
+    /**
+     * With no task chosen, the panel stands as one strip (AUDIT2's 19:40Z words): HALORA where the person is, the way to choose a
+     * task, Open Halora, and More to the full panel, which keeps the actions the card does not (LINK's 19:40Z inventory).
+     */
+    private void noTaskStrip() {
+        float density = getResources().getDisplayMetrics().density;
+        shellRoot.setBackground(null); shellRoot.setPadding(0, 0, 0, 0); content.setPadding(0, 0, 0, 0);
+        content.setGravity(android.view.Gravity.CENTER);
+        // A sentence and two presses do not fit one row, so the no-task state stands as the card's own form (f4): HALORA in the
+        // label role, the sentence, then More and Open Halora on one row of one width, the main action last.
+        LinearLayout card = column();
+        card.setBackground(PanelKit.glass(PanelKit.CORNER, density));
+        int pad = PanelKit.px(PanelKit.PAD, density);
+        card.setPadding(pad, pad, pad, pad);
+        String sentence = "Choose a task in Halora to follow it here.";
+        card.addView(PanelKit.label(this, "Halora", density), new LinearLayout.LayoutParams(-1, -2));
+        card.addView(PanelKit.body(this, sentence, density), below(PanelKit.LABEL_GAP, density));
+        int width = Math.max(PanelKit.pressWidth(this, "More", PanelKit.Glyph.NONE, density), PanelKit.pressWidth(this, "Open Halora", PanelKit.Glyph.WINDOW, density));
+        LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
+        Button more = PanelKit.press(this, "More", false, PanelKit.Glyph.NONE, width, density);
+        hold(more, () -> { compactPanel = false; authority.compact(false); show(); });
+        LinearLayout.LayoutParams moreAt = new LinearLayout.LayoutParams(width, PanelKit.px(PanelKit.CORE, density));
+        moreAt.setMargins(0, 0, PanelKit.px(PanelKit.ROW_GAP, density), 0);
+        row.addView(more, moreAt);
+        Button open = PanelKit.press(this, "Open Halora", true, PanelKit.Glyph.WINDOW, width, density);
+        hold(open, () -> { cancelNetwork(); returnToWorkspace(); });
+        row.addView(open, new LinearLayout.LayoutParams(width, PanelKit.px(PanelKit.CORE, density)));
+        card.addView(row, below(PanelKit.PRESSES_GAP, density));
+        int pressesWidth = 2 * width + PanelKit.px(PanelKit.ROW_GAP, density);
+        int widest = PanelKit.widthOf(sentence, PanelKit.TYPE, Typeface.DEFAULT, 0, density);
+        LinearLayout holder = column(); holder.setGravity(android.view.Gravity.CENTER);
+        holder.addView(card, new LinearLayout.LayoutParams(PanelKit.cardWidth(Math.min(widest, pressesWidth), pressesWidth, density), -2));
+        content.addView(holder, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    /** A press on the card or a strip, held to the same navigation authority as the panel's own navigation. */
+    private void hold(Button press, Runnable action) {
         press.setOnClickListener(view -> { if (!visible || !authority.navigate()) return; cancelVoice(); action.run(); });
+    }
+
+    private LinearLayout.LayoutParams below(float gap, float density) {
+        LinearLayout.LayoutParams at = new LinearLayout.LayoutParams(-1, -2);
+        at.setMargins(0, PanelKit.px(gap, density), 0, 0);
+        return at;
     }
     private void cancelNetwork() { if (connection != null) connection.stop(); cancelVoice(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
     private void switchConnection(boolean usb) {
@@ -837,10 +932,10 @@ public class AgentPanelActivity extends Activity {
         presentationButton.setVisibility(workId == null ? View.GONE : View.VISIBLE);
         presentationButton.setText(compactPanel ? "Expand" : "Compact");
         presentationButton.setContentDescription(presentationButton.getText());
-        developmentControls.setVisibility(compactPanel && workId != null ? View.GONE : View.VISIBLE);
+        developmentControls.setVisibility(compactPanel ? View.GONE : View.VISIBLE);
         // Compact beside the person's show is the card alone (take 10): no name, no navigation, no monitor line, save the
         // offline line, and the synthetic preview's own line, which never leaves the preview (AUDIT2, 23:49Z).
-        boolean hud = compactPanel && workId != null;
+        boolean hud = compactPanel;
         brand.setVisibility(hud ? View.GONE : View.VISIBLE); navRow.setVisibility(hud ? View.GONE : View.VISIBLE);
         if (hud) presentationButton.setVisibility(View.GONE);
         // Compact is the card alone: the window around it clear, so the card stands at the show's edge rather than at the top of
@@ -857,6 +952,7 @@ public class AgentPanelActivity extends Activity {
         connection.setVisibility(!hud || snapshot == null || preview ? View.VISIBLE : View.GONE);
         if (snapshot == null) return;
         try {
+            if (compactPanel && workId == null) { noTaskStrip(); return; }
             if (projectId == null) {
                 text(content, "Projects", 26);
                 if (snapshot.projects.isEmpty()) text(content, "No projects yet. Create one in Workspace.", 20);
