@@ -400,9 +400,10 @@ namespace Halcyonic.XR.UI
         /// <summary>A label for exact text, a request as the runtime reported it: JetBrains Mono 19 dp on the same 28 dp line, its box's top left on its transform.</summary>
         /// <summary>
         /// The one language's label role (Mirror's Edge's wide capitals, the lead's 2026-11-17 00:54Z): our labels and states in
-        /// spaced capitals, 15 dp, 0.24 em apart, white at 0.52; titles and the person's or the agent's words keep their own case.
+        /// spaced capitals, 17 dp, 0.24 em apart, white at 0.52; titles and the person's or the agent's words keep their own case. 17, not
+        /// the sheet's 15: on a panel the eye meets at an angle, 15 read 0.80 to 0.87 degrees, under the 14 dp floor (F265, 2026-11-17).
         /// </summary>
-        public const float LabelDp = 15f;
+        public const float LabelDp = 17f;
         public const float LabelTracking = 24f;
         public const float LabelAlpha = 0.52f;
 

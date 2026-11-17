@@ -556,14 +556,15 @@ namespace Halcyonic.XR.UI
         /// The plate every action stands on (the one language: visionOS's thin glass for a control): the owner's Ask glass with the
         /// page's white lift over it, solved as one colour, so on a panel it reads as the sheet's thin glass (8 percent white,
         /// #25272E; 16 pointed, #3A3C43; held, #303239) and over the room it is still a dark capsule its white words hold on.
-        /// The main action's plate is a step lighter (10 percent, #2A2C33; pointed, #3C3E45). Its alpha in Unity's linear blend.
+        /// The main action's plate is a step lighter (10 percent, #2A2C33; pointed, #3C3E45). Opaque, so the glyph's well, drawn in the
+        /// plate's own colour, never shows as a square of its own over a bright room (F265's heard draft, 2026-11-17).
         /// </summary>
         public const int PlateColour = 0x25272E;
         public const int PlatePointedColour = 0x3A3C43;
         public const int PlateHeldColour = 0x303239;
         public const int MainPlateColour = 0x2A2C33;
         public const int MainPlatePointedColour = 0x3C3E45;
-        public const float PlateAlpha = 0.92f;
+        public const float PlateAlpha = 1f;
 
         /// <summary>How far the plate's edge feathers each way, in dp: a crisp capsule.</summary>
         public const float HaloFeatherDp = 1.2f;

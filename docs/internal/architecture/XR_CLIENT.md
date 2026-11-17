@@ -2885,11 +2885,11 @@ in order, as before.
 - **The actions** (BUILD-SPEC-v4 1.4; FIELD's F6, 2026-11-10; the one language, the lead's 2026-11-17 00:54Z) are
   `RoomButton`: every action stands on a crisp thin-glass capsule (`Halcyonic/Room Halo`, material `RoomHalo`), the
   owner's glass with the page's white lift solved as one colour so its white words hold over a panel and over the room
-  (#25272E, #3A3C43 pointed, #303239 held, at 0.92 in the linear blend), its glyph straight on it. The moment's one main
+  (#25272E, #3A3C43 pointed, #303239 held, opaque), its glyph straight on it. The moment's one main
   action carries the accent as light, never a fill: a 1.5 dp lit rim on the capsule's edge and a soft glow 12 dp out in the
   kingfisher orange (#F39552), its glyph in the same orange, its words white, on a capsule a step lighter (#2A2C33, #3C3E45
   pointed); Confirm behind its lock keeps the rim; a destructive main action takes the warning red (#F7857D) instead
-  (`RoomButton.Lit`, `RimPainted`, `RimNow`). Our labels take one role, `RoomType.Label` (spaced capitals 15 dp, 0.24 em,
+  (`RoomButton.Lit`, `RimPainted`, `RimNow`). Our labels take one role, `RoomType.Label` (spaced capitals 17 dp, 0.24 em,
   white at 0.52); a name tag may hang the world line, a thin line to a diamond where its thing stands (`RoomTag.Show`'s
   stemDp). What follows describes the sizes, motion and marks, which stand; where it names the old chip colours,
   the paragraph above holds. Two sizes: the column's (a 48 dp core, 32 dp chip, 20 dp glyph) and
