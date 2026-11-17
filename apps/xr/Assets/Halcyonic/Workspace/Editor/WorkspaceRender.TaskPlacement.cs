@@ -169,7 +169,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     Draw(); var shown = menu.Plane.Shown.Single();
                     if (!(shown.View.Frame?.Lines.Any(line => line.Action == action && line.Available) == true || shown.View.Footer.Showing?.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available) == true)
-                        || !menu.PressForRender(shown.Kind, action, null, shown.View.Frame, null)) failures.Add("actual placement refused visible " + action + "; Open #" + openStep + " task=" + openingTask + "; frame=" + shown.View.Frame?.Subject + "; actions=" + string.Join(",", shown.View.Frame?.Lines.Where(line => line.Action != null).Select(line => line.Action + ":" + line.Available) ?? Enumerable.Empty<string>()));
+                        || !menu.PressForRender(shown.Kind, action, null, shown.View.Frame, null)) failures.Add("actual placement refused visible " + action + "; Open #" + openStep + " task=" + openingTask + "; frame=" + shown.View.Frame?.Subject + "; actions=" + string.Join(",", shown.View.Frame?.Lines.Where(line => line.Action != null).Select(line => line.Action + ":" + line.Available) ?? Enumerable.Empty<string>())
+                            + "; kind=" + shown.Kind + "; lines=" + (shown.View.Frame?.Lines.Count ?? -1) + " [" + string.Join(" | ", shown.View.Frame?.Lines.Take(4).Select(line => line.Words) ?? Enumerable.Empty<string>()) + "]");
                     Draw();
                 }
                 void Open(string id) { openStep++; openingTask = id; menu.OpenFile(id); Draw(); Press(FileScreens.ShowTaskHere); }
