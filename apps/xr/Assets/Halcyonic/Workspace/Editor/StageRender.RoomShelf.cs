@@ -15,6 +15,9 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class StageRender
     {
+        /// <summary>The fewest amber pixels the waiting character's floor ring shows at its dim end in the shelf's 1024 px frame.</summary>
+        private const int NeedsYouRingAmberFloor = 150;
+
         /// <summary>
         /// The redesign's shelf (DESIGN 2.2), at both text sizes: a character's name tag in the panel's material, one line
         /// of its task's name 0.8 degrees under its feet, the older label not standing, and the picked one ringed; a task that
@@ -109,11 +112,15 @@ namespace Halcyonic.XR.Workspace.Editor
                             var clip = Path.Combine(folder, "needs-clip");
                             Directory.CreateDirectory(clip);
                             var seen = new List<float>();
+                            var amber = new List<int>();
                             for (var frame = 0; frame < 48; frame++)
                             {
                                 Advance(view, 1f / 12f);
                                 WorkspaceRender.ForceMeshes(root);
                                 var still = WorkspaceRender.Render(camera, texture);
+                                // The ring in the pixels: warm pixels, red over blue by 40 or more with green between (the amber's hue),
+                                // never the character's own pink or the tag's white.
+                                amber.Add(still.GetPixels32().Count(pixel => pixel.r > 60 && pixel.r - pixel.b >= 40 && pixel.g > pixel.b && pixel.g < pixel.r));
                                 File.WriteAllBytes(Path.Combine(clip, "frame-" + frame.ToString("00", System.Globalization.CultureInfo.InvariantCulture) + ".png"), still.EncodeToPNG());
                                 UnityEngine.Object.DestroyImmediate(still);
                                 if (view.NeedsYouRing is MeshRenderer ring)
@@ -123,8 +130,12 @@ namespace Halcyonic.XR.Workspace.Editor
                                     seen.Add(block.GetColor("_Color").a);
                                 }
                             }
-                            if (seen.Count < 48 || seen.Max() - seen.Min() < 0.05f)
+                            if (seen.Count < 48 || seen.Max() - seen.Min() < 0.2f)
                                 failures.Add(name + ": the floor ring does not breathe over four seconds (" + (seen.Count == 0 ? "never drawn" : seen.Min().ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " to " + seen.Max().ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)) + ")");
+                            // Seen at a glance at its dim end, and plainly rising and falling (the lead's 2026-11-17T03:24Z).
+                            Debug.Log("Halcyonic: room shelf: " + name + ": the floor ring's amber pixels per frame " + string.Join(" ", amber));
+                            if (amber.Min() < NeedsYouRingAmberFloor) failures.Add(name + ": the floor ring is not seen at its dim end: " + amber.Min() + " amber pixels, under " + NeedsYouRingAmberFloor);
+                            if (amber.Max() < amber.Min() * 1.3f) failures.Add(name + ": the floor ring's amber does not rise and fall: " + amber.Min() + " to " + amber.Max() + " pixels");
                         }
                     }
                     finally

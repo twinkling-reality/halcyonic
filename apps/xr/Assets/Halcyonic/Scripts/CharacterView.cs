@@ -98,11 +98,11 @@ namespace Halcyonic.XR
         /// without a fill; its tag carries the words. FIELD sets the amber and the ring's size against the sheet.
         /// </summary>
         public static readonly Color NeedsYouRingColour = new Color(0xF2 / 255f, 0xB1 / 255f, 0x34 / 255f);
-        public const float NeedsYouRingRestAlpha = 0.22f;
-        public const float NeedsYouRingBreathAlpha = 0.14f;
+        public const float NeedsYouRingRestAlpha = 0.30f;
+        public const float NeedsYouRingBreathAlpha = 0.35f;
         public const float NeedsYouRingBreathSeconds = 2f;
 
-        /// <summary>The floor ring's size, in the testing band's own units times the body's scale (its radius 1.3 body units).</summary>
+        /// <summary>The floor ring's size, in its band's own units times the body's scale (CharacterMeshes.FloorBand: 1.6 body units in radius).</summary>
         public const float NeedsYouRingScale = 1f;
         private static readonly Color RingColor = new Color(0.85f, 0.96f, 1f);
 
@@ -514,7 +514,7 @@ namespace Halcyonic.XR
             ringRenderer.enabled = false;
 
             // The waiting character's floor ring: flat on the floor under it, outside the body, so it never turns or hops with it.
-            floorRingRenderer = CreateRenderer(transform, "Needs you ring", CharacterMeshes.Band(), CharacterMaterials.Ring);
+            floorRingRenderer = CreateRenderer(transform, "Needs you ring", CharacterMeshes.FloorBand(), CharacterMaterials.Ring);
             floorRingRenderer.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             floorRingRenderer.transform.localScale = Vector3.one * (NeedsYouRingScale * BodyScale);
             floorRingRenderer.enabled = false;

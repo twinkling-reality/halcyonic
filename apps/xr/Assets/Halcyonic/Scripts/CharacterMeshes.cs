@@ -265,12 +265,19 @@ namespace Halcyonic.XR
         /// A flat band around the Z axis, 1.3 body units in radius. U runs along it from 0 to 1 and
         /// V across it, from the inside to the outside.
         /// </summary>
-        public static Mesh Band()
+        public static Mesh Band() => band ??= MakeBand("Halcyonic band", 1.3f, 0.05f);
+
+        /// <summary>
+        /// The waiting character's floor ring (the lead's 2026-11-17T03:24Z): a flat band 1.6 body units in radius, so it shows beyond
+        /// the body's silhouette, and 0.07 wide, about 3 to 4 dp at the shelf's distance; as <see cref="Band"/> otherwise.
+        /// </summary>
+        public static Mesh FloorBand() => floorBand ??= MakeBand("Halcyonic floor band", 1.6f, 0.035f);
+
+        private static Mesh? floorBand;
+
+        private static Mesh MakeBand(string name, float radius, float halfWidth)
         {
-            if (band != null) return band;
             const int steps = 96;
-            const float radius = 1.3f;
-            const float halfWidth = 0.05f;
             var vertices = new Vector3[(steps + 1) * 2];
             var uvs = new Vector2[vertices.Length];
             var triangles = new int[steps * 6];
@@ -292,12 +299,12 @@ namespace Halcyonic.XR
                 triangles[t + 4] = step * 2 + 3;
                 triangles[t + 5] = step * 2 + 2;
             }
-            band = new Mesh { name = "Halcyonic band" };
-            band.SetVertices(vertices);
-            band.SetUVs(0, uvs);
-            band.SetTriangles(triangles, 0);
-            band.RecalculateBounds();
-            return band;
+            var made = new Mesh { name = name };
+            made.SetVertices(vertices);
+            made.SetUVs(0, uvs);
+            made.SetTriangles(triangles, 0);
+            made.RecalculateBounds();
+            return made;
         }
 
         private static int Index(int ring, int segment) => 1 + (ring - 1) * Segments + segment;
