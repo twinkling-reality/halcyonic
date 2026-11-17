@@ -38,14 +38,13 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// Watch It Work against Detroit's Analysis conclusion (AUDIT's pair, 2026-11-17): the code straight on the glass, no
         /// well under it; the lines a read changed marked by a thin white hairline at their left, no colour, while every other
-        /// line stands quiet at this share of its own brightness, the label's level, about 140 to 150 in the pixels on the
-        /// glass against the changed lines' 237 (AUDIT's f5 verdict, 2026-11-17T01:59Z; Unity blends alpha in linear, so the
-        /// share is lower than the level it reads at); the light that runs under a poured row white, never the
+        /// line stands a step below at this share of its own brightness, readable first: 4.5 to 1 or better over the bright
+        /// room as over the dark (the lead's 2026-11-17T02:29Z ruling); the light that runs under a poured row white, never the
         /// accent (the one orange stays on the main action); its rows starting at the card's own padding with no gutter. Its type is
         /// the one language's (FIELD's sheet, tile f5, the lead's 2026-11-17T01:05Z): a quiet label in spaced capitals, the
         /// file's path as the title in its own case, then the code in mono at 18 dp, so the card stands at 18 over its 15.
         /// </summary>
-        public const float QuietRow = 0.31f;
+        public const float QuietRow = 0.55f;
 
         public const float CardScale = CodeDp / RoomReading.TypeDp;
 
@@ -65,14 +64,10 @@ namespace Halcyonic.XR.UI
         public const float TitleGapDp = 18f;
 
         /// <summary>
-        /// The head's type, in the one language's roles (FIELD's kit): the label in <see cref="RoomType.Label"/>'s role, its
-        /// cores at <see cref="LabelInk"/> so they read 135 to 150 in the pixels on the glass (AUDIT's f5 verdict; the role's
-        /// 0.52 reads 195 under Unity's linear blend); the title in its own case at 24 dp, inside the sheet's 22 to 30; the
-        /// code in mono at 18 dp.
+        /// The head's type, in the one language's roles (FIELD's kit): the label in <see cref="RoomType.Label"/>'s role, as
+        /// the kit sets it; the title in its own case at 24 dp, inside the sheet's 22 to 30; the code in mono at 18 dp.
         /// </summary>
-        public const float LabelInk = 0.27f;
-
-        public const float LabelLineDp = 22f;
+        public const float LabelLineDp = 23f;
 
         public const float TitleDp = 24f;
 
@@ -310,7 +305,6 @@ namespace Halcyonic.XR.UI
         private float LayHead(WritingPanel panel, float width)
         {
             RoomType.Label(headLabel, LabelWords);
-            headLabel.alpha = LabelInk;
             headLabel.enableWordWrapping = false;
             headLabel.overflowMode = TextOverflowModes.Truncate;
             headLabel.rectTransform.sizeDelta = new Vector2(width, RoomType.Scaled(LabelLineDp));

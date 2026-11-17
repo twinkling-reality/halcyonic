@@ -370,6 +370,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     else view.Settle();
                 }
+                // Fail-first only (HALCYONIC_KIT_FAILFIRST=hide-row, never a gate's run): one row's words drawn nowhere, its model
+                // whole, so only the pixel read can catch it (AUDIT3's W3).
+                if (System.Environment.GetEnvironmentVariable("HALCYONIC_KIT_FAILFIRST") == "hide-row" && state == "47-build-one" && view.Card.ReadingShown.Count > 3)
+                    view.Card.ReadingShown[3].renderer.enabled = false;
                 Place(plane, eyes, 0f, shot.Elevation);
 
                 // The panel's width and its head as the one language's sheet sets it (f5): the step's verb as a quiet label in
@@ -444,34 +448,69 @@ namespace Halcyonic.XR.Workspace.Editor
                         return pixels[Mathf.Clamp(Mathf.FloorToInt(screen.y), 0, Height - 1) * Width + Mathf.Clamp(Mathf.FloorToInt(screen.x), 0, Width - 1)];
                     }
                     int Light(Color32 pixel) => (pixel.r * 2126 + pixel.g * 7152 + pixel.b * 722) / 10000;
-                    int Lightest(TMPro.TextMeshPro label)
+                    int LightestIn(Color32[] pixels, TMP_Text label)
                     {
                         var bounds = label.textBounds;
                         var most = 0;
                         for (var step = 0; step <= 60; step++)
-                            most = Mathf.Max(most, Light(At(dark, label.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 60f), bounds.max.y - KitType.LinePitch(label) * 0.5f, 0f)))));
+                            most = Mathf.Max(most, Light(At(pixels, label.transform.TransformPoint(new Vector3(Mathf.Lerp(bounds.min.x, bounds.max.x, step / 60f), bounds.max.y - KitType.LinePitch(label) * 0.5f, 0f)))));
                         return most;
                     }
+                    int Lightest(TMPro.TextMeshPro label) => LightestIn(dark, label);
                     var nameLight = nameLabel != null ? Lightest(nameLabel) : 0;
                     if (state != "47-build-arriving" && nameLight < 160) failures.Add("the file's name is not in the pixels, the lightest reads " + nameLight + " of 255");
                     var rowLight = view.Card.ReadingShown.Select(Lightest).ToList();
-                    // The levels AUDIT set on f5 (2026-11-17T01:59Z), in the pixels on the glass: the label's cores 135 to 150, the
-                    // unchanged code about 140 to 150, the changed code bright; each held with a little room for the frame's grain.
-                    var labelLight = Lightest(view.Head.Label);
-                    var settledRead = state != "47-build-arriving" && !Moving(state);
-                    if (settledRead && (labelLight < 125 || labelLight > 165)) failures.Add("the label's cores read " + labelLight + ", not 135 to 150");
-                    var quietLight = view.Card.ReadingShown.Where(row => row.alpha < 0.79f).Select(Lightest).ToList();
-                    var litLight = view.Card.ReadingShown.Where(row => row.alpha >= 0.79f).Select(Lightest).ToList();
-                    if (settledRead && (shown.Lit?.Count ?? 0) > 0)
-                    {
-                        if (quietLight.Count == 0 || quietLight.Any(value => value < 125 || value > 165)) failures.Add("the unchanged code reads " + string.Join(", ", quietLight) + ", not about 140 to 150");
-                        if (litLight.Count == 0 || litLight.Any(value => value < 215)) failures.Add("the changed code reads " + string.Join(", ", litLight) + ", not bright");
-                    }
-                    // A read that changed some lines leaves the others quiet (RoomWritingPanel.QuietRow), still plainly there.
                     var rowFloor = bands.Count > 0 ? 100 : 140;
                     if (state != "47-build-arriving" && !Moving(state) && rowLight.Any(value => value < rowFloor)) failures.Add("a row is not in the pixels: " + string.Join(", ", rowLight));
                     // The code stands on the glass: no well under it.
                     if (view.Card.Plates.Any(each => each.What == "reading well" && each.Plate.gameObject.activeInHierarchy && each.Plate.Fill.a > 0.01f)) failures.Add("a well stands under the code");
+                    // Readable first (the lead's 2026-11-17T02:29Z ruling): the label and the unchanged code a step below the changed
+                    // code, each 4.5 to 1 or better on its own glass in the dark room and the bright; the changed code bright.
+                    var labelLight = Lightest(view.Head.Label);
+                    var settledRead = state != "47-build-arriving" && !Moving(state);
+                    // AUDIT's measure (2026-11-17T02:53Z), the kit's own reader (XR's KitRender.InkBox): the word's box on the frame, its
+                    // glyph cores against the glass seen through it, in its drawn polarity; never one stray pixel either way.
+                    float Ratio(Color32[] pixels, TMP_Text label)
+                    {
+                        label.ForceMeshUpdate(true, true);
+                        var bounds = label.textBounds;
+                        var min = new Vector2(float.MaxValue, float.MaxValue);
+                        var max = new Vector2(float.MinValue, float.MinValue);
+                        foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                        foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                        {
+                            var screen = camera.WorldToScreenPoint(label.transform.TransformPoint(new Vector3(x, y, 0f)));
+                            min = Vector2.Min(min, screen);
+                            max = Vector2.Max(max, screen);
+                        }
+                        var rect = new RectInt(Mathf.Max(0, Mathf.FloorToInt(min.x)), Mathf.Max(0, Mathf.FloorToInt(min.y)), 0, 0);
+                        rect.xMax = Mathf.Min(Width, Mathf.CeilToInt(max.x));
+                        rect.yMax = Mathf.Min(Height, Mathf.CeilToInt(max.y));
+                        return rect.width < 2 || rect.height < 2 ? 0f : (float)InkBox(pixels, rect, label.color).Ratio;
+                    }
+                    var quietRows = view.Card.ReadingShown.Where(row => row.alpha < 0.79f).ToList();
+                    var litLight = view.Card.ReadingShown.Where(row => row.alpha >= 0.79f).Select(Lightest).ToList();
+                    var contrastNote = "";
+                    if (settledRead)
+                    {
+                        var labelDark = Ratio(dark, view.Head.Label);
+                        var labelBright = Ratio(bright, view.Head.Label);
+                        contrastNote = ", the label " + labelLight + " at " + labelDark.ToString("0.0") + ":1 dark, " + labelBright.ToString("0.0") + ":1 bright";
+                        // Every row of code, quiet or not, 4.5 to 1 or better on both rooms.
+                        var everyDark = view.Card.ReadingShown.Select(row => Ratio(dark, row)).DefaultIfEmpty(0f).Min();
+                        var everyBright = view.Card.ReadingShown.Select(row => Ratio(bright, row)).DefaultIfEmpty(0f).Min();
+                        if (state != "47-build-held" && (everyDark < 4.5f || everyBright < 4.5f)) failures.Add("a row of code holds " + everyDark.ToString("0.0") + ":1 dark and " + everyBright.ToString("0.0") + ":1 bright, under 4.5:1");
+                        if (labelDark < 4.5f || labelBright < 4.5f) failures.Add("the label holds " + labelDark.ToString("0.0") + ":1 dark and " + labelBright.ToString("0.0") + ":1 bright, under 4.5:1");
+                        if ((shown.Lit?.Count ?? 0) > 0)
+                        {
+                            var quietDark = quietRows.Select(row => Ratio(dark, row)).DefaultIfEmpty(0f).Min();
+                            var quietBright = quietRows.Select(row => Ratio(bright, row)).DefaultIfEmpty(0f).Min();
+                            contrastNote += ", the unchanged code " + string.Join(", ", quietRows.Select(Lightest)) + " at " + quietDark.ToString("0.0") + ":1 dark, " + quietBright.ToString("0.0") + ":1 bright";
+                            if (quietDark < 4.5f || quietBright < 4.5f) failures.Add("the unchanged code holds " + quietDark.ToString("0.0") + ":1 dark and " + quietBright.ToString("0.0") + ":1 bright, under 4.5:1");
+                            if (litLight.Count == 0 || litLight.Any(value => value < 215)) failures.Add("the changed code reads " + string.Join(", ", litLight) + ", not bright");
+                            if (quietRows.Select(Lightest).Any(value => value >= litLight.DefaultIfEmpty(255).Min() - 20)) failures.Add("the unchanged code is not a step below the changed");
+                        }
+                    }
                     var ruleNote = "";
                     // A run's rule grows down with its rows, so a pour's frame before its first changed row has none yet; settled, it stands.
                     if (rules.Count > 0 && !Moving(state) && !rules[0].Plate.gameObject.activeInHierarchy) failures.Add("a settled read draws no lit rule");
@@ -482,7 +521,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (!(pixel.r > 190 && pixel.g > 190 && pixel.b > 190)) failures.Add("the lit rule is not the white hairline: " + pixel);
                     }
                     Debug.Log("Halcyonic: parts: " + name + ": " + (view.Size.x / unit).ToString("0", CultureInfo.InvariantCulture) + "x" + (view.Size.y / unit).ToString("0", CultureInfo.InvariantCulture)
-                        + " dp, " + view.Card.ReadingShown.Count + " rows, " + bands.Count + " lit runs, the name's lightest " + nameLight + ", the label's " + labelLight + ", the rows' " + string.Join(", ", rowLight) + ruleNote + ".");
+                        + " dp, " + view.Card.ReadingShown.Count + " rows, " + bands.Count + " lit runs, the name's lightest " + nameLight + contrastNote + ", the rows' " + string.Join(", ", rowLight) + ruleNote + ".");
                 };
             }
             finally { RoomWritingPanel.NotShownWords = notShownWas; }

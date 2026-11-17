@@ -181,7 +181,6 @@ namespace Halcyonic.XR.UI
                     listTitle.gameObject.SetActive(true);
                     // In the one language's label role, as the panel's own label (the sheet's f5: FILES SO FAR).
                     RoomType.Label(listTitle, title);
-                    listTitle.alpha = RoomWritingPanel.LabelInk;
                     down += Mathf.Max(RoomType.Scaled(RoomWritingPanel.LabelLineDp), KitType.Lay(listTitle, inner, 2).Height) + RoomType.Scaled(RoomRows.GapDp);
                 }
                 else listTitle.gameObject.SetActive(false);
