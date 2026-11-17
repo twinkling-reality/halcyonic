@@ -87,7 +87,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var index = 0; index < PlaceTeams.Length; index++)
                 {
                     var (project, tasks) = PlaceTeams[index];
-                    var bearing = PlaceBearings.Of(index);
+                    var bearing = PlaceBearings.Of(index, PlaceTeams.Length);
                     var place = new GameObject("Place " + project).transform;
                     place.SetParent(root.transform, false);
                     var (at, facing) = CharacterStage.PlacePose(eyes, 0f, shelfHeight, bearing);
@@ -97,7 +97,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         var view = CharacterView.Create(place, "place-" + index + "-" + task);
                         view.Grounded = true;
-                        view.TagMostDegrees = CharacterStage.PlaceTagMostDegrees;
+                        view.TagMostDegrees = CharacterStage.PlaceTagMostDegreesIn(bearing.SpanDegrees);
                         var activity = task == 0 && index == 0 ? CharacterActivity.WaitingForHuman : CharacterActivity.Working;
                         var shown = new CharacterPresentation("place-" + index + "-" + task, tasks[task], activity, CharacterPresenter.LabelOf(activity),
                             activity == CharacterActivity.WaitingForHuman ? AttentionLevel.ActionRequired : AttentionLevel.None, Array.Empty<string>(), 0, false, false, false);
@@ -108,16 +108,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     // Laid by the stage's own rule: the pitch of the widest tag as drawn there, and the back row risen clear of the front.
                     foreach (var each in views) Advance(each.View, 1f);
                     var team = views.Select(each => each.View).ToList();
-                    var (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes);
+                    var (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes, bearing.SpanDegrees);
                     teams.Add(team);
                     // A farther ring stands clear of the nearer ring's team at its bearing, by the stage's own rule.
                     if (bearing.Ring > 0 && index - PlaceBearings.Centres.Length >= 0)
                     {
                         var nearer = teams[index - PlaceBearings.Centres.Length];
                         var clear = CharacterStage.StandClearOfNearer(place, team, nearer, eyes, 0f,
-                            () => CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes));
+                            () => CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes, bearing.SpanDegrees));
                         if (!clear) failures.Add(project + ": its ring cannot stand clear of the nearer ring's team at its bearing, lowered to the floor or raised");
-                        (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes);
+                        (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes, bearing.SpanDegrees);
                         Debug.Log("Halcyonic: places: " + variant + " " + project + " stands its floor arc " + place.position.y.ToString("0.00", CultureInfo.InvariantCulture) + " m up.");
                     }
                     WorkspaceRender.ForceMeshes(root);
@@ -129,7 +129,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var drawnDegrees = tags.Select(tag => Seen(TagCorners(tag!)).width).ToList();
                     // Read with half a degree's margin: a tag's angle moves by about that much with where in the row it stands, so a place right at
                     // the line (Kite Run's 10.2 to 10.6 degrees against the 10.53 its row of three holds) may keep the safer row.
-                    var ruleRow = Math.Min(PlacePitch.RowMost(drawnDegrees.Max() + CharacterStage.PlateReachDegrees + (float)PlacePitch.TagsApartDegrees, PlacePitch.DegreesOf(CharacterStage.BodyWidth * AgentShelfDraft.Scale, bearing.Distance)), PlaceRule.Default.FullMost);
+                    var ruleRow = Math.Min(PlacePitch.RowMost(drawnDegrees.Max() + CharacterStage.PlateReachDegrees + (float)PlacePitch.TagsApartDegrees, PlacePitch.DegreesOf(CharacterStage.BodyWidth * AgentShelfDraft.Scale, bearing.Distance), bearing.SpanDegrees), PlaceRule.Default.FullMost);
                     if (rowMost < ruleRow) failures.Add(project + ": " + views.Count + " stand in rows of " + rowMost + " where its tags as drawn let " + ruleRow + " stand");
                     Debug.Log("Halcyonic: places: " + variant + " " + project + " tags drawn " + string.Join(", ", drawnDegrees.Select(Degrees)) + " degrees wide, bounds "
                         + string.Join(", ", views.Select(each => Degrees(each.View.TagMostDegrees ?? 0f))) + ".");

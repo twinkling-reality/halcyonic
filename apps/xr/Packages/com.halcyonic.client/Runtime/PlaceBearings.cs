@@ -6,13 +6,17 @@ namespace Halcyonic.Client
     /// <summary>Where one project's place stands about the person (FIELD's places sheet v3, the lead's 2026-11-17T19:05Z seated rule).</summary>
     public readonly struct PlaceBearing
     {
-        public PlaceBearing(float yawDegrees, float distance, float drop, int ring)
+        public PlaceBearing(float yawDegrees, float distance, float drop, int ring, float spanDegrees = PlaceBearings.SpanDegrees)
         {
             YawDegrees = yawDegrees;
             Distance = distance;
             Drop = drop;
             Ring = ring;
+            SpanDegrees = spanDegrees;
         }
+
+        /// <summary>How wide the place stands, tags and all, in degrees about the eyes.</summary>
+        public float SpanDegrees { get; }
 
         /// <summary>The place's middle, in degrees about the eyes from ahead: negative to the person's left.</summary>
         public float YawDegrees { get; }
@@ -66,6 +70,25 @@ namespace Halcyonic.Client
             if (index < 0) throw new ArgumentOutOfRangeException(nameof(index), "A place's index is never negative.");
             var ring = index / Centres.Length;
             return new PlaceBearing(Centres[index % Centres.Length], RingOneDistance + RingStep * ring, RingDrop * ring, ring);
+        }
+
+        /// <summary>
+        /// The place <paramref name="index"/> of <paramref name="count"/> other places. Up to four, the ring one places of <see cref="Of(int)"/>,
+        /// unchanged. Past four, still one ring at ring one's distance (FIELD's 21:2xZ choice (b), AUDIT's look line: a second ring at the same
+        /// bearings stands over or under the first as a seated person sees it): each side's 70 degrees between the clear front and the reach is
+        /// shared among its places with the lead's 4 degrees between them, both sides filled first, nearest first. Places then move once, when
+        /// the count passes four or changes past it; their teams lay their rows by their narrower span.
+        /// </summary>
+        public static PlaceBearing Of(int index, int count)
+        {
+            if (index < 0) throw new ArgumentOutOfRangeException(nameof(index), "A place's index is never negative.");
+            if (count <= Centres.Length || index >= count) return Of(index);
+            var left = index % 2 == 0;
+            var slot = index / 2;
+            var onSide = left ? (count + 1) / 2 : count / 2;
+            var span = (ReachDegrees - FrontClearDegrees - (onSide - 1) * GapDegrees) / onSide;
+            var centre = FrontClearDegrees + span / 2f + slot * (span + GapDegrees);
+            return new PlaceBearing(left ? -centre : centre, RingOneDistance, 0f, 0, span);
         }
 
         /// <summary>The least clear angle between two neighbouring places' edges in a ring, in degrees.</summary>

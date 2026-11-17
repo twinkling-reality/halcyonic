@@ -75,8 +75,11 @@ namespace Halcyonic.XR
         /// (FIELD's places sheet v4: one row of three; (32.6 - 2 x 0.5) / 3 = 10.53). Longer names break at a word onto more lines, never cut. The
         /// person's shelf keeps the tag's own bound.
         /// </summary>
-        public static float PlaceTagMostDegrees =>
-            (float)((PlaceBearings.SpanDegrees - (PlaceRule.Default.FullMost - 1) * PlacePitch.TagsApartDegrees) / PlaceRule.Default.FullMost);
+        public static float PlaceTagMostDegrees => PlaceTagMostDegreesIn(PlaceBearings.SpanDegrees);
+
+        /// <summary>The widest a tag stands in a place <paramref name="spanDegrees"/> wide: its share of the rule's one row (past four places, narrower).</summary>
+        public static float PlaceTagMostDegreesIn(float spanDegrees) =>
+            (float)((spanDegrees - (PlaceRule.Default.FullMost - 1) * PlacePitch.TagsApartDegrees) / PlaceRule.Default.FullMost);
 
         /// <summary>The gap between a place's lowest tag and its sign, in metres at 1.4 m.</summary>
         public const float SignGap = 0.02f;
@@ -189,7 +192,7 @@ namespace Halcyonic.XR
             for (var index = 0; index < wanted.Count; index++)
             {
                 var place = wanted[index];
-                var bearing = PlaceBearings.Of(index);
+                var bearing = PlaceBearings.Of(index, wanted.Count);
                 otherOrder.Add((place, bearing));
                 if (!others.TryGetValue(place.ProjectId, out var stood))
                 {
@@ -213,10 +216,11 @@ namespace Halcyonic.XR
                         view = CharacterView.Create(stood.Root, id);
                         view.Person = head;
                         view.Grounded = true;
-                        view.TagMostDegrees = PlaceTagMostDegrees;
                         stood.Views[id] = view;
                         CharacterCreated?.Invoke(id, view);
                     }
+                    // Its place's share of the row, as the place's span is now (narrower past four places).
+                    view.TagMostDegrees = PlaceTagMostDegreesIn(bearing.SpanDegrees);
                     view.Show(CharacterPresenter.Present(state.Workstreams[id], state, live));
                 }
                 LayOtherPlace(stood, shown, bearing, eyes);
@@ -239,12 +243,12 @@ namespace Halcyonic.XR
         {
             var distance = bearing.Distance;
             stood.Laid = shown.Select(id => stood.Views[id]).ToList();
-            LayPlace(stood.Laid, radius, distance, Places.Rule, eyes);
+            LayPlace(stood.Laid, radius, distance, Places.Rule, eyes, bearing.SpanDegrees);
             var tallestTag = 0f;
             foreach (var view in stood.Views.Values)
                 if (DrawnTagSize?.Invoke(view) is Vector2 size) tallestTag = Mathf.Max(tallestTag, size.y);
             // The floor arc spans the place, tags and all, about the eyes at its distance, under the feet, a tick at each end.
-            var half = (float)PlaceBearings.SpanDegrees / 2f;
+            var half = bearing.SpanDegrees / 2f;
             var middle = stood.Root.eulerAngles.y;
             DrawFloorArc(stood.Arc, stood.Ticks, eyes, stood.Root.position.y, distance, middle - half, middle + half);
             var width = distance / PlaceBearings.RingOneDistance;
@@ -325,13 +329,13 @@ namespace Halcyonic.XR
         /// metres, or the longest name's before any has drawn), never under a body and a degree and a half (FIELD's <see cref="PlacePitch"/>);
         /// the row as many as the place's span holds with its outer tags inside it, and never more than <paramref name="rule"/>'s one row.
         /// </summary>
-        public static (float Pitch, int RowMost) PlaceRows(float widestTag, float scale, float distance, PlaceRule rule)
+        public static (float Pitch, int RowMost) PlaceRows(float widestTag, float scale, float distance, PlaceRule rule, float spanDegrees = PlaceBearings.SpanDegrees)
         {
             if (widestTag <= 0f) widestTag = WidestTagMetres * distance / PlaceBearings.RingOneDistance;
             var tagDegrees = PlacePitch.DegreesOf(widestTag, distance);
             var bodyDegrees = PlacePitch.DegreesOf(BodyWidth * scale, distance);
             var pitch = (float)PlacePitch.MetresOf(PlacePitch.PitchDegrees(tagDegrees, bodyDegrees), distance);
-            return (pitch, Mathf.Min(PlacePitch.RowMost(tagDegrees, bodyDegrees), rule.FullMost));
+            return (pitch, Mathf.Min(PlacePitch.RowMost(tagDegrees, bodyDegrees, spanDegrees), rule.FullMost));
         }
 
         /// <summary>
@@ -341,11 +345,12 @@ namespace Halcyonic.XR
         /// back-row tag stands over a front-row body as the eyes see them (AUDIT3's R1: seen from a seated person's eyes, a row behind
         /// appears higher, so a tag hung under its feet would cover the heads in front). Returns the pitch, the row and the back row's rise.
         /// </summary>
-        public static (float Pitch, int RowMost, float Rise) LayPlace(IReadOnlyList<CharacterView> views, float scale, float distance, PlaceRule rule, Vector3 eyes)
+        public static (float Pitch, int RowMost, float Rise) LayPlace(IReadOnlyList<CharacterView> views, float scale, float distance, PlaceRule rule, Vector3 eyes,
+            float spanDegrees = PlaceBearings.SpanDegrees)
         {
             var count = views.Count;
             var rise = BackRowRise;
-            var (pitch, rowMost) = PlaceRows(0f, scale, distance, rule);
+            var (pitch, rowMost) = PlaceRows(0f, scale, distance, rule, spanDegrees);
             void Lay()
             {
                 for (var index = 0; index < count; index++)
@@ -392,7 +397,7 @@ namespace Halcyonic.XR
                 // floor at the tags' own distance, is the characters' pitch.
                 var tagDistance = views.Take(Mathf.Min(rowMost, count)).Average(view => Across(view.Labels.position, eyes));
                 pitch = (float)PlacePitch.MetresOf(pitchDegrees, tagDistance);
-                rowMost = Mathf.Min(PlacePitch.RowMost(widestSeen + PlateReachDegrees, bodyDegrees), rule.FullMost);
+                rowMost = Mathf.Min(PlacePitch.RowMost(widestSeen + PlateReachDegrees, bodyDegrees, spanDegrees), rule.FullMost);
                 if (SayLayout) Debug.Log("Halcyonic: places: layout pass " + settle + ": widest tag " + widestSeen.ToString("0.00") + " degrees, body " + bodyDegrees.ToString("0.00") + ", rows of " + rowMost + ".");
                 Lay();
                 if (settle > 0 && rowMost == rowWas) break;
