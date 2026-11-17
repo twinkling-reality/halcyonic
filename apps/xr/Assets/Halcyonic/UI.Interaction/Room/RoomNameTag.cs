@@ -75,6 +75,14 @@ namespace Halcyonic.XR.UI
             return tag == null ? null : tag.Size * tag.transform.lossyScale.x;
         }
 
+        /// <summary>
+        /// The widest <paramref name="character"/>'s tag's words stand, in dp before the text size: the tag's own bound, or where its stand bounds
+        /// the whole tag in degrees (<see cref="CharacterView.TagMostDegrees"/>), that less the pads, at the person's text size, never under 80 dp.
+        /// </summary>
+        public static float WordsMostDp(CharacterView character) => character.TagMostDegrees is float degrees
+            ? Mathf.Clamp(degrees * RoomGeometry.DpPerDegree / GlazeText.Scale - 2f * RoomTag.PadXDp, 80f, RoomTag.NameWordsMostDp)
+            : RoomTag.NameWordsMostDp;
+
         /// <summary>The four corners of <paramref name="character"/>'s tag as drawn, in the world; null where it draws none.</summary>
         public static Vector3[]? DrawnCorners(CharacterView character)
         {
@@ -104,7 +112,7 @@ namespace Halcyonic.XR.UI
             // Needs You where the task needs the person, so no chip stands beside it (ADR 0023's words kept; AUDIT, 2026-11-11).
             var presented = view.Presentation as CharacterPresentation;
             tag.Show(LineWords.TheirName(view.Title), picked, needsYou: presented != null && CharacterPresenter.TagNeedsYou(presented),
-                mostWordsDp: view.TagWordsMostDp ?? RoomTag.NameWordsMostDp, state: presented != null ? CharacterPresenter.TagWord(presented) : null, stemDp: stemDp);
+                mostWordsDp: WordsMostDp(view), state: presented != null ? CharacterPresenter.TagWord(presented) : null, stemDp: stemDp);
             Place();
         }
 

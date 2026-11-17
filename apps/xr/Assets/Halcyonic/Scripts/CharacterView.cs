@@ -205,10 +205,10 @@ namespace Halcyonic.XR
         public bool Grounded { get; set; }
 
         /// <summary>
-        /// The widest its tag's words stand before they break at a word, in dp, where its stand bounds them tighter than the tag's own; null keeps
-        /// the tag's. A project's place stands its tags at 200 dp (FIELD's places sheet: three in a row at the 200 dp worst case).
+        /// The widest its whole tag stands as seen, pads included, in degrees, where its stand bounds it tighter than the tag's own; null keeps the
+        /// tag's. A project's place bounds its tags so its one row of three fits its span (<c>CharacterStage.PlaceTagMostDegrees</c>).
         /// </summary>
-        public float? TagWordsMostDp { get; set; }
+        public float? TagMostDegrees { get; set; }
         private Vector3[] shellVertices = System.Array.Empty<Vector3>();
 
         public string WorkstreamId { get; private set; } = "";

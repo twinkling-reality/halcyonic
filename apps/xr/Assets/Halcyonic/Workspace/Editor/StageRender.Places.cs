@@ -93,7 +93,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         var view = CharacterView.Create(place, "place-" + index + "-" + task);
                         view.Grounded = true;
-                        view.TagWordsMostDp = CharacterStage.PlaceTagWordsMostDp;
+                        view.TagMostDegrees = CharacterStage.PlaceTagMostDegrees;
                         var activity = task == 0 && index == 0 ? CharacterActivity.WaitingForHuman : CharacterActivity.Working;
                         var shown = new CharacterPresentation("place-" + index + "-" + task, tasks[task], activity, CharacterPresenter.LabelOf(activity),
                             activity == CharacterActivity.WaitingForHuman ? AttentionLevel.ActionRequired : AttentionLevel.None, Array.Empty<string>(), 0, false, false, false);
@@ -111,8 +111,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     // FIELD's forms: up to three stand in one row at the longest names, at both sizes; a deeper stack is no form of the sheet's.
                     if (rowMost < Math.Min(views.Count, 3))
                         failures.Add(project + ": " + views.Count + " stand in rows of " + rowMost + ", not the sheet's one row of up to three");
-                    for (var task = 0; task < seenTags.Count; task++)
-                        tagHeights.Add((bearing.Ring, task >= rowMost, project + " " + (task + 1), seenTags[task].height));
+                    // The type's size as seen: one tag unit's angle at the tag's distance (its words wrap to more or fewer lines, so its height varies).
+                    for (var task = 0; task < tags.Count; task++)
+                        tagHeights.Add((bearing.Ring, task >= rowMost, project + " " + (task + 1),
+                            tags[task]!.transform.lossyScale.x / Vector3.Distance(tags[task]!.transform.position, eyes) * Mathf.Rad2Deg * 1000f));
                     var seenBodies = views.Select(each => Seen(each.View.BodyCorners())).ToList();
                     var whole = seenTags.Concat(seenBodies).Aggregate((a, b) => Rect.MinMaxRect(Mathf.Min(a.xMin, b.xMin), Mathf.Min(a.yMin, b.yMin), Mathf.Max(a.xMax, b.xMax), Mathf.Max(a.yMax, b.yMax)));
                     extents.Add((bearing, whole));
@@ -147,8 +149,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var frontOne = tagHeights.Where(each => each.Ring == 0 && !each.Back).Select(each => each.Degrees).DefaultIfEmpty(0f).Average();
                 foreach (var (ring, back, name, degrees) in tagHeights)
                     if (frontOne > 0f && (degrees > frontOne * 1.03f || degrees < frontOne * 0.97f))
-                        failures.Add(name + "'s tag stands " + Degrees(degrees) + " degrees tall as seen (ring " + (ring + 1) + (back ? ", back row" : ", front row") + ") against ring one's front row's " + Degrees(frontOne));
-                Debug.Log("Halcyonic: places: " + variant + " tags as seen: ring one's front row " + Degrees(frontOne) + " degrees tall; ring two "
+                        failures.Add(name + "'s tag's type stands " + Degrees(degrees) + " as seen (ring " + (ring + 1) + (back ? ", back row" : ", front row") + ") against ring one's front row's " + Degrees(frontOne));
+                Debug.Log("Halcyonic: places: " + variant + " tags' type as seen (millidegrees a tag unit): ring one's front row " + Degrees(frontOne) + "; ring two "
                     + Degrees(tagHeights.Where(each => each.Ring == 1).Select(each => each.Degrees).DefaultIfEmpty(0f).Average()) + "; back rows "
                     + Degrees(tagHeights.Where(each => each.Back).Select(each => each.Degrees).DefaultIfEmpty(0f).Average()) + ".");
                 // Neighbouring places in a ring keep the lead's 4 degrees, and ring two stands further and lower than ring one.

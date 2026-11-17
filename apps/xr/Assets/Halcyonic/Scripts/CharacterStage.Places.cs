@@ -61,9 +61,13 @@ namespace Halcyonic.XR
         /// <summary>The floor arc's width and its ticks' height, in metres at 1.4 m (the sheet's 1.2 px line and 14 px tick at its scale).</summary>
         public const float FloorArcWidth = 0.0025f, FloorTickHeight = 0.03f;
 
-        /// <summary>The widest a place's tag's words stand before they break at a word, in dp (FIELD's places sheet v4: three in a row at the 200 dp
-        /// worst case, the pitch 10.5 to 11 degrees). The person's shelf keeps the tag's own bound.</summary>
-        public const float PlaceTagWordsMostDp = 200f;
+        /// <summary>
+        /// The widest a place's tag stands as seen, pads included, in degrees: its span holding the rule's one row with half a degree between tags
+        /// (FIELD's places sheet v4: one row of three; (32.6 - 2 x 0.5) / 3 = 10.53). Longer names break at a word onto more lines, never cut. The
+        /// person's shelf keeps the tag's own bound.
+        /// </summary>
+        public static float PlaceTagMostDegrees =>
+            (float)((PlaceBearings.SpanDegrees - (PlaceRule.Default.FullMost - 1) * PlacePitch.TagsApartDegrees) / PlaceRule.Default.FullMost);
 
         /// <summary>The gap between a place's lowest tag and its sign, in metres at 1.4 m.</summary>
         public const float SignGap = 0.02f;
@@ -152,7 +156,7 @@ namespace Halcyonic.XR
                         view = CharacterView.Create(stood.Root, id);
                         view.Person = head;
                         view.Grounded = true;
-                        view.TagWordsMostDp = PlaceTagWordsMostDp;
+                        view.TagMostDegrees = PlaceTagMostDegrees;
                         stood.Views[id] = view;
                         CharacterCreated?.Invoke(id, view);
                     }
