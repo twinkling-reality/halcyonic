@@ -151,8 +151,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// A word's contrast in a rendered frame by its own box, as the eye and AUDIT read it (the lead's 2026-11-17T02:53Z):
         /// <paramref name="rect"/> is the word's box in the frame's pixels. Held to the polarity its label is drawn in: light words
-        /// are read by their glyph cores (the pixels within 3 of the box's 99th percentile of max(R, G, B), averaged), dark words
-        /// by the cores within 3 of the 1st percentile of min(R, G, B), each against the box's most common colour: the glass the
+        /// are read by their glyph cores (the pixels within 3 of the box's brightest max(R, G, B), averaged), dark words by the
+        /// cores within 3 of its darkest min(R, G, B), each against the box's most common colour: the glass the
         /// words stand on (a word's box hugs its letters, so a percentile of it lands in the strokes' soft edges, never the ground).
         /// Neither a dark spot of the room seen through the glass, nor a glyph's dark edge, nor a single bright pixel can lift the
         /// ratio: the ink is a mean of cores on the words' own side, so the ratio is never above the per-pixel read it replaces.
@@ -172,13 +172,13 @@ namespace Halcyonic.XR.Workspace.Editor
             if (drawnLight)
             {
                 var byLight = box.OrderBy(p => Math.Max(p.r, Math.Max(p.g, p.b))).ToList();
-                var top = MaxChannel(byLight[(int)(0.99 * (byLight.Count - 1))]);
+                var top = MaxChannel(byLight[byLight.Count - 1]);
                 ink = byLight.Where(p => MaxChannel(p) >= top - 3).Average(Luminance);
                 ground = mode;
                 return (ink > ground ? (ink + 0.05) / (ground + 0.05) : 1.0, true, ink, ground);
             }
             var byDark = box.OrderBy(p => Math.Min(p.r, Math.Min(p.g, p.b))).ToList();
-            var bottom = MinChannel(byDark[(int)(0.01 * (byDark.Count - 1))]);
+            var bottom = MinChannel(byDark[0]);
             ink = byDark.Where(p => MinChannel(p) <= bottom + 3).Average(Luminance);
             ground = mode;
             return (ink < ground ? (ground + 0.05) / (ink + 0.05) : 1.0, false, ink, ground);
