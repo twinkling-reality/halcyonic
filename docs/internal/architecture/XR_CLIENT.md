@@ -3414,7 +3414,8 @@ in order, as before.
   with no rows, in the Changes reading's own words (`RoomWritingPanel.NotShownOf`, `FileChangeText`): Kept Private and its
   line, Not Text, Too Large to Show and its line, Empty File for a file with no lines, and Couldn't Be Read
   (`RoomWritingPanel.UnreadableWords`) for one that could not be read. It takes no press. Checks:
-  `47-build-one`, `47-build-edited` (mid-pour, lit), `47-build-arriving` (mid-rise), `47-build-held` and `47-build-light`
+  `47-build-one`, `47-build-edited` (mid-pour, lit), `47-build-edited-plain` and `47-build-edited-high` (the same edit
+  under the Plain and High Contrast code themes, every row 4.5 to 1 on both rooms), `47-build-arriving` (mid-rise), `47-build-held` and `47-build-light`
   (the light frame by frame: 0.1 s and 0.7 s, drawn at 0.12 s), `47-build-light-after` (drawn at 0.8 s) in
   `KitRender.PartsCheck`. The arc (`RoomWritingArc`, one `WritingArc`) stands in two columns at the panel's width, 24 dp
   apart, 904 dp in all (56.5 degrees, inside the comfortable field; three panels side by side came to 103), bent round

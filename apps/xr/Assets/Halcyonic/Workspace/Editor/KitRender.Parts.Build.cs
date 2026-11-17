@@ -20,7 +20,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after", "47-build-long", "47-build-tall", "47-build-colours", "47-build-colours-halora", "47-build-colours-high" }
+        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-edited-plain", "47-build-edited-high", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after", "47-build-long", "47-build-tall", "47-build-colours", "47-build-colours-halora", "47-build-colours-high" }
             .Concat(System.Environment.GetEnvironmentVariable("HALCYONIC_KIT_STRIP") == "1" ? Enumerable.Range(0, PourFrames).Select(frame => "47-build-pour-" + frame.ToString("00", CultureInfo.InvariantCulture)) : System.Array.Empty<string>())
             .ToArray();
 
@@ -305,11 +305,17 @@ namespace Halcyonic.XR.Workspace.Editor
             view.Clock = () => clock;
             var notShownWas = RoomWritingPanel.NotShownWords;
             RoomWritingPanel.NotShownWords = RoomWritingPanel.NotShownOf;
+            // The edit under each code theme (AUDIT3's CC-g): Plain's quiet share is the tightest, High Contrast's colours its own;
+            // set as the person sets it, before the panel colours, and put back once the frame is read.
+            var edited = state.StartsWith("47-build-edited", System.StringComparison.Ordinal);
+            var themeWas = CodeThemes.Current;
+            if (state == "47-build-edited-plain") CodeThemes.Set(CodeTheme.Plain);
+            if (state == "47-build-edited-high") CodeThemes.Set(CodeTheme.HighContrast);
             try
             {
                 WritingPanel shown;
                 IReadOnlyList<int> lit = new int[0];
-                if (state == "47-build-edited" || Moving(state))
+                if (edited || Moving(state))
                 {
                     view.Show(BuildPanel(BuildFile));
                     view.Settle();
@@ -579,7 +585,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 var bands = view.Card.Plates.Where(each => each.What == "reading lit band").ToList();
                 var rules = view.Card.Plates.Where(each => each.What == "reading lit rule").ToList();
-                if (state == "47-build-edited" || state == "47-build-tall" || Moving(state)) Require(bands.Count > 0 && rules.Count == bands.Count, "the changed rows are not lit: " + bands.Count + " bands, " + rules.Count + " rules");
+                if (edited || state == "47-build-tall" || Moving(state)) Require(bands.Count > 0 && rules.Count == bands.Count, "the changed rows are not lit: " + bands.Count + " bands, " + rules.Count + " rules");
                 else Require(bands.Count == 0, "rows no read changed are lit");
                 // Each rule stands clear of the words, left of the first letter, and inside the glass.
                 if (rows.Count > 0 && rules.Count > 0)
@@ -686,8 +692,22 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (!(pixel.r > 190 && pixel.g > 190 && pixel.b > 190)) failures.Add("the lit rule is not the white hairline: " + pixel);
                     }
                     Debug.Log("Halcyonic: parts: " + name + ": " + (view.Size.x / unit).ToString("0", CultureInfo.InvariantCulture) + "x" + (view.Size.y / unit).ToString("0", CultureInfo.InvariantCulture)
-                        + " dp, " + view.Card.ReadingShown.Count + " rows, " + bands.Count + " lit runs, the name's lightest " + nameLight + contrastNote + ", the rows' " + string.Join(", ", rowLight) + ruleNote + ".");
+                        + " dp, " + view.Card.ReadingShown.Count + " rows, " + bands.Count + " lit runs, the code theme " + CodeThemes.Words(CodeThemes.Current) + ", the name's lightest " + nameLight + contrastNote + ", the rows' " + string.Join(", ", rowLight) + ruleNote + ".");
                 };
+                if (CodeThemes.Current != themeWas)
+                {
+                    var read = shot.Read;
+                    shot.Read = (camera, eye, white, dark, bright, failures) =>
+                    {
+                        try { read(camera, eye, white, dark, bright, failures); }
+                        finally { CodeThemes.Set(themeWas); }
+                    };
+                }
+            }
+            catch
+            {
+                CodeThemes.Set(themeWas);
+                throw;
             }
             finally { RoomWritingPanel.NotShownWords = notShownWas; }
             return shot;
