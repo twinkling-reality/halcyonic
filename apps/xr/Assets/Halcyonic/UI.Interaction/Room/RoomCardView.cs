@@ -1612,7 +1612,7 @@ namespace Halcyonic.XR.UI
         /// list-death-stranding-cargo-management.png): each section's head once in the label role, then its rows with a hairline
         /// between them. Every row's name stands on the card's one left edge; its value is plain body type on the right edge, its
         /// mark (by form, white) just before the value, so no mark pushes a name off the title's edge; each fact is its own quiet
-        /// line under the name; a rate is a white fill on a quiet track under them. A command in mono breaks only between its
+        /// line under the name; a rate is a white fill on a quiet track under them, the row's whole width. A command in mono breaks only between its
         /// words, never inside one ("SUITE=sign-in" stays whole), shrinking to the caption's size at most where a word is too wide.
         /// </summary>
         private float LayResults(IReadOnlyList<RoomResultsSection> sections, float width, float down)
@@ -1650,7 +1650,8 @@ namespace Halcyonic.XR.UI
                     if (row.Rate is double rate)
                     {
                         var middle = below + S(ResultsTrackGapDp) + S(ResultsTrackDp) / 2f;
-                        var track = width - (valueWidth > 0f ? valueWidth + S(RowGapDp) : 0f) - markRoom;
+                        // The row's whole width, its name's edge to its value's (AUDIT's 21:13Z appended point 6, as DS Results lays a rate).
+                        var track = width;
                         Plate(new Vector2(track, S(ResultsTrackDp)), S(ResultsTrackDp) / 2f, White(0.10f), new Vector2(track / 2f, -middle), "rate track");
                         var filled = track * (float)rate;
                         if (filled > 1e-4f)
