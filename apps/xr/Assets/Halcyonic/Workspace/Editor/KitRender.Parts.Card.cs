@@ -477,8 +477,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var x = plate.transform.localPosition.x;
                 Require(x - plate.Size.x / 2f >= -slack && x + plate.Size.x / 2f <= inner + slack, what + " runs past the card's column");
             }
-            float Left(string what) => view.Plates.Where(each => each.What.StartsWith(what, StringComparison.Ordinal)).Min(each => each.Plate.transform.localPosition.x - each.Plate.Size.x / 2f);
-            float Right(string what) => view.Plates.Where(each => each.What.StartsWith(what, StringComparison.Ordinal)).Max(each => each.Plate.transform.localPosition.x + each.Plate.Size.x / 2f);
+            // A part with no plate reads NaN, so its Require fails by name rather than throwing and hiding every later state (AUDIT3 16:26Z).
+            float Left(string what) => view.Plates.Where(each => each.What.StartsWith(what, StringComparison.Ordinal)).Select(each => each.Plate.transform.localPosition.x - each.Plate.Size.x / 2f).DefaultIfEmpty(float.NaN).Min();
+            float Right(string what) => view.Plates.Where(each => each.What.StartsWith(what, StringComparison.Ordinal)).Select(each => each.Plate.transform.localPosition.x + each.Plate.Size.x / 2f).DefaultIfEmpty(float.NaN).Max();
             if (card.Code is RoomCode code)
             {
                 // The code: its well square in the card's middle, the cells inside the kit's margin, the same share for every cell.
@@ -548,13 +549,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 var middle = title.transform.localPosition.y + (title.textInfo.lineInfo[0].ascender + title.textInfo.lineInfo[title.textInfo.lineCount - 1].descender) / 2f;
                 Require(Mathf.Abs(middle - mark.transform.localPosition.y) < unit * 3f, "a status's title alone stands " + ((middle - mark.transform.localPosition.y) / unit).ToString("0.0") + " dp off its mark's middle");
             }
-            if (card.Slots.Count > 1)
-                Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "the slots do not meet the card's two edges");
-            // A lone slot stands at its own width at the left; one whose value is wider than the card wraps whole across it.
-            if (card.Slots.Count == 1 && view.SlotsWrapped == 0)
-                Require(Mathf.Abs(Left("slot")) < slack && Right("slot") < inner - slack, "a card's one slot does not stand at its own width at the left");
-            if (card.Slots.Count == 1 && view.SlotsWrapped == 1)
-                Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "a wrapped slot does not span the card");
+            // Labelled facts (FIELD's f6, the review card) stand as columns with a hairline between two, not as slot wells (every
+            // label is held inside the card's column above); slots without labels keep their wells edge to edge.
+            if (card.Slots.Any(slot => slot.Label != null))
+            {
+                if (card.Slots.Count > 1) Require(view.Plates.Any(each => each.What == "facts hairline"), "two labelled facts stand with no hairline between them");
+            }
+            else
+            {
+                if (card.Slots.Count > 1)
+                    Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "the slots do not meet the card's two edges");
+                // A lone slot stands at its own width at the left; one whose value is wider than the card wraps whole across it.
+                if (card.Slots.Count == 1 && view.SlotsWrapped == 0)
+                    Require(Mathf.Abs(Left("slot")) < slack && Right("slot") < inner - slack, "a card's one slot does not stand at its own width at the left");
+                if (card.Slots.Count == 1 && view.SlotsWrapped == 1)
+                    Require(Mathf.Abs(Left("slot")) < slack && Mathf.Abs(Right("slot") - inner) < slack, "a wrapped slot does not span the card");
+            }
             if (card.Gauges.Count > 0)
             {
                 Require(Mathf.Abs(Left("gauge tile")) < slack && Mathf.Abs(Right("gauge tile") - inner) < slack, "the gauges do not meet the card's two edges");
