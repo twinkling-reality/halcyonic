@@ -726,7 +726,7 @@ describe('pnpm mac-setup', () => {
     assert.equal(await machine.run('agent-apps'), 0);
     assert.equal(machine.settings().HALCYONIC_OPENCODE_BIN, opencode);
     assert.equal(machine.settings().HALCYONIC_CODEX_BIN, undefined);
-    assert.match(text(machine), /Codex 0\.157\.0 at .* isn't the copy Halora was checked with/);
+    assert.match(text(machine), /Codex 0\.157\.0 at .* doesn't match the copy Halora checked/);
 
     assert.equal(await machine.run(), 1);
     assert.equal(status(machine, 'Agent apps'), 'Look at this');

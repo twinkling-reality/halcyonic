@@ -286,6 +286,12 @@ interface Step {
   readonly lines: readonly string[];
   /** Commands for the person to run, each on a line of its own. */
   readonly next?: readonly string[];
+  /**
+   * Of the presses that depend on an app's state (an agent app's Install, Turn On and Turn Off), the ones this state
+   * allows, by their argument: Install before it is installed, then Turn On while off or Turn Off while on, never both
+   * (AUDIT's look, 2026-11-17). Absent where the step has none.
+   */
+  readonly offers?: readonly string[];
 }
 
 /** What a folder you allow lets agents and a paired headset do, said wherever folders are. */
@@ -563,9 +569,11 @@ class MacSetup {
       if (report.state === 'ready') ready += 1;
       if (report.state === 'look') look = true;
     }
+    const offers: string[] = [];
     for (const id of ['kiro', 'antigravity'] as const) {
       const report = await this.#acpApp(id, env);
       lines.push(report.line);
+      offers.push(...report.offers);
       if (report.next !== undefined) next.push(report.next);
       if (report.state === 'ready') ready += 1;
     }
@@ -719,7 +727,7 @@ class MacSetup {
         'No agent app is set up, so no task can start. The headset says “No agent app on your computer can start work right now.”',
       );
     }
-    return { title, status: ready === 0 ? 'todo' : look ? 'look' : 'ready', lines, next };
+    return { title, status: ready === 0 ? 'todo' : look ? 'look' : 'ready', lines, next, offers };
   }
 
   #providers: { readonly providers: HostProviders | null; readonly problem: string | null } | null =
@@ -806,7 +814,7 @@ class MacSetup {
       }
       const verdict = await this.#matches(configured, pin);
       if (verdict === 'matches')
-        return { state: 'ready', line: `${name} is set up: the copy Halora was checked with.` };
+        return { state: 'ready', line: `${name} is set up: the copy Halora checked.` };
       if (verdict === 'unknown') {
         return {
           state: 'look',
@@ -815,7 +823,7 @@ class MacSetup {
       }
       return {
         state: 'look',
-        line: `${name} at ${this.#tilde(configured)} isn't the copy Halora was checked with. Halora still runs it if it reports version ${name.split(' ')[1]}.`,
+        line: `${name} at ${this.#tilde(configured)} doesn't match the copy Halora checked. Halora still runs it if it reports version ${name.split(' ')[1]}.`,
       };
     }
     const standard = pin === null ? null : join(this.#dataDir, pin.path);
@@ -830,7 +838,7 @@ class MacSetup {
       }
       return {
         state: 'none',
-        line: `${name} at ${this.#tilde(standard)} isn't the copy Halora was checked with, so it isn't set up.`,
+        line: `${name} at ${this.#tilde(standard)} doesn't match the copy Halora checked, so it isn't set up.`,
       };
     }
     const folder = quote(this.#tilde(this.#dataDir));
@@ -849,11 +857,13 @@ class MacSetup {
   async #acpApp(
     id: 'kiro' | 'antigravity',
     env: NodeJS.ProcessEnv,
-  ): Promise<{ state: 'ready' | 'none'; line: string; next?: string }> {
+  ): Promise<{ state: 'ready' | 'none'; line: string; next?: string; offers: string[] }> {
     const app = ACP_APPS[id];
     const configured = env[app.variable];
     if (configured !== undefined && configured !== '') {
+      // A path set for Halora decides: the page installs and turns on nothing for it.
       return {
+        offers: [],
         state: 'ready',
         line: `${app.name} is on, from a path set for Halora on this computer. Halora did not install or check this copy.`,
       };
@@ -862,24 +872,28 @@ class MacSetup {
     const path = pin === null ? null : join(this.#dataDir, pin.path);
     if (path === null || pin === null || !existsSync(path)) {
       return {
+        offers: [id],
         state: 'none',
         line: `${app.name} isn't installed. Install it to use it from the headset.`,
       };
     }
     if ((await this.#matches(path, pin)) !== 'matches') {
       return {
+        offers: [id],
         state: 'none',
         line: `${app.name} on this computer doesn't match the copy Halora checked. Install it again.`,
       };
     }
     if (agentAppsOn(this.#dataDir).includes(id)) {
       return {
+        offers: [`${id}:off`],
         state: 'ready',
         line: `${app.name} is on. It uses your own ${app.plan}; if it isn't signed in yet, sign in once in Terminal.`,
         next: `${quote(path)} ${app.signIn}`,
       };
     }
     return {
+      offers: [`${id}:on`],
       state: 'none',
       line: `${app.name} is installed and off. Turn it on to use your own ${app.plan} from the headset.`,
     };
@@ -1970,13 +1984,13 @@ class MacSetup {
       }
       if ((await this.#matches(path, pin)) !== 'matches') {
         io.print(
-          `${name} at ${this.#tilde(path)} isn't the copy Halora was checked with, so it isn't set up. Install it again.`,
+          `${name} at ${this.#tilde(path)} doesn't match the copy Halora checked, so it isn't set up. Install it again.`,
         );
         continue;
       }
       next[variable] = path;
       recorded += 1;
-      io.print(`${name} is set up: the copy Halora was checked with.`);
+      io.print(`${name} is set up: the copy Halora checked.`);
     }
     if (recorded === 0) return 1;
     this.#save(next);

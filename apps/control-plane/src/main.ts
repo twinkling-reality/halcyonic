@@ -204,7 +204,7 @@ async function main(): Promise<void> {
     }
   }
   for (const binary of agentBinaries.filter((entry) => entry.pinned === 'differs')) {
-    app.log.warn(binary, 'an agent binary is not the copy Halora was checked with');
+    app.log.warn(binary, 'an agent binary does not match the copy Halora checked');
   }
   for (const stale of await stopStaleRuntimeServers(adapters)) {
     app.log.warn(stale, 'a runtime server from an earlier run was still recorded');

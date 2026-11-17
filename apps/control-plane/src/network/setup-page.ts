@@ -395,6 +395,15 @@ export interface SetupActionView {
   readonly fetches?: string;
 }
 
+/** The agent apps whose Install, Turn On and Turn Off depend on their state on this Mac (`Step.offers`). */
+const STATEFUL_APPS = new Set(['kiro', 'antigravity']);
+
+/** Whether a press is drawn only in the states its step offers it in. */
+function stateful(view: SetupActionView): boolean {
+  if (view.action === 'agent_app') return true;
+  return view.action === 'download' && STATEFUL_APPS.has(view.arg ?? '');
+}
+
 /** The actions each step offers, as `pnpm mac-setup` subcommands; downloads by their ids. */
 const STEP_ACTIONS: Readonly<Record<string, readonly SetupActionView[]>> = {
   folders: [{ action: 'allow', arg: null, label: 'Allow ~/HalcyonicProjects' }],
@@ -796,11 +805,14 @@ export class SetupView {
         // The commands the terminal prints under the step, as it prints them (already written for a
         // shell, so never turned to ~), for the person to run themselves.
         next: [...new Set(step.next ?? [])],
-        actions: (STEP_ACTIONS[step.id] ?? []).map((view) => {
-          const download =
-            view.action === 'download' ? this.#downloads.get(view.arg ?? '') : undefined;
-          return download === undefined ? view : { ...view, fetches: download.fetches };
-        }),
+        // A press that depends on an app's state is drawn only where that state allows it (AUDIT's look).
+        actions: (STEP_ACTIONS[step.id] ?? [])
+          .filter((view) => !stateful(view) || (step.offers ?? []).includes(view.arg ?? ''))
+          .map((view) => {
+            const download =
+              view.action === 'download' ? this.#downloads.get(view.arg ?? '') : undefined;
+            return download === undefined ? view : { ...view, fetches: download.fetches };
+          }),
       })),
       job:
         job === null

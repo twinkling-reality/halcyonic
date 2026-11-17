@@ -196,7 +196,8 @@ unpacks it into `<data>/runtimes/kiro-3.4.0` or `antigravity-1.5.10`. Run by han
 archives matched, and the programs unpacked at the pinned paths with the pinned SHA-256 (`kirocli/bin/kiro-cli`
 65902eb1..., `antigravity` 780ee763...). Turn Kiro On or Turn Antigravity On (two presses, as every press) checks that
 copy again and writes `<data>/agent-apps-on.json`; Turn Off removes it; the change waits for a restart, which the page
-says. Installing turns nothing on.
+says. Installing turns nothing on. Each press is drawn only where the app's state allows it: Install before it is installed
+(or when its copy no longer matches), then Turn On while off or Turn Off while on, never both (AUDIT's look).
 
 The copy sits in the data folder, which the agent-app profile refuses read and write. That stops neither app: the
 kernel runs a program from a folder the profile refuses to read (Kiro and Antigravity both started from one, signed

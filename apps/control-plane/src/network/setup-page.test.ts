@@ -464,17 +464,12 @@ describe('the setup view', () => {
       kiro: { path: binary, sha256: createHash('sha256').update(checked).digest('hex') },
     };
     const { view, runs, mac: machine } = setup(t, { pins });
-    const apps = step(await view.state(), 'agent_apps');
-    assert.deepEqual(
-      apps.actions
-        .filter((action) => /kiro/.test(action.arg ?? ''))
-        .map((action) => [action.action, action.arg, action.label]),
-      [
-        ['download', 'kiro', 'Install Kiro'],
-        ['agent_app', 'kiro:on', 'Turn Kiro On'],
-        ['agent_app', 'kiro:off', 'Turn Kiro Off'],
-      ],
-    );
+    // Only the presses Kiro's state allows are drawn (AUDIT's look): Install first, then Turn On, then Turn Off.
+    const kiroPresses = async () =>
+      step(await view.state(), 'agent_apps')
+        .actions.filter((action) => /kiro/.test(action.arg ?? ''))
+        .map((action) => action.label);
+    assert.deepEqual(await kiroPresses(), ['Install Kiro']);
     const asked = await view.act('download', 'kiro', false);
     assert.match(asked.confirm?.text ?? '', /Kiro 3\.4\.0 .*266 MB.*SHA-256 before it is unpacked/);
     assert.equal(runs.length, 0, 'the first press downloads nothing');
@@ -522,10 +517,12 @@ describe('the setup view', () => {
     const done = await ended(view);
     assert.equal(done.job?.state, 'done');
     assert.deepEqual(agentAppsOn(machine.dataDir), [], 'installing turns nothing on');
+    assert.deepEqual(await kiroPresses(), ['Turn Kiro On']);
     await view.act('agent_app', 'kiro:on', false);
     await view.act('agent_app', 'kiro:on', true);
     await ended(view);
     assert.deepEqual(agentAppsOn(machine.dataDir), ['kiro']);
+    assert.deepEqual(await kiroPresses(), ['Turn Kiro Off']);
     await view.act('agent_app', 'kiro:off', false);
     await view.act('agent_app', 'kiro:off', true);
     await ended(view);
@@ -562,7 +559,7 @@ describe('the setup view', () => {
     };
     const changed = await install('a copy someone changed');
     assert.equal(changed.job?.state, 'not_set_up');
-    assert.match(changed.job?.lines.join(' ') ?? '', /isn't the copy Halora was checked with/);
+    assert.match(changed.job?.lines.join(' ') ?? '', /doesn't match the copy Halora checked/);
     assert.equal(readHostSettings(machine.dataDir).HALCYONIC_OPENCODE_BIN, undefined);
     const good = await install(checked);
     assert.equal(good.job?.state, 'done');
