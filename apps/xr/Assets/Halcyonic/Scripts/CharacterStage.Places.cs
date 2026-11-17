@@ -264,10 +264,7 @@ namespace Halcyonic.XR
             DrawFloorArc(stood.Arc, stood.Ticks, eyes, stood.Root.position.y, distance, middle - half, middle + half);
             var width = distance / PlaceBearings.RingOneDistance;
             // The sign hangs under the place's lowest tag, at the front row's middle, sized for its distance (the room's units are 1 at it).
-            var under = tallestTag > 0f ? tallestTag : WidestTagMetres * 0.3f;
-            stood.Sign.localPosition = new Vector3(0f, -(under + SignGap * width), 0f);
-            stood.Sign.rotation = Quaternion.LookRotation(stood.Sign.position - eyes, Vector3.up);
-            stood.Sign.localScale = Vector3.one * Vector3.Distance(stood.Sign.position, eyes);
+            HangSign(stood.Sign, tallestTag, distance, eyes);
         }
 
         private LineRenderer? shelfArc;
@@ -322,6 +319,20 @@ namespace Halcyonic.XR
                 ticks[end].SetPosition(1, foot + Vector3.up * FloorTickHeight * width / 2f);
                 ticks[end].widthMultiplier = FloorArcWidth * width;
             }
+        }
+
+        /// <summary>
+        /// Hangs a place's sign point (its top middle) under its tallest tag (<paramref name="tallestTag"/> metres; the longest name's guess
+        /// before any draws), the sign gap clear, facing the eyes and sized for its distance (the room's units are 1 at it): the stage's rule,
+        /// which its check uses too.
+        /// </summary>
+        public static void HangSign(Transform sign, float tallestTag, float distance, Vector3 eyes)
+        {
+            var width = distance / PlaceBearings.RingOneDistance;
+            var under = tallestTag > 0f ? tallestTag : WidestTagMetres * 0.3f;
+            sign.localPosition = new Vector3(0f, -(under + SignGap * width), 0f);
+            sign.rotation = Quaternion.LookRotation(sign.position - eyes, Vector3.up);
+            sign.localScale = Vector3.one * Vector3.Distance(sign.position, eyes);
         }
 
         /// <summary>

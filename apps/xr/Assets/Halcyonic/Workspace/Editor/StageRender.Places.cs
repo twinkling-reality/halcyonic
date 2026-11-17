@@ -119,8 +119,18 @@ namespace Halcyonic.XR.Workspace.Editor
                         (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes, bearing.SpanDegrees);
                     }
                     teams.Add(team);
-                    // A gathered place says its count at its sign, "{n} More", in the frame (AUDIT's 21:5xZ MUST: a hidden team with no sign).
+                    // The place's sign, as the stage hangs it (RoomPlaceSigns): its name once, and where it gathers, "{n} More".
                     var gatheredHere = tasks.Length - team.Count;
+                    {
+                        var point = new GameObject("Place sign point").transform;
+                        point.SetParent(place, false);
+                        var tallest = team.Select(each => RoomNameTag.DrawnSize(each)?.y ?? 0f).DefaultIfEmpty(0f).Max();
+                        CharacterStage.HangSign(point, tallest, bearing.Distance, eyes);
+                        var ids = Enumerable.Range(0, tasks.Length).Select(task => "place-" + index + "-" + task).ToList();
+                        var standing = new RoomPlace("place-project-" + index, project, ids, index == 0 ? 1 : 0, gatheredHere > 0 ? PlaceForm.Crowd : PlaceForm.Full, team.Count);
+                        RoomPlaceSignView.Create(point).Show(standing, new RoomPlaces());
+                    }
+                    // A gathered place says its count at its sign, "{n} More", in the frame (AUDIT's 21:5xZ MUST: a hidden team with no sign).
                     var signView = place.GetComponentsInChildren<RoomPlaceSignView>(false).FirstOrDefault();
                     if (gatheredHere > 0 && (signView?.Press == null || !signView.Press.gameObject.activeInHierarchy))
                         failures.Add(project + ": it gathers " + gatheredHere + " and draws no count at its place");
