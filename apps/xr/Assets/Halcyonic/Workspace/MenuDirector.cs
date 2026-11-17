@@ -1552,9 +1552,12 @@ namespace Halcyonic.XR.Workspace
         {
             var stage = setup.StageNow();
             var at = anchor?.Eyes ?? stage.Eyes;
+            // Under the redesign a standing character never shrinks a page, as IndependentPageHeight already holds (JUDGE's 22:2xZ: with the
+            // selected project's two characters standing, the page fell below a line and drew "No Room").
             var occupied = new List<BodyInView>();
-            foreach (var character in stage.Characters)
-                if (character != null) occupied.Add(WorkspaceLayout.InView(character, at));
+            if (!(RoomDesign.Enabled && KitWorkspaceHost.Enabled))
+                foreach (var character in stage.Characters)
+                    if (character != null) occupied.Add(WorkspaceLayout.InView(character, at));
             var looking = anchor?.Looking ?? stage.Looking;
             var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg + moved.Yaw, moved.Elevation, true, false);
             if (!plane.SpatialWorkspace)
