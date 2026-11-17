@@ -569,7 +569,8 @@ export async function buildReview(
           },
         ),
         confirm_words: 'Choose Check',
-        what_happens: "These commands of the project's own become its check, run confined",
+        what_happens:
+          'These project commands become its own check. They run closed off from the rest of your computer.',
         facts: [],
         items: command.payload.scripts.map((script) => ({
           kind: 'script' as const,

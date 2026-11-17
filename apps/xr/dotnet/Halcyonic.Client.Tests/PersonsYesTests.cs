@@ -20,7 +20,7 @@ public class PersonsYesTests
     {
         CommandType = CommandType.ProjectOwnCheckChoose,
         Confirm = JToken.FromObject("review"),
-        WhatHappens = "These commands of the project's own become its check, run confined",
+        WhatHappens = "These project commands become its own check. They run closed off from the rest of your computer.",
         Review = Plain,
         Options = offered
             ? new List<WorkspaceRequestOption>
