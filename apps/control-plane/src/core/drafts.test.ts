@@ -680,6 +680,38 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
     }
   });
 
+  test('an adapter ask with 33 inputs and a 40,000-character value is recorded cut, valid and deny-only, never refused (AUDIT3 WL1)', () => {
+    const { sink, recorded } = recordingSink();
+    const inputs = [
+      { name: 'body', value: 'x'.repeat(40000), kind: 'text' },
+      ...Array.from({ length: 32 }, (_, i) => ({ name: `k${i}`, value: `${i}`, kind: 'json' })),
+    ];
+    sink(
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: {
+          kind: 'tool_use',
+          tool_name: 'fetch',
+          summary: ['Use fetch', ...inputs.map((input) => `${input.name}: ${input.value}`)].join(
+            '\n',
+          ),
+          inputs,
+        },
+        complete: true,
+      }),
+    );
+    const asked = recorded[0]?.payload as {
+      subject: { summary: string; inputs: ApprovalInput[] };
+      complete: boolean;
+    };
+    assert.ok(asked, 'recorded, not refused');
+    assert.ok(validatePayload(asked).ok, 'within the contract as recorded');
+    assert.equal(asked.complete, false);
+    assert.equal(asked.subject.inputs.length, 32);
+    assert.ok([...(asked.subject.inputs[0]?.value ?? '')].length <= 32000);
+    assert.ok([...asked.subject.summary].length <= 32000);
+  });
+
   test('a command whose part is cut to the contract is never approvable (2026-11-16)', () => {
     const { sink, recorded } = recordingSink();
     sink(
