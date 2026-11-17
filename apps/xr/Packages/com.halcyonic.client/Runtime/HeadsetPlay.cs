@@ -194,6 +194,9 @@ namespace Halcyonic.Client
         public Uri? Advance(ClientProjection? state, ControlPlaneTarget? target, bool demonstration, int? relayPort = null, Func<string, int?>? relay = null)
         {
             if (waiting.Count == 0 || state == null) return null;
+            // One relay port belongs to one project: where several wait it could open another's preview on it (AUDIT3's Q1),
+            // so it is refused; each project's port comes from relay instead.
+            if (relayPort != null && waiting.Count > 1) return null;
             foreach (var projectId in waiting.ToList())
             {
                 if (!state.Projects.TryGetValue(projectId, out var project))

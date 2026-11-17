@@ -203,6 +203,14 @@ public class HeadsetPlayTests
         Assert.That(wait.ProjectIds, Is.EqualTo(new[] { ProjectId }));
         Assert.That(wait.Advance(State(View(Check(), Preview(port: 47932)), Other(Preview(port: 47933))), Cable, demonstration: false), Is.EqualTo(new Uri("http://127.0.0.1:47932/")));
         Assert.That(wait.ProjectIds, Is.Empty);
+
+        // AUDIT3's Q1: one relay port is one project's; with two waiting it is refused, never used for the other.
+        wait.Sent(factory.StartPreview(ProjectId));
+        wait.Sent(factory.StartPreview(other));
+        var both = State(View(Check(), Preview(port: 47932)), Other(Preview(port: 47933)));
+        Assert.That(wait.Advance(both, Cable, demonstration: false, relayPort: 51000), Is.Null, "a single port with two waiting opens nothing");
+        Assert.That(wait.ProjectIds, Is.EqualTo(new[] { ProjectId, other }), "and ends no wait");
+        Assert.That(wait.Advance(both, Cable, demonstration: false), Is.EqualTo(new Uri("http://127.0.0.1:47932/")), "each opens on its own");
     }
 
     [Test]
