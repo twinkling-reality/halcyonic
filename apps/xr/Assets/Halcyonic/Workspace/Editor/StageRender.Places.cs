@@ -152,7 +152,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     // A gathered place says its count at its sign, "{n} More", in the frame (AUDIT's 21:5xZ MUST: a hidden team with no sign).
                     var signView = place.GetComponentsInChildren<RoomPlaceSignView>(false).FirstOrDefault();
-                    var countWords = signView?.Press?.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetParsedText()).FirstOrDefault(text => text.Contains("More"));
+                    var countWords = signView?.Press?.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => { text.ForceMeshUpdate(); return text.GetParsedText(); })
+                        .FirstOrDefault(text => text.Contains("More"));
                     if (gatheredHere > 0 && countWords == null)
                         failures.Add(project + ": it gathers " + gatheredHere + " and draws no count at its place");
                     // The name and the count stand clear of every tag and body, never loose words over a plate (AUDIT's 22:0xZ).
