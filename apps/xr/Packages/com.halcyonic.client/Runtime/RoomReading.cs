@@ -84,19 +84,22 @@ namespace Halcyonic.Client
         /// <summary>The rows a page holds at either text size: a continued row counts as a row, a gap as one.</summary>
         public const int RowsAPage = 12;
 
-        /// <summary>The dp from the card's left to where a row's words start, at a text size of <paramref name="textScale"/>.</summary>
-        public static float TextLeftDp(float textScale, bool continued = false) =>
-            (GutterDp + MarkGapDp + MarkDp + TextGapDp + (continued ? HangDp : 0f)) * textScale;
+        /// <summary>
+        /// The dp from the card's left to where a row's words start, at a text size of <paramref name="textScale"/>; a
+        /// <paramref name="bare"/> reading (no line numbers, no marks: Watch It Work's) keeps no gutter.
+        /// </summary>
+        public static float TextLeftDp(float textScale, bool continued = false, bool bare = false) =>
+            ((bare ? 0f : GutterDp + MarkGapDp + MarkDp + TextGapDp) + (continued ? HangDp : 0f)) * textScale;
 
         /// <summary>
         /// The characters a row holds at a text size of <paramref name="textScale"/> (1 standard, <see cref="Comfort.LargerTextScale"/>
         /// larger), its indent counted among them: wrap a file's lines to this, a continued row to its own.
         /// </summary>
-        public static int Columns(float textScale, bool continued = false)
+        public static int Columns(float textScale, bool continued = false, bool bare = false)
         {
             if (textScale <= 0f) throw new ArgumentOutOfRangeException(nameof(textScale), textScale, "A text size is more than nothing.");
             var inner = RoomGeometry.PanelDp - 2f * RoomGeometry.PanelPadDp * textScale;
-            var words = inner - TextLeftDp(textScale, continued) - RightPadDp * textScale;
+            var words = inner - TextLeftDp(textScale, continued, bare) - RightPadDp * textScale;
             return (int)Math.Floor(words / (TypeDp * textScale * AdvanceEm) + 1e-4);
         }
     }

@@ -388,12 +388,12 @@ namespace Halcyonic.Client
         /// where any other break fits). A long line takes as many continued rows as it needs; every character but the leading
         /// spaces is kept, in order. A white space other than the space shows as its code point, as the reading surface's does.
         /// </summary>
-        public static IReadOnlyList<RoomReadingRow> Wrap(RoomLineKind kind, int? number, string text, float scale)
+        public static IReadOnlyList<RoomReadingRow> Wrap(RoomLineKind kind, int? number, string text, float scale, bool bare = false)
         {
             var line = Untabbed(text);
             var words = line.TrimStart(' ');
-            var columns = RoomReading.Columns(scale);
-            var continuing = RoomReading.Columns(scale, continued: true);
+            var columns = RoomReading.Columns(scale, bare: bare);
+            var continuing = RoomReading.Columns(scale, continued: true, bare: bare);
             var indent = Math.Min(line.Length - words.Length, columns / 2);
             if (words.Length == 0) return new[] { new RoomReadingRow(kind, number, null, indent: indent) };
             // Visible bookends keep Exact's trimming from losing the line's own trailing spaces.
@@ -477,9 +477,25 @@ namespace Halcyonic.Client
             var after = elements[i];
             if (after == " ") return false;
             if (InsideOperator(elements, i)) return false;
+            // Never inside a quoted string (AUDIT, 2026-11-17: "'./" over "kite.js'" broke a path): a string stays whole.
+            if (InsideQuotes(elements, i)) return false;
             if (tier == 0) return before == " " || before is "," or ";" or ":" or "/" or "?" or "&";
             // Before a dot or a bracket that follows a name.
             return (after == "." || after == "(" || after == "[") && NamePart(before);
+        }
+
+        /// <summary>Whether a break before element <paramref name="i"/> falls inside a string quoted with ', " or ` that opened before it on the line.</summary>
+        private static bool InsideQuotes(IReadOnlyList<string> elements, int i)
+        {
+            string? open = null;
+            for (var k = 0; k < i; k++)
+            {
+                var each = elements[k];
+                if (open == null) { if (each is "'" or "\"" or "`") open = each; }
+                else if (each == "\\") k++;
+                else if (each == open) open = null;
+            }
+            return open != null;
         }
 
         private static bool TryHead(string head, out int before, out int after)

@@ -35,8 +35,60 @@ namespace Halcyonic.XR.UI
         public const float RevealMostSeconds = 1f;
         public const float RowFadeSeconds = 0.12f;
 
+        /// <summary>
+        /// Watch It Work against Detroit's Analysis conclusion (AUDIT's pair, 2026-11-17): the code straight on the glass, no
+        /// well under it; the lines a read changed marked by a thin white hairline at their left, no colour, while every other
+        /// line stands quiet at this share of its own brightness, the label's level, about 140 to 150 in the pixels on the
+        /// glass against the changed lines' 237 (AUDIT's f5 verdict, 2026-11-17T01:59Z; Unity blends alpha in linear, so the
+        /// share is lower than the level it reads at); the light that runs under a poured row white, never the
+        /// accent (the one orange stays on the main action); its rows starting at the card's own padding with no gutter. Its type is
+        /// the one language's (FIELD's sheet, tile f5, the lead's 2026-11-17T01:05Z): a quiet label in spaced capitals, the
+        /// file's path as the title in its own case, then the code in mono at 18 dp, so the card stands at 18 over its 15.
+        /// </summary>
+        public const float QuietRow = 0.31f;
+
+        public const float CardScale = CodeDp / RoomReading.TypeDp;
+
+        private static readonly Color Mark = new Color(0.96f, 0.95f, 0.93f, 1f);
+
         private RoomSurface glass = null!;
         private RoomCardView card = null!;
+        private TextMeshPro headLabel = null!;
+        private TextMeshPro headTitle = null!;
+
+        /// <summary>The label's words: the step's own verb for a file being written (<see cref="RoomWork.Editing"/>), never a new one.</summary>
+        public const string LabelWords = RoomWork.Editing;
+
+        /// <summary>The label over the title, then the title's gap over the code, in dp.</summary>
+        public const float LabelGapDp = 6f;
+
+        public const float TitleGapDp = 18f;
+
+        /// <summary>
+        /// The head's type, in the one language's roles (FIELD's kit): the label in <see cref="RoomType.Label"/>'s role, its
+        /// cores at <see cref="LabelInk"/> so they read 135 to 150 in the pixels on the glass (AUDIT's f5 verdict; the role's
+        /// 0.52 reads 195 under Unity's linear blend); the title in its own case at 24 dp, inside the sheet's 22 to 30; the
+        /// code in mono at 18 dp.
+        /// </summary>
+        public const float LabelInk = 0.27f;
+
+        public const float LabelLineDp = 22f;
+
+        public const float TitleDp = 24f;
+
+        public const float TitleLineDp = 30f;
+
+        public const float CodeDp = 18f;
+
+        private static void SizeTitle(TMP_Text title)
+        {
+            title.fontSize = GlazeTokens.FontSize(RoomType.Scaled(TitleDp));
+            title.lineSpacing = KitType.LineSpacingFor(title, TitleLineDp / TitleDp);
+            title.characterSpacing = RoomType.Tracking;
+        }
+
+        /// <summary>The head's two labels, the label and the file's path, for the checks.</summary>
+        public (TextMeshPro Label, TextMeshPro Title) Head => (headLabel, headTitle);
         private string? path;
         private float arrivedAt;
         private IReadOnlyList<string> shownRows = Array.Empty<string>();
@@ -47,6 +99,7 @@ namespace Halcyonic.XR.UI
         private readonly List<(RoomShape Shape, Color Fill, Color Edge, bool Lit)> plates = new List<(RoomShape, Color, Color, bool)>();
         private readonly List<(int Row, Vector2 Left, float Width)> lightRows = new List<(int, Vector2, float)>();
         private readonly List<RoomShape[]> lights = new List<RoomShape[]>();
+        private readonly HashSet<int> litRows = new HashSet<int>();
         private readonly List<(RoomShape Plate, Vector2 Size, Vector3 At, int First, int Count)> litRuns = new List<(RoomShape, Vector2, Vector3, int, int)>();
         private float platesAt = -1f;
 
@@ -55,22 +108,27 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// The light a read lands with (AUDIT's raised bar, the lead's 04:19Z): as each new row's turn comes, a thin bright
-        /// line of the one accent runs under its words, left to right in 180 ms, with a faint glow rising from it in two wider
-        /// layers, so it reads as light and never as a selection (the reader of 07:54Z), all fading over the 400 ms after; its
+        /// line, white, runs just under its words, left to right in 180 ms, with no glow over them, so it reads as light and
+        /// never as a selection or a strike (the reader of 07:54Z; the one language's thin lines), fading over the 300 ms after; its
         /// words arrive in the accent and settle into their own colour over the same 400 ms. Nothing shows before a row's
         /// turn. Kept still, there is none of it.
         /// </summary>
         public const float LightAcrossSeconds = 0.18f;
         public const float LightFadeSeconds = 0.3f;
 
-        /// <summary>The light's line: this tall, this strong; and its glow's two layers, each a share of the row's pitch and its strength.</summary>
-        public const float LightLineDp = 3f;
-        public const float LightPeak = 1f;
-        public static readonly (float Tall, float Alpha)[] LightGlow = { (0.7f, 0.08f), (0.38f, 0.14f) };
+        /// <summary>
+        /// The light: a thin segment this tall and at most this long, travelling under the row in the gap before the next one,
+        /// this strong; never a full line under the words, which a still frame reads as an underline, and no glow over them,
+        /// which read as a strike (AUDIT's f5 verdict, 2026-11-17T01:59Z; the one language's thin lines).
+        /// </summary>
+        public const float LightLineDp = 1.5f;
+        public const float LightSegmentDp = 56f;
+        public const float LightUnderBaseline = 0.36f;
+        public const float LightPeak = 0.9f;
 
-        /// <summary>The light's head, the bright front it runs with: this long, this tall, white-hot accent while it runs, gone once across.</summary>
+        /// <summary>The light's head, the bright front it runs with: this long, this tall, whiter while it runs, gone once across.</summary>
         public const float LightHeadDp = 28f;
-        public const float LightHeadTallDp = 5f;
+        public const float LightHeadTallDp = 2.5f;
         private float folded = 1f;
 
         /// <summary>How small a panel folds to as it reaches its row.</summary>
@@ -100,6 +158,8 @@ namespace Halcyonic.XR.UI
             var view = go.AddComponent<RoomWritingPanel>();
             view.glass = RoomSurface.Create(go.transform, "Glass", RoomSurfaceKind.Information, KitType.Order.Plate);
             view.card = RoomCardView.Create(view.glass.transform);
+            view.headLabel = RoomType.Create(view.glass.transform, "Label", Color.white, KitType.Order.Words);
+            view.headTitle = KitType.Create(view.glass.transform, "Title", KitRole.Strong, Color.white, KitType.Order.Words, TextAlignmentOptions.TopLeft, SpatialKit.ReadingLeading, room: true);
             go.SetActive(false);
             return view;
         }
@@ -113,7 +173,7 @@ namespace Halcyonic.XR.UI
         /// each with its indent again.
         /// </summary>
         public static IReadOnlyList<string> Wrap(string line) =>
-            FileChangeColumn.Wrap(RoomLineKind.Same, null, line, GlazeText.Scale)
+            FileChangeColumn.Wrap(RoomLineKind.Same, null, line, GlazeText.Scale * CardScale, bare: true)
                 .Select(row => new string(' ', row.Indent + (row.Continued ? HangColumns : 0)) + (row.Text?.Text ?? "")).ToList();
 
         /// <summary>A row as <see cref="Wrap"/> gave it, laid: its leading spaces as its indent, its words as the file has them.</summary>
@@ -170,13 +230,20 @@ namespace Halcyonic.XR.UI
             var width = RoomType.Units(RoomGeometry.PanelDp);
             var reading = panel.Lines.Select(RowOf).ToList();
             var notShown = NotShownWords(panel);
-            var laid = new RoomCard(panel.Name, panel.Folder, status: notShown is var (said, line) ? new RoomCardStatus(said, line, RoomTone.Quiet) : null,
-                reading: notShown == null ? reading : null, titleMono: true, readingLit: notShown == null ? panel.Lit : null);
-            var tall = card.Show(laid, width - 2f * pad);
-            Size = new Vector2(width, tall + 2f * pad);
+            // The head stands over the card: the label, then the file's path; the card holds only the code.
+            var headTall = LayHead(panel, width - 2f * pad);
+            var laid = new RoomCard(null, null, status: notShown is var (said, line) ? new RoomCardStatus(said, line, RoomTone.Quiet) : null,
+                reading: notShown == null ? reading : null, titleMono: true, readingLit: notShown == null ? panel.Lit : null, readingBare: true);
+            card.transform.localScale = Vector3.one * CardScale;
+            var tall = card.Show(laid, (width - 2f * pad) / CardScale) * CardScale;
+            Size = new Vector2(width, tall + headTall + 2f * pad);
+            litRows.Clear();
+            if (notShown == null && panel.Lit != null) foreach (var row in panel.Lit) litRows.Add(row);
             glass.InnerBar = null;
             glass.Draw(Size);
-            card.transform.localPosition = new Vector3(-width / 2f + pad, Size.y / 2f - pad, -RoomType.Units(0.5f));
+            card.transform.localPosition = new Vector3(-width / 2f + pad, Size.y / 2f - pad - headTall, -RoomType.Units(0.5f));
+            headLabel.transform.localPosition = new Vector3(-width / 2f + pad, Size.y / 2f - pad, -RoomType.Units(0.5f));
+            headTitle.transform.localPosition = headLabel.transform.localPosition - new Vector3(0f, RoomType.Scaled(LabelLineDp + LabelGapDp), 0f);
             // Each word and plate as the card laid it, so the arrival scales their own alphas and never overwrites a quiet one.
             var rowOf = new Dictionary<TMP_Text, int>();
             for (int row = 0, label = 0; row < reading.Count && notShown == null; row++)
@@ -187,8 +254,15 @@ namespace Halcyonic.XR.UI
             plates.Clear();
             var litBands = new HashSet<RoomShape>(card.Plates.Where(each => each.What == "reading lit band" || each.What == "reading lit rule").Select(each => each.Plate));
             var ours = new HashSet<RoomShape>(lights.SelectMany(layers => layers));
+            var well = new HashSet<RoomShape>(card.Plates.Where(each => each.What == "reading well" || each.What == "reading lit band").Select(each => each.Plate));
+            var rules = new HashSet<RoomShape>(card.Plates.Where(each => each.What == "reading lit rule").Select(each => each.Plate));
             foreach (var shape in card.GetComponentsInChildren<RoomShape>(false))
-                if (!ours.Contains(shape)) plates.Add((shape, shape.Fill, shape.Edge, litBands.Contains(shape)));
+            {
+                if (ours.Contains(shape)) continue;
+                // No well and no tinted band: the code stands on the glass; a changed run keeps only its white hairline.
+                var fill = well.Contains(shape) ? Color.clear : rules.Contains(shape) ? Mark : shape.Fill;
+                plates.Add((shape, fill, well.Contains(shape) ? Color.clear : shape.Edge, litBands.Contains(shape)));
+            }
             platesAt = -1f;
             // The changed rows' tint and rule, each run of them in the file's order, so each grows down with its rows' words.
             litRuns.Clear();
@@ -212,19 +286,44 @@ namespace Halcyonic.XR.UI
                 label.ForceMeshUpdate(true);
                 var bounds = label.textBounds;
                 if (bounds.size.x <= 0f) continue;
-                // The line under the words' baseline, the glow rising from it.
-                var left = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.min.x, bounds.min.y, 0f)));
-                var right = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.max.x, bounds.min.y, 0f)));
+                // The light runs in the middle of the gap under the row, between its descenders and the next row's ascenders, so
+                // a still frame never shows it as an underline (AUDIT's f5 verdict, 2026-11-17T01:59Z).
+                var lineInfo = label.textInfo.lineCount > 0 ? label.textInfo.lineInfo[0] : default;
+                var rowPitch = RoomType.Scaled(RoomReading.LineDp);
+                // The mono face's line box is as tall as the pitch, so its descender line leaves no gap: the light stands a share of
+                // the pitch under the baseline, midway between this row's descenders and the next row's capitals.
+                var gapY = label.textInfo.lineCount > 0 ? lineInfo.baseline - rowPitch * LightUnderBaseline : bounds.min.y;
+                var left = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.min.x, gapY, 0f)));
+                var right = card.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(bounds.max.x, gapY, 0f)));
                 lightRows.Add((row, new Vector2(left.x, left.y), right.x - left.x));
             }
             while (lights.Count < lightRows.Count)
                 lights.Add(new[] { RoomShape.Create(card.transform, "Read light", KitType.Order.Words - 1) }
-                    .Concat(LightGlow.Select(_ => RoomShape.Create(card.transform, "Read light glow", KitType.Order.Words - 3)))
                     .Concat(new[] { RoomShape.Create(card.transform, "Read light head", KitType.Order.Words - 1) }).ToArray());
             for (var index = lightRows.Count; index < lights.Count; index++)
                 foreach (var layer in lights[index]) layer.gameObject.SetActive(false);
             Follow();
             return Size;
+        }
+
+        /// <summary>Lays the head for <paramref name="panel"/>: the quiet label, then the file's path; returns how tall it stands with its gap under it.</summary>
+        private float LayHead(WritingPanel panel, float width)
+        {
+            RoomType.Label(headLabel, LabelWords);
+            headLabel.alpha = LabelInk;
+            headLabel.enableWordWrapping = false;
+            headLabel.overflowMode = TextOverflowModes.Truncate;
+            headLabel.rectTransform.sizeDelta = new Vector2(width, RoomType.Scaled(LabelLineDp));
+            // The path as the host gave it, theirs, in its own case; two lines at most.
+            SizeTitle(headTitle);
+            headTitle.enableWordWrapping = true;
+            headTitle.overflowMode = TextOverflowModes.Truncate;
+            headTitle.rectTransform.sizeDelta = new Vector2(width, RoomType.Scaled(TitleLineDp) * 2f);
+            GlazeRuns.Of(headTitle).Set(LineWords.Theirs(panel.Path));
+            headTitle.color = Color.white;
+            headTitle.ForceMeshUpdate(true);
+            var titleLines = Mathf.Clamp(headTitle.textInfo.lineCount, 1, 2);
+            return RoomType.Scaled(LabelLineDp + LabelGapDp + TitleLineDp * titleLines + TitleGapDp);
         }
 
         private void Update() => Follow();
@@ -245,11 +344,13 @@ namespace Halcyonic.XR.UI
             arrived *= kept;
             glass.transform.localPosition = new Vector3(0f, 0f, still ? 0f : RoomType.Units(ArriveBackDp) * (1f - arrived));
             glass.Shown = glassShown;
-            var accent = RoomSurface.Hex(RoomCardView.Accent);
+            var accent = Mark;
             foreach (var (label, own, row) in words)
             {
                 if (label == null) continue;
-                var alpha = own.a * arrived * (row >= 0 ? RowShown(row) : 1f);
+                // A read that changed some lines leaves every other line quiet, so what changed reads at a glance.
+                var quiet = row >= 0 && litRows.Count > 0 && !litRows.Contains(row) ? QuietRow : 1f;
+                var alpha = own.a * quiet * arrived * (row >= 0 ? RowShown(row) : 1f);
                 // A row this read pours arrives in the accent and settles into its own colour.
                 var tint = row >= 0 ? ArriveTint * LightAt(row).Strength : 0f;
                 var colour = new Color(Mathf.Lerp(own.r, accent.r, tint), Mathf.Lerp(own.g, accent.g, tint), Mathf.Lerp(own.b, accent.b, tint), alpha);
@@ -264,20 +365,13 @@ namespace Halcyonic.XR.UI
                 foreach (var layer in layers)
                     if (layer.gameObject.activeSelf != on) layer.gameObject.SetActive(on);
                 if (!on) continue;
-                var pitch = RoomType.Scaled(RoomReading.LineDp);
                 var line = RoomType.Scaled(LightLineDp);
                 var long_ = Mathf.Max(line, width * across);
+                var segment = Mathf.Min(long_, RoomType.Scaled(LightSegmentDp));
                 // Its strength grows with its run, so a light just begun is faint, never a mark standing where words will be.
                 var grown = Mathf.Sqrt(across);
-                layers[0].Draw(new Vector2(long_, line), line / 2f, new Color(accent.r, accent.g, accent.b, LightPeak * strength * grown * arrived));
-                layers[0].transform.localPosition = new Vector3(left.x + long_ / 2f, left.y - line, -RoomType.Units(0.6f));
-                // The glow grows with the run, so the light's start is never a block standing where words will be (no caret).
-                for (var glow = 0; glow < LightGlow.Length; glow++)
-                {
-                    var tall = pitch * LightGlow[glow].Tall;
-                    layers[glow + 1].Draw(new Vector2(long_, tall), Mathf.Min(tall, long_) / 2f, new Color(accent.r, accent.g, accent.b, LightGlow[glow].Alpha * strength * across * arrived));
-                    layers[glow + 1].transform.localPosition = new Vector3(left.x + long_ / 2f, left.y - line + tall / 2f, -RoomType.Units(0.4f));
-                }
+                layers[0].Draw(new Vector2(segment, line), line / 2f, new Color(accent.r, accent.g, accent.b, LightPeak * strength * grown * arrived));
+                layers[0].transform.localPosition = new Vector3(left.x + long_ - segment / 2f, left.y, -RoomType.Units(0.6f));
                 // The head: a brighter, whiter front on the line while it runs, gone as it reaches the row's end.
                 var head = layers[layers.Length - 1];
                 var heat = across < 1f ? grown * (1f - across) * 2f : 0f;
@@ -289,12 +383,14 @@ namespace Halcyonic.XR.UI
                     var headTall = RoomType.Scaled(LightHeadTallDp);
                     var hot = Color.Lerp(accent, Color.white, 0.55f);
                     head.Draw(new Vector2(headLong, headTall), headTall / 2f, new Color(hot.r, hot.g, hot.b, Mathf.Clamp01(heat) * strength * arrived));
-                    head.transform.localPosition = new Vector3(left.x + long_ - headLong / 2f, left.y - line, -RoomType.Units(0.65f));
+                    head.transform.localPosition = new Vector3(left.x + long_ - headLong / 2f, left.y, -RoomType.Units(0.65f));
                 }
             }
             // The card, its words and its well, stands only while it shows: gone once the fold has taken its words.
             var cardShown = kept > 0f;
             if (card.gameObject.activeSelf != cardShown) card.gameObject.SetActive(cardShown);
+            if (headLabel.gameObject.activeSelf != cardShown) headLabel.gameObject.SetActive(cardShown);
+            if (headTitle.gameObject.activeSelf != cardShown) headTitle.gameObject.SetActive(cardShown);
             // A changed row's tint comes with its words, never before them: each run grows down as its rows pour in.
             var litOf = new Dictionary<RoomShape, (Color Fill, Color Edge)>();
             foreach (var (shape, fill, edge, lit) in plates) if (lit && shape != null) litOf[shape] = (fill, edge);

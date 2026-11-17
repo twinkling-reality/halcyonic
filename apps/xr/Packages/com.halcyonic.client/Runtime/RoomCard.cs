@@ -418,11 +418,12 @@ namespace Halcyonic.Client
             IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
             IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false, KitControl? press = null,
             bool statusAfter = false, int descriptionMostLines = DescriptionPageLines, IReadOnlyList<int>? readingLit = null, string? label = null,
-            RoomListHeads? heads = null)
+            RoomListHeads? heads = null, bool readingBare = false)
         {
             Label = string.IsNullOrWhiteSpace(label) ? null : label;
             Heads = heads;
             ReadingLit = readingLit ?? new int[0];
+            ReadingBare = readingBare;
             DescriptionMostLines = descriptionMostLines < 1 ? 1 : descriptionMostLines > DescriptionPageLines ? DescriptionPageLines : descriptionMostLines;
             Press = press;
             TitleMono = titleMono;
@@ -457,7 +458,7 @@ namespace Halcyonic.Client
         private RoomCard(RoomCard from)
             : this(from.Title, from.Description, from.Head, from.Status, from.Slots, from.Steps, from.TrackAt, from.TrackOf, from.List, from.Gauges, from.More,
                 from.Code, from.Reading, from.DescriptionPage, from.TitleMono, from.Press, statusAfter: from.StatusAfter, descriptionMostLines: from.DescriptionMostLines,
-                label: from.Label, heads: from.Heads)
+                label: from.Label, heads: from.Heads, readingLit: from.ReadingLit, readingBare: from.ReadingBare)
         {
             Still = from.Still;
         }
@@ -557,6 +558,9 @@ namespace Halcyonic.Client
         /// means changed), by index; empty for none. Never the diff's own added or removed colours.
         /// </summary>
         public IReadOnlyList<int> ReadingLit { get; }
+
+        /// <summary>The reading has no line numbers and no marks (Watch It Work's), so its rows keep no gutter: <see cref="RoomReading.TextLeftDp"/>.</summary>
+        public bool ReadingBare { get; }
 
         public IReadOnlyList<RoomCardStep> Steps { get; }
 

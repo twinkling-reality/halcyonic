@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
+using TMPro;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
@@ -12,9 +13,10 @@ namespace Halcyonic.XR.Workspace.Editor
     /// One file's panel in Watch It Work (<see cref="RoomWritingPanel"/>): a file at its first read, settled; the same file read
     /// again with three rows changed, caught mid-pour and lit; a file arriving, caught mid-rise; and a file whose text is not
     /// shown. Each is measured (the panel the panel's width, the name whole in the mono face, every row whole at its own alpha
-    /// once settled, rows before the change shown while the new ones pour in by their turn, the changed rows lit with the one
-    /// accent, the arrival rising from 0.92 with its glass and words together, a held file saying why with no rows, nothing
-    /// that takes a press) and read in the pixels (the name and the rows in them, the lit rule in the accent).
+    /// once settled, rows before the change shown while the new ones pour in by their turn, the changed rows marked by a
+    /// white hairline, the other rows quiet, no well under the code, the arrival rising from 0.92 with its glass and words
+    /// together, a held file saying why with no rows, nothing that takes a press) and read in the pixels (the name and the rows
+    /// in them, the lit rule white).
     /// </summary>
     public static partial class KitRender
     {
@@ -125,6 +127,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 var panels = arc.Panels;
                 var drawn = RoomWritingArc.Drawn(final);
                 Require(panels.Count == drawn.Count, "the arc stands " + panels.Count + " panels, not " + drawn.Count);
+                // The list's title in the label role, as the panels' own label (the one language's f5).
+                var listTitle = arc.ListTitleShown;
+                if (arc.List.Count > 0)
+                {
+                    listTitle.ForceMeshUpdate(true);
+                    Require(listTitle.gameObject.activeInHierarchy && listTitle.GetParsedText().Trim() == BuildListWords.ToUpperInvariant() && listTitle.characterSpacing > 20f && listTitle.alpha < 0.7f,
+                        "the list's title is not the quiet spaced label " + BuildListWords.ToUpperInvariant() + ": " + listTitle.GetParsedText());
+                }
                 for (var index = 0; index < panels.Count && index < drawn.Count && !folding; index++)
                 {
                     Require(panels[index].Path == drawn[index].Path, "panel " + index + " shows " + panels[index].Path + ", not " + drawn[index].Path);
@@ -278,11 +288,17 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(Mathf.Abs(across - RoomMotion.Standard(0.1f / RoomWritingPanel.LightAcrossSeconds)) < 0.01f && strength > 0.99f,
                             "0.1 s in, the first new row's light stands " + across.ToString("0.00") + " across at " + strength.ToString("0.00"));
                         var light = view.LightOf(first);
-                        Require(light.HasValue && Mathf.Abs(light.Value.Light.Size.x - light.Value.Width * across) < unit * 0.5f && light.Value.Light.Fill.a > RoomWritingPanel.LightPeak * 0.75f,
+                        // Only the travelling segment, never a full line under the words (AUDIT's f5 verdict), and in the gap under the row.
+                        Require(light.HasValue && Mathf.Abs(light.Value.Light.Size.x - Mathf.Min(light.Value.Width * across, RoomType.Scaled(RoomWritingPanel.LightSegmentDp))) < unit * 0.5f && light.Value.Light.Fill.a > RoomWritingPanel.LightPeak * 0.75f,
                             "0.1 s in, the first new row shows no light under " + (across * 100f).ToString("0") + " percent of its words");
                         var firstLabel = view.Card.ReadingShown[shown.Lines.Take(first).Count(line => line.Trim(' ').Length > 0)];
+                        firstLabel.ForceMeshUpdate(true);
+                        var lightY = view.Card.transform.InverseTransformPoint(light!.Value.Light.transform.position).y;
+                        var wordsFoot = view.Card.transform.InverseTransformPoint(firstLabel.transform.TransformPoint(new Vector3(0f, firstLabel.textInfo.lineInfo[0].descender, 0f))).y;
+                        Require(lightY < wordsFoot - RoomType.Scaled(RoomWritingPanel.LightLineDp), "the light runs " + ((wordsFoot - lightY) / unit).ToString("0.0") + " dp under its words, not in the gap below them");
                         // Its words arrive lightly tinted, light enough to hold their contrast over the tint (AUDIT's 07:54Z point 2).
-                        Require(firstLabel.color.b > firstLabel.color.r + 0.05f && firstLabel.color.r > 0.7f, "0.1 s in, the first new row's words are not a light tint of the accent: " + firstLabel.color);
+                        // White now, never the accent (AUDIT's Watch It Work pair, 2026-11-17): the one orange stays on the main action.
+                        Require(firstLabel.color.r > 0.7f && Mathf.Abs(firstLabel.color.b - firstLabel.color.r) < 0.08f, "0.1 s in, the first new row's words are not near white: " + firstLabel.color);
                         // A changed row's tint comes with its words (point 1): no run's tint stands taller than its rows shown so far.
                         var pitch = RoomType.Scaled(RoomReading.LineDp);
                         var runsLit = lit.OrderBy(row => row).Aggregate(new List<(int First, int Count)>(), (all, row) =>
@@ -332,19 +348,27 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(Mathf.Abs(scale - Mathf.Lerp(RoomWritingPanel.ArriveFrom, 1f, arrived)) < 0.001f && scale > RoomWritingPanel.ArriveFrom && scale < 1f,
                             "the arriving panel stands at " + scale.ToString("0.000") + " of its size");
                         Require(Mathf.Abs(view.Glass.Shown - arrived) < 0.001f, "the glass stands " + view.Glass.Shown.ToString("0.00") + " in, the words " + arrived.ToString("0.00"));
-                        var title = view.Card.Shown.FirstOrDefault();
+                        var title = view.Head.Title;
                         Require(title != null && title.alpha < 0.99f && title.alpha > 0.01f, "the name is not fading in with its glass: " + (title?.alpha.ToString("0.00") ?? "none"));
                     }
                     else view.Settle();
                 }
                 Place(plane, eyes, 0f, shot.Elevation);
 
-                // The panel's width, its name whole in the mono face, its folder under it.
+                // The panel's width and its head as the one language's sheet sets it (f5): the step's verb as a quiet label in
+                // spaced capitals, then the file's path whole as the title, in its own case in the sans face; the code under them.
                 Require(Mathf.Abs(view.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < unit * 0.05f, "the panel stands " + (view.Size.x / unit).ToString("0.0") + " dp wide");
                 var labels = view.Card.Shown;
-                var nameLabel = labels.FirstOrDefault(each => each.GetParsedText().Trim() == shown.Name.Text);
-                Require(nameLabel != null && !nameLabel.isTextOverflowing, "the file's name is not shown whole");
-                Require(labels.Any(each => each.GetParsedText().Trim() == shown.Folder!.Text), "the file's folder is not shown");
+                var (headLabel, nameLabel) = view.Head;
+                headLabel.ForceMeshUpdate(true);
+                nameLabel.ForceMeshUpdate(true);
+                Require(headLabel.gameObject.activeInHierarchy && headLabel.GetParsedText().Trim() == RoomWritingPanel.LabelWords.ToUpperInvariant(), "the label does not read " + RoomWritingPanel.LabelWords + " in capitals: " + headLabel.GetParsedText());
+                Require(headLabel.characterSpacing > 20f && headLabel.color.a < 0.7f, "the label is not quiet and spaced wide");
+                Require(nameLabel.gameObject.activeInHierarchy && nameLabel.GetParsedText().Replace("\n", "").Trim() == shown.Path && !nameLabel.isTextOverflowing, "the file's path is not the title whole: " + nameLabel.GetParsedText());
+                Require(nameLabel.font != null && !nameLabel.font.name.Contains("Mono") && (nameLabel.fontStyle & FontStyles.UpperCase) == 0, "the title is not in the sans face in its own case: " + nameLabel.font?.name);
+                Require(!labels.Any(each => each.GetParsedText().Trim() == shown.Folder!.Text || each.GetParsedText().Trim() == shown.Name.Text), "the file's name or folder is shown again in the card");
+                var headRight = Mathf.Max(headLabel.textBounds.max.x, nameLabel.textBounds.max.x);
+                Require(view.transform.InverseTransformPoint(nameLabel.transform.TransformPoint(new Vector3(headRight, 0f, 0f))).x < view.Size.x / 2f - RoomType.Scaled(RoomGeometry.PanelPadDp) * 0.5f, "the head runs past the glass's padding");
                 Require(view.GetComponentsInChildren<Collider>(true).Length == 0 && view.GetComponentsInChildren<KitPress>(true).Length == 0, "the panel holds a part that takes a press");
                 var rows = view.Card.ReadingShown;
                 if (state == "47-build-held")
@@ -362,8 +386,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         rows[index].ForceMeshUpdate(true);
                         Require(!rows[index].isTextOverflowing && !rows[index].isTextTruncated && rows[index].GetParsedText().TrimEnd(' ') == texts[index], "row " + index + " is not whole: \"" + rows[index].GetParsedText() + "\"");
-                        if (state != "47-build-arriving" && !state.StartsWith("47-build-light", System.StringComparison.Ordinal)) Require(rows[index].alpha > 0.79f, "settled, row " + index + " stands at " + rows[index].alpha.ToString("0.00"));
+                        // A read that changed some lines leaves the others quiet (RoomWritingPanel.QuietRow); none falls below that.
+                        var floor = (shown.Lit?.Count ?? 0) > 0 ? 0.79f * RoomWritingPanel.QuietRow : 0.79f;
+                        if (state != "47-build-arriving" && !state.StartsWith("47-build-light", System.StringComparison.Ordinal)) Require(rows[index].alpha > floor, "settled, row " + index + " stands at " + rows[index].alpha.ToString("0.00"));
                     }
+                    // And the changed lines stand whole, brighter than the quiet ones, so what changed reads at a glance.
+                    if ((shown.Lit?.Count ?? 0) > 0 && state != "47-build-arriving" && !state.StartsWith("47-build-light", System.StringComparison.Ordinal))
+                        Require(rows.Any(each => each.alpha > 0.79f), "no changed line stands whole over the quiet ones");
                     // Each row keeps its line's indent: a row the file indents stands right of one it does not, a continued row further.
                     var lefts = shown.Lines.Where(line => line.Trim(' ').Length > 0).Select(line => line.Length - line.TrimStart(' ').Length).ToList();
                     for (var index = 1; index < rows.Count && index < lefts.Count; index++)
@@ -376,6 +405,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 var rules = view.Card.Plates.Where(each => each.What == "reading lit rule").ToList();
                 if (state == "47-build-edited" || state.StartsWith("47-build-light", System.StringComparison.Ordinal)) Require(bands.Count > 0 && rules.Count == bands.Count, "the changed rows are not lit: " + bands.Count + " bands, " + rules.Count + " rules");
                 else Require(bands.Count == 0, "rows no read changed are lit");
+                // Each rule stands clear of the words, left of the first letter, and inside the glass.
+                if (rows.Count > 0 && rules.Count > 0)
+                {
+                    var wordsLeft = rows.Min(row => { row.ForceMeshUpdate(true); return view.transform.InverseTransformPoint(row.transform.TransformPoint(new Vector3(row.textBounds.min.x, 0f, 0f))).x; });
+                    var glassLeft = -view.Size.x / 2f;
+                    foreach (var rule in rules)
+                    {
+                        var ruleRight = view.transform.InverseTransformPoint(rule.Plate.transform.TransformPoint(new Vector3(rule.Plate.Size.x / 2f, 0f, 0f))).x;
+                        var ruleLeft = view.transform.InverseTransformPoint(rule.Plate.transform.TransformPoint(new Vector3(-rule.Plate.Size.x / 2f, 0f, 0f))).x;
+                        Require(ruleRight < wordsLeft - unit * 4f, "a lit rule stands " + ((wordsLeft - ruleRight) / unit).ToString("0.0") + " dp from the words, on or against them");
+                        Require(ruleLeft > glassLeft + unit * 8f, "a lit rule stands outside the glass's padding");
+                    }
+                }
 
                 shot.Read = (camera, eye, white, dark, bright, failures) =>
                 {
@@ -396,16 +438,32 @@ namespace Halcyonic.XR.Workspace.Editor
                     var nameLight = nameLabel != null ? Lightest(nameLabel) : 0;
                     if (state != "47-build-arriving" && nameLight < 160) failures.Add("the file's name is not in the pixels, the lightest reads " + nameLight + " of 255");
                     var rowLight = view.Card.ReadingShown.Select(Lightest).ToList();
-                    if (state != "47-build-arriving" && !state.StartsWith("47-build-light", System.StringComparison.Ordinal) && rowLight.Any(value => value < 140)) failures.Add("a row is not in the pixels: " + string.Join(", ", rowLight));
+                    // The levels AUDIT set on f5 (2026-11-17T01:59Z), in the pixels on the glass: the label's cores 135 to 150, the
+                    // unchanged code about 140 to 150, the changed code bright; each held with a little room for the frame's grain.
+                    var labelLight = Lightest(view.Head.Label);
+                    var settledRead = state != "47-build-arriving" && !Moving(state);
+                    if (settledRead && (labelLight < 125 || labelLight > 165)) failures.Add("the label's cores read " + labelLight + ", not 135 to 150");
+                    var quietLight = view.Card.ReadingShown.Where(row => row.alpha < 0.79f).Select(Lightest).ToList();
+                    var litLight = view.Card.ReadingShown.Where(row => row.alpha >= 0.79f).Select(Lightest).ToList();
+                    if (settledRead && (shown.Lit?.Count ?? 0) > 0)
+                    {
+                        if (quietLight.Count == 0 || quietLight.Any(value => value < 125 || value > 165)) failures.Add("the unchanged code reads " + string.Join(", ", quietLight) + ", not about 140 to 150");
+                        if (litLight.Count == 0 || litLight.Any(value => value < 215)) failures.Add("the changed code reads " + string.Join(", ", litLight) + ", not bright");
+                    }
+                    // A read that changed some lines leaves the others quiet (RoomWritingPanel.QuietRow), still plainly there.
+                    var rowFloor = bands.Count > 0 ? 100 : 140;
+                    if (state != "47-build-arriving" && !state.StartsWith("47-build-light", System.StringComparison.Ordinal) && rowLight.Any(value => value < rowFloor)) failures.Add("a row is not in the pixels: " + string.Join(", ", rowLight));
+                    // The code stands on the glass: no well under it.
+                    if (view.Card.Plates.Any(each => each.What == "reading well" && each.Plate.gameObject.activeInHierarchy && each.Plate.Fill.a > 0.01f)) failures.Add("a well stands under the code");
                     var ruleNote = "";
                     if (rules.Count > 0)
                     {
                         var pixel = At(dark, rules[0].Plate.transform.TransformPoint(Vector3.zero));
                         ruleNote = ", the lit rule " + pixel;
-                        if (!(pixel.b > pixel.r + 60 && pixel.g > pixel.r + 40)) failures.Add("the lit rule is not in the accent: " + pixel);
+                        if (!(pixel.r > 190 && pixel.g > 190 && pixel.b > 190)) failures.Add("the lit rule is not the white hairline: " + pixel);
                     }
                     Debug.Log("Halcyonic: parts: " + name + ": " + (view.Size.x / unit).ToString("0", CultureInfo.InvariantCulture) + "x" + (view.Size.y / unit).ToString("0", CultureInfo.InvariantCulture)
-                        + " dp, " + view.Card.ReadingShown.Count + " rows, " + bands.Count + " lit runs, the name's lightest " + nameLight + ", the rows' " + string.Join(", ", rowLight) + ruleNote + ".");
+                        + " dp, " + view.Card.ReadingShown.Count + " rows, " + bands.Count + " lit runs, the name's lightest " + nameLight + ", the label's " + labelLight + ", the rows' " + string.Join(", ", rowLight) + ruleNote + ".");
                 };
             }
             finally { RoomWritingPanel.NotShownWords = notShownWas; }

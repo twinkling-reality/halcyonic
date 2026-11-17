@@ -533,7 +533,7 @@ namespace Halcyonic.XR.UI
             if (card.Reading.Count > 0)
             {
                 Gap(BlockGapDp);
-                down = LayReading(card.Reading, width, down, card.ReadingLit);
+                down = LayReading(card.Reading, width, down, card.ReadingLit, card.ReadingBare);
             }
             if (card.Steps.Count > 0)
             {
@@ -855,7 +855,10 @@ namespace Halcyonic.XR.UI
         /// hue the card's width, so a run of changed lines reads as one block; the words mono, theirs, stood their indent in,
         /// a line the change left a step quieter; a continued row hung in under its start; a gap a hairline across.
         /// </summary>
-        private float LayReading(IReadOnlyList<RoomReadingRow> rows, float width, float down, IReadOnlyList<int>? litRows = null)
+        /// <summary>How far left of a bare reading's words a lit run's rule stands, its middle, in dp: inside the panel's padding.</summary>
+        public const float BareRuleOutDp = 12f;
+
+        private float LayReading(IReadOnlyList<RoomReadingRow> rows, float width, float down, IReadOnlyList<int>? litRows = null, bool bare = false)
         {
             var lit = new HashSet<int>(litRows ?? System.Array.Empty<int>());
             // A dark well under the whole page, near solid, so a band keeps one colour whatever the room shows behind the
@@ -901,7 +904,8 @@ namespace Halcyonic.XR.UI
                     var runTall = run * pitch;
                     var centreY = -(down + runTall / 2f);
                     Plate(new Vector2(width, runTall), S(6f), Rgb(Accent, LitTintAlpha), new Vector2(width / 2f, centreY), "reading lit band");
-                    Plate(new Vector2(S(3f), runTall), 0f, Rgb(Accent), new Vector2(S(1.5f), centreY), "reading lit rule", front: true);
+                    // Bare rows start at the card's edge, so their rule, a hairline, stands out in the padding, clear of the first letter.
+                    Plate(new Vector2(bare ? S(1.5f) : S(3f), runTall), 0f, Rgb(Accent), new Vector2(bare ? -S(BareRuleOutDp) : S(1.5f), centreY), "reading lit rule", front: true);
                 }
                 if (changed && (index == 0 || rows[index - 1].Kind != row.Kind))
                 {
@@ -929,7 +933,7 @@ namespace Halcyonic.XR.UI
                 }
                 if (row.Text != null && !row.Text.IsEmpty)
                 {
-                    var left = S(RoomReading.TextLeftDp(1f, row.Continued)) + row.Indent * advance;
+                    var left = S(RoomReading.TextLeftDp(1f, row.Continued, bare)) + row.Indent * advance;
                     var (label, _) = Text(KitRole.Mono, RoomReading.TypeDp, RoomReading.LineDp, White(changed || lit.Contains(index) ? 0.96f : 0.80f), row.Text, left, -down,
                         Mathf.Max(width - left - S(RoomReading.RightPadDp), advance), 1);
                     ReadingShown.Add(label);

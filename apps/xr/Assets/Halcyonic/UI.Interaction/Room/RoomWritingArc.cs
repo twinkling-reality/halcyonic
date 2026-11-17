@@ -75,6 +75,9 @@ namespace Halcyonic.XR.UI
 
         public RoomSurface ListGlass => listGlass;
 
+        /// <summary>The list's title as drawn, for the checks.</summary>
+        public TMPro.TextMeshPro ListTitleShown => listTitle;
+
         /// <summary>Where <paramref name="panel"/> stands along the arc, as laid flat before the bend: for the checks.</summary>
         public Vector3 FlatOf(RoomWritingPanel panel) => standing.Values.Concat(folding).FirstOrDefault(at => at.Panel == panel)?.Now ?? Vector3.zero;
 
@@ -176,9 +179,10 @@ namespace Halcyonic.XR.UI
                 if (title != null)
                 {
                     listTitle.gameObject.SetActive(true);
-                    RoomType.Size(listTitle);
-                    GlazeRuns.Of(listTitle).Set(LineWords.Ours(title));
-                    down += Mathf.Max(RoomType.Scaled(RoomGeometry.LineDp), KitType.Lay(listTitle, inner, 2).Height) + RoomType.Scaled(RoomRows.GapDp);
+                    // In the one language's label role, as the panel's own label (the sheet's f5: FILES SO FAR).
+                    RoomType.Label(listTitle, title);
+                    listTitle.alpha = RoomWritingPanel.LabelInk;
+                    down += Mathf.Max(RoomType.Scaled(RoomWritingPanel.LabelLineDp), KitType.Lay(listTitle, inner, 2).Height) + RoomType.Scaled(RoomRows.GapDp);
                 }
                 else listTitle.gameObject.SetActive(false);
                 var rowsTall = list.Show(rows, inner);

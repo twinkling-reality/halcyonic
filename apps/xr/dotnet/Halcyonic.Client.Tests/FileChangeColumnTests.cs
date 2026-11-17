@@ -427,6 +427,26 @@ public class FileChangeColumnTests
     }
 
     [Test]
+    public void TheWrapNeverBreaksInsideAQuotedStringWhereABreakOutsideItFits()
+    {
+        static string[] Rows(string line, int first, int rest) => FileChangeColumn.Breaks(line, first, rest).Select(row => row.Part).ToArray();
+        // AUDIT, 2026-11-17: "'./" over "kite.js'" broke a path. The break falls before the string instead.
+        var rows = Rows("import { Kite } from './kite.js';", 26, 26);
+        Assert.That(rows, Is.EqualTo(new[] { "import { Kite } from ", "'./kite.js';" }), string.Join(" | ", rows));
+        Assert.That(Rows("say(\"a, b\", c)", 9, 9).Any(row => row.EndsWith("\"a, ", StringComparison.Ordinal)), Is.False, "never after the comma inside the string");
+        Assert.That(Rows("x = `a/b/c` + y", 9, 9).Any(row => row.Contains("`a/", StringComparison.Ordinal) && !row.Contains("`a/b/c`", StringComparison.Ordinal)), Is.False, "a backquoted string stays whole too");
+    }
+
+    [Test]
+    public void ABareReadingKeepsNoGutterSoItsRowsHoldMore()
+    {
+        Assert.That(RoomReading.TextLeftDp(1f, bare: true), Is.EqualTo(0f));
+        Assert.That(RoomReading.TextLeftDp(1f, continued: true, bare: true), Is.EqualTo(RoomReading.HangDp));
+        Assert.That(RoomReading.Columns(1f, bare: true), Is.GreaterThan(RoomReading.Columns(1f)), "the gutter's room goes to the words");
+        Assert.That(RoomReading.Columns(1f), Is.EqualTo(RoomReading.Columns(1f, bare: false)), "every other reading as before");
+    }
+
+    [Test]
     public void TheWrapBreaksAtSpacesAndPunctuationOrBeforeADotAfterANameAndNeverInsideAnOperatorOrAName()
     {
         static string[] Rows(string line, int first, int rest) => FileChangeColumn.Breaks(line, first, rest).Select(row => row.Part).ToArray();
