@@ -25,7 +25,7 @@ namespace Halcyonic.Client
     /// <summary>
     /// The counts at which a place changes its form. They are a rule's numbers, not the product's limits: the lead's 2026-11-17T18:56Z
     /// sets no cap on how many agents the room shows, and DEVICE's Quest 3 measures at 3, 6, 10 and 16 characters set the real
-    /// thresholds. Until those numbers land, <see cref="Default"/> holds the shelf's own measure: one row of three at its pitch.
+    /// thresholds. <see cref="Default"/> holds FIELD's sheet at its worst case until they land.
     /// </summary>
     public sealed class PlaceRule
     {
@@ -51,8 +51,12 @@ namespace Halcyonic.Client
         /// <summary>How many stand in front of a crowd's "{n} More", besides every one that needs you.</summary>
         public int CrowdShown { get; }
 
-        /// <summary>Provisional until DEVICE's numbers: 3 in a row, 6 in two, 10 small, then 6 in front of the rest.</summary>
-        public static PlaceRule Default { get; } = new PlaceRule(3, 6, 10, 6);
+        /// <summary>
+        /// FIELD's places sheet (2026-11-17T19:03Z), the worst case at 200 dp names: 4 in a row, 7 in two (the back row one fewer, at 0.85
+        /// scale, which is the sheet's "smaller", so <see cref="PlaceForm.Small"/> is never chosen), then both rows standing and the rest
+        /// gathered behind "{n} More". DEVICE's Quest 3 numbers can only lower them.
+        /// </summary>
+        public static PlaceRule Default { get; } = new PlaceRule(4, 7, 7, 7);
 
         public PlaceForm FormOf(int count) =>
             count <= FullMost ? PlaceForm.Full : count <= TwoRowsMost ? PlaceForm.TwoRows : count <= SmallMost ? PlaceForm.Small : PlaceForm.Crowd;
