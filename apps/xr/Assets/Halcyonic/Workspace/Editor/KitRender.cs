@@ -1050,7 +1050,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 rect.yMax = Mathf.Min(Height, Mathf.CeilToInt(max.y));
                 if (rect.width < 2 || rect.height < 2) continue;
                 // Read by the word's own box in its drawn polarity (InkBox): the cores against the ground, never one stray pixel either way.
-                var strongest = InkBox(pixels, rect, DrawnColour(label)).Ratio;
+                // The words' own glyph quads in the frame, so the ink is read on their pixels alone.
+                var glyphs = new List<RectInt>();
+                for (var index = 0; index < label.textInfo.characterCount; index++)
+                {
+                    var character = label.textInfo.characterInfo[index];
+                    if (!character.isVisible) continue;
+                    var low = camera.WorldToScreenPoint(seen(label.transform.TransformPoint(character.bottomLeft)));
+                    var high = camera.WorldToScreenPoint(seen(label.transform.TransformPoint(character.topRight)));
+                    var x0 = Mathf.FloorToInt(Mathf.Min(low.x, high.x));
+                    var y0 = Mathf.FloorToInt(Mathf.Min(low.y, high.y));
+                    glyphs.Add(new RectInt(x0, y0, Mathf.CeilToInt(Mathf.Max(low.x, high.x)) - x0 + 1, Mathf.CeilToInt(Mathf.Max(low.y, high.y)) - y0 + 1));
+                }
+                var strongest = InkBox(pixels, rect, DrawnColour(label), glyphs).Ratio;
                 if (strongest < weakest) { weakest = (float)strongest; weakestName = label.name + " \"" + Clip(label.text) + "\""; }
                 if (strongest < 4.5) yield return what + ": " + label.name + " \"" + Clip(label.text) + "\" reaches " + strongest.ToString("0.00", CultureInfo.InvariantCulture) + " to 1.";
             }

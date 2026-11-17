@@ -156,14 +156,19 @@ namespace Halcyonic.XR.Workspace.Editor
         /// words stand on (a word's box hugs its letters, so a percentile of it lands in the strokes' soft edges, never the ground).
         /// Neither a dark spot of the room seen through the glass, nor a glyph's dark edge, nor a single bright pixel can lift the
         /// ratio: the ink is a mean of cores on the words' own side, so the ratio is never above the per-pixel read it replaces.
-        /// Returns the ratio, or 1 where the cores do not stand on their drawn side of the ground.
+        /// Returns the ratio, or 1 where the cores do not stand on their drawn side of the ground, or where no pixel of the box lies
+        /// inside the words' own glyph quads (<paramref name="glyphs"/>, in the frame's pixels).
         /// </summary>
-        public static (double Ratio, bool DrawnLight, double Ink, double Ground) InkBox(Color32[] pixels, RectInt rect, Color drawn)
+        public static (double Ratio, bool DrawnLight, double Ink, double Ground) InkBox(Color32[] pixels, RectInt rect, Color drawn, IReadOnlyList<RectInt>? glyphs = null)
         {
+            // The ink is read only inside the words' own glyph quads, where given (the lead's 2026-11-17T15:11Z): a bright pixel of the
+            // room seen through the glass beside the letters is never taken for the words' ink. The ground stays the whole box's most
+            // common colour, the glass they stand on.
+            bool InGlyph(int x, int y) => glyphs == null || glyphs.Any(quad => quad.Contains(new Vector2Int(x, y)));
             var box = new List<Color32>(rect.width * rect.height);
             for (var y = rect.yMin; y < rect.yMax; y++)
             for (var x = rect.xMin; x < rect.xMax; x++)
-                box.Add(pixels[y * Width + x]);
+                if (InGlyph(x, y)) box.Add(pixels[y * Width + x]);
             if (box.Count == 0) return (1.0, true, 0.0, 0.0);
             var mode = Luminance(MostCommon(pixels, rect));
             var drawnLight = Luminance((Color32)drawn) > mode;
