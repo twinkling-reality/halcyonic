@@ -419,10 +419,10 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     assert.ok(instruction.includes(join(projects, 'garden')), instruction);
     assert.match(instruction, /Do not change anything there/);
     assert.match(instruction, /src\/play-input\.ts/);
-    // The S3 re-run's game kept the starter's "Untitled Game" card: the instruction asks for the app's own.
+    // The host now writes the project's own name on the card and in the title (namedFile); the instruction keeps it.
     assert.match(
       instruction,
-      /Put the app's name and one line on what to do on its welcome card\. If it is not a game, put one plain line beside its use, in the scene, on what of the app this version does not carry yet, or that it carries all of it\./,
+      /Its welcome card and page title already hold this project's name; keep it, and put one line on what to do on the card\. If it is not a game, put one plain line beside its use, in the scene, on what of the app this version does not carry yet, or that it carries all of it\./,
     );
     // Run (b4)'s model put its plan to the person before building (the lead, 2026-11-13T19:47Z item 3); a question an
     // agent does ask still reaches the person.

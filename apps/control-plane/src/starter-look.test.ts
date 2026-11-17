@@ -255,12 +255,16 @@ describe('the card names the game and says how to play it, nothing else (U5)', (
     assert.doesNotMatch(card, /Enter XR/);
   });
 
-  test('the agent names the game on its card and in its title, and adds nothing else there', () => {
-    const agents = read('AGENTS.md');
-    assert.match(agents, /`card-title`/);
-    assert.match(agents, /`card-line`/);
-    assert.match(agents, /`<title>`/);
-    assert.match(agents, /nothing else on the card/);
+  test("the agent keeps the project's name on its card and in its title, and adds nothing else there", () => {
+    // The host writes the project's name into both when it makes the project (starters.ts namedFile); an agent told to
+    // name the app would put its own name over the person's (AUDIT2, 2026-11-17).
+    const agents = read('AGENTS.md').replace(/\s+/g, ' ');
+    assert.match(
+      agents,
+      /`card-title` \(`public\/ui\/welcome\.uikitml`\) and `index\.html`'s `<title>` already hold the project's name, as the person gave it\. Keep that name; change it only when the person asks for a new one\./,
+    );
+    assert.match(agents, /`card-line`, with nothing else on the card/);
+    assert.doesNotMatch(agents, /name it on its welcome card|Name the app on its welcome card/);
   });
 });
 
@@ -1432,7 +1436,7 @@ describe('tasks add to one app in parts of their own (VRIFY)', () => {
     assert.match(night, /horizon: '#5A3E8E'/);
     assert.match(agents, /`linear-gradient\(#0D1240, #5A3E8E\)` for `night`/);
     assert.match(
-      agents,
+      agents.replace(/\s+/g, ' '),
       /A part added to a game leaves the name, the card and the title as they are\./,
     );
   });

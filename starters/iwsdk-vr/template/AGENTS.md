@@ -115,9 +115,10 @@ Make it fun to look at:
   scoreSign('Score')`, and call `score.show(points)` when the score changes. Keep the sign, and any pages and rows,
   in clear sight: the laptop camera stands just behind the player, and the check reads words behind a tree, a wall
   or any object between that camera and them as words a person cannot read.
-- When you make the whole game, name it on its welcome card, `public/ui/welcome.uikitml`: its name in `card-title`
-  and one short line on how to play in `card-line`, with nothing else on the card; put the same name in
-  `index.html`'s `<title>`. A part added to a game leaves the name, the card and the title as they are. The welcome
+- The welcome card's `card-title` (`public/ui/welcome.uikitml`) and `index.html`'s `<title>` already hold the
+  project's name, as the person gave it. Keep that name; change it only when the person asks for a new one. When you
+  make the whole game, put one short line on how to play in `card-line`, with nothing else on the card. A part added
+  to a game leaves the name, the card and the title as they are. The welcome
   card stands at the bottom left on a laptop and low beside the person in a headset. It fades in once its words are
   ready and is gone by about 5 s; H shows it again on a laptop, for 6 s (`src/panel.ts`, `src/card-fade.ts`); leave
   that as it is. Rewrite the card's laptop line (`laptop-help` in `welcome.uikitml`) to the keys and mouse your game really
@@ -213,8 +214,8 @@ A view from another app, not a game:
   comes closer or shows the next view, with `src/motion.ts` and `gameTime()`; a round thing that only turns looks the
   same, so it shows no answer. Keep something moving every frame, from
   the `time` your system's `update(delta, time)` is given.
-- No score sign, critters or confetti unless the original has them. Name the app on its welcome card, with one line
-  on what to press, as for a game.
+- No score sign, critters or confetti unless the original has them. Keep the project's name on its welcome card, with
+  one line on what to press under it, as for a game.
 
 Music and light, not a game (a piece that plays itself, a concert of light, a place to listen in):
 - A piece with nothing to press is ready on a laptop when it draws and starts its sound after the first key press
