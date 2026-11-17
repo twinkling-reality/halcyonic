@@ -19,8 +19,10 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] FontStates = { "22-fonts", LatinFontState };
 
         /// <summary>
-        /// Every face drawing accented names whole (the lead, 2026-11-17T22:10Z; <see cref="KitGlyphs.Latin"/>): the line in each room
-        /// face and the title face, each glyph from that face's own atlas, and no code point mark anywhere in it.
+        /// Every face drawing accented names whole (the lead, 2026-11-17T22:10Z and 22:2xZ; <see cref="KitGlyphs.Latin"/>): the line in each
+        /// room face with a tab's mark after it, and in the title face, each glyph from that face's own atlas and no code point mark in
+        /// it; each room face holding the well's marks, the line break's in every Inter face and the mono face reaching it through
+        /// the reading face (FIELD's e8677e34f).
         /// </summary>
         private const string LatinFontState = "22-fonts-latin";
 
@@ -54,6 +56,7 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var (role, sampleOurs, sampleTheirs) in FontSamples)
             {
                 var (ours, theirs) = latin ? ("", LatinLine) : (sampleOurs, sampleTheirs);
+                var markedLine = latin ? LineWords.Literal(LatinLine + "\t") : LineWords.None;
                 var face = KitType.FaceName(role);
                 var asset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Halcyonic/UI/Resources/HalcyonicUI/" + face + ".asset");
                 Require(asset != null, face + " has no atlas");
@@ -61,9 +64,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 var label = KitType.Create(view, face, role, KitType.Text, KitType.Order.Words, room: true);
                 Require(label.font == asset, role + " is not drawn in " + face);
                 label.textWrappingMode = TextWrappingModes.NoWrap;
-                var line = (ours.Length > 0 ? LineWords.Ours(ours) : LineWords.None) + (theirs.Length > 0 ? LineWords.Theirs(theirs) : LineWords.None);
+                var line = latin ? markedLine : (ours.Length > 0 ? LineWords.Ours(ours) : LineWords.None) + (theirs.Length > 0 ? LineWords.Theirs(theirs) : LineWords.None);
                 var runs = GlazeRuns.Of(label).Set(line);
                 Require(runs.Count == (theirs.Length > 0 ? 1 : 0), face + "'s outside text lost its run");
+                if (latin)
+                {
+                    Require(LabelText.FromTextMeshPro(label.text) == LatinLine + LineWords.TabMark, face + " does not draw the line and its tab's mark");
+                    Require(asset.HasCharacters("\u2039\u203A" + LineWords.TabMark), face + " lacks a well's mark");
+                    var breakFace = role == KitRole.Mono && asset.fallbackFontAssetTable.Count > 0 ? asset.fallbackFontAssetTable[0] : asset;
+                    Require(breakFace != null && breakFace.HasCharacter(LineWords.LineBreakMark[0]) && (role != KitRole.Mono || breakFace.name == "KitReading"),
+                        face + " cannot draw the line break's mark");
+                }
                 var (lines, _, height) = KitType.Lay(label, width - 2f * pad, 1);
                 Require(lines == 1 && !label.isTextTruncated, face + "'s sample is cut");
                 label.transform.localPosition = new Vector3(-width / 2f + pad, y, -0.0005f);
@@ -89,7 +100,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     labels.Add(("InstrumentType", asset, title));
                 }
                 foreach (var (face, _, label) in labels)
-                    Require(LabelText.FromTextMeshPro(label.text) == LatinLine && !label.text.Contains("U+") && !label.text.Contains("\u2039"),
+                    Require(LabelText.FromTextMeshPro(label.text).StartsWith(LatinLine) && !label.text.Contains("U+") && !label.text.Contains("\u2039"),
                         face + " shows the accented line with a code point mark or changed");
             }
             // The instrument candidate keeps its faces until the room replaces it (the lead's call, 2026-10-30): a label made
