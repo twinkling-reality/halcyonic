@@ -1599,8 +1599,8 @@ namespace Halcyonic.XR.UI
                 if (row.Excerpt && row.Name.Text.Trim().IndexOf(' ') < 0) nameLines = 1;
                 var (nameLabel, nameTall) = row.Mono
                     ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines)
-                    : plain ? Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Name, nameLeft, 0f, nameWidth, nameLines)
-                    : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines);
+                    : plain ? Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), row.Name, nameLeft, 0f, nameWidth, nameLines, holdLastTwo: true)
+                    : Text(KitRole.Body, RowNameDp, RowNameLineDp, Color.white, row.Name, nameLeft, 0f, nameWidth, nameLines, holdLastTwo: true);
                 // The person's own words of any length, on a row that opens them whole: their lead, cut at a word.
                 if (row.Excerpt) nameTall = Excerpt(nameLabel, row.Name, nameWidth, nameLines, RowNameLineDp);
                 // A path of theirs that wraps breaks only after a slash or a dot, never inside a name (SCREENS's PathWrap; the lead's
@@ -1811,7 +1811,7 @@ namespace Halcyonic.XR.UI
         private readonly Dictionary<TextMeshPro, float> baseTracking = new Dictionary<TextMeshPro, float>();
 
         private (TextMeshPro Label, float Tall) Text(KitRole role, float dp, float lineDp, Color colour, LineWords words, float x, float y, float width, int lines,
-            TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft, bool labelRole = false)
+            TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft, bool labelRole = false, bool holdLastTwo = false)
         {
             if (!texts.TryGetValue(role, out var pool)) texts[role] = pool = new List<TextMeshPro>();
             textsUsed.TryGetValue(role, out var used);
@@ -1850,7 +1850,9 @@ namespace Halcyonic.XR.UI
             }
             // The body's last two words held together where a paragraph can wrap (AUDIT 2026-11-17 03:21Z: a task card's sentence ended on
             // one word): in the words handed to the lay, the same length, so every run's place holds; never in the stored text.
-            var heldText = lines > 1 && !labelRole && role != KitRole.Mono ? LabelText.KeepLastTwo(label.text) : label.text;
+            // A row's words only (holdLastTwo: a task's sentence on its row, which Excerpt lays again at its own measure, undoing the
+            // narrowing below): a title or any other body is held by WithoutWidow below, its words exactly its own.
+            var heldText = holdLastTwo && lines > 1 && !labelRole ? LabelText.KeepLastTwo(label.text) : label.text;
             var plainText = label.text;
             if (!ReferenceEquals(heldText, plainText) && heldText != plainText) label.text = heldText;
             var laid = KitType.Lay(label, width, lines);
@@ -1961,14 +1963,16 @@ namespace Halcyonic.XR.UI
             if (held <= 0) return false;
             var start = text.LastIndexOfAny(new[] { ' ', '\n' }, held - 1) + 1;
             var end = text.TrimEnd().Length - 1;
+            // A break inside the pair counts only where it falls inside a word: after a hyphen is a word's own place to break.
             var info = label.textInfo;
-            int LineOf(int index)
+            for (var at = 1; at < info.characterCount; at++)
             {
-                for (var at = 0; at < info.characterCount; at++)
-                    if (info.characterInfo[at].index >= index) return info.characterInfo[at].lineNumber;
-                return info.lineCount - 1;
+                var here = info.characterInfo[at];
+                var before = info.characterInfo[at - 1];
+                if (here.index <= start || here.index > end || here.lineNumber == before.lineNumber) continue;
+                if (before.character != '-') return true;
             }
-            return LineOf(start) != LineOf(end);
+            return false;
         }
 
         /// <summary>Whether the label's last laid line holds a single word.</summary>
