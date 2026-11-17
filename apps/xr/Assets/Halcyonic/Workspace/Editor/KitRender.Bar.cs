@@ -730,8 +730,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     finally { RoomDesign.Enabled = designWas; }
                 }
             }
-            if (state == "33-ask")
+            if (state is "33-ask" or "33-ask-confirm")
             {
+                // FL2 (AUDIT3's SHOULD): Confirm, its lock lifted, is held while its own panel builds as Approve was, so the gate alone is read.
+                if (state == "33-ask-confirm") bar.AgeLockForRender(RoomBar.ConfirmLockSeconds);
                 // Approve only what is shown (AUDIT3's FL1): the request's answers take no pinch while its panel is held for a flying
                 // character, nor while its last line builds; once it stands whole they take one, each settling from the build-up's end.
                 var panelClock = 100f;
