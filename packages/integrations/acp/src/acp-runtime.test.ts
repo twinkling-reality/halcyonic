@@ -737,7 +737,7 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
     const answer = run
       .sent()
       .find((message) => message.method === undefined && 'result' in message);
-    assert.deepEqual((answer?.result as { outcome: unknown }).outcome, {
+    assert.deepEqual((answer?.result as { outcome: unknown } | undefined)?.outcome, {
       outcome: 'selected',
       optionId: 'accept',
     });
