@@ -86,10 +86,12 @@ export async function stopRecordedProcess(
   const identity = await readProcessIdentity(record.pid);
   if (identity === null) return 'not_running';
   if (!isRecordedProcess(identity, record)) return 'not_ours';
-  signal(record.pid, 'SIGTERM');
+  // A recorded app leads its own process group (AUDIT3 SW-g): the group is signalled, its commands with it.
+  const group = (await leadsGroup(record.pid)) ? -record.pid : record.pid;
+  signal(group, 'SIGTERM');
   if (await goneWithin(record, graceMs)) return 'stopped';
   const current = await readProcessIdentity(record.pid);
-  if (current !== null && isRecordedProcess(current, record)) signal(record.pid, 'SIGKILL');
+  if (current !== null && isRecordedProcess(current, record)) signal(group, 'SIGKILL');
   if (await goneWithin(record, 2000)) return 'stopped';
   throw new Error(`The agent app process ${record.pid} is still running after SIGKILL.`);
 }
@@ -102,6 +104,20 @@ async function goneWithin(record: ProcessRecord, ms: number): Promise<boolean> {
     if (Date.now() >= deadline) return false;
     await delay(100);
   }
+}
+
+/** Whether the process leads its own process group, as `ps` reports its group id. */
+function leadsGroup(pid: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile(
+      'ps',
+      ['-p', String(pid), '-o', 'pgid='],
+      { env: PS_ENV, timeout: 5000 },
+      (error, stdout) => {
+        resolve(error === null && Number(stdout.trim()) === pid);
+      },
+    );
+  });
 }
 
 function signal(pid: number, name: NodeJS.Signals): void {

@@ -132,6 +132,10 @@ interface Approval {
   readonly toolCallId: string | null;
   readonly allow: string | null;
   readonly reject: string | null;
+  /** The call's input as the person was shown it; another input before the answer withdraws the ask (AUDIT3 KW1). */
+  shownInput: string;
+  /** Why Halora answered it itself, where it did: the input changed after it was shown. */
+  withdrawn: 'input_changed' | null;
   answered: {
     readonly decision: 'approved' | 'denied';
     readonly resolve: () => void;
@@ -616,8 +620,8 @@ class AcpSession {
     const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
     // The app ends at the end of its input; a signal follows where it does not.
     this.#rpc?.end();
-    const term = setTimeout(() => child.kill('SIGTERM'), 2_000);
-    const kill = setTimeout(() => child.kill('SIGKILL'), 6_000);
+    const term = setTimeout(() => signalGroup(child, 'SIGTERM'), 2_000);
+    const kill = setTimeout(() => signalGroup(child, 'SIGKILL'), 6_000);
     await exited;
     clearTimeout(term);
     clearTimeout(kill);
@@ -680,10 +684,12 @@ class AcpSession {
       args = ['-f', path, binaryPath, ...args];
       command = SANDBOX_EXEC;
     }
+    // The app leads a process group of its own, so stopping it stops the commands it started (AUDIT3 SW-g).
     const child = spawn(command, args, {
       cwd: this.#directory,
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
+      detached: true,
     });
     this.#child = child;
     // What the app writes to stderr can hold the person's words; it is read and dropped, never logged.
@@ -874,6 +880,8 @@ class AcpSession {
         observed(kind),
       );
     }
+    if (update.rawInput !== undefined)
+      this.#inputChanged(toolCallId, JSON.stringify(update.rawInput));
     const status = text(update.status);
     for (const approval of this.#approvals.values()) {
       if (approval.toolCallId !== toolCallId || approval.answered === null) continue;
@@ -992,6 +1000,8 @@ class AcpSession {
       toolCallId,
       allow,
       reject: optionOf('reject_once'),
+      shownInput: '',
+      withdrawn: null,
       answered: null,
     };
     this.#approvals.set(approvalId, approval);
@@ -1004,6 +1014,7 @@ class AcpSession {
       meta: body._meta,
       changesOf: (callId) => this.#carried.get(callId),
     });
+    approval.shownInput = JSON.stringify(whole.rawInput ?? null);
     if (toolCallId !== null && asked.subject.changes !== undefined) {
       this.#carried.set(toolCallId, asked.subject.changes);
     }
@@ -1018,6 +1029,33 @@ class AcpSession {
     );
   }
 
+  /**
+   * The app reported another input for a call whose ask the person has not answered yet (AUDIT3 KW1): what they would
+   * approve is no longer what would run, so Halora refuses it once, as a denial recorded with why, and the person's
+   * later answer finds it answered.
+   */
+  #inputChanged(toolCallId: string, input: string): void {
+    const rpc = this.#rpc;
+    if (rpc === null) return;
+    for (const approval of this.#approvals.values()) {
+      if (approval.toolCallId !== toolCallId || approval.answered !== null) continue;
+      if (approval.shownInput === '' || approval.shownInput === input) continue;
+      approval.withdrawn = 'input_changed';
+      approval.answered = {
+        decision: 'denied',
+        resolve: () => undefined,
+        reject: () => undefined,
+        timer: setTimeout(() => undefined, 0),
+      };
+      rpc.respond(
+        approval.rpcId,
+        approval.reject === null
+          ? { outcome: { outcome: 'cancelled' } }
+          : { outcome: { outcome: 'selected', optionId: approval.reject } },
+      );
+    }
+  }
+
   #resolveApproval(approval: Approval, decision: 'approved' | 'denied', nativeType: string): void {
     const answered = approval.answered;
     if (answered === null) return;
@@ -1027,7 +1065,9 @@ class AcpSession {
     this.#emit(
       'runtime.approval.resolved',
       { approval_id: approval.id, decision },
-      observed(nativeType),
+      observed(
+        approval.withdrawn === null ? nativeType : `withdrawn.${approval.withdrawn}.${nativeType}`,
+      ),
     );
     answered.resolve();
   }
@@ -1238,5 +1278,14 @@ function alive(pid: number): boolean {
   } catch (error) {
     // EPERM: a process of another user has that id: it lives.
     return (error as NodeJS.ErrnoException).code !== 'ESRCH';
+  }
+}
+
+/** Signals the app's whole process group, which it leads (`detached`); the app alone where that fails. */
+function signalGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+  try {
+    if (child.pid !== undefined) process.kill(-child.pid, signal);
+  } catch {
+    child.kill(signal);
   }
 }

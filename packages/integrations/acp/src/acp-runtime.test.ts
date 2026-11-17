@@ -362,6 +362,61 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
     await run.next('runtime.turn.completed');
   });
 
+  test('an ask whose input changes before the person answers is refused, recorded why, and their answer finds it gone', async (t) => {
+    const recorded = readFileSync(join(FIXTURES, 'antigravity-command-deny.jsonl'), 'utf8').split(
+      '\n',
+    );
+    const asking = recorded.findIndex((line) => line.includes('session/request_permission'));
+    const request = JSON.parse(recorded[asking] ?? '{}');
+    const call = request.send.params.toolCall;
+    // The same call, reported with another command after it was asked about (AUDIT3 KW1).
+    const changed = JSON.stringify({
+      send: {
+        jsonrpc: '2.0',
+        method: 'session/update',
+        params: {
+          sessionId: request.send.params.sessionId,
+          update: {
+            ...call,
+            sessionUpdate: 'tool_call_update',
+            rawInput: { ...call.rawInput, CommandLine: 'rm -rf ./*' },
+          },
+        },
+      },
+    });
+    const run = setUp(t, 'cut', {
+      fixtureText: [...recorded.slice(0, asking + 1), changed, ...recorded.slice(asking + 1)].join(
+        '\n',
+      ),
+    });
+    await start(run);
+    const asked = await run.next('runtime.approval.requested');
+    if (asked.type !== 'runtime.approval.requested') return;
+    const resolved = await run.next('runtime.approval.resolved');
+    assert.deepEqual(resolved.payload, {
+      approval_id: asked.payload.approval_id,
+      decision: 'denied',
+    });
+    assert.match(resolved.provenance.native_type ?? '', /^withdrawn\.input_changed\./);
+    const answer = run
+      .sent()
+      .find((message) => message.method === undefined && 'result' in message);
+    assert.deepEqual((answer?.result as { outcome: unknown } | undefined)?.outcome, {
+      outcome: 'selected',
+      optionId: 'deny',
+    });
+    await assert.rejects(
+      run.adapter.respondToApproval({
+        execution: TEST_EXECUTION,
+        approval_id: asked.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      }),
+      (error: unknown) => error instanceof RuntimeActionError,
+    );
+    await run.next('runtime.turn.completed');
+  });
+
   test('stopping during an approval cancels the turn and withdraws the request', async (t) => {
     const run = setUp(t, 'antigravity-command-cancel.jsonl');
     await start(run);
@@ -1041,6 +1096,41 @@ describe('ACP apps never outlive the control plane (AUDIT3 AS1)', () => {
   test('without a record the same app outlives it, so the test above can fail', async (t) => {
     const pid = await killedHost(t, false, 2_000);
     assert.equal(alive(pid), true);
+  });
+
+  test('the sweep stops a recorded app that leads its process group, with the commands it started', async (t) => {
+    const root = temporary(t);
+    const file = join(root, 'processes.json');
+    const leader = spawn(
+      process.execPath,
+      [
+        '-e',
+        "const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => undefined, 1000)'], { stdio: 'ignore' }); console.log(c.pid); setInterval(() => undefined, 1000);",
+      ],
+      { detached: true, stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    const child = await new Promise<number>((resolve) =>
+      leader.stdout.once('data', (chunk: Buffer) => resolve(Number(String(chunk).trim()))),
+    );
+    t.after(() => {
+      for (const pid of [child, leader.pid ?? 0]) if (alive(pid)) process.kill(pid, 'SIGKILL');
+    });
+    const identity = await readProcessIdentity(leader.pid ?? 0);
+    assert.ok(identity !== null && alive(child));
+    await writeProcessRecords(file, [{ pid: leader.pid ?? 0, ...identity }]);
+    const adapter = new AcpRuntimeAdapter({
+      profile: ANTIGRAVITY,
+      binaryPath: '/nonexistent',
+      directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
+      env: {},
+      home: root,
+      processRecordFile: file,
+      hostFolders: null,
+    });
+    t.after(() => adapter.close());
+    assert.deepEqual(await adapter.stopStaleProcesses(), [{ pid: leader.pid, outcome: 'stopped' }]);
+    for (let waited = 0; waited < 50 && alive(child); waited++) await delay(100);
+    assert.equal(alive(child), false, 'the command the app started is gone with it');
   });
 
   test('the next start stops a recorded app that outlived both, and never a process that only took its pid', async (t) => {
