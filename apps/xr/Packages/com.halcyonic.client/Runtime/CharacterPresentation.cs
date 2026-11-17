@@ -45,8 +45,10 @@ namespace Halcyonic.Client
             IReadOnlyList<string>? attentionDetails = null,
             IReadOnlyList<LineWords>? attentionNoteRuns = null,
             IReadOnlyList<LineWords>? attentionDetailRuns = null,
-            string? restWords = null)
+            string? restWords = null,
+            int asks = 0)
         {
+            Asks = asks < 0 ? 0 : asks;
             RestWords = string.IsNullOrWhiteSpace(restWords) ? null : restWords;
             WorkstreamId = workstreamId;
             Title = title;
@@ -108,6 +110,12 @@ namespace Halcyonic.Client
         public int PendingApprovals { get; }
 
         /// <summary>
+        /// The asks waiting on the person in the task's current run, approvals and questions both, as the bar reads them (the lead's
+        /// 2026-11-17T19:40Z (6): a tag read Not Started while its agent asked to run a command). Any one makes the tag say Needs You.
+        /// </summary>
+        public int Asks { get; }
+
+        /// <summary>
         /// The work is simulated (for example the mock runtime) and must be labeled as such: its current
         /// execution's runtime is, or, before it has any execution, every runtime that could run it is.
         /// </summary>
@@ -148,7 +156,8 @@ namespace Halcyonic.Client
                 details.Select(detail => detail.Text).ToList(),
                 notes,
                 details,
-                RestWordsOf(activity, workstream.Attention.Level, execution));
+                RestWordsOf(activity, workstream.Attention.Level, execution),
+                (execution?.PendingApprovals.Count ?? 0) + (execution?.PendingQuestions.Count ?? 0));
         }
 
         /// <summary>
@@ -165,7 +174,11 @@ namespace Halcyonic.Client
         /// The state word a character's tag shows: the card's words for a run at rest, the state language's word otherwise, so the tag
         /// never says a turn goes on that the card says has ended, nor a second word for the same end.
         /// </summary>
-        public static string TagWord(CharacterPresentation presentation) => presentation.RestWords ?? StateLanguage.BadgeOf(presentation).Word;
+        public static string TagWord(CharacterPresentation presentation) =>
+            presentation.Asks > 0 ? StateLanguage.WordOf(WorkState.WaitingForYou) : presentation.RestWords ?? StateLanguage.BadgeOf(presentation).Word;
+
+        /// <summary>Whether the tag calls for the person: any ask waiting in the run, or the character's own call (the floor ring and the edge).</summary>
+        public static bool TagNeedsYou(CharacterPresentation presentation) => presentation.Asks > 0 || CharacterLabel.Of(presentation).NeedsPerson;
 
         /// <summary>
         /// Whether only simulated work can run here: the state registers at least one runtime and every one

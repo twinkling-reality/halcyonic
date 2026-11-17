@@ -97,6 +97,39 @@ public class CharacterPresenterTests
         }
     }
 
+    /// <summary>
+    /// The lead's 2026-11-17T19:40Z (6): room-06's tag read NOT STARTED while its agent asked to run a command. Whatever the workstream's
+    /// own status says, any ask waiting in its run, an approval or a question, makes the tag say Needs You and call for the person, as the bar does.
+    /// </summary>
+    [TestCase(false, TestName = "AnApprovalWaitingMakesTheTagSayNeedsYouWhateverTheStatus")]
+    [TestCase(true, TestName = "AQuestionWaitingMakesTheTagSayNeedsYouWhateverTheStatus")]
+    public void AnAskWaitingMakesTheTagSayNeedsYou(bool question)
+    {
+        var execution = Samples.Execution("e1", "w1", ExecutionStatus.Running);
+        if (question)
+            execution.PendingQuestions.Add(new QuestionView
+            {
+                QuestionId = "q-1", AskedAt = Samples.Time,
+                Prompts = new List<QuestionPrompt> { new() { Header = "Port", Text = "Which port?", Options = new List<QuestionOption>() } },
+            });
+        else
+            execution.PendingApprovals.Add(new ApprovalView
+            {
+                ApprovalId = "ap-1", RequestedAt = Samples.Time, Approvable = true, Subject = new ToolUseSubject { ToolName = "bash", Summary = "npm install" },
+            });
+        foreach (var status in new[] { WorkstreamStatus.Created, WorkstreamStatus.Running, WorkstreamStatus.Completed })
+        {
+            var workstream = Samples.Workstream("w1", status, "e1");
+            var character = CharacterPresenter.Present(workstream, StateWith(workstream, execution), live: true);
+            Assert.That(CharacterPresenter.TagWord(character), Is.EqualTo("Needs You"), status + ": an ask waits, so the tag says so");
+            Assert.That(CharacterPresenter.TagNeedsYou(character), Is.True, status.ToString());
+        }
+        // Answered, the ask goes and the tag says the work's own state again.
+        var idle = Samples.Workstream("w1", WorkstreamStatus.Created, "e1");
+        var answered = Samples.Execution("e1", "w1", ExecutionStatus.Running);
+        Assert.That(CharacterPresenter.TagWord(CharacterPresenter.Present(idle, StateWith(idle, answered), live: true)), Is.Not.EqualTo("Needs You"));
+    }
+
     [Test]
     public void AnApprovalExplainsWhatNeedsApproving()
     {
