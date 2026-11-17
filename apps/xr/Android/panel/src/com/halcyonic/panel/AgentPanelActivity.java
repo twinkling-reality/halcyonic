@@ -114,7 +114,7 @@ public class AgentPanelActivity extends Activity {
                     if (workId == null) throw new IOException();
                     compactPanel = true; authority.compact(true);
                 }
-                shell(); connection.setText("Synthetic preview · no live work loaded, no requests sent."); show();
+                shell(); connection.setText("Synthetic preview: no live work, and nothing is sent."); show();
             } catch (Exception error) { finish(); }
             return;
         }
@@ -271,7 +271,7 @@ public class AgentPanelActivity extends Activity {
         if (!preview) poll(true); else { authority.projected(); show(); }
     }
     private String monitorFreshness(boolean paused) {
-        if (preview) return "Synthetic preview · no live work loaded, no requests sent.";
+        if (preview) return "Synthetic preview: no live work, and nothing is sent.";
         String when = checkedAt == 0 ? "Not checked yet" : "Last checked " + new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT).format(new java.util.Date(checkedAt));
         return (paused ? "Updates paused" : "Read-only task monitor") + " · " + when;
     }
@@ -283,7 +283,18 @@ public class AgentPanelActivity extends Activity {
     private void monitorTask(Map<String, Object> summary) {
         float density = getResources().getDisplayMetrics().density;
         boolean needs = PanelJson.bool(summary.get("needs_you"));
-        content.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), needs, density), new LinearLayout.LayoutParams(-1, -2));
+        if (!needs) {
+            // Nothing until it is needed (the lead, 2026-11-17): at rest, only the state line naming the task, and the quiet way
+            // back under it. The card arrives when the task needs the person, as the reference's speaker card arrives.
+            content.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), false, density, PanelJson.text(summary.get("task"))),
+                new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout back = new LinearLayout(this); back.setOrientation(LinearLayout.HORIZONTAL); back.setPadding(dp(19), dp(2), 0, 0);
+            hudPress(back, "Open Workspace", false, () -> { cancelNetwork(); returnToWorkspace(); });
+            content.addView(back, new LinearLayout.LayoutParams(-1, -2));
+            if (requestPending != null) text(content, "The last workspace send is unconfirmed. Its original reference is retained.", 16);
+            return;
+        }
+        content.addView(PanelHud.state(this, PanelJson.text(summary.get("state_word")), true, density, null), new LinearLayout.LayoutParams(-1, -2));
         PanelHud.Frame frame = new PanelHud.Frame(this, needs, density);
         LinearLayout card = new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL); card.setPadding(dp(18), dp(18), dp(18), dp(18));
         LinearLayout who = new LinearLayout(this); who.setOrientation(LinearLayout.HORIZONTAL); who.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -980,7 +991,7 @@ public class AgentPanelActivity extends Activity {
     private void showRequest(PanelUiState.Context scope) {
         text(content,"Ask workspace",25);
         text(content,"Direct this task in your own words. The workspace can read context and continue authorized work. Agent permissions and questions still need your decision.",18);
-        if(preview){text(content,"Synthetic preview · workspace requests are unavailable. No model or agent action is sent.",18);return;}
+        if(preview){text(content,"Synthetic preview: workspace requests are not available here. No model or agent action is sent.",18);return;}
         requestAvailability=text(content,"Checking workspace availability…",17);
         text(content,requestSpoken?"Your request · from speech, review every word":"Your request",20);
         requestEditor=new EditText(this);requestEditor.setText(requestText);requestEditor.setTextColor(Color.WHITE);requestEditor.setTextSize(20);requestEditor.setMinLines(3);requestEditor.setMaxLines(8);requestEditor.setContentDescription("Your workspace request");requestEditor.setFilters(new InputFilter[]{ordinaryTextLimit()});requestEditor.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);content.addView(requestEditor,new LinearLayout.LayoutParams(-1,-2));
@@ -1175,7 +1186,7 @@ public class AgentPanelActivity extends Activity {
     }
 
     private void send(String type, Map<String, Object> payload, Map<String, Object> request, List<Object> answers, PanelUiState.Context scope) {
-        if (preview) { closeReview(); connection.setText("Synthetic preview · no request was sent."); return; }
+        if (preview) { closeReview(); connection.setText("Synthetic preview: no request was sent."); return; }
         if (!authority.commandsAllowed() || snapshot == null || identity == null || busy || !visible || scope == null || !scope.same(actionContext())) return;
         rememberDraft();
         final PanelIdentity target = identity; final String journal = scope.journal, selectedWork = scope.work, selectedProject = scope.project, selectedExecution = scope.execution;

@@ -28,8 +28,11 @@ final class PanelHud {
     static final int SECOND = Color.argb(219, 255, 255, 255);
     private PanelHud() {}
 
-    /** The state over the card: a dot, the word in spaced capitals, and a hairline running out to the card's width. */
-    static LinearLayout state(Context context, String word, boolean needs, float density) {
+    /**
+     * The state over the card: a dot, the word in spaced capitals, and a hairline running out to the card's width. At rest,
+     * with no card, the task's name follows the word in its own case and weight, set apart by space, never a dot.
+     */
+    static LinearLayout state(Context context, String word, boolean needs, float density, String task) {
         int colour = needs ? ACCENT : QUIET;
         LinearLayout row = new LinearLayout(context); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL);
         View dot = new View(context);
@@ -38,6 +41,11 @@ final class PanelHud {
         TextView label = new TextView(context); label.setText(word); label.setAllCaps(true); label.setLetterSpacing(0.16f); label.setTextSize(15);
         label.setTextColor(colour); label.setPadding(px(8, density), 0, px(8, density), 0); label.setContentDescription(word);
         row.addView(label, new LinearLayout.LayoutParams(-2, -2));
+        if (task != null) {
+            TextView name = new TextView(context); name.setText(task); name.setTextSize(17); name.setTextColor(SECOND); name.setSingleLine(true);
+            name.setEllipsize(android.text.TextUtils.TruncateAt.END); name.setPadding(px(2, density), 0, px(8, density), 0);
+            row.addView(name, new LinearLayout.LayoutParams(-2, -2));
+        }
         View rule = new View(context);
         GradientDrawable fade = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
             new int[] {needs ? Color.argb(179, 237, 120, 51) : Color.argb(89, 255, 255, 255), Color.TRANSPARENT});
