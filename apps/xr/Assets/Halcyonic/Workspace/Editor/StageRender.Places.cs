@@ -81,7 +81,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Every place's team as laid, and every tag and body as the eyes see it, for the check across places.
                 var teams = new List<List<CharacterView>>();
                 var drawnByPlace = new List<(string Project, List<Rect> Tags, List<Rect> Bodies)>();
-                var signRects = new List<(string Project, List<Rect> Parts)>();
+                var signRects = new List<(string Project, List<(string Part, Rect Seen)> Parts)>();
                 IEnumerable<Vector3> TextCorners(TMPro.TMP_Text text)
                 {
                     var bounds = text.textBounds;
@@ -156,9 +156,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (gatheredHere > 0 && countWords == null)
                         failures.Add(project + ": it gathers " + gatheredHere + " and draws no count at its place");
                     // The name and the count stand clear of every tag and body, never loose words over a plate (AUDIT's 22:0xZ).
-                    var signParts = new List<Rect>();
-                    if (signView?.Name is TMPro.TextMeshPro nameDrawn) { nameDrawn.ForceMeshUpdate(); signParts.Add(Seen(TextCorners(nameDrawn))); }
-                    if (signView?.Press is RoomButton countDrawn) signParts.Add(Seen(countDrawn.GetComponentsInChildren<Renderer>(false).SelectMany(renderer => BoundsCorners(renderer.bounds))));
+                    var signParts = new List<(string Part, Rect Seen)>();
+                    if (signView?.Name is TMPro.TextMeshPro nameDrawn) { nameDrawn.ForceMeshUpdate(); signParts.Add(("name", Seen(TextCorners(nameDrawn)))); }
+                    // The count's words as the eyes read them, never its glass's soft shadow, which reaches past the press by design.
+                    if (signView?.Press is RoomButton countDrawn)
+                        foreach (var words in countDrawn.GetComponentsInChildren<TMPro.TMP_Text>(false).Where(text => text.GetParsedText().Contains("More")))
+                        {
+                            words.ForceMeshUpdate();
+                            signParts.Add(("count", Seen(TextCorners(words))));
+                        }
                     signRects.Add((project, signParts));
                     // A farther ring stands clear of the nearer ring's team at its bearing, by the stage's own rule.
                     if (bearing.Ring > 0 && index - PlaceBearings.Centres.Length >= 0)
@@ -246,10 +252,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (crossed) failures.Add(nameA + " and " + nameB + " stand over each other as the eyes see them");
                     }
                 foreach (var (signOf, parts) in signRects)
-                    foreach (var part in parts)
+                    foreach (var (partName, part) in parts)
                         foreach (var (other, tagRects, bodyRects) in drawnByPlace)
-                            if (tagRects.Concat(bodyRects).Any(part.Overlaps))
-                                failures.Add(signOf + "'s sign stands over " + other + "'s team as the eyes see it");
+                        {
+                            if (tagRects.Any(part.Overlaps)) failures.Add(signOf + "'s sign " + partName + " stands over a tag of " + other + "'s team as the eyes see it");
+                            if (bodyRects.Any(part.Overlaps)) failures.Add(signOf + "'s sign " + partName + " stands over a body of " + other + "'s team as the eyes see it");
+                        }
                 // Neighbouring places in a ring keep the lead's 4 degrees, and ring two stands further and lower than ring one.
                 foreach (var a in extents)
                     foreach (var b in extents)
