@@ -266,7 +266,10 @@ public class AgentPanelActivity extends Activity {
             });
         }
         scroll = new ScrollView(this); content = column(); scroll.addView(content, new android.widget.FrameLayout.LayoutParams(-1, -1)); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        setContentView(root);
+        // The full panel's card sizes to its content in the clear window (AUDIT's 20:02Z), standing at the window's top; compact fills it.
+        android.widget.FrameLayout window = new android.widget.FrameLayout(this);
+        window.addView(root, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        setContentView(window);
     }
     private void selectionChanged() {
         cancelNetwork(); closeReview(); authority.awaitingProjection();
@@ -974,12 +977,24 @@ public class AgentPanelActivity extends Activity {
         }
         content.setPadding(blockInset, 0, blockInset, 0); content.setGravity(android.view.Gravity.TOP | android.view.Gravity.START); content.setClipToPadding(false);
         scroll.setFillViewport(hud);
+        // The full card wraps its content; the chosen place stands as Catalyst's white bar (AUDIT's 20:02Z).
+        shellRoot.getLayoutParams().height = hud ? -1 : -2;
+        // Centred in the window like the card and the strip, never against its top edge.
+        if (shellRoot.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams)
+            ((android.widget.FrameLayout.LayoutParams) shellRoot.getLayoutParams()).gravity = android.view.Gravity.CENTER_VERTICAL;
+        ((LinearLayout.LayoutParams) scroll.getLayoutParams()).height = hud ? 0 : -2;
+        ((LinearLayout.LayoutParams) scroll.getLayoutParams()).weight = hud ? 1 : 0;
+        shellRoot.requestLayout();
+        for (int i = 0; i < navRow.getChildCount(); i++) {
+            View place = navRow.getChildAt(i);
+            if (!(place instanceof Button) || !"Projects".contentEquals(((Button) place).getText())) continue;
+            if (!hud) { place.setBackground(PanelKit.chosen(d)); ((Button) place).setTextColor(PanelKit.GLASS); }
+        }
         connection.setVisibility(!hud || snapshot == null || preview ? View.VISIBLE : View.GONE);
         if (snapshot == null) return;
         try {
             if (compactPanel && workId == null) { noTaskStrip(); return; }
             if (projectId == null) {
-                text(content, "Projects", 26);
                 if (snapshot.projects.isEmpty()) text(content, "No projects yet. Create one in Workspace.", 20);
                 for (Map<String, Object> project : snapshot.projects.values()) button(content, PanelText.plain(PanelJson.text(project.get("name"))), () -> { if (!saveState()) return; projectId = PanelJson.text(project.get("project_id")); continuation = null; selectionChanged(); });
                 return;

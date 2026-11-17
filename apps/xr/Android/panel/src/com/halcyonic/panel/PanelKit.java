@@ -141,6 +141,12 @@ final class PanelKit {
     /** A press's glyph: the open arrow (Open Task), the window (Open Halora), three dots (More, the kit's More), or none. */
     enum Glyph { OPEN, WINDOW, MORE, NONE }
 
+    /** The chosen place's plate (Catalyst's key bindings: a full white bar with dark words), its corner the press's. */
+    static Drawable chosen(float density) {
+        GradientDrawable shape = new GradientDrawable(); shape.setColor(Color.WHITE); shape.setCornerRadius(px(CORE_CORNER, density));
+        return shape;
+    }
+
     static Button press(Context context, String words, boolean main, Glyph glyph, int width, float density) {
         Button button = new Button(context);
         button.setText(words); button.setAllCaps(false); button.setSingleLine(true); button.setContentDescription(words);
@@ -150,13 +156,16 @@ final class PanelKit {
         button.setIncludeFontPadding(false);
         int core = px(CORE, density);
         button.setMinHeight(core); button.setMinimumHeight(core); button.setMinWidth(0); button.setMinimumWidth(0);
-        button.setPadding(px(glyph == Glyph.NONE ? RIGHT_PAD : CHIP_PAD + CHIP + WORDS_GAP, density), 0, px(RIGHT_PAD, density), 0);
+        // The glyph and words as one group, centred in the plate, so presses of one width read alike (AUDIT's 20:02Z: one alignment).
+        int natural = pressWidth(context, words, glyph, density);
+        int shift = width > natural ? (width - natural) / 2 : 0;
+        button.setPadding(px(glyph == Glyph.NONE ? RIGHT_PAD : CHIP_PAD + CHIP + WORDS_GAP, density) + shift, 0, px(RIGHT_PAD, density) + shift, 0);
         StateListDrawable plates = new StateListDrawable();
         plates.addState(new int[] {android.R.attr.state_pressed}, plate(PanelHud.CAPSULE_HELD, density));
         plates.addState(new int[] {android.R.attr.state_hovered}, plate(main ? PanelHud.MAIN_POINTED : PanelHud.CAPSULE_POINTED, density));
         plates.addState(new int[0], plate(main ? PanelHud.MAIN_PLATE : PanelHud.CAPSULE, density));
         button.setBackground(glyph == Glyph.NONE ? plates
-            : new android.graphics.drawable.LayerDrawable(new Drawable[] {plates, new ChipGlyph(glyph, density)}));
+            : new android.graphics.drawable.LayerDrawable(new Drawable[] {plates, new ChipGlyph(glyph, shift, density)}));
         button.setLayoutParams(new LinearLayout.LayoutParams(width, core));
         return button;
     }
@@ -189,9 +198,10 @@ final class PanelKit {
         private final Paint dots = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final boolean more;
         private final float density;
+        private final int shift;
 
-        ChipGlyph(Glyph kind, float density) {
-            this.density = density;
+        ChipGlyph(Glyph kind, int shift, float density) {
+            this.density = density; this.shift = shift;
             more = kind == Glyph.MORE;
             glyph = new PanelHud.Glyph(kind == Glyph.WINDOW, Color.WHITE, px(GLYPH, density));
             dots.setColor(Color.WHITE); dots.setStyle(Paint.Style.FILL);
@@ -199,7 +209,7 @@ final class PanelKit {
 
         @Override public void draw(Canvas canvas) {
             int size = px(GLYPH, density);
-            int left = getBounds().left + px(CHIP_PAD + (CHIP - GLYPH) / 2f, density);
+            int left = getBounds().left + shift + px(CHIP_PAD + (CHIP - GLYPH) / 2f, density);
             int top = getBounds().centerY() - size / 2;
             if (more) {
                 // Three dots across the glyph's middle, the kit's More.
