@@ -498,32 +498,37 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 if (state is "47-build-colours-halora" or "47-build-colours-high")
                 {
-                    // FIELD's palettes as a person chooses them (the code colours sheet, AUDIT's read): every colour a palette gives stands at
-                    // 4.5 to 1 or more on the glass behind code in both rooms (the dark room's #0E121E and the bright room's #464646, as
-                    // measured under the composer's words), and the frame is drawn in that palette for the ink to be read from it.
+                    // FIELD's palettes as a person chooses them (the code colours sheet, AUDIT's read): each colour painted on a row, as it
+                    // is drawn there (the vertex colour linear, at the row's own alpha over the glass), stands at 4.5 to 1 or more on the
+                    // glass behind code in both rooms (the dark room's #1D1D1D and the bright room's #474747, read from these frames), and
+                    // the frame is drawn in that palette for the ink to be read from it.
                     var theme = state == "47-build-colours-halora" ? CodeTheme.Halora : CodeTheme.HighContrast;
                     Require(CodeColouring.Palettes.TryGetValue(theme, out var palette), "the " + theme + " theme has no palette");
                     if (palette != null)
                     {
-                        foreach (CodeTokenKind kind in System.Enum.GetValues(typeof(CodeTokenKind)))
-                            if (palette(kind) is Color32 colour)
-                                foreach (var ground in new[] { new Color32(0x0E, 0x12, 0x1E, 0xFF), new Color32(0x46, 0x46, 0x46, 0xFF) })
-                                {
-                                    var ratio = ContrastRatio(colour, ground);
-                                    Require(ratio >= 4.5, theme + "'s " + kind + " reaches " + ratio.ToString("0.00", CultureInfo.InvariantCulture) + " to 1 on #"
-                                        + ground.r.ToString("X2") + ground.g.ToString("X2") + ground.b.ToString("X2"));
-                                }
                         var wasNow = CodeColouring.Now;
                         try
                         {
                             CodeColouring.Now = () => palette;
                             view.Recolour();
-                            var painted = view.Card.ReadingShown.SelectMany(row => GlazeRuns.Of(row).Painted).ToList();
-                            Require(painted.Count > 0, "the " + theme + " palette painted no run");
-                            Require(painted.All(range => System.Enum.GetValues(typeof(CodeTokenKind)).Cast<CodeTokenKind>().Any(kind => palette(kind) is Color32 own && own.Equals(range.Colour))),
-                                "a run is painted in a colour the " + theme + " palette does not give");
                         }
                         finally { CodeColouring.Now = wasNow; }
+                        var paintedRows = view.Card.ReadingShown.Where(row => GlazeRuns.Of(row).Painted.Count > 0).ToList();
+                        Require(paintedRows.Count > 0, "the " + theme + " palette painted no run");
+                        Require(paintedRows.SelectMany(row => GlazeRuns.Of(row).Painted).All(range => System.Enum.GetValues(typeof(CodeTokenKind)).Cast<CodeTokenKind>()
+                            .Any(kind => palette(kind) is Color32 own && own.Equals(range.Colour))), "a run is painted in a colour the " + theme + " palette does not give");
+                        foreach (var alpha in paintedRows.Select(row => row.color.a).Distinct())
+                            foreach (CodeTokenKind kind in System.Enum.GetValues(typeof(CodeTokenKind)))
+                                if (palette(kind) is Color32 carried)
+                                    foreach (var ground in new[] { new Color32(0x1D, 0x1D, 0x1D, 0xFF), new Color32(0x47, 0x47, 0x47, 0xFF) })
+                                    {
+                                        var under = ((Color)ground).linear;
+                                        var linear = (Color)carried;
+                                        var drawn = (Color32)new Color(Mathf.Lerp(under.r, linear.r, alpha), Mathf.Lerp(under.g, linear.g, alpha), Mathf.Lerp(under.b, linear.b, alpha)).gamma;
+                                        var ratio = ContrastRatio(drawn, ground);
+                                        Require(ratio >= 4.5, theme + "'s " + kind + " is drawn " + ratio.ToString("0.00", CultureInfo.InvariantCulture) + " to 1 on #"
+                                            + ground.r.ToString("X2") + ground.g.ToString("X2") + ground.b.ToString("X2") + " at the row's " + alpha.ToString("0.00", CultureInfo.InvariantCulture));
+                                    }
                     }
                 }
                 if (state == "47-build-tall")

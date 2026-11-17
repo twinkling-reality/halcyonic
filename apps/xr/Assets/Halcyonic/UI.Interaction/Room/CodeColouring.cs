@@ -32,35 +32,43 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Halora (FIELD's code colours sheet, AUDIT's read, 2026-11-17): the brand's light, pale tints round the kingfisher, every
-        /// one at 5.0 to 1 or more on the glass at its weakest (the dark room's #0E121E and the bright room's #464646 behind it):
-        /// keywords violet #C9B8FF, types rose #F2B8D0, names cream #F3EBDC, strings sea glass #9EE6D8, numbers sky #A8D4FF,
-        /// comments a steel #B4BECB. Every other run (punctuation and plain words) keeps the row's own white.
+        /// A sheet colour as the glyph's vertices must carry it to be drawn as that colour: a glyph's vertex colour reaches the
+        /// screen as a linear value in this linear project, so a sheet's sRGB colour written as is draws lifted toward white
+        /// (keywords' #C9B8FF read #CFC7E6 in the parts' frames); converted, it draws as the sheet, under the row's own alpha.
+        /// </summary>
+        private static Color32 Sheet(byte r, byte g, byte b) => (Color32)((Color)new Color32(r, g, b, 0xFF)).linear;
+
+        /// <summary>
+        /// Halora (FIELD's code colours sheet, AUDIT's read, 2026-11-17): the brand's light, pale tints round the kingfisher:
+        /// keywords violet #CFC1FF, types rose #F2BAD1, names cream #F3EBDC, strings sea glass #9EE6D8, numbers sky #A8D4FF,
+        /// comments a steel #C3CAD4. Each is drawn at 4.7 to 1 or more on the glass in both rooms at a code row's own alpha
+        /// (the sheet's keyword, type and comment lightened a little, their hue kept, to hold it). Every other run (punctuation
+        /// and plain words) keeps the row's own white.
         /// </summary>
         public static readonly Palette Halora = kind => kind switch
         {
-            CodeTokenKind.Keyword => new Color32(0xC9, 0xB8, 0xFF, 0xFF),
-            CodeTokenKind.Type => new Color32(0xF2, 0xB8, 0xD0, 0xFF),
-            CodeTokenKind.Name => new Color32(0xF3, 0xEB, 0xDC, 0xFF),
-            CodeTokenKind.String => new Color32(0x9E, 0xE6, 0xD8, 0xFF),
-            CodeTokenKind.Number => new Color32(0xA8, 0xD4, 0xFF, 0xFF),
-            CodeTokenKind.Comment => new Color32(0xB4, 0xBE, 0xCB, 0xFF),
+            CodeTokenKind.Keyword => Sheet(0xCF, 0xC1, 0xFF),
+            CodeTokenKind.Type => Sheet(0xF2, 0xBA, 0xD1),
+            CodeTokenKind.Name => Sheet(0xF3, 0xEB, 0xDC),
+            CodeTokenKind.String => Sheet(0x9E, 0xE6, 0xD8),
+            CodeTokenKind.Number => Sheet(0xA8, 0xD4, 0xFF),
+            CodeTokenKind.Comment => Sheet(0xC3, 0xCA, 0xD4),
             _ => null,
         };
 
         /// <summary>
-        /// High Contrast (the same sheet): brighter colours set further apart, every one at 5.5 to 1 or more on the glass at its
-        /// weakest: keywords #D2BFFF, types #FFB8E0, names white, strings #7FF2E0, numbers #8FCBFF, comments #C9D0DA. Every other
-        /// run keeps the row's own white.
+        /// High Contrast (the same sheet): brighter colours set further apart, each drawn at 4.7 to 1 or more on the glass in both
+        /// rooms at a code row's own alpha: keywords #D3C0FF, types #FFB8E0, names white, strings #7FF2E0, numbers #99CFFF,
+        /// comments #C9D0DA. Every other run keeps the row's own white.
         /// </summary>
         public static readonly Palette HighContrast = kind => kind switch
         {
-            CodeTokenKind.Keyword => new Color32(0xD2, 0xBF, 0xFF, 0xFF),
-            CodeTokenKind.Type => new Color32(0xFF, 0xB8, 0xE0, 0xFF),
-            CodeTokenKind.Name => new Color32(0xFF, 0xFF, 0xFF, 0xFF),
-            CodeTokenKind.String => new Color32(0x7F, 0xF2, 0xE0, 0xFF),
-            CodeTokenKind.Number => new Color32(0x8F, 0xCB, 0xFF, 0xFF),
-            CodeTokenKind.Comment => new Color32(0xC9, 0xD0, 0xDA, 0xFF),
+            CodeTokenKind.Keyword => Sheet(0xD3, 0xC0, 0xFF),
+            CodeTokenKind.Type => Sheet(0xFF, 0xB8, 0xE0),
+            CodeTokenKind.Name => Sheet(0xFF, 0xFF, 0xFF),
+            CodeTokenKind.String => Sheet(0x7F, 0xF2, 0xE0),
+            CodeTokenKind.Number => Sheet(0x99, 0xCF, 0xFF),
+            CodeTokenKind.Comment => Sheet(0xC9, 0xD0, 0xDA),
             _ => null,
         };
 
