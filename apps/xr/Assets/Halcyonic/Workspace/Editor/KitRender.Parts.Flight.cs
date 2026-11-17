@@ -50,14 +50,18 @@ namespace Halcyonic.XR.Workspace.Editor
             // Beside the panel as the director asks for it (MenuDirector.BesidePanel): to its left, at its upper third.
             var beside = MenuDirector.BesidePanel(panel.transform, panelSize);
             CharacterFlight FlightAt(float at) => RoomMotion.Flight(at, at >= FlightReleasedAt ? at - FlightReleasedAt : (float?)null);
-            Vector3 PointAt(float at)
+            // As CharacterStage.Fly holds it: at or below the eyes, never within half a metre of the head.
+            Vector3 Held(Vector3 point)
             {
-                var flight = FlightAt(at);
-                var point = Vector3.Lerp(shelf, beside, flight.Along) + Vector3.up * flight.OverM;
                 point.y = Mathf.Min(point.y, eyes.y);
                 var away = point - eyes;
                 if (away.magnitude < CharacterStage.FlightClearOfHeadM) point = eyes + away.normalized * CharacterStage.FlightClearOfHeadM;
                 return point;
+            }
+            Vector3 PointAt(float at)
+            {
+                var flight = FlightAt(at);
+                return Held(Vector3.Lerp(shelf, beside, flight.Along) + Vector3.up * flight.OverM);
             }
             var now = FlightAt(seconds);
             view.transform.position = PointAt(seconds);
@@ -83,7 +87,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             Require(step < 0.03f, "the flight jumps " + step.ToString("0.000") + " m in 10 ms");
             Require((PointAt(0f) - shelf).magnitude < 1e-4f && (PointAt(4f) - shelf).magnitude < 1e-4f, "the flight does not start and end on its shelf");
-            Require((PointAt(landed + 0.01f) - beside).magnitude < 0.01f, "the character has not landed beside the panel at " + landed.ToString("0.0") + " s");
+            Require((PointAt(landed + 0.01f) - Held(beside)).magnitude < 0.01f, "the character has not landed beside the panel at " + landed.ToString("0.0") + " s");
             Require(FlightAt(landed - 0.01f).PanelShown == 0f, "the panel arrives before the character lands");
             Require(FlightAt(FlightReleasedAt + RoomMotion.PanelSeconds).Along > 0.999f && FlightAt(FlightReleasedAt + RoomMotion.PanelSeconds).PanelShown < 0.001f,
                 "the character leaves before the panel has gone");
