@@ -20,7 +20,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after" }
+        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after", "47-build-long" }
             .Concat(System.Environment.GetEnvironmentVariable("HALCYONIC_KIT_STRIP") == "1" ? Enumerable.Range(0, PourFrames).Select(frame => "47-build-pour-" + frame.ToString("00", CultureInfo.InvariantCulture)) : System.Array.Empty<string>())
             .ToArray();
 
@@ -246,6 +246,9 @@ namespace Halcyonic.XR.Workspace.Editor
         };
 
 
+        /// <summary>A path longer than the head's two lines at either text size, so the head must fold it.</summary>
+        private const string LongPath = "src/game/levels/the-northern-forest/canopy-and-clearings/wind-currents-near-the-ground/updraft.js";
+
         private static WritingPanel BuildPanel(IReadOnlyList<string> file, WritingState state = WritingState.Changing, IReadOnlyList<int>? lit = null)
         {
             var rows = file.SelectMany(RoomWritingPanel.Wrap).ToList();
@@ -353,7 +356,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 else
                 {
-                    shown = BuildPanel(BuildFile, state == "47-build-held" ? WritingState.KeptPrivate : WritingState.Changing);
+                    // A path too long for the head's line budget folds its leading folders, the name whole (AUDIT3's W1); a file the
+                    // host did not say was new says Writing, never Editing (the lead's 02:36Z W2).
+                    shown = state == "47-build-long"
+                        ? new WritingPanel(LongPath, LineWords.Theirs("updraft.js"), LineWords.Theirs(LongPath.Substring(0, LongPath.LastIndexOf('/'))), WritingState.Changing,
+                            BuildFile.SelectMany(RoomWritingPanel.Wrap).ToList(), new int[0], 812, isNew: false)
+                        : BuildPanel(BuildFile, state == "47-build-held" ? WritingState.KeptPrivate : WritingState.Changing);
                     view.Show(shown);
                     if (state == "47-build-arriving")
                     {
@@ -385,7 +393,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 nameLabel.ForceMeshUpdate(true);
                 Require(headLabel.gameObject.activeInHierarchy && headLabel.GetParsedText().Trim() == RoomWritingPanel.LabelFor(shown).ToUpperInvariant(), "the label does not read " + RoomWritingPanel.LabelFor(shown) + " in capitals: " + headLabel.GetParsedText());
                 Require(headLabel.characterSpacing > 20f && headLabel.color.a < 0.7f, "the label is not quiet and spaced wide");
-                Require(nameLabel.gameObject.activeInHierarchy && nameLabel.GetParsedText().Replace("\n", "").Trim() == shown.Path && !nameLabel.isTextOverflowing, "the file's path is not the title whole: " + nameLabel.GetParsedText());
+                // The path whole, or folded: its leading folders given way to the one elision, the rest of it whole, the name always whole;
+                // never cut (AUDIT3's W1, the lead's 02:36Z).
+                var titleText = nameLabel.GetParsedText().Replace("\n", "").Trim();
+                var folded = titleText.StartsWith(PathWrap.Elision, System.StringComparison.Ordinal) && shown.Path.EndsWith(titleText.Substring(PathWrap.Elision.Length), System.StringComparison.Ordinal)
+                    && titleText.Substring(PathWrap.Elision.Length).Length < shown.Path.Length;
+                Require(nameLabel.gameObject.activeInHierarchy && (titleText == shown.Path || folded) && !nameLabel.isTextOverflowing && !nameLabel.isTextTruncated, "the file's path is not the title whole or folded: " + nameLabel.GetParsedText());
+                Require(titleText.EndsWith(shown.Name.Text, System.StringComparison.Ordinal), "the title does not end in the file's name whole: " + titleText);
+                if (state == "47-build-long") Require(folded, "the long path is not folded: " + titleText);
                 Require(nameLabel.font != null && !nameLabel.font.name.Contains("Mono") && (nameLabel.fontStyle & FontStyles.UpperCase) == 0, "the title is not in the sans face in its own case: " + nameLabel.font?.name);
                 Require(!labels.Any(each => each.GetParsedText().Trim() == shown.Folder!.Text || each.GetParsedText().Trim() == shown.Name.Text), "the file's name or folder is shown again in the card");
                 var headRight = Mathf.Max(headLabel.textBounds.max.x, nameLabel.textBounds.max.x);

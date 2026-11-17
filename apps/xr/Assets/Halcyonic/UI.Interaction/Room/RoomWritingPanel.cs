@@ -77,6 +77,9 @@ namespace Halcyonic.XR.UI
 
         public const float TitleLineDp = 30f;
 
+        /// <summary>The most lines the path takes before its leading folders fold.</summary>
+        public const int TitleMostLines = 2;
+
         public const float CodeDp = 18f;
 
         private static void SizeTitle(TMP_Text title)
@@ -312,15 +315,23 @@ namespace Halcyonic.XR.UI
             headLabel.enableWordWrapping = false;
             headLabel.overflowMode = TextOverflowModes.Truncate;
             headLabel.rectTransform.sizeDelta = new Vector2(width, RoomType.Scaled(LabelLineDp));
-            // The path as the host gave it, theirs, in its own case; two lines at most.
+            // The path as the host gave it, theirs, in its own case, on two lines at most; past them its leading folders give way
+            // to the one elision and the name stays whole, the shared fold (SCREENS' PathWrap.Fold; AUDIT3's W1), never cut.
             SizeTitle(headTitle);
             headTitle.enableWordWrapping = true;
-            headTitle.overflowMode = TextOverflowModes.Truncate;
-            headTitle.rectTransform.sizeDelta = new Vector2(width, RoomType.Scaled(TitleLineDp) * 2f);
+            headTitle.overflowMode = TextOverflowModes.Overflow;
+            headTitle.rectTransform.sizeDelta = new Vector2(width, RoomType.Scaled(TitleLineDp) * TitleMostLines);
             GlazeRuns.Of(headTitle).Set(LineWords.Theirs(panel.Path));
+            bool Fits(string text) => headTitle.GetPreferredValues(text).x <= width + 1e-4f;
+            if (!Fits(panel.Path) && panel.Path.IndexOf('/') >= 0)
+            {
+                var (lines, _) = PathWrap.Fold("", panel.Path, Fits, TitleMostLines);
+                GlazeText.SetLiteral(headTitle, string.Join("\n", lines));
+                GlazeRuns.Of(headTitle).Lean(new List<(int Start, int End)> { (0, headTitle.text.Length) });
+            }
             headTitle.color = Color.white;
             headTitle.ForceMeshUpdate(true, true);
-            var titleLines = Mathf.Clamp(headTitle.textInfo.lineCount, 1, 2);
+            var titleLines = Mathf.Clamp(headTitle.textInfo.lineCount, 1, TitleMostLines);
             return RoomType.Scaled(LabelLineDp + LabelGapDp + TitleLineDp * titleLines + TitleGapDp);
         }
 
