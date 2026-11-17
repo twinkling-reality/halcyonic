@@ -288,6 +288,9 @@ namespace Halcyonic.XR.UI
             var rowOf = new Dictionary<TMP_Text, int>();
             for (int row = 0, label = 0; row < reading.Count && notShown == null; row++)
                 if (reading[row].Text is LineWords text && !text.IsEmpty && label < card.ReadingShown.Count) rowOf[card.ReadingShown[label++]] = row;
+            // Code's colours, in the file's language by the host's path, each row from what the row before left open (the
+            // lead's 2026-11-17T03:36Z; CodeColouring paints the vertices, the text never changed).
+            Recolour();
             words.Clear();
             foreach (var label in GetComponentsInChildren<TMP_Text>(false))
                 words.Add((label, label.color, rowOf.TryGetValue(label, out var row) ? row : -1));
@@ -344,6 +347,16 @@ namespace Halcyonic.XR.UI
                 foreach (var layer in lights[index]) layer.gameObject.SetActive(false);
             Follow();
             return Size;
+        }
+
+        /// <summary>Colours the rows drawn now by the palette in force, laying nothing again: a palette switch calls this alone.</summary>
+        public void Recolour()
+        {
+            if (path == null) return;
+            var codeCarry = CodeCarry.None;
+            var codeLanguage = CodeTokens.LanguageOf(path);
+            var codePalette = CodeColouring.Now();
+            foreach (var shownRow in card.ReadingShown) CodeColouring.Colour(shownRow, shownRow.text, codeLanguage, codePalette, ref codeCarry);
         }
 
         /// <summary>Lays one count line, or hides it where nothing is left out; returns how tall it stands with its gap.</summary>

@@ -20,7 +20,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after", "47-build-long", "47-build-tall" }
+        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after", "47-build-long", "47-build-tall", "47-build-colours" }
             .Concat(System.Environment.GetEnvironmentVariable("HALCYONIC_KIT_STRIP") == "1" ? Enumerable.Range(0, PourFrames).Select(frame => "47-build-pour-" + frame.ToString("00", CultureInfo.InvariantCulture)) : System.Array.Empty<string>())
             .ToArray();
 
@@ -450,6 +450,33 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (lines > 0) Require(count.gameObject.activeInHierarchy && count.GetParsedText().Trim() == RoomWritingPanel.CountWords(lines, where).ToUpperInvariant(),
                         "the " + lines + " lines " + where + " are not counted: \"" + count.GetParsedText() + "\"");
                     else Require(!count.gameObject.activeInHierarchy, "a count stands " + where + " where nothing is left out");
+                }
+                if (state == "47-build-colours")
+                {
+                    // The mechanism with a check-only palette (FIELD's palettes come later): keywords and strings painted, the
+                    // text unchanged; a palette switch repaints with nothing laid again (the lead's 03:36Z test; AUDIT3's C5).
+                    var wasNow = CodeColouring.Now;
+                    try
+                    {
+                        CodeColouring.Palette probe = kind => kind == CodeTokenKind.Keyword ? new Color32(120, 200, 255, 255) : kind == CodeTokenKind.String ? new Color32(180, 255, 160, 255) : (Color32?)null;
+                        CodeColouring.Now = () => probe;
+                        view.Recolour();
+                        var importRow = view.Card.ReadingShown.FirstOrDefault(row => row.text.StartsWith("import", System.StringComparison.Ordinal));
+                        // The string may stand on the next row where the line wraps at the larger size.
+                        var stringPainted = view.Card.ReadingShown.Any(row => GlazeRuns.Of(row).Painted.Any(range => row.text.Substring(range.Start, range.End - range.Start) == "'./kite.js'"));
+                        Require(importRow != null && GlazeRuns.Of(importRow).Painted.Any(range => range.Start == 0 && range.End == 6) && stringPainted,
+                            "the import row's keyword and string are not painted: " + string.Join(", ", importRow == null ? new string[0] : GlazeRuns.Of(importRow).Painted.Select(range => range.Start + "-" + range.End)));
+                        Require(importRow != null && importRow.text == importRow.GetParsedText(), "colouring changed the row's text");
+                        var sizeBefore = view.Size;
+                        var positions = view.Card.ReadingShown.Select(row => row.transform.localPosition).ToList();
+                        CodeColouring.Now = () => CodeColouring.Plain;
+                        view.Recolour();
+                        Require(view.Size == sizeBefore && view.Card.ReadingShown.Select(row => row.transform.localPosition).SequenceEqual(positions), "a palette switch laid the panel again");
+                        Require(view.Card.ReadingShown.All(row => GlazeRuns.Of(row).Painted.Count == 0), "Plain leaves a run painted");
+                        CodeColouring.Now = () => probe;
+                        view.Recolour();
+                    }
+                    finally { CodeColouring.Now = wasNow; }
                 }
                 if (state == "47-build-tall")
                 {

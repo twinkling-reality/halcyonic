@@ -126,6 +126,8 @@ namespace Halcyonic.XR.UI
 
         private IReadOnlyList<(int Start, int End)> SetWords(LineWords words, Func<string, bool>? fits)
         {
+            // New words drop any colours painted on the old (a pooled label never keeps another's code colours).
+            painted = Array.Empty<(int, int, Color32)>();
             label.richText = false;
             label.parseCtrlCharacters = true;
             // The room's faces draw no ground under outside text, so its words keep only their own spacing.
@@ -181,6 +183,7 @@ namespace Halcyonic.XR.UI
         {
             LeanTheirs(info);
             ToneWell(info);
+            PaintRuns(info);
             BendText(info);
         }
 
@@ -197,6 +200,41 @@ namespace Halcyonic.XR.UI
                 var colours = info.meshInfo[character.materialReferenceIndex].colors32;
                 for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
                     colours[corner].a = (byte)Mathf.RoundToInt(colours[corner].a * share);
+            }
+        }
+
+        private IReadOnlyList<(int Start, int End, Color32 Colour)> painted = Array.Empty<(int, int, Color32)>();
+
+        /// <summary>
+        /// Colours ranges of the label's source text, each character's vertices as its mesh is made (code's colours, AUDIT3's
+        /// C2): never a tag, the text never changed; each keeps the alpha the label gives it, so its fades still hold. Setting
+        /// new ranges redraws the mesh without laying the words again.
+        /// </summary>
+        public void Paint(IReadOnlyList<(int Start, int End, Color32 Colour)> ranges)
+        {
+            painted = ranges;
+            label.havePropertiesChanged = true;
+        }
+
+        /// <summary>The ranges painted now, for the checks.</summary>
+        public IReadOnlyList<(int Start, int End, Color32 Colour)> Painted => painted;
+
+        private void PaintRuns(TMP_TextInfo info)
+        {
+            if (painted.Count == 0) return;
+            var run = 0;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible) continue;
+                var at = character.index;
+                while (run < painted.Count && painted[run].End <= at) run++;
+                if (run >= painted.Count) break;
+                if (at < painted[run].Start) continue;
+                var colours = info.meshInfo[character.materialReferenceIndex].colors32;
+                var colour = painted[run].Colour;
+                for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
+                    colours[corner] = new Color32(colour.r, colour.g, colour.b, colours[corner].a);
             }
         }
 
