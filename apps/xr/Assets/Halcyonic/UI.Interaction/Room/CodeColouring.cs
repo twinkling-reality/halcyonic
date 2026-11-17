@@ -31,8 +31,14 @@ namespace Halcyonic.XR.UI
             public IReadOnlyList<(int Start, int End, Color32 Colour)> Ranges = Array.Empty<(int, int, Color32)>();
         }
 
-        /// <summary>The palette in force: Plain until the kit's palettes (FIELD's) and the person's choice (SCREENS' CodeThemes) are wired to it.</summary>
-        public static Func<Palette> Now { get; set; } = () => Plain;
+        /// <summary>
+        /// Each code theme's palette (SCREENS' CodeThemes names the choice; the colours are FIELD's, who adds Halora and High
+        /// Contrast here). A theme with no palette yet draws Plain, never a guess.
+        /// </summary>
+        public static readonly Dictionary<CodeTheme, Palette> Palettes = new Dictionary<CodeTheme, Palette> { [CodeTheme.Plain] = Plain };
+
+        /// <summary>The palette in force: the person's choice (CodeThemes.Current); renders and checks may set another.</summary>
+        public static Func<Palette> Now { get; set; } = () => Palettes.TryGetValue(CodeThemes.Current, out var palette) ? palette : Plain;
 
         private static readonly Dictionary<TMP_Text, Laid> laid = new Dictionary<TMP_Text, Laid>();
 

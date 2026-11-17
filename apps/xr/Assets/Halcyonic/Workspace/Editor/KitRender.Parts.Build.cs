@@ -473,6 +473,24 @@ namespace Halcyonic.XR.Workspace.Editor
                         view.Recolour();
                         Require(view.Size == sizeBefore && view.Card.ReadingShown.Select(row => row.transform.localPosition).SequenceEqual(positions), "a palette switch laid the panel again");
                         Require(view.Card.ReadingShown.All(row => GlazeRuns.Of(row).Painted.Count == 0), "Plain leaves a run painted");
+                        // The person's choice drives it: a theme change alone repaints the panel through CodeThemes.Changed.
+                        CodeColouring.Now = wasNow;
+                        var wasTheme = CodeThemes.Current;
+                        var wasHalora = CodeColouring.Palettes.TryGetValue(CodeTheme.Halora, out var halora) ? halora : null;
+                        try
+                        {
+                            CodeColouring.Palettes[CodeTheme.Halora] = probe;
+                            CodeThemes.Set(CodeTheme.Plain);
+                            Require(view.Card.ReadingShown.All(row => GlazeRuns.Of(row).Painted.Count == 0), "choosing Plain leaves a run painted");
+                            CodeThemes.Set(CodeTheme.Halora);
+                            Require(view.Card.ReadingShown.Any(row => GlazeRuns.Of(row).Painted.Count > 0), "choosing Halora did not repaint the panel");
+                            Require(view.Size == sizeBefore, "a theme change laid the panel again");
+                        }
+                        finally
+                        {
+                            if (wasHalora != null) CodeColouring.Palettes[CodeTheme.Halora] = wasHalora; else CodeColouring.Palettes.Remove(CodeTheme.Halora);
+                            CodeThemes.Set(wasTheme);
+                        }
                         CodeColouring.Now = () => probe;
                         view.Recolour();
                     }

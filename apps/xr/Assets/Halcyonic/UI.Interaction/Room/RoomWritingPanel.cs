@@ -193,6 +193,8 @@ namespace Halcyonic.XR.UI
             view.glass = RoomSurface.Create(go.transform, "Glass", RoomSurfaceKind.Information, KitType.Order.Plate);
             view.card = RoomCardView.Create(view.glass.transform);
             view.headLabel = RoomType.Create(view.glass.transform, "Label", Color.white, KitType.Order.Words);
+            // A new code theme repaints the rows drawn, laying nothing again (SCREENS' CodeThemes.Changed).
+            CodeThemes.Changed += view.ThemeChanged;
             view.countAbove = RoomType.Create(view.glass.transform, "Lines above", Color.white, KitType.Order.Words);
             view.countBelow = RoomType.Create(view.glass.transform, "Lines below", Color.white, KitType.Order.Words);
             view.headTitle = KitType.Create(view.glass.transform, "Title", KitRole.Strong, Color.white, KitType.Order.Words, TextAlignmentOptions.TopLeft, SpatialKit.ReadingLeading, room: true);
@@ -348,6 +350,19 @@ namespace Halcyonic.XR.UI
             Follow();
             return Size;
         }
+
+        /// <summary>A destroyed panel that never woke never ran OnDestroy (Unity skips it), so it lets go of the event here.</summary>
+        private void ThemeChanged(CodeTheme _)
+        {
+            if (this == null || card == null)
+            {
+                CodeThemes.Changed -= ThemeChanged;
+                return;
+            }
+            Recolour();
+        }
+
+        private void OnDestroy() => CodeThemes.Changed -= ThemeChanged;
 
         /// <summary>Colours the rows drawn now by the palette in force, laying nothing again: a palette switch calls this alone.</summary>
         public void Recolour()
