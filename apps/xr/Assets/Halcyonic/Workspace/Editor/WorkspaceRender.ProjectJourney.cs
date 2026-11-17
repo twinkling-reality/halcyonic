@@ -76,6 +76,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 void Press(string action, string? key = null)
                 {
                     Draw();
+                    // Under the redesign the kit draws the frame: the press lands on its drawn control, a column button or a card row,
+                    // as a person presses it (the judges' walk, WorkspaceRender.JudgeRoom.cs:331; XR's 03:05Z). A control the kit does
+                    // not draw fails here, never falls back to the older view's frame, which is not the frame drawn.
+                    if (director.Plane.KitShows)
+                    {
+                        var kit = director.Plane.Kit.Bar;
+                        var drawn = kit.Button(action, key)?.Press ?? kit.Card?.RowTargets
+                            .Where(row => row.Control.Action == action && row.Control.Key == key).Select(row => row.Press).FirstOrDefault();
+                        if (drawn == null)
+                            throw new InvalidOperationException("No drawn control for " + action + (key == null ? "" : " " + key) + " on the kit's frame; drawn: "
+                                + string.Join(", ", (kit.Card?.RowTargets.Select(row => row.Control.Action + "/" + row.Control.Key) ?? Enumerable.Empty<string>())));
+                        drawn.SettleForRender();
+                        drawn.PressForRender(990);
+                        Draw();
+                        return;
+                    }
                     var target = director.Plane.Shown.LastOrDefault(item =>
                         item.View.Footer.Showing?.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available) == true
                         || item.View.ShownLines.Any(line => line.Model.Action == action && line.Model.Key == key && line.Model.Available));
