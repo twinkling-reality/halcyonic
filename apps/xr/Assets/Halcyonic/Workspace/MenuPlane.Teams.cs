@@ -70,15 +70,19 @@ namespace Halcyonic.XR.Workspace
                     var screen = KitScreen.Create(teams);
                     screen.name = "Team screen";
                     var captured = projectId;
-                    var press = KitPress.Create(screen.gameObject, Vector2.one);
+                    // Its press on a child of its own, square on the face, as the room's other presses stand on their hosts.
+                    var pressHost = new GameObject("Bring forward");
+                    pressHost.transform.SetParent(screen.transform, false);
+                    var press = KitPress.Create(pressHost, Vector2.one);
                     press.Pressed += () => TeamScreenPressed?.Invoke(captured);
                     made = (screen, press);
                     teamScreens[projectId] = made;
                 }
-                made.Screen.Show(model, RoomLayout.TeamScreenDegrees);
-                made.Press.Resize(made.Screen.Size);
+                // Stood before it draws: the kit bends a surface's mesh about the eyes from where it stands as it draws.
                 var pose = RoomLayout.TeamScreen(at, bearing, distance, SpatialKit.ScreenAspect);
                 Stand(made.Screen.transform, pose, Reach(pose, eyes));
+                made.Screen.Show(model, RoomLayout.TeamScreenDegrees);
+                made.Press.Resize(made.Screen.Size);
                 teamPoses[projectId] = pose;
             }
         }

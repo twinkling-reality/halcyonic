@@ -111,9 +111,19 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add(when + ": " + id + "'s screen stands over the forward screen");
                         var screen = plane.TeamScreen(id);
                         if (screen == null || !screen.gameObject.activeInHierarchy) failures.Add(when + ": " + id + "'s screen draws nothing");
-                        else if (!screen.ReadsWhole)
-                            failures.Add(when + ": " + id + "'s screen does not read whole at " + RoomLayout.TeamScreenDegrees + " degrees (name \"" + screen.Name.text + "\" "
+                        else
+                        {
+                            // Where it is DRAWN, from its renderers, not only where the pose says (the first frames stood them at the field's edge).
+                            var drawn = screen.GetComponentsInChildren<Renderer>(false).Where(each => each.enabled).Select(each => each.bounds).Aggregate((x, y) => { x.Encapsulate(y); return x; });
+                            var toward = drawn.center - eyes;
+                            var drawnAbout = RoomLayout.Wrap(Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg - ahead);
+                            if (Mathf.Abs(drawnAbout - about) > 1f)
+                                failures.Add(when + ": " + id + "'s screen is drawn at " + drawnAbout.ToString("0.0", CultureInfo.InvariantCulture) + " degrees, not at its pose's " + about.ToString("0.0", CultureInfo.InvariantCulture)
+                                    + " (drawn centre " + drawn.center.ToString("F2") + ", size " + drawn.size.ToString("F2") + ", transform " + screen.transform.position.ToString("F2") + ", scale " + screen.transform.lossyScale.x.ToString("0.00") + ")");
+                            if (!screen.ReadsWhole)
+                                failures.Add(when + ": " + id + "'s screen does not read whole at " + RoomLayout.TeamScreenDegrees + " degrees (name \"" + screen.Name.text + "\" "
                                 + (screen.Name.isTextTruncated ? "cut" : "whole") + ", title " + (screen.Title.isTextTruncated ? "cut" : "whole") + ", state " + (screen.Facts.isTextTruncated ? "cut" : "whole") + ")");
+                        }
                         Debug.Log("Halcyonic: team screens: " + when + ": " + id + " over its place at " + about.ToString("0.00", CultureInfo.InvariantCulture) + " degrees, "
                             + Vector3.Distance(new Vector3(pose.Centre.X, pose.Centre.Y, pose.Centre.Z), eyes).ToString("0.00", CultureInfo.InvariantCulture) + " m, lower edge "
                             + lowUp.ToString("0.0", CultureInfo.InvariantCulture) + " degrees up, " + (screen != null && screen.ReadsWhole ? "reading whole" : "not reading whole"));
@@ -139,7 +149,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
                 Judge("B closed", c, a);
                 // A pressed comes forward; C goes over its own place.
-                if (plane.TeamScreen(a)?.GetComponent<KitPress>() is KitPress press)
+                if (plane.TeamScreen(a)?.GetComponentInChildren<KitPress>() is KitPress press)
                 {
                     press.SettleForRender();
                     press.PressForRender(985);
