@@ -29,8 +29,11 @@ namespace Halcyonic.XR.Workspace
         private Action? flyRelease;
         private Func<string, bool>? flyCan;
 
-        /// <summary>How far to the panel's side the called character stands, from the panel's middle, in metres (the lead's 2026-11-17T02:15Z).</summary>
-        public const float FlightBesideM = 0.6f;
+        /// <summary>
+        /// How far beyond the panel's left edge the called character stands, in dp on the plane (the lead's 2026-11-17T02:15Z
+        /// "beside the panel"): in the plane's own measure, so it stands beside it however far the plane stands.
+        /// </summary>
+        public const float FlightBesideDp = 96f;
 
         private bool Asking(RoomBarState state) => state == RoomBarState.Question || state == RoomBarState.Request;
 
@@ -42,12 +45,11 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>The point beside the bar's panel the called character flies to: to its left, at its upper third.</summary>
-        private static Vector3 BesidePanel(RoomBarView bar)
-        {
-            var panel = bar.Panel.transform;
-            var tall = bar.Panel.Size.y * panel.lossyScale.y;
-            return panel.position - panel.right * FlightBesideM + panel.up * (tall / 6f);
-        }
+        private static Vector3 BesidePanel(RoomBarView bar) => BesidePanel(bar.Panel.transform, bar.Panel.Size);
+
+        /// <summary>The point beside a panel of <paramref name="size"/> (its own units) the called character flies to: past its left edge, at its upper third.</summary>
+        public static Vector3 BesidePanel(Transform panel, Vector2 size) =>
+            panel.TransformPoint(new Vector3(-(size.x / 2f + RoomType.Units(FlightBesideDp)), size.y / 6f, 0f));
 
         public readonly struct Stage
         {

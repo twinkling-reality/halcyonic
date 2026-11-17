@@ -39,7 +39,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var panelSize = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(220f));
             panel.Draw(panelSize);
             panel.transform.localPosition = new Vector3(RoomType.Units(120f), RoomType.Units(40f), 0f);
-            var shelf = plane.position + plane.rotation * new Vector3(-0.55f, -0.38f, 0.05f);
+            var shelf = plane.position + plane.rotation * new Vector3(-0.30f, -0.26f, 0.05f);
 
             var view = CharacterView.Create(root, "flight-bot");
             view.enabled = false;
@@ -48,8 +48,7 @@ namespace Halcyonic.XR.Workspace.Editor
             view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
 
             // Beside the panel as the director asks for it (MenuDirector.BesidePanel): to its left, at its upper third.
-            var tall = panelSize.y * panel.transform.lossyScale.y;
-            var beside = panel.transform.position - panel.transform.right * MenuDirector.FlightBesideM + panel.transform.up * (tall / 6f);
+            var beside = MenuDirector.BesidePanel(panel.transform, panelSize);
             CharacterFlight FlightAt(float at) => RoomMotion.Flight(at, at >= FlightReleasedAt ? at - FlightReleasedAt : (float?)null);
             Vector3 PointAt(float at)
             {
@@ -88,6 +87,11 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(FlightAt(landed - 0.01f).PanelShown == 0f, "the panel arrives before the character lands");
             Require(FlightAt(FlightReleasedAt + RoomMotion.PanelSeconds).Along > 0.999f && FlightAt(FlightReleasedAt + RoomMotion.PanelSeconds).PanelShown < 0.001f,
                 "the character leaves before the panel has gone");
+            var renderers = view.GetComponentsInChildren<Renderer>(false);
+            var bounds = renderers.Length > 0 ? renderers.Select(each => each.bounds).Aggregate((a, b) => { a.Encapsulate(b); return a; }) : new Bounds();
+            Debug.Log("Halcyonic: parts: " + name + ": the bot at " + view.transform.position.ToString("F3") + " (eyes " + eyes.ToString("F3") + ", panel " + panel.transform.position.ToString("F3")
+                + "), scale " + view.transform.lossyScale.x.ToString("0.000") + ", " + renderers.Length + " renderers, bounds " + bounds.center.ToString("F3") + " size " + bounds.size.ToString("F3")
+                + ", layer " + view.gameObject.layer + ", active " + view.gameObject.activeInHierarchy + ".");
             Debug.Log("Halcyonic: parts: " + name + ": " + seconds.ToString("0.0") + " s, along " + now.Along.ToString("0.00") + ", over " + now.OverM.ToString("0.000")
                 + " m, panel " + now.PanelShown.ToString("0.00") + ", tag " + now.TagShown.ToString("0.00") + ", the largest step " + step.ToString("0.000") + " m in 10 ms.");
             return shot;
