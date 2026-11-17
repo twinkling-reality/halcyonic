@@ -101,14 +101,49 @@ read and write. End to end: an approved `read_file` of `~/.ssh/id_marker` fails 
 while the same read of a file beside it does; an approved command that writes `.agents/hooks.json` fails while the
 same command's write beside it lands.
 
-## Kiro 3.4.0 over ACP (run signed out only)
+## Real runs, signed in (2026-11-17, the owner's sign-ins, bounded by the lead)
+
+The owner signed in to Kiro ("Logged in with Google") and to Antigravity on this Mac. Each run: a scratch folder,
+the agent-app profile, the app's settings home of Halora's own, the cheapest listed model, at most ten minutes.
+
+- Kiro's sign-in applies under `KIRO_HOME=~/.kiro/halora` (its store stays in Application Support):
+  `kiro-cli chat --list-models --format json` listed 23 models with each one's credit multiplier (default `auto`
+  1.0; cheapest `qwen3-coder-next` 0.05, then `claude-haiku-5.5` 0.06).
+- Signed in, Kiro's v3 `initialize` names no `agentInfo` (signed out it named 3.4.0), so the profile reads the
+  version from `kiro-cli --version` ("kiro-cli 3.4.0") before the launch. It advertises `loadSession`, images,
+  `sessionCapabilities` list, close, delete, fork, and many `_kiro/*` extensions; auth methods `aws-builder-id` and
+  `aws-iam-identity-center`. `session/new` answers modes `vibe` ("Default", current), `spec`, `quick-spec`: its
+  agents, not permission modes.
+- Run 1, raw ACP, every request denied (`qwen3-coder-next` asked in `_meta.kiro.modelId`): six
+  `session/request_permission` (three writes, `echo "hello" > hello.txt`, `ls -la`, `true`), options `accept`
+  (allow_once), `always-accept`, `reject` (reject_once), `always-reject`; nothing was written. `pwd` ran without a
+  request, by Kiro's own rules. Each request's `toolCall` carried only `toolCallId`, `status` and `title`: the input
+  (`rawInput` `{command, description, run_in_background}` for a command, `{path, text}` for a write) and `kind` came
+  on the earlier `tool_call` and `tool_call_update` of the same id, so the adapter shows a request with what the app
+  said of that call (ACP updates accumulate). A write carries no `diff`, so it can only be denied. The turn ended
+  `stopReason: "end_turn"`; Kiro's own report, as `session_info_update` `_meta.kiro` `turn_completion` and
+  `session_usage`: 0.0888 credits, 40.6 s.
+- Run 2, through the adapter (`chat.defaultModel` `qwen3-coder-next` in Halora's settings home): the one request,
+  `{"command":"echo hello > hello.txt","description":"Write hello to hello.txt","run_in_background":false}`, was
+  complete and approved; it ran in the scratch folder (`hello.txt` holds `hello`), the agent said so, and the turn
+  completed, 6 s. Kiro's own report: 0.0531 credits. Which model served it is not in what the adapter reads.
+- Antigravity's Google sign-in applies under `--gemini-dir ~/.gemini/halora` (kept in the keychain): `session/new`
+  opened a session with modes `default` (current), `accept-edits`, `auto`, `plan`, and 22 models (current
+  `gemini-4-carbon-medium`). Its settings file takes no model (`model` and `model.name` were ignored);
+  `session/set_config_option` set `model` `gemini-3.8-flash` and `thought_level` `low`, mode staying `default`.
+- Run 3, through the adapter on `gemini-3.8-flash` low: Antigravity answered at once with the agent message "⚠
+  Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 45m35s." and
+  `stopReason: "end_turn"`, so the adapter recorded the turn completed with no work done; nothing ran, nothing was
+  spent. A used-up quota reaches the person only as the agent's words.
+
+## Kiro 3.4.0 over ACP, signed out
 
 - `kiro-cli acp --agent-engine v3`: `initialize` answers `protocolVersion: 1`, `agentInfo.version: "3.4.0"`,
   `loadSession: false`, no image, and one auth method, `kiro-login` ("Run 'kiro-cli login' in a terminal").
   `session/new` answers `-32000` "Authentication required. Not logged in. Set the KIRO_API_KEY environment variable
   or run `kiro-cli login` first."
 - Its home folders: `~/.kiro/` and `~/Library/Application Support/kiro-cli/`; `KIRO_HOME` moves the first.
-- From the docs, unverified here: signed in, v3 advertises `loadSession` and images; methods `session/new`,
+- From the docs, beyond the signed-in runs above: methods `session/new`,
   `session/load`, `session/list`, `session/prompt`, `session/cancel`, `session/set_mode`,
   `session/set_config_option`; permission requests with `allow_once`, `allow_always`, `reject_once`,
   `reject_always`; models as `configOptions`; usage only as `_meta.kiro` in `session_info_update`. `KIRO_API_KEY` is
@@ -144,7 +179,8 @@ again right before `session/new`; the app's version must be the profile's, or th
 
 ## Tests
 
-- Unit, `acp-runtime.test.ts` (18); `profile.test.ts`'s agent-app profile under `sandbox-exec` (2, each with a
+- Unit, `acp-runtime.test.ts` (24, with the signed-in Kiro trace `kiro-signed-in-deny.jsonl`, its long
+  `session/new` answer cut by the probe to its id and modes); `profile.test.ts`'s agent-app profile under `sandbox-exec` (2, each with a
   control, two mutations caught): a fake app replays the traces recorded from these runs
   (`fixtures/antigravity-*.jsonl`, paths replaced by `$CWD`, the model list shortened; `kiro-signed-out.jsonl`).
   Four mutations were each caught (a denial taken at `in_progress`, the edit's reach unknown, a cancelled turn
@@ -158,10 +194,10 @@ again right before `session/new`; the app's version must be the profile's, or th
 
 ## Not verified
 
-- Any signed-in run of either app, so the real model's tool names, Kiro's tool call shapes and whether Kiro sends
-  `rawInput` at all. Until Kiro is seen signed in, every Kiro request is shown as its whole input or title, and its
-  edits only denied.
-- Whether Antigravity's Google sign-in applies under `--gemini-dir`, and which of its other tools ask.
+- A signed-in Antigravity turn that did work (its quota was used up), so its real model's tool names and
+  requests; and how Kiro's writes reach a file (`{path, text}`: a whole new file or not), so its writes stay
+  deny-only.
+- Which of Antigravity's other tools ask.
 - What either app does with its input closed in the middle of a turn, so whether one outlives a control plane that
   is killed hard.
 - Kiro's and Antigravity's telemetry beyond `--disable-telemetry` (Antigravity) and Kiro's `telemetry` setting.
