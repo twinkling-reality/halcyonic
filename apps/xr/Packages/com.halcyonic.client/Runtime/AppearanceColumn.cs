@@ -68,7 +68,8 @@ namespace Halcyonic.Client
                     // alone, so the page is titled by the theme it previews, the card's own title.
                     var sample = new RoomCard(LineWords.Ours(CodeThemes.Words(chosenCode)), label: CodeThemes.PreviewLabel, sample: CodeThemes.Example,
                         sampleLanguage: CodeLanguage.Script);
-                    return new MenuFrame(CodeThemes.Words(chosenCode), new Footer(close, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
+                    // One way out, Cancel (AUDIT's 19:59Z: never Cancel and Close both); Apply Colours keeps the theme.
+                    return new MenuFrame(CodeThemes.Words(chosenCode), new Footer(null, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
                         farRight: new Prompt(ApplyCode, CodeThemes.ApplyWords, GlazeIcon.Change, main: true)), lines: example).WithCard(sample);
                 }
                 if (codeOpen)

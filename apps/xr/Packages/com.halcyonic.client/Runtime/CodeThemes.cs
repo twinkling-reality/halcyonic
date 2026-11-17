@@ -85,9 +85,9 @@ namespace Halcyonic.Client
         /// </summary>
         public static readonly string[] Example =
         {
-            "// Show at most three tasks",
-            "const shown = tasks.slice(0, 3);",
-            "console.log(\"Shown:\", shown);",
+            "// Top 3 tasks",
+            "let t: Task[];",
+            "log(\"Top\", 3);",
         };
     }
 }

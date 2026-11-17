@@ -27,7 +27,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var wasScale = GlazeText.Scale;
             CodeColouring.Palette probe = kind => kind == CodeTokenKind.Keyword ? new Color32(120, 200, 255, 255)
                 : kind == CodeTokenKind.String ? new Color32(180, 255, 160, 255)
-                : kind == CodeTokenKind.Comment ? new Color32(200, 200, 210, 255) : (Color32?)null;
+                : kind == CodeTokenKind.Comment ? new Color32(200, 200, 210, 255)
+                : kind == CodeTokenKind.Type ? new Color32(240, 180, 210, 255) : (Color32?)null;
             try
             {
                 foreach (var scale in new[] { 1f, RoomGeometry.LargerScale })
@@ -52,7 +53,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     var host = new GameObject("Code preview");
                     var view = RoomCardView.Create(host.transform);
                     // At the full panel and at the column's width (the narrow form), where a line wraps.
-                    foreach (var (form, widthDp) in new[] { ("full", RoomGeometry.PanelDp - 2f * RoomGeometry.PanelPadDp), ("narrow", RoomGeometry.ColumnDp - 2f * RoomGeometry.PanelPadDp) })
+                    // The full panel and the column's width (the narrow form), where every line stands whole on one row (AUDIT's 19:59Z); and a
+                    // tight width no form uses, where the comment must wrap, to prove the colours follow the logical line (AUDIT3's PV1).
+                    foreach (var (form, widthDp) in new[] { ("full", RoomGeometry.PanelDp - 2f * RoomGeometry.PanelPadDp),
+                        ("narrow", RoomGeometry.ColumnDp - 2f * RoomGeometry.PanelPadDp * RoomGeometry.LargerScale), ("tight", 96f) })
                     {
                         view.Show(bar.Card, RoomType.Units(widthDp));
                         var code = view.ReadingShown.ToList();
@@ -62,12 +66,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(code.All(label => !label.richText && label.text == label.GetParsedText() && label.font != null && label.font.name.Contains("Mono")),
                             form + ": a code row is not literal mono, or colouring changed its text");
                         Require(view.Plates.All(each => each.What != "reading well"), form + ": a well stands under the code");
-                        var constRow = code.FirstOrDefault(label => label.text.StartsWith("const", StringComparison.Ordinal));
-                        Require(constRow != null && GlazeRuns.Of(constRow).Painted.Any(range => range.Start == 0 && range.End == 5), form + ": the keyword const is not painted");
-                        Require(code.Any(label => GlazeRuns.Of(label).Painted.Any(range => label.text.Substring(range.Start, range.End - range.Start).Contains("Shown:"))), form + ": the string is not painted");
+                        if (form != "tight") Require(code.Count == CodeThemes.Example.Length, form + ": a line of the example does not stand whole on one row: " + string.Join(" | ", code.Select(label => label.text)));
+                        var constRow = code.FirstOrDefault(label => label.text.StartsWith("let", StringComparison.Ordinal));
+                        Require(constRow != null && GlazeRuns.Of(constRow).Painted.Any(range => range.Start == 0 && range.End == 3), form + ": the keyword let is not painted");
+                        Require(code.Any(label => GlazeRuns.Of(label).Painted.Any(range => label.text.Substring(range.Start, range.End - range.Start) == "Task")), form + ": the type Task is not painted");
+                        Require(code.Any(label => GlazeRuns.Of(label).Painted.Any(range => label.text.Substring(range.Start, range.End - range.Start).Contains("Top"))), form + ": the string is not painted");
                         // PV1: by the logical line, never the visual row. The comment wraps in the narrow form, and every row of it keeps the comment's colour.
-                        var commentRows = code.TakeWhile(label => !label.text.StartsWith("const", StringComparison.Ordinal)).ToList();
-                        if (form == "narrow") Require(commentRows.Count >= 2, "narrow: the comment does not wrap, so the logical-line colour is unproven: " + commentRows.Count + " row");
+                        var commentRows = code.TakeWhile(label => !label.text.StartsWith("let", StringComparison.Ordinal)).ToList();
+                        if (form == "tight") Require(commentRows.Count >= 2, "tight: the comment does not wrap, so the logical-line colour is unproven: " + commentRows.Count + " row");
                         Require(commentRows.Count > 0 && commentRows.All(label => GlazeRuns.Of(label).Painted.Any(range => range.Start == 0 && range.End >= label.text.TrimEnd().Length)),
                             form + ": a row of the comment is not painted whole as the comment");
                         var sizeBefore = view.Size;

@@ -760,7 +760,10 @@ public class AppearanceSettingsTests
             Assert.That(bar.Card!.Sample, Is.EqualTo(CodeThemes.Example), "its copy keeps the code");
             Assert.That(bar.Facts, Is.Null.Or.Empty, "no rows of words stand beside the card");
             Assert.That(bar.GeneralPart.Pages, Is.EqualTo(1), "the preview stands on one page");
-            Assert.That(column.Frame!.Footer.All.Select(each => each.Prompt.Words), Does.Contain("Apply Colours").And.Contain("Cancel"));
+            Assert.That(column.Frame!.Footer.All.Select(each => each.Prompt.Words), Does.Contain("Apply Colours").And.Contain("Cancel").And.Not.Contain("Close"),
+                "one way out, Cancel (AUDIT's 19:59Z)");
+            Assert.That(CodeThemes.Example.Max(line => line.Length), Is.LessThanOrEqualTo(RoomReading.ColumnsIn(RoomGeometry.ColumnDp - 2f * RoomGeometry.PanelPadDp * Comfort.LargerTextScale, Comfort.LargerTextScale, bare: true)),
+                "every line of the sample stands whole on one row in the narrow form at the larger size");
             column.Act(AppearanceColumn.Cancel, null);
             Assert.That((CodeThemes.Current, settings.Code, saved.Count), Is.EqualTo((CodeTheme.Halora, CodeTheme.Halora, 0)), "Cancel keeps what was kept");
 
