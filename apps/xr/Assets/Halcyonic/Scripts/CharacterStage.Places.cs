@@ -38,8 +38,8 @@ namespace Halcyonic.XR
         /// <summary>The step a back row rises by while its tags stand over the front row's bodies, in metres.</summary>
         public const float BackRowRiseStep = 0.02f;
 
-        /// <summary>How far a tag's plate draws past its laid size as the eyes see it, in degrees: its glass's edge and rim.</summary>
-        public const float PlateReachDegrees = 0.4f;
+        /// <summary>How far a tag's plate draws past its laid size as the eyes see it, both sides together, in degrees: its glass's edge and rim.</summary>
+        public const float PlateReachDegrees = 0.8f;
 
         /// <summary>The least angle kept between a back-row tag's foot and a front-row body's top, in degrees (the gap kept between things).</summary>
         public const float BackRowClearDegrees = 1f;

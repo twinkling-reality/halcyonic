@@ -153,7 +153,8 @@ namespace Halcyonic.XR.UI
             // A bound tighter than the tag's own (a place's): a name a little past it stands whole on one line, and a longer one on two balanced
             // lines, never three with a word alone (AUDIT's 21:03Z and 21:1xZ): its bound widened to half the name and a margin for the break,
             // never past the tag's own bound.
-            if (wordsMost is float placeBound && mostWordsDp is float given && given < NameWordsMostDp && wide > placeBound)
+            var placeBounded = mostWordsDp is float tighter && tighter < NameWordsMostDp;
+            if (wordsMost is float placeBound && placeBounded && wide > placeBound)
             {
                 var own = RoomType.Scaled(NameWordsMostDp);
                 wordsMost = wide <= placeBound * 1.3f ? Mathf.Min(wide + 1f, own) : Mathf.Min(Mathf.Max(placeBound, wide / 2f * 1.12f), own);
@@ -164,6 +165,13 @@ namespace Halcyonic.XR.UI
                 words.textWrappingMode = TextWrappingModes.Normal;
                 words.overflowMode = TextOverflowModes.Overflow;
                 var (lines, laidWide, tall) = KitType.Lay(words, most, 12);
+                // A place's name never takes three lines: its bound widens in steps until two hold it, up to the tag's own.
+                var ownBound = RoomType.Scaled(NameWordsMostDp);
+                while (placeBounded && lines > 2 && most < ownBound)
+                {
+                    most = Mathf.Min(ownBound, most * 1.06f);
+                    (lines, laidWide, tall) = KitType.Lay(words, most, 12);
+                }
                 // Never one word alone on the name's last line (FIELD's places sheet v2, SHOULD 3): its last two words held together in the
                 // lay only, the same length so every run's place holds (LabelText.KeepLastTwo), as a card's row and the rows' are; the
                 // plain lay kept where the pair cannot stand on one line.
