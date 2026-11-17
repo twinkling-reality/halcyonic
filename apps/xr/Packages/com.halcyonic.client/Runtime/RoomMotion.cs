@@ -26,6 +26,40 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
+    /// Where the character and its moment stand in a flight to an asking moment: how far along its arc from its shelf (0)
+    /// to beside the panel (1), how high over the straight line the arc and its breath lift it, and how far the panel and the
+    /// character's tag beside it are in view, with the panel's rise.
+    /// </summary>
+    public readonly struct CharacterFlight
+    {
+        public CharacterFlight(float along, float overM, float panelShown, float panelLowerDp, float tagShown)
+        {
+            Along = along;
+            OverM = overM;
+            PanelShown = panelShown;
+            PanelLowerDp = panelLowerDp;
+            TagShown = tagShown;
+        }
+
+        /// <summary>How far along the way from its shelf (0) to beside the panel (1).</summary>
+        public float Along { get; }
+
+        /// <summary>How far above the straight way it stands, in metres: the arc's height and the breath before it leaves.</summary>
+        public float OverM { get; }
+
+        /// <summary>How far the asking panel is in view, 0 to 1, and how far below its place it stands, in dp.</summary>
+        public float PanelShown { get; }
+
+        public float PanelLowerDp { get; }
+
+        /// <summary>How far its tag on the thin line beside the panel is in view, 0 to 1.</summary>
+        public float TagShown { get; }
+
+        /// <summary>On its shelf, no moment asking.</summary>
+        public static CharacterFlight Home => new CharacterFlight(0f, 0f, 0f, 0f, 0f);
+    }
+
+    /// <summary>
     /// The redesign's motion (DESIGN's BUILD-SPEC-v4 1.5): every move a formula of the seconds since its event, so a view asks
     /// where a part stands now and a render fixes the clock. Two curves, no springs: ease out (cubic), and the standard curve
     /// (0.2, 0, 0, 1). A time before an event's start is its start, and after its end its end.
@@ -194,6 +228,55 @@ namespace Halcyonic.Client
         /// </summary>
         public static (float Right, float Up) CursorDrift(float seconds) =>
             ((float)Math.Sin(seconds * 0.9) * CursorDriftDegrees, -(float)Math.Cos(seconds * 0.7) * CursorDriftDegrees * 0.6f);
+
+        /// <summary>
+        /// The character's flight to a moment that asks the person (the lead's 2026-11-17T02:15Z: a character moves through
+        /// the room as a game companion does; surfaces fade and rise). Called, it lifts <see cref="FlightBreathM"/> over
+        /// <see cref="FlightBreathSeconds"/>, a breath before it leaves, then flies to beside the panel over
+        /// <see cref="FlightSeconds"/>, eased in and out, on an arc <see cref="FlightPeakM"/> over the straight way at its
+        /// middle; once it lands, the panel arrives as every panel does (<see cref="PanelArrives"/>) and its tag fades in with
+        /// it. Released, the panel leaves first (<see cref="PanelLeaves"/>) and its tag with it, then the same breath and arc
+        /// home. <paramref name="sinceCalled"/> is the time since the moment came, null where none came;
+        /// <paramref name="sinceReleased"/> the time since it was answered or left, null while it stands.
+        /// </summary>
+        public static CharacterFlight Flight(float? sinceCalled, float? sinceReleased)
+        {
+            if (sinceCalled is not float called) return CharacterFlight.Home;
+            if (sinceReleased is not float released)
+            {
+                var (along, over) = Flown(called);
+                var landed = called - FlightBreathSeconds - FlightSeconds;
+                var panel = PanelArrives(landed);
+                var shown = landed < 0f ? 0f : panel.Shown;
+                return new CharacterFlight(along, over, shown, panel.LowerDp, shown);
+            }
+            var leaving = PanelLeaves(released);
+            var (back, overBack) = Flown(released - PanelSeconds);
+            return new CharacterFlight(1f - back, overBack, leaving, 0f, leaving);
+        }
+
+        /// <summary>The way flown <paramref name="seconds"/> after the breath starts: how far along, and how high over the straight way.</summary>
+        private static (float Along, float OverM) Flown(float seconds)
+        {
+            var breath = EaseOut(seconds / FlightBreathSeconds);
+            var along = EaseInOut((seconds - FlightBreathSeconds) / FlightSeconds);
+            return (along, FlightBreathM * breath * (1f - along) + FlightPeakM * 4f * along * (1f - along));
+        }
+
+        /// <summary>Ease in and out, cubic: slow from rest, slow to rest; 0 at 0 and 1 from 1 on.</summary>
+        public static float EaseInOut(float progress)
+        {
+            var at = Clamp01(progress);
+            return at < 0.5f ? 4f * at * at * at : 1f - (float)Math.Pow(-2f * at + 2f, 3) / 2f;
+        }
+
+        public const float FlightBreathSeconds = 0.1f;
+
+        public const float FlightSeconds = 0.8f;
+
+        public const float FlightBreathM = 0.02f;
+
+        public const float FlightPeakM = 0.15f;
 
         /// <summary>A cubic bezier easing through (x1, y1) and (x2, y2): the value where the curve's time is <paramref name="progress"/>.</summary>
         private static float Bezier(float x1, float y1, float x2, float y2, float progress)

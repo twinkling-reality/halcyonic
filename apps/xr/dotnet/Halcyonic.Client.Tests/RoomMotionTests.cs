@@ -244,4 +244,52 @@ public class RoomMotionTests
         Assert.That(RoomMotion.BandLeaves(0.36f), Is.EqualTo(0f));
         Assert.That(RoomMotion.BandLeaves(9f), Is.EqualTo(0f));
     }
+
+    [Test]
+    public void ACalledCharacterBreathesThenFliesAnArcToThePanelAndOnlyThenThePanelAndItsTagArrive()
+    {
+        Assert.That(RoomMotion.Flight(null, null).Along, Is.EqualTo(0f));
+        // The breath: lifted a little, not yet away.
+        var breath = RoomMotion.Flight(RoomMotion.FlightBreathSeconds, null);
+        Assert.That(breath.Along, Is.EqualTo(0f).Within(Close));
+        Assert.That(breath.OverM, Is.EqualTo(RoomMotion.FlightBreathM).Within(Close));
+        // Half way: the arc's peak, the panel not yet there.
+        var middle = RoomMotion.Flight(RoomMotion.FlightBreathSeconds + RoomMotion.FlightSeconds / 2f, null);
+        Assert.That(middle.Along, Is.EqualTo(0.5f).Within(Close));
+        Assert.That(middle.OverM, Is.EqualTo(RoomMotion.FlightPeakM + RoomMotion.FlightBreathM / 2f).Within(Close));
+        Assert.That(middle.PanelShown, Is.EqualTo(0f));
+        // Landed, then the panel and the tag arrive as a panel does.
+        var landed = RoomMotion.FlightBreathSeconds + RoomMotion.FlightSeconds;
+        Assert.That(RoomMotion.Flight(landed, null).Along, Is.EqualTo(1f).Within(Close));
+        Assert.That(RoomMotion.Flight(landed, null).OverM, Is.EqualTo(0f).Within(Close));
+        Assert.That(RoomMotion.Flight(landed - 0.01f, null).PanelShown, Is.EqualTo(0f));
+        var settled = RoomMotion.Flight(landed + RoomMotion.PanelSeconds, null);
+        Assert.That(settled.PanelShown, Is.EqualTo(1f).Within(Close));
+        Assert.That(settled.TagShown, Is.EqualTo(1f).Within(Close));
+        Assert.That(settled.PanelLowerDp, Is.EqualTo(0f).Within(Close));
+        // Smooth: no step between frames anywhere along the way (no snap at either end).
+        var last = RoomMotion.Flight(0f, null).Along;
+        for (var t = 0.01f; t < landed + 0.2f; t += 0.01f)
+        {
+            var now = RoomMotion.Flight(t, null).Along;
+            Assert.That(now - last, Is.LessThan(0.04f), "at " + t);
+            last = now;
+        }
+        Assert.That(RoomMotion.Flight(0.11f, null).Along - RoomMotion.Flight(0.1f, null).Along, Is.LessThan(0.001f), "it leaves gently");
+    }
+
+    [Test]
+    public void AReleasedCharacterWaitsForThePanelToLeaveThenFliesTheSameArcHome()
+    {
+        var start = RoomMotion.Flight(9f, 0f);
+        Assert.That(start.Along, Is.EqualTo(1f).Within(Close));
+        Assert.That(start.PanelShown, Is.EqualTo(1f).Within(Close));
+        var panelGone = RoomMotion.Flight(9f, RoomMotion.PanelSeconds);
+        Assert.That(panelGone.PanelShown, Is.EqualTo(0f).Within(Close));
+        Assert.That(panelGone.TagShown, Is.EqualTo(0f).Within(Close));
+        Assert.That(panelGone.Along, Is.EqualTo(1f).Within(Close));
+        var home = RoomMotion.Flight(9f, RoomMotion.PanelSeconds + RoomMotion.FlightBreathSeconds + RoomMotion.FlightSeconds);
+        Assert.That(home.Along, Is.EqualTo(0f).Within(Close));
+        Assert.That(home.OverM, Is.EqualTo(0f).Within(Close));
+    }
 }
