@@ -327,7 +327,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         }
                     }
                     var dp = Vector2.Max(laid.Size, new Vector2(2f * Mathf.Max(-drawnLeft, drawnRight), drawnTop - laid.Foot)) / unitDp;
-                    var spill = (laid.Foot - drawnBottom) / unitDp;
+                    // A row hung under the bar (the result's own row, RowDrop) is the plane's to take (KitWorkspaceHost's HangDp): what
+                    // spills is held under that row's feet, not the panel's foot (the review's parts state, TASKS 2026-11-17).
+                    var spill = (laid.Foot - laid.RowDrop - drawnBottom) / unitDp;
                     if (spill > Halcyonic.XR.UI.RoomBarView.MostUnderFootDp + 0.5f)
                         failures.Add(name + ": the bar draws " + spill.ToString("0.0") + " dp under its foot line, past the kit's " + Halcyonic.XR.UI.RoomBarView.MostUnderFootDp.ToString("0") + " dp");
                     mostSpill = Mathf.Max(mostSpill, spill);

@@ -278,16 +278,39 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The agent's whole first sentence in <paramref name="text"/>, trimmed: to its first sentence's end, never at a line break or a
-        /// spaced dash ("Done - but two tests still fail." stays whole: AUDIT3's R6, the lead's 03:31Z); its whole words where no
-        /// sentence ends; null where it says nothing.
+        /// spaced dash ("Done - but two tests still fail." stays whole: AUDIT3's R6, the lead's 03:31Z); within its first paragraph,
+        /// so a heading over a list ("Star Catcher is live on the island", then a blank line) is the sentence and the list is not;
+        /// its whole words where no sentence ends; null where it says nothing.
         /// </summary>
         public static string? FirstSentence(string? text)
         {
-            var laid = RoomWords.Laid(text);
+            var laid = RoomWords.Laid(FirstParagraph(text));
             if (laid.Length == 0) return null;
             var ends = RoomWords.SentenceEnds(laid);
             var first = laid.Substring(0, ends.Length > 0 ? ends[0] : laid.Length).Trim();
             return first.Length == 0 ? null : first;
+        }
+
+        /// <summary>
+        /// <paramref name="text"/> to the end of its first paragraph: up to the first line of only white space after a line that holds
+        /// words. A single line break never ends it (R6); "\r\n" is one break, never a blank line.
+        /// </summary>
+        private static string? FirstParagraph(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            // A paragraph separator ends a paragraph as a blank line does.
+            var lines = text!.Replace("\r\n", "\n").Replace("\u2029", "\n\n").Split('\n', '\r');
+            var kept = new List<string>();
+            foreach (var line in lines)
+            {
+                if (line.Trim().Length == 0)
+                {
+                    if (kept.Count > 0) break;
+                    continue;
+                }
+                kept.Add(line);
+            }
+            return string.Join("\n", kept);
         }
 
         /// <summary><paramref name="card"/> with <paramref name="status"/> where it has none, or a card of the task's name and that status alone.</summary>

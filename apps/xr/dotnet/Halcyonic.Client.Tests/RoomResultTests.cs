@@ -377,6 +377,12 @@ public class RoomResultTests
         // AUDIT2 03:31Z: its own full stop kept; never ended at a decimal point or an abbreviation's dot.
         Assert.That(RoomBar.FirstSentence("Star Catcher is live on the island. Updated the welcome card."), Is.EqualTo("Star Catcher is live on the island."));
         Assert.That(RoomBar.FirstSentence("Raised the speed to 1.5 times, e.g. on level two. Then tested it."), Is.EqualTo("Raised the speed to 1.5 times, e.g. on level two."));
+        // Within its first paragraph: the recorded run's heading over its list is the sentence, the list is not (walk on 7199f4719).
+        const string recorded = "Star Catcher is live on the island\n\n- Updated the welcome card and page title\n  - public/ui/welcome.uikitml\n";
+        Assert.That(RoomBar.FirstSentence(recorded), Is.EqualTo("Star Catcher is live on the island"));
+        Assert.That(RoomBar.FirstSentence(recorded.Replace("\n", "\r\n")), Is.EqualTo("Star Catcher is live on the island"), "a CRLF is one break, not a blank line");
+        Assert.That(RoomBar.FirstSentence("\n  \nDone\n- but two tests still fail.\n\nThe rest passed."), Is.EqualTo("Done\n- but two tests still fail."), "leading blank lines are skipped");
+        Assert.That(RoomBar.FirstSentence("Fixed it\u2029Then tested it."), Is.EqualTo("Fixed it"));
     }
 
     [Test]

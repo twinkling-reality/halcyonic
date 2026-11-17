@@ -1059,7 +1059,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (shown.AsDialog)
                         {
                             var rowYs = bar.Column.Where(button => button.gameObject.activeSelf).Select(button => Mathf.Round(button.transform.localPosition.y * 1000f)).Distinct().Count();
-                            if (Mathf.Approximately(GlazeText.Scale, 1f)) Require(rowYs == 1, "the review's actions stand on " + rowYs + " lines, not one");
+                            var drawnActions = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
+                            var rowDp = (drawnActions.Sum(button => button.Size.x) + (drawnActions.Count - 1) * KitType.Units(SpatialKit.TargetGapDegrees)) / RoomType.Units(1f);
+                            var measureDp = (bar.Panel.Size.x - 2f * RoomType.Scaled(RoomGeometry.PanelPadDp)) / RoomType.Units(1f);
+                            if (Mathf.Approximately(GlazeText.Scale, 1f)) Require(rowYs == 1, "the review's actions stand on " + rowYs + " lines, not one: "
+                                + string.Join(", ", drawnActions.Select(button => button.Words.text + " " + (button.Size.x / RoomType.Units(1f)).ToString("0")))
+                                + " come to " + rowDp.ToString("0") + " dp against the words' " + measureDp.ToString("0") + " dp");
                             Require(shown.Column.Last().Control.Place == KitPlace.Close, "Close does not stand last in the review's row");
                         }
                         if (state == "38-result-full")
