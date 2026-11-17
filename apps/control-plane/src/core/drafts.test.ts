@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import {
   type ApprovalCommand,
+  type ApprovalInput,
   compileValidator,
   QUESTION_TEXT_LIMIT,
   type QuestionPrompt,
@@ -615,6 +616,67 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
       assert.ok((asked.too_long?.length ?? 0) > 32000, shape.tool_name);
       assert.ok([...asked.subject.command.text].length <= 32000, shape.tool_name);
       assert.ok([...asked.subject.summary].length <= 32000, shape.tool_name);
+    }
+  });
+
+  test("a request's inputs lose what Halcyonic holds and show what a card does not draw, alike with its summary, and nothing else changes (LI2, LI3)", () => {
+    const { sink, recorded } = recordingSink();
+    sink(
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: {
+          kind: 'tool_use',
+          tool_name: 'fetch',
+          summary: `Use fetch\nurl: https://x.test/?k=${held}\nbody: "two\\nlines\u202E"\nempty: `,
+          inputs: [
+            { name: 'url', value: `https://x.test/?k=${held}`, kind: 'text' },
+            { name: 'body', value: 'two\nlines\u202E', kind: 'text' },
+            { name: 'empty', value: '', kind: 'text' },
+            { name: 'n', value: '{"a":1}', kind: 'json' },
+          ],
+        },
+        complete: true,
+      }),
+    );
+    const asked = recorded[0]?.payload as {
+      subject: { summary: string; inputs: ApprovalInput[] };
+      complete: boolean;
+    };
+    assert.deepEqual(asked.subject.inputs, [
+      { name: 'url', value: `https://x.test/?k=${MARK}`, kind: 'text' },
+      // A line break stays for the card's own mark; what a card does not draw is its escape.
+      { name: 'body', value: 'two\nlines\\u{202E}', kind: 'text' },
+      { name: 'empty', value: '', kind: 'text' },
+      { name: 'n', value: '{"a":1}', kind: 'json' },
+    ]);
+    assert.ok(asked.subject.summary.includes(`url: https://x.test/?k=${MARK}`));
+    assert.equal(asked.complete, true);
+    assert.equal(JSON.stringify(asked).includes(held), false);
+  });
+
+  test("a request's inputs past 32, or a part past its bound, are carried cut and never approvable (LI1)", () => {
+    for (const inputs of [
+      Array.from({ length: 33 }, (_, i) => ({ name: `k${i}`, value: 'v', kind: 'text' })),
+      [{ name: 'n'.repeat(201), value: 'v', kind: 'text' }],
+      [{ name: 'k', value: 'v'.repeat(32001), kind: 'text' }],
+    ]) {
+      const { sink, recorded } = recordingSink();
+      sink(
+        observation('runtime.approval.requested', {
+          approval_id: 'a',
+          subject: { kind: 'tool_use', tool_name: 'fetch', summary: 'Use fetch', inputs },
+          complete: true,
+        }),
+      );
+      const asked = recorded[0]?.payload as {
+        subject: { inputs: ApprovalInput[] };
+        complete: boolean;
+      };
+      assert.equal(asked.complete, false);
+      assert.ok(asked.subject.inputs.length <= 32);
+      for (const input of asked.subject.inputs) {
+        assert.ok([...input.name].length <= 200 && [...input.value].length <= 32000);
+      }
     }
   });
 

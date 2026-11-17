@@ -313,9 +313,11 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * ones each execution was given (ADR 0066). 27: the files each execution's running turn changed (`writing`). 28: whether
  * the person let each project's own check start test servers (`openPorts`, ADR 0055, 2026-11-16). 29: the person's own
  * yes a request's held proposal offers (`options`, ADR 0055 amended 2026-11-16, AUDIT3's O1). 30: each task's latest
- * check and the preview of its own copy (`taskChecks`, `taskPreviews`, limits audit #5 and #6, 2026-11-17).
+ * check and the preview of its own copy (`taskChecks`, `taskPreviews`, limits audit #5 and #6, 2026-11-17). 31: each
+ * input of an approval request as the app gave it (`inputs`, the literal-input well, 2026-11-17), raised past the
+ * base's 30 by hand at the rebase.
  */
-export const PROJECTION_STATE_FORMAT = 30;
+export const PROJECTION_STATE_FORMAT = 31;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).

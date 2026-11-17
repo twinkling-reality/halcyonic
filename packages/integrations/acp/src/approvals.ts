@@ -3,6 +3,7 @@ import { isAbsolute, resolve } from 'node:path';
 import type {
   ApprovalChange,
   ApprovalCommand,
+  ApprovalInput,
   ApprovalPath,
   ApprovalSubject,
 } from '@halcyonic/contracts';
@@ -268,6 +269,7 @@ export function approvalRequest(
       ...(paths !== null && { paths }),
       ...(changes !== null && { changes }),
       ...(command !== null && { command }),
+      ...(command === null && input !== null && { inputs: inputsOf(input) }),
     },
     complete: whole && name.length <= 128 && (!FILE_KINDS.has(kind) || changes !== null),
   };
@@ -280,11 +282,23 @@ export function approvalRequest(
  * quoted as JSON writes it, so no input can forge another line the person reads as its own (AUDIT3 IS1).
  */
 export function inputSummary(tool: string, input: Record<string, unknown>): string {
-  const lines = Object.entries(input).map(
-    ([key, value]) =>
-      `${plain(key)}: ${typeof value === 'string' ? plain(value) : JSON.stringify(value)}`,
+  const lines = inputsOf(input).map(
+    (each) => `${plain(each.name)}: ${each.kind === 'text' ? plain(each.value) : each.value}`,
   );
   return [`Use ${plain(tool)}`, ...lines].join('\n');
+}
+
+/**
+ * Each input of a request as the app gave it, in its order, for a card's well (`ApprovalSubject.inputs`): a text value
+ * whole, any other as JSON writes it, the same parts the summary's lines are made of, and nothing cut here (the host
+ * fits them).
+ */
+export function inputsOf(input: Record<string, unknown>): ApprovalInput[] {
+  return Object.entries(input).map(([name, value]) =>
+    typeof value === 'string'
+      ? { name, value, kind: 'text' }
+      : { name, value: JSON.stringify(value) ?? 'null', kind: 'json' },
+  );
 }
 
 /** A text as it reads on one line: whole where it can only read as itself, else quoted as JSON writes it. */

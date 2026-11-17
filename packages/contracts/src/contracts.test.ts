@@ -805,6 +805,7 @@ describe('the C# bindings', () => {
     'SendReview.one_change', // Send One Change's own facts (ADR 0039, amended)
     'ToolUseSubject.changes', // every file a request would change, whole (ADR 0065)
     'ToolUseSubject.command', // the command a request would run, in its parts, absent where it runs none
+    'ToolUseSubject.inputs', // each input of a request that runs no command, literally, for a card's well (2026-11-17)
     'ToolUseSubject.paths', // the places a request names, as structure, absent where they are not known
     'VersionEntry.pruned_at', // when the host stopped keeping a version (ADR 0036)
     'WorkspaceRequestChangedPayload.observed', // what the computer saw, when no reply came

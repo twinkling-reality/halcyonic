@@ -3276,6 +3276,25 @@ namespace Halcyonic.Contracts
         public ApprovalCommandNetwork? Network { get; set; }
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum ApprovalInputKind
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "text")] Text,
+        [global::System.Runtime.Serialization.EnumMember(Value = "json")] Json,
+    }
+
+    public sealed class ApprovalInput
+    {
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("value", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Value { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
+        public ApprovalInputKind Kind { get; set; }
+    }
+
     [global::Newtonsoft.Json.JsonConverter(typeof(ApprovalSubjectConverter))]
     public abstract class ApprovalSubject
     {
@@ -3338,6 +3357,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("command", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public ApprovalCommand? Command { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("inputs", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public global::System.Collections.Generic.List<ApprovalInput>? Inputs { get; set; }
     }
 
     public sealed class ApprovalView

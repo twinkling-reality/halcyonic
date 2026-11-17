@@ -163,7 +163,16 @@ did not say); `background`; `input_to_running` (Codex's input to a command alrea
 `network`, the host and protocol a Codex command also asks for. Each adapter builds the summary
 from these parts alone, so a card that draws them in its place shows exactly what the summary says;
 the control plane takes secrets out of each part and escapes it as it does the summary, and a part
-cut to the contract makes the request not complete. A file tool, a fetch, a network-only request
+cut to the contract makes the request not complete.
+
+Where a request runs no command in parts, an agent app over ACP gives its subject `inputs` too
+(2026-11-17, the literal-input well): each top-level input as the app gave it, in its order, `name`,
+`value` and `kind` (`text`, the value whole; `json`, any other value as JSON writes it), for a card to
+draw literally, a line break and a tab as marks of their own. The summary still says each input on a
+line of its own ("Use <tool>", then `name: value`), so a surface that draws only the summary misses
+nothing. The control plane treats each name and value as it does a command's parts; more than 32
+inputs, or a part past its bound (200 for a name, 32000 for a value), are carried cut, and the
+request is then not complete. A file tool, a fetch, a network-only request
 and every older event carry none, and a card draws the summary.
 
 An execution view's `usage` sums its reported turns: `turns` counts them, each token part is the

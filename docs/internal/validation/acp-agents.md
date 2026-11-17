@@ -419,7 +419,8 @@ again right before `session/new`; the app's version must be the profile's, or th
   fails after 15 s with effect unknown.
 - A request that is no command is shown in words and then each input on a line of its own ("Use fetch", "url:
   ..."), never as JSON (AUDIT2), a name or text holding a line break, a control character or a space at either end
-  quoted, so no input forges a line read as another (AUDIT3 IS1); a profile's shell tool (Antigravity's `run_command`, Kiro's and Cursor's `execute`
+  quoted, so no input forges a line read as another (AUDIT3 IS1), and each input is also carried literally in the
+  subject's `inputs` for a card's well (2026-11-17); a profile's shell tool (Antigravity's `run_command`, Kiro's and Cursor's `execute`
   call) as its command in its parts (`ApprovalCommand`, AUDIT3 CP1 to CP5), taken from the command field of the
   call's own input, never its title, uncut, its summary built from the parts alone: Antigravity's said to run in the
   task's folder (seen: each command starts there, a `cd` in one reaching no later one), or in the folder its own `Cwd`

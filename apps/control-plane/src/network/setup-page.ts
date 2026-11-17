@@ -637,7 +637,7 @@ export function setupDownloads(
       id: 'cursor',
       title: 'Install Cursor',
       fetches:
-        "Cursor Agent 2026.11.13 (Cursor's agent CLI), a 175 MB archive for Apple silicon, from Cursor's own download site, checked by its SHA-256 before it is unpacked, and every file of it checked again before it is turned on. You use it under Cursor's terms, on your own Cursor plan. What Cursor keeps of your code follows your own Cursor account's privacy setting, which Halora can neither read nor set.",
+        "Cursor Agent 2026.11.13 (Cursor's agent CLI), a 175 MB archive, installed on Apple silicon Macs only, from Cursor's own download site, checked by its SHA-256 before it is unpacked, and every file of it checked again before it is turned on. You use it under Cursor's terms, on your own Cursor plan. What Cursor keeps of your code follows your own Cursor account's privacy setting, which Halora can neither read nor set.",
       url: CURSOR_ARCHIVE_URL,
       algorithm: '256',
       sum: CURSOR_ARCHIVE_SHA256,

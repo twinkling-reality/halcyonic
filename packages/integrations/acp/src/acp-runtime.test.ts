@@ -1836,6 +1836,69 @@ describe('ACP approval requests', () => {
     assert.equal(asked.complete, true);
   });
 
+  test('each ask that is no command carries its inputs literally, one per summary line, in order, for every profile (LI2, LI6)', () => {
+    const cases = [
+      // Kiro's, a tool with no command.
+      {
+        profile: KIRO,
+        call: {
+          toolCallId: 'k',
+          kind: 'fetch',
+          rawInput: { url: 'https://example.com', depth: 2 },
+        },
+      },
+      // Antigravity's shell with an input that may act: its inputs carried, and it stays deny-only.
+      {
+        profile: ANTIGRAVITY,
+        call: {
+          toolCallId: 'a',
+          name: 'run_command',
+          kind: 'execute',
+          rawInput: { CommandLine: 'ls', Blocking: true },
+        },
+      },
+      // Cursor's, as ACP shapes a read (no recorded one exists).
+      {
+        profile: CURSOR,
+        call: { toolCallId: 'c', kind: 'read', rawInput: { path: 'a.txt\ncontent: (empty)' } },
+      },
+    ];
+    for (const { profile, call } of cases) {
+      const asked = approvalRequest(call, profile, folder);
+      const inputs = asked.subject.inputs ?? [];
+      const lines = asked.subject.summary.split('\n');
+      assert.equal(lines.length, inputs.length + 1, profile.runtimeId);
+      assert.deepEqual(
+        inputs.map((input) => input.name),
+        Object.keys(call.rawInput),
+      );
+      for (const [index, input] of inputs.entries()) {
+        const shown =
+          // biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are what is looked for.
+          input.kind === 'json' || !/[\u0000-\u001f]|^\s|\s$/.test(input.value)
+            ? input.value
+            : JSON.stringify(input.value);
+        assert.equal(lines[index + 1], `${input.name}: ${shown}`, profile.runtimeId);
+      }
+      assert.equal(asked.subject.command, undefined);
+    }
+    // The value with a line break is one input holding it, never a second one (IS1 kept).
+    const cursor = approvalRequest(cases[2]?.call ?? {}, CURSOR, folder);
+    assert.deepEqual(cursor.subject.inputs, [
+      { name: 'path', value: 'a.txt\ncontent: (empty)', kind: 'text' },
+    ]);
+    // Antigravity's unknown input: not approvable (LI6).
+    assert.equal(approvalRequest(cases[1]?.call ?? {}, ANTIGRAVITY, folder).complete, false);
+    // A command in parts carries no inputs: the command stands for them.
+    const command = approvalRequest(
+      { toolCallId: 'x', name: 'run_command', kind: 'execute', rawInput: { CommandLine: 'ls' } },
+      ANTIGRAVITY,
+      folder,
+    );
+    assert.equal(command.subject.inputs, undefined);
+    assert.equal(command.subject.command?.text, 'ls');
+  });
+
   test('a delete, with no change carried, is never complete', () => {
     const asked = approvalRequest(
       { toolCallId: 'a', kind: 'delete', rawInput: { path: 'x' }, locations: [{ path: '/p/x' }] },

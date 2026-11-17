@@ -14397,6 +14397,40 @@
         }
       ]
     },
+    "ApprovalInput": {
+      "type": "object",
+      "required": [
+        "name",
+        "value",
+        "kind"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 32000
+        },
+        "kind": {
+          "$ref": "#/$defs/ApprovalInputKind"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ApprovalInputKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "text"
+        },
+        {
+          "type": "string",
+          "const": "json"
+        }
+      ]
+    },
     "ApprovalSubject": {
       "anyOf": [
         {
@@ -14464,6 +14498,13 @@
             },
             "command": {
               "$ref": "#/$defs/ApprovalCommand"
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ApprovalInput"
+              },
+              "maxItems": 32
             }
           },
           "additionalProperties": false

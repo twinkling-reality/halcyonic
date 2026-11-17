@@ -1357,6 +1357,27 @@ export const ApprovalCommand = Type.Object(
 );
 export type ApprovalCommand = Static<typeof ApprovalCommand>;
 
+/** How an input's value is given: `text` whole as the app gave it, `json` any other value as JSON writes it. */
+export const ApprovalInputKind = Type.Union([Type.Literal('text'), Type.Literal('json')]);
+export type ApprovalInputKind = Static<typeof ApprovalInputKind>;
+
+/**
+ * One input of a request as the app gave it, for a card to draw literally in its well (2026-11-17, AUDIT2's
+ * literal-input well), its line breaks and tabs as marks of their own: the name as the app named it and its value,
+ * each with what Halora holds taken out and what a card does not draw escaped, as the summary is, and nothing else
+ * reformatted. Either may be empty, as an app may give it. The summary says each input on a line of its own, in the
+ * same order, so it never says less.
+ */
+export const ApprovalInput = Type.Object(
+  {
+    name: Type.String({ maxLength: 200 }),
+    value: Type.String({ maxLength: 32000 }),
+    kind: ApprovalInputKind,
+  },
+  strict,
+);
+export type ApprovalInput = Static<typeof ApprovalInput>;
+
 export const ApprovalSubject = Type.Union([
   Type.Object(
     {
@@ -1376,6 +1397,12 @@ export const ApprovalSubject = Type.Union([
       changes: Type.Optional(Type.Array(ApprovalChange, { maxItems: 16 })),
       /** The command the request would run, in its parts, where it runs one; absent otherwise and on older events. */
       command: Type.Optional(ApprovalCommand),
+      /**
+       * Each input of a request that runs no command in parts, as the app gave it, in its order; absent where a
+       * command stands for the input, where the app gave none, and on older events. More than 32, or a part longer
+       * than its bound, is carried cut, and the request is then not approvable.
+       */
+      inputs: Type.Optional(Type.Array(ApprovalInput, { maxItems: 32 })),
     },
     strict,
   ),

@@ -1,5 +1,10 @@
 import { isAbsolute, join } from 'node:path';
-import type { ApprovalChange, ApprovalCommand, ToolResult } from '@halcyonic/contracts';
+import type {
+  ApprovalChange,
+  ApprovalCommand,
+  ApprovalInput,
+  ToolResult,
+} from '@halcyonic/contracts';
 import {
   type CommandId,
   type ControlPlaneEvent,
@@ -189,6 +194,33 @@ function fittedCommand(
   return { fitted: fittedOne, cut };
 }
 
+/** The most inputs a request carries; more are carried cut (AUDIT3 LI1). */
+const INPUTS_MAX = 32;
+
+/**
+ * A request's inputs as the app gave them, each name and value with what Halcyonic holds taken out and what a card does
+ * not draw escaped, as the summary they make is, then fitted to the contract; `cut` where any part, or the list, was
+ * cut, so the request is then not approvable (AUDIT3 LI1). Nothing else is reformatted (LI3).
+ */
+function fittedInputs(
+  inputs: readonly ApprovalInput[],
+  redaction: Redaction,
+): { readonly fitted: ApprovalInput[]; readonly cut: boolean } {
+  let cut = inputs.length > INPUTS_MAX;
+  const part = (text: string, limit: number) => {
+    const shown = visible(redaction.held(text));
+    const kept = shown.length === 0 ? shown : fitted(shown, limit);
+    if (kept !== shown) cut = true;
+    return kept;
+  };
+  const kept = inputs.slice(0, INPUTS_MAX).map((input) => ({
+    name: part(input.name, 200),
+    value: part(input.value, 32000),
+    kind: input.kind,
+  }));
+  return { fitted: kept, cut };
+}
+
 /**
  * One change of a request, each text part with what Halcyonic holds taken out and what a card does not draw escaped,
  * kept whole up to the record's bound (`whole` before fitting, `fitted` after, `cut` where any part was cut), and
@@ -272,7 +304,7 @@ function withoutCredentials(
       // `too_long` is the host's own fact, never an adapter's: whatever the observation carried is dropped here.
       const { too_long: _adapters, ...given } = payload;
       const subject = given.subject as
-        | { summary?: unknown; changes?: unknown; command?: unknown }
+        | { summary?: unknown; changes?: unknown; command?: unknown; inputs?: unknown }
         | undefined;
       if (typeof subject?.summary !== 'string') return given;
       // What a card does not draw is drawn as its escape, so what is shown is what runs (AUDIT3 L1).
@@ -288,6 +320,10 @@ function withoutCredentials(
         typeof subject.command === 'object' && subject.command !== null
           ? fittedCommand(subject.command as ApprovalCommand, redaction)
           : undefined;
+      // Each input as the app gave it, taken out, escaped and fitted as the summary that says them is (AUDIT3 LI1).
+      const inputs = Array.isArray(subject.inputs)
+        ? fittedInputs(subject.inputs as ApprovalInput[], redaction)
+        : undefined;
       const parts = [
         held,
         ...(changes ?? []).flatMap((change) => [
@@ -297,11 +333,15 @@ function withoutCredentials(
           change.whole.before ?? '',
           change.whole.after ?? '',
         ]),
+        ...(inputs?.fitted ?? []).flatMap((input) => [input.name, input.value]),
       ];
       // One bound for all a person reads before Approve, counted in code points as the contract counts text.
       const length = parts.reduce((sum, part) => sum + [...part].length, 0);
       const cut =
-        summary !== held || (changes ?? []).some((change) => change.cut) || command?.cut === true;
+        summary !== held ||
+        (changes ?? []).some((change) => change.cut) ||
+        command?.cut === true ||
+        inputs?.cut === true;
       const tooLong = length > APPROVABLE_LIMIT;
       return {
         ...given,
@@ -310,6 +350,7 @@ function withoutCredentials(
           summary,
           ...(changes !== undefined && { changes: changes.map((change) => change.fitted) }),
           ...(command !== undefined && { command: command.fitted }),
+          ...(inputs !== undefined && { inputs: inputs.fitted }),
         },
         complete: given.complete === true && !cut && !tooLong,
         ...(tooLong && { too_long: { length, reported_complete: given.complete === true } }),
