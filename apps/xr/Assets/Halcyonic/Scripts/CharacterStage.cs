@@ -37,7 +37,11 @@ namespace Halcyonic.XR
         /// when both need the person (Standard / Larger; the floor is 0.5). Raising it needs a page that
         /// takes its pitch from its widest drawn tag, and StageRender's shelf-page check passing at the new count, which it reads from here.
         /// </summary>
-        public static int ShelfCapacity { get; private set; } = 1;
+        /// <summary>
+        /// How many characters stand at once on the person's shelf: the first place's count, set by the stage from <see cref="Places"/>
+        /// (the lead, 2026-11-17T18:56Z, no fixed cap). Its renders set it to judge a count; nothing else does.
+        /// </summary>
+        public static int ShelfCapacity { get; set; } = 1;
 
         /// <summary>
         /// Every project with work, each its own place (the lead, 2026-11-17T18:56Z: no fixed cap; a project's agents all stand). The

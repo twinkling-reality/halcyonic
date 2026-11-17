@@ -119,6 +119,31 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(ShelfPageHoldsTheTag(folder, name, title, needs));
             failures.AddRange(NewProjectEasesClear(folder));
             failures.AddRange(FittedPageHoldsTheTag(folder));
+            failures.AddRange(PlaceCountsHoldTheTag(folder));
+            return failures;
+        }
+
+        /// <summary>The counts a project's place is judged at (the lead, 2026-11-17T18:56Z): one, a swarm of three, six and ten.</summary>
+        private static readonly int[] PlaceCounts = { 1, 3, 6, 10 };
+
+        /// <summary>
+        /// A project's place standing ALL its agents (the lead, 2026-11-17T18:56Z, no fixed cap): the same drawn-tag page, its tags held half a degree
+        /// apart and clear of every body, at each of <see cref="PlaceCounts"/> on the person's shelf, every task needing the person. The shelf's
+        /// count is set for the page and put back after it.
+        /// </summary>
+        private static List<string> PlaceCountsHoldTheTag(string folder)
+        {
+            var failures = new List<string>();
+            var was = CharacterStage.ShelfCapacity;
+            try
+            {
+                foreach (var count in PlaceCounts)
+                {
+                    CharacterStage.ShelfCapacity = count;
+                    failures.AddRange(ShelfPageHoldsTheTag(folder, "place-" + count + "-needs", FilmShelfName, true).Select(failure => "at " + count + " in a place, " + failure));
+                }
+            }
+            finally { CharacterStage.ShelfCapacity = was; }
             return failures;
         }
 
