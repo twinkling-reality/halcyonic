@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
-    /// The Projects panel in the one language (FIELD's sheet, tile f1): the demonstration's Projects frame through
+    /// The Projects panel in the one language (FIELD's sheet, tile f1): the renders' synthetic portfolio's Projects frame through
     /// <see cref="RoomBar.OfFrame"/>, drawn by the room's own view. Measured (one glass panel and nothing beside it; HALORA in the
     /// label role over the title; the panel's Menu at its top right, clear of the title, the bar's own press; the heads PROJECT
     /// and STATE over the rows, the state's at the right; each row's state word in the label role; no rule or chevron in the
@@ -25,9 +25,12 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var shot = new PartShot { Elevation = 0f };
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            // The renders' synthetic portfolio, one project waiting on the person, as the room lists it live.
+            var portfolio = WorkspaceRender.Portfolio(hostile: false, needsYouNow: true);
             var frame = ProjectsScreens.Projects(new ProjectsScreens.State
             {
-                Demonstration = true, TextSize = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard,
+                Overview = WorkOverview.Of(portfolio, new StageVisibility(), _ => true), Live = true, Now = DateTimeOffset.UnixEpoch, Zone = TimeZoneInfo.Utc,
+                LineHeight = _ => 1d, AvailableHeight = 100d, TextSize = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard,
             }).WithSections(new MenuBar(MenuPlace.Projects, "Projects").Sections());
             var bar = RoomBar.OfFrame(frame, VoiceStage.Idle);
             Require(bar?.Card != null, "the Projects frame gives the redesign no card");
