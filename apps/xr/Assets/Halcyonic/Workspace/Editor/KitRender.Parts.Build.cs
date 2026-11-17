@@ -643,8 +643,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         rect.yMax = Mathf.Min(Height, Mathf.CeilToInt(max.y));
                         return rect.width < 2 || rect.height < 2 ? 0f : (float)InkBox(pixels, rect, label.color).Ratio;
                     }
-                    var quietRows = view.Card.ReadingShown.Where(row => row.alpha < 0.79f).ToList();
-                    var litLight = view.Card.ReadingShown.Where(row => row.alpha >= 0.79f).Select(Lightest).ToList();
+                    // Quiet against the panel's brightest row, whatever the quiet share (0.55 white, 0.80 coloured code).
+                    var brightestRow = view.Card.ReadingShown.Select(row => row.alpha).DefaultIfEmpty(1f).Max();
+                    var quietRows = view.Card.ReadingShown.Where(row => row.alpha < brightestRow * 0.95f).ToList();
+                    var litLight = view.Card.ReadingShown.Where(row => row.alpha >= brightestRow * 0.95f).Select(Lightest).ToList();
                     var contrastNote = "";
                     if (settledRead)
                     {
@@ -666,8 +668,12 @@ namespace Halcyonic.XR.Workspace.Editor
                                 contrastNote += ", the unchanged code " + string.Join(", ", quietRows.Select(Lightest)) + " at " + quietDark.ToString("0.0") + ":1 dark, " + quietBright.ToString("0.0") + ":1 bright";
                                 if (quietDark < 4.5f || quietBright < 4.5f) failures.Add("the unchanged code holds " + quietDark.ToString("0.0") + ":1 dark and " + quietBright.ToString("0.0") + ":1 bright, under 4.5:1");
                             }
-                            if (litLight.Count == 0 || litLight.Any(value => value < 215)) failures.Add("the changed code reads " + string.Join(", ", litLight) + ", not bright");
-                            if (quietRows.Select(Lightest).Any(value => value >= litLight.DefaultIfEmpty(255).Min() - 20)) failures.Add("the unchanged code is not a step below the changed");
+                            // White changed code reads bright; coloured, a row all one colour reads its colour's light, and every row's
+                            // 4.5 to 1 on both rooms (above) is the test (the lead's 2026-11-17T18:31Z: the step is the hairline, never hue).
+                            if (litLight.Count == 0 || (CodeColouring.Now() == CodeColouring.Plain && litLight.Any(value => value < 215))) failures.Add("the changed code reads " + string.Join(", ", litLight) + ", not bright");
+                            // Under Plain the unchanged code stands a step below the changed; coloured, the step is the hairline and weight,
+                            // never the hue (the lead's 2026-11-17T18:31Z), and the rows only rise to hold 4.5 to 1.
+                            if (CodeColouring.Now() == CodeColouring.Plain && quietRows.Select(Lightest).Any(value => value >= litLight.DefaultIfEmpty(255).Min() - 20)) failures.Add("the unchanged code is not a step below the changed");
                         }
                     }
                     var ruleNote = "";

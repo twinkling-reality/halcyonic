@@ -44,7 +44,17 @@ namespace Halcyonic.XR.UI
         /// the one language's (FIELD's sheet, tile f5, the lead's 2026-11-17T01:05Z): a quiet label in spaced capitals, the
         /// file's path as the title in its own case, then the code in mono at 18 dp, so the card stands at 18 over its 15.
         /// </summary>
-        public const float QuietRow = 0.55f;
+        public const float QuietRow = 0.62f;
+
+        /// <summary>
+        /// The unchanged rows' share where code is coloured (a palette other than Plain): raised until every token holds 4.5 to 1
+        /// on the bright room's glass (the lead's 2026-11-17T18:31Z ruling; FIELD's 18:31Z: about 0.75 overall, with the row's
+        /// own 0.80). The changed rows keep their step by their white hairline and weight, never by hue. Plain white keeps
+        /// <see cref="QuietRow"/>, which holds white at 4.5 to 1 (about 0.47 overall).
+        /// </summary>
+        public const float QuietCodeRow = 0.96f;
+
+        private float quietNow = QuietRow;
 
         public const float CardScale = CodeDp / RoomReading.TypeDp;
 
@@ -373,6 +383,7 @@ namespace Halcyonic.XR.UI
         {
             if (path == null) return;
             var palette = CodeColouring.Now();
+            quietNow = palette == CodeColouring.Plain ? QuietRow : QuietCodeRow;
             // By the file's own lines (AUDIT3's CC-a): each line tokenized whole from what the file left open above the window,
             // its runs mapped onto the rows it wraps to. Nothing is worked out again for the same window, palette and paint.
             if (shownCode is CodeRows code)
@@ -477,7 +488,7 @@ namespace Halcyonic.XR.UI
             {
                 if (label == null) continue;
                 // A read that changed some lines leaves every other line quiet, so what changed reads at a glance.
-                var quiet = row >= 0 && litRows.Count > 0 && !litRows.Contains(row) ? QuietRow : 1f;
+                var quiet = row >= 0 && litRows.Count > 0 && !litRows.Contains(row) ? quietNow : 1f;
                 var alpha = own.a * quiet * arrived * (row >= 0 ? RowShown(row) : 1f);
                 // A row this read pours arrives in the accent and settles into its own colour.
                 var tint = row >= 0 ? ArriveTint * LightAt(row).Strength : 0f;
