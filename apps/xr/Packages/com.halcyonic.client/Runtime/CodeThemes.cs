@@ -5,7 +5,7 @@ namespace Halcyonic.Client
 {
     /// <summary>
     /// How code is coloured in every panel that shows it (the owner's ask, the lead's 2026-11-17T03:36Z): Halora, the default, soft
-    /// colours by kind of code made for the glass; Plain, all code in white as before; High Contrast, stronger colours. The person's
+    /// colours for each kind of code; Plain, all code in white; High Contrast, stronger colours. The person's
     /// choice on Settings › Appearance › Code Colours, kept on the device beside the appearance; it changes no work, so no journal event.
     /// The colours themselves are FIELD's palette, drawn by the shared highlighter; this names the choice.
     /// </summary>
@@ -51,8 +51,8 @@ namespace Halcyonic.Client
         /// <summary>The plain line under each choice (AUDIT2's 03:36Z).</summary>
         public static string Line(CodeTheme theme) => theme switch
         {
-            CodeTheme.Halora => "Soft colours by kind of code, made for the glass.",
-            CodeTheme.Plain => "All code in white, as before.",
+            CodeTheme.Halora => "Soft colours for each kind of code.",
+            CodeTheme.Plain => "All code in white.",
             CodeTheme.HighContrast => "Brighter colours, set further apart.",
             _ => throw new ArgumentOutOfRangeException(nameof(theme), theme, "a code theme of no known kind"),
         };

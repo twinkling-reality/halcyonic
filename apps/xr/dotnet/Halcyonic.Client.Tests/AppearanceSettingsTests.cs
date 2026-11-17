@@ -734,8 +734,8 @@ public class AppearanceSettingsTests
             Assert.That(page.Subject, Is.EqualTo("Code Colours"));
             Assert.That(page.Lines.Select(line => (line.Words, line.Under?.Text, line.Fact)), Is.EqualTo(new[]
             {
-                ("Halora", (string?)"Soft colours by kind of code, made for the glass.", (string?)"Current"),
-                ("Plain", "All code in white, as before.", null),
+                ("Halora", (string?)"Soft colours for each kind of code.", (string?)"Current"),
+                ("Plain", "All code in white.", null),
                 ("High Contrast", "Brighter colours, set further apart.", null),
             }));
             Assert.That(page.Footer.All.Single(each => each.Prompt.Main).Prompt.Words, Is.EqualTo("Preview Colours"));
