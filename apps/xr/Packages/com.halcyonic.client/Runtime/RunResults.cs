@@ -8,7 +8,7 @@ using Halcyonic.Contracts;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// Seorak's evaluation of one run as "How It Went" reads it (the lead's 2026-11-17 20:15Z; AUDIT2's 20:17Z words; laid after
+    /// Seorak's evaluation of one run as the project screen's Outcome door reads it (the lead's 2026-11-17 20:15Z; AUDIT2's 20:17Z words; laid after
     /// hud-titanfall-2-end-of-match.png and result-death-stranding-results.png): sections of rows, each a measure's words and the
     /// source's own value, untouched. A part the source marks unavailable, and any null, is left out, never shown as 0, a dash
     /// or a placeholder; no grade, rating or overall score is ever made. The view names the source once (SEORAK MEASURED).
@@ -18,7 +18,8 @@ namespace Halcyonic.Client
         /// <summary>The view's own words (AUDIT2's 20:17Z).</summary>
         public static class Words
         {
-            public const string Title = "How It Went";
+            /// <summary>The page takes its door's word (AUDIT2's 20:52Z).</summary>
+            public static string Title => KitScreenModel.Words(KitScreenAction.HowItWent);
             public const string Source = "Seorak Measured";
             public const string Activity = "Activity", Changes = "Changes", Checks = "Checks", Cost = "Cost";
             public const string Time = "Time", ToolCalls = "Tool Calls", Instructions = "Instructions";

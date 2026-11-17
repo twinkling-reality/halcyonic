@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace Halcyonic.Client.Tests;
 
 /// <summary>
-/// Seorak's evaluation of a run as "How It Went" reads it (the lead's 2026-11-17 20:15Z; AUDIT2's 20:17Z words and rows): every
+/// Seorak's evaluation of a run as the Outcome door reads it (the lead's 2026-11-17 20:15Z; AUDIT2's 20:17Z words and rows): every
 /// value is the source's own field, untouched; a part the source marks unavailable, and any null, is left out, never a 0.
 /// </summary>
 public class RunResultsTests

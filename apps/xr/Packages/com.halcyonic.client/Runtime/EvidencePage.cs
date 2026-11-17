@@ -6,8 +6,8 @@ using Halcyonic.Contracts;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// One evidence view as the headset lays it (the lead's 2026-11-17 20:50Z): "How It Went" from Seorak's evaluation
-    /// (<see cref="RunResults"/>) or "Why" from Salidium's understanding (<see cref="RunUnderstanding"/>), read through
+    /// One evidence view as the headset lays it (the lead's 2026-11-17 20:50Z): the Outcome page from Seorak's evaluation
+    /// (<see cref="RunResults"/>) or the Reasoning page from Salidium's understanding (<see cref="RunUnderstanding"/>), read through
     /// the plane's own reads. Where the read gives no answer the page says so honestly, in the words the text sections already use
     /// (Not Measured, Measurement Unavailable, Measurement Unreadable, Measurement Not Allowed; No Conclusions, Conclusions
     /// Unavailable, Conclusions Unreadable, Conclusions Not Allowed), with the reason's own phrase; before any read, the state's own
@@ -49,7 +49,7 @@ namespace Halcyonic.Client
         /// <summary>The source named once, in the label role (SEORAK MEASURED, SALIDIUM OBSERVED or REPORTED); null without an answer.</summary>
         public string? Label { get; }
 
-        /// <summary>The source's verdict as the hero sentence, and why (theirs); null on "How It Went".</summary>
+        /// <summary>The source's verdict as the hero sentence, and why (theirs); null on the Outcome page.</summary>
         public string? Headline { get; }
         public string? Because { get; }
 
@@ -61,7 +61,7 @@ namespace Halcyonic.Client
         /// <summary>The reason's own phrase under the state; null for none.</summary>
         public string? Why { get; }
 
-        /// <summary>"How It Went" from <paramref name="response"/>, or its honest state; before any read, the state and <see cref="NothingRead"/>.</summary>
+        /// <summary>The Outcome page from <paramref name="response"/>, or its honest state; before any read, the state and <see cref="NothingRead"/>.</summary>
         public static EvidencePage Of(EvaluationResponse? response)
         {
             var title = RunResults.Words.Title;
@@ -83,7 +83,7 @@ namespace Halcyonic.Client
         /// <summary>Before any read, the state's own word with this under it (AUDIT2's 20:52Z), so the title line has one form.</summary>
         public const string NothingRead = "Nothing has been read for this task yet.";
 
-        /// <summary>"Why" from <paramref name="response"/>, or its honest state; before any read, the state and <see cref="NothingRead"/>.</summary>
+        /// <summary>The Reasoning page from <paramref name="response"/>, or its honest state; before any read, the state and <see cref="NothingRead"/>.</summary>
         public static EvidencePage Of(UnderstandingResponse? response)
         {
             var title = RunUnderstanding.Words.Title;
