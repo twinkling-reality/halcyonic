@@ -26,7 +26,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var wasHalora = CodeColouring.Palettes.TryGetValue(CodeTheme.Halora, out var halora) ? halora : null;
             var wasScale = GlazeText.Scale;
             CodeColouring.Palette probe = kind => kind == CodeTokenKind.Keyword ? new Color32(120, 200, 255, 255)
-                : kind == CodeTokenKind.String ? new Color32(180, 255, 160, 255) : (Color32?)null;
+                : kind == CodeTokenKind.String ? new Color32(180, 255, 160, 255)
+                : kind == CodeTokenKind.Comment ? new Color32(200, 200, 210, 255) : (Color32?)null;
             try
             {
                 foreach (var scale in new[] { 1f, RoomGeometry.LargerScale })
