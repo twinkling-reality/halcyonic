@@ -507,6 +507,29 @@ public class WorkspacePresentationStateTests
     }
 
     [Test]
+    public void PressesOnSeveralProjectsQueueBesideEachOtherNeverOverwritten()
+    {
+        // Limit #15 (the lead's 19:17Z): one pending Play on Laptop and one Make VR Version; a second press silently overwrote the first.
+        const string other = "01a19000-0000-7000-8000-000000000002";
+        var commands = new CommandFactory(Samples.Client);
+        var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true);
+        presentation.RecordCommandDispatched(commands.StartPreview(Samples.ProjectId));
+        presentation.RecordCommandDispatched(commands.StartPreview(other));
+        Assert.That(presentation.PendingOpenOnMacProjectIds, Is.EqualTo(new[] { Samples.ProjectId, other }), "each project waits on its own preview");
+        presentation.RecordCommandDispatched(commands.OpenOnMac(other));
+        Assert.That(presentation.PendingOpenOnMacProjectIds, Is.EqualTo(new[] { Samples.ProjectId }), "opening one ends only its own wait");
+
+        presentation.RecordCommandDispatched(commands.MakeVrVersion(Samples.ProjectId, "/Users/person/Projects", "recipe-tracker-vr"));
+        presentation.RecordCommandDispatched(commands.MakeVrVersion(other, "/Users/person/Projects", "kite-run-vr"));
+        presentation.RecordCommandDispatched(commands.MakeVrVersion(Samples.ProjectId, "/Users/person/Projects", "recipe-tracker-vr"));
+        Assert.That(presentation.PendingVrConversionSourceProjectIds, Is.EqualTo(new[] { Samples.ProjectId, other }), "queued in the order pressed, once each");
+        Assert.That((presentation.VrQueueWords(Samples.ProjectId), presentation.VrQueueWords(other), presentation.VrQueueWords("not-queued")),
+            Is.EqualTo(((string?)"Waiting", (string?)"1 Ahead", (string?)null)), "AUDIT2's words for a place in the queue");
+        presentation.ResetPendingCommands();
+        Assert.That((presentation.PendingOpenOnMacProjectIds.Count, presentation.PendingVrConversionSourceProjectIds.Count), Is.EqualTo((0, 0)));
+    }
+
+    [Test]
     public void MakeAVrVersionAutoSelectsNewVrProjectAndStartsConversionWorkstream()
     {
         var sourceProjectJson = new JObject

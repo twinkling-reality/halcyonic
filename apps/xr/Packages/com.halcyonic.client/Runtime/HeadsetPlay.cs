@@ -1,6 +1,8 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -160,43 +162,53 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// A Play in Headset press waiting on the preview it started: once the project's view shows the preview of its
-    /// latest check, the address opens once; any other answer ends the wait. One project at a time.
+    /// Play in Headset presses waiting on the previews they started, one per project (limit #16, the lead's 19:17Z): once a
+    /// project's view shows the preview of its latest check, its address opens once; any other answer ends that project's wait.
+    /// A press on another project waits beside it, never in its place.
     /// </summary>
     public sealed class HeadsetPlayWait
     {
-        /// <summary>The project whose preview this headset waits to open, or null.</summary>
-        public string? ProjectId { get; private set; }
+        private readonly List<string> waiting = new List<string>();
 
-        /// <summary>Records that a press sent <paramref name="command"/>; only a preview's start begins a wait.</summary>
+        /// <summary>Every project whose preview this headset waits to open, in the order pressed.</summary>
+        public IReadOnlyList<string> ProjectIds => waiting;
+
+        /// <summary>The first project still waiting, or null where none is.</summary>
+        public string? ProjectId => waiting.Count > 0 ? waiting[0] : null;
+
+        /// <summary>Records that a press sent <paramref name="command"/>; only a preview's start begins a wait, its project's own.</summary>
         public void Sent(CommandEnvelope? command)
         {
-            if (command is ProjectPreviewStartCommand start) ProjectId = start.Payload.ProjectId;
+            if (command is ProjectPreviewStartCommand start && !waiting.Contains(start.Payload.ProjectId)) waiting.Add(start.Payload.ProjectId);
         }
 
-        /// <summary>Ends the wait without opening anything.</summary>
-        public void Clear() => ProjectId = null;
+        /// <summary>Ends every wait without opening anything.</summary>
+        public void Clear() => waiting.Clear();
 
         /// <summary>
-        /// The address to open now, once, from <paramref name="state"/>; null while the preview is still starting or
-        /// when the wait ended without one (the project gone, or Play in Headset refused). On a paired computer,
-        /// <paramref name="relay"/> starts the app's relay for a project and answers its loopback port (null where it
-        /// could not); it is asked only at the moment the address opens, never while the preview is still starting.
+        /// The address to open now, once, from <paramref name="state"/>: the first waiting project whose preview runs; null while
+        /// every preview is still starting. A wait that ended without one (the project gone, or Play in Headset refused) leaves
+        /// the queue. On a paired computer, <paramref name="relay"/> starts the app's relay for a project and answers its loopback
+        /// port (null where it could not); it is asked only at the moment the address opens, never while the preview is starting.
         /// </summary>
         public Uri? Advance(ClientProjection? state, ControlPlaneTarget? target, bool demonstration, int? relayPort = null, Func<string, int?>? relay = null)
         {
-            if (ProjectId == null || state == null) return null;
-            if (!state.Projects.TryGetValue(ProjectId, out var project))
+            if (waiting.Count == 0 || state == null) return null;
+            foreach (var projectId in waiting.ToList())
             {
-                ProjectId = null;
-                return null;
+                if (!state.Projects.TryGetValue(projectId, out var project))
+                {
+                    waiting.Remove(projectId);
+                    continue;
+                }
+                var play = HeadsetPlay.For(project, target, demonstration, relayPort, relay != null);
+                if (play == PlayInHeadset.NoPreviewOfCheck) continue;
+                waiting.Remove(projectId);
+                if (play != PlayInHeadset.Offered) continue;
+                var port = relayPort ?? (target?.Pairing != null ? relay?.Invoke(project.ProjectId) : null);
+                return HeadsetPlay.AddressOf(project, target, demonstration, port);
             }
-            var play = HeadsetPlay.For(project, target, demonstration, relayPort, relay != null);
-            if (play == PlayInHeadset.NoPreviewOfCheck) return null;
-            ProjectId = null;
-            if (play != PlayInHeadset.Offered) return null;
-            var port = relayPort ?? (target?.Pairing != null ? relay?.Invoke(project.ProjectId) : null);
-            return HeadsetPlay.AddressOf(project, target, demonstration, port);
+            return null;
         }
     }
 }

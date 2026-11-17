@@ -181,6 +181,31 @@ public class HeadsetPlayTests
     }
 
     [Test]
+    public void APressOnAnotherProjectWaitsBesideTheFirstNeverInItsPlace()
+    {
+        // Limit #16 (the lead's 19:17Z): the wait held one project, and a second press dropped the first.
+        const string other = "01a19000-0000-7000-8000-000000000002";
+        ProjectView Other(JObject? preview = null)
+        {
+            var view = View(Check(), preview);
+            view.ProjectId = other;
+            return view;
+        }
+        var factory = new CommandFactory(Samples.Client);
+        var wait = new HeadsetPlayWait();
+        wait.Sent(factory.StartPreview(ProjectId));
+        wait.Sent(factory.StartPreview(other));
+        wait.Sent(factory.StartPreview(ProjectId));
+        Assert.That(wait.ProjectIds, Is.EqualTo(new[] { ProjectId, other }), "each project waits once, in the order pressed");
+        Assert.That(wait.Advance(State(View(Check()), Other()), Cable, demonstration: false), Is.Null, "both still starting");
+        Assert.That(wait.Advance(State(View(Check()), Other(Preview(port: 47933))), Cable, demonstration: false), Is.EqualTo(new Uri("http://127.0.0.1:47933/")),
+            "the second opens when its own preview runs, the first still waiting");
+        Assert.That(wait.ProjectIds, Is.EqualTo(new[] { ProjectId }));
+        Assert.That(wait.Advance(State(View(Check(), Preview(port: 47932)), Other(Preview(port: 47933))), Cable, demonstration: false), Is.EqualTo(new Uri("http://127.0.0.1:47932/")));
+        Assert.That(wait.ProjectIds, Is.Empty);
+    }
+
+    [Test]
     public void AWaitEndsWithoutOpeningWhenTheProjectGoesOrIsRefused()
     {
         var factory = new CommandFactory(Samples.Client);

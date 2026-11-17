@@ -70,11 +70,41 @@ namespace Halcyonic.Client
         /// <summary>Whether showing the screen put the console aside, so that closing the screen brings it back.</summary>
         private bool consoleAsideForScreen;
 
-        /// <summary>The project waiting to open on the Mac once its newly started preview is ready.</summary>
-        public string? PendingOpenOnMacProjectId { get; private set; }
+        private readonly List<string> pendingOpenOnMac = new List<string>();
+        private readonly List<string> pendingVrSources = new List<string>();
 
-        /// <summary>The source project waiting for its <c>project.make_vr_version</c> VR project to appear in the projection.</summary>
-        public string? PendingVrConversionSourceProjectId { get; private set; }
+        /// <summary>
+        /// The projects waiting to open on the Mac once their newly started previews are ready, in the order pressed: each project its
+        /// own wait, side by side, never one press in another's place (limit #15, the lead's 19:17Z).
+        /// </summary>
+        public IReadOnlyList<string> PendingOpenOnMacProjectIds => pendingOpenOnMac;
+
+        /// <summary>The first project waiting to open on the Mac, or null.</summary>
+        public string? PendingOpenOnMacProjectId => pendingOpenOnMac.Count > 0 ? pendingOpenOnMac[0] : null;
+
+        /// <summary>
+        /// The source projects waiting for their <c>project.make_vr_version</c> VR projects, in the order pressed (limit #15): each
+        /// conversion starts in its turn, one at a time, and a later press never replaces an earlier one.
+        /// </summary>
+        public IReadOnlyList<string> PendingVrConversionSourceProjectIds => pendingVrSources;
+
+        /// <summary>The first source project waiting for its VR project, or null.</summary>
+        public string? PendingVrConversionSourceProjectId => pendingVrSources.Count > 0 ? pendingVrSources[0] : null;
+
+        /// <summary>A VR version waiting its turn behind others (AUDIT2's words): "Waiting" first in line, else how many stand ahead.</summary>
+        public const string QueueWaiting = "Waiting";
+
+        /// <summary>
+        /// What a project's place in the Make VR Version queue reads: <see cref="QueueWaiting"/> where it is next, "{n} Ahead" where
+        /// n conversions go before it (one running counts); null where it is not queued.
+        /// </summary>
+        public string? VrQueueWords(string projectId)
+        {
+            var at = pendingVrSources.IndexOf(projectId);
+            if (at < 0) return null;
+            var ahead = at + (PendingVrConversionSequence != null ? 1 : 0);
+            return ahead == 0 ? QueueWaiting : ahead.ToString(System.Globalization.CultureInfo.InvariantCulture) + " Ahead";
+        }
 
         /// <summary>The active two-step build sequence (<c>workstream.create</c> then <c>execution.start</c>) for a newly created VR project.</summary>
         public BuildSequence? PendingVrConversionSequence { get; private set; }
@@ -953,22 +983,22 @@ namespace Halcyonic.Client
             switch (command)
             {
                 case ProjectPreviewStartCommand startPreview:
-                    PendingOpenOnMacProjectId = startPreview.Payload.ProjectId;
+                    if (!pendingOpenOnMac.Contains(startPreview.Payload.ProjectId)) pendingOpenOnMac.Add(startPreview.Payload.ProjectId);
                     break;
-                case ProjectOpenOnMacCommand:
-                    PendingOpenOnMacProjectId = null;
+                case ProjectOpenOnMacCommand openOnMac:
+                    pendingOpenOnMac.Remove(openOnMac.Payload.ProjectId);
                     break;
                 case ProjectMakeVrVersionCommand makeVr:
-                    PendingVrConversionSourceProjectId = makeVr.Payload.OriginalProjectId;
-                    PendingVrConversionSequence = null;
+                    // Queued behind any conversion under way, which carries on (limit #15: never overwritten).
+                    if (!pendingVrSources.Contains(makeVr.Payload.OriginalProjectId)) pendingVrSources.Add(makeVr.Payload.OriginalProjectId);
                     break;
             }
         }
 
         public void ResetPendingCommands()
         {
-            PendingOpenOnMacProjectId = null;
-            PendingVrConversionSourceProjectId = null;
+            pendingOpenOnMac.Clear();
+            pendingVrSources.Clear();
             PendingVrConversionSequence = null;
             SelectedRuntimeId = null;
             SelectedModelRef = null;
@@ -993,28 +1023,25 @@ namespace Halcyonic.Client
             convertedProjectId = null;
             if (state == null || commands == null) return null;
 
-            if (PendingOpenOnMacProjectId is string previewProjectId)
+            // Every project waiting on its preview, each in its own right (limit #15): the first ready opens now, the rest next frame.
+            foreach (var previewProjectId in pendingOpenOnMac.ToList())
             {
                 if (!state.Projects.TryGetValue(previewProjectId, out var previewProject))
                 {
-                    PendingOpenOnMacProjectId = null;
+                    pendingOpenOnMac.Remove(previewProjectId);
+                    continue;
                 }
-                else
+                var play = ProjectPlayFacts.PlayOnLaptopFor(previewProject);
+                if (play == PlayOnLaptop.Offered)
                 {
-                    var play = ProjectPlayFacts.PlayOnLaptopFor(previewProject);
-                    if (play == PlayOnLaptop.Offered)
-                    {
-                        PendingOpenOnMacProjectId = null;
-                        return commands.OpenOnMac(previewProjectId);
-                    }
-                    if (play != PlayOnLaptop.NoPreviewOfCheck)
-                    {
-                        PendingOpenOnMacProjectId = null;
-                    }
+                    pendingOpenOnMac.Remove(previewProjectId);
+                    return commands.OpenOnMac(previewProjectId);
                 }
+                if (play != PlayOnLaptop.NoPreviewOfCheck) pendingOpenOnMac.Remove(previewProjectId);
             }
 
-            if (PendingVrConversionSourceProjectId is string sourceProjectId)
+            // One conversion at a time, the queue in the order pressed (limit #15): the next starts once the one under way ends.
+            foreach (var sourceProjectId in PendingVrConversionSequence == null ? pendingVrSources.ToList() : new List<string>())
             {
                 ProjectView? newVrProject = null;
                 ProjectMadeFromInfo? madeFrom = null;
@@ -1035,7 +1062,7 @@ namespace Halcyonic.Client
 
                 if (newVrProject != null && madeFrom != null)
                 {
-                    PendingVrConversionSourceProjectId = null;
+                    pendingVrSources.Remove(sourceProjectId);
                     convertedProjectId = newVrProject.ProjectId;
                     var stood = openScreens.IndexOf(sourceProjectId);
                     if (stood >= 0 && !openScreens.Contains(newVrProject.ProjectId)) openScreens[stood] = newVrProject.ProjectId;
@@ -1065,6 +1092,8 @@ namespace Halcyonic.Client
                             neverAsk: NeverAskChosenFor(sourceProjectId));
                         return firstCommand;
                     }
+                    // No runtime can start it: this one ends here, as before; the next in line waits for the next frame.
+                    return null;
                 }
             }
 
