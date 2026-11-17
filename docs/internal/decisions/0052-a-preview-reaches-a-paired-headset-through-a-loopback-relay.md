@@ -112,3 +112,19 @@ carries the relay is the owner's to decide, as what is uploaded and reviewed; on
 Not yet verified on a headset: the service keeping the relay serving while the browser is in front, and Quest Browser
 offering WebXR on the relay's address.
 
+
+## Amendment 2026-11-17: one relay per open project screen
+
+The limits audit's #9 (the lead's 2026-11-17 19:17Z): one relay at a time, stopped when another project's preview
+opened and when Halcyonic came back to the front, meant two projects' previews could never stand live together. Now
+(`PreviewRelays`, `HeadsetRelay`) the headset keeps one relay per open project screen, at most the room's three
+(`WorkspacePresentationState.ScreensMost`), each on its own loopback port. A screen's relay lives until that screen
+closes; opening another never stops it, and Halcyonic coming back to the front does not either, since the preview stands
+beside the room. A Play with no screen open keeps the one-relay rule as before: the next such Play takes its place, and
+it stops once Halcyonic is back in front after the browser. Every relay stops when the pairing changes and at quit. The
+foreground service is held while any relay runs.
+
+The exposure in AUDIT2's S2 grows with it: while a screen stays open, any app on the headset can read that project's
+preview through its relay, up to three projects at once, and still nothing else of the computer's. Closing the screen
+ends it. Not yet verified on a headset: several Quest Browser windows open at once, each on its own relay (DEVICE's
+measure, LINK's route 1).

@@ -379,8 +379,9 @@ namespace Halcyonic.XR.Workspace
         private void OnApplicationPause(bool paused)
         {
             if (paused) KeepViews();
-            // Back in front after Quest Browser showed a relayed preview: the browser has left it, so the relay stops.
-            HeadsetRelay.Paused(paused);
+            // Back in front after Quest Browser showed a relayed preview with no screen open: the browser has left it, so that
+            // relay stops; an open project screen's preview stays live beside the room (the limits audit's #9).
+            HeadsetRelay.Paused(paused, setup.Presentation.ScreenProjectIds);
         }
 
         private void OnApplicationQuit() => HeadsetRelay.Stop();

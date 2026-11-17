@@ -899,7 +899,7 @@ namespace Halcyonic.XR.Workspace
                 dirty = true;
                 return;
             }
-            var port = target?.Pairing != null ? HeadsetRelay.PortFor(target, projectId) : null;
+            var port = target?.Pairing != null ? HeadsetRelay.PortFor(target, projectId, setup.Presentation.ScreenProjectIds) : null;
             HeadsetBrowser.Open(HeadsetPlay.AddressOf(project!, target, Demonstration, port));
         }
 
@@ -918,6 +918,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Each frame: where a press waits on a preview, the address opens once the project's view shows it running.</summary>
         private void AdvanceHeadsetPlay()
         {
+            // A closed project screen's preview relay stops, and only its own (the limits audit's #9).
+            HeadsetRelay.Keep(setup.Presentation.ScreenProjectIds);
             if (headsetPlay.ProjectId == null) return;
             // A demonstration showing meanwhile opens nothing.
             if (Demonstration)
@@ -929,7 +931,7 @@ namespace Halcyonic.XR.Workspace
             // Only the computer this director was set up for, never the device's stored one (the night's security fix, 2026-11-12).
             var target = setup.ConnectionTarget();
             HeadsetBrowser.Open(headsetPlay.Advance(State, target, Demonstration,
-                relay: HeadsetRelay.Serves(target) ? project => HeadsetRelay.PortFor(target, project) : null));
+                relay: HeadsetRelay.Serves(target) ? project => HeadsetRelay.PortFor(target, project, setup.Presentation.ScreenProjectIds) : null));
         }
 
         private void OnScreenActed(KitScreenAction action, string? projectId)
