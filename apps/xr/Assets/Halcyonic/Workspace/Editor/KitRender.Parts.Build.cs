@@ -20,7 +20,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after", "47-build-long" }
+        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after", "47-build-long", "47-build-tall" }
             .Concat(System.Environment.GetEnvironmentVariable("HALCYONIC_KIT_STRIP") == "1" ? Enumerable.Range(0, PourFrames).Select(frame => "47-build-pour-" + frame.ToString("00", CultureInfo.InvariantCulture)) : System.Array.Empty<string>())
             .ToArray();
 
@@ -246,6 +246,28 @@ namespace Halcyonic.XR.Workspace.Editor
         };
 
 
+        /// <summary>
+        /// A long file read, then read again with a line near its foot changed, through the product's own window
+        /// (WatchBuild, capped by RoomWritingPanel.MostRows): the panel shows the rows that fit, ending at the line being
+        /// written, and counts the file's lines left out above and below (the lead's 2026-11-17T03:09Z ruling).
+        /// </summary>
+        private static WritingPanel TallPanel()
+        {
+            const string path = "src/game/sky.js";
+            var watch = new WatchBuild(RoomWritingPanel.Wrap) { MostRows = RoomWritingPanel.MostRows };
+            var lines = Enumerable.Range(1, 40).Select(line => "const gust" + line + " = wind(" + line + ");").ToList();
+            Halcyonic.Contracts.ProjectFileResponse Read(IEnumerable<string> text) => new Halcyonic.Contracts.ProjectFileResponse
+                { ProjectId = "p", Path = path, Kind = Halcyonic.Contracts.ProjectFileKind.Text, SizeBytes = 900, Text = string.Join("\n", text), ModifiedAt = "2026-11-17T03:00:00Z" };
+            Halcyonic.Contracts.ExecutionWritingView Writing(string at) => new Halcyonic.Contracts.ExecutionWritingView
+                { Paths = new List<string> { path }, PathsTotal = 1, TotalComplete = true, At = at };
+            watch.Due(Writing("t1"), 0);
+            watch.Read(path, Read(lines), 0.1);
+            lines[29] = "const gust30 = wind(30) * lift;";
+            watch.Due(Writing("t2"), 2.5);
+            watch.Read(path, Read(lines), 2.6);
+            return watch.Arc.Panels.Single();
+        }
+
         /// <summary>A path longer than the head's two lines at either text size, so the head must fold it.</summary>
         private const string LongPath = "src/game/levels/the-northern-forest/canopy-and-clearings/wind-currents-near-the-ground/updraft.js";
 
@@ -358,7 +380,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     // A path too long for the head's line budget folds its leading folders, the name whole (AUDIT3's W1); a file the
                     // host did not say was new says Writing, never Editing (the lead's 02:36Z W2).
-                    shown = state == "47-build-long"
+                    shown = state == "47-build-tall" ? TallPanel() : state == "47-build-long"
                         ? new WritingPanel(LongPath, LineWords.Theirs("updraft.js"), LineWords.Theirs(LongPath.Substring(0, LongPath.LastIndexOf('/'))), WritingState.Changing,
                             BuildFile.SelectMany(RoomWritingPanel.Wrap).ToList(), new int[0], 812, isNew: false)
                         : BuildPanel(BuildFile, state == "47-build-held" ? WritingState.KeptPrivate : WritingState.Changing);
@@ -401,6 +423,25 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(nameLabel.gameObject.activeInHierarchy && (titleText == shown.Path || folded) && !nameLabel.isTextOverflowing && !nameLabel.isTextTruncated, "the file's path is not the title whole or folded: " + nameLabel.GetParsedText());
                 Require(titleText.EndsWith(shown.Name.Text, System.StringComparison.Ordinal), "the title does not end in the file's name whole: " + titleText);
                 if (state == "47-build-long") Require(folded, "the long path is not folded: " + titleText);
+                // The rows capped to what fits, the line being written always among them, and the lines left out counted in
+                // words, exactly (the lead's 03:09Z ruling; AUDIT2's words); no count where nothing is left out.
+                var (countAbove, countBelow) = view.Counts;
+                foreach (var (count, lines, where) in new[] { (countAbove, shown.LinesAbove, "above"), (countBelow, shown.LinesBelow, "below") })
+                {
+                    count.ForceMeshUpdate(true, true);
+                    if (lines > 0) Require(count.gameObject.activeInHierarchy && count.GetParsedText().Trim() == RoomWritingPanel.CountWords(lines, where).ToUpperInvariant(),
+                        "the " + lines + " lines " + where + " are not counted: \"" + count.GetParsedText() + "\"");
+                    else Require(!count.gameObject.activeInHierarchy, "a count stands " + where + " where nothing is left out");
+                }
+                if (state == "47-build-tall")
+                {
+                    Require(shown.Lines.Count <= RoomWritingPanel.MostRows(), "the panel shows " + shown.Lines.Count + " rows, more than the " + RoomWritingPanel.MostRows() + " that fit");
+                    Require(shown.LinesAbove > 0 && shown.LinesBelow > 0, "the tall file leaves nothing out: " + shown.LinesAbove + " above, " + shown.LinesBelow + " below");
+                    // The changed line whole, though it may wrap over more than one row at the larger size.
+                    var drawnCode = string.Join(" ", view.Card.ReadingShown.Select(row => row.GetParsedText().Trim()));
+                    Require(drawnCode.Contains("gust30") && drawnCode.Contains("lift;"), "the line being written is not drawn: " + drawnCode);
+                    Require(view.Size.y <= RoomType.Units(RoomWritingPanel.MostPanelTallDp) + unit * 0.5f, "the tall panel stands " + (view.Size.y / unit).ToString("0") + " dp, past " + RoomWritingPanel.MostPanelTallDp);
+                }
                 Require(nameLabel.font != null && !nameLabel.font.name.Contains("Mono") && (nameLabel.fontStyle & FontStyles.UpperCase) == 0, "the title is not in the sans face in its own case: " + nameLabel.font?.name);
                 Require(!labels.Any(each => each.GetParsedText().Trim() == shown.Folder!.Text || each.GetParsedText().Trim() == shown.Name.Text), "the file's name or folder is shown again in the card");
                 var headRight = Mathf.Max(headLabel.textBounds.max.x, nameLabel.textBounds.max.x);
@@ -439,7 +480,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 var bands = view.Card.Plates.Where(each => each.What == "reading lit band").ToList();
                 var rules = view.Card.Plates.Where(each => each.What == "reading lit rule").ToList();
-                if (state == "47-build-edited" || Moving(state)) Require(bands.Count > 0 && rules.Count == bands.Count, "the changed rows are not lit: " + bands.Count + " bands, " + rules.Count + " rules");
+                if (state == "47-build-edited" || state == "47-build-tall" || Moving(state)) Require(bands.Count > 0 && rules.Count == bands.Count, "the changed rows are not lit: " + bands.Count + " bands, " + rules.Count + " rules");
                 else Require(bands.Count == 0, "rows no read changed are lit");
                 // Each rule stands clear of the words, left of the first letter, and inside the glass.
                 if (rows.Count > 0 && rules.Count > 0)

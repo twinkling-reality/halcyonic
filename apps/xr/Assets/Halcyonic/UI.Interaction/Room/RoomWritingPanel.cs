@@ -54,6 +54,34 @@ namespace Halcyonic.XR.UI
         private RoomCardView card = null!;
         private TextMeshPro headLabel = null!;
         private TextMeshPro headTitle = null!;
+        private TextMeshPro countAbove = null!;
+        private TextMeshPro countBelow = null!;
+
+        /// <summary>
+        /// The tallest a panel stands, in dp, so the open arc stays inside the field at either text size (the lead's
+        /// 2026-11-17T03:09Z ruling): its rows are capped to what fits under its head (<see cref="MostRows"/>), never its type
+        /// made smaller; rows left out are counted in words.
+        /// </summary>
+        public const float MostPanelTallDp = 340f;
+
+        public const float CountLineDp = 23f;
+
+        /// <summary>How many rows of code a panel shows at most at the person's text size, its head and both counts laid.</summary>
+        public static int MostRows()
+        {
+            var pitch = RoomType.Scaled(RoomReading.LineDp) * CardScale;
+            var head = RoomType.Scaled(LabelLineDp + LabelGapDp + TitleLineDp + TitleGapDp);
+            var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
+            var counts = 2f * RoomType.Scaled(CountLineDp);
+            // One row's room less for the card's own room above and below its rows (measured: 357 dp at 6 rows without it).
+            return Mathf.Max(3, Mathf.FloorToInt((RoomType.Units(MostPanelTallDp) - head - 2f * pad - counts) / pitch) - 1);
+        }
+
+        /// <summary>The count words for <paramref name="lines"/> of the file left out <paramref name="where"/> ("above", "below"), AUDIT2's.</summary>
+        public static string CountWords(int lines, string where) => lines + (lines == 1 ? " line " : " lines ") + where;
+
+        /// <summary>The two count lines, above the code and below it, for the checks.</summary>
+        public (TextMeshPro Above, TextMeshPro Below) Counts => (countAbove, countBelow);
 
         /// <summary>
         /// The label's words, true to what the host reported (the lead's 2026-11-17T02:36Z W2): "Creating" where it observed the
@@ -161,6 +189,8 @@ namespace Halcyonic.XR.UI
             view.glass = RoomSurface.Create(go.transform, "Glass", RoomSurfaceKind.Information, KitType.Order.Plate);
             view.card = RoomCardView.Create(view.glass.transform);
             view.headLabel = RoomType.Create(view.glass.transform, "Label", Color.white, KitType.Order.Words);
+            view.countAbove = RoomType.Create(view.glass.transform, "Lines above", Color.white, KitType.Order.Words);
+            view.countBelow = RoomType.Create(view.glass.transform, "Lines below", Color.white, KitType.Order.Words);
             view.headTitle = KitType.Create(view.glass.transform, "Title", KitRole.Strong, Color.white, KitType.Order.Words, TextAlignmentOptions.TopLeft, SpatialKit.ReadingLeading, room: true);
             go.SetActive(false);
             return view;
@@ -238,12 +268,16 @@ namespace Halcyonic.XR.UI
                 reading: notShown == null ? reading : null, titleMono: true, readingLit: notShown == null ? panel.Lit : null, readingBare: true);
             card.transform.localScale = Vector3.one * CardScale;
             var tall = card.Show(laid, (width - 2f * pad) / CardScale) * CardScale;
-            Size = new Vector2(width, tall + headTall + 2f * pad);
+            var aboveTall = LayCount(countAbove, notShown == null ? panel.LinesAbove : 0, "above", width - 2f * pad);
+            var belowTall = LayCount(countBelow, notShown == null ? panel.LinesBelow : 0, "below", width - 2f * pad);
+            Size = new Vector2(width, tall + headTall + aboveTall + belowTall + 2f * pad);
             litRows.Clear();
             if (notShown == null && panel.Lit != null) foreach (var row in panel.Lit) litRows.Add(row);
             glass.InnerBar = null;
             glass.Draw(Size);
-            card.transform.localPosition = new Vector3(-width / 2f + pad, Size.y / 2f - pad - headTall, -RoomType.Units(0.5f));
+            card.transform.localPosition = new Vector3(-width / 2f + pad, Size.y / 2f - pad - headTall - aboveTall, -RoomType.Units(0.5f));
+            countAbove.transform.localPosition = new Vector3(-width / 2f + pad, Size.y / 2f - pad - headTall, -RoomType.Units(0.5f));
+            countBelow.transform.localPosition = new Vector3(-width / 2f + pad, Size.y / 2f - pad - headTall - aboveTall - tall, -RoomType.Units(0.5f));
             headLabel.transform.localPosition = new Vector3(-width / 2f + pad, Size.y / 2f - pad, -RoomType.Units(0.5f));
             headTitle.transform.localPosition = headLabel.transform.localPosition - new Vector3(0f, RoomType.Scaled(LabelLineDp + LabelGapDp), 0f);
             // Each word and plate as the card laid it, so the arrival scales their own alphas and never overwrites a quiet one.
@@ -306,6 +340,19 @@ namespace Halcyonic.XR.UI
                 foreach (var layer in lights[index]) layer.gameObject.SetActive(false);
             Follow();
             return Size;
+        }
+
+        /// <summary>Lays one count line, or hides it where nothing is left out; returns how tall it stands with its gap.</summary>
+        private float LayCount(TextMeshPro label, int lines, string where, float width)
+        {
+            var shown = lines > 0;
+            if (label.gameObject.activeSelf != shown) label.gameObject.SetActive(shown);
+            if (!shown) return 0f;
+            RoomType.Label(label, CountWords(lines, where));
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.rectTransform.sizeDelta = new Vector2(width, RoomType.Scaled(CountLineDp));
+            return RoomType.Scaled(CountLineDp);
         }
 
         /// <summary>Lays the head for <paramref name="panel"/>: the quiet label, then the file's path; returns how tall it stands with its gap under it.</summary>
@@ -400,6 +447,8 @@ namespace Halcyonic.XR.UI
             if (card.gameObject.activeSelf != cardShown) card.gameObject.SetActive(cardShown);
             if (headLabel.gameObject.activeSelf != cardShown) headLabel.gameObject.SetActive(cardShown);
             if (headTitle.gameObject.activeSelf != cardShown) headTitle.gameObject.SetActive(cardShown);
+            if (!cardShown && countAbove.gameObject.activeSelf) countAbove.gameObject.SetActive(false);
+            if (!cardShown && countBelow.gameObject.activeSelf) countBelow.gameObject.SetActive(false);
             // A changed row's tint comes with its words, never before them: each run grows down as its rows pour in.
             var litOf = new Dictionary<RoomShape, (Color Fill, Color Edge)>();
             foreach (var (shape, fill, edge, lit) in plates) if (lit && shape != null) litOf[shape] = (fill, edge);
