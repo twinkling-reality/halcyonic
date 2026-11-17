@@ -317,12 +317,16 @@ namespace Halcyonic.XR
                 }
                 Lay();
             }
-            var widest = 0f;
-            foreach (var view in views)
-                if (DrawnTagSize?.Invoke(view) is Vector2 drawn) widest = Mathf.Max(widest, drawn.x);
-            if (widest > 0f)
+            // The row from the tags as the EYES see them (FIELD's PlacePitch is in degrees from the eyes): a place's tags stand lower and nearer or
+            // further than its floor arc's distance, so their metres are read at their own distance, never at the arc's.
+            var widestSeen = WidestDegrees();
+            if (widestSeen > 0f)
             {
-                (pitch, rowMost) = PlaceRows(widest, scale, distance, rule);
+                var bodyDegrees = PlacePitch.DegreesOf(BodyWidth * scale, distance);
+                var pitchDegrees = PlacePitch.PitchDegrees(widestSeen, bodyDegrees);
+                var tagDistance = views.Average(view => Vector3.Distance(view.Labels.position, eyes));
+                pitch = (float)PlacePitch.MetresOf(pitchDegrees, tagDistance) * distance / tagDistance;
+                rowMost = Mathf.Min(PlacePitch.RowMost(widestSeen, bodyDegrees), rule.FullMost);
                 Lay();
             }
             if (count <= rowMost || DrawnTagCorners == null) return (pitch, rowMost, rise);
@@ -359,16 +363,19 @@ namespace Halcyonic.XR
         /// </summary>
         private static void HoldBackRowType(IReadOnlyList<CharacterView> views, int rowMost, Vector3 eyes)
         {
-            if (views.Count <= rowMost) return;
-            float TypeAt(CharacterView view) => view.Labels.lossyScale.x / Mathf.Max(1e-4f, Vector3.Distance(view.Labels.position, eyes));
-            var front = 0f;
-            for (var index = 0; index < rowMost; index++) front += TypeAt(views[index]);
-            front /= rowMost;
-            for (var index = rowMost; index < views.Count; index++)
-            {
-                var type = TypeAt(views[index]);
-                if (type > front) views[index].Labels.localScale *= front / type;
-            }
+            // A label is scaled for its lip's distance; the tag hangs under the lip, nearer or further. Scaled again by the tag's own distance,
+            // every tag's type stands the same size as seen, front row or back, near ring or far (twice, since the tag moves as it scales).
+            for (var pass = 0; pass < 2; pass++)
+                foreach (var view in views)
+                {
+                    if (DrawnTagCorners?.Invoke(view) is not Vector3[] corners) continue;
+                    var centre = (corners[0] + corners[1] + corners[2] + corners[3]) / 4f;
+                    var lip = Vector3.Distance(view.Labels.position, eyes);
+                    var tag = Vector3.Distance(centre, eyes);
+                    var type = view.Labels.lossyScale.x / Mathf.Max(1e-4f, tag);
+                    var wanted = view.Labels.lossyScale.x / Mathf.Max(1e-4f, lip);
+                    if (type > 0f) view.Labels.localScale *= wanted / type;
+                }
         }
 
         /// <summary>
