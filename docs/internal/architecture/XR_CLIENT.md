@@ -2889,7 +2889,7 @@ in order, as before.
   action carries the accent as light, never a fill: a 1.5 dp lit rim on the capsule's edge and a soft glow 12 dp out in the
   kingfisher orange (#F39552), its glyph in the same orange, its words white, on a capsule a step lighter (#2A2C33, #3C3E45
   pointed); Confirm behind its lock keeps the rim; a destructive main action takes the warning red (#F7857D) instead
-  (`RoomButton.Lit`, `RimPainted`, `RimNow`). Our labels take one role, `RoomType.Label` (spaced capitals 17 dp, 0.24 em,
+  (`RoomButton.Lit`, `RimPainted`, `RimNow`). Our labels take one role, `RoomType.Label` (spaced capitals 18 dp, 0.24 em,
   white at 0.28 in the linear blend, about 146 of 255 on the glass); a name tag may hang the world line, a thin line to a diamond where its thing stands (`RoomTag.Show`'s
   stemDp). What follows describes the sizes, motion and marks, which stand; where it names the old chip colours,
   the paragraph above holds. Two sizes: the column's (a 48 dp core, 32 dp chip, 20 dp glyph) and
