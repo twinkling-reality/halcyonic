@@ -1347,8 +1347,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         var asks = bar.DialogWords;
                         asks.ForceMeshUpdate(true);
                         Require(panel.InnerBar == null, "a sentence bar stands in the approval's dialog");
-                        Require(asks.gameObject.activeInHierarchy && !asks.isTextTruncated && asks.text == LabelText.ForTextMeshPro(shown.Sentence!),
-                            "the approval's dialog reads \"" + asks.text + "\" at its top, not \"" + shown.Sentence + "\"");
+                        // The finished turn's review (TASKS, f6) takes the task's name, theirs, as written; an approval our question.
+                        var askedWords = shown.DialogTitle != null
+                            ? OneSpaced(LabelText.FromTextMeshPro(asks.text)) == OneSpaced(LabelText.Plain(shown.DialogTitle.Text))
+                            : asks.text == LabelText.ForTextMeshPro(shown.Sentence!);
+                        Require(asks.gameObject.activeInHierarchy && !asks.isTextTruncated && askedWords,
+                            "the dialog reads \"" + asks.text + "\" at its top, not \"" + (shown.DialogTitle?.Text ?? shown.Sentence) + "\"");
                         Require(asks.fontSize >= typeSize * RoomBarView.DialogWordsDp / RoomGeometry.TypeDp - 1e-4f, "the approval's question stands under the dialog's 28 dp");
                         foreach (var label in bar.GetComponentsInChildren<TMPro.TextMeshPro>(false))
                             if (!ReferenceEquals(label, asks) && label.gameObject.activeInHierarchy && (label.text ?? "").Length > 0)

@@ -1172,13 +1172,15 @@ namespace Halcyonic.XR.UI
                 }
                 var glyphOf = slot.Kind == RoomKind.Passed ? RoomGlyph.Check : slot.Kind == RoomKind.Failed ? RoomGlyph.AlertRing : (RoomGlyph?)null;
                 var markRoom = glyphOf != null ? S(SlotGlyphDp + 8f) : 0f;
+                // A thin white line mark: its shape carries the state, never its colour (the lead's 01:40Z ruling).
                 if (glyphOf is RoomGlyph mark)
-                    Glyph(mark, SlotGlyphDp, Rgb(slot.Kind == RoomKind.Passed ? Passed : Failed), new Vector2(x + S(SlotGlyphDp) / 2f, -(y + S(FactValueLineDp) / 2f)), "fact " + slot.Kind);
-                var (_, valueTall) = Text(KitRole.Strong, FactValueDp, FactValueLineDp, Color.white, slot.Value, x + markRoom, -y, column - markRoom, 1);
+                    Glyph(mark, SlotGlyphDp, Color.white, new Vector2(x + S(SlotGlyphDp) / 2f, -(y + S(FactValueLineDp) / 2f)), "fact " + slot.Kind);
+                // Whole, never cut: a value or its line takes a second line where the column cannot hold it on one.
+                var (_, valueTall) = Text(KitRole.Strong, FactValueDp, FactValueLineDp, Color.white, slot.Value, x + markRoom, -y, column - markRoom, 2);
                 y += valueTall;
                 if (slot.Line is LineWords line)
                 {
-                    var (_, lineTall) = Text(KitRole.Body, FactLineDp, FactLineLineDp, White(FactLineAlpha), line, x, -(y + S(2f)), column, 1);
+                    var (_, lineTall) = Text(KitRole.Body, FactLineDp, FactLineLineDp, White(FactLineAlpha), line, x, -(y + S(2f)), column, 2);
                     y += S(2f) + lineTall;
                 }
                 if (slot.Press is KitControl press) RowTarget(press, new Vector2(x + column / 2f, -(down + (y - down) / 2f)), new Vector2(column, y - down));
