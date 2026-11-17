@@ -1714,12 +1714,17 @@ namespace Halcyonic.XR.UI
             var laid = KitType.Lay(label, width, lines);
             // Faded, never one word alone on the last line shown (JUDGE's judge room, 19:23Z: "sign-in" alone under "limiting to the"): the
             // cut steps back a word at a time while the line above can lend one, the fade still saying the words go on.
-            for (var back = 0; fade && back < 3 && laid.Lines >= 2 && LastLineIsOneWord(label); back++)
+            // Cut to its ellipsis, the same (AUDIT 2026-11-17 03:21Z: "Add rate limiting to the…" left "the…" alone): a word back at a
+            // time, the ellipsis kept on the last word shown.
+            var ellipsed = !fade && cut.Text.EndsWith("\u2026", System.StringComparison.Ordinal);
+            for (var back = 0; (fade || ellipsed) && back < 3 && laid.Lines >= 2 && LastLineIsOneWord(label); back++)
             {
                 var shown = cut.Text.TrimEnd();
+                if (ellipsed) shown = shown.Substring(0, shown.Length - 1).TrimEnd();
                 var space = shown.LastIndexOf(' ');
                 if (space <= 0) break;
-                cut = LineWords.TheirName(shown.Substring(0, space).TrimEnd());
+                var kept = shown.Substring(0, space).TrimEnd();
+                cut = LineWords.TheirName(ellipsed ? kept.TrimEnd(' ', ',', ';', ':') + "\u2026" : kept);
                 runs.Set(cut);
                 laid = KitType.Lay(label, width, lines);
             }
