@@ -104,8 +104,6 @@ namespace Halcyonic.XR
 
         /// <summary>The floor ring's size, in the testing band's own units times the body's scale (its radius 1.3 body units).</summary>
         public const float NeedsYouRingScale = 1f;
-        private static readonly Color FailedLight = new Color(1f, 0.35f, 0.31f);
-        private static readonly Color FinishedLight = new Color(0.31f, 0.82f, 0.54f);
         private static readonly Color VerifyingLight = new Color(0.84f, 0.95f, 1f);
         private static readonly Color UnknownLight = new Color(0.6f, 0.64f, 0.7f);
         private static readonly Color RingColor = new Color(0.85f, 0.96f, 1f);
@@ -739,13 +737,11 @@ namespace Halcyonic.XR
                 case CharacterHalo.NeedsYou:
                     targetHalo = 0f;
                     break;
+                // Failed and finished glow no more (the lead's 2026-11-17T02:15Z): no red, no green, no ring; the shelf tag's state
+                // word and its thin white mark say them. Needs You alone calls the person over, by its floor ring.
                 case CharacterHalo.Failed:
-                    targetHaloColor = FailedLight;
-                    targetHalo = 0.5f;
-                    break;
                 case CharacterHalo.Finished:
-                    targetHaloColor = FinishedLight;
-                    targetHalo = 0.3f;
+                    targetHalo = 0f;
                     break;
                 case CharacterHalo.Verifying:
                     targetHaloColor = VerifyingLight;

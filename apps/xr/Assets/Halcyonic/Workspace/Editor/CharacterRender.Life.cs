@@ -39,7 +39,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     GlazeMotion.Still = false;
                     result.AddRange(LastKnownHoldsAndUnknownMoves());
                     result.AddRange(HopOnlyWithThisRoundsObservedCheck());
-                    result.AddRange(GreenOnlyWithThisRoundsObservedCheck());
+                    result.AddRange(NoLightBehindAFinishedCharacter());
                     result.AddRange(PutAwaySaysItFirst());
                     result.AddRange(ArrivalGrowsAndSaysStarting());
                     result.AddRange(KeepStillHoldsTheBody());
@@ -164,8 +164,11 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        /// <summary>The green light of a passed check (AUDIT F1): never for a round that only ended, and there with this round's check.</summary>
-        private static IEnumerable<string> GreenOnlyWithThisRoundsObservedCheck()
+        /// <summary>
+        /// No light behind a finished character (the lead's 2026-11-17T02:15Z: no green, no red, no ring; the shelf tag's state word
+        /// says it), whether its round only ended or its own check passed this round (AUDIT F1's cases kept).
+        /// </summary>
+        private static IEnumerable<string> NoLightBehindAFinishedCharacter()
         {
             var failures = new List<string>();
             var check = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, Round.AddMinutes(3));
@@ -186,8 +189,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     view.Show(Presentation(CharacterActivity.TurnFinished), shown);
                     Run(view, 1.5f);
                     var halo = view.PoseForRender.Halo;
-                    if (lit && halo < 0.1f) failures.Add(name + ": no green light with the computer's own passed check (" + halo.ToString("0.00", CultureInfo.InvariantCulture) + ")");
-                    if (!lit && halo > 0.01f) failures.Add(name + ": a light glows (" + halo.ToString("0.00", CultureInfo.InvariantCulture) + ") with no passed check of this round");
+                    if (halo > 0.01f) failures.Add(name + ": a light glows (" + halo.ToString("0.00", CultureInfo.InvariantCulture) + ") behind a finished character" + (lit ? " with its passed check" : ""));
+                    if (view.NeedsYouRing != null) failures.Add(name + ": the floor ring stands under a finished character");
                 }
                 finally { UnityEngine.Object.DestroyImmediate(root); }
             }
