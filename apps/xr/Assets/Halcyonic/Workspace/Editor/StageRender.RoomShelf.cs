@@ -102,6 +102,30 @@ namespace Halcyonic.XR.Workspace.Editor
                         var image = WorkspaceRender.Render(camera, texture);
                         File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
                         UnityEngine.Object.DestroyImmediate(image);
+                        if (needs)
+                        {
+                            // Four seconds of the waiting character at 12 frames a second (the lead's 02:02Z: a still and a 4 s clip both
+                            // read calm): the floor ring's breath over two of its cycles, for AUDIT's eye. The ring's alpha must move.
+                            var clip = Path.Combine(folder, "needs-clip");
+                            Directory.CreateDirectory(clip);
+                            var seen = new List<float>();
+                            for (var frame = 0; frame < 48; frame++)
+                            {
+                                Advance(view, 1f / 12f);
+                                WorkspaceRender.ForceMeshes(root);
+                                var still = WorkspaceRender.Render(camera, texture);
+                                File.WriteAllBytes(Path.Combine(clip, "frame-" + frame.ToString("00", System.Globalization.CultureInfo.InvariantCulture) + ".png"), still.EncodeToPNG());
+                                UnityEngine.Object.DestroyImmediate(still);
+                                if (view.NeedsYouRing is MeshRenderer ring)
+                                {
+                                    var block = new MaterialPropertyBlock();
+                                    ring.GetPropertyBlock(block);
+                                    seen.Add(block.GetColor("_Color").a);
+                                }
+                            }
+                            if (seen.Count < 48 || seen.Max() - seen.Min() < 0.05f)
+                                failures.Add(name + ": the floor ring does not breathe over four seconds (" + (seen.Count == 0 ? "never drawn" : seen.Min().ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " to " + seen.Max().ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)) + ")");
+                        }
                     }
                     finally
                     {
