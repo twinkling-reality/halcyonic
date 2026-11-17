@@ -40,12 +40,21 @@ namespace Halcyonic.XR.UI
         {
             var made = character.GetComponent<RoomNameTag>();
             if (made != null) return made;
+            // A place's pitch comes from its widest tag as drawn (FIELD's PlacePitch): the stage reads it through this.
+            CharacterStage.DrawnTagSize ??= DrawnSize;
             made = character.gameObject.AddComponent<RoomNameTag>();
             made.view = character;
             character.Shown += made.Show;
             character.LabelsPlaced += made.Place;
             made.Show();
             return made;
+        }
+
+        /// <summary>How wide and tall <paramref name="character"/>'s tag stands as drawn, in metres in the world; null where it draws none.</summary>
+        public static Vector2? DrawnSize(CharacterView character)
+        {
+            var tag = character.GetComponent<RoomNameTag>()?.Tag;
+            return tag == null ? null : tag.Size * tag.transform.lossyScale.x;
         }
 
         /// <summary>Stands the tag, or the older label, as the redesign is now.</summary>

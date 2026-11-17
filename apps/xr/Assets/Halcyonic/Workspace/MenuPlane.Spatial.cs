@@ -382,6 +382,8 @@ namespace Halcyonic.XR.Workspace
             // The plane at rest, for the shelf that fits beside it (ruling 1 (a)): one number a text size, asked by the stage as it fits
             // (AUDIT's 02:41Z: one width for every shelf, never read at wherever the plane stands now).
             CharacterStage.PlaneRestHalfDegrees ??= RestHalfDegrees;
+            // Ahead, for the other projects' places: where the stage laid the plane, before any drag (the plane's resting heading).
+            CharacterStage.AheadYawDegrees ??= () => Placed.Yaw;
             // One move per open (AUDIT's 01:15Z; JUDGE's 01:13Z: a few degrees re-decided at each page moved the room under a reader):
             // the first draw of an open decides the aside for the largest footprint at the width in use, and it holds until the plane
             // rests or closes; only the shelf's own place, the text size or the plane's width changing decides it again, one move per

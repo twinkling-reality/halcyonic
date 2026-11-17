@@ -13,7 +13,7 @@ namespace Halcyonic.XR
     /// No characters or targets are created before agents are enabled and a confirmed pose exists.
     /// Losing that pose tucks the shelf away; it never creates an eye-relative fallback.</summary>
     [RequireComponent(typeof(ControlPlaneConnection))]
-    public sealed class CharacterStage : MonoBehaviour
+    public sealed partial class CharacterStage : MonoBehaviour
     {
         /// <summary>The characters' distance from the eyes, by default: beyond system windows, which render within about 2 m.</summary>
         public const float DefaultDistance = 2.4f;
@@ -442,6 +442,7 @@ namespace Halcyonic.XR
             if (!presentation.AgentsVisible || !preferred.HasValue)
             {
                 arc.gameObject.SetActive(false);
+                ShowOtherPlacesWithShelf();
                 onSurface = false;
                 placedOnce = false;
                 return;
@@ -459,6 +460,7 @@ namespace Halcyonic.XR
                 StandOnSurface(Turned(preferred.Value, asideNow));
             }
             Glide();
+            ShowOtherPlacesWithShelf();
         }
 
         /// <summary>
@@ -520,6 +522,8 @@ namespace Halcyonic.XR
                 Fit();
                 return;
             }
+            // The other projects' places first, so a project the person turned to leaves its place before its characters stand on the shelf.
+            StandOtherPlaces(session, place, live);
             lineup.UseJournal(session.State.Journal?.JournalId);
             lineup.Update(eligible, System.DateTimeOffset.UtcNow);
             departed.Clear();
@@ -587,6 +591,7 @@ namespace Halcyonic.XR
         {
             preferredChanged = false;
             placedOnce = true;
+            ForgetAhead();
             var wasBeside = BesideAWindow;
             if (!preferred.HasValue || !presentation.AgentsVisible) { arc.gameObject.SetActive(false); return; }
             StandOnSurface(preferred.Value);
