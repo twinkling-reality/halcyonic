@@ -2197,8 +2197,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 .Where(character => character.isVisible)
                 .SelectMany(character => new[] { character.vertex_BL.position, character.vertex_TR.position, character.vertex_TL.position, character.vertex_BR.position })
                 .Select(corner => words.transform.TransformPoint(corner)).ToList();
-            if (laidQuads.Count > 0 && ScreenRect(laidQuads) is Rect laidRect && words.mesh is Mesh drawnMesh && drawnMesh.vertexCount > 0
-                && ScreenRect(drawnMesh.vertices.Select(vertex => words.transform.TransformPoint(vertex))) is Rect drawnRect)
+            // The drawn quads are the visible characters' own four vertices in the mesh (by their vertexIndex): the mesh keeps zeroed
+            // slots for characters it does not draw, which pulled the drawn box to the label's top-left pivot.
+            var drawnVertices = words.mesh is Mesh drawnMesh ? drawnMesh.vertices : Array.Empty<Vector3>();
+            var drawnQuads = Enumerable.Range(0, words.textInfo.characterCount).Select(index => words.textInfo.characterInfo[index])
+                .Where(character => character.isVisible && character.vertexIndex + 3 < drawnVertices.Length)
+                .SelectMany(character => Enumerable.Range(character.vertexIndex, 4).Select(index => drawnVertices[index]))
+                .Select(vertex => words.transform.TransformPoint(vertex)).ToList();
+            if (laidQuads.Count > 0 && ScreenRect(laidQuads) is Rect laidRect && drawnQuads.Count > 0 && ScreenRect(drawnQuads) is Rect drawnRect)
             {
                 var moved = drawnRect.center - laidRect.center;
                 if (Mathf.Abs(moved.x) > touch) off.Add("drawn " + (moved.x < 0 ? "left" : "right") + " of where laid by " + Mathf.Abs(moved.x).ToString("0.0") + " px");
