@@ -39,6 +39,15 @@ namespace Halcyonic.Client
 
         public const float GroundAlpha = AskGlass.PageAlpha;
 
+        /// <summary>
+        /// The heard draft's subtitle ground, stronger: white words stay over 4.5 to 1 over the brightest room behind whether the alpha
+        /// mixes in sRGB or in linear light (in linear, 0.14 of white plus 0.86 of #121416 is 0.145, so (1 + 0.05) / (0.145 + 0.05) is 5.4).
+        /// </summary>
+        public const float SubtitleGroundAlpha = 0.86f;
+
+        /// <summary>The most lines a heard draft stands in as the subtitle (AUDIT 2026-11-16 23:47Z); longer words keep the panel, paged.</summary>
+        public const int SubtitleMostLines = 2;
+
         /// <summary>Every word's tracking, in hundredths of an em: -0.6 percent (BUILD-SPEC-v4 1.3).</summary>
         public const float Tracking = -0.6f;
 

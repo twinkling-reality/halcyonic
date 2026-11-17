@@ -150,6 +150,22 @@ public class RoomBarTests
     }
 
     [Test]
+    public void AHeardDraftStandsAsTheSubtitleFromBeforeItIsReadAndATypedOneNever()
+    {
+        var workspace = Running(WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var heard = new FileScreen { Section = FileSection.Activity, Speak = true };
+        heard.Instruction.Restore(workspace.Execution!.ExecutionId, "Add a golden balloon worth five points.", true, 0);
+        var draft = RoomBar.Of(Bind(workspace, new WorkspaceSteering(factory), heard), VoiceStage.Idle, false);
+        // Before it is read there is no Send yet, and it is the subtitle all the same, so Send arriving changes no look.
+        Assert.That((draft.AsSubtitle, draft.Column.Any(action => action.Main)), Is.EqualTo((true, false)));
+        Assert.That(draft.AsDialog, Is.False);
+        var typed = new FileScreen { Section = FileSection.Activity };
+        typed.Instruction.Restore(workspace.Execution!.ExecutionId, "Add a golden balloon worth five points.", false, 0);
+        var caret = RoomBar.Of(Bind(workspace, new WorkspaceSteering(factory), typed), VoiceStage.Idle, false);
+        Assert.That((caret.State, caret.AsSubtitle), Is.EqualTo((RoomBarState.Draft, false)), "a draft being typed keeps its panel and caret");
+    }
+
+    [Test]
     public void AnArmedInstructionIsAMomentItsWordsInThePanelAndConfirmArrivesOnceRead()
     {
         var workspace = Running(WorkspaceAction.Instruct, WorkspaceAction.Interrupt);

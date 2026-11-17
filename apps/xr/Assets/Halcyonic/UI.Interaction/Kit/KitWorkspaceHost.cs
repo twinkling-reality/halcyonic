@@ -397,7 +397,20 @@ namespace Halcyonic.XR.UI
             // The agent's own words stand on the band, never in the panel; the same words again keep the part it shows.
             // In the question's dialog the agent's words stand at the top of the panel instead (RoomBar.AsDialog).
             if (room.Band != null && !room.AsDialog) band.Show(room.Band);
+            // The heard draft's words on the band, the codec's subtitle (RoomBar.AsSubtitle), while they stand whole in two lines; longer
+            // words keep the draft's panel, paged on whole words as ever (AUDIT 2026-11-16 23:47Z, mend 4).
+            else if (room.AsSubtitle && room.Body.Text != longHeard) band.Show(room.Body.Text);
             else band.Hide();
+            var subtitle = room.AsSubtitle && band.Words is { Parts: 1 } heard && heard.Count <= RoomWords.SubtitleMostLines;
+            if (room.AsSubtitle && band.Words != null && !subtitle)
+            {
+                longHeard = room.Body.Text;
+                band.Hide();
+            }
+            bar.SubtitleWords = subtitle ? band.Size.y : 0f;
+            band.GroundAbove = 0f;
+            band.GroundBelow = 0f;
+            band.GroundStrength = RoomWords.GroundAlpha;
             bar.BandNext = band.Words?.Next;
             // The way on alone, "Next Part" or "First Part": where the person is stands on the band's own foot (AUDIT2's M2).
             bar.BandNextDetail = null;
@@ -435,7 +448,17 @@ namespace Halcyonic.XR.UI
             bar.transform.localPosition = Vector3.zero;
             // Under the pair's foot line hang the row, where one stands with the pair (inside the bar), and under that the band.
             HangDp = bar.RowDrop / zoom / RoomType.Units(1f);
-            if (band.Words != null)
+            if (band.Words != null && bar.SubtitleWords > 0f)
+            {
+                // The heard draft's subtitle: the band stands where the bar laid room for it, between "YOU" and the actions, its ground
+                // stronger and reaching behind both (AUDIT's mend 1).
+                band.transform.localScale = Vector3.one / zoom;
+                band.transform.localPosition = new Vector3(0f, bar.SubtitleTop / zoom, 0f);
+                band.GroundAbove = bar.SubtitleAbove;
+                band.GroundBelow = bar.SubtitleBelow;
+                band.GroundStrength = RoomWords.SubtitleGroundAlpha;
+            }
+            else if (band.Words != null)
             {
                 // The band hangs BandUnderDp under the pair's foot line, centred, and grows downward. As the instruction, it lays its
                 // words at the person's text size and is scaled back by it, so its width stays.
@@ -501,6 +524,9 @@ namespace Halcyonic.XR.UI
 
         // The frame whose bar was last said not to lay whole, so it is said once.
         private MenuFrame? notWholeSaid;
+
+        /// <summary>The last heard words too long for the subtitle, so the band is not shown them again every frame only to be hidden.</summary>
+        private string? longHeard;
 
         /// <summary>
         /// The general reader's Next Page pressed (RoomBar.TurnPage): its next page, or the first after the last, drawn as the same

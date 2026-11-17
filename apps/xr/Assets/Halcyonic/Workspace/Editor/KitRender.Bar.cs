@@ -1175,7 +1175,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 // field's or the cursor's, crosses it. A line drawn under another part is not said.
                 if (bar.NoticePlate is Halcyonic.XR.UI.RoomSurface plate)
                     foreach (var crossing in NoticeCrossings(host.transform, bar.transform, plate.transform)) Require(false, crossing + " stands over the notice");
-                if (shown.Pair)
+                // The heard draft as the codec's subtitle (FIELD's composer, AUDIT's yes of 2026-11-16 23:47Z) stands no panel: judged apart below.
+                var subtitled = shown.AsSubtitle && bar.SubtitleWords > 0f;
+                if (state == "31-bar-heard") Require(subtitled, "the heard draft does not stand as the subtitle");
+                if (shown.Pair && !subtitled)
                 {
                     // The panel: DESIGN's translucent tonal material, 440 dp wide, the person's words whole, the sentence in its bar.
                     var panel = bar.Panel;
@@ -1410,6 +1413,61 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         var gap = (drawn[index - 1].transform.localPosition.y - drawn[index - 1].Size.y / 2f) - (drawn[index].transform.localPosition.y + drawn[index].Size.y / 2f);
                         Require(gap >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f, "the column's targets stand under 12 mm apart");
+                    }
+                }
+                else if (subtitled)
+                {
+                    // No panel; "YOU" over the person's heard words, whole on the band in two lines at most; the band's ground the stronger
+                    // one, reaching behind "YOU" and the actions (4.5 to 1 over the brightest room); the actions in one centred row under the
+                    // words, Meta's 12 mm apart, the main one last and the only accent.
+                    static string OneSpace(string text) => System.Text.RegularExpressions.Regex.Replace(text, "\\s+", " ").Trim();
+                    var band = host.Band;
+                    Require(!bar.Panel.gameObject.activeSelf, "a panel stands behind the subtitle");
+                    Require(band.Words is { Parts: 1 } heard && heard.Count <= RoomWords.SubtitleMostLines
+                        && OneSpace(LabelText.FromTextMeshPro(band.Text)) == OneSpace(shown.Body.Text), "the subtitle does not read the heard words whole in two lines at most: \"" + band.Text + "\"");
+                    Require(Mathf.Approximately(band.GroundStrength, RoomWords.SubtitleGroundAlpha) && band.GroundAbove > 0f && band.GroundBelow > 0f,
+                        "the subtitle's ground is not the stronger one reaching behind its speaker and its actions");
+                    var bandTop = band.transform.position.y;
+                    var bandFoot = band.transform.TransformPoint(new Vector3(0f, -band.Size.y, 0f)).y;
+                    var groundTop = band.transform.TransformPoint(new Vector3(0f, band.GroundAbove, 0f)).y;
+                    var groundFoot = band.transform.TransformPoint(new Vector3(0f, -band.Size.y - band.GroundBelow, 0f)).y;
+                    var who = bar.Who;
+                    Require(who != null && who.text == "YOU" && who.fontSize >= typeSize * 14f / RoomGeometry.TypeDp - 1e-4f, "no YOU at comfort size stands over the subtitle");
+                    if (who != null)
+                    {
+                        who.ForceMeshUpdate(true);
+                        var whoFoot = who.transform.TransformPoint(who.textBounds.min).y;
+                        var whoTop = who.transform.TransformPoint(who.textBounds.max).y;
+                        Require(whoFoot >= bandTop - 1e-4f && whoTop <= groundTop + 1e-4f, "YOU does not stand over the heard words on their ground");
+                    }
+                    var drawn = bar.Column.Where(button => button.gameObject.activeSelf && !ReferenceEquals(button, bar.BandNextButton)).ToList();
+                    actions.AddRange(drawn);
+                    Require(drawn.Count == shown.Column.Count, drawn.Count + " actions drawn for " + shown.Column.Count);
+                    for (var index = 0; index < drawn.Count && index < shown.Column.Count; index++)
+                    {
+                        Require(ReferenceEquals(bar.ControlOf(drawn[index]), shown.Column[index].Control), drawn[index].Words.text + " raises another control");
+                        Require(drawn[index].LookNow() == (shown.Column[index].Main ? RoomButtonLook.Main : RoomButtonLook.Rest), drawn[index].Words.text + " shows " + drawn[index].LookNow());
+                        Whole(drawn[index].Words, drawn[index].Words.text);
+                        var top = bar.transform.TransformPoint(drawn[index].transform.localPosition + new Vector3(0f, drawn[index].Size.y / 2f, 0f)).y;
+                        var foot = bar.transform.TransformPoint(drawn[index].transform.localPosition - new Vector3(0f, drawn[index].Size.y / 2f, 0f)).y;
+                        Require(top <= bandFoot + 1e-4f, drawn[index].Words.text + " stands over the heard words");
+                        Require(foot >= groundFoot - 1e-4f, drawn[index].Words.text + " stands off the subtitle's ground");
+                    }
+                    if (drawn.Count > 0)
+                    {
+                        var rowY = drawn[0].transform.localPosition.y;
+                        Require(drawn.All(button => Mathf.Abs(button.transform.localPosition.y - rowY) < Tolerance), "the subtitle's actions do not stand in one row");
+                        var byX = drawn.OrderBy(button => button.transform.localPosition.x).ToList();
+                        for (var index = 1; index < byX.Count; index++)
+                        {
+                            var between = (byX[index].transform.localPosition.x - byX[index].Size.x / 2f) - (byX[index - 1].transform.localPosition.x + byX[index - 1].Size.x / 2f);
+                            Require(between >= KitType.Units(SpatialKit.TargetGapDegrees) - 1e-5f, "the subtitle's actions stand under 12 mm apart: " + byX[index - 1].Words.text + ", " + byX[index].Words.text);
+                        }
+                        var middle = (byX[0].transform.localPosition.x - byX[0].Size.x / 2f + byX[byX.Count - 1].transform.localPosition.x + byX[byX.Count - 1].Size.x / 2f) / 2f;
+                        Require(Mathf.Abs(middle) < RoomType.Units(1f), "the subtitle's actions do not stand centred under the words");
+                        var mains = drawn.Where((button, index) => index < shown.Column.Count && shown.Column[index].Main).ToList();
+                        Require(mains.Count <= 1 && (mains.Count == 0 || ReferenceEquals(byX[byX.Count - 1], mains[0])), "the subtitle's main action is not the last in its row");
+                        Require(drawn.Count(button => button.LookNow() == RoomButtonLook.Main) <= 1, "more than one of the subtitle's actions stands in the accent");
                     }
                 }
                 if (shown.State is RoomBarState.Sent or RoomBarState.Words)

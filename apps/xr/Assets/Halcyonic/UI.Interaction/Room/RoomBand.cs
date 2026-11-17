@@ -60,7 +60,7 @@ namespace Halcyonic.XR.UI
         private float groundShown;
         private float height;
         private int laidVersion;
-        private (float Shown, float Height)? painted;
+        private (float Shown, float Height, float Above, float Below, float Strength)? painted;
 
         /// <summary>The seconds every move is timed by; a render fixes it.</summary>
         public Func<float> Clock { get; set; } = () => Time.unscaledTime;
@@ -119,6 +119,18 @@ namespace Halcyonic.XR.UI
             if (label.fontSharedMaterial != preset) label.fontSharedMaterial = preset;
             return true;
         }
+
+        /// <summary>
+        /// How far the ground reaches over the words' top and under their last line (zero for the agent's words): the heard draft's
+        /// subtitle stretches it behind its speaker's name above and its actions below, as the codec's dark foot (AUDIT 2026-11-16 23:47Z).
+        /// </summary>
+        public float GroundAbove { get; set; }
+
+        /// <inheritdoc cref="GroundAbove"/>
+        public float GroundBelow { get; set; }
+
+        /// <summary>The ground's opacity: <see cref="RoomWords.GroundAlpha"/>, or the subtitle's <see cref="RoomWords.SubtitleGroundAlpha"/>.</summary>
+        public float GroundStrength { get; set; } = RoomWords.GroundAlpha;
 
         /// <summary>A band under <paramref name="parent"/>, hidden, its origin the middle of its top edge; the ground draws at <paramref name="order"/> and the words over it.</summary>
         public static RoomBand Create(Transform parent, int order = KitType.Order.Plate)
@@ -363,14 +375,16 @@ namespace Halcyonic.XR.UI
         /// <summary>The ground at its size and its place in view, drawn again only when either changed.</summary>
         private void Paint()
         {
-            if (painted is var (shown, tall) && Mathf.Approximately(shown, groundShown) && Mathf.Approximately(tall, height)) return;
-            painted = (groundShown, height);
+            if (painted is var (shown, tall, above, below, strength) && Mathf.Approximately(shown, groundShown) && Mathf.Approximately(tall, height)
+                && Mathf.Approximately(above, GroundAbove) && Mathf.Approximately(below, GroundBelow) && Mathf.Approximately(strength, GroundStrength)) return;
+            painted = (groundShown, height, GroundAbove, GroundBelow, GroundStrength);
             var width = RoomWords.WidthDp * Dp;
-            ground.transform.localScale = new Vector3(width, Mathf.Max(height, 1e-5f), 1f);
-            ground.transform.localPosition = new Vector3(0f, -height / 2f, RoomType.Units(0.02f));
+            var reach = height + GroundAbove + GroundBelow;
+            ground.transform.localScale = new Vector3(width, Mathf.Max(reach, 1e-5f), 1f);
+            ground.transform.localPosition = new Vector3(0f, GroundAbove - reach / 2f, RoomType.Units(0.02f));
             var colour = RoomSurface.Hex(RoomWords.GroundColour);
-            block.SetVector(BandId, new Vector4(RoomWords.WidthDp, height / Dp, RoomWords.SideFadeDp, RoomWords.EdgeFadeDp * GlazeText.Scale));
-            block.SetVector(GroundId, new Vector4(colour.r, colour.g, colour.b, RoomWords.GroundAlpha));
+            block.SetVector(BandId, new Vector4(RoomWords.WidthDp, reach / Dp, RoomWords.SideFadeDp, RoomWords.EdgeFadeDp * GlazeText.Scale));
+            block.SetVector(GroundId, new Vector4(colour.r, colour.g, colour.b, GroundStrength));
             block.SetFloat(ShownId, groundShown);
             ground.SetPropertyBlock(block);
         }

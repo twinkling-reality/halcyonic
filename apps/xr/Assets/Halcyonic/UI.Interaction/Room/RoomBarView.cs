@@ -96,8 +96,32 @@ namespace Halcyonic.XR.UI
         private TextMeshPro ask = null!;
         private TextMeshPro kicker = null!;
 
+        /// <summary>The heard draft's speaker, "YOU", over its subtitle (the codec's "MAMA"); on the bar itself, since the panel is gone.</summary>
+        private TextMeshPro who = null!;
+
+        /// <summary>The subtitle's speaker label while it shows, for the checks; null otherwise.</summary>
+        public TextMeshPro? Who => who != null && who.gameObject.activeSelf ? who : null;
+
+        /// <summary>
+        /// The height of the heard words the host stood on its band for the subtitle (<see cref="RoomBar.AsSubtitle"/>), in the bar's
+        /// units; zero where they do not stand there (too long, or no subtitle), so the bar lays the draft's panel instead.
+        /// </summary>
+        public float SubtitleWords { get; set; }
+
+        /// <summary>Where the subtitle's band stands, its top's middle, in the bar's units, as <see cref="LaySubtitleRow"/> laid it.</summary>
+        public float SubtitleTop { get; private set; }
+
+        /// <summary>How far the band's ground reaches over its words (behind "YOU") and under them (behind the actions), in the bar's units.</summary>
+        public float SubtitleAbove { get; private set; }
+
+        /// <inheritdoc cref="SubtitleAbove"/>
+        public float SubtitleBelow { get; private set; }
+
         /// <summary>The agent's words at the top of the question's dialog, the dialog's largest text: 28 dp against the body's 20 (1.75 degrees).</summary>
         public const float DialogWordsDp = 28f;
+
+        /// <summary>The subtitle's speaker, "YOU", in spaced capitals (composer.html's 20 px, 1.25 degrees).</summary>
+        public const float SubtitleWhoDp = 20f;
 
         /// <summary>The agent's words at the dialog's top, for the kit's checks; inactive when the bar is not a dialog.</summary>
         public TextMeshPro DialogWords => ask;
@@ -290,6 +314,10 @@ namespace Halcyonic.XR.UI
             view.kicker = RoomType.Create(view.panel.transform, "Moment title", Color.white, KitType.Order.Words);
             view.kicker.textWrappingMode = TextWrappingModes.NoWrap;
             view.kicker.gameObject.SetActive(false);
+            view.who = RoomType.Create(view.transform, "Speaker", Color.white, KitType.Order.Words);
+            view.who.textWrappingMode = TextWrappingModes.NoWrap;
+            view.who.alignment = TextAlignmentOptions.Top;
+            view.who.gameObject.SetActive(false);
             view.request = RoomType.CreateMono(view.panel.transform, "Request", Color.white, KitType.Order.Words);
             view.request.textWrappingMode = TextWrappingModes.Normal;
             view.request.overflowMode = TextOverflowModes.Overflow;
@@ -364,6 +392,7 @@ namespace Halcyonic.XR.UI
             }
             RowDrop = 0f;
             PanelHung = false;
+            if (!bar.AsSubtitle || SubtitleWords <= 0f) who.gameObject.SetActive(false);
             shown = bar;
             controls.Clear();
             bandNext = null;
@@ -1015,6 +1044,90 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
+        /// The heard draft as the codec's subtitle (<see cref="RoomBar.AsSubtitle"/>): no panel; "YOU" at the top, the words under it on
+        /// the band the host stands at <see cref="SubtitleTop"/>, its ground reaching behind both and the row, and the actions in one
+        /// centred row at the foot, the others quiet, the main one last and the only accent.
+        /// </summary>
+        private void LaySubtitleRow(RoomBar bar)
+        {
+            talk.Hide();
+            type.Hide();
+            HideRowOthers();
+            alone.gameObject.SetActive(false);
+            alonePlate.gameObject.SetActive(false);
+            HidePlate();
+            levelRoot.gameObject.SetActive(false);
+            sentence.gameObject.SetActive(false);
+            sentenceSweep.Waits = false;
+            bodySweep.Waits = false;
+            caret.gameObject.SetActive(false);
+            field.gameObject.SetActive(false);
+            body.gameObject.SetActive(false);
+            request.gameObject.SetActive(false);
+            ask.gameObject.SetActive(false);
+            kicker.gameObject.SetActive(false);
+            panel.LitEdge = null;
+            panel.gameObject.SetActive(false);
+            if (card != null) card.Hide();
+            if (facts != null) facts.Hide();
+            HideSteps();
+            locking = null;
+            var count = Mathf.Min(bar.Column.Count, ColumnMost);
+            var order = Enumerable.Range(0, count).OrderBy(index => bar.Column[index].Main ? 1 : 0).ToList();
+            var cores = new Vector2[count];
+            var rowHeight = RoomType.Units(RoomButton.HeightDp);
+            var gapX = KitType.Units(SpatialKit.TargetGapDegrees);
+            var total = 0f;
+            for (var index = 0; index < count; index++)
+            {
+                cores[index] = column[index].Measure(bar.Column[index].Words, 0f, bar.Column[index].Detail);
+                rowHeight = Mathf.Max(rowHeight, cores[index].y);
+                total += cores[index].x + (index > 0 ? gapX : 0f);
+            }
+            for (var index = count; index < column.Count; index++) column[index].Hide();
+            // From the top: the speaker, the words (on the host's band), the actions; as the approved pair (composer.html) stood them.
+            who.gameObject.SetActive(true);
+            RoomType.Size(who);
+            GlazeText.SetLiteral(who, "YOU");
+            who.fontSize *= SubtitleWhoDp / RoomGeometry.TypeDp;
+            who.characterSpacing = 30f;
+            // Brighter than the codec's steel blue, over 4.5 to 1 on the subtitle's ground (AUDIT's mend 1).
+            who.alpha = 0.92f;
+            var whoHeight = KitType.Lay(who, RoomType.Units(RoomGeometry.PanelDp), 1).Height;
+            var whoGap = RoomType.Scaled(8f);
+            var rowGap = RoomType.Scaled(DialogGapDp);
+            var height = whoHeight + whoGap + SubtitleWords + rowGap + rowHeight;
+            var top = height / 2f;
+            who.rectTransform.pivot = new Vector2(0.5f, 1f);
+            who.transform.localPosition = new Vector3(0f, top, -RoomType.Units(0.5f));
+            SubtitleTop = top - whoHeight - whoGap;
+            var pad = RoomType.Scaled(14f);
+            SubtitleAbove = whoHeight + whoGap + pad;
+            SubtitleBelow = rowGap + rowHeight + pad;
+            var rowY = -top + rowHeight / 2f;
+            var x = -total / 2f;
+            foreach (var index in order)
+            {
+                var action = bar.Column[index];
+                var button = column[index];
+                button.Quiet = !action.Main;
+                button.Show(action.Words, action.Icon, action.Main, available: action.Control.Available, new Vector2(x + cores[index].x / 2f, rowY), cores[index].x,
+                    action.Mark, action.Chosen, 0f, doing: RoomButton.Doing(action.Control), detail: action.Detail, destructive: action.Control.Destructive,
+                    route: action.Place == KitPlace.Section);
+                controls[button] = action.Control;
+                button.Press.ActsOnPinch = action.Control.Holds;
+                x += cores[index].x + gapX;
+            }
+            PanelHung = false;
+            Foot = -top;
+            PanelRight = total / 2f;
+            Size = new Vector2(Mathf.Max(total, RoomType.Units(RoomGeometry.PanelDp)), height);
+            LaidPanelDp = RoomGeometry.PanelDp;
+            PassedLargest = false;
+            Narrow = false;
+        }
+
+        /// <summary>
         /// The question as one dialog (<see cref="RoomBar.AsDialog"/>; Mirror's Edge Catalyst's mission dialog, in the equipped-test
         /// Ask panel's glass): the agent's own words at the top of the panel, its largest text; the card of described answers under
         /// them, each a row a hand points at; and the actions in one row at the panel's foot, the main one last and the only one in
@@ -1169,6 +1282,11 @@ namespace Halcyonic.XR.UI
             if (bar.AsDialog)
             {
                 LayDialog(bar);
+                return;
+            }
+            if (bar.AsSubtitle && SubtitleWords > 0f)
+            {
+                LaySubtitleRow(bar);
                 return;
             }
             ask.gameObject.SetActive(false);

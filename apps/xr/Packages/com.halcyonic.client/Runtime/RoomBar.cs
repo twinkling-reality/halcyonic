@@ -296,6 +296,15 @@ namespace Halcyonic.Client
                 // The approval the same way: its question (Run Command?) at the top, the command in mono under it, Deny then Approve.
                 || State == RoomBarState.Request && Mono && Sentence != null && Column.Count > 0 && Card == null);
 
+        /// <summary>
+        /// The heard draft as the codec's subtitle (Death Stranding's Codec, AUDIT's pick for the composer, 2026-11-16): the person's
+        /// heard words, whole, on a low band, no panel; "YOU" over them and the actions in one centred row under them, the main one
+        /// last. Only for words heard whole (no part, no caret) that the bar asks about, from before they are read (Talk Again and
+        /// Cancel) to after (Send arrives), so the moment never changes its look when Send arrives.
+        /// </summary>
+        public bool AsSubtitle => State == RoomBarState.Draft && !Caret && Body.Text.Length > 0 && Part == null && Sentence != null
+            && Band == null && Column.Count > 0 && !Wide && !Narrow;
+
         /// <summary>Whether the pair (the panel and its column) shows.</summary>
         public bool Pair => Result || State is RoomBarState.Draft or RoomBarState.Confirm or RoomBarState.Request or RoomBarState.Question or RoomBarState.Choose or RoomBarState.Page;
 
