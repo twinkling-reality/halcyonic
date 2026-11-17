@@ -63,6 +63,7 @@ function setUp(
     version?: string;
     fixtureText?: string;
     versionLine?: string;
+    sessionOptions?: Record<string, string>;
     env?: Record<string, string>;
   } = {},
 ): Run {
@@ -94,6 +95,7 @@ function setUp(
       ...options.env,
     },
     home: root,
+    ...(options.sessionOptions === undefined ? {} : { sessionOptions: options.sessionOptions }),
     hostFolders: null,
   });
   t.after(() => adapter.close());
@@ -515,6 +517,40 @@ describe('ACP adapter: the mode that asks', () => {
     assert.deepEqual(switched?.params, {
       sessionId: '11579b02-6764-4e01-932b-629ccfeb8eef',
       modeId: 'default',
+    });
+  });
+
+  test("a run's own session options are set before its first prompt", async (t) => {
+    const recorded = readFileSync(join(FIXTURES, 'antigravity-two.jsonl'), 'utf8')
+      .split('\n')
+      .flatMap((line) =>
+        line.includes('"answer": "session/new"')
+          ? [
+              line,
+              '{"expect": "session/set_config_option"}',
+              '{"answer": "session/set_config_option", "result": {}}',
+            ]
+          : [line],
+      )
+      .join('\n');
+    const run = setUp(t, 'cut', {
+      fixtureText: recorded,
+      sessionOptions: { model: 'gemini-3.8-flash' },
+    });
+    await start(run);
+    await run.next('runtime.turn.completed');
+    const sent = run.sent().map((message) => message.method);
+    assert.deepEqual(sent.slice(0, 4), [
+      'initialize',
+      'session/new',
+      'session/set_config_option',
+      'session/prompt',
+    ]);
+    const set = run.sent().find((message) => message.method === 'session/set_config_option');
+    assert.deepEqual(set?.params, {
+      sessionId: '11579b02-6764-4e01-932b-629ccfeb8eef',
+      configId: 'model',
+      value: 'gemini-3.8-flash',
     });
   });
 

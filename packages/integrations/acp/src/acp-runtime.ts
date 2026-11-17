@@ -87,6 +87,12 @@ export interface AcpRuntimeOptions {
     readonly authMethod: string;
   };
   /**
+   * ACP configuration options set on every session before its first prompt (`session/set_config_option`), such as
+   * a bounded test run's cheapest model; a start is refused where the app does not take one. The control plane
+   * passes none.
+   */
+  readonly sessionOptions?: Readonly<Record<string, string>>;
+  /**
    * On macOS, the host's own folders the light profile keeps the app and everything it runs from
    * (its data folder with the keys and the journal, the task copies, every `.halcyonic` home), and
    * where the profile file is written. Null runs the app with no profile.
@@ -378,6 +384,20 @@ class AcpSession {
     }
     this.#sessionId = sessionId;
     await this.#askingMode(rpc, sessionId, record(record(created)?.modes));
+    for (const [configId, value] of Object.entries(this.#options.sessionOptions ?? {})) {
+      try {
+        await rpc.request(
+          'session/set_config_option',
+          { sessionId, configId, value },
+          HANDSHAKE_MS,
+        );
+      } catch {
+        throw new RuntimeActionError(
+          'option_refused',
+          `${this.#name} did not take the setting ${configId} for this task.`,
+        );
+      }
+    }
     this.#alive = true;
     this.#emit(
       'runtime.execution.started',
