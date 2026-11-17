@@ -1198,7 +1198,9 @@ namespace Halcyonic.XR.UI
             panel.LitEdge = null;
             HideWell();
             var unit = RoomType.Units(1f);
-            var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
+            // The finished turn's review (TASKS, f6) takes the pair's whole footprint, its panel, gap and column, as the sheet's tile
+            // stands it wide: its two facts side by side and its row whole; the bar's footprint and every clearance stay the pair's.
+            var panelWidth = RoomType.Units(bar.Result ? RoomGeometry.PanelDp + RoomGeometry.PairGapDp + RoomGeometry.ColumnDp : RoomGeometry.PanelDp);
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
             var gapIn = RoomType.Scaled(DialogGapDp);
             var wordsWidth = panelWidth - 2f * pad;
