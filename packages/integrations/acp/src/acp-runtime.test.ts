@@ -853,6 +853,51 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
     assert.equal(asked.complete, false);
   });
 
+  test("Kiro's autopilot is set off even where session/new does not report it, and a start where Kiro reads it back on is refused", async (t) => {
+    // The deny trace's session/new names no configOptions: the set is sent all the same (AUDIT3 AK1).
+    const reported = readFileSync(join(FIXTURES, 'kiro-signed-in-deny.jsonl'), 'utf8');
+    assert.equal(
+      reported.split('"expect": "session/set_config_option"')[0]?.includes('"configOptions"'),
+      false,
+    );
+    const run = setUp(t, 'kiro-signed-in-deny.jsonl', { profile: KIRO });
+    await start(run);
+    const set = run.sent().find((message) => message.method === 'session/set_config_option');
+    assert.deepEqual(
+      (set?.params as { configId?: string; value?: string } | undefined)?.value,
+      'off',
+    );
+    // The same set, answered with autopilot still on and no report since: refused before any prompt (AK2).
+    const still = reported
+      .split('\n')
+      .filter(
+        (line) =>
+          !(
+            line.includes('"config_option_update"') &&
+            line.includes('"send"') &&
+            reported.indexOf(line) < reported.indexOf('"answer": "session/set_config_option"')
+          ),
+      )
+      .map((line) =>
+        line.includes('"answer": "session/set_config_option"')
+          ? line.replace(/("id": "autopilot"[^}]*"currentValue": )"off"/, '$1"on"')
+          : line,
+      )
+      .join('\n');
+    const refused = setUp(t, 'cut', { profile: KIRO, fixtureText: still });
+    await assert.rejects(
+      start(refused),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'mode_unavailable' &&
+        error.effect === 'none',
+    );
+    assert.equal(
+      refused.sent().some((message) => message.method === 'session/prompt'),
+      false,
+    );
+  });
+
   test('signed in: Kiro reporting autopilot back on during a turn stops the turn in words', async (t) => {
     // The recorded edit run, as Kiro reported it before Halora set autopilot off: on, in the middle of the turn.
     const recorded = readFileSync(join(FIXTURES, 'kiro-signed-in-edit.jsonl'), 'utf8')

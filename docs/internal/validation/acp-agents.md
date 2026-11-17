@@ -156,7 +156,8 @@ Signed in, Kiro's `session/new` reports `configOptions` with `autopilot` on, des
 confirmation" (Off: "Supervised"), and a `model` option (current `auto`). The signed-in runs above ran with it on
 and still asked before every write, `ls -la` and `true`; only `pwd` ran unasked. Halora does not rely on that: Kiro's
 profile names `autopilot: off` as an asking option. Every session sets it with `session/set_config_option` before
-anything else; Kiro answers with its options, autopilot off, and reports the same in a `config_option_update` (seen,
+anything else, whether or not `session/new` reported it (AUDIT3 AK1), and starts only once Kiro reads it back off, in
+the set's answer or its report since (AK2); Kiro answers with its options, autopilot off, and reports the same in a `config_option_update` (seen,
 no prompt sent). A start where Kiro does not take it is refused. A later report of autopilot on, like a mode other
 than the asking one, cancels the turn, which ends `mode_left`, and the option is set again before the next
 instruction. Kiro reports autopilot on once before the set, at the session's start, which the watch ignores. The
@@ -179,6 +180,13 @@ call's change as it was carried on that call's own approval, complete only where
 `interaction_resolved` report, with the option chosen, counts as Kiro taking an answer (`answerReport`), since a
 held write's call shows nothing until the review. Tested on the recorded edit trace with the review as Kiro asked
 it; an approved review of a whole Supervised turn is not yet seen live.
+
+## Nothing in a refused folder runs (AUDIT3, 2026-11-17)
+
+The kernel runs a binary it may not read: both apps started from a folder the agent-app profile refused to read. So
+the profile also refuses `process-exec` in the host's folders, every `.halcyonic*` home, the credential folders, the
+project's own settings for the app and the settings homes' folder. Under `sandbox-exec`, a copy of `/usr/bin/true` in
+each of those fails to run while the same copy in the project runs; without the rule the test fails.
 
 ## Real runs, signed in (2026-11-17, the owner's sign-ins, bounded by the lead)
 

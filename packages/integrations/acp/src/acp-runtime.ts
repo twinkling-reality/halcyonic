@@ -329,6 +329,8 @@ class AcpSession {
   #modeLeft = false;
   /** Each tool call as the app last reported it, its fields merged update by update (ACP `ToolCallUpdate`). */
   readonly #calls = new Map<string, Record<string, unknown>>();
+  /** Each session option's value as the app last reported it (`config_option_update`). */
+  readonly #optionsSaid = new Map<string, string | null>();
   /** Each call's change as it was carried on its own approval, for a turn-level review of it (Kiro's). */
   readonly #carried = new Map<string, readonly ApprovalChange[]>();
   #profileFile: string | null = null;
@@ -737,6 +739,10 @@ class AcpSession {
     if (kind === 'current_mode_update') this.#modeSaid(text(update.currentModeId));
     if (kind === 'config_option_update' && Array.isArray(update.configOptions)) {
       const options = update.configOptions.map(record);
+      for (const option of options) {
+        const id = text(option?.id);
+        if (id !== null) this.#optionsSaid.set(id, text(option?.currentValue));
+      }
       const mode = options.find((option) => option?.id === 'mode');
       if (mode !== undefined) this.#modeSaid(text(mode?.currentValue));
       for (const [id, wanted] of Object.entries(this.#options.profile.askingOptions)) {
@@ -805,26 +811,32 @@ class AcpSession {
   async #holdAskingOptions(
     rpc: RpcConnection,
     sessionId: string,
-    reported: unknown,
+    _reported: unknown,
   ): Promise<void> {
-    const options = Array.isArray(reported) ? reported.map(record) : null;
+    // Every asking option is set, whether or not the app reported it (AUDIT3 AK1), and taken only once the app reads
+    // it back at its asking value, in the set's answer or its report since (AK2).
     for (const [id, wanted] of Object.entries(this.#options.profile.askingOptions)) {
-      if (options !== null) {
-        const option = options.find((entry) => entry?.id === id);
-        if (option === undefined || text(option?.currentValue) === wanted) continue;
-      }
+      const refused = new RuntimeActionError(
+        'mode_unavailable',
+        `${this.#name} could not start in the mode where it asks you before it acts, so the task did not start.`,
+      );
+      let answer: unknown;
       try {
-        await rpc.request(
+        answer = await rpc.request(
           'session/set_config_option',
           { sessionId, configId: id, value: wanted },
           HANDSHAKE_MS,
         );
       } catch {
-        throw new RuntimeActionError(
-          'mode_unavailable',
-          `${this.#name} could not start in the mode where it asks you before it acts, so the task did not start.`,
-        );
+        throw refused;
       }
+      const listed = record(answer)?.configOptions;
+      const answered = (Array.isArray(listed) ? listed : [])
+        .map(record)
+        .find((option) => option?.id === id);
+      const read =
+        answered !== undefined ? text(answered?.currentValue) : (this.#optionsSaid.get(id) ?? null);
+      if (read !== wanted) throw refused;
     }
   }
 

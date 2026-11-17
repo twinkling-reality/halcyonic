@@ -958,9 +958,19 @@ export function agentAppProfile(scope: AgentAppScope): string {
       `(allow file-read* file-write* (subpath ${JSON.stringify(own)}))`,
     );
   }
+  // Nothing in a refused folder is run either: reading is refused, and the kernel runs a program it cannot read (AUDIT3).
+  const hostSubpaths = scope.folders.map(
+    (folder) => `(subpath ${JSON.stringify(resolved(folder).replace(/\/+$/, ''))})`,
+  );
+  const hostHomes = `(regex ${JSON.stringify(`^${seatbeltRegexLiteral(home)}/\\.halcyonic(-[^/]*)?(/|$)`)})`;
+  const homesRoot =
+    scope.settingsHomes === undefined
+      ? []
+      : [`(subpath ${JSON.stringify(resolved(scope.settingsHomes.root).replace(/\/+$/, ''))})`];
   return [
     hostFoldersDeniedProfile(scope).trimEnd(),
     `(deny file-read* file-write* ${[...credentials, ...settings].join(' ')})`,
+    `(deny process-exec ${[...hostSubpaths, hostHomes, ...credentials, ...settings, ...homesRoot].join(' ')})`,
     ...homes,
     '',
   ].join('\n');

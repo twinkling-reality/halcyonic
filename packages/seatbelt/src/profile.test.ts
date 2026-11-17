@@ -3,6 +3,7 @@ import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -1180,6 +1181,20 @@ describe('the agent-app profile: an ACP app on a folder the person connected (AD
       );
       assert.notEqual(await exit(['/usr/bin/touch', at('home/.gemini/halora/planted.json')]), 0);
       assert.equal(await exit(['/usr/bin/touch', at('home/.gemini/halora/own/settings.json')]), 0);
+      // A program in a refused folder is not run; the same program beside them is (AUDIT3). A binary, not a script:
+      // the kernel runs a binary it may not read, so only the exec rule stops it.
+      for (const place of [
+        'data/true',
+        'project/.agents/true',
+        'home/.gemini/halora/other/true',
+        'project/src/true',
+      ]) {
+        copyFileSync('/usr/bin/true', at(place));
+        chmodSync(at(place), 0o755);
+      }
+      for (const refused of ['data/true', 'project/.agents/true', 'home/.gemini/halora/other/true'])
+        assert.notEqual(await exit([at(refused)]), 0, refused);
+      assert.equal(await exit([at('project/src/true')]), 0);
       // The folder of homes may be looked at, never listed.
       assert.equal(await exit(['/usr/bin/stat', at('home/.gemini/halora')]), 0);
       assert.notEqual(await exit(['/bin/ls', at('home/.gemini/halora')]), 0);
