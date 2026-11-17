@@ -50,6 +50,12 @@ namespace Halcyonic.Client
         /// <summary>The text is a claim made in agent output, not an observed fact.</summary>
         public bool Reported { get; }
 
+        /// <summary>
+        /// An agent's message as it wrote it, its line breaks and paragraphs kept and only Markdown's marks gone (<see cref="LabelText.WithoutMarks"/>),
+        /// where <see cref="Text"/> stands on one line: what the review quotes its first sentence from (TASKS 2026-11-17). Null for any other entry.
+        /// </summary>
+        public string? Prose { get; internal set; }
+
         /// <summary>Halcyonic's words for the event, apart ("Tool Succeeded"); the whole words where the entry has no evidence.</summary>
         public LineWords Head { get; private set; } = LineWords.None;
 
@@ -263,7 +269,10 @@ namespace Halcyonic.Client
                     // The agent's prose reads without Markdown's marks (DEVICE's headset frames, 2026-11-04); a message
                     // that is only a fence has no prose, so it reads as written rather than as no words (AUDIT).
                     var prose = LabelText.WithoutMarks(message.Payload.Text);
-                    return Said(ActivityKind.Message, LineWords.TheirName(string.IsNullOrWhiteSpace(prose) ? message.Payload.Text : prose), reported: true);
+                    var written = string.IsNullOrWhiteSpace(prose) ? message.Payload.Text : prose;
+                    var spoken = Said(ActivityKind.Message, LineWords.TheirName(written), reported: true);
+                    spoken.Prose = written;
+                    return spoken;
                 case RuntimeToolStartedEvent tool:
                     toolNames[ToolKey(e, tool.Payload.ToolCallId)] = tool.Payload.ToolName;
                     // Halcyonic's word first, so a tool named "Approved" never reads as Halcyonic's own entry (settled 2026-10-08).

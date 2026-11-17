@@ -237,7 +237,7 @@ namespace Halcyonic.Client
                     // Only over a finished turn the computer saw (Turn Finished): a project's result with no observed turn keeps the band.
                     if (card != null && !ReferenceEquals(card, binding.Model.Standing) && result.Observed != null)
                     {
-                        var says = FirstSentence(binding.Model.Report?.Text);
+                        var says = FirstSentence(binding.Model.Report?.Prose ?? binding.Model.Report?.Text);
                         card = card.WithReview(result.Observed != null ? RoomStanding.Finished : null, says == null ? null : LineWords.Theirs(says));
                         if (says != null) band = null;
                         // Laid as one dialog (FIELD's LayDialog): Turn Finished its label, the task's name its title, the card its body.

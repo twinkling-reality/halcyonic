@@ -386,6 +386,19 @@ public class RoomResultTests
     }
 
     [Test]
+    public void TheAgentSaysReadsTheMessagesOwnParagraphsNotItsOneLineEntry()
+    {
+        // The walk on dced8ec07: the activity entry stands on one line, so the review read its first sentence from the whole list.
+        var log = new ActivityLog();
+        const string text = "**Star Catcher is live on the island**\\n\\n- Updated the welcome card and page title\\n  - `index.html` → title";
+        log.Record(new[] { ActivityLogBoundTests.Journaled(1, "e1", "runtime.agent_message", "{\"text\":\"" + text + "\"}") });
+        var said = log.For("e1").Single(entry => entry.Kind == ActivityKind.Message);
+        Assert.That(said.Text, Does.Not.Contain("\n"), "the entry itself stays one line");
+        Assert.That(said.Prose, Does.Contain("\n\n"), "its prose keeps the paragraphs");
+        Assert.That(RoomBar.FirstSentence(said.Prose), Is.EqualTo("Star Catcher is live on the island"));
+    }
+
+    [Test]
     public void TheReviewsOtherSlotShowsTheResultWhereAPreviewIsReadyElseTheNextWorkAction()
     {
         var was = RoomDesign.Enabled;
