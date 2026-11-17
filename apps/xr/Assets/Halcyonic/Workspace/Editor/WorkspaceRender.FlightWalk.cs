@@ -387,6 +387,57 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (view.NeedsYouRing is not MeshRenderer backRing) failures.Add("home again while the task still waits, the amber ring is not back under the character");
                 else if (Vector3.Distance(backRing.transform.position, ringHome) > 0.01f) failures.Add("home again, the amber ring stands " + Vector3.Distance(backRing.transform.position, ringHome).ToString("0.000") + " m from its place");
                 Debug.Log("Halcyonic: flight walk: the ring moved at most " + ringMoved.ToString("0.000") + " m while the character flew; home again, it is " + (view.NeedsYouRing != null ? "back" : "gone") + ".");
+
+                // Another project's task asks (XR's 20:4xZ): opening it does not make its place the selected one, so its character flies
+                // from its own place, and home to it.
+                var other = Work.Asking(Scripted());
+                var otherId = "render-work-b";
+                other.Workstream.WorkstreamId = otherId;
+                other.Workstream.ProjectId = "project-b";
+                other.Workstream.Title = "Tune the kite's tail";
+                other.Workstream.CurrentExecutionId = "render-execution-b";
+                other.Workstream.ExecutionIds = new List<string> { "render-execution-b" };
+                foreach (var reason in other.Workstream.Attention.Reasons) if (reason is QuestionPendingReason pending) pending.ExecutionId = "render-execution-b";
+                other.Execution.ExecutionId = "render-execution-b";
+                other.Execution.WorkstreamId = otherId;
+                other.Execution.ProjectId = "project-b";
+                var projects = work.State.Projects.Values.ToList();
+                projects.Add(new ProjectView { ProjectId = "project-b", Name = "Kite Run", CreatedAt = Time, UpdatedAt = Time });
+                PlacementPump(session, new WelcomeMessage { Journal = journal, Head = 3, ServerTime = Time }, new SnapshotMessage { Snapshot = new Snapshot { Journal = journal, Position = 3,
+                    Projects = projects, Workstreams = new List<WorkstreamView> { work.Workstream, other.Workstream }, Executions = new List<ExecutionView> { work.Execution, other.Execution },
+                    Runtimes = work.State.Runtimes.ToList() } });
+                stage.Refresh(); Draw(); Draw();
+                if (stage.ElsewhereView(otherId) is not CharacterView otherView) failures.Add("the other project's task stands at no place of its own");
+                else
+                {
+                    if (stage.Holds(otherId) == false) failures.Add("the stage says the other project's character cannot fly");
+                    var otherHome = otherView.transform.position;
+                    momentAt = null;
+                    if (menu.Navigator.Beside != null) { menu.Navigator.CloseBeside(); Draw(); }
+                    menu.OpenFile(otherId, FileSection.Waiting);
+                    var waited = System.Diagnostics.Stopwatch.StartNew();
+                    do { Draw(); Thread.Sleep(50); } while (waited.Elapsed.TotalSeconds < FileColumn.RefreshSeconds + 0.5 && stage.Flying != otherId);
+                    if (stage.Flying != otherId) failures.Add("the other project's question called no character (flying: " + (stage.Flying ?? "none") + ")");
+                    else
+                    {
+                        var otherCalled = clock;
+                        var away = 0f;
+                        for (var step = 1; step <= 20; step++)
+                        {
+                            clock = otherCalled + step * 0.1f;
+                            Draw();
+                            Advance(0.1f);
+                            away = Mathf.Max(away, Vector3.Distance(otherView.transform.position, otherHome));
+                        }
+                        if (away < 0.2f) failures.Add("the other project's character never left its place (" + away.ToString("0.00") + " m)");
+                        if (!Press(Footer.Close)) menu.Navigator.CloseBeside();
+                        for (var step = 1; step <= 25; step++) { clock += 0.1f; Draw(); Advance(0.1f); }
+                        if (stage.Flying != null) failures.Add("the other project's character is not home 2.5 s after its page closed");
+                        var back = Vector3.Distance(otherView.transform.position, otherHome);
+                        if (back > 0.01f) failures.Add("the other project's character came home " + back.ToString("0.000") + " m from its place");
+                        Debug.Log("Halcyonic: flight walk: the other project's character flew " + away.ToString("0.00") + " m from its place and came home " + back.ToString("0.000") + " m from it");
+                    }
+                }
             }
             finally
             {

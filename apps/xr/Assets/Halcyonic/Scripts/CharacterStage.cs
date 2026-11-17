@@ -474,6 +474,12 @@ namespace Halcyonic.XR
         private float calledAt;
         private float? releasedAt;
 
+        /// <summary>
+        /// Where a called character standing at another project's place stood when called (XR's 2026-11-17T20:4xZ: opening a task does
+        /// not promote its place, and that place keeps no standing here), so it flies home to it; null for one on the person's shelf.
+        /// </summary>
+        private (Vector3 Position, Quaternion Rotation)? elsewhereHome;
+
         /// <summary>The character in flight, or there, and the flight now; none where no moment asks.</summary>
         public string? Flying => flyingId;
 
@@ -494,10 +500,13 @@ namespace Halcyonic.XR
             flyingTo = to;
             calledAt = FlightClock();
             releasedAt = null;
+            // A character at another project's place flies from there and home to it.
+            elsewhereHome = !views.ContainsKey(workstreamId) && ElsewhereView(workstreamId) is CharacterView other
+                ? (other.transform.position, other.transform.rotation) : null;
         }
 
         /// <summary>Whether <paramref name="workstreamId"/>'s character stands on this stage.</summary>
-        public bool Holds(string workstreamId) => views.ContainsKey(workstreamId);
+        public bool Holds(string workstreamId) => views.ContainsKey(workstreamId) || StandsElsewhere(workstreamId);
 
         /// <summary>Sends the called character home once its moment is answered or gone: the panel leaves first, then it flies back.</summary>
         public void Release()
@@ -515,10 +524,22 @@ namespace Halcyonic.XR
         private void Fly()
         {
             if (flyingId == null || flyingTo == null) return;
-            if (!views.TryGetValue(flyingId, out var view) || !standings.TryGetValue(flyingId, out var standing))
+            // On the person's shelf, as the shelf stands it; at another project's place, where it stood when called.
+            CharacterView view;
+            Standing? standing = null;
+            var elsewhere = false;
+            if (views.TryGetValue(flyingId, out var own) && standings.TryGetValue(flyingId, out var stood)) (view, standing) = (own, stood);
+            else if (elsewhereHome != null && ElsewhereView(flyingId) is CharacterView other) (view, elsewhere) = (other, true);
+            else
             {
                 flyingId = null;
+                elsewhereHome = null;
                 return;
+            }
+            void StandHome()
+            {
+                if (elsewhere && elsewhereHome is { } place) view.transform.SetPositionAndRotation(place.Position, place.Rotation);
+                else if (standing != null) Stand(view, standing.Angle, standing.Lift, 1f);
             }
             var flight = FlightNow;
             // Home again: back to its shelf's own place, as the shelf stands it.
@@ -530,7 +551,13 @@ namespace Halcyonic.XR
                 // Home: the ring stands under it again, and shows only if the task still needs the person (its own state says).
                 view.FloorRingAt = null;
                 view.FloorRingKept = 1f;
-                Stand(view, standing.Angle, standing.Lift, 1f);
+                StandHome();
+                // Its own place lays it again, as it lays every character there (CharacterStage.Places' LayOtherPlace).
+                if (elsewhere)
+                {
+                    elsewhereHome = null;
+                    Refresh();
+                }
                 return;
             }
             // Its tag stays home while it flies, and stands with it again once it has landed and its moment arrives (the lead's
@@ -539,7 +566,7 @@ namespace Halcyonic.XR
             if (view.Labels.gameObject.activeSelf != tagged) view.Labels.gameObject.SetActive(tagged);
             // Beside the panel, its name rides on the thin line; on its shelf, none.
             view.LabelStemDp = flight.Along >= 1f && flight.TagShown >= 0.5f ? FlightStemDp : 0f;
-            Stand(view, standing.Angle, standing.Lift, 1f);
+            StandHome();
             var home = view.transform.position;
             // The floor ring stays on the floor where it stood and fades over the lift-off (the lead's 2026-11-17T18:32Z): the call
             // is answered by the coming; it is gone while the character is away.
