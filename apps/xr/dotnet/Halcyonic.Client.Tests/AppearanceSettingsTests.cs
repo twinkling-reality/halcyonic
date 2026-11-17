@@ -748,6 +748,11 @@ public class AppearanceSettingsTests
                 Is.EqualTo(CodeThemes.Example.Select(each => ((CodeLanguage?)CodeLanguage.Script, false, each))),
                 "marked as code for the view to paint, and our own words");
             Assert.That(page.Lines.Select(line => line.Code), Has.All.Null, "the choices are words, never painted");
+            // The room's reader keeps the mark on the rows it draws, so the rows view paints the example and nothing else.
+            var rows = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)!.Facts!;
+            Assert.That(rows.Where(row => row.Code != null).Select(row => (row.Code, row.Words.Text)),
+                Is.EqualTo(CodeThemes.Example.Select(each => ((CodeLanguage?)CodeLanguage.Script, each))), "the example's rows carry the mark");
+            Assert.That(rows.Count(row => row.Code == null), Is.LessThanOrEqualTo(1), "only the title row, if any, is words");
             Assert.That(column.Frame!.Footer.All.Select(each => each.Prompt.Words), Does.Contain("Apply Colours").And.Contain("Cancel"));
             column.Act(AppearanceColumn.Cancel, null);
             Assert.That((CodeThemes.Current, settings.Code, saved.Count), Is.EqualTo((CodeTheme.Halora, CodeTheme.Halora, 0)), "Cancel keeps what was kept");
