@@ -2993,21 +2993,15 @@ export class CommandService {
     // A task that works in the project's own folder, not a copy, never starts where that folder's git settings hold a
     // sign-in its agent could read unasked (AUDIT3 M3, M3b, 2026-11-17). Never says what or where.
     const startIn = (directory: string | null): void => {
-      if (directory === null || directory !== projectFolder) {
-        begin(directory);
-        return;
-      }
-      void folderGitHoldsSignIn(directory).then((holds) => {
-        if (!holds) {
-          begin(directory);
-          return;
-        }
+      if (directory !== null && directory === projectFolder && folderGitHoldsSignIn(directory)) {
         this.#fail(command, admission.scope, {
           code: 'invalid_state',
           message: GIT_SIGN_IN_REFUSED,
           effect: 'none',
         });
-      });
+        return;
+      }
+      begin(directory);
     };
     const copies = this.#deps.copies;
     // A task from a version works only in its own copy of that version, never the folder as it is.
