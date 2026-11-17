@@ -41,6 +41,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The agent's plate's own quiet ground, where the tag's glass is hidden.</summary>
         public RoomShape Ground => ground;
 
+        /// <summary>How many times its bound a place's name may run and still stand on two lines; a longer one takes three, balanced.</summary>
+        public const float PlaceTwoLinesMost = 2.6f;
+
         /// <summary>
         /// The agent's plate while it works (the addendum's A17): the agent's own glyph, 18 dp, 8 dp before its name, on the kit's
         /// one glass (<see cref="AskGlass"/>'s face, no ring, no edge), so it never reads as a task's tag or a press. Its first 62
@@ -157,7 +160,9 @@ namespace Halcyonic.XR.UI
             if (wordsMost is float placeBound && placeBounded && wide > placeBound)
             {
                 var own = RoomType.Scaled(NameWordsMostDp);
-                wordsMost = wide <= placeBound * 1.3f ? Mathf.Min(wide + 1f, own) : Mathf.Min(Mathf.Max(placeBound, wide / 2f * 1.12f), own);
+                wordsMost = wide <= placeBound * 1.3f ? Mathf.Min(wide + 1f, own)
+                    : wide <= placeBound * PlaceTwoLinesMost ? Mathf.Min(Mathf.Max(placeBound, wide / 2f * 1.12f), own)
+                    : Mathf.Min(Mathf.Max(placeBound, wide / 3f * 1.12f), own);
             }
             if (wordsMost is float most && wide > most)
             {
@@ -165,9 +170,11 @@ namespace Halcyonic.XR.UI
                 words.textWrappingMode = TextWrappingModes.Normal;
                 words.overflowMode = TextOverflowModes.Overflow;
                 var (lines, laidWide, tall) = KitType.Lay(words, most, 12);
-                // A place's name never takes three lines: its bound widens in steps until two hold it, up to the tag's own.
+                // A place's name takes two lines, or three where it runs past PlaceTwoLinesMost of its bound (a very long name would otherwise widen
+                // its tag past a row's share): its bound widens in steps until they hold it, up to the tag's own.
                 var ownBound = RoomType.Scaled(NameWordsMostDp);
-                while (placeBounded && lines > 2 && most < ownBound)
+                var linesMost = wide > (mostWordsDp is float given ? RoomType.Scaled(given) : wide) * PlaceTwoLinesMost ? 3 : 2;
+                while (placeBounded && lines > linesMost && most < ownBound)
                 {
                     most = Mathf.Min(ownBound, most * 1.06f);
                     (lines, laidWide, tall) = KitType.Lay(words, most, 12);
