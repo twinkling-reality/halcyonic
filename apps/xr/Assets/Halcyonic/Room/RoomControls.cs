@@ -52,6 +52,13 @@ namespace Halcyonic.XR.Room
         }
         public void PlaceAgents() => Place(null, null, null);
         public void PlaceTask(string workstreamId, string title, System.Func<bool> current) => Place(workstreamId, title, current);
+        /// <summary>
+        /// How many placings have begun: each placing column cancels only its own placing, so a column a new placing replaces never clears
+        /// the new preview as it closes (JUDGE's 22:00Z: the walk's cancelled placing's column, still standing at the next Place Agents,
+        /// cancelled the preview that had just been made, run to run).
+        /// </summary>
+        private int placings;
+
         private void Place(string? workstreamId, string? title, System.Func<bool>? current)
         {
             if (director == null || FocusGuard.InputSuspended || director.Presentation.Minimized || director.MenuHost == null || current?.Invoke() == false) return;
@@ -62,14 +69,16 @@ namespace Halcyonic.XR.Room
                 return;
             }
             drag?.End();
+            var opened = ++placings;
+            void CancelOwn() { if (opened == placings) placement.CancelPreview(); }
             column = new AgentShelfColumn(director.MenuHost, placement.Draft, direction => { drag?.End(); placement.MovePreview(direction); },
                 () =>
                 {
-                    if (current?.Invoke() == false) { placement.CancelPreview(); return; }
+                    if (current?.Invoke() == false) { CancelOwn(); return; }
                     if (!placement.ApplyPreview()) return;
                     if (workstreamId != null) director.EnsureAgentStage().Request(workstreamId);
                     SetEnabled(true);
-                }, placement.CancelPreview, placement.FindRoomSurface, title, current);
+                }, CancelOwn, placement.FindRoomSurface, title, current);
             if (!director.OpenLocal(column)) column.FocusLeft();
             else { MakeHandle(); PreviewChanged(); }
         }
