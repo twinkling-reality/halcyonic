@@ -2158,8 +2158,6 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             ("an answer card's description cut, on main",
                 new Regex("/Information panel/Card/Body words cuts its words with an ellipsis: \"Slows guessing(; someone| more)\u2026\"$")),
-            ("the notice's words above their plate, on main",
-                new Regex("^room-\\d+-[a-z-]+: a notice's words stand off their plate: drawn above where laid by 1\\.\\d px$")),
             // The recorded run's result Checks offers no way to the file's checks answer where the computer ran its own check
             // (RoomBar.Result's ChecksOf, SCREENS 21:55Z): SCREENS's review-card unit mends it, and the name goes then (AUDIT3 21:55Z).
             ("the recorded run's result Checks has no way to the file's checks answer, SCREENS's review card unit",
