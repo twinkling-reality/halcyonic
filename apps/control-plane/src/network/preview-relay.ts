@@ -46,12 +46,14 @@ export function confinedPreviewTarget(
   taskId: string | null = null,
 ): PreviewTarget {
   if (taskId !== null && projection.workstream(taskId)?.project_id !== projectId)
-    return refuse('preview_not_running', 'No preview runs for this task.');
+    return refuse('preview_not_running', 'No preview is running for this task.');
   const preview = taskId === null ? projection.preview(projectId) : projection.taskPreview(taskId);
   if (preview === undefined)
     return refuse(
       'preview_not_running',
-      taskId === null ? 'No preview runs for this project.' : 'No preview runs for this task.',
+      taskId === null
+        ? 'No preview is running for this project.'
+        : 'No preview is running for this task.',
     );
   const check =
     taskId === null ? projection.latestCheck(projectId) : projection.latestTaskCheck(taskId);

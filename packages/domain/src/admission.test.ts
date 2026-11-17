@@ -1282,14 +1282,14 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     });
     assert.match(
       refusal('project.preview.start') ?? '',
-      /Only the copy of a passed check is served/,
+      /preview opens only after its check passes on its current files/,
     );
     // A check recorded before the verdict reads by passed alone.
     const older = b.id();
     record(older, {});
     assert.match(
       refusal('project.preview.start') ?? '',
-      /Only the copy of a passed check is served/,
+      /preview opens only after its check passes on its current files/,
     );
   });
 
@@ -1320,7 +1320,7 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
     assert.equal(projection.latestCheck(scope.project_id)?.findings.verdict, 'starter_only');
     assert.match(
       refusal('project.preview.start') ?? '',
-      /Only the copy of a passed check is served/,
+      /preview opens only after its check passes on its current files/,
     );
     assert.notEqual(refusal('project.open_on_mac'), null, 'nothing to play on the laptop');
     assert.match(refusal('project.share.start') ?? '', /Only a passed check can be shared/);

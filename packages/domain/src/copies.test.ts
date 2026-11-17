@@ -589,11 +589,11 @@ describe("checking a task's own copy (ADR 0045)", () => {
     // Neither task has a check yet: its preview is refused in words.
     assert.equal(
       refusal(command('project.preview.start', first)),
-      'Only the copy of a passed check is served. Check this task first.',
+      "This task's preview opens only after its check passes on its current files. Check this task first.",
     );
     assert.equal(
       refusal(command('project.preview.start', shared)),
-      "This task works in the project's own folder: preview the project.",
+      "This task works in the project's own folder, so preview the project instead.",
     );
     assert.equal(
       refusal(command('project.preview.stop', first)),

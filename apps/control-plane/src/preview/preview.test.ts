@@ -1745,7 +1745,7 @@ describe("a Starter Only check, through the plane (LINK, 2026-11-16, AUDIT3's S3
       return outcome.command?.rejection;
     };
     for (const [type, words] of [
-      ['project.preview.start', /Only the copy of a passed check is served/],
+      ['project.preview.start', /preview opens only after its check passes on its current files/],
       ['project.share.start', /Only a passed check can be shared/],
       ['project.publish', /Only a passed check can be published/],
     ] as const) {
@@ -1881,7 +1881,7 @@ describe("each task's own copy checked and previewed side by side (limits audit 
     assert.equal(refused.disposition, 'rejected');
     assert.equal(
       refused.command.rejection?.message,
-      'Only the copy of a passed check is served. Check this task first.',
+      "This task's preview opens only after its check passes on its current files. Check this task first.",
     );
 
     const previewB = controlPlane.projection.taskPreview(second);

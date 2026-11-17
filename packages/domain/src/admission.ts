@@ -436,11 +436,7 @@ function admit(
           // project's own checks and restores; other tasks work in copies of their own.
           const task = projection.workstream(taskId);
           if (task === undefined || task.project_id !== projectId)
-            return reject(
-              scope,
-              'workstream_not_found',
-              `Workstream ${taskId} is not this project's.`,
-            );
+            return reject(scope, 'workstream_not_found', 'That task is not in this project.');
           const taskScope = { ...scope, workstream_id: task.workstream_id };
           if (task.copy?.state !== 'own')
             return reject(
@@ -512,7 +508,7 @@ function admit(
         return reject(
           scope,
           'invalid_state',
-          'Only the copy of a passed check is served. Check the project first.',
+          "This project's preview opens only after its check passes on its current files. Check the project first.",
         );
       }
       if (check.files === 'changed') {
@@ -534,7 +530,7 @@ function admit(
         return reject(
           scope,
           'invalid_state',
-          'Only the copy of a passed check is served. Check the project first.',
+          "This project's preview opens only after its check passes on its current files. Check the project first.",
         );
       }
       return { admitted: true, policy, scope, runtime: null };
@@ -1731,7 +1727,7 @@ function admitTaskPreview(
   const projectId = scope.project_id as ProjectId;
   const task = projection.workstream(taskId);
   if (task === undefined || task.project_id !== projectId)
-    return reject(scope, 'workstream_not_found', `Workstream ${taskId} is not this project's.`);
+    return reject(scope, 'workstream_not_found', 'That task is not in this project.');
   const taskScope = { ...scope, workstream_id: task.workstream_id };
   const preview = projection.taskPreview(task.workstream_id);
   if (type === 'project.preview.stop') {
@@ -1743,7 +1739,7 @@ function admitTaskPreview(
     return reject(
       taskScope,
       'invalid_state',
-      "This task works in the project's own folder: preview the project.",
+      "This task works in the project's own folder, so preview the project instead.",
     );
   if (preview !== undefined)
     return reject(taskScope, 'invalid_state', 'This task already has a preview running.');
@@ -1761,7 +1757,7 @@ function admitTaskPreview(
     return reject(
       taskScope,
       'invalid_state',
-      'Only the copy of a passed check is served. Check this task first.',
+      "This task's preview opens only after its check passes on its current files. Check this task first.",
     );
   if (check.files === 'changed')
     return reject(
