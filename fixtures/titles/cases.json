@@ -115,9 +115,9 @@
     "title": "/another-level/src/components/KiteGame.tsx"
   },
   {
-    "name": "a long link keeps its end, without its query",
+    "name": "a long link is titled by its host, never its path or query",
     "text": "https://example.com/some/really/long/path/to/a/page/that/goes/on/and/on/index.html?token=abc123secret#top look",
-    "title": "/really/long/path/to/a/page/that/goes/on/and/on/index.html"
+    "title": "example.com"
   },
   {
     "name": "a short link loses its query",
@@ -173,5 +173,45 @@
     "name": "an at sign in a link's path stays",
     "text": "Open https://npmjs.com/package/@scope/name",
     "title": "Open https://npmjs.com/package/@scope/name"
+  },
+  {
+    "name": "a long webhook is titled by its host alone",
+    "text": "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX post the build",
+    "title": "hooks.slack.com"
+  },
+  {
+    "name": "another long webhook is titled by its host alone",
+    "text": "https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyzABCDEF send it",
+    "title": "discord.com"
+  },
+  {
+    "name": "a long address with a user and a query is titled by its host only",
+    "text": "https://user:pw@github.com/some-organisation/some-repository-name/pull/12345/files?diff=split review",
+    "title": "github.com"
+  },
+  {
+    "name": "an address of sixty characters stands whole",
+    "text": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "title": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "name": "an address of sixty-one characters is titled by its host",
+    "text": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "title": "example.com"
+  },
+  {
+    "name": "a host over sixty keeps its end from a dot, never a cut label",
+    "text": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.example.com/x/yyyyyyyyyyyyyyyyyyyy",
+    "title": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.example.com"
+  },
+  {
+    "name": "a host's port stays",
+    "text": "http://localhost:5173/segment/segment/segment/segment/segment/segment/segment/segment check it",
+    "title": "localhost:5173"
+  },
+  {
+    "name": "a typed www stays with its host",
+    "text": "https://www.example.com/section/section/section/section/section/section/section/section",
+    "title": "www.example.com"
   }
 ]

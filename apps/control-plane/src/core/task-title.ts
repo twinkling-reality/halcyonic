@@ -15,8 +15,12 @@
  * 4. The first sentence, ending at ". ", "? " or "! ", never at the stop of "e.g.", "i.e.", "vs."
  *    or "cf.", is the title when it is 60 characters or fewer.
  * 5. Otherwise its first words up to 60 characters, cut only between words, with any comma,
- *    semicolon, colon or dash left at the end dropped; and a first word longer than 60 alone (a
- *    path or a link) keeps its end: the last 60 characters, from a "/" where one is among them.
+ *    semicolon, colon or dash left at the end dropped. A first word longer than 60 alone is titled
+ *    by its host where it is an address, as typed with its port and without its scheme, so no
+ *    path reaches the title (a webhook's path is its secret); a host over 60 keeps its end from a
+ *    ".". Any other such word (a file path) keeps its end: the last 60 characters, from a "/"
+ *    where one is among them. An address of 60 or fewer that is the whole first sentence still
+ *    stands whole, its path included.
  * 6. Text with no words at all is "New Task".
  *
  * A character is one the person sees: a code point with the marks and emoji skin tones that follow
@@ -44,7 +48,7 @@ export function taskTitleOf(text: string): string {
   if (charactersOf(sentence).length <= MADE_TITLE_LENGTH) return sentence;
   const words = sentence.split(' ');
   const first = words[0] as string;
-  if (charactersOf(first).length > MADE_TITLE_LENGTH) return endOf(first);
+  if (charactersOf(first).length > MADE_TITLE_LENGTH) return hostOf(first) ?? endOf(first, '/');
   let title = first;
   for (const word of words.slice(1)) {
     const longer = `${title} ${word}`;
@@ -85,14 +89,18 @@ function firstLine(text: string): string | null {
   return null;
 }
 
+/** Where an address's host begins: after its scheme, or at its start; null for a word that is no address. */
+function hostStart(word: string): number | null {
+  const scheme = word.indexOf('://');
+  if (scheme !== -1) return scheme + 3;
+  const slash = word.indexOf('/');
+  return slash > 0 && word.slice(0, slash).includes('.') ? 0 : null;
+}
+
 /** An address without the parts that often hold a token: a user before its host, its query and fragment. */
 function withoutSecrets(word: string): string {
-  const scheme = word.indexOf('://');
-  const from = scheme === -1 ? 0 : scheme + 3;
-  if (scheme === -1) {
-    const slash = word.indexOf('/');
-    if (slash <= 0 || !word.slice(0, slash).includes('.')) return word;
-  }
+  const from = hostStart(word);
+  if (from === null) return word;
   let rest = word.slice(from);
   const hostEnd = rest.search(/[/?#]/);
   const user = (hostEnd === -1 ? rest : rest.slice(0, hostEnd)).lastIndexOf('@');
@@ -110,11 +118,26 @@ function firstSentence(line: string): string {
   return line;
 }
 
-/** A word longer than a title, by its end: from a "/" among its last characters, where one is. */
-function endOf(word: string): string {
+/** An address's host as typed, its port kept (already without a user), or null for a word that is no address. */
+function hostOf(word: string): string | null {
+  const from = hostStart(word);
+  if (from === null) return null;
+  const rest = word.slice(from);
+  const end = rest.search(/[/?#]/);
+  const host = end === -1 ? rest : rest.slice(0, end);
+  if (host === '') return null;
+  return charactersOf(host).length <= MADE_TITLE_LENGTH ? host : endOf(host, '.');
+}
+
+/**
+ * A word longer than a title, by its end: its last characters from a `mark` among them where one
+ * is, a path from a "/" and a host after a ".", so a host's title never begins inside a label.
+ */
+function endOf(word: string, mark: '/' | '.'): string {
   const end = charactersOf(word).slice(-MADE_TITLE_LENGTH);
-  const slash = end.indexOf('/');
-  return (slash !== -1 && slash < end.length - 1 ? end.slice(slash) : end).join('');
+  const at = end.indexOf(mark);
+  if (at === -1 || at === end.length - 1) return end.join('');
+  return end.slice(mark === '/' ? at : at + 1).join('');
 }
 
 function withoutLeftovers(title: string): string {

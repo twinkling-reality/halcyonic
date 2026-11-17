@@ -221,7 +221,7 @@ namespace Halcyonic.Client
             var sentence = FirstSentence(string.Join(" ", Array.ConvertAll(line.Split(' '), WithoutSecrets)));
             if (CharactersOf(sentence).Count <= MadeTitleLength) return sentence;
             var words = sentence.Split(' ');
-            if (CharactersOf(words[0]).Count > MadeTitleLength) return EndOf(words[0]);
+            if (CharactersOf(words[0]).Count > MadeTitleLength) return HostOf(words[0]) ?? EndOf(words[0], '/');
             var title = words[0];
             for (var index = 1; index < words.Length; index++)
             {
@@ -296,13 +296,7 @@ namespace Halcyonic.Client
         /// </summary>
         private static string WithoutSecrets(string word)
         {
-            var scheme = word.IndexOf("://", StringComparison.Ordinal);
-            var from = scheme < 0 ? 0 : scheme + 3;
-            if (scheme < 0)
-            {
-                var slash = word.IndexOf('/');
-                if (slash <= 0 || word.IndexOf('.', 0, slash) < 0) return word;
-            }
+            if (!(HostStart(word) is int from)) return word;
             var rest = word.Substring(from);
             var hostEnd = rest.IndexOfAny(HostEnds);
             var user = (hostEnd < 0 ? rest : rest.Substring(0, hostEnd)).LastIndexOf('@');
@@ -323,13 +317,41 @@ namespace Halcyonic.Client
             return line;
         }
 
-        /// <summary>A word longer than a title, by its end: from a "/" among its last characters, where one is.</summary>
-        private static string EndOf(string word)
+        /// <summary>Where an address's host begins: after its scheme, or at its start; null for a word that is no address.</summary>
+        private static int? HostStart(string word)
+        {
+            var scheme = word.IndexOf("://", StringComparison.Ordinal);
+            if (scheme >= 0) return scheme + 3;
+            var slash = word.IndexOf('/');
+            return slash > 0 && word.IndexOf('.', 0, slash) >= 0 ? 0 : (int?)null;
+        }
+
+        /// <summary>
+        /// An address's host as typed, its port kept (already without a user), so no path reaches the
+        /// title; a host over a title keeps its end after a "."; null for a word that is no address.
+        /// </summary>
+        private static string? HostOf(string word)
+        {
+            if (!(HostStart(word) is int from)) return null;
+            var rest = word.Substring(from);
+            var end = rest.IndexOfAny(HostEnds);
+            var host = end < 0 ? rest : rest.Substring(0, end);
+            if (host.Length == 0) return null;
+            return CharactersOf(host).Count <= MadeTitleLength ? host : EndOf(host, '.');
+        }
+
+        /// <summary>
+        /// A word longer than a title, by its end: its last characters from a <paramref name="mark"/> among
+        /// them where one is, a path from a "/" and a host after a ".", so a host never begins inside a label.
+        /// </summary>
+        private static string EndOf(string word, char mark)
         {
             var all = CharactersOf(word);
             var end = all.GetRange(Math.Max(0, all.Count - MadeTitleLength), Math.Min(all.Count, MadeTitleLength));
-            var slash = end.IndexOf("/");
-            return string.Concat(slash >= 0 && slash < end.Count - 1 ? end.GetRange(slash, end.Count - slash) : end);
+            var at = end.IndexOf(mark.ToString());
+            if (at < 0 || at == end.Count - 1) return string.Concat(end);
+            var from = mark == '/' ? at : at + 1;
+            return string.Concat(end.GetRange(from, end.Count - from));
         }
 
     }
