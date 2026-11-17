@@ -124,6 +124,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     var tags = views.Select(each => each.Tag.Tag).ToList();
                     if (tags.Any(tag => tag == null)) { failures.Add(project + ": a character stands with no tag"); continue; }
                     var seenTags = tags.Select(tag => Seen(TagCorners(tag!))).ToList();
+                    // A place one to a row never stands its team as a tower: it gathers them behind "{n} More" (AUDIT's 21:4xZ).
+                    if (rowMost == 1 && views.Count(each => each.View.gameObject.activeSelf) > 1)
+                        failures.Add(project + ": " + views.Count(each => each.View.gameObject.activeSelf) + " stand one to a row, a tower, where the place should gather them");
                     // The row is FIELD's rule's own answer for the tags as drawn (PlacePitch.RowMost: as many as the span holds with its outer tags
                     // inside it), never fewer; each tag's drawn width and its bound are said, for FIELD's sheet.
                     var drawnDegrees = tags.Select(tag => Seen(TagCorners(tag!)).width).ToList();
