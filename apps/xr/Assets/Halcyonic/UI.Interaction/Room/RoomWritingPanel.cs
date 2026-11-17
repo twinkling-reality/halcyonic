@@ -130,6 +130,7 @@ namespace Halcyonic.XR.UI
         private readonly List<(int Row, Vector2 Left, float Width)> lightRows = new List<(int, Vector2, float)>();
         private readonly List<RoomShape[]> lights = new List<RoomShape[]>();
         private readonly HashSet<int> litRows = new HashSet<int>();
+        private readonly Dictionary<RoomShape, (Color Fill, Color Edge)> litOfNow = new Dictionary<RoomShape, (Color Fill, Color Edge)>();
         private readonly List<(RoomShape Plate, Vector2 Size, Vector3 At, int First, int Count)> litRuns = new List<(RoomShape, Vector2, Vector3, int, int)>();
         private float platesAt = -1f;
 
@@ -450,7 +451,9 @@ namespace Halcyonic.XR.UI
             if (!cardShown && countAbove.gameObject.activeSelf) countAbove.gameObject.SetActive(false);
             if (!cardShown && countBelow.gameObject.activeSelf) countBelow.gameObject.SetActive(false);
             // A changed row's tint comes with its words, never before them: each run grows down as its rows pour in.
-            var litOf = new Dictionary<RoomShape, (Color Fill, Color Edge)>();
+            // Kept between frames, so following the panel allocates nothing (AUDIT3's C5; JUDGE's 03:41Z PlaneCheck read).
+            var litOf = litOfNow;
+            litOf.Clear();
             foreach (var (shape, fill, edge, lit) in plates) if (lit && shape != null) litOf[shape] = (fill, edge);
             var poured = 0f;
             foreach (var (plate, size, at, first, count) in litRuns)
