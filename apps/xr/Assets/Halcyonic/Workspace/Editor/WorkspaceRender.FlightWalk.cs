@@ -333,6 +333,37 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     // The ring stays on the floor where it stood, never flying, and is gone once the lift-off breath is over.
                     if (stage.FlightNow.Along >= 1f && view.Labels.gameObject.activeInHierarchy) tagAngle.Most = Mathf.Max(tagAngle.Most, TagSpan());
+                    // Before the panel arrives nothing of it stands in the room: no mark, no divider (AUDIT's 20:25Z MUST 2).
+                    if (bar.PanelArrival.Shown < 0.01f)
+                    {
+                        var early = bar.Panel.GetComponentsInChildren<Renderer>(false)
+                            .Where(each => each.enabled && each.gameObject.activeInHierarchy && (each.GetComponent<TMPro.TMP_SubMesh>() is TMPro.TMP_SubMesh sub ? sub.textComponent != null && sub.textComponent.enabled : each.GetComponentInParent<RoomShape>() != null)).ToList();
+                        if (early.Count > 0) failures.Add(name + ": the panel's marks stand before it arrives: " + string.Join(", ", early.Select(each => each.name).Distinct()));
+                    }
+                    // Beside the panel the tag never stands over its face, as the eyes see it (AUDIT's 20:25Z MUST 1).
+                    if (stage.FlightNow.Along >= 1f && view.Labels.gameObject.activeInHierarchy && bar.PanelArrival.Shown > 0.5f)
+                    {
+                        Vector2 Seen(Vector3 point) { var toward = point - eyes; return new Vector2(Mathf.Atan2(toward.x, toward.z), Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude)) * Mathf.Rad2Deg; }
+                        Rect Box(IEnumerable<Renderer> parts)
+                        {
+                            var min = new Vector2(float.MaxValue, float.MaxValue);
+                            var max = new Vector2(float.MinValue, float.MinValue);
+                            foreach (var part in parts)
+                            {
+                                var b = part.bounds;
+                                for (var corner = 0; corner < 8; corner++)
+                                {
+                                    var at = Seen(b.center + Vector3.Scale(b.extents, new Vector3(corner % 2 == 0 ? -1f : 1f, corner < 4 ? -1f : 1f, corner % 4 < 2 ? -1f : 1f)));
+                                    min = Vector2.Min(min, at); max = Vector2.Max(max, at);
+                                }
+                            }
+                            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+                        }
+                        var tagBox = Box(view.Labels.GetComponentsInChildren<Renderer>(false).Where(each => each.enabled && each.GetComponent<TMPro.TMP_Text>() == null && each.bounds.size.x > 0.02f));
+                        var panelBox = Box(new[] { bar.Panel.GetComponentsInChildren<Renderer>(false).Where(each => each.enabled).OrderByDescending(each => each.bounds.size.sqrMagnitude).First() });
+                        if (tagBox.Overlaps(panelBox)) failures.Add(name + ": the tag stands over the panel's face as the eyes see it (tag " + tagBox.xMin.ToString("0.0") + " to " + tagBox.xMax.ToString("0.0")
+                            + " across, panel " + panelBox.xMin.ToString("0.0") + " to " + panelBox.xMax.ToString("0.0") + ")");
+                    }
                     var ring = view.NeedsYouRing;
                     if (ring != null && (seconds > 0f && seconds < 4f - 1e-4f || stage.Flying != null)) ringMoved = Mathf.Max(ringMoved, Vector3.Distance(ring.transform.position, ringHome));
                     if (ring != null && seconds >= RoomMotion.FlightBreathSeconds + 0.05f && stage.Flying != null) ringPast ??= name + " (" + seconds.ToString("0.0") + " s)";

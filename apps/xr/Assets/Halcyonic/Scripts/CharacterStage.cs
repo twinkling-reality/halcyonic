@@ -555,6 +555,12 @@ namespace Halcyonic.XR
                 if (away.magnitude < FlightClearOfHeadM) point = head.position + (away.sqrMagnitude > 1e-6f ? away.normalized : head.forward) * FlightClearOfHeadM;
             }
             view.transform.position = point;
+            // It turns to face the person as it comes, by how far along it is (no snap at either end), so beside the panel it faces them
+            // and its tag hangs under it, not off to the side its shelf faced.
+            var eyesAt = head != null ? head.position : shelfViewer;
+            var facing = new Vector3(eyesAt.x - point.x, 0f, eyesAt.z - point.z);
+            if (facing.sqrMagnitude > 1e-6f)
+                view.transform.rotation = Quaternion.Slerp(view.transform.rotation, Quaternion.LookRotation(facing.normalized, Vector3.up), RoomMotion.EaseInOut(flight.Along));
             // Its tag measured from where it now stands, so it keeps the angle it had on its shelf: measured at home, a tag beside a
             // panel 0.65 m from the eyes stood three times its size, across the panel.
             view.PlaceShelfLabel(head != null ? head.position : shelfViewer);
