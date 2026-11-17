@@ -336,14 +336,21 @@ namespace Halcyonic.XR
             var width = distance / PlaceBearings.RingOneDistance;
             var lowest = 0f;
             var highestBody = 0f;
+            var nearest = 0f;
             foreach (var view in team)
             {
                 if (DrawnTagCorners?.Invoke(view) is Vector3[] tag)
-                    foreach (var corner in tag) lowest = Mathf.Min(lowest, root.InverseTransformPoint(corner).y);
+                    foreach (var corner in tag)
+                    {
+                        var local = root.InverseTransformPoint(corner);
+                        lowest = Mathf.Min(lowest, local.y);
+                        nearest = Mathf.Min(nearest, local.z);
+                    }
                 foreach (var corner in view.BodyCorners()) highestBody = Mathf.Max(highestBody, root.InverseTransformPoint(corner).y);
             }
             var arcY = lowest - ArcUnderTags * width;
-            name.localPosition = new Vector3(0f, arcY - NameUnderArc * width, 0f);
+            // At the tags' own depth: they stand on the lip, nearer the eyes than the characters, and a name further back would read higher.
+            name.localPosition = new Vector3(0f, arcY - NameUnderArc * width, nearest);
             // The inner end: toward ahead, the person's right for a place on the left.
             var inner = yawDegrees < 0f ? 1f : -1f;
             var across = (float)PlacePitch.MetresOf(Mathf.Max(0f, spanDegrees - 2f * MoreInDegrees), distance) / 2f;
