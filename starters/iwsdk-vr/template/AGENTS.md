@@ -38,10 +38,11 @@ How the app is put together:
   place for the whole app, or a new name the person asks for. Other tasks may be adding parts to the same app at
   the same time, and their changes and yours are put together line by line: two changes to the same lines of a shared
   file cannot both be kept. Keep `addParts(world)` as the last call of the setup, in every form of the app.
-- When the person's words name a time of day or a world for what you add (at night, at sunset, by the sea), choose
-  that world in `src/index.ts` yourself as the whole app's look, for example `setupLook(world, 'night')`, with its
-  colours in `index.html`'s `background`; never rename the app for it. It is the same change any other task naming
-  that world makes, so the two combine.
+- When the person's words name a time of day or a world for what you add (at night, by the sea), choose that world
+  in `src/index.ts` yourself as the whole app's look, for example `setupLook(world, 'night')`, and put that world's
+  own sky colours from `src/worlds.ts` in `index.html`'s `background`, its `top` then its `horizon`
+  (`linear-gradient(#0D1240, #5A3E8E)` for `night`); never rename the app for it. It is the same change any other task
+  naming that world makes, so the two combine.
 - Import everything the starter gives an app from `./kit.js` (the look, the toy kit, motion, the palette, input,
   the worlds and `addParts`), so no import names the wrong file; only `PanelSystem` comes from `./panel.js`.
 - Edit `src/index.ts` and your parts directly with your file-editing tool;

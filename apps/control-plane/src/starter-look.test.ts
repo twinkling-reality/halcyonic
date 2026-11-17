@@ -1424,8 +1424,13 @@ describe('tasks add to one app in parts of their own (VRIFY)', () => {
     // flowers, "at night", 2026-11-17): the notes now say to choose that world itself, and never to rename the app.
     assert.match(
       agents.replace(/\s+/g, ' '),
-      /When the person's words name a time of day or a world for what you add \(at night, at sunset, by the sea\), choose that world in `src\/index\.ts` yourself as the whole app's look, .*; never rename the app for it\./,
+      /When the person's words name a time of day or a world for what you add \(at night, by the sea\), choose that world in `src\/index\.ts` yourself as the whole app's look, .*; never rename the app for it\./,
     );
+    // The loading colours combine only when every task writes the same ones: the world's own top and horizon (AUDIT2).
+    const night = read('src/worlds.ts');
+    assert.match(night, /top: '#0D1240'/);
+    assert.match(night, /horizon: '#5A3E8E'/);
+    assert.match(agents, /`linear-gradient\(#0D1240, #5A3E8E\)` for `night`/);
     assert.match(
       agents,
       /A part added to a game leaves the name, the card and the title as they are\./,
