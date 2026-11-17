@@ -69,7 +69,7 @@ namespace Halcyonic.Client
                     var sample = new RoomCard(LineWords.Ours(CodeThemes.Words(chosenCode)), label: CodeThemes.PreviewLabel, sample: CodeThemes.Example,
                         sampleLanguage: CodeLanguage.Script);
                     // One way out, Cancel (AUDIT's 19:59Z: never Cancel and Close both); Apply Colours keeps the theme.
-                    return new MenuFrame(CodeThemes.Words(chosenCode), new Footer(null, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
+                    return new MenuFrame(CodeThemes.Words(chosenCode), new Footer(null, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close, PromptKind.Cancel),
                         farRight: new Prompt(ApplyCode, CodeThemes.ApplyWords, GlazeIcon.Change, main: true)), lines: example).WithCard(sample);
                 }
                 if (codeOpen)

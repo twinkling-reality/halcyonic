@@ -225,7 +225,8 @@ namespace Halcyonic.XR.Workspace.Editor
             if (state == "52-general-usage") Require(bar.Card == null || bar.Card.Gauges.Count == 0, "Usage's four windows were taken by a specific reader, not the general one");
             Require(bar.FromMoment && (paged ? bar.GeneralPart.Pages > 1 : bar.Whole), "the frame is not held whole, or not paged, by the general reader");
             // The way out: a side panel's own Close, a confirmation's Cancel, else the frame's Close.
-            var wayOut = frame.Side != null ? SidePanel.Close : confirm ? "forget-cancel" : state == "52-general-recap-words" ? NewProjectScreens.BackToRecap : Footer.Close;
+            var wayOut = frame.Side != null ? SidePanel.Close : confirm ? "forget-cancel" : state == "52-general-recap-words" ? NewProjectScreens.BackToRecap
+                : state.StartsWith("52-general-code-preview-", StringComparison.Ordinal) ? AppearanceColumn.Cancel : Footer.Close;
             if (paged)
             {
                 Require(bar.Column.Last().Control.Action == wayOut && bar.Column.Any(action => action.Control.Action == RoomBar.TurnPage), "a paged frame lacks its pager or its way out");
