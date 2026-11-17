@@ -27,6 +27,7 @@ import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { DeviceAccess } from '../network/devices.ts';
 import { capturingLogger, createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
+import { ADAPTER_ERROR_WORDS } from './command-service.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 
 const [FEATURE, FAILING, APPROVAL] = DEMO_WORKSTREAMS as unknown as [
@@ -810,11 +811,9 @@ describe('truthful failure handling', () => {
       for (const stored of failures) {
         const text = JSON.stringify(stored.event);
         assert.ok(!text.includes('PRIVATE'), `${name}: ${stored.event.event_type}`);
-        assert.match(
-          text,
-          /The runtime adapter failed unexpectedly \((SyntaxError|Error)\)\./,
-          name,
-        );
+        assert.ok(text.includes(ADAPTER_ERROR_WORDS), name);
+        // The error's type goes to the log, never to the person (AUDIT2, 2026-11-17).
+        assert.ok(!/SyntaxError|\(Error\)/.test(text), name);
       }
       await controlPlane.close();
     }

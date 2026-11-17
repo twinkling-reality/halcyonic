@@ -3773,13 +3773,16 @@ function toFailure(error: unknown, redaction: Redaction): CommandFailure {
   }
   // An unexpected exception says nothing about what the runtime did, and its message is not the
   // adapter's own words: a parse error quotes what it read, which can be an instruction or agent
-  // text. Only its type is told.
-  return {
-    code: 'adapter_error',
-    message: `The runtime adapter failed unexpectedly (${error instanceof Error ? error.name : typeof error}).`,
-    effect: 'unknown',
-  };
+  // text. The person reads only that it is not known; its type goes to the log (AUDIT2, 2026-11-17).
+  return { code: 'adapter_error', message: ADAPTER_ERROR_WORDS, effect: 'unknown' };
 }
+
+/**
+ * What a person reads when an agent app's adapter fails in a way Halora did not expect: whether it ran is not known,
+ * never that it failed or did not run, and the way on (AUDIT2, 2026-11-17). Names no internal part.
+ */
+export const ADAPTER_ERROR_WORDS =
+  'The agent app ran into an error Halora did not expect, so whether this ran is not known. Open the task to see what it reported before you try again.';
 
 /** A message the contract accepts: at most 2000 characters, cut with an ellipsis, never empty. */
 function clip(message: string, fallback: string): string {
