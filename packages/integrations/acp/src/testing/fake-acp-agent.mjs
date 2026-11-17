@@ -87,6 +87,9 @@ process.stdin.on('data', (chunk) => {
   }
 });
 // As the real app does, it ends at the end of its input; with FAKE_ACP_STAY set, an app that does not.
-if (process.env.FAKE_ACP_STAY) setInterval(() => undefined, 1000);
-else process.stdin.on('end', () => process.exit(0));
+if (process.env.FAKE_ACP_STAY) {
+  // An app that outlives its reader: a write to a closed pipe must not end it either.
+  process.stdout.on('error', () => undefined);
+  setInterval(() => undefined, 1000);
+} else process.stdin.on('end', () => process.exit(0));
 run().then(() => undefined);
