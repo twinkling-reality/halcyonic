@@ -653,18 +653,18 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 
 - **Seen:** three VR versions of real web apps (a map app, a sky catalogue, a lesson app), made through Make VR Version
   on the proving plane with Claude Code, one turn each, 14 to 18 minutes. All three passed the check and read ready,
-  with VR offered. Read by eye, the finish fell short in three ways the check does not refuse:
-  - card text and footnotes drawn below the kit's `TYPE.words`, the smallest words measuring 11.28 CSS pixels on the
-    laptop's view against the check's floor of 10 (`READING_FLOOR_PX`), so the check passed them;
-  - a press drawn with no words;
-  - cards left mostly empty.
+  with VR offered. Read by eye, the finish fell short in two ways the check does not refuse: a press drawn with no
+  words, and cards left mostly empty. The check's smallest words measured 11.28 CSS pixels on the laptop's view: that is
+  the kit's own `TYPE.words` (0.026 m at 1.6 m on the check's 1280 by 800 view projects to about 11.3 px), so the
+  kit's words were at the kit's size. Words an app draws on canvases of its own are not measured by the check
+  (`legible.ts`), so whether any of those were smaller is not known.
 - **Now:** `vr-version.txt` asks for every word in the scene (titles, card text, labels, footnotes) at `TYPE.words` or
   larger, with fewer or paged words rather than smaller ones; words on every press; and only cards that hold the
   app's own content, fewer cards rather than empty ones. The line on what the version does not carry yet stays.
   `starters.test.ts` pins these sentences.
-- **Not yet:** the check still measures against 10 pixels, so it does not refuse words below `TYPE.words`. Raising
-  `READING_FLOOR_PX` for VR versions is a change to the check, and is not made here. No VR version has been made under
-  the new words yet.
+- **Not yet:** the check measures only the kit's own words, so it cannot refuse an app's own smaller words; a rule it
+  can measure needs every word drawn through the kit. No VR version has been made under the new words yet, and none has
+  been read in the headset.
 
 ## Consequences
 

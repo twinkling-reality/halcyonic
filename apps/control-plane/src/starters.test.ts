@@ -506,7 +506,7 @@ describe('making a VR version of a project (M1.8c-1)', () => {
       setup('vr-finish', { installed: 'matching', id: VR_STARTER, vrVersion: true })
         .starters.vrVersion()
         ?.instruction('/Users/someone/dev/garden') ?? '';
-    // Words below the kit's size read as noise in a headset (11 px on the laptop view on a real VR version, 2026-11-17).
+    // Every word at the kit's size, an app's own canvas words included, which the check does not measure (legible.ts).
     assert.ok(
       instruction.includes(
         'Draw every word in the scene, titles, card text, labels and footnotes alike, no smaller than TYPE.words from src/kit.ts',
