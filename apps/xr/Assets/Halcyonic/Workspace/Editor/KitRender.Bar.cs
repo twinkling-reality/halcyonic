@@ -1059,8 +1059,11 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(shown.Column[shown.Column.Count - 1].Control.Place == KitPlace.Close
                                 && drawnColumn.Count >= shown.Column.Count && bar.ControlOf(drawnColumn[shown.Column.Count - 1]) == shown.Column[shown.Column.Count - 1].Control,
                                 "a full result does not draw Close last in its column: " + string.Join(", ", shown.Column.Select(action => action.Words)));
-                            Require(shown.Column.Any(action => action.Control.Action == RoomResult.ShowShare) && shown.Overflow.Count == 0,
-                                "a full result's acts do not stand in its column with its facts on the card");
+                            // As one dialog the review's row holds three and Close; Share, the lowest acting action, goes behind More.
+                            Require(shown.AsDialog ? shown.Column.Count == RoomBar.DialogMost && shown.Overflow.Any(action => action.Control.Action == RoomResult.ShowShare)
+                                    && shown.Row.Any(action => action.Control.Action == RoomBar.More)
+                                : shown.Column.Any(action => action.Control.Action == RoomResult.ShowShare) && shown.Overflow.Count == 0,
+                                "a full result's acts do not stand in its row with Share behind More");
                         }
                     }
                     else
@@ -1205,7 +1208,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(look.FillTop.a < 1f && look.Shadow == Halcyonic.XR.UI.RoomSurface.DrawsShadow && look.EdgeDp > 0f && RoomSheen.Peak == 0f,
                         "the panel is not the reference's translucent glass with a hairline and no sheen, its shadow as RoomSurface.DrawsShadow says");
                     // The finished turn's review laid as one dialog stands across the pair's whole footprint, exactly (TASKS, f6); every other panel 440 dp.
-                    var panelDp = shown.Result && shown.AsDialog ? RoomGeometry.PanelDp + RoomGeometry.PairGapDp + RoomGeometry.ColumnDp : RoomGeometry.PanelDp;
+                    var panelDp = shown.Result && shown.AsDialog ? RoomBarView.ReviewDialogDp : RoomGeometry.PanelDp;
                     Require(shown.Wide || Mathf.Abs(panel.Size.x - RoomType.Units(panelDp)) < Tolerance, "the panel is not " + panelDp.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " dp wide");
                     Whole(bar.Body, "the panel's words");
                     if (bar.NoticePlate != null)

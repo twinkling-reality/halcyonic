@@ -1140,10 +1140,22 @@ namespace Halcyonic.XR.UI
         /// <summary>A label in the one language's spaced capitals, our own words; returns the depth under it.</summary>
         private float LayCap(string words, float width, float down)
         {
-            var (label, tall) = Text(KitRole.Strong, CapTypeDp, CapLineDp, White(CapAlpha), LineWords.Ours(words.ToUpperInvariant()), 0f, -down, width, 1);
+            var (label, tall) = Text(KitRole.Strong, CapTypeDp, CapLineDp, White(CapAlpha), LineWords.Ours(words), 0f, -down, width, 1);
+            return down + Plain(label, words, width, tall);
+        }
+
+        /// <summary>
+        /// A label in the one language's label role as plain words (FIELD's 01:56Z: a run's colour tag drew the label at the words' full
+        /// white): no runs, spaced capitals, its quiet alpha; laid again at <paramref name="width"/>, its height returned.
+        /// </summary>
+        private float Plain(TextMeshPro label, string words, float width, float tall)
+        {
+            GlazeRuns.Of(label).Set(LineWords.None);
+            GlazeText.SetLiteral(label, words.ToUpperInvariant());
             label.characterSpacing = CapTracking;
+            label.alpha = CapAlpha;
             capLabels.Add(label);
-            return down + tall;
+            return Mathf.Max(tall, KitType.Lay(label, width, 1).Lines * S(CapLineDp));
         }
 
         /// <summary>Labels set in spaced capitals this frame, their tracking undone when the pool hands them to other words.</summary>
@@ -1165,10 +1177,8 @@ namespace Halcyonic.XR.UI
                 var y = down;
                 if (slot.Label != null)
                 {
-                    var (cap, capTall) = Text(KitRole.Strong, CapTypeDp, CapLineDp, White(CapAlpha), LineWords.Ours(slot.Label.ToUpperInvariant()), x, -y, column, 1);
-                    cap.characterSpacing = CapTracking;
-                    capLabels.Add(cap);
-                    y += capTall + S(CapGapDp);
+                    var (cap, capTall) = Text(KitRole.Strong, CapTypeDp, CapLineDp, White(CapAlpha), LineWords.Ours(slot.Label), x, -y, column, 1);
+                    y += Plain(cap, slot.Label, column, capTall) + S(CapGapDp);
                 }
                 var glyphOf = slot.Kind == RoomKind.Passed ? RoomGlyph.Check : slot.Kind == RoomKind.Failed ? RoomGlyph.AlertRing : (RoomGlyph?)null;
                 var markRoom = glyphOf != null ? S(SlotGlyphDp + 8f) : 0f;

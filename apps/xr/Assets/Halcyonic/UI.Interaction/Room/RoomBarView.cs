@@ -162,6 +162,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The finished turn's review laid as one dialog (TASKS, f6): its label, the run's own state word.</summary>
         public const string ResultLabel = RoomStanding.Finished;
+
+        /// <summary>The finished turn's review dialog's width (the sheet's f6 stands 600 dp; the bar's resting envelope holds about 530).</summary>
+        public const float ReviewDialogDp = 520f;
         private TextMeshPro measureBody = null!;
         private TextMeshPro measureRequest = null!;
         private TextMeshPro sentence = null!;
@@ -1198,9 +1201,9 @@ namespace Halcyonic.XR.UI
             panel.LitEdge = null;
             HideWell();
             var unit = RoomType.Units(1f);
-            // The finished turn's review (TASKS, f6) takes the pair's whole footprint, its panel, gap and column, as the sheet's tile
-            // stands it wide: its two facts side by side and its row whole; the bar's footprint and every clearance stay the pair's.
-            var panelWidth = RoomType.Units(bar.Result ? RoomGeometry.PanelDp + RoomGeometry.PairGapDp + RoomGeometry.ColumnDp : RoomGeometry.PanelDp);
+            // The finished turn's review (TASKS, f6) stands alone and wider, ReviewDialogDp, its two facts side by side, inside the bar's
+            // resting envelope (no column beside it); every other dialog keeps the pair's panel and footprint.
+            var panelWidth = RoomType.Units(bar.Result ? ReviewDialogDp : RoomGeometry.PanelDp);
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
             var gapIn = RoomType.Scaled(DialogGapDp);
             var wordsWidth = panelWidth - 2f * pad;
@@ -1268,7 +1271,7 @@ namespace Halcyonic.XR.UI
             panel.gameObject.SetActive(true);
             // The panel stands where the pair's panel stands, and the bar keeps the pair's footprint (the panel, its gap and the
             // column's width), so the plane places it as it placed the pair and every clearance it keeps holds.
-            var total = panelWidth + RoomType.Units(RoomGeometry.PairGapDp) + RoomType.Units(RoomGeometry.ColumnDp);
+            var total = bar.Result ? panelWidth : panelWidth + RoomType.Units(RoomGeometry.PairGapDp) + RoomType.Units(RoomGeometry.ColumnDp);
             var shift = -total / 2f + panelWidth / 2f;
             panel.transform.localPosition = new Vector3(shift, 0f, 0f);
             PanelHung = false;
@@ -1328,8 +1331,7 @@ namespace Halcyonic.XR.UI
             Foot = foot;
             PanelRight = shift + left + panelWidth;
             Size = new Vector2(total, panelHeight);
-            // The review across the pair's footprint keeps the pair's envelope: its total is the pair's, so it is measured as the pair.
-            LaidPanelDp = bar.Result ? RoomGeometry.PanelDp : panelWidth / unit;
+            LaidPanelDp = panelWidth / unit;
             var largest = LargestAt(LaidPanelDp);
             var passed = total > largest.x + unit * 0.5f || panelHeight > largest.y + unit * 0.5f;
             if (passed && !PassedLargest)
