@@ -110,7 +110,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     var view = button.Glyph;
                     Require(Mathf.Approximately(view.SizeDp, (home ? RoomGlyphs.HomeDp : RoomGlyphs.ChipDp) * GlazeText.Scale) && view.Glyph == glyph, words + "'s glyph is not its own at its size");
                     Require(button.LookNow() == (main ? RoomButtonLook.Main : RoomButtonLook.Rest), words + " shows " + button.LookNow());
-                    drawn.Add((view, glyph, main ? RoomGlyphs.OnMain : RoomGlyphs.OnRest, words + (main ? " (main chip)" : " (rest chip)") + (home ? " at home size" : "")));
+                    // The glyph is read in the colour it was painted (read back from its block, never assumed): in the one language a
+                    // main action's glyph takes its rim's colour on the thin glass, any other's is white (FIELD's 929c6eecc).
+                    var painted = new MaterialPropertyBlock();
+                    view.Ink.GetPropertyBlock(painted);
+                    var ink = (Color)painted.GetVector("_Colour");
+                    var meant = main ? button.RimNow : RoomGlyphs.OnRest;
+                    Require(Mathf.Abs(ink.r - meant.r) < 0.01f && Mathf.Abs(ink.g - meant.g) < 0.01f && Mathf.Abs(ink.b - meant.b) < 0.01f && ink.a > 0.99f,
+                        words + "'s glyph is painted " + ink + ", not " + (main ? "its rim's colour " : "white ") + meant);
+                    drawn.Add((view, glyph, ink, words + (main ? " (main)" : " (rest)") + (home ? " at home size" : "")));
                 }
                 // The first sheet holds as many as two pairs of columns hold with a row left for the home-size actions; the
                 // rest stand on a sheet of their own, so no sheet grows past the rows the view reads at their size.
