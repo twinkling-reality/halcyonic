@@ -96,6 +96,13 @@ namespace Halcyonic.XR.UI
         private TextMeshPro ask = null!;
         private TextMeshPro kicker = null!;
 
+        /// <summary>The approval's command well (thick glass) and its four corner ticks (the one language's marks round what a press acts on).</summary>
+        private RoomShape well = null!;
+        private readonly List<RoomShape> ticks = new List<RoomShape>();
+
+        /// <summary>The command's well while the approval's dialog shows it, for the checks; null otherwise.</summary>
+        public RoomShape? Well => well != null && well.gameObject.activeSelf ? well : null;
+
         /// <summary>The heard draft's speaker, "YOU", over its subtitle (the codec's "MAMA"); on the bar itself, since the panel is gone.</summary>
         private TextMeshPro who = null!;
 
@@ -117,11 +124,15 @@ namespace Halcyonic.XR.UI
         /// <inheritdoc cref="SubtitleAbove"/>
         public float SubtitleBelow { get; private set; }
 
-        /// <summary>The agent's words at the top of the question's dialog, the dialog's largest text: 28 dp against the body's 20 (1.75 degrees).</summary>
-        public const float DialogWordsDp = 28f;
+        /// <summary>The words at the top of the dialog, its title and largest text (the one language's title role): 32 dp against the body's 20 (2 degrees).</summary>
+        public const float DialogWordsDp = 32f;
 
-        /// <summary>The subtitle's speaker, "YOU", in spaced capitals (composer.html's 20 px, 1.25 degrees).</summary>
-        public const float SubtitleWhoDp = 20f;
+        /// <summary>The command well's padding round the command, and the corner ticks' arm, line and distance out (the one language, sheet tile f4), in dp.</summary>
+        public const float WellPadDp = 16f;
+        public const float TickArmDp = 18f;
+        public const float TickLineDp = 1.5f;
+        public const float TickOutDp = 10f;
+
 
         /// <summary>The agent's words at the dialog's top, for the kit's checks; inactive when the bar is not a dialog.</summary>
         public TextMeshPro DialogWords => ask;
@@ -129,8 +140,9 @@ namespace Halcyonic.XR.UI
         /// <summary>Between the agent's words and the answers, and between the answers and the actions' row, in dp.</summary>
         public const float DialogGapDp = 20f;
 
-        /// <summary>The moment's title over the agent's words, small spaced capitals: 15 dp (0.94 degree).</summary>
-        public const float DialogKickerDp = 15f;
+        /// <summary>The moment's label over its title, in the one language's label role (<see cref="RoomType.Label"/>).</summary>
+        public const string RequestLabel = "Agent's Request";
+        public const string QuestionLabel = "Agent's Question";
         private TextMeshPro measureBody = null!;
         private TextMeshPro measureRequest = null!;
         private TextMeshPro sentence = null!;
@@ -312,6 +324,14 @@ namespace Halcyonic.XR.UI
             view.ask.textWrappingMode = TextWrappingModes.Normal;
             view.ask.gameObject.SetActive(false);
             view.kicker = RoomType.Create(view.panel.transform, "Moment title", Color.white, KitType.Order.Words);
+            view.well = RoomShape.Create(view.panel.transform, "Command well", KitType.Order.Words - 2);
+            view.well.gameObject.SetActive(false);
+            for (var tick = 0; tick < 8; tick++)
+            {
+                var shape = RoomShape.Create(view.panel.transform, "Tick", KitType.Order.Words - 1);
+                shape.gameObject.SetActive(false);
+                view.ticks.Add(shape);
+            }
             view.kicker.textWrappingMode = TextWrappingModes.NoWrap;
             view.kicker.gameObject.SetActive(false);
             view.who = RoomType.Create(view.transform, "Speaker", Color.white, KitType.Order.Words);
@@ -1087,11 +1107,8 @@ namespace Halcyonic.XR.UI
             for (var index = count; index < column.Count; index++) column[index].Hide();
             // From the top: the speaker, the words (on the host's band), the actions; as the approved pair (composer.html) stood them.
             who.gameObject.SetActive(true);
-            RoomType.Size(who);
-            GlazeText.SetLiteral(who, "YOU");
-            who.fontSize *= SubtitleWhoDp / RoomGeometry.TypeDp;
-            who.characterSpacing = 30f;
-            // Brighter than the codec's steel blue, over 4.5 to 1 on the subtitle's ground (AUDIT's mend 1).
+            // The label role, brighter than its quiet default: over 4.5 to 1 on the subtitle's ground (AUDIT's mend 1).
+            RoomType.Label(who, "You");
             who.alpha = 0.92f;
             var whoHeight = KitType.Lay(who, RoomType.Units(RoomGeometry.PanelDp), 1).Height;
             var whoGap = RoomType.Scaled(8f);
@@ -1110,7 +1127,8 @@ namespace Halcyonic.XR.UI
             {
                 var action = bar.Column[index];
                 var button = column[index];
-                button.Quiet = !action.Main;
+                // Over the room, every action keeps its thin glass (the sheet's tile f2); the main one carries the rim.
+                button.Quiet = false;
                 button.Show(action.Words, action.Icon, action.Main, available: action.Control.Available, new Vector2(x + cores[index].x / 2f, rowY), cores[index].x,
                     action.Mark, action.Chosen, 0f, doing: RoomButton.Doing(action.Control), detail: action.Detail, destructive: action.Control.Destructive,
                     route: action.Place == KitPlace.Section);
@@ -1150,8 +1168,9 @@ namespace Halcyonic.XR.UI
             body.gameObject.SetActive(false);
             request.gameObject.SetActive(false);
             panel.InnerBar = null;
-            // The dialog's light: a lit left edge 3 dp wide, a third of the way to white at its brightest.
-            panel.LitEdge = (3f, 0.35f);
+            // The one language's glass catches light along its top (RoomSurface's lit hairline); no other light on the dialog.
+            panel.LitEdge = null;
+            HideWell();
             var unit = RoomType.Units(1f);
             var panelWidth = RoomType.Units(RoomGeometry.PanelDp);
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
@@ -1160,13 +1179,9 @@ namespace Halcyonic.XR.UI
 
             // The agent's words, theirs, at the dialog's own size; never one word alone on their last line.
             ask.gameObject.SetActive(true);
-            // The moment's title over it, small spaced capitals (Mirror's Edge's title line, AUDIT's MUST 3): Question, or Request.
+            // The moment's label over it, in the label role (Mirror's Edge's wide capitals; AUDIT2's register): whose ask it is.
             kicker.gameObject.SetActive(true);
-            RoomType.Size(kicker);
-            GlazeText.SetLiteral(kicker, bar.State == RoomBarState.Request ? "REQUEST" : "QUESTION");
-            kicker.fontSize *= DialogKickerDp / RoomGeometry.TypeDp;
-            kicker.characterSpacing = 18f;
-            kicker.alpha = 0.72f;
+            RoomType.Label(kicker, bar.State == RoomBarState.Request ? RequestLabel : QuestionLabel);
             var kickerHeight = KitType.Lay(kicker, wordsWidth, 1).Height;
             // A question's words are the agent's; an approval's question is ours (Run Command?).
             Set(ask, bar.Band != null ? LineWords.Theirs(bar.Band) : LineWords.Ours(bar.Sentence!), false);
@@ -1192,6 +1207,9 @@ namespace Halcyonic.XR.UI
                     laidBody = KitType.Lay(reading, wordsWidth, 200);
                 }
                 cardHeight = laidBody.Height;
+                // An approval's command on a well of thick glass, its pad outside the words' measure, so the part's rows stand as
+                // the file measured them; corner ticks round it mark what Approve acts on.
+                if (bar.Mono) cardHeight += 2f * RoomType.Scaled(WellPadDp);
             }
 
             // The actions: one row, content-sized, the main one last.
@@ -1224,12 +1242,20 @@ namespace Halcyonic.XR.UI
             var cardAt = new Vector3(left + pad, top - pad - kickerHeight - kickerGap - askHeight - gapIn, -RoomType.Units(0.5f));
             body.transform.localPosition = cardAt;
             request.transform.localPosition = cardAt;
+            if (bar.Mono && bar.Card == null && cardHeight > 0f)
+            {
+                var wellPad = RoomType.Scaled(WellPadDp);
+                request.transform.localPosition = cardAt + new Vector3(0f, -wellPad, 0f);
+                LayWell(new Vector2(wordsWidth + 2f * wellPad, cardHeight), new Vector2(left + pad + wordsWidth / 2f, cardAt.y - cardHeight / 2f));
+            }
             PlaceFacts(cardAt);
 
-            // The row: the others from the left edge of the words, the main action's right edge on the words' right edge.
+            // The row at the panel's foot, right-aligned (the sheet's tile f4): the others, then the main action, its right edge on the words' right edge.
             var foot = -panelHeight / 2f;
             var rowY = foot + pad + rowHeight / 2f;
-            var x = left + pad;
+            var othersWide = order.Where(index => !bar.Column[index].Main).Sum(index => cores[index].x + KitType.Units(SpatialKit.TargetGapDegrees));
+            var mainWide = order.Where(index => bar.Column[index].Main).Sum(index => cores[index].x);
+            var x = left + pad + wordsWidth - mainWide - othersWide;
             var mainIndex = order.Count > 0 && bar.Column[order[order.Count - 1]].Main ? order[order.Count - 1] : -1;
             RoomButton? dialogLocks = null;
             for (var index = 0; index < column.Count; index++)
@@ -1276,6 +1302,37 @@ namespace Halcyonic.XR.UI
             Narrow = false;
         }
 
+        /// <summary>The command's well of thick glass at <paramref name="centre"/>, <paramref name="size"/>, with a corner tick outside each corner.</summary>
+        private void LayWell(Vector2 size, Vector2 centre)
+        {
+            well.gameObject.SetActive(true);
+            well.Draw(size, RoomType.Scaled(16f), new Color(7f / 255f, 8f / 255f, 13f / 255f, 0.9f));
+            well.transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(0.3f));
+            var arm = RoomType.Scaled(TickArmDp);
+            var line = RoomType.Scaled(TickLineDp);
+            var outside = RoomType.Scaled(TickOutDp);
+            var half = size / 2f + new Vector2(outside, outside);
+            var shade = new Color(1f, 1f, 1f, 0.74f);
+            var corner = 0;
+            foreach (var (sx, sy) in new[] { (-1f, 1f), (1f, 1f), (-1f, -1f), (1f, -1f) })
+            {
+                var across = ticks[corner++];
+                var down = ticks[corner++];
+                across.gameObject.SetActive(true);
+                down.gameObject.SetActive(true);
+                across.Draw(new Vector2(arm, line), 0f, shade);
+                down.Draw(new Vector2(line, arm), 0f, shade);
+                across.transform.localPosition = new Vector3(centre.x + sx * (half.x - arm / 2f), centre.y + sy * (half.y - line / 2f), -RoomType.Units(0.3f));
+                down.transform.localPosition = new Vector3(centre.x + sx * (half.x - line / 2f), centre.y + sy * (half.y - arm / 2f), -RoomType.Units(0.3f));
+            }
+        }
+
+        private void HideWell()
+        {
+            well.gameObject.SetActive(false);
+            foreach (var tick in ticks) tick.gameObject.SetActive(false);
+        }
+
         /// <summary>The pair: the panel at the left with the words and the sentence bar at its foot, the column at its right.</summary>
         private void LayPair(RoomBar bar, string? fixing = null, bool waits = false)
         {
@@ -1289,6 +1346,7 @@ namespace Halcyonic.XR.UI
                 LaySubtitleRow(bar);
                 return;
             }
+            HideWell();
             ask.gameObject.SetActive(false);
             kicker.gameObject.SetActive(false);
             panel.LitEdge = null;
