@@ -1,5 +1,5 @@
 // The agent's cursor and its label's ground (DESIGN's BUILD-SPEC-v4 2.3 and 1.2), one quad:
-//   the arrow, about 26 by 33 dp: a four-cornered pointer filled #59CFF1 with a #141416 edge 2.24 dp wide, round at its
+//   the arrow, about 26 by 33 dp: a four-cornered pointer filled white with a #141416 hairline edge 1.2 dp wide (the owner's Atlas reference, the lead's 19:18Z (1)), round at its
 //     corners, its tip 2.4 dp in from the cursor's own corner;
 //   the label's ground, the darker voice glass: a squircle of corner 14 dp, #181B1E at the page's 0.84, with a 1 dp
 //     hairline of white at 10 percent just inside its edge, its top left 26 dp right of and 30 dp below that corner.
@@ -140,10 +140,10 @@ Shader "Halcyonic/Room Cursor"
                     mixed = Over(mixed, float3(1.0, 1.0, 1.0), 0.10 * line2);
                 }
 
-                // The arrow: its fill, then its edge centred on its outline, 1.12 dp either side.
+                // The arrow: its white fill, then its hairline edge centred on its outline, 0.6 dp either side.
                 float arrow = Arrow(p);
-                mixed = Over(mixed, float3(89.0, 207.0, 241.0) / 255.0, saturate(0.5 - arrow / aa));
-                mixed = Over(mixed, float3(20.0, 20.0, 22.0) / 255.0, saturate(0.5 - (abs(arrow) - 1.12) / aa));
+                mixed = Over(mixed, float3(1.0, 1.0, 1.0), saturate(0.5 - arrow / aa));
+                mixed = Over(mixed, float3(20.0, 20.0, 22.0) / 255.0, saturate(0.5 - (abs(arrow) - 0.6) / aa));
 
                 mixed *= shown;
 

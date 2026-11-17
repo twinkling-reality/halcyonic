@@ -84,24 +84,25 @@ namespace Halcyonic.XR.UI
 
         private const float DisabledOpacity = 0.45f;
 
-        /// <summary>A chosen answer's mark: the kingfisher orange family's light (#F6B074), its check in <see cref="InkColour"/>.</summary>
-        public const int AccentColour = 0xF6B074;
+        /// <summary>A chosen answer's mark: white, no hue in the chrome (the lead's 2026-11-17 19:15Z; visionos-label-vibrant-primary.png's white).</summary>
+        public const int AccentColour = 0xFFFFFF;
 
         /// <summary>The ink of a chosen answer's check on its mark.</summary>
         public const int InkColour = 0x172024;
 
         /// <summary>
-        /// The one accent as light (the one language, the lead's 2026-11-17 00:54Z: no saturated fills): the moment's one main action
-        /// carries a lit rim and its soft glow in the kingfisher orange (#F39552), its glyph in the same orange, its words white.
+        /// No hue in the chrome (the lead's 2026-11-17 19:15Z and 19:18Z (2); visionos-window-example.png's thin control and
+        /// visionos-label-vibrant-primary.png's vibrant white): the moment's one main action stands apart by its lighter thin-glass
+        /// capsule (<see cref="MainPlateColour"/>) with a crisp white edge, its glyph and words white; never a hue, never a glow.
         /// </summary>
-        public const int RimColour = 0xF39552;
+        public const int RimColour = 0xFFFFFF;
 
-        /// <summary>A destructive main action's rim and glyph instead: the cross's warning red (#F7857D), so a Yes that removes never looks like going on.</summary>
-        public const int DestructiveRimColour = 0xF7857D;
+        /// <summary>A destructive main action's rim and glyph: white as any main action's, no hue; its cross glyph and its words say it removes.</summary>
+        public const int DestructiveRimColour = 0xFFFFFF;
 
         /// <summary>The rim's width and its glow's reach, in dp.</summary>
-        public const float RimDp = 1.5f;
-        public const float RimGlowDp = 12f;
+        public const float RimDp = 1.2f;
+        public const float RimGlowDp = 2f;
 
         /// <summary>An action's chip at rest: a dark well, black at the page's 0.45 over the halo (0.68 in Unity's linear blend), so its white glyph holds 4.5 to 1 over a bright wall.</summary>
         public const float WellAlpha = 0.68f;
@@ -556,14 +557,14 @@ namespace Halcyonic.XR.UI
         /// The plate every action stands on (the one language: visionOS's thin glass for a control): the owner's Ask glass with the
         /// page's white lift over it, solved as one colour, so on a panel it reads as the sheet's thin glass (8 percent white,
         /// #25272E; 16 pointed, #3A3C43; held, #303239) and over the room it is still a dark capsule its white words hold on.
-        /// The main action's plate is a step lighter (10 percent, #2A2C33; pointed, #3C3E45). Opaque, so the glyph's well, drawn in the
+        /// The main action's plate is visionOS's thin material: a clearly lighter glass (#45474E; pointed, #53555C), set apart by material, not hue. Opaque, so the glyph's well, drawn in the
         /// plate's own colour, never shows as a square of its own over a bright room (F265's heard draft, 2026-11-17).
         /// </summary>
         public const int PlateColour = 0x25272E;
         public const int PlatePointedColour = 0x3A3C43;
         public const int PlateHeldColour = 0x303239;
-        public const int MainPlateColour = 0x2A2C33;
-        public const int MainPlatePointedColour = 0x3C3E45;
+        public const int MainPlateColour = 0x45474E;
+        public const int MainPlatePointedColour = 0x53555C;
         public const float PlateAlpha = 1f;
 
         /// <summary>How far the plate's edge feathers each way, in dp: a crisp capsule.</summary>

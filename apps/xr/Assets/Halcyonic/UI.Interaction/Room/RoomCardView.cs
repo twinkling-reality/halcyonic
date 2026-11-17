@@ -185,28 +185,32 @@ namespace Halcyonic.XR.UI
         /// <summary>How strong the accent's tint stands under rows a later read changed: a wash, never a slab.</summary>
         public const float LitTintAlpha = 0.1f;
 
-        /// <summary>The colours of the language: the pass, failure and accent hues, and their deep grounds.</summary>
-        public const int Passed = 0x69D98D;
-        public const int PassedInk = 0x9CF0B6;
-        public const int PassedGround = 0x2E5E40;
-        public const int PassedNote = 0x7EE0A0;
-        public const int Failed = 0xF7857D;
-        public const int FailedInk = 0xFFB4AD;
-        public const int FailedGround = 0x6E302C;
-        public const int FailedNote = 0xFF9C94;
-        public const int Accent = 0x59CFF1;
-        public const int AccentNote = 0x7FD9F5;
+        /// <summary>
+        /// The status marks' colours: no hue in the chrome (the lead's 2026-11-17 19:15Z; visionos-label-vibrant-primary.png's white).
+        /// A pass, a failure, the accent and attention all stand in white on the quiet ground, told apart by their glyphs (a check, a
+        /// cross, the step's own) and their words; colour stays only where it is content (code, a diff's bands, the cast).
+        /// </summary>
+        public const int Passed = 0xFFFFFF;
+        public const int PassedInk = 0xFFFFFF;
+        public const int PassedGround = 0x3C4448;
+        public const int PassedNote = 0xE6EAEC;
+        public const int Failed = 0xFFFFFF;
+        public const int FailedInk = 0xFFFFFF;
+        public const int FailedGround = 0x3C4448;
+        public const int FailedNote = 0xE6EAEC;
+        public const int Accent = 0xFFFFFF;
+        public const int AccentNote = 0xE6EAEC;
         public const int Dark = 0x172024;
 
-        /// <summary>The attention colour (a task or the assistant needs the person), as the name tag's Needs You chip: amber.</summary>
-        public const int Attention = 0xF2B134;
-        public const int AttentionNote = 0xFFD27A;
+        /// <summary>The attention colour (a task or the assistant needs the person): white, its call carried by motion and sound, never hue.</summary>
+        public const int Attention = 0xFFFFFF;
+        public const int AttentionNote = 0xE6EAEC;
         public const int StepGround = 0x2F3539;
 
         /// <summary>The deep grounds of the accent and of attention, as the passed and failed ones, and how solid a status mark stands.</summary>
-        public const int AccentGround = 0x1E4C5A;
-        public const int AttentionGround = 0x543C12;
-        public const int AttentionInk = 0x3A2805;
+        public const int AccentGround = 0x3C4448;
+        public const int AttentionGround = 0x3C4448;
+        public const int AttentionInk = 0x172024;
         public const int QuietGround = 0x3C4448;
 
         /// <summary>A status mark stands solid, so nothing of the room shows through it (the critic, 2026-11-11).</summary>

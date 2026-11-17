@@ -92,12 +92,12 @@ namespace Halcyonic.XR
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
         /// <summary>
-        /// A character waiting on the person (the lead's 2026-11-17T02:02Z): no light behind its body and no orange, but a soft ring
-        /// on the floor under it in the attention amber of the Needs You mark (#F2B134, RoomCardView.Attention), low, breathing
-        /// between dim and a little brighter every <see cref="NeedsYouRingBreathSeconds"/>, so the eye finds it across the room
-        /// without a fill; its tag carries the words. FIELD sets the amber and the ring's size against the sheet.
+        /// A character waiting on the person (the lead's 2026-11-17T02:02Z): no light behind its body and no hue (the lead's 19:15Z, no
+        /// hue in the chrome; visionos-label-vibrant-primary.png's white), but a soft white ring on the floor under it, low, breathing
+        /// between dim and a little brighter every <see cref="NeedsYouRingBreathSeconds"/>, so the eye finds it across the room by its
+        /// motion, with the sound cue; its tag carries the words.
         /// </summary>
-        public static readonly Color NeedsYouRingColour = new Color(0xF2 / 255f, 0xB1 / 255f, 0x34 / 255f);
+        public static readonly Color NeedsYouRingColour = Color.white;
         public const float NeedsYouRingRestAlpha = 0.34f;
         public const float NeedsYouRingBreathAlpha = 0.31f;
         public const float NeedsYouRingBreathSeconds = 2f;
@@ -721,7 +721,7 @@ namespace Halcyonic.XR
                 : cues.Fogged ? 0.45f
                 : 1f;
             // No light stands behind a character (the lead's 2026-11-17T02:15Z and 02:16Z): its tag's state word says its state, the
-            // testing ring's motion says it checks, and Needs You alone calls the person over, by its amber floor ring.
+            // testing ring's motion says it checks, and Needs You alone calls the person over, by its breathing floor ring.
             var targetRing = cues.Ring ? 1f : 0f;
             var targetFloorRing = cues.Halo == CharacterHalo.NeedsYou ? (cues.Ghosted ? 0.3f : 1f) : 0f;
             eyeOpen = Mathf.Lerp(eyeOpen, targetOpen, quick);
