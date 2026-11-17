@@ -14,7 +14,7 @@ namespace Halcyonic.XR.Workspace.Editor
     {
         /// <summary>
         /// The Code Colours preview's example as the room draws it (AUDIT3's 15:20Z: ours, literal, painted): the frame's rows through
-        /// the room's reader into the rows view, with a check-only palette (FIELD's palettes come later), at both text sizes. Its
+        /// the room's reader into the rows view, with a check-only palette (FIELD's own are judged in the parts' 47-build-colours-halora and -high), at both text sizes. Its
         /// keyword and string are painted, its text unchanged, Plain clears it, and a theme change alone repaints with nothing laid
         /// again. No preferences are read or saved.
         /// </summary>

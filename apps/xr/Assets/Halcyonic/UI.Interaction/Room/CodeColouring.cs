@@ -32,10 +32,45 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Each code theme's palette (SCREENS' CodeThemes names the choice; the colours are FIELD's, who adds Halora and High
-        /// Contrast here). A theme with no palette yet draws Plain, never a guess.
+        /// Halora (FIELD's code colours sheet, AUDIT's read, 2026-11-17): the brand's light, pale tints round the kingfisher, every
+        /// one at 5.0 to 1 or more on the glass at its weakest (the dark room's #0E121E and the bright room's #464646 behind it):
+        /// keywords violet #C9B8FF, types rose #F2B8D0, names cream #F3EBDC, strings sea glass #9EE6D8, numbers sky #A8D4FF,
+        /// comments a steel #B4BECB. Every other run (punctuation and plain words) keeps the row's own white.
         /// </summary>
-        public static readonly Dictionary<CodeTheme, Palette> Palettes = new Dictionary<CodeTheme, Palette> { [CodeTheme.Plain] = Plain };
+        public static readonly Palette Halora = kind => kind switch
+        {
+            CodeTokenKind.Keyword => new Color32(0xC9, 0xB8, 0xFF, 0xFF),
+            CodeTokenKind.Type => new Color32(0xF2, 0xB8, 0xD0, 0xFF),
+            CodeTokenKind.Name => new Color32(0xF3, 0xEB, 0xDC, 0xFF),
+            CodeTokenKind.String => new Color32(0x9E, 0xE6, 0xD8, 0xFF),
+            CodeTokenKind.Number => new Color32(0xA8, 0xD4, 0xFF, 0xFF),
+            CodeTokenKind.Comment => new Color32(0xB4, 0xBE, 0xCB, 0xFF),
+            _ => null,
+        };
+
+        /// <summary>
+        /// High Contrast (the same sheet): brighter colours set further apart, every one at 5.5 to 1 or more on the glass at its
+        /// weakest: keywords #D2BFFF, types #FFB8E0, names white, strings #7FF2E0, numbers #8FCBFF, comments #C9D0DA. Every other
+        /// run keeps the row's own white.
+        /// </summary>
+        public static readonly Palette HighContrast = kind => kind switch
+        {
+            CodeTokenKind.Keyword => new Color32(0xD2, 0xBF, 0xFF, 0xFF),
+            CodeTokenKind.Type => new Color32(0xFF, 0xB8, 0xE0, 0xFF),
+            CodeTokenKind.Name => new Color32(0xFF, 0xFF, 0xFF, 0xFF),
+            CodeTokenKind.String => new Color32(0x7F, 0xF2, 0xE0, 0xFF),
+            CodeTokenKind.Number => new Color32(0x8F, 0xCB, 0xFF, 0xFF),
+            CodeTokenKind.Comment => new Color32(0xC9, 0xD0, 0xDA, 0xFF),
+            _ => null,
+        };
+
+        /// <summary>Each code theme's palette (SCREENS' CodeThemes names the choice): Halora, Plain (today's white) and High Contrast.</summary>
+        public static readonly Dictionary<CodeTheme, Palette> Palettes = new Dictionary<CodeTheme, Palette>
+        {
+            [CodeTheme.Halora] = Halora,
+            [CodeTheme.Plain] = Plain,
+            [CodeTheme.HighContrast] = HighContrast,
+        };
 
         /// <summary>The palette in force: the person's choice (CodeThemes.Current); renders and checks may set another.</summary>
         public static Func<Palette> Now { get; set; } = () => Palettes.TryGetValue(CodeThemes.Current, out var palette) ? palette : Plain;

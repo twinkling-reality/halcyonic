@@ -20,7 +20,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after", "47-build-long", "47-build-tall", "47-build-colours" }
+        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after", "47-build-long", "47-build-tall", "47-build-colours", "47-build-colours-halora", "47-build-colours-high" }
             .Concat(System.Environment.GetEnvironmentVariable("HALCYONIC_KIT_STRIP") == "1" ? Enumerable.Range(0, PourFrames).Select(frame => "47-build-pour-" + frame.ToString("00", CultureInfo.InvariantCulture)) : System.Array.Empty<string>())
             .ToArray();
 
@@ -453,7 +453,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 if (state == "47-build-colours")
                 {
-                    // The mechanism with a check-only palette (FIELD's palettes come later): keywords and strings painted, the
+                    // The mechanism with a check-only palette (FIELD's own are judged by 47-build-colours-halora and -high): keywords and strings painted, the
                     // text unchanged; a palette switch repaints with nothing laid again (the lead's 03:36Z test; AUDIT3's C5).
                     var wasNow = CodeColouring.Now;
                     try
@@ -495,6 +495,36 @@ namespace Halcyonic.XR.Workspace.Editor
                         view.Recolour();
                     }
                     finally { CodeColouring.Now = wasNow; }
+                }
+                if (state is "47-build-colours-halora" or "47-build-colours-high")
+                {
+                    // FIELD's palettes as a person chooses them (the code colours sheet, AUDIT's read): every colour a palette gives stands at
+                    // 4.5 to 1 or more on the glass behind code in both rooms (the dark room's #0E121E and the bright room's #464646, as
+                    // measured under the composer's words), and the frame is drawn in that palette for the ink to be read from it.
+                    var theme = state == "47-build-colours-halora" ? CodeTheme.Halora : CodeTheme.HighContrast;
+                    Require(CodeColouring.Palettes.TryGetValue(theme, out var palette), "the " + theme + " theme has no palette");
+                    if (palette != null)
+                    {
+                        foreach (CodeTokenKind kind in System.Enum.GetValues(typeof(CodeTokenKind)))
+                            if (palette(kind) is Color32 colour)
+                                foreach (var ground in new[] { new Color32(0x0E, 0x12, 0x1E, 0xFF), new Color32(0x46, 0x46, 0x46, 0xFF) })
+                                {
+                                    var ratio = ContrastRatio(colour, ground);
+                                    Require(ratio >= 4.5, theme + "'s " + kind + " reaches " + ratio.ToString("0.00", CultureInfo.InvariantCulture) + " to 1 on #"
+                                        + ground.r.ToString("X2") + ground.g.ToString("X2") + ground.b.ToString("X2"));
+                                }
+                        var wasNow = CodeColouring.Now;
+                        try
+                        {
+                            CodeColouring.Now = () => palette;
+                            view.Recolour();
+                            var painted = view.Card.ReadingShown.SelectMany(row => GlazeRuns.Of(row).Painted).ToList();
+                            Require(painted.Count > 0, "the " + theme + " palette painted no run");
+                            Require(painted.All(range => System.Enum.GetValues(typeof(CodeTokenKind)).Cast<CodeTokenKind>().Any(kind => palette(kind) is Color32 own && own.Equals(range.Colour))),
+                                "a run is painted in a colour the " + theme + " palette does not give");
+                        }
+                        finally { CodeColouring.Now = wasNow; }
+                    }
                 }
                 if (state == "47-build-tall")
                 {

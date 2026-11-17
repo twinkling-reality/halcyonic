@@ -2407,8 +2407,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   opening its own: Halora, Plain and High Contrast (`CodeTheme`, `CodeThemes`), each with its line, Current on the kept
   one; Preview Colours sets `CodeThemes.Current` for every code view while the example shows, Apply Colours keeps it in
   `AppearanceSettings.Code` (saved as `version=3;...;code=<key>`, older values reading Halora), Cancel and leaving restore
-  the kept one. The colours are FIELD's palette, drawn by the shared highlighter. Where the redesign does not offer Appearance
-  (`PanelThemes.Offered` false, the shipped look), the Settings hub shows Code Colours as its own category, its fact the
+  the kept one. The colours are FIELD's palettes (`CodeColouring.Halora`, `CodeColouring.HighContrast`; Plain paints
+  nothing), drawn by the shared highlighter: each gives keywords, types, names, strings, numbers and comments their
+  own colour, every other run keeping the row's white, and each colour stands at 4.5 to 1 or more on the glass in both
+  rooms (Halora's weakest 5.0, High Contrast's 5.5), as the parts' `47-build-colours-halora` and `-high` judge.
+  Where the redesign does not offer Appearance (`PanelThemes.Offered` false, the shipped look), the Settings hub shows Code Colours as its own category, its fact the
   kept choice, opening straight on its choices with the hub's Back (AUDIT3's CC1). The choice is kept on this headset only
   (`AppearanceControls`, PlayerPrefs), not on the computer, so another headset starts at Halora. `AppearanceControls` stores `version=1;theme=<key>` in
   the separate `halcyonic.appearance` device preference. Unknown versions, incomplete, extra or
