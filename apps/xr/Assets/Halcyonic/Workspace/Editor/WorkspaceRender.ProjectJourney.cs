@@ -154,9 +154,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 Shot("05-task-recap");
                 // Under the kit the recap's facts are rows of its Change page (RoomBar.NewProject), so Change opens them first; after
                 // Done the change page stands, and Back to Recap is the way to Start Building.
-                bool KitDraws(string action) => director.Plane.KitShows && director.Plane.Kit.Bar.Button(action) != null;
+                bool KitDraws(string action) => director.Plane.KitShows && (director.Plane.Kit.Bar.Button(action) != null
+                    || director.Plane.Kit.Bar.Card?.RowTargets.Any(row => row.Control.Action == action) == true);
                 if (KitDraws(NewProjectScreens.ChangeRecap)) Press(NewProjectScreens.ChangeRecap);
-                Press(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+                // On the kit's Change page More Options is a row of its own (j2: Change Task, Choose Where, More Options), with no How It
+                // Runs fact to choose first; the older page chose the fact, then More Options.
+                if (!KitDraws(NewProjectScreens.MoreOptions)) Press(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
                 Press(NewProjectScreens.MoreOptions); Press(NewProjectScreens.ChooseRuntime, runtime.RuntimeId); Press(NewProjectScreens.Done);
                 if (!KitDraws(NewProjectScreens.StartBuilding) && KitDraws(NewProjectScreens.BackToRecap)) Press(NewProjectScreens.BackToRecap);
                 Shot("06-task-ready"); Press(NewProjectScreens.StartBuilding);
