@@ -201,18 +201,27 @@ namespace Halcyonic.Client
             var name = LineWords.TheirName(cut < 0 ? path : path.Substring(cut + 1));
             LineWords? folder = cut <= 0 ? (LineWords?)null : LineWords.Theirs(path.Substring(0, cut));
             var state = file?.State ?? (settled ? WritingState.Settled : WritingState.Changing);
-            var (rows, lit) = file?.Text != null ? Window(file.Text, file.Lit) : (Array.Empty<string>(), Array.Empty<int>());
-            return new WritingPanel(path, name, folder, state, rows, lit, file?.Size, file?.New ?? false);
+            var (rows, lit, above, below) = file?.Text != null ? Window(file.Text, file.Lit) : (Array.Empty<string>(), Array.Empty<int>(), 0, 0);
+            return new WritingPanel(path, name, folder, state, rows, lit, file?.Size, file?.New ?? false, above, below);
         }
 
         /// <summary>
-        /// The rows a panel shows: from the file's first row on its first read; after a change, the
-        /// <see cref="WindowRows"/> rows ending at the last row that changed, so the window follows the newest change.
+        /// How many rows a panel may show at most: the view sets it from what stays inside the field at the person's text size
+        /// (the lead's 2026-11-17T03:09Z ruling); <see cref="WindowRows"/> where it says nothing.
+        /// </summary>
+        public Func<int> MostRows { get; set; } = () => WindowRows;
+
+        /// <summary>
+        /// The rows a panel shows: from the file's first row on its first read; after a change, at most <see cref="MostRows"/>
+        /// rows ending at the last row that changed, so the window follows the newest change. It starts and ends on whole lines,
+        /// and counts the file's own lines it leaves out above and below, never an estimate (AUDIT2, 2026-11-17T03:09Z).
         /// <paramref name="changed"/> names lines; the lit indexes returned name rows of the window.
         /// </summary>
-        private (IReadOnlyList<string> Rows, IReadOnlyList<int> Lit) Window(IReadOnlyList<string> lines, IReadOnlyList<int> changed)
+        private (IReadOnlyList<string> Rows, IReadOnlyList<int> Lit, int LinesAbove, int LinesBelow) Window(IReadOnlyList<string> lines, IReadOnlyList<int> changed)
         {
+            var most = Math.Max(1, MostRows());
             var rows = new List<string>();
+            var lineOf = new List<int>();
             var litRows = new List<int>();
             var lit = new HashSet<int>(changed);
             for (var index = 0; index < lines.Count; index++)
@@ -223,13 +232,23 @@ namespace Halcyonic.Client
                 {
                     if (lit.Contains(index)) litRows.Add(rows.Count);
                     rows.Add(row);
+                    lineOf.Add(index);
                 }
             }
-            var end = litRows.Count > 0 ? litRows[litRows.Count - 1] + 1 : Math.Min(rows.Count, WindowRows);
-            var start = Math.Max(0, end - WindowRows);
+            if (rows.Count == 0) return (rows, Array.Empty<int>(), 0, 0);
+            var end = litRows.Count > 0 ? litRows[litRows.Count - 1] + 1 : Math.Min(rows.Count, most);
+            var start = Math.Max(0, end - most);
+            // Whole lines only: a line cut at the window's top starts below it; one cut at its foot ends above it, unless the
+            // window would hold nothing, where the line's first rows stand.
+            while (start > 0 && start < end && lineOf[start] == lineOf[start - 1]) start++;
+            var whole = end;
+            while (whole > start && whole < rows.Count && lineOf[whole] == lineOf[whole - 1]) whole--;
+            if (whole > start) end = whole;
             var window = rows.Skip(start).Take(end - start).ToList();
             var windowLit = litRows.Where(row => row >= start && row < end).Select(row => row - start).ToList();
-            return (window, windowLit);
+            var above = lineOf[start];
+            var below = lines.Count - 1 - lineOf[end - 1];
+            return (window, windowLit, above, below);
         }
 
         private Seen Track(string path)

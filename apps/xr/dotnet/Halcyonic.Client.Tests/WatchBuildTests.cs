@@ -140,6 +140,43 @@ public class WatchBuildTests
     }
 
     [Test]
+    public void AWindowCappedByTheViewCountsTheFilesOwnLinesLeftOutAboveAndBelow()
+    {
+        var watch = Watch();
+        watch.MostRows = () => 5;
+        var first = string.Join("\n", Enumerable.Range(1, 30).Select(line => "line " + line));
+        watch.Due(Writing("t1", "long.js"), 0);
+        watch.Read("long.js", Text("long.js", first), 0.1);
+        var top = watch.Arc.Panels.Single();
+        Assert.That(top.Lines, Is.EqualTo(new[] { "line 1", "line 2", "line 3", "line 4", "line 5" }));
+        Assert.That((top.LinesAbove, top.LinesBelow), Is.EqualTo((0, 25)));
+        watch.Due(Writing("t2", "long.js"), 2.5);
+        watch.Read("long.js", Text("long.js", first.Replace("line 25", "line 25 changed")), 2.6);
+        var followed = watch.Arc.Panels.Single();
+        Assert.That(followed.Lines.Last(), Is.EqualTo("line 25 changed"), "the line being written is always shown");
+        Assert.That(followed.Lines, Has.Count.EqualTo(5));
+        Assert.That((followed.LinesAbove, followed.LinesBelow), Is.EqualTo((20, 5)));
+    }
+
+    [Test]
+    public void ACappedWindowNeverStartsOrEndsInsideAWrappedLine()
+    {
+        var watch = new WatchBuild(line => line.Length > 4 ? new[] { line.Substring(0, 4), line.Substring(4) } : new[] { line }) { MostRows = () => 3 };
+        watch.Due(Writing("t1", "a.js"), 0);
+        watch.Read("a.js", Text("a.js", "abcdefgh\nij\nklmnop\nqr"), 0.1);
+        var panel = watch.Arc.Panels.Single();
+        // Rows: abcd efgh | ij | klmn op | qr; three rows from the top would cut "klmnop" at its foot, so the window ends above it.
+        Assert.That(panel.Lines, Is.EqualTo(new[] { "abcd", "efgh", "ij" }));
+        Assert.That((panel.LinesAbove, panel.LinesBelow), Is.EqualTo((0, 2)));
+        watch.Due(Writing("t2", "a.js"), 2.5);
+        watch.Read("a.js", Text("a.js", "abcdefgh\nij\nklmnop\nqrs!"), 2.6);
+        var after = watch.Arc.Panels.Single();
+        // Ending at the changed line, three rows back would start inside "klmnop": the window starts on its first row instead.
+        Assert.That(after.Lines, Is.EqualTo(new[] { "klmn", "op", "qrs!" }));
+        Assert.That((after.LinesAbove, after.LinesBelow), Is.EqualTo((2, 0)));
+    }
+
+    [Test]
     public void WrappedLinesLightEveryRowTheyLay()
     {
         var watch = new WatchBuild(line => line.Length > 4 ? new[] { line.Substring(0, 4), line.Substring(4) } : new[] { line });

@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 
 namespace Halcyonic.Client
@@ -26,8 +27,10 @@ namespace Halcyonic.Client
     public sealed class WritingPanel
     {
         public WritingPanel(string path, LineWords name, LineWords? folder, WritingState state, IReadOnlyList<string> lines, IReadOnlyList<int> lit,
-            long? size, bool isNew)
+            long? size, bool isNew, int linesAbove = 0, int linesBelow = 0)
         {
+            LinesAbove = Math.Max(0, linesAbove);
+            LinesBelow = Math.Max(0, linesBelow);
             Path = path;
             Name = name;
             Folder = folder;
@@ -60,6 +63,11 @@ namespace Halcyonic.Client
 
         /// <summary>The file did not exist before the turn.</summary>
         public bool New { get; }
+
+        /// <summary>The file's own lines the window leaves out above its rows, and below them; 0 where none.</summary>
+        public int LinesAbove { get; }
+
+        public int LinesBelow { get; }
     }
 
     /// <summary>
