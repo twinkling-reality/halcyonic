@@ -164,6 +164,11 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     set('http.proxy', 'http://proxy-user:proxy-token@proxy.invalid:3128');
     set('submodule.lib.url', 'https://sub-token@example.invalid/lib.git');
     set('lfs.url', 'https://lfs-token@example.invalid/team/app.git/info/lfs');
+    // What names a command or file that gives a sign-in (AUDIT3 M3c, 2026-11-17).
+    set('core.askPass', './askpass-token.sh');
+    set('http.cookieFile', './cookie-token.txt');
+    set('http.https://example.invalid/.sslKey', './key-token.pem');
+    set('http.sslCert', './cert-token.pem');
     set('user.name', 'Person');
     const made = await copies.prepare(PROJECT, TASK, folder);
     assert.ok(made.ok, made.ok ? '' : made.code);
@@ -173,7 +178,10 @@ describe("a task's own copy (ADR 0045)", { skip: process.platform !== 'darwin' }
     assert.equal(git(made.directory, 'remote'), '');
     assert.doesNotMatch(copied, /\[remote|remote =/);
     assert.equal(git(made.directory, 'config', 'http.proxy'), 'http://proxy.invalid:3128');
-    assert.doesNotMatch(copied, /extraheader|credential|include|helper/i);
+    assert.doesNotMatch(
+      copied,
+      /extraheader|credential|include|helper|askpass|cookiefile|sslkey|sslcert/i,
+    );
     // What carries no token stays.
     assert.equal(git(made.directory, 'config', 'user.name'), 'Person');
     // The person's own repository is untouched.

@@ -378,7 +378,8 @@ export class TaskCopies {
   /**
    * Leaves no token of the person's in the copy's own git settings (ADR 0045), reading every key
    * of the copy's `.git/config` only, with none of the person's settings:
-   * - every `http.extraheader` and `http.<url>.extraheader` goes (an `Authorization` header);
+   * - every `http.extraheader` and `http.<url>.extraheader` goes (an `Authorization` header), with every cookie file,
+   *   client key and certificate (`http[.<url>].cookieFile`, `sslKey`, `sslCert`) and `core.askPass` (AUDIT3 M3c);
    * - every `credential` and `credential.<url>` section goes (a helper may hold or print one);
    * - every `include` and `includeIf` section goes (it pulls in a file elsewhere that may hold one);
    * - every address of a key ending in `.url`, `.pushurl` or `.proxy` (remotes, submodules, LFS, a
@@ -525,7 +526,8 @@ function failed(
 /**
  * What a task's copy takes out of its git settings (ADR 0045), key by key, from `git config --list`: the one list both
  * the copy's scrub and the start check of a task that works in the folder itself read (AUDIT3 M3b, 2026-11-17). Each
- * key carries why: `secret`, a sign-in or what may give one (an `extraheader`, a `credential` or `include` section, a
+ * key carries why: `secret`, a sign-in or what may give one (an `extraheader`, a cookie file, a client key or
+ * certificate, `core.askPass`, a `credential` or `include` section, a
  * `url` rewrite or an address with a user part, but an ssh login's name); `push`, a way out that carries none
  * (remotes, a branch's remote, `core.hooksPath`, an ssh login's name).
  */
@@ -545,7 +547,11 @@ export function scrubPlan(entries: readonly { readonly key: string; readonly val
     withoutUser(address) !== address && !/^(?:ssh|git\+ssh|ssh\+git):\/\//i.test(address);
   for (const { key, value } of entries) {
     const lower = key.toLowerCase();
-    if (/^http\.(.*\.)?extraheader$/.test(lower)) unset.push({ key, reason: 'secret' });
+    if (
+      /^http\.(.*\.)?(extraheader|cookiefile|sslkey|sslcert)$/.test(lower) ||
+      lower === 'core.askpass'
+    )
+      unset.push({ key, reason: 'secret' });
     else if (/^(credential|include|includeif)\./.test(lower)) unset.push({ key, reason: 'secret' });
     else if (/^remote\./.test(lower)) {
       // A remote's address with a user part is a secret too; the remote itself is a way to push.

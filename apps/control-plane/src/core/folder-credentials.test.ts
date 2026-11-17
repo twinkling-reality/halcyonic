@@ -39,6 +39,11 @@ test('a sign-in the copy would take out is found, wherever git keeps one (AUDIT3
     ],
     ['inline-helper', `[credential]\n\thelper = "!f() { echo password=${TOKEN}; }; f"\n`],
     ['include', '[include]\n\tpath = ../secrets.gitconfig\n'],
+    ['askpass', '[core]\n\taskPass = ./give-password.sh\n'],
+    ['cookie', '[http]\n\tcookieFile = ./cookies.txt\n'],
+    ['cookie-url', '[http "https://host/"]\n\tcookiefile = ./cookies.txt\n'],
+    ['ssl-key', '[http]\n\tsslKey = ./client.key\n'],
+    ['ssl-cert', '[http "https://host/"]\n\tsslCert = ./client.pem\n'],
   ];
   for (const [name, config] of cases)
     assert.equal(await folderGitHoldsSignIn(repo(name, config)), true, name);

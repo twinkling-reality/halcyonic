@@ -83,13 +83,19 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    The copy's own `.git/config` keeps no token of the person's: every address of a key ending in
    `.url`, `.pushurl` or `.proxy` (remotes, submodules, LFS, a proxy) loses its user part
    (`scheme://user[:password]@host`); every `http.extraheader` and `http.<url>.extraheader`, every
-   `credential` and `credential.<url>` key, every `include` and `includeIf` key, and every
-   `url.<base>` rewrite whose base or value carries a user part are removed; `user@host:path` names
-   an ssh login and stays. What a copy can still hold that carries one, as the project's folder does:
-   its working files, ignored ones included (a `.env`, a key file), the scripts in `.git/hooks`, any
-   other file under `.git` a tool of the person's wrote, a key of the person's own tool that is not
-   an address (a token stored under another name), and a program `core.sshCommand` or
-   `core.askPass` names.
+   cookie file, client key and certificate (`http[.<url>].cookieFile`, `sslKey`, `sslCert`) and
+   `core.askPass` (amended 2026-11-17, AUDIT3 M3c), every `credential` and `credential.<url>` key,
+   every `include` and `includeIf` key, and every `url.<base>` rewrite whose base or value carries a
+   user part are removed; `user@host:path` names an ssh login and stays. What a copy can still hold
+   that carries one, as the project's folder does: its working files, ignored ones included (a
+   `.env`, a key file), the scripts in `.git/hooks`, any other file under `.git` a tool of the
+   person's wrote, a key of the person's own tool that is not an address (a token stored under
+   another name), and a program `core.sshCommand` names.
+   - **Amended 2026-11-17 (AUDIT3 M3, M3b): one list.** What the copy takes out is one classification
+     (`scrubPlan`), each key marked a sign-in or a way to push. A task that works in the folder
+     itself, not a copy, does not start where the folder's git settings hold a key that list marks
+     a sign-in, since Claude Code reads a folder's own `.git/config` unasked; its remotes, hooks and
+     an ssh login's name refuse nothing (claude-code-unasked.md).
    - **Amended 2026-11-16 (AUDIT3 S3 and S4): a copy names nowhere to push and runs none of the person's hooks.**
      Every `remote.<name>` key goes, with each branch's `remote` and `pushRemote`, so a push from the copy has no
      address, and one the agent sets back finds no credential under the copy profile (1). `core.hooksPath` goes, and

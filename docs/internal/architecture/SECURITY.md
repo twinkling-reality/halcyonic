@@ -131,7 +131,8 @@ remote (`OPEN_RUN_ASKS`), and those ask the person too, in every form the probe 
 or before `|`). Read outside the folder, WebFetch and WebSearch ask; this CLI offers no Grep or Glob tool. A folder's
 own `.git/config` is read unasked: in a copy it holds no remote or credential, and a task that would work in the
 folder itself is refused where its git settings hold, or may hold, a sign-in a copy would take out (an address's user part, an
-`extraheader`, a `credential` or `include` section), in words that never show it.
+`extraheader`, a cookie file, a client key, `core.askPass`, a `credential` or `include` section), in words that never
+show it.
 The network stays open in such a run: what a person approves can reach it. The probe and its test are in
 [claude-code-unasked.md](../validation/claude-code-unasked.md).
 
