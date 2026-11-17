@@ -174,6 +174,22 @@ public class CodeTokensTests
         Assert.That(Runs("# a heading again", CodeLanguage.Markdown, ref carry).Single().Kind, Is.EqualTo(CodeTokenKind.Keyword));
     }
 
+    [Test]
+    public void AShellHeredocStaysPlainUntilItsEndingWord()
+    {
+        var carry = CodeCarry.None;
+        Runs("cat <<'EOF' > notes.txt", CodeLanguage.Shell, ref carry);
+        Assert.That(carry, Is.EqualTo(CodeCarry.HereDoc("EOF")));
+        Assert.That(Runs("if this were code # it is not", CodeLanguage.Shell, ref carry).Single().Kind, Is.EqualTo(CodeTokenKind.Plain), "a heredoc's lines are its text");
+        Assert.That(carry, Is.EqualTo(CodeCarry.HereDoc("EOF")));
+        Assert.That(Runs("EOF", CodeLanguage.Shell, ref carry).Single().Kind, Is.EqualTo(CodeTokenKind.Plain));
+        Assert.That(carry, Is.EqualTo(CodeCarry.None));
+        Assert.That(KindOf(Runs("echo done", CodeLanguage.Shell, ref carry), "echo"), Is.EqualTo(CodeTokenKind.Keyword), "code again after it");
+        var hereString = CodeCarry.None;
+        Runs("read x <<< \"word\"", CodeLanguage.Shell, ref hereString);
+        Assert.That(hereString, Is.EqualTo(CodeCarry.None), "a here-string opens no heredoc");
+    }
+
     private static CodeCarry unused;
 
     private static ref CodeCarry Unused() => ref unused;

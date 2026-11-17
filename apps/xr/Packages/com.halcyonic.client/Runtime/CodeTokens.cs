@@ -48,14 +48,53 @@ namespace Halcyonic.Client
         public CodeTokenKind Kind { get; }
     }
 
-    /// <summary>What a line leaves open for the next: nothing, a block comment, or a string that runs over lines.</summary>
-    public enum CodeCarry
+    /// <summary>What a line leaves open for the next.</summary>
+    public enum CodeCarryKind
     {
         None,
         BlockComment,
         TripleString,
         TemplateString,
         Fence,
+        HereDoc,
+    }
+
+    /// <summary>
+    /// What a line leaves open for the next: nothing, a block comment, a string that runs over lines, a Markdown fence, or a
+    /// shell heredoc with the word that ends it (AUDIT3's CC-c).
+    /// </summary>
+    public readonly struct CodeCarry : IEquatable<CodeCarry>
+    {
+        public CodeCarry(CodeCarryKind kind, string? marker = null)
+        {
+            Kind = kind;
+            Marker = marker;
+        }
+
+        public CodeCarryKind Kind { get; }
+
+        /// <summary>The heredoc's ending word; null for every other kind.</summary>
+        public string? Marker { get; }
+
+        public static readonly CodeCarry None = new CodeCarry(CodeCarryKind.None);
+        public static readonly CodeCarry BlockComment = new CodeCarry(CodeCarryKind.BlockComment);
+        public static readonly CodeCarry TripleString = new CodeCarry(CodeCarryKind.TripleString);
+        public static readonly CodeCarry TemplateString = new CodeCarry(CodeCarryKind.TemplateString);
+        public static readonly CodeCarry Fence = new CodeCarry(CodeCarryKind.Fence);
+
+        public static CodeCarry HereDoc(string marker) => new CodeCarry(CodeCarryKind.HereDoc, marker);
+
+        public bool Equals(CodeCarry other) => Kind == other.Kind && string.Equals(Marker, other.Marker, StringComparison.Ordinal);
+
+        public override bool Equals(object? obj) => obj is CodeCarry other && Equals(other);
+
+        public override int GetHashCode() => ((int)Kind * 397) ^ (Marker?.GetHashCode() ?? 0);
+
+        public static bool operator ==(CodeCarry left, CodeCarry right) => left.Equals(right);
+
+        public static bool operator !=(CodeCarry left, CodeCarry right) => !left.Equals(right);
+
+        public override string ToString() => Marker == null ? Kind.ToString() : Kind + "(" + Marker + ")";
     }
 
     /// <summary>
@@ -178,6 +217,13 @@ namespace Halcyonic.Client
                 }
                 else runs.Add(new CodeToken(start, end - start, kind));
             }
+            // A shell heredoc's lines are its text, plain, until the line that is its ending word (AUDIT3's CC-c).
+            if (carry.Kind == CodeCarryKind.HereDoc)
+            {
+                if (line.Trim() == carry.Marker) carry = CodeCarry.None;
+                Add(0, line.Length, CodeTokenKind.Plain);
+                return runs;
+            }
             // What an earlier line left open runs on first.
             if (carry == CodeCarry.BlockComment)
             {
@@ -211,6 +257,7 @@ namespace Halcyonic.Client
                     at = end;
                 }
             }
+            var hereDoc = language == CodeLanguage.Shell ? HereDocMarker(line) : null;
             while (at < line.Length)
             {
                 var c = line[at];
@@ -280,7 +327,25 @@ namespace Halcyonic.Client
                 Add(at, at + 1, CodeTokenKind.Plain);
                 at++;
             }
+            if (hereDoc != null && carry == CodeCarry.None) carry = CodeCarry.HereDoc(hereDoc);
             return runs;
+        }
+
+        /// <summary>
+        /// The ending word of a heredoc a shell line opens ("<<EOF", "<<-'EOF'", "<< \"END\""), or null; a "<<<" here-string
+        /// opens none. One forward pass over the line.
+        /// </summary>
+        private static string? HereDocMarker(string line)
+        {
+            var at = line.IndexOf("<<", StringComparison.Ordinal);
+            if (at < 0 || (at + 2 < line.Length && line[at + 2] == '<')) return null;
+            var from = at + 2;
+            if (from < line.Length && line[from] == '-') from++;
+            while (from < line.Length && line[from] == ' ') from++;
+            if (from < line.Length && (line[from] == '\'' || line[from] == '"')) from++;
+            var end = from;
+            while (end < line.Length && (char.IsLetterOrDigit(line[end]) || line[end] == '_')) end++;
+            return end > from ? line.Substring(from, end - from) : null;
         }
 
         /// <summary>Markdown: a heading or a fenced line as Keyword, inline code as String, the rest Plain.</summary>
