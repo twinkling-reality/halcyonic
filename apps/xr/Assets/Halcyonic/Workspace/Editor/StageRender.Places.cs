@@ -78,6 +78,9 @@ namespace Halcyonic.XR.Workspace.Editor
                             yield return tag.transform.TransformPoint(new Vector3(x * tag.Size.x / 2f, y * tag.Size.y / 2f, 0f));
                 }
                 var extents = new List<(PlaceBearing Bearing, Rect Seen)>();
+                // Every place's team as laid, and every tag and body as the eyes see it, for the check across places.
+                var teams = new List<List<CharacterView>>();
+                var drawnByPlace = new List<(string Project, List<Rect> Tags, List<Rect> Bodies)>();
                 // Each tag's height as the eyes see it, by ring and row: a tag keeps its size as seen at every ring and row (the lead's
                 // 2026-11-17T20:4xZ MUST, as a game's name plates do), never growing past the front row of ring one.
                 var tagHeights = new List<(int Ring, bool Back, string Name, float Degrees)>();
@@ -104,7 +107,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     // Laid by the stage's own rule: the pitch of the widest tag as drawn there, and the back row risen clear of the front.
                     foreach (var each in views) Advance(each.View, 1f);
-                    var (pitch, rowMost, rise) = CharacterStage.LayPlace(views.Select(each => each.View).ToList(), AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes);
+                    var team = views.Select(each => each.View).ToList();
+                    var (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes);
+                    teams.Add(team);
                     WorkspaceRender.ForceMeshes(root);
                     var tags = views.Select(each => each.Tag.Tag).ToList();
                     if (tags.Any(tag => tag == null)) { failures.Add(project + ": a character stands with no tag"); continue; }
@@ -123,6 +128,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         tagHeights.Add((bearing.Ring, task >= rowMost, project + " " + (task + 1),
                             tags[task]!.transform.lossyScale.x / Vector3.Distance(tags[task]!.transform.position, eyes) * Mathf.Rad2Deg * 1000f));
                     var seenBodies = views.Select(each => Seen(each.View.BodyCorners())).ToList();
+                    drawnByPlace.Add((project, seenTags, seenBodies));
                     var whole = seenTags.Concat(seenBodies).Aggregate((a, b) => Rect.MinMaxRect(Mathf.Min(a.xMin, b.xMin), Mathf.Min(a.yMin, b.yMin), Mathf.Max(a.xMax, b.xMax), Mathf.Max(a.yMax, b.yMax)));
                     extents.Add((bearing, whole));
                     var inner = Mathf.Min(Mathf.Abs(whole.xMin), Mathf.Abs(whole.xMax));
@@ -163,6 +169,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 Debug.Log("Halcyonic: places: " + variant + " tags' type as seen (millidegrees a tag unit): ring one's front row " + Degrees(frontOne) + "; ring two "
                     + Degrees(tagHeights.Where(each => each.Ring == 1).Select(each => each.Degrees).DefaultIfEmpty(0f).Average()) + "; back rows "
                     + Degrees(tagHeights.Where(each => each.Back).Select(each => each.Degrees).DefaultIfEmpty(0f).Average()) + ".");
+                // Across places, as the eyes see them: no tag over another place's tag or body, and no body over another place's body (AUDIT's
+                // 21:2xZ MUST: the left view drew a ring-two team under ring one's tags, words on words).
+                for (var a = 0; a < drawnByPlace.Count; a++)
+                    for (var b = a + 1; b < drawnByPlace.Count; b++)
+                    {
+                        var (nameA, tagsA, bodiesA) = drawnByPlace[a];
+                        var (nameB, tagsB, bodiesB) = drawnByPlace[b];
+                        var crossed = tagsA.Any(tag => tagsB.Any(tag.Overlaps) || bodiesB.Any(tag.Overlaps))
+                            || tagsB.Any(tag => bodiesA.Any(tag.Overlaps)) || bodiesA.Any(body => bodiesB.Any(body.Overlaps));
+                        if (crossed) failures.Add(nameA + " and " + nameB + " stand over each other as the eyes see them");
+                    }
                 // Neighbouring places in a ring keep the lead's 4 degrees, and ring two stands further and lower than ring one.
                 foreach (var a in extents)
                     foreach (var b in extents)
