@@ -328,22 +328,34 @@ export const STARTER_SOUND_FILES = [
   'src/instruments.ts',
 ] as const;
 
-/** Whether a changed file counts as sound: by its path alone, never by reading it. A removed file is not one. */
-function soundFile(file: ChangedFile): boolean {
+/** Whether a changed file is a sound file: an audio file, by its extension alone. A removed file is not one. */
+function audioFile(file: ChangedFile): boolean {
   if (file.change === 'removed') return false;
   const path = file.path.toLowerCase();
+  return SOUND_EXTENSIONS.some((extension) => path.endsWith(extension));
+}
+
+/** Whether a changed file is the project's sound code: one of the starter's own sound files, by its path alone. */
+function soundCode(file: ChangedFile): boolean {
   return (
-    (STARTER_SOUND_FILES as readonly string[]).includes(file.path) ||
-    SOUND_EXTENSIONS.some((extension) => path.endsWith(extension))
+    file.change !== 'removed' && (STARTER_SOUND_FILES as readonly string[]).includes(file.path)
   );
 }
 
 /**
- * The last sentence, what a person does to judge the change: listen too when a sound file changed (AUDIT2, 2026-11-17).
- * One function, so the rule changes in one line.
+ * The last sentence, what a person does to judge the change: always look and listen, since sound made in code is
+ * invisible to a file rule (AUDIT2, 2026-11-17, 22:34Z). One function, so the rule changes in one line.
  */
-export function judgeWords(sound: boolean): string {
-  return sound ? 'Look and listen to judge it.' : 'Look to judge it.';
+export function judgeWords(): string {
+  return 'Look and listen to judge it.';
+}
+
+/** What of the changed files is sound, in AUDIT2's words: code is never called "a sound file". */
+function soundClause(audio: number, code: boolean): string | null {
+  const files = audio > 1 ? 'sound files' : audio === 1 ? 'a sound file' : null;
+  if (files !== null && code) return `${files} and the project's sound code`;
+  if (files !== null) return files;
+  return code ? "the project's sound code" : null;
 }
 
 /**
@@ -356,13 +368,13 @@ export function unseenChangeWords(
   folder: 'project' | 'task',
 ): string {
   const n = changes.length;
-  const sounds = changes.filter(soundFile).length;
+  const sound = soundClause(changes.filter(audioFile).length, changes.some(soundCode));
   const who = folder === 'task' ? 'This task' : 'This project';
   const what =
     n === 1
-      ? `${who} changed 1 file${sounds > 0 ? ', a sound file' : ''}.`
-      : `${who} changed ${n} files${sounds > 1 ? ', including sound files' : sounds === 1 ? ', including a sound file' : ''}.`;
-  return `${NO_VISIBLE_CHANGE} ${what} ${judgeWords(sounds > 0)}`;
+      ? `${who} changed 1 file${sound === null ? '' : `, ${sound}`}.`
+      : `${who} changed ${n} files${sound === null ? '' : `, including ${sound}`}.`;
+  return `${NO_VISIBLE_CHANGE} ${what} ${judgeWords()}`;
 }
 
 /**

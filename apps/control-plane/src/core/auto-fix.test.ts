@@ -1171,7 +1171,7 @@ describe("a task's copy that changed files the page does not show (VRIFY, 2026-1
     assert.equal(first?.payload.findings.passed, false);
     assert.equal(
       first?.payload.findings.unknown,
-      'No visible change to the page. This task changed 5 files, including a sound file. Look and listen to judge it.',
+      "No visible change to the page. This task changed 5 files, including the project's sound code. Look and listen to judge it.",
     );
     assert.deepEqual(asked[0], {
       projectId,

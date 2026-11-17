@@ -104,7 +104,7 @@ test('a check whose own look is not known is Partly Checked, its line and the fi
 
 test("a starter-looking page whose files changed is Partly Checked in the check's own words, never failed or drew nothing (VRIFY, 2026-11-17)", () => {
   const words =
-    'No visible change to the page. This task changed 5 files, including a sound file. Look and listen to judge it.';
+    "No visible change to the page. This task changed 5 files, including the project's sound code. Look and listen to judge it.";
   const said = checkWords(
     {
       state: 'not_known',

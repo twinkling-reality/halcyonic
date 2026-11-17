@@ -499,10 +499,11 @@ by the task copies as after a turn) for a task's copy, and the starter's tracked
 from that template). The host reads the changes only where the page draws nothing of its own, and passes them to
 `checkVerdict` explicitly, with no default; a reading that fails or is not set up is null and keeps the verdicts above.
 Any measured failure still fails first. `unknown` then says what changed, in AUDIT2's words: "No visible change to the
-page.", then the count ("This task changed 5 files, including a sound file.", "This project" for the project's own
-folder), then "Look and listen to judge it." when a sound file changed, else "Look to judge it." A file counts as sound
-by its path alone, never its contents: an audio extension (`.mp3`, `.ogg`, `.wav`, `.m4a`, `.aac`, `.flac`, `.opus`,
-`.webm`, in any case) or one of the starter's own sound files (`src/score.ts`, `src/sound.ts`, `src/tone.ts`,
-`src/tone-worker.ts`, `src/instruments.ts`); a removed file is not one. As for any `not_known`, the copy may be
+page.", then the count ("This task changed 5 files, including the project's sound code.", "This project" for the
+project's own folder), then always "Look and listen to judge it.", since sound made in code can be invisible to a file
+rule (AUDIT2, 22:34Z). By path alone, never its contents: an audio extension (`.mp3`, `.ogg`, `.wav`, `.m4a`, `.aac`,
+`.flac`, `.opus`, `.webm`, in any case) is "a sound file" or "sound files"; one of the starter's own sound files
+(`src/score.ts`, `src/sound.ts`, `src/tone.ts`, `src/tone-worker.ts`, `src/instruments.ts`) is "the project's sound
+code", never a sound file; both read "sound files and the project's sound code". A removed file is neither. As for any `not_known`, the copy may be
 previewed and played on the laptop and in the headset, not shared or published, and AutoFix sends nothing. An
 untouched starter with no changed files keeps `starter_only` in the project's folder and `failed` in a task's copy.

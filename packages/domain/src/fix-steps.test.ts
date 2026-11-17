@@ -476,14 +476,14 @@ describe('a starter-looking page whose folder changed files reads not_known, nev
     assert.equal(task.passed, false);
     assert.equal(
       task.unknown,
-      'No visible change to the page. This task changed 5 files, including a sound file. Look and listen to judge it.',
+      "No visible change to the page. This task changed 5 files, including the project's sound code. Look and listen to judge it.",
     );
     const project = checkWithVerdict(looksLikeStarter(), 'project', critterRow);
     assert.equal(project.verdict, 'not_known');
     assert.equal(project.passed, false);
     assert.equal(
       project.unknown,
-      'No visible change to the page. This project changed 5 files, including a sound file. Look and listen to judge it.',
+      "No visible change to the page. This project changed 5 files, including the project's sound code. Look and listen to judge it.",
     );
   });
 
@@ -505,7 +505,7 @@ describe('a starter-looking page whose folder changed files reads not_known, nev
     assert.equal(quiet.verdict, 'not_known');
     assert.equal(
       quiet.unknown,
-      'No visible change to the page. This task changed 2 files. Look to judge it.',
+      'No visible change to the page. This task changed 2 files. Look and listen to judge it.',
     );
   });
 
@@ -516,11 +516,23 @@ describe('a starter-looking page whose folder changed files reads not_known, nev
     );
     assert.equal(
       unseenChangeWords(changed('src/tone.ts', 'src/index.ts'), 'task'),
-      'No visible change to the page. This task changed 2 files, including a sound file. Look and listen to judge it.',
+      "No visible change to the page. This task changed 2 files, including the project's sound code. Look and listen to judge it.",
+    );
+    assert.equal(
+      unseenChangeWords(changed('a.ogg', 'src/score.ts', 'src/index.ts'), 'task'),
+      "No visible change to the page. This task changed 3 files, including a sound file and the project's sound code. Look and listen to judge it.",
+    );
+    assert.equal(
+      unseenChangeWords(changed('a.ogg', 'b.wav', 'src/score.ts'), 'task'),
+      "No visible change to the page. This task changed 3 files, including sound files and the project's sound code. Look and listen to judge it.",
+    );
+    assert.equal(
+      unseenChangeWords(changed('src/sound.ts'), 'task'),
+      "No visible change to the page. This task changed 1 file, the project's sound code. Look and listen to judge it.",
     );
     assert.equal(
       unseenChangeWords(changed('src/index.ts', 'index.html', 'src/kit.ts'), 'task'),
-      'No visible change to the page. This task changed 3 files. Look to judge it.',
+      'No visible change to the page. This task changed 3 files. Look and listen to judge it.',
     );
     assert.equal(
       unseenChangeWords(changed('public/loop.flac'), 'task'),
@@ -528,20 +540,18 @@ describe('a starter-looking page whose folder changed files reads not_known, nev
     );
     assert.equal(
       unseenChangeWords(changed('src/index.ts'), 'task'),
-      'No visible change to the page. This task changed 1 file. Look to judge it.',
+      'No visible change to the page. This task changed 1 file. Look and listen to judge it.',
     );
   });
 
   test('sound is read by path alone: every audio extension in any case and the starter own sound files; a removed or look-alike file is not one', () => {
+    for (const path of ['a.mp3', 'a.OGG', 'a.wav', 'a.m4a', 'a.aac', 'a.flac', 'a.opus', 'a.webm'])
+      assert.match(
+        unseenChangeWords(changed(path), 'task'),
+        /1 file, a sound file\. Look and listen/,
+        path,
+      );
     for (const path of [
-      'a.mp3',
-      'a.OGG',
-      'a.wav',
-      'a.m4a',
-      'a.aac',
-      'a.flac',
-      'a.opus',
-      'a.webm',
       'src/score.ts',
       'src/sound.ts',
       'src/tone.ts',
@@ -550,18 +560,18 @@ describe('a starter-looking page whose folder changed files reads not_known, nev
     ])
       assert.match(
         unseenChangeWords(changed(path), 'task'),
-        /a sound file\. Look and listen/,
+        /1 file, the project's sound code\. Look and listen/,
         path,
       );
     for (const path of ['score.ts', 'lib/src/sound.ts', 'src/sound.tsx', 'mp3', 'a.mp3.txt'])
       assert.equal(
         unseenChangeWords(changed(path), 'task'),
-        'No visible change to the page. This task changed 1 file. Look to judge it.',
+        'No visible change to the page. This task changed 1 file. Look and listen to judge it.',
         path,
       );
     assert.equal(
       unseenChangeWords([{ path: 'a.mp3', change: 'removed' }], 'task'),
-      'No visible change to the page. This task changed 1 file. Look to judge it.',
+      'No visible change to the page. This task changed 1 file. Look and listen to judge it.',
     );
   });
 
