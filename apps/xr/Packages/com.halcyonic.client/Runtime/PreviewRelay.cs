@@ -251,6 +251,8 @@ namespace Halcyonic.Client
             "not_paired" => "This headset isn't paired with your computer any more. Pair it again.",
             "preview_unreachable" => "The preview isn't answering. Try again.",
             "too_many_streams" => "This app opened too many connections at once. Reload it.",
+            // The computer's connections from this headset are full (the limits audit's #8, CORE's 503): AUDIT2's 19:18Z words.
+            "too_many_connections" => "This preview is already open in as many places as it can be. Close one of its screens, then try again.",
             // A code with no words here: unknown, said plainly, never another case's words (AUDIT's census, 2026-11-12).
             _ => "Your computer didn't show this preview. Reason unknown.",
         };

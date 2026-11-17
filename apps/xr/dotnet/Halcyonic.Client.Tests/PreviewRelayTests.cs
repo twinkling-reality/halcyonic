@@ -187,6 +187,7 @@ public class PreviewRelayTests
 
     [TestCase(409, "preview_not_confined", "preview_not_confined")]
     [TestCase(429, "too_many_streams", "too_many_streams")]
+    [TestCase(503, "too_many_connections", "too_many_connections")]
     [TestCase(401, "device_revoked", "not_paired")]
     public async Task ARefusedStreamIsSaidInTheProductsWordsNeverItsMessage(int status, string code, string said)
     {
@@ -223,6 +224,9 @@ public class PreviewRelayTests
     {
         Assert.That(PreviewRelay.WhyNot("preview_not_confined"), Is.EqualTo("This app stays on your computer. It may read outside its folder."));
         Assert.That(PreviewRelay.WhyNot("preview_unreachable"), Is.EqualTo("The preview isn't answering. Try again."));
+        // The computer's connections from this headset are full (the limits audit's #8): AUDIT2's words, never a silent drop.
+        Assert.That(PreviewRelay.WhyNot("too_many_connections"),
+            Is.EqualTo("This preview is already open in as many places as it can be. Close one of its screens, then try again."));
         Assert.That(PreviewRelay.WhyNot("something_new"), Is.EqualTo("Your computer didn't show this preview. Reason unknown."));
         Assert.That(PreviewRelay.WhyNot(null), Is.EqualTo(PreviewRelay.WhyNot("something_new")));
     }
