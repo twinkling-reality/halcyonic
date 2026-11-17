@@ -35,7 +35,7 @@ public class EvidencePageTests
         Assert.That(page.Sections[0].Rows.Single().Rate, Is.EqualTo(0.75));
         var results = page.Card(0).Results;
         Assert.That(results.Select(section => (section.Head, string.Join("|", section.Rows.Select(row => row.Name.Text + "=" + row.Value)))),
-            Is.EqualTo(new[] { ("Checks", "Tests=3 of 4 Passed"), ("Cost", "Cost=$0.50 Estimated") }), "each section's head once over its rows, the value plain");
+            Is.EqualTo(new[] { ("Checks", "Tests=3 of 4 Passed"), ("Cost", "Estimated=$0.50") }), "each section's head once over its rows, the value plain");
         Assert.That(results[0].Rows.Single().Rate, Is.EqualTo(0.75), "the rate for its bar");
 
         // The finding is said once: a why that only repeats a run's own name is left to the run (AUDIT's 21:13Z point 4).

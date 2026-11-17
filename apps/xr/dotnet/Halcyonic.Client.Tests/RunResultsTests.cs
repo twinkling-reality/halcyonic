@@ -70,7 +70,7 @@ public class RunResultsTests
             ("Lines Kept", "126 of 140 Kept", "4 Commits Checked"),
         }), "lines added and removed never netted; a null error count left out, never a 0");
         Assert.That(laid[2].Rows, Is.EqualTo(new (string, string, string?)[] { ("Tests", "3 of 4 Passed", null), ("Lint", "2 of 2 Passed", null) }));
-        Assert.That(laid[3].Rows, Is.EqualTo(new (string, string, string?)[] { ("Cost", "$1.20 Estimated", null) }), "the cost is always marked estimated");
+        Assert.That(laid[3].Rows, Is.EqualTo(new (string, string, string?)[] { ("Estimated", "$1.20", null) }), "the cost is always marked estimated");
         Assert.That(RunResults.Of(Measured())!.Sections[2].Rows.Select(row => row.Rate), Is.EqualTo(new double?[] { 0.75, 1 }), "each check kind carries its own rate for its bar");
     }
 

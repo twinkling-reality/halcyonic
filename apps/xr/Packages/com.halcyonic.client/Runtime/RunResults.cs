@@ -29,6 +29,8 @@ namespace Halcyonic.Client
             public const string Time = "Time", ToolCalls = "Tool Calls", Instructions = "Instructions";
             public const string FilesChanged = "Files Changed", LinesAdded = "Lines Added", LinesRemoved = "Lines Removed";
             public const string Commits = "Commits", Errors = "Errors", LinesKept = "Lines Kept";
+            /// <summary>The cost's row: its section says Cost once, so the row's word is that it is estimated (AUDIT's 21:13Z: no head repeated by its row).</summary>
+            public const string Estimated = "Estimated";
         }
 
         /// <summary>One measure: its words, the source's value, a line under the value where the measure has one, and a rate for a bar.</summary>
@@ -102,7 +104,7 @@ namespace Halcyonic.Client
             }
             if (Measured(evaluation.Cost?.Availability) && evaluation.Cost?.EstimatedUsd is double usd)
                 // Always marked estimated, as the source's own note says it is (AUDIT2's 20:17Z).
-                sections.Add(new Section(Words.Cost, new[] { new Row(Words.Cost, "$" + usd.ToString("0.00", CultureInfo.InvariantCulture) + " Estimated") }));
+                sections.Add(new Section(Words.Cost, new[] { new Row(Words.Estimated, "$" + usd.ToString("0.00", CultureInfo.InvariantCulture)) }));
             return new RunResults(sections, evaluation.Source?.Synthetic == true ? Words.Simulated : Words.Source);
         }
 
