@@ -196,6 +196,21 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       why: "a refused pairing's remote address and a fixed reason, never the code",
     },
     {
+      file: 'apps/control-plane/src/network/server.ts',
+      args: '{ address, held: count }, ""',
+      why: 'a connection refused before its handshake: its remote address and the count its address holds (limits audit #8), never a byte it sent',
+    },
+    {
+      file: 'apps/control-plane/src/network/server.ts',
+      args: '{ address: data?.remoteAddress ?? "" , held: total }, "" ,',
+      why: "Node's own drop past the listener's maximum: the remote address and the count held (AUDIT3 L8a), never a byte it sent",
+    },
+    {
+      file: 'apps/control-plane/src/network/server.ts',
+      args: '{ address: request.ip }, ""',
+      why: 'a connection past a limit answered in words: its remote address only, never its path, headers or credential',
+    },
+    {
       file: 'apps/xr/Assets/Halcyonic/Pairing/PairingPanel.cs',
       args: '"" + Address(host, port)',
       why: 'the address the person typed',
