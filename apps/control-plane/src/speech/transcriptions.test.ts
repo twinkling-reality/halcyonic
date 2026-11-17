@@ -231,7 +231,7 @@ describe('turning a clip into a draft', () => {
     assert.deepEqual(refusal(full), { status: 503, code: 'transcription_busy_on_mac' });
     assert.equal(
       full.kind === 'refused' ? full.message : '',
-      'The Mac is transcribing a clip and 3 more are waiting; try again in a moment.',
+      'The Mac is transcribing a clip and 3 more are waiting, so this one was not transcribed. Try again in a moment.',
     );
     for (let index = 0; index < 4; index++) {
       engine.release();
@@ -255,7 +255,7 @@ describe('turning a clip into a draft', () => {
     assert.deepEqual(refusal(answer), { status: 503, code: 'transcription_busy_on_mac' });
     assert.equal(
       answer.kind === 'refused' ? answer.message : '',
-      'The Mac was still transcribing the clip ahead of yours after 4 s; try again in a moment.',
+      'The Mac was still busy with the clip ahead of yours, so this one was not transcribed. Try again in a moment.',
     );
     engine.release();
     assert.equal((await running).kind, 'answered');

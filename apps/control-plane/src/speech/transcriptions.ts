@@ -91,7 +91,7 @@ export class Transcriptions {
       return refused(
         503,
         'transcription_busy_on_mac',
-        `The Mac is transcribing a clip and ${CLIPS_WAITING} more are waiting; try again in a moment.`,
+        `The Mac is transcribing a clip and ${CLIPS_WAITING} more are waiting, so this one was not transcribed. Try again in a moment.`,
       );
     }
     this.#inFlight.add(key);
@@ -102,7 +102,7 @@ export class Transcriptions {
           return refused(
             503,
             'transcription_busy_on_mac',
-            `The Mac was still transcribing ${ahead === 1 ? 'the clip' : `the ${ahead} clips`} ahead of yours after ${TURN_WAIT_MS / 1000} s; try again in a moment.`,
+            `The Mac was still busy with ${ahead === 1 ? 'the clip' : `the ${ahead} clips`} ahead of yours, so this one was not transcribed. Try again in a moment.`,
           );
         }
       } else {
