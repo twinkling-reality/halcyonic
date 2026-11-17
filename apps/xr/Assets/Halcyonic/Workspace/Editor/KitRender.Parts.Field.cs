@@ -78,6 +78,32 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(points > 1000 && lit >= points * 0.06f && lit <= points * 0.10f, lit + " of " + points + " points are lit, not about one in twelve");
             Require(moved > points / 2, "only " + moved + " of " + points + " points change their light in half a second");
 
+            // Gathered at the frame and thinned in the middle (the lead's 19:18Z (1)): the points 60 to 85 percent out carry, on average,
+            // at least twice the light of those within 35 percent of the middle, over a second of the clock.
+            float Mean(float from, float to)
+            {
+                var sum = 0f;
+                var count = 0;
+                for (var x = -columns; x <= columns; x++)
+                for (var y = -rows; y <= rows; y++)
+                {
+                    var out_ = RoomField.Out(new Vector2(x, y) * RoomField.PitchDp, sizeDp);
+                    if (out_ < from || out_ >= to) continue;
+                    for (var tick = 0; tick < 4; tick++) sum += RoomField.PointNow(x, y, sizeDp, field.Seconds + tick * 0.25f).Alpha;
+                    count += 4;
+                }
+                return count == 0 ? 0f : sum / count;
+            }
+            var middleLight = Mean(0f, 0.35f);
+            var frameLight = Mean(0.6f, 0.85f);
+            Require(frameLight >= 2f * middleLight, "the points do not gather at the frame: " + frameLight.ToString("0.000") + " there against " + middleLight.ToString("0.000") + " in the middle");
+            // White only: the page's mix under the points carries as much white as it covers, so nothing greys a bright room.
+            foreach (var probe in new[] { new Vector2(4.5f, 4.5f), new Vector2(sizeDp.x * 0.2f + 4.5f, 4.5f), new Vector2(4.5f, sizeDp.y * 0.3f + 4.5f) })
+            {
+                var ground = RoomField.Mixed(probe, sizeDp, field.Seconds, 1f);
+                Require(ground.x >= ground.w - 1e-4f && ground.y >= ground.w - 1e-4f && ground.z >= ground.w - 1e-4f, "the field greys what is under it at " + probe + ": " + ground);
+            }
+
             // Stood for the render: square to the eyes, its middle on the line of sight.
             Place(plane, eyes, 0f, shot.Elevation);
 

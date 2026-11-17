@@ -36,8 +36,19 @@ namespace Halcyonic.XR.UI
         public const float GridDp = 36f;
         public const float GridAlpha = 0.07f;
 
-        /// <summary>Points and lines fade in size and brightness over this share of the way in from the edge.</summary>
+        /// <summary>The lines fade in brightness over this share of the way in from the edge.</summary>
         public const float FadeShare = 0.55f;
+
+        /// <summary>
+        /// The points gather at the frame of what the agent acts on and thin in its middle (the lead's 2026-11-17T19:18Z (1), toward the
+        /// owner's Atlas screenshot; FIELD's d1063db2f note: the light sits on the frame): a point's share rises from <see cref="MiddleShare"/>
+        /// in the middle over the field from <see cref="GatherFrom"/> to <see cref="GatherFull"/> of the way out, then fades to nothing over
+        /// the outer <see cref="OuterFade"/>.
+        /// </summary>
+        public const float MiddleShare = 0.15f;
+        public const float GatherFrom = 0.25f;
+        public const float GatherFull = 0.75f;
+        public const float OuterFade = 0.22f;
 
         /// <summary>The band of light crosses the field once in this many seconds.</summary>
         public const float BandSeconds = 6f;
@@ -258,6 +269,13 @@ namespace Halcyonic.XR.UI
         /// <summary>How much of a point or a line stands at <paramref name="p"/>, in dp from the middle of a field <paramref name="sizeDp"/> big: 1 well inside, 0 at the edge.</summary>
         public static float Edge(Vector2 p, Vector2 sizeDp) => Smooth((1f - Out(p, sizeDp)) / FadeShare);
 
+        /// <summary>How much of a point stands at <paramref name="p"/>: thin in the middle, fullest near the frame, none at the very edge.</summary>
+        public static float Gather(Vector2 p, Vector2 sizeDp)
+        {
+            var rho = Out(p, sizeDp);
+            return (MiddleShare + (1f - MiddleShare) * Smooth((rho - GatherFrom) / (GatherFull - GatherFrom))) * Smooth((1f - rho) / OuterFade);
+        }
+
         /// <summary>How far out a place is: 0 at the field's middle, 1 on its edge.</summary>
         public static float Out(Vector2 p, Vector2 sizeDp) => new Vector2(p.x / (sizeDp.x / 2f), p.y / (sizeDp.y / 2f)).magnitude;
 
@@ -265,7 +283,7 @@ namespace Halcyonic.XR.UI
         public static (float Alpha, float RadiusDp) PointNow(int x, int y, Vector2 sizeDp, float clock)
         {
             var at = new Vector2(x * PitchDp, y * PitchDp);
-            var edge = Edge(at, sizeDp);
+            var edge = Gather(at, sizeDp);
             if (edge <= 0.01f) return (0f, 0f);
             var point = PointAt(x, y);
             var along = ((at.x + sizeDp.x / 2f) / sizeDp.x + (at.y + sizeDp.y / 2f) / sizeDp.y) * 0.5f;
@@ -285,9 +303,8 @@ namespace Halcyonic.XR.UI
         {
             var rho = Out(p, sizeDp);
             var edge = Edge(p, sizeDp);
-            var dark = rho < 0.6f ? Mathf.Lerp(0.22f, 0.11f, rho / 0.6f) : Mathf.Lerp(0.11f, 0f, Mathf.Clamp01((rho - 0.6f) / 0.4f));
-            var mixed = new Vector4(10f / 255f * dark, 12f / 255f * dark, 13f / 255f * dark, dark);
-            mixed = White(mixed, 0.05f * Mathf.Clamp01(1f - rho));
+            // White only: no dark lift under the points, so on the bright room they stay white points, never a grey smudge (the lead's 19:18Z (1)).
+            var mixed = White(Vector4.zero, 0.05f * Mathf.Clamp01(1f - rho));
             if (Mathf.Abs(p.x - GridDp * Mathf.Round(p.x / GridDp)) < 0.5f) mixed = White(mixed, GridAlpha * edge);
             if (Mathf.Abs(p.y - GridDp * Mathf.Round(p.y / GridDp)) < 0.5f) mixed = White(mixed, GridAlpha * edge);
             var x = Mathf.RoundToInt(p.x / PitchDp);

@@ -1,11 +1,13 @@
 // The working field (DESIGN's BUILD-SPEC-v4 2.3 and 1.2): light points over a soft lifted ground, round the working
 // character and the place its output will take, fading in size and brightness to nothing at its edge. One quad the
 // field's own size, no texture, every pixel a formula of its place and the clock:
-//   the ground, a dark lift (#0A0C0D at 22 percent, half that 60 percent out, none at the edge) under a white lift at
-//     5 percent, so the points read over a white wall;
+//   the ground, a white lift at 5 percent and no dark lift, so on a bright room the points stay white, never a grey
+//     smudge (the lead's 2026-11-17T19:18Z (1));
 //   a hairline grid every 36 dp, white at 7 percent, fading with the field;
 //   points every 9 dp, 3.0 dp across, one in twelve lit at 4.6 dp; alpha 0.40 to 0.90, each twinkling over its own
-//     1.8 to 3.6 s, a band of light crossing every 6 s; smaller and fainter over the outer 55 percent.
+//     1.8 to 3.6 s, a band of light crossing every 6 s; gathered at the frame of what the agent acts on and thinned in its
+//     middle (15 percent there, full from 75 percent out), fading to nothing over the outer 22 percent (toward the owner's
+//     Atlas screenshot: the light sits on the frame).
 // The page mixes these in sRGB and this buffer blends in linear light, so each pixel is mixed here as the page mixes it
 // and then given the colour and alpha that show exactly the page's value over the design's dark room (about #1C1C1C)
 // and over a white wall: fit to pure black instead, a linear blend hides a dim room more than the page does.
@@ -112,10 +114,8 @@ Shader "Halcyonic/Room Field"
                 float rho = length(p / reach);
                 float edge = Smooth((1.0 - rho) / 0.55);
 
-                // The ground: the dark lift, then the white lift over it.
-                float dark = rho < 0.6 ? lerp(0.22, 0.11, rho / 0.6) : lerp(0.11, 0.0, saturate((rho - 0.6) / 0.4));
-                float4 mixed = float4(float3(10.0, 12.0, 13.0) / 255.0 * dark, dark);
-                mixed = White(mixed, 0.05 * saturate(1.0 - rho));
+                // The ground: a white lift alone, no dark one.
+                float4 mixed = White(float4(0.0, 0.0, 0.0, 0.0), 0.05 * saturate(1.0 - rho));
 
                 // The hairline grid, 1 dp lines every 36 dp, under the points.
                 float2 off = abs(p - 36.0 * round(p / 36.0));
@@ -126,7 +126,8 @@ Shader "Halcyonic/Room Field"
                 // The point this pixel belongs to: the nearest of the 9 dp grid.
                 float2 cell = round(p / 9.0);
                 float2 at = cell * 9.0;
-                float pointEdge = Smooth((1.0 - length(at / reach)) / 0.55);
+                float pointRho = length(at / reach);
+                float pointEdge = (0.15 + 0.85 * Smooth((pointRho - 0.25) / 0.5)) * Smooth((1.0 - pointRho) / 0.22);
                 if (pointEdge > 0.01)
                 {
                     uint h = Mix((uint(int(cell.x) + 32768) * 73856093u) ^ (uint(int(cell.y) + 32768) * 19349663u));
