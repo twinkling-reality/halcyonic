@@ -66,7 +66,13 @@ namespace Halcyonic.Client
 
         /// <summary>The tools that read a file, and the ones that change one, as the agent apps name them.</summary>
         private static readonly string[] ReadingTools = { "read", "notebookread" };
-        private static readonly string[] EditingTools = { "edit", "write", "multiedit", "notebookedit", "patch", "apply_patch", "filechange" };
+        /// <summary>
+        /// The tools that change a file only where it exists (a known edit: "Editing"), and the ones that write one whole or
+        /// patch it, where the host cannot tell a new file from a changed one ("Writing", true for both): AUDIT2's rule
+        /// (2026-11-17T02:37Z and 15:10Z), the same as Watch It Work's label, so one write reads one word in both.
+        /// </summary>
+        private static readonly string[] EditingTools = { "edit", "multiedit", "notebookedit" };
+        private static readonly string[] WritingTools = { "write", "patch", "apply_patch", "filechange" };
 
         /// <summary>The step under way in <paramref name="execution"/>, or null where none is reported.</summary>
         public static RoomWorkStep? Of(ExecutionView? execution)
@@ -85,6 +91,7 @@ namespace Halcyonic.Client
             if (WorkspaceText.RunsCommand(name)) return new RoomWorkStep(newest.ToolCallId, RunningCommand, null);
             if (Is(ReadingTools, name)) return new RoomWorkStep(newest.ToolCallId, Reading, FileName(newest.Title, name));
             if (Is(EditingTools, name)) return new RoomWorkStep(newest.ToolCallId, Editing, FileName(newest.Title, name));
+            if (Is(WritingTools, name)) return new RoomWorkStep(newest.ToolCallId, Writing, FileName(newest.Title, name));
             return new RoomWorkStep(newest.ToolCallId, Running, null);
         }
 

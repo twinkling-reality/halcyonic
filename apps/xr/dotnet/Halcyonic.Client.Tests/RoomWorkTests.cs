@@ -38,7 +38,7 @@ public class RoomWorkTests
     {
         Assert.That(Label(Execution(Tool("a", "Read", "/Users/someone/game/src/game.js"))), Is.EqualTo("Reading game.js"));
         Assert.That(Label(Execution(Tool("b", "Edit", "src/balloons.js"))), Is.EqualTo("Editing balloons.js"));
-        Assert.That(Label(Execution(Tool("c", "write", "C:\\game\\src\\score.js"))), Is.EqualTo("Editing score.js"));
+        Assert.That(Label(Execution(Tool("c", "write", "C:\\game\\src\\score.js"))), Is.EqualTo("Writing score.js"), "a whole write may make the file: Writing, never Editing");
         Assert.That(Label(Execution(Tool("d", "MultiEdit", "README.md"))), Is.EqualTo("Editing README.md"));
         Assert.That(Label(Execution(Tool("e", "read", null))), Is.EqualTo("Reading"), "no title, the verb alone");
     }
@@ -46,10 +46,25 @@ public class RoomWorkTests
     [Test]
     public void AFileChangeNamesItsOneFileAndNeverTwo()
     {
-        Assert.That(Label(Execution(Tool("a", "fileChange", "update src/balloons.js"))), Is.EqualTo("Editing balloons.js"));
-        Assert.That(Label(Execution(Tool("b", "fileChange", "add assets/golden balloon.png"))), Is.EqualTo("Editing golden balloon.png"));
-        Assert.That(Label(Execution(Tool("c", "fileChange", "update src/a.js\nupdate src/b.js"))), Is.EqualTo("Editing"), "several files, the verb alone");
-        Assert.That(Label(Execution(Tool("d", "fileChange", "move src/a.js to src/b.js"))), Is.EqualTo("Editing"), "a move names two files");
+        Assert.That(Label(Execution(Tool("a", "fileChange", "update src/balloons.js"))), Is.EqualTo("Writing balloons.js"));
+        Assert.That(Label(Execution(Tool("b", "fileChange", "add assets/golden balloon.png"))), Is.EqualTo("Writing golden balloon.png"));
+        Assert.That(Label(Execution(Tool("c", "fileChange", "update src/a.js\nupdate src/b.js"))), Is.EqualTo("Writing"), "several files, the verb alone");
+        Assert.That(Label(Execution(Tool("d", "fileChange", "move src/a.js to src/b.js"))), Is.EqualTo("Writing"), "a move names two files");
+    }
+
+    [Test]
+    public void OneWriteReadsOneWordInTheStepsAndInWatchItWork()
+    {
+        // AUDIT2's 15:10Z MUST: the step's verb follows the same rule as Watch It Work's label. A write the host has not
+        // recorded new reads Writing in both; only a known edit reads Editing.
+        foreach (var tool in new[] { "write", "Write", "apply_patch", "patch", "fileChange" })
+        {
+            var words = RoomWork.Of(Execution(Tool("a", tool, "src/game.js")))!.Words(_ => true);
+            Assert.That(words, Does.StartWith(RoomWork.Writing), tool);
+            Assert.That(words, Does.Not.StartWith(RoomWork.Editing), tool);
+        }
+        foreach (var tool in new[] { "Edit", "MultiEdit", "NotebookEdit" })
+            Assert.That(RoomWork.Of(Execution(Tool("b", tool, "src/game.js")))!.Words(_ => true), Is.EqualTo("Editing game.js"), tool);
     }
 
     [Test]
