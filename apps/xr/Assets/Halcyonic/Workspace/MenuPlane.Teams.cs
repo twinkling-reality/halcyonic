@@ -33,7 +33,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// Stands <paramref name="screens"/>, each on its bearing at its distance from <paramref name="eyes"/>; takes away any not given.
         /// </summary>
-        public void ShowTeamScreens(IReadOnlyList<(string ProjectId, KitScreenModel Model, float Bearing, float Distance)> screens, Vector3 eyes)
+        /// <summary>The count of screens waiting off the page (AUDIT3's TS2), under the outermost team screen; null while none waits.</summary>
+        public TMPro.TextMeshPro? TeamScreensWaiting => waitingWords != null && waitingWords.gameObject.activeSelf ? waitingWords : null;
+
+        private TMPro.TextMeshPro? waitingWords;
+
+        public void ShowTeamScreens(IReadOnlyList<(string ProjectId, KitScreenModel Model, float Bearing, float Distance)> screens, Vector3 eyes, int waiting = 0)
         {
             if (screens.Count == 0)
             {
@@ -85,6 +90,24 @@ namespace Halcyonic.XR.Workspace
                 made.Press.Resize(made.Screen.Size);
                 teamPoses[projectId] = pose;
             }
+            // Screens past what stands at once (RoomLayout.ScreensPaged) are named by their count, never hidden silently: "{n} More", the
+            // places' own words (AUDIT2's), under the outermost screen.
+            var outermost = screens[screens.Count - 1].ProjectId;
+            if (waiting > 0 && teamScreens.TryGetValue(outermost, out var last))
+            {
+                if (waitingWords == null)
+                {
+                    waitingWords = KitType.Create(teams, "Screens waiting", KitRole.Label, KitType.Secondary, KitType.Order.Words, TMPro.TextAlignmentOptions.Center, room: true);
+                    waitingWords.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+                }
+                waitingWords.transform.SetParent(last.Screen.transform, false);
+                KitType.Size(waitingWords, KitRole.Label);
+                GlazeText.SetLiteral(waitingWords, waiting.ToString(System.Globalization.CultureInfo.InvariantCulture) + " More");
+                waitingWords.rectTransform.pivot = new Vector2(0.5f, 1f);
+                waitingWords.transform.localPosition = new Vector3(0f, -last.Screen.Size.y / 2f - KitType.Units(1.5f), -0.0006f);
+                waitingWords.gameObject.SetActive(true);
+            }
+            else if (waitingWords != null) waitingWords.gameObject.SetActive(false);
         }
 
         /// <summary>Takes every team screen away.</summary>

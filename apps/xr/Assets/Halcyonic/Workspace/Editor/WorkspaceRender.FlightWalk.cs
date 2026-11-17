@@ -200,11 +200,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     + workspace.Presentation.Minimized + ", input suspended " + FocusGuard.InputSuspended + ", the plane shows " + string.Join(", ", plane.Shown.Select(each => each.Kind.ToString())));
                 camera.transform.rotation = PlaneLayout.Facing(plane.Direction);
                 Draw();
+                // The plane holds while the placing stands (FW1), and lets go with it (AUDIT3's hold-ends test).
+                var heldField = typeof(MenuPlane).GetField("heldWhilePlacing", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                if (heldField.GetValue(plane) == null) failures.Add("the plane does not hold its direction while the shelf is placed");
                 if (!Press(AgentShelfColumn.Apply)) failures.Add("nothing drawn applies the shelf's place");
                 // The first Apply of an Editor run can land before the shelf's column has laid its own frame: once more, said so.
                 if (placement.Preferred == null && Press(AgentShelfColumn.Apply)) Debug.Log("Halcyonic: flight walk: Apply pressed a second time, placed " + (placement.Preferred != null));
                 Debug.Log("Halcyonic: flight walk: applied: placed " + (placement.Preferred != null) + ", the plane shows " + string.Join(", ", plane.Shown.Select(each => each.Kind.ToString())));
                 PlacementCall(stage, "LateUpdate"); stage.Refresh(); Draw(); Draw();
+                if (heldField.GetValue(plane) != null) failures.Add("the plane still holds its direction after the placing ended");
                 if (menu.Navigator.Beside != null && !Press(Footer.Close)) menu.Navigator.CloseBeside();
                 Draw();
                 // Its agent asks.

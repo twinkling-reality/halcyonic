@@ -157,6 +157,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     Judge("A pressed", a, c);
                 }
                 else failures.Add("A's screen takes no press");
+                // TS2: screens waiting off the page are named by their count, wherever the open set grows past what stands at once.
+                var stoodNow = plane.TeamScreenPoses.Select(each => (each.Key, presentation.OpenScreens(work.State).First(open => open.ProjectId == each.Key).Screen, each.Value.Bearing,
+                    Vector3.Distance(new Vector3(each.Value.Centre.X, each.Value.Centre.Y, each.Value.Centre.Z), eyes))).ToList();
+                plane.ShowTeamScreens(stoodNow, eyes, waiting: 3);
+                if (plane.TeamScreensWaiting is not TMPro.TextMeshPro waitingCount || waitingCount.text != "3 More")
+                    failures.Add("three screens waiting off the page are not named: " + (plane.TeamScreensWaiting?.text ?? "nothing"));
+                plane.ShowTeamScreens(stoodNow, eyes, waiting: 0);
+                if (plane.TeamScreensWaiting != null) failures.Add("no screen waits, and a count still stands");
                 director.CloseProjectScreen();
                 director.CloseProjectScreen();
                 director.DrawNow();

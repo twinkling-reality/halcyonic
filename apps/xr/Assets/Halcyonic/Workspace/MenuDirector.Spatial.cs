@@ -1061,7 +1061,7 @@ namespace Halcyonic.XR.Workspace
                 var index = page.Shown[at];
                 teamsStood.Add((teamsWanted[index].ProjectId, teamsWanted[index].Model, page.Bearings[at], teamsWanted[index].Distance));
             }
-            plane.ShowTeamScreens(teamsStood, eyes);
+            plane.ShowTeamScreens(teamsStood, eyes, page.Waiting);
         }
 
         private void UpdateProgressiveSpatial(UnityEngine.Vector3 eyes, UnityEngine.Vector3 looking)
