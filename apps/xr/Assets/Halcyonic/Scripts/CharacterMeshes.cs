@@ -265,14 +265,23 @@ namespace Halcyonic.XR
         /// A flat band around the Z axis, 1.3 body units in radius. U runs along it from 0 to 1 and
         /// V across it, from the inside to the outside.
         /// </summary>
-        public static Mesh Band() => band ??= MakeBand("Halcyonic band", 1.3f, 0.05f);
+        // Unity's own null test, never ??=: a new scene unloads a mesh no scene holds, and C#'s test still sees the destroyed one (tip11).
+        public static Mesh Band()
+        {
+            if (band == null) band = MakeBand("Halcyonic band", 1.3f, 0.05f);
+            return band;
+        }
 
         /// <summary>
         /// The waiting character's floor ring (the lead's 2026-11-17T03:24Z): a flat band 1.7 body units in radius, so it shows beyond
         /// the body's silhouette, and 0.16 wide, its soft profile leaving a core of about 3 to 4 dp at the shelf's distance (tip10: at
         /// 0.07 the soft edges left 8 amber pixels); as <see cref="Band"/> otherwise.
         /// </summary>
-        public static Mesh FloorBand() => floorBand ??= MakeBand("Halcyonic floor band", 1.7f, 0.08f);
+        public static Mesh FloorBand()
+        {
+            if (floorBand == null) floorBand = MakeBand("Halcyonic floor band", 1.7f, 0.08f);
+            return floorBand;
+        }
 
         private static Mesh? floorBand;
 
@@ -396,6 +405,7 @@ namespace Halcyonic.XR
             bodies.Clear();
             quad = null;
             band = null;
+            floorBand = null;
         }
     }
 }

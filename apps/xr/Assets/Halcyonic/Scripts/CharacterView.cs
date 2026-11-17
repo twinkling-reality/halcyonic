@@ -98,8 +98,8 @@ namespace Halcyonic.XR
         /// without a fill; its tag carries the words. FIELD sets the amber and the ring's size against the sheet.
         /// </summary>
         public static readonly Color NeedsYouRingColour = new Color(0xF2 / 255f, 0xB1 / 255f, 0x34 / 255f);
-        public const float NeedsYouRingRestAlpha = 0.30f;
-        public const float NeedsYouRingBreathAlpha = 0.35f;
+        public const float NeedsYouRingRestAlpha = 0.34f;
+        public const float NeedsYouRingBreathAlpha = 0.31f;
         public const float NeedsYouRingBreathSeconds = 2f;
 
         /// <summary>The floor ring's size, in its band's own units times the body's scale (CharacterMeshes.FloorBand: 1.6 body units in radius).</summary>
