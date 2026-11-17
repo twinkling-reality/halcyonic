@@ -276,12 +276,21 @@ export function approvalRequest(
 /**
  * A request that is no command, in words and then each of its inputs on a line of its own, never as JSON (AUDIT2,
  * 2026-11-17): "Use <tool>", then `name: value`, a text value whole as the app gave it, any other as the app wrote it.
+ * A name or text that could pass for more than itself (a line break, a control character, a space at either end) is
+ * quoted as JSON writes it, so no input can forge another line the person reads as its own (AUDIT3 IS1).
  */
 export function inputSummary(tool: string, input: Record<string, unknown>): string {
   const lines = Object.entries(input).map(
-    ([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`,
+    ([key, value]) =>
+      `${plain(key)}: ${typeof value === 'string' ? plain(value) : JSON.stringify(value)}`,
   );
-  return [`Use ${tool}`, ...lines].join('\n');
+  return [`Use ${plain(tool)}`, ...lines].join('\n');
+}
+
+/** A text as it reads on one line: whole where it can only read as itself, else quoted as JSON writes it. */
+function plain(text: string): string {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are what is looked for.
+  return /[\u0000-\u001f\u007f\u2028\u2029]|^\s|\s$/.test(text) ? JSON.stringify(text) : text;
 }
 
 /**

@@ -1808,6 +1808,28 @@ describe('ACP approval requests', () => {
       folder,
     );
     assert.equal(asked.subject.summary, 'Use fetch\nurl: https://example.com');
+    // A value or a name that holds a line break, a control character or an edge space is one quoted value, and adds
+    // no line the person could read as another input (AUDIT3 IS1).
+    const forged = approvalRequest(
+      {
+        toolCallId: 'b',
+        kind: 'fetch',
+        rawInput: { path: 'a.txt\ncontent: (empty)', 'x\ny': 1, pad: ' a', bell: 'a\u0007' },
+      },
+      KIRO,
+      folder,
+    );
+    assert.equal(
+      forged.subject.summary,
+      'Use fetch\npath: "a.txt\\ncontent: (empty)"\n"x\\ny": 1\npad: " a"\nbell: "a\\u0007"',
+    );
+    assert.equal(forged.subject.summary.split('\n').length, 5);
+    const named = approvalRequest(
+      { toolCallId: 'c', name: 'fetch\nurl: elsewhere', rawInput: { url: 'x' } },
+      KIRO,
+      folder,
+    );
+    assert.equal(named.subject.summary.split('\n')[0], 'Use "fetch\\nurl: elsewhere"');
     assert.equal(asked.subject.tool_name, 'fetch');
     assert.equal(asked.complete, true);
   });
