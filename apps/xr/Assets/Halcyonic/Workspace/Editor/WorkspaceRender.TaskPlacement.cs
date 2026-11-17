@@ -101,7 +101,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Another project's task: since every task of the selected project stands on the person's shelf (the lead's 2026-11-17T18:56Z,
                 // no fixed cap), a task of the same project would stand beside the requested one by design. Of another project it stands at
                 // its own place, so "exactly the requested task's character on the shelf" is still what Apply must show.
-                prior.ProjectId = "render-prior-project";
+                // The older shelf this walk drives (ON-1) stands one character a page, so there the prior task keeps the requested one's project,
+                // as the walk had it before places.
+                if (RoomDesign.Enabled) prior.ProjectId = "render-prior-project";
                 var priorExecution = HalcyonicJson.Deserialize<ExecutionView>(HalcyonicJson.Serialize(work.Execution));
                 priorExecution.ExecutionId = "render-prior-execution"; priorExecution.WorkstreamId = prior.WorkstreamId;
                 prior.CurrentExecutionId = priorExecution.ExecutionId; prior.ExecutionIds = new List<string> { priorExecution.ExecutionId };
@@ -115,7 +117,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var siblingExecution = HalcyonicJson.Deserialize<ExecutionView>(HalcyonicJson.Serialize(work.Execution));
                 siblingExecution.ExecutionId = "render-sibling-execution"; siblingExecution.WorkstreamId = sibling.WorkstreamId;
                 sibling.CurrentExecutionId = siblingExecution.ExecutionId; sibling.ExecutionIds = new List<string> { siblingExecution.ExecutionId };
-                var snapshot = new Snapshot { Journal = journal, Position = 1, Projects = work.State.Projects.Values.Append(priorProject).ToList(),
+                var snapshot = new Snapshot { Journal = journal, Position = 1, Projects = (RoomDesign.Enabled ? work.State.Projects.Values.Append(priorProject) : work.State.Projects.Values).ToList(),
                     Workstreams = new List<WorkstreamView> { prior, sibling, work.Workstream }, Executions = new List<ExecutionView> { work.Execution, priorExecution, siblingExecution }, Runtimes = work.State.Runtimes.ToList() };
                 PlacementPump(session, new WelcomeMessage { Journal = journal, Head = 1, ServerTime = Time }, new SnapshotMessage { Snapshot = snapshot }, new ConnectionStatus(ConnectionPhase.Live));
                 if (!session.SnapshotCurrent) throw new InvalidOperationException("The synthetic session is not current.");
