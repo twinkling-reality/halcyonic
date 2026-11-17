@@ -71,7 +71,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     Submit = (_, _) => { sends++; throw new InvalidOperationException("The route witness cannot submit work."); },
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
                 });
-                void Draw() { for (var tick = 0; tick < 3; tick++) { director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds); } }
+                // Each tick as the room draws: where the kit draws the frame it settles and reports it drawn, so the navigator takes the
+                // presses of the frame a person sees (as PlacesCheck draws).
+                void Draw()
+                {
+                    for (var tick = 0; tick < 3; tick++)
+                    {
+                        director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds);
+                        if (director.Plane.KitShows) { director.Plane.Kit.SettleForRender(); director.Plane.Kit.DrawnForRender(); }
+                    }
+                }
                 void Shot(string step) { Draw(); failures.AddRange(SpatialState(step, folder, root, camera, texture, director, characters, eyes)); }
                 void Press(string action, string? key = null)
                 {
